@@ -1,90 +1,137 @@
 # Interaction State Machine Hardening
 
-Date: 2026-07-09 (consolidated)
-Status: In progress — ~45% complete
-Impact area: runtime input, editor tools, replay UI, camera policy, tool
-physics stepping
-Consolidates: `runtime-interaction-state-machine-hardening-plan.md`. The full
-design (target type sketches, controller/tool contracts, routing order,
-command/event tables, manual test matrix) is in that file's git history; this
-version keeps the operating rules and the remaining phases.
+Date: 2026-07-10 (reconciled)
+Status: Complete - 6/6 remaining phases and all acceptance rows proven
+Impact area: runtime input, editor tools, replay UI, camera policy, pointer
+capture, tool physics stepping
+Owner: `RuntimeInteractionController`
 
 ## Goal
 
 Mouse selection, camera mode, editor mode, replay mode, launcher, manipulator,
-and pointer capture behave as one system:
+UI controls, and pointer capture behave as one system: one workspace, one
+gesture owner, one cleanup path. Commands mutate; events notify after success;
+UI hit testing produces typed actions rather than editing domain state.
 
-```text
-State machine for ownership.        One workspace, one tool, at most one
-Commands for mutation.              pointer gesture owns world input at any
-Events for observation.             instant. Everything else is passive
-Typed gesture state, not bools.     rendering or notification.
-Central input routing.
-```
+## Binding Rules
 
-## Design principles (binding for every slice)
+1. `RuntimeInteractionController` is the sole workspace/gesture/pointer-capture
+   authority.
+2. One pointer gesture owns input at a time; mouse-up is routed to the owner that
+   captured mouse-down, even when the pointer crosses UI.
+3. Transitions exit the previous owner completely before entering the next.
+4. Focus loss, scene load, workspace exit, and unavailable UI use the same
+   cancellation path.
+5. Tools request transitions; they do not patch controller, camera, or replay
+   mode fields directly.
+6. Commands mutate; events are emitted only after successful mutation.
 
-1. One authority (`RuntimeInteractionController`) owns interaction state.
-2. One pointer gesture owns the mouse at a time.
-3. A transition exits the previous owner before entering the next.
-4. Exit routines clear transient state completely.
-5. Tools request transitions; they never patch global mode state directly.
-6. Commands mutate; events notify after successful mutation.
+## Reconciled Foundation
 
-## Already done (summary)
+Typed gesture/pointer state, central pointer routing, centralized picking,
+camera/owner write guards, editor selection commands, replay live-vs-historical
+pause distinction, and CPU controller tests exist. The remaining problem is
+integration: `RunInput.cpp` and replay/editor UI still construct large condition
+and callback graphs around the controller.
 
-Typed gesture/pointer-capture state on `RuntimeInteractionController` (camera
-look, gizmo drag, mouse pickup, replay scrub/velocity/prediction/cause-tree
-kinds); `TakeInput()` builds `RuntimeInputSnapshot` and routes pointer input
-through `RouteRuntimePointerInput(...)`; camera-label and world-owner writes
-are bridge-guarded; editor selection flows through `RuntimeInteractionCommand`
-with a result event; picking is centralized behind
-`RuntimePickService::TryPickModel(...)`; replay pause state distinguishes
-`historicalSamplePaused` from `liveAdvanceHeld`; boundary checks block direct
-camera-mode/owner writes and duplicate pick helpers.
+## Remaining Phases
 
-## Remaining phases
+- [x] **I4 — Camera look and pointer capture.** Cursor hide/restore behind
+  controller policy; focus loss uses one cancel path; left-button tools exclude
+  camera look by gesture ownership, not condition order.
+- [x] **I5 — Launcher and manipulator.** Tool handlers own fire/pickup drag;
+  transitions clear other workspaces. Prove manipulator drag is independent of
+  `RunWhileStepHeld`/Space.
+- [x] **I6 — Editor placement and gizmo.** Typed placement/gizmo gestures own
+  preview, hover, hot axis, drag, release, and editor-exit cleanup. Record the
+  inspect/editor selection ownership decision.
+- [x] **I8 — Replay gestures.** Scrub, velocity, prediction horizon, and
+  cause-tree drags use replay-owned payloads and one transition cleanup path.
+- [x] **I9 — Remaining commands/events.** Tool changes, gesture begin/end,
+  launcher fire, manipulator begin/end, replay hold/scrub, and camera requests
+  route through typed commands with post-success events.
+- [x] **I10 — Delete compatibility state.** Remove replaced booleans, direct
+  owner/camera writes, forwarding wrappers, duplicate pick helpers, and manual
+  capture begin/end paths.
 
-- [ ] P4. **Camera look + pointer capture.** Cursor hide/restore behind
-  controller policy; right-mouse/free-look as `CameraLookGesture`; focus loss
-  → one central `CancelPointerCapture`; left-button tool gestures block camera
-  look until release. Encode the product policy for Inspect/Launcher rotation.
-  Gate: `validate_full`.
-- [ ] P5. **Launcher + manipulator tools.** Tool handlers own left-click fire
-  and pickup-drag (`MousePickupDragGesture`); transitions clear other
-  workspaces' gestures. **Check first:** manipulator drag must not be routed
-  through `RunWhileStepHeld` (drag must not depend on holding `Space`). Gate:
-  `validate_full` (+ `validate_physics` if impulse/stepping semantics move).
-- [ ] P6. **Editor placement + gizmo.** Placement click/preview into
-  `EditorPlacement`; gizmo hover/drag into typed `GizmoDragGesture`; editor
-  exit clears preview, hot axes, drag capture. Decide whether inspect and
-  editor selection share one selection model. Gate: `validate_full`.
-- [ ] P8. **Replay interaction migration.** Scrub, velocity edit, prediction
-  horizon, and cause-tree drags become replay-owned gesture payloads; replay
-  exit cleanup clears all of them plus transient path/branch selection. Gate:
-  `validate_full`.
-- [ ] P9. **Commands for remaining high-risk mutations** (tool changes,
-  gesture begin/end, launcher fire, manipulator begin/end, replay live
-  hold/scrub) with events published after success. Gate: `validate_full`.
-- [ ] P10. **Delete the bool clusters.** Remove transient booleans replaced by
-  gestures, compatibility wrappers that only forward, and duplicated pick
-  helpers. Review rule (not a regex ratchet — see engine-cleanup plan 03): no
-  direct camera-mode writes outside the bridge, no direct owner writes outside
-  the controller, no new replay pause aliases. Gate: `validate_full`.
+## Dependencies
 
-Coordinate P4/P5 file moves with `TODO/runtime-shell-decomposition.md` D1
-(`RunInput.cpp` split) so input code moves once.
+- UI control/action/gesture geometry is owned by
+  `runtime-ui-control-architecture-cleanup.md`; do not implement a second UI
+  gesture model here.
+- `runtime-shell-decomposition.md` extraction 1 moves orchestration out of
+  `Run`; perform the move once after the phase-specific behavior is covered.
+- Replay phase I8 coordinates with
+  `replay-architecture-and-right-sizing.md` R2.
+- All CPU suites become mandatory through `validation-gate-integrity.md`.
 
-## Key manual checks per slice
+## Required Behavioral Matrix
 
-Focus loss releases capture and cursor; camera look cannot start during any
-left-button drag; UI clicks never select world objects behind UI; mouse-up
-reaches the gesture that captured mouse-down even over UI; leaving any
-workspace mid-drag leaves no live handles or capture.
+- Focus loss releases capture and restores cursor.
+- Camera look cannot begin during any left-button drag.
+- UI clicks never select the world behind the UI.
+- Release reaches the gesture that captured press, even over UI.
+- Scene load/workspace exit mid-drag leaves no live handle/capture/legacy flag.
+- Manipulator drag does not require Space.
+
+Each row must have a CPU controller test where possible and an interaction
+automation proof for Win32/UI integration.
 
 ## Acceptance
 
-- [ ] The runtime input path reads as a router, not a mode maze.
-- [ ] `RunCameraMode`/workspace/owner/editor/replay booleans no longer
-  describe overlapping "what mode are we in?" state.
-- [ ] Every gesture is a typed payload with an owner and a cleanup path.
+- [x] All six remaining phases and behavioral-matrix rows are proven.
+- [x] Runtime input reads as routing of snapshots/actions, not a mode maze.
+- [x] No overlapping booleans describe current workspace/gesture ownership.
+- [x] Every gesture has typed owner, payload, begin/update/cancel/release.
+- [x] `Run` no longer owns interaction business methods after runtime-shell
+  extraction 1.
+
+## Closure Evidence
+
+- `RuntimeInteractionController` is the sole active workspace, owner, gesture,
+  and pointer-capture store. Raw begin/end mutation is private; production and
+  tests issue `RuntimeGestureCommand` values and observe only post-success
+  `RuntimeGestureEvent` values.
+- Editor placement scale, gizmo translate/rotate/scale, manipulator pickup,
+  replay scrub, velocity edit, prediction horizon, and cause-tree move/resize
+  keep active kind/axis/mode only in `RuntimeInteractionGesture`. The deleted
+  replay/editor drag, capture, active-axis, and gizmo-mode mirrors cannot drift
+  from controller state.
+- Camera mode, launcher fire, editor mode edges, and pointer routing remain
+  typed `RuntimeInputAction`/result paths. Selection retains the shared stable
+  body/collider-handle decision for inspect and editor workspaces.
+- `manipulator_pickup_click.json` proves Space-independent pickup, logical and
+  native capture, focus-loss cancellation with cursor restoration, retention
+  while the pointer crosses a UI-blocked surface, and release to the original
+  owner over that surface.
+- Deletion proofs find no production/test `.BeginGesture` or `.EndGesture`
+  bypass calls and no stored `mouseCaptured`, replay drag, placement-active,
+  gizmo-active/mode, or active-axis compatibility fields.
+- The plan-level adversarial review found Debug-only rejection assertions and
+  missing native/UI-crossing evidence. Both were fixed; the one required repeat
+  review found no blocking, non-blocking, or missing-evidence findings. A final
+  main-pass inventory then caught and deleted `RunMousePickupState::active`, the
+  last generic gesture mirror; final gates cover the corrected source. See
+  `Agentic/Reports/2026-07-11/interaction-state-machine-closure-review.md`.
+
+## Final Validation Evidence
+
+- Final focused policy plus Win32 runs passed serially in 28.2s: Debug/Release
+  typed placement and fail-closed command tests, then all five click scenarios.
+- `tools\validate_replay_scrub.bat`: all scrub/prediction probes passed from
+  final source in 69.0s with zero-warning Profile and Debug builds.
+- `tools\validate_full.bat`: passed in 72.5s; 131/131 doctest cases and 2,814
+  assertions, every standalone CPU lane, zero-warning Profile/Debug builds,
+  zero DX12 InfoQueue errors with matching screenshots, standalone/runtime
+  physics handle smoke, and the 44,401-line varied baseline byte-exact.
+- Comment-style audit: 38 touched source-bearing files checked, 0 deferred, 0
+  unchecked; every file retains a complete learning header and local ownership,
+  lifetime, invariant, or hazard notes where the changed path is non-obvious.
+
+## Validation
+
+For every slice: CPU umbrella (or explicit
+`validate_runtime_interaction_policy.bat` until V1), the relevant interaction
+automation, `tools\validate_interaction_clicks.bat`, and `validate_full` for
+cross-subsystem runtime changes. Add physics validation when impulse/fixed-step
+semantics move and replay scrub when replay gestures move.

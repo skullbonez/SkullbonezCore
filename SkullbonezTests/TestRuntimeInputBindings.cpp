@@ -21,7 +21,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/InputController.Bindings.h
   - SkullbonezSource/Runtime/RunInput.cpp
-  - engine-cleanup-plans/05-behavioral-test-coverage.md
+  - Agentic/Plans/TODO/behavioral-test-depth.md
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 

@@ -1,8 +1,35 @@
 # Entity Model Endgame
 
 Date: 2026-07-11
-Status: Not started — 0% (destination document; unblocks
-`TODO/physics-authority-and-identity.md`)
+Status: **Decision-blocked — 0%.** See the Decision Conflict section below
+before starting any slice.
+
+## Decision Conflict (2026-07-11 merge reconciliation — owner must resolve)
+
+This plan was written from owner answers given the morning of 2026-07-11.
+The same day's overnight run completed `physics-authority-and-identity`
+(16/16) with different, **implemented and validated** choices:
+
+- **Ownership:** decision 2 below says a new Run-owned `SimulationController`
+  owns `PhysicsEngine`. The completed work instead promoted
+  `SceneController`/`PhysicsScene` as the scene-lifetime physics owner (now a
+  binding decision in MASTER-PLAN), and engine-cleanup plan 13 had previously
+  *retired* a `SimulationController` facade by name. Recommendation: accept
+  the implemented `SceneController` ownership and strike N2; only direct a
+  replacement if scene-lifetime ownership is actually wrong for you.
+- **Identity:** decision 3 below says unified `EntityId`. The completed work
+  shipped per-subsystem stable identity (`PhysicsBodyHandle`, `ReplayBodyId`,
+  `PhysicsSceneObjectId`) with coordinated creation/deletion and typed
+  `ModelRowHint` caches. A unified `EntityId` registry would now be a layer
+  *on top of* a working system, not a gap fix. Owner should confirm it still
+  carries its weight (cross-system features like undo and save keyed by one
+  id) or drop it.
+- **GameModel:** decision 1 (delete entirely) still stands and is now much
+  closer: the completed work reduced `GameModel` to transient contact
+  feedback only, so N3 is largely done and N4 is the main remaining slice.
+
+Until the owner reconciles, no phase below may start. Original decisions and
+phases are preserved unedited for comparison.
 Impact area: game object storage, physics ownership, scene system, runtime
 shell, replay identity
 Origin: 2026-07-11 architecture gap review. The store migration had no

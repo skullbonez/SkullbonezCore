@@ -22,9 +22,10 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeDefaults.h
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
-  - Agentic/Plans/run-composition-root-shrink-plan.md
+  - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #include "SceneRuntimeDefaults.h"
+#include "../WindowConstants.h"
 #include "../../Core/Common.h"
 
 #include <algorithm>
@@ -255,7 +256,7 @@ bool WriteConfigLines( const std::string& configPath, const std::vector<std::str
 
 } // namespace
 
-bool SaveRenderDefaults( const OrdinaryRenderConfig& ordinary )
+SbResult SaveRenderDefaults( const OrdinaryRenderConfig& ordinary )
 {
     // Concept: Saving ordinary defaults is a text rewrite, not a full config
     // serialization. Unknown keys and comments must survive the round trip.
@@ -263,7 +264,10 @@ bool SaveRenderDefaults( const OrdinaryRenderConfig& ordinary )
     std::vector<std::string> lines;
     if ( !LoadConfigLines( configPath, lines ) )
     {
-        return false;
+        // Lane R: the user-facing config may be missing, locked, or unreadable.
+        return SbResult::Failure( "Runtime/RenderDefaultsStore",
+                                  "Could not read render defaults file: %s",
+                                  configPath.c_str() );
     }
 
     std::vector<std::string> missing;
@@ -328,16 +332,24 @@ bool SaveRenderDefaults( const OrdinaryRenderConfig& ordinary )
     setFloat( "ordinary_box_specular_scale", ordinary.boxSpecularScale, "%.2f" );
 
     AppendMissingOrdinaryConfigLines( lines, missing );
-    return WriteConfigLines( configPath, lines );
+    if ( !WriteConfigLines( configPath, lines ) )
+    {
+        return SbResult::Failure( "Runtime/RenderDefaultsStore",
+                                  "Could not write render defaults file: %s",
+                                  configPath.c_str() );
+    }
+    return SbResult::Success();
 }
 
-bool SaveSkyDefaults( const CinematicRenderConfig& cinematic )
+SbResult SaveSkyDefaults( const CinematicRenderConfig& cinematic )
 {
     const std::string configPath = std::string( DATA_ROOT ) + "engine.cfg";
     std::vector<std::string> lines;
     if ( !LoadConfigLines( configPath, lines ) )
     {
-        return false;
+        return SbResult::Failure( "Runtime/RenderDefaultsStore",
+                                  "Could not read cinematic defaults file: %s",
+                                  configPath.c_str() );
     }
 
     std::vector<std::string> missing;
@@ -401,7 +413,13 @@ bool SaveSkyDefaults( const CinematicRenderConfig& cinematic )
     setFloat( "cinematic_style_vignette", cinematic.styleVignette, "%.2f" );
 
     AppendMissingCinematicConfigLines( lines, missing );
-    return WriteConfigLines( configPath, lines );
+    if ( !WriteConfigLines( configPath, lines ) )
+    {
+        return SbResult::Failure( "Runtime/RenderDefaultsStore",
+                                  "Could not write cinematic defaults file: %s",
+                                  configPath.c_str() );
+    }
+    return SbResult::Success();
 }
 
 } // namespace Basics

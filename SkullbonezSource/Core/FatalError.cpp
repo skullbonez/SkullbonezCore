@@ -21,7 +21,7 @@ Invariants:
 Related:
   - SkullbonezSource/Core/FatalError.h
   - SkullbonezSource/Core/Log.h
-  - fable_plans/05-unified-error-handling-policy-progress.md
+  - AGENTS.md (Error Handling Policy)
 */
 #include "FatalError.h"
 #include "Log.h"

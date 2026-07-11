@@ -29,15 +29,18 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplaySolverSnapshot.h
 */
 #include "ReplayRecorder.h"
+#include "ReplayRetainedMemory.h"
 
 #include "../CameraCollection.h"
 #include "../Allocation/RuntimeAllocationTracker.h"
 #include "../Allocation/RuntimeReserveAllocator.h"
 #include "../../Core/Common.h"
 #include "../../Core/FatalError.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "../Scene/SceneEntityStore.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
+#include "../../Physics/PhysicsEngine.h"
+#include "../../Physics/PhysicsEngineStoreQueries.h"
 #include "../../World/WorldEnvironment.h"
 
 #include <algorithm>
@@ -50,8 +53,6 @@ Related:
 using namespace SkullbonezCore::Basics;
 using SkullbonezCore::Environment::CameraCollection;
 using SkullbonezCore::Environment::WorldEnvironment;
-using SkullbonezCore::GameObjects::GameModel;
-using SkullbonezCore::GameObjects::GameModelCollection;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::PhysicsDebugContact;
@@ -65,8 +66,6 @@ constexpr int REPLAY_MIN_SECONDS = 1;
 constexpr int REPLAY_MAX_SECONDS = 600;
 constexpr std::size_t REPLAY_LAUNCHER_RAY_LINE_CAPACITY = 64;
 constexpr std::size_t REPLAY_LAUNCHER_LASER_SHOT_CAPACITY = 32;
-constexpr const char* REPLAY_RECORDER_SAMPLE_RESERVE_OWNER = "replay_recorder_samples";
-constexpr int REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES = 64 * 1024 * 1024;
 constexpr std::size_t REPLAY_RECORDER_SAMPLE_INITIAL_CAPACITY = 128u;
 constexpr std::size_t REPLAY_RECORDER_SAMPLE_GROWTH_CHUNK = 256u;
 // Runtime allocation policy: retained replay body payloads now grow per active
@@ -194,35 +193,29 @@ void ReserveReplayRecorderSampleVector( std::vector<T>& values,
         ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
     }
 
-    if ( RuntimeAllocation::RuntimeAllocationGuardEnabled() )
+    // Invariant: policy approval is required even when allocation-hook
+    // measurement is off; guard mode changes attribution, not the hard cap.
+    const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayRecorderSampleReserveOwner();
+    const RuntimeAllocation::RuntimeReserveGrowthRequest request = { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
+                                                                     targetName,
+                                                                     RuntimeAllocation::RuntimeReservePhase::Replay,
+                                                                     ReplayRecorderGrowthFrameNumber( frameIndex ),
+                                                                     static_cast<int>( oldBytes ),
+                                                                     static_cast<int>( requestedBytes ),
+                                                                     1 };
+    const RuntimeAllocation::RuntimeReserveGrowthResult result =
+        RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
+    if ( !result.granted )
     {
-        const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayRecorderSampleReserveOwner();
-        const RuntimeAllocation::RuntimeReserveGrowthRequest request = { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
-                                                                         targetName,
-                                                                         RuntimeAllocation::RuntimeReservePhase::Replay,
-                                                                         ReplayRecorderGrowthFrameNumber( frameIndex ),
-                                                                         static_cast<int>( oldBytes ),
-                                                                         static_cast<int>( requestedBytes ),
-                                                                         1 };
-        const RuntimeAllocation::RuntimeReserveGrowthResult result =
-            RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
-        if ( !result.granted )
-        {
-            ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
-        }
-
-        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::Replay );
-        RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
-        RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
-                                                                  RuntimeAllocation::RuntimeReservePhase::Replay,
-                                                                  result );
-        values.reserve( reserveCapacity );
+        ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
     }
-    else
-    {
-        values.reserve( reserveCapacity );
-    }
+    RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
+        RuntimeAllocation::RuntimeAllocationPhase::Replay );
+    RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
+    RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
+                                                              RuntimeAllocation::RuntimeReservePhase::Replay,
+                                                              result );
+    values.reserve( reserveCapacity );
 
     if ( requestedCapacity > values.capacity() )
     {
@@ -251,35 +244,29 @@ void ReserveReplayRecorderDeltaVector( std::vector<T>& values,
         ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
     }
 
-    if ( RuntimeAllocation::RuntimeAllocationGuardEnabled() )
+    // Invariant: delta payloads share the recorder owner's aggregate byte cap
+    // with body vectors instead of receiving a per-vector 64 MiB allowance.
+    const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayRecorderSampleReserveOwner();
+    const RuntimeAllocation::RuntimeReserveGrowthRequest request = { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
+                                                                     targetName,
+                                                                     RuntimeAllocation::RuntimeReservePhase::Replay,
+                                                                     ReplayRecorderGrowthFrameNumber( frameIndex ),
+                                                                     static_cast<int>( oldBytes ),
+                                                                     static_cast<int>( requestedBytes ),
+                                                                     1 };
+    const RuntimeAllocation::RuntimeReserveGrowthResult result =
+        RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
+    if ( !result.granted )
     {
-        const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayRecorderSampleReserveOwner();
-        const RuntimeAllocation::RuntimeReserveGrowthRequest request = { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
-                                                                         targetName,
-                                                                         RuntimeAllocation::RuntimeReservePhase::Replay,
-                                                                         ReplayRecorderGrowthFrameNumber( frameIndex ),
-                                                                         static_cast<int>( oldBytes ),
-                                                                         static_cast<int>( requestedBytes ),
-                                                                         1 };
-        const RuntimeAllocation::RuntimeReserveGrowthResult result =
-            RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
-        if ( !result.granted )
-        {
-            ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
-        }
-
-        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::Replay );
-        RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
-        RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
-                                                                  RuntimeAllocation::RuntimeReservePhase::Replay,
-                                                                  result );
-        values.reserve( reserveCapacity );
+        ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
     }
-    else
-    {
-        values.reserve( reserveCapacity );
-    }
+    RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
+        RuntimeAllocation::RuntimeAllocationPhase::Replay );
+    RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
+    RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
+                                                              RuntimeAllocation::RuntimeReservePhase::Replay,
+                                                              result );
+    values.reserve( reserveCapacity );
 
     if ( requestedCapacity > values.capacity() )
     {
@@ -475,7 +462,7 @@ ReplayVisualBodyMetadata VisualMetadataFromBody( const ReplayBodyPresentationSam
 {
     ReplayVisualBodyMetadata metadata;
     metadata.id = body.id;
-    metadata.modelIndex = body.modelIndex;
+    metadata.modelRow = body.modelRow;
     std::memcpy( metadata.name, body.name, sizeof( metadata.name ) );
     metadata.shapeKind = body.shapeKind;
     metadata.mass = body.mass;
@@ -506,7 +493,7 @@ ReplayVisualBodyState VisualStateFromBody( const ReplayBodyPresentationSample& b
 
 bool SameVisualMetadata( const ReplayVisualBodyMetadata& a, const ReplayVisualBodyMetadata& b )
 {
-    return a.id.value == b.id.value && a.modelIndex == b.modelIndex && a.shapeKind == b.shapeKind &&
+    return a.id.value == b.id.value && a.modelRow.value == b.modelRow.value && a.shapeKind == b.shapeKind &&
            SameFloatBits( a.mass, b.mass ) && a.fixed == b.fixed &&
            std::memcmp( a.name, b.name, sizeof( a.name ) ) == 0;
 }
@@ -544,7 +531,7 @@ void BuildPresentationBodyFromVisual( const ReplayVisualBodyMetadata& metadata,
 {
     out = ReplayBodyPresentationSample{};
     out.id = metadata.id;
-    out.modelIndex = metadata.modelIndex;
+    out.modelRow = metadata.modelRow;
     std::memcpy( out.name, metadata.name, sizeof( out.name ) );
     out.shapeKind = metadata.shapeKind;
     out.position = state.position;
@@ -570,7 +557,7 @@ ReplaySolverBodyMetadata SolverMetadataFromBody( const ReplaySolverBodySample& b
 {
     ReplaySolverBodyMetadata metadata;
     metadata.id = body.id;
-    metadata.modelIndex = body.modelIndex;
+    metadata.modelRow = body.modelRow;
     std::memcpy( metadata.name, body.name, sizeof( metadata.name ) );
     metadata.shapeKind = body.shapeKind;
     metadata.mass = body.mass;
@@ -604,7 +591,7 @@ ReplaySolverBodyState SolverStateFromBody( const ReplaySolverBodySample& body )
 
 bool SameSolverMetadata( const ReplaySolverBodyMetadata& a, const ReplaySolverBodyMetadata& b )
 {
-    return a.id.value == b.id.value && a.modelIndex == b.modelIndex && a.shapeKind == b.shapeKind &&
+    return a.id.value == b.id.value && a.modelRow.value == b.modelRow.value && a.shapeKind == b.shapeKind &&
            SameFloatBits( a.mass, b.mass ) && SameFloatBits( a.inverseMass, b.inverseMass ) &&
            SameVectorBits( a.rotationalInertia, b.rotationalInertia ) &&
            SameVectorBits( a.inverseRotationalInertia, b.inverseRotationalInertia ) &&
@@ -628,7 +615,7 @@ void BuildSolverBodyFromCompact( const ReplaySolverBodyMetadata& metadata,
 {
     out = ReplaySolverBodySample{};
     out.id = metadata.id;
-    out.modelIndex = metadata.modelIndex;
+    out.modelRow = metadata.modelRow;
     std::memcpy( out.name, metadata.name, sizeof( out.name ) );
     out.shapeKind = metadata.shapeKind;
     out.position = state.position;
@@ -1190,7 +1177,7 @@ void IncrementBodyContactSummary( int bodyIndex,
 uint64_t HashBodySample( uint64_t hash, const ReplayBodyPresentationSample& body )
 {
     hash = HashUint32( hash, body.id.value );
-    hash = HashInt( hash, body.modelIndex );
+    hash = HashInt( hash, body.modelRow.value );
     hash = HashInt( hash, static_cast<int>( body.shapeKind ) );
     hash = HashVector( hash, body.position );
     hash = HashOrientation( hash, body.orientation );
@@ -1212,7 +1199,7 @@ uint64_t HashBodySample( uint64_t hash, const ReplayBodyPresentationSample& body
 uint64_t HashSolverBodyPresentationFields( uint64_t hash, const ReplaySolverBodySample& body )
 {
     hash = HashUint32( hash, body.id.value );
-    hash = HashInt( hash, body.modelIndex );
+    hash = HashInt( hash, body.modelRow.value );
     hash = HashInt( hash, static_cast<int>( body.shapeKind ) );
     hash = HashVector( hash, body.position );
     hash = HashOrientation( hash, body.orientation );
@@ -1272,11 +1259,11 @@ uint64_t HashPersistentContact( uint64_t hash, const ReplaySolverPersistentConta
     return hash;
 }
 
-// Concept: replay body samples borrow GameModel only for the stable display
-// name. Physics values come from dense stores so capture does not require
-// post-step model mirrors.
+// Concept: replay body samples borrow SceneEntityStore for stable display names.
+// Physics values come from dense stores; transient GameModel rows are irrelevant
+// to capture identity and durable presentation intent.
 bool BuildReplayPresentationBodySample( int modelIndex,
-                                        const GameModelCollection& models,
+                                        const SceneEntityStore& entities,
                                         const Physics::PhysicsBodyStore& bodyStore,
                                         const Physics::ColliderStore& colliderStore,
                                         ReplayBodyPresentationSample& outBody )
@@ -1286,8 +1273,8 @@ bool BuildReplayPresentationBodySample( int modelIndex,
         return false;
     }
 
-    const GameModel* model = models.TryGetModel( modelIndex );
-    if ( !model )
+    const SceneEntityRecord* entity = entities.TryGet( modelIndex );
+    if ( !entity )
     {
         return false;
     }
@@ -1298,8 +1285,8 @@ bool BuildReplayPresentationBodySample( int modelIndex,
 
     outBody = ReplayBodyPresentationSample{};
     outBody.id.value = bodyRecord.replayBodyId;
-    outBody.modelIndex = modelIndex;
-    const char* modelName = model->GetName();
+    outBody.modelRow = Physics::MakeModelRowHint( modelIndex );
+    const char* modelName = entity->displayName;
     if ( modelName && modelName[0] != '\0' )
     {
         strncpy_s( outBody.name, sizeof( outBody.name ), modelName, _TRUNCATE );
@@ -1318,13 +1305,13 @@ bool BuildReplayPresentationBodySample( int modelIndex,
 }
 
 bool BuildReplaySolverBodySample( int modelIndex,
-                                  const GameModelCollection& models,
+                                  const SceneEntityStore& entities,
                                   const Physics::PhysicsBodyStore& bodyStore,
                                   const Physics::ColliderStore& colliderStore,
                                   ReplaySolverBodySample& outBody )
 {
     ReplayBodyPresentationSample presentationBody;
-    if ( !BuildReplayPresentationBodySample( modelIndex, models, bodyStore, colliderStore, presentationBody ) )
+    if ( !BuildReplayPresentationBodySample( modelIndex, entities, bodyStore, colliderStore, presentationBody ) )
     {
         return false;
     }
@@ -1333,7 +1320,7 @@ bool BuildReplaySolverBodySample( int modelIndex,
 
     outBody = ReplaySolverBodySample{};
     outBody.id = presentationBody.id;
-    outBody.modelIndex = presentationBody.modelIndex;
+    outBody.modelRow = presentationBody.modelRow;
     strncpy_s( outBody.name, sizeof( outBody.name ), presentationBody.name, _TRUNCATE );
     outBody.shapeKind = presentationBody.shapeKind;
     outBody.position = presentationBody.position;
@@ -1568,7 +1555,7 @@ void ReplayRecorder::ResetTimeline( const char* sceneLabel )
 
 void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
 {
-    if ( !m_config.enabled || !input.models || !input.bodyStore || !input.colliderStore )
+    if ( !m_config.enabled || !input.physics || !input.entities || !input.bodyStore || !input.colliderStore )
     {
         return;
     }
@@ -1612,7 +1599,8 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
         sample.camera.up = input.cameras->GetCameraUp();
     }
 
-    GameModelCollection& models = *input.models;
+    Physics::PhysicsEngine& physics = *input.physics;
+    const SceneEntityStore& entities = *input.entities;
     const Physics::PhysicsBodyStore& bodyStore = *input.bodyStore;
     const Physics::ColliderStore& colliderStore = *input.colliderStore;
     const int modelCount = bodyStore.Count();
@@ -1627,7 +1615,7 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
     m_maxPenetrationScratch.assign( modelCountSize, 0.0f );
     m_normalImpulseSumScratch.assign( modelCountSize, 0.0f );
 
-    const std::vector<PhysicsDebugContact>& contacts = models.GetPhysicsDebugContacts();
+    const std::vector<PhysicsDebugContact>& contacts = Physics::PhysicsEngineStoreQueries::DebugContacts( physics );
     sample.contactCount = SaturatingUint16( contacts.size() );
     for ( const PhysicsDebugContact& contact : contacts )
     {
@@ -1645,13 +1633,17 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
                                      m_normalImpulseSumScratch );
     }
 
-    sample.pipelineRecordCount = SaturatingUint16( models.GetPhysicsPipelineTrace().size() );
+    sample.pipelineRecordCount =
+        SaturatingUint16( Physics::PhysicsEngineStoreQueries::PipelineTrace( physics ).size() );
 
-    const std::vector<uint8_t>& sleepStates = models.GetSleepStates();
-    const std::vector<uint8_t>& sleepSupportedStates = models.GetSleepSupportedStates();
-    const std::vector<uint8_t>& sleepInhibitedStates = models.GetSleepInhibitedStates();
-    const std::vector<uint8_t>& collisionContacts = models.GetCollisionVisualContacts();
-    const std::vector<int>& sleepIslandIds = models.GetSleepIslandVisualIds();
+    const std::vector<uint8_t>& sleepStates = Physics::PhysicsEngineStoreQueries::SleepStates( physics );
+    const std::vector<uint8_t>& sleepSupportedStates =
+        Physics::PhysicsEngineStoreQueries::SleepSupportedStates( physics );
+    const std::vector<uint8_t>& sleepInhibitedStates =
+        Physics::PhysicsEngineStoreQueries::SleepInhibitedStates( physics );
+    const std::vector<uint8_t>& collisionContacts =
+        Physics::PhysicsEngineStoreQueries::CollisionVisualContacts( physics );
+    const std::vector<int>& sleepIslandIds = Physics::PhysicsEngineStoreQueries::SleepIslandVisualIds( physics );
 
     uint64_t hash = FNV64_OFFSET;
     // Concept: presentation hashes summarize what the viewer would need to see
@@ -1666,7 +1658,7 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
     {
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
         ReplayBodyPresentationSample body;
-        if ( !BuildReplayPresentationBodySample( i, models, bodyStore, colliderStore, body ) )
+        if ( !BuildReplayPresentationBodySample( i, entities, bodyStore, colliderStore, body ) )
         {
             continue;
         }
@@ -1734,7 +1726,7 @@ void ReplayRecorder::CaptureFrameFromSolverSample( const ReplaySolverFrameSample
     {
         ReplayBodyPresentationSample body;
         body.id = solverBody.id;
-        body.modelIndex = solverBody.modelIndex;
+        body.modelRow = solverBody.modelRow;
         strncpy_s( body.name, sizeof( body.name ), solverBody.name, _TRUNCATE );
         body.shapeKind = solverBody.shapeKind;
         body.position = solverBody.position;
@@ -2315,7 +2307,7 @@ void ReplaySolverRecorder::ResetTimeline( const char* sceneLabel )
 
 void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
 {
-    if ( !m_config.enabled || !input.models || !input.bodyStore || !input.colliderStore )
+    if ( !m_config.enabled || !input.physics || !input.entities || !input.bodyStore || !input.colliderStore )
     {
         return;
     }
@@ -2372,7 +2364,8 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
         sample.camera.up = input.cameras->GetCameraUp();
     }
 
-    GameModelCollection& models = *input.models;
+    Physics::PhysicsEngine& physics = *input.physics;
+    const SceneEntityStore& entities = *input.entities;
     const Physics::PhysicsBodyStore& bodyStore = *input.bodyStore;
     const Physics::ColliderStore& colliderStore = *input.colliderStore;
     const int modelCount = bodyStore.Count();
@@ -2387,7 +2380,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     m_maxPenetrationScratch.assign( modelCountSize, 0.0f );
     m_normalImpulseSumScratch.assign( modelCountSize, 0.0f );
 
-    const std::vector<PhysicsDebugContact>& contacts = models.GetPhysicsDebugContacts();
+    const std::vector<PhysicsDebugContact>& contacts = Physics::PhysicsEngineStoreQueries::DebugContacts( physics );
     sample.contactCount = SaturatingUint16( contacts.size() );
     for ( const PhysicsDebugContact& contact : contacts )
     {
@@ -2405,16 +2398,20 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
                                      m_normalImpulseSumScratch );
     }
 
-    sample.pipelineRecordCount = SaturatingUint16( models.GetPhysicsPipelineTrace().size() );
-    models.GetPhysicsEngine().CaptureReplaySolverSnapshot(
+    sample.pipelineRecordCount =
+        SaturatingUint16( Physics::PhysicsEngineStoreQueries::PipelineTrace( physics ).size() );
+    physics.CaptureReplaySolverSnapshot(
         m_solverCaptureWorldSnapshot,
         Physics::MakePhysicsBodyCountFromNonNegativeInt( static_cast<int>( modelCount ) ) );
 
-    const std::vector<uint8_t>& sleepStates = models.GetSleepStates();
-    const std::vector<uint8_t>& sleepSupportedStates = models.GetSleepSupportedStates();
-    const std::vector<uint8_t>& sleepInhibitedStates = models.GetSleepInhibitedStates();
-    const std::vector<uint8_t>& collisionContacts = models.GetCollisionVisualContacts();
-    const std::vector<int>& sleepIslandIds = models.GetSleepIslandVisualIds();
+    const std::vector<uint8_t>& sleepStates = Physics::PhysicsEngineStoreQueries::SleepStates( physics );
+    const std::vector<uint8_t>& sleepSupportedStates =
+        Physics::PhysicsEngineStoreQueries::SleepSupportedStates( physics );
+    const std::vector<uint8_t>& sleepInhibitedStates =
+        Physics::PhysicsEngineStoreQueries::SleepInhibitedStates( physics );
+    const std::vector<uint8_t>& collisionContacts =
+        Physics::PhysicsEngineStoreQueries::CollisionVisualContacts( physics );
+    const std::vector<int>& sleepIslandIds = Physics::PhysicsEngineStoreQueries::SleepIslandVisualIds( physics );
 
     uint64_t presentationHash = FNV64_OFFSET;
     presentationHash = HashWorld( presentationHash, sample.world );
@@ -2434,7 +2431,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     {
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
         ReplaySolverBodySample body;
-        if ( !BuildReplaySolverBodySample( i, models, bodyStore, colliderStore, body ) )
+        if ( !BuildReplaySolverBodySample( i, entities, bodyStore, colliderStore, body ) )
         {
             continue;
         }
@@ -2584,22 +2581,6 @@ void ReplaySolverRecorder::CopySamplesChronological( std::vector<ReplaySolverFra
         if ( ResolveSolverSampleAtOffset( i, sample ) )
         {
             outSamples.push_back( std::move( sample ) );
-        }
-    }
-}
-
-void ReplaySolverRecorder::ForEachSampleChronological( ReplaySolverSampleVisitor visitor, void* userData ) const
-{
-    if ( !visitor || m_sampleCount == 0 || m_samples.empty() )
-    {
-        return;
-    }
-
-    for ( std::size_t i = 0; i < m_sampleCount; ++i )
-    {
-        if ( ResolveSolverSampleAtOffset( i, m_resolvedSolverSample ) )
-        {
-            visitor( m_resolvedSolverSample, userData );
         }
     }
 }

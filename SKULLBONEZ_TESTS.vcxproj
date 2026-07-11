@@ -184,6 +184,7 @@
   <ItemGroup>
     <ClCompile Include="SkullbonezTests\TestAssetSystem.cpp" />
     <ClCompile Include="SkullbonezTests\TestBounds.cpp" />
+    <ClCompile Include="SkullbonezTests\TestApplicationExitState.cpp" />
     <ClCompile Include="SkullbonezTests\TestConvexHull.cpp" />
     <ClCompile Include="SkullbonezTests\TestDeterminism.cpp" />
     <ClCompile Include="SkullbonezTests\TestDemoDirector.cpp" />
@@ -191,11 +192,16 @@
     <ClCompile Include="SkullbonezTests\TestGeometricMath.cpp" />
     <ClCompile Include="SkullbonezTests\TestMain.cpp" />
     <ClCompile Include="SkullbonezTests\TestMatrix4.cpp" />
+    <ClCompile Include="SkullbonezTests\TestObjectContactManifold.cpp" />
+    <ClCompile Include="SkullbonezTests\TestOwnerRequestQueues.cpp" />
+    <ClCompile Include="SkullbonezTests\TestSceneEntityStore.cpp" />
+    <ClCompile Include="SkullbonezTests\TestSceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezTests\TestPersistentContactSolver.cpp" />
     <ClCompile Include="SkullbonezTests\TestPhysicsHandles.cpp" />
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp" />
     <ClCompile Include="SkullbonezTests\TestReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeInputBindings.cpp" />
+    <ClCompile Include="SkullbonezTests\TestInputRouter.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayRecorder.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayRecorderFullCaptureBoundary.cpp" />
     <ClCompile Include="SkullbonezTests\TestSceneParserUnit.cpp" />
@@ -214,12 +220,25 @@
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\ApplicationExitState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\InputController.Bindings.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\InputRouter.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\CaptureController.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\CaptureSystem.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\RenderDefaultsStore.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeDefaults.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeFileWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\TestScene.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\TestSceneParser.cpp" />
+    <ClCompile Include="SkullbonezSource\Scene\TestSceneParserAssets.cpp" />
+    <ClCompile Include="SkullbonezSource\Scene\TestSceneParserBodies.cpp" />
+    <ClCompile Include="SkullbonezSource\Scene\TestSceneParserPresentation.cpp" />
+    <ClCompile Include="SkullbonezSource\Scene\TestSceneParserRuntime.cpp" />
+    <ClCompile Include="SkullbonezSource\Scene\SceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezSource\World\Terrain.cpp" />
   </ItemGroup>
   <ItemGroup>

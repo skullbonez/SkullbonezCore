@@ -4,9 +4,9 @@ Purpose:
   Owns runtime diagnostics and capture controllers behind one diagnostics boundary.
 
 Mental model:
-  DiagnosticsRuntime is the Phase 7 compatibility owner. Capture, perf logs,
-  and SkullScope state keep their existing controllers and artifact formats,
-  while Run reaches them through one diagnostics runtime member.
+  DiagnosticsRuntime owns the process diagnostics lifecycle. Capture, perf,
+  memory, and SkullScope controllers keep their artifact-specific state behind
+  this boundary while frame code requests synchronous diagnostics operations.
 
 Glossary:
   Capture controller: Screenshot trigger and automation state.
@@ -49,16 +49,15 @@ namespace Basics
 {
 class Profiler;
 class ReplayRuntime;
+class SceneController;
 class TestScene;
 enum class RuntimeInputAction;
-class RuntimeInputContext;
 struct RunDebugState;
 
 struct DiagnosticsKeyboardShortcutContext
 {
-    // Lifetime: borrowed for one keyboard dispatch only; diagnostics mutates
-    // only debug presentation state and input-edge memory.
-    RuntimeInputContext& input;
+    // Lifetime: borrowed for one already-routed action only; InputRouter owns
+    // the edge and diagnostics mutates only debug presentation state.
     RunDebugState& debug;
     int& cameraTrackBallIndex;
     const GameObjects::GameModelCollection& sceneEntities;
@@ -72,7 +71,6 @@ struct DiagnosticsUIKeyboardShortcutContext
     // Lifetime: borrowed for one keyboard dispatch only; the handler mutates UI
     // overlay visibility, automation flags, and debug presentation state, then
     // reports any cursor/action bookkeeping still owned by the composition root.
-    RuntimeInputContext& input;
     UI::InGameUI& ui;
     RunDebugState& debug;
     RunSceneState& scene;
@@ -106,10 +104,10 @@ struct DiagnosticsPhysicsDebugValueUICommandResult
 void StepDiagnosticsPhysicsPipelineStage( RunDebugState& debug, int direction );
 bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext context,
                                         RuntimeInputAction action,
-                                        int virtualKey );
+                                        bool wasPressed );
 DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( DiagnosticsUIKeyboardShortcutContext context,
                                                                          RuntimeInputAction action,
-                                                                         int virtualKey );
+                                                                         bool wasPressed );
 DiagnosticsPhysicsOverlayUICommandResult
 ApplyDiagnosticsPhysicsOverlayUICommands( RunDebugState& debug, const UI::UIPhysicsCommands& commands );
 bool ApplyDiagnosticsTerrainContactProbeUICommand( RunDebugState& debug, const UI::UIPhysicsCommands& commands );
@@ -171,7 +169,9 @@ class DiagnosticsRuntime
     void SetPhysicsDiagnosticsPath( GameObjects::GameModelCollection& models,
                                     const char* path,
                                     bool fixedStepForcedByDiagnostics );
-    void LogSceneFinished( RunSceneState& scene, const char* scenePath, const char* rendererName, const char* reason );
+    void LogSceneFinished( SceneController& scene,
+                           const Rendering::IRenderDiagnostics* renderDiagnostics,
+                           const char* reason );
     void BeginPhysicsDiagnosticsRun( GameObjects::GameModelCollection& models,
                                      const RunSceneState& scene,
                                      const EngineConfig& config,
@@ -219,6 +219,10 @@ class DiagnosticsRuntime
                                  const char* failureReason );
     void EndPhysicsDiagnosticsRun( const RunSceneState& scene, const char* status );
 #endif
+    // Consumes BeforeSceneUnload while the old scene identity is still live.
+    // Release builds keep the same typed boundary even though SkullScope end
+    // emission is Debug-only.
+    void BeforeSceneUnload( const RunSceneState& scene );
 
     // Invariant: UI stress state is deterministic scene-driven input churn.
     // Keep it cheap and seed-based so validation can reproduce failures.

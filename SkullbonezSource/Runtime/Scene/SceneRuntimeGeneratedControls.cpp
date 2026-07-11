@@ -22,7 +22,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.h
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
-  - Agentic/Plans/run-composition-root-shrink-plan.md
+  - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #include "SceneRuntimeGeneratedControls.h"
 #include "SceneController.h"
@@ -48,19 +48,26 @@ SceneRuntimeGeneratedControlAction RequestReplayAndProfileReset()
     return action;
 }
 
-void ResetGeneratedRuntimeState( SceneRuntimeGeneratedControlContext context )
+SbResult ResetGeneratedRuntimeState( SceneRuntimeGeneratedControlContext context )
 {
     // Hazard: Generated rebuilds destroy model/render state. Flush GPU work
     // first, then clear objects and reset simulation/tool state together.
     if ( context.renderLifecycle )
     {
-        context.renderLifecycle->FlushGPU();
+        const SbResult flushResult = context.renderLifecycle->FlushGPU();
+        if ( !flushResult.ok )
+        {
+            // Lane R: no owner below this point may mutate after an uncertain
+            // drain. Return the device failure to the input/stress boundary.
+            return flushResult;
+        }
     }
     context.models.Clear();
     context.tools.ClearRayCastTestLines();
     context.simulation.Reset();
     context.scene.currentFrame = 0;
     context.scene.isTestComplete = false;
+    return SbResult::Success();
 }
 
 SceneGeneratedModelContext BuildGeneratedModelContext( SceneRuntimeGeneratedControlContext context )
@@ -70,7 +77,7 @@ SceneGeneratedModelContext BuildGeneratedModelContext( SceneRuntimeGeneratedCont
                                        context.world,
                                        context.terrain,
                                        context.models,
-                                       context.models.GetPhysicsEngine(),
+                                       context.controller.Physics(),
                                        context.objectTypeOverride };
 }
 
@@ -91,19 +98,29 @@ SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride( SceneRuntimeGenera
 {
     // Invariant: A model-count override is mutually exclusive with solver exact
     // ball/box overrides; only one generated setup mode owns the rebuild.
-    context.uiOverrides.modelCountOverride = std::clamp( count, 0, context.modelCapacity );
-    context.uiOverrides.solverBallCountOverride = -1;
-    context.uiOverrides.solverBoxCountOverride = -1;
+    const int modelCountOverride = std::clamp( count, 0, context.modelCapacity );
     if ( !context.controller.HasCurrentEntry() )
     {
+        context.uiOverrides.modelCountOverride = modelCountOverride;
+        context.uiOverrides.solverBallCountOverride = -1;
+        context.uiOverrides.solverBoxCountOverride = -1;
         return SceneRuntimeGeneratedControlAction{};
     }
 
-    ResetGeneratedRuntimeState( context );
+    const SbResult resetResult = ResetGeneratedRuntimeState( context );
+    if ( !resetResult.ok )
+    {
+        SceneRuntimeGeneratedControlAction action;
+        action.status = resetResult;
+        return action;
+    }
+    context.uiOverrides.modelCountOverride = modelCountOverride;
+    context.uiOverrides.solverBallCountOverride = -1;
+    context.uiOverrides.solverBoxCountOverride = -1;
     if ( context.uiOverrides.modelCountOverride <= 0 )
     {
         context.scene.modelCount = 0;
-        context.camera.trackBallIndex = -1;
+        context.camera.trackBallRow.value = -1;
         return RequestReplayAndProfileReset();
     }
 
@@ -115,12 +132,12 @@ SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride( SceneRuntimeGenera
     {
         LogGeneratedControlFailure( setupResult );
         context.scene.modelCount = context.models.SceneEntityCount();
-        context.camera.trackBallIndex = context.scene.modelCount > 0 ? context.scene.modelCount - 1 : -1;
+        context.camera.trackBallRow.value = context.scene.modelCount > 0 ? context.scene.modelCount - 1 : -1;
         return RequestReplayAndProfileReset();
     }
-    if ( context.camera.trackBallIndex >= context.uiOverrides.modelCountOverride )
+    if ( context.camera.trackBallRow.value >= context.uiOverrides.modelCountOverride )
     {
-        context.camera.trackBallIndex = context.uiOverrides.modelCountOverride - 1;
+        context.camera.trackBallRow.value = context.uiOverrides.modelCountOverride - 1;
     }
     return RequestReplayAndProfileReset();
 }
@@ -136,15 +153,24 @@ ApplyUISolverObjectCounts( SceneRuntimeGeneratedControlContext context, int ball
     {
         boxes = (std::max)( 0, context.modelCapacity - balls );
     }
-    context.uiOverrides.solverBallCountOverride = balls;
-    context.uiOverrides.solverBoxCountOverride = boxes;
-    context.uiOverrides.modelCountOverride = -1;
     if ( !context.controller.HasCurrentEntry() )
     {
+        context.uiOverrides.solverBallCountOverride = balls;
+        context.uiOverrides.solverBoxCountOverride = boxes;
+        context.uiOverrides.modelCountOverride = -1;
         return SceneRuntimeGeneratedControlAction{};
     }
 
-    ResetGeneratedRuntimeState( context );
+    const SbResult resetResult = ResetGeneratedRuntimeState( context );
+    if ( !resetResult.ok )
+    {
+        SceneRuntimeGeneratedControlAction action;
+        action.status = resetResult;
+        return action;
+    }
+    context.uiOverrides.solverBallCountOverride = balls;
+    context.uiOverrides.solverBoxCountOverride = boxes;
+    context.uiOverrides.modelCountOverride = -1;
 
     const unsigned int seed = context.scene.rngSeed > 0 ? context.scene.rngSeed : 1u;
     context.scene.rngState = seed;
@@ -155,16 +181,16 @@ ApplyUISolverObjectCounts( SceneRuntimeGeneratedControlContext context, int ball
     {
         LogGeneratedControlFailure( setupResult );
         context.scene.modelCount = context.models.SceneEntityCount();
-        context.camera.trackBallIndex = context.scene.modelCount > 0 ? context.scene.modelCount - 1 : -1;
+        context.camera.trackBallRow.value = context.scene.modelCount > 0 ? context.scene.modelCount - 1 : -1;
         return RequestReplayAndProfileReset();
     }
     if ( context.scene.modelCount <= 0 )
     {
-        context.camera.trackBallIndex = -1;
+        context.camera.trackBallRow.value = -1;
     }
-    else if ( context.camera.trackBallIndex >= context.scene.modelCount )
+    else if ( context.camera.trackBallRow.value >= context.scene.modelCount )
     {
-        context.camera.trackBallIndex = context.scene.modelCount - 1;
+        context.camera.trackBallRow.value = context.scene.modelCount - 1;
     }
     return RequestReplayAndProfileReset();
 }
@@ -179,7 +205,7 @@ SceneGeneratedUICommandResult ApplySceneGeneratedModelCountUICommand( SceneRunti
     }
 
     result.action = ApplyUIModelCountOverride( context, requestedModelCount );
-    result.accepted = true;
+    result.accepted = result.action.status.ok;
     return result;
 }
 
@@ -200,7 +226,7 @@ SceneGeneratedUICommandResult ApplySceneGeneratedSolverBallCountUICommand( Scene
         context,
         std::clamp( requestedSolverBallCount, 0, (std::max)( 0, context.modelCapacity - boxes ) ),
         boxes );
-    result.accepted = true;
+    result.accepted = result.action.status.ok;
     return result;
 }
 
@@ -221,7 +247,7 @@ SceneGeneratedUICommandResult ApplySceneGeneratedSolverBoxCountUICommand( SceneR
         context,
         balls,
         std::clamp( requestedSolverBoxCount, 0, (std::max)( 0, context.modelCapacity - balls ) ) );
-    result.accepted = true;
+    result.accepted = result.action.status.ok;
     return result;
 }
 

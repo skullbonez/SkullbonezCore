@@ -28,6 +28,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
+#include "../Core/Config.h"
 
 
 #include "../Core/Common.h"

@@ -15,11 +15,13 @@ Glossary:
 Invariants:
   - Failure messages are bounded and stored inline.
   - SbResult has no heap ownership and no exception behavior.
+  - Callers must inspect or explicitly retain every result; silent discard is a
+    compiler diagnostic.
   - Add an expected-like value payload only when a caller actually needs one.
 
 Related:
   - SkullbonezSource/Core/FatalError.h
-  - fable_plans/05-unified-error-handling-policy-progress.md
+  - AGENTS.md (Error Handling Policy)
 */
 #pragma once
 
@@ -38,7 +40,7 @@ struct SbError
 };
 
 
-struct SbResult
+struct [[nodiscard]] SbResult
 {
     bool ok = true;
     SbError error;

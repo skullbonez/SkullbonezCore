@@ -47,6 +47,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RenderDeviceDX12.h"
+#include "RenderBackendDX12.CommandRecordingState.h"
 
 #include "../../Core/FatalError.h"
 
@@ -219,22 +220,6 @@ Basics::SbResult Dx12FenceTimeline::Signal( UINT64& outValue )
     m_lastSignaledValue = value;
     outValue = value;
     return Basics::SbResult::Success();
-}
-
-
-Basics::SbResult Dx12FenceTimeline::SignalAndWait()
-{
-    // This is the "drain the GPU" path. It is intentionally blocking: the CPU
-    // asks the GPU to signal a new value, then waits until that exact value is
-    // complete. Use it for shutdown, resize, and rare mid-frame flushes, not for
-    // normal per-draw work.
-    UINT64 value = 0;
-    const Basics::SbResult signalResult = Signal( value );
-    if ( !signalResult.ok )
-    {
-        return signalResult;
-    }
-    return WaitForValue( value );
 }
 
 
@@ -541,6 +526,13 @@ UINT Dx12DescriptorAllocator::AllocateTransientRange( UINT count )
 }
 
 
+bool Dx12DescriptorAllocator::CanAllocateTransientRange( UINT count ) const
+{
+    return count > 0 && m_frameCount > 0 && m_currentFrame < m_frameCount && count <= m_transientCapacityPerFrame &&
+           m_nextTransientInFrame <= m_transientCapacityPerFrame - count;
+}
+
+
 UINT Dx12DescriptorAllocator::ShaderVisibleCapacity() const
 {
     return static_cast<UINT>( static_cast<UINT64>( m_staticCapacity ) +
@@ -842,12 +834,16 @@ bool Dx12FrameUploadSystem::Init( ID3D12Device* device,
         }
         NameDx12ObjectIndexed( m_resources[i], safeName, i );
 
-        const HRESULT mapResult = m_resources[i]->Map( 0, nullptr, reinterpret_cast<void**>( &m_mappedPtrs[i] ) );
-        if ( FAILED( mapResult ) )
+        void* mappedPointer = nullptr;
+        const HRESULT mapResult = m_resources[i]->Map( 0, nullptr, &mappedPointer );
+        const Dx12MappedPointerResult checkedMap =
+            ValidateDx12MappedPointer( mapResult, mappedPointer, "frame upload resource Map" );
+        if ( !checkedMap.result.ok )
         {
             Shutdown();
             return false;
         }
+        m_mappedPtrs[i] = static_cast<uint8_t*>( checkedMap.pointer );
 
         // The arena owns byte-range accounting for this resource. The system
         // owns the COM resource and its persistent CPU Map() pointer.
@@ -1060,6 +1056,15 @@ void Dx12ReadbackBuffer::UnmapNoWrite() const
 }
 
 
+ID3D12Resource* Dx12ReadbackBuffer::DetachAfterUncertainSubmission()
+{
+    ID3D12Resource* detached = m_resource;
+    m_resource = nullptr;
+    m_sizeBytes = 0;
+    return detached;
+}
+
+
 Dx12ReadbackBufferStats Dx12ReadbackBuffer::GetStats() const
 {
     Dx12ReadbackBufferStats stats;
@@ -1229,7 +1234,13 @@ Basics::SbResult Dx12RenderDevice::Init( const Dx12RenderDeviceInitDesc& desc )
         return startupResult;
     }
     NameDx12Object( m_commandList, L"Skullbonez DX12 Main Command List" );
-    m_commandList->Close();
+    // Invariant: the backend's recording epoch starts closed. Do not publish a
+    // device whose initial command list failed to enter that state.
+    startupResult = Dx12StartupResult( m_commandList->Close(), "Initial command list Close failed" );
+    if ( !startupResult.ok )
+    {
+        return startupResult;
+    }
 
     startupResult = Dx12StartupResult( m_device->CreateFence( 0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS( &m_fence ) ),
                                        "CreateFence failed" );
@@ -1252,6 +1263,9 @@ Basics::SbResult Dx12RenderDevice::Init( const Dx12RenderDeviceInitDesc& desc )
 
 void Dx12RenderDevice::Shutdown()
 {
+    // Invariant: this low-level owner does not submit or wait. Normal runtime
+    // teardown reaches it only after RenderBackendDX12 has proven queue/present
+    // completion; Init rollback reaches it before any command-list submission.
     m_frameFence.Reset();
 
     if ( m_fence )

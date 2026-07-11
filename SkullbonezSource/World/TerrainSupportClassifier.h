@@ -25,6 +25,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
+#include "../Assets/AssetKeys.h"
 
 #include "../Physics/CollisionShape.h"
 #include "../Core/Profiler.h"

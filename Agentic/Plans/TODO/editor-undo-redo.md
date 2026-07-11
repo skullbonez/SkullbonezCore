@@ -1,7 +1,12 @@
 # Editor Undo/Redo
 
 Date: 2026-07-11
-Status: Not started — 0% (sequenced after interaction-state-machine P9)
+Status: Not started — 0%. **Unblocked 2026-07-11:** interaction-state-machine
+completed the same day this plan was written (6/6 remaining phases, including
+P9 commands), so the sequencing precondition is satisfied — build directly on
+the completed command/gesture surface. Verify the U4 scene-lifecycle hook
+against the completed runtime-shell scene ownership rather than the old C2
+phase reference.
 Impact area: editor tools, runtime interaction commands, UI
 Origin: 2026-07-11 architecture gap review. The editor has no undo machinery
 of any kind. The interaction-state-machine plan is building the prerequisite

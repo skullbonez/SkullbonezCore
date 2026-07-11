@@ -1,12 +1,12 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp
 Purpose:
-  Provides the replay subsystem ownership boundary for legacy Run replay callers.
+  Implements replay recording, workspace, restore, prediction, and probe ownership.
 
 Mental model:
-  ReplayRuntime is mostly an accessor and coordination shell. It keeps recorder,
-  loaded-artifact, tool, branch, and camera state in one owned object while Run
-  still performs most replay behavior.
+  ReplayRuntime owns the replay timeline and its tools. The application shell
+  supplies frame-scoped owner views, then replay sequences workspace input,
+  transactional restore, prediction, artifact, and validation behavior.
 
 Glossary:
   Branch: Child replay timeline created from a restored source frame.
@@ -34,13 +34,16 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
-  - SkullbonezSource/Runtime/Replay/ReplayExporter.h
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
 */
 #include "ReplayRuntime.h"
-#include "ReplayExporter.h"
+#include "../../Assets/AssetKeys.h"
 #include "ReplayOverlayLayout.h"
+#include "ReplayRetainedMemory.h"
 #include "ReplayV2Artifact.h"
+#include "../RuntimeFileWriter.h"
+#include "../InputRouter.h"
+#include "../RuntimeInteractionCommands.h"
 #include "../../Core/AmortizedTask.h"
 #include "../../Core/Profiler.h"
 #include "../../GameObjects/GameModelCollection.h"
@@ -73,11 +76,6 @@ constexpr uint32_t REPLAY_EDITOR_PLACE_TERRAIN_ALIGN = 2u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
-constexpr uint32_t REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS = 1u;
-constexpr uint32_t REPLAY_GENERATED_SCENE_UI_MODEL_COUNT = 2u;
-constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
-constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT = 8u;
-constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT;
 constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
 constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
 constexpr int REPLAY_TRAJECTORY_SUBMISSION_STEADY_FRAME_TARGET = 120;
@@ -372,13 +370,21 @@ const PhysicsBodyRecord* ReplayRuntimeBodyRecordForModelIndex( const PhysicsBody
 }
 
 
-bool ReplayRuntimeQueueRenderPoseOverride( GameObjects::GameModelCollection& collection,
-                                           int modelIndex,
-                                           uint32_t replayBodyId,
+bool ReplayRuntimeQueueRenderPoseOverride( Rendering::RenderInstanceStore& renderInstances,
+                                           const PhysicsBodyStore& bodyStore,
+                                           const ColliderStore& colliderStore,
+                                           ReplayBodyId replayBodyId,
                                            const Vector3& position,
                                            const Math::Orientation::Quaternion& orientation )
 {
-    return collection.TryQueueReplayRenderPoseOverride( modelIndex, replayBodyId, position, orientation );
+    const PhysicsBodyHandle body = bodyStore.HandleForReplayBodyId( replayBodyId.value );
+    const PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
+    const int modelIndex = bodyStore.ModelIndexForHandle( body );
+    if ( !record || record->replayBodyId != replayBodyId.value || modelIndex < 0 )
+    {
+        return false;
+    }
+    return renderInstances.OverridePose( modelIndex, replayBodyId.value, position, orientation, colliderStore );
 }
 
 
@@ -602,7 +608,7 @@ bool RebuildReplayRuntimePredictionCommittedRootTrajectory( RunReplayPredictionS
         const RunReplayPredictionBodySample* body =
             FindReplayPredictionBodyByIdWithHint( frame,
                                                   prediction.simulation.targetId,
-                                                  prediction.simulation.targetModelIndex );
+                                                  prediction.simulation.targetModelRow.value );
         if ( body && !prediction.trajectoryStore.TryAppendPoint( *record, { frame.frameIndex, body->position } ) )
         {
             prediction.trajectoryBuild.valid = false;
@@ -659,40 +665,12 @@ struct ReplayPastRootRebuildContext
     ReplayTrajectoryStore* store = nullptr;
     ReplayTrajectoryRecord* record = nullptr;
     ReplayBodyId targetId;
-    int targetModelIndex = -1;
+    Physics::ModelRowHint targetModelRow;
     ReplayFrameIndex firstFrame = 0;
     ReplayFrameIndex builtThroughFrame = 0;
     bool hasSample = false;
     bool ok = true;
 };
-
-void RebuildReplayPastRootTrajectorySample( const ReplaySolverFrameSample& sample, void* userData )
-{
-    ReplayPastRootRebuildContext* context = static_cast<ReplayPastRootRebuildContext*>( userData );
-    if ( !context || !context->ok || !context->store || !context->record )
-    {
-        return;
-    }
-
-    const ReplaySolverBodySample* body =
-        FindReplayBodyByIdWithHint( sample, context->targetId, context->targetModelIndex );
-    if ( !body )
-    {
-        return;
-    }
-
-    context->ok = AppendReplayPastRootTrajectoryPoint( *context->store, *context->record, sample, *body );
-    if ( context->ok )
-    {
-        if ( !context->hasSample )
-        {
-            context->firstFrame = sample.frameIndex;
-            context->hasSample = true;
-        }
-        context->builtThroughFrame = sample.frameIndex;
-        context->targetModelIndex = body->modelIndex;
-    }
-}
 
 template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
 const BodySample* FindReplayBodyByModelIndexInSample( const FrameSample& sample, int modelIndex )
@@ -708,7 +686,7 @@ const BodySample* FindReplayBodyByModelIndexInSample( const FrameSample& sample,
     if ( modelIndex >= 0 && modelIndex < static_cast<int>( sample.bodies.size() ) )
     {
         const BodySample& body = sample.bodies[static_cast<std::size_t>( modelIndex )];
-        if ( body.modelIndex == modelIndex )
+        if ( body.modelRow.value == modelIndex )
         {
             return &body;
         }
@@ -716,7 +694,7 @@ const BodySample* FindReplayBodyByModelIndexInSample( const FrameSample& sample,
 
     for ( const BodySample& body : sample.bodies )
     {
-        if ( body.modelIndex == modelIndex )
+        if ( body.modelRow.value == modelIndex )
         {
             return &body;
         }
@@ -860,6 +838,31 @@ ReplayRuntime::ReplayRuntime()
     // passes, so the byte vector owns its full model-capacity storage up front.
     m_focusModelMask.reserve( MAX_GAME_MODELS );
     m_renderPoseBodyMatched.fill( uint8_t{ 0 } );
+}
+
+
+void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics,
+                                        const SceneEntityStore& entities,
+                                        const EngineConfig& config,
+                                        const Physics::PhysicsWorldForces& worldForces,
+                                        Threading::WorkerPool& workerPool,
+                                        RunEditorTracer& tracer,
+                                        const ReplayOverlayBuildInput& input )
+{
+    RenderPathVisualizer( physics,
+                          entities,
+                          config,
+                          worldForces,
+                          workerPool,
+                          tracer,
+                          input.scenePhysicsEnabled,
+                          input.sceneFrame,
+                          input.frameSeconds,
+                          input.totalSeconds );
+    const PhysicsBodyStore& bodyStore = Physics::PhysicsEngineStoreQueries::BodyStore( physics );
+    const ColliderStore& colliderStore = Physics::PhysicsEngineStoreQueries::Colliders( physics );
+    RenderCauseFocusOverlay( bodyStore, colliderStore, entities, tracer );
+    RenderVelocityEditOverlay( physics, input.editorModeEnabled, input.gesture, tracer );
 }
 
 
@@ -1018,7 +1021,7 @@ void ReplayRuntime::CancelPredictionJob( bool clearSamples )
     m_prediction.build.workerTask.reset();
     m_prediction.build.building = false;
     m_prediction.build.complete = false;
-    m_prediction.simulation.targetModelIndex = -1;
+    m_prediction.simulation.targetModelRow.value = -1;
     m_prediction.build.nextTick = 1;
     m_prediction.build.targetTickCount = 0;
     m_prediction.simulation.predictionEngineReady = false;
@@ -1058,18 +1061,148 @@ void ReplayRuntime::ClearPathVisualizerState()
 {
     m_pathVisualizer.hasTarget = false;
     m_pathVisualizer.targetId = ReplayBodyId{};
-    m_pathVisualizer.targetModelIndex = -1;
+    m_pathVisualizer.targetModelRow.value = -1;
     m_pathVisualizer.targetName[0] = '\0';
-    m_pathVisualizer.pastPathHovered = false;
     m_pathVisualizer.futureNodes.clear();
     m_pathVisualizer.targets.clear();
     m_pathVisualizer.pastTrajectory = RunReplayPastTrajectoryBuildState{};
     m_causeTree.rows.clear();
-    m_causeTree.hoveredRow = -1;
     m_causeTree.selectedRow = -1;
     m_causeTree.scrollY = 0.0f;
     ClearPredictionCache();
     MarkPredictionDirty();
+}
+
+bool ReplayRuntime::SetPathTarget( const char* name, int modelIndex, const PhysicsBodyStore& bodyStore )
+{
+    if ( modelIndex < 0 )
+    {
+        return false;
+    }
+    const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
+    if ( !body || body->replayBodyId == 0 )
+    {
+        return false;
+    }
+
+    m_pathVisualizer.hasTarget = true;
+    m_pathVisualizer.targetId.value = body->replayBodyId;
+    m_pathVisualizer.targetModelRow.value = modelIndex;
+    m_pathVisualizer.targetName[0] = '\0';
+    if ( name && name[0] != '\0' )
+    {
+        strncpy_s( m_pathVisualizer.targetName, sizeof( m_pathVisualizer.targetName ), name, _TRUNCATE );
+    }
+    m_pathVisualizer.futureNodes.clear();
+    ClearPredictionCache();
+    MarkPredictionDirty();
+    return true;
+}
+
+bool ReplayRuntime::BeginToolGesture( RuntimeInteractionController& interaction,
+                                      RuntimeInteractionGestureKind kind,
+                                      WorldInteractionOwner owner,
+                                      RuntimePointerButton button,
+                                      int startX,
+                                      int startY,
+                                      PhysicsBodyHandle body,
+                                      int axis,
+                                      bool angular )
+{
+    interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                     owner,
+                                                     InteractionExitReason::BeginGesture );
+    RuntimeInteractionGesture gesture;
+    gesture.kind = kind;
+    gesture.button = button;
+    gesture.startX = startX;
+    gesture.startY = startY;
+    gesture.body = body;
+    gesture.axis = axis;
+    gesture.angular = angular;
+    RuntimeGestureCommand command;
+    command.gesture = gesture;
+    RuntimeGestureEvent event;
+    return interaction.ApplyGestureCommand( command, event );
+}
+
+void ReplayRuntime::EndToolGesture( RuntimeInteractionController& interaction, RuntimeInteractionGestureKind kind )
+{
+    if ( interaction.Gesture().kind == kind )
+    {
+        RuntimeGestureCommand command;
+        command.action = RuntimeGestureCommandAction::End;
+        command.gesture.kind = kind;
+        command.reason = InteractionExitReason::EndGesture;
+        RuntimeGestureEvent event;
+        (void)interaction.ApplyGestureCommand( command, event );
+    }
+}
+
+void ReplayRuntime::CancelToolGesture( RuntimeInteractionController& interaction )
+{
+    switch ( interaction.Gesture().kind )
+    {
+    case RuntimeInteractionGestureKind::ReplayScrubDrag:
+    case RuntimeInteractionGestureKind::ReplayVelocityDrag:
+    case RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag:
+    case RuntimeInteractionGestureKind::ReplayCauseTreeDrag:
+    {
+        RuntimeGestureCommand command;
+        command.action = RuntimeGestureCommandAction::End;
+        command.gesture.kind = interaction.Gesture().kind;
+        command.reason = InteractionExitReason::EndGesture;
+        RuntimeGestureEvent event;
+        (void)interaction.ApplyGestureCommand( command, event );
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+void ReplayRuntime::CancelToolDragState( RuntimeInteractionController& interaction, InputRouter& inputRouter )
+{
+    const RuntimeInteractionGestureKind gesture = interaction.Gesture().kind;
+    const bool ownsReplayCapture = interaction.PointerCapture() == RuntimePointerCaptureOwner::ToolGesture &&
+                                   ( gesture == RuntimeInteractionGestureKind::ReplayScrubDrag ||
+                                     gesture == RuntimeInteractionGestureKind::ReplayVelocityDrag ||
+                                     gesture == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag ||
+                                     gesture == RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
+    CancelToolGesture( interaction );
+    if ( ownsReplayCapture )
+    {
+        inputRouter.ReleaseNativeCapture();
+    }
+}
+
+bool ReplayRuntime::HasActiveInteractionState() const
+{
+    return m_camera.active || m_camera.focusKind != RunReplayCameraFocusKind::None ||
+           m_scrubber.historicalSamplePaused || m_scrubber.liveAdvanceHeld || m_pathVisualizer.hasTarget ||
+           !m_pathVisualizer.targets.empty() || m_prediction.enabled || m_prediction.build.building ||
+           m_velocityEdit.enabled || m_causeTree.selectedRow >= 0 || !m_causeTree.rows.empty();
+}
+
+bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionController& interaction,
+                                                          InputRouter& inputRouter )
+{
+    CancelToolDragState( interaction, inputRouter );
+    SetLiveAdvanceHeld( false );
+    const bool exitInspectionCamera = ResetScrubberState() || m_camera.active;
+    SetAllTrackPositions( 1.0f );
+    m_scrubber.visible = false;
+    m_scrubber.visibleAlpha = 0.0f;
+    m_scrubber.fadeUpdatedAt = 0.0;
+    ClearCameraFocusForRestore();
+    ClearPathVisualizerState();
+    m_prediction.enabled = false;
+    ClearPredictionCache();
+    m_velocityEdit = RunReplayVelocityEditState{};
+    m_causeTree.selectedRow = -1;
+    m_causeTree.scrollY = 0.0f;
+    m_causeTree.rows.clear();
+    return exitInspectionCamera;
 }
 
 RunReplayCauseTreeState& ReplayRuntime::CauseTree()
@@ -1103,7 +1236,6 @@ bool ReplayRuntime::SetVelocityEditEnabled( bool enabled )
     m_velocityEdit.enabled = enabled;
     m_velocityEdit.hotLinearAxis = -1;
     m_velocityEdit.hotAngularAxis = -1;
-    m_velocityEdit.activeAxis = -1;
 
     if ( enabled )
     {
@@ -1120,6 +1252,42 @@ bool ReplayRuntime::SetVelocityEditEnabled( bool enabled )
 void ReplayRuntime::SetVelocityEditAltKeyDown( bool isDown )
 {
     m_velocityEdit.keyboardAltWasDown = isDown;
+}
+
+
+ReplayRuntime::KeyboardVelocityEditResult
+ReplayRuntime::ApplyKeyboardVelocityEdit( const KeyboardVelocityEditInput& input )
+{
+    KeyboardVelocityEditResult result;
+    if ( input.altDown && !m_velocityEdit.keyboardAltWasDown )
+    {
+        const bool enableVelocityEdit = !m_velocityEdit.enabled;
+        if ( SetVelocityEditEnabled( enableVelocityEdit ) )
+        {
+            result.cancelToolDrag = true;
+            if ( enableVelocityEdit )
+            {
+                result.enterInteractive = true;
+                if ( SetLiveAdvanceHeld( true ) )
+                {
+                    result.cameraAction = ShouldUseInspectionCamera()
+                                              ? KeyboardVelocityEditCameraAction::EnterInspection
+                                              : KeyboardVelocityEditCameraAction::ExitInspection;
+                }
+                result.setWorldOwner = true;
+                result.worldOwner = WorldInteractionOwner::ReplayVelocityEdit;
+            }
+            else if ( input.currentWorldOwner == WorldInteractionOwner::ReplayVelocityEdit )
+            {
+                result.setWorldOwner = true;
+                result.worldOwner = WorldInteractionOwner::ReplayScrub;
+            }
+        }
+        m_scrubber.visibleUntil = input.now + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
+        m_scrubber.visible = true;
+    }
+    m_velocityEdit.keyboardAltWasDown = input.altDown;
+    return result;
 }
 
 float ReplayRuntime::TrackPosition( RunReplayTrack track ) const
@@ -1161,14 +1329,12 @@ void ReplayRuntime::SetAllTrackPositions( float position )
 bool ReplayRuntime::ResetScrubberState()
 {
     const bool shouldExitInspectionCamera = m_camera.active && !m_scrubber.liveAdvanceHeld;
-    const bool leftWasDown = m_scrubber.leftWasDown;
     const bool restoreWasDown = m_scrubber.restoreWasDown;
     const bool restoreConsumedThisFrame = m_scrubber.restoreConsumedThisFrame;
     const bool liveAdvanceHeld = m_scrubber.liveAdvanceHeld;
     const bool pauseRestoreFlyMode = m_scrubber.pauseRestoreFlyMode;
     const bool pauseRestoreLauncherMode = m_scrubber.pauseRestoreLauncherMode;
     m_scrubber = RunReplayScrubberState{};
-    m_scrubber.leftWasDown = leftWasDown;
     m_scrubber.restoreWasDown = restoreWasDown;
     m_scrubber.restoreConsumedThisFrame = restoreConsumedThisFrame;
     m_scrubber.liveAdvanceHeld = liveAdvanceHeld;
@@ -1178,51 +1344,37 @@ bool ReplayRuntime::ResetScrubberState()
 }
 
 
-ReplayRuntime::ScrubberInputFrame ReplayRuntime::BeginScrubberInputFrame( bool leftDown, bool restoreDown )
+ReplayRuntime::ScrubberInputFrame
+ReplayRuntime::BeginScrubberInputFrame( bool leftPressed, bool leftReleased, bool restoreDown )
 {
     ScrubberInputFrame frame;
     m_scrubber.restoreConsumedThisFrame = false;
-    frame.leftPressed = leftDown && !m_scrubber.leftWasDown;
-    frame.leftReleased = !leftDown && m_scrubber.leftWasDown;
-    m_scrubber.leftWasDown = leftDown;
+    frame.leftPressed = leftPressed;
+    frame.leftReleased = leftReleased;
     frame.restorePressed = restoreDown && !m_scrubber.restoreWasDown;
     m_scrubber.restoreWasDown = restoreDown;
     return frame;
 }
 
 
-ReplayRuntime::ScrubberUnavailableResult ReplayRuntime::ResetUnavailableScrubberSurface( bool loadedPresentation,
-                                                                                         bool leftDown )
+ReplayRuntime::ScrubberUnavailableResult ReplayRuntime::ResetUnavailableScrubberSurface( bool loadedPresentation )
 {
     ScrubberUnavailableResult result;
     if ( !loadedPresentation )
     {
         result.exitInspectionCamera = ResetScrubberState();
     }
-    m_prediction.ui.checkboxHovered = false;
-    m_prediction.ui.ragdollVisualsHovered = false;
-    m_prediction.ui.decreaseHovered = false;
-    m_prediction.ui.increaseHovered = false;
-    m_prediction.ui.horizonHovered = false;
-    m_prediction.ui.horizonDragging = false;
-    m_pathVisualizer.pastPathHovered = false;
-    m_velocityEdit.toggleHovered = false;
-    m_scrubber.branchHovered = false;
-    m_scrubber.loadHovered = false;
-    m_scrubber.leftWasDown = leftDown;
     m_scrubber.fadeUpdatedAt = 0.0;
     m_scrubber.visibleAlpha = 0.0f;
     return result;
 }
 
 
-ReplayRuntime::PointerButtonEdges ReplayRuntime::BeginCauseTreeInputFrame( bool leftDown )
+ReplayRuntime::PointerButtonEdges ReplayRuntime::BeginCauseTreeInputFrame( bool leftPressed, bool leftReleased )
 {
     PointerButtonEdges edges;
-    edges.leftPressed = leftDown && !m_causeTree.leftWasDown;
-    edges.leftReleased = !leftDown && m_causeTree.leftWasDown;
-    m_causeTree.leftWasDown = leftDown;
-    m_causeTree.hoveredRow = -1;
+    edges.leftPressed = leftPressed;
+    edges.leftReleased = leftReleased;
     return edges;
 }
 
@@ -1315,7 +1467,10 @@ float ReplayRuntime::PredictionNormalizedFromTrack( float position, float presen
     return std::clamp( ( position - presentT ) / ( 1.0f - presentT ), 0.0f, 1.0f );
 }
 
-bool ReplayRuntime::ShouldRenderScrubber( bool editorModeEnabled, bool uiVisible, bool uiMinimized ) const
+bool ReplayRuntime::ShouldRenderScrubber( bool editorModeEnabled,
+                                          bool uiVisible,
+                                          bool uiMinimized,
+                                          RuntimeInteractionGestureKind gesture ) const
 {
     if ( editorModeEnabled || !uiVisible || !uiMinimized )
     {
@@ -1328,8 +1483,9 @@ bool ReplayRuntime::ShouldRenderScrubber( bool editorModeEnabled, bool uiVisible
     // Why: visibility is about whether a replay control surface is armed, not
     // whether enough retained frames exist to enable scrub/prediction tools.
     return ( loadedPresentation || solverReplayEnabled ) &&
-           ( m_scrubber.visible || m_scrubber.dragging || m_scrubber.historicalSamplePaused ||
-             m_scrubber.liveAdvanceHeld );
+           ( m_scrubber.visible || gesture == RuntimeInteractionGestureKind::ReplayScrubDrag ||
+             gesture == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag ||
+             m_scrubber.historicalSamplePaused || m_scrubber.liveAdvanceHeld );
 }
 
 bool ReplayRuntime::ShouldUseInspectionCamera() const
@@ -1359,14 +1515,11 @@ bool ReplayRuntime::ArmLoadedPresentationScrubber( float normalized, double now 
 
     ClearPathVisualizerState();
     m_prediction.enabled = false;
-    m_prediction.ui.horizonDragging = false;
     m_velocityEdit = RunReplayVelocityEditState{};
     m_scrubber.activeTrack = RunReplayTrack::Presentation;
     SetTrackPosition( RunReplayTrack::Presentation, normalized );
     m_scrubber.solverPosition = 1.0f;
-    m_scrubber.dragging = false;
     m_scrubber.historicalSamplePaused = true;
-    m_scrubber.mouseCaptured = false;
     m_scrubber.visible = true;
     m_scrubber.visibleUntil = now + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
     return true;
@@ -1379,8 +1532,8 @@ void ReplayRuntime::ClearCameraFocusForRestore()
     m_camera.counterpartId = ReplayBodyId{};
     m_camera.focusedRow = -1;
     m_camera.focusRowKind = RunReplayCauseTreeRowKind::Body;
-    m_camera.focusModelIndex = -1;
-    m_camera.focusCounterpartModelIndex = -1;
+    m_camera.focusModelRow.value = -1;
+    m_camera.focusCounterpartModelRow.value = -1;
     m_camera.focusContactIndex = -1;
     m_camera.focusSolverRowIndex = -1;
     m_camera.focusFeatureId = 0;
@@ -1521,7 +1674,7 @@ ReplayRuntime::SceneTimelineResetResult ReplayRuntime::BeginSceneTimelineReset( 
     // Prediction workers hold only replay-owned values, but cancellation still
     // waits here before old private-engine snapshots are cleared or replaced.
     CancelPredictionJob( true );
-    if ( !input.preserveBranchMetadata )
+    if ( SceneTimelineResetClearsBranch( input ) )
     {
         ResetBranch();
     }
@@ -1559,15 +1712,9 @@ ReplayRuntime::SceneTimelineResetResult ReplayRuntime::FinishSceneTimelineReset(
     m_captureMismatchReports = 0;
     m_captureMismatchSuppressed = false;
 
-    if ( !( input.isSceneMode && input.solverBallCount <= 0 && input.solverBoxCount <= 0 ) )
+    if ( SceneTimelineRecordsGeneratedConfig( input ) )
     {
-        uint32_t flags = 0;
-        flags |=
-            ( input.solverBallCount > 0 || input.solverBoxCount > 0 ) ? REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS : 0u;
-        flags |= input.hasUiModelCountOverride ? REPLAY_GENERATED_SCENE_UI_MODEL_COUNT : 0u;
-        flags |= input.hasUiSolverCountOverride ? REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS : 0u;
-        flags |= ( input.generatedObjectTypeOverride << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT ) &
-                 REPLAY_GENERATED_SCENE_OVERRIDE_MASK;
+        const uint32_t flags = SceneTimelineGeneratedConfigFlags( input );
 
         uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
         ReplayRuntimeHashInt( hash, input.modelCount );
@@ -1670,8 +1817,32 @@ void ReplayRuntime::RefreshPastTrajectoryStoreFromSolverSamples()
     rebuild.store = &m_prediction.trajectoryStore;
     rebuild.record = record;
     rebuild.targetId = m_pathVisualizer.targetId;
-    rebuild.targetModelIndex = m_pathVisualizer.targetModelIndex;
-    m_solver.ForEachSampleChronological( RebuildReplayPastRootTrajectorySample, &rebuild );
+    rebuild.targetModelRow.value = m_pathVisualizer.targetModelRow.value;
+    m_solver.ForEachSampleChronological(
+        [&]( const ReplaySolverFrameSample& sample )
+        {
+            if ( !rebuild.ok )
+            {
+                return;
+            }
+            const ReplaySolverBodySample* body =
+                FindReplayBodyByIdWithHint( sample, rebuild.targetId, rebuild.targetModelRow.value );
+            if ( !body )
+            {
+                return;
+            }
+            rebuild.ok = AppendReplayPastRootTrajectoryPoint( *rebuild.store, *rebuild.record, sample, *body );
+            if ( rebuild.ok )
+            {
+                if ( !rebuild.hasSample )
+                {
+                    rebuild.firstFrame = sample.frameIndex;
+                    rebuild.hasSample = true;
+                }
+                rebuild.builtThroughFrame = sample.frameIndex;
+                rebuild.targetModelRow.value = body->modelRow.value;
+            }
+        } );
     if ( !rebuild.ok || !rebuild.hasSample )
     {
         m_pathVisualizer.pastTrajectory = RunReplayPastTrajectoryBuildState{};
@@ -1679,7 +1850,7 @@ void ReplayRuntime::RefreshPastTrajectoryStoreFromSolverSamples()
     }
 
     record->firstFrame = rebuild.firstFrame;
-    m_pathVisualizer.targetModelIndex = rebuild.targetModelIndex;
+    m_pathVisualizer.targetModelRow.value = rebuild.targetModelRow.value;
     m_pathVisualizer.pastTrajectory.targetId = m_pathVisualizer.targetId;
     m_pathVisualizer.pastTrajectory.firstFrame = oldestFrame;
     m_pathVisualizer.pastTrajectory.builtThroughFrame = rebuild.builtThroughFrame;
@@ -1760,7 +1931,7 @@ void ReplayRuntime::AppendSolverTrajectorySampleToStore( const ReplaySolverFrame
     }
 
     const ReplaySolverBodySample* body =
-        FindReplayBodyByIdWithHint( sample, m_pathVisualizer.targetId, m_pathVisualizer.targetModelIndex );
+        FindReplayBodyByIdWithHint( sample, m_pathVisualizer.targetId, m_pathVisualizer.targetModelRow.value );
     if ( !body )
     {
         return;
@@ -1772,7 +1943,7 @@ void ReplayRuntime::AppendSolverTrajectorySampleToStore( const ReplaySolverFrame
         return;
     }
 
-    m_pathVisualizer.targetModelIndex = body->modelIndex;
+    m_pathVisualizer.targetModelRow.value = body->modelRow.value;
     m_pathVisualizer.pastTrajectory.builtThroughFrame = sample.frameIndex;
 }
 
@@ -1810,11 +1981,12 @@ void ReplayRuntime::CaptureFrame( ReplayCaptureInput input )
 // below apply replay or prediction poses to a freshly prepared render-instance
 // snapshot; live physics rows and authored presentation metadata are not
 // mutated and therefore need no restore.
-bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelCollection& collection,
+bool ReplayRuntime::ApplyPresentationSampleForRender( Rendering::RenderInstanceStore& renderInstances,
+                                                      const PhysicsBodyStore& bodyStore,
+                                                      const ColliderStore& colliderStore,
                                                       const ReplayPresentationSample& sample )
 {
-    const PhysicsBodyStore& bodyStore = collection.BodyStore();
-    const int modelCount = collection.RenderInstances().Count();
+    const int modelCount = renderInstances.Count();
     if ( !ReplayRuntimePrepareBodyMatchedMask( m_renderPoseBodyMatched, modelCount ) )
     {
         return false;
@@ -1824,7 +1996,7 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelColl
     for ( const ReplayBodyPresentationSample& body : sample.bodies )
     {
         int resolvedModelIndex = -1;
-        if ( !ReplayRuntimeResolveReplayBody( bodyStore, body.id, body.modelIndex, modelCount, resolvedModelIndex ) )
+        if ( !ReplayRuntimeResolveReplayBody( bodyStore, body.id, -1, modelCount, resolvedModelIndex ) )
         {
             continue;
         }
@@ -1834,9 +2006,10 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelColl
                                                    body.orientation[2],
                                                    body.orientation[3] );
         orientation.Normalise();
-        if ( ReplayRuntimeQueueRenderPoseOverride( collection,
-                                                   resolvedModelIndex,
-                                                   body.id.value,
+        if ( ReplayRuntimeQueueRenderPoseOverride( renderInstances,
+                                                   bodyStore,
+                                                   colliderStore,
+                                                   body.id,
                                                    body.position,
                                                    orientation ) )
         {
@@ -1863,9 +2036,11 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelColl
         // Why: loaded artifacts may not contain every live body. Move unmatched
         // bodies out of view instead of letting unrelated live geometry appear
         // inside the scrubbed replay frame.
-        if ( ReplayRuntimeQueueRenderPoseOverride( collection,
-                                                   i,
-                                                   bodyRecord->replayBodyId,
+        ReplayBodyId replayBodyId{ bodyRecord->replayBodyId };
+        if ( ReplayRuntimeQueueRenderPoseOverride( renderInstances,
+                                                   bodyStore,
+                                                   colliderStore,
+                                                   replayBodyId,
                                                    hiddenReplayPosition,
                                                    Math::Orientation::IDENTITY_QUATERNION ) )
         {
@@ -1875,11 +2050,12 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelColl
     return queuedAny;
 }
 
-bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection& collection,
+bool ReplayRuntime::ApplySolverSampleForRender( Rendering::RenderInstanceStore& renderInstances,
+                                                const PhysicsBodyStore& bodyStore,
+                                                const ColliderStore& colliderStore,
                                                 const ReplaySolverFrameSample& sample )
 {
-    const PhysicsBodyStore& bodyStore = collection.BodyStore();
-    const int modelCount = collection.RenderInstances().Count();
+    const int modelCount = renderInstances.Count();
     if ( !ReplayRuntimePrepareBodyMatchedMask( m_renderPoseBodyMatched, modelCount ) )
     {
         return false;
@@ -1889,7 +2065,7 @@ bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection
     for ( const ReplaySolverBodySample& body : sample.bodies )
     {
         int resolvedModelIndex = -1;
-        if ( !ReplayRuntimeResolveReplayBody( bodyStore, body.id, body.modelIndex, modelCount, resolvedModelIndex ) )
+        if ( !ReplayRuntimeResolveReplayBody( bodyStore, body.id, -1, modelCount, resolvedModelIndex ) )
         {
             continue;
         }
@@ -1899,9 +2075,10 @@ bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection
                                                    body.orientation[2],
                                                    body.orientation[3] );
         orientation.Normalise();
-        if ( ReplayRuntimeQueueRenderPoseOverride( collection,
-                                                   resolvedModelIndex,
-                                                   body.id.value,
+        if ( ReplayRuntimeQueueRenderPoseOverride( renderInstances,
+                                                   bodyStore,
+                                                   colliderStore,
+                                                   body.id,
                                                    body.position,
                                                    orientation ) )
         {
@@ -1925,9 +2102,11 @@ bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection
             continue;
         }
 
-        if ( ReplayRuntimeQueueRenderPoseOverride( collection,
-                                                   i,
-                                                   bodyRecord->replayBodyId,
+        ReplayBodyId replayBodyId{ bodyRecord->replayBodyId };
+        if ( ReplayRuntimeQueueRenderPoseOverride( renderInstances,
+                                                   bodyStore,
+                                                   colliderStore,
+                                                   replayBodyId,
                                                    hiddenReplayPosition,
                                                    Math::Orientation::IDENTITY_QUATERNION ) )
         {
@@ -1937,11 +2116,12 @@ bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection
     return queuedAny;
 }
 
-bool ReplayRuntime::ApplyPredictionFrameForRender( GameObjects::GameModelCollection& collection,
+bool ReplayRuntime::ApplyPredictionFrameForRender( Rendering::RenderInstanceStore& renderInstances,
+                                                   const PhysicsBodyStore& bodyStore,
+                                                   const ColliderStore& colliderStore,
                                                    const RunReplayPredictionFrame& frame )
 {
-    const PhysicsBodyStore& bodyStore = collection.BodyStore();
-    const int modelCount = collection.RenderInstances().Count();
+    const int modelCount = renderInstances.Count();
     if ( !ReplayRuntimePrepareBodyMatchedMask( m_renderPoseBodyMatched, modelCount ) )
     {
         return false;
@@ -1951,16 +2131,21 @@ bool ReplayRuntime::ApplyPredictionFrameForRender( GameObjects::GameModelCollect
     for ( const RunReplayPredictionBodySample& body : frame.bodies )
     {
         int resolvedModelIndex = -1;
-        if ( !ReplayRuntimeResolveReplayBody( bodyStore, body.id, body.modelIndex, modelCount, resolvedModelIndex ) )
+        if ( !ReplayRuntimeResolveReplayBody( bodyStore,
+                                              body.id,
+                                              body.modelRow.value,
+                                              modelCount,
+                                              resolvedModelIndex ) )
         {
             continue;
         }
 
         Math::Orientation::Quaternion orientation = body.orientation;
         orientation.Normalise();
-        if ( ReplayRuntimeQueueRenderPoseOverride( collection,
-                                                   resolvedModelIndex,
-                                                   body.id.value,
+        if ( ReplayRuntimeQueueRenderPoseOverride( renderInstances,
+                                                   bodyStore,
+                                                   colliderStore,
+                                                   body.id,
                                                    body.position,
                                                    orientation ) )
         {
@@ -1984,9 +2169,11 @@ bool ReplayRuntime::ApplyPredictionFrameForRender( GameObjects::GameModelCollect
             continue;
         }
 
-        if ( ReplayRuntimeQueueRenderPoseOverride( collection,
-                                                   i,
-                                                   bodyRecord->replayBodyId,
+        ReplayBodyId replayBodyId{ bodyRecord->replayBodyId };
+        if ( ReplayRuntimeQueueRenderPoseOverride( renderInstances,
+                                                   bodyStore,
+                                                   colliderStore,
+                                                   replayBodyId,
                                                    hiddenReplayPosition,
                                                    Math::Orientation::IDENTITY_QUATERNION ) )
         {
@@ -2153,12 +2340,12 @@ bool ReplayRuntime::ResolveCauseTreeBodyPosition( ReplayBodyId id,
             outPosition = body->position;
             if ( outRadius )
             {
-                const PhysicsBodyHandle liveBody = bodyStore.HandleForReplayBodyId( id.value, body->modelIndex );
+                const PhysicsBodyHandle liveBody = bodyStore.HandleForReplayBodyId( id.value, body->modelRow.value );
                 const PhysicsBodyRecord* liveBodyRecord = bodyStore.RecordForHandle( liveBody );
                 *outRadius =
                     liveBodyRecord
-                        ? ReplayRuntimeColliderRadiusForBody( colliderStore, *liveBodyRecord, body->modelIndex )
-                        : ReplayRuntimeColliderRadiusForModelIndex( colliderStore, body->modelIndex );
+                        ? ReplayRuntimeColliderRadiusForBody( colliderStore, *liveBodyRecord, body->modelRow.value )
+                        : ReplayRuntimeColliderRadiusForModelIndex( colliderStore, body->modelRow.value );
             }
             return true;
         }
@@ -2171,12 +2358,12 @@ bool ReplayRuntime::ResolveCauseTreeBodyPosition( ReplayBodyId id,
             outPosition = body->position;
             if ( outRadius )
             {
-                const PhysicsBodyHandle liveBody = bodyStore.HandleForReplayBodyId( id.value, body->modelIndex );
+                const PhysicsBodyHandle liveBody = bodyStore.HandleForReplayBodyId( id.value, body->modelRow.value );
                 const PhysicsBodyRecord* liveBodyRecord = bodyStore.RecordForHandle( liveBody );
                 *outRadius =
                     liveBodyRecord
-                        ? ReplayRuntimeColliderRadiusForBody( colliderStore, *liveBodyRecord, body->modelIndex )
-                        : ReplayRuntimeColliderRadiusForModelIndex( colliderStore, body->modelIndex );
+                        ? ReplayRuntimeColliderRadiusForBody( colliderStore, *liveBodyRecord, body->modelRow.value )
+                        : ReplayRuntimeColliderRadiusForModelIndex( colliderStore, body->modelRow.value );
             }
             return true;
         }
@@ -2208,7 +2395,7 @@ PhysicsBodyHandle ReplayRuntime::ResolveVelocityEditBodyHandle( const PhysicsBod
         return PhysicsBodyHandle{};
     }
 
-    return bodyStore.HandleForReplayBodyId( m_pathVisualizer.targetId.value, m_pathVisualizer.targetModelIndex );
+    return bodyStore.HandleForReplayBodyId( m_pathVisualizer.targetId.value, m_pathVisualizer.targetModelRow.value );
 }
 
 
@@ -2273,7 +2460,7 @@ bool ReplayRuntime::BuildCauseTreeRows(
         {
             if ( const ReplaySolverBodySample* sampleBody = FindReplayBodyById( *solverSample, id ) )
             {
-                return sampleBody->modelIndex;
+                return sampleBody->modelRow.value;
             }
         }
         return -1;
@@ -2352,8 +2539,8 @@ bool ReplayRuntime::BuildCauseTreeRows(
                 contactRow.counterpartId = node.parentId;
                 contactRow.firstFrame = node.firstFrame;
                 contactRow.depth = bodyRow.depth + 1;
-                contactRow.modelIndex = bodyRow.modelIndex;
-                contactRow.counterpartModelIndex = node.parentModelIndex;
+                contactRow.modelRow.value = bodyRow.modelRow.value;
+                contactRow.counterpartModelRow.value = node.parentModelRow.value;
                 contactRow.contactIndex = i;
                 contactRow.prediction = true;
                 contactRow.point = node.contactPoint;
@@ -2388,7 +2575,7 @@ bool ReplayRuntime::BuildCauseTreeRows(
             return;
         }
 
-        if ( !solverSample || bodyRow.modelIndex < 0 )
+        if ( !solverSample || bodyRow.modelRow.value < 0 )
         {
             return;
         }
@@ -2402,11 +2589,11 @@ bool ReplayRuntime::BuildCauseTreeRows(
         std::size_t groupCount = 0;
         for ( const ReplaySolverPersistentContactSample& contact : solverSample->worldSnapshot.persistentContacts )
         {
-            if ( !ReplayContactHasModelIndex( contact, bodyRow.modelIndex ) )
+            if ( !ReplayContactHasModelIndex( contact, bodyRow.modelRow.value ) )
             {
                 continue;
             }
-            const int otherModelIndex = ReplayContactOtherModelIndex( contact, bodyRow.modelIndex );
+            const int otherModelIndex = ReplayContactOtherModelIndex( contact, bodyRow.modelRow.value );
             const bool terrain = contact.isTerrain || otherModelIndex < 0;
             bool exists = false;
             for ( std::size_t groupIndex = 0; groupIndex < groupCount; ++groupIndex )
@@ -2443,11 +2630,11 @@ bool ReplayRuntime::BuildCauseTreeRows(
             {
                 const ReplaySolverPersistentContactSample& contact =
                     solverSample->worldSnapshot.persistentContacts[static_cast<std::size_t>( i )];
-                if ( !ReplayContactHasModelIndex( contact, bodyRow.modelIndex ) )
+                if ( !ReplayContactHasModelIndex( contact, bodyRow.modelRow.value ) )
                 {
                     continue;
                 }
-                const int otherModelIndex = ReplayContactOtherModelIndex( contact, bodyRow.modelIndex );
+                const int otherModelIndex = ReplayContactOtherModelIndex( contact, bodyRow.modelRow.value );
                 const bool terrain = contact.isTerrain || otherModelIndex < 0;
                 if ( otherModelIndex != group.otherModelIndex || terrain != group.terrain )
                 {
@@ -2455,7 +2642,7 @@ bool ReplayRuntime::BuildCauseTreeRows(
                 }
                 const Vector3 point = ReplayContactPoint( *solverSample, contact );
                 centroid += point;
-                normalSum += ReplayContactNormalForModel( contact, bodyRow.modelIndex );
+                normalSum += ReplayContactNormalForModel( contact, bodyRow.modelRow.value );
                 maxPenetration = (std::max)( maxPenetration, contact.penetration );
                 pointCount += 1;
                 if ( firstContactIndex < 0 )
@@ -2487,8 +2674,8 @@ bool ReplayRuntime::BuildCauseTreeRows(
             manifoldRow.parentId = bodyRow.parentId;
             manifoldRow.counterpartId = otherId;
             manifoldRow.depth = bodyRow.depth + 1;
-            manifoldRow.modelIndex = bodyRow.modelIndex;
-            manifoldRow.counterpartModelIndex = group.otherModelIndex;
+            manifoldRow.modelRow.value = bodyRow.modelRow.value;
+            manifoldRow.counterpartModelRow.value = group.otherModelIndex;
             manifoldRow.contactIndex = firstContactIndex;
             manifoldRow.featureId = static_cast<int>( firstFeatureId );
             manifoldRow.manifoldPointCount = pointCount;
@@ -2512,11 +2699,11 @@ bool ReplayRuntime::BuildCauseTreeRows(
             {
                 const ReplaySolverPersistentContactSample& contact =
                     solverSample->worldSnapshot.persistentContacts[static_cast<std::size_t>( i )];
-                if ( !ReplayContactHasModelIndex( contact, bodyRow.modelIndex ) )
+                if ( !ReplayContactHasModelIndex( contact, bodyRow.modelRow.value ) )
                 {
                     continue;
                 }
-                const int otherModelIndex = ReplayContactOtherModelIndex( contact, bodyRow.modelIndex );
+                const int otherModelIndex = ReplayContactOtherModelIndex( contact, bodyRow.modelRow.value );
                 const bool terrain = contact.isTerrain || otherModelIndex < 0;
                 if ( otherModelIndex != group.otherModelIndex || terrain != group.terrain )
                 {
@@ -2529,8 +2716,8 @@ bool ReplayRuntime::BuildCauseTreeRows(
                 solverRow.parentId = bodyRow.parentId;
                 solverRow.counterpartId = otherId;
                 solverRow.depth = bodyRow.depth + 2;
-                solverRow.modelIndex = bodyRow.modelIndex;
-                solverRow.counterpartModelIndex = group.otherModelIndex;
+                solverRow.modelRow.value = bodyRow.modelRow.value;
+                solverRow.counterpartModelRow.value = group.otherModelIndex;
                 solverRow.contactIndex = i;
                 solverRow.solverRowIndex = i;
                 solverRow.pipelineIndex = ReplayFindPipelineIndexForContact( solverSample->worldSnapshot, contact );
@@ -2544,8 +2731,8 @@ bool ReplayRuntime::BuildCauseTreeRows(
                 solverRow.effectiveMass = contact.normalMass;
                 solverRow.frictionLimit = contact.frictionLimit;
                 solverRow.point = ReplayContactPoint( *solverSample, contact );
-                solverRow.normal = ReplayContactNormalForModel( contact, bodyRow.modelIndex );
-                solverRow.impulse = ReplayContactImpulseForModel( contact, bodyRow.modelIndex );
+                solverRow.normal = ReplayContactNormalForModel( contact, bodyRow.modelRow.value );
+                solverRow.impulse = ReplayContactImpulseForModel( contact, bodyRow.modelRow.value );
                 solverRow.terrain = terrain;
                 solverRow.warmStarted = contact.warmStarted;
                 sprintf_s( solverRow.name, sizeof( solverRow.name ), "Solver row %d", i );
@@ -2594,9 +2781,9 @@ bool ReplayRuntime::BuildCauseTreeRows(
         row.parentId = parentId;
         row.firstFrame = firstFrame;
         row.depth = depth;
-        row.modelIndex = modelIndexForId( id, modelIndex );
+        row.modelRow.value = modelIndexForId( id, modelIndex );
         row.prediction = usePrediction;
-        writeName( id, row.modelIndex, fallbackName, row.name, sizeof( row.name ) );
+        writeName( id, row.modelRow.value, fallbackName, row.name, sizeof( row.name ) );
         if ( usePrediction && firstFrame > 0 )
         {
             sprintf_s( row.detail,
@@ -2604,9 +2791,9 @@ bool ReplayRuntime::BuildCauseTreeRows(
                        "first affected frame %llu",
                        static_cast<unsigned long long>( firstFrame ) );
         }
-        else if ( row.modelIndex >= 0 && solverSample )
+        else if ( row.modelRow.value >= 0 && solverSample )
         {
-            if ( const ReplaySolverBodySample* body = FindReplayBodyByModelIndex( *solverSample, row.modelIndex ) )
+            if ( const ReplaySolverBodySample* body = FindReplayBodyByModelIndex( *solverSample, row.modelRow.value ) )
             {
                 sprintf_s( row.detail,
                            sizeof( row.detail ),
@@ -2635,7 +2822,7 @@ bool ReplayRuntime::BuildCauseTreeRows(
                       ReplayBodyId{},
                       0,
                       0,
-                      m_pathVisualizer.targetModelIndex,
+                      m_pathVisualizer.targetModelRow.value,
                       m_pathVisualizer.targetName ) )
     {
         m_causeTree.rows.clear();
@@ -2656,7 +2843,7 @@ bool ReplayRuntime::BuildCauseTreeRows(
                              parentId,
                              node.firstFrame,
                              depth,
-                             modelIndexForId( node.id, node.modelIndex ),
+                             modelIndexForId( node.id, node.modelRow.value ),
                              nullptr ) )
             {
                 self( self, node.id, depth + 1 );
@@ -2678,13 +2865,13 @@ bool ReplayRuntime::BuildCauseTreeRows(
         {
             const RunReplayCauseTreeRow& row = m_causeTree.rows[static_cast<std::size_t>( i )];
             if ( row.kind != m_camera.focusRowKind || row.id.value != m_camera.focusedId.value ||
-                 row.modelIndex != m_camera.focusModelIndex || row.terrain != m_camera.focusTerrain )
+                 row.modelRow.value != m_camera.focusModelRow.value || row.terrain != m_camera.focusTerrain )
             {
                 continue;
             }
             if ( row.kind == RunReplayCauseTreeRowKind::Body ||
                  ( row.counterpartId.value == m_camera.counterpartId.value &&
-                   row.counterpartModelIndex == m_camera.focusCounterpartModelIndex &&
+                   row.counterpartModelRow.value == m_camera.focusCounterpartModelRow.value &&
                    ( row.kind != RunReplayCauseTreeRowKind::SolverRow ||
                      ( row.featureId == m_camera.focusFeatureId &&
                        row.solverRowIndex == m_camera.focusSolverRowIndex ) ) ) )
@@ -2741,15 +2928,15 @@ bool ReplayRuntime::BuildPredictionGhostDrawRequests(
     {
         for ( const ReplayPredictionBaselineBodyPose& pose : m_prediction.baseline.bodyPoses )
         {
-            if ( !pose.hasRestPose || pose.modelIndex < 0 ||
-                 pose.modelIndex >= static_cast<int>( presentationRecords.size() ) ||
-                 !ReplayRuntimeModelIsRagdollPart( presentationRecords, pose.modelIndex ) )
+            if ( !pose.hasRestPose || pose.modelRow.value < 0 ||
+                 pose.modelRow.value >= static_cast<int>( presentationRecords.size() ) ||
+                 !ReplayRuntimeModelIsRagdollPart( presentationRecords, pose.modelRow.value ) )
             {
                 continue;
             }
 
             ReplayPredictionGhostDrawRequest request;
-            request.modelIndex = pose.modelIndex;
+            request.modelRow.value = pose.modelRow.value;
             request.position = pose.restPosition;
             request.orientation = pose.restOrientation;
             request.orientation.Normalise();
@@ -2794,7 +2981,7 @@ bool ReplayRuntime::BuildPredictionGhostDrawRequests(
             int resolvedModelIndex = -1;
             if ( !ReplayRuntimeResolveReplayBody( bodyStore,
                                                   body.id,
-                                                  body.modelIndex,
+                                                  body.modelRow.value,
                                                   static_cast<int>( presentationRecords.size() ),
                                                   resolvedModelIndex ) )
             {
@@ -2807,7 +2994,7 @@ bool ReplayRuntime::BuildPredictionGhostDrawRequests(
             }
 
             ReplayPredictionGhostDrawRequest request;
-            request.modelIndex = resolvedModelIndex;
+            request.modelRow.value = resolvedModelIndex;
             request.position = body.position;
             request.orientation = body.orientation;
             request.orientation.Normalise();
@@ -2873,13 +3060,13 @@ bool ReplayRuntime::BuildFocusModelMask( const PhysicsBodyStore& bodyStore, int 
 
     if ( m_pathVisualizer.targets.empty() )
     {
-        markByReplayId( m_pathVisualizer.targetId, m_pathVisualizer.targetModelIndex );
+        markByReplayId( m_pathVisualizer.targetId, m_pathVisualizer.targetModelRow.value );
     }
     else
     {
         for ( const RunReplayPathTarget& target : m_pathVisualizer.targets )
         {
-            markByReplayId( target.id, target.modelIndex );
+            markByReplayId( target.id, target.modelRow.value );
         }
     }
 
@@ -2887,7 +3074,7 @@ bool ReplayRuntime::BuildFocusModelMask( const PhysicsBodyStore& bodyStore, int 
         m_prediction.enabled ? m_prediction.futureNodeCache.futureNodes : m_pathVisualizer.futureNodes;
     for ( const RunReplayPathTraceNode& node : futureNodes )
     {
-        markByReplayId( node.id, node.modelIndex );
+        markByReplayId( node.id, node.modelRow.value );
     }
 
     if ( markedCount <= 0 || markedCount >= modelCount )
@@ -2923,6 +3110,14 @@ void ReplayRuntime::StoreLauncherVisualBackup( const ReplayLauncherVisualSample&
 const ReplayLauncherVisualSample& ReplayRuntime::LauncherVisualBackup() const
 {
     return m_launcherVisualBackup;
+}
+
+
+ReplayLauncherVisualSample& ReplayRuntime::LauncherVisualCaptureScratch()
+{
+    // Lifetime: this scratch belongs to replay capture and is reused only at
+    // the synchronous post-physics capture boundary.
+    return m_launcherVisualCaptureScratch;
 }
 
 void ReplayRuntime::ClearLauncherVisualBackup()
@@ -3046,6 +3241,27 @@ MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
     stats.solverRetentionSeconds = m_memoryPolicy.solverRetentionSeconds;
     stats.memoryBudgetClamped = m_memoryPolicy.budgetClamped;
     stats.solverWindowReduced = m_memoryPolicy.solverWindowReduced;
+    // The policy table is stable and fixed-size; diagnostics never discovers
+    // replay owners by scanning recent-event text or allocating a report map.
+    for ( std::size_t index = 0; index < REPLAY_GROWTH_OWNER_POLICIES.size(); ++index )
+    {
+        const ReplayGrowthOwnerPolicy& policy = REPLAY_GROWTH_OWNER_POLICIES[index];
+        MainMemoryReplayStats::GrowthOwner& growth = stats.growthOwners[index];
+        growth.ownerName = policy.ownerName;
+        growth.hardBytes = policy.hardBytes;
+        growth.measuredHighWaterBytes = policy.measuredHighWaterBytes;
+        Runtime::Allocation::RuntimeReserveOwnerStatsView ownerStats = {};
+        growth.registered =
+            Runtime::Allocation::RuntimeReserveAllocator::CopyOwnerStatsByName( policy.ownerName, ownerStats );
+        if ( growth.registered )
+        {
+            growth.allocatorHighWaterBytes = ownerStats.highWaterBytes;
+            growth.replayGrowths = ownerStats.replayGrowths;
+            growth.failedGrowths = ownerStats.failedGrowths;
+            growth.reportedHighWaterCapacity = ownerStats.highWaterCapacity;
+            growth.lastGrowthFrame = ownerStats.lastGrowthFrame;
+        }
+    }
 
     MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
                                       MainMemoryReplayByteCategory::LoadedOwner,
@@ -3411,13 +3627,113 @@ void ReplayRuntime::RecordEditorTransformEvent( int modelIndex,
                  payload );
 }
 
-bool ReplayRuntime::SaveSolverReplay( const char* path ) const
-{
-    return ReplayExporter::Save( m_solver, path );
-}
-
 bool ReplayRuntime::SavePresentationWithSolverHashes( const char* path, ReplayV2SaveResult* result ) const
 {
     return ReplayV2Artifact::SavePresentationWithSolverHashes( m_presentation, m_solver, m_events, path, result );
+}
+
+bool ReplayRuntime::SavePresentationFromScrubber( double now )
+{
+    // Invariant: the owner advances the process-local sequence and publishes
+    // success only after the binary v2 writer completes.
+    char path[256] = {};
+    bool saved = false;
+    if ( RuntimeFileWriter::NextNumberedPath( path,
+                                              sizeof( path ),
+                                              "replays",
+                                              "replay_v2_",
+                                              ".skreplay",
+                                              m_presentationSaveSequence ) )
+    {
+        saved = SavePresentationWithSolverHashes( path );
+    }
+
+    m_scrubber.saveMessageTrack = RunReplayTrack::Presentation;
+    if ( saved )
+    {
+        const char* fileName = std::strrchr( path, '\\' );
+        if ( !fileName )
+        {
+            fileName = std::strrchr( path, '/' );
+        }
+        fileName = fileName ? fileName + 1 : path;
+        sprintf_s( m_scrubber.saveMessage, sizeof( m_scrubber.saveMessage ), "SAVED %s", fileName );
+    }
+    else
+    {
+        sprintf_s( m_scrubber.saveMessage, sizeof( m_scrubber.saveMessage ), "REPLAY SAVE FAILED" );
+    }
+    m_scrubber.saveMessageUntil = now + 2.5;
+    m_scrubber.visibleUntil = now + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    m_scrubber.visible = true;
+    return saved;
+}
+
+bool ReplayRuntime::LoadPresentationArtifact( const char* path,
+                                              bool activateScrubber,
+                                              double now,
+                                              InputRouter& inputRouter,
+                                              RuntimeInteractionController& interaction,
+                                              Environment::CameraCollection* cameras,
+                                              Geometry::Terrain* terrain,
+                                              RunCameraState& camera,
+                                              RunMousePickupState& mousePickup,
+                                              RunCameraMode normalizedCurrentMode,
+                                              RunCameraMode normalizedRestoreMode,
+                                              bool attachedFollow,
+                                              bool directorGrabbed )
+{
+    if ( !path || path[0] == '\0' )
+    {
+        return false;
+    }
+    std::vector<ReplayPresentationSample> samples;
+    ReplayV2LoadResult result;
+    if ( !ReplayV2Artifact::LoadPresentation( path, samples, &result ) || samples.size() < 2 )
+    {
+        return false;
+    }
+
+    m_loadedPresentation = RunLoadedReplayPresentationState{};
+    m_loadedPresentation.samples.swap( samples );
+    m_loadedPresentation.enabled = true;
+    m_loadedPresentation.bodyDictionaryCount = result.bodyDictionaryCount;
+    m_loadedPresentation.fileBytes = result.fileBytes;
+    m_loadedPresentation.firstFrame = result.firstFrame;
+    m_loadedPresentation.lastFrame = result.lastFrame;
+    strncpy_s( m_loadedPresentation.path, sizeof( m_loadedPresentation.path ), path, _TRUNCATE );
+
+    if ( activateScrubber )
+    {
+        SetLiveAdvanceHeld( false );
+        CancelToolDragState( interaction, inputRouter );
+        ClearCameraFocusForRestore();
+        ExitInspectionCamera( cameras,
+                              terrain,
+                              camera,
+                              normalizedRestoreMode,
+                              attachedFollow,
+                              directorGrabbed,
+                              interaction,
+                              inputRouter );
+        ArmLoadedPresentationScrubber( 0.25f, now );
+        interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                         WorldInteractionOwner::ReplayScrub,
+                                                         InteractionExitReason::EnterReplay );
+        if ( ShouldUseInspectionCamera() )
+        {
+            EnterInspectionCamera( cameras, camera, normalizedCurrentMode, interaction, inputRouter, mousePickup );
+        }
+    }
+
+    printf( "[replay] Loaded v2 presentation artifact: path=%s samples=%llu bodies=%llu first_frame=%llu "
+            "last_frame=%llu bytes=%llu\n",
+            m_loadedPresentation.path,
+            static_cast<unsigned long long>( m_loadedPresentation.samples.size() ),
+            static_cast<unsigned long long>( m_loadedPresentation.bodyDictionaryCount ),
+            static_cast<unsigned long long>( m_loadedPresentation.firstFrame ),
+            static_cast<unsigned long long>( m_loadedPresentation.lastFrame ),
+            static_cast<unsigned long long>( m_loadedPresentation.fileBytes ) );
+    return true;
 }
 } // namespace SkullbonezCore::Basics

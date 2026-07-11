@@ -27,7 +27,7 @@ Invariants:
   - The tool does not mutate the repository.
 
 Related:
-  - engine-cleanup-plans/07-allocation-gate-right-sizing.md
+  - AGENTS.md
   - tools/allocation_policy_allowlist.json
 """
 

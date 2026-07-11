@@ -6,13 +6,13 @@
 // Mental model:
 //   ReplayRecorder contains both a lightweight solver-sample mirror and a full
 //   runtime capture path. The unit harness exercises the mirror path directly;
-//   live camera/world/model owner traversal remains integration-level behavior.
+//   live camera/world/entity/model owner traversal remains integration behavior.
 //
 // Glossary:
 //   Solver-sample mirror: Replay path that copies an already-built solver frame
 //     into presentation retention without walking runtime owners again.
-//   Full-capture boundary: Runtime owner traversal through cameras, world, and
-//     model collection methods that this unit target deliberately does not own.
+//   Full-capture boundary: Runtime owner traversal through cameras, world,
+//     scene entities, and collection methods this unit target deliberately omits.
 //   Owner hook: Method on a live runtime owner that full replay capture reads.
 //
 // Invariants:
@@ -22,7 +22,7 @@
 // Related:
 //   - SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp
 //   - SkullbonezTests/TestReplayRecorder.cpp
-//   - engine-cleanup-plans/05-behavioral-test-coverage.md
+//   - Agentic/Plans/TODO/behavioral-test-depth.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -48,8 +48,8 @@ namespace
 {
 [[noreturn]] void ThrowUnexpectedReplayIntegrationCall( const char* methodName )
 {
-    throw std::runtime_error(
-        std::string( "ReplayRecorder unit boundary: unexpected full replay capture call: " ) + methodName );
+    throw std::runtime_error( std::string( "ReplayRecorder unit boundary: unexpected full replay capture call: " ) +
+                              methodName );
 }
 
 ReplayRecorderConfig OneBodyRecorderConfig()
@@ -72,7 +72,7 @@ ReplaySolverFrameSample OneBodySolverSample( ReplayFrameIndex frameIndex )
 
     ReplaySolverBodySample body;
     body.id.value = 400u + static_cast<uint32_t>( frameIndex );
-    body.modelIndex = 0;
+    body.modelRow = SkullbonezCore::Physics::MakeModelRowHint( 0 );
     body.position = Vector3( 1.0f, 2.0f, 3.0f );
     body.linearVelocity = Vector3( 0.5f, 0.0f, 0.0f );
     body.mass = 2.0f;
@@ -85,24 +85,24 @@ namespace SkullbonezCore
 {
 namespace Environment
 {
-const Math::Vector::Vector3& CameraCollection::GetCameraView()
+const Math::Vector::Vector3& CameraCollection::GetCameraView() const
 {
     // Hazard: reaching any owner hook means the unit target crossed from
     // solver-sample mirroring into full runtime capture without real owners.
     ThrowUnexpectedReplayIntegrationCall( "CameraCollection::GetCameraView" );
 }
 
-const Math::Vector::Vector3& CameraCollection::GetCameraTranslation()
+const Math::Vector::Vector3& CameraCollection::GetCameraTranslation() const
 {
     ThrowUnexpectedReplayIntegrationCall( "CameraCollection::GetCameraTranslation" );
 }
 
-const Math::Vector::Vector3& CameraCollection::GetCameraUp()
+const Math::Vector::Vector3& CameraCollection::GetCameraUp() const
 {
     ThrowUnexpectedReplayIntegrationCall( "CameraCollection::GetCameraUp" );
 }
 
-float WorldEnvironment::GetFluidSurfaceHeight()
+float WorldEnvironment::GetFluidSurfaceHeight() const
 {
     ThrowUnexpectedReplayIntegrationCall( "WorldEnvironment::GetFluidSurfaceHeight" );
 }
@@ -120,20 +120,11 @@ float WorldEnvironment::GetFluidDensity() const
 
 namespace GameObjects
 {
-const char* GameModel::GetName() const
-{
-    ThrowUnexpectedReplayIntegrationCall( "GameModel::GetName" );
-}
-
 const GameModel* GameModelCollection::TryGetModel( int ) const
 {
     ThrowUnexpectedReplayIntegrationCall( "GameModelCollection::TryGetModel" );
 }
 
-Physics::PhysicsEngine& GameModelCollection::GetPhysicsEngine()
-{
-    ThrowUnexpectedReplayIntegrationCall( "GameModelCollection::GetPhysicsEngine" );
-}
 } // namespace GameObjects
 } // namespace SkullbonezCore
 

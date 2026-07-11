@@ -45,7 +45,6 @@ namespace Basics
 {
 class CaptureController;
 class SceneController;
-struct RunRuntimeSettings;
 
 constexpr int RUNTIME_CONTACT_AUDIO_SET_MAX = 16;
 constexpr int RUNTIME_CONTACT_AUDIO_SAMPLE_MAX = 64;
@@ -100,7 +99,6 @@ struct RuntimeViewModelContext
     // model rebuild. The builder copies values and never stores these borrows.
     const SceneController& scene;
     const CaptureController& capture;
-    const RunRuntimeSettings& runtimeSettings;
     const Physics::PhysicsEngine& physics;
 };
 

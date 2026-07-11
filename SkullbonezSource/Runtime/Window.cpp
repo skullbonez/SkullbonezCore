@@ -35,6 +35,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Window.h"
+#include "WindowConstants.h"
 #include "../Rendering/IRenderDeviceLifecycle.h"
 #include "Input.h"
 #include "../Core/Log.h"
@@ -165,7 +166,9 @@ void Window::ChangeToFullScreen( int xResolution, int yResolution )
     if ( !EnumDisplaySettings( nullptr, ENUM_CURRENT_SETTINGS, &dmSettings ) )
     {
         MsgBox( "Could Not Enumerate Display Settings", "Error", MB_OK );
-        PostQuitMessage( 0 );
+        // Lane R: this boundary has no Run-owned result carrier, so publish a
+        // nonzero platform code for ApplicationExitState to translate.
+        PostQuitMessage( 1 );
     }
 
     dmSettings.dmPelsWidth = xResolution;
@@ -181,7 +184,9 @@ void Window::ChangeToFullScreen( int xResolution, int yResolution )
     if ( result != DISP_CHANGE_SUCCESSFUL )
     {
         MsgBox( "Display Mode Not Compatible", "Error", MB_OK );
-        PostQuitMessage( 0 );
+        // Lane R: preserve failure at the process boundary even though Win32
+        // supplies only the display-change status here.
+        PostQuitMessage( 1 );
     }
 }
 

@@ -241,7 +241,10 @@ void RenderBackendDX12::UploadAndDrawDynamicVB( uint32_t handle, const float* da
     }
     DynamicVBDX12& dvb = m_dynamicVBs[handle - 1];
 
-    EnsureCommandListOpen();
+    if ( !EnsureCommandListOpen().ok )
+    {
+        return;
+    }
 
     // ReserveUpload is intentionally used instead of raw SubAllocateUpload().
     // It probes and flushes with the same alignment used for allocation, so a
@@ -249,6 +252,10 @@ void RenderBackendDX12::UploadAndDrawDynamicVB( uint32_t handle, const float* da
     // instead of throwing "DX12 upload buffer exhausted."
     UINT64 dataSize = (UINT64)vertexCount * dvb.stride;
     D3D12_GPU_VIRTUAL_ADDRESS vbAddr = ReserveUpload( dataSize, 4 );
+    if ( vbAddr == 0 )
+    {
+        return;
+    }
     memcpy( GetUploadPtr( vbAddr ), data, (size_t)dataSize );
 
     // Determine vertex format
@@ -292,7 +299,10 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
         return;
     }
 
-    EnsureCommandListOpen();
+    if ( !EnsureCommandListOpen().ok )
+    {
+        return;
+    }
 
     ID3D12PipelineState* gridLinePSO = EnsureGridLinePipeline( m_currentRTVFormat );
     if ( !gridLinePSO )
@@ -305,6 +315,10 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
     // important part is that the probe and final allocation use the same value.
     UINT64 dataSize = (UINT64)vertCount * 6 * sizeof( float );
     D3D12_GPU_VIRTUAL_ADDRESS vbAddress = ReserveUpload( dataSize, 4 );
+    if ( vbAddress == 0 )
+    {
+        return;
+    }
     memcpy( GetUploadPtr( vbAddress ), data, (size_t)dataSize );
 
     CommandList()->SetPipelineState( gridLinePSO );
@@ -320,6 +334,10 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
     Matrix4 vpMat( viewProjMatrix16 );
     shader->SetMat4( "uViewProj", vpMat );
     D3D12_GPU_VIRTUAL_ADDRESS cbAddr = shader->FlushCB();
+    if ( m_commandRecording.HasFailure() )
+    {
+        return;
+    }
     if ( cbAddr )
     {
         CommandList()->SetGraphicsRootConstantBufferView( 0, cbAddr );
@@ -351,7 +369,10 @@ void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
         return;
     }
 
-    EnsureCommandListOpen();
+    if ( !EnsureCommandListOpen().ok )
+    {
+        return;
+    }
 
     IShader* transientShader = EnsureTransientTriangleShader( style );
     if ( !transientShader )
@@ -392,6 +413,10 @@ void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
 
     const UINT64 dataSize = static_cast<UINT64>( vertexCount ) * static_cast<UINT64>( vertexLayout.stride );
     const D3D12_GPU_VIRTUAL_ADDRESS vbAddress = ReserveUpload( dataSize, 4 );
+    if ( vbAddress == 0 )
+    {
+        return;
+    }
     memcpy( GetUploadPtr( vbAddress ), data, static_cast<size_t>( dataSize ) );
 
     if ( !PrepareDraw( VertexFormat12::Pos3, false, nullptr, &vertexLayout ) )
@@ -436,7 +461,10 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData,
                                                  const int* staticAttribSizes,
                                                  int numStaticAttribs )
 {
-    EnsureCommandListOpen();
+    if ( !EnsureCommandListOpen().ok )
+    {
+        return 0;
+    }
 
     InstancedMeshDX12 im = {};
     im.staticFloatsPerVert = staticFloatsPerVert;
@@ -508,6 +536,11 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData,
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-copybufferregion
     D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = ReserveUpload( dataSize, 4 );
+    if ( uploadAddr == 0 )
+    {
+        im.staticVB->Release();
+        return 0;
+    }
     memcpy( GetUploadPtr( uploadAddr ), staticData, (size_t)dataSize );
     CommandList()->CopyBufferRegion( im.staticVB,
                                      0,
@@ -516,11 +549,14 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData,
                                      dataSize );
     // Transition from COPY_DEST (implicit promotion after CopyBufferRegion) to the
     // combined read state used for both vertex fetch and raytracing BLAS build SRV access.
-    ExecuteGraphTransition( "InstancedStaticVertexUploadFinal",
-                            "InstancedStaticVertexBuffer",
-                            im.staticVB,
-                            RenderGraphResourceAccess::CopyDest,
-                            RenderGraphResourceAccess::VertexAndNonPixelShaderResource );
+    if ( !ExecuteGraphTransition( "InstancedStaticVertexUploadFinal",
+                                  "InstancedStaticVertexBuffer",
+                                  im.staticVB,
+                                  RenderGraphResourceAccess::CopyDest,
+                                  RenderGraphResourceAccess::VertexAndNonPixelShaderResource ) )
+    {
+        return 0;
+    }
 
     im.staticVBV.BufferLocation = im.staticVB->GetGPUVirtualAddress();
     im.staticVBV.SizeInBytes = (UINT)dataSize;
@@ -539,10 +575,17 @@ void RenderBackendDX12::UploadInstanceData( uint32_t handle, const float* data, 
     }
     InstancedMeshDX12& im = m_instancedMeshes[handle - 1];
 
-    EnsureCommandListOpen();
+    if ( !EnsureCommandListOpen().ok )
+    {
+        return;
+    }
 
     UINT64 dataSize = (UINT64)floatCount * sizeof( float );
     D3D12_GPU_VIRTUAL_ADDRESS addr = ReserveUpload( dataSize, 4 );
+    if ( addr == 0 )
+    {
+        return;
+    }
     memcpy( GetUploadPtr( addr ), data, (size_t)dataSize );
 
     im.instanceDataAddr = addr;

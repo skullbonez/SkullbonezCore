@@ -46,18 +46,7 @@ using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Physics;
 
-namespace
-{
-ObjectContactBodyView SceneContactBodyView( const PhysicsBodyRecord& body )
-{
-    ObjectContactBodyView view;
-    view.position = body.position;
-    view.orientation = body.orientation;
-    return view;
-}
-
-
-const char* FileNameFromPath( const char* path )
+const char* SkullbonezCore::Basics::SceneFileNameFromPath( const char* path )
 {
     if ( !path )
     {
@@ -74,16 +63,29 @@ const char* FileNameFromPath( const char* path )
     return separator ? separator + 1 : path;
 }
 
-std::string NormalizeScenePath( const std::string& path )
+
+std::string SkullbonezCore::Basics::NormalizeSceneQueuePath( const std::string& path )
 {
     std::string normalized = path;
     std::replace( normalized.begin(), normalized.end(), '\\', '/' );
     return normalized;
 }
 
+
+namespace
+{
+ObjectContactBodyView SceneContactBodyView( const PhysicsBodyRecord& body )
+{
+    ObjectContactBodyView view;
+    view.position = body.position;
+    view.orientation = body.orientation;
+    return view;
+}
+
+
 bool IsCineScenePath( const std::string& path )
 {
-    const char* name = FileNameFromPath( path.c_str() );
+    const char* name = SceneFileNameFromPath( path.c_str() );
     return strncmp( name, "concept_", 8 ) == 0 || strncmp( name, "cinematic_", 10 ) == 0 ||
            strstr( name, "_cine_" ) != nullptr || strstr( name, "cine_" ) == name;
 }
@@ -276,18 +278,28 @@ void SceneRuntime::BeginLoad( int index )
 }
 
 
-void SceneRuntime::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event )
+void SceneRuntime::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, SceneLifecycleConsumerMask consumers )
 {
-    // Concept: Scene lifecycle names live with scene runtime ownership. Run can
-    // still perform broad side effects, but call sites now mark which phase a
-    // future owner API should absorb.
+    // Hazard: recoverable population failures deliberately leave the previous
+    // scene cleared, so a later BeforeSceneUnload may restart from any phase.
+    // Every phase inside one attempt must still remain strictly ordered.
+    if ( !SceneRuntimeLifecycleTransitionValid( m_lastLifecycleEvent, event ) )
+    {
+        SB_FATAL( "Runtime/SceneRuntime",
+                  "Invalid scene lifecycle transition. previous=%s next=%s",
+                  SceneRuntimeLifecycleEventName( m_lastLifecycleEvent ),
+                  SceneRuntimeLifecycleEventName( event ) );
+    }
+    const SceneLifecycleConsumerMask requiredConsumers = SceneLifecycleRequiredConsumers( event );
+    if ( consumers != requiredConsumers )
+    {
+        SB_FATAL( "Runtime/SceneRuntime",
+                  "Scene lifecycle consumer mismatch. phase=%s expected=0x%X actual=0x%X",
+                  SceneRuntimeLifecycleEventName( event ),
+                  requiredConsumers,
+                  consumers );
+    }
     m_lastLifecycleEvent = event;
-}
-
-
-SceneRuntimeLifecycleEvent SceneRuntime::LastLifecycleEvent() const
-{
-    return m_lastLifecycleEvent;
 }
 
 
@@ -301,7 +313,7 @@ int SceneRuntime::FindNormalizedPath( const std::string& normalizedPath ) const
 {
     for ( int i = 0; i < QueueSize(); ++i )
     {
-        if ( NormalizeScenePath( m_queue[i] ) == normalizedPath )
+        if ( NormalizeSceneQueuePath( m_queue[i] ) == normalizedPath )
         {
             return i;
         }

@@ -193,9 +193,15 @@ RENDERING_PREFIXES = (
 )
 
 SCENE_PREFIXES = (
+    "SceneRequestExecution",
     "SceneSnapshotWriter",
     "TestScene",
     "TestSceneParser",
+    "TestSceneParserAssets",
+    "TestSceneParserBodies",
+    "TestSceneParserPresentation",
+    "TestSceneParserRuntime",
+    "TestSceneParserSchema",
 )
 
 WORLD_PREFIXES = (
@@ -206,6 +212,7 @@ WORLD_PREFIXES = (
 )
 
 RUNTIME_PREFIXES = (
+    "ApplicationExitState",
     "AttachedCameraController",
     "Camera",
     "CameraCollection",
@@ -217,29 +224,25 @@ RUNTIME_PREFIXES = (
     "Init",
     "Input",
     "InputController",
+    "InputFrame",
+    "InputFrameExecution",
+    "InputRouter",
+    "InteractionAutomationController",
     "LiveStyleController",
     "Run",
-    "RunCapture",
     "RunDemoDirector",
     "RunDebugState",
     "RunFrame",
-    "RunInteractionAutomation",
-    "RunInteractionAutomationState",
     "RunInput",
-    "RunInternal",
     "RunCameraState",
-    "RunLiveStyle",
     "RunPasses",
     "RunLaunchOptions",
     "RunReplayProbeState",
     "RunRender",
-    "RunRuntimeSettings",
     "RunStartupState",
-    "RunSubsystemState",
     "RunTimerState",
-    "RunStress",
     "RunUiTextPass",
-    "RuntimeCommandQueue",
+    "RenderDefaultsStore",
     "RuntimeCameraMode",
     "RuntimeDiagnostics",
     "RuntimeFileWriter",
@@ -247,6 +250,7 @@ RUNTIME_PREFIXES = (
     "RuntimeInteractionController",
     "RuntimePickGeometry",
     "RuntimePickService",
+    "RuntimeStressController",
     "RuntimeTuning",
     "RuntimeViewModel",
     "WindowConstants",
@@ -257,12 +261,15 @@ RUNTIME_SCENE_PREFIXES = (
     "RunScene",
     "SceneController",
     "SceneControllerState",
+    "SceneTerrain",
     "SceneAuthoredSetup",
     "SceneGeneratedSetup",
     "SceneRuntime",
     "SceneRuntimeCreate",
     "SceneRuntimeCoordinator",
     "SceneRuntimeDefaults",
+    "SceneRequestQueue",
+    "SceneEntityStore",
     "SceneRuntimeGeneratedControls",
     "SceneRuntimeLoad",
     "SceneRuntimeReset",
@@ -280,19 +287,19 @@ RUNTIME_ALLOCATION_PREFIXES = (
 )
 
 RUNTIME_REPLAY_PREFIXES = (
-    "ReplayExporter",
     "ReplayInteractionController",
     "ReplayOverlayLayout",
     "ReplayOverlayRenderer",
     "ReplayPredictionReserve",
+    "ReplayRetainedMemory",
     "ReplayRecorder",
     "ReplayRestoreService",
     "ReplayRuntime",
+    "ReplayRuntimeOwnerViews",
     "ReplaySolverSnapshot",
     "ReplayV2Artifact",
     "TrajectoryStore",
     "RunReplayCauseTreeTools",
-    "RunReplayImportExport",
     "RunReplayPredictionHelpers",
     "RunReplayPredictionVisualizer",
     "RunReplayProbes",
@@ -303,6 +310,7 @@ RUNTIME_REPLAY_PREFIXES = (
 )
 
 RUNTIME_RENDER_PREFIXES = (
+    "RenderPresentationSettings",
     "RuntimeRenderHost",
     "RuntimeRenderInputs",
     "RuntimeRenderPasses",
@@ -334,6 +342,12 @@ RUNTIME_DIAGNOSTICS_PREFIXES = (
     "DiagnosticsRuntime",
 )
 
+# Why: shared runtime UI values have their own physical owner and Solution
+# Explorer filter; keeping this explicit prevents them drifting into Runtime.
+RUNTIME_UI_PREFIXES = (
+    "RuntimeUiSurface",
+)
+
 CORE_PREFIXES = (
     "AmortizedTask",
     "Common",
@@ -362,6 +376,7 @@ AREA_PREFIXES = (
     ("Runtime\\Tools", RUNTIME_TOOLS_PREFIXES),
     ("Runtime\\Diagnostics", RUNTIME_DIAGNOSTICS_PREFIXES),
     ("Runtime\\Debug", RUNTIME_DEBUG_PREFIXES),
+    ("Runtime\\UI", RUNTIME_UI_PREFIXES),
     ("Physics\\Debug", PHYSICS_DEBUG_PREFIXES),
     ("Rendering", RENDERING_PREFIXES),
     ("Physics", PHYSICS_PREFIXES),

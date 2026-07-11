@@ -44,7 +44,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Audio/ContactAudioService.cpp
-  - Agentic/Plans/contact-impact-audio-plan.md
 */
 #pragma once
 
@@ -58,6 +57,15 @@ namespace Runtime
 {
 namespace Audio
 {
+enum class ContactAudioFlashMode
+{
+    Off = 0,
+    Emitted = 1,
+    Candidates = 2,
+    Rejected = 3,
+    Count
+};
+
 struct ContactAudioEvent
 {
     int bodyA = -1;
@@ -267,6 +275,10 @@ class ContactAudioService
     const ContactAudioStats& Stats() const;
     const ContactAudioStats& StepStats() const;
     void ResetFrameStats();
+    void SetDebugCountersEnabled( bool enabled );
+    bool DebugCountersEnabled() const;
+    void SetFlashMode( ContactAudioFlashMode mode );
+    ContactAudioFlashMode FlashMode() const;
 
   private:
     struct Impl;

@@ -23,7 +23,7 @@
 //
 // Related:
 //   - SkullbonezSource/Physics/SolverBroadphaseStage.h
-//   - Agentic/Plans/02-physicsworld-solver-decomposition.md
+//   - Agentic/Plans/TODO/behavioral-test-depth.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"

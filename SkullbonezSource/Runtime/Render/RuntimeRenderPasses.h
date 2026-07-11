@@ -29,18 +29,21 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderHost.h
-  - SkullbonezSource/Runtime/RunPasses.cpp
-  - SkullbonezSource/Runtime/RunRender.cpp
-  - Agentic/Plans/runtime-run-decomposition-plan.md
+  - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp
+  - SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp
+  - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #pragma once
 
 #include "../../Core/SbResult.h"
+#include "../../Core/Config.h"
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/TornadoField.h"
 #include "../../Rendering/IFramebuffer.h"
 #include "../../Rendering/Shadow.h"
+#include "RenderPresentationSettings.h"
+#include "../RuntimeInteractionController.h"
 
 #include <cstdint>
 #include <memory>
@@ -60,6 +63,11 @@ struct PhysicsDebugContact;
 struct PhysicsPipelineRecord;
 } // namespace Physics
 
+namespace GameObjects
+{
+class GameModelCollection;
+}
+
 namespace Environment
 {
 class WorldEnvironment;
@@ -68,6 +76,7 @@ class WorldEnvironment;
 namespace Rendering
 {
 class IRenderCommandContext;
+class IRenderDeviceLifecycle;
 class IRenderDiagnostics;
 class IRenderRayTracing;
 class IRenderResourceFactory;
@@ -109,7 +118,11 @@ class DiagnosticsRuntime;
 class EngineConfig;
 class Profiler;
 class RenderHelper;
+class RuntimeTools;
+class RunEditorTracer;
+class LauncherLaser;
 class RuntimeInputContext;
+class SceneTerrain;
 struct CinematicScenePassResources;
 struct FullscreenPassResources;
 struct ReflectionPassResources;
@@ -119,7 +132,7 @@ struct RunCameraState;
 struct RunDebugState;
 struct RunEditorPlacementState;
 struct RunRayCastTestState;
-struct RunRenderPassResources;
+struct RuntimeRenderPassResources;
 struct ShadowPassResources;
 struct SkyPassResources;
 struct TonemapPassResources;
@@ -127,7 +140,6 @@ struct VolumetricLightPassResources;
 class ReplayRuntime;
 struct RuntimeRenderModelFrameView;
 struct RuntimeViewModel;
-struct RunRuntimeSettings;
 struct RunSceneBrowserState;
 struct RunSceneState;
 struct RunTimerState;
@@ -139,7 +151,7 @@ struct RenderHelperContext;
 //
 // RuntimeRenderer::RenderFrame() owns pass order, and each pass receives a named
 // input bundle or explicit long-lived resources. Frame references are rebuilt
-// each pass, while GPU resources stay in RunRenderPassResources.
+// each pass, while GPU resources stay in RuntimeRenderPassResources.
 enum class SkyPassMode
 {
     CubemapOnly,                            // Force the authored cube-map skybox path.
@@ -152,13 +164,23 @@ enum class ObjectPassMode
     Transparent                             // Debug alpha body draw after water so overlays remain readable.
 };
 
-using RenderResourceLifecycleLogFn = void ( * )( void* user, const char* phase, const char* step );
-using RenderEditorOverlayFn = void ( * )( void* user,
-                                          Rendering::IRenderResourceFactory& renderResources,
-                                          Rendering::IRenderCommandContext& renderCommands,
-                                          const Math::Transformation::Matrix4& viewProjection,
-                                          const Math::Vector::Vector3& cameraEye,
-                                          const Math::Vector::Vector3& cameraUp );
+// Concrete renderer diagnostic owner shared by resource-producing passes. It
+// borrows the device and scene state for RuntimeRenderer's lifetime and never
+// calls back into the application shell.
+class RenderResourceLifecycleLog
+{
+  public:
+    RenderResourceLifecycleLog( Rendering::IRenderDeviceLifecycle* deviceLifecycle, const RunSceneState& scene )
+        : m_deviceLifecycle( deviceLifecycle ), m_scene( scene )
+    {
+    }
+
+    void Write( const char* phase, const char* step ) const;
+
+  private:
+    Rendering::IRenderDeviceLifecycle* m_deviceLifecycle = nullptr;
+    const RunSceneState& m_scene;
+};
 
 struct RenderFrameContext
 {
@@ -330,31 +352,50 @@ struct ReplayOverlayFrameState
     bool uiVisible = false;
     bool uiMinimized = false;
     bool scenePhysicsEnabled = false;
+    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
     int screenW = 1;
     int screenH = 1;
     double nowSeconds = 0.0;
 };
 
+struct RuntimeRenderTargetPreview
+{
+    const char* label = "";
+    uint32_t textureHandle = 0;
+    int width = 0;
+    int height = 0;
+    bool available = false;
+    bool depth = false;
+    bool hdr = false;
+};
+
+struct RuntimeRenderTargetPreviewSnapshot
+{
+    // Value-only UI projection of renderer resources. The UI cannot retain or
+    // traverse framebuffer owners through this boundary.
+    std::array<RuntimeRenderTargetPreview, 10> targets{};
+    int count = 0;
+};
+
 struct UiTextPassState
 {
-    // UI/text is the late overlay pass, so it samples a broad but UI-specific
-    // set of already-owned runtime state. The pass may read these references for
-    // this frame only; mutations stay limited to timer rolling diagnostics and
-    // immediate UI drawing.
-    RunDebugState& debug;
-    RunTimerState& timers;
+    // UI/text is the late overlay pass, so this read-only projection samples
+    // already-owned runtime state for one frame. Writable timer/UI owners are
+    // separate explicit inputs below and cannot be reached through this view.
+    const RunDebugState& debug;
+    bool crossScenePauseLocked = false;
     const RunSceneState& scene;
-    const RunRuntimeSettings& runtimeSettings;
+    const RenderPresentationSettings& renderPresentation;
+    const GameObjects::GameModelCollection& modelOwner;
     const EngineConfig& config;
-    Environment::WorldEnvironment& world;
+    const Environment::WorldEnvironment& world;
     const RunRayCastTestState& rayCastTest;
     const RunEditorPlacementState& editor;
-    UI::InGameUI& ui;
-    RuntimeInputContext& runtimeInput;
+    const RuntimeInputContext& runtimeInput;
     const RunCameraState& camera;
     const RuntimeViewModel& runtimeViewModel;
     const RunSceneBrowserState& sceneBrowser;
-    const RunRenderPassResources& renderPasses;
+    const RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews;
     Threading::WorkerPool* workerPool = nullptr;
     int screenW = 1;
     int screenH = 1;
@@ -375,6 +416,8 @@ struct UiTextPassInputs
     // UI/text can run even when text-only mode skips RuntimeRenderer::RenderFrame(),
     // so it borrows only the narrow render facets sampled by overlays.
     const UiTextPassState& state;
+    RunTimerState& timers;
+    UI::InGameUI& ui;
     Rendering::IRenderDiagnostics& renderDiagnostics;
     Profiler* profiler = nullptr;           // UI snapshot source; null when profiling is compiled out.
     const UI::UIRenderContext& uiRender;
@@ -450,6 +493,10 @@ struct DebugOverlayPassInputs
     // ownership.
     const RenderFrameContext& frame;
     const DebugOverlaySnapshot& snapshot;
+    RuntimeTools& runtimeTools;
+    ReplayRuntime& replayRuntime;
+    int replaySceneFrame = 0;
+    uint64_t replayGrowthEventCount = 0;
 };
 
 struct ShadowPassInputs
@@ -505,7 +552,7 @@ class SkyPass
   public:
     SkyPass( SkyPassResources& skyResources,
              FullscreenPassResources& fullscreenResources,
-             Geometry::SkyBox*& skyBox,
+             std::unique_ptr<Geometry::SkyBox>& skyBox,
              const EngineConfig& config )
         : m_skyResources( skyResources ), m_fullscreenResources( fullscreenResources ), m_skyBox( skyBox ),
           m_config( config )
@@ -521,9 +568,9 @@ class SkyPass
 
     SkyPassResources& m_skyResources;
     FullscreenPassResources& m_fullscreenResources;
-    // Lifetime: this aliases RunSubsystemState::skyBox because RuntimeRenderer
-    // is constructed before Initialise wires the owned SkyBox pointer.
-    Geometry::SkyBox*& m_skyBox;
+    // Lifetime: this aliases the composition root's unique owner so startup and
+    // backend teardown can replace the object without rebinding the pass.
+    std::unique_ptr<Geometry::SkyBox>& m_skyBox;
     const EngineConfig& m_config;
 };
 
@@ -561,12 +608,10 @@ class ShadowPass
 {
   public:
     ShadowPass( ShadowPassResources& resources,
-                std::unique_ptr<Geometry::Terrain>& terrain,
+                SceneTerrain& terrain,
                 const EngineConfig& config,
-                RenderResourceLifecycleLogFn lifecycleLog,
-                void* lifecycleLogUser )
-        : m_resources( resources ), m_terrain( terrain ), m_config( config ), m_lifecycleLog( lifecycleLog ),
-          m_lifecycleLogUser( lifecycleLogUser )
+                RenderResourceLifecycleLog& lifecycleLog )
+        : m_resources( resources ), m_terrain( terrain ), m_config( config ), m_lifecycleLog( lifecycleLog )
     {
     }
 
@@ -598,10 +643,9 @@ class ShadowPass
                           const Rendering::ShadowCasterBatches* objectCasters );
 
     ShadowPassResources& m_resources;
-    std::unique_ptr<Geometry::Terrain>& m_terrain;
+    SceneTerrain& m_terrain;
     const EngineConfig& m_config;
-    RenderResourceLifecycleLogFn m_lifecycleLog = nullptr;
-    void* m_lifecycleLogUser = nullptr;
+    RenderResourceLifecycleLog& m_lifecycleLog;
     bool m_activeTerrainHidden = false;
     bool m_activeCollisionVisualizerVisible = false;
     int m_activeWindowWidth = 1;
@@ -623,12 +667,10 @@ class ReflectionPass
                     const EngineConfig& config,
                     float* dxrReflectionTransforms,
                     int dxrReflectionTransformCapacity,
-                    RenderResourceLifecycleLogFn lifecycleLog,
-                    void* lifecycleLogUser )
+                    RenderResourceLifecycleLog& lifecycleLog )
         : m_resources( resources ), m_collisionVisualizer( collisionVisualizer ), m_config( config ),
           m_dxrReflectionTransforms( dxrReflectionTransforms ),
-          m_dxrReflectionTransformCapacity( dxrReflectionTransformCapacity ), m_lifecycleLog( lifecycleLog ),
-          m_lifecycleLogUser( lifecycleLogUser )
+          m_dxrReflectionTransformCapacity( dxrReflectionTransformCapacity ), m_lifecycleLog( lifecycleLog )
     {
     }
 
@@ -644,8 +686,7 @@ class ReflectionPass
     const EngineConfig& m_config;
     float* m_dxrReflectionTransforms = nullptr;
     int m_dxrReflectionTransformCapacity = 0;
-    RenderResourceLifecycleLogFn m_lifecycleLog = nullptr;
-    void* m_lifecycleLogUser = nullptr;
+    RenderResourceLifecycleLog& m_lifecycleLog;
 };
 
 /* -- ObjectPass
@@ -681,8 +722,7 @@ class ObjectPass
 class TerrainPass
 {
   public:
-    TerrainPass( std::unique_ptr<Geometry::Terrain>& terrain, const EngineConfig& config )
-        : m_terrain( terrain ), m_config( config )
+    TerrainPass( SceneTerrain& terrain, const EngineConfig& config ) : m_terrain( terrain ), m_config( config )
     {
     }
 
@@ -691,9 +731,9 @@ class TerrainPass
     void Render( const TerrainPassInputs& inputs );
 
   private:
-    // Lifetime: aliases RunSubsystemState::terrain because terrain is scene-owned
-    // and may be replaced after RuntimeRenderer construction.
-    std::unique_ptr<Geometry::Terrain>& m_terrain;
+    // Lifetime: borrows the stable scene terrain owner and resolves its current
+    // terrain after each scene activation.
+    SceneTerrain& m_terrain;
     const EngineConfig& m_config;
 };
 
@@ -733,7 +773,7 @@ class WaterPass
 class TornadoVisualPass
 {
   public:
-    explicit TornadoVisualPass( std::unique_ptr<Geometry::Terrain>& terrain ) : m_terrain( terrain )
+    explicit TornadoVisualPass( SceneTerrain& terrain ) : m_terrain( terrain )
     {
     }
 
@@ -742,9 +782,9 @@ class TornadoVisualPass
     bool Render( const TornadoVisualPassInputs& inputs );
 
   private:
-    // Lifetime: aliases RunSubsystemState::terrain because scene loads may
-    // replace the terrain object after RuntimeRenderer construction.
-    std::unique_ptr<Geometry::Terrain>& m_terrain;
+    // Lifetime: borrows the stable scene terrain owner and resolves its current
+    // terrain after each scene load.
+    SceneTerrain& m_terrain;
     std::vector<float> m_vertices;
     std::vector<Physics::TornadoActiveVortex> m_activeVisualVortices;
     float m_liveVisualTimeSeconds = 0.0f;
@@ -764,12 +804,10 @@ class DebugOverlayPass
   public:
     DebugOverlayPass( Physics::BroadphaseVisualizer& broadphaseVisualizer,
                       Physics::PhysicsDebugVisualizer& physicsDebugVisualizer,
-                      std::unique_ptr<Geometry::Terrain>& terrain,
-                      RenderEditorOverlayFn renderEditorOverlay,
-                      void* renderEditorOverlayUser )
+                      SceneTerrain& terrain,
+                      Assets::AssetSystem& assets )
         : m_broadphaseVisualizer( broadphaseVisualizer ), m_physicsDebugVisualizer( physicsDebugVisualizer ),
-          m_terrain( terrain ), m_renderEditorOverlay( renderEditorOverlay ),
-          m_renderEditorOverlayUser( renderEditorOverlayUser )
+          m_terrain( terrain ), m_assets( assets )
     {
         // Invariant: tornado vector arrows are a runtime debug overlay. The
         // transient line buffer stays with the render pass so physics sampling
@@ -790,11 +828,10 @@ class DebugOverlayPass
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
     std::vector<float> m_tornadoVectorLineData;
     std::vector<Physics::TornadoActiveVortex> m_tornadoVectorVortices;
-    // Lifetime: aliases RunSubsystemState::terrain because scene loads may
-    // replace the terrain object after RuntimeRenderer construction.
-    std::unique_ptr<Geometry::Terrain>& m_terrain;
-    RenderEditorOverlayFn m_renderEditorOverlay = nullptr;
-    void* m_renderEditorOverlayUser = nullptr;
+    // Lifetime: borrows the stable scene terrain owner and resolves its current
+    // terrain after each scene load.
+    SceneTerrain& m_terrain;
+    Assets::AssetSystem& m_assets;
 };
 
 /* -- VolumetricPass
@@ -881,7 +918,7 @@ class UiTextPass
                                  int screenW,
                                  int screenH );
     void ReleaseGpuResources( Rendering::IRenderResourceFactory* renderResources );
-    bool ShouldRender( const UiTextPassState& state ) const;
+    bool ShouldRender( const UiTextPassState& state, const UI::InGameUI& ui ) const;
     void Render( const UiTextPassInputs& inputs );
 };
 

@@ -36,8 +36,10 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "ObjectContactManifold.h"
+#include "../Assets/AssetKeys.h"
 
 #include <algorithm>
+#include <cstddef>
 #include "BoundingBox.h"
 #include "BoundingSphere.h"
 #include "CollisionShape.h"
@@ -118,6 +120,16 @@ struct ClipVertex
 {
     Vector3 point = ZERO_VECTOR;
     uint16_t id = 0;
+};
+
+struct ContactCandidate
+{
+    // Concept: clipping can yield more points than the four-row solver budget.
+    // Keep geometry and its stable warm-start identity together until the
+    // deterministic reduction policy chooses the rows that survive.
+    Vector3 point = ZERO_VECTOR;
+    float penetration = 0.0f;
+    uint32_t featureId = 0;
 };
 
 struct PolyFaceWorld
@@ -278,6 +290,118 @@ void AddContactPoint( const ObjectContactBodyView& a,
     cp.rB = point - b.position;
     cp.penetration = ( penetration > 0.0f ) ? penetration : 0.0f;
     cp.featureId = featureId;
+}
+
+template <std::size_t CandidateCapacity>
+int SelectContactCandidateIndices( const ContactCandidate ( &candidates )[CandidateCapacity],
+                                   int candidateCount,
+                                   const Vector3& normal,
+                                   int ( &selectedIndices )[4] )
+{
+    // Invariant: the deepest row is always selected first. The remaining rows
+    // maximize their minimum tangent-plane distance from the selected set, so a
+    // clipped octagon does not collapse into four neighboring solver points.
+    bool selected[CandidateCapacity] = {};
+    int selectedCount = 0;
+
+    auto betterPenetrationTie = [&]( int lhs, int rhs ) -> bool
+    {
+        if ( rhs < 0 )
+        {
+            return true;
+        }
+        if ( fabsf( candidates[lhs].penetration - candidates[rhs].penetration ) > 1.0e-5f )
+        {
+            return candidates[lhs].penetration > candidates[rhs].penetration;
+        }
+        return candidates[lhs].featureId < candidates[rhs].featureId;
+    };
+
+    int deepest = -1;
+    for ( int i = 0; i < candidateCount; ++i )
+    {
+        if ( betterPenetrationTie( i, deepest ) )
+        {
+            deepest = i;
+        }
+    }
+    if ( deepest < 0 )
+    {
+        return 0;
+    }
+
+    selected[deepest] = true;
+    selectedIndices[selectedCount++] = deepest;
+
+    const Vector3 tangentSeed = fabsf( normal.y ) < 0.9f ? Vector3( 0.0f, 1.0f, 0.0f ) : Vector3( 1.0f, 0.0f, 0.0f );
+    Vector3 tangent0 = CrossProduct( tangentSeed, normal );
+    const float tangent0MagSq = VectorMagSquared( tangent0 );
+    if ( tangent0MagSq > 1.0e-8f )
+    {
+        tangent0 /= sqrtf( tangent0MagSq );
+    }
+    else
+    {
+        tangent0 = Vector3( 1.0f, 0.0f, 0.0f );
+    }
+    const Vector3 tangent1 = CrossProduct( normal, tangent0 );
+
+    auto tangentDistanceSq = [&]( const Vector3& a, const Vector3& b ) -> float
+    {
+        const Vector3 d = a - b;
+        const float x = d * tangent0;
+        const float y = d * tangent1;
+        return x * x + y * y;
+    };
+
+    while ( selectedCount < 4 && selectedCount < candidateCount )
+    {
+        int bestIndex = -1;
+        float bestSpread = -1.0f;
+        for ( int i = 0; i < candidateCount; ++i )
+        {
+            if ( selected[i] )
+            {
+                continue;
+            }
+
+            float minDistSq = FLT_MAX;
+            for ( int s = 0; s < selectedCount; ++s )
+            {
+                const float distSq = tangentDistanceSq( candidates[i].point, candidates[selectedIndices[s]].point );
+                if ( distSq < minDistSq )
+                {
+                    minDistSq = distSq;
+                }
+            }
+
+            constexpr float duplicatePointDistSq = 1.0e-6f;
+            if ( minDistSq <= duplicatePointDistSq )
+            {
+                continue;
+            }
+
+            bool replace = minDistSq > bestSpread + 1.0e-5f;
+            if ( !replace && fabsf( minDistSq - bestSpread ) <= 1.0e-5f )
+            {
+                replace = betterPenetrationTie( i, bestIndex );
+            }
+            if ( replace )
+            {
+                bestSpread = minDistSq;
+                bestIndex = i;
+            }
+        }
+
+        if ( bestIndex < 0 )
+        {
+            break;
+        }
+        selected[bestIndex] = true;
+        selectedIndices[selectedCount++] = bestIndex;
+    }
+
+    return selectedCount;
 }
 
 // CATTO REF:
@@ -725,7 +849,9 @@ bool BuildBoxFaceContact( const ObjectContactBodyView& aBody,
     uint32_t referenceFace = FaceId( referenceAxis, refSign );
     uint32_t incidentFace = FaceId( incidentAxis, incidentSign );
 
-    for ( int i = 0; i < clippedCount && out.pointCount < 4; ++i )
+    ContactCandidate candidates[8];
+    int candidateCount = 0;
+    for ( int i = 0; i < clippedCount; ++i )
     {
         float separation = ( clipped[i].point - refFaceCenter ) * refNormal;
         if ( separation > contactSkin )
@@ -733,13 +859,18 @@ bool BuildBoxFaceContact( const ObjectContactBodyView& aBody,
             continue;
         }
 
-        Vector3 contactPoint = clipped[i].point - refNormal * ( separation * 0.5f );
-        AddContactPoint( aBody,
-                         bBody,
-                         out,
-                         contactPoint,
-                         -separation,
-                         EncodeBoxFaceFeature( referenceIsA, referenceFace, incidentFace, clipped[i].id ) );
+        ContactCandidate& candidate = candidates[candidateCount++];
+        candidate.point = clipped[i].point - refNormal * ( separation * 0.5f );
+        candidate.penetration = -separation;
+        candidate.featureId = EncodeBoxFaceFeature( referenceIsA, referenceFace, incidentFace, clipped[i].id );
+    }
+
+    int selectedIndices[4] = {};
+    const int selectedCount = SelectContactCandidateIndices( candidates, candidateCount, refNormal, selectedIndices );
+    for ( int i = 0; i < selectedCount; ++i )
+    {
+        const ContactCandidate& candidate = candidates[selectedIndices[i]];
+        AddContactPoint( aBody, bBody, out, candidate.point, candidate.penetration, candidate.featureId );
     }
 
     return out.pointCount > 0;
@@ -1427,12 +1558,6 @@ bool BuildPolyFaceContact( const ObjectContactBodyView& aBody,
                            ObjectContactManifold& out )
 {
     constexpr int MAX_POLY_CLIP_VERTS = 32;
-    struct CandidatePoint
-    {
-        Vector3 point = ZERO_VECTOR;
-        float penetration = 0.0f;
-        uint32_t featureId = 0;
-    };
 
     const PolytopeWorld& ref = referenceIsA ? polyA : polyB;
     const PolytopeWorld& inc = referenceIsA ? polyB : polyA;
@@ -1486,7 +1611,7 @@ bool BuildPolyFaceContact( const ObjectContactBodyView& aBody,
         }
     }
 
-    CandidatePoint candidates[MAX_POLY_CLIP_VERTS];
+    ContactCandidate candidates[MAX_POLY_CLIP_VERTS];
     int candidateCount = 0;
     const Vector3 refPlanePoint = ref.vertices[ref.faceIndices[refFace.firstIndex]];
     for ( int i = 0; i < count; ++i )
@@ -1506,110 +1631,12 @@ bool BuildPolyFaceContact( const ObjectContactBodyView& aBody,
         }
     }
 
-    bool selected[MAX_POLY_CLIP_VERTS] = {};
     int selectedIndices[4] = {};
-    int selectedCount = 0;
-
-    auto betterPenetrationTie = [&]( int lhs, int rhs ) -> bool
-    {
-        if ( rhs < 0 )
-        {
-            return true;
-        }
-        if ( fabsf( candidates[lhs].penetration - candidates[rhs].penetration ) > 1.0e-5f )
-        {
-            return candidates[lhs].penetration > candidates[rhs].penetration;
-        }
-        return candidates[lhs].featureId < candidates[rhs].featureId;
-    };
-
-    int deepest = -1;
-    for ( int i = 0; i < candidateCount; ++i )
-    {
-        if ( betterPenetrationTie( i, deepest ) )
-        {
-            deepest = i;
-        }
-    }
-
-    if ( deepest >= 0 )
-    {
-        selected[deepest] = true;
-        selectedIndices[selectedCount++] = deepest;
-    }
-
-    const Vector3 tangentSeed = fabsf( refNormal.y ) < 0.9f ? Vector3( 0.0f, 1.0f, 0.0f ) : Vector3( 1.0f, 0.0f, 0.0f );
-    Vector3 tangent0 = CrossProduct( tangentSeed, refNormal );
-    const float tangent0MagSq = VectorMagSquared( tangent0 );
-    if ( tangent0MagSq > 1.0e-8f )
-    {
-        tangent0 /= sqrtf( tangent0MagSq );
-    }
-    else
-    {
-        tangent0 = Vector3( 1.0f, 0.0f, 0.0f );
-    }
-    const Vector3 tangent1 = CrossProduct( refNormal, tangent0 );
-
-    auto tangentDistanceSq = [&]( const Vector3& a, const Vector3& b ) -> float
-    {
-        const Vector3 d = a - b;
-        const float x = d * tangent0;
-        const float y = d * tangent1;
-        return x * x + y * y;
-    };
-
-    while ( selectedCount < 4 && selectedCount < candidateCount )
-    {
-        int bestIndex = -1;
-        float bestSpread = -1.0f;
-        for ( int i = 0; i < candidateCount; ++i )
-        {
-            if ( selected[i] )
-            {
-                continue;
-            }
-
-            float minDistSq = FLT_MAX;
-            for ( int s = 0; s < selectedCount; ++s )
-            {
-                const float distSq = tangentDistanceSq( candidates[i].point, candidates[selectedIndices[s]].point );
-                if ( distSq < minDistSq )
-                {
-                    minDistSq = distSq;
-                }
-            }
-
-            constexpr float duplicatePointDistSq = 1.0e-6f;
-            if ( minDistSq <= duplicatePointDistSq )
-            {
-                continue;
-            }
-
-            bool replace = minDistSq > bestSpread + 1.0e-5f;
-            if ( !replace && fabsf( minDistSq - bestSpread ) <= 1.0e-5f )
-            {
-                replace = betterPenetrationTie( i, bestIndex );
-            }
-            if ( replace )
-            {
-                bestSpread = minDistSq;
-                bestIndex = i;
-            }
-        }
-
-        if ( bestIndex < 0 )
-        {
-            break;
-        }
-
-        selected[bestIndex] = true;
-        selectedIndices[selectedCount++] = bestIndex;
-    }
+    const int selectedCount = SelectContactCandidateIndices( candidates, candidateCount, refNormal, selectedIndices );
 
     for ( int i = 0; i < selectedCount && out.pointCount < 4; ++i )
     {
-        const CandidatePoint& candidate = candidates[selectedIndices[i]];
+        const ContactCandidate& candidate = candidates[selectedIndices[i]];
         AddContactPoint( aBody, bBody, out, candidate.point, candidate.penetration, candidate.featureId );
     }
     return out.pointCount > 0;

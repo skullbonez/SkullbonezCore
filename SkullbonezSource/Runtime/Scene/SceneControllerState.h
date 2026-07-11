@@ -23,7 +23,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
   - SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.h
-  - engine-cleanup-plans/01-run-god-object-decomposition.md
+  - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #pragma once
 

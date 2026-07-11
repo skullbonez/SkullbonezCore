@@ -6,13 +6,13 @@ Purpose:
 Mental model:
   Runtime render code should receive a small view of the systems and state it
   needs for one frame, not the entire Run object. These structs are references
-  only; ownership stays with Run until later extraction phases move it.
+  only; ownership remains in concrete renderer, scene, UI, and tool owners.
 
 Glossary:
   Render services: Borrowed references to systems required by render passes.
   Render inputs: One-frame wrapper around the current render services.
-  Borrowed pointer: Nullable dependency that remains owned by Run or a scene
-  subsystem.
+  Borrowed pointer: Nullable dependency retained by a concrete process or scene
+    owner.
   DXR (DirectX Raytracing): Optional render capability used for hardware ray
   traversal when the active backend publishes it.
 
@@ -26,10 +26,11 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Run.h
   - SkullbonezSource/Runtime/RunRender.cpp
-  - Agentic/Plans/runtime-run-decomposition-plan.md
+  - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #pragma once
 
+#include <cstdint>
 #include <vector>
 
 #include "../../Core/MainMemoryStats.h"
@@ -90,7 +91,34 @@ class InGameUI;
 namespace Basics
 {
 class Window;
+class ReplayRuntime;
+class RuntimeTools;
 struct CinematicRenderConfig;
+struct RenderToolOverlayView;
+
+struct RuntimeRenderFramePolicy
+{
+    // Value-only presentation facts sampled after input and before submission.
+    // RuntimeRenderer may not retain the debug, timer, camera, or tool owners
+    // from which these facts were derived.
+    bool textOnly = false;
+    bool terrainHidden = false;
+    bool collisionVisualizer = false;
+    bool physicsDebugTransparent = false;
+    float physicsDebugAlpha = 1.0f;
+    bool waterHidden = false;
+    bool waterFlatDebug = false;
+    bool waterNoReflect = false;
+    bool waterRTReflect = false;
+    bool waterFreezeDebug = false;
+    float frozenWaterTime = 0.0f;
+    bool broadphaseOverlay = false;
+    uint32_t physicsDebugFlags = 0u;
+    int physicsDebugPipelineStageCursor = 0;
+    float physicsDebugContactLinger = 0.0f;
+    double simulationSeconds = 0.0;
+    double totalSimulationSeconds = 0.0;
+};
 
 struct RuntimeRenderModelFrameView
 {
@@ -125,6 +153,10 @@ struct RuntimeRenderServices
     Environment::CameraCollection& cameras;
     Window& window;
     UI::InGameUI& ui;
+    RuntimeTools& runtimeTools;
+    ReplayRuntime& replayRuntime;
+    const RenderToolOverlayView& toolOverlay;
+    const RuntimeRenderFramePolicy& framePolicy;
     Geometry::SkyBox* skyBox;
     // Lifetime: selected once by Run for this render call. Passes use this
     // snapshot instead of asking Run to reopen scene/config state.

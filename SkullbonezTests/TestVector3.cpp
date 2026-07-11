@@ -18,7 +18,7 @@
 //
 // Related:
 //   - SkullbonezSource/Maths/Vector3.h
-//   - fable_plans/01-unit-test-pyramid-progress.md
+//   - Agentic/Plans/TODO/behavioral-test-depth.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"

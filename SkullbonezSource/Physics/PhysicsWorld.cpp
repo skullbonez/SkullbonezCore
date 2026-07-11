@@ -43,6 +43,8 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "PhysicsWorld.h"
+#include "../Assets/AssetKeys.h"
+#include "../Runtime/Replay/ReplayRetainedMemory.h"
 
 #include "../Core/Config.h"
 #include "../Core/FatalError.h"
@@ -69,6 +71,8 @@ Related:
 #include <cstring>
 
 using namespace SkullbonezCore::Physics;
+using SkullbonezCore::Basics::REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES;
+using SkullbonezCore::Basics::REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER;
 using SkullbonezCore::Basics::ReplaySolverContactCacheSample;
 using SkullbonezCore::Basics::ReplaySolverPersistentContactSample;
 using SkullbonezCore::Basics::ReplaySolverStatsSample;
@@ -109,8 +113,6 @@ constexpr float DEFAULT_BROADPHASE_CELL = 24.0f;
 constexpr uint8_t DEFAULT_PHYSICS_SLEEP_FRAMES = 30;
 constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = MAX_GAME_MODELS * 4;
 constexpr int PHYSICS_COLLISION_VISUAL_BODY_RESERVE = PHYSICS_CANDIDATE_PAIR_RESERVE * 2;
-constexpr const char* REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER = "replay_solver_snapshot";
-constexpr int REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES = 64 * 1024 * 1024;
 constexpr std::size_t REPLAY_SOLVER_SNAPSHOT_VECTOR_INITIAL_CAPACITY = 1024u;
 constexpr std::size_t REPLAY_SOLVER_SNAPSHOT_VECTOR_GROWTH_CHUNK = 4096u;
 // Runtime allocation policy: replay prediction visualization can discover
@@ -759,18 +761,14 @@ RuntimeAllocation::RuntimeReserveOwnerHandle ReplaySolverSnapshotReserveOwner()
 
 void ReportReplaySolverSnapshotReserveFailure( const char* label, std::size_t requestedCapacity )
 {
-    std::fprintf( stderr,
-                  "FATAL: Replay solver snapshot reserve denied for %s (requested_capacity=%zu).\n",
-                  label ? label : "unknown",
-                  requestedCapacity );
-    std::fprintf( stdout,
-                  "FATAL: Replay solver snapshot reserve denied for %s (requested_capacity=%zu).\n",
-                  label ? label : "unknown",
-                  requestedCapacity );
-    std::fflush( stderr );
-    std::fflush( stdout );
-    assert( false && "Replay solver snapshot reserve denied." );
-    std::abort();
+    // Lane F: a partial solver snapshot cannot support deterministic replay
+    // restore. Report the shared owner and cap before terminating.
+    SB_FATAL( "Runtime/Replay/SolverSnapshot",
+              "Replay solver snapshot reserve denied. owner=%s target=%s requested_capacity=%llu hard_bytes=%d",
+              REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER,
+              label ? label : "unknown",
+              static_cast<unsigned long long>( requestedCapacity ),
+              REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES );
 }
 
 template <typename T>
@@ -1419,6 +1417,29 @@ void PhysicsWorld::EndCollisionVisualFrame()
 void PhysicsWorld::ClearPointJointConstraints()
 {
     m_pointJointConstraints.clear();
+}
+
+
+void PhysicsWorld::DestroyPointJointsForBody( PhysicsBodyHandle body )
+{
+    // Invariant: remove every joint that names the retiring handle before the
+    // body slot can be reused. Runtime joint rows are dense and are not retained
+    // as stable identity outside the physics owner.
+    for ( std::size_t index = 0; index < m_pointJointConstraints.size(); )
+    {
+        const PointJointConstraint& constraint = m_pointJointConstraints[index];
+        if ( constraint.bodyA != body && constraint.bodyB != body )
+        {
+            ++index;
+            continue;
+        }
+
+        if ( index + 1u != m_pointJointConstraints.size() )
+        {
+            m_pointJointConstraints[index] = m_pointJointConstraints.back();
+        }
+        m_pointJointConstraints.pop_back();
+    }
 }
 
 

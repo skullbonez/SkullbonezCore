@@ -22,7 +22,7 @@ Invariants:
   - Render and cinematic UI values are clamped before they mutate live config.
   - Scene override masks must be updated with the value they describe.
   - Sound commands delegate value limits to ContactAudioService setters.
-  - Tornado commands sync runtime settings back to physics after field edits.
+  - Tornado commands commit copied field/system values back to the physics owner.
 
 Related:
   - SkullbonezSource/Runtime/RuntimeTuning.h
@@ -30,16 +30,21 @@ Related:
 */
 #include "RuntimeTuning.h"
 
+#include "Audio/ContactAudioService.h"
+#include "Render/RuntimeRenderer.h"
 #include "../Core/WorkerPool.h"
 #include "../GameObjects/GameModelCollection.h"
 #include "../Physics/SimulationSystem.h"
 #include "../Rendering/IRenderDeviceLifecycle.h"
 #include "../UI/UILayout.h"
 #include "../World/WorldEnvironment.h"
+#include "../Scene/TestScene.h"
 #include "Replay/ReplayRuntime.h"
 
 #include <algorithm>
 #include <cmath>
+
+using SkullbonezCore::Math::Vector::Vector3;
 
 namespace SkullbonezCore
 {
@@ -51,8 +56,9 @@ namespace
 {
 constexpr const char* CONTACT_AUDIO_MATERIAL_MAP_PATH = "SkullbonezData/audio/contact_audio.materials.json";
 
-ContactAudioFlashMode NextContactAudioFlashMode( ContactAudioFlashMode mode )
+Runtime::Audio::ContactAudioFlashMode NextContactAudioFlashMode( Runtime::Audio::ContactAudioFlashMode mode )
 {
+    using Runtime::Audio::ContactAudioFlashMode;
     constexpr int MODE_COUNT = static_cast<int>( ContactAudioFlashMode::Count );
     const int rawMode = static_cast<int>( mode );
     if ( rawMode < 0 || rawMode >= MODE_COUNT )
@@ -73,21 +79,22 @@ bool EnsureContactAudioReady( SoundUICommandContext context )
              context.contactAudio.LoadContactAudioMap( CONTACT_AUDIO_MATERIAL_MAP_PATH ) );
 }
 
-void ApplyTornadoFieldValue( RunRuntimeSettings& runtimeSettings,
+void ApplyTornadoFieldValue( Physics::TornadoFieldConfig& tornadoField,
+                             Physics::TornadoSystemConfig& tornadoSystem,
                              bool hasTornadoSystem,
                              float Physics::TornadoFieldConfig::* field,
                              float value )
 {
     if ( hasTornadoSystem )
     {
-        for ( Physics::TornadoVortexConfig& vortex : runtimeSettings.tornadoSystem.vortices )
+        for ( Physics::TornadoVortexConfig& vortex : tornadoSystem.vortices )
         {
             vortex.field.*field = value;
         }
     }
     else
     {
-        runtimeSettings.tornadoField.*field = value;
+        tornadoField.*field = value;
     }
 }
 } // namespace
@@ -270,10 +277,11 @@ bool ApplyRenderVsyncUICommand( RenderDeviceUICommandContext context, const UI::
         return false;
     }
 
-    context.runtimeSettings.isVsyncEnabled = !context.runtimeSettings.isVsyncEnabled;
+    const bool vsyncEnabled = !context.renderer.VsyncEnabled();
+    context.renderer.SetVsyncEnabled( vsyncEnabled );
     if ( context.deviceLifecycle )
     {
-        context.deviceLifecycle->SetVsyncEnabled( context.runtimeSettings.isVsyncEnabled );
+        context.deviceLifecycle->SetVsyncEnabled( vsyncEnabled );
     }
     return true;
 }
@@ -422,15 +430,15 @@ RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands( RuntimePr
     }
     if ( sceneOptions.toggleShadows )
     {
-        if ( RuntimeCinematicRenderingEnabled( context.scene,
+        if ( IsSceneCinematicRenderingEnabled( context.scene,
                                                config,
                                                context.launchOptions,
                                                debug,
                                                context.graphicsReady ) )
         {
-            const bool shadowsActive = RuntimeActiveCinematicConfig( context.scene, config ).shadowsEnabled;
+            const bool shadowsActive = ActiveSceneCinematicConfig( context.scene, config ).shadowsEnabled;
             context.launchOptions.hasCinematicShadowsOverride = false;
-            SetCinematicShadowsEnabledFromUI( RuntimeActiveCinematicConfig( context.scene, config ),
+            SetCinematicShadowsEnabledFromUI( ActiveSceneCinematicConfig( context.scene, config ),
                                               context.scene,
                                               !shadowsActive );
         }
@@ -447,7 +455,7 @@ RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands( RuntimePr
     }
     if ( renderTuning.saveDefaults )
     {
-        context.runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::SaveRenderDefaults } );
+        context.renderDefaults.SubmitOrdinarySave();
         result.queuedRenderDefaultsSave = true;
     }
     if ( renderTuning.requestedParam != UIRenderParam::None )
@@ -510,7 +518,7 @@ bool QueueCinematicSkyDefaultsUICommand( CinematicUICommandContext context, cons
         return false;
     }
 
-    context.runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::SaveSkyDefaults } );
+    context.renderDefaults.SubmitCinematicSave();
     return true;
 }
 
@@ -563,7 +571,6 @@ bool ApplySoundUICommands( SoundUICommandContext context, const UI::UISoundComma
     // failure must not affect simulation, input mode, or validation.
     bool soundTuningChanged = false;
     Runtime::Audio::ContactAudioService& contactAudio = context.contactAudio;
-    RunRuntimeSettings& runtimeSettings = context.runtimeSettings;
     if ( commands.toggleEnabled )
     {
         if ( contactAudio.IsEnabled() )
@@ -579,12 +586,12 @@ bool ApplySoundUICommands( SoundUICommandContext context, const UI::UISoundComma
     }
     if ( commands.toggleDebugCounters )
     {
-        runtimeSettings.contactAudioDebugCounters = !runtimeSettings.contactAudioDebugCounters;
+        contactAudio.SetDebugCountersEnabled( !contactAudio.DebugCountersEnabled() );
         soundTuningChanged = true;
     }
     if ( commands.cycleFlashMode )
     {
-        runtimeSettings.contactAudioFlashMode = NextContactAudioFlashMode( runtimeSettings.contactAudioFlashMode );
+        contactAudio.SetFlashMode( NextContactAudioFlashMode( contactAudio.FlashMode() ) );
         soundTuningChanged = true;
     }
     if ( commands.toggleSimpleMode )
@@ -754,9 +761,7 @@ bool ApplyPhysicsSleepPolicyUICommand( PhysicsSleepPolicyUICommandContext contex
         return false;
     }
 
-    RunRuntimeSettings& runtimeSettings = context.runtimeSettings;
-    runtimeSettings.isPhysicsSleepEnabled = !runtimeSettings.isPhysicsSleepEnabled;
-    context.modelCollection.SetPhysicsSleepEnabled( runtimeSettings.isPhysicsSleepEnabled );
+    context.modelCollection.SetPhysicsSleepEnabled( !context.modelCollection.IsPhysicsSleepEnabled() );
     return true;
 }
 
@@ -805,52 +810,54 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
     // Why: RunInput owns input-mode bookkeeping, while this helper owns the
     // physics-facing mutation and single sync point for accepted tornado edits.
     TornadoUICommandResult result;
-    RunRuntimeSettings& runtimeSettings = context.runtimeSettings;
+    Physics::TornadoFieldConfig tornadoField = context.modelCollection.GetTornadoFieldConfig();
+    Physics::TornadoSystemConfig tornadoSystem = context.modelCollection.GetTornadoSystemConfig();
+    TornadoVisualSettings tornadoVisual = context.renderer.TornadoVisualSettingsSnapshot();
     bool tornadoFieldChanged = false;
-    const bool hasTornadoSystem = !runtimeSettings.tornadoSystem.vortices.empty();
+    const bool hasTornadoSystem = !tornadoSystem.vortices.empty();
 
     if ( commands.toggleTornado )
     {
         bool tornadoEnabled = false;
         if ( hasTornadoSystem )
         {
-            runtimeSettings.tornadoSystem.enabled = !runtimeSettings.tornadoSystem.enabled;
-            tornadoEnabled = runtimeSettings.tornadoSystem.enabled;
+            tornadoSystem.enabled = !tornadoSystem.enabled;
+            tornadoEnabled = tornadoSystem.enabled;
         }
         else
         {
-            runtimeSettings.tornadoField.enabled = !runtimeSettings.tornadoField.enabled;
-            tornadoEnabled = runtimeSettings.tornadoField.enabled;
+            tornadoField.enabled = !tornadoField.enabled;
+            tornadoEnabled = tornadoField.enabled;
         }
-        if ( runtimeSettings.tornadoVisual.autoEnableWithTornado )
+        if ( tornadoVisual.autoEnableWithTornado )
         {
-            runtimeSettings.tornadoVisual.enabled = tornadoEnabled;
+            tornadoVisual.enabled = tornadoEnabled;
         }
         tornadoFieldChanged = true;
         result.toggledTornado = true;
     }
     if ( commands.toggleTornadoVisualShell )
     {
-        runtimeSettings.tornadoVisual.enabled = !runtimeSettings.tornadoVisual.enabled;
+        tornadoVisual.enabled = !tornadoVisual.enabled;
         result.toggledVisualShell = true;
     }
     if ( commands.toggleTornadoFieldVectors )
     {
         if ( hasTornadoSystem )
         {
-            runtimeSettings.tornadoSystem.visualizeVelocityField =
-                !runtimeSettings.tornadoSystem.visualizeVelocityField;
+            tornadoSystem.visualizeVelocityField = !tornadoSystem.visualizeVelocityField;
         }
         else
         {
-            runtimeSettings.tornadoField.visualizeVelocityField = !runtimeSettings.tornadoField.visualizeVelocityField;
+            tornadoField.visualizeVelocityField = !tornadoField.visualizeVelocityField;
         }
         tornadoFieldChanged = true;
         result.toggledFieldVectors = true;
     }
     if ( commands.requestTornadoRadius )
     {
-        ApplyTornadoFieldValue( runtimeSettings,
+        ApplyTornadoFieldValue( tornadoField,
+                                tornadoSystem,
                                 hasTornadoSystem,
                                 &Physics::TornadoFieldConfig::radius,
                                 std::clamp( commands.requestedTornadoRadius,
@@ -861,7 +868,8 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
     }
     if ( commands.requestTornadoHeight )
     {
-        ApplyTornadoFieldValue( runtimeSettings,
+        ApplyTornadoFieldValue( tornadoField,
+                                tornadoSystem,
                                 hasTornadoSystem,
                                 &Physics::TornadoFieldConfig::height,
                                 std::clamp( commands.requestedTornadoHeight,
@@ -872,7 +880,8 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
     }
     if ( commands.requestTornadoInward )
     {
-        ApplyTornadoFieldValue( runtimeSettings,
+        ApplyTornadoFieldValue( tornadoField,
+                                tornadoSystem,
                                 hasTornadoSystem,
                                 &Physics::TornadoFieldConfig::inwardAcceleration,
                                 std::clamp( commands.requestedTornadoInward,
@@ -883,7 +892,8 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
     }
     if ( commands.requestTornadoSwirl )
     {
-        ApplyTornadoFieldValue( runtimeSettings,
+        ApplyTornadoFieldValue( tornadoField,
+                                tornadoSystem,
                                 hasTornadoSystem,
                                 &Physics::TornadoFieldConfig::swirlAcceleration,
                                 std::clamp( commands.requestedTornadoSwirl,
@@ -894,7 +904,8 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
     }
     if ( commands.requestTornadoLift )
     {
-        ApplyTornadoFieldValue( runtimeSettings,
+        ApplyTornadoFieldValue( tornadoField,
+                                tornadoSystem,
                                 hasTornadoSystem,
                                 &Physics::TornadoFieldConfig::liftAcceleration,
                                 std::clamp( commands.requestedTornadoLift,
@@ -905,8 +916,10 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
     }
     if ( tornadoFieldChanged )
     {
-        SyncTornadoRuntimeSettingsToPhysics( context.modelCollection, runtimeSettings );
+        context.modelCollection.SetTornadoFieldConfig( tornadoField );
+        context.modelCollection.SetTornadoSystemConfig( tornadoSystem );
     }
+    context.renderer.SetTornadoVisualSettings( tornadoVisual );
     return result;
 }
 

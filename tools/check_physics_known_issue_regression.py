@@ -36,6 +36,12 @@ BASELINE = REPO / "TestOutput" / "baselines" / "physics_known_issue_signatures.j
 
 KNOWN_ISSUES = [
     {
+        "name": "seeded_solver_distribution_watch",
+        "risk": "Seeded mixed solver distribution drifts after the varied scene becomes the primary full CSV baseline.",
+        "scene": "SkullbonezData/scenes/physics_regression_solver.scene.json",
+        "artifact": "Debug/physics_regression_solver.csv",
+    },
+    {
         "name": "stacking_stability_watch",
         "risk": "Stacking drift or topple in stacking.scene.json.",
         "scene": "SkullbonezData/scenes/stacking.scene.json",

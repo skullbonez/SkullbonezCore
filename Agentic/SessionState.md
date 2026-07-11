@@ -1,118 +1,605 @@
 # SkullbonezCore Session State
 
-Keep this file short. Put detailed history in task-specific plans, reports, or
-audits when it is still useful.
+Date: 2026-07-11
+
+Keep this file operational and short. Detailed evidence belongs in plans,
+reports, and git history.
 
 ## Current State
 
 | Field | Value |
-|-------|-------|
-| Branch | `nightrunner-9th-july` in worktree `C:\SkullbonezCore`. |
-| Active objective | Owner paused the continuous night-worker run on 2026-07-10 after Plan 15.5 so local testing can happen. Replay visuals/prediction/memory/size, Plan 03 governance-apparatus removal, Plan 04 error-handling reconciliation, Plan 07 allocation-gate right-sizing, Plan 11 render abstraction leaks, Plan 13 facade retirement, and Plan 14 public physics API boundary are complete. Resume with `engine-cleanup-plans/15-review-gaps.md` step 15.6 unless the owner redirects. |
-| Last documentation milestone | 2026-07-09 plan consolidation: `Agentic/Plans/MASTER-PLAN.md` + the seven grouped plans in `Agentic/Plans/TODO/` supersede the retired fable/To_Eval/In_Progress plan files (content preserved in git history). |
-| Last source/data milestone | FAC-001 renderer aggregate retirement and the new shadow plan slice are complete: `IRenderBackend.h` is deleted, runtime render wiring uses narrow lifecycle/resource/command/diagnostics/capture/raytracing facets, `shadow_parallel_prep` is no longer hard-disabled, `GameModelRenderer::BuildShadowCasterBatches()` uses bounded count/prefix/fill worker prep, object-shadow bounds use fixed chunk accumulators, and `WorkerPool::BuildChunkRangesNoAlloc()` exposes deterministic caller-owned chunk ranges. Runtime allocation allowlist metadata was also corrected after the Terrain factory cleanup removed `Run.cpp`'s direct Terrain allocation. |
-| Pending work | See `Agentic/Plans/MASTER-PLAN.md` for the full inventory. Former fable open work now lives in `Agentic/Plans/TODO/`: fable-04 mega-files → runtime-shell-decomposition and fable-06 C2-C5/Z → physics-authority-and-identity; fable-03 P3 replay work, fable-05 error-handling work, and audit iss-05 allocation-gate right-sizing are complete. fable-01/02/08/09 were checklist complete and deleted. |
-| Concurrent work warning | The earlier detached duplicate fable-08 reveal-pacing diff was preserved in stash `codex-preserve-detached-reveal-pacing-duplicate-20260708`; do not drop it unless the user asks. |
-| Blockers | The 2026-07-07 overnight blocker ledger was absorbed into the TODO plans: PHYS-* rows → `TODO/physics-authority-and-identity.md`, RGRAPH-* rows → `TODO/render-backend-decomposition.md`, RUN-* rows → `TODO/runtime-shell-decomposition.md` (each under "Known hard blockers"). |
-| Validation | Latest branch gates passed on 2026-07-08: FAC-001 touched-file comment audit inspected 24 source-bearing paths with 0 deferred, `python tools\check_runtime_boundaries.py --self-test` passed, `python tools\check_runtime_boundaries.py --max-errors 20` passed with 0 errors, targeted `tools\validate_build.bat Profile` passed in 14.80s with 0 warnings/errors, `tools\validate_fast.bat` passed, and `tools\validate_full.bat` passed with DX12 validation errors 0, screenshots matching baselines, and `physics_regression_solver.csv` byte-exact; shadow-prep opt-in audit inspected 3 source-bearing files with 0 deferred, `python tools\check_allocation_policy.py --self-test` passed, allocation policy passed with `allowlist_errors=0`, focused smoke emitted `WorkerBuildBatches`, `WorkerFillBatches`, and `WorkerScanBounds`, focused allocation guard exited 0 with `gameplay_violations=0`, isolated DX12 off/on proof produced byte-identical `off_nowater.bmp` / `on_nowater.bmp` (`5143326` bytes, SHA-256 `DCE3F4FEA913680F9E22BB72CB40539849E41AEF5D1758ACC0CE93B9DE946B61`), `tools\validate_full.bat` passed, and `tools\validate_perf.bat` completed with allocation guard PASS. Final merged-`main` gate `tools\validate_full.bat` rerun passed in 00:01:05.6465549 after resolving the Terrain resource-factory merge fix: project filters 0 errors, runtime boundaries 0 errors, Profile/Debug builds 0 warnings/errors, DX12 validation errors 0, DX12 screenshots matched committed baselines, and `physics_regression_solver.csv` was byte-exact. |
-| Current Plan 02 validation | 2026-07-09 Plan 02 Step 3.1 replay snapshot table-drive passed focused `tools\validate_build.bat Profile` (14.70s; 0 warnings/errors), `tools\validate_physics.bat` (26.69s; `VALIDATE_PHYSICS: ALL PASSED`; byte-exact physics baseline), `tools\validate_replay_scrub.bat` (11.03s; `VALIDATE_REPLAY_SCRUB: ALL PASSED`; scrub/restore SkullScope probes passed), and `tools\validate_physics_deep.bat` (84.09s; `VALIDATE_PHYSICS_DEEP: ALL PASSED`). Logs are listed in `engine-cleanup-plans/HANDOFF-2026-07-09-PLAN02-REPLAY-SNAPSHOT.md`. |
-| Current Plan 04 validation | 2026-07-10 Plan 04 is complete and its plan/inventory files were deleted per MASTER convention. The final DX12 Lane R closure converted the remaining resource/shader creation throws to logged recoverable null/status paths, added guarded consumers for optional shader/mesh/framebuffer resources, and kept graph transient materialization failures in fixed diagnostic fields. Strict anchored source throw inventory now returns zero rows. Touched-source comment audit inspected 16 source-bearing files with 0 deferred; no subsystem checklist was required because this was a touched-file pass. Focused `tools\validate_build.bat Profile` passed in 00:00:06.24 with 0 warnings/errors. Required gates passed: `tools\validate_dx12_renderer.bat` passed in 00:00:26.61 with `VALIDATE_DX12_RENDERER: ALL PASSED`, formatting clean, Profile/Debug ready, DX12 validation errors 0, and screenshots matching baselines; `tools\validate_full.bat` passed in 00:00:32.44 with `VALIDATE_FULL: DEFAULT GATE PASSED`, project filters clean, Profile/Debug builds 0 warnings/errors, DX12 validation errors 0, screenshots matching baselines, and `physics_regression_solver.csv` byte-exact. Logs: `Agentic/Reports/validate_build_profile_plan04_dx12_lane_r_final_20260710.log`, `Agentic/Reports/validate_dx12_renderer_plan04_dx12_lane_r_final_20260710.log`, `Agentic/Reports/validate_full_plan04_dx12_lane_r_final_20260710.log`. |
-| Completed Plan 07 validation | 2026-07-10 Plan 07 allocation-gate right-sizing is complete and its plan/inventory files were deleted per MASTER convention. Runtime enforcement simplification: reserve phases now share `RuntimeAllocationPhase`, runtime callsite diagnostics capture callsite plus parent instead of five frames, and replay remains the only approved runtime allocation exception with registered owner/phase/cap/counter diagnostics. Static enforcement: `check_allocation_policy.py` now scans direct heap/reserve APIs, owning dynamic STL members across all configured source roots, and STL growth calls; 71 reviewed storage/growth allowlist rows cover the existing surface without a frozen count ratchet. `AGENTS.md` now names the global zero-allocation policy, allowlist metadata requirement, and validation mapping. Comment audits inspected 3 runtime allocation source files for Step 2 and 1 substantial tool script for Step 3, with 0 deferred; Step 4 was documentation-only. Evidence: Step 2 `tools\validate_build.bat Profile` passed in 00:00:15.86 with 0 warnings/errors and `tools\validate_perf.bat` passed in 00:00:40.72 with allocation guard gameplay violations 0 and reserve policy violations 0. Step 3 `python tools\check_allocation_policy.py --self-test` passed; `python tools\check_allocation_policy.py --repo .` passed with `scanned=296 direct_heap_findings=30 dynamic_stl_member_findings=139 stl_growth_findings=625 allowlist_errors=0`; final staged `tools\validate_fast.bat` passed in 00:00:19.69 with formatting, project filters, staged-file sizes, builds, and unit tests passing. Logs: `Agentic/Reports/validate_build_profile_plan07_runtime_simplify_20260710.log`, `Agentic/Reports/validate_perf_plan07_runtime_simplify_20260710.log`, `Agentic/Reports/allocation_policy_plan07_static_checker_20260710.log`, `Agentic/Reports/validate_fast_plan07_static_allocation_final_20260710.log`. |
-| Completed Plan 11 validation | 2026-07-10 Plan 11 render abstraction leaks is complete and its plan file was deleted per MASTER convention. The diagnostic `DumpFrameGraphSkeleton()` path, live-barrier comparison records, and `Debug/dx12_frame_graph_skeleton.txt` writer were removed. DX12 live transition/UAV barrier labels now use `Dx12Explicit`, rendering docs/comments state that RenderGraph owns declarations/callback scheduling/transient texture lifetime rather than barrier derivation, and the render-backend decomposition plan was corrected to preserve existing graph-managed transient materialization while dropping graph barrier buildout. Touched-source comment audit inspected 10 source-bearing files with 0 deferred; no subsystem checklist was required. `tools\validate_dx12_renderer.bat` passed in about 51s with formatting clean, Profile/Debug builds at 0 warnings/errors, DX12 validation errors 0, and screenshots matching baselines. In-session rubber-duck review found one validation gap: `Agentic/Tests/Dx12ArchUnitTests` needed its own gate after label changes. `tools\validate_dx12_arch_tests.bat` then passed after adding the missing `FatalError.cpp`/`Log.cpp` test-project dependency. Ignored logs: `Agentic/Reports/validate_dx12_renderer_plan11_rendergraph_honesty_20260710.log`, `Agentic/Reports/validate_dx12_arch_tests_plan11_rendergraph_honesty_20260710.log`; DX12 manifest: `TestOutput\validation\dx12_renderer\20260709T222254Z\manifest.json`. |
-| Completed Plan 14 validation | 2026-07-10 Plan 14 public physics API boundary is complete and its plan file was deleted per MASTER convention. `PhysicsApi.h`/`PhysicsEngine.h` have no `GameModel`, `modelIndex`, `modelCount`, `expectedModelCount`, or public `PhysicsEngine` solver-container signature leaks. The final source slice added `PhysicsAuthoredBodyRefreshView` and bounded existing dense-row readers behind `PhysicsEngineStoreQueries` while keeping `PhysicsScene` dense-query methods private. Touched-source comment audit inspected 34 source-bearing files with 0 deferred. Focused `tools\validate_build.bat Debug` passed in 00:00:12.0367538; `tools\validate_physics.bat` passed in 00:00:32.5087482 with Debug/Profile builds at 0 warnings/errors and `physics_regression_solver.csv` byte-exact at 20001 lines. Ignored logs: `Agentic/Reports/build_plan14_step13_debug_after_inline_restore_20260710.log`, `Agentic/Reports/validate_physics_plan14_step13_20260710.log`. |
-| Completed replay visuals validation | 2026-07-10 Stage 10 completed and the plan is being removed. Inventory: `Agentic/Reports/replay_stage10_runtime_replay_inventory_20260710.md`. Rubber-duck review: `Agentic/Reports/replay_stage10_rubber_duck_review_20260710.md` (0 blocking findings). Touched-source comment audit inspected 5 files with 0 deferred. `Runtime/Replay` moved from 28 files / 22,309 lines to 28 files / 21,770 lines; `RunReplayTools.cpp` dropped from 4,955 to 4,367 lines. Replay ribbon staging was right-sized from 22.75 MiB to 16.66 MiB (6.09 MiB saved), with 24,000-segment capacity validated against 21,568 submitted segments. `validate_fast`, `validate_replay_scrub`, `validate_full`, and `validate_perf` passed. Scrub SkullScope accounting: scrub trace 54,932 bytes + SQLite 225,280 bytes + query output 1,512 bytes; restore trace 54,912 bytes + SQLite 225,280 bytes + query output 967 bytes; total GPT-read query output 2,479 bytes. Prediction fingerprint `0x0165312C5422A5F1` matched across two runs (402 records, 73,021 points); submitted geometry hash `0xB127A5094FB0F18F` held for 187 stable frames with replay reserve growth fixed at 414. `validate_full`: DX12 validation errors 0, screenshots matched baselines, `physics_regression_solver.csv` byte-exact. `validate_perf`: allocation guard gameplay violations 0, reserve policy violations 0, DX12 and physics_bench perf checks passed. Logs: `Agentic/Reports/validate_fast_replay_stage10_20260710.log`, `Agentic/Reports/validate_replay_scrub_replay_stage10_20260710.log`, `Agentic/Reports/validate_full_replay_stage10_20260710.log`, `Agentic/Reports/validate_perf_replay_stage10_20260710.log`. |
-| Current Plan 15 checkpoint | 2026-07-10 review-gaps steps 15.4 and 15.5 are complete. 15.4 checklist: `Agentic/Plans/TODO/comment-boilerplate-cleanup-15.4-checklist.md`, 186 checked / 0 deferred, duplicate mental-model paragraph groups 0, generic `Validation gate` glossary matches 0, and comment-only `git diff --check` passed. 15.5 made `Window` native/dimension storage private behind accessors and acquire/release helpers; structural sweeps found Window `m_s*` storage only inside `Window.h`/`Window.cpp`, no `(window|m_cWindow|systems.window)->m_` matches, and remaining broad `->m_` reads only in same-owner `Run` implementation callbacks already owned by runtime-shell decomposition. Touched-source comment audit inspected 19 source-bearing files and 1 substantial tool script with 0 deferred. Validation: project filters passed in 00:00:01.18, final `tools\validate_fast.bat` passed in 00:00:57.75, and final `tools\validate_full.bat` passed in about 00:00:33.19 with DX12 validation errors 0, screenshots matching baselines, and `physics_regression_solver.csv` byte-exact. |
+|---|---|
+| Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
+| Current pushed baseline | `df1406f6 docs: record validation CI activation blocker` |
+| Current objective | Commit, push, and open the engine-cleanup pull request |
+| Last broad local gate | `tools\validate_full.bat` passed final behavioral/gate source in 96.5s: every CPU target, zero-warning Profile/Debug builds, DX12 InfoQueue errors = 0 with matching screenshots, handle smoke, and the 44,401-line varied baseline byte-exactly |
+| Latest focused gates | DX12 architecture suite passed 50/50 in 26.1s; seven fatal contracts run in isolated child processes and the wrapper requires exact-zero exit |
+| Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
-## Active Notes
+## Pushed Cleanup Commits
 
-- Follow the startup contract in `AGENTS.md` before editing: read the required
-  docs, run `git status --short --branch`, and protect dirty worktrees.
-- Owner steering on 2026-07-09 resolved the Plan 03, Plan 07, Plan 11, and
-  FAC-005 decision gates. The record is
-  `engine-cleanup-plans/HANDOFF-2026-07-09-OWNER-DECISIONS.md`; do not reopen
-  those ask-human gates unless the owner changes direction again.
-- DX12 is the only runtime renderer. OpenGL and DX11 parity evidence is
-  historical.
-- Repository validation scripts are pre-commit/PR gates, not routine iteration
-  commands.
-- For the active physics/GameModel authority migration, the user requested
-  intermittent `tools\validate_physics.bat` checkpoints on completed source
-  slices so determinism regressions are caught before the final checkpoint.
-- Implementing work from `Agentic/Plans` defaults to
-  `Agentic/Skills/orchestrator/SKILL.md` unless the user asks to bypass it.
-- Rubber-duck review is for major completed plans/checkpoints, explicit user
-  requests, or repeated failure loops. Do not run one per small source slice.
-- The retired `Agentic/Orchestrator` JSON/Python path should not be revived
-  unless explicitly requested. Use the orchestrator skill for plan work.
-- Do not kill `SKULLBONEZ_CORE.exe` by name. Kill only by PID from a process you
-  launched.
-- Time user-requested work and report elapsed wall-clock time in the final
-  answer or handoff.
-- Owner requested faster Plan 04 progress on 2026-07-09. Batch compatible
-  same-lane/same-subsystem rows that share the same validation gate, while
-  keeping high-risk or cross-validator changes separate.
-- 2026-07-09 plan consolidation (owner-directed, two passes): all Done/Failed/
-  Rejected plans, stale handoffs, and superseded drafts were deleted, then
-  `fable_plans/`, `To_Eval/`, and `In_Progress/` were consolidated into seven
-  grouped plans under `Agentic/Plans/TODO/`. The authoritative inventory with
-  percent-complete is `Agentic/Plans/MASTER-PLAN.md`; review findings are in
-  `engine-cleanup-plans/15-review-gaps.md`. Completed plans are deleted, not
-  archived — do not recreate Done/, Failed/, Rejected/, To_Eval/, or
-  In_Progress/ folders.
-- Engine cleanup latest handoff:
-  `engine-cleanup-plans/HANDOFF-2026-07-09-OWNER-DECISIONS.md`.
-  The owner redirected the current run to the replay visuals/prediction/memory
-  plan on 2026-07-09; that plan completed on 2026-07-10 and the run has resumed
-  MASTER order.
+- `3d25cf48 docs: rebuild the engine cleanup control plane`
+- `31395ba5 docs: reconcile stale engine plan references`
+- `c3a02e31 refactor: close runtime shell ownership`
+- `7724cfe7 refactor: close physics authority and identity`
+- `42c4b4cf refactor: close interaction state ownership`
+- `97d3b27c docs: inventory runtime UI control surfaces`
+- `a448a6ca feat: add fixed-capacity runtime UI surfaces`
+- `0186818a refactor: build replay scrubber as a control surface`
+- `70f75d60 refactor: dispatch replay scrubber actions by value`
+- `1617df02 refactor: centralize replay control gestures`
+- `ad598ddc refactor: share replay control snapshots with rendering`
+- `116fd343 refactor: share cause-window control geometry`
+- `fd9a7f48 refactor: close runtime UI control ownership`
+- `df1406f6 docs: record validation CI activation blocker`
+- `125bb8a9 docs: inventory DX12 failure surfaces`
+- `0c9097ec fix: reduce box manifolds by depth and spread`
+- `e752c395 style: format manifold reducer`
+- `6d8a3aff fix: make broad validation a CPU-test superset`
+- `c13e26ba docs: bind scene asset round-trip ownership`
+- `6976c61e docs: hand off the active engine cleanup wave`
+- `1e7846d5 ci: add honest CPU and native validation lanes`
+- `4a326189 docs: refresh the engine cleanup handoff`
+- `2592c0ac fix: make DX12 command failures fail closed`
+- `acdc994c feat: preserve scene asset provenance`
+- `670a9fcb feat: add runtime input and exit owners`
+- `5b56af13 fix: preserve application exit failures`
+- `e7c2e4a2 feat: route runtime keyboard actions through InputRouter`
+- `225b9688 feat: centralize runtime pointer input ownership`
+- `fd48d658 feat: split runtime requests by owner`
+- `d817a995 feat: stabilize authored scene identities`
+- `28a8b205 feat: move scene entity metadata to scene owner`
+- `e147f9b8 feat: make scene creation transactional`
+- `119b359c feat: preserve live asset scene snapshots`
+- `7fdd91d3 feat: stabilize scene behavior group roots`
+- `936eda3f fix: complete DX12 failure-safe recreation`
+- `ac9c4aea fix: reconcile replay owner-action artifacts`
+- `824fafaf refactor: delete obsolete replay compatibility paths`
+- `dfab2043 refactor: move replay workspace ownership out of Run`
+- `cb2f4dc4 refactor: move render composition behind RuntimeRenderer`
+- `f5cbeb57 fix: bound replay retained memory by owner`
+- `8e39056c refactor: narrow replay live-owner identity`
+- `68a0642b refactor: complete runtime input ownership`
+- `8870ea69 refactor: split runtime input translation units`
+- `1b2b9a60 refactor: split scene parser by schema domain`
 
-## Current Work Items
+## Current Queue
 
-| Item | Status | Notes |
-|------|--------|-------|
-| Plan inventory | Authoritative reference | `Agentic/Plans/MASTER-PLAN.md` lists every remaining plan with percent-complete. Completed plans are deleted, not archived. Replay visuals/prediction/memory, Plan 04 error handling, Plan 07 allocation-gate right-sizing, Plan 11 render abstraction leaks, Plan 13 facade retirement, and Plan 14 public physics API boundary are complete and deleted. |
-| Behavioral test depth | In progress (42%) | `Agentic/Plans/TODO/behavioral-test-depth.md`; P1 solver-stage tests, P4 replay snapshot/hash round-trip, and most P3 parser failure cases are complete. Remaining: P2 manifold reduction, P3 `assetInstances[]` round-trip, P5 injected-bug drill, and P6 sustaining rule. |
-| Physics authority + stable identity | Active plan (~55%) | `Agentic/Plans/TODO/physics-authority-and-identity.md`; next big slice needs the physics-owner design decision recorded in its blocker table. |
-| Render backend decomposition | Active plan (~50%) | `Agentic/Plans/TODO/render-backend-decomposition.md`; graph barrier buildout dropped by completed Plan 11, while existing graph-scheduled callbacks and graph-managed transients remain branch reality. |
-| Interaction state machine | Active plan (~45%) | `Agentic/Plans/TODO/interaction-state-machine.md`; avoid while another agent is editing UI/replay/camera/input code. |
-| Runtime shell decomposition | Active plan (~25%) | `Agentic/Plans/TODO/runtime-shell-decomposition.md`; owns RunInternal.h retirement and Common.h slimming (the last global-service remnant). |
-| 2026-07-09 review gaps | In progress (50%) | `engine-cleanup-plans/15-review-gaps.md`: 15.4 comment-boilerplate cleanup and 15.5 Window encapsulation are complete; 15.1/15.2/15.3 execute via the TODO plans. Remaining direct work: 15.6 stale comment/Common.h hygiene. |
-| 2026-07-07 overnight remediation | Closed into TODO plans | Handoff record: `Agentic/Reports/2026-07-07/overnight-run-handoff.md`. The blocker ledger and fable fix-lists were absorbed into `Agentic/Plans/TODO/` during the 2026-07-09 consolidation; unresolved rows live in each TODO plan's "Known hard blockers" section. |
-| Repo pack-size cleanup | User decision needed for history rewrite | `Agentic/Temp/` is ignored and empty in the tip tree, and `tools/check_staged_file_sizes.py` blocks new oversized staged files outside approved data roots. Existing pack size was recorded at 542 MiB; shrinking it requires a user-approved `git filter-repo` rewrite of historical `Agentic/Temp` blobs and coordinated re-clone. |
+Interaction I4-I10 is complete at 6/6. `RuntimeInteractionController` is the
+sole workspace, gesture, and pointer-capture authority; raw mutation is private
+and typed commands publish events only after success. Replay and editor no
+longer mirror drag activity, axes, capture, or transform mode in stored flags.
+The first plan-level review found Debug rejection asserts and incomplete native
+capture/UI-crossing evidence; both were fixed and the required repeat was clean.
+A final main-pass inventory then caught and deleted the generic mouse-pickup
+`active` mirror. Policy, five Win32 scenarios, final replay scrub, and full pass. Evidence:
+`Agentic/Reports/2026-07-11/interaction-state-machine-closure-review.md`.
 
-## Known Bugs
+Runtime UI/control is complete at 7/7. The 58-row inventory reconciles all 96
+source files with zero deferred: 9 shared-surface files, 60 cohesive
+`InGameUI` widget files, and 27 domain/value boundaries. Scrubber and
+cause-window input/render share fixed-capacity control rows; stored hover
+bridges, `overX` ladders, renderer layout duplication, and the empty prediction
+UI compatibility state are deleted. Gesture capture remains solely with
+`RuntimeInteractionController`. The first plan review found blocked-pointer
+hover leakage; the required repeat found its missing regression test. Both are
+fixed, the repeat is exhausted, and allocation, 26-case Debug/Release policy,
+DX12, deterministic physics, and full gates pass. Evidence:
+`Agentic/Reports/2026-07-11/runtime-ui-control-u6-review.md`.
 
-| Bug | Area | Status |
-|-----|------|--------|
-| Water renders through back faces of spheres when intersecting the water surface. | Rendering / Water | Mitigated but not fully solved; see the git history of `Agentic/Plans/missed_plan_items.md` (item 5; file retired in the 2026-07-09 plan consolidation) before starting new water work. |
+Validation-gate integrity has no remaining local implementation gap. V3 stays
+open at 5/6 because live GitHub state has no default-branch workflows, Actions
+runs, branch protection, variables, or runners, and this branch has no PR.
+Opening/integrating a PR or changing repository administration is out of scope.
+Recommended default and unblock evidence are recorded in
+`Agentic/Reports/validation_ci_v3_20260710.md`; continue behavioral-test depth
+without treating the unavailable GPU runner as a local blocker.
 
-Additional bug notes live in `Agentic/Bugs.md`.
+Behavioral-test depth is complete at 6/6. P5 records all four intended mutation
+failures and P6 proves each CPU executable stops the broad gate. The DX12 drill
+also fixed in-process fatal tests and signed fatal exits escaping the wrapper.
+Evidence: `Agentic/Reports/behavioral_test_depth_closure_20260711.md`.
 
-## Validation Map
+Runtime-shell decomposition is complete at 27/27. E1-E3 deleted `RunInternal.h`,
+forwarding-only Run methods, and Common compatibility includes. F1-F2 then
+deleted the multi-domain settings shelf, moved render/physics/audio policy to
+its concrete owners, removed retained renderer authority and framebuffer UI
+access, and replaced the Debug whole-world replay fixture with production restore
+operands. The first F3 review found four blocking leaks; all were fixed and the
+single repeat review was clean. Final inventory/evidence:
+`Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md`.
 
-Use `AGENTS.md` as the source of truth. These are targeted pre-commit/PR gates,
-not routine iteration steps.
+D3 is complete. The repository has no tracked `.inl` files. The former editor
+mini-palette fragment is split into real palette policy/layout, drawing, and
+frame-composition translation units over a declaration-only stateless UI
+contract. Fast, five interaction scenarios, perf, and full pass. E1 now owns complete deletion of
+`RunInternal.h` and relocation of each remaining helper/constant to one domain
+owner without introducing another broad state hub.
 
-| Change | Validation |
-|--------|------------|
-| Documentation-only | No validation required |
-| Unit tests only | `tools\validate_tests.bat` |
-| Small non-render code refactor | `tools\validate_fast.bat` |
-| Renderer backend, shaders, screenshots, visual baselines | `tools\validate_dx12_renderer.bat` |
-| DX12 renderer gate or validation tooling | `tools\validate_fast.bat`, then `tools\validate_dx12_renderer.bat` |
-| Physics, collision, solver, determinism | `tools\validate_physics.bat` |
-| Broad physics baseline, bullet sweep, or SkullScope diagnostics | `tools\validate_physics_deep.bat` |
-| Performance-sensitive hot path | `tools\validate_perf.bat` |
-| General DX12 graphics stress or memory-growth investigation | `tools\run_graphics_stress.bat 1` for a bounded probe; `overnight` only when intentionally soaking |
-| Broad or uncertain scope | `tools\validate_full.bat` |
+D2 is complete. `TestSceneParser` is split into document composition, asset,
+body/group, runtime/simulation, and presentation/environment translation units
+over one cohesive schema declaration/value-helper header. Production, doctest,
+and standalone parser projects compile the full set. Focused parser, fast, CPU,
+and full gates pass. D3 now owns remaining shared `.inl` composition conversion
+where concrete owners already exist.
 
-## Key Paths
+D1 is complete. The former 3,192-line `RunInput.cpp` is split at established
+owner boundaries into the 951-line `InputRouter` implementation, 1,144-line
+shared input-frame value/UI policy, 1,074-line stateless frame execution, and
+183-line scene-request execution owned by `SceneController`. All files are
+below the staged size limit; fast, CPU, five interaction scenarios, and full
+pass. D2 now owns the `TestSceneParser.cpp` schema-domain split.
 
-| Purpose | Path |
-|---------|------|
-| Source | `SkullbonezSource/` |
-| Scenes | `SkullbonezData/scenes/` |
-| Shaders | `SkullbonezData/shaders/` |
-| Baselines | `TestOutput/baselines/` |
-| Validation scripts | `tools/` |
-| Runtime reference | `Agentic/Reference/runtime-reference.md` |
-| Physics overview | `Agentic/Reference/physics-overview.md` |
+Input ownership B1a-B1f is complete. `InputRouter` owns device, semantic-action,
+focus, pointer, and presentation state; `Run` stores no input context/action
+buffer and exposes no input frame, focus, keyboard, pointer, capture-drain, or
+default-drain method. `ProcessInputFrame` is stateless top-level composition
+with explicit synchronous borrows and no host pointer/reference or callback
+pack. Later phases do not poll hardware directly.
+
+The B1f adversarial pass rejected an initial `InputRouter::ProcessFrame` shape
+because it attached unrelated stress/persistence/capture/scene execution to the
+owner. The corrected `InputFrame` composition contract leaves `InputRouter`
+cohesive; the required repeat pass was clean. Fast, CPU, five interactions,
+perf, and full all pass from the corrected source. D1/E1 now own the physical
+`RunInput.cpp` split and deletion of visible `RunSubsystemState`/`RunInternal`
+composition borrows.
+
+Owner queue B2b-B2e is complete. Capture, render-default persistence, and scene
+requests now use fixed owner storage; application exit remains value-only.
+The generic queue/type/mixed switch and dead advance/quit cases are deleted.
+Replay records only successful owner events on explicit stable wire codes, and
+the scene batch accepts at most the first same-frame transition. The final fast,
+CPU, interaction, perf, and full gates passed from the completed boundary.
+
+The first perf run exposed eight duplicate names in the varied physics bench
+fixture after C1a made name collisions honest. The ball rows now have unique
+names; the final performance and full gates pass without relaxing validation.
+
+DX12 D1-D5 is complete. Required startup and optional-feature failure paths
+retain one result, resize publishes only complete replacement sets, device loss
+is sticky and tears down without later queue/present work, and the Debug fault
+probe exits 1 before the sole submission site with one 457-byte diagnostic and
+zero submissions/InfoQueue errors. The plan-level adversarial review found and
+fixed device-loss teardown issuing a later fence signal; the repeat review was
+clean. Final fast, architecture, fault, three consecutive renderer, allocation,
+and full gates passed.
+
+Replay R0 is complete at exactly 28 scoped files / 23,814 lines, plus the
+117-line outside Run probe-state adjunct. Capacity, high-water, raw artifacts,
+Run business methods, validation lanes, and deletion/merge candidates are
+reconciled in `Agentic/Reports/replay_r0_inventory_20260710.md`. The artifact
+query/gate now treats the deleted omnibus wire kind 2 as unsupported and
+decodes explicit owner-action kind 10; the v2 gate passed in 25.4s and fast
+passed in 19.4s.
+
+Replay R1 is complete at 24 files / 23,347 lines. The unused JSON exporter,
+behavior-free scrubber save bridge, redundant save-test/play CLI synonyms, and
+the solver recorder's `void*` visitor are deleted; binary v2 is the sole saved
+artifact. The first scrub gate exposed terrain contact index `-1` reaching
+ragdoll scene metadata; the replay helper now preserves non-entity sentinels,
+and the complete scrub/prediction gate passes. Final fast, allocation, CPU, v2,
+interaction, replay, and full gates passed. That source was the R2 starting point.
+
+Replay R2 is complete at 24 files / 24,350 lines. `ReplayRuntime` owns the one
+typed workspace tick, scrub/cause/velocity/prediction and inspection-camera
+decisions, fixed-capacity overlay production, live restore/hash transactions,
+scene timeline reset, startup artifact/probe workflows, and frame-probe
+sequencing. `Run.h` and every `Run*.cpp` expose zero replay business methods;
+replay owner headers retain no Run pointer/reference, `void*`, callback pack, or
+friend backdoor. The added lines are explicit owner code moved out of Run; R4
+owns live-view narrowing and R5 owns size closure. CPU, allocation, replay,
+interaction, physics, DX12, and full gates passed. Detailed evidence is in
+`Agentic/Reports/replay_r2_workspace_20260710.md`.
+
+RuntimeRenderer composition A1-A2 is complete. The renderer receives the five
+named owner views, stores explicit render/world owners rather than
+`RunSubsystemState`, owns pass/resource lifecycle and submission, and invokes
+tool/replay record owners after replay overrides. The old binding bag, Run C
+hooks, `void*` callback user, texture callback path, and raw sky alias are
+deleted. The first adversarial pass found and fixed overlay ordering plus a
+disguised broad host; the required repeat pass was clean. Architecture,
+renderer, full, fast, allocation-policy, project/filter, and comment gates pass.
+Evidence is in `Agentic/Reports/runtime_renderer_composition_20260710.md`.
+
+Replay R3 is complete. `ReplayRetainedMemory` names presentation, solver,
+prediction-prefix, and cold-v2 ownership plus all three registered growth
+owners. Guarded high-water evidence right-sizes recorder/solver caps to 32/8
+MiB; prediction remains 256 MiB after reaching 211,376,304 bytes. Aggregate
+active owner bytes are enforced, counters are exposed in memory JSON, and
+fatal-vs-cancel exhaustion is tested. CPU, allocation, scrub, v2, interaction,
+physics, perf, and full gates pass. Evidence is in
+`Agentic/Reports/replay_r3_retained_memory_20260711.md`.
+
+Replay R4-R5 and the full replay architecture plan are complete. Production
+startup/restore no longer accepts `ReplayLiveWorld`; frame-scoped owner views
+separate sample restore, cold topology rebuild, and Debug-only probes. Stable
+ids override stale row hints and reject duplicates before mutation. Restore
+captures actual live state before mutation, reapplies it on recoverable failure,
+and hash-verifies rollback; the named v2 gate injects a target-hash mismatch to
+prove that path. The final inventory is 26 files / 24,904 lines with five
+cohesion-based size exceptions and `ReplayRuntime.h` at 1,485 lines. Both
+required adversarial passes are resolved. Fast, CPU, scrub, v2, interaction,
+physics, perf, DX12, and full gates pass. Evidence is in
+`Agentic/Reports/replay_r4_live_owner_identity_20260711.md` and
+`Agentic/Reports/replay_r5_closure_20260711.md`.
+
+The first SceneController C1 dependency is complete locally. SceneController
+physically owns `PhysicsEngine`; GameModelCollection requires a borrow and no
+longer publishes physics authority. All production consumers receive the scene
+owner explicitly, and browser/adjacent/deck/reset/advance policy moved out of
+the deleted `SceneRuntimeCoordinator` object. Fast, CPU, physics, perf, and full
+gates pass; the remaining C1 work is load/save execution and lifecycle-event
+ownership, including deletion of the temporary scene action dispatcher.
+The save sub-boundary is also local: SceneController owns editable snapshot and
+defaults persistence through a synchronous borrowed view, the Run save method
+is deleted, and failed reads/parses/writes return owned results without replay
+events. Fast and full gates pass from this source.
+
+The dependent B1f scene seam now has one fewer `Run` forwarding method:
+`RuntimeTools` owns mouse-pickup cancellation, including capture-intent release,
+gesture termination, and handle reset. Scene load and every input/physics
+cancellation path call the tool owner directly. B1f remains open for the full
+`TakeInput` and pointer-routing deletion proof. The CPU umbrella, interaction
+clicks, and full gate pass from this source; the touched-source comment audit is
+6/6.
+
+Scene lifecycle publication is being converted from passive labels into an
+enforced transaction. The scene runtime rejects skipped phases while allowing
+explicit restart after a recoverable failure, and SceneController refuses to
+publish cleared/populated/activated phases unless entity, body, and collider
+topology matches the phase contract. The unused last-event forwarding accessor
+is deleted. At this slice C2 was still open for concrete non-scene owner
+consumption and callback-pack deletion; both are closed by the later milestone
+and adversarial correction below.
+
+All 135 authored scenes also pass the load-only sweep with empty stderr, and
+the focused physics gate remains byte-exact. The lifecycle transition test is
+part of the 126-case CPU suite. Comment audit: 5/5 touched source/test files.
+
+The scene execution callback pack is now deleted locally. Navigation returns a
+value-only accepted `SceneLoadRequest`, including the no-load result for the
+already-active browser scene, and cinematic selection is a separate index
+decision. No scene action retains `Run`, `void*`, callbacks, mutable capture/
+scene state, or a style-owner context. B2f still requires deletion of
+`DrainSceneRequests` and promotion of the remaining Run load sequence. CPU,
+fast, one-minute graphics stress (8,309 frames / 231 loads / empty stderr), and
+full gates pass; comment audit is 9/9.
+
+SceneController now physically owns GameModelCollection beside the entity and
+physics stores. The Run collection field and all 114 direct member uses are
+deleted; save, required-contact updates, and replay trimming use controller-
+owned topology without passing it back as a duplicate owner argument. The C1
+load boundary still needs world/terrain/camera population and orchestration.
+Fast, CPU, replay scrub, replay v2, physics, and full gates pass; comment audit
+is 15/15.
+
+SceneController now physically owns the active WorldEnvironment beside its
+entity, model, and physics state. The Run field and every direct use are gone;
+save and replay contexts derive the world through the scene owner instead of
+republishing duplicate mutable authority. Terrain/camera ownership and final
+load orchestration remain the next C1 edges. Fast, CPU, replay scrub, replay v2,
+physics, and full gates pass; comment audit is 15/15.
+
+The active CameraCollection is moving from RunSubsystemState into
+SceneController. The old value owner and nullable alias are deleted; camera
+consumers and Director playback use the concrete scene owner, and replay/save
+contexts no longer duplicate controller-owned camera authority. Terrain and
+final load orchestration remain the next C1 edges. Fast, CPU, interaction,
+replay scrub, and full gates pass; comment audit is 22/22.
+
+SceneController now owns the replaceable terrain and its flat-slope
+classification through one SceneTerrain publication boundary. RunSubsystemState
+has no terrain authority, while renderer passes borrow the stable terrain owner
+instead of mutable unique-owner storage. Final Run load orchestration is the
+remaining C1 seam. Allocation, project filters, fast, CPU, one-minute graphics
+stress, all 135 scene loads, physics, and full gates pass; comment audit is
+18/18.
+
+SceneController now implements the complete cold load transaction with explicit
+per-call concrete owners. Run::LoadScene and both broad load/reset context bags
+are deleted. The remaining C1 seam is the scene-only pending-request switch and
+its Run::DrainSceneRequests wrapper. Fast, CPU, interaction, replay scrub,
+one-minute graphics stress, all 135 scene loads, physics, and full gates pass;
+comment audit is 11/11.
+
+The SceneController C1-C3 milestone and owner-queue B2f are complete locally.
+`SceneController::ExecutePending` owns the fixed pending batch and scene-only
+operation switch, while `SceneController::Load` owns the ordered cold lifecycle
+transaction. `Run::LoadScene`, `DrainSceneRequests`, the scene callback/context
+packs, and collection scene wrappers are deleted; cold-operation dependencies
+are explicit per-call borrows and are never retained. Fast, CPU umbrella,
+interaction clicks, and full gates pass; comment audit is 3/3. The required
+milestone adversarial review is next, before B1f resumes.
+
+The first scene-milestone adversarial pass found and fixed C2 completion
+overclaim plus a pre-drain mutation defect. Scene-load preparation is now
+read-only through a successful GPU drain; diagnostics, simulation, audio,
+tools, interaction, and replay attach enforced receipts beside their concrete
+phase calls, and controller bookkeeping/manual-reset/interactive state commit
+after preparation. Final fast, CPU, all 135 authored scene loads, and full
+gates pass; the final comment audit is 13/13. The required repeat pass then
+found the same pre-drain interactive mutation in the pre-UI adjacent-navigation
+and graphics-stress helpers. Both duplicate seams are deleted; final fast,
+one-minute graphics stress (8,533 frames / 238 loads / empty stderr),
+interaction, and full gates pass. The scene-milestone adversarial loop is
+closed, so B1f resumes next.
+
+B1f is progressing from values outward. `InputRouter::BuildRuntimeSnapshot` now
+owns the single device/UI pointer join, `Run::BuildRuntimeInputSnapshot` is
+deleted, and the Run-capturing pointer/camera callback pack is replaced by
+direct composition over owner values. Fast, CPU umbrella, interaction, perf,
+and full gates pass; comment audit is 5/5. B1f remains open for the
+`RouteRuntimePointerInput`/camera helper surface and final `TakeInput` deletion.
+
+`RuntimeInteractionController` now owns camera-look gesture begin/cancel sync;
+the corresponding Run methods are deleted and standalone policy coverage calls
+the owner API directly. Fast, CPU, interaction, and full gates pass; comment
+audit is 5/5. The next B1f edge is world-pointer routing and camera/presentation
+composition.
+
+`InputRouter` now owns the pointer-presentation policy join over device/UI
+snapshots and scalar editor/replay facts. Run's mouse-look and cursor-hide query
+methods are deleted, and render camera cycling consumes committed interaction
+capture. Fast, CPU, interaction, perf, and full gates pass; comment audit is
+6/6. B1f continues with mutating pointer presentation and world-click routing.
+
+Run's two mutating pointer-presentation wrappers are now deleted. Callers
+request router visibility/capture directly from the owner policy and reset
+camera deltas explicitly when mouse-look is inactive. Fast, interaction, and
+full gates pass; comment audit is 3/3. B1f continues with world-pointer routing,
+focus/keyboard composition, camera helpers, and final `TakeInput` deletion.
+
+`AttachedCameraController` now physically owns Attach target/orbit/follow state;
+Run stores only the concrete controller and all consumers borrow `State()`.
+Fast, CPU, interaction, perf, and full gates pass; comment audit is 9/9. B1f
+continues by moving attached-camera behavior and the world-pointer route.
+
+Attach return-mode and visible render-pose capture/restore now belong to
+`AttachedCameraController`; the duplicate RunCameraState field and two Run
+methods are deleted. Fast, interaction, and full gates pass; comment audit is
+5/5. Target selection/submode/pin/orbit/follow and world-pointer routing remain.
+
+Attach target recovery and per-frame follow pose application now execute inside
+`AttachedCameraController`; Run's resolve/follow methods are deleted. Fast,
+interaction, perf, and full gates pass; comment audit is 6/6. Selection,
+submode/pin/orbit commands and the outer world-pointer route remain.
+
+Attach submode, pin, and orbit mutation now execute inside
+`AttachedCameraController`; three Run command methods and the UI-frame orbit
+callback slot are deleted. Fast, CPU, interaction, perf, and full gates pass;
+comment audit is 4/4. Selection and the outer world-pointer route remain before
+focus/keyboard callback-pack and `TakeInput` closure.
+
+Attach target reuse, seeded selection, ray picking, identity capture, and
+initial relative-pose capture now execute inside `AttachedCameraController`.
+Four Run methods and three obsolete pose helpers are deleted; composition sees
+only an exact selection receipt. The interaction gate now includes a passing
+Attach object-click regression. Fast, CPU, three interaction scenarios, perf,
+and full gates pass; comment audit is 4/4. The wider pointer route remains.
+
+Manipulator pickup pointer routing now belongs to `RuntimeTools` through a
+value-only input/result boundary; Run's pickup input method is deleted. A new
+dynamic-body interaction assertion proves pickup begin and release cancellation.
+Fast, CPU, four interaction scenarios, perf, and full gates pass; comment audit
+is 6/6. Editor and replay/launcher pointer composition remain.
+
+Editor/Inspect selection commands now prepare and commit inside `RuntimeTools`
+around the existing interaction-owner transition. Run's command executor and
+event publisher are deleted. Fast, CPU, four interaction scenarios, perf, and
+full gates pass; comment audit is 6/6. The remaining editor gesture/placement
+route and replay/launcher composition still block B1f closure.
+
+Editor-active and Inspect-gizmo-active queries now belong to `RuntimeTools` and
+their Run methods are deleted. Fast, four interaction scenarios, and full pass;
+comment audit is 7/7. Mutating editor transition/pointer work remains.
+
+Editor transition cleanup now belongs to `RuntimeTools`; Run retains only the
+cross-owner pointer-presentation reconciliation and its editor cleanup method is
+deleted. Fast, four interaction scenarios, and full pass; comment audit is 4/4.
+
+Cursor application and UI capture release now execute inside `InputRouter`;
+four free presentation wrappers are deleted and camera delta reset consumes the
+router's explicit release result. Fast, CPU, four interaction scenarios, perf,
+and full pass; comment audit is 3/3.
+
+Launcher click gating, ray construction, replay event publication, topology
+repair, firing, and scene-count commit now execute inside `RuntimeTools`. A fifth
+interaction scenario proves accepted laser feedback. Fast, CPU, interaction,
+perf, and full pass; comment audit is 5/5. Editor/replay routing remains.
+
+Replay path-target world-pointer gating, picking, and optional inspection-camera
+exit now execute inside `ReplayRuntime`; Run observes only `consumed`. The Attach
+probe now asserts press/release selection timing. Fast, CPU, five interaction
+scenarios, perf, and full pass; comment audit is 3/3. Editor routing remains.
+
+Interaction transition cancellation now sequences through `InputRouter`, which
+borrows ReplayRuntime/RuntimeTools only to invoke their own cancellation APIs.
+Run's broad transition cleanup method is deleted. Fast, CPU, five interaction
+scenarios, perf, and full pass; comment audit is 3/3.
+
+Transition cancellation plus final workspace/tool activation now execute inside
+`InputRouter`; Run's finalization wrapper is deleted. Fast, CPU, five interaction
+scenarios, perf, and full pass; comment audit is 3/3.
+
+World-owner workspace selection, cancellation, and final owner activation now
+execute inside `InputRouter`; Run's world-owner forwarding wrapper is deleted.
+Editor, replay automation, and placement-mode callers use the owner API
+directly. Fast, CPU, five interaction scenarios, perf, and full pass; comment
+audit is 5/5. B1f continues with the editor world-pointer route.
+
+Editor pointer preview, invalid-selection cleanup, picking, and selection-plan
+construction now execute inside `RuntimeTools` from value-only ray inputs. Run
+retains only transition-before-commit composition for that path. Fast, CPU,
+five interaction scenarios, perf, and full pass; comment audit is 2/2. B1f
+continues with placement and transform gestures.
+
+Placement-scale release, placement commit, replay recording, selection, and
+gesture teardown now execute inside `RuntimeTools`; Run consumes only explicit
+composition facts. Five interaction scenarios and full pass; comment audit is
+2/2. B1f continues with transform gestures.
+
+Active translate/rotate/scale drags, bounded release-time replay recording, and
+gesture teardown now execute inside `RuntimeTools` from a value-only pointer
+sample. Five interaction scenarios and full pass; comment audit is 2/2. B1f
+continues with new gesture starts.
+
+New scale/rotate/translate and placement-scale gestures now prepare and commit
+inside `RuntimeTools`; immutable plans bridge InputRouter cleanup without a Run
+callback/context. Five interaction scenarios and full pass; comment audit is
+2/2. B1f continues with final editor and outer pointer composition deletion.
+
+InputRouter now sequences the entire editor pointer route from one immutable
+ray frame and returns bounded ordered semantic actions; Run's editor world-click
+method is deleted. Fast, CPU, five interaction scenarios, perf, and full pass;
+comment audit is 4/4. B1f continues with the outer pointer route.
+
+InputRouter now owns the complete editor/manipulator/attach/replay/launcher
+pointer priority chain from one immutable normal/clamped ray sample; Run's outer
+pointer method is deleted. Fast, CPU, five interaction scenarios, perf, and full
+pass; comment audit is 4/4. B1f continues with `TakeInput` and camera helpers.
+
+RuntimeTools now owns editor viewport-look and placement wheel/drag mutation
+from one post-UI device value; the UI coordinator consumes explicit effects and
+the Run callback/method are deleted. Fast, CPU, five interaction scenarios,
+perf, and full pass; comment audit is 4/4. B1f continues with TakeInput callback
+packs and camera helpers.
+
+InputRouter now owns device-pointer and explicit automation-point world-ray
+projection from immutable camera/window views; Run's ray helpers are deleted.
+Fast, CPU, five interaction scenarios, perf, and full pass; comment audit is
+5/5. B1f continues with TakeInput callback packs and camera/late-frame reads.
+
+InputController now owns camera movement from sampled frame values. Mouse-look
+ownership and Shift travel speed are captured during input sampling; the late
+update no longer reads the device frame, and Run's camera forwarding method is
+deleted. Fast, CPU, five interaction scenarios, perf, and full pass; comment
+audit is 6/6. B1f continues with TakeInput callback packs and remaining late
+frame/render/replay hardware reads.
+
+ReplayRuntime now owns the mapped Alt-edge and velocity-edit transition and
+returns bounded cross-owner effects. RunInput's post-mapped keyboard context
+and six-callback template are deleted. Fast, CPU, five interaction scenarios,
+perf, and full pass; comment audit is 3/3. B1f continues with the omnibus
+UI-frame pack and remaining late frame/render/replay hardware reads.
+
+UI sampling/replay arbitration now completes before post-UI keyboard dispatch
+and command mutation, with fixed command values crossing the phase boundary.
+Four shell callbacks are deleted and input-mode updates call InputController
+directly; the remaining command pack is six owner-transition seams. Fast, CPU,
+five interaction scenarios, perf, and full pass; comment audit is 1/1.
+
+InputRouter now publishes the current post-UI snapshot during replay workspace
+input and republishes completed interaction-policy facts before TakeInput
+returns. Later physics, render, replay, and water-control phases no longer call
+DeviceFrame. A first interaction run caught missing mid-input publication; the
+corrected source passes fast, CPU (2,766 assertions), all five interaction
+scenarios, perf, and full. Comment audit is 10/10.
+
+Scene provenance C1a is complete: parser-owned library/instance/ordered-part
+records retain exact shape sources, hierarchy transforms use rotated offsets
+and quaternion composition, duplicate explicit/asset/ragdoll names fail
+atomically, and runtime ragdoll names preflight before the first append. Parser,
+CPU umbrella, physics, and full gates passed from the final source.
+
+Stable scene identity C1b is complete. Schema v2 requires explicit nonzero ids
+for direct objects and ordered asset parts; duplicate/missing/wrong-version
+input fails atomically. Version 1 upgrades once in the historical runtime
+section order, authored creation consumes stored ids rather than allocating by
+loop order, and later runtime spawns continue above the highest sparse id. The
+parser, CPU umbrella, physics, and full gates passed from the final source.
+
+Scene entity ownership C2 is complete. `SceneController` owns the preallocated
+stable-id/body, display-name, material, and asset-affiliation rows; `GameModel`
+retains only transient contact-highlight timers. Creation callers publish
+`SceneEntityCreateDesc`, and replay/save/style/selection/automation consumers
+read the scene owner. An initial eager-array +5.3 MB regression was corrected by
+reserving configured cold rows before population; allocation policy, CPU, fast,
+physics, performance, and full gates pass from the final source.
+
+Transactional creation C3 is complete. `TryCreateSceneEntity` preflights every
+same-row metadata, physics, and render owner before mutation; recoverable input
+failure leaves every count unchanged, while topology/reservation drift is
+fatal. Render rows publish during creation, the old append API and duplicate id
+parameter are deleted, and clear proves zero topology. The waited standalone
+smoke reports `creation_atomic=pass`; CPU, allocation, fast, physics,
+performance, and full gates pass from the final source.
+
+Scene snapshot ownership C4 is complete. `SceneSnapshotWriter` borrows explicit
+owner data, resolves body/collider rows through stable scene identity, emits
+schema-v2 asset instances with authoritative per-part live state, and fails
+topology drift fatally instead of silently skipping rows. The collection save
+facade is deleted. A mixed-shape no-`Run` writer/parser regression and a waited
+production building-asset save/reload probe pass; allocation policy, CPU, and
+full gates pass from the final source.
+
+Stable behavior ownership C5 is complete. `SceneEntityStore` owns behavior
+groups separately from asset affiliation and stores stable root object ids;
+collection physics paths derive dense rows only at cold compatibility
+boundaries. The collection group sidecar/types/creation argument and scoped
+row-root spellings are deleted. The C1-C5 adversarial review found and fixed
+parser publication of missing roots plus incomplete no-`Run` evidence. The
+corrected fixture recreates fresh owners and passes 444 stable-id comparisons;
+the follow-up review is clean. Parser, CPU, allocation, physics, performance,
+and full gates pass from the final source.
+
+The normal physics determinism gate now uses the authored 37-body, 1,200-frame
+`physics_bench_varied.scene.json` workload as its primary full CSV contract.
+Validation compares one canonical 44,401-line/6,330,789-byte pass exactly and
+requires repeated emitted passes to be byte-identical. The former seeded
+20-body solver scene remains in the deep gate through an exact 20,001-line
+SHA-256 signature. `tools\validate_fast.bat` and
+`tools\validate_physics.bat` passed from the final baseline state with zero
+warnings/errors, `creation_atomic=pass`, and the varied CSV byte-exact match.
+`tools\validate_physics_deep.bat` also passed with the varied CSV, legacy
+solver signature, and SkullScope query packet all exact.
+
+Physics authority and stable identity are complete at 16/16. Physics now owns
+handle-based authored mutation and coordinated body/collider registration;
+scene deletion retires joints and paired physics/metadata/presentation/render
+rows without reloading surviving live bodies from cold descriptors. Runtime
+selection commands, gestures, attached-camera state, picker results, camera
+tracking, and prepared gizmo plans retain handles or typed row hints. The first
+plan-level adversarial review found and fixed the surviving-body teleport risk;
+the required repeat was clean. Policy, five interaction scenarios, and full all
+pass from the corrected source. Detailed evidence is in
+`Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md`.
+
+## Workstreams To Prioritize
+
+1. Close remaining interaction-state and runtime UI/control ownership phases.
+2. Finish validation-gate V3-V4 and behavioral-test P3/P5/P6 evidence.
+3. Close renderer decomposition after the five `Run`
+   ownership extractions establish their boundaries.
+4. Run the final ownership and campaign adversarial reviews, fixing every
+   credible finding before closure.
+
+## Binding Decisions And External Blocker
+
+- `Run` remains process/frame composition after five owner extractions:
+  `InputRouter`, owner queues/application exit, `SceneController`,
+  `ReplayRuntime`, and `RuntimeRenderer`.
+- Input uses a pre-UI immutable device snapshot, one post-UI hit snapshot, then
+  post-UI routing. Later phases do not poll hardware directly.
+- Persistent self-hosted DX12 CI may run trusted `main`/manual refs only. A
+  disposable isolated GPU runner is required before public-PR GPU execution can
+  become merge-blocking.
+
+## Non-Negotiable God-Object Closure Gate
+
+Do not close the runtime plan or engine-cleanup campaign merely because
+`Run.cpp` becomes short. Treat `Run.h`, every `Run*.cpp`, shared internal
+headers, callback/context bags, and forwarding facades as one logical object.
+Its only permitted responsibilities at closure are owner construction/wiring,
+startup/shutdown, OS message pumping, top-level frame order, and final exit
+reporting. `RunInternal.h` and equivalent renamed shared-state hubs must be
+gone, and the five extracted owners must remain cohesive rather than becoming
+replacement god objects.
+
+The final independent adversarial review must report zero credible god-object,
+callback-bag, forwarding-facade, or disguised shared-state-hub findings across
+the runtime shell and current cleanup hotspots. Any credible finding reopens
+the relevant checklist item and blocks completion; log and fix it rather than
+deferring it as optional follow-up.
+
+`Agentic/Plans/MASTER-PLAN.md` remains the authoritative plan index.

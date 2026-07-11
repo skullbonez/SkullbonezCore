@@ -384,11 +384,18 @@ bool RenderBackendDX12::PrepareDraw( VertexFormat12 format,
                                      const InstancedMeshDX12* im,
                                      const DynamicVBDX12* dvb )
 {
-    EnsureCommandListOpen();
+    if ( !EnsureCommandListOpen().ok )
+    {
+        return false;
+    }
 
     if ( !m_renderingToFBO && TransitionBackbuffer( "PrepareDrawBackbuffer", RenderGraphResourceAccess::RenderTarget ) )
     {
         m_targetsDirty = true;
+    }
+    if ( m_commandRecording.HasFailure() )
+    {
+        return false;
     }
 
     // Concept: the PSO cache key is the complete "shape" of a draw pipeline.
@@ -440,6 +447,10 @@ bool RenderBackendDX12::PrepareDraw( VertexFormat12 format,
         if ( m_activeShader )
         {
             D3D12_GPU_VIRTUAL_ADDRESS cbAddr = m_activeShader->FlushCB();
+            if ( m_commandRecording.HasFailure() )
+            {
+                return false;
+            }
             if ( cbAddr )
             {
                 CommandList()->SetGraphicsRootConstantBufferView( 0, cbAddr );
@@ -526,6 +537,10 @@ bool RenderBackendDX12::PrepareDraw( VertexFormat12 format,
     if ( m_activeShader )
     {
         D3D12_GPU_VIRTUAL_ADDRESS cbAddr = m_activeShader->FlushCB();
+        if ( m_commandRecording.HasFailure() )
+        {
+            return false;
+        }
         if ( cbAddr )
         {
             CommandList()->SetGraphicsRootConstantBufferView( ROOT_PARAMETER_FRAME_CONSTANTS, cbAddr );

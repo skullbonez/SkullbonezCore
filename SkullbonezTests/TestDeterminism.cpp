@@ -38,10 +38,11 @@
 // Related:
 //   - SkullbonezSource/Physics/PhysicsEngine.h
 //   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
-//   - engine-cleanup-plans/05-behavioral-test-coverage.md
+//   - Agentic/Plans/TODO/behavioral-test-depth.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "../SkullbonezSource/Physics/PhysicsTimestep.h"
 
 #include "../SkullbonezSource/Assets/AssetSystem.h"
 #include "../SkullbonezSource/Core/Common.h"
@@ -211,11 +212,9 @@ void AddMicroBody( PhysicsEngine& engine,
                                                &FlatTestTerrain(),
                                                "unit-determinism-body" );
     bodyDesc.angularVelocityLimit = 1000.0f;
-    const PhysicsBodyHandle body = engine.RegisterAuthoredBody( bodyDesc );
     auto colliderDesc = MakeColliderCreateDesc( shape, 0.0f, 0u, "unit" );
-    colliderDesc.body = body;
     colliderDesc.sceneObjectId = bodyDesc.sceneObjectId;
-    (void)engine.RegisterAuthoredCollider( colliderDesc );
+    REQUIRE( engine.RegisterAuthoredBody( bodyDesc, colliderDesc ).IsValid() );
 }
 
 void AddSupportedSleepBody( PhysicsEngine& engine, uint32_t sceneObjectId, const Vector3& position )
@@ -237,11 +236,9 @@ void AddSupportedSleepBody( PhysicsEngine& engine, uint32_t sceneObjectId, const
                                                &FlatTestTerrain(),
                                                "unit-sleep-threshold-body" );
     bodyDesc.angularVelocityLimit = 1000.0f;
-    const PhysicsBodyHandle body = engine.RegisterAuthoredBody( bodyDesc );
     auto colliderDesc = MakeColliderCreateDesc( shape, 0.0f, 0u, "unit" );
-    colliderDesc.body = body;
     colliderDesc.sceneObjectId = bodyDesc.sceneObjectId;
-    (void)engine.RegisterAuthoredCollider( colliderDesc );
+    REQUIRE( engine.RegisterAuthoredBody( bodyDesc, colliderDesc ).IsValid() );
 }
 
 void SeedSupportedSleepWorld( PhysicsEngine& engine, const EngineConfig& config )
@@ -255,6 +252,19 @@ void SeedSupportedSleepWorld( PhysicsEngine& engine, const EngineConfig& config 
     AddSupportedSleepBody( engine, 401u, Vector3( 0.0f, 1.0f, 0.0f ) );
     REQUIRE( SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( engine ).Count() == 1 );
     REQUIRE( SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( engine ).Count() == 1 );
+}
+
+TEST_CASE( "PhysicsEngine exposes its owned sleep policy" )
+{
+    // PhysicsEngine owns fixed-capacity solver scratch too large for the
+    // default test-thread stack; existing determinism fixtures use static cold
+    // storage for the same reason.
+    static PhysicsEngine engine;
+    engine.Clear();
+    engine.SetSleepEnabled( true );
+    CHECK( engine.IsSleepEnabled() );
+    engine.SetSleepEnabled( false );
+    CHECK_FALSE( engine.IsSleepEnabled() );
 }
 
 void AddMutualGravityBody( PhysicsEngine& engine,
@@ -279,11 +289,9 @@ void AddMutualGravityBody( PhysicsEngine& engine,
                                                &FlatTestTerrain(),
                                                "unit-mutual-gravity-body" );
     bodyDesc.angularVelocityLimit = 1000.0f;
-    const PhysicsBodyHandle body = engine.RegisterAuthoredBody( bodyDesc );
     auto colliderDesc = MakeColliderCreateDesc( shape, 0.0f, 0u, "unit" );
-    colliderDesc.body = body;
     colliderDesc.sceneObjectId = bodyDesc.sceneObjectId;
-    (void)engine.RegisterAuthoredCollider( colliderDesc );
+    REQUIRE( engine.RegisterAuthoredBody( bodyDesc, colliderDesc ).IsValid() );
 }
 
 void SeedMicroWorld( PhysicsEngine& engine )
@@ -458,7 +466,7 @@ void HashVectorForReplayTest( uint64_t& hash, const std::vector<T>& values )
 void HashSolverBodyForReplayTest( uint64_t& hash, const ReplaySolverBodySample& body )
 {
     HashValueForReplayTest( hash, body.id.value );
-    HashValueForReplayTest( hash, body.modelIndex );
+    HashValueForReplayTest( hash, body.modelRow.value );
     HashValueForReplayTest( hash, body.shapeKind );
     HashValueForReplayTest( hash, body.position );
     HashValueForReplayTest( hash, body.linearVelocity );
@@ -537,7 +545,7 @@ ReplaySolverBodySample CaptureMicroWorldReplayBodySample( const PhysicsEngine& e
 
     ReplaySolverBodySample body;
     body.id.value = record->replayBodyId;
-    body.modelIndex = modelIndex;
+    body.modelRow = SkullbonezCore::Physics::MakeModelRowHint( modelIndex );
     body.shapeKind = ReplayBodyShapeKind::Sphere;
     body.position = record->position;
     body.linearVelocity = record->linearVelocity;
@@ -623,7 +631,7 @@ void RestoreMicroWorldReplaySample( PhysicsEngine& engine, const ReplaySolverFra
     for ( const ReplaySolverBodySample& body : sample.bodies )
     {
         const Quaternion orientation( body.orientation[0], body.orientation[1], body.orientation[2], body.orientation[3] );
-        const PhysicsBodyRecord* record = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( engine ).RecordForModelIndex( body.modelIndex );
+        const PhysicsBodyRecord* record = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( engine ).RecordForModelIndex( body.modelRow.value );
         REQUIRE( record != nullptr );
         REQUIRE( engine.RestoreReplayBodyState( record->handle,
                                                 body.id.value,
@@ -666,7 +674,7 @@ void CheckVectorContentsEqual( const std::vector<T>& lhs, const std::vector<T>& 
 void CheckReplayBodySamplesEqual( const ReplaySolverBodySample& lhs, const ReplaySolverBodySample& rhs )
 {
     CHECK( lhs.id.value == rhs.id.value );
-    CHECK( lhs.modelIndex == rhs.modelIndex );
+    CHECK( lhs.modelRow.value == rhs.modelRow.value );
     CHECK( lhs.shapeKind == rhs.shapeKind );
     CheckVectorBytesEqual( lhs.position, rhs.position );
     CheckVectorBytesEqual( lhs.linearVelocity, rhs.linearVelocity );

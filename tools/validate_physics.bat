@@ -32,7 +32,7 @@ setlocal enabledelayedexpansion
 REM ===============================================================
 REM  validate_physics.bat - Core physics determinism regression test.
 REM  Use for: normal physics, collision, solver, rigid body changes.
-REM  Runtime: standalone smoke, one Debug scene launch, and baseline comparison.
+REM  Runtime: standalone smoke, one authored varied-scene launch, and baseline comparison.
 REM ===============================================================
 
 set "REPO=%~dp0.."
@@ -63,10 +63,10 @@ if errorlevel 1 (
 echo [3/5] Running core physics regression scene...
 del /q "%REPO%\Debug\physics_regression_*.csv" 2>nul
 
-echo   Running physics_regression_solver...
-"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/physics_regression_solver.scene.json --physics-regression-log Debug/physics_regression_solver.csv
+echo   Running physics_bench_varied...
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/physics_bench_varied.scene.json --physics-regression-log Debug/physics_regression_varied.csv
 if errorlevel 1 (
-    echo FAIL: physics_regression_solver crashed or errored.
+    echo FAIL: physics_bench_varied crashed or errored.
     exit /b 2
 )
 

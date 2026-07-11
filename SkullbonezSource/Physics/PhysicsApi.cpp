@@ -50,13 +50,14 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/PhysicsApi.h
-  - Agentic/Plans/carmack-physics-standalone-boundary-plan.md
+  - Agentic/Plans/TODO/physics-authority-and-identity.md
 */
 #include "PhysicsApi.h"
 
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <memory>
 #include <variant>
 
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
@@ -1488,7 +1489,11 @@ void PhysicsStandaloneWorld::TombstoneConstraintSlot( uint32_t index )
 
 PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke()
 {
-    PhysicsStandaloneWorld world;
+    // Phase: cold validation probe. Each scenario world below owns several
+    // MAX_GAME_MODELS fixed stores and must not consume the launcher thread's
+    // bounded stack merely to exercise the public API.
+    auto worldOwner = std::make_unique<PhysicsStandaloneWorld>();
+    PhysicsStandaloneWorld& world = *worldOwner;
 
     PhysicsBodyCreateDesc bodyDesc;
     bodyDesc.sceneObjectId = PhysicsSceneObjectId{ 7u };
@@ -1754,7 +1759,8 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     const bool destroyedEditableBody = world.DestroyBody( editableBody );
     const bool staleEditableBodyRejected = world.Body( editableBody ) == nullptr && !world.UpdateBody( editableUpdate );
 
-    PhysicsStandaloneWorld sleepGateWorld;
+    auto sleepGateWorldOwner = std::make_unique<PhysicsStandaloneWorld>();
+    PhysicsStandaloneWorld& sleepGateWorld = *sleepGateWorldOwner;
     PhysicsActivationCommand disableSleepGateCommand;
     disableSleepGateCommand.kind = PhysicsActivationCommandKind::SetSleepEnabled;
     disableSleepGateCommand.enabled = false;
@@ -1800,7 +1806,8 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
         sleepGateIslands.islands[0].bodies && sleepGateIslands.islands[0].bodies[0] == sleepGateBody &&
         !sleepGateIslands.islands[0].sleeping;
 
-    PhysicsStandaloneWorld impulseWorld;
+    auto impulseWorldOwner = std::make_unique<PhysicsStandaloneWorld>();
+    PhysicsStandaloneWorld& impulseWorld = *impulseWorldOwner;
     PhysicsBodyCreateDesc impulseBodyDesc;
     impulseBodyDesc.sceneObjectId = PhysicsSceneObjectId{ 14u };
     impulseBodyDesc.mass = 4.0f;
@@ -1823,7 +1830,8 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
         !impulseWorld.SetPendingBodyImpulse( impulseBody, Vector3( 1.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ) ) &&
         !impulseWorld.ApplyBodyImpulse( impulseBody, Vector3( 1.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
 
-    PhysicsStandaloneWorld clearWorld;
+    auto clearWorldOwner = std::make_unique<PhysicsStandaloneWorld>();
+    PhysicsStandaloneWorld& clearWorld = *clearWorldOwner;
     PhysicsBodyCreateDesc clearBodyDesc;
     const PhysicsBodyHandle clearBodyA = clearWorld.CreateBody( clearBodyDesc );
     const PhysicsBodyHandle clearBodyB = clearWorld.CreateBody( clearBodyDesc );
@@ -1857,7 +1865,8 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     // Why: keep the existing lifecycle/raycast sample stable while proving that
     // standalone contact rows come from collider records, not staged model-side
     // collision state.
-    PhysicsStandaloneWorld contactWorld;
+    auto contactWorldOwner = std::make_unique<PhysicsStandaloneWorld>();
+    PhysicsStandaloneWorld& contactWorld = *contactWorldOwner;
     PhysicsBodyCreateDesc fixedContactBodyDesc;
     fixedContactBodyDesc.sceneObjectId = PhysicsSceneObjectId{ 31u };
     fixedContactBodyDesc.motionKind = PhysicsBodyMotionKind::Fixed;
@@ -1941,7 +1950,8 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
         sphereBoxContact->frictionB == 0.9f && sphereBoxContact->contactMaterialAId == 303u &&
         sphereBoxContact->contactMaterialBId == 304u && sphereBoxContact->featureId != 0u && sphereBoxContact->touching;
 
-    PhysicsStandaloneWorld islandWorld;
+    auto islandWorldOwner = std::make_unique<PhysicsStandaloneWorld>();
+    PhysicsStandaloneWorld& islandWorld = *islandWorldOwner;
     PhysicsBodyCreateDesc islandBodyADesc;
     islandBodyADesc.sceneObjectId = PhysicsSceneObjectId{ 41u };
     const PhysicsBodyHandle islandBodyA = islandWorld.CreateBody( islandBodyADesc );
@@ -1982,7 +1992,8 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
         islandView.islands[1].bodies && islandView.islands[1].bodies[0] == isolatedIslandBody &&
         !islandView.islands[1].sleeping && !islandView.islands[1].supported;
 
-    PhysicsStandaloneWorld wakeIslandWorld;
+    auto wakeIslandWorldOwner = std::make_unique<PhysicsStandaloneWorld>();
+    PhysicsStandaloneWorld& wakeIslandWorld = *wakeIslandWorldOwner;
     const PhysicsBodyHandle wakeIslandBodyA = wakeIslandWorld.CreateBody( islandBodyADesc );
     const PhysicsBodyHandle wakeIslandBodyB = wakeIslandWorld.CreateBody( islandBodyBDesc );
     PhysicsColliderCreateDesc wakeIslandColliderADesc = islandColliderADesc;
@@ -2011,7 +2022,8 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
         wakeIslandView.islands[0].bodies[0] == wakeIslandBodyA &&
         wakeIslandView.islands[0].bodies[1] == wakeIslandBodyB && !wakeIslandView.islands[0].sleeping;
 
-    PhysicsStandaloneWorld staleIslandWorld;
+    auto staleIslandWorldOwner = std::make_unique<PhysicsStandaloneWorld>();
+    PhysicsStandaloneWorld& staleIslandWorld = *staleIslandWorldOwner;
     const PhysicsBodyHandle liveIslandBody = staleIslandWorld.CreateBody( islandBodyADesc );
     const PhysicsBodyHandle staleIslandBody = staleIslandWorld.CreateBody( islandBodyBDesc );
     const bool destroyedStaleIslandBody = staleIslandWorld.DestroyBody( staleIslandBody );
@@ -2024,7 +2036,8 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
 
     // Why: these bodies have no colliders, so a merged island can only come
     // from the standalone point-joint endpoint path.
-    PhysicsStandaloneWorld constraintIslandWorld;
+    auto constraintIslandWorldOwner = std::make_unique<PhysicsStandaloneWorld>();
+    PhysicsStandaloneWorld& constraintIslandWorld = *constraintIslandWorldOwner;
     PhysicsBodyCreateDesc constraintIslandBodyADesc;
     constraintIslandBodyADesc.sceneObjectId = PhysicsSceneObjectId{ 44u };
     const PhysicsBodyHandle constraintIslandBodyA = constraintIslandWorld.CreateBody( constraintIslandBodyADesc );

@@ -28,6 +28,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "CaptureSystem.h"
+#include "CaptureController.h"
 
 #include "../Rendering/IRenderCaptureBackend.h"
 
@@ -197,7 +198,8 @@ SbResult CaptureSystem::SaveBackbufferBmp( Rendering::IRenderCaptureBackend& bac
 
 RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screenshot,
                                                      const RuntimeCaptureSceneContext& context,
-                                                     const RuntimeCaptureSink& sink )
+                                                     CaptureController& capture,
+                                                     Rendering::IRenderCaptureBackend& backend )
 {
     if ( context.isSceneMode && screenshot.isScreenshotAndExit && context.currentFrame == 0 )
     {
@@ -208,7 +210,7 @@ RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screens
 
         char outPath[256];
         BuildScreenshotAndExitPath( context.currentScenePath, outPath, sizeof( outPath ) );
-        const SbResult captureResult = sink.SaveScreenshot( outPath );
+        const SbResult captureResult = capture.SaveScreenshot( backend, outPath );
         if ( !captureResult.ok )
         {
             return { false, RuntimeCaptureCompletion::None, RuntimeCaptureAutomation::None, captureResult };
@@ -233,7 +235,7 @@ RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screens
 
         if ( shouldCapture )
         {
-            const SbResult captureResult = sink.SaveScreenshot( screenshot.screenshotPath );
+            const SbResult captureResult = capture.SaveScreenshot( backend, screenshot.screenshotPath );
             if ( !captureResult.ok )
             {
                 return { false, RuntimeCaptureCompletion::None, RuntimeCaptureAutomation::None, captureResult };
@@ -256,7 +258,7 @@ RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screens
                        "%s/capture_%04d.bmp",
                        screenshot.screenshotDir,
                        screenshot.intervalCaptureCount );
-            const SbResult captureResult = sink.SaveScreenshot( intervalPath );
+            const SbResult captureResult = capture.SaveScreenshot( backend, intervalPath );
             if ( !captureResult.ok )
             {
                 return { false, RuntimeCaptureCompletion::None, RuntimeCaptureAutomation::None, captureResult };
@@ -274,7 +276,8 @@ RuntimeCaptureResult CaptureSystem::TickAutoCycle( bool isSceneMode,
                                                    float& autoCycleAccum,
                                                    int& autoCycleShotsTaken,
                                                    int& trackBallIndex,
-                                                   const RuntimeCaptureSink& sink )
+                                                   CaptureController& capture,
+                                                   Rendering::IRenderCaptureBackend& backend )
 {
     if ( !isSceneMode || autoCycleInterval <= 0.0f || autoCycleAccum < autoCycleInterval )
     {
@@ -283,7 +286,7 @@ RuntimeCaptureResult CaptureSystem::TickAutoCycle( bool isSceneMode,
 
     char shotPath[256];
     sprintf_s( shotPath, sizeof( shotPath ), "Profile/cardinal_ball%d.bmp", autoCycleShotsTaken );
-    const SbResult captureResult = sink.SaveScreenshot( shotPath );
+    const SbResult captureResult = capture.SaveScreenshot( backend, shotPath );
     if ( !captureResult.ok )
     {
         return { false, RuntimeCaptureCompletion::None, RuntimeCaptureAutomation::None, captureResult };

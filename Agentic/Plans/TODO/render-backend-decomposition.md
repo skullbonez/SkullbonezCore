@@ -1,92 +1,89 @@
 # Render Backend Decomposition
 
-Date: 2026-07-09 (consolidated)
-Status: In progress — ~50% complete (facet split done; concrete-owner split open)
-Impact area: DX12 renderer, backend interfaces, runtime render wiring
-Consolidates: `render-graph-irender-interface-plan.md` (remaining work,
-re-scoped) and the RGRAPH-* rows from the 2026-07-07 overnight blocker ledger.
-Full completed-slice history in git history of those files.
+Date: 2026-07-10 (source reconciled)
+Status: In progress — 0/8 remaining checklist items complete; completed facet
+and render-graph decisions are historical evidence, not part of this count
+Impact area: DX12 renderer, backend ownership, runtime render wiring
+Owner: DX12 device/render layer
 
-## Scope decision (binding)
+## Scope Decision
 
-The 2026-07-09 owner decision (recorded in
-`engine-cleanup-plans/HANDOFF-2026-07-09-OWNER-DECISIONS.md`, executed by the
-completed/deleted engine-cleanup Plan 11) **retires the diagnostic RenderGraph
-barrier-comparison path**: no render-graph barrier compiler and no transition
-ownership outside the DX12 backend. Existing
-graph-scheduled callbacks and graph-managed transient texture materialization
-remain branch reality, but DX12 explicit hand-coded barriers are the honest
-architecture.
+DX12 explicit helpers own live transition/UAV barrier emission. RenderGraph
+owns pass/resource declarations, callback scheduling, and transient texture
+lifetime; it is not being expanded into a barrier compiler. `IRenderBackend`
+is deleted and narrow lifecycle/resource/command/diagnostics/capture/raytracing
+facets are the current engine-facing boundary.
 
-Consequently the old plan's Phase 1 (graph contract hardening), remaining
-Phase 2 pass-family migrations, and Phase 3 graph buildout are **dropped, not
-pending**. Blocker rows RGRAPH-003, RGRAPH-014, and
-RGRAPH-029 are superseded by the same decision. What survives is backend
-*decomposition*: the concrete DX12 owner is still an aggregate.
+## Problem
 
-## Already done (summary)
+`RenderBackendDX12` remains the aggregate concrete owner behind those facets.
+Texture/upload/descriptor state, PSO cache state, DXR state, frame/device state,
+readback, and profiling share one large class. Device/swap-chain/command-list
+aliases have already been replaced with `Dx12RenderDevice` accessors, but
+borrowed `m_factory`, `m_commandQueue`, and `m_commandAllocators[]` aliases
+remain and must stay synchronized with the device owner.
 
-FAC-001 complete: `IRenderBackend.h` deleted; `RenderBackendDX12` implements
-the narrow lifecycle/resource/command/diagnostics/capture/raytracing facets
-directly; runtime and scene callers borrow facets; `Gfx()` and the renderer
-global are gone; DXR reflection state is out of `Run.h`.
+Failure propagation is a prerequisite concern, not a side effect of splitting:
+the current backend also ignores some `SbResult` and HRESULT outcomes. That work
+is owned by `dx12-failure-propagation.md` and should land before owner moves.
 
-## Remaining work
+## Checklist
 
-### A. Concrete DX12 owner split (was RGRAPH-007/010/022/023/024)
+### A. Concrete owner split
 
-`RenderBackendDX12` remains the aggregate implementation behind the facets
-(~2,500-line main TU plus partials). Split by real ownership, one owner per
-slice, no `*Bridge`/`*Adapter` shims:
+- [ ] A1. Texture owner: texture creation, upload reservations, descriptors,
+  SRV registration, mip generation, and texture-handle table.
+- [ ] A2. Pipeline owner: root signature/bytecode recipe, raster/depth/blend/RTV
+  state, PSO cache, and draw-preparation state.
+- [ ] A3. DXR owner: device5/command-list capability, BLAS/TLAS/SBT, reflection
+  resources, and DXR failure state. It must be a real owner, not a forwarding shim.
+- [ ] A4. Re-evaluate the remainder as the slim device/frame owner; continue
+  only where a coherent independent owner remains.
 
-- [ ] A1. Texture ownership (`CreateTexture2D` family): device resource
-  creation, upload reservations, descriptor allocation, SRV registration, and
-  the texture-handle table become a named texture owner inside the DX12 layer.
-- [ ] A2. Pipeline/PSO cache: PSO creation + draw prep state (root signature,
-  bytecode, raster/depth/blend, RTV format, cache array) become a named
-  pipeline owner.
-- [ ] A3. DXR owner (`RayTracingBackendDX12` or equivalent): device5/command
-  list lifetime, BLAS/TLAS/SBT state, reflection resources — designed as a
-  real owner, not a forwarding shim.
-- [ ] A4. After A1–A3, re-evaluate what remains of `RenderBackendDX12.cpp` and
-  either keep it as the slim device/frame owner or continue splitting.
+### B. Resource capability design
 
-### B. Resource-capability design (was RGRAPH-004)
+- [ ] B1. Inventory each `IRenderResourceFactory` consumer by shader, mesh,
+  framebuffer, texture, dynamic geometry, and instancing need. Keep one factory
+  only if the matrix proves it is cohesive; otherwise expose value-based narrow
+  capabilities without adding hot-path polymorphism.
 
-- [ ] B1. Callers of `IRenderResourceFactory` span shader, mesh, framebuffer,
-  texture, dynamic-VB, and instancing needs. Decide whether one factory is
-  honest or a narrower capability per caller family is worth the interface
-  count. This previously failed the inheritance budget; that budget is being
-  deleted by engine-cleanup plan 03 — decide on merit, not on the linter.
+### C. Device ownership and aliases
 
-### C. Dual-ownership hazard (FAC-007)
+- [ ] C1. Remove or formally rebind the remaining factory/queue/allocator
+  aliases. Acceptance: shutdown/partial-init/device recreation cannot leave any
+  backend member pointing at released device-owner storage.
 
-- [ ] C1. `RenderBackendDX12` caches borrowed aliases
-  (`m_device`/`m_swapChain`/`m_commandList`) duplicating pointers
-  `Dx12RenderDevice` owns. Fix so device recreation cannot dangle them
-  (single-owner accessors or explicit re-bind protocol).
+### D. Engine-facing cleanup
 
-### D. Cleanup
+- [ ] D1. Remove direct concrete-backend calls where an existing narrow facet
+  suffices; keep DX12 types out of engine-facing headers.
+- [ ] D2. Verify capture/readback and platform-profiler marker paths after each
+  split; register their CPU tests with the validation umbrella.
 
-- [ ] D1. Remove remaining direct backend calls from pass code where a narrow
-  capability suffices; keep DX12 types out of engine-facing headers.
-- [ ] D2. Verify capture/readback and `--platform-profiler-markers` paths
-  after each split slice.
+## Dependencies
+
+1. `dx12-failure-propagation.md` D0-D3 before A1-A3.
+2. `validation-gate-integrity.md` V1 before new DX12 CPU tests.
+3. `runtime-shell-decomposition.md` extraction 5 consumes the stable facet/
+   owner result; avoid moving the same render hook twice.
 
 ## Acceptance
 
-- [ ] `RenderBackendDX12` no longer implements texture, pipeline, and DXR
-  ownership in one class; each has a named owner.
-- [ ] No borrowed-alias member can dangle across device recreation.
-- [ ] No new `*Bridge`/`*Adapter`/callback shims on render hot paths.
-- [ ] `dx12_validation.txt` = 0 errors on every slice; screenshots match
-  committed baselines.
+- [ ] Texture, pipeline, DXR, and device/frame state have named concrete owners.
+- [ ] No borrowed alias can dangle across partial init, shutdown, or recreation.
+- [ ] No new bridge/adapter/callback shim appears on render hot paths.
+- [ ] All state-changing failures propagate according to the DX12 failure plan.
+- [ ] DX12 validation is zero and screenshots match on every slice.
 
-## Validation map
+## Validation
 
 | Slice | Gate |
-|-------|------|
-| Any backend split slice | `validate_dx12_renderer` |
-| Upload buffer / frame allocator adjacency | `validate_dx12_renderer` ×3 consecutive |
+|---|---|
+| CPU owner/state changes | CPU umbrella + `tools\validate_dx12_arch_tests.bat` |
+| Any backend owner split | previous tests + `tools\validate_dx12_renderer.bat` |
+| Upload/frame allocator adjacency | renderer gate three consecutive runs |
 | Profiling marker changes | renderer gate + `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers` |
-| Device lifecycle changes | `validate_full` |
+| Device lifecycle | DX12 failure probes + renderer gate + full gate |
+
+The renderer gate alone is not CPU architecture-test evidence until
+`validation-gate-integrity.md` V2 integrates the umbrella into the broad gate.

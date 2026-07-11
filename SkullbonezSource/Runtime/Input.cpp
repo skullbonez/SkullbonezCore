@@ -5,28 +5,28 @@ Purpose:
 
 Mental model:
   Win32 callbacks enqueue mouse-only edge data into process-local
-  accumulators. The run loop and UI sample those queues once per frame and
-  reset them while building camera/UI input state. Cursor policy and scripted
-  automation overrides share this file, but they are not callback queues.
+  accumulators. CaptureDeviceInputFrame drains those queues and captures
+  keyboard, buttons, pointer position, and focus exactly once. Cursor hardware
+  application and scripted automation share this file but never bypass that
+  immutable frame value.
 
 Glossary:
   Win32: Windows desktop API used for the app window, messages, and cursor
     state.
   WndProc: Win32 window callback that receives mouse wheel and raw mouse
-    packets before the frame loop polls input.
+    packets before the frame boundary captures input.
   Input window bridge: Borrowed pointer to the active runtime window used by
-    ordinary polling helpers that must translate cursor positions through the
-    current client area.
+    frame capture to translate pointer positions through the current client area.
   Accumulator: Small process-local queue that stores callback data until the
     frame loop consumes it.
   Lane R result: Recoverable input/environment failure reported without
     treating the cursor operation as a fatal engine invariant.
 
 Invariants:
-  - Process-local Win32 input accumulators are drained into frame and UI
-    snapshots; stale mouse deltas must not leak across focus/UI transitions.
-  - The input window bridge is bound by runtime startup before frame polling
-    helpers translate or center cursor coordinates.
+  - Process-local Win32 input accumulators are drained into one DeviceInputFrame;
+    stale mouse deltas must not leak across focus/UI transitions.
+  - The input window bridge is bound before frame capture translates pointer
+    coordinates.
   - ShowCursor is normalized through helper loops because Win32 exposes a
     reference counter, not a simple visible/hidden boolean.
 
@@ -36,6 +36,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Input.h"
+#include "InputRouter.h"
 #include "Window.h"
 
 #include "../Core/FatalError.h"
@@ -56,28 +57,25 @@ HWND s_callbackBridgeWindow = nullptr;
 // WinMain owns it. WndProc still passes HWNDs directly to callback-specific
 // APIs, so this pointer is only for normal frame/input paths.
 Window* s_inputWindow = nullptr;
-// WndProc WM_MOUSEWHEEL writes; UIInput::CaptureSnapshot() consumes once per
-// frame through InGameUI::UpdateInput() from RunInput.cpp. Focus-loss cleanup
-// also drains it through InputController::ResetUnfocusedInput().
+// WndProc WM_MOUSEWHEEL writes; CaptureDeviceInputFrame consumes once per
+// frame so UI, editor, and replay cannot each drain the same wheel input.
 int g_mouseWheelDelta = 0;
 // Cursor policy latch, not a callback accumulator. RunInput and window/focus
 // paths write the requested native cursor state; WndProc focus/cursor messages
 // reapply that state when Windows asks.
 bool g_systemCursorVisibleRequested = false;
-// WndProc WM_INPUT writes these raw movement deltas; camera mouse-look sampling
-// drains them through ConsumeRawMouseDelta(). RegisterRawMouseInput(),
-// InputController::ResetMouseLook(), InputController::ResetUnfocusedInput(),
-// focus loss, and camera/mode transitions reset them through
-// ResetMouseLookDeltas().
+// WndProc WM_INPUT writes these raw movement deltas. CaptureDeviceInputFrame
+// drains them once; focus and scene transitions may clear the queue before the
+// next frame so stale motion never reaches camera look.
 long g_rawMouseDeltaX = 0;
 long g_rawMouseDeltaY = 0;
 bool g_rawMouseHasAbsolutePosition = false;
 long g_rawMouseLastAbsoluteX = 0;
 long g_rawMouseLastAbsoluteY = 0;
-// Scripted input override, not a callback accumulator. RunInteractionAutomation
+// Scripted input override, not a callback accumulator. InteractionAutomationController
 // writes it through SetAutomationState()/ClearAutomationState(); mouse and
-// selected key polling read it before touching Win32 so deterministic UI/click
-// validation can avoid the physical devices.
+// capture folds it into DeviceInputFrame so deterministic validation uses the
+// same immutable value as physical input.
 Input::AutomationState s_automationState;
 
 constexpr int RAW_MOUSE_ABSOLUTE_RANGE = 65535;
@@ -143,23 +141,6 @@ long RawAbsoluteToPixels( long value, int extent )
 } // namespace
 
 
-/*
-   0x8000 = (16^3)*8 + (16^2)*0 + (16^1)*0 + (16^0)*0
-          = 32,768 (decimal)
-          = 1000 0000 0000 0000 (binary)
-   This is the highest order bit of a 16 bit piece of data (SHORT)
- */
-#define HIGHEST_ORDER_BIT_16 0x8000
-
-/*
-   0x1 = 0x0001 = (16^3)*0 + (16^2)*0 + (16^1)*0 + (16^0)*1
-       = 1 (decimal)
-       = 1 (binary)
-       = 0000 0000 0000 0001 (binary)
-   This is the lowest order bit of any sized piece of binary data
-   */
-#define LOWEST_ORDER_BIT_16 0x1
-
 bool Input::IsAppFocused()
 {
     Window* window = BoundInputWindow();
@@ -170,6 +151,108 @@ bool Input::IsAppFocused()
     }
 
     return GetForegroundWindow() == windowHandle;
+}
+
+
+SbResult Input::CaptureDeviceInputFrame( DeviceInputFrame& frame )
+{
+    frame = {};
+    frame.appFocused = s_automationState.enabled && s_automationState.overrideAppFocused ? s_automationState.appFocused
+                                                                                         : IsAppFocused();
+    if ( !frame.appFocused )
+    {
+        ResetMouseLookDeltas();
+        (void)ConsumeMouseWheelDelta();
+        return SbResult::Success();
+    }
+
+    BYTE keyboardState[InputKeySnapshot::VIRTUAL_KEY_COUNT] = {};
+    if ( !GetKeyboardState( keyboardState ) )
+    {
+        // Lane R: desktop/session state can make Win32 keyboard capture fail.
+        // The frame owner must stop rather than route a fabricated all-up frame.
+        return SbResult::Failure( "Runtime/Input",
+                                  "GetKeyboardState failed while capturing the device frame (win32=%lu)",
+                                  static_cast<unsigned long>( GetLastError() ) );
+    }
+
+    std::array<uint64_t, InputKeySnapshot::WORD_COUNT> words = {};
+    for ( int virtualKey = 0; virtualKey < InputKeySnapshot::VIRTUAL_KEY_COUNT; ++virtualKey )
+    {
+        if ( ( keyboardState[virtualKey] & 0x80u ) == 0u )
+        {
+            continue;
+        }
+        const std::size_t word = static_cast<std::size_t>( virtualKey ) / 64u;
+        words[word] |= uint64_t{ 1 } << ( static_cast<unsigned int>( virtualKey ) & 63u );
+    }
+
+    if ( s_automationState.enabled && s_automationState.keyDown && s_automationState.keyVirtualKey >= 0 &&
+         s_automationState.keyVirtualKey < InputKeySnapshot::VIRTUAL_KEY_COUNT )
+    {
+        // Invariant: automation augments the same immutable snapshot consumed by
+        // physical input; it does not retain a second command-edge path.
+        const int virtualKey = s_automationState.keyVirtualKey;
+        const std::size_t word = static_cast<std::size_t>( virtualKey ) / 64u;
+        words[word] |= uint64_t{ 1 } << ( static_cast<unsigned int>( virtualKey ) & 63u );
+    }
+
+    frame.keys = InputKeySnapshot::FromWords( words );
+    const MouseCoordinatesResult clientPosition = GetClientMouseCoordinates();
+    if ( !clientPosition.result.ok )
+    {
+        return clientPosition.result;
+    }
+    frame.clientX = clientPosition.coordinates.x;
+    frame.clientY = clientPosition.coordinates.y;
+    frame.hasClientPosition = true;
+    frame.leftDown =
+        s_automationState.enabled ? s_automationState.leftMouseDown : ( keyboardState[VK_LBUTTON] & 0x80u ) != 0u;
+    frame.rightDown =
+        s_automationState.enabled ? s_automationState.rightMouseDown : ( keyboardState[VK_RBUTTON] & 0x80u ) != 0u;
+    frame.middleDown = ( keyboardState[VK_MBUTTON] & 0x80u ) != 0u;
+    frame.wheelDelta = ConsumeMouseWheelDelta();
+    (void)ConsumeRawMouseDelta( frame.rawMouseX, frame.rawMouseY );
+    return SbResult::Success();
+}
+
+
+SbResult Input::SetNativeMouseCapture( bool captured )
+{
+    // Lane R: InputRouter owns the decision, while this narrow hardware seam
+    // verifies that Win32 accepted the requested capture transition.
+    Window* window = BoundInputWindow();
+    const HWND windowHandle = window ? window->NativeWindowHandle() : nullptr;
+    if ( !windowHandle )
+    {
+        return SbResult::Failure( "Runtime/Input", "Native mouse capture requires the bound runtime window" );
+    }
+
+    if ( captured )
+    {
+        SetCapture( windowHandle );
+        if ( GetCapture() != windowHandle )
+        {
+            return SbResult::Failure( "Runtime/Input",
+                                      "SetCapture did not assign the runtime window (win32=%lu)",
+                                      static_cast<unsigned long>( GetLastError() ) );
+        }
+        return SbResult::Success();
+    }
+
+    // Do not release capture acquired by another window on this thread; this
+    // seam owns only the bound runtime HWND.
+    if ( GetCapture() != windowHandle )
+    {
+        return SbResult::Success();
+    }
+    if ( !ReleaseCapture() )
+    {
+        return SbResult::Failure( "Runtime/Input",
+                                  "ReleaseCapture failed (win32=%lu)",
+                                  static_cast<unsigned long>( GetLastError() ) );
+    }
+    return SbResult::Success();
 }
 
 
@@ -209,47 +292,6 @@ void Input::SetSystemCursorVisible( bool visible )
 bool Input::IsSystemCursorVisibleRequested()
 {
     return g_systemCursorVisibleRequested;
-}
-
-
-bool Input::IsKeyDown( int virtualKey )
-{
-    if ( s_automationState.enabled && s_automationState.keyDown && s_automationState.keyVirtualKey == virtualKey )
-    {
-        return true;
-    }
-
-    if ( !IsAppFocused() )
-    {
-        return false;
-    }
-
-    /*
-        recall that HIGHEST_ORDER_BIT_16 = 1000 0000 0000 0000 (binary)
-        recall that a conditional statement in C++ simply checks if the value is
-        nonzero, and if it is nonzero returns true, otherwise false.
-        GetKeyState(virtualKey) will return a 16 bit SHORT and if the key is pressed,
-        the SHORT returned will have the highest order bit set to 1.
-        the binary AND operator '&' will do the comparision on the two SHORTs
-        1000 0000 0000 0000 & 1000 0000 0000 0000 (if the key is pressed)
-           = 1000 0000 0000 0000 != 0
-        1000 0000 0000 0000 & 0000 0000 0000 0000 (if the key is not pressed)
-           = 0000 0000 0000 0000 == 0
-    */
-    return ( ( GetKeyState( virtualKey ) & HIGHEST_ORDER_BIT_16 ) != 0 );
-}
-
-
-bool Input::IsKeyToggled( int virtualKey )
-{
-    if ( !IsAppFocused() )
-    {
-        return false;
-    }
-
-    // lowest order bit is set to 1 if key is toggled, see Input::IsKeyDown
-    // for an explanation on the conditional statement below
-    return ( ( GetKeyState( virtualKey ) & LOWEST_ORDER_BIT_16 ) != 0 );
 }
 
 
@@ -449,68 +491,6 @@ Input::MouseCoordinatesResult Input::GetClientMouseCoordinates()
 }
 
 
-SbResult Input::SetMouseCoordinates( const POINT& pNewCoordinates )
-{
-    if ( !IsAppFocused() )
-    {
-        return SbResult::Success();
-    }
-
-    // attempt to set the mouse m_position
-    if ( !SetCursorPos( pNewCoordinates.x, pNewCoordinates.y ) )
-    {
-        return SbResult::Failure( "Runtime/Input",
-                                  "SetCursorPos failed in Input::SetMouseCoordinates lastError=%lu",
-                                  static_cast<unsigned long>( GetLastError() ) );
-    }
-
-    return SbResult::Success();
-}
-
-
-bool Input::IsLeftMouseDown()
-{
-    if ( s_automationState.enabled )
-    {
-        return s_automationState.leftMouseDown;
-    }
-
-    if ( !IsAppFocused() )
-    {
-        return false;
-    }
-
-    return ( ( GetAsyncKeyState( VK_LBUTTON ) & HIGHEST_ORDER_BIT_16 ) != 0 );
-}
-
-
-bool Input::IsRightMouseDown()
-{
-    if ( s_automationState.enabled )
-    {
-        return s_automationState.rightMouseDown;
-    }
-
-    if ( !IsAppFocused() )
-    {
-        return false;
-    }
-
-    return ( ( GetAsyncKeyState( VK_RBUTTON ) & HIGHEST_ORDER_BIT_16 ) != 0 );
-}
-
-
-bool Input::IsMiddleMouseDown()
-{
-    if ( !IsAppFocused() )
-    {
-        return false;
-    }
-
-    return ( ( GetAsyncKeyState( VK_MBUTTON ) & HIGHEST_ORDER_BIT_16 ) != 0 );
-}
-
-
 int Input::ConsumeMouseWheelDelta()
 {
     if ( !IsAppFocused() )
@@ -533,40 +513,6 @@ void Input::AccumulateMouseWheelDelta( HWND window, int delta )
     }
 
     g_mouseWheelDelta += delta;
-}
-
-
-SbResult Input::CentreMouseCoordinates()
-{
-    if ( !IsAppFocused() )
-    {
-        return SbResult::Success();
-    }
-
-    Window* m_cWindow = BoundInputWindow();
-    assert( m_cWindow && "Input mouse centering requires a bound window" );
-    if ( !m_cWindow )
-    {
-        FatalInputWindowBridgeMissing( "Input::CentreMouseCoordinates" );
-    }
-    POINT clientCenter = m_cWindow->ClientDimensions();
-    clientCenter.x >>= 1;
-    clientCenter.y >>= 1;
-    if ( !ClientToScreen( m_cWindow->NativeWindowHandle(), &clientCenter ) )
-    {
-        return SbResult::Failure( "Runtime/Input",
-                                  "ClientToScreen failed in Input::CentreMouseCoordinates lastError=%lu",
-                                  static_cast<unsigned long>( GetLastError() ) );
-    }
-
-    if ( !SetCursorPos( clientCenter.x, clientCenter.y ) )
-    {
-        return SbResult::Failure( "Runtime/Input",
-                                  "SetCursorPos failed in Input::CentreMouseCoordinates lastError=%lu",
-                                  static_cast<unsigned long>( GetLastError() ) );
-    }
-
-    return SbResult::Success();
 }
 
 

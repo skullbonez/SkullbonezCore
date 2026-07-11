@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/UI/UIInput.h
 Purpose:
-  Implements UI Input widgets, layout, drawing, or UI state for the in-engine controls.
+  Converts the runtime's immutable device/pointer snapshots into UI-local input
+  values and applies scene-filter keyboard edges without polling hardware.
 
 Mental model:
   UIInput.h implements UI Input widgets, layout, drawing, or UI state for the
@@ -17,7 +18,9 @@ Glossary:
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
-  constants.
+    constants.
+  - UI input receives InputRouter-owned levels/edges and never samples Win32
+    keyboard, pointer, wheel, or cursor state itself.
 
 Related:
   - SkullbonezSource/UI/UIInput.cpp
@@ -29,6 +32,13 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Basics
+{
+struct DeviceInputFrame;
+class InputKeySnapshot;
+struct RuntimeMouseEdges;
+} // namespace Basics
+
 namespace UI
 {
 namespace InputControl
@@ -44,14 +54,15 @@ struct UIInputSnapshot
     bool leftReleased = false;
 };
 
-UIInputSnapshot CaptureSnapshot( bool previousLeftDown, bool hasMouseOverride, int overrideX, int overrideY );
+UIInputSnapshot CaptureSnapshot( const Basics::DeviceInputFrame& frame,
+                                 const Basics::RuntimeMouseEdges& mouse,
+                                 bool hasMouseOverride,
+                                 int overrideX,
+                                 int overrideY );
 
-void CaptureKeyStates( bool keyWasDown[256] );
-bool ConsumeKeyPress( bool keyWasDown[256], int virtualKey );
-bool IsVirtualKeyDown( int virtualKey );
-
-void BeginMouseCapture( HWND hwnd );
-void EndMouseCapture();
+void CaptureKeyStates( bool keyWasDown[256], const Basics::InputKeySnapshot& keys );
+bool ConsumeKeyPress( bool keyWasDown[256], const Basics::InputKeySnapshot& keys, int virtualKey );
+bool IsVirtualKeyDown( const Basics::InputKeySnapshot& keys, int virtualKey );
 
 } // namespace InputControl
 } // namespace UI

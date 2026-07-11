@@ -4,9 +4,9 @@ Purpose:
   Provides the runtime diagnostics ownership boundary.
 
 Mental model:
-  Run asks DiagnosticsRuntime for capture, performance, memory, and physics
-  diagnostic work. This file mostly forwards to the underlying controllers, but
-  owns the memory snapshot cache and the shutdown memory-dump artifact.
+  DiagnosticsRuntime sequences capture, performance, memory, and physics
+  diagnostic work. Artifact-specific controllers own their formats while this
+  owner retains the process memory cache and shutdown memory-dump lifecycle.
 
 Glossary:
   Artifact path: Stable validation/debug output path written for tools or
@@ -39,6 +39,7 @@ Related:
 #include "../Replay/ReplayRuntime.h"
 #include "../RunDebugState.h"
 #include "../Scene/SceneRuntime.h"
+#include "../Scene/SceneController.h"
 #include "../../Physics/PhysicsDebugData.h"
 #include "../../Rendering/IRenderDiagnostics.h"
 #include "../../Scene/TestScene.h"
@@ -221,6 +222,33 @@ void WriteReplayMemoryCategories( FILE* file, const MainMemoryReplayStats& repla
     fputs( "    },\n", file );
 }
 
+void WriteReplayGrowthOwners( FILE* file, const MainMemoryReplayStats& replay )
+{
+    // Concept: each row pairs the committed sizing evidence with live allocator
+    // counters, so dumps distinguish an intentional cap from observed use.
+    fputs( "    \"growth_owners\": [\n", file );
+    for ( std::size_t index = 0; index < replay.growthOwners.size(); ++index )
+    {
+        const MainMemoryReplayStats::GrowthOwner& owner = replay.growthOwners[index];
+        fprintf( file,
+                 "      { \"owner\": \"%s\", \"registered\": %s, \"hard_bytes\": %d, "
+                 "\"measured_high_water_bytes\": %llu, \"allocator_high_water_bytes\": %llu, "
+                 "\"reported_high_water_capacity\": %d, \"growths\": %llu, \"failed_growths\": %llu, "
+                 "\"last_growth_frame\": %d }%s\n",
+                 owner.ownerName ? owner.ownerName : "",
+                 owner.registered ? "true" : "false",
+                 owner.hardBytes,
+                 static_cast<unsigned long long>( owner.measuredHighWaterBytes ),
+                 static_cast<unsigned long long>( owner.allocatorHighWaterBytes ),
+                 owner.reportedHighWaterCapacity,
+                 static_cast<unsigned long long>( owner.replayGrowths ),
+                 static_cast<unsigned long long>( owner.failedGrowths ),
+                 owner.lastGrowthFrame,
+                 index + 1u < replay.growthOwners.size() ? "," : "" );
+    }
+    fputs( "    ],\n", file );
+}
+
 void WriteReplayTrajectoryCounters( FILE* file, const MainMemoryReplayTrajectoryStats& trajectory )
 {
     fprintf(
@@ -340,9 +368,9 @@ void StepDiagnosticsPhysicsPipelineStage( RunDebugState& debug, int direction )
 
 bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext context,
                                         RuntimeInputAction action,
-                                        int virtualKey )
+                                        bool wasPressed )
 {
-    if ( !InputController::CaptureKeyboardActionPress( context.input, action, virtualKey ) )
+    if ( !wasPressed )
     {
         switch ( action )
         {
@@ -358,7 +386,6 @@ bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext conte
         case RuntimeInputAction::StepPhysicsPipelineNext:
         case RuntimeInputAction::TogglePhysicsDebugTransparent:
         case RuntimeInputAction::ReportRendererRuntimeRetired:
-        case RuntimeInputAction::ToggleCrossScenePause:
         case RuntimeInputAction::ToggleBroadphaseOverlay:
             return true;
         default:
@@ -463,11 +490,6 @@ bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext conte
         // diagnostic report because DX12 is now the sole runtime backend.
         fprintf( stderr, "Renderer switch ignored: DX12 is the only runtime renderer.\n" );
         return true;
-    case RuntimeInputAction::ToggleCrossScenePause:
-        // P locks automation between scenes without marking the scene
-        // interactive, so clearing it resumes the original automation mode.
-        debug.isCrossScenePauseLocked = !debug.isCrossScenePauseLocked;
-        return true;
     case RuntimeInputAction::ToggleBroadphaseOverlay:
         // G cycles the tracked ball while the broadphase overlay is off; once
         // the overlay is active, the same key owns overlay visibility.
@@ -492,7 +514,7 @@ bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext conte
 
 DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( DiagnosticsUIKeyboardShortcutContext context,
                                                                          RuntimeInputAction action,
-                                                                         int virtualKey )
+                                                                         bool wasPressed )
 {
     DiagnosticsUIKeyboardShortcutResult result;
     switch ( action )
@@ -506,7 +528,7 @@ DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( Diagnos
         return result;
     }
 
-    if ( !InputController::CaptureKeyboardActionPress( context.input, action, virtualKey ) )
+    if ( !wasPressed )
     {
         return result;
     }
@@ -928,6 +950,7 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const ReplayRuntime& replay,
              stats.replay.memoryBudgetClamped ? "true" : "false",
              stats.replay.solverWindowReduced ? "true" : "false" );
     WriteReplayMemoryCategories( file, stats.replay );
+    WriteReplayGrowthOwners( file, stats.replay );
     WriteReplayTrajectoryCounters( file, stats.replay.trajectory );
     fprintf( file,
              "  },\n"
@@ -1031,12 +1054,14 @@ void DiagnosticsRuntime::SetPhysicsDiagnosticsPath( GameObjects::GameModelCollec
 }
 
 
-void DiagnosticsRuntime::LogSceneFinished( RunSceneState& scene,
-                                           const char* scenePath,
-                                           const char* rendererName,
+void DiagnosticsRuntime::LogSceneFinished( SceneController& scene,
+                                           const Rendering::IRenderDiagnostics* renderDiagnostics,
                                            const char* reason )
 {
-    RuntimeDiagnostics::LogSceneFinished( scene, scenePath, rendererName, reason );
+    const std::string* currentPath = scene.CurrentPath();
+    const char* scenePath = currentPath && !currentPath->empty() ? currentPath->c_str() : "generated";
+    const char* rendererName = renderDiagnostics ? renderDiagnostics->GetRendererName() : "unknown";
+    RuntimeDiagnostics::LogSceneFinished( scene.State(), scenePath, rendererName, reason );
 }
 
 
@@ -1159,7 +1184,19 @@ void DiagnosticsRuntime::EndPhysicsDiagnosticsRun( const RunSceneState& scene, c
 {
     RuntimeDiagnostics::EndPhysicsDiagnosticsRun( m_diagnostics.PhysicsDiagnostics(), scene, status );
 }
+
+
 #endif
+
+
+void DiagnosticsRuntime::BeforeSceneUnload( const RunSceneState& scene )
+{
+#ifdef _DEBUG
+    EndPhysicsDiagnosticsRun( scene, "scene_reload" );
+#else
+    (void)scene;
+#endif
+}
 
 
 DiagnosticsRuntime::UIStressState& DiagnosticsRuntime::UIStress()

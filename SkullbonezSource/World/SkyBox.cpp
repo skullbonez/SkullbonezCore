@@ -25,6 +25,9 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkyBox.h"
+#include "../Assets/AssetKeys.h"
+#include "../Core/Config.h"
+#include "../Runtime/WindowConstants.h"
 #include "../Assets/AssetSystem.h"
 #include "../Rendering/IRenderResourceFactory.h"
 #include <vector>

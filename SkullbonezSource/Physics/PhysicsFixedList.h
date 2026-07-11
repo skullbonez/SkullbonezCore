@@ -24,7 +24,7 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.h
   - SkullbonezSource/Physics/ColliderStore.h
-  - Agentic/Plans/Done/runtime-static-allocation-policy-plan.md
+  - AGENTS.md (Runtime Static Allocation Policy)
 */
 #pragma once
 

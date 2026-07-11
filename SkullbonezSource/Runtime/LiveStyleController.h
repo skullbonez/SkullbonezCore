@@ -5,8 +5,8 @@ Purpose:
 
 Mental model:
   The live style controller watches a small opt-in folder for `live.style.json`
-  and screenshot requests. Run still coordinates broader runtime side effects
-  such as entering interactive scene mode and saving the actual screenshot.
+  and screenshot requests. It borrows the capture owner after rendering to save
+  the requested image and owns the matching harness status transition.
 
 Glossary:
   Control folder: Directory containing live.style.json, capture.txt, and
@@ -20,11 +20,11 @@ Invariants:
   - File paths are fixed when the controller directory is configured.
   - Style polling is style-only; it must not reload scene physics or replace
     runtime-owned bodies.
-  - Pending capture text is bounded and cleared after Run consumes the save
+  - Pending capture text is bounded and cleared after the controller consumes the save
     request, whether the screenshot succeeds or reports a Lane R failure.
 
 Related:
-  - SkullbonezSource/Runtime/RunLiveStyle.cpp
+  - SkullbonezSource/Runtime/LiveStyleController.cpp
   - SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.h
   - Agentic/Reference/comment-style-guide.md
 */
@@ -36,8 +36,13 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Rendering
+{
+class IRenderCaptureBackend;
+}
 namespace Basics
 {
+class CaptureController;
 class LiveStyleController
 {
   public:
@@ -45,6 +50,7 @@ class LiveStyleController
     void MarkReady();
     void Tick( SceneRuntimeStyleContext context );
     bool HasPendingCapture() const;
+    void SavePendingCapture( CaptureController& capture, Rendering::IRenderCaptureBackend& backend );
     const char* PendingScreenshotPath() const;
     void MarkCaptureSaved();
     void MarkCaptureFailed( const char* message );

@@ -40,6 +40,7 @@ Related:
 #include <vector>
 
 #include "ColliderStore.h"
+#include "../GameObjects/SceneCapacity.h"
 #include "PersistentContactSolver.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsDiagnosticsSink.h"
@@ -552,6 +553,8 @@ class PhysicsWorld
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();
     void ClearPointJointConstraints();
+    // Deletion pre-pass: no constraint may retain a body handle after retirement.
+    void DestroyPointJointsForBody( PhysicsBodyHandle body );
     PhysicsConstraintHandle CreatePointJoint( const PhysicsPointJointCreateDesc& desc );
     const std::vector<PointJointConstraint>& GetPointJointConstraints() const;
     void SetTornadoFieldConfig( const TornadoFieldConfig& config );

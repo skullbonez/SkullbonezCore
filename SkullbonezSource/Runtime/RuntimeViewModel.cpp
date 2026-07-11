@@ -24,7 +24,6 @@ Related:
 #include "RuntimeViewModel.h"
 
 #include "CaptureController.h"
-#include "RunRuntimeSettings.h"
 #include "Scene/SceneController.h"
 #include "../Physics/PhysicsEngine.h"
 #include "../Physics/PhysicsEngineStoreQueries.h"
@@ -37,8 +36,9 @@ namespace Basics
 {
 namespace
 {
-const char* ContactAudioFlashModeLabel( ContactAudioFlashMode mode )
+const char* ContactAudioFlashModeLabel( Runtime::Audio::ContactAudioFlashMode mode )
 {
+    using Runtime::Audio::ContactAudioFlashMode;
     switch ( mode )
     {
     case ContactAudioFlashMode::Off:
@@ -56,14 +56,13 @@ const char* ContactAudioFlashModeLabel( ContactAudioFlashMode mode )
 
 
 void FillContactAudioSnapshot( RuntimeContactAudioSnapshot& audio,
-                               const Runtime::Audio::ContactAudioService& contactAudio,
-                               const RunRuntimeSettings& runtimeSettings )
+                               const Runtime::Audio::ContactAudioService& contactAudio )
 {
     audio.enabled = contactAudio.IsEnabled();
     audio.available = contactAudio.IsAvailable();
-    audio.debugCounters = runtimeSettings.contactAudioDebugCounters;
-    audio.flashMode = static_cast<int>( runtimeSettings.contactAudioFlashMode );
-    audio.flashModeLabel = ContactAudioFlashModeLabel( runtimeSettings.contactAudioFlashMode );
+    audio.debugCounters = contactAudio.DebugCountersEnabled();
+    audio.flashMode = static_cast<int>( contactAudio.FlashMode() );
+    audio.flashModeLabel = ContactAudioFlashModeLabel( contactAudio.FlashMode() );
     audio.masterGain = contactAudio.MasterGain();
     audio.maxDistanceScale = contactAudio.MaxDistanceScale();
     audio.minClosingSpeed = contactAudio.MinClosingSpeed();
@@ -129,7 +128,7 @@ RuntimeViewModel RuntimeViewModelBuilder::Build( const RuntimeViewModelContext& 
 {
     RuntimeViewModel view = Build( context );
 
-    FillContactAudioSnapshot( view.contactAudio, contactAudio, context.runtimeSettings );
+    FillContactAudioSnapshot( view.contactAudio, contactAudio );
     return view;
 }
 } // namespace Basics

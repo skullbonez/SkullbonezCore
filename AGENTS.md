@@ -123,6 +123,42 @@ historical debt. These policies are enforced by code review, owning plans,
 focused behavioral tests in `Agentic/Plans/TODO/behavioral-test-depth.md`, and
 the targeted validation gates below.
 
+## God-Object Closure Rule
+
+Ownership cleanup is judged across a logical type or module, not one physical
+file. For `Run`, review `Run.h`, every `Run*.cpp`, shared internal headers,
+callback/context types, and forwarding facades as one surface. Making
+`Run.cpp` short while the same authority remains reachable through sibling
+translation units is not decomposition.
+
+At closure, `Run` may construct and wire concrete owners, sequence
+startup/shutdown, pump operating-system messages, establish top-level frame
+order, and report the final application result. It must not own or decide
+input, scene, replay, render, UI, physics, tools, capture, defaults, or
+diagnostics business state. Those domains must have concrete owners with typed
+value boundaries.
+
+The following are closure failures, even when presented as temporary or
+compatibility architecture:
+
+- mutable multi-domain state or queues collected in `Run` or a replacement
+  `*Internal`, `*Context`, `*Services`, `*Bindings`, or similarly broad bag;
+- `void*`, stored host pointers/references, callback packs, friend access, or
+  lambdas that let an extracted owner reach back into `Run` state;
+- `Run::*` forwarding wrappers or nominal owner types that merely relay
+  business operations while authority remains in `Run`;
+- an extracted owner that absorbs unrelated domains and becomes the next god
+  object;
+- a completion claim based only on line count, file count, or a mechanical
+  translation-unit split.
+
+A final independent ownership review is mandatory for a god-object cleanup.
+A finding is credible when it identifies concrete unrelated responsibilities,
+state, or dependency authority and the owner boundary they violate. Any such
+finding reopens the owning checklist item and blocks plan/campaign completion;
+it cannot be waived as follow-up debt. Large cohesive files are allowed only
+when the review records why their state and invariants belong to one owner.
+
 ## Migration Cleanup Review Rule
 
 Compatibility code is allowed only when it is honest, bounded, and guarded.
@@ -222,23 +258,32 @@ owning plan when the lane is not obvious from the API being used.
 Do not run validation scripts automatically after every edit. Formal repository
 validation runs only as a pre-commit/PR gate, or when the user explicitly asks
 for it. When preparing PR-bound work, choose the smallest script from `tools\`
-that matches the fix. The default broad PR gate is intentionally limited to two
-runtime launches: one DX12 render suite and one core physics scene. Use deep,
-perf, UI, and stress validation only when the change actually needs them:
+that matches the fix. The default broad PR gate runs the mandatory CPU umbrella
+first, then two runtime lanes: one DX12 renderer process and the physics lane's
+standalone-smoke plus regression-scene processes (three engine processes total).
+Use deep, perf, UI, and stress validation only when the change actually needs
+them.
+
+`validate_full.bat` and its `agent_validate.bat` alias are the mandatory broad
+superset. A new standalone CPU test executable must join
+`validate_all_cpu_tests.bat`, `tools/README.md`, and the file-to-gate mapping in
+the same commit; a test target reachable only through a direct script or
+`validate_select.bat` is not merge-gated.
 
 | Change Type | Pre-Commit/PR Command | Runtime |
 |-------------|---------|---------|
 | Documentation only | No validation required | N/A |
-| Unit tests only | `tools\validate_tests.bat` | build + console test runner |
+| Main doctest unit tests only | `tools\validate_tests.bat` | build + console test runner |
+| Standalone/combined CPU test targets | `tools\validate_all_cpu_tests.bat` | incremental builds + 5 console test launches |
 | Small refactor, no render or physics changes | `tools\validate_fast.bat` | ~30s |
 | Shader or render backend | `tools\validate_dx12_renderer.bat` | ~2 min |
 | DX12 renderer validation tooling | `tools\validate_fast.bat`, then `tools\validate_dx12_renderer.bat` | ~2 min |
-| Physics, collision, solver, or rigid body changes | `tools\validate_physics.bat` | 1 exe launch |
+| Physics, collision, solver, or rigid body changes | `tools\validate_physics.bat` | 2 engine processes |
 | Broad physics baseline, bullet sweep, or SkullScope diagnostics | `tools\validate_physics_deep.bat` | ~45s+ |
 | Performance-sensitive hot path | `tools\validate_perf.bat` | ~1 min |
 | General DX12 graphics stress, crash reproduction, or memory-growth investigation | `tools\run_graphics_stress.bat 1`; use `overnight` only when intentionally soaking | bounded or overnight |
-| Broad or uncertain scope | `tools\validate_full.bat` | 2 exe launches |
-| Unsure what to run at the PR gate | `tools\agent_validate.bat` | 2 exe launches |
+| Broad or uncertain scope | `tools\validate_full.bat` | CPU tests + 3 engine processes |
+| Unsure what to run at the PR gate | `tools\agent_validate.bat` | CPU tests + 3 engine processes |
 | Comment-only source or documentation cleanup | No repository validation required; prove the diff is comments/docs only | N/A |
 
 Profiling marker or platform-profiler changes must also run:
@@ -261,10 +306,11 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 | `SpatialGrid*` | `validate_physics` + `validate_perf` |
 | `GameModelCollection*` render stream or hot-loop changes | `validate_dx12_renderer` + `validate_perf` |
 | `Config*`, `SkullbonezData/engine.cfg` physics defaults such as gravity, fluid, drag, friction, sleep, solver, or broadphase values | `validate_physics` |
-| `TestOutput/baselines/physics_regression_solver.csv` | `validate_physics` |
+| `TestOutput/baselines/physics_regression_varied.csv` | `validate_physics` |
 | Other physics CSV baselines or `TestOutput/baselines/physics_query*.json` | `validate_physics_deep` |
 | `Common.h` | `validate_full` |
 | `SkullbonezTests/*`, `SKULLBONEZ_TESTS.vcxproj`, `SKULLBONEZ_TESTS.vcxproj.filters` | `validate_tests` |
+| `Agentic/Tests/*` or a new standalone CPU test project/script | `validate_all_cpu_tests` |
 | `Runtime/Allocation/*` | `validate_perf` |
 | `tools/check_allocation_policy.py`, `tools/allocation_policy_allowlist.json` | `validate_fast`, then `python tools\check_allocation_policy.py --self-test` and `python tools\check_allocation_policy.py --repo .`; add `validate_perf` if runtime guard or reserve semantics change |
 | `Run*`, `Runtime/*` | `validate_full` |
@@ -274,7 +320,7 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 | `SkullbonezData/hulls/*.hull` | `validate_full` |
 | `SkullbonezData/scenes/*.scene.json` | `validate_full` |
 | Multiple areas or unsure | `validate_full` |
-| `Agentic/*`, `*.md`, docs | No validation required when documentation-only |
+| Documentation-only `Agentic/*` (excluding `Agentic/Tests/*`), `*.md`, docs | No validation required when documentation-only |
 | `tools/*` | `validate_fast`, then run the changed script; `validate_fast` includes `validate_tests` |
 
 ---
@@ -287,7 +333,7 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 - **Never claim validation success without command output.** Paste the validation output when validation is required.
 - **Never skip required pre-commit/PR validation** for code, tool, scene, shader, baseline, or runtime behavior changes unless the user explicitly says to.
 - **Documentation-only changes require no validation.** Do not run `validate_fast` for prose-only edits.
-- **Physics baseline refreshes require a final physics gate.** Regenerate CSV or SkullScope baselines only from the final Debug executable, scene files, and config that will be committed, then rerun the matching gate after the baseline files are updated: `tools\validate_physics.bat` for the core solver baseline, or `tools\validate_physics_deep.bat` for bullet sweep, shooting, known-issue, or SkullScope baselines. A copied physics artifact is not trustworthy until the gate compares it byte-exactly against the committed baseline.
+- **Physics baseline refreshes require a final physics gate.** Regenerate CSV or SkullScope baselines only from the final Debug executable, scene files, and config that will be committed, then rerun the matching gate after the baseline files are updated: `tools\validate_physics.bat` for the core varied-scene baseline, or `tools\validate_physics_deep.bat` for bullet sweep, shooting, known-issue, or SkullScope baselines. A copied physics artifact is not trustworthy until the gate compares it byte-exactly against the committed baseline.
 - **`tools\update_baselines.bat` is visual/perf only.** Do not use it for physics CSV or SkullScope baselines unless the script explicitly grows that support; use the Debug physics artifacts generated by the validation commands and rerun the matching physics gate.
 - **Time all user-requested work.** Record elapsed wall-clock time for every task from the start of work to the final response. Report the time taken in the final answer, and call out timings for substantial sub-runs such as builds, validation scripts, game launches, SkullScope trace generation, or long investigations.
 - **Protect dirty worktrees.** Run `git status --short --branch` before edits and before commits. Treat pre-existing changes as user-owned. Never use `git reset --hard`, destructive `git clean`, checkout/discard commands, or broad formatter runs that touch unrelated files unless the user explicitly requested that operation.

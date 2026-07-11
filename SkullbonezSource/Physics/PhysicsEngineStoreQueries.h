@@ -22,7 +22,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/PhysicsEngine.h
-  - engine-cleanup-plans/14-public-physics-api-boundary.md
+  - Agentic/Plans/TODO/physics-authority-and-identity.md
 */
 #pragma once
 

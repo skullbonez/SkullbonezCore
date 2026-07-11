@@ -35,7 +35,7 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.cpp
   - SkullbonezSource/Physics/PhysicsScene.h
-  - Agentic/Plans/physics-playground-refactor-and-file-prefix-cleanup-plan.md
+  - Agentic/Plans/TODO/physics-authority-and-identity.md
 */
 #pragma once
 
@@ -43,6 +43,7 @@ Related:
 #include <vector>
 
 #include "PhysicsHandles.h"
+#include "../GameObjects/SceneCapacity.h"
 #include "PhysicsFixedList.h"
 #include "../Maths/Quaternion.h"
 #include "../Maths/Vector3.h"

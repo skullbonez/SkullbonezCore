@@ -1,148 +1,84 @@
-# 00 — Execution Guide (read this first)
+# Engine Cleanup Execution Guide
 
-Date: 2026-07-08
-Status: Proposed
-Owner: Architecture cleanup
-Audience: the implementing agent (assume a smaller/less-capable model)
+Date: 2026-07-10
+Status: Active protocol
+Owner: architecture cleanup
 
-This guide is the entry point for executing every plan in this folder. It gives
-(1) the working protocol you must follow, (2) the order to do the plans in, and
-(3) the campaign checklist. **The file numbers `01`–`14` are topics, NOT the
-order of work. Follow the order in section 2 of this guide.**
+## Start Here
 
----
+1. Follow the repository startup contract in `AGENTS.md`.
+2. Read `Agentic/Plans/MASTER-PLAN.md` for authoritative priority, phase counts,
+   dependencies, and blocking decisions.
+3. Read only the selected plan and directly required references.
+4. Implementing a plan uses `Agentic/Skills/orchestrator/SKILL.md`; drafting or
+   reconciling a plan is normal documentation work.
 
-## 1. Working protocol (the rules — do not deviate)
+This guide does not duplicate plan order or status. If it conflicts with the
+master inventory, the master is authoritative and this guide must be repaired.
 
-You are working through a checklist. Correctness and finishing beat speed.
+## Slice Protocol
 
-1. **One step at a time.** Open the plan you are on. Find the first unchecked
-   `[ ]` step in its "Step-by-step implementation" section. Do **only** that
-   step. Do not read ahead and do three at once.
-2. **Validate before moving on.** Every step names a validation command (or says
-   "no validation — docs only"). Run exactly that command. If it passes, tick the
-   box `[x]`. If it fails, **STOP**: diagnose and fix until it passes. Never
-   start the next step while the current gate is red.
-3. **Commit per step.** After a step passes, commit just that step's changes.
-   Message format: `cleanup(NN): <plan short-name> step <k> — <what you did>`
-   (e.g. `cleanup(02): physicsworld — step 1, extract DisjointSet`). One small
-   commit per step keeps progress recoverable if you are interrupted.
-4. **The checkboxes are the ledger.** Ticking `[ ]`→`[x]` in the plan file is how
-   progress is tracked. Keep them honest: tick only after the step's validation
-   passed.
-5. **Hard gates are absolute.** Two gates may never be committed through while
-   red:
-   - **Physics determinism:** `tools\validate_physics.bat` must stay byte-exact.
-   - **DX12:** `dx12_validation.txt` must read `0` after
-     `tools\validate_dx12_renderer.bat`.
-   If a step turns a hard gate red and you cannot make it green, revert that
-   step's change and STOP for a human.
-6. **Danger zones need extra care.** For any step touching DX12 barriers/resource
-   state, run the renderer gate **three times** and confirm 0 validation errors.
-   For physics, never reorder floating-point accumulation or island-merge order.
-7. **When a step says "decide" — STOP and ask a human.** Some steps require a
-   judgment call (e.g. "decide whether to finish RenderGraph or delete it",
-   "decide the real allocation requirement", governance deletions). A smaller
-   model must **not** guess these. Leave the box unchecked, write a one-line note
-   under it, and surface it.
-   - Owner steering on 2026-07-09 resolved the pending Plan 03, Plan 07,
-     Plan 11, and FAC-005 decision gates. Use those plan notes instead of
-     asking again.
-8. **Stay in scope.** Do only what the step says. Do not "tidy" adjacent code,
-   rename unrelated things, or reformat files — that creates noise and breaks the
-   boundary checker's frozen counts.
-9. **Protect the worktree.** Never `git reset --hard`, force-push, rebase, or
-   `git clean`. Never touch files you did not change for this step. Feature-branch
-   commits are fine without asking; do not commit on `main`.
-10. **If blocked, STOP cleanly.** Leave the current box unchecked, add a
-    `> BLOCKED: <reason>` note beneath it, commit any safe partial work behind a
-    clearly-labelled WIP commit, and hand off. Do not thrash.
+1. **Select one phase.** Choose the first unblocked phase in master priority
+   order. A partial phase remains unchecked.
+2. **Confirm the owner and deletion/behavior proof.** Do not start if the phase
+   only says "refactor" or "clean up" without naming what authority moves and
+   how completion is proven.
+3. **Protect the worktree.** Record `git status --short --branch`; preserve all
+   pre-existing changes as user-owned.
+4. **State impact and validation before editing.** Name source areas and the
+   formal pre-commit/PR gate. Use targeted builds/tests/inspection during
+   iteration only when they answer a specific question.
+5. **Implement one coherent slice.** Avoid adjacent cleanup and broad formatting.
+   A mechanical file split does not satisfy an ownership phase.
+6. **Audit touched source comments.** Apply the repository comment quality gate
+   and create a `git ls-files` checklist for subsystem/full comment passes.
+7. **Run the required final gates.** Use final source/data/baselines. Until
+   validation-gate V2 completes, broad/unsure work must run the temporary CPU
+   suite sequence documented in `AGENTS.md` before `validate_full`.
+8. **Record evidence.** Add exact commands, result, time, logs/artifacts,
+   deletion proof, inventory reconciliation, and any deferred risk to the plan
+   or handoff.
+9. **Check the phase only after evidence passes.** Update its count in the master
+   and the operational next step in SessionState in the same commit.
+10. **Commit intentionally.** Feature branches may commit/push when ready;
+    direct main commits require explicit owner confirmation. Commit bodies name
+    what changed, why, important ownership details, validation, and artifacts.
 
-**Definition of "a plan is done":** every box in its "Step-by-step
-implementation" section is `[x]` **and** every box in its "Acceptance" section is
-`[x]`. Only then move to the next plan in the order.
+## Hard Rules
 
----
+- Never force-push, rebase, rewrite history, use destructive clean/reset, or
+  discard user-owned work.
+- Never claim validation from a plan note; require command output from the final
+  source state.
+- Physics determinism remains byte-exact. DX12 validation remains zero.
+- Do not update a baseline merely to make a gate pass; explain and prove the
+  intended behavior change first.
+- Do not create a compatibility bridge, broad host bag, hot-path callback, or
+  new inheritance seam to make an ownership checkbox appear complete.
+- A blocking owner decision remains blocking. Record the alternatives and
+  smallest decision needed; do not guess.
 
-## 2. Proposed execution order
+## Current Priority Summary
 
-Ordered for a smaller model: safe mechanical wins first (build momentum and test
-habits), then enabling decoupling, then the big god-object splits, with
-cross-cutting work threaded in. Dependencies are called out so you never start
-something whose prerequisite is unfinished.
+The master currently orders work as:
 
-| Order | Plan | Slice to do | Why here | Primary gate |
-|------:|------|-------------|----------|--------------|
-| 1 | [02](02-physicsworld-solver-decomposition.md) **Phase 0 only** | Extract `DisjointSet`, replace 3 copies | ~90-line mechanical dedup, byte-exact gated — safest high-value start | `validate_physics` |
-| 2 | [12](12-ambient-singletons-log-profiler.md) | Unweld `Log` from prelude; make profiler pointer safe | Small, contained; sets up plan 04 | `validate_full` (+`validate_physics` for the sink step) |
-| 3 | [06](06-inl-translation-unit-unsplitting.md) **editor files first** | Promote `RunEditor*.inl` to real TUs | Mechanical, build-gated; leave replay `.inl` for step 8 | `validate_fast` then `validate_full` |
-| 4 | Facade boundary campaign (13 + 10 + 14, completed) | Narrow render interfaces, delete `IRenderBackend` aggregate, split `EngineContext`, fix DX12 aliases, collapse `SimulationController` (FAC-004), and close FAC-005 public physics API leaks | Completed 2026-07-10; plan files are git-history artifacts per MASTER convention | `validate_dx12_renderer` + `validate_full` + `validate_physics` |
-| 5 | [08](08-renderhelper-global-state-removal.md) | De-static `RenderHelper`; RAII batches | Removes global render state; DX12-gated | `validate_dx12_renderer` |
-| 6 | 11 render abstraction leaks (completed; file deleted) | Real backbuffer state; de-leak replay ribbons; RenderGraph honesty | Completed 2026-07-10; diagnostic RenderGraph skeleton/live-barrier comparison path deleted | `validate_dx12_renderer` |
-| 7 | [01](01-run-god-object-decomposition.md) | Input command table → shrink `RunState` → shrink `Run` | Big; the flagship. Add its tests via plan 05 as you go | `validate_full` |
-| 8 | [09](09-replay-subsystem-right-sizing.md) | Split prediction state; template twins; evict replay from `RunFrame`; finish replay `.inl` from step 3 | Big; depends on 01's `RunFrame` shrink and 06 | replay scrub regression + `validate_full` |
-| 9 | [02](02-physicsworld-solver-decomposition.md) **rest** | Lift 33 lambdas to stages; evict gameplay; table-drive snapshot | Big, byte-exact; do after the DisjointSet warm-up | `validate_physics` per phase |
-| 10 | 04 error handling policy reconciliation (completed; file deleted) | `throw` -> F/R/P lanes (no count - ratchet deleted per 03) | After physics (02) and profiler (12) are stable | `validate_full` + `validate_physics` |
-| — | [05](05-behavioral-test-coverage.md) | **Continuous** | Do its Phase 0 map first; then each plan above adds its own tests as it lands; kill link stubs anytime | `validate_tests` |
-| — | 03 governance apparatus removal (completed; file deleted per MASTER convention) | **Done** | Regex checker and all `MAX_*` ratchets deleted; `AGENTS.md` contract updated | Documentation-only closure |
-| - | 07 allocation-gate right-sizing (completed; file deleted per MASTER convention) | **Done** | Runtime guard diagnostics trimmed, replay remains the only approved runtime exception, and static enforcement covers direct heap/reserve APIs, owning dynamic STL members, and STL growth calls | `validate_perf` + `validate_fast`/checker evidence |
+1. Validation CPU umbrella and DX12 failure inventory.
+2. DX12 command-state/failure propagation.
+3. Behavioral manifold/serializer/fault-injection gaps.
+4. Runtime shell + UI + interaction ownership.
+5. Replay right-sizing + physics ownership/identity.
+6. Render concrete-owner split.
+7. Documentation-only stale reference cleanup in parallel.
+8. Shadow quality; fracture replay remains blocked.
 
-Rationale for the shape: steps 1–3 are low-risk and build the validate-and-commit
-habit. Steps 4–6 decouple and clean the render/runtime wiring while its gate
-(DX12) is exercised repeatedly. Steps 7–9 are the large decompositions, done once
-momentum and (from plan 05) some test coverage exist. Step 10 reconciles error
-handling last among code work because it touches physics and the profiler. Plans
-05, 03, 07 are cross-cutting: 05 threads through everything; 03 and 07 are
-judgment/sign-off gated and can slot in whenever a human is available.
+Use the master for exact phase identifiers and counts.
 
----
+## Plan Closure
 
-## 3. Campaign checklist
+A plan is done only when its Definition of Done and every phase checkbox pass,
+all decisions resolve, required formal gates pass, current inventories reconcile,
+and independent review is complete where required. Then update master and
+SessionState and delete the plan/checklist; git history is the archive.
 
-Tick a plan here only when **both** its step list and its acceptance list are
-fully `[x]`.
-
-- [x] 1. Plan 02 Phase 0 — DisjointSet extracted
-- [x] 2. Plan 12 — Log/Profiler ambient coupling removed
-- [x] 3. Plan 06 — editor `.inl` promoted to real TUs
-- [x] 4. Plan 13 + 10 + 14 - facade rule applied; EngineContext/IRenderBackend/aliases/SimulationController done; FAC-005 public physics API boundary closed
-  Note (2026-07-10): FAC-005 completed through Plan 14; the completed Plan 13
-  and Plan 14 files were deleted per MASTER convention.
-- [x] 5. Plan 08 — RenderHelper de-statised
-- [x] 6. Plan 11 — render abstraction leaks closed
-  Note (2026-07-10): `DumpFrameGraphSkeleton()`, live-barrier comparison
-  records, and stale barrier-ownership claims were removed. `validate_dx12_renderer`
-  passed with DX12 validation errors 0 and screenshots matching baselines.
-- [x] 7. Plan 01 — Run decomposed
-- [x] 8. Plan 09 — replay right-sized
-- [x] 9. Plan 02 rest — solver decomposed
-  Note (2026-07-09): Phase 1, Phase 2, and Phase 3 are complete. Final Plan 02
-  gates passed: `validate_physics`, `validate_replay_scrub`, and
-  `validate_physics_deep`; logs are listed in
-  `02-physicsworld-solver-decomposition.md` and
-  `HANDOFF-2026-07-09-PLAN02-REPLAY-SNAPSHOT.md`.
-- [x] 10. Plan 04 — error handling reconciled
-  Note (2026-07-10): Strict source throws are zero. Final gates passed:
-  `validate_build Profile`, `validate_dx12_renderer`, and `validate_full`.
-- [x] C1. Plan 05 — behavioral coverage added (continuous)
-  Note (2026-07-09): Phase 0 coverage map, Phase 1 input-binding tests, Phase
-  2 replay solver-sample restore tests, Phase 3 physics invariants, and Phase 4
-  link-stub removal are complete. Current inventory: 59 `TEST_CASE`s across 19
-  test `.cpp` files and 0 `*LinkStubs.cpp` files.
-- [x] C2. Plan 03 — regex governance apparatus removed (owner-approved 2026-07-09)
-- [x] C3. Plan 07 — allocation gate right-sized without weakening global zero-allocation policy (owner decision recorded 2026-07-09)
-  Note (2026-07-10): Completed and deleted per MASTER convention.
-
-When every box above is `[x]`, the campaign is complete.
-
----
-
-## 4. Notes
-
-- Every plan carries a "Step-by-step implementation" section (added for this
-  execution pass) with small, ordered, individually-validated steps. Follow those
-  steps; this guide only sets the order between plans.
-- All files here are documentation. Editing them needs no validation. Each
-  *implementation* step names the validation its code change needs.
-- If a step's validation command is unfamiliar, its meaning is in
-  [`AGENTS.md`](../AGENTS.md) ("After Editing" / "File To Validation Mapping").
+Documentation-only edits to this guide require no repository validation, but
+links, plan inventory, Markdown whitespace, and `git diff --check` must pass.

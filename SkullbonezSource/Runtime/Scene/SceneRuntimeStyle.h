@@ -23,7 +23,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.cpp
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
-  - Agentic/Plans/run-composition-root-shrink-plan.md
+  - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #pragma once
 
@@ -46,6 +46,7 @@ class GameModelCollection;
 namespace Basics
 {
 class TestScene;
+struct RunDebugState;
 
 struct SceneRuntimeStyleContext
 {
@@ -53,12 +54,20 @@ struct SceneRuntimeStyleContext
     RunSceneState& scene;
     RunSceneBrowserState& sceneBrowser;
     GameObjects::GameModelCollection& models;
+    SceneEntityStore& entities;
     const Assets::AssetSystem& assets;
     CinematicRenderConfig& activeCinematic;
     const CinematicRenderConfig& defaultCinematic;
 };
 
 void ApplyCinematicSceneOverrides( CinematicRenderConfig& target, uint64_t mask, const CinematicRenderConfig& source );
+CinematicRenderConfig& ActiveSceneCinematicConfig( RunSceneState& scene, EngineConfig& config );
+const CinematicRenderConfig& ActiveSceneCinematicConfig( const RunSceneState& scene, const EngineConfig& config );
+bool IsSceneCinematicRenderingEnabled( const RunSceneState& scene,
+                                       const EngineConfig& config,
+                                       const RunLaunchOptions& launchOptions,
+                                       const RunDebugState& debug,
+                                       bool graphicsReady );
 bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int index );
 void ApplyLiveStyleScene( SceneRuntimeStyleContext context, const TestScene& styleScene );
 bool ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext context );

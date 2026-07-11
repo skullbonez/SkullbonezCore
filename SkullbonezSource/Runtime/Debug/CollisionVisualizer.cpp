@@ -51,6 +51,7 @@ Related:
 
 
 #include "CollisionVisualizer.h"
+#include "../../Assets/AssetKeys.h"
 #include "../../Assets/AssetSystem.h"
 #include "../../Rendering/IRenderCommandContext.h"
 #include "../../Rendering/IRenderDiagnostics.h"

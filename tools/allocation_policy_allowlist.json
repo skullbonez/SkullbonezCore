@@ -5,13 +5,14 @@
       "path": "SkullbonezSource/Runtime/Init.cpp",
       "patterns": [
         "std::make_unique<SkullbonezCore::Environment::WorldEnvironment>",
-        "std::make_unique<SkullbonezCore::GameObjects::GameModelCollection>"
+        "std::make_unique<SkullbonezCore::GameObjects::GameModelCollection>",
+        "std::make_unique<PhysicsBodyStore>"
       ],
       "owner": "Standalone physics smoke bootstrap",
       "phase": "startup_validation",
-      "reason": "The runtime handle smoke constructs isolated runtime owners before WorkerPool, Window, renderer, or Run startup.",
-      "cap": "Two owner allocations when --physics-standalone-smoke is requested.",
-      "removal_or_wrapper_plan": "Keep this validation-only path outside steady gameplay; convert to stack or fixture-owned storage if the smoke grows."
+      "reason": "The runtime handle smoke constructs isolated runtime owners before WorkerPool, Window, renderer, or Run startup; fixed-array physics stores stay off the bounded launcher stack.",
+      "cap": "Three owner allocations when --physics-standalone-smoke is requested.",
+      "removal_or_wrapper_plan": "Keep this validation-only path outside steady gameplay and retain explicit heap ownership for MAX_GAME_MODELS fixed stores."
     },
     {
       "path": "SkullbonezSource/Runtime/Init.cpp",
@@ -26,15 +27,15 @@
       "removal_or_wrapper_plan": "Leave as startup composition-root ownership unless process bootstrap moves to arena-backed lifetime storage."
     },
     {
-      "path": "SkullbonezSource/Runtime/Run.cpp",
+      "path": "SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp",
       "patterns": [
-        "std::make_unique<SkyBox>"
+        "std::make_unique<Geometry::SkyBox>"
       ],
-      "owner": "Runtime world resource owner",
+      "owner": "RuntimeRenderer sky resource owner",
       "phase": "scene_load_backend_resource_init",
       "reason": "The skybox owner is rebuilt during scene/resource initialization, not ordinary gameplay simulation.",
       "cap": "One skybox owner for the active scene/resource set.",
-      "removal_or_wrapper_plan": "If scene churn remains allocation-sensitive, move these owner objects into preallocated world-resource storage."
+      "removal_or_wrapper_plan": "If backend initialization becomes allocation-sensitive, replace this cold owner construction with renderer-owned preallocated storage."
     },
     {
       "path": "SkullbonezSource/Runtime/Scene/RunScene.cpp",
@@ -91,7 +92,7 @@
       "owner": "Replay prediction working set",
       "phase": "replay",
       "reason": "Prediction frames, frame payload pools, private prediction engine storage, and trajectory records share one registered replay growth gate.",
-      "cap": "Registered owner replay_prediction_working_set with a 256 MiB hard byte cap; callers pass byte capacities and must reserve under matching replay scopes.",
+      "cap": "ReplayRetainedMemory policy registers replay_prediction_working_set with a 256 MiB hard byte cap; measured combined high-water is 211,376,304 bytes.",
       "removal_or_wrapper_plan": "Keep prediction growth behind RequestReplayPredictionReserveGrowth/ReserveReplayPredictionVector or replace the working set with a fixed prediction arena."
     },
     {
@@ -124,7 +125,7 @@
       "owner": "Replay recorder sample payloads",
       "phase": "replay",
       "reason": "Presentation and solver sample body vectors grow lazily under active scene size instead of startup game_model_capacity.",
-      "cap": "Registered owner replay_recorder_samples, hard cap REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES per retained sample body-vector reserve.",
+      "cap": "ReplayRetainedMemory policy registers replay_recorder_samples with a 32 MiB aggregate hard cap from the guarded 6,206,626-byte high-water; denial is fatal to prevent partial scrub state.",
       "removal_or_wrapper_plan": "Replace retained body vectors with a flat replay arena/body dictionary when replay memory tuning lands; keep recorder growth behind ReserveReplayRecorderSampleVector until then."
     },
     {
@@ -135,7 +136,7 @@
       "owner": "Replay solver snapshot reserve",
       "phase": "replay",
       "reason": "Solver replay snapshots batch many typed vector payload reserves into one byte-budget approval before copying physics state.",
-      "cap": "Registered owner replay_solver_snapshot, hard cap REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES.",
+      "cap": "ReplayRetainedMemory policy registers replay_solver_snapshot with an 8 MiB hard byte cap from the measured 1,437,696-byte high-water; denial is fatal.",
       "removal_or_wrapper_plan": "Replace snapshot vectors with an arena-backed snapshot record if replay solver storage is flattened."
     },
     {
@@ -285,17 +286,41 @@
       "removal_or_wrapper_plan": "Move model records to fixed-capacity stores and delete these allowlist patterns once the collection no longer grows STL storage."
     },
     {
+      "path": "SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp",
+      "patterns": [
+        ".emplace_back(",
+        ".reserve(",
+        ".resize("
+      ],
+      "owner": "SceneController entity metadata preallocation",
+      "phase": "startup_scene_load_preallocation",
+      "reason": "SceneController reserves durable identity, material, display-name, and asset-affiliation rows before publishing the replacement scene; commit and trim remain within that reservation during steady gameplay.",
+      "cap": "Bounded by the configured game model capacity and the compile-time MAX_GAME_MODELS ceiling.",
+      "removal_or_wrapper_plan": "Replace the reserved cold metadata vector with a compact fixed arena if provenance storage is split into interned scene-owned tables."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Scene/SceneEntityStore.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "SceneController entity metadata preallocation",
+      "phase": "startup_scene_load_preallocation",
+      "reason": "SceneController owns one capacity-bounded cold metadata vector whose reservation is established before scene population and retained across reloads.",
+      "cap": "Bounded by the configured game model capacity and the compile-time MAX_GAME_MODELS ceiling.",
+      "removal_or_wrapper_plan": "Replace the reserved cold metadata vector with a compact fixed arena if provenance storage is split into interned scene-owned tables."
+    },
+    {
       "path": "SkullbonezSource/Physics/ColliderStore.cpp",
       "patterns": [
         ".assign(",
         ".push_back(",
         ".resize("
       ],
-      "owner": "Physics preallocated/replay static STL surface",
-      "phase": "startup_preallocation_scene_load_replay",
-      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
-      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
-      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+      "owner": "Standalone physics API and cold validation probe",
+      "phase": "cold_validation_and_preallocated_public_views",
+      "reason": "Public query/contact vectors are bounded standalone-world storage; the validation-only smoke allocates its fixed-array world off the launcher stack before any gameplay phase.",
+      "cap": "At most nine scenario-specific PhysicsStandaloneWorld owners per synchronous smoke invocation; public view/contact rows remain bounded by MAX_GAME_MODELS and fixed constraint/query inputs.",
+      "removal_or_wrapper_plan": "Keep the smoke owner cold; replace public view vectors with fixed stores if the standalone API is promoted into steady runtime."
     },
     {
       "path": "SkullbonezSource/Physics/DisjointSet.h",
@@ -327,7 +352,8 @@
       "patterns": [
         ".assign(",
         ".push_back(",
-        ".resize("
+        ".resize(",
+        "std::make_unique<PhysicsStandaloneWorld>"
       ],
       "owner": "Physics preallocated/replay static STL surface",
       "phase": "startup_preallocation_scene_load_replay",
@@ -590,6 +616,7 @@
     {
       "path": "SkullbonezSource/Rendering/RenderInstanceStore.cpp",
       "patterns": [
+        ".push_back(",
         ".reserve(",
         ".resize("
       ],
@@ -790,17 +817,6 @@
       "removal_or_wrapper_plan": "Move runtime orchestration storage to typed fixed buffers or owner wrappers as each subsystem is decomposed."
     },
     {
-      "path": "SkullbonezSource/Runtime/Replay/ReplayExporter.cpp",
-      "patterns": [
-        ".push_back("
-      ],
-      "owner": "Replay static STL storage/growth surface",
-      "phase": "replay",
-      "reason": "Replay is the only approved runtime growth exception; these existing recorder, prediction, query, artifact, and trajectory buffers remain reviewed while runtime reserve owners and validation guard actual gameplay growth.",
-      "cap": "Replay hard caps and artifact sizes remain enforced by the replay reserve owners and validation gates.",
-      "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
-    },
-    {
       "path": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
       "patterns": [
         ".assign(",
@@ -914,41 +930,41 @@
       "removal_or_wrapper_plan": "Move runtime orchestration storage to typed fixed buffers or owner wrappers as each subsystem is decomposed."
     },
     {
-      "path": "SkullbonezSource/Runtime/RunInteractionAutomation.cpp",
+      "path": "SkullbonezSource/Runtime/InteractionAutomationController.cpp",
       "patterns": [
         ".emplace_back(",
         ".push_back(",
         ".reserve("
       ],
-      "owner": "Runtime orchestration preallocation surface",
+      "owner": "Interaction automation controller",
       "phase": "startup_scene_load_diagnostics",
-      "reason": "Runtime orchestration, automation, demo, and pass setup vectors grow while preparing startup, scene, diagnostics, or bounded command data.",
-      "cap": "Bounded by startup arguments, scene/model counts, render pass counts, or automation script sizes.",
-      "removal_or_wrapper_plan": "Move runtime orchestration storage to typed fixed buffers or owner wrappers as each subsystem is decomposed."
+      "reason": "Automation script parsing and report assembly grow only during validation startup and artifact writing, outside steady gameplay.",
+      "cap": "Bounded by the explicitly supplied automation script action count and generated report rows.",
+      "removal_or_wrapper_plan": "Keep growth inside the cold validation harness; interaction-state-machine cleanup may split parser and executor ownership."
     },
     {
-      "path": "SkullbonezSource/Runtime/RunPasses.cpp",
+      "path": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp",
       "patterns": [
         ".push_back(",
         ".reserve(",
         ".shrink_to_fit("
       ],
-      "owner": "Runtime orchestration preallocation surface",
-      "phase": "startup_scene_load_diagnostics",
-      "reason": "Runtime orchestration, automation, demo, and pass setup vectors grow while preparing startup, scene, diagnostics, or bounded command data.",
-      "cap": "Bounded by startup arguments, scene/model counts, render pass counts, or automation script sizes.",
-      "removal_or_wrapper_plan": "Move runtime orchestration storage to typed fixed buffers or owner wrappers as each subsystem is decomposed."
+      "owner": "RuntimeRenderer tornado and debug-overlay passes",
+      "phase": "startup_backend_resource_prepare_and_release",
+      "reason": "Pass-owned vectors reserve bounded tornado/debug geometry before submission and release capacity during explicit backend teardown.",
+      "cap": "Bounded by configured tornado vortex limits and the fixed debug-overlay sampling grid.",
+      "removal_or_wrapper_plan": "Replace these vectors with pass-owned fixed buffers when render-backend decomposition closes the tornado/debug pass storage rows."
     },
     {
-      "path": "SkullbonezSource/Runtime/RunRender.cpp",
+      "path": "SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp",
       "patterns": [
         ".emplace("
       ],
-      "owner": "Runtime orchestration preallocation surface",
-      "phase": "startup_scene_load_diagnostics",
-      "reason": "Runtime orchestration, automation, demo, and pass setup vectors grow while preparing startup, scene, diagnostics, or bounded command data.",
-      "cap": "Bounded by startup arguments, scene/model counts, render pass counts, or automation script sizes.",
-      "removal_or_wrapper_plan": "Move runtime orchestration storage to typed fixed buffers or owner wrappers as each subsystem is decomposed."
+      "owner": "RuntimeRenderer render-helper lifecycle",
+      "phase": "startup_and_backend_rebuild",
+      "reason": "The optional RenderHelper reconstructs its single backend-bound value only after a successful device/resource rebuild.",
+      "cap": "Exactly one optional RenderHelper instance.",
+      "removal_or_wrapper_plan": "Route RenderHelper reconstruction through the renderer resource owner when render-backend decomposition assigns its final lifecycle boundary."
     },
     {
       "path": "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp",

@@ -10,6 +10,8 @@ Mental model:
   and on the glossary/invariants below.
 
 Glossary:
+  Readback quarantine: Bounded ownership of a screenshot buffer whose GPU use
+    cannot be disproved after Close or fence-wait failure.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -19,6 +21,9 @@ Glossary:
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
+  - A readback buffer is mapped or released only after a successful wait. An
+    uncertain submission transfers it to a bounded quarantine that terminal
+    shutdown releases only after proving a full queue drain.
 
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
@@ -66,7 +71,11 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
 SbResult RenderBackendDX12::CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight )
 {
     outPixels.clear();
-    EnsureCommandListOpen();
+    const SbResult openResult = EnsureCommandListOpen();
+    if ( !openResult.ok )
+    {
+        return openResult;
+    }
     outWidth = m_width;
     outHeight = m_height;
 
@@ -78,6 +87,10 @@ SbResult RenderBackendDX12::CaptureBackbuffer( std::vector<uint8_t>& outPixels, 
 
     // Transition backbuffer to COPY_SOURCE for readback.
     TransitionBackbuffer( "BackbufferReadbackBegin", RenderGraphResourceAccess::CopySource );
+    if ( m_commandRecording.HasFailure() )
+    {
+        return m_commandRecording.CurrentResult();
+    }
 
     D3D12_RESOURCE_DESC bbDesc = m_renderTargets[m_frameIndex]->GetDesc();
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
@@ -122,16 +135,39 @@ SbResult RenderBackendDX12::CaptureBackbuffer( std::vector<uint8_t>& outPixels, 
 
     // Restore the exact state we found before the capture.
     TransitionBackbuffer( "BackbufferReadbackRestore", backBufferAccessBeforeCopy );
+    if ( m_commandRecording.HasFailure() )
+    {
+        return m_commandRecording.CurrentResult();
+    }
 
     // Execute and wait
     AssertPlatformProfilerGpuStackClosed( "CaptureBackbuffer" );
-    CommandList()->Close();
-    m_commandListOpen = false;
-    ID3D12CommandList* ppCLs[] = { CommandList() };
-    m_commandQueue->ExecuteCommandLists( 1, ppCLs );
-    const SbResult waitResult = WaitForGpu();
+    const SbResult closeResult =
+        m_commandRecording.CommitClose( CommandList()->Close(), "CaptureBackbuffer command list Close" );
+    if ( !closeResult.ok )
+    {
+        if ( m_uncertainReadbackResourceCount >= m_uncertainReadbackResources.size() )
+        {
+            SB_FATAL( "RenderBackendDX12", "DX12 uncertain readback quarantine exhausted after Close failure." );
+        }
+        m_uncertainReadbackResources[m_uncertainReadbackResourceCount++] =
+            readbackBuffer.DetachAfterUncertainSubmission();
+        return closeResult;
+    }
+    const SbResult submitResult = SubmitClosedCommandList();
+    if ( !submitResult.ok )
+    {
+        return submitResult;
+    }
+    const SbResult waitResult = m_commandRecording.CommitWait( WaitForGpu() );
     if ( !waitResult.ok )
     {
+        if ( m_uncertainReadbackResourceCount >= m_uncertainReadbackResources.size() )
+        {
+            SB_FATAL( "RenderBackendDX12", "DX12 uncertain readback quarantine exhausted after wait failure." );
+        }
+        m_uncertainReadbackResources[m_uncertainReadbackResourceCount++] =
+            readbackBuffer.DetachAfterUncertainSubmission();
         return waitResult;
     }
 

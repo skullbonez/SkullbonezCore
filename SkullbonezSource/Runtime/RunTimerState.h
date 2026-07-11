@@ -26,7 +26,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Run.h
-  - SkullbonezSource/Runtime/RunSubsystemState.h
+  - SkullbonezSource/Runtime/RunFrame.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */

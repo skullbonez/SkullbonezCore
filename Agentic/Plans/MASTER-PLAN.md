@@ -1,107 +1,137 @@
-# MASTER PLAN — Repository Plan Inventory
+# MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-07-09
-Status: Authoritative inventory of every remaining plan in the repository.
+Date: 2026-07-11
+Status: Authoritative inventory of every live repository plan
 
-This is the single source of truth for remaining plan work. Update a row's
-percentage when its plan advances; delete the row and the plan file when it
-completes. **Completed plans are deleted, not archived** — git history is the
-archive. Do not recreate `Done/`, `Failed/`, `Rejected/`, `In_Progress/`, or
-`To_Eval/` folders; live plans go in `TODO/` (or `engine-cleanup-plans/` for
-that campaign), and nothing else.
+## Inventory Rules
 
-Percentages come from plan checklists where they exist and are estimates
-otherwise.
+1. Live implementation plans are listed here and stored under `TODO/`, except
+   the active engine-cleanup campaign file.
+2. Completion uses checked-phase counts, not subjective percentages. Partial
+   phases are named as partial and do not increment the completed count.
+3. A checkbox closes only with its acceptance evidence and required validation.
+4. Completed plans/checklists are deleted; git history is the archive.
+5. Every dependency link must resolve to a live file. A missing link is a plan
+   defect and blocks the dependent phase.
+6. A plan must name owner, problem/evidence, goal, non-goals where needed,
+   phases, dependencies/decisions, acceptance, and validation.
+7. Source measurements are dated and scoped; historical numbers are not reused
+   as current evidence.
+8. God-object cleanup is reviewed across logical types/modules, not individual
+   files. A short facade, shared context, callback bag, or forwarding owner does
+   not satisfy an ownership deletion proof.
 
-## Engine cleanup campaign (`engine-cleanup-plans/`)
+## Execution Priority
 
-Protocol: [00-EXECUTION-GUIDE.md](../../engine-cleanup-plans/00-EXECUTION-GUIDE.md).
-Owner decisions of 2026-07-09 are binding — see
-[HANDOFF-2026-07-09-OWNER-DECISIONS.md](../../engine-cleanup-plans/HANDOFF-2026-07-09-OWNER-DECISIONS.md).
+1. Validation gate integrity V0-V2 and DX12 failure inventory D0.
+2. DX12 command-state/failure propagation D1-D5.
+3. Behavioral gaps P2/P3/P5 while the CPU umbrella is integrated.
+4. Runtime-shell input/command/scene extractions, coordinated with UI and
+   interaction ownership.
+5. Replay workspace/right-sizing and physics stable-identity work.
+6. Render concrete-owner decomposition after failure propagation.
+7. Stale reference cleanup as a documentation-only parallel lane.
+8. Shadow quality after renderer foundations; fracture replay remains blocked.
+9. 2026-07-11 gap-review plans (table below) slot in after their named start
+   conditions; entity-model-endgame is decision-blocked first.
 
-| Plan | Status | % | Remaining work |
-|------|--------|---|----------------|
-| [15 Review gaps (2026-07-09)](../../engine-cleanup-plans/15-review-gaps.md) | In progress | 50% | 15.4 comment-boilerplate cleanup and 15.5 Window encapsulation are complete. Remaining direct work: 15.6 stale comment/Common.h hygiene. |
+## Engine Cleanup Campaign
 
-## Consolidated active plans (`Agentic/Plans/TODO/`)
+| Plan | State | Verified basis | Next work |
+|---|---|---|---|
+| [15 review gaps](../../engine-cleanup-plans/15-review-gaps.md) | In progress | 15.4 and 15.5 complete; 15.1-15.3 delegated | Execute the 15.6 inventory checklist; owning TODO plans close the other findings |
 
-Created 2026-07-09 by consolidating `fable_plans/` (open work), `To_Eval/`,
-and `In_Progress/` — grouped by subsystem, done parts removed, stale parts
-re-scoped. Constituent history is in git history of the deleted files.
+## Active Architecture, Safety, And Test Plans
 
-| Plan | Status | % | Remaining work |
-|------|--------|---|----------------|
-| [behavioral-test-depth](TODO/behavioral-test-depth.md) | In progress | 42% | P1 solver-stage tests, P4 replay snapshot/hash round-trip, and most P3 parser failure cases are complete. Remaining: P2 manifold reduction, P3 `assetInstances[]` round-trip, P5 injected-bug drill, and P6 sustaining rule. |
-| [physics-authority-and-identity](TODO/physics-authority-and-identity.md) | In progress | 55% | Body/collider authority completion, scene/entity metadata split, stable-identity storage rule (handles, `ModelRowHint`), PHYS blocker knot (needs a physics-owner design decision). |
-| [render-backend-decomposition](TODO/render-backend-decomposition.md) | In progress | 50% | Concrete DX12 owner split (textures, PSO cache, DXR owner), resource-capability decision, FAC-007 dual-ownership fix. Graph-buildout scope dropped per owner decision. |
-| [interaction-state-machine](TODO/interaction-state-machine.md) | In progress | 45% | Phases P4–P10: camera capture, launcher/manipulator/editor/replay gesture migration, commands/events, bool-cluster deletion. |
-| [runtime-shell-decomposition](TODO/runtime-shell-decomposition.md) | In progress | 25% | Render-host narrowing, tool/replay/scene ownership moves, mega-TU splits (`RunInput`, `TestSceneParser`), `RunInternal.h` retirement, `Common.h` slimming, RUN blocker knot. |
-| [shadow-edge-quality](TODO/shadow-edge-quality.md) | Planned | 5% | S0 baseline → tight-map terrain receivers → Poisson/PCSS filtering → presets. |
-| [dx12-post-final-cleanup](TODO/dx12-post-final-cleanup.md) | Planned | 0% | DX12 post-chain cleanup from the 2026-07-11 review: delete dead cloud/noise shader code, consolidate the duplicated god-ray march into the half-res volumetric pass, bloom cost cleanup, named style modes, cinematic config dedupe. Progress checklist: `TODO/dx12-post-final-cleanup-progress.md`. |
-| [shader-pipeline-modernization](TODO/shader-pipeline-modernization.md) | Planned | 0% | Offline DXC/SM6.x compilation replacing runtime FXC SM5.0, reflection-generated binding contracts with load-time validation, root-signature consolidation, PSO/bytecode cache, SM6.6 bindless decision gate, dev hot reload. |
-| [render-visibility-architecture](TODO/render-visibility-architecture.md) | Planned | 0% | Per-view CPU frustum culling (main, reflection, shadow) over store bounds with fixed-capacity visible lists; instanced-batch compaction; stress evidence; LOD decision gate. Culling must be conservative — baselines unchanged. |
-| [sim-render-interpolation](TODO/sim-render-interpolation.md) | Planned | 0% | Presentation-only interpolation between fixed 120 Hz physics states (lerp/nlerp by accumulator alpha); capture path pins alpha=1.0 so visual baselines stay stable; camera/listener coherence; physics CSV byte-exact throughout. |
-| [editor-undo-redo](TODO/editor-undo-redo.md) | Planned | 0% | Fixed-capacity inverse-command history for editor mutations (place/delete/transform/params); gesture-coalesced entries; sequenced after interaction-state-machine P9. |
-| [data-format-versioning](TODO/data-format-versioning.md) | Planned | 0% | `formatVersion` stamping + Lane R future-version rejection for scene/assets/hull formats; missing field = v0; migration tool; sustaining rule in AGENTS.md. Land before/with runtime-shell D2 parser decision. |
-| [engine-config-decomposition](TODO/engine-config-decomposition.md) | Planned | 0% | Finish decomposing flat `EngineConfig` into owned domain structs; table-driven parse/dump; physics-default moves isolated behind `validate_physics`. Coordinates with dx12-post-final-cleanup Phase 5. |
-| [entity-model-endgame](TODO/entity-model-endgame.md) | Planned | 0% | Destination for the store migration per 2026-07-11 owner decisions: delete `GameModel`/`GameModelCollection` entirely, Run-owned `SimulationController` owns `PhysicsEngine` + fixed-step loop (resolves PHYS-004/009/020 and RUN-015), unified `EntityId` registry. Unblocks physics-authority-and-identity's blocker table. |
-| [fracture-replay-feature](TODO/fracture-replay-feature.md) | Backlog | 0% | Feature: GPU fracture with reversible replay; sequence after replay memory data-model decisions. |
+| Plan | State | Verified phase count | Next blocking action |
+|---|---|---:|---|
+| [validation-gate-integrity](TODO/validation-gate-integrity.md) | Externally blocked | 5/6 | V3 needs default-branch hosted runs, branch protection, and trusted runner administration; no local implementation remains |
+| [dx12-failure-propagation](TODO/dx12-failure-propagation.md) | Complete | 6/6 | Retain as closure evidence; failure propagation, transactional recreation, device-loss teardown, and fault injection are proven |
+| [behavioral-test-depth](TODO/behavioral-test-depth.md) | Complete | 6/6 | Retain as closure evidence; named tests, four mutation drills, stop proofs, and final gates pass |
+| [runtime-shell-decomposition](TODO/runtime-shell-decomposition.md) | Complete | 27/27 completed items | Retain as closure evidence; final inventory, deletion proofs, adversarial review, and required gates pass |
+| [runtime-ui-control-architecture-cleanup](TODO/runtime-ui-control-architecture-cleanup.md) | Complete | 7/7 | Retain as closure evidence; 96-file inventory, shared surfaces, deletion proofs, review fixes, and final gates pass |
+| [interaction-state-machine](TODO/interaction-state-machine.md) | Complete | 6/6 remaining phases | Retain as closure evidence; typed gesture payload, native capture, focus/UI crossing, deletion proofs, and repeat adversarial review pass |
+| [replay-architecture-and-right-sizing](TODO/replay-architecture-and-right-sizing.md) | Complete | 6/6 | Retain as closure evidence; stable identity, bounded memory, named gates, rollback proof, and source-size justifications are complete |
+| [physics-authority-and-identity](TODO/physics-authority-and-identity.md) | Complete | 16/16 current items | Handle-owned mutation, coordinated lifecycle, stable runtime identity, full gate, and repeat adversarial review complete |
+| [render-backend-decomposition](TODO/render-backend-decomposition.md) | In progress | 0/8 remaining items | Begin the texture-owner split from the completed RuntimeRenderer composition boundary |
+| [stale-plan-reference-cleanup-15.6-checklist](TODO/stale-plan-reference-cleanup-15.6-checklist.md) | Complete | 86/86 files | Retain as reconciled evidence; no source rows remain |
 
-## Retired in substance (no successor file)
+## Planned Architecture Work (2026-07-11 gap review)
 
-- **Global service retirement** — verified complete 2026-07-09: `Gfx()`,
-  `Window::Instance`, `CameraCollection::Instance`,
-  `TextureCollection::Instance`, `WorkerPool::Instance`, `ActiveAssetSystem`,
-  `EngineConfig::Instance` all have zero source call sites; `Cfg()` survives
-  only in two `Common.h` comments. Remnant (delete the `Common.h` `Config.h`
-  compatibility include) is owned by `TODO/runtime-shell-decomposition.md`
-  E3. `Log()` (662 sites) and the startup-bound `Profiler` borrow are the
-  deliberate ambient survivors per the closed plan-12 decision.
-- **fable-05 unified error handling** — completed through engine-cleanup plan 04
-  on 2026-07-10. Strict source throws are now zero, no throw-count ratchet was
-  reinstated, and the completed plan/inventory files were deleted per MASTER
-  convention. Stale include/comment hygiene remains in plan 15.6.
-- **audit iss-05 allocation-gate right-sizing** — completed through
-  engine-cleanup plan 07 on 2026-07-10. Runtime guard diagnostics were trimmed
-  without weakening pass/fail enforcement, replay remains the only approved
-  runtime allocation exception, and the static checker now covers direct
-  heap/reserve APIs, owning dynamic STL members, and STL growth calls with
-  owner/phase/cap allowlist metadata. The completed plan/inventory files were
-  deleted per MASTER convention.
-- **audit iss-09 render abstraction leaks** — completed through engine-cleanup
-  plan 11 on 2026-07-10. Backbuffer state is tracked as an explicit resource
-  state, replay ribbons draw through generic transient triangles, and the
-  diagnostic RenderGraph skeleton/live-barrier comparison path was deleted.
-  RenderGraph remains a pass/resource declaration, callback scheduling, and
-  transient texture lifetime layer; DX12 explicit backend helpers own live
-  transition and UAV barrier emission. The completed plan file was deleted per
-  MASTER convention.
-- **FAC-005 public physics API boundary** — completed through engine-cleanup
-  plan 14 on 2026-07-10. Public physics signatures no longer expose `GameModel`,
-  raw dense `modelIndex`/`modelCount` authority, or public `PhysicsEngine`
-  solver-container accessors. Existing dense-row readers go through
-  `PhysicsEngineStoreQueries` until narrower handle/view queries replace them.
-  `tools\validate_physics.bat` passed with byte-exact physics output. The
-  completed plan file was deleted per MASTER convention.
-- **Facade retirement rule** - completed through engine-cleanup plans 10, 13,
-  and 14 on 2026-07-10. `IRenderBackend`, `EngineContext`, cached DX12 aliases,
-  `SimulationController`, and FAC-005 public physics API leaks reached the
-  structural graduate/delete end state. The completed plan 13 file was deleted
-  per MASTER convention.
-- **fable-07 blocker remediation + overnight blocker ledger** — the open
-  PHYS-*/RGRAPH-*/RUN-* rows were absorbed into the three matching TODO plans
-  as "known hard blockers"; clusters D/E and SVC rows were already resolved.
-- **fable-01/02/08/09** — checklist-complete; deleted.
+Added from the 2026-07-11 architecture gap review; written before the same
+day's overnight completions landed, then reconciled against them on merge.
+Reconciliation notes live inside each plan.
 
-## Consolidation record (2026-07-09)
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [dx12-post-final-cleanup](TODO/dx12-post-final-cleanup.md) | Planned | 0/6 | Independent; shader edits coordinate with shader-pipeline-modernization if both run |
+| [shader-pipeline-modernization](TODO/shader-pipeline-modernization.md) | Planned | 0/8 | Coordinate with render-backend-decomposition texture/PSO owner split and shadow-edge-quality root-signature work — root-signature ownership must move once, not twice |
+| [render-visibility-architecture](TODO/render-visibility-architecture.md) | Planned | 0/7 | Independent; P0 instrumentation can start any time |
+| [sim-render-interpolation](TODO/sim-render-interpolation.md) | Planned | 0/5 | Independent; P1 capture-determinism guard lands first |
+| [editor-undo-redo](TODO/editor-undo-redo.md) | Planned | 0/5 | Unblocked — interaction-state-machine completed 2026-07-11; build on its command/gesture surface |
+| [data-format-versioning](TODO/data-format-versioning.md) | Planned | 0/5 | Rescoped 2026-07-11: scene schema versioning (v2 + v1 upgrade) already shipped with physics-authority C1b; remaining scope is assets/hulls/cfg + the uniform policy and migration tool |
+| [engine-config-decomposition](TODO/engine-config-decomposition.md) | Planned | 0/5 | Independent; physics-default moves isolated behind byte-exact `validate_physics` |
+| [entity-model-endgame](TODO/entity-model-endgame.md) | **Decision-blocked** | 0/5 | Ownership decision conflict: the plan recorded a Run-owned `SimulationController` per the 2026-07-11 morning owner answers, but the same day's completed physics work implemented `SceneController`/`PhysicsScene` ownership (and plan 13 previously retired a `SimulationController` facade). Owner must reconcile before any slice starts — see the plan's Decision Conflict section |
 
-Two owner-directed passes:
+## Features
 
-1. Deleted `Agentic/Plans/Done|Failed|Rejected` (124 files),
-   `engine-cleanup-plans/DONE/` (8), 13 superseded `To_Eval` plans, 42 stale
-   handoffs, `Agentic/PlanOrder.md`.
-2. Consolidated `fable_plans/` + `To_Eval/` + `In_Progress/` (17 remaining
-   plan/progress/ledger files) into the 7 grouped `TODO/` plans above and
-   deleted the source folders. Kept load-bearing engine-cleanup handoffs:
-   OWNER-DECISIONS, FINAL-TAKEOVER, PLAN04-DX12-SHADER-STATUS,
-   PLAN02-REPLAY-SNAPSHOT.
+| Plan | State | Verified phase count | Start condition |
+|---|---|---:|---|
+| [instant-prediction-velocity-chaos](TODO/instant-prediction-velocity-chaos.md) | In progress (paused) | 1/50 checklist items | Progress checklist: `TODO/instant-prediction-velocity-chaos-progress.md`; resume per owner priority |
+| [shadow-edge-quality](TODO/shadow-edge-quality.md) | Planned | 0/5 | DX12 failure state safe; coordinate renderer owner/binding work |
+| [fracture-replay-feature](TODO/fracture-replay-feature.md) | Blocked backlog | 0/7 | Replay R3, render ownership, and mandatory CPU gate complete |
+
+## Binding Decisions And Open Decisions
+
+Binding:
+
+- DX12 explicit helpers own live barriers; RenderGraph does not become a barrier
+  compiler.
+- No exceptions in engine code; recoverable failures must propagate rather than
+  disappear.
+- `Run` remains only process/frame composition after five named ownership
+  extractions.
+- Scene-lifetime physics ownership is promoted through
+  `SceneController`/`PhysicsScene`; `Run` wires it and `GameModelCollection`
+  stops owning `PhysicsEngine`.
+- Inspect and Editor share one stable selection identity; workspace-specific
+  gesture/presentation state remains separate.
+- Completed files are deleted rather than archived in the tip tree.
+
+Open and blocking:
+
+- CI: register a GPU-capable Windows/DX12 runner before making runtime CI a
+  required check; CPU Windows CI does not wait for that runner.
+- Entity-model ownership reconciliation (see entity-model-endgame row above):
+  confirm `SceneController`/`PhysicsScene` ownership stands (it is implemented
+  and validated) or direct a replacement; also confirm whether the unified
+  `EntityId` registry is still wanted now that per-subsystem stable identity
+  (`PhysicsBodyHandle`/`ReplayBodyId`/`PhysicsSceneObjectId`) shipped.
+
+## Engine Cleanup Campaign Closure Gate
+
+Before deleting `runtime-shell-decomposition.md` or closing the engine-cleanup
+campaign:
+
+- [ ] One final independent ownership review covers the complete logical `Run`
+  surface, every extracted owner, and the current high-fan-in/mega-module
+  inventory. It records zero credible god-object, shared-state-hub, callback-bag,
+  forwarding-facade, or renamed-compatibility findings.
+- [ ] The review's method/field ownership inventory, inspected hotspot list,
+  concrete evidence, and zero-finding verdict are committed under
+  `Agentic/Reports/<date>/`. Any credible finding reopens its owning plan and
+  blocks campaign closure.
+
+## Plan Closure Checklist
+
+Before deleting any plan:
+
+- [ ] Every phase checkbox is complete with evidence.
+- [ ] All hard decisions are resolved in the plan or a binding owner record.
+- [ ] Required focused and broad gates passed from final source/data state.
+- [ ] New/changed test targets are registered in the CPU umbrella.
+- [ ] Source comment audit requirements are satisfied.
+- [ ] Current measurements and deletion proofs are rerun.
+- [ ] Session state and this inventory are updated in the same commit.
+- [ ] The plan and completed execution checklist are deleted; commit history is
+  the archive.

@@ -9,7 +9,7 @@ Mental model:
   while RunInput still owns what each action does.
 
 Glossary:
-  Virtual key: Win32 integer key code used by the existing input poller.
+  Virtual key: Win32 integer key code sampled in DeviceInputFrame.
   Runtime input action: Engine command name produced from a key, UI, mouse, or
     scripted source.
   Context mask: Bit set describing which dispatch pass or runtime state owns a

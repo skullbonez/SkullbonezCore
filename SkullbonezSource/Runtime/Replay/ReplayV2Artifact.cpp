@@ -12,8 +12,8 @@ Mental model:
 Glossary:
   ABI (Application Binary Interface): Byte-level file contract used by saved
     replay artifacts and replay_query tooling.
-  JSON (JavaScript Object Notation): Text metadata format used for the manifest
-    chunk and legacy replay exports.
+  JSON (JavaScript Object Notation): Text metadata format used inside the
+    manifest chunk.
   MANI: UTF-8 JSON manifest chunk with human-readable file facts.
   BODY: Body dictionary chunk.
   PRES: Presentation frame chunk with dense 32-byte pose records.
@@ -29,7 +29,7 @@ Invariants:
   - Numeric payloads are emitted in the host little-endian layout used by the
     Windows runtime. The manifest marks the file as little-endian.
   - Per-body pose records stay 32 bytes: body dictionary index, position, quat.
-  - Legacy v1 JSON exporters remain available for old debug workflows.
+  - Binary v2 is the sole saved replay artifact format.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
@@ -88,7 +88,10 @@ enum ReplayV2WorldFlags : uint8_t
 struct BodyDictionaryEntry
 {
     uint32_t id = 0;
-    int32_t modelIndex = -1;
+    // Wire compatibility: v2 allocated these four bytes to a model index. New
+    // writers store dictionary order and readers treat it only as an ordering
+    // checksum; ReplayBodyId is the sole body identity.
+    int32_t bodyOrder = -1;
     ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
     char name[64] = {};
 };
@@ -259,12 +262,12 @@ const char* ShapeKindName( ReplayBodyShapeKind kind )
 
 bool SameDictionaryBody( const BodyDictionaryEntry& entry, const ReplayBodyPresentationSample& body )
 {
-    return entry.id == body.id.value && entry.modelIndex == body.modelIndex;
+    return entry.id == body.id.value;
 }
 
 bool SameDictionaryBody( const BodyDictionaryEntry& entry, const ReplaySolverBodySample& body )
 {
-    return entry.id == body.id.value && entry.modelIndex == body.modelIndex;
+    return entry.id == body.id.value;
 }
 
 uint32_t FindOrAddBody( std::vector<BodyDictionaryEntry>& dictionary, const ReplayBodyPresentationSample& body )
@@ -280,7 +283,7 @@ uint32_t FindOrAddBody( std::vector<BodyDictionaryEntry>& dictionary, const Repl
 
     BodyDictionaryEntry entry;
     entry.id = body.id.value;
-    entry.modelIndex = static_cast<int32_t>( body.modelIndex );
+    entry.bodyOrder = static_cast<int32_t>( dictionary.size() );
     entry.shapeKind = body.shapeKind;
     std::memcpy( entry.name, body.name, sizeof( entry.name ) );
     dictionary.push_back( entry );
@@ -313,7 +316,7 @@ void AppendBodyDictionary( std::vector<uint8_t>& out, const std::vector<BodyDict
         const uint8_t shapeKind = static_cast<uint8_t>( entry.shapeKind );
         const uint8_t reserved[3] = {};
         AppendPod( out, entry.id );
-        AppendPod( out, entry.modelIndex );
+        AppendPod( out, entry.bodyOrder );
         AppendPod( out, shapeKind );
         AppendBytes( out, reserved, sizeof( reserved ) );
         AppendBytes( out, entry.name, sizeof( entry.name ) );
@@ -825,7 +828,7 @@ bool ParseBodyDictionary( const std::vector<uint8_t>& fileBytes,
     {
         BodyDictionaryEntry entry;
         uint8_t shapeKind = 0;
-        if ( !ReadPod( cursor, entry.id ) || !ReadPod( cursor, entry.modelIndex ) || !ReadPod( cursor, shapeKind ) ||
+        if ( !ReadPod( cursor, entry.id ) || !ReadPod( cursor, entry.bodyOrder ) || !ReadPod( cursor, shapeKind ) ||
              !SkipBytes( cursor, 3 ) || !ReadBytes( cursor, entry.name, sizeof( entry.name ) ) )
         {
             return false;
@@ -1154,7 +1157,7 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes,
 
             const BodyDictionaryEntry& entry = dictionary[dictionaryIndex];
             body.id.value = entry.id;
-            body.modelIndex = entry.modelIndex;
+            body.modelRow = SkullbonezCore::Physics::MakeModelRowHint( entry.bodyOrder );
             body.shapeKind = entry.shapeKind;
             std::memcpy( body.name, entry.name, sizeof( body.name ) );
             sample.bodies.push_back( body );
@@ -1591,7 +1594,7 @@ bool ReadSolverBody( ByteCursor& cursor,
 
     const BodyDictionaryEntry& entry = dictionary[dictionaryIndex];
     outBody.id.value = entry.id;
-    outBody.modelIndex = entry.modelIndex;
+    outBody.modelRow = SkullbonezCore::Physics::MakeModelRowHint( entry.bodyOrder );
     outBody.shapeKind = entry.shapeKind;
     std::memcpy( outBody.name, entry.name, sizeof( outBody.name ) );
     outBody.fixed = fixed != 0;

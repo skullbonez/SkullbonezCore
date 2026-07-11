@@ -343,7 +343,7 @@ bool CameraCollection::IsPrimaryLocked()
 }
 
 
-const Vector3& CameraCollection::GetCameraTranslation()
+const Vector3& CameraCollection::GetCameraTranslation() const
 {
     return ( m_cameraArray[m_selectedCamera].m_position );
 }
@@ -544,13 +544,13 @@ bool CameraCollection::IsCameraTweening()
 }
 
 
-const Vector3& CameraCollection::GetCameraView()
+const Vector3& CameraCollection::GetCameraView() const
 {
     return m_cameraArray[m_selectedCamera].m_view;
 }
 
 
-const Vector3& CameraCollection::GetCameraUp()
+const Vector3& CameraCollection::GetCameraUp() const
 {
     return m_cameraArray[m_selectedCamera].m_upVector;
 }

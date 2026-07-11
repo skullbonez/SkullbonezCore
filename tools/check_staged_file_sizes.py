@@ -2,20 +2,27 @@
 #
 # File: tools/check_staged_file_sizes.py
 # Purpose:
-#   Blocks accidental commits of large staged blobs outside approved data
-#   locations.
+#   Blocks accidental commits or pull requests containing large blobs outside
+#   approved data locations.
 #
 # Mental model:
-#   This is a tip-tree hygiene guardrail. It does not shrink existing history;
-#   it stops new oversized files from entering ordinary commits.
+#   This is a tip-tree hygiene guardrail. Local validation reads the git index;
+#   hosted CI can compare HEAD with an explicit base ref. Neither mode rewrites
+#   history, and both inspect exact git blobs rather than working-tree metadata.
 #
 # Glossary:
 #   Staged blob: The exact file content currently in the git index.
+#   Comparison blob: The exact HEAD content of a file added or modified since an
+#     explicit base ref.
 #   Size allowlist: Repository areas where large tracked data is intentional.
 #
 # Invariants:
 #   - The checker reads the git index, not the working tree, so it matches what
-#     a commit would contain.
+#     a commit would contain unless --base-ref selects CI comparison mode.
+#   - Comparison mode reads HEAD blobs changed from merge-base(base, HEAD), so a
+#     clean hosted checkout does not silently validate zero files.
+#   - Rename detection is disabled so moving an allowlisted blob to an ordinary
+#     path is evaluated as a deleted source plus an added destination blob.
 #   - Baselines and SkullbonezData are the only broad large-file locations.
 #   - Self-tests run without touching the real git index.
 #
@@ -23,8 +30,9 @@
 #   - Agentic/Plans/TODO/runtime-shell-decomposition.md (repo-hygiene origin
 #     plan retired 2026-07-09; history in git)
 #   - tools/validate_fast.bat
+#   - .github/workflows/mandatory-cpu-validation.yml
 #
-"""Check staged file sizes against the repo hygiene budget."""
+"""Check pending-commit or CI comparison blobs against the size budget."""
 
 from __future__ import annotations
 
@@ -44,7 +52,7 @@ ALLOWLIST_PREFIXES = (
 
 
 @dataclass(frozen=True)
-class StagedFile:
+class CandidateFile:
     path: str
     size_bytes: int
 
@@ -65,7 +73,7 @@ def is_allowlisted(path: str) -> bool:
     return any(normalized.startswith(prefix) for prefix in ALLOWLIST_PREFIXES)
 
 
-def check_entries(entries: list[StagedFile], max_bytes: int) -> list[SizeViolation]:
+def check_entries(entries: list[CandidateFile], max_bytes: int) -> list[SizeViolation]:
     violations: list[SizeViolation] = []
     for entry in entries:
         if entry.size_bytes > max_bytes and not is_allowlisted(entry.path):
@@ -78,6 +86,8 @@ def run_git(repo: Path, args: list[str]) -> subprocess.CompletedProcess[str]:
         ["git", *args],
         cwd=repo,
         text=True,
+        encoding="utf-8",
+        errors="surrogateescape",
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,
@@ -87,10 +97,13 @@ def run_git(repo: Path, args: list[str]) -> subprocess.CompletedProcess[str]:
 def staged_paths(repo: Path) -> list[str]:
     # Invariant: read --cached so this gate reflects the pending commit, not
     # large unstaged scratch files that are already ignored or local-only.
-    result = run_git(repo, ["diff", "--cached", "--name-only", "--diff-filter=AM", "--"])
+    result = run_git(
+        repo,
+        ["diff", "--cached", "--no-renames", "--name-only", "--diff-filter=AM", "-z", "--"],
+    )
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "git diff --cached failed")
-    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    return [path for path in result.stdout.split("\0") if path]
 
 
 def staged_blob_size(repo: Path, path: str) -> int:
@@ -100,26 +113,55 @@ def staged_blob_size(repo: Path, path: str) -> int:
     return int(result.stdout.strip())
 
 
-def collect_staged_entries(repo: Path) -> list[StagedFile]:
-    return [StagedFile(path, staged_blob_size(repo, path)) for path in staged_paths(repo)]
+def comparison_paths(repo: Path, base_ref: str) -> list[str]:
+    # Why: triple-dot anchors the file set at the merge base, matching the
+    # contribution rather than unrelated commits that may sit on either ref.
+    result = run_git(
+        repo,
+        ["diff", "--no-renames", "--name-only", "--diff-filter=AM", "-z", f"{base_ref}...HEAD", "--"],
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or f"git diff {base_ref}...HEAD failed")
+    return [path for path in result.stdout.split("\0") if path]
+
+
+def head_blob_size(repo: Path, path: str) -> int:
+    result = run_git(repo, ["cat-file", "-s", f"HEAD:{path}"])
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or f"git cat-file failed for HEAD:{path}")
+    return int(result.stdout.strip())
+
+
+def collect_entries(repo: Path, base_ref: str | None) -> list[CandidateFile]:
+    if base_ref:
+        return [CandidateFile(path, head_blob_size(repo, path)) for path in comparison_paths(repo, base_ref)]
+    return [CandidateFile(path, staged_blob_size(repo, path)) for path in staged_paths(repo)]
 
 
 def write_summary(
-    repo: Path,
     summary_path: Path,
-    entries: list[StagedFile],
+    entries: list[CandidateFile],
     violations: list[SizeViolation],
     max_bytes: int,
+    source: str,
 ) -> None:
     summary_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "generated_utc": datetime.now(timezone.utc).isoformat(),
         "max_bytes": max_bytes,
         "allowlist_prefixes": list(ALLOWLIST_PREFIXES),
-        "staged_file_count": len(entries),
+        "source": source,
+        "candidate_file_count": len(entries),
         "violations": [violation.__dict__ for violation in violations],
     }
     summary_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def display_summary_path(summary_path: Path, repo: Path) -> str:
+    try:
+        return summary_path.resolve().relative_to(repo).as_posix()
+    except ValueError:
+        return str(summary_path.resolve())
 
 
 def run_self_tests() -> list[str]:
@@ -127,21 +169,21 @@ def run_self_tests() -> list[str]:
     max_bytes = DEFAULT_MAX_BYTES
     large = max_bytes + 1
 
-    def expect_clean(name: str, entries: list[StagedFile]) -> None:
+    def expect_clean(name: str, entries: list[CandidateFile]) -> None:
         violations = check_entries(entries, max_bytes)
         if violations:
             failures.append(f"{name}: expected clean, got {violations}")
 
-    def expect_violation(name: str, entries: list[StagedFile], path: str) -> None:
+    def expect_violation(name: str, entries: list[CandidateFile], path: str) -> None:
         violations = check_entries(entries, max_bytes)
         if not any(violation.path == path for violation in violations):
             failures.append(f"{name}: expected violation for {path}, got {violations}")
 
-    expect_clean("small source file", [StagedFile("SkullbonezSource/Foo.cpp", max_bytes)])
-    expect_clean("large baseline", [StagedFile("TestOutput/baselines/large.png", large)])
-    expect_clean("large data asset", [StagedFile("SkullbonezData/assets/large.assets.json", large)])
-    expect_violation("large temp report", [StagedFile("Agentic/Temp/huge.txt", large)], "Agentic/Temp/huge.txt")
-    expect_violation("large root file", [StagedFile("huge.bin", large)], "huge.bin")
+    expect_clean("small source file", [CandidateFile("SkullbonezSource/Foo.cpp", max_bytes)])
+    expect_clean("large baseline", [CandidateFile("TestOutput/baselines/large.png", large)])
+    expect_clean("large data asset", [CandidateFile("SkullbonezData/assets/large.assets.json", large)])
+    expect_violation("large temp report", [CandidateFile("Agentic/Temp/huge.txt", large)], "Agentic/Temp/huge.txt")
+    expect_violation("large root file", [CandidateFile("huge.bin", large)], "huge.bin")
     return failures
 
 
@@ -149,7 +191,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, default=Path.cwd(), help="Repository root. Defaults to cwd.")
     parser.add_argument("--self-test", action="store_true", help="Run synthetic tests without reading the git index.")
-    parser.add_argument("--max-bytes", type=int, default=DEFAULT_MAX_BYTES, help="Maximum staged file size.")
+    parser.add_argument("--max-bytes", type=int, default=DEFAULT_MAX_BYTES, help="Maximum candidate blob size.")
+    parser.add_argument(
+        "--base-ref",
+        default=None,
+        help="Compare added/modified HEAD blobs with merge-base(base-ref, HEAD) instead of reading the index.",
+    )
     parser.add_argument(
         "--json-out",
         type=Path,
@@ -169,24 +216,34 @@ def main() -> int:
 
     repo = args.repo.resolve()
     try:
-        entries = collect_staged_entries(repo)
+        entries = collect_entries(repo, args.base_ref)
     except RuntimeError as exc:
         print(f"ERROR: {exc}")
         return 2
 
     violations = check_entries(entries, args.max_bytes)
     summary_path = args.json_out or repo / "TestOutput" / "validation" / "staged_file_sizes" / "summary.json"
-    write_summary(repo, summary_path, entries, violations, args.max_bytes)
+    if not summary_path.is_absolute():
+        summary_path = repo / summary_path
+    source = f"diff:{args.base_ref}...HEAD" if args.base_ref else "git-index"
+    try:
+        write_summary(summary_path, entries, violations, args.max_bytes, source)
+    except OSError as exc:
+        print(f"ERROR: cannot write file size summary {summary_path}: {exc}")
+        return 2
 
-    print(f"Staged file size summary: {summary_path.relative_to(repo)} ({len(violations)} violation(s))")
+    print(
+        f"File size summary: {display_summary_path(summary_path, repo)} "
+        f"source={source} candidates={len(entries)} violations={len(violations)}"
+    )
     if violations:
         for violation in violations:
             print(
-                "ERROR: staged file exceeds size budget: "
+                "ERROR: candidate blob exceeds size budget: "
                 f"{violation.path} size={violation.size_bytes} max={violation.max_bytes}"
             )
         return 1
-    print("PASS: staged file size check passed.")
+    print("PASS: file size check passed.")
     return 0
 
 

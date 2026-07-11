@@ -20,7 +20,8 @@ Related:
   - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
   - SkullbonezSource/Runtime/RuntimePickService.h
 */
-#include "../RunInternal.h"
+#include "ReplayRuntime.h"
+#include "../Scene/SceneEntityStore.h"
 #include "../RuntimePickService.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
@@ -34,7 +35,6 @@ using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {
@@ -116,7 +116,7 @@ void ApplyReplayQueryPrimaryPathTarget( RunReplayPathVisualizerState& visualizer
 {
     visualizer.hasTarget = true;
     visualizer.targetId = id;
-    visualizer.targetModelIndex = modelIndex;
+    visualizer.targetModelRow.value = modelIndex;
     visualizer.targetName[0] = '\0';
     if ( name && name[0] != '\0' )
     {
@@ -126,26 +126,27 @@ void ApplyReplayQueryPrimaryPathTarget( RunReplayPathVisualizerState& visualizer
 } // namespace
 
 
-bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
+ReplayRuntime::PathPickResult
+ReplayRuntime::TryPickPathTarget( const PathPickInput& input,
+                                  const SceneEntityStore& entities,
+                                  const PhysicsBodyStore& bodyStore,
+                                  const ColliderStore& colliderStore,
+                                  const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords )
 {
+    PathPickResult pickResult;
     // Concept: A path pick converts volatile mouse/model hits into stable
     // ReplayBodyId targets before prediction and retained-path caches observe it.
-    Vector3 rayOrigin;
-    Vector3 rayDirection;
-    if ( !TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
+    if ( !input.hasWorldRay )
     {
-        if ( clearOnMiss )
+        if ( input.clearOnMiss )
         {
-            m_replayRuntime.ClearCameraFocusForRestore();
-            ExitReplayInspectionCamera();
-            m_replayRuntime.ClearPathVisualizerState();
+            ClearCameraFocusForRestore();
+            ClearPathVisualizerState();
+            pickResult.exitInspectionCamera = true;
         }
-        return false;
+        return pickResult;
     }
 
-    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.BodyStore();
-    const ColliderStore& colliderStore = m_cGameModelCollection.Colliders();
-    const auto& presentationRecords = m_cGameModelCollection.RenderPresentationRecords();
     const int modelCount = bodyStore.Count() < colliderStore.Count() ? bodyStore.Count() : colliderStore.Count();
     const auto copyPresentationName = [&]( int modelIndex, char* outName, std::size_t outSize )
     {
@@ -166,22 +167,23 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
     ReplayBodyId pickedId;
     int pickedIndex = -1;
     char pickedName[64] = {};
-    if ( const ReplaySolverFrameSample* sample = m_replayRuntime.CurrentSolverScrubSample() )
+    if ( const ReplaySolverFrameSample* sample = CurrentSolverScrubSample() )
     {
         float bestT = FLT_MAX;
         for ( const ReplaySolverBodySample& body : sample->bodies )
         {
             float radius = 1.0f;
-            if ( body.modelIndex >= 0 && body.modelIndex < modelCount )
+            if ( body.modelRow.value >= 0 && body.modelRow.value < modelCount )
             {
-                radius = ReplayQueryColliderRadiusForModelIndex( colliderStore, body.modelIndex ) + 1.0f;
+                radius = ReplayQueryColliderRadiusForModelIndex( colliderStore, body.modelRow.value ) + 1.0f;
             }
             float rayT = 0.0f;
-            if ( ReplayQueryIntersectRaySphere( rayOrigin, rayDirection, body.position, radius, rayT ) && rayT < bestT )
+            if ( ReplayQueryIntersectRaySphere( input.rayOrigin, input.rayDirection, body.position, radius, rayT ) &&
+                 rayT < bestT )
             {
                 bestT = rayT;
                 pickedId = body.id;
-                pickedIndex = body.modelIndex;
+                pickedIndex = body.modelRow.value;
                 pickedName[0] = '\0';
                 if ( body.name[0] != '\0' )
                 {
@@ -196,14 +198,13 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
         request.purpose = RuntimePickPurpose::ReplayPathTarget;
         request.bodyStore = &bodyStore;
         request.colliderStore = &colliderStore;
-        request.rayOrigin = rayOrigin;
-        request.rayDirection = rayDirection;
+        request.rayOrigin = input.rayOrigin;
+        request.rayDirection = input.rayDirection;
 
         RuntimePickResult result;
-        if ( RuntimePickService::TryPickModel( request, result ) && result.modelIndex >= 0 &&
-             result.modelIndex < modelCount )
+        if ( RuntimePickService::TryPickModel( request, result ) )
         {
-            pickedIndex = result.modelIndex;
+            pickedIndex = result.modelRow.value;
             pickedId = ReplayQueryBodyIdForModelIndex( bodyStore, pickedIndex );
             copyPresentationName( pickedIndex, pickedName, sizeof( pickedName ) );
         }
@@ -211,7 +212,11 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
 
     if ( pickedIndex >= 0 && pickedIndex < modelCount )
     {
-        const int collectionIndex = m_cGameModelCollection.RagdollRootModelIndexForPart( pickedIndex );
+        const SceneEntityRecord* pickedEntity = entities.TryGet( pickedIndex );
+        const int collectionIndex =
+            pickedEntity && pickedEntity->behaviorGroup.kind == SceneBehaviorGroupKind::SimpleRagdoll
+                ? entities.FindBySceneObjectId( pickedEntity->behaviorGroup.rootObjectId )
+                : pickedIndex;
         if ( collectionIndex >= 0 && collectionIndex < modelCount && collectionIndex != pickedIndex )
         {
             pickedIndex = collectionIndex;
@@ -222,8 +227,8 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
 
     if ( pickedId.value != 0 )
     {
-        RunReplayPathVisualizerState& visualizer = m_replayRuntime.PathVisualizer();
-        if ( !additive )
+        RunReplayPathVisualizerState& visualizer = PathVisualizer();
+        if ( !input.additive )
         {
             visualizer.targets.clear();
         }
@@ -236,7 +241,7 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
             // it must not request replay growth while the scene is live.
             if ( visualizer.targets.capacity() < REPLAY_PATH_MAX_ROOT_TARGETS )
             {
-                return false;
+                return pickResult;
             }
             if ( visualizer.targets.size() >= REPLAY_PATH_MAX_ROOT_TARGETS )
             {
@@ -244,7 +249,7 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
             }
             if ( visualizer.targets.size() >= visualizer.targets.capacity() )
             {
-                return false;
+                return pickResult;
             }
             RunReplayPathTarget nextTarget;
             nextTarget.id = pickedId;
@@ -252,7 +257,7 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
             target = &visualizer.targets.back();
         }
 
-        target->modelIndex = pickedIndex;
+        target->modelRow.value = pickedIndex;
         target->name[0] = '\0';
         if ( pickedName[0] != '\0' )
         {
@@ -260,16 +265,42 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
         }
         ApplyReplayQueryPrimaryPathTarget( visualizer, pickedId, pickedIndex, target->name );
         visualizer.futureNodes.clear();
-        m_replayRuntime.ClearPredictionCache();
-        m_replayRuntime.MarkPredictionDirty();
-        return true;
+        ClearPredictionCache();
+        MarkPredictionDirty();
+        pickResult.picked = true;
+        return pickResult;
     }
 
-    if ( clearOnMiss )
+    if ( input.clearOnMiss )
     {
-        m_replayRuntime.ClearCameraFocusForRestore();
-        ExitReplayInspectionCamera();
-        m_replayRuntime.ClearPathVisualizerState();
+        ClearCameraFocusForRestore();
+        ClearPathVisualizerState();
+        pickResult.exitInspectionCamera = true;
     }
-    return false;
+    return pickResult;
+}
+
+
+bool ReplayRuntime::RouteWorldPointer( const WorldPointerInput& input )
+{
+    if ( !input.leftPressed || input.suppressWorldAction || input.editorMode || input.uiWantsNativeCursor ||
+         ( !input.controlDown && input.launcherMode ) )
+    {
+        return false;
+    }
+
+    const PathPickResult pickResult =
+        TryPickPathTarget( input.pick, input.entities, input.bodyStore, input.colliderStore, input.presentation );
+    if ( pickResult.exitInspectionCamera )
+    {
+        ExitInspectionCamera( input.cameras,
+                              input.terrain,
+                              input.camera,
+                              input.restoreCameraMode,
+                              input.attachedCameraFollow,
+                              input.directorGrabbed,
+                              input.interaction,
+                              input.inputRouter );
+    }
+    return true;
 }

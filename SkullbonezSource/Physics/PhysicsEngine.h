@@ -48,6 +48,8 @@ class WorkerPool;
 namespace Physics
 {
 struct PhysicsAuthoredBodyRefreshView;
+struct PhysicsAuthoredBodyRegistration;
+struct PhysicsBodyUpdateDesc;
 struct PhysicsColliderCreateDesc;
 class PhysicsEngineStoreQueries;
 struct PhysicsMaterial;
@@ -64,27 +66,23 @@ class PhysicsEngine
     void ApplyAuthoredColliderPolicy( PhysicsColliderCreateDesc& desc ) const;
     void ReserveAuthoredBodyCapacity( std::size_t capacity );
     PhysicsAuthoredBodyCount AuthoredBodyDescriptorCount() const;
-    bool TryGetAuthoredBodyDescriptor( ModelRowHint bodyRow, PhysicsBodyCreateDesc& outDesc ) const;
-    bool UpdateAuthoredBodyDescriptor( ModelRowHint bodyRow,
-                                       PhysicsBodyCreateDesc& desc,
-                                       PhysicsAuthoredBodyCount expectedBodyCount );
+    // Scene creation uses this before its first owner mutation; false is a
+    // topology/reservation invariant, not recoverable authored input.
+    bool CanRegisterAuthoredBody( PhysicsAuthoredBodyCount expectedBodyCount ) const;
     bool TrimAuthoredBodyDescriptorsToCount( PhysicsAuthoredBodyCount bodyCount );
     void Clear();
     bool RefreshBodyStoreFromAuthoredDescriptors( const PhysicsAuthoredBodyRefreshView& refreshView );
-    // Owner passes a row hint and expected count so single-row descriptor commits
-    // cannot paper over topology drift or treat the hint as identity.
-    void RefreshBodyFromDescriptor( const PhysicsBodyCreateDesc& desc,
-                                    ModelRowHint bodyRow,
-                                    PhysicsBodyCount expectedBodyCount );
-    // Scene/model construction receives a body handle at append time instead of
-    // resolving the just-created row through a legacy adapter.
-    PhysicsBodyHandle RegisterAuthoredBody( const PhysicsBodyCreateDesc& desc );
-    // Scene/model construction submits a collider descriptor at the append
-    // edge; PhysicsScene owns conversion into the dense collider row.
-    PhysicsColliderHandle RegisterAuthoredCollider( const PhysicsColliderCreateDesc& desc );
-    // Replaces one authored collider descriptor without moving its stable
-    // collider handle.
-    bool UpdateAuthoredCollider( PhysicsColliderHandle collider, const PhysicsColliderCreateDesc& desc );
+    // One physics-owned registration command publishes the authored descriptor,
+    // live body, and paired collider or rolls all three back.
+    PhysicsAuthoredBodyRegistration RegisterAuthoredBody( const PhysicsBodyCreateDesc& body,
+                                                          PhysicsColliderCreateDesc collider );
+    // Deterministically removes the paired collider/descriptor/body rows and
+    // invalidates the retired body handle before returning.
+    bool DestroyAuthoredBody( PhysicsBodyHandle body );
+    // Cold editor/replay authoring edits enter by stable handle; no caller can
+    // mutate a descriptor row independently from its live body record.
+    bool UpdateAuthoredBody( const PhysicsBodyUpdateDesc& update );
+    bool UpdateAuthoredBodyAndCollider( const PhysicsBodyUpdateDesc& update, PhysicsColliderCreateDesc collider );
     void ClearPendingBodyImpulses();
     // Replay restore trims authoritative physics bodies directly; callers must
     // not force a model-to-store refresh after this succeeds.
@@ -146,6 +144,7 @@ class PhysicsEngine
                            const Math::Vector::Vector3& impulse,
                            const Math::Vector::Vector3& localApplicationPoint );
     void SetSleepEnabled( bool enabled );
+    bool IsSleepEnabled() const;
     void BeginCollisionVisualFrame( PhysicsBodyCount bodyCount );
     void EndCollisionVisualFrame();
     void ClearPointJointConstraints();

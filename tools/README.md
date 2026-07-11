@@ -9,17 +9,22 @@ validation.
 
 | Script | Use When | Runtime |
 |--------|----------|---------|
-| `agent_validate.bat` | PR gate when truly unsure; delegates to the two-launch default gate | 2 exe launches |
+| `agent_validate.bat` | PR gate when truly unsure; delegates once to `validate_full.bat` | CPU tests + 3 engine processes |
 | `validate_select.bat` | Run any subset of validations by name | ~depends |
-| `validate_fast.bat` | Small code refactors and non-render code edits | ~30s |
+| `validate_fast.bat` | Small code refactors: preflight plus the doctest runner | ~30s |
+| `validate_all_cpu_tests.bat` | Run every mandatory CPU test target once with fail-fast attribution | incremental builds + 5 console launches |
 | `validate_tests.bat` | Build and run the doctest unit-test executable | build + console test runner |
+| `validate_runtime_interaction_policy.bat` | Build/run Debug and Release interaction-policy tests | 2 console test launches |
+| `validate_scene_parser_tests.bat` | Build/run CPU-side scene/style parser contract tests | build + console test runner |
+| `validate_dx12_arch_tests.bat` | Build/run CPU-side renderer architecture tests; no device creation | build + console test runner |
+| `validate_dx12_fault_injection.bat` | Debug runtime proof that the first injected DX12 submission failure exits nonzero and issues zero submissions | build + one bounded engine launch |
+| `validate_native_diagnostics.bat` | Opt-in MSVC AddressSanitizer and bounded native static-analysis lane | ~20s; no engine launch |
 | `validate_dx12_renderer.bat` | DX12-only screenshot regression and InfoQueue gate | ~2 min |
 | `validate_renderers.bat` | Retired compatibility alias that runs `validate_dx12_renderer.bat` | ~2 min |
 | `validate_deep.bat` | Opt-in broad sweep: render, deep physics, and perf | ~depends |
 | `validate_concepts.bat` | Finite smoke/core/full concept-scene validation tiers | ~depends |
 | `validate_shaders.bat` | Shader stage, cbuffer uniform, and resource-slot contract drift helper | ~depends |
 | `validate_project_filters.bat` | Visual Studio `.vcxproj.filters` category and path-casing drift helper | ~depends |
-| `validate_runtime_interaction_policy.bat` | CPU-only runtime interaction ownership, capture, and physics policy checks | ~depends |
 | `validate_ui.bat` | Optional in-game UI visual screenshots, blur, and control automation | ~depends |
 | `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep | ~10s |
 | `validate_demo_stress.bat` | Generated demo scene plus UI interaction crash sweep | ~depends |
@@ -28,9 +33,58 @@ validation.
 | `validate_physics_deep.bat` | Opt-in bullet sweep, shooting, known-issue, and SkullScope physics baselines | ~45s+ |
 | `validate_physics_query.bat` | SkullScope query-output baseline check | ~depends |
 | `validate_perf.bat` | Hard gate for DX12, physics, and hot-path perf budgets/regressions | ~1 min |
-| `validate_full.bat` | Default broad PR gate: DX12 renderer plus core physics | 2 exe launches |
+| `validate_full.bat` | Default broad PR gate: mandatory CPU lane, DX12 renderer, and core physics | CPU tests + 3 engine processes |
 | `watch_ui_stress.bat` | Repeated UI stress watcher, finite by default | ~depends |
 | `watch_demo_stress.bat` | Repeated generated demo stress watcher, finite by default | ~depends |
+
+## Broad Gate Composition
+
+`validate_full.bat` is the broad mandatory superset. It runs these owners in
+order and stops before any engine launch when a CPU target fails:
+
+1. `validate_fast.bat --preflight-only` runs formatting, production project
+   metadata, staged-size policy, and the Profile build without a test launch.
+2. `validate_all_cpu_tests.bat` runs the doctest, runtime-interaction, scene
+   parser, and DX12 architecture targets exactly once.
+3. The Debug build, DX12 renderer gate, and core physics determinism gate run
+   only after the mandatory CPU lane passes. The renderer lane launches one
+   engine process; physics launches its standalone smoke and regression scene,
+   for three engine processes in total.
+
+Direct `validate_fast.bat` use still runs `SKULLBONEZ_TESTS.exe`. Its
+`--preflight-only` switch is an internal composition mode for `validate_full`;
+it prevents the doctest runner from being executed both by fast validation and
+the CPU umbrella. `agent_validate.bat` delegates once to `validate_full.bat`, so
+it has the same ordering and exit status.
+
+The file-size preflight reads the git index for local pending commits. Hosted
+PR and merge-queue jobs set `SKORE_SIZE_DIFF_BASE` so the same gate compares
+changed HEAD blobs with the event base instead of silently inspecting a clean
+CI index. Both modes disable Git rename detection so moving an allowlisted blob
+to an ordinary path checks the destination under its new policy.
+
+## Native Diagnostics
+
+Run `tools\validate_native_diagnostics.bat` for the opt-in native safety lane.
+It builds and runs an isolated AddressSanitizer copy of
+`SKULLBONEZ_TESTS`, then runs MSVC `/analyze` over the five maths-library
+translation units. Artifacts stay under
+`TestOutput\validation\native_diagnostics`; normal Debug/Profile outputs are
+not replaced. Use `--prove-asan-fixture` only to self-test the detector: that
+mode generates a temporary heap-use-after-free, requires the exact sanitizer
+diagnostic, and removes the faulty source and executable before returning.
+
+Static-analysis exceptions live in
+`tools\native_diagnostics_suppressions.json`. Each row must match one exact
+path/code and name its owner, reason, deletion condition, and review evidence;
+stale rows fail the lane.
+
+`tools\validate_native_diagnostics.bat --self-test` exercises warning
+classification and bounded-log guards without invoking Visual Studio.
+
+`.github/workflows/native-diagnostics.yml` runs the detector proof and healthy
+lanes weekly and on manual dispatch. It is an informational signal rather than
+a required pull-request check.
 
 ### Selection Example
 
@@ -46,7 +100,10 @@ tools\validate_select.bat concepts
 tools\validate_select.bat shaders
 tools\validate_select.bat project-filters
 tools\validate_select.bat runtime-interaction-policy
-tools\validate_tests.bat
+tools\validate_select.bat scene-parser-tests
+tools\validate_select.bat dx12-arch-tests
+tools\validate_select.bat all-cpu-tests
+tools\validate_select.bat tests
 tools\validate_select.bat ui
 tools\validate_select.bat build-profile
 ```
@@ -71,6 +128,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `validate_format.bat` | Check clang-format compliance without auto-fixing |
 | `format_fix.bat` | Auto-fix formatting in-place |
 | `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Release`) |
+| `validate_all_cpu_tests.bat` | Run all four first-party CPU test gates, stop at the first failure, print a combined summary, and preserve the child exit code |
 | `validate_tests.bat` | Build `SKULLBONEZ_TESTS`, validate its project filters, and run the doctest console runner |
 | `validate_concepts.bat [smoke\|core\|full] [dx12] [frames]` | Run finite concept-scene tiers and write logs plus JSON under `TestOutput\validation\concepts` |
 | `validate_shaders.bat` | Check shader file contracts from `tools\shader_contracts.json`; incomplete symbol, uniform, or resource coverage is reported as warnings |
@@ -81,8 +139,9 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `validate_demo_stress.bat` | Generated demo scene crash sweep that keeps physics/rendering active while changing UI settings |
 | `run_graphics_stress.bat [minutes\|overnight] [seed] [actions] [sceneInterval] [memoryInterval]` | General DX12 graphics stress runner; writes stdout, stderr, CSV, and JSON memory artifacts under `TestOutput\graphics_stress` |
 | `validate_dx12_renderer.bat` | Build or reuse Profile, run only DX12 render-test scenes, check InfoQueue, and compare screenshots against DX12 baselines |
+| `validate_dx12_fault_injection.bat` | Build Debug, inject immediately before the first DX12 queue submission, and verify nonzero exit, bounded diagnostics, zero submissions, and zero InfoQueue errors |
 | `validate_deep.bat` | Opt-in broad validation pipeline for expensive sweeps |
-| `validate_physics.bat` | Build or reuse Debug, run the standalone physics API smoke, run one core physics scene, and compare `physics_regression_solver.csv` |
+| `validate_physics.bat` | Build or reuse Debug, run the standalone physics API smoke, and compare all 44,401 rows from `physics_bench_varied.scene.json` against `physics_regression_varied.csv` byte-for-byte |
 | `validate_physics_deep.bat` | Run the old broad physics sweep, known-issue checks, shooting reaction check, and SkullScope query baseline |
 | `watch_ui_stress.bat [--test ui\|demo] [--iterations N] [--sleep N] [--forever]` | Repeated stress watcher; defaults to a finite 25-lap UI-only run and requires `--forever` for an intentional soak |
 | `watch_demo_stress.bat [--iterations N] [--sleep N] [--forever]` | Convenience wrapper for repeated generated demo interaction stress |
@@ -110,6 +169,9 @@ perf output as a warning-only review note unless the script itself exits 0.
 ## Physics Baselines
 
 Physics CSV and SkullScope JSON baselines are byte-exact behavior artifacts.
+The normal physics gate uses the authored 37-body, 1,200-frame varied scene as
+its full CSV contract. The deep gate retains the older seeded solver distribution
+as an exact SHA-256 signature in `physics_known_issue_signatures.json`.
 When a physics baseline update is intentional, copy it only from the final Debug
 artifact produced by the same scene/config state that will be committed, then
 rerun the matching gate:
@@ -130,6 +192,9 @@ All scripts follow this convention:
 - `0` = pass
 - `1-98` = failure, with the code indicating which step failed
 - `99` = tool not found, such as MSBuild, clang-format, Python, or Pillow
+
+The CPU umbrella returns the first failing child gate's code unchanged; its
+summary identifies completed, failed, and not-run targets.
 
 ## Prerequisites
 

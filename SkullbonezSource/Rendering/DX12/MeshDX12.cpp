@@ -10,6 +10,8 @@ Mental model:
   glossary/invariants below.
 
 Glossary:
+  Upload arena: Frame-scoped CPU-visible staging memory whose bytes may be
+  reused only after the owning frame fence completes.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -20,6 +22,8 @@ Invariants:
   - Mesh uploads borrow the current frame upload arena from RenderBackendDX12;
     a missing upload buffer means the backend frame resources were not
     initialized before mesh creation.
+  - An upload reservation failure returns before memcpy or GPU command
+    recording; address zero is the failure sentinel.
 
 Related:
   - SkullbonezSource/Rendering/DX12/MeshDX12.h
@@ -62,6 +66,11 @@ bool MeshDX12::Create( ID3D12Device* device,
                        D3D12_GPU_VIRTUAL_ADDRESS uploadAddr,
                        uint8_t* uploadPtr )
 {
+    if ( uploadAddr == 0 || !uploadPtr )
+    {
+        return false;
+    }
+
     m_vertexCount = vertexCount;
     m_stride = floatsPerVert * (int)sizeof( float );
     m_format = format;
@@ -128,11 +137,14 @@ bool MeshDX12::Create( ID3D12Device* device,
     // acceleration structure builds (NON_PIXEL_SHADER_RESOURCE). Both are read-only states so they
     // can be combined per D3D12 spec.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_resource_states
-    m_backend.ExecuteGraphTransition( "MeshVertexUploadFinal",
-                                      "MeshVertexBuffer",
-                                      m_vertexBuffer,
-                                      RenderGraphResourceAccess::CopyDest,
-                                      RenderGraphResourceAccess::VertexAndNonPixelShaderResource );
+    if ( !m_backend.ExecuteGraphTransition( "MeshVertexUploadFinal",
+                                            "MeshVertexBuffer",
+                                            m_vertexBuffer,
+                                            RenderGraphResourceAccess::CopyDest,
+                                            RenderGraphResourceAccess::VertexAndNonPixelShaderResource ) )
+    {
+        return false;
+    }
 
     m_vbView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress();
     m_vbView.SizeInBytes = (UINT)dataSize;

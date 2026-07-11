@@ -36,6 +36,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "../Core/Common.h"
+#include "WindowConstants.h"
 #include "../Core/Log.h"
 #include "Audio/ContactAudioService.h"
 #include "Run.h"
@@ -613,6 +614,9 @@ struct PhysicsRuntimeHandleSmokeResult
     bool jointUsesHandles = false;
     bool colliderRefreshMatches = false;
     bool reorderPreservesHandleState = false;
+    bool failedCreationIsAtomic = false;
+    bool deletionIsAtomic = false;
+    bool mutationUsesStableHandle = false;
     int bodyCount = 0;
     int colliderCount = 0;
     int renderInstanceCount = 0;
@@ -630,22 +634,30 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     // before this helper so collection capacity uses the same config snapshot
     // as a regular runtime launch.
     auto world = std::make_unique<SkullbonezCore::Environment::WorldEnvironment>();
-    auto collection = std::make_unique<SkullbonezCore::GameObjects::GameModelCollection>();
+    // Lifetime: the validation-only PhysicsEngine contains fixed-capacity
+    // stores too large for the launcher stack. Static cold ownership avoids a
+    // second heap-policy exception and the process executes this smoke once.
+    static SkullbonezCore::Physics::PhysicsEngine physics;
+    auto collection = std::make_unique<SkullbonezCore::GameObjects::GameModelCollection>( physics );
+    static SkullbonezCore::Basics::SceneEntityStore sceneEntities;
+    sceneEntities.Clear();
+    collection->BindSceneEntityStore( sceneEntities );
     PhysicsRuntimeHandleSmokeResult result;
     PhysicsBodyHandle createdBodies[2];
 
     for ( int i = 0; i < 2; ++i )
     {
-        SkullbonezCore::GameObjects::GameModel model;
+        SkullbonezCore::Basics::SceneEntityCreateDesc model;
         char name[32] = {};
         sprintf_s( name, sizeof( name ), "runtime_smoke_%d", i );
         model.SetName( name );
         PhysicsSceneObjectId sceneObjectId;
         sceneObjectId.value = static_cast<uint32_t>( i + 1 );
+        model.sceneObjectId = sceneObjectId;
         const SkullbonezCore::Math::CollisionDetection::BoundingSphere shape(
             0.75f,
             SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) );
-        const auto appendResult = collection->AddGameModel(
+        const auto appendResult = collection->TryCreateSceneEntity(
             std::move( model ),
             MakePhysicsBodyCreateDesc(
                 sceneObjectId,
@@ -660,8 +672,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                 PhysicsBodyMotionKind::Dynamic,
                 nullptr,
                 name ),
-            MakeColliderCreateDesc( shape, 0.0f, HashStr( "default" ) ),
-            sceneObjectId );
+            MakeColliderCreateDesc( shape, 0.0f, HashStr( "default" ) ) );
         if ( !appendResult.status.ok )
         {
             result.errorMessage = appendResult.status.error.message;
@@ -669,6 +680,39 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         }
         createdBodies[i] = appendResult.body;
     }
+
+    const int entityCountBeforeFailure = sceneEntities.Count();
+    const int bodyCountBeforeFailure = collection->BodyStore().Count();
+    const int colliderCountBeforeFailure = collection->Colliders().Count();
+    const int renderCountBeforeFailure = collection->GetRenderInstanceStore().Count();
+    const uint32_t descriptorCountBeforeFailure = physics.AuthoredBodyDescriptorCount().value;
+    SkullbonezCore::Basics::SceneEntityCreateDesc duplicateEntity;
+    duplicateEntity.sceneObjectId = PhysicsSceneObjectId{ 1u };
+    duplicateEntity.SetName( "runtime_smoke_duplicate" );
+    const SkullbonezCore::Math::CollisionDetection::BoundingSphere duplicateShape(
+        0.5f,
+        SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) );
+    const auto duplicateResult = collection->TryCreateSceneEntity(
+        std::move( duplicateEntity ),
+        MakePhysicsBodyCreateDesc( PhysicsSceneObjectId{ 1u },
+                                   duplicateShape,
+                                   SkullbonezCore::Math::Vector::Vector3( 0.0f, 8.0f, 0.0f ),
+                                   SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                                   SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ),
+                                   SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ),
+                                   SkullbonezCore::Math::Vector::Vector3( 1.0f, 1.0f, 1.0f ),
+                                   1.0f,
+                                   0.0f,
+                                   PhysicsBodyMotionKind::Dynamic,
+                                   nullptr,
+                                   "runtime_smoke_duplicate" ),
+        MakeColliderCreateDesc( duplicateShape, 0.0f, HashStr( "default" ) ) );
+    const bool failedCreationIsAtomic = !duplicateResult.status.ok &&
+                                        sceneEntities.Count() == entityCountBeforeFailure &&
+                                        collection->BodyStore().Count() == bodyCountBeforeFailure &&
+                                        collection->Colliders().Count() == colliderCountBeforeFailure &&
+                                        collection->GetRenderInstanceStore().Count() == renderCountBeforeFailure &&
+                                        physics.AuthoredBodyDescriptorCount().value == descriptorCountBeforeFailure;
 
     const PhysicsBodyHandle bodyA = createdBodies[0];
     const PhysicsBodyHandle bodyB = createdBodies[1];
@@ -678,7 +722,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     jointDesc.bodyB = bodyB;
     jointDesc.localAnchorA = SkullbonezCore::Math::Vector::Vector3( 0.25f, 0.0f, 0.0f );
     jointDesc.localAnchorB = SkullbonezCore::Math::Vector::Vector3( -0.25f, 0.0f, 0.0f );
-    const PhysicsConstraintHandle jointHandle = collection->GetPhysicsEngine().CreatePointJoint( jointDesc );
+    const PhysicsConstraintHandle jointHandle = physics.CreatePointJoint( jointDesc );
 
     const PhysicsBodyStore& bodyStore = collection->BodyStore();
     const ColliderStore& colliderStore = collection->Colliders();
@@ -689,8 +733,10 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
 
     const SkullbonezCore::Math::Vector::Vector3 editedHalfExtents( 0.25f, 1.25f, 0.5f );
     constexpr float EDITED_RESTITUTION = 0.42f;
-    collection->CommitEditedModelColliderState(
-        0,
+    PhysicsBodyUpdateDesc colliderUpdate;
+    colliderUpdate.body = bodyA;
+    const bool colliderUpdateAccepted = physics.UpdateAuthoredBodyAndCollider(
+        colliderUpdate,
         MakeColliderCreateDesc( SkullbonezCore::Math::CollisionDetection::BoundingBox(
                                     editedHalfExtents,
                                     SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) ),
@@ -703,7 +749,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     // collider edit commit. Store reads only auto-repair topology changes, so
     // tools and scene edits must commit before asking for collider records.
     const bool colliderRefreshMatches =
-        initialCollider.shapeKind == ColliderShapeKind::Sphere &&
+        colliderUpdateAccepted && initialCollider.shapeKind == ColliderShapeKind::Sphere &&
         refreshedCollider.shapeKind == ColliderShapeKind::Box &&
         fabsf( refreshedCollider.boundingRadius - expectedBoxRadius ) < 0.0001f &&
         fabsf( refreshedCollider.restitution - 0.42f ) < 0.0001f &&
@@ -729,7 +775,9 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
 
     constexpr uint32_t REORDER_BODY_A_REPLAY_ID = 100u;
     constexpr uint32_t REORDER_BODY_B_REPLAY_ID = 101u;
-    PhysicsBodyStore reorderBodyStore;
+    // Why: PhysicsBodyStore owns MAX_GAME_MODELS fixed arrays. Keep this cold
+    // standalone probe owner off WinMain's bounded thread stack.
+    auto reorderBodyStore = std::make_unique<PhysicsBodyStore>();
     std::vector<PhysicsBodyCreateDesc> reorderBodyDescs;
     for ( int i = 0; i < 2; ++i )
     {
@@ -749,21 +797,21 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         desc.dragCoefficient = SkullbonezCore::Math::CollisionDetection::GetShapeDragCoefficient( desc.shape );
         reorderBodyDescs.push_back( desc );
     }
-    reorderBodyStore.LoadFromDescriptors( reorderBodyDescs, std::vector<uint8_t>{} );
-    const PhysicsBodyHandle reorderedOriginalBody = reorderBodyStore.HandleForModelIndex( 0 );
+    reorderBodyStore->LoadFromDescriptors( reorderBodyDescs, std::vector<uint8_t>{} );
+    const PhysicsBodyHandle reorderedOriginalBody = reorderBodyStore->HandleForModelIndex( 0 );
     const uint32_t reorderBodyAReplayId = REORDER_BODY_A_REPLAY_ID;
     const uint32_t reorderBodyBReplayId = REORDER_BODY_B_REPLAY_ID;
     const SkullbonezCore::Math::Vector::Vector3 pendingImpulse( 0.0f, 2.0f, 0.0f );
     const SkullbonezCore::Math::Vector::Vector3 pendingImpulsePoint( 0.25f, 0.0f, 0.0f );
     const bool seededReorderState =
-        reorderBodyStore.SetPendingBodyImpulse( reorderedOriginalBody, pendingImpulse, pendingImpulsePoint ) &&
-        reorderBodyStore.SeedBodyAsleep( reorderedOriginalBody );
+        reorderBodyStore->SetPendingBodyImpulse( reorderedOriginalBody, pendingImpulse, pendingImpulsePoint ) &&
+        reorderBodyStore->SeedBodyAsleep( reorderedOriginalBody );
     reorderBodyDescs[0].sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( reorderBodyBReplayId );
     reorderBodyDescs[1].sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( reorderBodyAReplayId );
-    reorderBodyStore.LoadFromDescriptors( reorderBodyDescs, std::vector<uint8_t>{} );
-    const int reorderedBodyAIndex = reorderBodyStore.ModelIndexForHandle( reorderedOriginalBody );
+    reorderBodyStore->LoadFromDescriptors( reorderBodyDescs, std::vector<uint8_t>{} );
+    const int reorderedBodyAIndex = reorderBodyStore->ModelIndexForHandle( reorderedOriginalBody );
     const PhysicsBodyRecord* reorderedBodyARecord =
-        reorderedBodyAIndex >= 0 ? reorderBodyStore.RecordForModelIndex( reorderedBodyAIndex ) : nullptr;
+        reorderedBodyAIndex >= 0 ? reorderBodyStore->RecordForModelIndex( reorderedBodyAIndex ) : nullptr;
     // Invariant: allocator-owned handles must carry physics-owned one-shot
     // state through a same-scene reorder. Otherwise the handle identity is only
     // nominally independent from model order.
@@ -774,18 +822,69 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         fabsf( reorderedBodyARecord->pendingImpulse.y - pendingImpulse.y ) < 0.0001f &&
         fabsf( reorderedBodyARecord->pendingImpulseApplicationPoint.x - pendingImpulsePoint.x ) < 0.0001f;
 
+    const PhysicsBodyRecord* bodyBBeforeDelete = collection->BodyStore().RecordForHandle( bodyB );
+    const SkullbonezCore::Math::Vector::Vector3 liveOnlyPosition( 42.0f, 17.0f, -3.0f );
+    const bool seededLiveOnlyState =
+        bodyBBeforeDelete && physics.RestoreReplayBodyState( bodyB,
+                                                             bodyBBeforeDelete->replayBodyId,
+                                                             bodyBBeforeDelete->isFixed,
+                                                             liveOnlyPosition,
+                                                             bodyBBeforeDelete->orientation,
+                                                             bodyBBeforeDelete->linearVelocity,
+                                                             bodyBBeforeDelete->angularVelocity,
+                                                             bodyBBeforeDelete->mass,
+                                                             bodyBBeforeDelete->invMass,
+                                                             bodyBBeforeDelete->rotationalInertia,
+                                                             bodyBBeforeDelete->invRotationalInertia );
+    const bool destroyedBodyA = collection->DestroySceneEntity( bodyA );
+    const PhysicsBodyRecord* survivingBody = collection->BodyStore().RecordForHandle( bodyB );
+    const bool deletionIsAtomic =
+        seededLiveOnlyState && destroyedBodyA && !collection->BodyStore().Contains( bodyA ) && survivingBody &&
+        collection->BodyStore().ModelIndexForHandle( bodyB ) == 0 && sceneEntities.Count() == 1 &&
+        sceneEntities.At( 0 ).body == bodyB && collection->BodyStore().Count() == 1 &&
+        collection->Colliders().Count() == 1 && collection->Colliders().HandleForBodyHandle( bodyB ).IsValid() &&
+        collection->GetRenderInstanceStore().Count() == 1 &&
+        collection->GetRenderInstanceStore().PresentationCount() == 1 &&
+        physics.AuthoredBodyDescriptorCount().value == 1u && collection->GetPointJointConstraints().empty() &&
+        fabsf( survivingBody->position.x - liveOnlyPosition.x ) < 0.0001f &&
+        fabsf( survivingBody->position.y - liveOnlyPosition.y ) < 0.0001f &&
+        fabsf( survivingBody->position.z - liveOnlyPosition.z ) < 0.0001f;
+
+    PhysicsBodyUpdateDesc staleUpdate;
+    staleUpdate.body = bodyA;
+    staleUpdate.updateMask = PHYSICS_BODY_UPDATE_POSE;
+    PhysicsBodyUpdateDesc survivingUpdate;
+    survivingUpdate.body = bodyB;
+    survivingUpdate.updateMask = PHYSICS_BODY_UPDATE_VELOCITY | PHYSICS_BODY_UPDATE_MASS;
+    survivingUpdate.linearVelocity = SkullbonezCore::Math::Vector::Vector3( 2.0f, 3.0f, 4.0f );
+    survivingUpdate.angularVelocity = SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.5f, 0.0f );
+    survivingUpdate.mass = 7.0f;
+    survivingUpdate.rotationalInertia =
+        survivingBody ? survivingBody->rotationalInertia : SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    const bool staleMutationRejected = !physics.UpdateAuthoredBody( staleUpdate );
+    const bool survivingMutationAccepted = physics.UpdateAuthoredBody( survivingUpdate );
+    survivingBody = collection->BodyStore().RecordForHandle( bodyB );
+    const bool mutationUsesStableHandle = staleMutationRejected && survivingMutationAccepted && survivingBody &&
+                                          fabsf( survivingBody->mass - 7.0f ) < 0.0001f &&
+                                          fabsf( survivingBody->linearVelocity.x - 2.0f ) < 0.0001f &&
+                                          fabsf( survivingBody->angularVelocity.y - 0.5f ) < 0.0001f;
+
     result.handlesMatchStores = handlesMatchStores;
     result.renderMirrorMatches = renderMirrorMatches;
     result.jointUsesHandles = jointUsesHandles;
     result.colliderRefreshMatches = colliderRefreshMatches;
     result.reorderPreservesHandleState = reorderPreservesHandleState;
-    result.bodyCount = bodyStore.Count();
-    result.colliderCount = colliderStore.Count();
-    result.renderInstanceCount = renderStore.Count();
-    result.pointJointCount = pointJoints.size();
+    result.failedCreationIsAtomic = failedCreationIsAtomic;
+    result.deletionIsAtomic = deletionIsAtomic;
+    result.mutationUsesStableHandle = mutationUsesStableHandle;
+    result.bodyCount = bodyCountBeforeFailure;
+    result.colliderCount = colliderCountBeforeFailure;
+    result.renderInstanceCount = renderCountBeforeFailure;
+    result.pointJointCount = jointUsesHandles ? 1u : 0u;
     result.bodyA = bodyA;
     result.passed = handlesMatchStores && renderMirrorMatches && jointUsesHandles && colliderRefreshMatches &&
-                    reorderPreservesHandleState;
+                    reorderPreservesHandleState && failedCreationIsAtomic && deletionIsAtomic &&
+                    mutationUsesStableHandle;
     return result;
 }
 
@@ -845,7 +944,7 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
         fprintf( stream,
                  "[physics-runtime-handle-smoke] bodies=%d colliders=%d render_instances=%d point_joints=%zu "
                  "handle_a=(%u,%u) store_handles=%s render_mirror=%s joint_handles=%s collider_refresh=%s "
-                 "reorder_state=%s\n",
+                 "reorder_state=%s creation_atomic=%s deletion_atomic=%s mutation_handle=%s\n",
                  runtimeMirror.bodyCount,
                  runtimeMirror.colliderCount,
                  runtimeMirror.renderInstanceCount,
@@ -856,7 +955,10 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
                  runtimeMirror.renderMirrorMatches ? "pass" : "fail",
                  runtimeMirror.jointUsesHandles ? "pass" : "fail",
                  runtimeMirror.colliderRefreshMatches ? "pass" : "fail",
-                 runtimeMirror.reorderPreservesHandleState ? "pass" : "fail" );
+                 runtimeMirror.reorderPreservesHandleState ? "pass" : "fail",
+                 runtimeMirror.failedCreationIsAtomic ? "pass" : "fail",
+                 runtimeMirror.deletionIsAtomic ? "pass" : "fail",
+                 runtimeMirror.mutationUsesStableHandle ? "pass" : "fail" );
         if ( !runtimeMirror.errorMessage.empty() )
         {
             fprintf( stream, "[physics-runtime-handle-smoke] error=\"%s\"\n", runtimeMirror.errorMessage.c_str() );
@@ -2273,10 +2375,11 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
                        args.replayRestoreProbeNormalized );
               return true;
           } },
+        // Invariant: each replay workflow has one semantic flag. The underscore
+        // spelling remains the command-line parser's universal syntax alias;
+        // deleted save-test/play synonyms carried no distinct behavior.
         { "--replay-save-probe", "--replay_save_probe", ApplyReplaySaveProbePath },
-        { "--replay-save-test", "--replay_save_test", ApplyReplaySaveProbePath },
         { "--replay-load", "--replay_load", ApplyReplayLoadPath },
-        { "--replay-play", "--replay_play", ApplyReplayLoadPath },
         { "--replay-load-probe", "--replay_load_probe", ApplyReplayLoadProbePath },
         { "--replay-restore-file-probe", "--replay_restore_file_probe", ApplyReplayRestoreFileProbePath },
         { "--replay-restore-target-file-probe",
@@ -2593,8 +2696,7 @@ bool ValidateReplayRestoreProbe( const CommandLineView& commandLine )
 // Guards the replay v2 save probe against use in non-Debug builds.
 bool ValidateReplaySaveProbe( const CommandLineView& commandLine )
 {
-    if ( !HasOption( commandLine, "--replay-save-probe" ) && !HasOption( commandLine, "--replay_save_probe" ) &&
-         !HasOption( commandLine, "--replay-save-test" ) && !HasOption( commandLine, "--replay_save_test" ) )
+    if ( !HasOption( commandLine, "--replay-save-probe" ) && !HasOption( commandLine, "--replay_save_probe" ) )
     {
         return true;
     }
@@ -3014,6 +3116,7 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     launch.hasCinematicShadowsOverride = args.hasCinematicShadowsOverride;
     launch.cinematicShadows = args.cinematicShadows;
     launch.demoHeroStyle = args.demoHeroStyle;
+    launch.dumpTextureAssets = args.dumpAssets;
     launch.interactiveSceneRun = args.interactiveRun;
     launch.frameCountOverride = args.frameCountOverride;
     launch.uiStress = args.uiStress;
@@ -3037,6 +3140,8 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
 
     overrides.liveStyleControlDirectory = args.liveStyleControlDir[0] != '\0' ? args.liveStyleControlDir : nullptr;
     overrides.mainMemoryDumpPath = args.memoryDumpPath[0] != '\0' ? args.memoryDumpPath : nullptr;
+    overrides.interactionScriptPath = args.interactionScriptPath[0] != '\0' ? args.interactionScriptPath : nullptr;
+    overrides.interactionReportPath = args.interactionReportPath[0] != '\0' ? args.interactionReportPath : nullptr;
 
     const bool replayDefaultAllowed =
         !args.isSuiteOrSceneMode || args.interactiveRun || args.liveStyleControlDir[0] != '\0';
@@ -3046,6 +3151,8 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     overrides.replayRecordingEnabled = true;
     overrides.replayRetentionSeconds = args.replaySeconds;
     overrides.replayHashLogPath = args.replayHashLogPath[0] != '\0' ? args.replayHashLogPath : nullptr;
+    overrides.replayLoadPath = args.replayLoad ? args.replayLoadPath : nullptr;
+    overrides.replayLoadProbe = args.replayLoadProbe;
 
     overrides.hasInitialOverlayMode = args.showProfiler;
     overrides.initialOverlayMode = args.showProfiler ? OverlayMode::Timers : OverlayMode::None;
@@ -3059,6 +3166,13 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     overrides.replayRestoreProbeNormalized = args.replayRestoreProbeNormalized;
     overrides.replaySaveProbe = args.replaySaveProbe;
     overrides.replaySaveProbePath = args.replaySaveProbe ? args.replaySaveProbePath : nullptr;
+    overrides.replayRestoreFileProbePath = args.replayRestoreFileProbe ? args.replayRestoreFileProbePath : nullptr;
+    overrides.replayRestoreTargetFileProbePath =
+        args.replayRestoreTargetFileProbe ? args.replayRestoreTargetFileProbePath : nullptr;
+    overrides.replayRestoreBranchFileProbePath =
+        args.replayRestoreBranchFileProbe ? args.replayRestoreBranchFileProbePath : nullptr;
+    overrides.replayRestoreFailureFileProbePath =
+        args.replayRestoreFailureFileProbe ? args.replayRestoreFailureFileProbePath : nullptr;
     overrides.physicsRegressionLogPath =
         args.physicsRegressionLogOverride[0] != '\0' ? args.physicsRegressionLogOverride : nullptr;
     overrides.physicsCollisionTimeLogPath =
@@ -3101,29 +3215,6 @@ int RunApp( Window* window,
         ProfilerRenderDiagnosticsLifetime profilerRenderDiagnosticsLifetime{ profiler };
 #endif
         const RunStartupOverrides startupOverrides = BuildRunStartupOverrides( args );
-        cRun->ApplyStartupOverrides( startupOverrides );
-#ifdef _DEBUG
-        // Why: Debug replay probes are CLI diagnostics, not interaction
-        // automation actions. They report through the process exit code and log
-        // boundary so validation can fail without using fatal exceptions.
-        auto reportReplayProbeFailure = [&]( const char* owner, const char* message ) -> int
-        {
-            const char* safeOwner = owner && owner[0] != '\0' ? owner : "ReplayProbe";
-            const char* safeMessage = message && message[0] != '\0' ? message : "replay probe failed";
-            Log().WriteEventf( "replay_probe_failed owner=\"%s\" message=\"%s\"", safeOwner, safeMessage );
-            fprintf( stderr, "[replay] Probe failed: %s\n", safeMessage );
-            fflush( stderr );
-            Log().FlushAll();
-            if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
-            {
-                window->MsgBox( safeMessage, "Replay Probe Failed", MB_OK );
-            }
-            return 1;
-        };
-
-        auto reportReplayProbeResult = [&]( const SbResult& result ) -> int
-        { return reportReplayProbeFailure( result.error.owner, result.error.message ); };
-#endif
         auto reportRunResult = [&]( const SbResult& result ) -> int
         {
             const char* safeOwner =
@@ -3155,96 +3246,18 @@ int RunApp( Window* window,
             return 1;
         };
 
+        const SbResult startupResult = cRun->ApplyStartupOverrides( startupOverrides );
+        if ( !startupResult.ok )
+        {
+            return reportInteractionAutomationResult( startupResult );
+        }
+
         try
         {
-#ifdef _DEBUG
-            // Why: startup replay-probe configuration can fail before the frame
-            // loop exists, but validation still needs the same nonzero exit path
-            // as a frame-driven probe failure.
-            if ( cRun->ReplayProbes().Failed() )
-            {
-                return reportReplayProbeFailure( cRun->ReplayProbes().FailureOwner(),
-                                                 cRun->ReplayProbes().FailureMessage() );
-            }
-#endif
             cRun->Initialise();
             if ( !cRun->LastSceneLoadResult().ok )
             {
                 return reportRunResult( cRun->LastSceneLoadResult() );
-            }
-            if ( args.interactionScriptPath[0] != '\0' )
-            {
-                const SbResult automationSetupResult = cRun->SetInteractionAutomation(
-                    args.interactionScriptPath,
-                    args.interactionReportPath[0] != '\0' ? args.interactionReportPath : nullptr );
-                if ( !automationSetupResult.ok )
-                {
-                    return reportInteractionAutomationResult( automationSetupResult );
-                }
-            }
-            bool skipExecute = false;
-            if ( args.replayLoad )
-            {
-                if ( !cRun->LoadReplayPresentationArtifact( args.replayLoadPath, true ) )
-                {
-                    return reportRunResult(
-                        SbResult::Failure( "Runtime/ReplayLoad", "failed to load replay v2 presentation artifact" ) );
-                }
-            }
-#ifdef _DEBUG
-            if ( args.replayLoadProbe )
-            {
-                const SbResult probeResult = cRun->VerifyLoadedReplayPresentationProbe( 0.25f );
-                if ( !probeResult.ok )
-                {
-                    return reportReplayProbeResult( probeResult );
-                }
-                skipExecute = true;
-            }
-            if ( args.replayRestoreFileProbe )
-            {
-                const SbResult probeResult =
-                    cRun->VerifyReplaySolverCheckpointFileProbe( args.replayRestoreFileProbePath );
-                if ( !probeResult.ok )
-                {
-                    return reportReplayProbeResult( probeResult );
-                }
-                skipExecute = true;
-            }
-            if ( args.replayRestoreTargetFileProbe )
-            {
-                const SbResult probeResult =
-                    cRun->VerifyReplaySolverTargetFileProbe( args.replayRestoreTargetFileProbePath );
-                if ( !probeResult.ok )
-                {
-                    return reportReplayProbeResult( probeResult );
-                }
-                skipExecute = true;
-            }
-            if ( args.replayRestoreBranchFileProbe )
-            {
-                const SbResult probeResult =
-                    cRun->VerifyReplaySolverBranchFileProbe( args.replayRestoreBranchFileProbePath );
-                if ( !probeResult.ok )
-                {
-                    return reportReplayProbeResult( probeResult );
-                }
-                skipExecute = true;
-            }
-            if ( args.replayRestoreFailureFileProbe )
-            {
-                const SbResult probeResult =
-                    cRun->VerifyReplaySolverFailureFileProbe( args.replayRestoreFailureFileProbePath );
-                if ( !probeResult.ok )
-                {
-                    return reportReplayProbeResult( probeResult );
-                }
-                skipExecute = true;
-            }
-#endif
-            if ( args.dumpAssets )
-            {
-                cRun->DumpTextureAssets( stdout );
             }
             if ( args.sceneLoadOnly )
             {
@@ -3255,24 +3268,17 @@ int RunApp( Window* window,
                     return reportRunResult( sceneLoadOnlyResult );
                 }
             }
-            else if ( !skipExecute )
+            else
             {
                 const SbResult executeResult = cRun->Execute();
                 if ( !executeResult.ok )
                 {
+                    if ( executeResult.error.owner &&
+                         strcmp( executeResult.error.owner, "InteractionAutomation" ) == 0 )
+                    {
+                        return reportInteractionAutomationResult( executeResult );
+                    }
                     return reportRunResult( executeResult );
-                }
-#ifdef _DEBUG
-                if ( cRun->ReplayProbes().Failed() )
-                {
-                    return reportReplayProbeFailure( cRun->ReplayProbes().FailureOwner(),
-                                                     cRun->ReplayProbes().FailureMessage() );
-                }
-#endif
-                const SbResult interactionAutomationResult = cRun->InteractionAutomationResult();
-                if ( !interactionAutomationResult.ok )
-                {
-                    return reportInteractionAutomationResult( interactionAutomationResult );
                 }
                 if ( args.graphicsStress )
                 {

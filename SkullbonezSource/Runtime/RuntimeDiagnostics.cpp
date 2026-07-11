@@ -30,6 +30,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RuntimeDiagnostics.h"
+#include "../Assets/AssetKeys.h"
 
 #include "../Core/Common.h"
 #include "../Core/Config.h"
@@ -599,7 +600,7 @@ void RuntimeDiagnostics::LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagno
                   static_cast<unsigned long long>( selected.stateHash ),
                   static_cast<unsigned long long>( live.stateHash ),
                   selectedBody.id.value,
-                  liveBody.modelIndex,
+                  liveBody.modelRow.value,
                   escapedName.c_str(),
                   selectedBody.position.x,
                   selectedBody.position.y,

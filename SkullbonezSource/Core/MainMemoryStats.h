@@ -20,10 +20,10 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/RuntimeDiagnostics.h
-  - Agentic/Plans/main-memory-profiling-plan.md
 */
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -186,6 +186,21 @@ struct MainMemoryProcessStats
 
 struct MainMemoryReplayStats
 {
+    // One fixed row per ReplayRetainedMemory growth policy. Measured high-water
+    // is the evidence used to set the cap; allocator high-water is this run.
+    struct GrowthOwner
+    {
+        const char* ownerName = nullptr;
+        uint64_t measuredHighWaterBytes = 0;
+        uint64_t allocatorHighWaterBytes = 0;
+        uint64_t replayGrowths = 0;
+        uint64_t failedGrowths = 0;
+        int hardBytes = 0;
+        int reportedHighWaterCapacity = 0;                  // Owner capacity units; replay byte owners report bytes.
+        int lastGrowthFrame = -1;
+        bool registered = false;
+    };
+
     uint64_t presentationBytes = 0;
     uint64_t solverBytes = 0;
     uint64_t eventsBytes = 0;
@@ -211,6 +226,7 @@ struct MainMemoryReplayStats
     int solverRetentionSeconds = 0;
     bool memoryBudgetClamped = false;
     bool solverWindowReduced = false;
+    std::array<GrowthOwner, 3> growthOwners;                // Same stable order as REPLAY_GROWTH_OWNER_POLICIES.
     MainMemoryReplayCategoryBytes categoryBytes;
     MainMemoryReplayTrajectoryStats trajectory;
 };

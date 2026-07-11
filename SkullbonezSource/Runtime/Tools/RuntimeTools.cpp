@@ -39,8 +39,10 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp
 */
 #include "RuntimeTools.h"
+#include "../../Assets/AssetKeys.h"
 
 #include "../../Core/Common.h"
+#include "../../Core/Log.h"
 #include "../../GameObjects/GameModel.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/ColliderStore.h"
@@ -52,7 +54,13 @@ Related:
 #include "../../UI/UICommands.h"
 #include "../../UI/UILayout.h"
 #include "../CameraCollection.h"
+#include "../Editor/EditorTools.h"
+#include "../Editor/EditorOverlayTools.h"
+#include "../InputRouter.h"
+#include "../RuntimeInteractionCommands.h"
+#include "../RuntimeInteractionController.h"
 #include "../Replay/ReplayRecorder.h"
+#include "../Replay/ReplayRuntime.h"
 #include "../Scene/SceneRuntime.h"
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
@@ -63,6 +71,161 @@ Related:
 
 namespace SkullbonezCore::Basics
 {
+bool RuntimeTools::PrepareSelectionCommand( const RuntimeInteractionCommand& command,
+                                            const GameObjects::GameModelCollection& collection,
+                                            RuntimeInteractionSelectionPlan& outPlan )
+{
+    outPlan = RuntimeInteractionSelectionPlan{};
+    if ( command.type != RuntimeInteractionCommandType::SetEditorSelection )
+    {
+        return false;
+    }
+
+    const Physics::PhysicsBodyStore& bodyStore = collection.BodyStore();
+    const Physics::ColliderStore& colliderStore = collection.Colliders();
+    Physics::PhysicsBodyHandle selectedBody;
+    Physics::PhysicsColliderHandle selectedCollider;
+    Physics::ModelRowHint selectedModelRow;
+    if ( command.body.IsValid() )
+    {
+        selectedBody = command.body;
+        selectedCollider = command.collider;
+        const Physics::PhysicsBodyRecord* body = bodyStore.RecordForHandle( selectedBody );
+        const Physics::ColliderRecord* collider = colliderStore.RecordForHandle( selectedCollider );
+        const int bodyRow = bodyStore.ModelIndexForHandle( selectedBody );
+        if ( !body || !collider || colliderStore.ModelIndexForHandle( selectedCollider ) != bodyRow ||
+             collider->body != selectedBody )
+        {
+            return false;
+        }
+        selectedModelRow.value = bodyRow;
+    }
+    else if ( command.collider.IsValid() )
+    {
+        return false;
+    }
+
+    if ( !m_editor.selectedBody.IsValid() )
+    {
+        m_editor.selectedModelRow.value = -1;
+        outPlan.previousModelRow.value = -1;
+    }
+    else
+    {
+        outPlan.previousModelRow.value = bodyStore.ResolveModelRow( m_editor.selectedBody, m_editor.selectedModelRow );
+    }
+    outPlan.modelRow = selectedModelRow;
+    outPlan.previousBody = m_editor.selectedBody;
+    outPlan.body = selectedBody;
+    outPlan.previousCollider = m_editor.selectedCollider;
+    outPlan.collider = selectedCollider;
+    outPlan.selectionScope = command.selectionScope;
+    outPlan.claimSelectionOwner = command.claimSelectionOwner;
+    return true;
+}
+
+
+bool RuntimeTools::CommitSelectionCommand( const RuntimeInteractionSelectionPlan& plan,
+                                           RuntimeInteractionEvent& outEvent )
+{
+    outEvent = RuntimeInteractionEvent{};
+    // Invariant: preparation and commit are synchronous around the optional
+    // owner transition. Transition cleanup may deliberately clear the previous
+    // selection; the prepared command still becomes the new authoritative one.
+    m_editor.selectedModelRow = plan.modelRow;
+    m_editor.selectedBody = plan.body;
+    m_editor.selectedCollider = plan.collider;
+    if ( plan.previousModelRow.value != plan.modelRow.value || plan.previousBody != plan.body ||
+         plan.previousCollider != plan.collider )
+    {
+        outEvent.type = RuntimeInteractionEventType::SelectionChanged;
+        outEvent.previousModelRow = plan.previousModelRow;
+        outEvent.modelRow = plan.modelRow;
+        outEvent.previousBody = plan.previousBody;
+        outEvent.body = plan.body;
+        outEvent.previousCollider = plan.previousCollider;
+        outEvent.collider = plan.collider;
+        outEvent.selectionScope = plan.selectionScope;
+        Log().WriteEventf(
+            "runtime_interaction_command_event type=selection_changed scope=%s previous_model=%d model=%d",
+            outEvent.selectionScope == RuntimeInteractionSelectionScope::Inspect ? "inspect" : "editor",
+            outEvent.previousModelRow.value,
+            outEvent.modelRow.value );
+    }
+    return true;
+}
+
+
+bool RuntimeTools::ApplySelectionCommand( const RuntimeInteractionCommand& command,
+                                          const GameObjects::GameModelCollection& collection )
+{
+    // Why: owner-claiming commands need composition to apply transition cleanup
+    // between prepare and commit. The convenience path is intentionally limited
+    // to commands whose interaction owner is already established.
+    if ( command.claimSelectionOwner )
+    {
+        return false;
+    }
+    RuntimeInteractionSelectionPlan plan;
+    RuntimeInteractionEvent event;
+    return PrepareSelectionCommand( command, collection, plan ) && CommitSelectionCommand( plan, event );
+}
+
+
+bool RuntimeTools::HasActiveEditorInteractionState( const RuntimeInteractionController& interaction ) const
+{
+    const RuntimeInteractionGestureKind gesture = interaction.Gesture().kind;
+    return m_editor.editorModeEnabled || m_editor.placementModeEnabled || m_editor.viewportLookActive ||
+           m_editor.placementPreviewVisible || gesture == RuntimeInteractionGestureKind::EditorPlacementScaleDrag ||
+           gesture == RuntimeInteractionGestureKind::GizmoDrag || m_editor.hotGizmoAxis >= 0 ||
+           m_editor.hotRotationAxis >= 0;
+}
+
+
+bool RuntimeTools::InspectGizmoInteractionActive( RunCameraMode cameraMode, bool replayInspectionActive ) const
+{
+    return !m_editor.editorModeEnabled && cameraMode == RunCameraMode::Inspect && !replayInspectionActive;
+}
+
+
+void RuntimeTools::ClearEditorInteractionForTransition( bool clearSelection,
+                                                        GameObjects::GameModelCollection& collection,
+                                                        Physics::PhysicsEngine& physics,
+                                                        RuntimeInteractionController& interaction )
+{
+    RunInternal::ClearEditorManipulationState( { m_editor, collection, physics, interaction } );
+    m_editor.viewportLookActive = false;
+    m_editor.placementModeEnabled = false;
+    m_editor.hotGizmoAxis = -1;
+    m_editor.hotRotationAxis = -1;
+    if ( clearSelection )
+    {
+        RuntimeInteractionCommand command;
+        command.type = RuntimeInteractionCommandType::SetEditorSelection;
+        command.claimSelectionOwner = false;
+        ApplySelectionCommand( command, collection );
+    }
+}
+
+
+void RuntimeTools::CancelMousePickup( InputRouter& inputRouter, RuntimeInteractionController& interaction )
+{
+    // Invariant: the controller gesture is the sole capture fact. Clear native
+    // presentation only when this owner actually held the typed pickup gesture.
+    if ( interaction.Gesture().kind == RuntimeInteractionGestureKind::MousePickupDrag )
+    {
+        inputRouter.ReleaseNativeCapture();
+        RuntimeGestureCommand command;
+        command.action = RuntimeGestureCommandAction::End;
+        command.gesture.kind = RuntimeInteractionGestureKind::MousePickupDrag;
+        command.reason = InteractionExitReason::EndGesture;
+        RuntimeGestureEvent event;
+        (void)interaction.ApplyGestureCommand( command, event );
+    }
+    m_mousePickup = RunMousePickupState{};
+}
+
+
 namespace
 {
 constexpr float RAY_CAST_TEST_MAX_DISTANCE = 5000.0f;
@@ -250,9 +413,9 @@ bool RuntimeTools::HasSelectionOverlayWork( int modelCount, RunCameraMode camera
     return placementPreview || editorSelection || inspectSelection || attachSelection;
 }
 
-bool RuntimeTools::HasMousePickupOverlayWork() const
+bool RuntimeTools::HasMousePickupOverlayWork( const RuntimeInteractionGesture& gesture ) const
 {
-    return m_mousePickup.active && m_mousePickup.body.IsValid();
+    return gesture.kind == RuntimeInteractionGestureKind::MousePickupDrag && m_mousePickup.body.IsValid();
 }
 
 bool RuntimeTools::HasLauncherShots() const
@@ -452,6 +615,7 @@ bool RuntimeTools::TryBuildLauncherCameraRay( Environment::CameraCollection* cam
 }
 
 bool RuntimeTools::FireLauncherRay( GameObjects::GameModelCollection& collection,
+                                    Physics::PhysicsEngine& physics,
                                     RunSceneState& scene,
                                     Geometry::Terrain* terrain,
                                     int activeModelCapacity,
@@ -460,7 +624,6 @@ bool RuntimeTools::FireLauncherRay( GameObjects::GameModelCollection& collection
                                     const Math::Vector::Vector3& cameraUp )
 {
     const int modelCount = collection.SceneEntityCount();
-    Physics::PhysicsEngine& physics = collection.GetPhysicsEngine();
     if ( !LauncherPhysicsStoresReady( physics, modelCount ) )
     {
         return false;
@@ -481,6 +644,55 @@ bool RuntimeTools::FireLauncherRay( GameObjects::GameModelCollection& collection
 
     FireLauncherLaser( physics, modelCount, terrain, rayOrigin, rayDirection, cameraUp );
     return false;
+}
+
+
+LauncherPointerResult RuntimeTools::RouteLauncherPointer( const LauncherPointerInput& input,
+                                                          Environment::CameraCollection& cameras,
+                                                          ReplayRuntime& replayRuntime,
+                                                          GameObjects::GameModelCollection& collection,
+                                                          Physics::PhysicsEngine& physics,
+                                                          RunSceneState& scene,
+                                                          Geometry::Terrain* terrain )
+{
+    LauncherPointerResult result;
+    if ( !input.launcherMode || !input.leftPressed || input.suppressWorldAction || input.uiWantsNativeCursor )
+    {
+        return result;
+    }
+    result.consumed = true;
+    result.enteredInteractive = true;
+
+    Math::Vector::Vector3 rayOrigin;
+    Math::Vector::Vector3 rayDirection;
+    Math::Vector::Vector3 cameraUp;
+    if ( !TryBuildLauncherCameraRay( &cameras, rayOrigin, rayDirection, cameraUp ) )
+    {
+        return result;
+    }
+
+    const int modelCountBefore = collection.SceneEntityCount();
+    replayRuntime.RecordLauncherFireEvent( rayOrigin,
+                                           rayDirection,
+                                           cameraUp,
+                                           m_rayCastTest.fireMode == RunLauncherFireMode::Projectile,
+                                           m_rayCastTest.impulseStrength,
+                                           m_rayCastTest.projectileSpeed,
+                                           modelCountBefore );
+    // Why: the launcher is a cold input action, so it repairs any construction-
+    // time collection/store drift before entering handle-based physics queries.
+    if ( collection.RepairPhysicsBodyAndColliderTopology() && FireLauncherRay( collection,
+                                                                               physics,
+                                                                               scene,
+                                                                               terrain,
+                                                                               input.activeModelCapacity,
+                                                                               rayOrigin,
+                                                                               rayDirection,
+                                                                               cameraUp ) )
+    {
+        scene.modelCount = collection.SceneEntityCount();
+    }
+    return result;
 }
 
 void RuntimeTools::FireLauncherLaser( Physics::PhysicsEngine& physics,
@@ -594,14 +806,15 @@ bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& col
     }
 
     const float moment = 0.4f * LAUNCHER_PROJECTILE_MASS * LAUNCHER_PROJECTILE_RADIUS * LAUNCHER_PROJECTILE_RADIUS;
-    GameObjects::GameModel projectile;
+    SceneEntityCreateDesc projectile;
     projectile.SetRenderTint( 0.72f, 0.88f, 1.0f, 1.0f );
     projectile.SetName( "launcher_projectile" );
 
     const Math::CollisionDetection::BoundingSphere projectileShape( LAUNCHER_PROJECTILE_RADIUS,
                                                                     Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) );
     const Physics::PhysicsSceneObjectId sceneObjectId = scene.AllocateSceneObjectId();
-    const auto appendResult = collection.AddGameModel(
+    projectile.sceneObjectId = sceneObjectId;
+    const auto appendResult = collection.TryCreateSceneEntity(
         std::move( projectile ),
         Physics::MakePhysicsBodyCreateDesc( sceneObjectId,
                                             projectileShape,
@@ -615,11 +828,12 @@ bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& col
                                             Physics::PhysicsBodyMotionKind::Dynamic,
                                             terrain,
                                             "launcher_projectile" ),
-        Physics::MakeColliderCreateDesc( projectileShape, LAUNCHER_PROJECTILE_RESTITUTION, HashStr( "default" ) ),
-        sceneObjectId );
+        Physics::MakeColliderCreateDesc( projectileShape, LAUNCHER_PROJECTILE_RESTITUTION, HashStr( "default" ) ) );
     if ( !appendResult.status.ok )
     {
-        fprintf( stderr, "[runtime-tools] launcher projectile append failed: %s\n", appendResult.status.error.message );
+        fprintf( stderr,
+                 "[runtime-tools] launcher projectile creation failed: %s\n",
+                 appendResult.status.error.message );
         return false;
     }
     const Physics::PhysicsBodyHandle projectileBody = appendResult.body;
@@ -668,5 +882,29 @@ RunEditorTracer& RuntimeTools::EditorTracer()
 const RunEditorTracer& RuntimeTools::EditorTracer() const
 {
     return m_editorTracer;
+}
+
+
+void RuntimeTools::PrepareOverlayTrace( GameObjects::GameModelCollection& models,
+                                        const Assets::AssetSystem& assets,
+                                        const ToolOverlayBuildInput& input )
+{
+    // Invariant: one owner clears and rebuilds the shared tracer exactly once
+    // before replay appends its records for the same frame.
+    m_editorTracer.Clear();
+    RunInternal::BuildEditorToolOverlayTrace( { m_editor,
+                                                m_rayCastTest,
+                                                m_mousePickup,
+                                                models,
+                                                models.BodyStore(),
+                                                models.Colliders(),
+                                                assets,
+                                                m_editorTracer },
+                                              { input.rayLingerSeconds,
+                                                input.inspectGizmoActive,
+                                                input.scaleMode,
+                                                input.gesture,
+                                                input.attachedCameraTargetIndex,
+                                                input.attachedCameraActiveFollow } );
 }
 } // namespace SkullbonezCore::Basics

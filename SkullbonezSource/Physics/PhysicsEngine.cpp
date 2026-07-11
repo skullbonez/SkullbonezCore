@@ -27,14 +27,18 @@ Related:
   - SkullbonezSource/Physics/PhysicsScene.cpp
 */
 #include "PhysicsEngine.h"
+#include "PhysicsApi.h"
+
+#include <utility>
 
 using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
-using SkullbonezCore::Physics::ModelRowHint;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyCount;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyRefreshView;
+using SkullbonezCore::Physics::PhysicsAuthoredBodyRegistration;
 using SkullbonezCore::Physics::PhysicsBodyCount;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
+using SkullbonezCore::Physics::PhysicsBodyUpdateDesc;
 using SkullbonezCore::Physics::PhysicsColliderCount;
 using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
@@ -69,18 +73,9 @@ PhysicsAuthoredBodyCount PhysicsEngine::AuthoredBodyDescriptorCount() const
     return m_scene.AuthoredBodyDescriptorCount();
 }
 
-
-bool PhysicsEngine::TryGetAuthoredBodyDescriptor( ModelRowHint bodyRow, PhysicsBodyCreateDesc& outDesc ) const
+bool PhysicsEngine::CanRegisterAuthoredBody( PhysicsAuthoredBodyCount expectedBodyCount ) const
 {
-    return m_scene.TryGetAuthoredBodyDescriptor( bodyRow, outDesc );
-}
-
-
-bool PhysicsEngine::UpdateAuthoredBodyDescriptor( ModelRowHint bodyRow,
-                                                  PhysicsBodyCreateDesc& desc,
-                                                  PhysicsAuthoredBodyCount expectedBodyCount )
-{
-    return m_scene.UpdateAuthoredBodyDescriptor( bodyRow, desc, expectedBodyCount );
+    return m_scene.CanRegisterAuthoredBody( expectedBodyCount );
 }
 
 
@@ -102,29 +97,29 @@ bool PhysicsEngine::RefreshBodyStoreFromAuthoredDescriptors( const PhysicsAuthor
 }
 
 
-void PhysicsEngine::RefreshBodyFromDescriptor( const PhysicsBodyCreateDesc& desc,
-                                               ModelRowHint bodyRow,
-                                               PhysicsBodyCount expectedBodyCount )
+PhysicsAuthoredBodyRegistration PhysicsEngine::RegisterAuthoredBody( const PhysicsBodyCreateDesc& body,
+                                                                     PhysicsColliderCreateDesc collider )
 {
-    m_scene.RefreshBodyFromDescriptor( desc, bodyRow, expectedBodyCount );
+    return m_scene.RegisterAuthoredBody( body, std::move( collider ) );
 }
 
 
-PhysicsBodyHandle PhysicsEngine::RegisterAuthoredBody( const PhysicsBodyCreateDesc& desc )
+bool PhysicsEngine::DestroyAuthoredBody( PhysicsBodyHandle body )
 {
-    return m_scene.RegisterAuthoredBody( desc );
+    return m_scene.DestroyAuthoredBody( body );
 }
 
 
-PhysicsColliderHandle PhysicsEngine::RegisterAuthoredCollider( const PhysicsColliderCreateDesc& desc )
+bool PhysicsEngine::UpdateAuthoredBody( const PhysicsBodyUpdateDesc& update )
 {
-    return m_scene.RegisterAuthoredCollider( desc );
+    return m_scene.UpdateAuthoredBody( update );
 }
 
 
-bool PhysicsEngine::UpdateAuthoredCollider( PhysicsColliderHandle collider, const PhysicsColliderCreateDesc& desc )
+bool PhysicsEngine::UpdateAuthoredBodyAndCollider( const PhysicsBodyUpdateDesc& update,
+                                                   PhysicsColliderCreateDesc collider )
 {
-    return m_scene.UpdateAuthoredCollider( collider, desc );
+    return m_scene.UpdateAuthoredBodyAndCollider( update, std::move( collider ) );
 }
 
 
@@ -248,6 +243,12 @@ void PhysicsEngine::ApplyBodyImpulse( PhysicsBodyHandle body,
 void PhysicsEngine::SetSleepEnabled( bool enabled )
 {
     m_scene.SetPhysicsSleepEnabled( enabled );
+}
+
+
+bool PhysicsEngine::IsSleepEnabled() const
+{
+    return m_scene.IsPhysicsSleepEnabled();
 }
 
 

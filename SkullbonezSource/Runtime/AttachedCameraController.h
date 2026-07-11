@@ -4,10 +4,10 @@ Purpose:
   Owns attach-camera target identity, orbit state, and follow-pose solving.
 
 Mental model:
-  Attach mode follows a physics body through stable body/collider handles, then
-  turns the current body snapshot and camera pose into the next camera pose.
-  Run applies the resulting pose to CameraCollection because it still owns
-  camera lifetime and tween side effects.
+  Attach mode selects and follows a physics body through stable body/collider
+  handles, then turns the current body snapshot and camera pose into the next
+  camera pose. AttachedCameraController owns that durable state and performs
+  synchronous commands through borrowed model stores and cameras.
 
 Glossary:
   Attach target: Physics body/collider identity plus replay id used to recover a
@@ -18,8 +18,8 @@ Glossary:
     start for this solve.
 
 Invariants:
-  - Target recovery uses physics-store handles and replay ids before dense model
-    indices.
+  - Target recovery uses physics-store handles and replay ids; a dense row is
+    retained only as a typed, revalidated cache.
   - The controller does not store borrowed collection or camera pointers.
   - Pose commands are finite and never point eye and view at the same point.
 
@@ -34,6 +34,7 @@ Related:
 #include "../Maths/RotationMatrix.h"
 #include "../Maths/Vector3.h"
 #include "../Physics/PhysicsHandles.h"
+#include "RuntimeCameraMode.h"
 
 #include <cstdint>
 
@@ -42,6 +43,10 @@ namespace SkullbonezCore
 namespace GameObjects
 {
 class GameModelCollection;
+}
+namespace Environment
+{
+class CameraCollection;
 }
 
 namespace Basics
@@ -56,24 +61,25 @@ enum class AttachedCameraSubmode
 
 struct AttachedCameraTarget
 {
-    Physics::PhysicsBodyHandle body;         // Primary live physics identity for follow/orbit sampling.
-    Physics::PhysicsColliderHandle collider; // Shape/radius identity paired with body.
-    int modelIndex = -1;                     // UI/presentation hint; revalidated before use.
-    uint32_t replayBodyId = 0;               // Stable scene-local identity used to recover stale indices.
-    char name[64] = {};                      // Human/debug fallback when replay id cannot recover the target.
+    Physics::PhysicsBodyHandle body;                   // Primary live physics identity for follow/orbit sampling.
+    Physics::PhysicsColliderHandle collider;           // Shape/radius identity paired with body.
+    Physics::ModelRowHint modelRow;                    // Cache only; body/replay id remain authoritative.
+    uint32_t replayBodyId = 0;                         // Stable scene-local identity used to recover stale indices.
+    char name[64] = {};                                // Human/debug fallback when replay id cannot recover the target.
 };
 
 struct AttachedCameraState
 {
-    AttachedCameraTarget target;             // Camera-owned target; replay/editor selections are only seeds.
+    AttachedCameraTarget target;                       // Camera-owned target; replay/editor selections are only seeds.
     AttachedCameraSubmode submode = AttachedCameraSubmode::FixedRelative;
-    bool activeFollow = true;                // false means pinned in world space with mouse released to UI.
+    bool activeFollow = true;                          // false means pinned in world space with mouse released to UI.
     bool hasFixedOffset = false;
     bool hasOrbit = false;
     bool hasLastLookDirection = false;
     bool hasReturnCameraPose = false;
-    bool needsEntryTween = false;            // Next valid follow solve should glide from the visible pose.
-    uint32_t returnCameraHash = CAMERA_FREE; // Selected slot Attach should restore before applying returnEye/view/up.
+    bool needsEntryTween = false;                      // Next valid follow solve should glide from the visible pose.
+    RunCameraMode returnMode = RunCameraMode::Inspect; // Logical workspace restored when Attach exits.
+    uint32_t returnCameraHash = CAMERA_FREE;           // Selected slot Attach should restore before applying returnEye/view/up.
     float orbitYawRadians = 0.0f;
     float orbitPitchRadians = 0.30f;
     float orbitDistance = 8.0f;
@@ -109,12 +115,57 @@ struct AttachedCameraPoseCommand
 
 struct AttachedCameraTargetSelection
 {
-    AttachedCameraPhysicsTarget physics;
+    AttachedCameraPhysicsTarget physics;               // Snapshot used to capture the initial camera-relative offset.
+    Physics::PhysicsBodyHandle body;                   // Exact selected body identity published to interaction composition.
+    Physics::PhysicsColliderHandle collider;           // Collider paired with body in the same store snapshot.
+    Physics::ModelRowHint modelRow;                    // Dense row valid for this synchronous command only.
+};
+
+enum class AttachedCameraSeedResult
+{
+    Failed,                                            // A supplied seed no longer resolved; no presentation effect should be published.
+    ReusedTarget,                                      // Existing stable identity was refreshed without changing editor selection.
+    SelectedSeed,                                      // The supplied replay/editor hint became the Attach target.
+    NoSeed                                             // Attach remains active and waits for a world click.
 };
 
 class AttachedCameraController
 {
   public:
+    AttachedCameraState& State();
+    const AttachedCameraState& State() const;
+    // Lifetime: returns thread-local presentation text valid until the next
+    // ModeLabel call on the same thread; callers must not retain the pointer.
+    const char* ModeLabel() const;
+    void CaptureReturnState( RunCameraMode previousMode, Environment::CameraCollection& cameras );
+    void RestoreReturnState( Environment::CameraCollection& cameras );
+    bool ResolveTargetIdentity( const GameObjects::GameModelCollection& collection, int& outModelIndex );
+    bool TickFollow( const GameObjects::GameModelCollection& collection,
+                     Environment::CameraCollection& cameras,
+                     float orbitYawDelta,
+                     float orbitPitchDelta );
+    bool CycleMode( const GameObjects::GameModelCollection& collection, Environment::CameraCollection& cameras );
+    bool TogglePin( const GameObjects::GameModelCollection& collection, Environment::CameraCollection& cameras );
+    bool ApplyOrbitInput( const GameObjects::GameModelCollection& collection,
+                          Environment::CameraCollection& cameras,
+                          bool attachModeActive,
+                          int unhandledWheelDelta,
+                          bool uiBlocksCameraMouse );
+    bool SetTarget( const GameObjects::GameModelCollection& collection,
+                    Environment::CameraCollection& cameras,
+                    int modelIndex,
+                    AttachedCameraTargetSelection& outSelection );
+    AttachedCameraSeedResult SeedTarget( const GameObjects::GameModelCollection& collection,
+                                         Environment::CameraCollection& cameras,
+                                         int seedModelIndex,
+                                         AttachedCameraTargetSelection& outSelection );
+    bool PickTarget( const GameObjects::GameModelCollection& collection,
+                     Environment::CameraCollection& cameras,
+                     bool hasWorldRay,
+                     const Math::Vector::Vector3& rayOrigin,
+                     const Math::Vector::Vector3& rayDirection,
+                     AttachedCameraTargetSelection& outSelection );
+
     static void Reset( AttachedCameraState& state );
     static void ClearTarget( AttachedCameraState& state );
     static bool TryAttachTargetHandlesFromModelIndex( const GameObjects::GameModelCollection& collection,
@@ -130,10 +181,6 @@ class AttachedCameraController
     static bool TryResolveRagdollHead( const GameObjects::GameModelCollection& collection,
                                        int selectedModelIndex,
                                        int& outHeadModelIndex );
-    static bool SelectTarget( const GameObjects::GameModelCollection& collection,
-                              AttachedCameraState& state,
-                              int modelIndex,
-                              AttachedCameraTargetSelection& outSelection );
     static bool CycleSubmode( const GameObjects::GameModelCollection& collection,
                               AttachedCameraState& state,
                               AttachedCameraPhysicsTarget& outTarget,
@@ -155,6 +202,13 @@ class AttachedCameraController
                                  float orbitYawDelta,
                                  float orbitPitchDelta,
                                  AttachedCameraPoseCommand& outCommand );
+
+  private:
+    static bool SelectTarget( const GameObjects::GameModelCollection& collection,
+                              AttachedCameraState& state,
+                              int modelIndex,
+                              AttachedCameraTargetSelection& outSelection );
+    AttachedCameraState m_state;
 };
 } // namespace Basics
 } // namespace SkullbonezCore

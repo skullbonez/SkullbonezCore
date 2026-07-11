@@ -4,10 +4,10 @@ Purpose:
   Implements attach-camera target recovery and pose solving.
 
 Mental model:
-  The controller is a pure state transformer over attach-camera state, physics
-  target snapshots, and the current camera pose. It repairs stale target handles,
-  maintains orbit state, and emits a pose command; Run remains the owner of
-  camera collection mutation and UI/input latches.
+  The controller owns Attach target selection, durable follow/orbit state, and
+  synchronous camera pose mutation. It borrows model stores and cameras for one
+  command at a time; composition code publishes returned selection facts to UI
+  and input owners without reaching back into controller state.
 
 Glossary:
   Replay body id: Stable physics identity used to recover a followed body when
@@ -27,6 +27,8 @@ Related:
   - SkullbonezSource/Runtime/RunInput.cpp
 */
 #include "AttachedCameraController.h"
+#include "CameraCollection.h"
+#include "RuntimePickService.h"
 #include "../GameObjects/GameModelCollection.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsBodyStore.h"
@@ -201,6 +203,270 @@ Vector3 AttachedCameraOrbitOffset( float yaw, float pitch, float distance )
 } // namespace
 
 
+AttachedCameraState& AttachedCameraController::State()
+{
+    return m_state;
+}
+
+
+const AttachedCameraState& AttachedCameraController::State() const
+{
+    return m_state;
+}
+
+
+const char* AttachedCameraController::ModeLabel() const
+{
+    static thread_local char label[96];
+    const char* submode = "Fixed";
+    if ( m_state.submode == AttachedCameraSubmode::VelocityForward )
+    {
+        submode = "Velocity";
+    }
+    else if ( m_state.submode == AttachedCameraSubmode::RagdollEyes )
+    {
+        submode = "Eyes";
+    }
+    if ( !m_state.target.modelRow.IsValid() )
+    {
+        sprintf_s( label, sizeof( label ), "Attach: pick target%s", m_state.activeFollow ? "" : " Pinned" );
+    }
+    else
+    {
+        sprintf_s( label,
+                   sizeof( label ),
+                   "Attach: %s %s%s",
+                   submode,
+                   m_state.target.name[0] ? m_state.target.name : "target",
+                   m_state.activeFollow ? "" : " Pinned" );
+    }
+    return label;
+}
+
+
+void AttachedCameraController::CaptureReturnState( RunCameraMode previousMode, Environment::CameraCollection& cameras )
+{
+    if ( previousMode == RunCameraMode::Attach )
+    {
+        return;
+    }
+    m_state.returnMode = previousMode;
+    m_state.hasReturnCameraPose = false;
+    // Why: capture the render pose, not only the selected camera slot. Attach
+    // may begin while another transition is still visible.
+    m_state.returnCameraHash = cameras.GetSelectedCameraName();
+    m_state.returnEye = cameras.GetRenderCameraTranslation();
+    m_state.returnView = cameras.GetRenderCameraView();
+    m_state.returnUp = cameras.GetRenderCameraUp();
+    if ( VectorMagSquared( m_state.returnView - m_state.returnEye ) <= TOLERANCE * TOLERANCE )
+    {
+        m_state.returnEye = cameras.GetCameraTranslation();
+        m_state.returnView = cameras.GetCameraView();
+        m_state.returnUp = cameras.GetCameraUp();
+    }
+    m_state.hasReturnCameraPose = true;
+}
+
+
+void AttachedCameraController::RestoreReturnState( Environment::CameraCollection& cameras )
+{
+    if ( !m_state.hasReturnCameraPose )
+    {
+        return;
+    }
+    if ( cameras.HasCamera( m_state.returnCameraHash ) && !cameras.IsCameraSelected( m_state.returnCameraHash ) )
+    {
+        cameras.SelectCamera( m_state.returnCameraHash, false );
+    }
+    cameras.TweenPrimaryToPose( m_state.returnEye, m_state.returnView, m_state.returnUp );
+    m_state.hasReturnCameraPose = false;
+}
+
+
+bool AttachedCameraController::ResolveTargetIdentity( const GameObjects::GameModelCollection& collection,
+                                                      int& outModelIndex )
+{
+    if ( TryResolveTargetIdentity( collection, m_state.target, outModelIndex ) )
+    {
+        return true;
+    }
+    ClearTarget( m_state );
+    return false;
+}
+
+
+bool AttachedCameraController::TickFollow( const GameObjects::GameModelCollection& collection,
+                                           Environment::CameraCollection& cameras,
+                                           float orbitYawDelta,
+                                           float orbitPitchDelta )
+{
+    if ( !m_state.activeFollow )
+    {
+        return false;
+    }
+    int modelIndex = -1;
+    AttachedCameraPhysicsTarget target;
+    if ( !TryResolvePhysicsTarget( collection, m_state.target, target, &modelIndex ) )
+    {
+        return false;
+    }
+    AttachedCameraPose currentPose;
+    currentPose.eye = cameras.GetCameraTranslation();
+    currentPose.view = cameras.GetCameraView();
+    currentPose.up = cameras.GetCameraUp();
+    AttachedCameraPoseCommand command;
+    if ( !BuildFollowPose( collection,
+                           m_state,
+                           target,
+                           modelIndex,
+                           currentPose,
+                           orbitYawDelta,
+                           orbitPitchDelta,
+                           command ) )
+    {
+        return false;
+    }
+    // Why: only the first valid solve starts a tween. Later solves retarget the
+    // live destination so a moving body never restarts the transition.
+    if ( command.startEntryTween )
+    {
+        cameras.TweenPrimaryToPose( command.pose.eye, command.pose.view, command.pose.up );
+    }
+    else
+    {
+        cameras.SetPrimaryPose( command.pose.eye, command.pose.view, command.pose.up );
+    }
+    return true;
+}
+
+
+bool AttachedCameraController::CycleMode( const GameObjects::GameModelCollection& collection,
+                                          Environment::CameraCollection& cameras )
+{
+    AttachedCameraPhysicsTarget target;
+    bool shouldCaptureFixedOffset = false;
+    if ( !CycleSubmode( collection, m_state, target, shouldCaptureFixedOffset ) )
+    {
+        return false;
+    }
+    if ( shouldCaptureFixedOffset )
+    {
+        AttachedCameraPose pose{ cameras.GetCameraTranslation(), cameras.GetCameraView(), cameras.GetCameraUp() };
+        CaptureFixedOffset( m_state, pose, target );
+    }
+    return true;
+}
+
+
+bool AttachedCameraController::TogglePin( const GameObjects::GameModelCollection& collection,
+                                          Environment::CameraCollection& cameras )
+{
+    m_state.activeFollow = !m_state.activeFollow;
+    if ( m_state.activeFollow )
+    {
+        AttachedCameraPhysicsTarget target;
+        if ( TryResolvePhysicsTarget( collection, m_state.target, target ) )
+        {
+            AttachedCameraPose pose{ cameras.GetCameraTranslation(), cameras.GetCameraView(), cameras.GetCameraUp() };
+            CaptureFixedOffset( m_state, pose, target );
+        }
+        m_state.needsEntryTween = true;
+    }
+    return m_state.activeFollow;
+}
+
+
+bool AttachedCameraController::ApplyOrbitInput( const GameObjects::GameModelCollection& collection,
+                                                Environment::CameraCollection& cameras,
+                                                bool attachModeActive,
+                                                int unhandledWheelDelta,
+                                                bool uiBlocksCameraMouse )
+{
+    if ( !attachModeActive || !m_state.activeFollow || m_state.submode == AttachedCameraSubmode::RagdollEyes ||
+         uiBlocksCameraMouse )
+    {
+        return false;
+    }
+    AttachedCameraPhysicsTarget target;
+    if ( !TryResolvePhysicsTarget( collection, m_state.target, target ) )
+    {
+        return false;
+    }
+    if ( !m_state.hasOrbit )
+    {
+        AttachedCameraPose pose{ cameras.GetCameraTranslation(), cameras.GetCameraView(), cameras.GetCameraUp() };
+        CaptureOrbit( m_state, pose, target );
+    }
+    return ApplyOrbitWheel( m_state, target, unhandledWheelDelta );
+}
+
+
+bool AttachedCameraController::SetTarget( const GameObjects::GameModelCollection& collection,
+                                          Environment::CameraCollection& cameras,
+                                          int modelIndex,
+                                          AttachedCameraTargetSelection& outSelection )
+{
+    if ( !SelectTarget( collection, m_state, modelIndex, outSelection ) )
+    {
+        return false;
+    }
+    const AttachedCameraPose pose{ cameras.GetCameraTranslation(), cameras.GetCameraView(), cameras.GetCameraUp() };
+    CaptureFixedOffset( m_state, pose, outSelection.physics );
+    return true;
+}
+
+
+AttachedCameraSeedResult AttachedCameraController::SeedTarget( const GameObjects::GameModelCollection& collection,
+                                                               Environment::CameraCollection& cameras,
+                                                               int seedModelIndex,
+                                                               AttachedCameraTargetSelection& outSelection )
+{
+    outSelection = AttachedCameraTargetSelection{};
+    AttachedCameraPhysicsTarget currentTarget;
+    if ( TryResolvePhysicsTarget( collection, m_state.target, currentTarget ) )
+    {
+        const AttachedCameraPose pose{ cameras.GetCameraTranslation(), cameras.GetCameraView(), cameras.GetCameraUp() };
+        CaptureFixedOffset( m_state, pose, currentTarget );
+        m_state.activeFollow = true;
+        return AttachedCameraSeedResult::ReusedTarget;
+    }
+    if ( seedModelIndex >= 0 )
+    {
+        return SetTarget( collection, cameras, seedModelIndex, outSelection ) ? AttachedCameraSeedResult::SelectedSeed
+                                                                              : AttachedCameraSeedResult::Failed;
+    }
+    m_state.activeFollow = true;
+    return AttachedCameraSeedResult::NoSeed;
+}
+
+
+bool AttachedCameraController::PickTarget( const GameObjects::GameModelCollection& collection,
+                                           Environment::CameraCollection& cameras,
+                                           bool hasWorldRay,
+                                           const Vector3& rayOrigin,
+                                           const Vector3& rayDirection,
+                                           AttachedCameraTargetSelection& outSelection )
+{
+    outSelection = AttachedCameraTargetSelection{};
+    RuntimePickResult pick;
+    if ( hasWorldRay )
+    {
+        RuntimePickRequest request;
+        request.purpose = RuntimePickPurpose::AttachCameraTarget;
+        request.bodyStore = &collection.BodyStore();
+        request.colliderStore = &collection.Colliders();
+        request.rayOrigin = rayOrigin;
+        request.rayDirection = rayDirection;
+        if ( RuntimePickService::TryPickModel( request, pick ) )
+        {
+            return SetTarget( collection, cameras, pick.modelRow.value, outSelection );
+        }
+    }
+    ClearTarget( m_state );
+    return false;
+}
+
+
 void AttachedCameraController::Reset( AttachedCameraState& state )
 {
     state = AttachedCameraState{};
@@ -232,7 +498,7 @@ bool AttachedCameraController::TryAttachTargetHandlesFromModelIndex( const GameM
 
     target.body = body->handle;
     target.collider = collider->handle;
-    target.modelIndex = modelIndex;
+    target.modelRow.value = modelIndex;
     target.replayBodyId = body->replayBodyId;
     return true;
 }
@@ -252,7 +518,7 @@ bool AttachedCameraController::TryResolveTargetIdentity( const GameModelCollecti
         const int modelIndex = bodyStore.ModelIndexForHandle( target.body );
         const ColliderRecord* collider =
             target.collider.IsValid() ? colliderStore.RecordForHandle( target.collider ) : nullptr;
-        if ( body && modelIndex >= 0 && ( !collider || collider->body != body->handle ) )
+        if ( body && ( !collider || collider->body != body->handle ) )
         {
             const PhysicsColliderHandle colliderHandle = colliderStore.HandleForBodyHandle( body->handle );
             collider = colliderStore.RecordForHandle( colliderHandle );
@@ -267,7 +533,7 @@ bool AttachedCameraController::TryResolveTargetIdentity( const GameModelCollecti
             // order. Model index is kept as a presentation hint after the live
             // handle proves which dense row currently owns the body.
             target.body = body->handle;
-            target.modelIndex = modelIndex;
+            target.modelRow.value = modelIndex;
             target.replayBodyId = body->replayBodyId;
             outModelIndex = modelIndex;
             return true;
@@ -275,7 +541,7 @@ bool AttachedCameraController::TryResolveTargetIdentity( const GameModelCollecti
     }
 
     const int modelCount = bodyStore.Count();
-    const int cachedIndex = target.modelIndex;
+    const int cachedIndex = target.modelRow.value;
     if ( cachedIndex >= 0 && cachedIndex < modelCount )
     {
         const bool hasReplayId = target.replayBodyId != 0;
@@ -376,10 +642,12 @@ bool AttachedCameraController::TryResolveRagdollHead( const GameModelCollection&
         return true;
     }
 
-    const int rootModelIndex = collection.GroupRootModelIndexAt( selectedModelIndex );
+    // Why: the suffix fallback still serves old ragdoll display names, but its
+    // membership boundary is the stable group root rather than a cached row.
+    const PhysicsSceneObjectId rootObjectId = collection.GroupRootObjectIdAt( selectedModelIndex );
     for ( int i = 0; i < modelCount; ++i )
     {
-        if ( collection.IsSimpleRagdollPart( i ) && collection.GroupRootModelIndexAt( i ) == rootModelIndex &&
+        if ( collection.IsSimpleRagdollPart( i ) && collection.GroupRootObjectIdAt( i ).value == rootObjectId.value &&
              EndsWith( PresentationNameForModelIndex( collection, i ), "_head" ) )
         {
             outHeadModelIndex = i;
@@ -427,6 +695,9 @@ bool AttachedCameraController::SelectTarget( const GameModelCollection& collecti
     }
 
     outSelection.physics = targetState;
+    outSelection.body = state.target.body;
+    outSelection.collider = state.target.collider;
+    outSelection.modelRow.value = modelIndex;
     return true;
 }
 

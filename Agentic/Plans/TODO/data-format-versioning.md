@@ -3,11 +3,17 @@
 Date: 2026-07-11
 Status: Not started — 0%
 Impact area: scene parser/writer, asset library JSON, hull baking, tests
-Origin: 2026-07-11 architecture gap review. No data file carries a format
-version: `TestSceneParser` reads no version field, `*.assets.json` and
-`*.hull` have no schema stamp. Every past format change has been
-"change the parser and hope"; there is no policy for reading old files or
-rejecting future ones.
+Origin: 2026-07-11 architecture gap review.
+**Rescoped on 2026-07-11 merge reconciliation:** the completed
+physics-authority C1b work shipped scene schema versioning the same day —
+`TestSceneParser` now reads a required document `version`
+(`m_schemaVersion`, v2 current, v1 readable through one deterministic
+upgrade path). The scene half of the original problem is solved. Remaining
+scope: `*.assets.json` and `*.hull` still carry no schema stamp, `engine.cfg`
+is unversioned, and there is no *uniform* policy or migration tool across
+formats — the scene implementation is the pattern to generalize, not
+replace. Phase V1 applies to assets/hull/cfg only; scene work in this plan
+is limited to aligning the policy wording with what shipped.
 
 ## Goal
 

@@ -23,7 +23,7 @@
 // Related:
 //   - SkullbonezSource/Rendering/IRenderResourceFactory.h
 //   - SkullbonezSource/World/Terrain.cpp
-//   - engine-cleanup-plans/05-behavioral-test-coverage.md
+//   - Agentic/Plans/TODO/behavioral-test-depth.md
 //
 #pragma once
 

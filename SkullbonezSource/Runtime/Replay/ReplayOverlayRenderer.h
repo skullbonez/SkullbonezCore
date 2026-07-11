@@ -38,13 +38,9 @@ class IRenderCommandContext;
 namespace SkullbonezCore::Physics
 {
 class PhysicsBodyStore;
+class PhysicsEngine;
 struct PhysicsWorldForces;
 } // namespace SkullbonezCore::Physics
-
-namespace SkullbonezCore::GameObjects
-{
-class GameModelCollection;
-}
 
 namespace SkullbonezCore::Threading
 {
@@ -71,6 +67,7 @@ struct ReplayOverlayRenderContext
     bool uiVisible = false;
     bool uiMinimized = false;
     bool scenePhysicsEnabled = false;
+    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
     int screenW = 0;
     int screenH = 0;
     double nowSeconds = 0.0;
@@ -82,7 +79,8 @@ struct ReplayPathVisualizerRenderContext
     // pass. The visualizer may update replay-owned caches, but must not retain
     // owner references after returning.
     ReplayRuntime& replayRuntime;
-    SkullbonezCore::GameObjects::GameModelCollection& models;
+    SkullbonezCore::Physics::PhysicsEngine& physics;
+    const SceneEntityStore& entities;
     const EngineConfig& config;
     const SkullbonezCore::Physics::PhysicsWorldForces& worldForces;
     SkullbonezCore::Threading::WorkerPool& workerPool;

@@ -4,21 +4,24 @@ Purpose:
   Defines the small command/event vocabulary used by runtime input routing.
 
 Mental model:
-  Runtime input code converts mouse/editor decisions into narrow command
-  records before mutating selection state. These records describe intent; the
-  process-level Run object still decides when to execute them.
+  Runtime input code converts mouse/editor decisions into narrow selection or
+  gesture commands. The owning controller validates and commits the mutation;
+  only then does it publish the corresponding event.
 
 Glossary:
   Command: A synchronous runtime mutation request emitted by routed input.
   Event: A lightweight observation record published after a command succeeds.
   Selection scope: Which workspace, editor or inspect, owns a selected model.
-  Selection body: Store-owned body/collider handles for the selected object;
-    the model index is only the UI/order hint paired with those handles.
+  Selection body: Store-owned body/collider handles captured when the command
+    is enqueued; dense rows are derived only during synchronous commit.
+  Gesture command: Typed begin/end request carrying capture owner and the
+    owner-specific body, axis, or gizmo-mode payload needed for the drag.
 
 Invariants:
-  - Selection commands carry physics handles when the caller already has them.
-  - Model indices remain frame-local UI hints, not physics authority.
+  - Non-clear selection commands capture body/collider handles before enqueue.
+  - Command payloads never retain a dense row as object identity.
   - Events must not mutate world state; they describe completed mutations.
+  - Rejected gesture commands leave the event empty and cannot claim capture.
 
 Related:
   - SkullbonezSource/Runtime/RunInput.cpp
@@ -28,6 +31,7 @@ Related:
 #pragma once
 
 #include "../Physics/PhysicsHandles.h"
+#include "RuntimeInteractionController.h"
 
 namespace SkullbonezCore
 {
@@ -50,11 +54,22 @@ enum class RuntimeInteractionSelectionScope
 struct RuntimeInteractionCommand
 {
     RuntimeInteractionCommandType type = RuntimeInteractionCommandType::None;
-    int modelIndex = -1;
     Physics::PhysicsBodyHandle body;
     Physics::PhysicsColliderHandle collider;
     RuntimeInteractionSelectionScope selectionScope = RuntimeInteractionSelectionScope::Editor;
     bool claimSelectionOwner = true;
+};
+
+struct RuntimeInteractionSelectionPlan
+{
+    Physics::ModelRowHint previousModelRow;
+    Physics::ModelRowHint modelRow;
+    Physics::PhysicsBodyHandle previousBody;
+    Physics::PhysicsBodyHandle body;
+    Physics::PhysicsColliderHandle previousCollider;
+    Physics::PhysicsColliderHandle collider;
+    RuntimeInteractionSelectionScope selectionScope = RuntimeInteractionSelectionScope::Editor;
+    bool claimSelectionOwner = false;
 };
 
 enum class RuntimeInteractionEventType
@@ -66,13 +81,43 @@ enum class RuntimeInteractionEventType
 struct RuntimeInteractionEvent
 {
     RuntimeInteractionEventType type = RuntimeInteractionEventType::None;
-    int previousModelIndex = -1;
-    int modelIndex = -1;
+    Physics::ModelRowHint previousModelRow;
+    Physics::ModelRowHint modelRow;
     Physics::PhysicsBodyHandle previousBody;
     Physics::PhysicsBodyHandle body;
     Physics::PhysicsColliderHandle previousCollider;
     Physics::PhysicsColliderHandle collider;
     RuntimeInteractionSelectionScope selectionScope = RuntimeInteractionSelectionScope::Editor;
+};
+
+enum class RuntimeGestureCommandAction
+{
+    Begin,
+    End
+};
+
+struct RuntimeGestureCommand
+{
+    RuntimeGestureCommandAction action = RuntimeGestureCommandAction::Begin;
+    RuntimeInteractionGesture gesture;
+    RuntimePointerCaptureOwner captureOwner = RuntimePointerCaptureOwner::ToolGesture;
+    InteractionExitReason reason = InteractionExitReason::BeginGesture;
+};
+
+enum class RuntimeGestureEventType
+{
+    None,
+    Began,
+    Ended
+};
+
+struct RuntimeGestureEvent
+{
+    RuntimeGestureEventType type = RuntimeGestureEventType::None;
+    RuntimeInteractionGesture previousGesture;
+    RuntimeInteractionGesture gesture;
+    RuntimePointerCaptureOwner previousPointerCapture = RuntimePointerCaptureOwner::None;
+    RuntimePointerCaptureOwner pointerCapture = RuntimePointerCaptureOwner::None;
 };
 
 } // namespace Basics
