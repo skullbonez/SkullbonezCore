@@ -168,6 +168,7 @@ struct RuntimePointerEvent
     RuntimePointerButton button = RuntimePointerButton::None;
     int clientX = 0;
     int clientY = 0;
+    bool hasClientPosition = false;
     bool leftDown = false;
     bool leftPressed = false;
     bool leftReleased = false;
@@ -181,6 +182,9 @@ struct RuntimePointerEvent
     bool suppressWorldAction = false;
 };
 
+// Concept: the published post-UI snapshot is the only input value later
+// physics, replay, and render phases may observe. DeviceInputFrame remains
+// private to the input turn that sampled hardware.
 struct RuntimeInputSnapshot
 {
     RuntimePointerEvent pointer;
@@ -188,6 +192,9 @@ struct RuntimeInputSnapshot
     bool appFocused = true;
     bool uiBlocksKeyboard = false;
     bool uiBlocksMouse = false;
+    bool enterDown = false; // Replay restore level sampled with this frame.
+    bool pageDown = false;  // Water-height decrease level.
+    bool pageUp = false;    // Water-height increase level.
 };
 
 struct RuntimeInteractionFramePolicy

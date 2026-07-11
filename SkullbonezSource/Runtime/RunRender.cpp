@@ -66,7 +66,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
     const RenderToolOverlayView toolOverlay{
         m_runtimeTools,
         m_runtimeTools.InspectGizmoInteractionActive( m_camera.mode, m_replayRuntime.InspectionActive() ),
-        m_inputRouter.DeviceFrame().keys.IsDown( VK_CONTROL ),
+        m_inputRouter.RuntimeSnapshot().pointer.controlDown,
         attachedTargetIndex,
         m_attachedCamera.State().activeFollow };
     m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext{ m_renderBackendView,

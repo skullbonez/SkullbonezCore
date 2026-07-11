@@ -785,7 +785,8 @@ void Run::TickPhysics( double secondsPerFrame )
     }
 
     const bool replayLiveAdvanceHeld = m_replayRuntime.Scrubber().liveAdvanceHeld;
-    const bool stepRequested = m_inputRouter.DeviceFrame().keys.IsDown( VK_SPACE );
+    const RuntimeInputSnapshot& inputSnapshot = m_inputRouter.RuntimeSnapshot();
+    const bool stepRequested = inputSnapshot.frameInput.stepHeld;
     const bool replayCapture = m_replayRuntime.IsCaptureEnabled();
 #ifdef _DEBUG
     const bool physicsCapture = m_diagnosticsRuntime.PerfLog().physicsRegressionLogOverride[0] != '\0' ||
@@ -799,11 +800,9 @@ void Run::TickPhysics( double secondsPerFrame )
                                       stepRequested,
                                       false,
                                       replayLiveAdvanceHeld,
-                                      m_inputRouter.DeviceFrame().rightDown,
+                                      inputSnapshot.pointer.rightDown,
                                       m_runtimeTools.Editor().viewportLookActive,
-                                      m_replayRuntime.InspectionMouseLookActive( m_inputRouter.DeviceFrame().rightDown,
-                                                                                 m_UI.WantsNativeMouseCursor(),
-                                                                                 m_UI.BlocksCameraMouse() ),
+                                      inputSnapshot.frameInput.replayInspectionLookActive,
                                       physicsCapture,
                                       SceneState().timeScale } );
     if ( m_debug.isCrossScenePauseLocked )
@@ -981,7 +980,7 @@ void Run::HoldCompletedInteractiveScene()
 bool Run::TickScreenshots()
 {
     PROFILE_BEGIN( "Frame/PostDraw/Screenshots" );
-    if ( m_debug.isCrossScenePauseLocked && !m_inputRouter.DeviceFrame().keys.IsDown( VK_SPACE ) )
+    if ( m_debug.isCrossScenePauseLocked && !m_inputRouter.RuntimeSnapshot().frameInput.stepHeld )
     {
         PROFILE_END( "Frame/PostDraw/Screenshots" );
         return false;
@@ -1099,7 +1098,7 @@ bool Run::TickScreenshots()
 
 void Run::TickAutoCycle()
 {
-    if ( m_debug.isCrossScenePauseLocked && !m_inputRouter.DeviceFrame().keys.IsDown( VK_SPACE ) )
+    if ( m_debug.isCrossScenePauseLocked && !m_inputRouter.RuntimeSnapshot().frameInput.stepHeld )
     {
         return;
     }
@@ -1183,7 +1182,7 @@ bool Run::TickSceneAdvance()
                                         .ok;
     };
     const bool sceneProceedAllowed =
-        !m_debug.isCrossScenePauseLocked || m_inputRouter.DeviceFrame().keys.IsDown( VK_SPACE );
+        !m_debug.isCrossScenePauseLocked || m_inputRouter.RuntimeSnapshot().frameInput.stepHeld;
     if ( !sceneProceedAllowed )
     {
         return false;
@@ -1440,8 +1439,8 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
 
 void Run::UpdateWaterHeightControls( float dt )
 {
-    const bool downNow = m_inputRouter.DeviceFrame().keys.IsDown( VK_NEXT );
-    const bool upNow = m_inputRouter.DeviceFrame().keys.IsDown( VK_PRIOR );
+    const bool downNow = m_inputRouter.RuntimeSnapshot().pageDown;
+    const bool upNow = m_inputRouter.RuntimeSnapshot().pageUp;
     if ( downNow == upNow )
     {
         return;

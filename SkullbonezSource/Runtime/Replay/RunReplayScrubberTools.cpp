@@ -398,7 +398,7 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
     };
     PROFILE_SCOPED( "Frame/Replay/ScrubberInput" );
     const RuntimeMouseEdges& pointer = m_inputRouter.UiSnapshot().mouse;
-    const bool restoreDown = m_inputRouter.DeviceFrame().keys.IsDown( VK_RETURN );
+    const bool restoreDown = m_inputRouter.RuntimeSnapshot().enterDown;
     const ReplayRuntime::ScrubberInputFrame inputFrame =
         m_replayRuntime.BeginScrubberInputFrame( pointer.leftPressed, pointer.leftReleased, restoreDown );
     const bool leftPressed = inputFrame.leftPressed;
@@ -425,12 +425,12 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
         return false;
     }
 
-    const DeviceInputFrame& deviceFrame = m_inputRouter.DeviceFrame();
-    if ( !deviceFrame.hasClientPosition )
+    const RuntimePointerEvent& runtimePointer = m_inputRouter.RuntimeSnapshot().pointer;
+    if ( !runtimePointer.hasClientPosition )
     {
         return false;
     }
-    const POINT mouse{ deviceFrame.clientX, deviceFrame.clientY };
+    const POINT mouse{ runtimePointer.clientX, runtimePointer.clientY };
     m_replayRuntime.Scrubber().mouseX = mouse.x;
     m_replayRuntime.Scrubber().mouseY = mouse.y;
 

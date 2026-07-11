@@ -646,11 +646,11 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
 
     if ( !uiBlocksMouse && leftPressed )
     {
-        const DeviceInputFrame& deviceFrame = m_inputRouter.DeviceFrame();
+        const RuntimePointerEvent& runtimePointer = m_inputRouter.RuntimeSnapshot().pointer;
         ReplayVelocityBodyView body;
-        if ( deviceFrame.hasClientPosition && tryResolveVelocityBody( body ) && !body.fixed )
+        if ( runtimePointer.hasClientPosition && tryResolveVelocityBody( body ) && !body.fixed )
         {
-            const POINT mouse{ deviceFrame.clientX, deviceFrame.clientY };
+            const POINT mouse{ runtimePointer.clientX, runtimePointer.clientY };
             if ( m_replayRuntime.VelocityEdit().hotAngularAxis >= 0 )
             {
                 float startAngle = 0.0f;

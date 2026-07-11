@@ -161,6 +161,18 @@ void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBind
 {
     m_deviceFrame = frame;
     m_uiSnapshot = {};
+    m_runtimeSnapshot = {};
+    m_runtimeSnapshot.appFocused = frame.appFocused;
+    m_runtimeSnapshot.pointer.hasClientPosition = frame.hasClientPosition;
+    m_runtimeSnapshot.pointer.clientX = frame.clientX;
+    m_runtimeSnapshot.pointer.clientY = frame.clientY;
+    m_runtimeSnapshot.pointer.leftDown = frame.leftDown;
+    m_runtimeSnapshot.pointer.rightDown = frame.rightDown;
+    m_runtimeSnapshot.pointer.controlDown = frame.keys.IsDown( VK_CONTROL );
+    m_runtimeSnapshot.pointer.shiftDown = frame.keys.IsDown( VK_SHIFT );
+    m_runtimeSnapshot.enterDown = frame.keys.IsDown( VK_RETURN );
+    m_runtimeSnapshot.pageDown = frame.keys.IsDown( VK_NEXT );
+    m_runtimeSnapshot.pageUp = frame.keys.IsDown( VK_PRIOR );
     output.Reset();
     m_actionSampledThisFrame.fill( false );
     m_frameEdges.fill( InputActionEdge::Released );
@@ -303,6 +315,7 @@ void InputRouter::Reset()
     m_lastTapSeconds.fill( -1000.0 );
     m_deviceFrame = {};
     m_uiSnapshot = {};
+    m_runtimeSnapshot = {};
     m_nativeCaptureRequested = false;
     m_committedNativeCapture = false;
     m_cursorVisibleRequested = true;
@@ -340,8 +353,12 @@ RuntimeInputSnapshot InputRouter::BuildRuntimeSnapshot( const RuntimeInteraction
     snapshot.appFocused = m_deviceFrame.appFocused;
     snapshot.uiBlocksKeyboard = m_uiSnapshot.blocksKeyboard;
     snapshot.uiBlocksMouse = m_uiSnapshot.blocksCameraMouse;
+    snapshot.enterDown = m_deviceFrame.keys.IsDown( VK_RETURN );
+    snapshot.pageDown = m_deviceFrame.keys.IsDown( VK_NEXT );
+    snapshot.pageUp = m_deviceFrame.keys.IsDown( VK_PRIOR );
     if ( m_deviceFrame.hasClientPosition )
     {
+        snapshot.pointer.hasClientPosition = true;
         snapshot.pointer.clientX = m_deviceFrame.clientX;
         snapshot.pointer.clientY = m_deviceFrame.clientY;
     }
@@ -369,24 +386,38 @@ RuntimeInputSnapshot InputRouter::BuildRuntimeSnapshot( const RuntimeInteraction
 }
 
 
+const RuntimeInputSnapshot& InputRouter::PublishRuntimeSnapshot( const RuntimeInteractionFrameInput& frameInput,
+                                                                 bool suppressWorldAction )
+{
+    m_runtimeSnapshot = BuildRuntimeSnapshot( frameInput, suppressWorldAction );
+    return m_runtimeSnapshot;
+}
+
+
+const RuntimeInputSnapshot& InputRouter::RuntimeSnapshot() const
+{
+    return m_runtimeSnapshot;
+}
+
+
 PointerPresentationPolicy InputRouter::EvaluatePointerPresentation( const PointerPresentationPolicyInput& input ) const
 {
     PointerPresentationPolicy policy;
-    if ( !m_deviceFrame.appFocused || m_uiSnapshot.blocksCameraMouse )
+    if ( !m_runtimeSnapshot.appFocused || m_uiSnapshot.blocksCameraMouse )
     {
         return policy;
     }
     if ( input.editorModeEnabled )
     {
-        policy.mouseLookOwnsCursor = input.editorViewportLookActive || m_deviceFrame.rightDown;
+        policy.mouseLookOwnsCursor = input.editorViewportLookActive || m_runtimeSnapshot.pointer.rightDown;
     }
     else if ( input.replayInspectionActive )
     {
-        policy.mouseLookOwnsCursor = input.replayInspectionLookActive || m_deviceFrame.rightDown;
+        policy.mouseLookOwnsCursor = input.replayInspectionLookActive || m_runtimeSnapshot.pointer.rightDown;
     }
     else
     {
-        policy.mouseLookOwnsCursor = m_deviceFrame.rightDown;
+        policy.mouseLookOwnsCursor = m_runtimeSnapshot.pointer.rightDown;
     }
     policy.hideNativeCursor =
         policy.mouseLookOwnsCursor || ( input.editorModeEnabled && input.editorPlacementModeEnabled &&

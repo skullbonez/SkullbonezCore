@@ -113,7 +113,7 @@ PointerPresentationPolicy EvaluateRuntimePointerPresentation( const InputRouter&
                                                               const RunEditorPlacementState& editor,
                                                               const ReplayRuntime& replayRuntime )
 {
-    const DeviceInputFrame& deviceFrame = inputRouter.DeviceFrame();
+    const RuntimeInputSnapshot& runtimeSnapshot = inputRouter.RuntimeSnapshot();
     const UiInputHitSnapshot& uiSnapshot = inputRouter.UiSnapshot();
     PointerPresentationPolicyInput input;
     input.editorModeEnabled = editor.editorModeEnabled;
@@ -122,7 +122,7 @@ PointerPresentationPolicy EvaluateRuntimePointerPresentation( const InputRouter&
     input.editorPlacementPreviewVisible = editor.placementPreviewVisible;
     input.replayInspectionActive = replayRuntime.InspectionActive();
     input.replayInspectionLookActive =
-        input.replayInspectionActive && replayRuntime.InspectionMouseLookActive( deviceFrame.rightDown,
+        input.replayInspectionActive && replayRuntime.InspectionMouseLookActive( runtimeSnapshot.pointer.rightDown,
                                                                                  uiSnapshot.wantsNativeCursor,
                                                                                  uiSnapshot.blocksCameraMouse );
     return inputRouter.EvaluatePointerPresentation( input );
@@ -530,6 +530,10 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( const RuntimeUIFrameContext& context,
     context.inputRouter.PublishUiSnapshot( uiSnapshot );
     result.enterInteractiveScene = result.commands.ui.userInteracted;
     result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || result.commands.ui.userInteracted;
+    // Invariant: replay workspace tools execute during this input turn, before
+    // the completed interaction policy exists. Publish current post-UI pointer
+    // and key facts now; TakeInput republishes the final policy facts below.
+    context.inputRouter.PublishRuntimeSnapshot( RuntimeInteractionFrameInput{}, result.suppressWorldActionThisFrame );
     context.replayRuntime.TickWorkspace(
         ReplayRuntime::ReplayWorkspaceInput{ windowHandle,
                                              context.ui.BlocksCameraMouse(),
@@ -2521,8 +2525,8 @@ void Run::TakeInput()
                                                    routedUiSnapshot.blocksCameraMouse ),
         false,
         SceneState().timeScale };
-    const RuntimeInputSnapshot inputSnapshot =
-        m_inputRouter.BuildRuntimeSnapshot( frameInput, suppressWorldActionThisFrame );
+    const RuntimeInputSnapshot& inputSnapshot =
+        m_inputRouter.PublishRuntimeSnapshot( frameInput, suppressWorldActionThisFrame );
     const DeviceInputFrame& pointerDevice = m_inputRouter.DeviceFrame();
     RuntimePointerRouteInput pointerInput;
     pointerInput.leftDown = mouseEdges.leftDown;

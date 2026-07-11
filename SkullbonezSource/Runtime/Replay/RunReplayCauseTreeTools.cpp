@@ -248,13 +248,13 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
     }
 
     EnsureReplayCauseWindowPlacement( m_replayRuntime.CauseTree(), screenW, screenH );
-    const DeviceInputFrame& deviceFrame = m_inputRouter.DeviceFrame();
-    if ( !deviceFrame.hasClientPosition )
+    const RuntimePointerEvent& runtimePointer = m_inputRouter.RuntimeSnapshot().pointer;
+    if ( !runtimePointer.hasClientPosition )
     {
         endCauseTreeDragIfReleased();
         return false;
     }
-    const POINT mouse{ deviceFrame.clientX, deviceFrame.clientY };
+    const POINT mouse{ runtimePointer.clientX, runtimePointer.clientY };
     const UI::UIRect panel = ReplayCauseWindowRect( m_replayRuntime.CauseTree() );
     const UI::UIRect title = ReplayCauseWindowTitleRect( m_replayRuntime.CauseTree() );
     const UI::UIRect content = ReplayCauseWindowContentRect( m_replayRuntime.CauseTree() );

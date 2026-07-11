@@ -694,6 +694,25 @@ passed in 52.1s with zero warnings, zero DX12 InfoQueue errors, matching
 screenshots, standalone topology smoke, and the 20,001-line byte-exact physics
 baseline. Comment audit: 1/1 touched source-bearing file.
 
+InputRouter now publishes the post-UI runtime snapshot it owns. Replay workspace
+tools receive current post-UI pointer/key values during the input turn, then
+TakeInput republishes the completed interaction-policy facts before returning.
+Physics, water controls, render overlays, replay scrubber/restore, velocity
+editing, and cause-tree dragging consume that immutable snapshot; no later
+frame, physics, render, editor, or replay phase reopens `DeviceFrame()`.
+Focused CPU coverage proves key/pointer publication and focus-loss clearing.
+The first interaction run exposed the missing mid-input publication through a
+failed replay-prediction assertion; the bounded fix restored all five scenarios.
+B1f remains open for the six UI owner-transition callbacks/broad context and the
+final Run method/state deletion proof.
+
+Evidence: the final zero-warning Debug build and targeted 129/129 doctest run
+with 2,766 assertions passed. All five interaction scenarios passed on the
+corrected source in 19.2s; perf completed in 32.3s; and full passed in 52.6s,
+including fast/CPU preflight, zero warnings, zero DX12 InfoQueue errors,
+matching screenshots, standalone topology smoke, and the 20,001-line
+byte-exact physics baseline. Comment audit: 10/10 touched source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host

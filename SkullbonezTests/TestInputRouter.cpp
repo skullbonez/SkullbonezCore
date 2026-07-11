@@ -467,7 +467,7 @@ TEST_CASE( "Input router: runtime snapshot joins one device and UI pointer frame
 {
     InputRouter router;
     InputActions output;
-    DeviceInputFrame device = FocusedFrame( { VK_CONTROL, VK_SHIFT }, true, true );
+    DeviceInputFrame device = FocusedFrame( { VK_CONTROL, VK_SHIFT, VK_RETURN, VK_NEXT, VK_PRIOR }, true, true );
     device.clientX = 321;
     device.clientY = 654;
     device.hasClientPosition = true;
@@ -482,21 +482,35 @@ TEST_CASE( "Input router: runtime snapshot joins one device and UI pointer frame
 
     RuntimeInteractionFrameInput frameInput;
     frameInput.scenePhysicsEnabled = true;
+    frameInput.stepHeld = true;
     frameInput.sceneTimeScale = 0.5f;
-    const RuntimeInputSnapshot snapshot = router.BuildRuntimeSnapshot( frameInput, true );
+    const RuntimeInputSnapshot& snapshot = router.PublishRuntimeSnapshot( frameInput, true );
     CHECK( snapshot.appFocused );
     CHECK( snapshot.uiBlocksKeyboard );
     CHECK( snapshot.uiBlocksMouse );
     CHECK( snapshot.pointer.clientX == 321 );
     CHECK( snapshot.pointer.clientY == 654 );
+    CHECK( snapshot.pointer.hasClientPosition );
     CHECK( snapshot.pointer.leftPressed );
     CHECK( snapshot.pointer.rightPressed );
     CHECK( snapshot.pointer.controlDown );
     CHECK( snapshot.pointer.shiftDown );
     CHECK( snapshot.pointer.uiWantsNativeMouseCursor );
     CHECK( snapshot.pointer.suppressWorldAction );
+    CHECK( snapshot.enterDown );
+    CHECK( snapshot.pageDown );
+    CHECK( snapshot.pageUp );
     CHECK( snapshot.frameInput.scenePhysicsEnabled );
+    CHECK( snapshot.frameInput.stepHeld );
     CHECK( snapshot.frameInput.sceneTimeScale == doctest::Approx( 0.5f ) );
+    CHECK( &router.RuntimeSnapshot() == &snapshot );
+
+    router.BeginFrame( DeviceInputFrame{}, RuntimeInputKeyBindingView{}, output );
+    CHECK_FALSE( router.RuntimeSnapshot().appFocused );
+    CHECK_FALSE( router.RuntimeSnapshot().pointer.hasClientPosition );
+    CHECK_FALSE( router.RuntimeSnapshot().enterDown );
+    CHECK_FALSE( router.RuntimeSnapshot().pageDown );
+    CHECK_FALSE( router.RuntimeSnapshot().pageUp );
 }
 
 

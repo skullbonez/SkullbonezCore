@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `c20bbdb6 refactor: move replay keyboard transition into owner` |
-| Current objective | Delete the six remaining B1f UI owner-transition callbacks and broad context, then remaining late frame/render/replay reads |
-| Last broad local gate | `tools\validate_full.bat` passed the split UI sampling/command phases with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.1s |
+| Current pushed baseline | `d0507d33 refactor: split UI sampling from command mutation` |
+| Current objective | Delete the six remaining B1f UI owner-transition callbacks/broad context and complete the Run method/state deletion proof |
+| Last broad local gate | `tools\validate_full.bat` passed published post-UI snapshot ownership with 129/129 doctest cases, 2,766 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.6s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -399,6 +399,13 @@ and command mutation, with fixed command values crossing the phase boundary.
 Four shell callbacks are deleted and input-mode updates call InputController
 directly; the remaining command pack is six owner-transition seams. Fast, CPU,
 five interaction scenarios, perf, and full pass; comment audit is 1/1.
+
+InputRouter now publishes the current post-UI snapshot during replay workspace
+input and republishes completed interaction-policy facts before TakeInput
+returns. Later physics, render, replay, and water-control phases no longer call
+DeviceFrame. A first interaction run caught missing mid-input publication; the
+corrected source passes fast, CPU (2,766 assertions), all five interaction
+scenarios, perf, and full. Comment audit is 10/10.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

@@ -51,6 +51,7 @@ Related:
 #pragma once
 
 #include "InputController.Bindings.h"
+#include "RuntimeInteractionController.h"
 #include "../Maths/Vector3.h"
 
 #include <array>
@@ -82,9 +83,6 @@ class PhysicsEngine;
 }
 namespace Basics
 {
-struct RuntimeInputSnapshot;
-struct RuntimeInteractionFrameInput;
-struct RuntimeInteractionTransition;
 struct RunCameraState;
 struct RunSceneState;
 enum class RunCameraMode;
@@ -329,6 +327,11 @@ class InputRouter
     // Cross-domain policy facts arrive as values and are not retained.
     RuntimeInputSnapshot BuildRuntimeSnapshot( const RuntimeInteractionFrameInput& frameInput,
                                                bool suppressWorldAction ) const;
+    // Publishes the immutable value consumed after TakeInput returns; later
+    // phases must not reopen DeviceFrame.
+    const RuntimeInputSnapshot& PublishRuntimeSnapshot( const RuntimeInteractionFrameInput& frameInput,
+                                                        bool suppressWorldAction );
+    const RuntimeInputSnapshot& RuntimeSnapshot() const;
     PointerPresentationPolicy EvaluatePointerPresentation( const PointerPresentationPolicyInput& input ) const;
     void ApplyPointerPresentation(
         const PointerPresentationPolicy& policy ); // Commits the policy's desired native cursor visibility.
@@ -457,6 +460,7 @@ class InputRouter
     std::array<double, ACTION_COUNT> m_lastTapSeconds = {};
     DeviceInputFrame m_deviceFrame;
     UiInputHitSnapshot m_uiSnapshot;
+    RuntimeInputSnapshot m_runtimeSnapshot;
     bool m_nativeCaptureRequested = false;
     bool m_committedNativeCapture = false;
     bool m_cursorVisibleRequested = true;
