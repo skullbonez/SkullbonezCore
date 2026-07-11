@@ -109,7 +109,6 @@ namespace SkullbonezCore::Basics
 {
 struct RunDebugState;
 struct RunLaunchOptions;
-struct RunRuntimeSettings;
 struct RunSceneState;
 struct ReplayLauncherVisualSample;
 class SceneEntityStore;
@@ -186,7 +185,9 @@ struct LauncherReproSnapshotContext
     const RunSceneState& sceneState;
     const std::string* currentScenePath;
     const RunLaunchOptions& launchOptions;
-    const RunRuntimeSettings& runtimeSettings;
+    bool physicsSleepEnabled;
+    bool vsyncEnabled;
+    bool pipelineSyncEnabled;
     float contactEpsilon;                                                   // Physics contact tolerance captured from Run config for repro output.
     float frictionCoeff;                                                    // Physics friction setting captured from Run config for repro output.
     const RunDebugState& debug;

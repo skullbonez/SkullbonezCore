@@ -86,7 +86,7 @@ SkullbonezCore::Environment::CameraMovementSettings BuildCameraMovementSettings(
 // `ApplyStartupOverrides()`, preserving the original command-line apply order.
 void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
                                RunLaunchOptions& target,
-                               RunRuntimeSettings& runtimeSettings,
+                               RuntimeRenderer& renderer,
                                SkullbonezCore::GameObjects::GameModelCollection& models,
                                SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio )
 {
@@ -114,7 +114,6 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     if ( launch.noSleep )
     {
         target.noSleep = true;
-        runtimeSettings.isPhysicsSleepEnabled = false;
         models.SetPhysicsSleepEnabled( false );
     }
     if ( launch.noContactAudio )
@@ -126,18 +125,20 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     {
         target.hasTornadoOverride = true;
         target.tornadoEnabled = launch.tornadoEnabled;
-        runtimeSettings.tornadoField.enabled = launch.tornadoEnabled;
-        if ( runtimeSettings.tornadoVisual.autoEnableWithTornado )
+        TornadoFieldConfig tornadoField = models.GetTornadoFieldConfig();
+        tornadoField.enabled = launch.tornadoEnabled;
+        models.SetTornadoFieldConfig( tornadoField );
+        if ( renderer.TornadoVisualAutoEnableWithTornado() )
         {
-            runtimeSettings.tornadoVisual.enabled = launch.tornadoEnabled;
+            renderer.SetTornadoVisualEnabled( launch.tornadoEnabled );
         }
-        runtimeSettings.ApplyTornadoPhysics( models );
     }
     if ( launch.tornadoVectors )
     {
         target.tornadoVectors = true;
-        runtimeSettings.tornadoField.visualizeVelocityField = true;
-        runtimeSettings.ApplyTornadoPhysics( models );
+        TornadoFieldConfig tornadoField = models.GetTornadoFieldConfig();
+        tornadoField.visualizeVelocityField = true;
+        models.SetTornadoFieldConfig( tornadoField );
     }
     if ( launch.hasCinematicRenderingOverride )
     {
@@ -364,14 +365,6 @@ void ApplyStartupDiagnosticsPolicy( const RunStartupOverrides& overrides,
 } // namespace
 
 
-void RunRuntimeSettings::ApplyStartupConfig( const EngineConfig& config )
-{
-    isVsyncEnabled = config.runtimeRender.vsyncEnabled;
-    isPipelineSyncEnabled = config.runtimeRender.forcePipelineSync;
-    contactAudioDebugCounters = config.contactAudio.debugCounters;
-}
-
-
 void RunStartupState::ApplyStartupConfig( const EngineConfig& config )
 {
     gameModelCapacity = std::clamp( config.gameModelCapacity, 1, MAX_GAME_MODELS );
@@ -393,18 +386,12 @@ Run::Run( Window& window,
                                    m_sceneController.Terrain(),
                                    window,
                                    m_config,
-                                   m_runtimeSettings,
                                    m_sceneController.World(),
                                    m_collisionVisualizer,
                                    m_broadphaseVisualizer,
                                    m_physicsDebugVisualizer,
-                                   m_debug,
-                                   m_timers,
                                    profiler },
-                  RenderSceneView{ m_sceneController, m_sceneController.Browser() },
-                  RenderReplayOverlayView{ m_replayRuntime, m_sceneController.Entities() },
-                  RenderToolOverlayView{ m_runtimeTools },
-                  RenderUiView{ m_UI, m_inputRouter.RuntimeContext(), m_camera } )
+                  RenderSceneView{ m_sceneController, m_sceneController.Browser() } )
 {
     const EngineConfig& cfg = m_config;
     m_diagnosticsRuntime.BindProfiler( profiler );
@@ -413,7 +400,9 @@ Run::Run( Window& window,
     m_sceneController.Models().BindWorkerPool( workerPool );
     m_sceneController.Models().BindSceneEntityStore( m_sceneController.Entities() );
     m_sceneController.Models().ApplyRuntimeConfig( cfg );
-    m_runtimeSettings.ApplyStartupConfig( cfg );
+    m_renderer.SetVsyncEnabled( cfg.runtimeRender.vsyncEnabled );
+    m_renderer.SetPipelineSyncEnabled( cfg.runtimeRender.forcePipelineSync );
+    m_contactAudio.SetDebugCountersEnabled( cfg.contactAudio.debugCounters );
     m_renderDefaults.CaptureStartupCinematicBaseline( cfg.cinematicRender );
     m_startup.ApplyStartupConfig( cfg );
 }
@@ -483,7 +472,7 @@ Run::~Run()
 }
 
 
-void Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
+SbResult Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
 {
     // Why: Runtime/Init owns CLI parsing, but Run owns the live side effects
     // needed to make those startup policies active. Keep the public boundary as
@@ -492,7 +481,7 @@ void Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
     // runtime services.
     const RunLaunchOptions& launch = overrides.launch;
 
-    ApplyRuntimeLaunchPolicy( launch, m_launchOptions, m_runtimeSettings, m_sceneController.Models(), m_contactAudio );
+    ApplyRuntimeLaunchPolicy( launch, m_launchOptions, m_renderer, m_sceneController.Models(), m_contactAudio );
     if ( overrides.liveStyleControlDirectory && overrides.liveStyleControlDirectory[0] != '\0' )
     {
         if ( m_liveStyle.ConfigureDirectory( overrides.liveStyleControlDirectory ) )
@@ -539,12 +528,13 @@ void Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
 #ifdef _DEBUG
     ApplyStartupDiagnosticsPolicy( overrides, m_diagnosticsRuntime, m_sceneController.Models() );
 #endif
-}
-
-
-SbResult Run::SetInteractionAutomation( const char* scriptPath, const char* reportPath )
-{
-    const SbResult result = ConfigureInteractionAutomation( m_interactionAutomation, scriptPath, reportPath );
+    if ( !overrides.interactionScriptPath )
+    {
+        return SbResult::Success();
+    }
+    const SbResult result = ConfigureInteractionAutomation( m_interactionAutomation,
+                                                            overrides.interactionScriptPath,
+                                                            overrides.interactionReportPath );
     if ( !result.ok )
     {
         (void)WriteInteractionAutomationReport( m_interactionAutomation,
@@ -556,12 +546,6 @@ SbResult Run::SetInteractionAutomation( const char* scriptPath, const char* repo
                                                 m_UI );
     }
     return result;
-}
-
-
-SbResult Run::InteractionAutomationResult() const
-{
-    return SkullbonezCore::Basics::InteractionAutomationResult( m_interactionAutomation );
 }
 
 
@@ -875,7 +859,6 @@ void Run::Initialise()
                                                     m_renderDefaults.CinematicBaseline(),
                                                     m_startup,
                                                     m_diagnosticsRuntime,
-                                                    m_runtimeSettings,
                                                     m_timers,
                                                     m_assets,
                                                     m_workerPool,
@@ -924,27 +907,31 @@ void Run::Initialise()
                                     RuntimeCameraModeEnabledMask( m_sceneController ) ),
         timelineOwners };
 #ifdef _DEBUG
-    const ReplayProbeWorld probeWorld{ m_sceneController.State(),
-                                       m_runtimeSettings,
-                                       m_debug,
-                                       m_runtimeTools,
-                                       m_sceneController,
-                                       m_simulation,
-                                       m_config,
-                                       m_assets,
-                                       m_workerPool,
-                                       m_launchOptions.generatedObjectTypeOverride,
-                                       m_startup.gameModelCapacity,
-                                       m_diagnosticsRuntime,
-                                       m_runtimeTools.MousePickup(),
-                                       NormalizeRuntimeCameraMode( m_camera.mode,
-                                                                   m_sceneController.State().isSceneMode,
-                                                                   RuntimeCameraModeEnabledMask( m_sceneController ) ),
-                                       m_timers.simulationTimer.GetTotalTime(),
-                                       timelineReset,
-                                       timelineOwners };
-    const ReplayRuntime::ReplayStartupResult replayStartup =
-        m_replayRuntime.RunStartupWorkflows( loadInput, probeWorld );
+    ReplaySolverSampleRestoreContext probeSample{ m_sceneController.Physics(),
+                                                  m_sceneController,
+                                                  m_sceneController.State(),
+                                                  m_renderer,
+                                                  m_debug,
+                                                  m_runtimeTools };
+    const ReplayRuntime::ReplayRestoreTransaction probeTransaction{ probeSample,
+                                                                    m_diagnosticsRuntime,
+                                                                    timelineReset,
+                                                                    timelineOwners };
+    const ReplayRuntime::ReplayArtifactTopologyOwners probeTopology{ m_simulation,
+                                                                     m_config,
+                                                                     m_assets,
+                                                                     m_workerPool,
+                                                                     m_launchOptions.generatedObjectTypeOverride,
+                                                                     m_startup.gameModelCapacity };
+    const ReplayRuntime::ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows(
+        loadInput,
+        probeTransaction,
+        probeTopology,
+        m_runtimeTools.MousePickup(),
+        NormalizeRuntimeCameraMode( m_camera.mode,
+                                    m_sceneController.State().isSceneMode,
+                                    RuntimeCameraModeEnabledMask( m_sceneController ) ),
+        m_timers.simulationTimer.GetTotalTime() );
 #else
     const ReplayRuntime::ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows( loadInput );
 #endif
@@ -1029,7 +1016,6 @@ SbResult Run::RunSceneLoadOnly( const char* snapshotOutPath )
                                                             m_renderDefaults.CinematicBaseline(),
                                                             m_startup,
                                                             m_diagnosticsRuntime,
-                                                            m_runtimeSettings,
                                                             m_timers,
                                                             m_assets,
                                                             m_workerPool,

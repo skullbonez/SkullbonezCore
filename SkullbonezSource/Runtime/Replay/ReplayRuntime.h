@@ -116,12 +116,11 @@ enum class GeneratedObjectTypeOverride;
 struct RunCameraState;
 struct RunDebugState;
 struct RunMousePickupState;
-struct RunRuntimeSettings;
+class RuntimeRenderer;
 struct RunSceneState;
 struct ReplayV2SaveResult;
 struct ReplaySolverSampleRestoreContext;
 #ifdef _DEBUG
-struct ReplayProbeWorld;
 #endif
 
 inline constexpr std::size_t REPLAY_PREDICTION_GHOST_MAX_FRAMES = 24;
@@ -1201,17 +1200,35 @@ class ReplayRuntime
     };
     RunReplayProbeState& Probes();
     const RunReplayProbeState& Probes() const;
-    ReplayProbeTickResult TickProbes( const ReplayProbeWorld& liveWorld );
+    // Debug probes compose the same restore transaction and topology operands
+    // as production restore. No whole-runtime probe fixture or Run backdoor is accepted.
+    ReplayProbeTickResult TickProbes( const ReplayRestoreTransaction& transaction,
+                                      const ReplayArtifactTopologyOwners& topology );
 
   private:
-    SbResult TickScrubProbe( const ReplayProbeWorld& liveWorld );
-    SbResult TickRestoreProbe( const ReplayProbeWorld& liveWorld );
-    SbResult TickSaveProbe( const ReplayProbeWorld& liveWorld, bool& outEnterInteractive );
-    SbResult VerifyLoadedPresentationProbe( const ReplayProbeWorld& liveWorld, float normalized );
-    SbResult VerifySolverCheckpointFileProbe( const ReplayProbeWorld& liveWorld, const char* path );
-    SbResult VerifySolverTargetFileProbe( const ReplayProbeWorld& liveWorld, const char* path );
-    SbResult VerifySolverBranchFileProbe( const ReplayProbeWorld& liveWorld, const char* path );
-    SbResult VerifySolverFailureFileProbe( const ReplayProbeWorld& liveWorld, const char* path );
+    SbResult TickScrubProbe( const ReplayRestoreTransaction& transaction );
+    SbResult TickRestoreProbe( const ReplayRestoreTransaction& transaction );
+    SbResult TickSaveProbe( const ReplayRestoreTransaction& transaction,
+                            const ReplayArtifactTopologyOwners& topology,
+                            bool& outEnterInteractive );
+    SbResult VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& transaction,
+                                            RunMousePickupState& mousePickup,
+                                            RunCameraMode normalizedCurrentMode,
+                                            double now,
+                                            float normalized );
+    SbResult VerifySolverCheckpointFileProbe( const ReplayRestoreTransaction& transaction, const char* path );
+    SbResult VerifySolverTargetFileProbe( const ReplayRestoreTransaction& transaction,
+                                          const ReplayArtifactTopologyOwners& topology,
+                                          const char* path );
+    SbResult VerifySolverBranchFileProbe( const ReplayRestoreTransaction& transaction,
+                                          const ReplayArtifactTopologyOwners& topology,
+                                          RunMousePickupState& mousePickup,
+                                          RunCameraMode normalizedCurrentMode,
+                                          double now,
+                                          const char* path );
+    SbResult VerifySolverFailureFileProbe( const ReplayRestoreTransaction& transaction,
+                                           const ReplayArtifactTopologyOwners& topology,
+                                           const char* path );
 
   public:
 #endif
@@ -1342,7 +1359,11 @@ class ReplayRuntime
     ReplayStartupResult RunStartupWorkflows( const ReplayStartupLoadInput& loadInput
 #ifdef _DEBUG
                                              ,
-                                             const ReplayProbeWorld& probeWorld
+                                             const ReplayRestoreTransaction& probeTransaction,
+                                             const ReplayArtifactTopologyOwners& probeTopology,
+                                             RunMousePickupState& probeMousePickup,
+                                             RunCameraMode probeNormalizedCurrentMode,
+                                             double probeNow
 #endif
     );
     // Appends replay-owned records after RuntimeTools has rebuilt the shared

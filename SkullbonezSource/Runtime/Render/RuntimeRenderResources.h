@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/Runtime/Render/RuntimeRenderResources.h
 Purpose:
-  Names render-pass-owned resources that are still lifetime-owned by Run.
+  Names backend resources owned by RuntimeRenderer's ordered render passes.
 
 Mental model:
   These structs are ownership records, not rendering behavior. RuntimeRenderer
@@ -17,7 +17,7 @@ Glossary:
   destroyed or rebuilt.
 
 Invariants:
-  - RunRenderPassResources owns backend/device resources and must be reset
+  - RuntimeRenderPassResources owns backend/device resources and must be reset
     while the renderer backend is still alive.
   - Shadow receiver pointers are valid only until the next shadow reset or the
     next frame rebuilds ShadowPassResources.
@@ -118,7 +118,7 @@ struct ShadowPassResources
     Rendering::ShadowCasterBatches objectCasterBatches;
 };
 
-struct RunRenderPassResources
+struct RuntimeRenderPassResources
 {
     // Ownership map for pass-owned renderer resources. Runtime subsystems keep
     // long-lived world state elsewhere; this aggregate is only for resources

@@ -36,7 +36,7 @@ Related:
 #include "ReplayRecorder.h"
 #include "../CameraCollection.h"
 #include "../RunDebugState.h"
-#include "../RunRuntimeSettings.h"
+#include "../Render/RuntimeRenderer.h"
 #include "../Scene/SceneController.h"
 #include "../Scene/SceneRuntime.h"
 #include "../Tools/RuntimeTools.h"
@@ -65,7 +65,7 @@ struct ReplaySolverSampleRestoreContext
     Physics::PhysicsEngine& physics;
     SceneController& sceneController;
     RunSceneState& scene;
-    RunRuntimeSettings& runtimeSettings;
+    RuntimeRenderer& renderer;
     RunDebugState& debug;
     RuntimeTools& runtimeTools;
 };
@@ -200,13 +200,10 @@ class ReplayRestoreService
         context.scene.isScenePhysics = sample.world.scenePhysicsEnabled;
         context.scene.isSceneText = sample.world.sceneTextEnabled;
         context.scene.modelCount = restoreModelCount;
-        context.runtimeSettings.isPhysicsSleepEnabled = sample.worldSnapshot.sleepEnabled;
-        context.runtimeSettings.tornadoField = sample.worldSnapshot.tornadoConfig;
-        context.runtimeSettings.tornadoSystem = sample.worldSnapshot.tornadoSystemConfig;
-        if ( context.runtimeSettings.tornadoVisual.autoEnableWithTornado )
+        if ( context.renderer.TornadoVisualAutoEnableWithTornado() )
         {
-            context.runtimeSettings.tornadoVisual.enabled =
-                context.runtimeSettings.tornadoField.enabled || context.runtimeSettings.tornadoSystem.enabled;
+            context.renderer.SetTornadoVisualEnabled( sample.worldSnapshot.tornadoConfig.enabled ||
+                                                      sample.worldSnapshot.tornadoSystemConfig.enabled );
         }
 
         context.sceneController.Cameras().CancelTween();

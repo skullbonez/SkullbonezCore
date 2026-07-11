@@ -42,6 +42,7 @@ Related:
 #include "../../Physics/TornadoField.h"
 #include "../../Rendering/IFramebuffer.h"
 #include "../../Rendering/Shadow.h"
+#include "RenderPresentationSettings.h"
 
 #include <cstdint>
 #include <memory>
@@ -60,6 +61,11 @@ class PhysicsBodyStore;
 struct PhysicsDebugContact;
 struct PhysicsPipelineRecord;
 } // namespace Physics
+
+namespace GameObjects
+{
+class GameModelCollection;
+}
 
 namespace Environment
 {
@@ -125,7 +131,7 @@ struct RunCameraState;
 struct RunDebugState;
 struct RunEditorPlacementState;
 struct RunRayCastTestState;
-struct RunRenderPassResources;
+struct RuntimeRenderPassResources;
 struct ShadowPassResources;
 struct SkyPassResources;
 struct TonemapPassResources;
@@ -133,7 +139,6 @@ struct VolumetricLightPassResources;
 class ReplayRuntime;
 struct RuntimeRenderModelFrameView;
 struct RuntimeViewModel;
-struct RunRuntimeSettings;
 struct RunSceneBrowserState;
 struct RunSceneState;
 struct RunTimerState;
@@ -145,7 +150,7 @@ struct RenderHelperContext;
 //
 // RuntimeRenderer::RenderFrame() owns pass order, and each pass receives a named
 // input bundle or explicit long-lived resources. Frame references are rebuilt
-// each pass, while GPU resources stay in RunRenderPassResources.
+// each pass, while GPU resources stay in RuntimeRenderPassResources.
 enum class SkyPassMode
 {
     CubemapOnly,                            // Force the authored cube-map skybox path.
@@ -351,27 +356,44 @@ struct ReplayOverlayFrameState
     double nowSeconds = 0.0;
 };
 
+struct RuntimeRenderTargetPreview
+{
+    const char* label = "";
+    uint32_t textureHandle = 0;
+    int width = 0;
+    int height = 0;
+    bool available = false;
+    bool depth = false;
+    bool hdr = false;
+};
+
+struct RuntimeRenderTargetPreviewSnapshot
+{
+    // Value-only UI projection of renderer resources. The UI cannot retain or
+    // traverse framebuffer owners through this boundary.
+    std::array<RuntimeRenderTargetPreview, 10> targets{};
+    int count = 0;
+};
+
 struct UiTextPassState
 {
-    // UI/text is the late overlay pass, so it samples a broad but UI-specific
-    // set of already-owned runtime state. The pass may read these references for
-    // this frame only; mutations stay limited to timer rolling diagnostics and
-    // immediate UI drawing.
-    RunDebugState& debug;
+    // UI/text is the late overlay pass, so this read-only projection samples
+    // already-owned runtime state for one frame. Writable timer/UI owners are
+    // separate explicit inputs below and cannot be reached through this view.
+    const RunDebugState& debug;
     bool crossScenePauseLocked = false;
-    RunTimerState& timers;
     const RunSceneState& scene;
-    const RunRuntimeSettings& runtimeSettings;
+    const RenderPresentationSettings& renderPresentation;
+    const GameObjects::GameModelCollection& modelOwner;
     const EngineConfig& config;
-    Environment::WorldEnvironment& world;
+    const Environment::WorldEnvironment& world;
     const RunRayCastTestState& rayCastTest;
     const RunEditorPlacementState& editor;
-    UI::InGameUI& ui;
-    RuntimeInputContext& runtimeInput;
+    const RuntimeInputContext& runtimeInput;
     const RunCameraState& camera;
     const RuntimeViewModel& runtimeViewModel;
     const RunSceneBrowserState& sceneBrowser;
-    const RunRenderPassResources& renderPasses;
+    const RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews;
     Threading::WorkerPool* workerPool = nullptr;
     int screenW = 1;
     int screenH = 1;
@@ -392,6 +414,8 @@ struct UiTextPassInputs
     // UI/text can run even when text-only mode skips RuntimeRenderer::RenderFrame(),
     // so it borrows only the narrow render facets sampled by overlays.
     const UiTextPassState& state;
+    RunTimerState& timers;
+    UI::InGameUI& ui;
     Rendering::IRenderDiagnostics& renderDiagnostics;
     Profiler* profiler = nullptr;           // UI snapshot source; null when profiling is compiled out.
     const UI::UIRenderContext& uiRender;
@@ -467,6 +491,8 @@ struct DebugOverlayPassInputs
     // ownership.
     const RenderFrameContext& frame;
     const DebugOverlaySnapshot& snapshot;
+    RuntimeTools& runtimeTools;
+    ReplayRuntime& replayRuntime;
     int replaySceneFrame = 0;
     uint64_t replayGrowthEventCount = 0;
 };
@@ -777,11 +803,9 @@ class DebugOverlayPass
     DebugOverlayPass( Physics::BroadphaseVisualizer& broadphaseVisualizer,
                       Physics::PhysicsDebugVisualizer& physicsDebugVisualizer,
                       SceneTerrain& terrain,
-                      RuntimeTools& runtimeTools,
-                      Assets::AssetSystem& assets,
-                      ReplayRuntime& replayRuntime )
+                      Assets::AssetSystem& assets )
         : m_broadphaseVisualizer( broadphaseVisualizer ), m_physicsDebugVisualizer( physicsDebugVisualizer ),
-          m_terrain( terrain ), m_runtimeTools( runtimeTools ), m_assets( assets ), m_replayRuntime( replayRuntime )
+          m_terrain( terrain ), m_assets( assets )
     {
         // Invariant: tornado vector arrows are a runtime debug overlay. The
         // transient line buffer stays with the render pass so physics sampling
@@ -805,9 +829,7 @@ class DebugOverlayPass
     // Lifetime: borrows the stable scene terrain owner and resolves its current
     // terrain after each scene load.
     SceneTerrain& m_terrain;
-    RuntimeTools& m_runtimeTools;
     Assets::AssetSystem& m_assets;
-    ReplayRuntime& m_replayRuntime;
 };
 
 /* -- VolumetricPass
@@ -894,7 +916,7 @@ class UiTextPass
                                  int screenW,
                                  int screenH );
     void ReleaseGpuResources( Rendering::IRenderResourceFactory* renderResources );
-    bool ShouldRender( const UiTextPassState& state ) const;
+    bool ShouldRender( const UiTextPassState& state, const UI::InGameUI& ui ) const;
     void Render( const UiTextPassInputs& inputs );
 };
 

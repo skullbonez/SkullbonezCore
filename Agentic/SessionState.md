@@ -10,10 +10,10 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `cb8c56c7 refactor: move shell values to domain owners` |
-| Current objective | Finish F1 multi-domain settings split and broad frame-context/substitute-hub proof |
-| Last broad local gate | `tools\validate_full.bat` passed the F2 frame-context deletion with 130/130 doctest cases, 2,770 assertions, zero-warning Profile/Debug builds, DX12 with zero InfoQueue errors and matching screenshots, standalone physics smoke, and the 44,401-line varied baseline byte-exactly in 130.2s |
-| Latest focused gates | Corrected Profile build and all five interaction scenarios passed in 18.7s; the prior owner-boundary project/allocation checks remain green |
+| Current pushed baseline | `788fbe85 refactor: delete runtime frame context bags` |
+| Current objective | Commit/push completed runtime-shell F1-F3, then continue physics authority A1/A3 and D1/D2/D4 |
+| Last broad local gate | `tools\validate_full.bat` passed runtime-shell closure in 64.3s: mandatory CPU umbrella, zero-warning Profile/Debug builds, DX12 InfoQueue errors = 0 with matching screenshots, standalone physics/handle smoke, and the 44,401-line varied baseline byte-exactly |
+| Latest focused gates | Corrected `validate_fast` passed in 26.9s and all five interaction scenarios passed in 15.1s; comment audit is 47/47 and the repeat F3 ownership review is clean |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -53,36 +53,14 @@ reports, and git history.
 
 ## Current Queue
 
-E1-E3 are complete. `RunInternal.h`, `RunCapture.cpp`, the capture backpointer
-sink, forwarding-only `Run` methods, and every Common domain alias include are
-deleted. Compiler-exposed consumers carry direct owner headers; live physics
-stepping belongs to `SceneController`, and screenshot automation receives typed
-capture owners rather than a host callback. The deletion proofs, 100-file
-comment audit, focused Debug build, and full gate pass. F1 now owns the complete
-logical `Run` method/field inventory before the substitute-owner and independent
-closure reviews.
-
-F1 owner-boundary progress deletes `RunSubsystemState` outright. Window and
-worker lifetime are explicit, assets have one process registry, and
-`RuntimeRenderer` owns textures, sky, and pass resources. Mouse pickup,
-live-style capture, graphics stress, camera selection/control, scene completion,
-diagnostics finish logging, and interaction automation no longer add forwarding
-methods to `Run`. Five interaction scenarios, allocation/project checks, and the
-full gate pass; the touched-source comment audit is 37/37. F1 remains open for
-the raw-field/substitute-hub proof and the interaction automation size decision.
-
-The next F1 field slice removes replay capture scratch, the cinematic startup
-baseline, the runtime UI snapshot, perf-pass state, and cross-scene pause policy
-from the shell/debug shelf. Replay, defaults, frame UI, and SceneController own
-those values directly. Five interaction scenarios and the full gate pass; the
-touched-source comment audit is 22/22. Remaining F1 work is the multi-domain
-runtime-settings split plus broad frame/substitute-owner contexts.
-
-F2 no longer has a local multi-domain context in `RunFrame.cpp`. UI text,
-post-physics visualization, contact audio, and replay capture use explicit
-synchronous borrows, and audio/replay are separate domain functions. The
-Profile-only unused-parameter finding was fixed; interaction and full gates pass
-and the touched-source comment audit is 1/1. Substitute-owner auditing continues.
+Runtime-shell decomposition is complete at 27/27. E1-E3 deleted `RunInternal.h`,
+forwarding-only Run methods, and Common compatibility includes. F1-F2 then
+deleted the multi-domain settings shelf, moved render/physics/audio policy to
+its concrete owners, removed retained renderer authority and framebuffer UI
+access, and replaced the Debug whole-world replay fixture with production restore
+operands. The first F3 review found four blocking leaks; all were fixed and the
+single repeat review was clean. Final inventory/evidence:
+`Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md`.
 
 D3 is complete. The repository has no tracked `.inl` files. The former editor
 mini-palette fragment is split into real palette policy/layout, drawing, and
@@ -531,13 +509,12 @@ solver signature, and SkullScope query packet all exact.
 
 ## Workstreams To Prioritize
 
-1. Complete runtime-shell D1-D3, then E1-E3 and the final F1-F3 ownership proof.
-2. Finish physics stable-identity D1-D4 and the remaining interaction/UI work.
+1. Finish physics authority A1/A3 and stable-identity D1/D2/D4.
+2. Close remaining interaction-state and runtime UI/control ownership phases.
 3. Finish validation-gate V3-V4 and behavioral-test P3/P5/P6 evidence.
-4. Close remaining interaction/UI and physics authority items.
-5. Close renderer decomposition and shadow quality after the five `Run`
+4. Close renderer decomposition after the five `Run`
    ownership extractions establish their boundaries.
-6. Run the final ownership and campaign adversarial reviews, fixing every
+5. Run the final ownership and campaign adversarial reviews, fixing every
    credible finding before closure.
 
 ## Binding Decisions And External Blocker

@@ -37,6 +37,7 @@ Related:
 #include "RuntimeStressController.h"
 #include "InputFrame.h"
 #include "Replay/ReplayRuntimeOwnerViews.h"
+#include "Replay/ReplayRestoreService.h"
 #include "RunDemoDirector.h"
 #include "Scene/SceneRuntimeLoad.h"
 
@@ -76,6 +77,7 @@ using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
 using SkullbonezCore::Math::Vector::Vector3;
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+using SkullbonezCore::Runtime::Audio::ContactAudioFlashMode;
 
 namespace
 {
@@ -116,7 +118,6 @@ void RenderExecuteUiTextFrame( RuntimeRenderer& renderer,
                                RunTimerState& timers,
                                RunDebugState& debug,
                                RunSceneState& scene,
-                               RunRuntimeSettings& runtimeSettings,
                                EngineConfig& config,
                                SkullbonezCore::Environment::WorldEnvironment& worldEnvironment,
                                RuntimeTools& runtimeTools,
@@ -140,22 +141,22 @@ void RenderExecuteUiTextFrame( RuntimeRenderer& renderer,
     const RunSceneBrowserState& uiSceneBrowser = sceneController.Browser();
     const std::string* uiScenePath = sceneController.CurrentPath();
     RuntimeViewModel runtimeViewModel;
+    RuntimeRenderTargetPreviewSnapshot renderTargetPreviews;
     const UiTextPassState uiTextState{
         debug,
         sceneController.CrossScenePauseLocked(),
-        timers,
         scene,
-        runtimeSettings,
+        renderer.PresentationSettings(),
+        sceneController.Models(),
         config,
         worldEnvironment,
         runtimeTools.RayCastTest(),
         runtimeTools.Editor(),
-        ui,
         runtimeInput,
         camera,
         runtimeViewModel,
         uiSceneBrowser,
-        renderer.RenderPassResources(),
+        renderTargetPreviews,
         &workerPool,
         window.ClientWidth(),
         window.ClientHeight(),
@@ -170,15 +171,19 @@ void RenderExecuteUiTextFrame( RuntimeRenderer& renderer,
         replayRuntime.ShouldRenderScrubber( runtimeTools.Editor().editorModeEnabled, ui.IsVisible(), ui.IsMinimized() ),
         replayRuntime.HasPathVisualizerTarget() };
 
-    if ( renderer.ShouldRenderUiText( uiTextState ) )
+    if ( renderer.ShouldRenderUiText( uiTextState, ui ) )
     {
-        runtimeViewModel = RuntimeViewModelBuilder::Build( RuntimeViewModelContext{ sceneController,
-                                                                                    diagnosticsRuntime.Capture(),
-                                                                                    runtimeSettings,
-                                                                                    sceneController.Physics() },
-                                                           contactAudio );
+        runtimeViewModel = RuntimeViewModelBuilder::Build(
+            RuntimeViewModelContext{ sceneController, diagnosticsRuntime.Capture(), sceneController.Physics() },
+            contactAudio );
         const CinematicRenderConfig& uiCinematic = ActiveSceneCinematicConfig( scene, config );
         const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug, true );
+        const bool shadowsAvailable =
+            uiCinematicRendering ? uiCinematic.shadowsEnabled : config.ordinaryRender.shadowsEnabled;
+        renderTargetPreviews =
+            renderer.BuildRenderTargetPreviewSnapshot( shadowsAvailable,
+                                                       uiCinematicRendering,
+                                                       uiCinematicRendering && uiCinematic.volumetricLightingEnabled );
         const ReplayOverlayFrameState replayOverlay{ runtimeTools.Editor().editorModeEnabled,
                                                      ui.IsVisible(),
                                                      ui.IsMinimized(),
@@ -195,6 +200,8 @@ void RenderExecuteUiTextFrame( RuntimeRenderer& renderer,
             renderer.RenderUiText( renderDiagnostics,
                                    uiRender,
                                    uiTextState,
+                                   timers,
+                                   ui,
                                    renderModels,
                                    diagnosticsRuntime,
                                    replayRuntime,
@@ -273,7 +280,6 @@ namespace
 {
 
 void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio,
-                                  RunRuntimeSettings& runtimeSettings,
                                   RunTimerState& timers,
                                   DiagnosticsRuntime& diagnosticsRuntime,
                                   RunSceneState& scene,
@@ -373,7 +379,7 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
         }
     }
 #endif
-    if ( runtimeSettings.contactAudioFlashMode != ContactAudioFlashMode::Off )
+    if ( contactAudio.FlashMode() != ContactAudioFlashMode::Off )
     {
         // Why: Sound-tab diagnostics can visualize emitted sounds, all
         // candidates, or rejected candidates without touching physics state.
@@ -383,7 +389,7 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
         {
             SkullbonezCore::Runtime::Audio::ContactAudioDecision decision;
             if ( !contactAudio.GetDecision( i, decision ) ||
-                 !ShouldFlashContactAudioDecision( runtimeSettings.contactAudioFlashMode, decision ) )
+                 !ShouldFlashContactAudioDecision( contactAudio.FlashMode(), decision ) )
             {
                 continue;
             }
@@ -392,7 +398,7 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
             models.NotifyAudioContact( decision.event.bodyB, CONTACT_AUDIO_FLASH_SECONDS );
         }
     }
-    if ( runtimeSettings.contactAudioDebugCounters )
+    if ( contactAudio.DebugCountersEnabled() )
     {
         timers.contactAudioStatsLogTime += PHYSICS_FIXED_DT;
         if ( timers.contactAudioStatsLogTime >= 1.0f )
@@ -545,7 +551,6 @@ SbResult Run::Execute()
                                m_renderDefaults,
                                m_startup,
                                m_diagnosticsRuntime,
-                               m_runtimeSettings,
                                m_timers,
                                m_assets,
                                m_workerPool,
@@ -604,7 +609,6 @@ SbResult Run::Execute()
                                         m_renderDefaults.CinematicBaseline(),
                                         m_startup,
                                         m_diagnosticsRuntime,
-                                        m_runtimeSettings,
                                         m_timers,
                                         m_assets,
                                         m_workerPool,
@@ -624,7 +628,7 @@ SbResult Run::Execute()
                                         m_sceneController,
                                         frameRenderDiagnostics );
 
-            if ( m_runtimeSettings.isPipelineSyncEnabled )
+            if ( m_renderer.PipelineSyncEnabled() )
             {
                 PROFILE_BEGIN( "Frame/PipelineSync" );
                 SbResult finishResult = SbResult::Success();
@@ -664,7 +668,6 @@ SbResult Run::Execute()
                                       m_timers,
                                       m_debug,
                                       m_sceneController.State(),
-                                      m_runtimeSettings,
                                       m_config,
                                       m_sceneController.World(),
                                       m_runtimeTools,
@@ -889,7 +892,6 @@ void Run::AfterPhysicsStep()
     if ( m_contactAudio.IsEnabled() )
     {
         ExecuteContactAudioPostStep( m_contactAudio,
-                                     m_runtimeSettings,
                                      m_timers,
                                      m_diagnosticsRuntime,
                                      m_sceneController.State(),
@@ -918,40 +920,38 @@ void Run::AfterPhysicsStep()
             m_sceneController.State(),
             m_startup.gameModelCapacity,
             static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
-        const ReplayProbeWorld replayWorld{
-            m_sceneController.State(),
-            m_runtimeSettings,
-            m_debug,
-            m_runtimeTools,
-            m_sceneController,
-            m_simulation,
-            m_config,
-            m_assets,
-            m_workerPool,
-            m_launchOptions.generatedObjectTypeOverride,
-            m_startup.gameModelCapacity,
-            m_diagnosticsRuntime,
-            m_runtimeTools.MousePickup(),
-            NormalizeRuntimeCameraMode( m_camera.mode,
+        ReplaySolverSampleRestoreContext probeSample{ m_sceneController.Physics(),
+                                                      m_sceneController,
+                                                      m_sceneController.State(),
+                                                      m_renderer,
+                                                      m_debug,
+                                                      m_runtimeTools };
+        const ReplayRuntime::SceneTimelineResetOwners timelineOwners{
+            m_inputRouter,
+            m_interaction,
+            &m_sceneController.Cameras(),
+            m_sceneController.Terrain().Get(),
+            m_camera,
+            NormalizeRuntimeCameraMode( m_replayRuntime.Camera().restoreCameraMode,
                                         m_sceneController.State().isSceneMode,
                                         RuntimeCameraModeEnabledMask( m_sceneController ) ),
-            m_timers.simulationTimer.GetTotalTime(),
-            timelineReset,
-            ReplayRuntime::SceneTimelineResetOwners{
-                m_inputRouter,
-                m_interaction,
-                &m_sceneController.Cameras(),
-                m_sceneController.Terrain().Get(),
-                m_camera,
-                NormalizeRuntimeCameraMode( m_replayRuntime.Camera().restoreCameraMode,
-                                            m_sceneController.State().isSceneMode,
-                                            RuntimeCameraModeEnabledMask( m_sceneController ) ),
-                m_attachedCamera.State().activeFollow,
-                m_camera.director.grabbed } };
+            m_attachedCamera.State().activeFollow,
+            m_camera.director.grabbed };
+        const ReplayRuntime::ReplayRestoreTransaction probeTransaction{ probeSample,
+                                                                        m_diagnosticsRuntime,
+                                                                        timelineReset,
+                                                                        timelineOwners };
+        const ReplayRuntime::ReplayArtifactTopologyOwners probeTopology{ m_simulation,
+                                                                         m_config,
+                                                                         m_assets,
+                                                                         m_workerPool,
+                                                                         m_launchOptions.generatedObjectTypeOverride,
+                                                                         m_startup.gameModelCapacity };
         // Why: ReplayRuntime owns probe sequencing and bounded failure state;
         // the application exit latch only preserves that first owned failure
         // while WM_QUIT unwinds the frame loop.
-        const ReplayRuntime::ReplayProbeTickResult probeResult = m_replayRuntime.TickProbes( replayWorld );
+        const ReplayRuntime::ReplayProbeTickResult probeResult =
+            m_replayRuntime.TickProbes( probeTransaction, probeTopology );
         if ( !probeResult.status.ok )
         {
             m_applicationExit.RequestOwnedFailure( probeResult.status );
@@ -1042,7 +1042,6 @@ bool Run::TickScreenshots()
                                                               m_renderDefaults.CinematicBaseline(),
                                                               m_startup,
                                                               m_diagnosticsRuntime,
-                                                              m_runtimeSettings,
                                                               m_timers,
                                                               m_assets,
                                                               m_workerPool,
@@ -1173,7 +1172,6 @@ bool Run::TickSceneAdvance()
                                    m_renderDefaults.CinematicBaseline(),
                                    m_startup,
                                    m_diagnosticsRuntime,
-                                   m_runtimeSettings,
                                    m_timers,
                                    m_assets,
                                    m_workerPool,

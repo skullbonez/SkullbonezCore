@@ -177,7 +177,7 @@ int CurrentSceneBrowserIndex( const SceneController& controller, const RunSceneB
 
 
 SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad( const SceneController& controller,
-                                                     const RunRuntimeSettings& runtimeSettings,
+                                                     const RuntimeRenderer& renderer,
                                                      const RunDebugState& debug,
                                                      const RunCameraState& camera,
                                                      Rendering::IRenderDeviceLifecycle* renderLifecycle,
@@ -212,7 +212,7 @@ SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad( const SceneController& cont
     {
         // Lifetime: Snapshot before BeginLoad mutates scene bookkeeping so the
         // restore policy sees the live operator-owned state from the old run.
-        result.resetSnapshot = CaptureSceneRuntimeResetSnapshot( controller, runtimeSettings, debug, camera );
+        result.resetSnapshot = CaptureSceneRuntimeResetSnapshot( controller, renderer, debug, camera );
     }
     result.shouldLoad = true;
     return result;

@@ -75,7 +75,6 @@ struct CinematicRenderConfig;
 struct RunCameraState;
 struct RunDebugState;
 struct RunLaunchOptions;
-struct RunRuntimeSettings;
 struct RunStartupState;
 struct RunTimerState;
 struct RuntimeRenderBackendView;
@@ -164,7 +163,6 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                   RunTimerState& timers,
                                                   RunDebugState& debug,
                                                   RunLaunchOptions& launchOptions,
-                                                  RunRuntimeSettings& runtimeSettings,
                                                   EngineConfig& config,
                                                   SceneController& sceneController,
                                                   Assets::AssetSystem& assets,
@@ -173,6 +171,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                   Runtime::Audio::ContactAudioService& contactAudio,
                                                   RuntimeRenderBackendView& renderBackendView,
                                                   RenderDefaultsStore& renderDefaults,
+                                                  RuntimeRenderer& renderer,
                                                   int gameModelCapacity );
 RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
                                                   RuntimeInputContext& runtimeInput,
@@ -194,7 +193,6 @@ void ProcessInputFrame( InputRouter& inputRouter,
                         RenderDefaultsStore& renderDefaults,
                         const RunStartupState& startup,
                         DiagnosticsRuntime& diagnosticsRuntime,
-                        RunRuntimeSettings& runtimeSettings,
                         RunTimerState& timers,
                         Assets::AssetSystem& assets,
                         Threading::WorkerPool& workerPool,

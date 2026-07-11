@@ -1,12 +1,13 @@
 /*
 File: SkullbonezSource/Runtime/Render/RuntimeRenderHost.h
 Purpose:
-  Defines the five owner views and active-backend capabilities consumed by
-  RuntimeRenderer.
+  Defines stable and frame-scoped owner views plus active-backend capabilities
+  consumed by RuntimeRenderer.
 
 Mental model:
-  Run constructs five named views once. RuntimeRenderer borrows those concrete
-  owners for its lifetime, then receives immutable frame facts for submission.
+  Run constructs stable world/scene views once and replay/tool views per frame.
+  RuntimeRenderer retains only render-domain owners, then receives immutable
+  frame facts plus synchronous domain borrows for submission.
 
 Glossary:
   Owner view: Named set of lifetime-stable borrows for one render domain.
@@ -99,8 +100,7 @@ struct RunLaunchOptions;
 struct RunMousePickupState;
 struct RunRayCastTestState;
 struct RunReplayPredictionFrame;
-struct RunRuntimeSettings;
-struct RunRenderPassResources;
+struct RuntimeRenderPassResources;
 struct RunSceneBrowserState;
 struct RunSceneState;
 struct RunTimerState;
@@ -108,8 +108,8 @@ struct RuntimeRenderModelFrameView;
 class ReplayRuntime;
 struct RuntimeViewModel;
 
-// Concept: RuntimeRenderer receives five named, immutable-at-the-boundary
-// views. Each pointer identifies one concrete owner that outlives the renderer;
+// Concept: RuntimeRenderer retains this immutable-at-the-boundary world view.
+// Each reference identifies one render-domain owner that outlives the renderer;
 // callers cannot replace bindings after construction.
 struct RenderWorldView
 {
@@ -118,13 +118,10 @@ struct RenderWorldView
     SceneTerrain& terrain;
     Window& window;
     EngineConfig& config;
-    RunRuntimeSettings& runtimeSettings;
     Environment::WorldEnvironment& worldEnvironment;
     Physics::CollisionVisualizer& collisionVisualizer;
     Physics::BroadphaseVisualizer& broadphaseVisualizer;
     Physics::PhysicsDebugVisualizer& physicsDebugVisualizer;
-    RunDebugState& debug;
-    RunTimerState& timers;
     Profiler* profiler = nullptr;
 };
 
@@ -147,17 +144,11 @@ struct RenderReplayOverlayView
 struct RenderToolOverlayView
 {
     RuntimeTools& tools;
+    bool editorOverlayWorkVisible = false;
     bool inspectGizmoInteractionActive = false;
     bool controlDown = false;
     int attachedTargetIndex = -1;
     bool attachedFollow = false;
-};
-
-struct RenderUiView
-{
-    UI::InGameUI& ui;
-    RuntimeInputContext& runtimeInput;
-    RunCameraState& camera;
 };
 
 struct RuntimeRenderBackendView

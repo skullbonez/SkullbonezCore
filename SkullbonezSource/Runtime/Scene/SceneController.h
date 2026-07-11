@@ -107,7 +107,6 @@ class EngineConfig;
 struct RunCameraState;
 struct RunDebugState;
 struct RunLaunchOptions;
-struct RunRuntimeSettings;
 struct RunStartupState;
 struct RunTimerState;
 struct RuntimeRenderBackendView;
@@ -126,7 +125,7 @@ struct SceneDefaultsSaveView
     // Lifetime: every owner is borrowed only for one synchronous cold save.
     // The writer retains no pointers across a scene reload.
     const RunDebugState& debug;
-    const RunRuntimeSettings& runtimeSettings;
+    const RuntimeRenderer& renderer;
     const RunCameraState& camera;
 };
 
@@ -213,7 +212,6 @@ class SceneController
                    const CinematicRenderConfig& m_defaultCinematicRender,
                    const RunStartupState& m_startup,
                    DiagnosticsRuntime& m_diagnosticsRuntime,
-                   RunRuntimeSettings& m_runtimeSettings,
                    RunTimerState& m_timers,
                    Assets::AssetSystem& assets,
                    Threading::WorkerPool& workerPool,
@@ -239,7 +237,6 @@ class SceneController
                          const CinematicRenderConfig& m_defaultCinematicRender,
                          const RunStartupState& m_startup,
                          DiagnosticsRuntime& m_diagnosticsRuntime,
-                         RunRuntimeSettings& m_runtimeSettings,
                          RunTimerState& m_timers,
                          Assets::AssetSystem& assets,
                          Threading::WorkerPool& workerPool,

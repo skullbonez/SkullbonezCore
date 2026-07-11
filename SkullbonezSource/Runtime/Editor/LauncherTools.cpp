@@ -31,7 +31,6 @@ Related:
 #include "../CameraCollection.h"
 #include "../RunDebugState.h"
 #include "../RunLaunchOptions.h"
-#include "../RunRuntimeSettings.h"
 #include "../Scene/SceneGeneratedSetup.h"
 #include "../Scene/SceneRuntime.h"
 #include "../../GameObjects/GameModelCollection.h"
@@ -360,15 +359,15 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     fprintf( f, "cmd_seed_override,%u\n", context.launchOptions.seedOverride );
     fprintf( f, "cmd_no_water,%d\n", context.launchOptions.noWater ? 1 : 0 );
     fprintf( f, "cmd_no_sleep,%d\n", context.launchOptions.noSleep ? 1 : 0 );
-    fprintf( f, "physics_sleep_enabled,%d\n", context.runtimeSettings.isPhysicsSleepEnabled ? 1 : 0 );
+    fprintf( f, "physics_sleep_enabled,%d\n", context.physicsSleepEnabled ? 1 : 0 );
     fprintf( f, "fixed_step_effective,%d\n", context.sceneState.isFixedStep ? 1 : 0 );
     fprintf( f, "cmd_fixed_step_override,%d\n", context.launchOptions.fixedStep ? 1 : 0 );
     fprintf( f, "time_scale,%.6f\n", context.sceneState.timeScale );
     fprintf( f, "renderer,%s\n", rendererName );
     fprintf( f, "generated_object_override,%s\n", generatedObjectOverride );
     fprintf( f, "model_count,%d\n", context.collection.SceneEntityCount() );
-    fprintf( f, "vsync_enabled,%d\n", context.runtimeSettings.isVsyncEnabled ? 1 : 0 );
-    fprintf( f, "pipeline_sync_enabled,%d\n", context.runtimeSettings.isPipelineSyncEnabled ? 1 : 0 );
+    fprintf( f, "vsync_enabled,%d\n", context.vsyncEnabled ? 1 : 0 );
+    fprintf( f, "pipeline_sync_enabled,%d\n", context.pipelineSyncEnabled ? 1 : 0 );
     if ( context.sceneState.isSceneMode )
     {
         fprintf( f,
@@ -380,7 +379,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
                  context.sceneState.timeScale,
                  context.sceneState.isFixedStep ? " --fixed-step" : "",
                  context.launchOptions.noWater ? " --no-water" : "",
-                 context.runtimeSettings.isPhysicsSleepEnabled ? "" : " --no-sleep",
+                 context.physicsSleepEnabled ? "" : " --no-sleep",
                  generatedObjectArg );
     }
     else
@@ -392,7 +391,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
                  context.sceneState.timeScale,
                  context.sceneState.isFixedStep ? " --fixed-step" : "",
                  context.launchOptions.noWater ? " --no-water" : "",
-                 context.runtimeSettings.isPhysicsSleepEnabled ? "" : " --no-sleep",
+                 context.physicsSleepEnabled ? "" : " --no-sleep",
                  generatedObjectArg );
     }
     fprintf( f, "water_hidden,%d\n", context.debug.isWaterHidden ? 1 : 0 );

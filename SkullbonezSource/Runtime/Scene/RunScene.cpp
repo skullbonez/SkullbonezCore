@@ -491,11 +491,10 @@ SbResult SaveCurrentEditableSceneSnapshot( const std::string& scenePath,
     return SceneSnapshotWriter::Save( saveView, request );
 }
 
-void ApplyTornadoDefaultsForActiveScene( RunRuntimeSettings& runtimeSettings,
+void ApplyTornadoDefaultsForActiveScene( TornadoFieldConfig& field,
                                          WorldEnvironment& world,
                                          const CinematicRenderConfig& cinematic )
 {
-    TornadoFieldConfig field = runtimeSettings.tornadoField;
     const float basinRadius = (std::max)( cinematic.basinRadiusX, cinematic.basinRadiusZ );
 
     field.center = Vector3( cinematic.basinCenterX, world.GetFluidSurfaceHeight(), cinematic.basinCenterZ );
@@ -504,7 +503,6 @@ void ApplyTornadoDefaultsForActiveScene( RunRuntimeSettings& runtimeSettings,
     field.inwardAcceleration = 150.0f;
     field.swirlAcceleration = 185.0f;
     field.liftAcceleration = 64.0f;
-    runtimeSettings.tornadoField = field;
 }
 } // namespace
 
@@ -514,7 +512,6 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
                                 const CinematicRenderConfig& m_defaultCinematicRender,
                                 const RunStartupState& m_startup,
                                 DiagnosticsRuntime& m_diagnosticsRuntime,
-                                RunRuntimeSettings& m_runtimeSettings,
                                 RunTimerState& m_timers,
                                 SkullbonezCore::Assets::AssetSystem& assets,
                                 Threading::WorkerPool& workerPool,
@@ -534,6 +531,9 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
                                 const RuntimeRenderBackendView& m_renderBackendView,
                                 RuntimeRenderer& m_renderer )
 {
+    // Operator sleep policy is physics-owned and survives ordinary scene
+    // changes. The scene reset snapshot restores the same owner explicitly.
+    const bool retainedPhysicsSleepEnabled = Models().IsPhysicsSleepEnabled();
     if ( !request.accepted )
     {
         // Lane R: a rejected navigation value cannot identify a scene to load;
@@ -577,7 +577,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
     SceneController& runtime = m_sceneController;
     const SceneRuntimeLoadBeginResult loadBegin =
         PrepareSceneRuntimeLoad( runtime,
-                                 m_runtimeSettings,
+                                 m_renderer,
                                  m_debug,
                                  m_camera,
                                  m_renderBackendView.deviceLifecycle,
@@ -629,8 +629,8 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
     m_diagnosticsRuntime.Capture().ResetScreenshot();
     m_contactAudio.ResetSimpleLinearHistory();
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Audio );
-    m_runtimeSettings.isVsyncEnabled = m_config.runtimeRender.vsyncEnabled;
-    m_runtimeSettings.isPipelineSyncEnabled = m_config.runtimeRender.forcePipelineSync;
+    m_renderer.SetVsyncEnabled( m_config.runtimeRender.vsyncEnabled );
+    m_renderer.SetPipelineSyncEnabled( m_config.runtimeRender.forcePipelineSync );
     m_diagnosticsRuntime.UIStress() = DiagnosticsRuntime::UIStressState{};
     m_sceneController.ClearRequiredAutomationGates();
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
@@ -848,11 +848,11 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
         m_debug.physicsDebugContactLinger = scene.GetPhysicsDebugContactLinger();
         if ( scene.HasVsyncOverride() )
         {
-            m_runtimeSettings.isVsyncEnabled = scene.IsVsyncEnabled();
+            m_renderer.SetVsyncEnabled( scene.IsVsyncEnabled() );
         }
         if ( scene.HasPipelineSyncOverride() )
         {
-            m_runtimeSettings.isPipelineSyncEnabled = scene.IsPipelineSyncEnabled();
+            m_renderer.SetPipelineSyncEnabled( scene.IsPipelineSyncEnabled() );
         }
         m_debug.isTextOnly = scene.IsTextOnly();
         SceneState().isEditableScene = scene.IsEditableScene();
@@ -1094,7 +1094,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
     if ( shouldPreserveRuntimeState )
     {
         RestoreSceneRuntimeResetSnapshot( m_sceneController,
-                                          m_runtimeSettings,
+                                          m_renderer,
                                           m_debug,
                                           m_camera,
                                           m_physicsDebugVisualizer,
@@ -1117,47 +1117,55 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
     }
     if ( !shouldPreserveRuntimeState )
     {
-        m_runtimeSettings.tornadoField = Physics::TornadoFieldConfig();
-        m_runtimeSettings.tornadoSystem = Physics::TornadoSystemConfig();
-        ApplyTornadoDefaultsForActiveScene( m_runtimeSettings,
+        Physics::TornadoFieldConfig tornadoField;
+        Physics::TornadoSystemConfig tornadoSystem;
+        ApplyTornadoDefaultsForActiveScene( tornadoField,
                                             m_sceneController.World(),
                                             ActiveSceneCinematicConfig( SceneState(), m_config ) );
         if ( hasSceneTornadoSystem )
         {
-            m_runtimeSettings.tornadoSystem = sceneTornadoSystem;
-            m_runtimeSettings.tornadoField.enabled = false;
-            m_runtimeSettings.tornadoVisual.enabled = true;
+            tornadoSystem = sceneTornadoSystem;
+            tornadoField.enabled = false;
+            m_renderer.SetTornadoVisualEnabled( true );
         }
+        m_sceneController.Models().SetTornadoFieldConfig( tornadoField );
+        m_sceneController.Models().SetTornadoSystemConfig( tornadoSystem );
     }
+    Physics::TornadoFieldConfig tornadoField = m_sceneController.Models().GetTornadoFieldConfig();
+    Physics::TornadoSystemConfig tornadoSystem = m_sceneController.Models().GetTornadoSystemConfig();
     if ( m_launchOptions.hasTornadoOverride )
     {
-        if ( m_runtimeSettings.tornadoSystem.enabled || !m_runtimeSettings.tornadoSystem.vortices.empty() )
+        if ( tornadoSystem.enabled || !tornadoSystem.vortices.empty() )
         {
-            m_runtimeSettings.tornadoSystem.enabled = m_launchOptions.tornadoEnabled;
-            m_runtimeSettings.tornadoField.enabled = false;
+            tornadoSystem.enabled = m_launchOptions.tornadoEnabled;
+            tornadoField.enabled = false;
         }
         else
         {
-            m_runtimeSettings.tornadoField.enabled = m_launchOptions.tornadoEnabled;
+            tornadoField.enabled = m_launchOptions.tornadoEnabled;
         }
-        if ( m_runtimeSettings.tornadoVisual.autoEnableWithTornado )
+        if ( m_renderer.TornadoVisualAutoEnableWithTornado() )
         {
-            m_runtimeSettings.tornadoVisual.enabled = m_launchOptions.tornadoEnabled;
+            m_renderer.SetTornadoVisualEnabled( m_launchOptions.tornadoEnabled );
         }
     }
     if ( m_launchOptions.tornadoVectors )
     {
-        m_runtimeSettings.tornadoField.visualizeVelocityField = true;
-        m_runtimeSettings.tornadoSystem.visualizeVelocityField = true;
+        tornadoField.visualizeVelocityField = true;
+        tornadoSystem.visualizeVelocityField = true;
     }
-    m_runtimeSettings.ApplyTornadoPhysics( m_sceneController.Models() );
+    m_sceneController.Models().SetTornadoFieldConfig( tornadoField );
+    m_sceneController.Models().SetTornadoSystemConfig( tornadoSystem );
     if ( sceneMutualGravityEnabled )
     {
         // Why: n-body space scenes have no contacts to wake quiet bodies later;
         // authored mutual gravity owns sleep policy for the duration of setup.
-        m_runtimeSettings.isPhysicsSleepEnabled = false;
+        m_sceneController.Models().SetPhysicsSleepEnabled( false );
     }
-    m_sceneController.Models().SetPhysicsSleepEnabled( m_runtimeSettings.isPhysicsSleepEnabled );
+    else if ( !shouldPreserveRuntimeState )
+    {
+        m_sceneController.Models().SetPhysicsSleepEnabled( retainedPhysicsSleepEnabled );
+    }
     if ( m_launchOptions.frameCountOverride > 0 )
     {
         SceneState().targetFrameCount = m_launchOptions.frameCountOverride;
@@ -1239,7 +1247,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
     // Runtime swap policy is chosen after config/scene overrides are resolved.
     if ( m_renderBackendView.deviceLifecycle )
     {
-        m_renderBackendView.deviceLifecycle->SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
+        m_renderBackendView.deviceLifecycle->SetVsyncEnabled( m_renderer.VsyncEnabled() );
     }
 
     // Restart timers
@@ -1395,8 +1403,8 @@ SbResult SceneController::SaveCurrentDefaults( const SceneDefaultsSaveView& view
     simulation["physics"] = State().isScenePhysics;
     simulation["text"] = State().isSceneText;
     simulation["textOnly"] = view.debug.isTextOnly;
-    runtime["vsync"] = view.runtimeSettings.isVsyncEnabled;
-    runtime["pipelineSync"] = view.runtimeSettings.isPipelineSyncEnabled;
+    runtime["vsync"] = view.renderer.VsyncEnabled();
+    runtime["pipelineSync"] = view.renderer.PipelineSyncEnabled();
     playback["fixedStep"] = State().isFixedStep;
     if ( State().targetFrameCount > 0 )
     {

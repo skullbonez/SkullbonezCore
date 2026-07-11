@@ -256,6 +256,12 @@ void PhysicsEngine::SetSleepEnabled( bool enabled )
 }
 
 
+bool PhysicsEngine::IsSleepEnabled() const
+{
+    return m_scene.IsPhysicsSleepEnabled();
+}
+
+
 void PhysicsEngine::BeginCollisionVisualFrame( PhysicsBodyCount bodyCount )
 {
     m_scene.BeginCollisionVisualFrame( bodyCount );

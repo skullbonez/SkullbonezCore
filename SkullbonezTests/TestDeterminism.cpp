@@ -258,6 +258,19 @@ void SeedSupportedSleepWorld( PhysicsEngine& engine, const EngineConfig& config 
     REQUIRE( SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( engine ).Count() == 1 );
 }
 
+TEST_CASE( "PhysicsEngine exposes its owned sleep policy" )
+{
+    // PhysicsEngine owns fixed-capacity solver scratch too large for the
+    // default test-thread stack; existing determinism fixtures use static cold
+    // storage for the same reason.
+    static PhysicsEngine engine;
+    engine.Clear();
+    engine.SetSleepEnabled( true );
+    CHECK( engine.IsSleepEnabled() );
+    engine.SetSleepEnabled( false );
+    CHECK_FALSE( engine.IsSleepEnabled() );
+}
+
 void AddMutualGravityBody( PhysicsEngine& engine,
                            uint32_t sceneObjectId,
                            const Vector3& position,

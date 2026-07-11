@@ -70,17 +70,45 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
                                                  m_sceneController.State().currentFrame,
                                                  m_timers.simulationTimer.GetTimeSinceLastStart(),
                                                  m_timers.simulationTimer.GetTotalTime() };
+    const float rayLinger = (std::max)( 0.0f, m_debug.physicsDebugContactLinger );
+    const bool editorOverlayWorkVisible =
+        m_runtimeTools.HasLingeredRayCastLine( rayLinger ) ||
+        m_runtimeTools.HasSelectionOverlayWork( renderModels.modelCount, m_camera.mode ) ||
+        m_runtimeTools.HasMousePickupOverlayWork() || m_replayRuntime.HasPathVisualizerTarget() ||
+        m_replayRuntime.HasCameraFocus() ||
+        ( m_replayRuntime.VelocityEditActive() && !m_runtimeTools.Editor().editorModeEnabled ) ||
+        m_runtimeTools.HasLauncherShots();
     const RenderToolOverlayView toolOverlay{
         m_runtimeTools,
+        editorOverlayWorkVisible,
         m_runtimeTools.InspectGizmoInteractionActive( m_camera.mode, m_replayRuntime.InspectionActive() ),
         m_inputRouter.RuntimeSnapshot().pointer.controlDown,
         attachedTargetIndex,
         m_attachedCamera.State().activeFollow };
+    RuntimeRenderFramePolicy framePolicy;
+    framePolicy.textOnly = m_debug.isTextOnly;
+    framePolicy.terrainHidden = m_debug.isTerrainHidden;
+    framePolicy.collisionVisualizer = m_debug.isCollisionVisualizer;
+    framePolicy.physicsDebugTransparent = m_debug.isPhysicsDebugTransparent;
+    framePolicy.physicsDebugAlpha = m_debug.physicsDebugAlpha;
+    framePolicy.waterHidden = m_debug.isWaterHidden;
+    framePolicy.waterFlatDebug = m_debug.isWaterFlatDebug;
+    framePolicy.waterNoReflect = m_debug.isWaterNoReflect;
+    framePolicy.waterRTReflect = m_debug.isWaterRTReflect;
+    framePolicy.waterFreezeDebug = m_debug.isWaterFreezeDebug;
+    framePolicy.frozenWaterTime = m_debug.frozenWaterTime;
+    framePolicy.broadphaseOverlay = m_debug.isBroadphaseOverlay;
+    framePolicy.physicsDebugFlags = m_debug.physicsDebugFlags;
+    framePolicy.physicsDebugPipelineStageCursor = m_debug.physicsDebugPipelineStageCursor;
+    framePolicy.physicsDebugContactLinger = m_debug.physicsDebugContactLinger;
+    framePolicy.simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
+    framePolicy.totalSimulationSeconds = m_timers.simulationTimer.GetTotalTime();
     m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext{ m_renderBackendView,
                                                                      renderModels,
                                                                      m_sceneController.Models(),
                                                                      m_sceneController.Physics(),
                                                                      m_UI,
+                                                                     framePolicy,
                                                                      replayOverlay,
                                                                      toolOverlay,
                                                                      activeCinematic,

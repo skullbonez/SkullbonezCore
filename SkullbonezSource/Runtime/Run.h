@@ -65,7 +65,6 @@ Related:
 #include "RunDebugState.h"
 #include "RunLaunchOptions.h"
 #include "RunCameraState.h"
-#include "RunRuntimeSettings.h"
 #include "InteractionAutomationController.h"
 #include "RunStartupState.h"
 #include "RunTimerState.h"
@@ -110,10 +109,9 @@ class Run
 {
 
   private:
-    // Concept: Run is the process composition root. These members either own a
-    // top-level subsystem for
-    // process lifetime/order, or keep launch/session choices that coordinate
-    // multiple subsystems and therefore do not have one narrower owner yet.
+    // Concept: Run is the process composition root. It constructs concrete
+    // subsystem owners and retains only the process borrows and launch/result
+    // values needed to sequence startup, frame order, and shutdown.
     Window& m_window;                                                   // Startup-owned native window borrowed for process lifetime.
     Threading::WorkerPool& m_workerPool;                                // Startup-owned worker service borrowed for process lifetime.
     EngineConfig& m_config;                                             // Borrowed process config loaded and CLI-patched by Runtime/Init.cpp.
@@ -129,7 +127,6 @@ class Run
     // Subsystem owners below are ordered by lifetime dependency. Render-host
     // bindings borrow from these objects; they do not own them.
     DiagnosticsRuntime m_diagnosticsRuntime;                            // Capture, perf, and queryable physics diagnostics owner.
-    RunRuntimeSettings m_runtimeSettings;                               // Scene/app runtime swap policy toggles
     RunTimerState m_timers;                                             // Frame/simulation timers and rolling timing values
     InputRouter m_inputRouter;                                          // Owns keyboard/pointer edge memory and binding-context enforcement.
     RuntimeInteractionController m_interaction;                         // Authoritative runtime workspace and world-input owner.
@@ -172,14 +169,10 @@ class Run
     ~Run();
     void Initialise();                                                  // Initialises shared resources and loads first scene
     const SbResult& LastSceneLoadResult() const;                        // Initialise scene-load result for CLI startup checks.
-    void ApplyStartupOverrides(
+    SbResult ApplyStartupOverrides(
         const RunStartupOverrides& overrides );                         // Apply parsed CLI/startup policy before Initialise().
     SbResult RunSceneLoadOnly( const char* snapshotOutPath = nullptr ); // Scene-load smoke path; skips the frame loop.
     SbResult Execute();                                                 // Main message loop; returns recoverable runtime failures.
-    SbResult SetInteractionAutomation(
-        const char* scriptPath,
-        const char* reportPath );                                       // CLI harness for deterministic world-click interaction scripts.
-    SbResult InteractionAutomationResult() const;                       // Non-throwing CLI automation result after Execute().
 };
 } // namespace Basics
 } // namespace SkullbonezCore

@@ -71,7 +71,6 @@ struct CinematicRenderConfig;
 struct RunCameraState;
 struct RunDebugState;
 struct RunLaunchOptions;
-struct RunRuntimeSettings;
 struct RunStartupState;
 struct RunTimerState;
 struct RuntimeRenderBackendView;
@@ -80,7 +79,7 @@ SbResult RunUIStressActions( DiagnosticsRuntime& diagnosticsRuntime,
                              Window* window,
                              RunTimerState& timers,
                              UI::InGameUI& ui,
-                             RunRuntimeSettings& runtimeSettings,
+                             RuntimeRenderer& renderer,
                              RuntimeRenderBackendView& renderBackendView,
                              RunDebugState& debug,
                              SceneController& sceneController,
@@ -103,7 +102,6 @@ void ExecuteGraphicsStressFrame( GraphicsStressController& stress,
                                  const CinematicRenderConfig& defaultCinematicRender,
                                  const RunStartupState& startup,
                                  DiagnosticsRuntime& diagnosticsRuntime,
-                                 RunRuntimeSettings& runtimeSettings,
                                  RunTimerState& timers,
                                  Assets::AssetSystem& assets,
                                  Threading::WorkerPool& workerPool,

@@ -239,7 +239,6 @@ RUNTIME_PREFIXES = (
     "RunLaunchOptions",
     "RunReplayProbeState",
     "RunRender",
-    "RunRuntimeSettings",
     "RunStartupState",
     "RunTimerState",
     "RunUiTextPass",
@@ -311,6 +310,7 @@ RUNTIME_REPLAY_PREFIXES = (
 )
 
 RUNTIME_RENDER_PREFIXES = (
+    "RenderPresentationSettings",
     "RuntimeRenderHost",
     "RuntimeRenderInputs",
     "RuntimeRenderPasses",

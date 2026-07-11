@@ -38,6 +38,7 @@ Related:
 #include "RuntimeRenderInputs.h"
 #include "RuntimeRenderPasses.h"
 #include "RuntimeRenderResources.h"
+#include "RenderPresentationSettings.h"
 #include "../../Assets/TextureCollection.h"
 #include "../../Rendering/Helper.h"
 #include "../../Rendering/RenderGraph.h"
@@ -85,6 +86,7 @@ class RuntimeRenderer
         GameObjects::GameModelCollection& renderModelOwner;
         Physics::PhysicsEngine& physics;
         UI::InGameUI& ui;
+        RuntimeRenderFramePolicy framePolicy;
         const RenderReplayOverlayView& replayOverlay;
         const RenderToolOverlayView& toolOverlay;
         const CinematicRenderConfig& cinematic;
@@ -92,13 +94,26 @@ class RuntimeRenderer
         bool consequenceGradeRequested = false; // True while replay prediction should fade into the causality look.
     };
 
-    RuntimeRenderer( RuntimeRenderBackendView backend,
-                     const RenderWorldView& world,
-                     const RenderSceneView& scene,
-                     const RenderReplayOverlayView& replayOverlay,
-                     const RenderToolOverlayView& toolOverlay,
-                     const RenderUiView& ui );
+    RuntimeRenderer( RuntimeRenderBackendView backend, const RenderWorldView& world, const RenderSceneView& scene );
     ~RuntimeRenderer();
+
+    const RenderPresentationSettings& PresentationSettings() const
+    {
+        return m_presentationSettings;
+    }
+    // Replaces the complete renderer-owned presentation policy during an
+    // explicit scene-reset transaction; ordinary callers use the named commands.
+    void RestorePresentationSettings( const RenderPresentationSettings& settings );
+    bool VsyncEnabled() const;
+    void SetVsyncEnabled( bool enabled );
+    bool PipelineSyncEnabled() const;
+    void SetPipelineSyncEnabled( bool enabled );
+    // Returns a read-only visual-style snapshot. Callers edit a copy and commit
+    // it through SetTornadoVisualSettings so unrelated presentation fields stay hidden.
+    const TornadoVisualSettings& TornadoVisualSettingsSnapshot() const;
+    void SetTornadoVisualSettings( const TornadoVisualSettings& settings );
+    bool TornadoVisualAutoEnableWithTornado() const;
+    void SetTornadoVisualEnabled( bool enabled );
 
     void EnsureFrameResources( const RenderResourceContext& resources );
     // Packages model-owned render/debug views before the frame passes consume them.
@@ -112,10 +127,11 @@ class RuntimeRenderer
                                          Rendering::IRenderCommandContext& renderCommands,
                                          const EngineConfig& config,
                                          bool dumpTextureAssets );
-    const RunRenderPassResources& RenderPassResources() const
-    {
-        return m_passResources;
-    }
+    // Projects framebuffer metadata into values safe for the UI to retain for
+    // the current draw; no framebuffer or pass-resource ownership escapes.
+    RuntimeRenderTargetPreviewSnapshot BuildRenderTargetPreviewSnapshot( bool shadowsAvailable,
+                                                                         bool cinematicTargetsAvailable,
+                                                                         bool volumetricAvailable ) const;
     RenderHelper& Helper()
     {
         assert( m_renderHelper.has_value() );
@@ -131,11 +147,13 @@ class RuntimeRenderer
                                     const Assets::AssetSystem& assets,
                                     int screenW,
                                     int screenH );
-    bool ShouldRenderUiText( const UiTextPassState& state ) const;
+    bool ShouldRenderUiText( const UiTextPassState& state, const UI::InGameUI& ui ) const;
     void SetUiTextRayTracingCapability( Rendering::IRenderRayTracing* renderRayTracing );
     void RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics,
                        const UI::UIRenderContext& uiRender,
                        const UiTextPassState& state,
+                       RunTimerState& timers,
+                       UI::InGameUI& ui,
                        const RuntimeRenderModelFrameView& models,
                        DiagnosticsRuntime& diagnosticsRuntime,
                        ReplayRuntime& replayRuntime,
@@ -229,20 +247,27 @@ class RuntimeRenderer
                                          bool freezeTime,
                                          float frozenTime,
                                          float liveWaterTime );
-    TornadoVisualSnapshot BuildTornadoVisualSnapshot() const;
+    TornadoVisualSnapshot BuildTornadoVisualSnapshot( const RenderFrameContext& frame,
+                                                      const RuntimeRenderServices& services ) const;
     GraphPassResult ExecuteTornadoVisualThroughRenderGraph( const RenderFrameContext& frame,
                                                             bool useCinematicTarget,
                                                             const TornadoVisualSnapshot& snapshot );
-    DebugOverlaySnapshot BuildDebugOverlaySnapshot( const RenderFrameContext& frame ) const;
+    DebugOverlaySnapshot BuildDebugOverlaySnapshot( const RenderFrameContext& frame,
+                                                    const RuntimeRenderServices& services ) const;
     bool ExecuteReplayGhostsThroughRenderGraph( const RenderFrameContext& frame,
+                                                ReplayRuntime& replayRuntime,
                                                 bool useCinematicTarget,
                                                 const CinematicRenderConfig* activeCinematic,
                                                 const Rendering::ShadowFrameData* objectShadow );
-    bool ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame, bool useCinematicTarget );
+    bool ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame,
+                                                const RuntimeRenderServices& services,
+                                                bool useCinematicTarget );
     CinematicPostGraphResult ExecuteCinematicPostThroughRenderGraph( const RenderFrameContext& frame );
     bool ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,
                                           const UI::UIRenderContext& uiRender,
                                           const UiTextPassState& state,
+                                          RunTimerState& timers,
+                                          UI::InGameUI& ui,
                                           const RuntimeRenderModelFrameView& models,
                                           DiagnosticsRuntime& diagnosticsRuntime,
                                           ReplayRuntime& replayRuntime,
@@ -258,21 +283,17 @@ class RuntimeRenderer
     SceneTerrain& m_terrain;                    // Scene terrain owner borrowed by terrain/debug passes.
     std::unique_ptr<Geometry::SkyBox> m_skyBox; // Sky resource lifetime released before backend teardown.
     Window& m_window;                           // Client dimensions sampled for render targets.
-    RunRenderPassResources m_passResources;     // GPU objects owned by named RuntimeRenderer passes.
-    RunDebugState& m_debug;                     // Frame/debug toggles sampled by render scheduling.
-    RunTimerState& m_timers;                    // Simulation clock used by visual/replay overlays.
+    RuntimeRenderPassResources m_passResources; // GPU objects owned by named RuntimeRenderer passes.
     EngineConfig& m_config;                     // Process config that owns ordinary render style.
-    RunRuntimeSettings& m_runtimeSettings;      // Runtime-toggled render/physics presentation settings.
+    // Owner: render presentation policy survives backend rebuilds here; physics
+    // and audio state remain in their respective owners.
+    RenderPresentationSettings m_presentationSettings;
     Environment::WorldEnvironment& m_world;     // Fluid surface and gravity owner for pass contexts.
     std::optional<RenderHelper> m_renderHelper; // Backend-lifetime primitive render cache and batch scratch.
     Physics::CollisionVisualizer& m_collisionVisualizer;
     Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
-    RuntimeTools& m_runtimeTools;               // Tool overlay owner used outside hot render loops.
-    RunEditorPlacementState& m_editor;          // Editor overlay state sampled once per frame.
-    RunCameraState& m_camera;                   // Current camera mode needed by tool overlay wake-up checks.
     Profiler* m_profiler = nullptr;             // Startup-bound diagnostics source; null in non-profile builds.
-    ReplayRuntime& m_replayRuntime;             // Replay presentation owner for ghost/focus overlays.
     int m_toolOverlaySceneFrame = 0;            // Scene frame paired with the prepared fixed-capacity overlay records.
     uint64_t m_toolOverlayGrowthEventCount = 0; // Replay reserve counter sampled by the composition root.
     float m_consequenceGradeStrength = 0.0f;    // Render-owned fade strength for the frame-local consequence grade.

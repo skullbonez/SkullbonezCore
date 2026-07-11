@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayRuntimeOwnerViews.h
 Purpose:
-  Defines frame-scoped owner views used by replay startup, restore, and probes.
+  Defines frame-scoped owner views used by replay startup and restore.
 
 Mental model:
   ReplayRuntime owns replay decisions while Run owns application composition.
@@ -12,12 +12,10 @@ Glossary:
   Sample restore: Transaction that applies one solver sample to live owners.
   Topology restore: Cold scene rebuild needed when an artifact's body layout
     differs from the current generated scene.
-  Probe world: Debug-only whole-scene fixture used by named automation probes.
 
 Invariants:
   - Production startup cannot borrow solver or scene-rebuild owners.
   - Sample and topology operands remain separate at the production boundary.
-  - ReplayProbeWorld is unavailable outside Debug builds.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
@@ -72,30 +70,5 @@ struct ReplayRuntime::ReplayArtifactTopologyOwners
     int gameModelCapacity = 0;
 };
 
-#ifdef _DEBUG
-// Debug automation needs a deliberately broad composition fixture to build
-// and inspect whole scenes. It is unavailable in production builds and borrowed
-// only while a named replay probe runs.
-struct ReplayProbeWorld
-{
-    RunSceneState& scene;
-    RunRuntimeSettings& runtimeSettings;
-    RunDebugState& debug;
-    RuntimeTools& runtimeTools;
-    SceneController& sceneController;
-    SimulationSystem& simulation;
-    const EngineConfig& config;
-    Assets::AssetSystem& assets;
-    Threading::WorkerPool& workerPool;
-    GeneratedObjectTypeOverride& generatedObjectTypeOverride;
-    int gameModelCapacity = 0;
-    DiagnosticsRuntime& diagnostics;
-    RunMousePickupState& mousePickup;
-    RunCameraMode normalizedCurrentMode = RunCameraMode::Demo;
-    double now = 0.0;
-    ReplayRuntime::SceneTimelineResetInput timelineReset;
-    ReplayRuntime::SceneTimelineResetOwners timelineOwners;
-};
-#endif
 } // namespace Basics
 } // namespace SkullbonezCore

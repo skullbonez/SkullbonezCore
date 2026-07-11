@@ -92,6 +92,8 @@ struct RunStartupOverrides
     RunLaunchOptions launch;
     const char* liveStyleControlDirectory = nullptr;          // CLI --live-style-control-dir
     const char* mainMemoryDumpPath = nullptr;                 // CLI --memory-dump
+    const char* interactionScriptPath = nullptr;              // CLI interaction harness script copied by its owner.
+    const char* interactionReportPath = nullptr;              // Optional interaction report destination.
     bool configureReplayRecording = false;                    // True when replay capture or hash logging must be configured
     bool replayRecordingEnabled = true;
     int replayRetentionSeconds = 0;

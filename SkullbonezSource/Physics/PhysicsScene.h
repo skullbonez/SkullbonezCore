@@ -159,6 +159,7 @@ class PhysicsScene
                            const Math::Vector::Vector3& impulse,
                            const Math::Vector::Vector3& localApplicationPoint );
     void SetPhysicsSleepEnabled( bool enabled );
+    bool IsPhysicsSleepEnabled() const;
     void BeginCollisionVisualFrame( PhysicsBodyCount bodyCount );
     void EndCollisionVisualFrame();
     void ClearPointJointConstraints();

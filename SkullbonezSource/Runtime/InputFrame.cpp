@@ -44,7 +44,6 @@ Related:
 #include "RunDemoDirector.h"
 #include "RunDebugState.h"
 #include "RunLaunchOptions.h"
-#include "RunRuntimeSettings.h"
 #include "RunStartupState.h"
 #include "RunTimerState.h"
 #include "Window.h"
@@ -637,7 +636,6 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                   RunTimerState& timers,
                                                   RunDebugState& debug,
                                                   RunLaunchOptions& launchOptions,
-                                                  RunRuntimeSettings& runtimeSettings,
                                                   EngineConfig& config,
                                                   SceneController& sceneController,
                                                   Assets::AssetSystem& assets,
@@ -646,6 +644,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                   SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio,
                                                   RuntimeRenderBackendView& renderBackendView,
                                                   RenderDefaultsStore& renderDefaults,
+                                                  RuntimeRenderer& renderer,
                                                   int gameModelCapacity )
 {
     if ( !result.frameActive )
@@ -785,7 +784,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         updateInputMode( RuntimeInputAction::ToggleEditor, source );
     };
 
-    if ( ApplyRenderVsyncUICommand( RenderDeviceUICommandContext{ runtimeSettings, renderBackendView.deviceLifecycle },
+    if ( ApplyRenderVsyncUICommand( RenderDeviceUICommandContext{ renderer, renderBackendView.deviceLifecycle },
                                     uiCommands.renderer ) )
     {
         recordUIAction( RuntimeInputAction::ToggleVsync );
@@ -849,16 +848,14 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     {
         recordUIAction( RuntimeInputAction::ToggleCollisionVisualizer );
     }
-    if ( ApplyPhysicsSleepPolicyUICommand(
-             PhysicsSleepPolicyUICommandContext{ runtimeSettings, sceneController.Models() },
-             uiCommands.physics ) )
+    if ( ApplyPhysicsSleepPolicyUICommand( PhysicsSleepPolicyUICommandContext{ sceneController.Models() },
+                                           uiCommands.physics ) )
     {
         recordUIAction( RuntimeInputAction::TogglePhysicsSleepPolicy );
     }
     RecordDiagnosticsPhysicsOverlayUIActions( physicsDiagnosticsCommands, recordUIAction );
     const TornadoUICommandResult tornadoCommands =
-        ApplyTornadoUICommands( TornadoUICommandContext{ runtimeSettings, sceneController.Models() },
-                                uiCommands.physics );
+        ApplyTornadoUICommands( TornadoUICommandContext{ renderer, sceneController.Models() }, uiCommands.physics );
     RecordTornadoToggleUIActions( tornadoCommands, recordUIAction );
     if ( runtimeTools.ApplyRayCastVisualizationUICommand( uiCommands.physics ) )
     {
@@ -890,8 +887,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         uiCommands.renderTuning,
         uiCommands.water );
     RecordRuntimePresentationUIActions( presentationCommands, recordUIAction );
-    if ( ApplySoundUICommands( SoundUICommandContext{ contactAudio, runtimeSettings, launchOptions.noContactAudio },
-                               uiCommands.sound ) )
+    if ( ApplySoundUICommands( SoundUICommandContext{ contactAudio, launchOptions.noContactAudio }, uiCommands.sound ) )
     {
         recordUIAction( RuntimeInputAction::ApplySoundTuning );
     }

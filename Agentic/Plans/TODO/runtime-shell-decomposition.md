@@ -1,7 +1,7 @@
 # Runtime Shell Decomposition
 
 Date: 2026-07-11 (reconciled)
-Status: In progress — 24/27 checklist items complete; earlier
+Status: Complete — 27/27 checklist items complete; earlier
 foundation work is summarized separately and is not mixed into this count
 Impact area: runtime architecture, scene lifecycle, input routing, render host
 Owner: application composition root
@@ -49,7 +49,7 @@ authority must move to the named owner, and the deletion proof must pass.
 | 2 | **Command authority → owner-specific queues** | `DrainRuntimeCommands` and the mixed scene/capture/defaults/quit switch | Fixed bounded queues owned by `SceneController`, `CaptureController`, and `RenderDefaultsStore`, plus value-only `ApplicationExitState`; each owner returns a typed batch result and replay receives only accepted events with explicit wire codes | No central switch names scene, screenshot, defaults, and replay logging together; dead `AdvanceScene`/`Quit` types and generic runtime-command vocabulary are deleted | CPU exit/queue/order/overflow tests plus interaction and full gates |
 | 3 | **Scene lifecycle → promoted `SceneController`** | `LoadScene`, reset/preserve-state orchestration, browser refresh, defaults, adjacent/deck movement, and lifecycle callback lambdas | `SceneController` owns queue, browser, lifecycle state, explicit `BeforeSceneUnload`…`AfterSceneActivated` events, and `Load(const SceneLoadRequest&) -> SbResult` | `Run.h` has no scene-load/reset/default business methods; `SceneController.cpp` is no longer a pass-through facade | Parser/round-trip tests, full gate, physics determinism |
 | 4 | **Replay workspace → existing `ReplayRuntime`** | `TickReplayScrubberInput`, cause-tree/velocity/prediction input, inspection-camera decisions, replay overlays, restore/hash/probe coordination | `ReplayRuntime::TickWorkspace(const ReplayWorkspaceInput&, ReplayWorkspaceOutput&)` consumes typed UI actions and emits camera requests, owner commands, and fixed-capacity draw records | `Run.h` has no `TickReplay*`, `RenderReplay*`, replay restore/hash business method, or replay camera-transition method | CPU replay tests, replay scrub, interaction proofs, allocation evidence |
-| 5 | **Render composition → existing `RuntimeRenderer`** | `BuildRuntimeRendererBindings`, backend-resource release/rebuild logging, editor/replay overlay hook lambdas, and pass-level texture callbacks | `RuntimeRenderer` receives immutable `RenderWorldView`, `RenderSceneView`, `RenderReplayOverlayView`, `RenderToolOverlayView`, and `RenderUiView`; owners build draw records before submission | `Run.cpp` contains no C-style render hook, `void*` user pointer, or callback reading `Run` private members | DX12 architecture tests, renderer gate, then full gate |
+| 5 | **Render composition → existing `RuntimeRenderer`** | `BuildRuntimeRendererBindings`, backend-resource release/rebuild logging, editor/replay overlay hook lambdas, and pass-level texture callbacks | `RuntimeRenderer` retains immutable world/scene owner views; replay/tool owners and value-only frame policy arrive synchronously after owners build draw records | `Run.cpp` contains no C-style render hook, `void*` user pointer, or callback reading `Run` private members | DX12 architecture tests, renderer gate, then full gate |
 
 These are durable domain boundaries, not migration wrappers. `InputRouter` owns
 input orchestration because raw/semantic/UI ordering is one invariant; it is not
@@ -1195,7 +1195,7 @@ varied physics baseline byte-exactly.
 
 ### F. Prove the god object is gone
 
-- [ ] F1. Rebuild the final `Run` ownership inventory from current source. Map
+- [x] F1. Rebuild the final `Run` ownership inventory from current source. Map
   every remaining `Run` method and mutable field to one of the five permitted
   shell responsibilities (owner construction/wiring, startup/shutdown, OS
   message pump, top-level frame order, final exit reporting), or move it to a
@@ -1247,7 +1247,7 @@ the 44,401-line varied physics baseline byte-exactly. Comment audit:
 `Agentic/Reports/2026-07-11/runtime-shell-f1-field-owner-comment-audit.md`,
 22 checked, 0 deferred. F1 remains open for the multi-domain runtime-settings
 split and broad frame-context/substitute-owner audit.
-- [ ] F2. Audit the extracted owners and their boundary records for sideways
+- [x] F2. Audit the extracted owners and their boundary records for sideways
   migration. `InputRouter`, command owners, `SceneController`, `ReplayRuntime`,
   and `RuntimeRenderer` must not retain `Run*`/`Run&`, callback bags, `void*`
   contexts, friend backdoors, broad mutable contexts, forwarding-only APIs, or
@@ -1267,7 +1267,7 @@ DX12 InfoQueue errors, matching screenshots, standalone handle smoke, and the
 `Agentic/Reports/2026-07-11/runtime-shell-f2-frame-context-comment-audit.md`,
 1 checked, 0 deferred. F2 remains open for the stress/automation, scene/replay,
 render/UI, and owner API surfaces.
-- [ ] F3. After every other runtime-shell item and required gate passes, run one
+- [x] F3. After every other runtime-shell item and required gate passes, run one
   independent read-only adversarial ownership review. Record concrete evidence
   for zero remaining god-object or disguised shared-state-hub findings in
   `Agentic/Reports/<date>/runtime-shell-final-ownership-review.md`, including
@@ -1275,13 +1275,38 @@ render/UI, and owner API surfaces.
   credible finding reopens its owning item, is fixed in this plan, and blocks
   closure rather than becoming optional follow-up debt.
 
+F1-F3 closure evidence (2026-07-11): the multi-domain settings shelf is deleted.
+RuntimeRenderer owns render presentation, PhysicsEngine owns sleep/tornado
+simulation policy, and ContactAudioService owns audio diagnostics. Renderer
+presentation mutations use named commands; UI receives value-only render-target
+preview records. RuntimeRenderer no longer retains debug, timer, camera, editor,
+tool, or replay owners. Stress and interaction automation use explicit synchronous
+borrows, and Debug replay probes compose the production restore transaction and
+topology operands instead of `ReplayProbeWorld`.
+
+The first deliberately separate F3 review found those four blocking authority
+leaks. After correction, the single permitted repeat review found zero credible
+god-object or substitute-hub defects. The final method/field inventory, large-file
+cohesion table, inspected boundary list, allocation inspection, and deletion
+proofs are in
+`Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md`. The touched
+comment checklist is 47 checked, 0 deferred in
+`Agentic/Reports/2026-07-11/runtime-shell-f1-settings-and-f2-context-comment-audit.md`.
+
+Corrected commit-bound evidence: `tools\validate_fast.bat` passed in 26.9s with
+604/604 project/filter items and zero-warning Profile/Debug builds; all five
+interaction scenarios passed in 15.1s; and `tools\validate_full.bat` passed in
+64.3s with the mandatory CPU umbrella, DX12 InfoQueue errors = 0, matching
+screenshots, standalone physics/handle smoke, and the 44,401-line varied physics
+baseline byte-exactly.
+
 ## Binding And Open Decisions
 
 | Decision | Binding answer or remaining question |
 |---|---|
 | Input/UI ordering | **Binding:** sample `DeviceInputFrame` once; run `InputRouter::BeginFrame`; UI then publishes one immutable `UiInputHitSnapshot`; run `CompleteFrame`; later phases consume values only. |
 | Command ordering | **Binding:** at the unconditional end-of-input checkpoint, persist render defaults from final UI-mutated values, process input-triggered capture, then accept at most the first scene transition while preserving ordered non-transition scene work. Application exit never enters a queue; `ApplicationExitState` resolves it at the message-loop boundary. Requests produced after the checkpoint run on frame N+1. |
-| Scene load contract | Which state survives reset/load and which lifecycle event clears interaction, replay, diagnostics, and camera state? |
+| Scene load contract | **Binding:** scene-owned state is rebuilt transactionally; explicit reset snapshots preserve operator presentation/physics policy only when requested, while lifecycle phases clear interaction, replay, tool, capture, and camera transient state through their concrete owners. |
 | Fixed-step ownership | `SimulationSystem` remains timestep owner; do not recreate a generic simulation facade. Decide only which frame coordinator calls it. |
 
 ## Mapping Evidence And Defects To Preserve
@@ -1302,23 +1327,23 @@ deleted.
 
 ## Acceptance
 
-- [ ] All five ownership-extraction deletion proofs pass.
-- [ ] The complete logical `Run` surface exposes only owner construction/wiring,
+- [x] All five ownership-extraction deletion proofs pass.
+- [x] The complete logical `Run` surface exposes only owner construction/wiring,
   startup/shutdown, OS message pumping, top-level frame order, and final exit
   reporting; it owns no mutable subsystem business state.
-- [ ] `RuntimeRenderHost` is removed or a small immutable context.
-- [ ] `RunInternal.h` is deleted without a replacement shared-state header.
-- [ ] No `*Internal`, `*Context`, `*Services`, `*Bindings`, callback pack,
+- [x] `RuntimeRenderHost` is removed or a small immutable context.
+- [x] `RunInternal.h` is deleted without a replacement shared-state header.
+- [x] No `*Internal`, `*Context`, `*Services`, `*Bindings`, callback pack,
   forwarding facade, stored host pointer/reference, friend access, or renamed
   compatibility surface recreates `Run` authority.
-- [ ] Each extracted owner is cohesive and does not combine unrelated input,
+- [x] Each extracted owner is cohesive and does not combine unrelated input,
   scene, replay, render, UI, physics, tool, capture, defaults, or diagnostics
   authority.
-- [ ] No runtime source file in the reconciled inventory exceeds 1,500 lines
+- [x] No runtime source file in the reconciled inventory exceeds 1,500 lines
   without a cohesion justification and named follow-up owner.
-- [ ] A new feature can enter input, scene, replay, or render through its owner
+- [x] A new feature can enter input, scene, replay, or render through its owner
   without adding a `Run::*` method.
-- [ ] The final independent adversarial review reports zero credible god-object
+- [x] The final independent adversarial review reports zero credible god-object
   findings and its evidence report is committed. Any credible finding reopens
   this plan and blocks completion.
 

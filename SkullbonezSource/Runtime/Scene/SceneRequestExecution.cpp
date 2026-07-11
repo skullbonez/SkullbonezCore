@@ -49,7 +49,6 @@ bool SceneController::ExecutePending( EngineConfig& m_config,
                                       const CinematicRenderConfig& m_defaultCinematicRender,
                                       const RunStartupState& m_startup,
                                       DiagnosticsRuntime& m_diagnosticsRuntime,
-                                      RunRuntimeSettings& m_runtimeSettings,
                                       RunTimerState& m_timers,
                                       SkullbonezCore::Assets::AssetSystem& assets,
                                       Threading::WorkerPool& workerPool,
@@ -83,7 +82,6 @@ bool SceneController::ExecutePending( EngineConfig& m_config,
                    m_defaultCinematicRender,
                    m_startup,
                    m_diagnosticsRuntime,
-                   m_runtimeSettings,
                    m_timers,
                    assets,
                    workerPool,
@@ -146,8 +144,8 @@ bool SceneController::ExecutePending( EngineConfig& m_config,
         case SceneRequestType::SaveCurrentDefaults:
             eventCode = ReplayOwnerEventCode::SceneSaveDefaults;
             {
-                const SbResult saveResult = m_sceneController.SaveCurrentDefaults(
-                    SceneDefaultsSaveView{ m_debug, m_runtimeSettings, m_camera } );
+                const SbResult saveResult =
+                    m_sceneController.SaveCurrentDefaults( SceneDefaultsSaveView{ m_debug, m_renderer, m_camera } );
                 if ( !saveResult.ok )
                 {
                     std::fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );

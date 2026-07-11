@@ -760,33 +760,9 @@ void FailAutomation( InteractionAutomationController& state, const char* message
     }
 }
 
-struct InteractionAutomationReplayControlContext
-{
-    InteractionAutomationController& state;
-    Window* window;
-    const EngineConfig& config;
-    const RunSceneState& scene;
-    RunTimerState& timers;
-    ReplayRuntime& replayRuntime;
-};
-
-struct InteractionAutomationDirectorCameraContext
-{
-    InteractionAutomationController& state;
-    SkullbonezCore::Environment::CameraCollection& cameras;
-    RunCameraState& camera;
-};
-
-struct InteractionAutomationReplayStateContext
-{
-    InteractionAutomationController& state;
-    RunTimerState& timers;
-    ReplayRuntime& replayRuntime;
-    GameModelCollection& gameModels;
-    Physics::PhysicsEngine& physics;
-};
-
-void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationDirectorCameraContext& context,
+void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationController& state,
+                                                     SkullbonezCore::Environment::CameraCollection& cameras,
+                                                     RunCameraState& camera,
                                                      RunInteractionAutomationAction& action,
                                                      int frame )
 {
@@ -797,12 +773,12 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationDirect
     {
     case RunInteractionAutomationActionType::LoadShotList:
     {
-        const bool loaded = DemoDirectorPlayback::LoadShotList( context.camera, context.cameras, action.path );
+        const bool loaded = DemoDirectorPlayback::LoadShotList( camera, cameras, action.path );
         if ( !loaded )
         {
-            FailAutomation( context.state, "failed to load director shot list" );
+            FailAutomation( state, "failed to load director shot list" );
         }
-        AppendReportAction( context.state,
+        AppendReportAction( state,
                             frame,
                             action.type,
                             action.path,
@@ -813,12 +789,12 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationDirect
     }
     case RunInteractionAutomationActionType::DirectorAdvance:
     {
-        const bool advanced = DemoDirectorPlayback::AdvancePhase( context.camera, context.cameras );
+        const bool advanced = DemoDirectorPlayback::AdvancePhase( camera, cameras );
         if ( !advanced )
         {
-            FailAutomation( context.state, "failed to advance director phase" );
+            FailAutomation( state, "failed to advance director phase" );
         }
-        AppendReportAction( context.state,
+        AppendReportAction( state,
                             frame,
                             action.type,
                             "",
@@ -829,12 +805,12 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationDirect
     }
     case RunInteractionAutomationActionType::DirectorGrab:
     {
-        const bool grabbed = DemoDirectorPlayback::BeginGrab( context.camera, context.cameras );
+        const bool grabbed = DemoDirectorPlayback::BeginGrab( camera, cameras );
         if ( !grabbed )
         {
-            FailAutomation( context.state, "failed to grab director camera" );
+            FailAutomation( state, "failed to grab director camera" );
         }
-        AppendReportAction( context.state,
+        AppendReportAction( state,
                             frame,
                             action.type,
                             "",
@@ -845,12 +821,12 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationDirect
     }
     case RunInteractionAutomationActionType::DirectorRelease:
     {
-        const bool released = DemoDirectorPlayback::EndGrab( context.camera, context.cameras );
+        const bool released = DemoDirectorPlayback::EndGrab( camera, cameras );
         if ( !released )
         {
-            FailAutomation( context.state, "failed to release director camera" );
+            FailAutomation( state, "failed to release director camera" );
         }
-        AppendReportAction( context.state,
+        AppendReportAction( state,
                             frame,
                             action.type,
                             "",
@@ -861,12 +837,12 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationDirect
     }
     case RunInteractionAutomationActionType::SetPhaseStyle:
     {
-        const bool applied = DemoDirectorPlayback::SetCurrentPhaseStyle( context.camera, action.path );
+        const bool applied = DemoDirectorPlayback::SetCurrentPhaseStyle( camera, action.path );
         if ( !applied )
         {
-            FailAutomation( context.state, "failed to set director phase style" );
+            FailAutomation( state, "failed to set director phase style" );
         }
-        AppendReportAction( context.state,
+        AppendReportAction( state,
                             frame,
                             action.type,
                             action.path,
@@ -880,8 +856,8 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationDirect
         const bool applied = true;
         // Why: pose-authoring proofs seed the current camera, then use normal
         // J/L key handling to write and save the shot list.
-        context.cameras.SetPrimaryPose( action.cameraPose.eye, action.cameraPose.view, action.cameraPose.up );
-        AppendReportAction( context.state,
+        cameras.SetPrimaryPose( action.cameraPose.eye, action.cameraPose.view, action.cameraPose.up );
+        AppendReportAction( state,
                             frame,
                             action.type,
                             "",
@@ -896,7 +872,10 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationDirect
 }
 
 template <typename TrySetReplayPathTarget, typename SetWorldInteractionOwnerAfterTransition>
-void ApplyInteractionAutomationReplayStateAction( InteractionAutomationReplayStateContext& context,
+void ApplyInteractionAutomationReplayStateAction( InteractionAutomationController& state,
+                                                  RunTimerState& timers,
+                                                  ReplayRuntime& replayRuntime,
+                                                  Physics::PhysicsEngine& physics,
                                                   RunInteractionAutomationAction& action,
                                                   int frame,
                                                   TrySetReplayPathTarget trySetReplayPathTarget,
@@ -908,26 +887,20 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationReplaySta
     switch ( action.type )
     {
     case RunInteractionAutomationActionType::ShowReplayScrubber:
-        context.replayRuntime.Scrubber().visible = action.boolValue;
+        replayRuntime.Scrubber().visible = action.boolValue;
         if ( action.boolValue )
         {
-            context.replayRuntime.Scrubber().visibleUntil = context.timers.simulationTimer.GetTotalTime() + 5.0;
+            replayRuntime.Scrubber().visibleUntil = timers.simulationTimer.GetTotalTime() + 5.0;
         }
-        AppendReportAction( context.state,
-                            frame,
-                            action.type,
-                            "",
-                            nullptr,
-                            true,
-                            action.boolValue ? "visible" : "hidden" );
+        AppendReportAction( state, frame, action.type, "", nullptr, true, action.boolValue ? "visible" : "hidden" );
         break;
     case RunInteractionAutomationActionType::SetReplayPredictionEnabled:
-        context.replayRuntime.Prediction().enabled = action.boolValue;
-        context.replayRuntime.Prediction().build.dirty = true;
+        replayRuntime.Prediction().enabled = action.boolValue;
+        replayRuntime.Prediction().build.dirty = true;
         setWorldInteractionOwner(
             action.boolValue ? WorldInteractionOwner::ReplayPrediction : WorldInteractionOwner::None,
             InteractionExitReason::EnterReplay );
-        AppendReportAction( context.state,
+        AppendReportAction( state,
                             frame,
                             action.type,
                             "",
@@ -940,9 +913,9 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationReplaySta
         const bool targetSet = trySetReplayPathTarget( action.text );
         if ( !targetSet )
         {
-            FailAutomation( context.state, "failed to set replay path target" );
+            FailAutomation( state, "failed to set replay path target" );
         }
-        AppendReportAction( context.state,
+        AppendReportAction( state,
                             frame,
                             action.type,
                             action.text,
@@ -958,29 +931,28 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationReplaySta
         // Why: automation should use the same bounded horizon value the replay UI
         // exposes, while still forcing a rebuild when a script changes it before
         // a proof.
-        context.replayRuntime.Prediction().simulation.horizonSeconds = horizonSeconds;
-        context.replayRuntime.MarkPredictionDirty();
+        replayRuntime.Prediction().simulation.horizonSeconds = horizonSeconds;
+        replayRuntime.MarkPredictionDirty();
         std::ostringstream detail;
         detail << "prediction horizon set to " << horizonSeconds << "s";
-        AppendReportAction( context.state, frame, action.type, "", nullptr, true, detail.str().c_str() );
+        AppendReportAction( state, frame, action.type, "", nullptr, true, detail.str().c_str() );
         break;
     }
     case RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity:
     {
         const Physics::PhysicsBodyStore& bodyStore =
-            SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( context.physics );
-        const Physics::PhysicsBodyHandle body = context.replayRuntime.ResolveVelocityEditBodyHandle( bodyStore );
+            SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics );
+        const Physics::PhysicsBodyHandle body = replayRuntime.ResolveVelocityEditBodyHandle( bodyStore );
         const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
-        const bool hasTarget = context.replayRuntime.PathVisualizer().hasTarget &&
-                               context.replayRuntime.PathVisualizer().targetId.value != 0;
+        const bool hasTarget =
+            replayRuntime.PathVisualizer().hasTarget && replayRuntime.PathVisualizer().targetId.value != 0;
         bool applied = false;
         if ( hasTarget && record )
         {
-            RunReplayPredictionState& prediction = context.replayRuntime.Prediction();
+            RunReplayPredictionState& prediction = replayRuntime.Prediction();
             if ( !prediction.build.complete || prediction.simulation.frames.size() < 2 )
             {
-                FailAutomation( context.state,
-                                "replay path target velocity nudge requires a completed prediction baseline" );
+                FailAutomation( state, "replay path target velocity nudge requires a completed prediction baseline" );
             }
             else
             {
@@ -993,14 +965,14 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationReplaySta
                 prediction.baseline.divergenceUnits = 0.0f;
 
                 const Vector3 nextLinearVelocity = record->linearVelocity + action.vectorValue;
-                applied = context.physics.SetBodyVelocity( body, nextLinearVelocity, record->angularVelocity, true );
+                applied = physics.SetBodyVelocity( body, nextLinearVelocity, record->angularVelocity, true );
                 if ( applied )
                 {
-                    context.replayRuntime.Prediction().enabled = true;
-                    context.replayRuntime.MarkPredictionDirty();
-                    context.replayRuntime.Scrubber().visible = true;
-                    context.replayRuntime.Scrubber().visibleUntil =
-                        context.timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+                    replayRuntime.Prediction().enabled = true;
+                    replayRuntime.MarkPredictionDirty();
+                    replayRuntime.Scrubber().visible = true;
+                    replayRuntime.Scrubber().visibleUntil =
+                        timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
                     setWorldInteractionOwner( WorldInteractionOwner::ReplayVelocityEdit,
                                               InteractionExitReason::EnterReplay );
                 }
@@ -1008,13 +980,13 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationReplaySta
         }
         else
         {
-            FailAutomation( context.state, "failed to resolve replay path target for velocity nudge" );
+            FailAutomation( state, "failed to resolve replay path target for velocity nudge" );
         }
-        if ( !applied && !context.state.failed )
+        if ( !applied && !state.failed )
         {
-            FailAutomation( context.state, "failed to apply replay path target velocity nudge" );
+            FailAutomation( state, "failed to apply replay path target velocity nudge" );
         }
-        AppendReportAction( context.state,
+        AppendReportAction( state,
                             frame,
                             action.type,
                             action.text,
@@ -1028,35 +1000,41 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationReplaySta
     }
 }
 
-void ShowInteractionAutomationReplayScrubber( InteractionAutomationReplayControlContext& context )
+void ShowInteractionAutomationReplayScrubber( RunTimerState& timers, ReplayRuntime& replayRuntime )
 {
-    context.replayRuntime.Scrubber().visible = true;
-    context.replayRuntime.Scrubber().visibleUntil =
-        context.timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    replayRuntime.Scrubber().visible = true;
+    replayRuntime.Scrubber().visibleUntil = timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
 }
 
-void AppendInteractionAutomationReplayControlFailure( InteractionAutomationReplayControlContext& context,
+void AppendInteractionAutomationReplayControlFailure( InteractionAutomationController& state,
                                                       int frame,
                                                       const RunInteractionAutomationAction& action,
                                                       const char* failure,
                                                       const char* detail )
 {
-    FailAutomation( context.state, failure );
-    AppendReportAction( context.state, frame, action.type, action.text, nullptr, false, detail );
+    FailAutomation( state, failure );
+    AppendReportAction( state, frame, action.type, action.text, nullptr, false, detail );
 }
 
-void InjectInteractionAutomationReplayControlClick( InteractionAutomationReplayControlContext& context,
+void InjectInteractionAutomationReplayControlClick( InteractionAutomationController& state,
+                                                    RunTimerState& timers,
+                                                    ReplayRuntime& replayRuntime,
                                                     RunInteractionAutomationAction& action,
                                                     int frame,
                                                     const SkullbonezCore::UI::UIRect& rect,
                                                     const char* detail )
 {
-    InjectAutomationLeftMousePress( context.state, action, frame, rect );
-    ShowInteractionAutomationReplayScrubber( context );
-    AppendReportAction( context.state, frame, action.type, action.text, &action.mouse, true, detail );
+    InjectAutomationLeftMousePress( state, action, frame, rect );
+    ShowInteractionAutomationReplayScrubber( timers, replayRuntime );
+    AppendReportAction( state, frame, action.type, action.text, &action.mouse, true, detail );
 }
 
-void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayControlContext& context,
+void ApplyInteractionAutomationReplayControlClick( InteractionAutomationController& state,
+                                                   Window* window,
+                                                   const EngineConfig& config,
+                                                   const RunSceneState& scene,
+                                                   RunTimerState& timers,
+                                                   ReplayRuntime& replayRuntime,
                                                    RunInteractionAutomationAction& action,
                                                    int frame )
 {
@@ -1065,16 +1043,18 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
     // owner of prediction, pause/play, velocity-edit, and branch transitions.
     if ( strcmp( action.text, "predict" ) == 0 )
     {
-        const int screenW = context.window ? context.window->ClientWidth() : context.config.window.screenX;
-        const int screenH = context.window ? context.window->ClientHeight() : context.config.window.screenY;
-        const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
+        const int screenW = window ? window->ClientWidth() : config.window.screenX;
+        const int screenH = window ? window->ClientHeight() : config.window.screenY;
+        const ReplayRecorderStats solverReplayStats = replayRuntime.Solver().GetStats();
         // Why: interaction scripts should match the real UI: Predict can branch
         // from the current live solver state even before a paused scene has
         // accumulated two retained solver samples.
-        const bool predictionToolsEnabled = solverReplayStats.enabled && context.scene.isScenePhysics;
+        const bool predictionToolsEnabled = solverReplayStats.enabled && scene.isScenePhysics;
         if ( screenW > 0 && screenH > 0 && predictionToolsEnabled )
         {
-            InjectInteractionAutomationReplayControlClick( context,
+            InjectInteractionAutomationReplayControlClick( state,
+                                                           timers,
+                                                           replayRuntime,
                                                            action,
                                                            frame,
                                                            ReplayScrubberPredictToggleRect( screenW, screenH ),
@@ -1082,7 +1062,7 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
         }
         else
         {
-            AppendInteractionAutomationReplayControlFailure( context,
+            AppendInteractionAutomationReplayControlFailure( state,
                                                              frame,
                                                              action,
                                                              "replay predict control unavailable",
@@ -1093,14 +1073,16 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
 
     if ( strcmp( action.text, "past" ) == 0 || strcmp( action.text, "pastPath" ) == 0 )
     {
-        const int screenW = context.window ? context.window->ClientWidth() : context.config.window.screenX;
-        const int screenH = context.window ? context.window->ClientHeight() : context.config.window.screenY;
-        const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
-        const bool pastPathControlEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2 &&
-                                            context.replayRuntime.PathVisualizer().hasTarget;
+        const int screenW = window ? window->ClientWidth() : config.window.screenX;
+        const int screenH = window ? window->ClientHeight() : config.window.screenY;
+        const ReplayRecorderStats solverReplayStats = replayRuntime.Solver().GetStats();
+        const bool pastPathControlEnabled =
+            solverReplayStats.enabled && solverReplayStats.sampleCount >= 2 && replayRuntime.PathVisualizer().hasTarget;
         if ( screenW > 0 && screenH > 0 && pastPathControlEnabled )
         {
-            InjectInteractionAutomationReplayControlClick( context,
+            InjectInteractionAutomationReplayControlClick( state,
+                                                           timers,
+                                                           replayRuntime,
                                                            action,
                                                            frame,
                                                            ReplayScrubberPastPathToggleRect( screenW, screenH ),
@@ -1108,7 +1090,7 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
         }
         else
         {
-            AppendInteractionAutomationReplayControlFailure( context,
+            AppendInteractionAutomationReplayControlFailure( state,
                                                              frame,
                                                              action,
                                                              "replay past-path control unavailable",
@@ -1119,9 +1101,9 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
 
     if ( strcmp( action.text, "pause" ) == 0 || strcmp( action.text, "play" ) == 0 )
     {
-        const int screenW = context.window ? context.window->ClientWidth() : context.config.window.screenX;
-        const int screenH = context.window ? context.window->ClientHeight() : context.config.window.screenY;
-        const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
+        const int screenW = window ? window->ClientWidth() : config.window.screenX;
+        const int screenH = window ? window->ClientHeight() : config.window.screenY;
+        const ReplayRecorderStats solverReplayStats = replayRuntime.Solver().GetStats();
         const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
         if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
         {
@@ -1129,7 +1111,9 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
             // flips between pause and play. Automation clicks the real rectangle
             // so replay input ownership does the state transition and
             // prediction-freeze work.
-            InjectInteractionAutomationReplayControlClick( context,
+            InjectInteractionAutomationReplayControlClick( state,
+                                                           timers,
+                                                           replayRuntime,
                                                            action,
                                                            frame,
                                                            ReplayScrubberPauseButtonRect( screenW, screenH ),
@@ -1137,7 +1121,7 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
         }
         else
         {
-            AppendInteractionAutomationReplayControlFailure( context,
+            AppendInteractionAutomationReplayControlFailure( state,
                                                              frame,
                                                              action,
                                                              "replay pause/play control unavailable",
@@ -1148,16 +1132,18 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
 
     if ( strcmp( action.text, "velocity" ) == 0 )
     {
-        const int screenW = context.window ? context.window->ClientWidth() : context.config.window.screenX;
-        const int screenH = context.window ? context.window->ClientHeight() : context.config.window.screenY;
-        const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
+        const int screenW = window ? window->ClientWidth() : config.window.screenX;
+        const int screenH = window ? window->ClientHeight() : config.window.screenY;
+        const ReplayRecorderStats solverReplayStats = replayRuntime.Solver().GetStats();
         const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
         if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
         {
             // Concept: velocity automation toggles the visible scrubber control,
             // then lets the next scripted world click exercise replay velocity
             // targeting through normal input ownership.
-            InjectInteractionAutomationReplayControlClick( context,
+            InjectInteractionAutomationReplayControlClick( state,
+                                                           timers,
+                                                           replayRuntime,
                                                            action,
                                                            frame,
                                                            ReplayScrubberVelocityEditToggleRect( screenW, screenH ),
@@ -1165,7 +1151,7 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
         }
         else
         {
-            AppendInteractionAutomationReplayControlFailure( context,
+            AppendInteractionAutomationReplayControlFailure( state,
                                                              frame,
                                                              action,
                                                              "replay velocity control unavailable",
@@ -1176,19 +1162,21 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
 
     if ( strcmp( action.text, "branch" ) == 0 )
     {
-        const int screenW = context.window ? context.window->ClientWidth() : context.config.window.screenX;
-        const int screenH = context.window ? context.window->ClientHeight() : context.config.window.screenY;
-        const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
-        const bool branchTargetAvailable = context.replayRuntime.Scrubber().historicalSamplePaused &&
-                                           context.replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver &&
+        const int screenW = window ? window->ClientWidth() : config.window.screenX;
+        const int screenH = window ? window->ClientHeight() : config.window.screenY;
+        const ReplayRecorderStats solverReplayStats = replayRuntime.Solver().GetStats();
+        const bool branchTargetAvailable = replayRuntime.Scrubber().historicalSamplePaused &&
+                                           replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver &&
                                            solverReplayStats.enabled && solverReplayStats.sampleCount >= 2 &&
-                                           context.replayRuntime.CurrentSolverScrubSample() != nullptr;
+                                           replayRuntime.CurrentSolverScrubSample() != nullptr;
         if ( screenW > 0 && screenH > 0 && branchTargetAvailable )
         {
             // Why: branch-restore proof clicks the visible Branch rectangle
             // after a scripted scrub, so TickReplayScrubberInput remains the
             // owner of the restore.
-            InjectInteractionAutomationReplayControlClick( context,
+            InjectInteractionAutomationReplayControlClick( state,
+                                                           timers,
+                                                           replayRuntime,
                                                            action,
                                                            frame,
                                                            ReplayScrubberBranchButtonRect( screenW, screenH ),
@@ -1196,7 +1184,7 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
         }
         else
         {
-            AppendInteractionAutomationReplayControlFailure( context,
+            AppendInteractionAutomationReplayControlFailure( state,
                                                              frame,
                                                              action,
                                                              "replay branch control unavailable",
@@ -1205,20 +1193,24 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
         return;
     }
 
-    AppendInteractionAutomationReplayControlFailure( context,
+    AppendInteractionAutomationReplayControlFailure( state,
                                                      frame,
                                                      action,
                                                      "unsupported replay control in interaction script",
                                                      "unsupported replay control" );
 }
 
-void ApplyInteractionAutomationSolverTrackScrub( InteractionAutomationReplayControlContext& context,
+void ApplyInteractionAutomationSolverTrackScrub( InteractionAutomationController& state,
+                                                 Window* window,
+                                                 const EngineConfig& config,
+                                                 RunTimerState& timers,
+                                                 ReplayRuntime& replayRuntime,
                                                  RunInteractionAutomationAction& action,
                                                  int frame )
 {
-    const int screenW = context.window ? context.window->ClientWidth() : context.config.window.screenX;
-    const int screenH = context.window ? context.window->ClientHeight() : context.config.window.screenY;
-    const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
+    const int screenW = window ? window->ClientWidth() : config.window.screenX;
+    const int screenH = window ? window->ClientHeight() : config.window.screenY;
+    const ReplayRecorderStats solverReplayStats = replayRuntime.Solver().GetStats();
     const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
     if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
     {
@@ -1229,7 +1221,9 @@ void ApplyInteractionAutomationSolverTrackScrub( InteractionAutomationReplayCont
         SkullbonezCore::UI::UIRect target = track;
         target.x = track.x + track.w * std::clamp( action.numberValue, 0.0f, 1.0f );
         target.w = 1.0f;
-        InjectInteractionAutomationReplayControlClick( context,
+        InjectInteractionAutomationReplayControlClick( state,
+                                                       timers,
+                                                       replayRuntime,
                                                        action,
                                                        frame,
                                                        target,
@@ -1237,7 +1231,7 @@ void ApplyInteractionAutomationSolverTrackScrub( InteractionAutomationReplayCont
     }
     else
     {
-        AppendInteractionAutomationReplayControlFailure( context,
+        AppendInteractionAutomationReplayControlFailure( state,
                                                          frame,
                                                          action,
                                                          "replay solver scrub track unavailable",
@@ -1558,17 +1552,6 @@ std::string BoolString( bool value )
     return value ? "true" : "false";
 }
 
-struct InteractionAutomationAssertContext
-{
-    RuntimeTools& runtimeTools;
-    ReplayRuntime& replayRuntime;
-    RuntimeInteractionController& interaction;
-    RunCameraState& camera;
-    GameModelCollection& gameModels;
-    const SceneEntityStore& entities;
-    SkullbonezCore::UI::InGameUI& ui;
-};
-
 struct InteractionAutomationAssertionEvaluation
 {
     std::string expected;
@@ -1578,7 +1561,13 @@ struct InteractionAutomationAssertionEvaluation
 
 template <typename InspectGizmoInteractionActive>
 InteractionAutomationAssertionEvaluation
-EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& context,
+EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
+                                        ReplayRuntime& replayRuntime,
+                                        RuntimeInteractionController& interaction,
+                                        RunCameraState& camera,
+                                        GameModelCollection& gameModels,
+                                        const SceneEntityStore& entities,
+                                        SkullbonezCore::UI::InGameUI& ui,
                                         const RunInteractionAutomationAction& action,
                                         InspectGizmoInteractionActive inspectGizmoInteractionActive )
 {
@@ -1591,41 +1580,40 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
     case RunInteractionAutomationAssertKind::SelectedObject:
     {
         evaluation.expected = action.text;
-        const int selectedIndex =
-            PeekSelectedEditorModelIndex( context.runtimeTools.Editor(), context.gameModels.BodyStore() );
-        if ( selectedIndex >= 0 && selectedIndex < context.gameModels.SceneEntityCount() )
+        const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), gameModels.BodyStore() );
+        if ( selectedIndex >= 0 && selectedIndex < gameModels.SceneEntityCount() )
         {
-            evaluation.actual = context.entities.At( selectedIndex ).displayName;
+            evaluation.actual = entities.At( selectedIndex ).displayName;
         }
         evaluation.passed = evaluation.actual == evaluation.expected;
         break;
     }
     case RunInteractionAutomationAssertKind::Owner:
         evaluation.expected = action.text;
-        evaluation.actual = OwnerName( context.interaction.Owner() );
+        evaluation.actual = OwnerName( interaction.Owner() );
         evaluation.passed = evaluation.actual == evaluation.expected;
         break;
     case RunInteractionAutomationAssertKind::CameraMode:
         evaluation.expected = CameraModeName( action.cameraMode );
-        evaluation.actual = CameraModeName( context.camera.mode );
-        evaluation.passed = context.camera.mode == action.cameraMode;
+        evaluation.actual = CameraModeName( camera.mode );
+        evaluation.passed = camera.mode == action.cameraMode;
         break;
     case RunInteractionAutomationAssertKind::DirectorGrabbed:
         evaluation.expected = BoolString( action.boolValue );
-        evaluation.actual = BoolString( context.camera.director.grabbed );
-        evaluation.passed = context.camera.director.grabbed == action.boolValue;
+        evaluation.actual = BoolString( camera.director.grabbed );
+        evaluation.passed = camera.director.grabbed == action.boolValue;
         break;
     case RunInteractionAutomationAssertKind::DirectorPhaseIndex:
     {
         const int expectedPhase = static_cast<int>( action.numberValue );
         evaluation.expected = std::to_string( expectedPhase );
-        evaluation.actual = std::to_string( context.camera.director.currentPhaseIndex );
-        evaluation.passed = context.camera.director.currentPhaseIndex == expectedPhase;
+        evaluation.actual = std::to_string( camera.director.currentPhaseIndex );
+        evaluation.passed = camera.director.currentPhaseIndex == expectedPhase;
         break;
     }
     case RunInteractionAutomationAssertKind::DirectorPhaseName:
     {
-        const DemoPhase* phase = ActiveDirectorPhase( context.camera );
+        const DemoPhase* phase = ActiveDirectorPhase( camera );
         evaluation.expected = action.text;
         evaluation.actual = phase ? phase->name : "";
         evaluation.passed = evaluation.actual == evaluation.expected;
@@ -1633,7 +1621,7 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
     }
     case RunInteractionAutomationAssertKind::DirectorPhaseStylePath:
     {
-        const DemoPhase* phase = ActiveDirectorPhase( context.camera );
+        const DemoPhase* phase = ActiveDirectorPhase( camera );
         evaluation.expected = action.path;
         evaluation.actual = phase ? phase->stylePath : "";
         evaluation.passed = evaluation.actual == evaluation.expected;
@@ -1641,18 +1629,17 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
     }
     case RunInteractionAutomationAssertKind::ReplayPredictionEnabled:
         evaluation.expected = BoolString( action.boolValue );
-        evaluation.actual = BoolString( context.replayRuntime.Prediction().enabled );
-        evaluation.passed = context.replayRuntime.Prediction().enabled == action.boolValue;
+        evaluation.actual = BoolString( replayRuntime.Prediction().enabled );
+        evaluation.passed = replayRuntime.Prediction().enabled == action.boolValue;
         break;
     case RunInteractionAutomationAssertKind::ReplayPathTarget:
         evaluation.expected = action.text;
-        evaluation.actual =
-            context.replayRuntime.PathVisualizer().hasTarget ? context.replayRuntime.PathVisualizer().targetName : "";
+        evaluation.actual = replayRuntime.PathVisualizer().hasTarget ? replayRuntime.PathVisualizer().targetName : "";
         evaluation.passed = evaluation.actual == evaluation.expected;
         break;
     case RunInteractionAutomationAssertKind::PredictionPathVisible:
     {
-        const bool visible = ReplayPredictionPathVisible( context.replayRuntime );
+        const bool visible = ReplayPredictionPathVisible( replayRuntime );
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( visible );
         evaluation.passed = visible == action.boolValue;
@@ -1660,7 +1647,7 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
     }
     case RunInteractionAutomationAssertKind::PredictionBaselineVisible:
     {
-        const ReplayPredictionBaselineSnapshot& baseline = context.replayRuntime.Prediction().baseline;
+        const ReplayPredictionBaselineSnapshot& baseline = replayRuntime.Prediction().baseline;
         const bool visible = baseline.valid && baseline.comparisonActive;
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( visible );
@@ -1669,7 +1656,7 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
     }
     case RunInteractionAutomationAssertKind::PredictionDivergenceMin:
     {
-        const ReplayPredictionBaselineSnapshot& baseline = context.replayRuntime.Prediction().baseline;
+        const ReplayPredictionBaselineSnapshot& baseline = replayRuntime.Prediction().baseline;
         {
             std::ostringstream stream;
             stream << ">=" << action.numberValue;
@@ -1685,8 +1672,8 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
     }
     case RunInteractionAutomationAssertKind::ReplaySolverTrackAtPresent:
     {
-        const float solverPosition = context.replayRuntime.TrackPosition( RunReplayTrack::Solver );
-        const float presentT = context.replayRuntime.SolverPresentTrackPosition();
+        const float solverPosition = replayRuntime.TrackPosition( RunReplayTrack::Solver );
+        const float presentT = replayRuntime.SolverPresentTrackPosition();
         const bool atPresent = ReplayRuntime::AtPresentTrackPosition( solverPosition, presentT );
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( atPresent );
@@ -1695,7 +1682,7 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
     }
     case RunInteractionAutomationAssertKind::PredictionScrubFrameActive:
     {
-        const bool active = context.replayRuntime.CurrentPredictionScrubFrame() != nullptr;
+        const bool active = replayRuntime.CurrentPredictionScrubFrame() != nullptr;
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( active );
         evaluation.passed = active == action.boolValue;
@@ -1704,7 +1691,7 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
     case RunInteractionAutomationAssertKind::PredictionTargetDisplacementMin:
     {
         float displacement = 0.0f;
-        const bool valid = TryPredictionTargetDisplacement( context.replayRuntime, displacement );
+        const bool valid = TryPredictionTargetDisplacement( replayRuntime, displacement );
         {
             std::ostringstream stream;
             stream << ">=" << action.numberValue;
@@ -1720,7 +1707,7 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
     }
     case RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction:
     {
-        const bool stable = LiveSolverHashStableAcrossPrediction( context.replayRuntime );
+        const bool stable = LiveSolverHashStableAcrossPrediction( replayRuntime );
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( stable );
         evaluation.passed = stable == action.boolValue;
@@ -1728,8 +1715,7 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
     }
     case RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady:
     {
-        const PredictionTrajectoryFingerprint fingerprint =
-            BuildPredictionTrajectoryFingerprint( context.replayRuntime );
+        const PredictionTrajectoryFingerprint fingerprint = BuildPredictionTrajectoryFingerprint( replayRuntime );
         const bool ready = fingerprint.Ready();
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( ready );
@@ -1738,8 +1724,8 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
     }
     case RunInteractionAutomationAssertKind::GizmoVisible:
     {
-        const bool visible = context.runtimeTools.Editor().selectedBody.IsValid() &&
-                             ( context.runtimeTools.Editor().editorModeEnabled || inspectGizmoInteractionActive() );
+        const bool visible = runtimeTools.Editor().selectedBody.IsValid() &&
+                             ( runtimeTools.Editor().editorModeEnabled || inspectGizmoInteractionActive() );
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( visible );
         evaluation.passed = visible == action.boolValue;
@@ -1747,7 +1733,7 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
     }
     case RunInteractionAutomationAssertKind::MousePickupActive:
     {
-        const bool active = context.runtimeTools.MousePickup().active;
+        const bool active = runtimeTools.MousePickup().active;
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( active );
         evaluation.passed = active == action.boolValue;
@@ -1755,7 +1741,7 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
     }
     case RunInteractionAutomationAssertKind::LauncherRayActive:
     {
-        const bool active = context.runtimeTools.Laser().HasActiveShots();
+        const bool active = runtimeTools.Laser().HasActiveShots();
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( active );
         evaluation.passed = active == action.boolValue;
@@ -1763,12 +1749,12 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
     }
     case RunInteractionAutomationAssertKind::ReplayActiveTrack:
         evaluation.expected = action.text;
-        evaluation.actual = ReplayTrackName( context.replayRuntime.Scrubber().activeTrack );
+        evaluation.actual = ReplayTrackName( replayRuntime.Scrubber().activeTrack );
         evaluation.passed = evaluation.actual == evaluation.expected;
         break;
     case RunInteractionAutomationAssertKind::ReplayHistoricalSamplePaused:
     {
-        const bool paused = context.replayRuntime.Scrubber().historicalSamplePaused;
+        const bool paused = replayRuntime.Scrubber().historicalSamplePaused;
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( paused );
         evaluation.passed = paused == action.boolValue;
@@ -1776,7 +1762,7 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
     }
     case RunInteractionAutomationAssertKind::MemoryOverlayEnabled:
     {
-        const bool enabled = context.ui.IsMemoryOverlayEnabled();
+        const bool enabled = ui.IsMemoryOverlayEnabled();
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( enabled );
         evaluation.passed = enabled == action.boolValue;
@@ -1987,18 +1973,6 @@ SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomat
     }
 
     const int frame = scene.State().currentFrame;
-    InteractionAutomationReplayControlContext replayControlContext{ state,
-                                                                    window,
-                                                                    config,
-                                                                    scene.State(),
-                                                                    timers,
-                                                                    replayRuntime };
-    InteractionAutomationDirectorCameraContext directorCameraContext{ state, scene.Cameras(), camera };
-    InteractionAutomationReplayStateContext replayStateContext{ state,
-                                                                timers,
-                                                                replayRuntime,
-                                                                scene.Models(),
-                                                                scene.Physics() };
     if ( state.releaseLeftFrame == frame )
     {
         state.leftMouseDown = false;
@@ -2062,7 +2036,7 @@ SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomat
         case RunInteractionAutomationActionType::DirectorRelease:
         case RunInteractionAutomationActionType::SetPhaseStyle:
         case RunInteractionAutomationActionType::SetCameraPose:
-            ApplyInteractionAutomationDirectorCameraAction( directorCameraContext, action, frame );
+            ApplyInteractionAutomationDirectorCameraAction( state, scene.Cameras(), camera, action, frame );
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::ShowReplayScrubber:
@@ -2071,7 +2045,10 @@ SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomat
         case RunInteractionAutomationActionType::SetReplayPredictionHorizonSeconds:
         case RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity:
             ApplyInteractionAutomationReplayStateAction(
-                replayStateContext,
+                state,
+                timers,
+                replayRuntime,
+                scene.Physics(),
                 action,
                 frame,
                 [&]( const char* name )
@@ -2112,11 +2089,18 @@ SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomat
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::ClickReplayControl:
-            ApplyInteractionAutomationReplayControlClick( replayControlContext, action, frame );
+            ApplyInteractionAutomationReplayControlClick( state,
+                                                          window,
+                                                          config,
+                                                          scene.State(),
+                                                          timers,
+                                                          replayRuntime,
+                                                          action,
+                                                          frame );
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::ScrubReplaySolverTrack:
-            ApplyInteractionAutomationSolverTrackScrub( replayControlContext, action, frame );
+            ApplyInteractionAutomationSolverTrackScrub( state, window, config, timers, replayRuntime, action, frame );
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::ClickObject:
@@ -2193,8 +2177,6 @@ SkullbonezCore::Basics::TickInteractionAutomationAfterRender( InteractionAutomat
     RuntimeAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
         RuntimeAllocation::RuntimeAllocationPhase::Diagnostics );
     const int frame = scene.State().currentFrame;
-    InteractionAutomationAssertContext
-        assertContext{ runtimeTools, replayRuntime, interaction, camera, scene.Models(), scene.Entities(), ui };
     for ( RunInteractionAutomationAction& action : state.actions )
     {
         if ( action.processed || action.frame != frame )
@@ -2239,7 +2221,13 @@ SkullbonezCore::Basics::TickInteractionAutomationAfterRender( InteractionAutomat
         strcpy_s( assertion.name, sizeof( assertion.name ), AssertName( action.assertKind ) );
 
         const InteractionAutomationAssertionEvaluation evaluation = EvaluateInteractionAutomationAssertion(
-            assertContext,
+            runtimeTools,
+            replayRuntime,
+            interaction,
+            camera,
+            scene.Models(),
+            scene.Entities(),
+            ui,
             action,
             [&]()
             { return runtimeTools.InspectGizmoInteractionActive( camera.mode, replayRuntime.InspectionActive() ); } );

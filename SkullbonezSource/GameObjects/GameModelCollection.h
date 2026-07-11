@@ -360,6 +360,10 @@ class GameModelCollection
                                         const Math::Vector::Vector3& seedAngularVelocity );
 
     void SetPhysicsSleepEnabled( bool enabled );
+    bool IsPhysicsSleepEnabled() const
+    {
+        return m_physicsEngine.IsSleepEnabled();
+    }
     void ClearPointJointConstraints();
     void BeginCollisionVisualFrame();
     void EndCollisionVisualFrame();

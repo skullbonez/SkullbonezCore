@@ -3084,6 +3084,8 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
 
     overrides.liveStyleControlDirectory = args.liveStyleControlDir[0] != '\0' ? args.liveStyleControlDir : nullptr;
     overrides.mainMemoryDumpPath = args.memoryDumpPath[0] != '\0' ? args.memoryDumpPath : nullptr;
+    overrides.interactionScriptPath = args.interactionScriptPath[0] != '\0' ? args.interactionScriptPath : nullptr;
+    overrides.interactionReportPath = args.interactionReportPath[0] != '\0' ? args.interactionReportPath : nullptr;
 
     const bool replayDefaultAllowed =
         !args.isSuiteOrSceneMode || args.interactiveRun || args.liveStyleControlDir[0] != '\0';
@@ -3157,7 +3159,6 @@ int RunApp( Window* window,
         ProfilerRenderDiagnosticsLifetime profilerRenderDiagnosticsLifetime{ profiler };
 #endif
         const RunStartupOverrides startupOverrides = BuildRunStartupOverrides( args );
-        cRun->ApplyStartupOverrides( startupOverrides );
         auto reportRunResult = [&]( const SbResult& result ) -> int
         {
             const char* safeOwner =
@@ -3189,22 +3190,18 @@ int RunApp( Window* window,
             return 1;
         };
 
+        const SbResult startupResult = cRun->ApplyStartupOverrides( startupOverrides );
+        if ( !startupResult.ok )
+        {
+            return reportInteractionAutomationResult( startupResult );
+        }
+
         try
         {
             cRun->Initialise();
             if ( !cRun->LastSceneLoadResult().ok )
             {
                 return reportRunResult( cRun->LastSceneLoadResult() );
-            }
-            if ( args.interactionScriptPath[0] != '\0' )
-            {
-                const SbResult automationSetupResult = cRun->SetInteractionAutomation(
-                    args.interactionScriptPath,
-                    args.interactionReportPath[0] != '\0' ? args.interactionReportPath : nullptr );
-                if ( !automationSetupResult.ok )
-                {
-                    return reportInteractionAutomationResult( automationSetupResult );
-                }
             }
             if ( args.sceneLoadOnly )
             {
@@ -3220,12 +3217,12 @@ int RunApp( Window* window,
                 const SbResult executeResult = cRun->Execute();
                 if ( !executeResult.ok )
                 {
+                    if ( executeResult.error.owner &&
+                         strcmp( executeResult.error.owner, "InteractionAutomation" ) == 0 )
+                    {
+                        return reportInteractionAutomationResult( executeResult );
+                    }
                     return reportRunResult( executeResult );
-                }
-                const SbResult interactionAutomationResult = cRun->InteractionAutomationResult();
-                if ( !interactionAutomationResult.ok )
-                {
-                    return reportInteractionAutomationResult( interactionAutomationResult );
                 }
                 if ( args.graphicsStress )
                 {

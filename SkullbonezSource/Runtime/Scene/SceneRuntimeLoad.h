@@ -45,7 +45,7 @@ namespace Basics
 class SceneController;
 struct RunCameraState;
 struct RunDebugState;
-struct RunRuntimeSettings;
+class RuntimeRenderer;
 
 struct SceneRuntimeLoadBeginResult
 {
@@ -62,7 +62,7 @@ struct SceneRuntimeLoadBeginResult
 };
 
 SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad( const SceneController& controller,
-                                                     const RunRuntimeSettings& runtimeSettings,
+                                                     const RuntimeRenderer& renderer,
                                                      const RunDebugState& debug,
                                                      const RunCameraState& camera,
                                                      Rendering::IRenderDeviceLifecycle* renderLifecycle,

@@ -1898,17 +1898,17 @@ void DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
         }
     }
 
-    RunEditorTracer& tracer = m_runtimeTools.EditorTracer();
+    RunEditorTracer& tracer = inputs.runtimeTools.EditorTracer();
     tracer.Render( inputs.frame.viewProjection, inputs.frame.eye, inputs.frame.up, RenderCommands( inputs.frame ) );
-    m_replayRuntime.RecordReplayTrajectorySubmissionFrame( tracer.ReplaySubmissionStats(),
-                                                           inputs.replaySceneFrame,
-                                                           inputs.replayGrowthEventCount );
-    m_runtimeTools.Laser().Render( inputs.frame.viewProjection,
-                                   inputs.frame.eye,
-                                   inputs.frame.up,
-                                   m_assets,
-                                   RenderResources( inputs.frame ),
-                                   RenderCommands( inputs.frame ) );
+    inputs.replayRuntime.RecordReplayTrajectorySubmissionFrame( tracer.ReplaySubmissionStats(),
+                                                                inputs.replaySceneFrame,
+                                                                inputs.replayGrowthEventCount );
+    inputs.runtimeTools.Laser().Render( inputs.frame.viewProjection,
+                                        inputs.frame.eye,
+                                        inputs.frame.up,
+                                        m_assets,
+                                        RenderResources( inputs.frame ),
+                                        RenderCommands( inputs.frame ) );
 
     if ( snapshot.physicsDebugFlags != PHYSICS_DEBUG_NONE )
     {

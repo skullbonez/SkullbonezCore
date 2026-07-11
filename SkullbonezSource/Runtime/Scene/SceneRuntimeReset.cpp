@@ -9,8 +9,8 @@ Mental model:
   arguments; no mutable multi-domain context is retained or stored.
 
 Glossary:
-  Reset snapshot: Copy of operator-owned runtime settings preserved across a
-    same-scene reset.
+  Reset snapshot: Value-only copy of owner state preserved across a same-scene
+    reset transaction.
   Operator-owned state: UI/debug/camera/runtime choices made during the current
     run rather than authored scene defaults.
   Suppress exit: Interactive-run flag that prevents automation from quitting.
@@ -29,6 +29,7 @@ Related:
 #include "SceneController.h"
 #include "SceneRuntime.h"
 #include "../Debug/PhysicsDebugVisualizer.h"
+#include "../Render/RuntimeRenderer.h"
 #include "../../World/WorldEnvironment.h"
 
 namespace SkullbonezCore
@@ -36,7 +37,7 @@ namespace SkullbonezCore
 namespace Basics
 {
 SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneController& controller,
-                                                            const RunRuntimeSettings& runtimeSettings,
+                                                            const RuntimeRenderer& renderer,
                                                             const RunDebugState& debug,
                                                             const RunCameraState& camera )
 {
@@ -45,7 +46,10 @@ SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneControlle
     const RunSceneUIOverrideState& uiOverrides = controller.UIOverrides();
     // Invariant: Capture every field restored below. Adding a new preserved
     // runtime knob requires updating both sides of this snapshot contract.
-    snapshot.runtimeSettings = runtimeSettings;
+    snapshot.renderPresentation = renderer.PresentationSettings();
+    snapshot.physicsSleepEnabled = controller.Models().IsPhysicsSleepEnabled();
+    snapshot.tornadoField = controller.Models().GetTornadoFieldConfig();
+    snapshot.tornadoSystem = controller.Models().GetTornadoSystemConfig();
     snapshot.debug = debug;
     snapshot.isScenePhysics = scene.isScenePhysics;
     snapshot.isSceneText = scene.isSceneText;
@@ -80,7 +84,7 @@ SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneControlle
 
 
 void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
-                                       RunRuntimeSettings& runtimeSettings,
+                                       RuntimeRenderer& renderer,
                                        RunDebugState& debug,
                                        RunCameraState& camera,
                                        Physics::PhysicsDebugVisualizer& physicsDebugVisualizer,
@@ -91,7 +95,10 @@ void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
     RunSceneUIOverrideState& uiOverrides = controller.UIOverrides();
     // Why: Interactive resets preserve the user's run-control choices, but
     // suppressing exit also forces automation-safe non-exit behavior.
-    runtimeSettings = snapshot.runtimeSettings;
+    renderer.RestorePresentationSettings( snapshot.renderPresentation );
+    controller.Models().SetPhysicsSleepEnabled( snapshot.physicsSleepEnabled );
+    controller.Models().SetTornadoFieldConfig( snapshot.tornadoField );
+    controller.Models().SetTornadoSystemConfig( snapshot.tornadoSystem );
     debug = snapshot.debug;
     scene.isScenePhysics = snapshot.isScenePhysics;
     scene.isSceneText = snapshot.isSceneText;
