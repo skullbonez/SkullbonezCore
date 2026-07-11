@@ -10,6 +10,8 @@ Mental model:
 Glossary:
   FIFO (First In, First Out): Requests drain in submission order.
   Wire code: Explicit serialized replay value independent of C++ enum ordinals.
+  Readback result: Recoverable capture owner/message returned by the renderer
+    after it attempts to copy the backbuffer into CPU-visible bytes.
 
 Invariants:
   - Tests stop at the fixed capacity because the next runtime submission is a
@@ -52,6 +54,23 @@ class UnsupportedCaptureBackend final : public SkullbonezCore::Rendering::IRende
     SbResult CaptureBackbuffer( std::vector<uint8_t>&, int&, int& ) override
     {
         return SbResult::Failure( "Test/UnsupportedCaptureBackend", "unexpected readback" );
+    }
+};
+
+class FailingCaptureBackend final : public SkullbonezCore::Rendering::IRenderCaptureBackend
+{
+  public:
+    bool SupportsBackbufferCapture() const override
+    {
+        return true;
+    }
+
+    SbResult CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight ) override
+    {
+        outPixels.assign( 4, 0xff );
+        outWidth = 1;
+        outHeight = 1;
+        return SbResult::Failure( "Test/Readback", "fence wait failed" );
     }
 };
 } // namespace
@@ -162,6 +181,20 @@ TEST_CASE( "CaptureController returns only successful requests as accepted event
     CHECK( result.savedCount == 0 );
     CHECK( result.failedCount == 1 );
     CHECK( capture.PendingScreenshotCount() == 0 );
+}
+
+TEST_CASE( "CaptureController preserves backend readback failure ownership" )
+{
+    CaptureController capture;
+    FailingCaptureBackend backend;
+    REQUIRE( capture.QueueScreenshot( "Screenshots\\readback_failure.bmp" ).ok );
+
+    const CaptureRequestBatchResult result = capture.DrainScreenshotRequests( backend );
+    CHECK_FALSE( result.status.ok );
+    CHECK_EQ( std::strcmp( result.status.error.owner, "Test/Readback" ), 0 );
+    CHECK_EQ( std::strcmp( result.status.error.message, "fence wait failed" ), 0 );
+    CHECK( result.savedCount == 0 );
+    CHECK( result.failedCount == 1 );
 }
 
 TEST_CASE( "SceneRequestQueue preserves domain order and rejects unbounded create text" )

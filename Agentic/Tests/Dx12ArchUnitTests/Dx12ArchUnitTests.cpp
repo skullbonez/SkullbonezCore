@@ -20,6 +20,8 @@ Glossary:
     successful covering fence is observed complete.
   Dry run: CPU-only render-graph execution mode that records intended barriers
     without calling a real command list.
+  Platform profiler GPU stack: Nested marker depth suspended when one command
+    list is submitted and restored on its replacement list.
 
 Invariants:
   Tests stay CPU-only and must not require a real D3D12 device or renderer launch.
@@ -1192,7 +1194,51 @@ void TestPipelineDesiredStateResetRestoresReusableDefaults()
     EXPECT_TRUE( state.m_targetsDirty );
 }
 
+void TestPlatformProfilerGpuStackRestoresAcrossSubmission()
+{
+    Dx12PlatformProfilerGpuStackState stack;
+    EXPECT_TRUE( stack.CommitBegin( 4 ) );
+    EXPECT_TRUE( stack.CommitBegin( 4 ) );
+    EXPECT_EQ( stack.Depth(), 2 );
+
+    const int suspendedDepth = stack.SuspendForSubmit();
+    EXPECT_EQ( suspendedDepth, 2 );
+    EXPECT_EQ( stack.Depth(), 0 );
+    EXPECT_TRUE( stack.RestoreAfterSubmit( suspendedDepth, 4 ) );
+    EXPECT_EQ( stack.Depth(), 2 );
+    EXPECT_TRUE( stack.CommitEnd() );
+    EXPECT_TRUE( stack.CommitEnd() );
+    EXPECT_EQ( stack.Depth(), 0 );
+}
+
+void TestPlatformProfilerGpuStackRejectsOverflowAndUnderflow()
+{
+    Dx12PlatformProfilerGpuStackState stack;
+    EXPECT_TRUE( stack.CommitBegin( 1 ) );
+    EXPECT_TRUE( !stack.CommitBegin( 1 ) );
+    EXPECT_EQ( stack.Depth(), 1 );
+    EXPECT_TRUE( stack.CommitEnd() );
+    EXPECT_TRUE( !stack.CommitEnd() );
+    EXPECT_TRUE( !stack.RestoreAfterSubmit( 2, 1 ) );
+    EXPECT_EQ( stack.Depth(), 0 );
+}
+
+void TestPlatformProfilerGpuStackResetClearsStaleDeviceEpoch()
+{
+    Dx12PlatformProfilerGpuStackState stack;
+    EXPECT_TRUE( stack.CommitBegin( 4 ) );
+    EXPECT_TRUE( stack.CommitBegin( 4 ) );
+    stack.Reset();
+    EXPECT_EQ( stack.Depth(), 0 );
+    EXPECT_TRUE( !stack.CommitEnd() );
+}
+
 const TestCase kTests[] = {
+    { "Platform profiler GPU stack restores across submission", TestPlatformProfilerGpuStackRestoresAcrossSubmission },
+    { "Platform profiler GPU stack rejects overflow and underflow",
+      TestPlatformProfilerGpuStackRejectsOverflowAndUnderflow },
+    { "Platform profiler GPU stack reset clears stale device epoch",
+      TestPlatformProfilerGpuStackResetClearsStaleDeviceEpoch },
     { "Pipeline desired-state reset restores reusable defaults",
       TestPipelineDesiredStateResetRestoresReusableDefaults },
     { "Command close failure does not commit closed state", TestCommandCloseFailureDoesNotCommitClosedState },

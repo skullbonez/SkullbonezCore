@@ -1,13 +1,14 @@
 /*
 File: SkullbonezSource/Rendering/DX12/RenderBackendDX12.h
 Purpose:
-  Declares the production DX12 renderer plus concrete texture, pipeline, and
-  raytracing owners.
+  Declares the production DX12 renderer plus concrete texture, pipeline,
+  geometry, deferred-release, and raytracing owners.
 
 Mental model:
   RenderBackendDX12 coordinates device/frame work. Dx12TextureOwner retains
   texture residency and binding state, Dx12PipelineOwner retains the ordinary
-  raster recipe, and Dx12RaytracingOwner retains the optional reflection path.
+  raster recipe, Dx12GeometryOwner retains bounded geometry resources, and
+  Dx12RaytracingOwner retains the optional reflection path.
 
 Glossary:
   Recording epoch: Logical open/closed state of the reusable command list,
@@ -38,6 +39,8 @@ Glossary:
   and constants shaders may access.
   PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
   state that DX12 binds before drawing or dispatching.
+  Platform profiler GPU stack: Fixed marker-name and nesting rows suspended
+  before command-list submission and restored on the replacement list.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -84,6 +87,9 @@ namespace Rendering
 {
 
 class ShaderDX12;
+class Dx12PipelineOwner;
+class Dx12TextureOwner;
+class Dx12FrameOwner;
 class RenderBackendDX12;
 
 
@@ -191,6 +197,291 @@ struct DeferredResourceReleaseDX12
     ID3D12Resource* resource = nullptr;
     UINT64 fenceValue = 0;
     bool fenceAssigned = false;
+};
+
+// Lifetime: resources invalidated while command work may still reference them
+// are quarantined here until a covering fence or terminal drain proves release.
+class Dx12DeferredReleaseOwner
+{
+  public:
+    void Quarantine( ID3D12Resource* resource );
+    void AssignFence( UINT64 fenceValue );
+    void ReleaseCompleted( Dx12RenderDevice& device, Dx12SubmittedWorkState& submittedWork, bool releaseUnfenced );
+    bool Empty() const;
+    size_t Count() const;
+
+  private:
+    std::vector<DeferredResourceReleaseDX12> m_pending;
+};
+
+struct Dx12PlatformProfilerGpuScopeDX12
+{
+    static constexpr size_t NAME_CHARS = 256;
+    char name[NAME_CHARS] = {};
+    uint32_t hash = 0;
+};
+
+// Capability: draw callers may enter a recording epoch, but cannot submit,
+// wait, retire resources, or inspect fault/profiler state through this handle.
+class Dx12DrawGate
+{
+  public:
+    explicit Dx12DrawGate( Dx12FrameOwner& owner ) : m_owner( owner )
+    {
+    }
+    bool PrepareDraw();
+    bool PrepareFramebufferBind();
+    bool PreparePipelineDraw( VertexFormat12 format,
+                              bool instanced,
+                              const InstancedMeshDX12* instancedMesh,
+                              const DynamicVBDX12* dynamicVertexBuffer );
+    bool CanRecord() const;
+
+  private:
+    Dx12FrameOwner& m_owner;
+};
+
+// Capability: shader/dynamic-geometry callers may reserve and fill frame
+// upload rows, but cannot reach submission, retirement, fault, or PIX policy.
+class Dx12UploadReservations
+{
+  public:
+    explicit Dx12UploadReservations( Dx12FrameOwner& owner ) : m_owner( owner )
+    {
+    }
+    D3D12_GPU_VIRTUAL_ADDRESS ReserveUpload( UINT64 size, UINT64 alignment );
+    D3D12_GPU_VIRTUAL_ADDRESS ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes );
+    D3D12_GPU_VIRTUAL_ADDRESS ReserveConstantUpload( UINT64 size );
+    void CancelPendingConstantUpload();
+    uint8_t* UploadPointer( D3D12_GPU_VIRTUAL_ADDRESS address ) const;
+
+  private:
+    Dx12FrameOwner& m_owner;
+};
+
+// Capability: resource wrappers may surrender one COM reference for
+// fence-proven release; they cannot inspect or advance the retirement queue.
+class Dx12ResourceRelease
+{
+  public:
+    explicit Dx12ResourceRelease( Dx12FrameOwner& owner ) : m_owner( owner )
+    {
+    }
+    void Retire( ID3D12Resource* resource );
+
+  private:
+    Dx12FrameOwner& m_owner;
+};
+
+// Concept: one owner governs the complete command/frame epoch.
+//
+// It owns every state row whose invariant crosses Close, Execute, Signal, Wait,
+// allocator reuse, PIX suspension, upload reuse, or deferred release. The three
+// references are stable composition relationships, not rebindable context.
+class Dx12FrameOwner
+{
+  public:
+    static constexpr int FRAME_COUNT = 2;
+    static constexpr int PROFILER_STACK_CAPACITY = 64;
+
+    Dx12FrameOwner( Dx12RenderDevice& device, Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures );
+
+    Dx12DrawGate& DrawGate()
+    {
+        return m_drawGate;
+    }
+    Dx12UploadReservations& UploadReservations()
+    {
+        return m_uploadReservations;
+    }
+    Dx12ResourceRelease& ResourceRelease()
+    {
+        return m_resourceRelease;
+    }
+    Basics::SbResult EnsureOpen();
+    Basics::SbResult SubmitClosed();
+    Basics::SbResult WaitForGpu();
+    Basics::SbResult FlushUploadBuffer();
+    Basics::SbResult CommitClose( HRESULT result, const char* operation );
+    Basics::SbResult CommitWait( const Basics::SbResult& result );
+    Basics::SbResult RetainFailure( const Basics::SbResult& result );
+    Basics::SbResult RetainDeviceLoss( const char* operation, HRESULT result );
+    Basics::SbResult SignalFrame( UINT64& outFenceValue );
+    Basics::SbResult WaitForFrameFence( UINT64 fenceValue );
+    // Capability targets: these methods implement the operation inside the
+    // owner; capability subobjects only forward their restricted surface.
+    bool PrepareDraw();
+    bool PrepareFramebufferBind();
+    bool PreparePipelineDraw( VertexFormat12 format,
+                              bool instanced,
+                              const InstancedMeshDX12* instancedMesh,
+                              const DynamicVBDX12* dynamicVertexBuffer );
+    D3D12_GPU_VIRTUAL_ADDRESS ReserveUpload( UINT64 size, UINT64 alignment );
+    D3D12_GPU_VIRTUAL_ADDRESS ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes );
+    D3D12_GPU_VIRTUAL_ADDRESS ReserveConstantUpload( UINT64 size );
+    void CancelPendingConstantUpload();
+    uint8_t* UploadPointer( D3D12_GPU_VIRTUAL_ADDRESS address ) const;
+    const Basics::SbResult& CurrentResult() const
+    {
+        return m_recording.CurrentResult();
+    }
+    bool HasFailure() const
+    {
+        return m_recording.HasFailure();
+    }
+    bool CanRecord() const
+    {
+        return m_recording.CanRecord();
+    }
+    bool IsOpen() const
+    {
+        return m_recording.IsOpen();
+    }
+    bool DeviceHealthy() const
+    {
+        return m_deviceHealth.CanIssueDeviceWork();
+    }
+    bool DeviceLost() const
+    {
+        return m_deviceHealth.IsLost();
+    }
+    bool HasSubmittedWork() const
+    {
+        return m_submittedWork.HasSubmittedWork();
+    }
+    bool CanReleaseWithoutFence() const
+    {
+        return m_submittedWork.CanReleaseWithoutFence();
+    }
+    void AbandonSubmittedWork()
+    {
+        m_submittedWork.AbandonForRemovedDevice();
+    }
+    void ConfigureFaultInjection( const char* token )
+    {
+        m_faultInjection.Configure( token );
+    }
+    void ResetForDevice();
+    void ResetAfterShutdown();
+    void PublishSrvHeap( ID3D12DescriptorHeap* heap )
+    {
+        m_srvHeap = heap;
+    }
+    ID3D12Resource*& RenderTarget( UINT index )
+    {
+        return m_renderTargets[index];
+    }
+    ID3D12Resource* RenderTarget( UINT index ) const
+    {
+        return m_renderTargets[index];
+    }
+    UINT FrameIndex() const
+    {
+        return m_frameIndex;
+    }
+    UINT AllocatorIndex() const
+    {
+        return m_allocatorIndex;
+    }
+    UINT64 FrameFenceValue( UINT index ) const
+    {
+        return m_frameFenceValues[index];
+    }
+    void SetFrameFenceValue( UINT index, UINT64 value )
+    {
+        m_frameFenceValues[index] = value;
+    }
+    void AdvanceFrameIndices();
+    void RefreshFrameIndex();
+    RenderGraphResourceAccess BackBufferAccess() const
+    {
+        return m_backBufferAccess;
+    }
+    void SetBackBufferAccess( RenderGraphResourceAccess access )
+    {
+        m_backBufferAccess = access;
+    }
+    Dx12DescriptorAllocator& Descriptors()
+    {
+        return m_descriptors;
+    }
+    const Dx12DescriptorAllocator& Descriptors() const
+    {
+        return m_descriptors;
+    }
+    Dx12FrameUploadSystem& Uploads()
+    {
+        return m_uploads;
+    }
+    const Dx12FrameUploadSystem& Uploads() const
+    {
+        return m_uploads;
+    }
+    void RetireResource( ID3D12Resource* resource );
+    void AssignRetirementFence( UINT64 fenceValue )
+    {
+        m_retirement.AssignFence( fenceValue );
+    }
+    void ReleaseCompletedRetirements( bool releaseUnfenced );
+    bool RetirementEmpty() const
+    {
+        return m_retirement.Empty();
+    }
+    size_t RetirementCount() const
+    {
+        return m_retirement.Count();
+    }
+    int ProfilerDepth() const
+    {
+        return m_profilerStackState.Depth();
+    }
+    Dx12PlatformProfilerGpuScopeDX12& ProfilerScope( int index )
+    {
+        return m_profilerScopes[index];
+    }
+    bool CommitProfilerBegin()
+    {
+        return m_profilerStackState.CommitBegin( PROFILER_STACK_CAPACITY );
+    }
+    bool CommitProfilerEnd()
+    {
+        return m_profilerStackState.CommitEnd();
+    }
+    void AssertProfilerClosed( const char* reason ) const;
+    int SuspendProfilerForSubmit( const char* reason );
+    void RestoreProfilerAfterSubmit( int suspendedDepth );
+    void BeginProfilerEvent( const char* name, uint32_t hash );
+    void EndProfilerEvent();
+    ID3D12Device* Device() const;
+    ID3D12GraphicsCommandList* CommandList() const;
+    void ActivateShader( ShaderDX12* shader );
+
+  private:
+    void WriteFaultProbe() const;
+
+    Dx12RenderDevice& m_device;
+    Dx12PipelineOwner& m_pipeline;
+    Dx12TextureOwner& m_textures;
+    Dx12CommandRecordingState m_recording;
+    Dx12SubmittedWorkState m_submittedWork;
+    Dx12DeviceHealthState m_deviceHealth;
+    Dx12FaultInjectionState m_faultInjection;
+    Dx12PlatformProfilerGpuStackState m_profilerStackState;
+    std::array<Dx12PlatformProfilerGpuScopeDX12, PROFILER_STACK_CAPACITY> m_profilerScopes = {};
+    Dx12DescriptorAllocator m_descriptors;
+    Dx12FrameUploadSystem m_uploads;
+    Dx12DeferredReleaseOwner m_retirement;
+    ID3D12Resource* m_renderTargets[FRAME_COUNT] = {};
+    UINT64 m_frameFenceValues[FRAME_COUNT] = {};
+    ID3D12DescriptorHeap* m_srvHeap = nullptr;
+    UINT m_allocatorIndex = 0;
+    UINT m_frameIndex = 0;
+    RenderGraphResourceAccess m_backBufferAccess = RenderGraphResourceAccess::Present;
+    D3D12_GPU_VIRTUAL_ADDRESS m_pendingConstantAddress = 0;
+    UINT64 m_pendingConstantBytes = 0;
+    Dx12DrawGate m_drawGate;
+    Dx12UploadReservations m_uploadReservations;
+    Dx12ResourceRelease m_resourceRelease;
 };
 
 // Concept: texture lifetime is independent from frame/device orchestration.
@@ -328,6 +619,101 @@ class Dx12PipelineOwner
     bool m_targetsDirty = true;
 };
 
+// Concept: dynamic and instanced geometry share one bounded backend lifetime.
+//
+// This owner retains handle registries plus warmed overlay shaders/PSOs. Frame
+// coordination lends device, command, upload, pipeline, and diagnostics values
+// to each operation; the owner stores no backend host pointer or callback seam.
+class Dx12GeometryOwner
+{
+  public:
+    uint32_t CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices );
+    void UploadAndDrawDynamicVB( uint32_t handle,
+                                 const float* data,
+                                 int vertexCount,
+                                 D3D12_GPU_VIRTUAL_ADDRESS address,
+                                 uint8_t* uploadPointer,
+                                 ID3D12GraphicsCommandList* commandList,
+                                 Dx12DrawGate& drawGate,
+                                 DrawCallTrace& drawTrace,
+                                 int& drawCount );
+    void DestroyDynamicVB( uint32_t handle );
+    void AdoptGridLineShader( std::unique_ptr<IShader> shader );
+    bool EnsureGridLinePipeline( ID3D12Device* device, Dx12PipelineOwner& pipeline, DXGI_FORMAT rtvFormat );
+    void AdoptTransientTriangleShader( TransientTriangleStyle style, std::unique_ptr<IShader> shader );
+    static const char* TransientShaderBaseName( TransientTriangleStyle style );
+    bool HasTransientTriangleShader( TransientTriangleStyle style ) const;
+    UINT GridLineConstantBytes() const;
+    UINT TransientConstantBytes( TransientTriangleStyle style ) const;
+    void DrawLinesColored( const float* data,
+                           int vertexCount,
+                           const float* viewProjMatrix16,
+                           D3D12_GPU_VIRTUAL_ADDRESS vertexAddress,
+                           uint8_t* uploadPointer,
+                           ID3D12GraphicsCommandList* commandList,
+                           Dx12PipelineOwner& pipeline,
+                           Dx12DrawGate& drawGate,
+                           DrawCallTrace& drawTrace,
+                           int& drawCount );
+    void DrawTransientColoredTriangles( const float* data,
+                                        int vertexCount,
+                                        const float* viewProjMatrix16,
+                                        TransientTriangleStyle style,
+                                        int viewportWidth,
+                                        int viewportHeight,
+                                        D3D12_GPU_VIRTUAL_ADDRESS vertexAddress,
+                                        uint8_t* uploadPointer,
+                                        ID3D12GraphicsCommandList* commandList,
+                                        Dx12DrawGate& drawGate,
+                                        DrawCallTrace& drawTrace,
+                                        int& drawCount );
+    uint32_t CreateInstancedMesh( const float* staticData,
+                                  int staticVertCount,
+                                  int staticFloatsPerVert,
+                                  int instanceFloats,
+                                  int instanceStartAttrib,
+                                  const int* instanceAttribSizes,
+                                  int numInstanceAttribs,
+                                  const int* staticAttribSizes,
+                                  int numStaticAttribs,
+                                  ID3D12Device* device,
+                                  ID3D12GraphicsCommandList* commandList,
+                                  ID3D12Resource* uploadResource,
+                                  D3D12_GPU_VIRTUAL_ADDRESS uploadAddress,
+                                  uint8_t* uploadPointer );
+    void UploadInstanceData( uint32_t handle,
+                             const float* data,
+                             int floatCount,
+                             D3D12_GPU_VIRTUAL_ADDRESS address,
+                             uint8_t* uploadPointer );
+    void DrawInstancedMesh( uint32_t handle,
+                            int staticVertCount,
+                            int instanceCount,
+                            ID3D12GraphicsCommandList* commandList,
+                            Dx12DrawGate& drawGate,
+                            DrawCallTrace& drawTrace,
+                            int& drawCount );
+    void DestroyInstancedMesh( uint32_t handle );
+    uint64_t StaticVertexBufferAddress( uint32_t handle ) const;
+    int StaticVertexStride( uint32_t handle ) const;
+    size_t DynamicCount() const;
+    size_t DynamicCapacity() const;
+    UINT64 DynamicUploadBytes( uint32_t handle, int vertexCount ) const;
+    size_t InstancedCount() const;
+    size_t InstancedCapacity() const;
+    void Shutdown();
+
+  private:
+    static constexpr size_t MAX_GRID_LINE_PSOS = 4;
+    static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 4;
+    std::vector<DynamicVBDX12> m_dynamicVBs;
+    std::vector<InstancedMeshDX12> m_instancedMeshes;
+    std::unique_ptr<IShader> m_gridLineShader;
+    std::array<GridLinePSODX12, MAX_GRID_LINE_PSOS> m_gridLinePSOs = {};
+    size_t m_gridLinePSOCount = 0;
+    std::array<std::unique_ptr<IShader>, TRANSIENT_TRIANGLE_STYLE_COUNT> m_transientTriangleShaders;
+};
+
 struct Dx12RaytracingSetupOutcome
 {
     Basics::SbResult result = Basics::SbResult::Success();
@@ -454,8 +840,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
 
     // Ordinary raster binding ABI lives in RenderRasterBindingContract.h so
     // runtime passes and the DX12 backend consume one shader/root-signature map.
-    static constexpr size_t MAX_GRID_LINE_PSOS = 4;
-    static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 4;
 
     // CPU-side registries. These are not GPU resources by themselves; they are
     // lookup tables the backend uses to find cached GPU objects and descriptor
@@ -465,20 +849,21 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // container and cap exhaustion fails with the missing pipeline shape.
     Dx12TextureOwner m_textureOwner;
     Dx12PipelineOwner m_pipelineOwner;
-    std::vector<DynamicVBDX12> m_dynamicVBs;
-    std::vector<InstancedMeshDX12> m_instancedMeshes;
+    Dx12GeometryOwner m_geometryOwner;
 
     // Currently bound render state. DX12 does not remember high-level engine
     // intent for us, so the backend tracks the desired state and emits concrete
     // command-list binds only when the state becomes dirty.
     Dx12RaytracingOwner m_raytracingOwner;
+    uint32_t m_reflectionTextureHandle = 0;                        // Cold-published handle for the DXR reflection SRV.
     GpuTimerStateDX12 m_gpuTimers;
 
     // The render device owns the core D3D12 lifetime: factory, device, queue,
-    // swap chain, command allocators, command list, and frame fence. Access the
-    // device, swap chain, and command list through these helpers so resize or
-    // device-owner work cannot leave backend-side aliases dangling.
+    // swap chain, command allocators, command list, and frame fence. Every use
+    // resolves through that owner so partial initialization, shutdown, or a
+    // future device recreation cannot leave backend-side aliases dangling.
     Dx12RenderDevice m_renderDevice;
+    Dx12FrameOwner m_frameOwner;
     ID3D12Device* Device() const
     {
         return m_renderDevice.Device();
@@ -492,37 +877,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
         return m_renderDevice.CommandList();
     }
 
-    // Borrowed core queue/allocator aliases. Do not Release() these in the backend.
-    IDXGIFactory4* m_factory = nullptr;
-    ID3D12CommandQueue* m_commandQueue = nullptr;
-    ID3D12CommandAllocator* m_commandAllocators[FRAME_COUNT] = {};
-    static constexpr int PLATFORM_PROFILER_GPU_SCOPE_STACK_MAX = 64;
-    static constexpr std::size_t PLATFORM_PROFILER_GPU_MARKER_NAME_CHARS = 256;
-    struct PlatformProfilerGpuScopeDX12
-    {
-        char name[PLATFORM_PROFILER_GPU_MARKER_NAME_CHARS] = {};
-        uint32_t hash = 0;
-    };
-
-    // Invariant: only successful Close/Reset operations change this epoch. A
-    // sticky failure makes every later recording entry point a no-op until a
-    // new device initialization establishes a fresh command-list lifetime.
-    Dx12CommandRecordingState m_commandRecording;
-    // Submission completion is separate from recording state: a closed list
-    // may already be executing without a covering fence. This value blocks
-    // allocator/resource reuse until a real fence proves completion.
-    Dx12SubmittedWorkState m_submittedWork;
-    Dx12DeviceHealthState m_deviceHealth;
-    Dx12FaultInjectionState m_faultInjection;
     uint64_t m_recreationGeneration = 0;                           // Advances only after complete resize publication.
-    int m_platformProfilerGpuDepth = 0;                            // Nesting depth guard for platform GPU marker begin/end balance.
-    std::array<PlatformProfilerGpuScopeDX12, PLATFORM_PROFILER_GPU_SCOPE_STACK_MAX> m_platformProfilerGpuStack = {};
-
-    ID3D12Resource* m_renderTargets[FRAME_COUNT] = {};
-    UINT m_frameIndex = 0;
-    UINT m_allocatorIndex = 0;                                     // Which allocator is active (alternates 0/1)
-
-    UINT64 m_frameFenceValues[FRAME_COUNT] = {};                   // Fence value signaled by each frame's submission
 
     // Descriptor heaps are descriptor tables, not texture arrays.
     //
@@ -568,8 +923,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // handle to that row, the shader can sample the wrong texture or trip the
     // validation layer. This allocator owns the static and per-frame transient
     // ranges so that rule is visible at the architecture boundary.
-    Dx12DescriptorAllocator m_srvDescriptors;
-
     ID3D12Resource* m_depthStencil = nullptr;
 
     // Upload memory is the CPU-written staging area for constants, dynamic
@@ -582,8 +935,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // not read yet. Dx12FrameUploadSystem owns the upload resources, their
     // persistent CPU Map() pointers, and the arena reset policy tied to the
     // frame fence.
-    Dx12FrameUploadSystem m_uploadSystem;
-
     // Lifetime: an uncertain screenshot submission cannot release its readback
     // buffer. Keep the bounded COM references until terminal shutdown proves a
     // full queue drain; a failed terminal drain stops before Release.
@@ -602,7 +953,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // Lifetime: resource owners transfer COM references here when a framebuffer
     // or texture is invalidated before the GPU has necessarily consumed the
     // command stream that mentioned it.
-    std::vector<DeferredResourceReleaseDX12> m_deferredResourceReleases;
     // Graph-created transient targets use the backend descriptor allocators, but
     // they are tracked in their own pool so material/object texture tables do
     // not become the owner of frame-target lifetime. A pool slot may be reused
@@ -618,24 +968,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     D3D12_CPU_DESCRIPTOR_HANDLE m_savedGraphRTV = {};
     D3D12_CPU_DESCRIPTOR_HANDLE m_savedGraphDSV = {};
     DXGI_FORMAT m_savedGraphRTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
-
-
-    // Runtime allocation policy: debug-line shader and PSOs are warmed during
-    // backend setup for every engine RTV format, so overlay draws do not compile
-    // shaders or grow GPU object caches inside the render phase.
-    std::unique_ptr<IShader> m_gridLineShader;
-    std::array<GridLinePSODX12, MAX_GRID_LINE_PSOS> m_gridLinePSOs = {};
-    size_t m_gridLinePSOCount = 0;
-    int m_gridLineVBCapacity = 0;
-    // Runtime allocation policy: transient triangle shaders are warmed at
-    // backend init for each generic style so overlay draws do not compile HLSL
-    // while building a frame.
-    std::array<std::unique_ptr<IShader>, TRANSIENT_TRIANGLE_STYLE_COUNT> m_transientTriangleShaders;
-
-    // Invariant: this is the graph-visible state for the current swap-chain
-    // image in m_frameIndex. It resets to Present whenever DXGI gives us a new
-    // current backbuffer through resize or Present.
-    RenderGraphResourceAccess m_backBufferAccess = RenderGraphResourceAccess::Present;
 
 
     // --- Internal helpers ---
@@ -661,18 +993,15 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void ClearBoundTextureSlotsForSrv( UINT srvIndex );
     Basics::SbResult FlushUploadBuffer();
     Basics::SbResult FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment );
-    D3D12_GPU_VIRTUAL_ADDRESS SubAllocateUpload( UINT64 size, UINT64 alignment );
     void ReportArchitectureStats( const char* reason ) const;
     GraphTransientResourceDX12* FindGraphTransientSlot( RenderGraphResourceHandle resource );
     const GraphTransientResourceDX12* FindGraphTransientSlot( RenderGraphResourceHandle resource ) const;
     void ReleaseGraphTransientResources( const char* reason );
     void ReportDeviceLost( const char* context, HRESULT result ) const;
-    ID3D12PipelineState* EnsureGridLinePipeline( DXGI_FORMAT rtvFormat );
     void CheckDXRSupport();
     void AssertPlatformProfilerGpuStackClosed( const char* reason ) const;
     int SuspendPlatformProfilerGpuStackForSubmit( const char* reason );
     void RestorePlatformProfilerGpuStackAfterSubmit( int suspendedDepth );
-    IShader* EnsureTransientTriangleShader( TransientTriangleStyle style );
 
 
   public:
@@ -898,12 +1227,12 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // arena with the exact same size/alignment used for the final allocation.
     // If the arena is full, it submits the current command list, waits for the
     // GPU, resets the frame upload arena, and then allocates. Callers should not
-    // call SubAllocateUpload() directly because that bypasses the safety probe.
+    // bypass the frame owner's reservation capability.
     D3D12_GPU_VIRTUAL_ADDRESS ReserveUpload( UINT64 size, UINT64 alignment );
     uint8_t* GetUploadPtr( D3D12_GPU_VIRTUAL_ADDRESS addr );
     ID3D12Resource* GetUploadBuffer() const
     {
-        return m_uploadSystem.Resource( m_allocatorIndex );
+        return m_frameOwner.Uploads().Resource( m_frameOwner.AllocatorIndex() );
     }
     D3D12_CPU_DESCRIPTOR_HANDLE AllocateRTV();
     D3D12_CPU_DESCRIPTOR_HANDLE AllocateDSV();

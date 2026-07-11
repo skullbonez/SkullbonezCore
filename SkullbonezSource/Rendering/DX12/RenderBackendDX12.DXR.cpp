@@ -615,7 +615,7 @@ SbResult RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
 
     const Dx12RaytracingSetupOutcome setup = m_raytracingOwner.BeginSetup( Device(),
                                                                            CommandList(),
-                                                                           m_srvDescriptors,
+                                                                           m_frameOwner.Descriptors(),
                                                                            m_width,
                                                                            m_height,
                                                                            terrainVBVA,
@@ -631,8 +631,7 @@ SbResult RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
         // BLAS commands so the coordinator can prove their completion before
         // scratch memory is released.
         AssertPlatformProfilerGpuStackClosed( "InitDXR command list Close" );
-        const SbResult closeResult =
-            m_commandRecording.CommitClose( CommandList()->Close(), "InitDXR command list Close" );
+        const SbResult closeResult = m_frameOwner.CommitClose( CommandList()->Close(), "InitDXR command list Close" );
         if ( !closeResult.ok )
         {
             return closeResult;
@@ -642,7 +641,7 @@ SbResult RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
         {
             return submitResult;
         }
-        const SbResult waitResult = m_commandRecording.CommitWait( WaitForGpu() );
+        const SbResult waitResult = m_frameOwner.CommitWait( WaitForGpu() );
         if ( !waitResult.ok )
         {
             return waitResult;
@@ -666,6 +665,14 @@ SbResult RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
         m_raytracingOwner.AbortSetup( completeResult );
         return completeResult;
     }
+    // Lifetime: publish the water-facing texture handle during cold DXR setup.
+    // The steady render query is a pure value read and cannot grow the texture
+    // registry under the runtime allocation guard.
+    const UINT reflectionSrvIndex = m_raytracingOwner.ReflectionSrvIndex();
+    if ( reflectionSrvIndex != 0 )
+    {
+        m_reflectionTextureHandle = m_textureOwner.RegisterSRV( reflectionSrvIndex );
+    }
     return SbResult::Success();
 }
 
@@ -682,7 +689,7 @@ void RenderBackendDX12::BuildTLAS( const float* instanceTransforms,
     const SbResult buildResult = m_raytracingOwner.BuildScene( instanceTransforms, instanceCount );
     if ( !buildResult.ok )
     {
-        [[maybe_unused]] const SbResult retainedFailure = m_commandRecording.RetainFailure( buildResult );
+        [[maybe_unused]] const SbResult retainedFailure = m_frameOwner.RetainFailure( buildResult );
     }
 }
 
@@ -969,7 +976,7 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj,
                                          skyBackHandle };
     const Dx12RaytracingDispatchOutcome dispatch = m_raytracingOwner.DispatchReflections( Device(),
                                                                                           m_srvHeap,
-                                                                                          m_srvDescriptors,
+                                                                                          m_frameOwner.Descriptors(),
                                                                                           m_textureOwner,
                                                                                           invViewProj,
                                                                                           cameraPos,
@@ -981,7 +988,7 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj,
                                                                                           textureHandles );
     if ( !dispatch.result.ok )
     {
-        [[maybe_unused]] const SbResult retainedFailure = m_commandRecording.RetainFailure( dispatch.result );
+        [[maybe_unused]] const SbResult retainedFailure = m_frameOwner.RetainFailure( dispatch.result );
         return;
     }
     if ( dispatch.rasterStateInvalidated )
@@ -1002,47 +1009,19 @@ UINT Dx12RaytracingOwner::ReflectionSrvIndex() const
 
 uint32_t RenderBackendDX12::GetReflectionUAVTexture() const
 {
-    // The water renderer speaks in texture handles, not raw descriptor indices.
-    // Lazily register the reflection SRV in the normal DX12 texture registry so
-    // the DXR output can be bound exactly like an FBO texture.
-    const UINT reflectionSrvIndex = m_raytracingOwner.ReflectionSrvIndex();
-    if ( reflectionSrvIndex == 0 )
-    {
-        return 0;
-    }
-    // Reuse an existing registry handle when the reflection SRV has already
-    // been exposed to the water path.
-    const uint32_t existingHandle = m_textureOwner.FindHandleForSrv( reflectionSrvIndex );
-    if ( existingHandle != 0 )
-    {
-        return existingHandle;
-    }
-    // const_cast is local to this lazy registration path: externally this query
-    // remains a handle lookup, while internally the texture registry gains one
-    // derived entry for the reflection SRV.
-    auto* self = const_cast<RenderBackendDX12*>( this );
-    return self->RegisterSRV( reflectionSrvIndex );
+    return m_reflectionTextureHandle;
 }
 
 
 uint64_t RenderBackendDX12::GetInstancedMeshStaticVBVA( uint32_t handle ) const
 {
-    if ( handle == 0 || handle > (uint32_t)m_instancedMeshes.size() )
-    {
-        return 0;
-    }
-    const auto& im = m_instancedMeshes[handle - 1];
-    return im.staticVB ? im.staticVB->GetGPUVirtualAddress() : 0;
+    return m_geometryOwner.StaticVertexBufferAddress( handle );
 }
 
 
 int RenderBackendDX12::GetInstancedMeshStaticStride( uint32_t handle ) const
 {
-    if ( handle == 0 || handle > (uint32_t)m_instancedMeshes.size() )
-    {
-        return 0;
-    }
-    return m_instancedMeshes[handle - 1].staticStride;
+    return m_geometryOwner.StaticVertexStride( handle );
 }
 
 
@@ -1102,17 +1081,13 @@ void Dx12RaytracingOwner::Shutdown()
 
 void RenderBackendDX12::ShutdownDXR()
 {
-    const UINT reflectionSrvIndex = m_raytracingOwner.ReflectionSrvIndex();
-    if ( reflectionSrvIndex != 0 )
+    if ( m_reflectionTextureHandle != 0 )
     {
         // Lifetime: the texture registry borrows this descriptor identity. Drop
         // its public handle before the owner releases the underlying reflection
         // resource so no sibling registry entry survives as a stale tombstone.
-        const uint32_t handle = m_textureOwner.FindHandleForSrv( reflectionSrvIndex );
-        if ( handle != 0 )
-        {
-            m_textureOwner.UnregisterSRV( handle );
-        }
+        m_textureOwner.UnregisterSRV( m_reflectionTextureHandle );
+        m_reflectionTextureHandle = 0;
     }
     m_raytracingOwner.Shutdown();
 }

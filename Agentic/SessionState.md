@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-11
+Date: 2026-07-12
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -11,19 +11,19 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-11th-july` |
-| Current pushed baseline | `f8158b19 render-backend-decomposition, TASK 2 / 8, 81% OVERALL COMPLETE — extract texture and pipeline owners` |
-| Current objective | Execute `render-backend-decomposition` B1-D2, while preparing the engine-cleanup aggregate ownership review in parallel |
-| Portfolio progress | 225 / 276 tasks = 82% overall |
-| Last broad local gate | `tools\\validate_full.bat` passed final entity-model source on 2026-07-11 in 108.105s: every CPU target, 135/135 doctest cases with 2,847 assertions, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, handle smoke, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | Render A3-A4 passed the Profile build, DX12 architecture cases, the DX12 renderer gate in 29.175s with zero InfoQueue errors and matching screenshots, and the 60.867-second graphics-stress run. |
+| Current pushed baseline | `89b050bc render-backend-decomposition, TASK 4 / 8, 82% OVERALL COMPLETE — extract DXR ownership and close the remainder review`; the grouped 8/8 closure commit is ready to push |
+| Current objective | Execute `dx12-post-final-cleanup` phases 1-6, then continue the binding MASTER path |
+| Portfolio progress | 229 / 276 tasks = 83% overall |
+| Last broad local gate | `tools\\validate_full.bat` passed final render-backend source on 2026-07-12 in 81.508s: formatting and filters clean, every CPU target passed, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
+| Validation for current edits | CPU umbrella passed in 29.444s; renderer passed in 39.264s with zero InfoQueue errors and matching screenshots; perf passed in 35.862s with no steady-gameplay allocations; platform-profiler probe exited 0 in 2.044s; graphics stress completed 60.918s crash-free. Closure review and 18/18 comment audit are clear. |
 
 ## Live Queue
 
 1. Prepare the engine-cleanup aggregate review in parallel with the critical path;
    fix findings, pass the closure gate, and delete all eight retained completed
    plans.
-2. Execute render B1-D2, then continue the binding path recorded in MASTER:
-   DX12 cleanup, config decomposition, shader P0-P5, visibility, shadows,
+2. Execute DX12 post cleanup, then continue the binding path recorded in MASTER:
+   config decomposition, shader P0-P5, visibility, shadows,
    interpolation, editor undo/redo, then data-format versioning. Phase-level
    preparation and dependency barriers are authoritative in MASTER and the
    owning plans.
@@ -71,9 +71,11 @@ plan inventory.
   `Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md`.
 - Entity-model closure evidence:
   `Agentic/Reports/2026-07-11/entity-model-endgame-closure.md`.
+- Render-backend closure evidence:
+  `Agentic/Reports/2026-07-12/render-backend-decomposition-closure.md`.
 
 ## Next Handoff
 
 Use `Agentic/Plans/MASTER-PLAN.md` for selection and the repo-local orchestrator
-skill when implementing a plan. The next binding implementation slice is
-`render-backend-decomposition` B1-D2.
+skill when implementing a plan. The next binding implementation plan is
+`dx12-post-final-cleanup` phase 1.

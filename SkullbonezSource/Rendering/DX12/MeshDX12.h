@@ -18,7 +18,9 @@ Glossary:
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
-  must stay explicit.
+    must stay explicit.
+  - Draw dependencies are stable concrete owners; mesh objects never retain the
+    aggregate backend or callbacks into it.
 
 Related:
   - SkullbonezSource/Rendering/DX12/MeshDX12.cpp
@@ -38,7 +40,13 @@ namespace SkullbonezCore
 namespace Rendering
 {
 
-class RenderBackendDX12;
+class Dx12RenderDevice;
+class Dx12PipelineOwner;
+class Dx12TextureOwner;
+class Dx12DescriptorAllocator;
+class Dx12CommandRecordingState;
+class DrawCallTrace;
+class Dx12DrawGate;
 
 
 // Vertex format enum for PSO input layout selection
@@ -62,7 +70,10 @@ class MeshDX12 : public IMesh
 {
 
   private:
-    RenderBackendDX12& m_backend; // Borrowed DX12 owner for uploads, barriers, and draw recording.
+    Dx12RenderDevice& m_device;
+    Dx12DrawGate& m_drawGate;
+    DrawCallTrace& m_drawTrace;
+    int& m_drawCount;
     ID3D12Resource* m_vertexBuffer;
     D3D12_VERTEX_BUFFER_VIEW m_vbView;
     int m_vertexCount;
@@ -70,7 +81,7 @@ class MeshDX12 : public IMesh
     VertexFormat12 m_format;
 
   public:
-    explicit MeshDX12( RenderBackendDX12& backend );
+    MeshDX12( Dx12RenderDevice& device, Dx12DrawGate& drawGate, DrawCallTrace& drawTrace, int& drawCount );
     ~MeshDX12() override;
 
     bool Create( ID3D12Device* device,
@@ -80,7 +91,8 @@ class MeshDX12 : public IMesh
                  int floatsPerVertex,
                  VertexFormat12 format,
                  D3D12_GPU_VIRTUAL_ADDRESS uploadAddr,
-                 uint8_t* uploadPtr );
+                 uint8_t* uploadPtr,
+                 ID3D12Resource* uploadBuffer );
 
     void Draw() const override;
     void DrawInstanced( int instanceCount ) const override;

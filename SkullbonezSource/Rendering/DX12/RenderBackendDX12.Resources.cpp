@@ -67,7 +67,11 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
 std::unique_ptr<IShader> RenderBackendDX12::CreateShader( const char* baseName )
 {
     std::string hlslPath = std::string( DATA_ROOT ) + baseName + ".hlsl";
-    auto shader = std::make_unique<ShaderDX12>( *this );
+    if ( !Device() )
+    {
+        return nullptr;
+    }
+    auto shader = std::make_unique<ShaderDX12>( m_renderDevice, m_pipelineOwner, m_frameOwner.UploadReservations() );
     if ( !shader->Compile( hlslPath.c_str() ) )
     {
         // Lane R: shader files and compiler output are external inputs. Return
@@ -84,6 +88,10 @@ std::unique_ptr<IShader> RenderBackendDX12::CreateShader( const char* baseName )
 std::unique_ptr<IMesh>
 RenderBackendDX12::CreateMesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords )
 {
+    if ( !Device() )
+    {
+        return nullptr;
+    }
     VertexFormat12 format;
     int floatsPerVert;
     if ( hasNormals && hasTexCoords )
@@ -114,8 +122,17 @@ RenderBackendDX12::CreateMesh( const float* data, int vertexCount, bool hasNorma
     }
     uint8_t* uploadPtr = GetUploadPtr( uploadAddr );
 
-    auto mesh = std::make_unique<MeshDX12>( *this );
-    if ( !mesh->Create( Device(), CommandList(), data, vertexCount, floatsPerVert, format, uploadAddr, uploadPtr ) )
+    auto mesh =
+        std::make_unique<MeshDX12>( m_renderDevice, m_frameOwner.DrawGate(), m_drawCallTrace, m_frameDrawCallCount );
+    if ( !mesh->Create( Device(),
+                        CommandList(),
+                        data,
+                        vertexCount,
+                        floatsPerVert,
+                        format,
+                        uploadAddr,
+                        uploadPtr,
+                        m_frameOwner.Uploads().Resource( m_frameOwner.AllocatorIndex() ) ) )
     {
         return nullptr;
     }
@@ -126,7 +143,19 @@ RenderBackendDX12::CreateMesh( const float* data, int vertexCount, bool hasNorma
 std::unique_ptr<IFramebuffer>
 RenderBackendDX12::CreateFramebuffer( int width, int height, FramebufferColorFormat colorFormat )
 {
-    auto fbo = std::make_unique<FramebufferDX12>( *this, colorFormat );
+    if ( !Device() )
+    {
+        return nullptr;
+    }
+    auto fbo = std::make_unique<FramebufferDX12>( m_renderDevice,
+                                                  m_pipelineOwner,
+                                                  m_textureOwner,
+                                                  m_rtvDescriptors,
+                                                  m_dsvDescriptors,
+                                                  m_frameOwner.Descriptors(),
+                                                  m_frameOwner.DrawGate(),
+                                                  m_frameOwner.ResourceRelease(),
+                                                  colorFormat );
     if ( !fbo->Create( width, height ) )
     {
         return nullptr;

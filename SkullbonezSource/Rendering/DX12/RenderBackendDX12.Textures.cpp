@@ -269,7 +269,7 @@ SkullbonezCore::Basics::SbResult Dx12TextureOwner::Initialize( RenderBackendDX12
 
     // Copy the null descriptor to a shader-visible row so dispatches can bind it
     // in the same table as real destination mips.
-    D3D12_CPU_DESCRIPTOR_HANDLE svDst = backend.m_srvDescriptors.ShaderVisibleCpuHandle( m_genMipsNullUAV );
+    D3D12_CPU_DESCRIPTOR_HANDLE svDst = backend.m_frameOwner.Descriptors().ShaderVisibleCpuHandle( m_genMipsNullUAV );
     backend.Device()->CopyDescriptorsSimple( 1,
                                              svDst,
                                              backend.GetSRVStagingCpuHandle( m_genMipsNullUAV ),
@@ -333,7 +333,8 @@ bool Dx12TextureOwner::GenerateMips( RenderBackendDX12& backend,
             srvDesc.Texture2D.MostDetailedMip = srcMip;
             srvDesc.Texture2D.MipLevels = 1;
 
-            D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = backend.m_srvDescriptors.ShaderVisibleCpuHandle( srcSrvIdx );
+            D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle =
+                backend.m_frameOwner.Descriptors().ShaderVisibleCpuHandle( srcSrvIdx );
             backend.Device()->CreateShaderResourceView( tex, &srvDesc, cpuHandle );
         }
 
@@ -352,7 +353,7 @@ bool Dx12TextureOwner::GenerateMips( RenderBackendDX12& backend,
         for ( UINT i = 0; i < 4; ++i )
         {
             UINT uavIdx = uavBase + i;
-            D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = backend.m_srvDescriptors.ShaderVisibleCpuHandle( uavIdx );
+            D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = backend.m_frameOwner.Descriptors().ShaderVisibleCpuHandle( uavIdx );
 
             if ( i < mipsToGenerate )
             {
@@ -568,7 +569,8 @@ uint32_t Dx12TextureOwner::CreateTexture2D( RenderBackendDX12& backend,
         texResource->Release();
         return 0;
     }
-    const UINT64 baseOffset = backend.m_uploadSystem.OffsetFromAddress( backend.m_allocatorIndex, uploadBase );
+    const UINT64 baseOffset =
+        backend.m_frameOwner.Uploads().OffsetFromAddress( backend.m_frameOwner.AllocatorIndex(), uploadBase );
     uint8_t* uploadDst = backend.GetUploadPtr( uploadBase );
 
     const UINT srcRowPitch = static_cast<UINT>( w ) * static_cast<UINT>( bytesPerPixel );
@@ -583,7 +585,7 @@ uint32_t Dx12TextureOwner::CreateTexture2D( RenderBackendDX12& backend,
     dstLoc.SubresourceIndex = 0;
 
     D3D12_TEXTURE_COPY_LOCATION srcLoc = {};
-    srcLoc.pResource = backend.m_uploadSystem.Resource( backend.m_allocatorIndex );
+    srcLoc.pResource = backend.m_frameOwner.Uploads().Resource( backend.m_frameOwner.AllocatorIndex() );
     srcLoc.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
     srcLoc.PlacedFootprint = fp0;
     srcLoc.PlacedFootprint.Offset = baseOffset + fp0.Offset;

@@ -22,7 +22,9 @@ Glossary:
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
-  must stay explicit.
+    must stay explicit.
+  - Descriptor, texture, pipeline, recording, retirement, and device references
+    outlive every framebuffer created for that device epoch.
 
 Related:
   - SkullbonezSource/Rendering/DX12/FramebufferDX12.cpp
@@ -35,6 +37,7 @@ Related:
 #include "../IFramebuffer.h"
 #include <d3d12.h>
 #include <cstdint>
+#include <vector>
 
 
 namespace SkullbonezCore
@@ -42,7 +45,15 @@ namespace SkullbonezCore
 namespace Rendering
 {
 
-class RenderBackendDX12;
+class Dx12RenderDevice;
+class Dx12PipelineOwner;
+class Dx12TextureOwner;
+class Dx12CpuDescriptorAllocator;
+class Dx12DescriptorAllocator;
+class Dx12CommandRecordingState;
+class Dx12DeferredReleaseOwner;
+class Dx12DrawGate;
+class Dx12ResourceRelease;
 
 
 /* -- FramebufferDX12
@@ -58,7 +69,16 @@ class FramebufferDX12 : public IFramebuffer
 {
 
   private:
-    RenderBackendDX12& m_backend; // Borrowed DX12 owner for descriptor rows, transitions, and retire queues.
+    // Lifetime: these named owners are stable members of the active renderer.
+    // No field points back to the aggregate backend.
+    Dx12RenderDevice& m_device;
+    Dx12PipelineOwner& m_pipeline;
+    Dx12TextureOwner& m_textures;
+    Dx12CpuDescriptorAllocator& m_rtvDescriptors;
+    Dx12CpuDescriptorAllocator& m_dsvDescriptors;
+    Dx12DescriptorAllocator& m_srvDescriptors;
+    Dx12DrawGate& m_drawGate;
+    Dx12ResourceRelease& m_resourceRelease;
     ID3D12Resource* m_colorTexture;
     ID3D12Resource* m_depthTexture;
     D3D12_CPU_DESCRIPTOR_HANDLE m_rtvHandle;
@@ -67,8 +87,8 @@ class FramebufferDX12 : public IFramebuffer
     // after the framebuffer is unbound.
     UINT m_srvIndex;
     UINT m_depthSrvIndex;
-    uint32_t m_texHandle;         // Color handle returned by backend's texture registry
-    uint32_t m_depthTexHandle;    // Depth handle returned by backend's texture registry
+    uint32_t m_texHandle;      // Color handle returned by backend's texture registry
+    uint32_t m_depthTexHandle; // Depth handle returned by backend's texture registry
     FramebufferColorFormat m_colorFormat;
     int m_width;
     int m_height;
@@ -79,8 +99,15 @@ class FramebufferDX12 : public IFramebuffer
     mutable D3D12_CPU_DESCRIPTOR_HANDLE m_savedDSV;
 
   public:
-    explicit FramebufferDX12( RenderBackendDX12& backend,
-                              FramebufferColorFormat colorFormat = FramebufferColorFormat::RGBA8 );
+    FramebufferDX12( Dx12RenderDevice& device,
+                     Dx12PipelineOwner& pipeline,
+                     Dx12TextureOwner& textures,
+                     Dx12CpuDescriptorAllocator& rtvDescriptors,
+                     Dx12CpuDescriptorAllocator& dsvDescriptors,
+                     Dx12DescriptorAllocator& srvDescriptors,
+                     Dx12DrawGate& drawGate,
+                     Dx12ResourceRelease& resourceRelease,
+                     FramebufferColorFormat colorFormat = FramebufferColorFormat::RGBA8 );
     ~FramebufferDX12() override;
 
     bool Create( int width, int height );

@@ -80,9 +80,11 @@ size_t HashShaderBytecode( ID3DBlob* blob )
 } // namespace
 
 
-ShaderDX12::ShaderDX12( RenderBackendDX12& backend )
-    : m_backend( backend ), m_cbReflectedSize( 0 ), m_cbSize( 0 ), m_cbDirty( false ), m_vsBytecodeHash( 0 ),
-      m_psBytecodeHash( 0 ), m_contract( nullptr )
+ShaderDX12::ShaderDX12( Dx12RenderDevice& device,
+                        Dx12PipelineOwner& pipeline,
+                        Dx12UploadReservations& uploadReservations )
+    : m_device( device ), m_pipeline( pipeline ), m_uploadReservations( uploadReservations ), m_cbReflectedSize( 0 ),
+      m_cbSize( 0 ), m_cbDirty( false ), m_vsBytecodeHash( 0 ), m_psBytecodeHash( 0 ), m_contract( nullptr )
 {
 }
 
@@ -319,9 +321,9 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
 
 void ShaderDX12::Use() const
 {
-    if ( m_backend.GetDevice() )
+    if ( m_device.Device() )
     {
-        m_backend.SetActiveShader( const_cast<ShaderDX12*>( this ) );
+        m_pipeline.SetActiveShader( const_cast<ShaderDX12*>( this ) );
     }
 #ifdef _DEBUG
     ResetContractActivation();
@@ -814,20 +816,20 @@ D3D12_GPU_VIRTUAL_ADDRESS ShaderDX12::FlushCB() const
     ReportMissingRequiredContractUniforms();
 #endif
 
-    if ( !m_backend.GetDevice() )
+    if ( !m_device.Device() )
     {
         return 0;
     }
 
-    // Constant buffers must be 256-byte aligned in DX12. ReserveUpload probes
-    // with that same alignment and flushes/resets the upload arena if needed,
-    // instead of letting a busy frame throw after the arena fills up.
-    D3D12_GPU_VIRTUAL_ADDRESS addr = m_backend.ReserveUpload( m_cbSize, 256 );
+    // Constant buffers are steady-frame data and use the device owner's current
+    // frame arena directly. Capacity exhaustion is a fatal renderer policy
+    // violation; no wrapper may reach through a broad backend host to flush it.
+    D3D12_GPU_VIRTUAL_ADDRESS addr = m_uploadReservations.ReserveConstantUpload( m_cbSize );
     if ( addr == 0 )
     {
         return 0;
     }
-    memcpy( m_backend.GetUploadPtr( addr ), m_cbData.data(), m_cbSize );
+    memcpy( m_uploadReservations.UploadPointer( addr ), m_cbData.data(), m_cbSize );
     m_cbDirty = false;
     return addr;
 }

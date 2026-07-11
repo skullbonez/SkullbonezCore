@@ -24,6 +24,8 @@ Glossary:
     public generation advances only after every candidate exists.
   Fault injection: Debug-only synthetic failure used to prove that queue work
     stops before the first unsafe submission.
+  Platform profiler GPU stack: Allocation-free nesting state mirrored by PIX
+    ranges while a command list is open.
 
 Invariants:
   - Failed Close or Reset operations never change the logical epoch.
@@ -37,6 +39,8 @@ Invariants:
   - Only ResetForDevice clears a sticky failure.
   - Device loss remains sticky across command epochs until ResetForDevice.
   - Recreation failure never advances the published resource generation.
+  - Suspending platform-profiler ranges for submission preserves their nesting
+    depth so the replacement command list can restore the same stack.
   - The type owns no heap memory and invokes no callbacks.
 
 Related:
@@ -62,6 +66,68 @@ enum class Dx12CommandRecordingEpoch
 {
     Closed,
     Open
+};
+
+
+// Concept: command-list submission temporarily closes platform GPU ranges.
+//
+// PIX ranges cannot span command lists, but engine profiler scopes can. This
+// value tracks only the nesting proof: the backend retains marker names in its
+// fixed array, ends the ranges before submission, then restores the same depth
+// on the replacement list. Keeping the bookkeeping independent makes failure-
+// path unwinding testable without a device or PIX runtime.
+class Dx12PlatformProfilerGpuStackState
+{
+  public:
+    void Reset()
+    {
+        m_depth = 0;
+    }
+
+    bool CommitBegin( int capacity )
+    {
+        if ( capacity <= 0 || m_depth >= capacity )
+        {
+            return false;
+        }
+        ++m_depth;
+        return true;
+    }
+
+    bool CommitEnd()
+    {
+        if ( m_depth <= 0 )
+        {
+            return false;
+        }
+        --m_depth;
+        return true;
+    }
+
+    int SuspendForSubmit()
+    {
+        const int suspendedDepth = m_depth;
+        m_depth = 0;
+        return suspendedDepth;
+    }
+
+    bool RestoreAfterSubmit( int suspendedDepth, int capacity )
+    {
+        if ( suspendedDepth < 0 || suspendedDepth > capacity )
+        {
+            return false;
+        }
+        m_depth = suspendedDepth;
+        return true;
+    }
+
+    int Depth() const
+    {
+        return m_depth;
+    }
+
+  private:
+    int m_depth = 0;
 };
 
 

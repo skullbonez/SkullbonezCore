@@ -151,7 +151,7 @@ void RenderBackendDX12::GpuTimerBegin( int markerIdx )
 
 void RenderBackendDX12::GpuTimerEnd( int markerIdx )
 {
-    if ( !m_gpuTimers.queryHeap || !m_commandRecording.CanRecord() || markerIdx < 0 || markerIdx >= TIMER_HEAP_MARKERS )
+    if ( !m_gpuTimers.queryHeap || !m_frameOwner.CanRecord() || markerIdx < 0 || markerIdx >= TIMER_HEAP_MARKERS )
     {
         return;
     }
@@ -197,66 +197,13 @@ bool RenderBackendDX12::GpuTimerRead( int markerIdx, float& outMs )
 
 int RenderBackendDX12::SuspendPlatformProfilerGpuStackForSubmit( const char* reason )
 {
-#if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
-    if ( m_platformProfilerGpuDepth <= 0 )
-    {
-        return 0;
-    }
-    if ( !CommandList() || !m_commandRecording.CanRecord() )
-    {
-        Log().WriteEventf( "dx12_platform_profiler_gpu_suspend_without_open_command_list reason=%s depth=%d",
-                           reason ? reason : "unknown",
-                           m_platformProfilerGpuDepth );
-        return 0;
-    }
-
-    const int suspendedDepth = m_platformProfilerGpuDepth;
-    Log().WriteEventf( "dx12_platform_profiler_gpu_stack_suspended_for_submit reason=%s depth=%d",
-                       reason ? reason : "unknown",
-                       suspendedDepth );
-    for ( int i = suspendedDepth - 1; i >= 0; --i )
-    {
-        PIXEndEvent( CommandList() );
-    }
-    m_platformProfilerGpuDepth = 0;
-    return suspendedDepth;
-#else
-    (void)reason;
-    return 0;
-#endif
+    return m_frameOwner.SuspendProfilerForSubmit( reason );
 }
 
 
 void RenderBackendDX12::RestorePlatformProfilerGpuStackAfterSubmit( int suspendedDepth )
 {
-#if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
-    if ( suspendedDepth <= 0 )
-    {
-        return;
-    }
-    if ( !CommandList() || !m_commandRecording.CanRecord() )
-    {
-        // The PIX ranges were already ended before submission. Restore only the
-        // CPU nesting record so later PROFILE_END calls can unwind normally;
-        // sticky command failure forbids recording replacement PIX begin calls.
-        Log().WriteEventf( "dx12_platform_profiler_gpu_restore_bookkeeping_only depth=%d", suspendedDepth );
-        m_platformProfilerGpuDepth = suspendedDepth;
-        return;
-    }
-
-    for ( int i = 0; i < suspendedDepth; ++i )
-    {
-        const PlatformProfilerGpuScopeDX12& scope = m_platformProfilerGpuStack[static_cast<std::size_t>( i )];
-        const char* markerName = scope.name[0] != '\0' ? scope.name : "(null)";
-        PIXBeginEvent( CommandList(),
-                       SkullbonezCore::Basics::PlatformProfiler::ColorForMarker( markerName, scope.hash ),
-                       "%s",
-                       markerName );
-    }
-    m_platformProfilerGpuDepth = suspendedDepth;
-#else
-    (void)suspendedDepth;
-#endif
+    m_frameOwner.RestoreProfilerAfterSubmit( suspendedDepth );
 }
 
 
@@ -267,72 +214,13 @@ void RenderBackendDX12::PlatformProfilerGpuBegin( const char* name, uint32_t has
         return;
     }
 
-#if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
-    if ( !CommandList() )
-    {
-        return;
-    }
-    if ( !EnsureCommandListOpen().ok )
-    {
-        return;
-    }
-    if ( m_platformProfilerGpuDepth >= PLATFORM_PROFILER_GPU_SCOPE_STACK_MAX )
-    {
-        // Invariant: the stack mirrors nested PIX GPU ranges. Overflow means
-        // marker begin/end ownership has escaped the backend's fixed budget.
-        SB_FATAL( "RenderBackendDX12",
-                  "DX12 platform profiler GPU stack overflow. depth=%d capacity=%d",
-                  m_platformProfilerGpuDepth,
-                  PLATFORM_PROFILER_GPU_SCOPE_STACK_MAX );
-    }
-
-    char gpuMarkerName[SkullbonezCore::Basics::PlatformProfiler::MAX_DECORATED_MARKER_NAME_CHARS];
-    const char* markerName =
-        SkullbonezCore::Basics::PlatformProfiler::AreDetailedRangesEnabled()
-            ? SkullbonezCore::Basics::PlatformProfiler::DecorateMarkerName( name,
-                                                                            "_GPU",
-                                                                            gpuMarkerName,
-                                                                            sizeof( gpuMarkerName ) )
-            : name;
-    PlatformProfilerGpuScopeDX12& scope =
-        m_platformProfilerGpuStack[static_cast<std::size_t>( m_platformProfilerGpuDepth )];
-    _snprintf_s( scope.name, sizeof( scope.name ), _TRUNCATE, "%s", markerName ? markerName : "(null)" );
-    scope.hash = hash;
-    PIXBeginEvent( CommandList(),
-                   SkullbonezCore::Basics::PlatformProfiler::ColorForMarker( markerName, hash ),
-                   "%s",
-                   markerName );
-    ++m_platformProfilerGpuDepth;
-#else
-    (void)name;
-    (void)hash;
-#endif
+    m_frameOwner.BeginProfilerEvent( name, hash );
 }
 
 
 void RenderBackendDX12::PlatformProfilerGpuEnd()
 {
-#if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
-    if ( m_platformProfilerGpuDepth <= 0 )
-    {
-        if ( SkullbonezCore::Basics::PlatformProfiler::IsEnabled() )
-        {
-            Log().WriteEventf( "dx12_platform_profiler_gpu_end_without_begin" );
-        }
-        return;
-    }
-    if ( !CommandList() || !m_commandRecording.CanRecord() )
-    {
-        Log().WriteEventf( "dx12_platform_profiler_gpu_end_bookkeeping_only depth=%d", m_platformProfilerGpuDepth );
-        --m_platformProfilerGpuDepth;
-        m_platformProfilerGpuStack[static_cast<std::size_t>( m_platformProfilerGpuDepth )] =
-            PlatformProfilerGpuScopeDX12();
-        return;
-    }
-    PIXEndEvent( CommandList() );
-    --m_platformProfilerGpuDepth;
-    m_platformProfilerGpuStack[static_cast<std::size_t>( m_platformProfilerGpuDepth )] = PlatformProfilerGpuScopeDX12();
-#endif
+    m_frameOwner.EndProfilerEvent();
 }
 
 

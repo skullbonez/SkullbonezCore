@@ -20,7 +20,9 @@ Glossary:
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
-  must stay explicit.
+    must stay explicit.
+  - Device, pipeline, and upload-owner references are stable for the shader's
+    lifetime; the shader never retains the aggregate backend.
 
 Related:
   - SkullbonezSource/Rendering/DX12/ShaderDX12.cpp
@@ -45,7 +47,9 @@ namespace SkullbonezCore
 namespace Rendering
 {
 
-class RenderBackendDX12;
+class Dx12RenderDevice;
+class Dx12PipelineOwner;
+class Dx12UploadReservations;
 struct ShaderProgramDesc;
 
 
@@ -62,7 +66,9 @@ class ShaderDX12 : public IShader
 {
 
   private:
-    RenderBackendDX12& m_backend; // Borrowed DX12 owner for shader activation and constant-buffer uploads.
+    Dx12RenderDevice& m_device;
+    Dx12PipelineOwner& m_pipeline;
+    Dx12UploadReservations& m_uploadReservations;
     Microsoft::WRL::ComPtr<ID3DBlob> m_vsBlob;
     Microsoft::WRL::ComPtr<ID3DBlob> m_psBlob;
 
@@ -105,7 +111,7 @@ class ShaderDX12 : public IShader
 #endif
 
   public:
-    explicit ShaderDX12( RenderBackendDX12& backend );
+    ShaderDX12( Dx12RenderDevice& device, Dx12PipelineOwner& pipeline, Dx12UploadReservations& uploadReservations );
     ~ShaderDX12() override;
 
     bool Compile( const char* hlslPath );
@@ -119,9 +125,13 @@ class ShaderDX12 : public IShader
     void SetMat4( const char* name, const Math::Transformation::Matrix4& m ) const override;
     bool SetConstantBufferBytes( const void* data, size_t size, const char* debugName ) const override;
 
-    // Flush the dirty constant-buffer bytes into the backend upload arena and
+    // Flush the dirty constant-buffer bytes into the current frame upload arena and
     // return the GPU virtual address used by the root CBV binding.
     D3D12_GPU_VIRTUAL_ADDRESS FlushCB() const;
+    UINT ConstantBufferUploadSize() const
+    {
+        return m_cbSize;
+    }
 
     const void* GetVSBytecode() const;
     SIZE_T GetVSBytecodeSize() const;

@@ -865,28 +865,7 @@ bool RenderBackendDX12::PrepareDraw( VertexFormat12 format,
                                      const InstancedMeshDX12* instancedMesh,
                                      const DynamicVBDX12* dynamicVertexBuffer )
 {
-    if ( !EnsureCommandListOpen().ok )
-    {
-        return false;
-    }
-    if ( !m_pipelineOwner.RenderingToFramebuffer() &&
-         TransitionBackbuffer( "PrepareDrawBackbuffer", RenderGraphResourceAccess::RenderTarget ) )
-    {
-        m_pipelineOwner.InvalidateTargets();
-    }
-    if ( m_commandRecording.HasFailure() )
-    {
-        return false;
-    }
-    return m_pipelineOwner.PrepareDraw( Device(),
-                                        CommandList(),
-                                        m_commandRecording,
-                                        m_textureOwner,
-                                        m_srvDescriptors,
-                                        format,
-                                        instanced,
-                                        instancedMesh,
-                                        dynamicVertexBuffer );
+    return m_frameOwner.DrawGate().PreparePipelineDraw( format, instanced, instancedMesh, dynamicVertexBuffer );
 }
 
 
