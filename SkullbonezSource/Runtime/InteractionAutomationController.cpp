@@ -260,6 +260,22 @@ bool ReplayPredictionPathVisible( const ReplayRuntime& replayRuntime )
              !replayRuntime.Prediction().futureNodeCache.futureNodes.empty() );
 }
 
+std::size_t ReplayPastTrajectoryPublishedPointCount( const ReplayRuntime& replayRuntime )
+{
+    // Concept: this is a structural performance/flicker probe. The selected
+    // path must retain a published drawable prefix while its recorder ring
+    // advances, independent of machine-specific frame timing.
+    const RunReplayPathVisualizerState& visualizer = replayRuntime.PathVisualizer();
+    for ( const ReplayTrajectoryRecord& record : replayRuntime.Prediction().trajectoryStore.records )
+    {
+        if ( record.key.lane == ReplayTrajectoryLane::PastRoot && record.key.bodyId.value == visualizer.targetId.value )
+        {
+            return (std::min)( record.publishedPointCount, record.points.size() );
+        }
+    }
+    return 0u;
+}
+
 bool ReplayPredictionContactsIncomplete( const ReplayRuntime& replayRuntime )
 {
     // Concept: automation reports should distinguish a valid root prediction
@@ -651,6 +667,12 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "replayPredictionEnabled";
     case RunInteractionAutomationAssertKind::ReplayPathTarget:
         return "replayPathTarget";
+    case RunInteractionAutomationAssertKind::ReplayPastTrajectoryFullRebuildCountMax:
+        return "replayPastTrajectoryFullRebuildCountMax";
+    case RunInteractionAutomationAssertKind::ReplayPastTrajectoryIncrementalTrimCountMin:
+        return "replayPastTrajectoryIncrementalTrimCountMin";
+    case RunInteractionAutomationAssertKind::ReplayPastTrajectoryPublishedPointCountMin:
+        return "replayPastTrajectoryPublishedPointCountMin";
     case RunInteractionAutomationAssertKind::PredictionPathVisible:
         return "predictionPathVisible";
     case RunInteractionAutomationAssertKind::PredictionBaselineVisible:
@@ -1502,6 +1524,21 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPathTarget;
             CopyText( outAction.text, sizeof( outAction.text ), member.value().get<std::string>() );
         }
+        else if ( name == "replayPastTrajectoryFullRebuildCountMax" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPastTrajectoryFullRebuildCountMax;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "replayPastTrajectoryIncrementalTrimCountMin" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPastTrajectoryIncrementalTrimCountMin;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "replayPastTrajectoryPublishedPointCountMin" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPastTrajectoryPublishedPointCountMin;
+            outAction.numberValue = member.value().get<float>();
+        }
         else if ( name == "predictionPathVisible" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::PredictionPathVisible;
@@ -1695,6 +1732,30 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
         evaluation.actual = replayRuntime.PathVisualizer().hasTarget ? replayRuntime.PathVisualizer().targetName : "";
         evaluation.passed = evaluation.actual == evaluation.expected;
         break;
+    case RunInteractionAutomationAssertKind::ReplayPastTrajectoryFullRebuildCountMax:
+    {
+        const uint64_t rebuildCount = replayRuntime.PathVisualizer().pastTrajectory.fullRebuildCount;
+        evaluation.expected = "<=" + std::to_string( static_cast<uint64_t>( action.numberValue ) );
+        evaluation.actual = std::to_string( rebuildCount );
+        evaluation.passed = rebuildCount <= static_cast<uint64_t>( action.numberValue );
+        break;
+    }
+    case RunInteractionAutomationAssertKind::ReplayPastTrajectoryIncrementalTrimCountMin:
+    {
+        const uint64_t trimCount = replayRuntime.PathVisualizer().pastTrajectory.incrementalTrimCount;
+        evaluation.expected = ">=" + std::to_string( static_cast<uint64_t>( action.numberValue ) );
+        evaluation.actual = std::to_string( trimCount );
+        evaluation.passed = trimCount >= static_cast<uint64_t>( action.numberValue );
+        break;
+    }
+    case RunInteractionAutomationAssertKind::ReplayPastTrajectoryPublishedPointCountMin:
+    {
+        const std::size_t pointCount = ReplayPastTrajectoryPublishedPointCount( replayRuntime );
+        evaluation.expected = ">=" + std::to_string( static_cast<std::size_t>( action.numberValue ) );
+        evaluation.actual = std::to_string( pointCount );
+        evaluation.passed = pointCount >= static_cast<std::size_t>( action.numberValue );
+        break;
+    }
     case RunInteractionAutomationAssertKind::PredictionPathVisible:
     {
         const bool visible = ReplayPredictionPathVisible( replayRuntime );
@@ -2570,6 +2631,11 @@ SbResult SkullbonezCore::Basics::WriteInteractionAutomationReport( InteractionAu
         { "replayPathTarget",
           replayRuntime.PathVisualizer().hasTarget ? replayRuntime.PathVisualizer().targetName : "" },
         { "replayPathTargetCount", static_cast<int>( replayRuntime.PathVisualizer().targets.size() ) },
+        { "replayPastTrajectoryFullRebuildCount", replayRuntime.PathVisualizer().pastTrajectory.fullRebuildCount },
+        { "replayPastTrajectoryIncrementalTrimCount",
+          replayRuntime.PathVisualizer().pastTrajectory.incrementalTrimCount },
+        { "replayPastTrajectoryPublishedPointCount",
+          static_cast<int>( ReplayPastTrajectoryPublishedPointCount( replayRuntime ) ) },
         { "replayPastPathVisible", replayPastPathVisible },
         { "predictionPathVisible", predictionPathVisible },
         { "predictionContactsIncomplete", predictionContactsIncomplete },

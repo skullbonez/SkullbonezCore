@@ -2,7 +2,7 @@
 
 Date: 2026-07-11 (status reconciled)
 Status: Planned — owner-priority live work. 0/6 implementation phases complete;
-the execution checklist has 1/50 preparation items checked.
+the execution checklist has 5/52 preparation items checked.
 Impact area: Replay prediction scheduling, replay velocity-edit interaction,
 scene system (one new scene), worker pool usage, prediction overlay UX.
 
@@ -168,6 +168,15 @@ N-body scene avoids.
 
 First useful slice: phases 1–3 with the existing replay scenes (small body
 counts already trigger instant mode) — chaos scene and polish can follow.
+
+Urgent prerequisite (implemented 2026-07-11, awaiting owner validation): the
+selected-ball past-path regression is repaired before phase 1. Initial path
+selection traverses only the selected body's compact position stream instead
+of reconstructing dense solver/world snapshots, and ordinary recorder eviction
+trims plus appends the existing published trajectory record without replacing
+its version. This preserves the trajectory-store publication contract that
+prevents line flicker. `tools\validate_perf.bat` now includes a live selected-
+ball structural proof; the owner explicitly retained execution of that gate.
 
 ## Preconditions / risks
 

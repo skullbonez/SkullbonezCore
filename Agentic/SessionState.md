@@ -10,17 +10,17 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `main`, tracking `origin/main` |
-| Current pushed baseline | `8fbd206e Merge pull request #113 from skullbonez/claude/directx-12-rendering-review-wolqlc` |
-| Current objective | Restore the cold-start native cursor, then add a selected-ball/live-simulation path perf regression before resuming instant prediction |
-| Portfolio progress | 166 / 274 tasks = 61% overall |
+| Branch | `nightrunner-11th-july` |
+| Current pushed baseline | `96f5d50e docs: bind DX12 stress and plan-runner commit rules` |
+| Current objective | Owner-validates the implemented no-flicker selected-ball path fix and perf regression, then resumes instant-prediction phases 1–3 |
+| Portfolio progress | 170 / 276 tasks = 62% overall |
 | Last broad local gate | `tools\validate_full.bat` passed the cold-start cursor fix on 2026-07-11 in about 139s: every CPU target, 131/131 doctest cases with 2,818 assertions, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, handle smoke, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | Runtime/Input cursor hotfix passed `tools\validate_full.bat`; documentation-only governance edits require no additional validation |
+| Validation for current edits | Owner explicitly retained validation. Run `tools\validate_perf.bat` for the selected-ball structural/perf proof and `tools\validate_full.bat` for Runtime/Replay changes before merge. |
 
 ## Live Queue
 
 1. `instant-prediction-velocity-chaos` is important owner-priority live work.
-   It remains in `Plans/TODO/`; its execution checklist is at 1/50 preparation
+   It remains in `Plans/TODO/`; its execution checklist is at 5/52 preparation
    items. Deliver phases 1-3 first, then the chaos scene, UX, validation, and
    closure. Never pause or park it without an explicit owner directive.
 2. Prepare the engine-cleanup aggregate review in parallel with prediction;
@@ -46,9 +46,9 @@ plan inventory.
 - `instant-prediction-velocity-chaos` is explicitly live and is not a WNF plan.
 - The MASTER critical path is binding; preparation may run early only where it
   is explicitly named, and no work crosses a recorded dependency barrier.
-- Every commit and plan-implementation prompt starts with the resolved MASTER
-  progress header: plan name, completed plan tasks, and rounded overall
-  portfolio completion.
+- Every plan-runner commit and plan-implementation prompt starts with the
+  resolved MASTER progress header: plan name, completed plan tasks, and rounded
+  overall portfolio completion. Ordinary commits do not claim plan progress.
 - A completed plan may remain in the tip tree only when MASTER explicitly marks
   it as evidence for an unmet aggregate closure gate; it is deleted when that
   gate passes.

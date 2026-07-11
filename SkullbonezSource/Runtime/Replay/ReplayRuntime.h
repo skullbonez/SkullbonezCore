@@ -318,6 +318,10 @@ struct RunReplayPastTrajectoryBuildState
     ReplayFrameIndex firstFrame = 0;
     ReplayFrameIndex builtThroughFrame = 0;
     uint64_t totalFramesEvicted = 0;
+    // Structural perf evidence: one selection rebuild is allowed; ordinary
+    // live retention must advance through version-stable incremental trims.
+    uint64_t fullRebuildCount = 0;
+    uint64_t incrementalTrimCount = 0;
     bool valid = false;
 };
 

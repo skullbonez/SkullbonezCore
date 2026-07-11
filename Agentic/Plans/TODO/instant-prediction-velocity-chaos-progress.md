@@ -1,6 +1,6 @@
 # Progress: Instant 20s Prediction While Dragging Velocity
 
-Status: owner-priority live checklist; 1/50 preparation items complete. This
+Status: owner-priority live checklist; 5/52 preparation items complete. This
 file and its owning plan remain in `TODO/` unless the owner explicitly directs
 otherwise.
 
@@ -58,15 +58,30 @@ auto-measured instant-vs-amortized cutoff.
 
 ## Phase 0 — Setup
 
-- [ ] Complete the Agent Startup Contract (`AGENTS.md`, `README.md`,
+- [x] Complete the Agent Startup Contract (`AGENTS.md`, `README.md`,
       `Agentic/README.md`, `Agentic/SessionState.md`, `git status`).
-- [ ] Read the plan file `Agentic/Plans/TODO/instant-prediction-velocity-chaos.md`
+- [x] Read the plan file `Agentic/Plans/TODO/instant-prediction-velocity-chaos.md`
       end to end.
-- [ ] Create the feature branch from latest `main`
+- [x] Create the feature branch from latest `main`
       (suggested: `feature/instant-prediction-velocity-chaos`).
-- [ ] Re-verify each row of the anchors table above with `rg` (names, not
+- [x] Re-verify each row of the anchors table above with `rg` (names, not
       line numbers, are the contract). If any anchor is missing or renamed,
       update this table before proceeding.
+
+## Urgent prerequisite — selected-ball live-path regression
+
+- [ ] Replace dense solver/world reconstruction for past-path selection with a
+      typed, allocation-free selected-body position traversal, and update a
+      full retention ring by trimming/appending the existing published record
+      without changing its version. Acceptance: selecting a ball after history
+      has accumulated remains responsive, the past line stays continuously
+      visible without flicker, and the report records at most one full rebuild.
+      Implemented 2026-07-11; owner retained acceptance validation.
+- [ ] Add `selected_ball_path_perf.json` to `tools\validate_perf.bat`. The
+      fixed-step scenario must select a live ball after the one-second solver
+      ring fills, observe at least 60 incremental trims, retain at least two
+      published path points, and permit at most one initial full build.
+      Implemented 2026-07-11; owner retained execution of the perf gate.
 
 ## Phase 1 — Calibration probe and mode selection
 

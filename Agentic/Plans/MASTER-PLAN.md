@@ -99,9 +99,9 @@ concrete plan rows and counting it would duplicate tasks.
 | data-format-versioning | 0 | 5 | 0% |
 | engine-config-decomposition | 0 | 5 | 0% |
 | entity-model-endgame | 0 | 4 | 0% |
-| instant-prediction-velocity-chaos | 1 | 50 | 2% |
+| instant-prediction-velocity-chaos | 5 | 52 | 10% |
 | shadow-edge-quality | 0 | 5 | 0% |
-| **Portfolio total** | **166** | **274** | **61%** |
+| **Portfolio total** | **170** | **276** | **62%** |
 
 ## Current Execution Priority
 
@@ -209,7 +209,7 @@ Reconciliation notes live inside each plan.
 
 | Plan | State | Verified phase count | Start condition |
 |---|---|---:|---|
-| [instant-prediction-velocity-chaos](TODO/instant-prediction-velocity-chaos.md) | Planned — owner-priority live work | 1/50 preparation checklist items | Execute first: phases 1-3 are the first useful slice, then finish scene, UX, validation, and closure; never park without an explicit owner directive |
+| [instant-prediction-velocity-chaos](TODO/instant-prediction-velocity-chaos.md) | Planned — owner-priority live work | 5/52 preparation checklist items | Owner validates the implemented selected-ball path regression first; then execute phases 1-3, scene, UX, validation, and closure; never park without an explicit owner directive |
 | [shadow-edge-quality](TODO/shadow-edge-quality.md) | Planned | 0/5 | S0 may run early; S1 waits for backend A2, shader P3/P5 decision, and visibility closure |
 
 Fracture replay was moved to `WNF/` by the owner on 2026-07-11 (inventory
