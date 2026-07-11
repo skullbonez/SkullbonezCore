@@ -285,6 +285,9 @@
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp" />
     <ClCompile Include="SkullbonezSource\World\WorldEnvironment.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UI.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIFrameComposition.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIEditorMiniPalette.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIEditorMiniPaletteDraw.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIBackdropBlur.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIButton.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UICheckBox.cpp" />
@@ -456,7 +459,7 @@
     <ClInclude Include="SkullbonezSource\Core\WorkerPool.h" />
     <ClInclude Include="SkullbonezSource\World\WorldEnvironment.h" />
     <ClInclude Include="SkullbonezSource\UI\UI.h" />
-    <ClInclude Include="SkullbonezSource\UI\UIEditorMiniPalette.inl" />
+    <ClInclude Include="SkullbonezSource\UI\UIFrameComposition.h" />
     <ClInclude Include="SkullbonezSource\UI\UIBackdropBlur.h" />
     <ClInclude Include="SkullbonezSource\UI\UIButton.h" />
     <ClInclude Include="SkullbonezSource\UI\UICheckBox.h" />

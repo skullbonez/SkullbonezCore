@@ -556,6 +556,15 @@
     <ClCompile Include="SkullbonezSource\UI\UI.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UIFrameComposition.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UIEditorMiniPalette.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UIEditorMiniPaletteDraw.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIBackdropBlur.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
@@ -1082,7 +1091,7 @@
     <ClInclude Include="SkullbonezSource\UI\UI.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\UI\UIEditorMiniPalette.inl">
+    <ClInclude Include="SkullbonezSource\UI\UIFrameComposition.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIBackdropBlur.h">

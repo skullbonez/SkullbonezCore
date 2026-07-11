@@ -1123,6 +1123,38 @@ and 2,770 assertions; and `tools\validate_full.bat` passed in 53.1s with
 zero-warning builds, zero DX12 InfoQueue errors, matching screenshots,
 standalone physics smoke, and the 20,001-line byte-exact physics baseline.
 
+D3 is complete. The only tracked include fragment,
+`UIEditorMiniPalette.inl`, is deleted. Its mixed 1,610-line body is now real
+owner code: `UIEditorMiniPalette.cpp` (609 lines) owns palette mapping, layout,
+hit testing, and fitted-text policy, while `UIEditorMiniPaletteDraw.cpp` (1,022
+lines) owns glyph, flyout, tooltip, and minimized-window drawing.
+`UIFrameComposition.cpp` (796 lines) owns executable frame-value helpers;
+`UIFrameComposition.h` is a 448-line value/constants/declaration contract and
+retains no UI owner pointer, mutable frame state, or inline implementation dump.
+`UI.cpp` no longer embeds the palette and shrank to 2,478 lines. Hit testing and
+drawing still consume the same `EditorMiniPaletteLayout`, and `git ls-files
+"*.inl"` returns no tracked files. Comment audit: 5/5 touched UI source-bearing
+files inspected, zero deferred. Evidence: focused Debug passed with zero
+warnings in 4.66s after the adversarial correction; final
+`tools\validate_fast.bat` passed in 23.9s with ten
+staged candidates and zero format/filter/size/build failures; all five
+`tools\validate_interaction_clicks.bat` scenarios passed in 15.5s. The first
+corrected-source perf sample narrowly exceeded one aggregate threshold
+(`Frame/Render.p50` +16.2% versus +16.0%) while detailed GPU markers and memory
+improved; the immediate bounded rerun of `tools\validate_perf.bat` completed in
+33.7s. `tools\validate_full.bat` passed in 54.4s with 130/130 CPU cases and 2,770
+assertions, zero-warning builds, zero DX12 InfoQueue errors, matching
+screenshots, standalone physics smoke, and the 20,001-line byte-exact physics
+baseline.
+
+The D1-D3 milestone adversarial pass found and blocked an initial 1,126-line
+`UIFrameComposition.h` implementation dump that merely changed the include
+fragment's suffix. The correction moved all 27 executable frame helpers into
+`UIFrameComposition.cpp` and reduced the header to value/constants/declarations.
+The required repeat pass found no remaining implementation-fragment,
+replacement state hub, retained host/callback, allocation, or missing-evidence
+defect.
+
 ### D. Mega-TU decomposition
 
 - [x] D1. Split `RunInput.cpp` only as ownership extraction 1 lands; do not move
@@ -1130,7 +1162,7 @@ standalone physics smoke, and the 20,001-line byte-exact physics baseline.
 - [x] D2. Split `TestSceneParser.cpp` by schema domain
   (bodies/assets/groups/water/cameras). It already uses nlohmann JSON; this is
   schema/ownership decomposition, not a JSON-library replacement.
-- [ ] D3. Convert shared `.inl` composition to real translation units as owners
+- [x] D3. Convert shared `.inl` composition to real translation units as owners
   move; pair hot-path conversions with perf validation.
 
 ### E. Collapse compatibility surfaces

@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `8870ea69 refactor: split runtime input translation units` |
-| Current objective | D3 convert shared `.inl` composition as owners move |
-| Last broad local gate | `tools\validate_full.bat` passed D2 parser schema-domain decomposition with 130/130 doctest cases, 2,770 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 53.1s |
+| Current pushed baseline | `1b2b9a60 refactor: split scene parser by schema domain` |
+| Current objective | E1 retire `RunInternal.h` without a replacement state hub |
+| Last broad local gate | `tools\validate_full.bat` passed D3 UI include-fragment conversion with 130/130 doctest cases, 2,770 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 54.4s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -48,8 +48,16 @@ reports, and git history.
 - `8e39056c refactor: narrow replay live-owner identity`
 - `68a0642b refactor: complete runtime input ownership`
 - `8870ea69 refactor: split runtime input translation units`
+- `1b2b9a60 refactor: split scene parser by schema domain`
 
 ## Current Queue
+
+D3 is complete. The repository has no tracked `.inl` files. The former editor
+mini-palette fragment is split into real palette policy/layout, drawing, and
+frame-composition translation units over a declaration-only stateless UI
+contract. Fast, five interaction scenarios, perf, and full pass. E1 now owns complete deletion of
+`RunInternal.h` and relocation of each remaining helper/constant to one domain
+owner without introducing another broad state hub.
 
 D2 is complete. `TestSceneParser` is split into document composition, asset,
 body/group, runtime/simulation, and presentation/environment translation units
