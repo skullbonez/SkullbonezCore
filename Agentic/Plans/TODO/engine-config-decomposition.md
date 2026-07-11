@@ -1,7 +1,7 @@
 # EngineConfig Decomposition
 
 Date: 2026-07-11
-Status: E3 complete — 3/5 phases checked (60%)
+Status: E4 complete — 4/5 phases checked (80%)
 Impact area: `Core/Config.h`/`Config.cpp`, every config consumer, engine.cfg
 Origin: 2026-07-11 architecture gap review. `EngineConfig` is the largest
 remaining catch-all bag: window setup, asset paths, frustum, physics
@@ -51,7 +51,7 @@ own domain-nouns-over-bags migration rule.
       if any render-consumed field moves.
 - [x] E3. Physics defaults move, isolated commit(s). Gate:
       `validate_physics` byte-exact per commit.
-- [ ] E4. Parser cleanup: single declarative key-binding table per domain;
+- [x] E4. Parser cleanup: single declarative key-binding table per domain;
       unknown-key handling unchanged; `Dump()` regenerated from the same
       table so dump and parse cannot drift. Gate: `validate_fast` +
       `validate_full` (Config.h is broad scope in the validation map).
@@ -313,6 +313,51 @@ can prove the parser/default/determinism boundary. Each value struct remains a
 narrow domain policy; no replacement physics bag or E4 table architecture was
 introduced. Final gates, commit grouping, and the E3 checkbox were completed
 by the coordinator.
+
+## E4 implementation evidence
+
+- [x] Replaced the monolithic 218-row binding array with 23 static domain
+      tables. Each table owns the key, value type, accepted range, and field
+      destination for exactly one `EngineConfig` domain.
+- [x] Added one explicit 27-range compatibility order. The few historical
+      cross-domain interleavings are expressed as bounded slices, and the same
+      allocation-free visitor now drives both `FindConfigSetting()` and
+      `EngineConfig::Dump()`.
+- [x] Added a compile-time 218-row ownership check across all domain tables.
+      The registry and traversal use fixed static arrays only; no allocation,
+      exception, consumer, field, default, or file-syntax behavior changed.
+- [x] Mechanical preservation proof against the pre-E4 `HEAD`: 23 tables,
+      218 old rows, 218 reconstructed rows, 218 unique keys, and 0 mismatched
+      normalized rows. This proves identical key spelling, type macro,
+      destination, range, and global order, including compatibility aliases.
+- [x] Focused build: `tools\validate_build.bat Profile` passed on 2026-07-12
+      in 6.71s with 0 warnings and 0 errors.
+- [x] Direct unit executable: `Profile\SKULLBONEZ_TESTS.exe` passed all 136
+      doctest cases and 2,853 assertions.
+- [x] Focused runtime dump smoke: `Profile\SKULLBONEZ_CORE.exe --dump-config
+      --scene-load-only` exited 0 in 2.025s, emitted the complete 219-line
+      `[config]` block, and wrote no stderr output.
+- [x] Touched-source comment audit: 1/1 checked, 0 deferred — `Config.cpp`.
+      The learning header and nearby concept/invariant/hazard comments explain
+      domain ownership, shared order, and dump/lookup compatibility risk.
+- [x] No new config-specific unit was added: the binding registry is private
+      anonymous-namespace data, so exposing it or adding an unrelated test
+      project dependency would widen E4 beyond parser decomposition. The exact
+      normalized-row reconstruction is the cheaper complete proof; the
+      coordinator's formal `validate_fast` + `validate_full` run will re-prove
+      runtime parse/dump behavior before the phase is checked and committed.
+- [x] Exact runtime `Dump()` contract: the post-E4 `[config]` block contains
+      219 lines, has 0 diff rows against the post-E3 block, and retains
+      SHA-256
+      `3bcc5f6247d6266b8f01dba7a7ebcf1963998e998713c80b14dc0deb3a78ab74`.
+- [x] Formal grouped gate: `tools\validate_full.bat` passed on 2026-07-12 in
+      102.856s. Its phase 0 completed the required `validate_fast` gate;
+      Profile and Debug built with 0 warnings/errors; 136 doctest cases and
+      2,853 assertions plus every standalone CPU lane passed; DX12 InfoQueue
+      reported 0 validation errors and all three screenshot comparisons
+      passed; physics standalone smoke passed and
+      `physics_regression_varied.csv` matched 44,401 lines byte-exactly.
+- [x] Grouped coordinator commit/push and E4 phase checkbox.
 
 ## Acceptance
 

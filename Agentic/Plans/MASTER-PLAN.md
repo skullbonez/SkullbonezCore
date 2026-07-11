@@ -97,11 +97,11 @@ concrete plan rows and counting it would duplicate tasks.
 | sim-render-interpolation | 0 | 5 | 0% |
 | editor-undo-redo | 0 | 5 | 0% |
 | data-format-versioning | 0 | 5 | 0% |
-| engine-config-decomposition | 3 | 5 | 60% |
+| engine-config-decomposition | 4 | 5 | 80% |
 | entity-model-endgame | 4 | 4 | 100% |
 | instant-prediction-velocity-chaos | 52 | 52 | 100% |
 | shadow-edge-quality | 0 | 5 | 0% |
-| **Portfolio total** | **238** | **276** | **86%** |
+| **Portfolio total** | **239** | **276** | **87%** |
 
 ## Current Execution Priority
 
@@ -187,7 +187,7 @@ Reconciliation notes live inside each plan.
 | [sim-render-interpolation](TODO/sim-render-interpolation.md) | Planned | 0/5 | After entity-model closure and stable renderer ownership; P1 capture-determinism guard lands first |
 | [editor-undo-redo](TODO/editor-undo-redo.md) | Planned | 0/5 | After entity-model closure; build history on final `PhysicsSceneObjectId` and post-`GameModelCollection` scene APIs |
 | [data-format-versioning](TODO/data-format-versioning.md) | Planned | 0/5 | Deliver after editor; asset/hull preparation is independent, but `engine.cfg` waits for config decomposition; scene v1→v2 remains the precedent |
-| [engine-config-decomposition](TODO/engine-config-decomposition.md) | Active | 3/5 | All 81 former direct fields now live in 18 narrow domains with exact dump, perf, renderer, and deterministic physics evidence; split the binding registry per domain next |
+| [engine-config-decomposition](TODO/engine-config-decomposition.md) | Active | 4/5 | Domain-owned binding tables now share one allocation-free ordered lookup/dump traversal with exact row and runtime-dump evidence; run closure audit and independent review next |
 
 ## Features
 

@@ -18,8 +18,8 @@ Glossary:
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
   surface.
-  - ConfigSettings row order is Dump order. Domain moves change destination
-    paths only; key spelling, accepted range, and relative order stay fixed.
+  - Domain tables own key/type/range/destination facts. kConfigSettingOrder is
+    the single lookup and Dump order; neither path may invent a second sequence.
 
 Related:
   - SkullbonezSource/Core/Config.h
@@ -277,263 +277,396 @@ bool ApplyConfigString( EngineConfig& cfg,
       []( const EngineConfig& cfg, FILE* out, const ConfigSetting& setting )                                           \
       { fprintf( out, "%s = %s\n", setting.name, cfg.FIELD.c_str() ); } }
 
-const ConfigSetting* ConfigSettings( size_t& outCount )
+template <size_t N> constexpr size_t ArrayCount( const ConfigSetting ( & )[N] )
 {
-    static const ConfigSetting kSettings[] = {
-        CONFIG_INT( "screen_x", window.screenX, 1, 32768 ),
-        CONFIG_INT( "screen_y", window.screenY, 1, 32768 ),
-        CONFIG_BOOL( "fullscreen", window.fullscreen ),
-        CONFIG_INT( "bits_per_pixel", window.bitsPerPixel, 1, 128 ),
-        CONFIG_INT( "refresh_rate", window.refreshRate, 1, 1000 ),
+    return N;
+}
 
-        CONFIG_FLOAT( "frustum_near", camera.frustumNear, 0.0001, 100000000.0 ),
-        CONFIG_FLOAT( "frustum_far", camera.frustumFar, 0.0001, 100000000.0 ),
+struct ConfigSettingRange
+{
+    const ConfigSetting* settings;
+    size_t count;
+};
 
-        CONFIG_FLOAT( "mouse_sensitivity", camera.mouseSensitivity, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "key_speed", camera.keySpeed, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "camera_tween_rate", camera.cameraTweenRate, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "camera_collision_threshold", camera.cameraCollisionThreshold, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "min_camera_height", camera.minCameraHeight, -1000000.0, 1000000.0 ),
-        CONFIG_FLOAT( "max_camera_height", camera.maxCameraHeight, -1000000.0, 1000000.0 ),
-        CONFIG_FLOAT( "min_view_mag", camera.minViewMag, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "max_view_mag", camera.maxViewMag, 0.0, 1000000.0 ),
+template <size_t N> constexpr ConfigSettingRange FullConfigRange( const ConfigSetting ( &settings )[N] )
+{
+    return { settings, N };
+}
 
-        CONFIG_FLOAT( "terrain_scale", terrainGeometry.scale, 0.0001, 1000000.0 ),
-        CONFIG_FLOAT( "terrain_height_scale", terrainGeometry.heightScale, -1000000.0, 1000000.0 ),
-        CONFIG_INT( "terrain_render_step_size", terrainGeometry.renderStepSize, 1, 1024 ),
+// Concept: each table owns one EngineConfig domain's key/type/range/destination
+// facts. The separate order registry below composes those facts into the public
+// compatibility sequence without creating a second copy of any binding.
+static const ConfigSetting kWindowSettings[] = {
+    CONFIG_INT( "screen_x", window.screenX, 1, 32768 ),
+    CONFIG_INT( "screen_y", window.screenY, 1, 32768 ),
+    CONFIG_BOOL( "fullscreen", window.fullscreen ),
+    CONFIG_INT( "bits_per_pixel", window.bitsPerPixel, 1, 128 ),
+    CONFIG_INT( "refresh_rate", window.refreshRate, 1, 1000 ),
+};
 
-        CONFIG_FLOAT( "skybox_render_height", skybox.renderHeight, -1000000.0, 1000000.0 ),
-        CONFIG_INT( "skybox_overflow", skybox.overflow, -1000000, 1000000 ),
-        CONFIG_FLOAT( "skybox_scale", skybox.scale, 0.0001, 1000000.0 ),
+static const ConfigSetting kCameraSettings[] = {
+    CONFIG_FLOAT( "frustum_near", camera.frustumNear, 0.0001, 100000000.0 ),
+    CONFIG_FLOAT( "frustum_far", camera.frustumFar, 0.0001, 100000000.0 ),
+    CONFIG_FLOAT( "mouse_sensitivity", camera.mouseSensitivity, 0.0, 1000000.0 ),
+    CONFIG_FLOAT( "key_speed", camera.keySpeed, 0.0, 1000000.0 ),
+    CONFIG_FLOAT( "camera_tween_rate", camera.cameraTweenRate, 0.0, 1000000.0 ),
+    CONFIG_FLOAT( "camera_collision_threshold", camera.cameraCollisionThreshold, 0.0, 1000000.0 ),
+    CONFIG_FLOAT( "min_camera_height", camera.minCameraHeight, -1000000.0, 1000000.0 ),
+    CONFIG_FLOAT( "max_camera_height", camera.maxCameraHeight, -1000000.0, 1000000.0 ),
+    CONFIG_FLOAT( "min_view_mag", camera.minViewMag, 0.0, 1000000.0 ),
+    CONFIG_FLOAT( "max_view_mag", camera.maxViewMag, 0.0, 1000000.0 ),
+};
 
-        CONFIG_INT( "game_model_capacity", runtimeCapacity.gameModelCapacity, 1, MAX_GAME_MODELS ),
-        CONFIG_INT( "worker_threads", runtimeCapacity.workerThreads, -1, 1024 ),
-        CONFIG_BOOL( "physics_parallel", physicsExecution.parallel ),
-        CONFIG_BOOL( "physics_parallel_apply_forces", physicsExecution.parallelApplyForces ),
-        CONFIG_BOOL( "physics_parallel_tornado_field", physicsExecution.parallelTornadoField ),
-        CONFIG_BOOL( "physics_parallel_narrowphase", physicsExecution.parallelNarrowphase ),
-        CONFIG_BOOL( "physics_parallel_terrain_detect", physicsExecution.parallelTerrainDetect ),
-        CONFIG_BOOL( "physics_parallel_integrate", physicsExecution.parallelIntegrate ),
-        CONFIG_BOOL( "shadow_parallel_prep", runtimeRender.shadowParallelPrep ),
-        CONFIG_FLOAT( "replay_prediction_instant_budget_ms", replayPrediction.instantBudgetMs, 0.0, 10000.0 ),
-        CONFIG_INT( "replay_prediction_probe_ticks", replayPrediction.probeTicks, 8, 2400 ),
+static const ConfigSetting kTerrainGeometrySettings[] = {
+    CONFIG_FLOAT( "terrain_scale", terrainGeometry.scale, 0.0001, 1000000.0 ),
+    CONFIG_FLOAT( "terrain_height_scale", terrainGeometry.heightScale, -1000000.0, 1000000.0 ),
+    CONFIG_INT( "terrain_render_step_size", terrainGeometry.renderStepSize, 1, 1024 ),
+};
 
-        CONFIG_FLOAT( "scene_light_color_r", sceneLight.colorR, -1000000.0, 1000000.0 ),
-        CONFIG_FLOAT( "scene_light_color_g", sceneLight.colorG, -1000000.0, 1000000.0 ),
-        CONFIG_FLOAT( "scene_light_color_b", sceneLight.colorB, -1000000.0, 1000000.0 ),
-        CONFIG_FLOAT( "scene_light_color_a", sceneLight.colorA, -1000000.0, 1000000.0 ),
+static const ConfigSetting kSkyboxSettings[] = {
+    CONFIG_FLOAT( "skybox_render_height", skybox.renderHeight, -1000000.0, 1000000.0 ),
+    CONFIG_INT( "skybox_overflow", skybox.overflow, -1000000, 1000000 ),
+    CONFIG_FLOAT( "skybox_scale", skybox.scale, 0.0001, 1000000.0 ),
+};
 
-        CONFIG_FLOAT( "ordinary_sun_intensity", ordinaryRender.sunIntensity, 0.0, 8.0 ),
-        CONFIG_FLOAT( "ordinary_sun_color_r", ordinaryRender.sunColorR, 0.0, 4.0 ),
-        CONFIG_FLOAT( "ordinary_sun_color_g", ordinaryRender.sunColorG, 0.0, 4.0 ),
-        CONFIG_FLOAT( "ordinary_sun_color_b", ordinaryRender.sunColorB, 0.0, 4.0 ),
-        CONFIG_FLOAT( "ordinary_ambient_strength", ordinaryRender.ambientStrength, 0.0, 2.0 ),
-        CONFIG_FLOAT( "ordinary_sky_ambient_r", ordinaryRender.skyAmbientR, 0.0, 4.0 ),
-        CONFIG_FLOAT( "ordinary_sky_ambient_g", ordinaryRender.skyAmbientG, 0.0, 4.0 ),
-        CONFIG_FLOAT( "ordinary_sky_ambient_b", ordinaryRender.skyAmbientB, 0.0, 4.0 ),
-        CONFIG_FLOAT( "ordinary_ground_ambient_r", ordinaryRender.groundAmbientR, 0.0, 4.0 ),
-        CONFIG_FLOAT( "ordinary_ground_ambient_g", ordinaryRender.groundAmbientG, 0.0, 4.0 ),
-        CONFIG_FLOAT( "ordinary_ground_ambient_b", ordinaryRender.groundAmbientB, 0.0, 4.0 ),
-        CONFIG_BOOL( "ordinary_shadows", ordinaryRender.shadow.enabled ),
-        CONFIG_BOOL( "ordinary_shadow_terrain_casts", ordinaryRender.shadow.terrainCasts ),
-        CONFIG_BOOL( "ordinary_shadow_objects_cast", ordinaryRender.shadow.objectsCast ),
-        CONFIG_BOOL( "ordinary_shadow_terrain_receives", ordinaryRender.shadow.terrainReceives ),
-        CONFIG_BOOL( "ordinary_shadow_objects_receive", ordinaryRender.shadow.objectsReceive ),
-        CONFIG_INT( "ordinary_shadow_map_size", ordinaryRender.shadow.mapSize, 256, 8192 ),
-        CONFIG_INT( "ordinary_shadow_pcf_radius", ordinaryRender.shadow.pcfRadius, 0, 3 ),
-        CONFIG_FLOAT( "ordinary_shadow_strength", ordinaryRender.shadow.strength, 0.0, 1.0 ),
-        CONFIG_FLOAT( "ordinary_shadow_softness", ordinaryRender.shadow.softness, 0.25, 4.0 ),
-        CONFIG_FLOAT( "ordinary_shadow_depth_bias", ordinaryRender.shadow.depthBias, 0.0, 0.05 ),
-        CONFIG_FLOAT( "ordinary_shadow_slope_bias", ordinaryRender.shadow.slopeBias, 0.0, 0.05 ),
-        CONFIG_FLOAT( "ordinary_shadow_max_distance", ordinaryRender.shadow.maxDistance, 128.0, 10000.0 ),
-        CONFIG_FLOAT( "ordinary_water_tint_r", ordinaryRender.waterTintR, 0.0, 4.0 ),
-        CONFIG_FLOAT( "ordinary_water_tint_g", ordinaryRender.waterTintG, 0.0, 4.0 ),
-        CONFIG_FLOAT( "ordinary_water_tint_b", ordinaryRender.waterTintB, 0.0, 4.0 ),
-        CONFIG_FLOAT( "ordinary_water_alpha", ordinaryRender.waterAlpha, 0.0, 1.0 ),
-        CONFIG_FLOAT( "ordinary_water_reflection_strength", ordinaryRender.waterReflectionStrength, 0.0, 1.0 ),
-        CONFIG_FLOAT( "ordinary_water_fresnel_f0", ordinaryRender.waterFresnelF0, 0.0, 0.25 ),
-        CONFIG_FLOAT( "ordinary_ball_roughness_scale", ordinaryRender.ballRoughnessScale, 0.25, 2.0 ),
-        CONFIG_FLOAT( "ordinary_ball_specular_scale", ordinaryRender.ballSpecularScale, 0.0, 2.0 ),
-        CONFIG_FLOAT( "ordinary_box_roughness_scale", ordinaryRender.boxRoughnessScale, 0.25, 2.0 ),
-        CONFIG_FLOAT( "ordinary_box_specular_scale", ordinaryRender.boxSpecularScale, 0.0, 2.0 ),
+static const ConfigSetting kRuntimeCapacitySettings[] = {
+    CONFIG_INT( "game_model_capacity", runtimeCapacity.gameModelCapacity, 1, MAX_GAME_MODELS ),
+    CONFIG_INT( "worker_threads", runtimeCapacity.workerThreads, -1, 1024 ),
+};
 
-        CONFIG_BOOL( "cinematic_rendering", cinematicRender.enabled ),
-        CONFIG_BOOL( "cinematic_sky_atmosphere", cinematicRender.skyAtmosphereEnabled ),
-        CONFIG_BOOL( "cinematic_clouds", cinematicRender.cloudsEnabled ),
-        CONFIG_BOOL( "cinematic_god_rays", cinematicRender.godRaysEnabled ),
-        CONFIG_BOOL( "cinematic_volumetric_lighting", cinematicRender.volumetricLightingEnabled ),
-        CONFIG_BOOL( "cinematic_bloom", cinematicRender.bloomEnabled ),
-        CONFIG_BOOL( "cinematic_fog", cinematicRender.fogEnabled ),
-        CONFIG_BOOL( "cinematic_terrain_relief_enabled", cinematicRender.terrainReliefEnabled ),
-        CONFIG_FLOAT( "cinematic_exposure", cinematicRender.exposure, 0.0, 16.0 ),
-        CONFIG_FLOAT( "cinematic_gamma", cinematicRender.gamma, 0.1, 8.0 ),
-        // Compatibility: the historical "screen" keys now populate normalized
-        // world-sky azimuth/elevation fields; existing engine.cfg files stay valid.
-        CONFIG_FLOAT( "cinematic_sun_screen_x", cinematicRender.sunAzimuth, 0.0, 1.0 ),
-        CONFIG_FLOAT( "cinematic_sun_screen_y", cinematicRender.sunElevation, 0.0, 1.0 ),
-        CONFIG_FLOAT( "cinematic_sun_color_r", cinematicRender.sunColorR, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_sun_color_g", cinematicRender.sunColorG, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_sun_color_b", cinematicRender.sunColorB, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_sun_intensity", cinematicRender.sunIntensity, 0.0, 80.0 ),
-        CONFIG_FLOAT( "cinematic_sky_horizon_r", cinematicRender.skyHorizonR, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_sky_horizon_g", cinematicRender.skyHorizonG, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_sky_horizon_b", cinematicRender.skyHorizonB, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_sky_zenith_r", cinematicRender.skyZenithR, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_sky_zenith_g", cinematicRender.skyZenithG, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_sky_zenith_b", cinematicRender.skyZenithB, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_sky_glow_strength", cinematicRender.skyGlowStrength, 0.0, 16.0 ),
-        CONFIG_FLOAT( "cinematic_cloud_coverage", cinematicRender.cloudCoverage, 0.0, 1.0 ),
-        CONFIG_FLOAT( "cinematic_cloud_softness", cinematicRender.cloudSoftness, 0.001, 1.0 ),
-        CONFIG_FLOAT( "cinematic_cloud_scale", cinematicRender.cloudScale, 0.1, 64.0 ),
-        CONFIG_FLOAT( "cinematic_cloud_intensity", cinematicRender.cloudIntensity, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_sun_shaft_strength", cinematicRender.sunShaftStrength, 0.0, 8.0 ),
-        CONFIG_FLOAT( "cinematic_sun_shaft_falloff", cinematicRender.sunShaftFalloff, 0.1, 10.0 ),
-        CONFIG_FLOAT( "cinematic_volumetric_strength", cinematicRender.volumetricStrength, 0.0, 8.0 ),
-        CONFIG_FLOAT( "cinematic_volumetric_density", cinematicRender.volumetricDensity, 0.0, 8.0 ),
-        CONFIG_FLOAT( "cinematic_volumetric_decay", cinematicRender.volumetricDecay, 0.0, 1.0 ),
-        CONFIG_FLOAT( "cinematic_bloom_threshold", cinematicRender.bloomThreshold, 0.0, 16.0 ),
-        CONFIG_FLOAT( "cinematic_bloom_knee", cinematicRender.bloomKnee, 0.001, 8.0 ),
-        CONFIG_FLOAT( "cinematic_bloom_strength", cinematicRender.bloomStrength, 0.0, 8.0 ),
-        CONFIG_FLOAT( "cinematic_bloom_radius", cinematicRender.bloomRadius, 0.1, 32.0 ),
-        CONFIG_FLOAT( "cinematic_terrain_relief", cinematicRender.terrainRelief, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_basin_depth", cinematicRender.basinDepth, 0.0, 256.0 ),
-        CONFIG_FLOAT( "cinematic_basin_rim_lift", cinematicRender.basinRimLift, 0.0, 256.0 ),
-        CONFIG_BOOL( "cinematic_shadows", cinematicRender.shadow.enabled ),
-        CONFIG_BOOL( "cinematic_shadow_terrain_casts", cinematicRender.shadow.terrainCasts ),
-        CONFIG_BOOL( "cinematic_shadow_objects_cast", cinematicRender.shadow.objectsCast ),
-        CONFIG_BOOL( "cinematic_shadow_terrain_receives", cinematicRender.shadow.terrainReceives ),
-        CONFIG_BOOL( "cinematic_shadow_objects_receive", cinematicRender.shadow.objectsReceive ),
-        CONFIG_INT( "cinematic_shadow_map_size", cinematicRender.shadow.mapSize, 256, 8192 ),
-        CONFIG_INT( "cinematic_shadow_pcf_radius", cinematicRender.shadow.pcfRadius, 0, 3 ),
-        CONFIG_FLOAT( "cinematic_shadow_strength", cinematicRender.shadow.strength, 0.0, 1.0 ),
-        CONFIG_FLOAT( "cinematic_shadow_softness", cinematicRender.shadow.softness, 0.25, 4.0 ),
-        CONFIG_FLOAT( "cinematic_shadow_depth_bias", cinematicRender.shadow.depthBias, 0.0, 0.05 ),
-        CONFIG_FLOAT( "cinematic_shadow_slope_bias", cinematicRender.shadow.slopeBias, 0.0, 0.05 ),
-        CONFIG_FLOAT( "cinematic_shadow_max_distance", cinematicRender.shadow.maxDistance, 128.0, 10000.0 ),
-        CONFIG_FLOAT( "cinematic_fog_color_r", cinematicRender.fogColorR, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_fog_color_g", cinematicRender.fogColorG, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_fog_color_b", cinematicRender.fogColorB, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_fog_start", cinematicRender.fogStart, 0.0, 10000.0 ),
-        CONFIG_FLOAT( "cinematic_fog_end", cinematicRender.fogEnd, 0.0, 20000.0 ),
-        CONFIG_FLOAT( "cinematic_fog_density", cinematicRender.fogDensity, 0.0, 0.1 ),
-        CONFIG_FLOAT( "cinematic_fog_max_opacity", cinematicRender.fogMaxOpacity, 0.0, 1.0 ),
-        CONFIG_INT( "cinematic_sky_mode", cinematicRender.skyMode, 0, 32 ),
-        CONFIG_INT( "cinematic_terrain_mode", cinematicRender.terrainMode, 0, 32 ),
-        CONFIG_INT( "cinematic_object_style", cinematicRender.objectStyle, 0, 32 ),
-        CONFIG_INT( "cinematic_water_mode", cinematicRender.waterMode, 0, 4 ),
-        CONFIG_FLOAT( "cinematic_style_saturation", cinematicRender.styleSaturation, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_style_contrast", cinematicRender.styleContrast, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_style_vignette", cinematicRender.styleVignette, 0.0, 1.0 ),
-        CONFIG_FLOAT( "cinematic_terrain_tint_r", cinematicRender.terrainTintR, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_terrain_tint_g", cinematicRender.terrainTintG, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_terrain_tint_b", cinematicRender.terrainTintB, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_terrain_accent_r", cinematicRender.terrainAccentR, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_terrain_accent_g", cinematicRender.terrainAccentG, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_terrain_accent_b", cinematicRender.terrainAccentB, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_terrain_grid_scale", cinematicRender.terrainGridScale, 0.1, 1000.0 ),
-        CONFIG_FLOAT( "cinematic_terrain_grid_strength", cinematicRender.terrainGridStrength, 0.0, 16.0 ),
-        CONFIG_FLOAT( "cinematic_water_tint_r", cinematicRender.waterTintR, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_water_tint_g", cinematicRender.waterTintG, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_water_tint_b", cinematicRender.waterTintB, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_water_alpha", cinematicRender.waterAlpha, 0.0, 1.0 ),
-        CONFIG_FLOAT( "cinematic_water_reflection_strength", cinematicRender.waterReflectionStrength, 0.0, 1.0 ),
-        CONFIG_FLOAT( "cinematic_water_glint_strength", cinematicRender.waterGlintStrength, 0.0, 4.0 ),
-        CONFIG_FLOAT( "cinematic_basin_center_x", cinematicRender.basinCenterX, -1000000.0, 1000000.0 ),
-        CONFIG_FLOAT( "cinematic_basin_center_z", cinematicRender.basinCenterZ, -1000000.0, 1000000.0 ),
-        CONFIG_FLOAT( "cinematic_basin_radius_x", cinematicRender.basinRadiusX, 1.0, 1000000.0 ),
-        CONFIG_FLOAT( "cinematic_basin_radius_z", cinematicRender.basinRadiusZ, 1.0, 1000000.0 ),
-        CONFIG_FLOAT( "cinematic_basin_feather", cinematicRender.basinFeather, 0.0, 1.0 ),
+static const ConfigSetting kPhysicsExecutionSettings[] = {
+    CONFIG_BOOL( "physics_parallel", physicsExecution.parallel ),
+    CONFIG_BOOL( "physics_parallel_apply_forces", physicsExecution.parallelApplyForces ),
+    CONFIG_BOOL( "physics_parallel_tornado_field", physicsExecution.parallelTornadoField ),
+    CONFIG_BOOL( "physics_parallel_narrowphase", physicsExecution.parallelNarrowphase ),
+    CONFIG_BOOL( "physics_parallel_terrain_detect", physicsExecution.parallelTerrainDetect ),
+    CONFIG_BOOL( "physics_parallel_integrate", physicsExecution.parallelIntegrate ),
+};
 
-        CONFIG_FLOAT( "gravity", worldForces.gravity, -1000000.0, 1000000.0 ),
-        CONFIG_FLOAT( "fluid_height", worldForces.fluidHeight, -1000000.0, 1000000.0 ),
-        CONFIG_FLOAT( "fluid_density", worldForces.fluidDensity, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "gas_density", worldForces.gasDensity, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "velocity_limit", bodySimulation.velocityLimit, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "sphere_drag_coeff", physicsMaterial.sphereDragCoeff, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "fluid_angular_drag_multiplier", worldForces.fluidAngularDragMultiplier, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "friction_coeff", physicsMaterial.frictionCoeff, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "object_friction_coeff", physicsMaterial.objectFrictionCoeff, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "rolling_friction_coeff", physicsMaterial.rollingFrictionCoeff, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "spin_friction_coeff", physicsMaterial.spinFrictionCoeff, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "contact_restitution_threshold", bodySimulation.contactRestitutionThreshold, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "contact_epsilon", bodySimulation.contactEpsilon, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "broadphase_cell", broadphase.cellSize, 0.0001, 1000000.0 ),
-        CONFIG_FLOAT( "persistent_contact_slop", persistentContactSolver.slop, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "persistent_contact_baumgarte_beta", persistentContactSolver.baumgarteBeta, 0.0, 1.0 ),
-        CONFIG_FLOAT( "persistent_contact_position_correction_percent",
-                      persistentContactSolver.positionCorrectionPercent,
-                      0.0,
-                      1.0 ),
-        CONFIG_INT( "persistent_contact_solver_iterations", persistentContactSolver.iterations, 1, 1000000 ),
-        CONFIG_FLOAT( "terrain_contact_threshold", terrainContact.threshold, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "terrain_contact_slop", terrainContact.slop, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "terrain_contact_baumgarte_beta", terrainContact.baumgarteBeta, 0.0, 1.0 ),
-        CONFIG_FLOAT( "terrain_max_baumgarte_bias", terrainContact.maxBaumgarteBias, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "physics_sleep_linear_speed", physicsSleep.linearSpeed, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "physics_sleep_angular_speed", physicsSleep.angularSpeed, 0.0, 1000000.0 ),
-        CONFIG_INT( "physics_sleep_frames", physicsSleep.frames, 0, 1000000 ),
+static const ConfigSetting kRuntimeRenderSettings[] = {
+    CONFIG_BOOL( "shadow_parallel_prep", runtimeRender.shadowParallelPrep ),
+    CONFIG_BOOL( "vsync_enabled", runtimeRender.vsyncEnabled ),
+    CONFIG_BOOL( "force_pipeline_sync", runtimeRender.forcePipelineSync ),
+    CONFIG_BOOL( "render_collision_volumes", runtimeRender.renderCollisionVolumes ),
+};
 
-        CONFIG_FLOAT( "shadow_max_height", blobShadow.maxHeight, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "shadow_max_alpha", blobShadow.maxAlpha, 0.0, 1.0 ),
-        CONFIG_FLOAT( "shadow_offset", blobShadow.offset, -1000000.0, 1000000.0 ),
-        CONFIG_FLOAT( "shadow_scale", blobShadow.scale, 0.0, 1000000.0 ),
+static const ConfigSetting kReplayPredictionSettings[] = {
+    CONFIG_FLOAT( "replay_prediction_instant_budget_ms", replayPrediction.instantBudgetMs, 0.0, 10000.0 ),
+    CONFIG_INT( "replay_prediction_probe_ticks", replayPrediction.probeTicks, 8, 2400 ),
+};
 
-        CONFIG_FLOAT( "spawn_x_base", generatedScene.spawnXBase, -1000000.0, 1000000.0 ),
-        CONFIG_INT( "spawn_x_range", generatedScene.spawnXRange, 0, 1000000 ),
-        CONFIG_FLOAT( "spawn_y_base", generatedScene.spawnYBase, -1000000.0, 1000000.0 ),
-        CONFIG_INT( "spawn_y_range", generatedScene.spawnYRange, 0, 1000000 ),
-        CONFIG_FLOAT( "spawn_z_base", generatedScene.spawnZBase, -1000000.0, 1000000.0 ),
-        CONFIG_INT( "spawn_z_range", generatedScene.spawnZRange, 0, 1000000 ),
-        CONFIG_FLOAT( "ball_mass_min", generatedScene.ballMassMin, 0.0, 1000000.0 ),
-        CONFIG_INT( "ball_mass_range", generatedScene.ballMassRange, 0, 1000000 ),
-        CONFIG_FLOAT( "ball_moment_min", generatedScene.ballMomentMin, 0.0, 1000000.0 ),
-        CONFIG_INT( "ball_moment_range", generatedScene.ballMomentRange, 0, 1000000 ),
-        CONFIG_FLOAT( "ball_restitution_min", generatedScene.ballRestitutionMin, -1000000.0, 1000000.0 ),
-        CONFIG_INT( "ball_restitution_range", generatedScene.ballRestitutionRange, 0, 1000000 ),
-        CONFIG_INT( "ball_radius_range", generatedScene.ballRadiusRange, 0, 1000000 ),
-        CONFIG_INT( "ball_force_range", generatedScene.ballForceRange, 0, 1000000 ),
+static const ConfigSetting kSceneLightSettings[] = {
+    CONFIG_FLOAT( "scene_light_color_r", sceneLight.colorR, -1000000.0, 1000000.0 ),
+    CONFIG_FLOAT( "scene_light_color_g", sceneLight.colorG, -1000000.0, 1000000.0 ),
+    CONFIG_FLOAT( "scene_light_color_b", sceneLight.colorB, -1000000.0, 1000000.0 ),
+    CONFIG_FLOAT( "scene_light_color_a", sceneLight.colorA, -1000000.0, 1000000.0 ),
+};
 
-        CONFIG_STRING( "sky_front", assetPaths.skyFront ),
-        CONFIG_STRING( "sky_left", assetPaths.skyLeft ),
-        CONFIG_STRING( "sky_back", assetPaths.skyBack ),
-        CONFIG_STRING( "sky_right", assetPaths.skyRight ),
-        CONFIG_STRING( "sky_up", assetPaths.skyUp ),
-        CONFIG_STRING( "sky_down", assetPaths.skyDown ),
-        CONFIG_STRING( "terrain_texture", assetPaths.terrainTexture ),
-        CONFIG_STRING( "sphere_texture", assetPaths.sphereTexture ),
-        CONFIG_STRING( "terrain_raw", assetPaths.terrainRaw ),
+static const ConfigSetting kOrdinaryRenderSettings[] = {
+    CONFIG_FLOAT( "ordinary_sun_intensity", ordinaryRender.sunIntensity, 0.0, 8.0 ),
+    CONFIG_FLOAT( "ordinary_sun_color_r", ordinaryRender.sunColorR, 0.0, 4.0 ),
+    CONFIG_FLOAT( "ordinary_sun_color_g", ordinaryRender.sunColorG, 0.0, 4.0 ),
+    CONFIG_FLOAT( "ordinary_sun_color_b", ordinaryRender.sunColorB, 0.0, 4.0 ),
+    CONFIG_FLOAT( "ordinary_ambient_strength", ordinaryRender.ambientStrength, 0.0, 2.0 ),
+    CONFIG_FLOAT( "ordinary_sky_ambient_r", ordinaryRender.skyAmbientR, 0.0, 4.0 ),
+    CONFIG_FLOAT( "ordinary_sky_ambient_g", ordinaryRender.skyAmbientG, 0.0, 4.0 ),
+    CONFIG_FLOAT( "ordinary_sky_ambient_b", ordinaryRender.skyAmbientB, 0.0, 4.0 ),
+    CONFIG_FLOAT( "ordinary_ground_ambient_r", ordinaryRender.groundAmbientR, 0.0, 4.0 ),
+    CONFIG_FLOAT( "ordinary_ground_ambient_g", ordinaryRender.groundAmbientG, 0.0, 4.0 ),
+    CONFIG_FLOAT( "ordinary_ground_ambient_b", ordinaryRender.groundAmbientB, 0.0, 4.0 ),
+    CONFIG_BOOL( "ordinary_shadows", ordinaryRender.shadow.enabled ),
+    CONFIG_BOOL( "ordinary_shadow_terrain_casts", ordinaryRender.shadow.terrainCasts ),
+    CONFIG_BOOL( "ordinary_shadow_objects_cast", ordinaryRender.shadow.objectsCast ),
+    CONFIG_BOOL( "ordinary_shadow_terrain_receives", ordinaryRender.shadow.terrainReceives ),
+    CONFIG_BOOL( "ordinary_shadow_objects_receive", ordinaryRender.shadow.objectsReceive ),
+    CONFIG_INT( "ordinary_shadow_map_size", ordinaryRender.shadow.mapSize, 256, 8192 ),
+    CONFIG_INT( "ordinary_shadow_pcf_radius", ordinaryRender.shadow.pcfRadius, 0, 3 ),
+    CONFIG_FLOAT( "ordinary_shadow_strength", ordinaryRender.shadow.strength, 0.0, 1.0 ),
+    CONFIG_FLOAT( "ordinary_shadow_softness", ordinaryRender.shadow.softness, 0.25, 4.0 ),
+    CONFIG_FLOAT( "ordinary_shadow_depth_bias", ordinaryRender.shadow.depthBias, 0.0, 0.05 ),
+    CONFIG_FLOAT( "ordinary_shadow_slope_bias", ordinaryRender.shadow.slopeBias, 0.0, 0.05 ),
+    CONFIG_FLOAT( "ordinary_shadow_max_distance", ordinaryRender.shadow.maxDistance, 128.0, 10000.0 ),
+    CONFIG_FLOAT( "ordinary_water_tint_r", ordinaryRender.waterTintR, 0.0, 4.0 ),
+    CONFIG_FLOAT( "ordinary_water_tint_g", ordinaryRender.waterTintG, 0.0, 4.0 ),
+    CONFIG_FLOAT( "ordinary_water_tint_b", ordinaryRender.waterTintB, 0.0, 4.0 ),
+    CONFIG_FLOAT( "ordinary_water_alpha", ordinaryRender.waterAlpha, 0.0, 1.0 ),
+    CONFIG_FLOAT( "ordinary_water_reflection_strength", ordinaryRender.waterReflectionStrength, 0.0, 1.0 ),
+    CONFIG_FLOAT( "ordinary_water_fresnel_f0", ordinaryRender.waterFresnelF0, 0.0, 0.25 ),
+    CONFIG_FLOAT( "ordinary_ball_roughness_scale", ordinaryRender.ballRoughnessScale, 0.25, 2.0 ),
+    CONFIG_FLOAT( "ordinary_ball_specular_scale", ordinaryRender.ballSpecularScale, 0.0, 2.0 ),
+    CONFIG_FLOAT( "ordinary_box_roughness_scale", ordinaryRender.boxRoughnessScale, 0.25, 2.0 ),
+    CONFIG_FLOAT( "ordinary_box_specular_scale", ordinaryRender.boxSpecularScale, 0.0, 2.0 ),
+};
 
-        CONFIG_FLOAT( "ocean_wave_height", waterRenderStyle.oceanWaveHeight, -1000000.0, 1000000.0 ),
-        CONFIG_FLOAT( "ocean_perturb_strength", waterRenderStyle.oceanPerturbStrength, -1000000.0, 1000000.0 ),
+static const ConfigSetting kCinematicRenderSettings[] = {
+    // Compatibility: historical "screen" keys still target normalized world-sky angles.
+    CONFIG_BOOL( "cinematic_rendering", cinematicRender.enabled ),
+    CONFIG_BOOL( "cinematic_sky_atmosphere", cinematicRender.skyAtmosphereEnabled ),
+    CONFIG_BOOL( "cinematic_clouds", cinematicRender.cloudsEnabled ),
+    CONFIG_BOOL( "cinematic_god_rays", cinematicRender.godRaysEnabled ),
+    CONFIG_BOOL( "cinematic_volumetric_lighting", cinematicRender.volumetricLightingEnabled ),
+    CONFIG_BOOL( "cinematic_bloom", cinematicRender.bloomEnabled ),
+    CONFIG_BOOL( "cinematic_fog", cinematicRender.fogEnabled ),
+    CONFIG_BOOL( "cinematic_terrain_relief_enabled", cinematicRender.terrainReliefEnabled ),
+    CONFIG_FLOAT( "cinematic_exposure", cinematicRender.exposure, 0.0, 16.0 ),
+    CONFIG_FLOAT( "cinematic_gamma", cinematicRender.gamma, 0.1, 8.0 ),
+    CONFIG_FLOAT( "cinematic_sun_screen_x", cinematicRender.sunAzimuth, 0.0, 1.0 ),
+    CONFIG_FLOAT( "cinematic_sun_screen_y", cinematicRender.sunElevation, 0.0, 1.0 ),
+    CONFIG_FLOAT( "cinematic_sun_color_r", cinematicRender.sunColorR, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_sun_color_g", cinematicRender.sunColorG, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_sun_color_b", cinematicRender.sunColorB, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_sun_intensity", cinematicRender.sunIntensity, 0.0, 80.0 ),
+    CONFIG_FLOAT( "cinematic_sky_horizon_r", cinematicRender.skyHorizonR, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_sky_horizon_g", cinematicRender.skyHorizonG, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_sky_horizon_b", cinematicRender.skyHorizonB, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_sky_zenith_r", cinematicRender.skyZenithR, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_sky_zenith_g", cinematicRender.skyZenithG, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_sky_zenith_b", cinematicRender.skyZenithB, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_sky_glow_strength", cinematicRender.skyGlowStrength, 0.0, 16.0 ),
+    CONFIG_FLOAT( "cinematic_cloud_coverage", cinematicRender.cloudCoverage, 0.0, 1.0 ),
+    CONFIG_FLOAT( "cinematic_cloud_softness", cinematicRender.cloudSoftness, 0.001, 1.0 ),
+    CONFIG_FLOAT( "cinematic_cloud_scale", cinematicRender.cloudScale, 0.1, 64.0 ),
+    CONFIG_FLOAT( "cinematic_cloud_intensity", cinematicRender.cloudIntensity, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_sun_shaft_strength", cinematicRender.sunShaftStrength, 0.0, 8.0 ),
+    CONFIG_FLOAT( "cinematic_sun_shaft_falloff", cinematicRender.sunShaftFalloff, 0.1, 10.0 ),
+    CONFIG_FLOAT( "cinematic_volumetric_strength", cinematicRender.volumetricStrength, 0.0, 8.0 ),
+    CONFIG_FLOAT( "cinematic_volumetric_density", cinematicRender.volumetricDensity, 0.0, 8.0 ),
+    CONFIG_FLOAT( "cinematic_volumetric_decay", cinematicRender.volumetricDecay, 0.0, 1.0 ),
+    CONFIG_FLOAT( "cinematic_bloom_threshold", cinematicRender.bloomThreshold, 0.0, 16.0 ),
+    CONFIG_FLOAT( "cinematic_bloom_knee", cinematicRender.bloomKnee, 0.001, 8.0 ),
+    CONFIG_FLOAT( "cinematic_bloom_strength", cinematicRender.bloomStrength, 0.0, 8.0 ),
+    CONFIG_FLOAT( "cinematic_bloom_radius", cinematicRender.bloomRadius, 0.1, 32.0 ),
+    CONFIG_FLOAT( "cinematic_terrain_relief", cinematicRender.terrainRelief, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_basin_depth", cinematicRender.basinDepth, 0.0, 256.0 ),
+    CONFIG_FLOAT( "cinematic_basin_rim_lift", cinematicRender.basinRimLift, 0.0, 256.0 ),
+    CONFIG_BOOL( "cinematic_shadows", cinematicRender.shadow.enabled ),
+    CONFIG_BOOL( "cinematic_shadow_terrain_casts", cinematicRender.shadow.terrainCasts ),
+    CONFIG_BOOL( "cinematic_shadow_objects_cast", cinematicRender.shadow.objectsCast ),
+    CONFIG_BOOL( "cinematic_shadow_terrain_receives", cinematicRender.shadow.terrainReceives ),
+    CONFIG_BOOL( "cinematic_shadow_objects_receive", cinematicRender.shadow.objectsReceive ),
+    CONFIG_INT( "cinematic_shadow_map_size", cinematicRender.shadow.mapSize, 256, 8192 ),
+    CONFIG_INT( "cinematic_shadow_pcf_radius", cinematicRender.shadow.pcfRadius, 0, 3 ),
+    CONFIG_FLOAT( "cinematic_shadow_strength", cinematicRender.shadow.strength, 0.0, 1.0 ),
+    CONFIG_FLOAT( "cinematic_shadow_softness", cinematicRender.shadow.softness, 0.25, 4.0 ),
+    CONFIG_FLOAT( "cinematic_shadow_depth_bias", cinematicRender.shadow.depthBias, 0.0, 0.05 ),
+    CONFIG_FLOAT( "cinematic_shadow_slope_bias", cinematicRender.shadow.slopeBias, 0.0, 0.05 ),
+    CONFIG_FLOAT( "cinematic_shadow_max_distance", cinematicRender.shadow.maxDistance, 128.0, 10000.0 ),
+    CONFIG_FLOAT( "cinematic_fog_color_r", cinematicRender.fogColorR, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_fog_color_g", cinematicRender.fogColorG, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_fog_color_b", cinematicRender.fogColorB, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_fog_start", cinematicRender.fogStart, 0.0, 10000.0 ),
+    CONFIG_FLOAT( "cinematic_fog_end", cinematicRender.fogEnd, 0.0, 20000.0 ),
+    CONFIG_FLOAT( "cinematic_fog_density", cinematicRender.fogDensity, 0.0, 0.1 ),
+    CONFIG_FLOAT( "cinematic_fog_max_opacity", cinematicRender.fogMaxOpacity, 0.0, 1.0 ),
+    CONFIG_INT( "cinematic_sky_mode", cinematicRender.skyMode, 0, 32 ),
+    CONFIG_INT( "cinematic_terrain_mode", cinematicRender.terrainMode, 0, 32 ),
+    CONFIG_INT( "cinematic_object_style", cinematicRender.objectStyle, 0, 32 ),
+    CONFIG_INT( "cinematic_water_mode", cinematicRender.waterMode, 0, 4 ),
+    CONFIG_FLOAT( "cinematic_style_saturation", cinematicRender.styleSaturation, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_style_contrast", cinematicRender.styleContrast, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_style_vignette", cinematicRender.styleVignette, 0.0, 1.0 ),
+    CONFIG_FLOAT( "cinematic_terrain_tint_r", cinematicRender.terrainTintR, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_terrain_tint_g", cinematicRender.terrainTintG, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_terrain_tint_b", cinematicRender.terrainTintB, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_terrain_accent_r", cinematicRender.terrainAccentR, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_terrain_accent_g", cinematicRender.terrainAccentG, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_terrain_accent_b", cinematicRender.terrainAccentB, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_terrain_grid_scale", cinematicRender.terrainGridScale, 0.1, 1000.0 ),
+    CONFIG_FLOAT( "cinematic_terrain_grid_strength", cinematicRender.terrainGridStrength, 0.0, 16.0 ),
+    CONFIG_FLOAT( "cinematic_water_tint_r", cinematicRender.waterTintR, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_water_tint_g", cinematicRender.waterTintG, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_water_tint_b", cinematicRender.waterTintB, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_water_alpha", cinematicRender.waterAlpha, 0.0, 1.0 ),
+    CONFIG_FLOAT( "cinematic_water_reflection_strength", cinematicRender.waterReflectionStrength, 0.0, 1.0 ),
+    CONFIG_FLOAT( "cinematic_water_glint_strength", cinematicRender.waterGlintStrength, 0.0, 4.0 ),
+    CONFIG_FLOAT( "cinematic_basin_center_x", cinematicRender.basinCenterX, -1000000.0, 1000000.0 ),
+    CONFIG_FLOAT( "cinematic_basin_center_z", cinematicRender.basinCenterZ, -1000000.0, 1000000.0 ),
+    CONFIG_FLOAT( "cinematic_basin_radius_x", cinematicRender.basinRadiusX, 1.0, 1000000.0 ),
+    CONFIG_FLOAT( "cinematic_basin_radius_z", cinematicRender.basinRadiusZ, 1.0, 1000000.0 ),
+    CONFIG_FLOAT( "cinematic_basin_feather", cinematicRender.basinFeather, 0.0, 1.0 ),
+};
 
-        CONFIG_BOOL( "vsync_enabled", runtimeRender.vsyncEnabled ),
-        CONFIG_BOOL( "force_pipeline_sync", runtimeRender.forcePipelineSync ),
-        CONFIG_BOOL( "render_collision_volumes", runtimeRender.renderCollisionVolumes ),
-        CONFIG_BOOL( "contact_audio_enabled", contactAudio.enabled ),
-        CONFIG_FLOAT( "contact_audio_master_gain", contactAudio.masterGain, 0.0, 4.0 ),
-        CONFIG_FLOAT( "contact_audio_max_distance_scale", contactAudio.maxDistanceScale, 0.01, 16.0 ),
-        CONFIG_FLOAT( "contact_audio_rolling_level_db", contactAudio.rollingLevelDb, -60.0, 0.0 ),
-        CONFIG_FLOAT( "contact_audio_rolling_max_distance", contactAudio.rollingMaxDistance, 1.0, 200.0 ),
-        CONFIG_FLOAT( "contact_audio_rolling_min_slip_speed", contactAudio.rollingMinSlipSpeed, 0.1, 20.0 ),
-        CONFIG_INT( "contact_audio_rolling_voices_per_window", contactAudio.rollingVoicesPerWindow, 0, 12 ),
-        CONFIG_BOOL( "contact_audio_debug_counters", contactAudio.debugCounters ),
-    };
-    outCount = sizeof( kSettings ) / sizeof( kSettings[0] );
-    return kSettings;
+static const ConfigSetting kWorldForceSettings[] = {
+    CONFIG_FLOAT( "gravity", worldForces.gravity, -1000000.0, 1000000.0 ),
+    CONFIG_FLOAT( "fluid_height", worldForces.fluidHeight, -1000000.0, 1000000.0 ),
+    CONFIG_FLOAT( "fluid_density", worldForces.fluidDensity, 0.0, 1000000.0 ),
+    CONFIG_FLOAT( "gas_density", worldForces.gasDensity, 0.0, 1000000.0 ),
+    CONFIG_FLOAT( "fluid_angular_drag_multiplier", worldForces.fluidAngularDragMultiplier, 0.0, 1000000.0 ),
+};
+
+static const ConfigSetting kBodySimulationSettings[] = {
+    CONFIG_FLOAT( "velocity_limit", bodySimulation.velocityLimit, 0.0, 1000000.0 ),
+    CONFIG_FLOAT( "contact_restitution_threshold", bodySimulation.contactRestitutionThreshold, 0.0, 1000000.0 ),
+    CONFIG_FLOAT( "contact_epsilon", bodySimulation.contactEpsilon, 0.0, 1000000.0 ),
+};
+
+static const ConfigSetting kPhysicsMaterialSettings[] = {
+    CONFIG_FLOAT( "sphere_drag_coeff", physicsMaterial.sphereDragCoeff, 0.0, 1000000.0 ),
+    CONFIG_FLOAT( "friction_coeff", physicsMaterial.frictionCoeff, 0.0, 1000000.0 ),
+    CONFIG_FLOAT( "object_friction_coeff", physicsMaterial.objectFrictionCoeff, 0.0, 1000000.0 ),
+    CONFIG_FLOAT( "rolling_friction_coeff", physicsMaterial.rollingFrictionCoeff, 0.0, 1000000.0 ),
+    CONFIG_FLOAT( "spin_friction_coeff", physicsMaterial.spinFrictionCoeff, 0.0, 1000000.0 ),
+};
+
+static const ConfigSetting kBroadphaseSettings[] = {
+    CONFIG_FLOAT( "broadphase_cell", broadphase.cellSize, 0.0001, 1000000.0 ),
+};
+
+static const ConfigSetting kPersistentContactSolverSettings[] = {
+    CONFIG_FLOAT( "persistent_contact_slop", persistentContactSolver.slop, 0.0, 1000000.0 ),
+    CONFIG_FLOAT( "persistent_contact_baumgarte_beta", persistentContactSolver.baumgarteBeta, 0.0, 1.0 ),
+    CONFIG_FLOAT( "persistent_contact_position_correction_percent",
+                  persistentContactSolver.positionCorrectionPercent,
+                  0.0,
+                  1.0 ),
+    CONFIG_INT( "persistent_contact_solver_iterations", persistentContactSolver.iterations, 1, 1000000 ),
+};
+
+static const ConfigSetting kTerrainContactSettings[] = {
+    CONFIG_FLOAT( "terrain_contact_threshold", terrainContact.threshold, 0.0, 1000000.0 ),
+    CONFIG_FLOAT( "terrain_contact_slop", terrainContact.slop, 0.0, 1000000.0 ),
+    CONFIG_FLOAT( "terrain_contact_baumgarte_beta", terrainContact.baumgarteBeta, 0.0, 1.0 ),
+    CONFIG_FLOAT( "terrain_max_baumgarte_bias", terrainContact.maxBaumgarteBias, 0.0, 1000000.0 ),
+};
+
+static const ConfigSetting kPhysicsSleepSettings[] = {
+    CONFIG_FLOAT( "physics_sleep_linear_speed", physicsSleep.linearSpeed, 0.0, 1000000.0 ),
+    CONFIG_FLOAT( "physics_sleep_angular_speed", physicsSleep.angularSpeed, 0.0, 1000000.0 ),
+    CONFIG_INT( "physics_sleep_frames", physicsSleep.frames, 0, 1000000 ),
+};
+
+static const ConfigSetting kBlobShadowSettings[] = {
+    CONFIG_FLOAT( "shadow_max_height", blobShadow.maxHeight, 0.0, 1000000.0 ),
+    CONFIG_FLOAT( "shadow_max_alpha", blobShadow.maxAlpha, 0.0, 1.0 ),
+    CONFIG_FLOAT( "shadow_offset", blobShadow.offset, -1000000.0, 1000000.0 ),
+    CONFIG_FLOAT( "shadow_scale", blobShadow.scale, 0.0, 1000000.0 ),
+};
+
+static const ConfigSetting kGeneratedSceneSettings[] = {
+    CONFIG_FLOAT( "spawn_x_base", generatedScene.spawnXBase, -1000000.0, 1000000.0 ),
+    CONFIG_INT( "spawn_x_range", generatedScene.spawnXRange, 0, 1000000 ),
+    CONFIG_FLOAT( "spawn_y_base", generatedScene.spawnYBase, -1000000.0, 1000000.0 ),
+    CONFIG_INT( "spawn_y_range", generatedScene.spawnYRange, 0, 1000000 ),
+    CONFIG_FLOAT( "spawn_z_base", generatedScene.spawnZBase, -1000000.0, 1000000.0 ),
+    CONFIG_INT( "spawn_z_range", generatedScene.spawnZRange, 0, 1000000 ),
+    CONFIG_FLOAT( "ball_mass_min", generatedScene.ballMassMin, 0.0, 1000000.0 ),
+    CONFIG_INT( "ball_mass_range", generatedScene.ballMassRange, 0, 1000000 ),
+    CONFIG_FLOAT( "ball_moment_min", generatedScene.ballMomentMin, 0.0, 1000000.0 ),
+    CONFIG_INT( "ball_moment_range", generatedScene.ballMomentRange, 0, 1000000 ),
+    CONFIG_FLOAT( "ball_restitution_min", generatedScene.ballRestitutionMin, -1000000.0, 1000000.0 ),
+    CONFIG_INT( "ball_restitution_range", generatedScene.ballRestitutionRange, 0, 1000000 ),
+    CONFIG_INT( "ball_radius_range", generatedScene.ballRadiusRange, 0, 1000000 ),
+    CONFIG_INT( "ball_force_range", generatedScene.ballForceRange, 0, 1000000 ),
+};
+
+static const ConfigSetting kAssetPathsSettings[] = {
+    CONFIG_STRING( "sky_front", assetPaths.skyFront ),
+    CONFIG_STRING( "sky_left", assetPaths.skyLeft ),
+    CONFIG_STRING( "sky_back", assetPaths.skyBack ),
+    CONFIG_STRING( "sky_right", assetPaths.skyRight ),
+    CONFIG_STRING( "sky_up", assetPaths.skyUp ),
+    CONFIG_STRING( "sky_down", assetPaths.skyDown ),
+    CONFIG_STRING( "terrain_texture", assetPaths.terrainTexture ),
+    CONFIG_STRING( "sphere_texture", assetPaths.sphereTexture ),
+    CONFIG_STRING( "terrain_raw", assetPaths.terrainRaw ),
+};
+
+static const ConfigSetting kWaterRenderStyleSettings[] = {
+    CONFIG_FLOAT( "ocean_wave_height", waterRenderStyle.oceanWaveHeight, -1000000.0, 1000000.0 ),
+    CONFIG_FLOAT( "ocean_perturb_strength", waterRenderStyle.oceanPerturbStrength, -1000000.0, 1000000.0 ),
+};
+
+static const ConfigSetting kContactAudioSettings[] = {
+    CONFIG_BOOL( "contact_audio_enabled", contactAudio.enabled ),
+    CONFIG_FLOAT( "contact_audio_master_gain", contactAudio.masterGain, 0.0, 4.0 ),
+    CONFIG_FLOAT( "contact_audio_max_distance_scale", contactAudio.maxDistanceScale, 0.01, 16.0 ),
+    CONFIG_FLOAT( "contact_audio_rolling_level_db", contactAudio.rollingLevelDb, -60.0, 0.0 ),
+    CONFIG_FLOAT( "contact_audio_rolling_max_distance", contactAudio.rollingMaxDistance, 1.0, 200.0 ),
+    CONFIG_FLOAT( "contact_audio_rolling_min_slip_speed", contactAudio.rollingMinSlipSpeed, 0.1, 20.0 ),
+    CONFIG_INT( "contact_audio_rolling_voices_per_window", contactAudio.rollingVoicesPerWindow, 0, 12 ),
+    CONFIG_BOOL( "contact_audio_debug_counters", contactAudio.debugCounters ),
+};
+
+constexpr size_t kExpectedConfigSettingCount = 218;
+static_assert( ArrayCount( kWindowSettings ) + ArrayCount( kCameraSettings ) + ArrayCount( kTerrainGeometrySettings ) +
+                       ArrayCount( kSkyboxSettings ) + ArrayCount( kRuntimeCapacitySettings ) +
+                       ArrayCount( kPhysicsExecutionSettings ) + ArrayCount( kRuntimeRenderSettings ) +
+                       ArrayCount( kReplayPredictionSettings ) + ArrayCount( kSceneLightSettings ) +
+                       ArrayCount( kOrdinaryRenderSettings ) + ArrayCount( kCinematicRenderSettings ) +
+                       ArrayCount( kWorldForceSettings ) + ArrayCount( kBodySimulationSettings ) +
+                       ArrayCount( kPhysicsMaterialSettings ) + ArrayCount( kBroadphaseSettings ) +
+                       ArrayCount( kPersistentContactSolverSettings ) + ArrayCount( kTerrainContactSettings ) +
+                       ArrayCount( kPhysicsSleepSettings ) + ArrayCount( kBlobShadowSettings ) +
+                       ArrayCount( kGeneratedSceneSettings ) + ArrayCount( kAssetPathsSettings ) +
+                       ArrayCount( kWaterRenderStyleSettings ) + ArrayCount( kContactAudioSettings ) ==
+                   kExpectedConfigSettingCount,
+               "Every engine config key must belong to exactly one domain table." );
+
+// Invariant: these ranges are the single compatibility order for lookup and
+// Dump(). Slices preserve the few historical interleavings between domains.
+// Hazard: reordering a slice changes dump output and duplicate-key precedence.
+static const ConfigSettingRange kConfigSettingOrder[] = {
+    FullConfigRange( kWindowSettings ),
+    FullConfigRange( kCameraSettings ),
+    FullConfigRange( kTerrainGeometrySettings ),
+    FullConfigRange( kSkyboxSettings ),
+    FullConfigRange( kRuntimeCapacitySettings ),
+    FullConfigRange( kPhysicsExecutionSettings ),
+    { kRuntimeRenderSettings, 1 },
+    FullConfigRange( kReplayPredictionSettings ),
+    FullConfigRange( kSceneLightSettings ),
+    FullConfigRange( kOrdinaryRenderSettings ),
+    FullConfigRange( kCinematicRenderSettings ),
+    { kWorldForceSettings, 4 },
+    { kBodySimulationSettings, 1 },
+    { kPhysicsMaterialSettings, 1 },
+    { kWorldForceSettings + 4, 1 },
+    { kPhysicsMaterialSettings + 1, 4 },
+    { kBodySimulationSettings + 1, 2 },
+    FullConfigRange( kBroadphaseSettings ),
+    FullConfigRange( kPersistentContactSolverSettings ),
+    FullConfigRange( kTerrainContactSettings ),
+    FullConfigRange( kPhysicsSleepSettings ),
+    FullConfigRange( kBlobShadowSettings ),
+    FullConfigRange( kGeneratedSceneSettings ),
+    FullConfigRange( kAssetPathsSettings ),
+    FullConfigRange( kWaterRenderStyleSettings ),
+    { kRuntimeRenderSettings + 1, 3 },
+    FullConfigRange( kContactAudioSettings ),
+};
+
+template <typename Visitor> bool VisitConfigSettingsInOrder( Visitor&& visitor )
+{
+    size_t settingCount = 0;
+    for ( const ConfigSettingRange& range : kConfigSettingOrder )
+    {
+        for ( size_t row = 0; row < range.count; ++row )
+        {
+            if ( !visitor( range.settings[row] ) )
+            {
+                return false;
+            }
+            ++settingCount;
+        }
+    }
+    assert( settingCount == kExpectedConfigSettingCount );
+    return true;
 }
 
 const ConfigSetting* FindConfigSetting( const char* name )
 {
-    size_t count = 0;
-    const ConfigSetting* settings = ConfigSettings( count );
-    for ( size_t i = 0; i < count; ++i )
-    {
-        if ( strcmp( settings[i].name, name ) == 0 )
+    const ConfigSetting* found = nullptr;
+    VisitConfigSettingsInOrder(
+        [name, &found]( const ConfigSetting& setting )
         {
-            return &settings[i];
-        }
-    }
-    return nullptr;
+            if ( strcmp( setting.name, name ) != 0 )
+            {
+                return true;
+            }
+            found = &setting;
+            return false;
+        } );
+    return found;
 }
 } // anonymous namespace
 
@@ -612,10 +745,10 @@ void EngineConfig::Dump( FILE* out ) const
     }
 
     fprintf( out, "[config]\n" );
-    size_t count = 0;
-    const ConfigSetting* settings = ConfigSettings( count );
-    for ( size_t i = 0; i < count; ++i )
-    {
-        settings[i].dump( *this, out, settings[i] );
-    }
+    VisitConfigSettingsInOrder(
+        [this, out]( const ConfigSetting& setting )
+        {
+            setting.dump( *this, out, setting );
+            return true;
+        } );
 }
