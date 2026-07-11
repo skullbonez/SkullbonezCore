@@ -141,6 +141,8 @@ class RenderInstanceStore
                             const Physics::PhysicsBodyRecord& body,
                             const Physics::ColliderRecord& collider,
                             int expectedIndex );
+    // Scene deletion compacts presentation, instance, and handle rows together.
+    bool DestroyCreationRowAtSwapLast( int modelIndex );
     bool ResizePresentationRecords( int presentationCount );
     RenderInstancePresentationRecord* MutablePresentationRecordForModelIndex( int modelIndex );
     const std::vector<RenderInstancePresentationRecord>& PresentationRecords() const;

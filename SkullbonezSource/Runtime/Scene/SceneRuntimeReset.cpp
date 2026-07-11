@@ -74,7 +74,7 @@ SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneControlle
     snapshot.uiModelCountOverride = uiOverrides.modelCountOverride;
     snapshot.uiSolverBallCountOverride = uiOverrides.solverBallCountOverride;
     snapshot.uiSolverBoxCountOverride = uiOverrides.solverBoxCountOverride;
-    snapshot.trackBallIndex = camera.trackBallIndex;
+    snapshot.trackBallRow = camera.trackBallRow;
     snapshot.trackHeight = camera.trackHeight;
     snapshot.autoCycleInterval = camera.autoCycleInterval;
     snapshot.autoCycleAccum = camera.autoCycleAccum;
@@ -120,8 +120,9 @@ void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
     uiOverrides.solverBallCountOverride = snapshot.uiSolverBallCountOverride;
     uiOverrides.solverBoxCountOverride = snapshot.uiSolverBoxCountOverride;
     camera.trackHeight = snapshot.trackHeight;
-    camera.trackBallIndex =
-        ( snapshot.trackBallIndex >= 0 && snapshot.trackBallIndex < scene.modelCount ) ? snapshot.trackBallIndex : -1;
+    camera.trackBallRow.value = ( snapshot.trackBallRow.IsValid() && snapshot.trackBallRow.value < scene.modelCount )
+                                    ? snapshot.trackBallRow.value
+                                    : -1;
     camera.autoCycleInterval = snapshot.autoCycleInterval;
     camera.autoCycleAccum = snapshot.autoCycleAccum;
     camera.autoCycleShotsTaken = snapshot.autoCycleShotsTaken;

@@ -308,7 +308,7 @@ struct EditorGizmoGesturePlan
     EditorGizmoGestureKind kind = EditorGizmoGestureKind::None;
     WorldInteractionOwner owner;
     InteractionExitReason reason;
-    int selectedModelIndex = -1;
+    Physics::PhysicsBodyHandle selectedBody;
     int axis = -1;
     int clientX = 0;
     int clientY = 0;

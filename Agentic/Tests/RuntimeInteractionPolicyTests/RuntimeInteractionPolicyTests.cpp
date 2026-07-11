@@ -43,6 +43,7 @@ using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Vector;
+using SkullbonezCore::Physics::PhysicsBodyHandle;
 
 namespace
 {
@@ -137,7 +138,7 @@ RuntimeInteractionGesture MakeMousePickupGesture()
     gesture.button = RuntimePointerButton::Left;
     gesture.startX = 42;
     gesture.startY = 24;
-    gesture.modelIndex = 7;
+    gesture.body = PhysicsBodyHandle{ 7u, 3u };
     return gesture;
 }
 
@@ -171,7 +172,7 @@ RuntimeInteractionGesture MakeGizmoGesture( bool angular )
     gesture.button = RuntimePointerButton::Left;
     gesture.startX = 64;
     gesture.startY = 96;
-    gesture.modelIndex = 5;
+    gesture.body = PhysicsBodyHandle{ 5u, 2u };
     gesture.axis = 1;
     gesture.angular = angular;
     return gesture;
@@ -304,7 +305,8 @@ void TestToolGestureSuppressesCameraLook()
     EXPECT_EQ( beginTransition.previousPointerCapture, RuntimePointerCaptureOwner::None );
     EXPECT_EQ( beginTransition.pointerCapture, RuntimePointerCaptureOwner::ToolGesture );
     EXPECT_EQ( beginTransition.gesture.kind, RuntimeInteractionGestureKind::MousePickupDrag );
-    EXPECT_EQ( beginTransition.gesture.modelIndex, 7 );
+    EXPECT_EQ( beginTransition.gesture.body.index, 7u );
+    EXPECT_EQ( beginTransition.gesture.body.generation, 3u );
 
     RuntimeInteractionFrameInput input = MakeDefaultFrameInput();
     input.rightMouseLookHeld = true;

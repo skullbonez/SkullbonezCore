@@ -76,8 +76,7 @@ bool RuntimeTools::PrepareSelectionCommand( const RuntimeInteractionCommand& com
                                             RuntimeInteractionSelectionPlan& outPlan )
 {
     outPlan = RuntimeInteractionSelectionPlan{};
-    if ( command.type != RuntimeInteractionCommandType::SetEditorSelection || command.modelIndex < -1 ||
-         command.modelIndex >= collection.SceneEntityCount() )
+    if ( command.type != RuntimeInteractionCommandType::SetEditorSelection )
     {
         return false;
     }
@@ -86,30 +85,36 @@ bool RuntimeTools::PrepareSelectionCommand( const RuntimeInteractionCommand& com
     const Physics::ColliderStore& colliderStore = collection.Colliders();
     Physics::PhysicsBodyHandle selectedBody;
     Physics::PhysicsColliderHandle selectedCollider;
-    if ( command.modelIndex >= 0 )
+    Physics::ModelRowHint selectedModelRow;
+    if ( command.body.IsValid() )
     {
         selectedBody = command.body;
         selectedCollider = command.collider;
         const Physics::PhysicsBodyRecord* body = bodyStore.RecordForHandle( selectedBody );
         const Physics::ColliderRecord* collider = colliderStore.RecordForHandle( selectedCollider );
-        if ( !body || !collider || bodyStore.ModelIndexForHandle( selectedBody ) != command.modelIndex ||
-             colliderStore.ModelIndexForHandle( selectedCollider ) != command.modelIndex ||
+        const int bodyRow = bodyStore.ModelIndexForHandle( selectedBody );
+        if ( !body || !collider || colliderStore.ModelIndexForHandle( selectedCollider ) != bodyRow ||
              collider->body != selectedBody )
         {
             return false;
         }
+        selectedModelRow.value = bodyRow;
+    }
+    else if ( command.collider.IsValid() )
+    {
+        return false;
     }
 
     if ( !m_editor.selectedBody.IsValid() )
     {
         m_editor.selectedModelRow.value = -1;
-        outPlan.previousModelIndex = -1;
+        outPlan.previousModelRow.value = -1;
     }
     else
     {
-        outPlan.previousModelIndex = bodyStore.ResolveModelRow( m_editor.selectedBody, m_editor.selectedModelRow );
+        outPlan.previousModelRow.value = bodyStore.ResolveModelRow( m_editor.selectedBody, m_editor.selectedModelRow );
     }
-    outPlan.modelIndex = command.modelIndex;
+    outPlan.modelRow = selectedModelRow;
     outPlan.previousBody = m_editor.selectedBody;
     outPlan.body = selectedBody;
     outPlan.previousCollider = m_editor.selectedCollider;
@@ -127,15 +132,15 @@ bool RuntimeTools::CommitSelectionCommand( const RuntimeInteractionSelectionPlan
     // Invariant: preparation and commit are synchronous around the optional
     // owner transition. Transition cleanup may deliberately clear the previous
     // selection; the prepared command still becomes the new authoritative one.
-    m_editor.selectedModelRow.value = plan.modelIndex;
+    m_editor.selectedModelRow = plan.modelRow;
     m_editor.selectedBody = plan.body;
     m_editor.selectedCollider = plan.collider;
-    if ( plan.previousModelIndex != plan.modelIndex || plan.previousBody != plan.body ||
+    if ( plan.previousModelRow.value != plan.modelRow.value || plan.previousBody != plan.body ||
          plan.previousCollider != plan.collider )
     {
         outEvent.type = RuntimeInteractionEventType::SelectionChanged;
-        outEvent.previousModelIndex = plan.previousModelIndex;
-        outEvent.modelIndex = plan.modelIndex;
+        outEvent.previousModelRow = plan.previousModelRow;
+        outEvent.modelRow = plan.modelRow;
         outEvent.previousBody = plan.previousBody;
         outEvent.body = plan.body;
         outEvent.previousCollider = plan.previousCollider;
@@ -144,8 +149,8 @@ bool RuntimeTools::CommitSelectionCommand( const RuntimeInteractionSelectionPlan
         Log().WriteEventf(
             "runtime_interaction_command_event type=selection_changed scope=%s previous_model=%d model=%d",
             outEvent.selectionScope == RuntimeInteractionSelectionScope::Inspect ? "inspect" : "editor",
-            outEvent.previousModelIndex,
-            outEvent.modelIndex );
+            outEvent.previousModelRow.value,
+            outEvent.modelRow.value );
     }
     return true;
 }
@@ -196,7 +201,6 @@ void RuntimeTools::ClearEditorInteractionForTransition( bool clearSelection,
     {
         RuntimeInteractionCommand command;
         command.type = RuntimeInteractionCommandType::SetEditorSelection;
-        command.modelIndex = -1;
         command.claimSelectionOwner = false;
         ApplySelectionCommand( command, collection );
     }

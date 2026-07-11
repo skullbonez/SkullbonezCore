@@ -240,12 +240,12 @@ SbResult InjectReplaySaveProbeEventCoverage( ReplaySaveProbeEventCoverageContext
         // Why: placement has already registered a PhysicsBodyHandle. Use the
         // authoritative body row as the starting transform, then commit the
         // edited descriptor back into the stores below.
-        SkullbonezCore::GameObjects::PhysicsBodyStateEdit placedBodyEdit;
-        placedBodyEdit.hasPosition = true;
+        PhysicsBodyUpdateDesc placedBodyEdit;
+        placedBodyEdit.body = placementResult.placedBody;
+        placedBodyEdit.updateMask = PHYSICS_BODY_UPDATE_POSE | PHYSICS_BODY_UPDATE_VELOCITY;
         placedBodyEdit.position = placedBodyBeforeEdit->position + Vector3( 4.0f, 0.0f, 0.0f );
         Quaternion placedOrientation = placedBodyBeforeEdit->orientation;
         placedOrientation.RotateAboutAxis( Vector3( 0.0f, 1.0f, 0.0f ), 0.25f );
-        placedBodyEdit.hasOrientation = true;
         placedBodyEdit.orientation = placedOrientation;
         const ColliderRecord* placedColliderBeforeEdit =
             TryGetEditorTransformColliderRecord( context.models,
@@ -267,18 +267,18 @@ SbResult InjectReplaySaveProbeEventCoverage( ReplaySaveProbeEventCoverageContext
         {
             return ReplayProbeFailure( "replay save probe failed to apply editor transform scale" );
         }
-        placedBodyEdit.hasLinearVelocity = true;
         placedBodyEdit.linearVelocity = Vector3( 0.0f, 0.0f, 0.0f );
-        placedBodyEdit.hasAngularVelocity = true;
         placedBodyEdit.angularVelocity = Vector3( 0.0f, 0.0f, 0.0f );
         // Invariant: the replay probe exercises the same explicit collider
         // edit command as the editor instead of relying on a model recapture.
-        context.models.ApplyPhysicsBodyColliderEdit(
-            modelCountBeforePlace,
-            placedBodyEdit,
-            MakeColliderCreateDesc( std::move( placedShapeAfterScale ),
-                                    placedColliderBeforeEdit->restitution,
-                                    placedColliderBeforeEdit->contactMaterialId ) );
+        if ( !context.physics.UpdateAuthoredBodyAndCollider(
+                 placedBodyEdit,
+                 MakeColliderCreateDesc( std::move( placedShapeAfterScale ),
+                                         placedColliderBeforeEdit->restitution,
+                                         placedColliderBeforeEdit->contactMaterialId ) ) )
+        {
+            return ReplayProbeFailure( "replay save probe failed to commit edited physics rows" );
+        }
         const PhysicsBodyRecord* placedBodyAfterEdit =
             context.models.BodyStore().RecordForModelIndex( modelCountBeforePlace );
         if ( !placedBodyAfterEdit || placedBodyAfterEdit->replayBodyId == 0 )
@@ -966,15 +966,18 @@ bool ApplyReplayRestoreEditorTransformEvent( SkullbonezCore::GameObjects::GameMo
         return false;
     }
 
-    SkullbonezCore::GameObjects::PhysicsBodyStateEdit bodyEdit;
+    PhysicsBodyUpdateDesc bodyEdit;
+    bodyEdit.body = eventBody;
+    bodyEdit.position = eventBodyRecord->position;
+    bodyEdit.orientation = eventBodyRecord->orientation;
     if ( event.flags & REPLAY_EDITOR_TRANSFORM_TRANSLATE )
     {
-        bodyEdit.hasPosition = true;
+        bodyEdit.updateMask |= PHYSICS_BODY_UPDATE_POSE;
         bodyEdit.position = position;
     }
     if ( event.flags & REPLAY_EDITOR_TRANSFORM_ROTATE )
     {
-        bodyEdit.hasOrientation = true;
+        bodyEdit.updateMask |= PHYSICS_BODY_UPDATE_POSE;
         bodyEdit.orientation = orientation;
     }
     PhysicsColliderCreateDesc editedColliderDesc;
@@ -1006,17 +1009,21 @@ bool ApplyReplayRestoreEditorTransformEvent( SkullbonezCore::GameObjects::GameMo
                                                      colliderBeforeScale->contactMaterialId );
         hasEditedColliderDesc = true;
     }
-    bodyEdit.hasLinearVelocity = true;
+    bodyEdit.updateMask |= PHYSICS_BODY_UPDATE_VELOCITY;
     bodyEdit.linearVelocity = Vector3( 0.0f, 0.0f, 0.0f );
-    bodyEdit.hasAngularVelocity = true;
     bodyEdit.angularVelocity = Vector3( 0.0f, 0.0f, 0.0f );
     if ( hasEditedColliderDesc )
     {
-        models.ApplyPhysicsBodyColliderEdit( event.value0, bodyEdit, std::move( editedColliderDesc ) );
+        if ( !physics.UpdateAuthoredBodyAndCollider( bodyEdit, std::move( editedColliderDesc ) ) )
+        {
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "editor transform body/collider update failed" );
+            return false;
+        }
     }
-    else
+    else if ( !physics.UpdateAuthoredBody( bodyEdit ) )
     {
-        models.ApplyPhysicsBodyEdit( event.value0, bodyEdit );
+        WriteReplayProbeReason( eventOutReason, eventReasonSize, "editor transform body update failed" );
+        return false;
     }
     // Why: the edited-state commit has already refreshed the edited body row.
     // The wake decision should read the committed PhysicsBodyStore record, not

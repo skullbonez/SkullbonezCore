@@ -641,7 +641,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
         case RuntimeInputAction::ToggleBroadphaseOverlay:
             HandleDiagnosticsKeyboardShortcut(
                 DiagnosticsKeyboardShortcutContext{ m_debug,
-                                                    m_camera.trackBallIndex,
+                                                    m_camera.trackBallRow.value,
                                                     m_sceneController.Models(),
                                                     m_renderBackendView.renderDiagnostics,
                                                     SceneState().isSceneMode,

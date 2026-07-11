@@ -86,6 +86,7 @@ using SkullbonezCore::Physics::MakePhysicsColliderCountFromNonNegativeInt;
 using SkullbonezCore::Physics::ModelRowHint;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyCount;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyRefreshView;
+using SkullbonezCore::Physics::PhysicsAuthoredBodyRegistration;
 using SkullbonezCore::Physics::PhysicsBodyCount;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
@@ -106,23 +107,6 @@ constexpr const char* SCENE_ENTITY_CREATION_OWNER = "Scene/EntityCreation";
 template <typename T> uint64_t VectorCapacityBytes( const T& values )
 {
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( typename T::value_type ) );
-}
-
-
-void RefreshBodyDescFromStoreBodyState( const PhysicsBodyRecord& record,
-                                        const PhysicsBodyStateEdit& edit,
-                                        PhysicsBodyCreateDesc& desc,
-                                        int fixedTreeReleaseRootIndex )
-{
-    desc.sceneObjectId = record.sceneObjectId;
-    desc.position = edit.hasPosition ? edit.position : record.position;
-    desc.orientation = edit.hasOrientation ? edit.orientation : record.orientation;
-    desc.linearVelocity = edit.hasLinearVelocity ? edit.linearVelocity : record.linearVelocity;
-    desc.angularVelocity = edit.hasAngularVelocity ? edit.angularVelocity : record.angularVelocity;
-    desc.rotationalInertia = record.rotationalInertia;
-    desc.mass = record.mass;
-    desc.motionKind = record.isFixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic;
-    desc.fixedTreeReleaseRootIndex = fixedTreeReleaseRootIndex;
 }
 
 
@@ -150,6 +134,22 @@ void GameModelCollection::PresentationStore::Clear()
 void GameModelCollection::PresentationStore::Append( GameModel model )
 {
     m_records.push_back( std::move( model ) );
+}
+
+
+bool GameModelCollection::PresentationStore::DestroyAtSwapLast( int index )
+{
+    if ( index < 0 || index >= Count() )
+    {
+        return false;
+    }
+    const std::size_t row = static_cast<std::size_t>( index );
+    if ( row + 1u != m_records.size() )
+    {
+        m_records[row] = std::move( m_records.back() );
+    }
+    m_records.pop_back();
+    return true;
 }
 
 
@@ -470,7 +470,9 @@ SceneEntityCreateResult GameModelCollection::TryCreateSceneEntity( SceneEntityCr
     // refresh/step view, so never retain the packet's displayName pointer.
     bodyDesc.diagnosticName = nullptr;
     m_presentations.Append( GameModel{} );
-    const PhysicsBodyHandle bodyHandle = m_physicsEngine.RegisterAuthoredBody( bodyDesc );
+    const PhysicsAuthoredBodyRegistration registration =
+        m_physicsEngine.RegisterAuthoredBody( bodyDesc, std::move( colliderDesc ) );
+    const PhysicsBodyHandle bodyHandle = registration.body;
     const PhysicsBodyRecord* bodyRecord = BodyStore().RecordForHandle( bodyHandle );
     if ( !bodyRecord )
     {
@@ -479,18 +481,8 @@ SceneEntityCreateResult GameModelCollection::TryCreateSceneEntity( SceneEntityCr
         // topology diverged after mutation.
         SB_FATAL( "GameObjects/GameModelCollection", "Failed to resolve newly authored physics body record." );
     }
-    // Owner: creation callers provide shape facts; PhysicsScene owns live
-    // collider rows. Reason: radius/extents/hull values exist before append, so
-    // recapturing them from GameModel preserves old ownership and extra work.
-    // Transaction API: callers cannot create an entity without supplying the
-    // collider descriptor owned by the same preflight.
-    PhysicsColliderCreateDesc authoredCollider = std::move( colliderDesc );
-    authoredCollider.body = bodyRecord->handle;
-    authoredCollider.sceneObjectId = bodyRecord->sceneObjectId;
-    m_physicsEngine.ApplyAuthoredColliderPolicy( authoredCollider );
-    const auto colliderHandle = m_physicsEngine.RegisterAuthoredCollider( authoredCollider );
-    const ColliderRecord* colliderRecord = Colliders().RecordForHandle( colliderHandle );
-    if ( !colliderHandle.IsValid() || !colliderRecord )
+    const ColliderRecord* colliderRecord = Colliders().RecordForHandle( registration.collider );
+    if ( !registration.IsValid() || !colliderRecord )
     {
         // Invariant: collider registration is the physics half of the creation
         // transaction. No collider handle means owner topology diverged after
@@ -501,6 +493,73 @@ SceneEntityCreateResult GameModelCollection::TryCreateSceneEntity( SceneEntityCr
     m_renderInstanceStore.CommitCreationRow( renderPresentation, *bodyRecord, *colliderRecord, modelIndex );
     AssertSceneCreationTopology( modelIndex + 1 );
     return { SbResult::Success(), bodyHandle };
+}
+
+
+bool GameModelCollection::DestroySceneEntity( PhysicsBodyHandle body )
+{
+    const PhysicsBodyStore& bodyStore = BodyStore();
+    const int modelIndex = bodyStore.ModelIndexForHandle( body );
+    const int modelCount = SceneEntityCount();
+    if ( modelIndex < 0 || modelIndex >= modelCount || bodyStore.Count() != modelCount ||
+         Colliders().Count() != modelCount || m_presentations.Count() != modelCount ||
+         m_renderInstanceStore.PresentationCount() != modelCount || m_renderInstanceStore.Count() != modelCount )
+    {
+        return false;
+    }
+    const SceneEntityRecord& entity = SceneEntities().At( modelIndex );
+    const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
+    if ( !bodyRecord || entity.body != body || entity.sceneObjectId.value != bodyRecord->sceneObjectId.value )
+    {
+        return false;
+    }
+
+    // Invariant: a group root cannot disappear while surviving metadata still
+    // names it. Group deletion is an ordered caller operation that removes
+    // dependants before the root.
+    for ( int index = 0; index < modelCount; ++index )
+    {
+        if ( index == modelIndex )
+        {
+            continue;
+        }
+        const SceneEntityRecord& candidate = SceneEntities().At( index );
+        if ( candidate.behaviorGroup.rootObjectId.value == entity.sceneObjectId.value ||
+             candidate.asset.rootObjectId.value == entity.sceneObjectId.value )
+        {
+            return false;
+        }
+    }
+
+    if ( !m_physicsEngine.DestroyAuthoredBody( body ) )
+    {
+        return false;
+    }
+    const bool entityRemoved = SceneEntities().DestroyAtSwapLast( modelIndex );
+    const bool presentationRemoved = m_presentations.DestroyAtSwapLast( modelIndex );
+    const bool renderRemoved = m_renderInstanceStore.DestroyCreationRowAtSwapLast( modelIndex );
+    if ( !entityRemoved || !presentationRemoved || !renderRemoved )
+    {
+        SB_FATAL( "GameObjects/GameModelCollection",
+                  "Paired scene deletion diverged after physics commit. row=%d entity=%d presentation=%d render=%d",
+                  modelIndex,
+                  entityRemoved ? 1 : 0,
+                  presentationRemoved ? 1 : 0,
+                  renderRemoved ? 1 : 0 );
+    }
+    // Invariant: PhysicsScene already compacted the live body/collider rows.
+    // Reloading authored descriptors here would teleport every surviving body
+    // whose solver/replay pose has diverged from its cold creation pose.
+    RefreshRenderInstances();
+    if ( m_renderInstanceStore.Count() != modelCount - 1 ||
+         m_renderInstanceStore.PresentationCount() != modelCount - 1 )
+    {
+        SB_FATAL( "GameObjects/GameModelCollection",
+                  "Paired scene deletion failed render refresh. row=%d",
+                  modelIndex );
+    }
+    AssertSceneCreationTopology( modelCount - 1 );
+    return !BodyStore().Contains( body );
 }
 
 
@@ -905,143 +964,6 @@ void GameModelCollection::FillPhysicsDiagnosticsNames( int bodyCount, std::vecto
 #endif
 
 
-bool GameModelCollection::TryRestoreReplayBodyState( int index,
-                                                     uint32_t replayBodyId,
-                                                     bool fixed,
-                                                     const Vector3& position,
-                                                     const Quaternion& orientation,
-                                                     const Vector3& linearVelocity,
-                                                     const Vector3& angularVelocity,
-                                                     float mass,
-                                                     float inverseMass,
-                                                     const Vector3& rotationalInertia,
-                                                     const Vector3& inverseRotationalInertia )
-{
-    if ( index < 0 || index >= SceneEntityCount() )
-    {
-        return false;
-    }
-
-    // Invariant: model index verifies the presentation slot only. The current
-    // body handle and replay id must prove the live physics row before either
-    // side of the restore mutates.
-    const PhysicsBodyStore& bodyStore = BodyStore();
-    const PhysicsBodyHandle body = bodyStore.HandleForModelIndex( index );
-    const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
-    if ( !bodyRecord || bodyRecord->replayBodyId != replayBodyId )
-    {
-        return false;
-    }
-
-    if ( !m_physicsEngine.RestoreReplayBodyState( body,
-                                                  replayBodyId,
-                                                  fixed,
-                                                  position,
-                                                  orientation,
-                                                  linearVelocity,
-                                                  angularVelocity,
-                                                  mass,
-                                                  inverseMass,
-                                                  rotationalInertia,
-                                                  inverseRotationalInertia ) )
-    {
-        return false;
-    }
-
-    PhysicsBodyCreateDesc desc;
-    const ModelRowHint bodyRow = MakeModelRowHint( index );
-    if ( m_physicsEngine.TryGetAuthoredBodyDescriptor( bodyRow, desc ) )
-    {
-        desc.sceneObjectId = bodyRecord->sceneObjectId;
-        desc.position = position;
-        desc.orientation = orientation;
-        desc.linearVelocity = linearVelocity;
-        desc.angularVelocity = angularVelocity;
-        desc.rotationalInertia = rotationalInertia;
-        desc.mass = mass;
-        desc.motionKind = fixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic;
-        desc.diagnosticName = SceneEntities().At( index ).displayName;
-        desc.fixedTreeReleaseRootIndex = FixedTreeReleaseRootForModelIndex( index );
-        const PhysicsAuthoredBodyCount expectedBodyCount =
-            MakePhysicsAuthoredBodyCountFromNonNegativeInt( SceneEntityCount() );
-        if ( !m_physicsEngine.UpdateAuthoredBodyDescriptor( bodyRow, desc, expectedBodyCount ) )
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
-
-bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
-                                                               uint32_t replayBodyId,
-                                                               bool fixed,
-                                                               const Vector3& position,
-                                                               const Quaternion& orientation,
-                                                               const Vector3& linearVelocity,
-                                                               const Vector3& angularVelocity,
-                                                               float mass,
-                                                               float inverseMass,
-                                                               const Vector3& rotationalInertia,
-                                                               const Vector3& inverseRotationalInertia,
-                                                               float fixedContactHighlightSeconds )
-{
-    if ( index < 0 || index >= SceneEntityCount() )
-    {
-        return false;
-    }
-
-    // Invariant: model index verifies the presentation slot only. The current
-    // body handle and replay id must prove the live physics row before either
-    // side of the restore mutates.
-    const PhysicsBodyStore& bodyStore = BodyStore();
-    const PhysicsBodyHandle body = bodyStore.HandleForModelIndex( index );
-    const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
-    if ( !bodyRecord || bodyRecord->replayBodyId != replayBodyId )
-    {
-        return false;
-    }
-
-    // Why: prediction restore swaps live/job state repeatedly. Restore the
-    // physics record from the captured backup instead of rebuilding from a
-    // presentation row.
-    if ( !m_physicsEngine.RestoreReplayBodyState( body,
-                                                  replayBodyId,
-                                                  fixed,
-                                                  position,
-                                                  orientation,
-                                                  linearVelocity,
-                                                  angularVelocity,
-                                                  mass,
-                                                  inverseMass,
-                                                  rotationalInertia,
-                                                  inverseRotationalInertia ) )
-    {
-        return false;
-    }
-
-    m_presentations.MutableAt( index ).SetFixedContactHighlightSeconds( fixedContactHighlightSeconds );
-    // Why: prediction restore is a scratch/live-state swap used for preview and
-    // prediction jobs. Authored descriptors represent editor/replay commits and
-    // must not be churned every render frame just to apply a temporary body row.
-    return true;
-}
-
-
-bool GameModelCollection::TrySetModelAngularVelocity( int index, const Vector3& angularVelocity )
-{
-    if ( index < 0 || index >= SceneEntityCount() )
-    {
-        return false;
-    }
-
-    PhysicsBodyStateEdit edit;
-    edit.hasAngularVelocity = true;
-    edit.angularVelocity = angularVelocity;
-    return ApplyPhysicsBodyEdit( index, edit );
-}
-
-
 MainMemoryGameObjectStats GameModelCollection::CollectMemoryStats() const
 {
     MainMemoryGameObjectStats stats;
@@ -1295,153 +1217,6 @@ void GameModelCollection::RefreshRenderInstances()
         assert( m_renderInstanceStore.ModelIndexForHandle( renderHandle ) == i );
     }
 #endif
-}
-
-
-bool GameModelCollection::ApplyPhysicsBodyEdit( int modelIndex, const PhysicsBodyStateEdit& edit )
-{
-    const int modelCount = SceneEntityCount();
-    if ( modelIndex < 0 || modelIndex >= modelCount )
-    {
-        return false;
-    }
-
-    // Invariant: cold editor/replay commands provide the changed body values.
-    // Unchanged fields come from PhysicsBodyStore, not the presentation row.
-    const PhysicsAuthoredBodyCount expectedAuthoredBodyCount =
-        MakePhysicsAuthoredBodyCountFromNonNegativeInt( modelCount );
-    const PhysicsBodyCount expectedBodyCount = MakePhysicsBodyCountFromNonNegativeInt( modelCount );
-    const ModelRowHint bodyRow = MakeModelRowHint( modelIndex );
-    if ( static_cast<int>( m_physicsEngine.AuthoredBodyDescriptorCount().value ) != modelCount )
-    {
-        return false;
-    }
-
-    if ( BodyStore().Count() != modelCount )
-    {
-        if ( !RefreshPhysicsBodyStoreFromAuthoredDescriptors() )
-        {
-            return false;
-        }
-    }
-
-    const PhysicsBodyRecord* bodyRecord = BodyStore().RecordForModelIndex( modelIndex );
-    if ( !bodyRecord )
-    {
-        return false;
-    }
-
-    PhysicsBodyCreateDesc bodyDesc;
-    if ( !m_physicsEngine.TryGetAuthoredBodyDescriptor( bodyRow, bodyDesc ) )
-    {
-        return false;
-    }
-    RefreshBodyDescFromStoreBodyState( *bodyRecord, edit, bodyDesc, FixedTreeReleaseRootForModelIndex( modelIndex ) );
-    if ( !m_physicsEngine.UpdateAuthoredBodyDescriptor( bodyRow, bodyDesc, expectedAuthoredBodyCount ) )
-    {
-        return false;
-    }
-    m_physicsEngine.RefreshBodyFromDescriptor( bodyDesc, bodyRow, expectedBodyCount );
-
-    // Why: body edits now stop at PhysicsBodyStore and PhysicsScene authored
-    // descriptors. Render, replay, snapshots, and editor wake checks read those
-    // stores directly.
-    return true;
-}
-
-
-bool GameModelCollection::ApplyPhysicsBodyColliderEdit( int modelIndex,
-                                                        const PhysicsBodyStateEdit& edit,
-                                                        PhysicsColliderCreateDesc colliderDesc )
-{
-    const int modelCount = SceneEntityCount();
-    if ( modelIndex < 0 || modelIndex >= modelCount )
-    {
-        return false;
-    }
-
-    // Invariant: editor/replay scale edits are cold authoring events. Commit the
-    // body row first, then replace exactly one collider row by stable handle.
-    // Count drift still goes through topology repair because missing rows cannot
-    // be patched by a single descriptor.
-    const PhysicsAuthoredBodyCount expectedAuthoredBodyCount =
-        MakePhysicsAuthoredBodyCountFromNonNegativeInt( modelCount );
-    const PhysicsBodyCount expectedBodyCount = MakePhysicsBodyCountFromNonNegativeInt( modelCount );
-    const ModelRowHint bodyRow = MakeModelRowHint( modelIndex );
-    if ( static_cast<int>( m_physicsEngine.AuthoredBodyDescriptorCount().value ) != modelCount )
-    {
-        return false;
-    }
-
-    if ( BodyStore().Count() != modelCount )
-    {
-        if ( !RefreshPhysicsBodyStoreFromAuthoredDescriptors() )
-        {
-            return false;
-        }
-    }
-
-    const PhysicsBodyRecord* existingBody = BodyStore().RecordForModelIndex( modelIndex );
-    if ( !existingBody )
-    {
-        return false;
-    }
-    PhysicsBodyCreateDesc bodyDesc;
-    if ( !m_physicsEngine.TryGetAuthoredBodyDescriptor( bodyRow, bodyDesc ) )
-    {
-        return false;
-    }
-    RefreshBodyDescFromStoreBodyState( *existingBody, edit, bodyDesc, FixedTreeReleaseRootForModelIndex( modelIndex ) );
-    bodyDesc.shape = colliderDesc.shape;
-    bodyDesc.boundingRadius = Math::CollisionDetection::GetShapeBoundingRadius( bodyDesc.shape );
-    bodyDesc.volume = Math::CollisionDetection::GetShapeVolume( bodyDesc.shape );
-    bodyDesc.projectedSurfaceArea = Math::CollisionDetection::GetShapeProjectedSurfaceArea( bodyDesc.shape );
-    bodyDesc.dragCoefficient = Math::CollisionDetection::GetShapeDragCoefficient( bodyDesc.shape );
-    bodyDesc.usesWorldInertia = !std::holds_alternative<BoundingSphere>( bodyDesc.shape );
-    if ( !m_physicsEngine.UpdateAuthoredBodyDescriptor( bodyRow, bodyDesc, expectedAuthoredBodyCount ) )
-    {
-        return false;
-    }
-    m_physicsEngine.RefreshBodyFromDescriptor( bodyDesc, bodyRow, expectedBodyCount );
-
-    const bool colliderBindingsReady = m_physicsEngine.RefreshColliderSnapshot();
-
-    const PhysicsBodyRecord* bodyRecord = BodyStore().RecordForModelIndex( modelIndex );
-    if ( !bodyRecord || !colliderBindingsReady || Colliders().Count() != modelCount )
-    {
-        return false;
-    }
-
-    colliderDesc.body = bodyRecord->handle;
-    colliderDesc.sceneObjectId = bodyRecord->sceneObjectId;
-    m_physicsEngine.ApplyAuthoredColliderPolicy( colliderDesc );
-    const PhysicsColliderHandle collider = Colliders().HandleForBodyHandle( bodyRecord->handle );
-    const ColliderRecord* existingCollider = Colliders().RecordForHandle( collider );
-    if ( colliderDesc.contactMaterialName[0] == '\0' && existingCollider &&
-         existingCollider->contactMaterialName[0] != '\0' )
-    {
-        strncpy_s( colliderDesc.contactMaterialName,
-                   sizeof( colliderDesc.contactMaterialName ),
-                   existingCollider->contactMaterialName,
-                   _TRUNCATE );
-    }
-    (void)m_physicsEngine.UpdateAuthoredCollider( collider, colliderDesc );
-
-    // Why: shape/body edits now stop at ColliderStore/PhysicsBodyStore plus the
-    // PhysicsScene descriptor store. GameModel keeps presentation metadata only.
-    return true;
-}
-
-
-void GameModelCollection::CommitEditedModelBodyState( int modelIndex )
-{
-    (void)ApplyPhysicsBodyEdit( modelIndex, PhysicsBodyStateEdit{} );
-}
-
-
-void GameModelCollection::CommitEditedModelColliderState( int modelIndex, PhysicsColliderCreateDesc colliderDesc )
-{
-    (void)ApplyPhysicsBodyColliderEdit( modelIndex, PhysicsBodyStateEdit{}, std::move( colliderDesc ) );
 }
 
 

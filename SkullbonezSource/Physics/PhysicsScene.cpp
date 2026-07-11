@@ -42,10 +42,12 @@ Related:
 #include "PhysicsApi.h"
 
 #include "../Core/Common.h"
+#include "../Core/FatalError.h"
 
 #include <cassert>
 #include <cstddef>
 #include <cstring>
+#include <utility>
 #include <variant>
 
 using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
@@ -57,14 +59,15 @@ using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::ContactPolicy;
-using SkullbonezCore::Physics::ModelRowHint;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyCount;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyRefreshView;
+using SkullbonezCore::Physics::PhysicsAuthoredBodyRegistration;
 using SkullbonezCore::Physics::PhysicsBodyCount;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
+using SkullbonezCore::Physics::PhysicsBodyUpdateDesc;
 using SkullbonezCore::Physics::PhysicsColliderCount;
 using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
@@ -196,34 +199,6 @@ bool PhysicsScene::CanRegisterAuthoredBody( PhysicsAuthoredBodyCount expectedBod
 }
 
 
-bool PhysicsScene::TryGetAuthoredBodyDescriptor( ModelRowHint bodyRow, PhysicsBodyCreateDesc& outDesc ) const
-{
-    const int row = bodyRow.value;
-    if ( !bodyRow.IsValid() || row >= CountAsInt( AuthoredBodyDescriptorCount() ) )
-    {
-        return false;
-    }
-    outDesc = m_authoredBodyDescs[static_cast<std::size_t>( row )];
-    return true;
-}
-
-
-bool PhysicsScene::UpdateAuthoredBodyDescriptor( ModelRowHint bodyRow,
-                                                 PhysicsBodyCreateDesc& desc,
-                                                 PhysicsAuthoredBodyCount expectedBodyCount )
-{
-    const int row = bodyRow.value;
-    const int expectedCount = CountAsInt( expectedBodyCount );
-    if ( !bodyRow.IsValid() || row >= expectedCount || expectedBodyCount.value != AuthoredBodyDescriptorCount().value )
-    {
-        return false;
-    }
-    ApplyAuthoredBodyPolicy( desc );
-    m_authoredBodyDescs[static_cast<std::size_t>( row )] = desc;
-    return true;
-}
-
-
 bool PhysicsScene::TrimAuthoredBodyDescriptorsToCount( PhysicsAuthoredBodyCount bodyCount )
 {
     const std::size_t targetCount = static_cast<std::size_t>( bodyCount.value );
@@ -281,47 +256,183 @@ void PhysicsScene::LoadBodyDescriptors( const std::vector<PhysicsBodyCreateDesc>
 }
 
 
-void PhysicsScene::RefreshBodyFromDescriptor( const PhysicsBodyCreateDesc& desc,
-                                              ModelRowHint bodyRow,
-                                              PhysicsBodyCount expectedBodyCount )
+PhysicsAuthoredBodyRegistration PhysicsScene::RegisterAuthoredBody( const PhysicsBodyCreateDesc& bodyDesc,
+                                                                    PhysicsColliderCreateDesc colliderDesc )
 {
-    const int row = bodyRow.value;
-    const int expectedCount = CountAsInt( expectedBodyCount );
-    if ( !bodyRow.IsValid() || row >= expectedCount )
-    {
-        return;
-    }
-    if ( m_bodyStore.Count() != expectedCount )
-    {
-        return;
-    }
-
-    m_bodyStore.RefreshRecordFromDescriptorAt( desc, row );
-}
-
-
-PhysicsBodyHandle PhysicsScene::RegisterAuthoredBody( const PhysicsBodyCreateDesc& desc )
-{
-    PhysicsBodyCreateDesc authoredDesc = desc;
+    PhysicsBodyCreateDesc authoredDesc = bodyDesc;
     ApplyAuthoredBodyPolicy( authoredDesc );
     m_authoredBodyDescs.push_back( authoredDesc );
-    return m_bodyStore.CreateBodyRecord( authoredDesc, m_world.IsPhysicsSleepEnabled() );
+    const PhysicsBodyHandle body = m_bodyStore.CreateBodyRecord( authoredDesc, m_world.IsPhysicsSleepEnabled() );
+    const PhysicsBodyRecord* record = m_bodyStore.RecordForHandle( body );
+    if ( !record )
+    {
+        m_authoredBodyDescs.pop_back();
+        return {};
+    }
+
+    colliderDesc.body = body;
+    colliderDesc.sceneObjectId = record->sceneObjectId;
+    ApplyAuthoredColliderPolicy( colliderDesc );
+    const PhysicsColliderHandle collider =
+        m_colliderStore.CreateColliderRecord( MakeColliderRecordFromDesc( colliderDesc, *record ) );
+    if ( !collider.IsValid() )
+    {
+        // Invariant: registration is all-or-nothing even if a future collider
+        // capacity rule rejects after body append. Retiring the handle here
+        // prevents a partial live body from escaping the physics boundary.
+        (void)m_bodyStore.DestroyBodyRecord( body );
+        m_authoredBodyDescs.pop_back();
+        return {};
+    }
+    return { body, collider };
 }
 
 
-PhysicsColliderHandle PhysicsScene::RegisterAuthoredCollider( const PhysicsColliderCreateDesc& desc )
+bool PhysicsScene::DestroyAuthoredBody( PhysicsBodyHandle body )
 {
-    const PhysicsBodyRecord* body = m_bodyStore.RecordForHandle( desc.body );
-    assert( body != nullptr );
-    return body ? m_colliderStore.CreateColliderRecord( MakeColliderRecordFromDesc( desc, *body ) )
-                : PhysicsColliderHandle{};
+    const int bodyRow = m_bodyStore.ModelIndexForHandle( body );
+    const PhysicsColliderHandle collider = m_colliderStore.HandleForBodyHandle( body );
+    if ( bodyRow < 0 || static_cast<std::size_t>( bodyRow ) >= m_authoredBodyDescs.size() || !collider.IsValid() ||
+         !m_colliderStore.Contains( collider ) )
+    {
+        return false;
+    }
+
+    m_world.DestroyPointJointsForBody( body );
+    if ( !m_colliderStore.DestroyColliderRecord( collider ) )
+    {
+        return false;
+    }
+    if ( !m_bodyStore.DestroyBodyRecord( body ) )
+    {
+        SB_FATAL( "Physics/PhysicsScene", "Body destruction failed after paired collider removal." );
+    }
+
+    const std::size_t row = static_cast<std::size_t>( bodyRow );
+    if ( row + 1u != m_authoredBodyDescs.size() )
+    {
+        m_authoredBodyDescs[row] = std::move( m_authoredBodyDescs.back() );
+    }
+    m_authoredBodyDescs.pop_back();
+    return true;
 }
 
 
-bool PhysicsScene::UpdateAuthoredCollider( PhysicsColliderHandle collider, const PhysicsColliderCreateDesc& desc )
+bool PhysicsScene::UpdateAuthoredBody( const PhysicsBodyUpdateDesc& update )
 {
-    const PhysicsBodyRecord* body = m_bodyStore.RecordForHandle( desc.body );
-    return body && m_colliderStore.UpdateRecordForHandle( collider, MakeColliderRecordFromDesc( desc, *body ) );
+    const int bodyRow = m_bodyStore.ModelIndexForHandle( update.body );
+    const PhysicsBodyRecord* body = m_bodyStore.RecordForHandle( update.body );
+    if ( bodyRow < 0 || !body || bodyRow >= static_cast<int>( m_authoredBodyDescs.size() ) ||
+         m_authoredBodyDescs.size() != static_cast<std::size_t>( m_bodyStore.Count() ) )
+    {
+        return false;
+    }
+
+    // Invariant: authored edits start from live store state. Solver movement
+    // between tool commands must not be overwritten by an old cold descriptor.
+    PhysicsBodyCreateDesc desc = m_authoredBodyDescs[static_cast<std::size_t>( bodyRow )];
+    desc.sceneObjectId = body->sceneObjectId;
+    desc.position = body->position;
+    desc.orientation = body->orientation;
+    desc.linearVelocity = body->linearVelocity;
+    desc.angularVelocity = body->angularVelocity;
+    desc.rotationalInertia = body->rotationalInertia;
+    desc.mass = body->mass;
+    desc.motionKind = body->isFixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic;
+    desc.startsAsleep = body->isSleeping;
+
+    if ( update.updateMask & PHYSICS_BODY_UPDATE_POSE )
+    {
+        desc.position = update.position;
+        desc.orientation = update.orientation;
+    }
+    if ( update.updateMask & PHYSICS_BODY_UPDATE_VELOCITY )
+    {
+        desc.linearVelocity = update.linearVelocity;
+        desc.angularVelocity = update.angularVelocity;
+    }
+    if ( update.updateMask & PHYSICS_BODY_UPDATE_MASS )
+    {
+        desc.mass = update.mass;
+        desc.rotationalInertia = update.rotationalInertia;
+    }
+    if ( update.updateMask & PHYSICS_BODY_UPDATE_MOTION_KIND )
+    {
+        desc.motionKind = update.motionKind;
+    }
+    if ( update.updateMask & PHYSICS_BODY_UPDATE_SLEEP_STATE )
+    {
+        desc.startsAsleep = update.sleeping;
+    }
+    if ( update.updateMask & PHYSICS_BODY_UPDATE_DIAGNOSTIC_NAME )
+    {
+        desc.diagnosticName = update.diagnosticName;
+    }
+
+    ApplyAuthoredBodyPolicy( desc );
+    m_authoredBodyDescs[static_cast<std::size_t>( bodyRow )] = desc;
+    m_bodyStore.RefreshRecordFromDescriptorAt( desc, bodyRow );
+    if ( update.updateMask & PHYSICS_BODY_UPDATE_SLEEP_STATE )
+    {
+        if ( update.sleeping )
+        {
+            SeedBodyAsleep( update.body );
+        }
+        else
+        {
+            WakeBody( update.body );
+        }
+    }
+    return true;
+}
+
+
+bool PhysicsScene::UpdateAuthoredBodyAndCollider( const PhysicsBodyUpdateDesc& update,
+                                                  PhysicsColliderCreateDesc colliderDesc )
+{
+    const PhysicsBodyRecord* body = m_bodyStore.RecordForHandle( update.body );
+    const PhysicsColliderHandle collider = m_colliderStore.HandleForBodyHandle( update.body );
+    const ColliderRecord* existingCollider = m_colliderStore.RecordForHandle( collider );
+    if ( !body || !existingCollider )
+    {
+        return false;
+    }
+
+    colliderDesc.body = update.body;
+    colliderDesc.sceneObjectId = body->sceneObjectId;
+    ApplyAuthoredColliderPolicy( colliderDesc );
+    if ( colliderDesc.contactMaterialName[0] == '\0' && existingCollider->contactMaterialName[0] != '\0' )
+    {
+        strncpy_s( colliderDesc.contactMaterialName,
+                   sizeof( colliderDesc.contactMaterialName ),
+                   existingCollider->contactMaterialName,
+                   _TRUNCATE );
+    }
+    if ( !UpdateAuthoredBody( update ) )
+    {
+        return false;
+    }
+
+    body = m_bodyStore.RecordForHandle( update.body );
+    if ( !body ||
+         !m_colliderStore.UpdateRecordForHandle( collider, MakeColliderRecordFromDesc( colliderDesc, *body ) ) )
+    {
+        // Lane F: preflighted fixed-capacity rows disappearing during one
+        // synchronous owner command is internal handle-map corruption.
+        SB_FATAL( "Physics/PhysicsScene", "Coordinated body/collider update lost a preflighted row." );
+    }
+
+    const int bodyRow = m_bodyStore.ModelIndexForHandle( update.body );
+    PhysicsBodyCreateDesc& authored = m_authoredBodyDescs[static_cast<std::size_t>( bodyRow )];
+    authored.shape = colliderDesc.shape;
+    authored.boundingRadius = Math::CollisionDetection::GetShapeBoundingRadius( authored.shape );
+    authored.volume = Math::CollisionDetection::GetShapeVolume( authored.shape );
+    authored.projectedSurfaceArea = Math::CollisionDetection::GetShapeProjectedSurfaceArea( authored.shape );
+    authored.dragCoefficient = Math::CollisionDetection::GetShapeDragCoefficient( authored.shape );
+    authored.usesWorldInertia = !std::holds_alternative<BoundingSphere>( authored.shape );
+    ApplyAuthoredBodyPolicy( authored );
+    m_bodyStore.RefreshRecordFromDescriptorAt( authored, bodyRow );
+    return true;
 }
 
 

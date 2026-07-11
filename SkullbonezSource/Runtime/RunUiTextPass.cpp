@@ -844,7 +844,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         }
         UIData.sceneEnergy = sceneEnergyForDisplay;
         UIData.timeScale = view.timeScale;
-        UIData.trackHeight = state.camera.trackBallIndex >= 0 ? state.camera.trackHeight : 0.0f;
+        UIData.trackHeight = state.camera.trackBallRow.IsValid() ? state.camera.trackHeight : 0.0f;
         UIData.autoCycleInterval = state.camera.autoCycleInterval > 0.0f ? state.camera.autoCycleInterval : 0.0f;
         UIData.worldGravity = state.world.GetGravity();
         UIData.worldFluidHeight = state.world.GetFluidSurfaceHeight();

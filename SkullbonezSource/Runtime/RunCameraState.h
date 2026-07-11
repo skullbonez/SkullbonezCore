@@ -37,6 +37,7 @@ Related:
 #include "DemoDirector.h"
 #include "Input.h"
 #include "RuntimeCameraMode.h"
+#include "../Physics/PhysicsHandles.h"
 
 namespace SkullbonezCore
 {
@@ -71,7 +72,7 @@ struct RunCameraState
     bool mouseLookOwnsCursor = false;                          // Resolved post-UI pointer policy captured with this frame's camera input.
     float travelSpeedMultiplier = 1.0f;                        // Captured Shift modifier; late camera update never reopens device state.
     float cameraTime = 0.0f;                                   // Camera helper clock
-    int trackBallIndex = -1;                                   // Index of ball to track with camera (-1 = no tracking)
+    Physics::ModelRowHint trackBallRow;                        // Cache for camera tracking; never object identity.
     float trackHeight = 300.0f;                                // Camera height above tracked ball
     float autoCycleInterval = -1.0f;                           // Seconds between per-ball auto screenshots (-1 = disabled)
     float autoCycleAccum = 0.0f;                               // Accumulated real-time seconds since last shot

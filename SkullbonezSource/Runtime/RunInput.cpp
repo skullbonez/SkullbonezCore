@@ -355,7 +355,6 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
         {
             RuntimeInteractionCommand command;
             command.type = RuntimeInteractionCommandType::SetEditorSelection;
-            command.modelIndex = selection.modelIndex;
             command.body = selection.body;
             command.collider = selection.collider;
             command.selectionScope = RuntimeInteractionSelectionScope::Inspect;
@@ -466,9 +465,9 @@ void InputRouter::ApplyCameraMode( RunCameraState& camera,
     if ( mode == RunCameraMode::Demo )
     {
         const int modelCount = m_sceneController.Models().SceneEntityCount();
-        if ( m_camera.trackBallIndex < 0 || m_camera.trackBallIndex >= modelCount )
+        if ( !m_camera.trackBallRow.IsValid() || m_camera.trackBallRow.value >= modelCount )
         {
-            m_camera.trackBallIndex = 0;
+            m_camera.trackBallRow.value = 0;
         }
         if ( m_camera.trackHeight <= 0.0f )
         {
@@ -576,7 +575,6 @@ void InputRouter::ApplyCameraMode( RunCameraState& camera,
         {
             RuntimeInteractionCommand command;
             command.type = RuntimeInteractionCommandType::SetEditorSelection;
-            command.modelIndex = selection.modelIndex;
             command.body = selection.body;
             command.collider = selection.collider;
             command.selectionScope = RuntimeInteractionSelectionScope::Inspect;

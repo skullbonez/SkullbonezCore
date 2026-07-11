@@ -1106,7 +1106,7 @@ void ReplayRuntime::BeginToolGesture( RuntimeInteractionController& interaction,
                                       RuntimePointerButton button,
                                       int startX,
                                       int startY,
-                                      int modelIndex,
+                                      PhysicsBodyHandle body,
                                       int axis,
                                       bool angular )
 {
@@ -1118,7 +1118,7 @@ void ReplayRuntime::BeginToolGesture( RuntimeInteractionController& interaction,
     gesture.button = button;
     gesture.startX = startX;
     gesture.startY = startY;
-    gesture.modelIndex = modelIndex;
+    gesture.body = body;
     gesture.axis = axis;
     gesture.angular = angular;
     interaction.BeginGesture( gesture, RuntimePointerCaptureOwner::ToolGesture, InteractionExitReason::BeginGesture );

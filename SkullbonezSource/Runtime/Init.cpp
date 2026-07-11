@@ -615,6 +615,8 @@ struct PhysicsRuntimeHandleSmokeResult
     bool colliderRefreshMatches = false;
     bool reorderPreservesHandleState = false;
     bool failedCreationIsAtomic = false;
+    bool deletionIsAtomic = false;
+    bool mutationUsesStableHandle = false;
     int bodyCount = 0;
     int colliderCount = 0;
     int renderInstanceCount = 0;
@@ -731,8 +733,10 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
 
     const SkullbonezCore::Math::Vector::Vector3 editedHalfExtents( 0.25f, 1.25f, 0.5f );
     constexpr float EDITED_RESTITUTION = 0.42f;
-    collection->CommitEditedModelColliderState(
-        0,
+    PhysicsBodyUpdateDesc colliderUpdate;
+    colliderUpdate.body = bodyA;
+    const bool colliderUpdateAccepted = physics.UpdateAuthoredBodyAndCollider(
+        colliderUpdate,
         MakeColliderCreateDesc( SkullbonezCore::Math::CollisionDetection::BoundingBox(
                                     editedHalfExtents,
                                     SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) ),
@@ -745,7 +749,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     // collider edit commit. Store reads only auto-repair topology changes, so
     // tools and scene edits must commit before asking for collider records.
     const bool colliderRefreshMatches =
-        initialCollider.shapeKind == ColliderShapeKind::Sphere &&
+        colliderUpdateAccepted && initialCollider.shapeKind == ColliderShapeKind::Sphere &&
         refreshedCollider.shapeKind == ColliderShapeKind::Box &&
         fabsf( refreshedCollider.boundingRadius - expectedBoxRadius ) < 0.0001f &&
         fabsf( refreshedCollider.restitution - 0.42f ) < 0.0001f &&
@@ -818,19 +822,69 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         fabsf( reorderedBodyARecord->pendingImpulse.y - pendingImpulse.y ) < 0.0001f &&
         fabsf( reorderedBodyARecord->pendingImpulseApplicationPoint.x - pendingImpulsePoint.x ) < 0.0001f;
 
+    const PhysicsBodyRecord* bodyBBeforeDelete = collection->BodyStore().RecordForHandle( bodyB );
+    const SkullbonezCore::Math::Vector::Vector3 liveOnlyPosition( 42.0f, 17.0f, -3.0f );
+    const bool seededLiveOnlyState =
+        bodyBBeforeDelete && physics.RestoreReplayBodyState( bodyB,
+                                                             bodyBBeforeDelete->replayBodyId,
+                                                             bodyBBeforeDelete->isFixed,
+                                                             liveOnlyPosition,
+                                                             bodyBBeforeDelete->orientation,
+                                                             bodyBBeforeDelete->linearVelocity,
+                                                             bodyBBeforeDelete->angularVelocity,
+                                                             bodyBBeforeDelete->mass,
+                                                             bodyBBeforeDelete->invMass,
+                                                             bodyBBeforeDelete->rotationalInertia,
+                                                             bodyBBeforeDelete->invRotationalInertia );
+    const bool destroyedBodyA = collection->DestroySceneEntity( bodyA );
+    const PhysicsBodyRecord* survivingBody = collection->BodyStore().RecordForHandle( bodyB );
+    const bool deletionIsAtomic =
+        seededLiveOnlyState && destroyedBodyA && !collection->BodyStore().Contains( bodyA ) && survivingBody &&
+        collection->BodyStore().ModelIndexForHandle( bodyB ) == 0 && sceneEntities.Count() == 1 &&
+        sceneEntities.At( 0 ).body == bodyB && collection->BodyStore().Count() == 1 &&
+        collection->Colliders().Count() == 1 && collection->Colliders().HandleForBodyHandle( bodyB ).IsValid() &&
+        collection->GetRenderInstanceStore().Count() == 1 &&
+        collection->GetRenderInstanceStore().PresentationCount() == 1 &&
+        physics.AuthoredBodyDescriptorCount().value == 1u && collection->GetPointJointConstraints().empty() &&
+        fabsf( survivingBody->position.x - liveOnlyPosition.x ) < 0.0001f &&
+        fabsf( survivingBody->position.y - liveOnlyPosition.y ) < 0.0001f &&
+        fabsf( survivingBody->position.z - liveOnlyPosition.z ) < 0.0001f;
+
+    PhysicsBodyUpdateDesc staleUpdate;
+    staleUpdate.body = bodyA;
+    staleUpdate.updateMask = PHYSICS_BODY_UPDATE_POSE;
+    PhysicsBodyUpdateDesc survivingUpdate;
+    survivingUpdate.body = bodyB;
+    survivingUpdate.updateMask = PHYSICS_BODY_UPDATE_VELOCITY | PHYSICS_BODY_UPDATE_MASS;
+    survivingUpdate.linearVelocity = SkullbonezCore::Math::Vector::Vector3( 2.0f, 3.0f, 4.0f );
+    survivingUpdate.angularVelocity = SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.5f, 0.0f );
+    survivingUpdate.mass = 7.0f;
+    survivingUpdate.rotationalInertia =
+        survivingBody ? survivingBody->rotationalInertia : SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    const bool staleMutationRejected = !physics.UpdateAuthoredBody( staleUpdate );
+    const bool survivingMutationAccepted = physics.UpdateAuthoredBody( survivingUpdate );
+    survivingBody = collection->BodyStore().RecordForHandle( bodyB );
+    const bool mutationUsesStableHandle = staleMutationRejected && survivingMutationAccepted && survivingBody &&
+                                          fabsf( survivingBody->mass - 7.0f ) < 0.0001f &&
+                                          fabsf( survivingBody->linearVelocity.x - 2.0f ) < 0.0001f &&
+                                          fabsf( survivingBody->angularVelocity.y - 0.5f ) < 0.0001f;
+
     result.handlesMatchStores = handlesMatchStores;
     result.renderMirrorMatches = renderMirrorMatches;
     result.jointUsesHandles = jointUsesHandles;
     result.colliderRefreshMatches = colliderRefreshMatches;
     result.reorderPreservesHandleState = reorderPreservesHandleState;
     result.failedCreationIsAtomic = failedCreationIsAtomic;
-    result.bodyCount = bodyStore.Count();
-    result.colliderCount = colliderStore.Count();
-    result.renderInstanceCount = renderStore.Count();
-    result.pointJointCount = pointJoints.size();
+    result.deletionIsAtomic = deletionIsAtomic;
+    result.mutationUsesStableHandle = mutationUsesStableHandle;
+    result.bodyCount = bodyCountBeforeFailure;
+    result.colliderCount = colliderCountBeforeFailure;
+    result.renderInstanceCount = renderCountBeforeFailure;
+    result.pointJointCount = jointUsesHandles ? 1u : 0u;
     result.bodyA = bodyA;
     result.passed = handlesMatchStores && renderMirrorMatches && jointUsesHandles && colliderRefreshMatches &&
-                    reorderPreservesHandleState && failedCreationIsAtomic;
+                    reorderPreservesHandleState && failedCreationIsAtomic && deletionIsAtomic &&
+                    mutationUsesStableHandle;
     return result;
 }
 
@@ -890,7 +944,7 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
         fprintf( stream,
                  "[physics-runtime-handle-smoke] bodies=%d colliders=%d render_instances=%d point_joints=%zu "
                  "handle_a=(%u,%u) store_handles=%s render_mirror=%s joint_handles=%s collider_refresh=%s "
-                 "reorder_state=%s creation_atomic=%s\n",
+                 "reorder_state=%s creation_atomic=%s deletion_atomic=%s mutation_handle=%s\n",
                  runtimeMirror.bodyCount,
                  runtimeMirror.colliderCount,
                  runtimeMirror.renderInstanceCount,
@@ -902,7 +956,9 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
                  runtimeMirror.jointUsesHandles ? "pass" : "fail",
                  runtimeMirror.colliderRefreshMatches ? "pass" : "fail",
                  runtimeMirror.reorderPreservesHandleState ? "pass" : "fail",
-                 runtimeMirror.failedCreationIsAtomic ? "pass" : "fail" );
+                 runtimeMirror.failedCreationIsAtomic ? "pass" : "fail",
+                 runtimeMirror.deletionIsAtomic ? "pass" : "fail",
+                 runtimeMirror.mutationUsesStableHandle ? "pass" : "fail" );
         if ( !runtimeMirror.errorMessage.empty() )
         {
             fprintf( stream, "[physics-runtime-handle-smoke] error=\"%s\"\n", runtimeMirror.errorMessage.c_str() );

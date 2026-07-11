@@ -318,7 +318,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
                                           RuntimePointerButton::Left,
                                           mouse.x,
                                           mouse.y,
-                                          -1,
+                                          PhysicsBodyHandle{},
                                           1 );
         m_replayRuntime.CauseTree().resizingWindow = true;
         m_replayRuntime.CauseTree().resizeStartMouseX = mouse.x;
@@ -337,7 +337,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
                                           RuntimePointerButton::Left,
                                           mouse.x,
                                           mouse.y,
-                                          -1,
+                                          PhysicsBodyHandle{},
                                           0 );
         m_replayRuntime.CauseTree().draggingWindow = true;
         m_replayRuntime.CauseTree().dragOffsetX = mouse.x - m_replayRuntime.CauseTree().x;

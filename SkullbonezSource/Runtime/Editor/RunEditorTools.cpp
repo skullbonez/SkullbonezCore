@@ -93,7 +93,6 @@ using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
 using SkullbonezCore::GameObjects::GameModelCollection;
-using SkullbonezCore::GameObjects::PhysicsBodyStateEdit;
 using Json = nlohmann::ordered_json;
 
 namespace
@@ -681,17 +680,21 @@ void SeedEditorPhysicsBodyAsleep( SkullbonezCore::GameObjects::GameModelCollecti
 void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollection& collection,
                                     PhysicsEngine& physics,
                                     int index,
-                                    PhysicsBodyStateEdit edit )
+                                    PhysicsBodyUpdateDesc update )
 {
     // Why: Direct editor transforms teleport the body. Clearing velocities and
     // waking dynamic bodies prevents stale solver momentum from immediately
     // dragging the authored pose away.
-    edit.hasLinearVelocity = true;
-    edit.linearVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-    edit.hasAngularVelocity = true;
-    edit.angularVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-    collection.ApplyPhysicsBodyEdit( index, edit );
-    const PhysicsBodyRecord* body = collection.BodyStore().RecordForModelIndex( index );
+    const PhysicsBodyHandle bodyHandle = collection.BodyStore().HandleForModelIndex( index );
+    update.body = bodyHandle;
+    update.updateMask |= PHYSICS_BODY_UPDATE_VELOCITY;
+    update.linearVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    update.angularVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    if ( !physics.UpdateAuthoredBody( update ) )
+    {
+        return;
+    }
+    const PhysicsBodyRecord* body = collection.BodyStore().RecordForHandle( bodyHandle );
     // Why: the explicit edit just refreshed the physics row; wake eligibility
     // should now follow PhysicsBodyStore, not legacy model-side body state.
     if ( body && !body->isFixed )
@@ -704,18 +707,22 @@ void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollec
 void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollection& collection,
                                     PhysicsEngine& physics,
                                     int index,
-                                    PhysicsBodyStateEdit edit,
+                                    PhysicsBodyUpdateDesc update,
                                     PhysicsColliderCreateDesc colliderDesc )
 {
     // Why: scale edits change the authored descriptor sidecar and the physics
     // collider row. Commit them together so wake decisions, picks, and replay
     // recording all see one coherent body/collider state.
-    edit.hasLinearVelocity = true;
-    edit.linearVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-    edit.hasAngularVelocity = true;
-    edit.angularVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-    collection.ApplyPhysicsBodyColliderEdit( index, edit, std::move( colliderDesc ) );
-    const PhysicsBodyRecord* body = collection.BodyStore().RecordForModelIndex( index );
+    const PhysicsBodyHandle bodyHandle = collection.BodyStore().HandleForModelIndex( index );
+    update.body = bodyHandle;
+    update.updateMask |= PHYSICS_BODY_UPDATE_VELOCITY;
+    update.linearVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    update.angularVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    if ( !physics.UpdateAuthoredBodyAndCollider( update, std::move( colliderDesc ) ) )
+    {
+        return;
+    }
+    const PhysicsBodyRecord* body = collection.BodyStore().RecordForHandle( bodyHandle );
     if ( body && !body->isFixed )
     {
         WakeEditorPhysicsBody( collection, physics, index );
@@ -945,7 +952,7 @@ bool BeginEditorGizmoDragGesture( EditorGizmoContext context,
     gesture.button = RuntimePointerButton::Left;
     gesture.startX = clientX;
     gesture.startY = clientY;
-    gesture.modelIndex = modelIndex;
+    gesture.body = context.models.BodyStore().HandleForModelIndex( modelIndex );
     gesture.axis = axis;
     gesture.angular = angular;
 
@@ -1090,7 +1097,6 @@ int RuntimeTools::RefreshEditorPointerPreview( const EditorPointerPreviewInput& 
     {
         RuntimeInteractionCommand command;
         command.type = RuntimeInteractionCommandType::SetEditorSelection;
-        command.modelIndex = -1;
         command.selectionScope = previewResult.inspectSelectionScope ? RuntimeInteractionSelectionScope::Inspect
                                                                      : RuntimeInteractionSelectionScope::Editor;
         command.claimSelectionOwner = false;
@@ -1122,7 +1128,6 @@ bool RuntimeTools::PrepareEditorPointerSelection( const EditorPointerSelectionIn
 
     RuntimeInteractionCommand command;
     command.type = RuntimeInteractionCommandType::SetEditorSelection;
-    command.modelIndex = result.modelIndex;
     command.body = result.body;
     command.collider = result.collider;
     command.selectionScope =
@@ -1132,9 +1137,9 @@ bool RuntimeTools::PrepareEditorPointerSelection( const EditorPointerSelectionIn
         return false;
     }
 
-    outOwner = result.modelIndex >= 0 ? ( input.inspectGizmoActive ? WorldInteractionOwner::InspectGizmo
-                                                                   : WorldInteractionOwner::EditorGizmo )
-                                      : WorldInteractionOwner::None;
+    outOwner = result.modelRow.IsValid() ? ( input.inspectGizmoActive ? WorldInteractionOwner::InspectGizmo
+                                                                      : WorldInteractionOwner::EditorGizmo )
+                                         : WorldInteractionOwner::None;
     outReason = input.inspectGizmoActive ? InteractionExitReason::EnterInspect : InteractionExitReason::EnterEdit;
     return true;
 }
@@ -1188,7 +1193,6 @@ RuntimeTools::RouteEditorPlacementScalePointer( bool leftReleased,
 
                 RuntimeInteractionCommand command;
                 command.type = RuntimeInteractionCommandType::SetEditorSelection;
-                command.modelIndex = placementResult.modelCountAfter - 1;
                 command.body = placementResult.placedBody;
                 command.collider = placementResult.placedCollider;
                 command.claimSelectionOwner = false;
@@ -1362,7 +1366,7 @@ bool RuntimeTools::PrepareEditorGizmoGesture( bool inspectGizmoActive,
     EditorGizmoContext gizmoContext{ m_editor, collection, physics, interaction };
     outPlan.owner = inspectGizmoActive ? WorldInteractionOwner::InspectGizmo : WorldInteractionOwner::EditorGizmo;
     outPlan.reason = inspectGizmoActive ? InteractionExitReason::EnterInspect : InteractionExitReason::EnterEdit;
-    outPlan.selectedModelIndex = selectedModelIndex;
+    outPlan.selectedBody = m_editor.selectedBody;
     outPlan.clientX = clientX;
     outPlan.clientY = clientY;
 
@@ -1479,8 +1483,13 @@ EditorGizmoGestureResult RuntimeTools::CommitEditorGizmoGesture( const EditorGiz
     EditorGizmoContext gizmoContext{ m_editor, collection, physics, interaction };
     result.attempted = true;
     const bool angular = plan.kind == EditorGizmoGestureKind::Rotate;
+    const int selectedModelIndex = collection.BodyStore().ModelIndexForHandle( plan.selectedBody );
+    if ( selectedModelIndex < 0 )
+    {
+        return result;
+    }
     if ( !BeginEditorGizmoDragGesture( gizmoContext,
-                                       plan.selectedModelIndex,
+                                       selectedModelIndex,
                                        plan.axis,
                                        angular,
                                        plan.clientX,

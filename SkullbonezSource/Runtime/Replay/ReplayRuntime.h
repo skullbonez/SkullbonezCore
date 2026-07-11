@@ -1405,7 +1405,7 @@ class ReplayRuntime
                            RuntimePointerButton button,
                            int startX,
                            int startY,
-                           int modelIndex = -1,
+                           Physics::PhysicsBodyHandle body = {},
                            int axis = -1,
                            bool angular = false );
     void EndToolGesture( RuntimeInteractionController& interaction, RuntimeInteractionGestureKind kind );

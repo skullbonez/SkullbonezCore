@@ -38,7 +38,6 @@ Related:
 #include <cmath>
 #include <utility>
 
-using SkullbonezCore::GameObjects::PhysicsBodyStateEdit;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::CollisionDetection::ScaleShapeAxisFromBase;
 using SkullbonezCore::Math::Orientation::Quaternion;
@@ -48,8 +47,10 @@ using SkullbonezCore::Math::Vector::VectorMagSquared;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::MakeColliderCreateDesc;
+using SkullbonezCore::Physics::PHYSICS_BODY_UPDATE_POSE;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
+using SkullbonezCore::Physics::PhysicsBodyUpdateDesc;
 
 namespace SkullbonezCore
 {
@@ -355,17 +356,19 @@ void MoveSelectedEditorObjectAlongAxis( EditorGizmoContext context,
         for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )
         {
             const int modelIndex = context.editor.gizmoDragGroupIndices[static_cast<std::size_t>( groupIndex )];
-            PhysicsBodyStateEdit edit;
-            edit.hasPosition = true;
+            PhysicsBodyUpdateDesc edit;
+            edit.updateMask = PHYSICS_BODY_UPDATE_POSE;
             edit.position = context.editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( groupIndex )] + delta;
+            edit.orientation = context.editor.gizmoDragGroupStartOrientations[static_cast<std::size_t>( groupIndex )];
             ResetEditorModelMotionAndWake( context.models, context.physics, modelIndex, edit );
         }
     }
     else
     {
-        PhysicsBodyStateEdit edit;
-        edit.hasPosition = true;
+        PhysicsBodyUpdateDesc edit;
+        edit.updateMask = PHYSICS_BODY_UPDATE_POSE;
         edit.position = context.editor.gizmoDragStartPosition + delta;
+        edit.orientation = context.editor.gizmoDragStartOrientation;
         ResetEditorModelMotionAndWake( context.models, context.physics, index, edit );
     }
 }
@@ -422,7 +425,7 @@ void ScaleSelectedEditorObjectAlongAxis( EditorGizmoContext context,
                                  factor,
                                  scaledShape ) )
     {
-        PhysicsBodyStateEdit edit;
+        PhysicsBodyUpdateDesc edit;
         ResetEditorModelMotionAndWake( context.models,
                                        context.physics,
                                        index,
@@ -473,11 +476,10 @@ void RotateSelectedEditorObjectAroundAxis( EditorGizmoContext context,
             Quaternion orientation =
                 context.editor.gizmoDragGroupStartOrientations[static_cast<std::size_t>( groupIndex )];
             orientation.RotateAboutAxis( axisVector, angleDelta );
-            PhysicsBodyStateEdit edit;
-            edit.hasPosition = true;
+            PhysicsBodyUpdateDesc edit;
+            edit.updateMask = PHYSICS_BODY_UPDATE_POSE;
             edit.position = context.editor.gizmoDragStartPosition +
                             RotatePointAboutArbitrary( angleDelta, axisVector, startOffset );
-            edit.hasOrientation = true;
             edit.orientation = orientation;
             ResetEditorModelMotionAndWake( context.models, context.physics, modelIndex, edit );
         }
@@ -486,8 +488,9 @@ void RotateSelectedEditorObjectAroundAxis( EditorGizmoContext context,
     {
         Quaternion orientation = context.editor.gizmoDragStartOrientation;
         orientation.RotateAboutAxis( axisVector, angleDelta );
-        PhysicsBodyStateEdit edit;
-        edit.hasOrientation = true;
+        PhysicsBodyUpdateDesc edit;
+        edit.updateMask = PHYSICS_BODY_UPDATE_POSE;
+        edit.position = context.editor.gizmoDragStartPosition;
         edit.orientation = orientation;
         ResetEditorModelMotionAndWake( context.models, context.physics, index, edit );
     }

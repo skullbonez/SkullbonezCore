@@ -10,16 +10,17 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `788fbe85 refactor: delete runtime frame context bags` |
-| Current objective | Commit/push completed runtime-shell F1-F3, then continue physics authority A1/A3 and D1/D2/D4 |
-| Last broad local gate | `tools\validate_full.bat` passed runtime-shell closure in 64.3s: mandatory CPU umbrella, zero-warning Profile/Debug builds, DX12 InfoQueue errors = 0 with matching screenshots, standalone physics/handle smoke, and the 44,401-line varied baseline byte-exactly |
-| Latest focused gates | Corrected `validate_fast` passed in 26.9s and all five interaction scenarios passed in 15.1s; comment audit is 47/47 and the repeat F3 ownership review is clean |
+| Current pushed baseline | `c3a02e31 refactor: close runtime shell ownership` |
+| Current objective | Commit/push completed physics authority closure, then continue interaction-state and runtime UI/control ownership in dependency order |
+| Last broad local gate | `tools\validate_full.bat` passed physics authority closure in 70.0s: 131/131 doctests, every standalone CPU lane, zero-warning Profile/Debug builds, DX12 InfoQueue errors = 0 with matching screenshots, expanded handle smoke, and the 44,401-line varied baseline byte-exactly |
+| Latest focused gates | Runtime interaction policy Debug/Release passed in 9.5s; all five final-source interaction scenarios passed in 14.0s; comment audit is 45/45 and the repeat physics closure review is clean |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
 
 - `3d25cf48 docs: rebuild the engine cleanup control plane`
 - `31395ba5 docs: reconcile stale engine plan references`
+- `c3a02e31 refactor: close runtime shell ownership`
 - `125bb8a9 docs: inventory DX12 failure surfaces`
 - `0c9097ec fix: reduce box manifolds by depth and spread`
 - `e752c395 style: format manifold reducer`
@@ -507,14 +508,24 @@ warnings/errors, `creation_atomic=pass`, and the varied CSV byte-exact match.
 `tools\validate_physics_deep.bat` also passed with the varied CSV, legacy
 solver signature, and SkullScope query packet all exact.
 
+Physics authority and stable identity are complete at 16/16. Physics now owns
+handle-based authored mutation and coordinated body/collider registration;
+scene deletion retires joints and paired physics/metadata/presentation/render
+rows without reloading surviving live bodies from cold descriptors. Runtime
+selection commands, gestures, attached-camera state, picker results, camera
+tracking, and prepared gizmo plans retain handles or typed row hints. The first
+plan-level adversarial review found and fixed the surviving-body teleport risk;
+the required repeat was clean. Policy, five interaction scenarios, and full all
+pass from the corrected source. Detailed evidence is in
+`Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md`.
+
 ## Workstreams To Prioritize
 
-1. Finish physics authority A1/A3 and stable-identity D1/D2/D4.
-2. Close remaining interaction-state and runtime UI/control ownership phases.
-3. Finish validation-gate V3-V4 and behavioral-test P3/P5/P6 evidence.
-4. Close renderer decomposition after the five `Run`
+1. Close remaining interaction-state and runtime UI/control ownership phases.
+2. Finish validation-gate V3-V4 and behavioral-test P3/P5/P6 evidence.
+3. Close renderer decomposition after the five `Run`
    ownership extractions establish their boundaries.
-5. Run the final ownership and campaign adversarial reviews, fixing every
+4. Run the final ownership and campaign adversarial reviews, fixing every
    credible finding before closure.
 
 ## Binding Decisions And External Blocker

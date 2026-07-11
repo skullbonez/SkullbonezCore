@@ -85,11 +85,11 @@ bool RuntimePickService::TryPickModel( const RuntimePickRequest& request, Runtim
             outResult.body = body.handle;
             outResult.collider = collider.handle;
             outResult.rayT = rayT;
-            outResult.modelIndex = i;
+            outResult.modelRow.value = i;
         }
     }
 
-    return outResult.modelIndex >= 0 && outResult.body.IsValid();
+    return outResult.modelRow.IsValid() && outResult.body.IsValid();
 }
 } // namespace Basics
 } // namespace SkullbonezCore

@@ -54,7 +54,6 @@ class WorldEnvironment;
 namespace GameObjects
 {
 class GameModelCollection;
-struct PhysicsBodyStateEdit;
 } // namespace GameObjects
 namespace Geometry
 {
@@ -63,6 +62,7 @@ class Terrain;
 namespace Physics
 {
 class ColliderStore;
+struct PhysicsBodyUpdateDesc;
 class PhysicsEngine;
 struct ColliderRecord;
 struct PhysicsBodyRecord;
@@ -285,11 +285,11 @@ void SeedEditorPhysicsBodyAsleep( GameObjects::GameModelCollection& collection,
 void ResetEditorModelMotionAndWake( GameObjects::GameModelCollection& collection,
                                     Physics::PhysicsEngine& physics,
                                     int index,
-                                    GameObjects::PhysicsBodyStateEdit edit );
+                                    Physics::PhysicsBodyUpdateDesc update );
 void ResetEditorModelMotionAndWake( GameObjects::GameModelCollection& collection,
                                     Physics::PhysicsEngine& physics,
                                     int index,
-                                    GameObjects::PhysicsBodyStateEdit edit,
+                                    Physics::PhysicsBodyUpdateDesc update,
                                     Physics::PhysicsColliderCreateDesc colliderDesc );
 // Concept: replay velocity gizmos share the editor axis/ring vocabulary so
 // scrub-time velocity edits and live editor gizmos draw comparable handles.

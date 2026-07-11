@@ -202,10 +202,9 @@ ReplayRuntime::TryPickPathTarget( const PathPickInput& input,
         request.rayDirection = input.rayDirection;
 
         RuntimePickResult result;
-        if ( RuntimePickService::TryPickModel( request, result ) && result.modelIndex >= 0 &&
-             result.modelIndex < modelCount )
+        if ( RuntimePickService::TryPickModel( request, result ) )
         {
-            pickedIndex = result.modelIndex;
+            pickedIndex = result.modelRow.value;
             pickedId = ReplayQueryBodyIdForModelIndex( bodyStore, pickedIndex );
             copyPresentationName( pickedIndex, pickedName, sizeof( pickedName ) );
         }

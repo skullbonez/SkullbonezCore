@@ -122,20 +122,6 @@ namespace GameObjects
 {
 class GameModelRenderer;
 
-// Value packet for cold editor/replay body edits. Set only the fields changed by
-// the command; unchanged fields are copied from the current PhysicsBodyStore row.
-struct PhysicsBodyStateEdit
-{
-    bool hasPosition = false;
-    Math::Vector::Vector3 position;
-    bool hasOrientation = false;
-    Math::Orientation::Quaternion orientation;
-    bool hasLinearVelocity = false;
-    Math::Vector::Vector3 linearVelocity;
-    bool hasAngularVelocity = false;
-    Math::Vector::Vector3 angularVelocity;
-};
-
 // Concept: creation returns both the recoverable status and the created body
 // handle. Capacity, duplicate identity, and malformed grouping fail before any
 // owner row changes; callers must check status before using the handle.
@@ -164,6 +150,9 @@ class GameModelCollection
         void Reserve( std::size_t capacity );
         void Clear();
         void Append( GameModel model );
+        // Invariant: only the collection's cross-store deletion transaction may
+        // compact this dense presentation row.
+        bool DestroyAtSwapLast( int index );
         bool TrimToCount( int count );
         int Count() const;
         std::size_t Capacity() const;
@@ -220,6 +209,9 @@ class GameModelCollection
     SceneEntityCreateResult TryCreateSceneEntity( Basics::SceneEntityCreateDesc entity,
                                                   Physics::PhysicsBodyCreateDesc bodyDesc,
                                                   Physics::PhysicsColliderCreateDesc colliderDesc );
+    // Cold scene/editor deletion removes the entity's physics, metadata,
+    // presentation, and render rows as one swap-last transaction.
+    bool DestroySceneEntity( Physics::PhysicsBodyHandle body );
     void Clear();
     int CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount );
     void RenderModels( const Basics::RenderHelperContext& helperContext,
@@ -273,37 +265,6 @@ class GameModelCollection
     bool TryGetPhysicsDiagnosticsModelName( int index, const char*& outName ) const;
     void FillPhysicsDiagnosticsNames( int bodyCount, std::vector<const char*>& outNames ) const;
 #endif
-    // Replays restore saved body state through the collection so cache
-    // invalidation and replay-id validation stay with the model owner. The
-    // physics values still land in PhysicsBodyStore, not a model reload.
-    bool TryRestoreReplayBodyState( int index,
-                                    uint32_t replayBodyId,
-                                    bool fixed,
-                                    const Math::Vector::Vector3& position,
-                                    const Math::Orientation::Quaternion& orientation,
-                                    const Math::Vector::Vector3& linearVelocity,
-                                    const Math::Vector::Vector3& angularVelocity,
-                                    float mass,
-                                    float inverseMass,
-                                    const Math::Vector::Vector3& rotationalInertia,
-                                    const Math::Vector::Vector3& inverseRotationalInertia );
-    // Replay prediction temporarily simulates from copied body state, then
-    // restores the live scene through this owner-checked command.
-    bool TryRestoreReplayPredictionBodyState( int index,
-                                              uint32_t replayBodyId,
-                                              bool fixed,
-                                              const Math::Vector::Vector3& position,
-                                              const Math::Orientation::Quaternion& orientation,
-                                              const Math::Vector::Vector3& linearVelocity,
-                                              const Math::Vector::Vector3& angularVelocity,
-                                              float mass,
-                                              float inverseMass,
-                                              const Math::Vector::Vector3& rotationalInertia,
-                                              const Math::Vector::Vector3& inverseRotationalInertia,
-                                              float fixedContactHighlightSeconds );
-    // Mutates angular velocity through the collection so PhysicsBodyStore is
-    // refreshed through the same owner-checked path as replay/editor edits.
-    bool TrySetModelAngularVelocity( int index, const Math::Vector::Vector3& angularVelocity );
     Basics::MainMemoryGameObjectStats CollectMemoryStats() const;
     // SceneController uses this narrow presentation-owner command while it
     // coordinates replay topology with physics and entity owners.
@@ -336,18 +297,6 @@ class GameModelCollection
     const Rendering::RenderInstanceStore& GetRenderInstanceStore();
     GameModel& GetModelAtIndex( int index );
     double GetSceneKineticEnergy();
-    // Commits a body-only edit described by explicit command data; unchanged
-    // fields come from PhysicsBodyStore and the descriptor sidecar is refreshed
-    // only after the store commit wins.
-    bool ApplyPhysicsBodyEdit( int modelIndex, const PhysicsBodyStateEdit& edit );
-    // Commits a shape edit with optional body fields from the same cold command.
-    bool ApplyPhysicsBodyColliderEdit( int modelIndex,
-                                       const PhysicsBodyStateEdit& edit,
-                                       Physics::PhysicsColliderCreateDesc colliderDesc );
-    // Owner command for callers whose explicit descriptors are already current.
-    void CommitEditedModelBodyState( int modelIndex );
-    // Owner command for shape edits that do not also change body fields.
-    void CommitEditedModelColliderState( int modelIndex, Physics::PhysicsColliderCreateDesc colliderDesc );
     void NotifyFixedContact( int modelIndex, float highlightSeconds );
     void TickContactHighlights( int modelCount, float deltaSeconds );
     void NotifyAudioContact( int modelIndex, float highlightSeconds );

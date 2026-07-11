@@ -232,6 +232,19 @@ struct PhysicsColliderCreateDesc
     float dragCoefficient = 0.0f;
 };
 
+struct PhysicsAuthoredBodyRegistration
+{
+    // One scene-creation commit publishes both physics rows. Either both
+    // handles are valid or neither row remains live.
+    PhysicsBodyHandle body;
+    PhysicsColliderHandle collider;
+
+    bool IsValid() const
+    {
+        return body.IsValid() && collider.IsValid();
+    }
+};
+
 inline PhysicsColliderCreateDesc MakeColliderCreateDesc( Math::CollisionDetection::CollisionShape shape,
                                                          float restitution,
                                                          uint32_t contactMaterialId,

@@ -695,7 +695,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
     m_debug.reproSnapshotMessageUntil = 0.0;
 #endif
     m_debug.frozenWaterTime = 0.0f;
-    m_camera.trackBallIndex = -1;
+    m_camera.trackBallRow.value = -1;
     m_camera.trackHeight = 300.0f;
     m_camera.autoCycleInterval = -1.0f;
     m_camera.autoCycleAccum = 0.0f;
@@ -1047,7 +1047,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
         if ( scene.GetTrackHeight() > 0.0f )
         {
             m_camera.trackHeight = scene.GetTrackHeight();
-            m_camera.trackBallIndex = 0;
+            m_camera.trackBallRow.value = 0;
             m_camera.autoCycleInterval = scene.GetAutoCycleInterval(); // -1 if not specified = disabled
         }
         const char* rendererName = m_renderBackendView.renderDiagnostics
@@ -1435,7 +1435,7 @@ SbResult SceneController::SaveCurrentDefaults( const SceneDefaultsSaveView& view
     debug["waterHidden"] = view.debug.isWaterHidden;
     debug["terrainHidden"] = view.debug.isTerrainHidden;
     debug["waterReflection"] = WaterReflectionJsonValue( view.debug.isWaterNoReflect, view.debug.isWaterRTReflect );
-    if ( view.camera.trackBallIndex >= 0 && view.camera.trackHeight > 0.0f )
+    if ( view.camera.trackBallRow.IsValid() && view.camera.trackHeight > 0.0f )
     {
         playback["trackHeight"] = view.camera.trackHeight;
     }

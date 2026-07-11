@@ -109,6 +109,8 @@ class SceneEntityStore
     void Clear();
     SbResult PreflightAppend( const SceneEntityCreateDesc& entity ) const;
     void CommitAppend( const SceneEntityCreateDesc& entity, Physics::PhysicsBodyHandle body );
+    // Called only inside the collection's coordinated cross-store deletion.
+    bool DestroyAtSwapLast( int index );
     void UpdateBodyHandleAt( int index, Physics::PhysicsBodyHandle body, Physics::PhysicsSceneObjectId sceneObjectId );
     bool TrimToCount( int count );
 

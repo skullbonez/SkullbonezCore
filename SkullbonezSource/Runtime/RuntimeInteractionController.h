@@ -19,6 +19,8 @@ Invariants:
   - RuntimeInteractionTransition is a diff record; callers must compare previous
     and current fields instead of inferring cleanup from the requested command.
   - Gesture and pointer-capture state must be cleared together on mode changes.
+  - Object gestures retain a body handle; dense rows are resolved only by the
+    owner that consumes the gesture.
 
 Related:
   - SkullbonezSource/Runtime/RuntimeInteractionController.cpp
@@ -29,6 +31,7 @@ Related:
 #pragma once
 
 #include "RuntimeCameraMode.h"
+#include "../Physics/PhysicsHandles.h"
 
 namespace SkullbonezCore
 {
@@ -122,7 +125,7 @@ struct RuntimeInteractionGesture
     RuntimePointerButton button = RuntimePointerButton::None;
     int startX = 0;
     int startY = 0;
-    int modelIndex = -1;
+    Physics::PhysicsBodyHandle body;
     int axis = -1;
     bool angular = false;
 };

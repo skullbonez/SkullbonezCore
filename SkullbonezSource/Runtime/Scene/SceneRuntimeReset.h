@@ -86,7 +86,7 @@ struct SceneRuntimeResetSnapshot
     int uiModelCountOverride = -1;
     int uiSolverBallCountOverride = -1;
     int uiSolverBoxCountOverride = -1;
-    int trackBallIndex = -1;                       // Scene-tab camera tracking controls
+    Physics::ModelRowHint trackBallRow;            // Scene-tab camera tracking cache
     float trackHeight = 300.0f;
     float autoCycleInterval = -1.0f;
     float autoCycleAccum = 0.0f;

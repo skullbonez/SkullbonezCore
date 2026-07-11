@@ -120,7 +120,7 @@ SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride( SceneRuntimeGenera
     if ( context.uiOverrides.modelCountOverride <= 0 )
     {
         context.scene.modelCount = 0;
-        context.camera.trackBallIndex = -1;
+        context.camera.trackBallRow.value = -1;
         return RequestReplayAndProfileReset();
     }
 
@@ -132,12 +132,12 @@ SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride( SceneRuntimeGenera
     {
         LogGeneratedControlFailure( setupResult );
         context.scene.modelCount = context.models.SceneEntityCount();
-        context.camera.trackBallIndex = context.scene.modelCount > 0 ? context.scene.modelCount - 1 : -1;
+        context.camera.trackBallRow.value = context.scene.modelCount > 0 ? context.scene.modelCount - 1 : -1;
         return RequestReplayAndProfileReset();
     }
-    if ( context.camera.trackBallIndex >= context.uiOverrides.modelCountOverride )
+    if ( context.camera.trackBallRow.value >= context.uiOverrides.modelCountOverride )
     {
-        context.camera.trackBallIndex = context.uiOverrides.modelCountOverride - 1;
+        context.camera.trackBallRow.value = context.uiOverrides.modelCountOverride - 1;
     }
     return RequestReplayAndProfileReset();
 }
@@ -181,16 +181,16 @@ ApplyUISolverObjectCounts( SceneRuntimeGeneratedControlContext context, int ball
     {
         LogGeneratedControlFailure( setupResult );
         context.scene.modelCount = context.models.SceneEntityCount();
-        context.camera.trackBallIndex = context.scene.modelCount > 0 ? context.scene.modelCount - 1 : -1;
+        context.camera.trackBallRow.value = context.scene.modelCount > 0 ? context.scene.modelCount - 1 : -1;
         return RequestReplayAndProfileReset();
     }
     if ( context.scene.modelCount <= 0 )
     {
-        context.camera.trackBallIndex = -1;
+        context.camera.trackBallRow.value = -1;
     }
-    else if ( context.camera.trackBallIndex >= context.scene.modelCount )
+    else if ( context.camera.trackBallRow.value >= context.scene.modelCount )
     {
-        context.camera.trackBallIndex = context.scene.modelCount - 1;
+        context.camera.trackBallRow.value = context.scene.modelCount - 1;
     }
     return RequestReplayAndProfileReset();
 }

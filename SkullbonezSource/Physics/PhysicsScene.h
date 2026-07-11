@@ -59,6 +59,8 @@ class WorkerPool;
 namespace Physics
 {
 struct PhysicsAuthoredBodyRefreshView;
+struct PhysicsAuthoredBodyRegistration;
+struct PhysicsBodyUpdateDesc;
 struct PhysicsColliderCreateDesc;
 class PhysicsEngineStoreQueries;
 struct PhysicsMaterial;
@@ -81,28 +83,19 @@ class PhysicsScene
     // Creation preflight proves descriptor and fixed body storage can append
     // without mutation or allocation before the cross-owner commit begins.
     bool CanRegisterAuthoredBody( PhysicsAuthoredBodyCount expectedBodyCount ) const;
-    bool TryGetAuthoredBodyDescriptor( ModelRowHint bodyRow, PhysicsBodyCreateDesc& outDesc ) const;
-    bool UpdateAuthoredBodyDescriptor( ModelRowHint bodyRow,
-                                       PhysicsBodyCreateDesc& desc,
-                                       PhysicsAuthoredBodyCount expectedBodyCount );
     bool TrimAuthoredBodyDescriptorsToCount( PhysicsAuthoredBodyCount bodyCount );
     void Clear();
     bool RefreshBodyStoreFromAuthoredDescriptors( const PhysicsAuthoredBodyRefreshView& refreshView );
-    // Owner passes a row hint and expected count so one-row descriptor commits
-    // stay a same-topology edit and cannot hide missing body rows.
-    void RefreshBodyFromDescriptor( const PhysicsBodyCreateDesc& desc,
-                                    ModelRowHint bodyRow,
-                                    PhysicsBodyCount expectedBodyCount );
-    // Construction edge: registers one newly authored body value without a full
-    // full descriptor reload. Owner is the scene/model creation edge.
-    PhysicsBodyHandle RegisterAuthoredBody( const PhysicsBodyCreateDesc& desc );
-    // Construction edge: registers the collider descriptor paired with a newly
-    // authored body without forcing a collider snapshot refresh through the
-    // model container.
-    PhysicsColliderHandle RegisterAuthoredCollider( const PhysicsColliderCreateDesc& desc );
-    // Authoring/config edge: replaces one live collider row from a descriptor
-    // while preserving the allocator-owned collider handle.
-    bool UpdateAuthoredCollider( PhysicsColliderHandle collider, const PhysicsColliderCreateDesc& desc );
+    // Construction edge: publishes one descriptor/body/collider topology unit.
+    PhysicsAuthoredBodyRegistration RegisterAuthoredBody( const PhysicsBodyCreateDesc& body,
+                                                          PhysicsColliderCreateDesc collider );
+    // Retires the body handle and removes its authored descriptor, collider,
+    // and joints before any handle slot can be reused.
+    bool DestroyAuthoredBody( PhysicsBodyHandle body );
+    // Handle-based authoring commands update both the live record and its cold
+    // descriptor; the paired variant also preserves collider handle identity.
+    bool UpdateAuthoredBody( const PhysicsBodyUpdateDesc& update );
+    bool UpdateAuthoredBodyAndCollider( const PhysicsBodyUpdateDesc& update, PhysicsColliderCreateDesc collider );
     void ClearPendingBodyImpulses();
     // Replay restore trims the authoritative body store directly; callers must
     // not force a model-to-store refresh after this succeeds.

@@ -1099,7 +1099,7 @@ void Run::TickAutoCycle()
                                                       m_camera.autoCycleInterval,
                                                       m_camera.autoCycleAccum,
                                                       m_camera.autoCycleShotsTaken,
-                                                      m_camera.trackBallIndex,
+                                                      m_camera.trackBallRow.value,
                                                       m_renderBackendView.RequireCaptureBackend() );
 
     if ( !result.captureResult.ok )

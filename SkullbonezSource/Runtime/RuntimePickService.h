@@ -11,15 +11,15 @@ Mental model:
 Glossary:
   Pick purpose: The tool-specific policy for interpreting a mouse ray.
   Physics body handle: Generational id for a live row in `PhysicsBodyStore`.
-  Model index: Dense model-order row used by UI/replay identity; it is not
-    authority for physics commands once a body handle is available.
+  Model row hint: Dense model-order cache used by synchronous UI work; it is
+    never authority for a physics command.
 
 Invariants:
   - RuntimePickRequest borrows physics stores for one call; the service does
     not retain them.
   - RuntimePickResult.body is the physics-store handle for command paths.
   - RuntimePickResult.collider is the collider-store handle paired with body.
-  - RuntimePickResult.modelIndex is the dense row/model index for UI identity
+  - RuntimePickResult.modelRow is the dense-row hint for synchronous UI work
     in the same store snapshot and frame that produced the result.
 
 Related:
@@ -64,7 +64,7 @@ struct RuntimePickResult
 {
     Physics::PhysicsBodyHandle body;
     Physics::PhysicsColliderHandle collider;
-    int modelIndex = -1;
+    Physics::ModelRowHint modelRow;
     float rayT = FLT_MAX;
 };
 

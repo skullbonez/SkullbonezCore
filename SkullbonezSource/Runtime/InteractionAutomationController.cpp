@@ -1876,7 +1876,7 @@ bool TryProjectInteractionAutomationModel( const SceneController& scene,
                     request.rayDirection = rayDirection;
 
                     RuntimePickResult result;
-                    if ( RuntimePickService::TryPickModel( request, result ) && result.modelIndex == modelIndex )
+                    if ( RuntimePickService::TryPickModel( request, result ) && result.modelRow.value == modelIndex )
                     {
                         outMouse = candidate;
                         return true;

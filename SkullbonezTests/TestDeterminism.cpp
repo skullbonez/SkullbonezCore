@@ -212,11 +212,9 @@ void AddMicroBody( PhysicsEngine& engine,
                                                &FlatTestTerrain(),
                                                "unit-determinism-body" );
     bodyDesc.angularVelocityLimit = 1000.0f;
-    const PhysicsBodyHandle body = engine.RegisterAuthoredBody( bodyDesc );
     auto colliderDesc = MakeColliderCreateDesc( shape, 0.0f, 0u, "unit" );
-    colliderDesc.body = body;
     colliderDesc.sceneObjectId = bodyDesc.sceneObjectId;
-    (void)engine.RegisterAuthoredCollider( colliderDesc );
+    REQUIRE( engine.RegisterAuthoredBody( bodyDesc, colliderDesc ).IsValid() );
 }
 
 void AddSupportedSleepBody( PhysicsEngine& engine, uint32_t sceneObjectId, const Vector3& position )
@@ -238,11 +236,9 @@ void AddSupportedSleepBody( PhysicsEngine& engine, uint32_t sceneObjectId, const
                                                &FlatTestTerrain(),
                                                "unit-sleep-threshold-body" );
     bodyDesc.angularVelocityLimit = 1000.0f;
-    const PhysicsBodyHandle body = engine.RegisterAuthoredBody( bodyDesc );
     auto colliderDesc = MakeColliderCreateDesc( shape, 0.0f, 0u, "unit" );
-    colliderDesc.body = body;
     colliderDesc.sceneObjectId = bodyDesc.sceneObjectId;
-    (void)engine.RegisterAuthoredCollider( colliderDesc );
+    REQUIRE( engine.RegisterAuthoredBody( bodyDesc, colliderDesc ).IsValid() );
 }
 
 void SeedSupportedSleepWorld( PhysicsEngine& engine, const EngineConfig& config )
@@ -293,11 +289,9 @@ void AddMutualGravityBody( PhysicsEngine& engine,
                                                &FlatTestTerrain(),
                                                "unit-mutual-gravity-body" );
     bodyDesc.angularVelocityLimit = 1000.0f;
-    const PhysicsBodyHandle body = engine.RegisterAuthoredBody( bodyDesc );
     auto colliderDesc = MakeColliderCreateDesc( shape, 0.0f, 0u, "unit" );
-    colliderDesc.body = body;
     colliderDesc.sceneObjectId = bodyDesc.sceneObjectId;
-    (void)engine.RegisterAuthoredCollider( colliderDesc );
+    REQUIRE( engine.RegisterAuthoredBody( bodyDesc, colliderDesc ).IsValid() );
 }
 
 void SeedMicroWorld( PhysicsEngine& engine )

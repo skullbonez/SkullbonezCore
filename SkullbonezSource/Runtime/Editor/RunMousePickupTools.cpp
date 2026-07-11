@@ -144,8 +144,7 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePicku
 
     const PhysicsBodyStore& bodyStore = collection.BodyStore();
     const PhysicsBodyRecord* pickedBody = bodyStore.RecordForHandle( result.body );
-    const int pickedIndex = bodyStore.ModelIndexForHandle( result.body );
-    if ( !pickedBody || pickedIndex != result.modelIndex )
+    if ( !pickedBody )
     {
         return routeResult;
     }
@@ -187,7 +186,7 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePicku
     gesture.button = RuntimePointerButton::Left;
     gesture.startX = input.clientX;
     gesture.startY = input.clientY;
-    gesture.modelIndex = pickedIndex;
+    gesture.body = result.body;
     interaction.BeginGesture( gesture,
                               RuntimePointerCaptureOwner::ToolGesture,
                               InteractionExitReason::EnterManipulator );

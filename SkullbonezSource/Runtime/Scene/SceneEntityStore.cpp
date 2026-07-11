@@ -231,6 +231,24 @@ void SceneEntityStore::UpdateBodyHandleAt( int index,
     record.body = body;
 }
 
+
+bool SceneEntityStore::DestroyAtSwapLast( int index )
+{
+    if ( index < 0 || index >= Count() )
+    {
+        return false;
+    }
+    const std::size_t row = static_cast<std::size_t>( index );
+    // Invariant: scene rows share dense order with physics and render rows. The
+    // coordinating collection performs the same swap-last operation everywhere.
+    if ( row + 1u != m_records.size() )
+    {
+        m_records[row] = std::move( m_records.back() );
+    }
+    m_records.pop_back();
+    return true;
+}
+
 bool SceneEntityStore::TrimToCount( int count )
 {
     if ( count < 0 || count > Count() )

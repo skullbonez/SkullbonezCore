@@ -160,6 +160,32 @@ void RenderInstanceStore::CommitCreationRow( const RenderInstancePresentationRec
 }
 
 
+bool RenderInstanceStore::DestroyCreationRowAtSwapLast( int modelIndex )
+{
+    if ( modelIndex < 0 || modelIndex >= Count() || modelIndex >= PresentationCount() )
+    {
+        return false;
+    }
+
+    const std::size_t row = static_cast<std::size_t>( modelIndex );
+    const std::size_t last = m_instances.size() - 1u;
+    // Invariant: the moved row receives its dense render handle immediately;
+    // retaining the old row-derived handle would redirect later draw lookups.
+    if ( row != last )
+    {
+        m_presentationRecords[row] = std::move( m_presentationRecords[last] );
+        m_instances[row] = std::move( m_instances[last] );
+        const RenderInstanceHandle movedHandle = MakeRenderInstanceHandleForModelIndex( static_cast<uint32_t>( row ) );
+        m_instances[row].handle = movedHandle;
+        m_modelInstanceHandles[row] = movedHandle;
+    }
+    m_presentationRecords.pop_back();
+    m_instances.pop_back();
+    m_modelInstanceHandles.pop_back();
+    return true;
+}
+
+
 bool RenderInstanceStore::ResizePresentationRecords( int presentationCount )
 {
     if ( presentationCount < 0 )

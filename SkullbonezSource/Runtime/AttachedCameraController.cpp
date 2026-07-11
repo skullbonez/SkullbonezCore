@@ -227,7 +227,7 @@ const char* AttachedCameraController::ModeLabel() const
     {
         submode = "Eyes";
     }
-    if ( m_state.target.modelIndex < 0 )
+    if ( !m_state.target.modelRow.IsValid() )
     {
         sprintf_s( label, sizeof( label ), "Attach: pick target%s", m_state.activeFollow ? "" : " Pinned" );
     }
@@ -459,7 +459,7 @@ bool AttachedCameraController::PickTarget( const GameObjects::GameModelCollectio
         request.rayDirection = rayDirection;
         if ( RuntimePickService::TryPickModel( request, pick ) )
         {
-            return SetTarget( collection, cameras, pick.modelIndex, outSelection );
+            return SetTarget( collection, cameras, pick.modelRow.value, outSelection );
         }
     }
     ClearTarget( m_state );
@@ -498,7 +498,7 @@ bool AttachedCameraController::TryAttachTargetHandlesFromModelIndex( const GameM
 
     target.body = body->handle;
     target.collider = collider->handle;
-    target.modelIndex = modelIndex;
+    target.modelRow.value = modelIndex;
     target.replayBodyId = body->replayBodyId;
     return true;
 }
@@ -518,7 +518,7 @@ bool AttachedCameraController::TryResolveTargetIdentity( const GameModelCollecti
         const int modelIndex = bodyStore.ModelIndexForHandle( target.body );
         const ColliderRecord* collider =
             target.collider.IsValid() ? colliderStore.RecordForHandle( target.collider ) : nullptr;
-        if ( body && modelIndex >= 0 && ( !collider || collider->body != body->handle ) )
+        if ( body && ( !collider || collider->body != body->handle ) )
         {
             const PhysicsColliderHandle colliderHandle = colliderStore.HandleForBodyHandle( body->handle );
             collider = colliderStore.RecordForHandle( colliderHandle );
@@ -533,7 +533,7 @@ bool AttachedCameraController::TryResolveTargetIdentity( const GameModelCollecti
             // order. Model index is kept as a presentation hint after the live
             // handle proves which dense row currently owns the body.
             target.body = body->handle;
-            target.modelIndex = modelIndex;
+            target.modelRow.value = modelIndex;
             target.replayBodyId = body->replayBodyId;
             outModelIndex = modelIndex;
             return true;
@@ -541,7 +541,7 @@ bool AttachedCameraController::TryResolveTargetIdentity( const GameModelCollecti
     }
 
     const int modelCount = bodyStore.Count();
-    const int cachedIndex = target.modelIndex;
+    const int cachedIndex = target.modelRow.value;
     if ( cachedIndex >= 0 && cachedIndex < modelCount )
     {
         const bool hasReplayId = target.replayBodyId != 0;
@@ -697,7 +697,7 @@ bool AttachedCameraController::SelectTarget( const GameModelCollection& collecti
     outSelection.physics = targetState;
     outSelection.body = state.target.body;
     outSelection.collider = state.target.collider;
-    outSelection.modelIndex = modelIndex;
+    outSelection.modelRow.value = modelIndex;
     return true;
 }
 

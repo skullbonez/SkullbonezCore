@@ -18,8 +18,8 @@ Glossary:
     start for this solve.
 
 Invariants:
-  - Target recovery uses physics-store handles and replay ids before dense model
-    indices.
+  - Target recovery uses physics-store handles and replay ids; a dense row is
+    retained only as a typed, revalidated cache.
   - The controller does not store borrowed collection or camera pointers.
   - Pose commands are finite and never point eye and view at the same point.
 
@@ -63,7 +63,7 @@ struct AttachedCameraTarget
 {
     Physics::PhysicsBodyHandle body;                   // Primary live physics identity for follow/orbit sampling.
     Physics::PhysicsColliderHandle collider;           // Shape/radius identity paired with body.
-    int modelIndex = -1;                               // UI/presentation hint; revalidated before use.
+    Physics::ModelRowHint modelRow;                    // Cache only; body/replay id remain authoritative.
     uint32_t replayBodyId = 0;                         // Stable scene-local identity used to recover stale indices.
     char name[64] = {};                                // Human/debug fallback when replay id cannot recover the target.
 };
@@ -118,7 +118,7 @@ struct AttachedCameraTargetSelection
     AttachedCameraPhysicsTarget physics;               // Snapshot used to capture the initial camera-relative offset.
     Physics::PhysicsBodyHandle body;                   // Exact selected body identity published to interaction composition.
     Physics::PhysicsColliderHandle collider;           // Collider paired with body in the same store snapshot.
-    int modelIndex = -1;                               // Dense presentation row valid for this synchronous command only.
+    Physics::ModelRowHint modelRow;                    // Dense row valid for this synchronous command only.
 };
 
 enum class AttachedCameraSeedResult

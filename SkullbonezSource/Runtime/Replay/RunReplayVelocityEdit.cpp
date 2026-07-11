@@ -260,7 +260,7 @@ static bool TryResolveReplayVelocityBodyView( const ReplayRuntime& replayRuntime
     outView = ReplayVelocityBodyView{};
     const PhysicsBodyHandle bodyHandle = replayRuntime.ResolveVelocityEditBodyHandle( bodyStore );
     const int modelIndex = bodyStore.ModelIndexForHandle( bodyHandle );
-    if ( modelIndex < 0 || modelIndex >= bodyStore.Count() )
+    if ( !bodyHandle.IsValid() )
     {
         return false;
     }
@@ -687,7 +687,7 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
                                                       RuntimePointerButton::Left,
                                                       mouse.x,
                                                       mouse.y,
-                                                      body.modelRow.value,
+                                                      body.body,
                                                       m_replayRuntime.VelocityEdit().hotAngularAxis,
                                                       true );
                     ReplayVelocityEditDragStart dragStart;
@@ -737,7 +737,7 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
                                                       RuntimePointerButton::Left,
                                                       mouse.x,
                                                       mouse.y,
-                                                      body.modelRow.value,
+                                                      body.body,
                                                       m_replayRuntime.VelocityEdit().hotLinearAxis,
                                                       false );
                     ReplayVelocityEditDragStart dragStart;

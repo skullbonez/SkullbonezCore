@@ -416,7 +416,7 @@ RuntimeInteractionController::CaptureTransition( RuntimeWorkspace previousWorksp
                                 transition.previousGesture.button != transition.gesture.button ||
                                 transition.previousGesture.startX != transition.gesture.startX ||
                                 transition.previousGesture.startY != transition.gesture.startY ||
-                                transition.previousGesture.modelIndex != transition.gesture.modelIndex ||
+                                transition.previousGesture.body != transition.gesture.body ||
                                 transition.previousGesture.axis != transition.gesture.axis ||
                                 transition.previousGesture.angular != transition.gesture.angular;
     transition.pointerCaptureChanged = transition.previousPointerCapture != transition.pointerCapture;

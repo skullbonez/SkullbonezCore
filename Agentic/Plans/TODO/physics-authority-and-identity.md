@@ -1,8 +1,7 @@
 # Physics Authority And Stable Identity
 
-Date: 2026-07-10 (source reconciled)
-Status: In progress — 9/16 current checklist items verified complete; the
-scene-lifetime physics owner decision is binding
+Date: 2026-07-11 (completed and source reconciled)
+Status: Complete — 16/16 implementation items and 5/5 closure proofs verified
 Impact area: physics, game object storage, scene creation/reset, replay,
 editor tools
 Owner: physics/scene boundary
@@ -26,10 +25,10 @@ public physics APIs no longer expose `GameModel`; physics implementation files
 do not depend on `GameModel`; body/collider/render stores and stable handles
 exist; replay ids live on physics rows.
 
-Still open: `GameModelCollection` physically owns `PhysicsEngine`, scene
-grouping remains collection ordered, save still reaches through the collection,
-and non-replay runtime headers still store bare model-index hints. Replay-owned
-state was converted to stable ids plus typed hints in R4.
+Completed: `SceneController` owns `PhysicsEngine`; scene metadata, physics,
+collider, and render stores have explicit coordinated creation/deletion edges;
+authoring mutations and queued interaction identity use stable handles; retained
+dense rows are typed `ModelRowHint` caches rather than object identity.
 
 ## Binding Owner Decision
 
@@ -47,9 +46,16 @@ no longer an open question.
 
 ### A. Body authority and physics ownership
 
-- [ ] A1. Audit external writes to sleep/wake, force, impulse, pose, mass, and
+- [x] A1. Audit external writes to sleep/wake, force, impulse, pose, mass, and
   authored descriptors; route every mutation through handle-based physics
   commands. `GameModel` fields are already clean and are not part of this row.
+  Evidence (2026-07-11): `PhysicsEngine::UpdateAuthoredBody` and its coordinated
+  body/collider variant resolve a `PhysicsBodyHandle`, preserve current live
+  state for unchanged fields, and update the cold descriptor plus live row in
+  one physics-owned command. The collection edit packet, raw descriptor-row
+  mutators, editor/replay collection facades, and unused replay restore facades
+  were deleted. The handle smoke proves surviving-handle mass/velocity mutation
+  and stale-handle rejection.
 - [x] A2. Move `PhysicsEngine` ownership out of `GameModelCollection`; runtime
   stepping and diagnostics borrow the physics owner directly.
   Evidence (2026-07-11): `SceneController` now physically owns the
@@ -68,8 +74,15 @@ no longer an open question.
   InfoQueue errors, matching screenshots, standalone physics smoke, and the
   byte-exact physics baseline in 52.3s. The touched-source comment audit
   inspected 30/30 files with 0 deferred.
-- [ ] A3. Provide one coordinated body registration path and one deterministic
+- [x] A3. Provide one coordinated body registration path and one deterministic
   deletion path that invalidates handles and removes paired rows.
+  Evidence (2026-07-11): split body/collider registration is deleted;
+  `PhysicsAuthoredBodyRegistration` publishes both handles or rolls back.
+  `DestroySceneEntity` coordinates physics descriptor/body/collider/joint,
+  scene entity, presentation, and render swap-last removal. The runtime handle
+  smoke proves atomic failed creation, handle invalidation, paired row counts,
+  constraint removal, moved-handle preservation, and preservation of a
+  surviving live-only replay pose without a cold descriptor reload.
 
 ### B. Collider authority
 
@@ -241,16 +254,28 @@ no longer an open question.
 
 ### D. Stable identity storage
 
-- [ ] D1. Runtime interaction command payloads capture `PhysicsBodyHandle` at
+- [x] D1. Runtime interaction command payloads capture `PhysicsBodyHandle` at
   enqueue time.
-- [ ] D2. Stored index members in runtime state, interaction, attached-camera,
+  Evidence (2026-07-11): `RuntimeInteractionCommand` no longer contains a model
+  index; every non-clear selection producer captures body/collider handles and
+  preparation derives a typed row only after both handles resolve as a pair.
+- [x] D2. Stored index members in runtime state, interaction, attached-camera,
   and pick-service headers become handles or explicitly typed row hints.
+  Evidence (2026-07-11): gestures and prepared gizmo plans retain body handles;
+  attach-camera and pick results retain `ModelRowHint`; camera tracking and
+  reset snapshots use `ModelRowHint`. The standalone interaction policy tests
+  assert gesture handle generation as well as slot identity.
 - [x] D3. Replay live-state hints become `ModelRowHint`; recorded sample rows
   remain row-at-record-time data keyed by authoritative replay id. Complete
   2026-07-11 with CPU, scrub, interaction, physics, DX12, and full evidence in
   `Agentic/Reports/replay_r4_live_owner_identity_20260711.md`.
-- [ ] D4. Delete redundant range-validation branches and reconcile glossaries.
+- [x] D4. Delete redundant range-validation branches and reconcile glossaries.
   Acceptance: no header stores a bare model-index integer as persistent identity.
+  Evidence (2026-07-11): selection preparation derives rows from validated
+  handles, picker callers no longer revalidate the picker-owned row against the
+  same store, and handle resolvers no longer repeat store-owned range checks.
+  Interaction, picker, attach-camera, and handle glossaries now distinguish
+  stable identity from typed synchronous row caches.
 
 ## Cross-Plan Dependencies
 
@@ -266,12 +291,24 @@ no longer an open question.
 
 ## Acceptance
 
-- [ ] Physics ownership is outside `GameModelCollection`.
-- [ ] Production step, replay restore, editor commands, and diagnostics use
+- [x] Physics ownership is outside `GameModelCollection`.
+- [x] Production step, replay restore, editor commands, and diagnostics use
   handle/store APIs without a collection physics facade.
-- [ ] Scene/entity metadata is separate from simulation state.
-- [ ] Creation/deletion/reset preserve row pairing and stale-handle rejection.
-- [ ] Persistent headers contain no untyped model-index identity.
+- [x] Scene/entity metadata is separate from simulation state.
+- [x] Creation/deletion/reset preserve row pairing and stale-handle rejection.
+- [x] Persistent headers contain no untyped model-index identity.
+
+Closure evidence (2026-07-11): `tools\validate_runtime_interaction_policy.bat`
+passed Debug and Release; all five `tools\validate_interaction_clicks.bat`
+scenarios passed in 14.0s; `tools\validate_full.bat` passed in 70.0s with
+131/131 doctest cases and 2,814 assertions, every standalone CPU lane,
+zero-warning Profile/Debug builds, zero DX12 InfoQueue errors and matching
+captures, the expanded handle smoke, and the 44,401-line varied physics CSV
+byte-exact. The touched-source comment audit inspected 45/45 files with zero
+deferred. The plan-level adversarial review found and fixed a cold-descriptor
+reload that could teleport surviving live bodies during deletion; the required
+repeat review was clean. See
+`Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md`.
 
 ## Validation
 

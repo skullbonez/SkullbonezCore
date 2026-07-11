@@ -1420,6 +1420,29 @@ void PhysicsWorld::ClearPointJointConstraints()
 }
 
 
+void PhysicsWorld::DestroyPointJointsForBody( PhysicsBodyHandle body )
+{
+    // Invariant: remove every joint that names the retiring handle before the
+    // body slot can be reused. Runtime joint rows are dense and are not retained
+    // as stable identity outside the physics owner.
+    for ( std::size_t index = 0; index < m_pointJointConstraints.size(); )
+    {
+        const PointJointConstraint& constraint = m_pointJointConstraints[index];
+        if ( constraint.bodyA != body && constraint.bodyB != body )
+        {
+            ++index;
+            continue;
+        }
+
+        if ( index + 1u != m_pointJointConstraints.size() )
+        {
+            m_pointJointConstraints[index] = m_pointJointConstraints.back();
+        }
+        m_pointJointConstraints.pop_back();
+    }
+}
+
+
 PhysicsConstraintHandle PhysicsWorld::CreatePointJoint( const PhysicsPointJointCreateDesc& desc )
 {
     if ( !desc.bodyA.IsValid() || !desc.bodyB.IsValid() || desc.bodyA == desc.bodyB )
