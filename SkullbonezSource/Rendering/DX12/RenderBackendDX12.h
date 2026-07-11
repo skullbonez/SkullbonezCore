@@ -63,6 +63,7 @@ Related:
 #include "../IRenderDiagnostics.h"
 #include "../IRenderResourceFactory.h"
 #include "../IRenderRayTracing.h"
+#include "../IRenderShaderDevelopment.h"
 #include "../RenderRasterBindingContract.h"
 #include "RenderBackendDX12.CommandRecordingState.h"
 #include "RenderBackendDX12.PipelineState.h"
@@ -493,6 +494,8 @@ class Dx12TextureOwner
 {
   public:
     Basics::SbResult Initialize( RenderBackendDX12& backend );
+    Basics::SbResult PrepareGenerateMipsShaderReload( RenderBackendDX12& backend, ID3D12PipelineState*& candidate );
+    void AdoptGenerateMipsShaderReload( ID3D12PipelineState* candidate );
     void Shutdown();
     uint32_t CreateTexture2D( RenderBackendDX12& backend,
                               const uint8_t* data,
@@ -553,6 +556,9 @@ class Dx12PipelineOwner
                       const InstancedMeshDX12* instancedMesh,
                       const DynamicVBDX12* dynamicVertexBuffer );
     void SetActiveShader( ShaderDX12* shader );
+    void RegisterShader( ShaderDX12* shader );
+    void UnregisterShader( ShaderDX12* shader );
+    Basics::SbResult ReloadShadersFromBakedAssets();
     ShaderDX12* ActiveShader() const;
     void SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv );
     void SetRenderingToFBO( bool rendering, DXGI_FORMAT rtvFormat );
@@ -596,9 +602,19 @@ class Dx12PipelineOwner
     void ResetDesiredState();
 
     static constexpr size_t CACHE_CAPACITY = 96;
+    static constexpr size_t LIVE_SHADER_CAPACITY = 64;
+    static constexpr size_t ROOT_SIGNATURE_SERIALIZED_CAPACITY = 4096;
     Dx12CachedPsoStore m_persistentPsoCache;
     std::array<CachedPSODX12, CACHE_CAPACITY> m_psoCache = {};
     size_t m_psoCacheCount = 0;
+    // Lifetime: registered ShaderDX12 objects unregister before the backend
+    // owner dies. The fixed table stages one all-or-nothing manual reload.
+    std::array<ShaderDX12*, LIVE_SHADER_CAPACITY> m_liveShaders = {};
+    size_t m_liveShaderCount = 0;
+    // Canonical UnifiedRaster bytes reopen the P4 cache after a changed manifest
+    // without retaining the temporary root-signature serialization blob.
+    std::array<std::uint8_t, ROOT_SIGNATURE_SERIALIZED_CAPACITY> m_rootSignatureSerialized = {};
+    size_t m_rootSignatureSerializedSize = 0;
     ID3D12RootSignature* m_rootSignature = nullptr;
     ShaderDX12* m_activeShader = nullptr;
     D3D12_VIEWPORT m_viewport = {};
@@ -645,6 +661,7 @@ class Dx12GeometryOwner
     void AdoptTransientTriangleShader( TransientTriangleStyle style, std::unique_ptr<IShader> shader );
     static const char* TransientShaderBaseName( TransientTriangleStyle style );
     bool HasTransientTriangleShader( TransientTriangleStyle style ) const;
+    void InvalidateGridLinePipelinesForShaderReload();
     UINT GridLineConstantBytes() const;
     UINT TransientConstantBytes( TransientTriangleStyle style ) const;
     void DrawLinesColored( const float* data,
@@ -818,7 +835,8 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
                           public IRenderCommandContext,
                           public IRenderDiagnostics,
                           public IRenderCaptureBackend,
-                          public IRenderRayTracing
+                          public IRenderRayTracing,
+                          public IRenderShaderDevelopment
 {
     friend class Dx12TextureOwner;
 
@@ -1022,6 +1040,8 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     Basics::SbResult FlushGPU() override;
     Basics::SbResult DrainForResourceRelease() override;
     Basics::SbResult Resize( int width, int height ) override;
+    bool ShaderHotReloadEnabled() const override;
+    Basics::SbResult ReloadShadersFromSource() override;
 
     void SetViewport( int x, int y, int w, int h ) override;
     void Clear( bool color, bool depth ) override;

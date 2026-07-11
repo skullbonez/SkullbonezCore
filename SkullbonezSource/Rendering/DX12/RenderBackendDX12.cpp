@@ -2266,6 +2266,17 @@ SkullbonezCore::Basics::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* de
         }
         return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12", "%s", msg.c_str() );
     }
+    if ( signature->GetBufferSize() > m_rootSignatureSerialized.size() )
+    {
+        return SkullbonezCore::Basics::SbResult::Failure(
+            "Rendering/DX12",
+            "UnifiedRaster serialized root signature exceeds reload cap" );
+    }
+    // Lifetime: retain canonical serialized bytes in fixed storage so manual
+    // shader reload can reopen the manifest-keyed PSO blob store without
+    // retaining the temporary serialization COM object.
+    m_rootSignatureSerializedSize = signature->GetBufferSize();
+    std::memcpy( m_rootSignatureSerialized.data(), signature->GetBufferPointer(), m_rootSignatureSerializedSize );
 
     // Create the Root Signature object from the serialized blob. This is the "contract" between
     // the application and shaders — it defines the layout of all shader-visible parameters.

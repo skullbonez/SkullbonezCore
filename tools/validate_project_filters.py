@@ -180,6 +180,7 @@ RENDERING_PREFIXES = (
     "IRenderDeviceLifecycle",
     "IRenderDiagnostics",
     "IRenderRayTracing",
+    "IRenderShaderDevelopment",
     "IRenderResourceFactory",
     "IShader",
     "PrimitiveMeshBuilder",

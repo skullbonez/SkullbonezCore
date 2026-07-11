@@ -65,6 +65,8 @@ Related:
 #include "../Physics/SimulationSystem.h"
 #include "../UI/UI.h"
 #include "../Rendering/IRenderDiagnostics.h"
+#include "../Rendering/IRenderShaderDevelopment.h"
+#include "Allocation/RuntimeAllocationTracker.h"
 #include "../UI/UILayout.h"
 
 #include <cstddef>
@@ -657,6 +659,31 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                 event.action,
                 true );
             break;
+        case RuntimeInputAction::ReloadShadersFromSource:
+        {
+            if ( !m_renderBackendView.shaderDevelopment )
+            {
+                fprintf( stderr, "Shader hot reload unavailable: active backend has no development capability.\n" );
+                break;
+            }
+            // Allocation policy: F9 is an explicit cold developer utility. The
+            // bake, manifest parse, reflection maps, and process launch belong
+            // to BackendInit rather than steady input/render accounting.
+            SkullbonezCore::Runtime::Allocation::RuntimeAllocationScope allocationScope(
+                SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase::BackendInit );
+            const SbResult reloadResult = m_renderBackendView.shaderDevelopment->ReloadShadersFromSource();
+            if ( !reloadResult.ok )
+            {
+                fprintf( stderr,
+                         "Shader hot reload failed: owner=%s reason=%s\n",
+                         reloadResult.error.owner,
+                         reloadResult.error.message );
+                Log().WriteEventf( "shader_hot_reload_failed owner=%s reason=%s",
+                                   reloadResult.error.owner,
+                                   reloadResult.error.message );
+            }
+            break;
+        }
         case RuntimeInputAction::ToggleCrossScenePause:
             // P locks scene automation without turning the run interactive;
             // SceneController preserves the policy across load transactions.

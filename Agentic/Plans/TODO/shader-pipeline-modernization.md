@@ -1,7 +1,7 @@
 # Shader Pipeline Modernization And Binding Standardization
 
 Date: 2026-07-11
-Status: In progress — 63% (P0-P4 complete)
+Status: In progress — 88% (P0-P6 complete)
 Impact area: DX12 renderer, all HLSL shaders, shader tooling, build/validation
 scripts
 Origin: 2026-07-11 architecture gap review. Owner directive: complete
@@ -387,6 +387,30 @@ Present the trade to the owner; implement only on explicit approval as its
 own phase with `validate_dx12_renderer` + stress gates. The plan is
 completable with a "no, revisit later" recorded here.
 
+P5 decision (2026-07-12): **No — revisit later.** This is a completed decision
+gate, not an implementation deferral inside the current architecture.
+
+| Evidence | Current engine | Bindless consequence |
+|---|---|---|
+| Descriptor pressure | One-minute stress finished with 22 textures, texture capacity 28, 25 static SRV rows, and transient peak 115/2,048. UnifiedRaster's t0-t4 map is not exhausted. | Removes per-draw descriptor copies and the fixed t-slot ceiling, but solves no measured capacity or frame-budget failure today. |
+| Device baseline | P0 deliberately retained the SM6.0 shipping minimum. | `ResourceDescriptorHeap` requires both SM6.6 and Resource Binding Tier 3, narrowing the supported adapter set and requiring explicit feature rejection/fallback policy. |
+| Lifetime/order | Static source descriptors plus fence-scoped transient rows already make reuse explicit and validated. | Heap-indexed descriptors/data are volatile; the resource/sampler heaps must be set before a directly-indexed root signature, and descriptor/resource lifetime becomes shader-index authority. |
+| Shader/debug cost | Reflection names t0-t4 ownership and DX12 validation sees ordinary table binds. | Every migrated shader must carry descriptor indices, divergent indices require `NonUniformResourceIndex`, and out-of-range/stale indices can produce undefined reads or device reset. |
+
+The measured benefit is therefore smaller than the compatibility, lifetime,
+and debugging cost. No explicit owner approval to raise the hardware contract
+was given, so the plan's implementation guard remains closed. Reopen P5 only
+when one of these deletion conditions is measured: UnifiedRaster exceeds t0-t4,
+static or transient descriptor capacity becomes a real gate failure, per-draw
+descriptor copies become a demonstrated performance bottleneck, or the product
+baseline explicitly requires Tier 3 + SM6.6. Review evidence:
+`Dx12DescriptorAllocator`/UnifiedRaster source inspection, the P4 stress memory
+snapshot above, and Microsoft's
+[`HLSL Dynamic Resources`](https://microsoft.github.io/DirectX-Specs/d3d/HLSL_SM_6_6_DynamicResources.html)
+and
+[`Advanced use of Descriptor Tables`](https://learn.microsoft.com/en-us/windows/win32/direct3d12/advanced-use-of-descriptor-tables)
+specifications. Documentation-only decision; no additional validation required.
+
 ### P6 — Dev hot reload (cold path, optional but cheap after P1/P4)
 
 File-watch or manual-key recompile of changed shaders through the same DXC
@@ -396,6 +420,49 @@ allocation rules (explicit cold utility action). Delete the runtime
 
 Gate: `tools\validate_dx12_renderer.bat`; hot reload itself is dev-only and
 manually verified.
+
+P6 implementation evidence (2026-07-12):
+
+- [x] F9 is a normalized runtime input action backed by the optional
+  `IRenderShaderDevelopment` capability and enabled only by the exact
+  `--dev-shader-hot-reload` launch token. The cold action synchronously invokes
+  `tools\bake_shaders.bat`, the same pinned DXC/manifest path used by validation.
+- [x] `Dx12PipelineOwner` retains a fixed 64-row live raster-shader registry.
+  Reload compiles every replacement into fixed bytecode payloads, verifies the
+  running executable's reflection/constant layout, drains GPU work, persists
+  and releases old PSOs, then adopts all raster payloads and the generate-mips
+  compute PSO in one no-fail commit. Existing constant values survive. Grid-line
+  PSOs and the P4 cache are invalidated/rekeyed explicitly; any bake, reflection,
+  or candidate failure leaves current shaders and PSOs live.
+- [x] Removed the `D3DCompile` fallback and `--dev-compile-shaders` policy from
+  both raster and generate-mips startup. Runtime now accepts only manifest-current
+  SM6 DXIL. `reflect.rt.dxil` retains its pre-existing separate library workflow
+  and is outside the 43-stage P1 manifest/P4 raster-cache transaction.
+- [x] Automated manual-path command used
+  `--dev-shader-hot-reload --interaction-script
+  SkullbonezData\interaction\shader_hot_reload_f9.json`. It exited 0 with
+  `[shader-hot-reload] bake begin`, `[shader-hot-reload] committed`, a consumed
+  F9 action, and `ok=true` report after 10 frames. The same script without the
+  launch token exited 0, kept the app alive, and reported the exact opt-in
+  requirement. A visible-window Computer Use pass also confirmed rendering
+  continued after F9.
+- [x] Focused Profile build passed in 5.15s with zero warnings/errors. The final
+  allocation-policy scan passed 317 files with zero allowlist errors; the first
+  staging design's banned `optional::emplace` was replaced by fixed payload rows
+  rather than allowlisted.
+- [x] Final broad gate completed in approximately 94s: 149/149 doctest cases
+  and 3,487 assertions, every standalone CPU lane, zero-warning Profile/Debug
+  builds, zero DX12 validation errors with unchanged screenshot maximum
+  differences 33/61/0, and the 44,401-line physics baseline byte-exact. The
+  wrapper returned a contradictory code after the script printed
+  `VALIDATE_FULL: DEFAULT GATE PASSED`; P7 reruns the final gate directly.
+- [x] Mandatory `tools\run_graphics_stress.bat 1` exited 0 after 13,107 frames
+  and 365 scene loads. Stdout was 54,306 bytes, stderr was empty, and the
+  671-byte memory CSV plus 4,578-byte shutdown JSON were written.
+- [x] Touched-source/tool comment audit: 19/19 checked, zero deferred. The new
+  capability and all touched renderer/runtime/input/test/tool files retain full
+  learning headers and local allocation, transaction, lifetime, opt-in, and
+  failure-path explanations.
 
 ### P7 — Closure
 

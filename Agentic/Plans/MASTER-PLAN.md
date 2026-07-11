@@ -92,7 +92,7 @@ concrete plan rows and counting it would duplicate tasks.
 | render-backend-decomposition | 8 | 8 | 100% |
 | stale-plan-reference-cleanup-15.6-checklist | 86 | 86 | 100% |
 | dx12-post-final-cleanup | 6 | 6 | 100% |
-| shader-pipeline-modernization | 5 | 8 | 63% |
+| shader-pipeline-modernization | 7 | 8 | 88% |
 | render-visibility-architecture | 0 | 7 | 0% |
 | sim-render-interpolation | 0 | 5 | 0% |
 | editor-undo-redo | 0 | 5 | 0% |
@@ -101,7 +101,7 @@ concrete plan rows and counting it would duplicate tasks.
 | entity-model-endgame | 4 | 4 | 100% |
 | instant-prediction-velocity-chaos | 52 | 52 | 100% |
 | shadow-edge-quality | 0 | 5 | 0% |
-| **Portfolio total** | **245** | **276** | **89%** |
+| **Portfolio total** | **247** | **276** | **89%** |
 
 ## Current Execution Priority
 
@@ -174,7 +174,7 @@ Reconciliation notes live inside each plan.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [shader-pipeline-modernization](TODO/shader-pipeline-modernization.md) | Active | 5/8 | P0-P4 are complete with verified offline DXIL, reflection, UnifiedRaster, and persistent cached-blob PSOs; record the P5 SM6.6 bindless decision next |
+| [shader-pipeline-modernization](TODO/shader-pipeline-modernization.md) | Active | 7/8 | P5's measured no-bindless decision and P6 transactional offline-DXC F9 reload are complete; run P7 independent review, final gate, handoff updates, and plan deletion |
 | [render-visibility-architecture](TODO/render-visibility-architecture.md) | Planned | 0/7 | P0 instrumentation may start any time; implementation follows stable backend ownership and closes before shadow-quality implementation |
 | [sim-render-interpolation](TODO/sim-render-interpolation.md) | Planned | 0/5 | After entity-model closure and stable renderer ownership; P1 capture-determinism guard lands first |
 | [editor-undo-redo](TODO/editor-undo-redo.md) | Planned | 0/5 | After entity-model closure; build history on final `PhysicsSceneObjectId` and post-`GameModelCollection` scene APIs |

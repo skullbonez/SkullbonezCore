@@ -99,6 +99,7 @@ enum class RuntimeInputAction
     StepPhysicsPipelineNext,
     TogglePhysicsDebugTransparent,
     ReportRendererRuntimeRetired,
+    ReloadShadersFromSource,
     ToggleBroadphaseOverlay,
     ToggleUIVisibility,
     TogglePerformanceHistogram,

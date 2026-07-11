@@ -1004,6 +1004,9 @@
     <ClInclude Include="SkullbonezSource\Rendering\IRenderRayTracing.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\IRenderShaderDevelopment.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\IRenderResourceFactory.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
@@ -1619,6 +1622,9 @@
       <Filter>Scene Files</Filter>
     </None>
     <None Include="SkullbonezData\interaction\memory_overlay_f6_toggle.json">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\interaction\shader_hot_reload_f9.json">
       <Filter>Scene Files</Filter>
     </None>
     <None Include="SkullbonezData\interaction\replay_branch_restore_live_edge.json">

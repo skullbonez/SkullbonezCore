@@ -14,9 +14,10 @@ Glossary:
     offsets without compiling source at startup.
 
 Invariants:
-  - Verification occurs during renderer startup, before steady gameplay.
+  - Verification occurs during renderer startup or the explicit BackendInit-
+    labelled developer reload transaction.
   - Hash comparison uses lowercase SHA-256 text emitted by the bake tool.
-  - Dev fallback is opt-in through one exact command-line token.
+  - Developer hot reload is opt-in through one exact command-line token.
 
 Related:
   - tools/bake_shaders.py
@@ -281,11 +282,11 @@ bool ValidateLoadedReflection( const char* hlslPath, const char* stage, ID3DBlob
 }
 } // namespace
 
-bool DevShaderSourceCompileEnabled()
+bool DevShaderHotReloadEnabled()
 {
     // Invariant: this launch policy is immutable after process startup, so the
-    // renderer can query it from multiple cold resource-creation paths.
-    static const bool enabled = CommandLineHasExactToken( "--dev-compile-shaders" );
+    // renderer can query it from the manual cold utility action.
+    static const bool enabled = CommandLineHasExactToken( "--dev-shader-hot-reload" );
     return enabled;
 }
 

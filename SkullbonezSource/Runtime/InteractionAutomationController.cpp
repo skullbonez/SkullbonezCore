@@ -559,6 +559,11 @@ bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
         outVirtualKey = VK_F6;
         return true;
     }
+    if ( value == "F9" )
+    {
+        outVirtualKey = VK_F9;
+        return true;
+    }
     if ( value == "Enter" || value == "Return" )
     {
         outVirtualKey = VK_RETURN;

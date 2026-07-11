@@ -5,8 +5,8 @@ Purpose:
 
 Mental model:
   The offline bake owns compilation. This wrapper accepts manifest-current
-  DXIL, reflects its constant layout during cold startup, and publishes the
-  bytecode and uniform uploads needed by pipeline draws.
+  DXIL, reflects its constant layout during cold startup or explicit developer
+  reload, and publishes bytecode plus uniform uploads needed by pipeline draws.
 
 Glossary:
   Upload arena: Frame-scoped CPU-visible staging memory used for packed shader
@@ -24,7 +24,8 @@ Invariants:
   must stay explicit.
   - Address zero means constant upload failed; FlushCB must not dereference it
     or clear the dirty bit.
-  - Runtime source compilation requires the explicit developer launch option.
+  - Runtime never compiles source; manual reload adopts only a complete verified
+    offline-DXC pair and leaves the current shader intact on failure.
 
 Related:
   - SkullbonezSource/Rendering/DX12/ShaderDX12.h
@@ -39,8 +40,6 @@ Related:
 #include "../../Core/Log.h"
 #include <d3d11shader.h>
 #include <string>
-#include <fstream>
-#include <sstream>
 #include <vector>
 #include <cstring>
 #include <d3dcompiler.h>
@@ -85,14 +84,26 @@ size_t HashShaderBytecode( ID3DBlob* blob )
 
 ShaderDX12::ShaderDX12( Dx12RenderDevice& device,
                         Dx12PipelineOwner& pipeline,
-                        Dx12UploadReservations& uploadReservations )
+                        Dx12UploadReservations& uploadReservations,
+                        bool registerWithPipeline )
     : m_device( device ), m_pipeline( pipeline ), m_uploadReservations( uploadReservations ), m_cbReflectedSize( 0 ),
       m_cbSize( 0 ), m_cbDirty( false ), m_vsBytecodeHash( 0 ), m_psBytecodeHash( 0 ), m_contract( nullptr )
 {
+    if ( registerWithPipeline )
+    {
+        m_pipeline.RegisterShader( this );
+        m_registeredWithPipeline = true;
+    }
 }
 
 
-ShaderDX12::~ShaderDX12() = default;
+ShaderDX12::~ShaderDX12()
+{
+    if ( m_registeredWithPipeline )
+    {
+        m_pipeline.UnregisterShader( this );
+    }
+}
 
 
 bool ShaderDX12::Compile( const char* hlslPath )
@@ -114,73 +125,13 @@ bool ShaderDX12::Compile( const char* hlslPath )
                        LoadManifestCurrentShaderBytecode( hlslPath, "ps", m_psBlob, loadError );
     if ( !loadedBaked )
     {
-        // Lane R: stale/missing authored assets fail startup. Source compilation
-        // is retained only as an explicit developer escape hatch until hot reload
-        // owns the same cold path.
-        if ( !DevShaderSourceCompileEnabled() )
-        {
-            Log().WriteEventf( "dx12_shader_bytecode_rejected path=%s reason=%s",
-                               hlslPath ? hlslPath : "<null>",
-                               loadError.c_str() );
-            Log().FlushAll();
-            return false;
-        }
-
-        std::ifstream file( hlslPath, std::ios::binary );
-        if ( !file.is_open() )
-        {
-            Log().WriteEventf( "dx12_shader_file_open_failed path=%s", hlslPath ? hlslPath : "<null>" );
-            Log().FlushAll();
-            return false;
-        }
-        const std::string source( ( std::istreambuf_iterator<char>( file ) ), std::istreambuf_iterator<char>() );
-        UINT flags = D3DCOMPILE_ENABLE_STRICTNESS;
-#ifdef _DEBUG
-        flags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#else
-        flags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
-#endif
-        Log().WriteEventf( "dx12_shader_dev_source_fallback path=%s reason=%s",
+        // Lane R: runtime accepts only the pinned offline-DXC artifact. Manual
+        // hot reload reruns that same bake before asking this loader to try again.
+        Log().WriteEventf( "dx12_shader_bytecode_rejected path=%s reason=%s",
                            hlslPath ? hlslPath : "<null>",
                            loadError.c_str() );
-        fprintf( stdout,
-                 "[shader] DEV source fallback path=%s reason=%s\n",
-                 hlslPath ? hlslPath : "<null>",
-                 loadError.c_str() );
-        fflush( stdout );
-
-        auto compileFallback = [&]( const char* entry, const char* target, const char* stage, ComPtr<ID3DBlob>& blob )
-        {
-            ComPtr<ID3DBlob> errors;
-            const HRESULT result = D3DCompile( source.c_str(),
-                                               source.size(),
-                                               hlslPath,
-                                               nullptr,
-                                               D3D_COMPILE_STANDARD_FILE_INCLUDE,
-                                               entry,
-                                               target,
-                                               flags,
-                                               0,
-                                               blob.ReleaseAndGetAddressOf(),
-                                               errors.GetAddressOf() );
-            if ( FAILED( result ) )
-            {
-                const char* message = errors ? static_cast<const char*>( errors->GetBufferPointer() ) : "<none>";
-                Log().WriteEventf( "dx12_shader_compile_failed stage=%s hresult=0x%08X path=%s message=%s",
-                                   stage,
-                                   static_cast<unsigned int>( result ),
-                                   hlslPath ? hlslPath : "<null>",
-                                   message );
-                Log().FlushAll();
-                return false;
-            }
-            return true;
-        };
-        if ( !compileFallback( "main_vs", "vs_5_0", "vs", m_vsBlob ) ||
-             !compileFallback( "main_ps", "ps_5_0", "ps", m_psBlob ) )
-        {
-            return false;
-        }
+        Log().FlushAll();
+        return false;
     }
 
     m_vsBytecodeHash = HashShaderBytecode( m_vsBlob.Get() );
@@ -216,6 +167,61 @@ bool ShaderDX12::Compile( const char* hlslPath )
 #endif
 
     return true;
+}
+
+
+bool ShaderDX12::CanAdoptReload( const ShaderDX12& candidate ) const
+{
+    if ( m_sourcePath != candidate.m_sourcePath || m_contract != candidate.m_contract ||
+         m_cbReflectedSize != candidate.m_cbReflectedSize || m_cbSize != candidate.m_cbSize ||
+         m_uniformMap.size() != candidate.m_uniformMap.size() )
+    {
+        return false;
+    }
+    for ( const auto& current : m_uniformMap )
+    {
+        const auto replacement = candidate.m_uniformMap.find( current.first );
+        if ( replacement == candidate.m_uniformMap.end() || replacement->second.offset != current.second.offset ||
+             replacement->second.size != current.second.size )
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+
+bool ShaderDX12::PrepareReload( ShaderDX12ReloadPayload& payload ) const
+{
+    ShaderDX12 candidate( m_device, m_pipeline, m_uploadReservations, false );
+    if ( !candidate.Compile( m_sourcePath.c_str() ) || !CanAdoptReload( candidate ) )
+    {
+        return false;
+    }
+    payload.vertexBytecode = std::move( candidate.m_vsBlob );
+    payload.pixelBytecode = std::move( candidate.m_psBlob );
+    payload.vertexHash = candidate.m_vsBytecodeHash;
+    payload.pixelHash = candidate.m_psBytecodeHash;
+    return true;
+}
+
+
+void ShaderDX12::AdoptReload( ShaderDX12ReloadPayload& payload )
+{
+    // Invariant: CanAdoptReload proved the constant layout is unchanged. Keep
+    // the live CPU values and only replace bytecode/reflection identity so a
+    // reload cannot erase uniforms that owners set once during construction.
+    m_vsBlob = std::move( payload.vertexBytecode );
+    m_psBlob = std::move( payload.pixelBytecode );
+    m_vsBytecodeHash = payload.vertexHash;
+    m_psBytecodeHash = payload.pixelHash;
+    m_cbDirty = true;
+}
+
+
+const char* ShaderDX12::SourcePath() const
+{
+    return m_sourcePath.c_str();
 }
 
 

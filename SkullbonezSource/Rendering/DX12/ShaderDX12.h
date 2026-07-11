@@ -51,6 +51,14 @@ class Dx12PipelineOwner;
 class Dx12UploadReservations;
 struct ShaderProgramDesc;
 
+struct ShaderDX12ReloadPayload
+{
+    Microsoft::WRL::ComPtr<ID3DBlob> vertexBytecode;
+    Microsoft::WRL::ComPtr<ID3DBlob> pixelBytecode;
+    size_t vertexHash = 0;
+    size_t pixelHash = 0;
+};
+
 
 /* -- ShaderDX12
 -------------------------------------------------------------------------------------------------------------------------------------------------
@@ -60,10 +68,12 @@ struct ShaderProgramDesc;
     A single HLSL file provides the vertex shader (VS) and pixel shader (PS).
     The wrapper loads both baked stages, reflects the constant-buffer layout,
     stores a CPU-side copy of uniform bytes, and exposes bytecode for DX12 PSO
-    creation. Source compilation is an explicit dev-only fallback.
+    creation. Manual dev reload adopts another verified baked pair without
+    changing the live object or its constant values until validation succeeds.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class ShaderDX12 : public IShader
 {
+    friend class Dx12PipelineOwner;
 
   private:
     Dx12RenderDevice& m_device;
@@ -87,6 +97,7 @@ class ShaderDX12 : public IShader
     size_t m_psBytecodeHash;
     std::string m_sourcePath;
     const ShaderProgramDesc* m_contract;
+    bool m_registeredWithPipeline = false;
 #ifdef _DEBUG
     struct ResourceInfo
     {
@@ -112,10 +123,17 @@ class ShaderDX12 : public IShader
 #endif
 
   public:
-    ShaderDX12( Dx12RenderDevice& device, Dx12PipelineOwner& pipeline, Dx12UploadReservations& uploadReservations );
+    ShaderDX12( Dx12RenderDevice& device,
+                Dx12PipelineOwner& pipeline,
+                Dx12UploadReservations& uploadReservations,
+                bool registerWithPipeline = true );
     ~ShaderDX12() override;
 
     bool Compile( const char* hlslPath );
+    bool CanAdoptReload( const ShaderDX12& candidate ) const;
+    bool PrepareReload( ShaderDX12ReloadPayload& payload ) const;
+    void AdoptReload( ShaderDX12ReloadPayload& payload );
+    const char* SourcePath() const;
 
     void Use() const override;
     void SetInt( const char* name, int value ) const override;

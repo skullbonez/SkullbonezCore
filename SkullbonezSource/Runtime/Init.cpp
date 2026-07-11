@@ -3085,6 +3085,7 @@ SbResult InitRenderBackend( Window* window,
     renderBackendView.renderDiagnostics = renderBackend;
     renderBackendView.captureBackend = renderBackend;
     renderBackendView.rayTracingBackend = renderBackend;
+    renderBackendView.shaderDevelopment = renderBackend;
     outBackend = std::move( backend );
     return SbResult::Success();
 }

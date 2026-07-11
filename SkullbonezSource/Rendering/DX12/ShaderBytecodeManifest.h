@@ -1,16 +1,18 @@
 /*
 File: ShaderBytecodeManifest.h
 Purpose:
-  Declares the startup boundary that verifies and loads baked shader bytecode.
+  Declares the startup/hot-reload boundary that verifies and loads baked shader
+  bytecode.
 
 Mental model:
   Authored HLSL and executable DXIL are a matched pair. The bake manifest
-  records their hashes; startup accepts bytecode only while both hashes match.
+  records their hashes; startup and explicit reload accept bytecode only while
+  both hashes match.
 
 Glossary:
   Freshness manifest: Checked-in JSON map from compiler inputs to baked bytes.
-  Dev fallback: Explicit cold-start source compilation enabled only by
-    `--dev-compile-shaders`.
+  Hot reload: Explicit developer action that reruns the offline bake, then asks
+    live shader owners to adopt hash-verified bytes transactionally.
 
 Invariants:
   - Shipping startup never invokes a shader compiler.
@@ -29,7 +31,7 @@ Related:
 
 namespace SkullbonezCore::Rendering
 {
-bool DevShaderSourceCompileEnabled();
+bool DevShaderHotReloadEnabled();
 
 bool LoadManifestCurrentShaderBytecode( const char* hlslPath,
                                         const char* stage,

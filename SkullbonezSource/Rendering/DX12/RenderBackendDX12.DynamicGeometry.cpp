@@ -746,17 +746,26 @@ size_t Dx12GeometryOwner::InstancedCapacity() const
 }
 
 
-void Dx12GeometryOwner::Shutdown()
+void Dx12GeometryOwner::InvalidateGridLinePipelinesForShaderReload()
 {
+    // Lifetime: the caller has drained the GPU. Grid-line PSOs bypass the main
+    // raster cache, so they must be released explicitly before the registered
+    // grid-line ShaderDX12 adopts new bytecode.
     for ( GridLinePSODX12& entry : m_gridLinePSOs )
     {
         if ( entry.pso )
         {
             entry.pso->Release();
-            entry = {};
         }
+        entry = {};
     }
     m_gridLinePSOCount = 0;
+}
+
+
+void Dx12GeometryOwner::Shutdown()
+{
+    InvalidateGridLinePipelinesForShaderReload();
     m_gridLineShader.reset();
     for ( std::unique_ptr<IShader>& shader : m_transientTriangleShaders )
     {

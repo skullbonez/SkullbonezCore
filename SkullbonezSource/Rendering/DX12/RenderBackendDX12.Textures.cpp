@@ -44,7 +44,6 @@ Related:
 #include <cstring>
 #include <algorithm>
 #include <string>
-#include <fstream>
 #include <memory>
 #include <vector>
 #include <wrl/client.h>
@@ -98,51 +97,9 @@ SkullbonezCore::Basics::SbResult Dx12TextureOwner::Initialize( RenderBackendDX12
     std::string loadError;
     if ( !LoadManifestCurrentShaderBytecode( csPath.c_str(), "cs", csBlob, loadError ) )
     {
-        if ( !DevShaderSourceCompileEnabled() )
-        {
-            return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
-                                                              "Baked generate-mips shader rejected: %s",
-                                                              loadError.c_str() );
-        }
-
-        std::ifstream csFile( csPath, std::ios::binary );
-        if ( !csFile.is_open() )
-        {
-            return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
-                                                              "Cannot open generate_mips.hlsl: %s",
-                                                              csPath.c_str() );
-        }
-        const std::string csSource( ( std::istreambuf_iterator<char>( csFile ) ), std::istreambuf_iterator<char>() );
-        UINT compileFlags = D3DCOMPILE_ENABLE_STRICTNESS;
-#ifdef _DEBUG
-        compileFlags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#else
-        compileFlags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
-#endif
-        Log().WriteEventf( "dx12_shader_dev_source_fallback path=%s reason=%s", csPath.c_str(), loadError.c_str() );
-        fprintf( stdout, "[shader] DEV source fallback path=%s reason=%s\n", csPath.c_str(), loadError.c_str() );
-        fflush( stdout );
-        const HRESULT compileResult = D3DCompile( csSource.c_str(),
-                                                  csSource.size(),
-                                                  csPath.c_str(),
-                                                  nullptr,
-                                                  D3D_COMPILE_STANDARD_FILE_INCLUDE,
-                                                  "main_cs",
-                                                  "cs_5_0",
-                                                  compileFlags,
-                                                  0,
-                                                  csBlob.GetAddressOf(),
-                                                  errors.GetAddressOf() );
-        if ( FAILED( compileResult ) )
-        {
-            std::string msg = "generate_mips.hlsl CS compile failed: ";
-            if ( errors )
-            {
-                msg += reinterpret_cast<const char*>( errors->GetBufferPointer() );
-            }
-            return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12", "%s", msg.c_str() );
-        }
-        errors.Reset();
+        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
+                                                          "Baked generate-mips shader rejected: %s",
+                                                          loadError.c_str() );
     }
 
     // Concept: this root signature is the binding contract for generate_mips.hlsl.
@@ -288,6 +245,56 @@ SkullbonezCore::Basics::SbResult Dx12TextureOwner::Initialize( RenderBackendDX12
                                              backend.GetSRVStagingCpuHandle( m_genMipsNullUAV ),
                                              D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
     return SkullbonezCore::Basics::SbResult::Success();
+}
+
+
+SkullbonezCore::Basics::SbResult Dx12TextureOwner::PrepareGenerateMipsShaderReload( RenderBackendDX12& backend,
+                                                                                    ID3D12PipelineState*& candidate )
+{
+    candidate = nullptr;
+    if ( !m_genMipsRS )
+    {
+        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
+                                                          "Generate-mips root signature unavailable for reload" );
+    }
+    const std::string csPath = std::string( DATA_ROOT ) + "shaders/generate_mips.hlsl";
+    ComPtr<ID3DBlob> csBlob;
+    std::string loadError;
+    if ( !LoadManifestCurrentShaderBytecode( csPath.c_str(), "cs", csBlob, loadError ) )
+    {
+        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
+                                                          "Reloaded generate-mips shader rejected: %s",
+                                                          loadError.c_str() );
+    }
+    D3D12_COMPUTE_PIPELINE_STATE_DESC desc = {};
+    desc.pRootSignature = m_genMipsRS;
+    desc.CS = { csBlob->GetBufferPointer(), csBlob->GetBufferSize() };
+    const HRESULT result = backend.Device()->CreateComputePipelineState( &desc, IID_PPV_ARGS( &candidate ) );
+    if ( FAILED( result ) || !candidate )
+    {
+        if ( candidate )
+        {
+            candidate->Release();
+            candidate = nullptr;
+        }
+        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
+                                                          "Reloaded generate-mips PSO creation failed (HRESULT 0x%08X)",
+                                                          static_cast<unsigned int>( result ) );
+    }
+    return SkullbonezCore::Basics::SbResult::Success();
+}
+
+
+void Dx12TextureOwner::AdoptGenerateMipsShaderReload( ID3D12PipelineState* candidate )
+{
+    // Lifetime: the caller drained the GPU and prepared candidate completely.
+    // This no-fail swap is the compute half of the all-shader reload commit.
+    if ( m_genMipsPSO )
+    {
+        m_genMipsPSO->Release();
+    }
+    m_genMipsPSO = candidate;
+    NameDx12Object( m_genMipsPSO, L"Skullbonez DX12 Generate Mips Compute PSO" );
 }
 
 
