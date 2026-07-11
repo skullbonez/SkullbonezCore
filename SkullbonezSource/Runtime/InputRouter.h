@@ -93,6 +93,7 @@ class RuntimeInteractionController;
 class RuntimeTools;
 class AttachedCameraController;
 class SceneEntityStore;
+class SceneController;
 class Window;
 
 struct EditorPointerRouteInput
@@ -374,6 +375,25 @@ class InputRouter
                                                            RunCameraMode replayRestoreCameraMode,
                                                            bool attachedCameraFollow,
                                                            bool directorGrabbed );
+    // Camera-mode requests are input-owner transitions: the router sequences
+    // interaction cleanup, camera/editor state, and pointer presentation while
+    // retaining none of the borrowed domain owners.
+    void ApplyCameraMode( RunCameraState& camera,
+                          RunCameraMode mode,
+                          RuntimeInputActionSource source,
+                          RuntimeInputContext& runtimeInput,
+                          RuntimeInteractionController& interaction,
+                          RuntimeTools& runtimeTools,
+                          ReplayRuntime& replayRuntime,
+                          AttachedCameraController& attachedCamera,
+                          SceneController& sceneController );
+    void CycleCameraMode( RunCameraState& camera,
+                          RuntimeInputContext& runtimeInput,
+                          RuntimeInteractionController& interaction,
+                          RuntimeTools& runtimeTools,
+                          ReplayRuntime& replayRuntime,
+                          AttachedCameraController& attachedCamera,
+                          SceneController& sceneController );
     EditorPointerRouteResult RouteEditorPointer( const EditorPointerRouteInput& input,
                                                  RuntimeTools& runtimeTools,
                                                  ReplayRuntime& replayRuntime,

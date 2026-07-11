@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `b32a40a9 refactor: publish input snapshot to later phases` |
-| Current objective | Move the two remaining B1f camera/editor-mode transitions to their owners, delete the broad UI context, and complete the Run method/state proof |
-| Last broad local gate | `tools\validate_full.bat` passed the four-callback UI seam deletion with 129/129 doctest cases, 2,766 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 53.0s |
+| Current pushed baseline | `a4d82e5e refactor: delete UI transition callback seams` |
+| Current objective | Delete the broad B1f UI context and complete the final Run input method/state proof |
+| Last broad local gate | `tools\validate_full.bat` passed direct InputRouter camera/editor transition ownership with 129/129 doctest cases, 2,766 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 53.0s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -56,11 +56,11 @@ editor pointer memories, and both input callback packs are deleted. B1a-B1e are
 complete except the intentionally separate B1f final `Run` method/state
 extraction proof.
 
-The UI command transition pack is down from six callbacks to two. Stress
-ordering is explicit, generated-scene timeline reset calls `ReplayRuntime`
-directly, and placement-mode transitions compose the existing editor/input
-owners without returning through `Run`; camera mode and whole-editor mode are
-the remaining coupled transition seams.
+The UI command transition callback pack is deleted. Stress ordering is
+explicit, generated-scene timeline reset calls `ReplayRuntime` directly, and
+placement/editor/camera transitions compose the existing editor, camera,
+interaction, and input owners without returning through `Run`. The broad UI
+frame context and `Run::TakeInput` are the remaining B1f deletion proof.
 
 Owner queue B2b-B2e is complete. Capture, render-default persistence, and scene
 requests now use fixed owner storage; application exit remains value-only.

@@ -731,6 +731,27 @@ and the 20,001-line byte-exact physics baseline. The first fast attempt stopped
 only at formatting before build/runtime work; formatting the touched file
 resolved it. Comment audit: 1/1 touched source-bearing file.
 
+The UI owner-transition callback pack is now deleted. `InputRouter` applies
+camera-mode and cycle requests through explicit synchronous owner borrows,
+including interaction cleanup, Attach return/seed behavior, editor restore
+state, fly-camera pointer presentation, and runtime input-mode history. UI,
+keyboard, launcher toggles, and interaction automation all call that owner
+directly. Whole-editor mode composes `RuntimeTools`, `InputRouter`, and
+`InputController` directly in the command phase. `Run::ApplyCameraMode`,
+`Run::CycleCameraMode`, `Run::EnterFlyModeCamera`, `Run::ExitFlyModeCamera`, and
+the label forwarding method are deleted. B1f remains open only for deletion of
+the broad `RuntimeUIFrameContext` and final `Run::TakeInput` method/state proof.
+
+Evidence: the final zero-warning Debug build passed after correcting one
+constness compile error in the extracted terrain borrow. The final staged fast
+gate passed in 26.9s with seven candidates and no size violations;
+the CPU umbrella passed all four lanes with 129/129 doctest cases and 2,766
+assertions in 10.9s; all five interaction scenarios passed in 19.4s; perf
+completed in 35.0s; and full passed in 53.0s with zero warnings, zero DX12
+InfoQueue errors, matching screenshots, standalone topology smoke, and the
+20,001-line byte-exact physics baseline. Comment audit: 4/4 touched
+source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host

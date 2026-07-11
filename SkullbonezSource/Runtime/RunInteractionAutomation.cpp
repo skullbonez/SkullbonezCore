@@ -769,15 +769,13 @@ struct InteractionAutomationReplayStateContext
     Physics::PhysicsEngine& physics;
 };
 
-template <typename ApplyCameraMode>
 void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationDirectorCameraContext& context,
                                                      RunInteractionAutomationAction& action,
-                                                     int frame,
-                                                     ApplyCameraMode applyCameraMode )
+                                                     int frame )
 {
     // Concept: director/camera automation seeds the same camera and director
-    // owners used by live authoring; Run only supplies the private camera-mode
-    // transition callback that still belongs to the composition root.
+    // owners used by live authoring. Camera-mode transitions are routed by the
+    // caller through InputRouter before this helper handles director-local work.
     switch ( action.type )
     {
     case RunInteractionAutomationActionType::LoadShotList:
@@ -794,24 +792,6 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationDirect
                             nullptr,
                             loaded,
                             loaded ? "shot list loaded" : "shot list unavailable" );
-        break;
-    }
-    case RunInteractionAutomationActionType::DirectorPlay:
-    {
-        const RunCameraMode targetMode = action.boolValue ? RunCameraMode::Director : RunCameraMode::Inspect;
-        applyCameraMode( targetMode );
-        const bool applied = context.camera.mode == targetMode;
-        if ( !applied )
-        {
-            FailAutomation( context.state, "failed to apply director play state" );
-        }
-        AppendReportAction( context.state,
-                            frame,
-                            action.type,
-                            action.text,
-                            nullptr,
-                            applied,
-                            applied ? "director play state applied" : "director play state failed" );
         break;
     }
     case RunInteractionAutomationActionType::DirectorAdvance:
@@ -893,10 +873,6 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationDirect
                             applied ? "camera pose applied" : "camera unavailable" );
         break;
     }
-    case RunInteractionAutomationActionType::SetCameraMode:
-        applyCameraMode( action.cameraMode );
-        AppendReportAction( context.state, frame, action.type, action.text, nullptr, true, "camera mode applied" );
-        break;
     default:
         break;
     }
@@ -1981,19 +1957,44 @@ void Run::TickInteractionAutomationBeforeInput()
 
         switch ( action.type )
         {
-        case RunInteractionAutomationActionType::LoadShotList:
         case RunInteractionAutomationActionType::DirectorPlay:
+        case RunInteractionAutomationActionType::SetCameraMode:
+        {
+            const RunCameraMode targetMode =
+                action.type == RunInteractionAutomationActionType::DirectorPlay
+                    ? ( action.boolValue ? RunCameraMode::Director : RunCameraMode::Inspect )
+                    : action.cameraMode;
+            m_inputRouter.ApplyCameraMode( m_camera,
+                                           targetMode,
+                                           RuntimeInputActionSource::Runtime,
+                                           m_runtimeInput,
+                                           m_interaction,
+                                           m_runtimeTools,
+                                           m_replayRuntime,
+                                           m_attachedCamera,
+                                           m_sceneController );
+            const bool applied = m_camera.mode == targetMode;
+            if ( !applied )
+            {
+                FailAutomation( state, "failed to apply automated camera mode" );
+            }
+            AppendReportAction( state,
+                                frame,
+                                action.type,
+                                action.text,
+                                nullptr,
+                                applied,
+                                applied ? "camera mode applied" : "camera mode failed" );
+            action.processed = true;
+            break;
+        }
+        case RunInteractionAutomationActionType::LoadShotList:
         case RunInteractionAutomationActionType::DirectorAdvance:
         case RunInteractionAutomationActionType::DirectorGrab:
         case RunInteractionAutomationActionType::DirectorRelease:
         case RunInteractionAutomationActionType::SetPhaseStyle:
         case RunInteractionAutomationActionType::SetCameraPose:
-        case RunInteractionAutomationActionType::SetCameraMode:
-            ApplyInteractionAutomationDirectorCameraAction(
-                directorCameraContext,
-                action,
-                frame,
-                [this]( RunCameraMode mode ) { ApplyCameraMode( mode, RuntimeInputActionSource::Runtime ); } );
+            ApplyInteractionAutomationDirectorCameraAction( directorCameraContext, action, frame );
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::ShowReplayScrubber:

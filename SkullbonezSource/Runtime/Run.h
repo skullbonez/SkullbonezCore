@@ -183,18 +183,11 @@ class Run
         bool uiUserInteracted );                                        // Runs ESC/UI dismissal after UI controls get first refusal.
     RuntimeInteractionTransition EnterInteractionForCameraMode(
         RunCameraMode mode );                                           // Converts camera/tool requests into controller workspace transitions.
-    void EnterFlyModeCamera();                                          // Switches camera state into free-flight controls.
-    void ExitFlyModeCamera();                                           // Restores terrain camera bounds and leaves launcher mode.
     const char* CameraModeLabel( RunCameraMode mode ) const;            // Compact name for UI and transition diagnostics.
     uint32_t CameraModeEnabledMask() const;                             // One bit per camera mode; disabled modes remain visible in UI.
     bool IsDemoCameraModeAvailable() const;                             // True when Demo can track at least one live model.
     RunCameraMode NormalizeCameraModeForCurrentScene(
         RunCameraMode mode ) const;                                     // Clamps passive camera modes to generated-demo vs authored-scene ownership.
-    void SetCameraModeLabelAfterInteractionTransition(
-        RunCameraMode mode );                                           // Applies the camera label after controller workspace/tool ownership is chosen.
-    void ApplyCameraMode( RunCameraMode mode,
-                          RuntimeInputActionSource source );            // Applies keyboard/UI camera-mode requests.
-    void CycleCameraMode();                                             // Tab cycles through enabled explicit camera modes.
     SbResult ReleaseBackendOwnedRenderResources(
         const char* phaseName );                                        // Ordered GPU-resource release hook while the backend is alive.
     SbResult RebuildRegisteredRenderResources();                        // Recreates renderer resources from source asset records.
