@@ -261,8 +261,9 @@ for it. When preparing PR-bound work, choose the smallest script from `tools\`
 that matches the fix. The default broad PR gate runs the mandatory CPU umbrella
 first, then two runtime lanes: one DX12 renderer process and the physics lane's
 standalone-smoke plus regression-scene processes (three engine processes total).
-Use deep, perf, UI, and stress validation only when the change actually needs
-them.
+Use deep, perf, and UI validation only when the change actually needs them.
+Every DX12 modification also requires the mandatory bounded graphics-stress
+run defined below.
 
 `validate_full.bat` and its `agent_validate.bat` alias are the mandatory broad
 superset. A new standalone CPU test executable must join
@@ -276,8 +277,8 @@ the same commit; a test target reachable only through a direct script or
 | Main doctest unit tests only | `tools\validate_tests.bat` | build + console test runner |
 | Standalone/combined CPU test targets | `tools\validate_all_cpu_tests.bat` | incremental builds + 5 console test launches |
 | Small refactor, no render or physics changes | `tools\validate_fast.bat` | ~30s |
-| Shader or render backend | `tools\validate_dx12_renderer.bat` | ~2 min |
-| DX12 renderer validation tooling | `tools\validate_fast.bat`, then `tools\validate_dx12_renderer.bat` | ~2 min |
+| Shader or render backend | `tools\validate_dx12_renderer.bat`, then `tools\run_graphics_stress.bat 1` | ~3 min |
+| DX12 renderer validation tooling | `tools\validate_fast.bat`, then `tools\validate_dx12_renderer.bat`, then `tools\run_graphics_stress.bat 1` | ~3 min |
 | Physics, collision, solver, or rigid body changes | `tools\validate_physics.bat` | 2 engine processes |
 | Broad physics baseline, bullet sweep, or SkullScope diagnostics | `tools\validate_physics_deep.bat` | ~45s+ |
 | Performance-sensitive hot path | `tools\validate_perf.bat` | ~1 min |
@@ -296,8 +297,8 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 
 | Files Changed | Required Pre-Commit/PR Script |
 |---------------|-----------------|
-| `RenderBackendDX12*.cpp/h`, `Rendering/DX12/*` | `validate_dx12_renderer` |
-| `SkullbonezData/shaders/*` | `validate_dx12_renderer` |
+| `RenderBackendDX12*.cpp/h`, `Rendering/DX12/*` | `validate_dx12_renderer` + `run_graphics_stress.bat 1` |
+| `SkullbonezData/shaders/*` | `validate_dx12_renderer` + `run_graphics_stress.bat 1` |
 | `RigidBody*`, `PhysicsWorld*`, `SimulationSystem*` | `validate_physics` |
 | `GameModelCollection*` physics solver changes | `validate_physics` |
 | `BoundingSphere*`, `BoundingBox*`, `ConvexHullShape*`, `CollisionShape*` | `validate_physics` |
@@ -330,6 +331,7 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 - **Repository validation scripts are PR/commit gates.** Do not run `tools\validate_*` merely as you go. During iteration, use targeted builds, launches, focused tests, or inspections only when they answer a specific question about the fix.
 - **Renderer validation must fail fast.** `tools\validate_dx12_renderer.bat` builds `Profile` first and must stop before launching DX12 if compilation fails. Renderer launches in that script use PID-scoped timeouts, then `tools\check_dx12_baselines.py` handles image comparison artifacts.
 - **DX12-only validation is the production safety net.** `tools\validate_dx12_renderer.bat` builds `Profile`, launches only DX12, checks `dx12_validation.txt`, and compares captures against committed DX12 baselines.
+- **Every DX12 modification requires a crash-free stress run of at least 10 seconds.** This applies to DX12 runtime source, shaders, resource/binding contracts, and DX12 validation tooling. The standard bounded command is `tools\run_graphics_stress.bat 1` (one minute); record its command, measured runtime, and successful exit evidence. A shorter custom launch is acceptable only when its measured runtime is at least 10 seconds and the process exits without a crash.
 - **Never claim validation success without command output.** Paste the validation output when validation is required.
 - **Never skip required pre-commit/PR validation** for code, tool, scene, shader, baseline, or runtime behavior changes unless the user explicitly says to.
 - **Documentation-only changes require no validation.** Do not run `validate_fast` for prose-only edits.
@@ -383,19 +385,22 @@ record the reason in the commit body or handoff.
 
 When committing, write commit notes that are useful future handoff material, not a terse log line.
 
-Every commit subject must begin with the exact progress header defined by the
-authoritative ledger in `Agentic/Plans/MASTER-PLAN.md`:
+Every commit produced by a plan runner must begin with the exact progress
+header defined by the authoritative ledger in
+`Agentic/Plans/MASTER-PLAN.md`:
 
 ```text
 <PLAN_NAME>, TASK <DONE> / <TASK_COUNT>, <OVERALL_PERCENT>% OVERALL COMPLETE — <ACTION SUMMARY>
 ```
 
-Resolve all three values from the post-commit ledger state before staging. The
-overall percentage is the rounded portfolio-done total divided by the current
-portfolio task total; never estimate it. Every plan-implementation prompt must
-include the fully resolved required subject line. One plan owns each commit;
-split unrelated work, and use the MASTER-PLAN governance rule only for an
-unavoidable aggregate documentation/governance commit.
+For plan-runner commits, resolve all three values from the post-commit ledger
+state before staging. The overall percentage is the rounded portfolio-done
+total divided by the current portfolio task total; never estimate it. Every
+plan-implementation prompt must include the fully resolved required subject
+line. One plan owns each plan-runner commit; split unrelated work, and use the
+MASTER-PLAN governance rule only for an unavoidable aggregate documentation or
+governance commit. Commits made outside a plan runner use the normal subject
+rules below and do not claim plan progress.
 
 - Keep the action summary after the required progress header short and action-
   oriented. Conventional prefixes like `docs:`, `fix:`, or `feat:` may begin

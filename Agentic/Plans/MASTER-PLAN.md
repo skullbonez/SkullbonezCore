@@ -26,12 +26,16 @@ Status: Authoritative inventory of every live repository plan
 9. `Agentic/Plans/WNF/` holds owner-parked "will not do now" plans. Agents
    ignore that folder entirely — do not list, resume, update, or delete its
    contents unless the owner explicitly moves a file back out of it.
+10. Every DX12 modification must complete a crash-free graphics-stress run of
+    at least 10 seconds before commit/PR handoff. The standard bounded proof is
+    `tools\run_graphics_stress.bat 1`; record the command, measured runtime,
+    and successful exit evidence alongside the normal DX12 renderer gate.
 
 ## Commit Progress Contract
 
-Every commit subject (the first line of the commit message) must begin with the
-owning plan, that plan's completed task count after the commit, and overall
-portfolio completion after the commit:
+Every commit produced by a plan runner must begin with the owning plan, that
+plan's completed task count after the commit, and overall portfolio completion
+after the commit:
 
 ```text
 <PLAN_NAME>, TASK <DONE> / <TASK_COUNT>, <OVERALL_PERCENT>% OVERALL COMPLETE — <ACTION SUMMARY>
@@ -58,10 +62,12 @@ Rules:
    preserve arithmetic only; git history and reports remain the evidence
    archive. New or rescoped plans update the ledger and denominator in the same
    commit.
-5. One plan owns each commit. Split unrelated plan work. For an unavoidable
-   aggregate governance/documentation commit, use `MASTER-PLAN` with the
-   bounded governance task count and list every affected plan in the body; the
-   overall percentage still comes from this ledger.
+5. One plan owns each plan-runner commit. Split unrelated plan work. For an
+   unavoidable aggregate governance/documentation commit, use `MASTER-PLAN`
+   with the bounded governance task count and list every affected plan in the
+   body; the overall percentage still comes from this ledger. Commits made
+   outside a plan runner use normal commit subjects and do not claim plan
+   progress.
 6. Every plan-implementation prompt must include the fully resolved required
    first line before implementation begins. `AGENTS.md` and the orchestrator
    skill repeat this requirement so it is present in agent prompts, not merely
@@ -215,6 +221,9 @@ Binding:
 
 - DX12 explicit helpers own live barriers; RenderGraph does not become a barrier
   compiler.
+- Any DX12 modification requires a crash-free graphics-stress run lasting at
+  least 10 seconds; `tools\run_graphics_stress.bat 1` is the standard bounded
+  proof.
 - No exceptions in engine code; recoverable failures must propagate rather than
   disappear.
 - `Run` remains only process/frame composition after five named ownership
