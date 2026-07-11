@@ -52,9 +52,10 @@ scene history, or add a competing scene migration path.
 - The completed runtime-shell parser split is the implementation boundary;
   extend the surviving format owners rather than reopening scene composition.
 - **Critical-path position.** Asset/hull investigation may run independently,
-  but schedule plan delivery after editor undo/redo. The `engine.cfg` portion
-  waits for `engine-config-decomposition.md` so version plumbing targets the
-  surviving parser/domain structure once.
+  but schedule plan delivery after editor undo/redo. Engine-config decomposition
+  is complete, so version plumbing can target the surviving parser/domain
+  structure directly; closure evidence is in
+  `Agentic/Reports/2026-07-12/engine-config-decomposition-closure.md`.
 
 ## Phases
 

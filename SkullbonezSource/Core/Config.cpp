@@ -277,20 +277,56 @@ bool ApplyConfigString( EngineConfig& cfg,
       []( const EngineConfig& cfg, FILE* out, const ConfigSetting& setting )                                           \
       { fprintf( out, "%s = %s\n", setting.name, cfg.FIELD.c_str() ); } }
 
-template <size_t N> constexpr size_t ArrayCount( const ConfigSetting ( & )[N] )
+template <typename T, size_t N> constexpr size_t ArrayCount( const T ( & )[N] )
 {
     return N;
 }
 
+enum class ConfigSettingDomain
+{
+    Window,
+    Camera,
+    TerrainGeometry,
+    Skybox,
+    RuntimeCapacity,
+    PhysicsExecution,
+    RuntimeRender,
+    ReplayPrediction,
+    SceneLight,
+    OrdinaryRender,
+    CinematicRender,
+    WorldForce,
+    BodySimulation,
+    PhysicsMaterial,
+    Broadphase,
+    PersistentContactSolver,
+    TerrainContact,
+    PhysicsSleep,
+    BlobShadow,
+    GeneratedScene,
+    AssetPaths,
+    WaterRenderStyle,
+    ContactAudio,
+    Count
+};
+
 struct ConfigSettingRange
+{
+    ConfigSettingDomain domain;
+    size_t first;
+    size_t count;
+};
+
+struct ConfigSettingTable
 {
     const ConfigSetting* settings;
     size_t count;
 };
 
-template <size_t N> constexpr ConfigSettingRange FullConfigRange( const ConfigSetting ( &settings )[N] )
+template <size_t N>
+constexpr ConfigSettingRange FullConfigRange( ConfigSettingDomain domain, const ConfigSetting ( & )[N] )
 {
-    return { settings, N };
+    return { domain, 0, N };
 }
 
 // Concept: each table owns one EngineConfig domain's key/type/range/destination
@@ -602,54 +638,131 @@ static_assert( ArrayCount( kWindowSettings ) + ArrayCount( kCameraSettings ) + A
                    kExpectedConfigSettingCount,
                "Every engine config key must belong to exactly one domain table." );
 
+// The enum ordinal, table pointer, and table count have one shared definition.
+// Traversal and its constexpr proof therefore cannot disagree about which
+// physical array belongs to a domain.
+static constexpr ConfigSettingTable kConfigSettingTables[] = {
+    { kWindowSettings, ArrayCount( kWindowSettings ) },
+    { kCameraSettings, ArrayCount( kCameraSettings ) },
+    { kTerrainGeometrySettings, ArrayCount( kTerrainGeometrySettings ) },
+    { kSkyboxSettings, ArrayCount( kSkyboxSettings ) },
+    { kRuntimeCapacitySettings, ArrayCount( kRuntimeCapacitySettings ) },
+    { kPhysicsExecutionSettings, ArrayCount( kPhysicsExecutionSettings ) },
+    { kRuntimeRenderSettings, ArrayCount( kRuntimeRenderSettings ) },
+    { kReplayPredictionSettings, ArrayCount( kReplayPredictionSettings ) },
+    { kSceneLightSettings, ArrayCount( kSceneLightSettings ) },
+    { kOrdinaryRenderSettings, ArrayCount( kOrdinaryRenderSettings ) },
+    { kCinematicRenderSettings, ArrayCount( kCinematicRenderSettings ) },
+    { kWorldForceSettings, ArrayCount( kWorldForceSettings ) },
+    { kBodySimulationSettings, ArrayCount( kBodySimulationSettings ) },
+    { kPhysicsMaterialSettings, ArrayCount( kPhysicsMaterialSettings ) },
+    { kBroadphaseSettings, ArrayCount( kBroadphaseSettings ) },
+    { kPersistentContactSolverSettings, ArrayCount( kPersistentContactSolverSettings ) },
+    { kTerrainContactSettings, ArrayCount( kTerrainContactSettings ) },
+    { kPhysicsSleepSettings, ArrayCount( kPhysicsSleepSettings ) },
+    { kBlobShadowSettings, ArrayCount( kBlobShadowSettings ) },
+    { kGeneratedSceneSettings, ArrayCount( kGeneratedSceneSettings ) },
+    { kAssetPathsSettings, ArrayCount( kAssetPathsSettings ) },
+    { kWaterRenderStyleSettings, ArrayCount( kWaterRenderStyleSettings ) },
+    { kContactAudioSettings, ArrayCount( kContactAudioSettings ) },
+};
+static_assert( ArrayCount( kConfigSettingTables ) == static_cast<size_t>( ConfigSettingDomain::Count ),
+               "Every config domain must have exactly one table descriptor." );
+
 // Invariant: these ranges are the single compatibility order for lookup and
 // Dump(). Slices preserve the few historical interleavings between domains.
 // Hazard: reordering a slice changes dump output and duplicate-key precedence.
-static const ConfigSettingRange kConfigSettingOrder[] = {
-    FullConfigRange( kWindowSettings ),
-    FullConfigRange( kCameraSettings ),
-    FullConfigRange( kTerrainGeometrySettings ),
-    FullConfigRange( kSkyboxSettings ),
-    FullConfigRange( kRuntimeCapacitySettings ),
-    FullConfigRange( kPhysicsExecutionSettings ),
-    { kRuntimeRenderSettings, 1 },
-    FullConfigRange( kReplayPredictionSettings ),
-    FullConfigRange( kSceneLightSettings ),
-    FullConfigRange( kOrdinaryRenderSettings ),
-    FullConfigRange( kCinematicRenderSettings ),
-    { kWorldForceSettings, 4 },
-    { kBodySimulationSettings, 1 },
-    { kPhysicsMaterialSettings, 1 },
-    { kWorldForceSettings + 4, 1 },
-    { kPhysicsMaterialSettings + 1, 4 },
-    { kBodySimulationSettings + 1, 2 },
-    FullConfigRange( kBroadphaseSettings ),
-    FullConfigRange( kPersistentContactSolverSettings ),
-    FullConfigRange( kTerrainContactSettings ),
-    FullConfigRange( kPhysicsSleepSettings ),
-    FullConfigRange( kBlobShadowSettings ),
-    FullConfigRange( kGeneratedSceneSettings ),
-    FullConfigRange( kAssetPathsSettings ),
-    FullConfigRange( kWaterRenderStyleSettings ),
-    { kRuntimeRenderSettings + 1, 3 },
-    FullConfigRange( kContactAudioSettings ),
+static constexpr ConfigSettingRange kConfigSettingOrder[] = {
+    FullConfigRange( ConfigSettingDomain::Window, kWindowSettings ),
+    FullConfigRange( ConfigSettingDomain::Camera, kCameraSettings ),
+    FullConfigRange( ConfigSettingDomain::TerrainGeometry, kTerrainGeometrySettings ),
+    FullConfigRange( ConfigSettingDomain::Skybox, kSkyboxSettings ),
+    FullConfigRange( ConfigSettingDomain::RuntimeCapacity, kRuntimeCapacitySettings ),
+    FullConfigRange( ConfigSettingDomain::PhysicsExecution, kPhysicsExecutionSettings ),
+    { ConfigSettingDomain::RuntimeRender, 0, 1 },
+    FullConfigRange( ConfigSettingDomain::ReplayPrediction, kReplayPredictionSettings ),
+    FullConfigRange( ConfigSettingDomain::SceneLight, kSceneLightSettings ),
+    FullConfigRange( ConfigSettingDomain::OrdinaryRender, kOrdinaryRenderSettings ),
+    FullConfigRange( ConfigSettingDomain::CinematicRender, kCinematicRenderSettings ),
+    { ConfigSettingDomain::WorldForce, 0, 4 },
+    { ConfigSettingDomain::BodySimulation, 0, 1 },
+    { ConfigSettingDomain::PhysicsMaterial, 0, 1 },
+    { ConfigSettingDomain::WorldForce, 4, 1 },
+    { ConfigSettingDomain::PhysicsMaterial, 1, 4 },
+    { ConfigSettingDomain::BodySimulation, 1, 2 },
+    FullConfigRange( ConfigSettingDomain::Broadphase, kBroadphaseSettings ),
+    FullConfigRange( ConfigSettingDomain::PersistentContactSolver, kPersistentContactSolverSettings ),
+    FullConfigRange( ConfigSettingDomain::TerrainContact, kTerrainContactSettings ),
+    FullConfigRange( ConfigSettingDomain::PhysicsSleep, kPhysicsSleepSettings ),
+    FullConfigRange( ConfigSettingDomain::BlobShadow, kBlobShadowSettings ),
+    FullConfigRange( ConfigSettingDomain::GeneratedScene, kGeneratedSceneSettings ),
+    FullConfigRange( ConfigSettingDomain::AssetPaths, kAssetPathsSettings ),
+    FullConfigRange( ConfigSettingDomain::WaterRenderStyle, kWaterRenderStyleSettings ),
+    { ConfigSettingDomain::RuntimeRender, 1, 3 },
+    FullConfigRange( ConfigSettingDomain::ContactAudio, kContactAudioSettings ),
 };
 
-template <typename Visitor> bool VisitConfigSettingsInOrder( Visitor&& visitor )
+// Invariant: every row of every domain appears in exactly one ordered slice.
+// Full-domain additions update automatically; additions to an interleaved
+// domain fail this assertion until their deliberate compatibility position is
+// added to kConfigSettingOrder.
+constexpr bool ConfigSettingOrderCoversEveryDomainRowExactlyOnce()
 {
-    size_t settingCount = 0;
     for ( const ConfigSettingRange& range : kConfigSettingOrder )
     {
-        for ( size_t row = 0; row < range.count; ++row )
+        if ( static_cast<size_t>( range.domain ) >= static_cast<size_t>( ConfigSettingDomain::Count ) )
         {
-            if ( !visitor( range.settings[row] ) )
+            return false;
+        }
+    }
+
+    for ( size_t domainIndex = 0; domainIndex < static_cast<size_t>( ConfigSettingDomain::Count ); ++domainIndex )
+    {
+        const ConfigSettingDomain domain = static_cast<ConfigSettingDomain>( domainIndex );
+        const size_t domainCount = kConfigSettingTables[domainIndex].count;
+        for ( const ConfigSettingRange& range : kConfigSettingOrder )
+        {
+            if ( range.domain == domain && ( range.first > domainCount || range.count > domainCount - range.first ) )
             {
                 return false;
             }
-            ++settingCount;
+        }
+
+        for ( size_t row = 0; row < domainCount; ++row )
+        {
+            size_t visits = 0;
+            for ( const ConfigSettingRange& range : kConfigSettingOrder )
+            {
+                if ( range.domain == domain && row >= range.first && row - range.first < range.count )
+                {
+                    ++visits;
+                }
+            }
+            if ( visits != 1 )
+            {
+                return false;
+            }
         }
     }
-    assert( settingCount == kExpectedConfigSettingCount );
+    return true;
+}
+
+static_assert( ConfigSettingOrderCoversEveryDomainRowExactlyOnce(),
+               "Config setting order must visit every row of every domain exactly once." );
+
+template <typename Visitor> bool VisitConfigSettingsInOrder( Visitor&& visitor )
+{
+    for ( const ConfigSettingRange& range : kConfigSettingOrder )
+    {
+        const ConfigSettingTable& table = kConfigSettingTables[static_cast<size_t>( range.domain )];
+        for ( size_t row = 0; row < range.count; ++row )
+        {
+            if ( !visitor( table.settings[range.first + row] ) )
+            {
+                return false;
+            }
+        }
+    }
     return true;
 }
 

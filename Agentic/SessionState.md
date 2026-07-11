@@ -11,19 +11,18 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-11th-july` |
-| Current pushed baseline | `afdf53c7 dx12-post-final-cleanup, TASK 5 / 6, 85% OVERALL COMPLETE — streamline bloom and cinematic configuration`; the 6/6 closure documentation/comment commit is ready to push |
-| Current objective | Execute `engine-config-decomposition`, then continue the binding MASTER path |
-| Portfolio progress | 235 / 276 tasks = 85% overall |
-| Last broad local gate | `tools\\validate_full.bat` passed final DX12-cleanup source on 2026-07-12 in 112.840s: formatting and filters clean, every CPU lane passed, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | Enabled cinematic pre/post captures were byte-identical; renderer and perf checkpoints passed; final full gate passed in 112.840s; graphics stress completed 60.932s crash-free with empty stderr. Independent review is resolved and the comment audit is 23/23 with 0 deferred. |
+| Current pushed baseline | `engine-config-decomposition` is closed and pushed on `nightrunner-11th-july`; use `git log -1` for the closure hash |
+| Current objective | Execute `shader-pipeline-modernization` P0-P5, then continue the binding MASTER path |
+| Portfolio progress | 240 / 276 tasks = 87% overall |
+| Last broad local gate | `tools\\validate_full.bat` passed final engine-config source on 2026-07-12 in 134.932s: formatting and filters clean, every CPU lane passed (139 doctest cases, 3,311 assertions), zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
+| Validation for current edits | Final config dump retained all 219 lines and the original SHA-256; `validate_physics_deep` passed in 122.369s; final `validate_full` passed in 134.932s after a targeted Config.h formatting fix. Independent review is resolved and the full-plan comment audit is 28/28 with 0 deferred. |
 
 ## Live Queue
 
 1. Prepare the engine-cleanup aggregate review in parallel with the critical path;
    fix findings, pass the closure gate, and delete all eight retained completed
    plans.
-2. Continue the binding path recorded in MASTER: engine-config decomposition,
-   shader P0-P5, visibility, shadows,
+2. Continue the binding path recorded in MASTER: shader P0-P5, visibility, shadows,
    interpolation, editor undo/redo, then data-format versioning. Phase-level
    preparation and dependency barriers are authoritative in MASTER and the
    owning plans.
@@ -75,9 +74,11 @@ plan inventory.
   `Agentic/Reports/2026-07-12/render-backend-decomposition-closure.md`.
 - DX12 post-cleanup closure evidence:
   `Agentic/Reports/2026-07-12/dx12-post-final-cleanup-closure.md`.
+- Engine-config closure evidence:
+  `Agentic/Reports/2026-07-12/engine-config-decomposition-closure.md`.
 
 ## Next Handoff
 
 Use `Agentic/Plans/MASTER-PLAN.md` for selection and the repo-local orchestrator
 skill when implementing a plan. The next binding implementation plan is
-`engine-config-decomposition` phase 1.
+`shader-pipeline-modernization` phase P0.

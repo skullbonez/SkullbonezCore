@@ -50,6 +50,8 @@ namespace Basics
     the original hard-coded values; the config file is optional -- if absent,
     defaults apply.
 */
+// Window/Init owns startup display creation; runtime code reads this value but
+// does not mutate it into a second display-policy store.
 struct WindowConfig
 {
     int screenX = 1800;
@@ -59,6 +61,8 @@ struct WindowConfig
     int refreshRate = 75;
 };
 
+// RuntimeRenderer owns these live presentation switches and copies startup
+// values from EngineConfig before the frame loop.
 struct RuntimeRenderFlags
 {
     bool vsyncEnabled = true;
@@ -250,6 +254,8 @@ struct GeneratedSceneConfig
     int ballForceRange = 1000;
 };
 
+// ContactAudioService owns impact and rolling presentation policy. Physics only
+// emits material/contact facts and never owns these voice limits or gains.
 struct ContactAudioConfig
 {
     bool enabled = true;               // Master startup switch; CLI mute can still force the service off.
@@ -262,6 +268,8 @@ struct ContactAudioConfig
     bool debugCounters = false;        // Prints copied presentation counters once per simulated second.
 };
 
+// RuntimeRenderer owns this scene-light presentation value and publishes it to
+// the render passes that shade the active scene.
 struct SceneLightConfig
 {
     float colorR = 1.0f;
@@ -294,6 +302,8 @@ inline constexpr ShadowQualityConfig MakeShadowQualityConfig( float strength, fl
     return { true, true, true, true, true, 2048, 1, strength, softness, 0.00005f, 0.00010f, 1500.0f };
 }
 
+// RuntimeRenderer owns the ordinary render profile; its pass/shader owners
+// consume these lighting, shadow, water, and material values each frame.
 struct OrdinaryRenderConfig
 {
     float sunIntensity = 2.20f;
@@ -402,6 +412,8 @@ inline constexpr int StylizedBasin = 4;
 } // namespace Water
 } // namespace CinematicStyleMode
 
+// RuntimeRenderer owns the cinematic render profile and distributes these
+// values to the sky, volumetric, bloom, fog, shadow, and style passes.
 struct CinematicRenderConfig
 {
     // Master switch. The UI can toggle this at runtime; command-line overrides

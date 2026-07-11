@@ -97,51 +97,43 @@ concrete plan rows and counting it would duplicate tasks.
 | sim-render-interpolation | 0 | 5 | 0% |
 | editor-undo-redo | 0 | 5 | 0% |
 | data-format-versioning | 0 | 5 | 0% |
-| engine-config-decomposition | 4 | 5 | 80% |
+| engine-config-decomposition | 5 | 5 | 100% |
 | entity-model-endgame | 4 | 4 | 100% |
 | instant-prediction-velocity-chaos | 52 | 52 | 100% |
 | shadow-edge-quality | 0 | 5 | 0% |
-| **Portfolio total** | **239** | **276** | **87%** |
+| **Portfolio total** | **240** | **276** | **87%** |
 
 ## Current Execution Priority
 
 For maximum impact with minimal rework, use this binding critical path:
 
-`renderer ownership` → `DX12 cleanup` →
-`engine-config decomposition` → `shader contract` →
-`visibility` → `shadows` → `interpolation` → `editor` → `data versioning`
+`shader contract` → `visibility` → `shadows` → `interpolation` →
+`editor` → `data versioning`
 
 1. **Engine-cleanup aggregate review and plan deletion — parallel lane.** Run
    review preparation alongside the critical path rather than as another serial
    implementation campaign. Fix every credible ownership finding, pass the
    closure gate, and delete the eight retained completed plans to remove stale
    control-plane noise.
-2. **`dx12-post-final-cleanup`.** Delete dead shaders before inventorying or
-   baking them, then consolidate god rays, reduce bloom cost, name style modes,
-   and complete config deduplication before shader manifests, reflection data,
-   and visual references lock in the surviving surface.
-3. **`engine-config-decomposition`.** Start after DX12 cleanup phase 5 so the
-   final cinematic/shadow config shape moves directly into domain structs
-   without reorganizing duplicated fields twice.
-4. **`shader-pipeline-modernization` P0-P5.** With the surviving shader set and
+2. **`shader-pipeline-modernization` P0-P5.** With the surviving shader set and
    A2 owner established, execute inventory, offline DXC, reflection contracts,
    root-signature consolidation, pipeline cache, then the bindless decision.
    Record P5's decision before shadow S1. P6 hot reload is optional follow-up.
-5. **`render-visibility-architecture`.** P0 instrumentation may start at any
+3. **`render-visibility-architecture`.** P0 instrumentation may start at any
    time; implementation waits for stable backend ownership. Complete main,
    shadow, reflection, and instancing culling before final shadow-quality work
    so its GPU budget reflects the actual visible workload.
-6. **`shadow-edge-quality`.** S0 baseline capture may run earlier. S1 waits for
+4. **`shadow-edge-quality`.** S0 baseline capture may run earlier. S1 waits for
    backend A2, shader P3, shader P5's binding decision, and visibility closure.
    Then execute filtering, snapping/bias, and only afterward decide whether
    cascades or clipmaps are necessary.
-7. **`sim-render-interpolation`.** Begin after entity identity and renderer
+5. **`sim-render-interpolation`.** Begin after entity identity and renderer
     ownership stabilize; avoid churning presentation transforms, cameras,
     capture timing, and replay across moving foundations.
-8. **`editor-undo-redo`.** Interaction ownership is ready, but history must
+6. **`editor-undo-redo`.** Interaction ownership is ready, but history must
     target final `PhysicsSceneObjectId` and post-`GameModelCollection` scene
     APIs, so entity-model closure is a hard prerequisite.
-9. **`data-format-versioning`.** Asset/hull preparation is independent, but
+7. **`data-format-versioning`.** Asset/hull preparation is independent, but
     schedule delivery here. The `engine.cfg` portion waits for config
     decomposition so version plumbing targets the surviving parser/domain
     structure once.
@@ -182,12 +174,11 @@ Reconciliation notes live inside each plan.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [shader-pipeline-modernization](TODO/shader-pipeline-modernization.md) | Planned | 0/8 | After A2, DX12 cleanup, and config decomposition; execute P0-P5 in order and record P5 before shadow S1; P6 is optional follow-up |
+| [shader-pipeline-modernization](TODO/shader-pipeline-modernization.md) | Planned | 0/8 | Start now; A2, DX12 cleanup, and config decomposition are complete. Execute P0-P5 in order and record P5 before shadow S1; P6 is optional follow-up |
 | [render-visibility-architecture](TODO/render-visibility-architecture.md) | Planned | 0/7 | P0 instrumentation may start any time; implementation follows stable backend ownership and closes before shadow-quality implementation |
 | [sim-render-interpolation](TODO/sim-render-interpolation.md) | Planned | 0/5 | After entity-model closure and stable renderer ownership; P1 capture-determinism guard lands first |
 | [editor-undo-redo](TODO/editor-undo-redo.md) | Planned | 0/5 | After entity-model closure; build history on final `PhysicsSceneObjectId` and post-`GameModelCollection` scene APIs |
-| [data-format-versioning](TODO/data-format-versioning.md) | Planned | 0/5 | Deliver after editor; asset/hull preparation is independent, but `engine.cfg` waits for config decomposition; scene v1→v2 remains the precedent |
-| [engine-config-decomposition](TODO/engine-config-decomposition.md) | Active | 4/5 | Domain-owned binding tables now share one allocation-free ordered lookup/dump traversal with exact row and runtime-dump evidence; run closure audit and independent review next |
+| [data-format-versioning](TODO/data-format-versioning.md) | Planned | 0/5 | Deliver after editor; asset/hull preparation is independent and config decomposition is complete; scene v1→v2 remains the precedent |
 
 ## Features
 
