@@ -20,6 +20,9 @@ Status: Authoritative inventory of every live repository plan
 8. God-object cleanup is reviewed across logical types/modules, not individual
    files. A short facade, shared context, callback bag, or forwarding owner does
    not satisfy an ownership deletion proof.
+9. `Agentic/Plans/WNF/` holds owner-parked "will not do now" plans. Agents
+   ignore that folder entirely — do not list, resume, update, or delete its
+   contents unless the owner explicitly moves a file back out of it.
 
 ## Execution Priority
 
@@ -71,7 +74,7 @@ Reconciliation notes live inside each plan.
 | [editor-undo-redo](TODO/editor-undo-redo.md) | Planned | 0/5 | Unblocked — interaction-state-machine completed 2026-07-11; build on its command/gesture surface |
 | [data-format-versioning](TODO/data-format-versioning.md) | Planned | 0/5 | Rescoped 2026-07-11: scene schema versioning (v2 + v1 upgrade) already shipped with physics-authority C1b; remaining scope is assets/hulls/cfg + the uniform policy and migration tool |
 | [engine-config-decomposition](TODO/engine-config-decomposition.md) | Planned | 0/5 | Independent; physics-default moves isolated behind byte-exact `validate_physics` |
-| [entity-model-endgame](TODO/entity-model-endgame.md) | **Decision-blocked** | 0/5 | Ownership decision conflict: the plan recorded a Run-owned `SimulationController` per the 2026-07-11 morning owner answers, but the same day's completed physics work implemented `SceneController`/`PhysicsScene` ownership (and plan 13 previously retired a `SimulationController` facade). Owner must reconcile before any slice starts — see the plan's Decision Conflict section |
+| [entity-model-endgame](TODO/entity-model-endgame.md) | Planned | 0/4 | Reconciled 2026-07-11 by definitive owner ruling: no `SimulationController`, no unified `EntityId`. Remaining scope: promote `PhysicsSceneObjectId` as the single cross-system identity (docs), relocate transient contact feedback, then delete `GameModel` and `GameModelCollection` with structural proof |
 
 ## Features
 
@@ -79,7 +82,9 @@ Reconciliation notes live inside each plan.
 |---|---|---:|---|
 | [instant-prediction-velocity-chaos](TODO/instant-prediction-velocity-chaos.md) | In progress (paused) | 1/50 checklist items | Progress checklist: `TODO/instant-prediction-velocity-chaos-progress.md`; resume per owner priority |
 | [shadow-edge-quality](TODO/shadow-edge-quality.md) | Planned | 0/5 | DX12 failure state safe; coordinate renderer owner/binding work |
-| [fracture-replay-feature](WNF/fracture-replay-feature.md) | Paused by owner (moved to `WNF/` 2026-07-11) | 0/7 | Owner resumes explicitly; previously blocked on replay R3, render ownership, and the mandatory CPU gate |
+
+Fracture replay was moved to `WNF/` by the owner on 2026-07-11 (inventory
+rule 9 applies — it is not live work and is not tracked here).
 
 ## Binding Decisions And Open Decisions
 
@@ -97,16 +102,16 @@ Binding:
 - Inspect and Editor share one stable selection identity; workspace-specific
   gesture/presentation state remains separate.
 - Completed files are deleted rather than archived in the tip tree.
+- 2026-07-11 owner ruling (definitive): no `SimulationController` — the
+  implemented `SimulationSystem` pacing / `SceneController` ownership / `Run`
+  frame-order split stands. No unified `EntityId` registry —
+  `PhysicsSceneObjectId` is the engine's single cross-system object identity;
+  per-subsystem handles remain the hot-path currency.
 
 Open and blocking:
 
 - CI: register a GPU-capable Windows/DX12 runner before making runtime CI a
   required check; CPU Windows CI does not wait for that runner.
-- Entity-model ownership reconciliation (see entity-model-endgame row above):
-  confirm `SceneController`/`PhysicsScene` ownership stands (it is implemented
-  and validated) or direct a replacement; also confirm whether the unified
-  `EntityId` registry is still wanted now that per-subsystem stable identity
-  (`PhysicsBodyHandle`/`ReplayBodyId`/`PhysicsSceneObjectId`) shipped.
 
 ## Engine Cleanup Campaign Closure Gate
 

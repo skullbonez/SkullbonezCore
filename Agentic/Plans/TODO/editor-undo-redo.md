@@ -45,10 +45,12 @@ command history for editor mutations.
 - [ ] U3. Placement and deletion: delete captures the full re-create recipe
       (asset name/recipe, transform, physics params) — reusing the scene
       serialization records so re-created bodies match a scene round-trip.
-      Body identity: re-created objects get fresh handles; history entries
-      referring to the deleted-then-restored object must resolve through the
-      recipe, not a stale handle. Gate: `validate_full` (scene/creation-path
-      scope).
+      Body identity: history entries key on `PhysicsSceneObjectId` — the
+      engine's single cross-system object identity per the 2026-07-11 owner
+      ruling (see `TODO/entity-model-endgame.md`). Re-created objects get
+      fresh live handles but keep their authored `sceneObjectId`, so undo
+      chains survive delete/re-create without stale-handle resolution.
+      Gate: `validate_full` (scene/creation-path scope).
 - [ ] U4. Boundary rules: scene load/reset/exit-editor clears history (with
       event hook once runtime-shell C2 lifecycle events exist); replay/
       simulation mode transitions do not attempt cross-mode undo. UI
