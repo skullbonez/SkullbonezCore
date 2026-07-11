@@ -40,7 +40,7 @@ Related:
 #include "../Scene/SceneController.h"
 #include "../Scene/SceneRuntime.h"
 #include "../Tools/RuntimeTools.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "../Scene/SceneController.h"
 #include "../../Core/FatalError.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/PhysicsBodyStore.h"

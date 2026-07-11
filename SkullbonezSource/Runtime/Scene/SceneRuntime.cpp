@@ -20,7 +20,7 @@ Invariants:
   - Cinematic deck detection is filename-based and must match browser/load
     helpers.
   - Required contact checks read PhysicsBodyStore and ColliderStore snapshots;
-    they must not require the post-step GameModel body mirror to be fresh.
+    they must not require the post-step legacy object record body mirror to be fresh.
   - Scene object id 0 is reserved as "not assigned"; live allocations must never
     wrap or cross the uint32 id ceiling.
 
@@ -31,7 +31,7 @@ Related:
 #include "SceneRuntime.h"
 
 #include "../../Core/FatalError.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "SceneController.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/ObjectContactManifold.h"
 #include "../../Physics/PhysicsBodyStore.h"
@@ -401,8 +401,7 @@ void SceneRuntime::ClearRequiredAutomationGates()
 }
 
 
-void SceneRuntime::UpdateRequiredContacts( SkullbonezCore::GameObjects::GameModelCollection& models,
-                                           float contactEpsilon )
+void SceneRuntime::UpdateRequiredContacts( SkullbonezCore::Basics::SceneController& models, float contactEpsilon )
 {
     if ( m_requiredContacts.empty() )
     {
@@ -441,7 +440,8 @@ void SceneRuntime::UpdateRequiredContacts( SkullbonezCore::GameObjects::GameMode
         }
     }
 
-    const std::vector<PhysicsDebugContact>& contacts = models.GetPhysicsDebugContacts();
+    const std::vector<PhysicsDebugContact>& contacts =
+        Physics::PhysicsEngineStoreQueries::DebugContacts( models.Physics() );
     for ( const PhysicsDebugContact& contact : contacts )
     {
         if ( contact.bodyA < 0 || contact.bodyB < 0 )

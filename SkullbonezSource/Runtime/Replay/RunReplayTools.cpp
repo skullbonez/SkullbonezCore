@@ -168,7 +168,7 @@ bool TryAddReplayTargetMarkerFromStores( RunEditorTracer& tracer,
     }
 
     // Invariant: replay target identity resolves through body handles before
-    // markers read store rows. This avoids scanning the GameModel mirror just
+    // markers read store rows. This avoids scanning the legacy object record mirror just
     // to recover a stable ReplayBodyId that PhysicsBodyStore already owns.
     const float radius = (std::max)( 1.0f, (std::max)( body->boundingRadius, collider->boundingRadius ) ) * 1.18f;
     tracer.AddReplayTargetMarker( body->position, body->orientation, collider->shape, radius );
@@ -3755,7 +3755,7 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
     };
 
     // Invariant: capture reads the store rows advanced by the prediction step.
-    // A replay-only GameModel writeback would copy every temporary pose just so
+    // A replay-only legacy object record writeback would copy every temporary pose just so
     // this loop could read the same values back into prediction samples.
     if ( modelCount >= REPLAY_PREDICTION_PARALLEL_BODY_MIN )
     {
@@ -3854,7 +3854,7 @@ void RunReplayPredictionWorkerRange( ReplayRuntime& replayRuntime,
         // Hazard: worker slices hold only replay-owned values: the private
         // prediction engine, pre-sized build frames, and stable trajectory slots.
         // Scene mutation paths must cancel and wait before live stores are
-        // reloaded, because this worker never borrows GameModel rows.
+        // reloaded, because this worker never borrows legacy object record rows.
         if ( !StepPredictionEngineTick( predictionEngine,
                                         PHYSICS_FIXED_DT,
                                         config,

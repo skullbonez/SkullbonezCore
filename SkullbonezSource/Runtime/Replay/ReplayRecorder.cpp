@@ -1260,7 +1260,7 @@ uint64_t HashPersistentContact( uint64_t hash, const ReplaySolverPersistentConta
 }
 
 // Concept: replay body samples borrow SceneEntityStore for stable display names.
-// Physics values come from dense stores; transient GameModel rows are irrelevant
+// Physics values come from dense stores; transient legacy object record rows are irrelevant
 // to capture identity and durable presentation intent.
 bool BuildReplayPresentationBodySample( int modelIndex,
                                         const SceneEntityStore& entities,

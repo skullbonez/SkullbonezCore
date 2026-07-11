@@ -10,7 +10,7 @@ Mental model:
 
 Glossary:
   Body store: Physics-owned live body records used for pose and velocity
-    authority while legacy GameModel mirrors are retired.
+    authority while legacy object-record mirrors are retired.
   Collider store: Physics-owned shape, material, and radius records paired with
     body handles.
   Repro snapshot: Debug-only text dump of the object under the launcher
@@ -33,7 +33,7 @@ Related:
 #include "../RunLaunchOptions.h"
 #include "../Scene/SceneGeneratedSetup.h"
 #include "../Scene/SceneRuntime.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "../Scene/SceneController.h"
 #include "../../World/WorldEnvironment.h"
 #include "../Scene/SceneEntityStore.h"
 #include "../../Physics/ColliderStore.h"
@@ -50,8 +50,8 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
+using SkullbonezCore::Basics::SceneController;
 using SkullbonezCore::Environment::CameraCollection;
-using SkullbonezCore::GameObjects::GameModelCollection;
 using SkullbonezCore::Math::Vector::Vector3;
 
 #ifdef _DEBUG
@@ -99,7 +99,7 @@ const PhysicsBodyRecord* LauncherReproBodyForCollider( const PhysicsBodyStore& b
 } // namespace
 
 
-bool RuntimeTools::PickLauncherReproTarget( GameModelCollection& collection,
+bool RuntimeTools::PickLauncherReproTarget( SceneController& collection,
                                             SkullbonezCore::Environment::CameraCollection* cameras,
                                             int& outIndex,
                                             float& outRayT,
@@ -129,7 +129,7 @@ bool RuntimeTools::PickLauncherReproTarget( GameModelCollection& collection,
 
     // Concept: Repro target picking approximates each model as a bounding
     // sphere around its current physics body position, then chooses the nearest
-    // sphere pierced by the camera ray. GameModel remains only the cold identity
+    // sphere pierced by the camera ray. legacy object record remains only the cold identity
     // table for the eventual snapshot row.
     const ColliderStore& colliderStore = collection.Colliders();
     const PhysicsBodyStore& bodyStore = collection.BodyStore();
@@ -286,27 +286,28 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     int sleepInhibited = 0;
     int collisionVisualContact = 0;
     int sleepIslandVisualId = 0;
-    const std::vector<uint8_t>& sleepStates = context.collection.GetSleepStates();
+    const Physics::PhysicsEngine& physics = context.collection.Physics();
+    const std::vector<uint8_t>& sleepStates = PhysicsEngineStoreQueries::SleepStates( physics );
     if ( targetIndex < static_cast<int>( sleepStates.size() ) )
     {
         sleeping = sleepStates[targetIndex] ? 1 : 0;
     }
-    const std::vector<uint8_t>& sleepSupportedStates = context.collection.GetSleepSupportedStates();
+    const std::vector<uint8_t>& sleepSupportedStates = PhysicsEngineStoreQueries::SleepSupportedStates( physics );
     if ( targetIndex < static_cast<int>( sleepSupportedStates.size() ) )
     {
         sleepSupported = sleepSupportedStates[targetIndex] ? 1 : 0;
     }
-    const std::vector<uint8_t>& sleepInhibitedStates = context.collection.GetSleepInhibitedStates();
+    const std::vector<uint8_t>& sleepInhibitedStates = PhysicsEngineStoreQueries::SleepInhibitedStates( physics );
     if ( targetIndex < static_cast<int>( sleepInhibitedStates.size() ) )
     {
         sleepInhibited = sleepInhibitedStates[targetIndex] ? 1 : 0;
     }
-    const std::vector<uint8_t>& collisionContacts = context.collection.GetCollisionVisualContacts();
+    const std::vector<uint8_t>& collisionContacts = PhysicsEngineStoreQueries::CollisionVisualContacts( physics );
     if ( targetIndex < static_cast<int>( collisionContacts.size() ) )
     {
         collisionVisualContact = collisionContacts[targetIndex] ? 1 : 0;
     }
-    const std::vector<int>& islandIds = context.collection.GetSleepIslandVisualIds();
+    const std::vector<int>& islandIds = PhysicsEngineStoreQueries::SleepIslandVisualIds( physics );
     if ( targetIndex < static_cast<int>( islandIds.size() ) )
     {
         sleepIslandVisualId = islandIds[targetIndex];

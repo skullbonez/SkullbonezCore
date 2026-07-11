@@ -5,7 +5,7 @@
 //
 // Mental model:
 //   A minimal authored physics world can be seeded directly through
-//   PhysicsEngine without GameModelCollection or scene-load plumbing. Fixed-step
+//   PhysicsEngine without SceneController or scene-load plumbing. Fixed-step
 //   determinism means two engines with identical body/collider rows produce the
 //   same byte-level kinematic state at the same tick boundaries.
 //
@@ -490,7 +490,7 @@ void HashSolverBodyForReplayTest( uint64_t& hash, const ReplaySolverBodySample& 
 uint64_t HashReplaySampleForTest( const ReplaySolverFrameSample& sample )
 {
     // Concept: this is a unit-level solver replay hash. Production replay hashes
-    // are owned by ReplaySolverRecorder, which needs GameModelCollection. This
+    // are owned by ReplaySolverRecorder, which needs SceneController. This
     // micro-world fixture hashes the same retained solver sample it restores so
     // the unit test can prove snapshot restore reaches an identical hash without
     // launching Run or rebuilding presentation owners.
@@ -575,7 +575,7 @@ ReplaySolverFrameSample CaptureMicroWorldReplaySample( const PhysicsEngine& engi
 {
     // Concept: the replay solver sample is the record under test. This fixture
     // builds the body+world payload that restore consumes without depending on
-    // Run, GameModelCollection, cameras, or renderer-owned presentation state.
+    // Run, SceneController, cameras, or renderer-owned presentation state.
     ReplaySolverFrameSample sample;
     sample.frameIndex = frameIndex;
     sample.sceneFrame = static_cast<int>( frameIndex );

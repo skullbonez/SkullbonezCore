@@ -33,8 +33,7 @@ Related:
 #include "SceneRuntime.h"
 #include "../CameraCollection.h"
 #include "../../Core/Common.h"
-#include "../../GameObjects/GameModel.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "SceneController.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/CollisionShape.h"
 #include "../../Physics/PhysicsApi.h"
@@ -134,7 +133,7 @@ void SceneGeneratedSetup::SetUpCameras( SceneGeneratedCameraContext context )
 }
 
 
-SbResult SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, int count )
+SbResult SceneGeneratedSetup::SetUpSceneEntities( SceneGeneratedModelContext context, int count )
 {
     // Concept: Generated demos consume one deterministic RNG stream. Keep object
     // family decisions and per-object random draws in the same order unless
@@ -394,7 +393,7 @@ SceneGeneratedSetupResult SceneGeneratedSetup::TrySetUpRequestedModels( SceneGen
 
     if ( request.uiModelCountOverride >= 0 )
     {
-        return { SetUpGameModels( context, request.uiModelCountOverride ), true };
+        return { SetUpSceneEntities( context, request.uiModelCountOverride ), true };
     }
 
     if ( request.sceneSolverBallCount > 0 || request.sceneSolverBoxCount > 0 )
@@ -404,7 +403,7 @@ SceneGeneratedSetupResult SceneGeneratedSetup::TrySetUpRequestedModels( SceneGen
 
     if ( useDefaultWhenNoRequest )
     {
-        return { SetUpGameModels( context, request.defaultModelCount ), true };
+        return { SetUpSceneEntities( context, request.defaultModelCount ), true };
     }
 
     // Why: authored scene loading asks generated setup first so UI/exact solver

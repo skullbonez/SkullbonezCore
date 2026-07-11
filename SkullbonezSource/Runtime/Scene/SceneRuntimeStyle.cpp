@@ -29,7 +29,7 @@ Related:
 #include "SceneRuntimeStyle.h"
 #include "../WindowConstants.h"
 #include "../RunDebugState.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "SceneController.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Scene/TestScene.h"
 
@@ -69,7 +69,7 @@ bool IsSceneCinematicRenderingEnabled( const RunSceneState& scene,
 
 namespace
 {
-using SkullbonezCore::GameObjects::GameModelCollection;
+using SkullbonezCore::Basics::SceneController;
 using SkullbonezCore::Physics::ColliderShapeKind;
 
 const char* FileNameFromPath( const char* path )
@@ -146,7 +146,7 @@ bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material,
     return strcmp( material.target, displayName ) == 0;
 }
 
-void ResetObjectMaterials( SceneEntityStore& entities, const GameModelCollection& models )
+void ResetObjectMaterials( SceneEntityStore& entities, const SceneController& models )
 {
     for ( int modelIndex = 0; modelIndex < models.SceneEntityCount(); ++modelIndex )
     {
@@ -158,7 +158,7 @@ void ResetObjectMaterials( SceneEntityStore& entities, const GameModelCollection
     }
 }
 
-void ApplyObjectMaterials( SceneEntityStore& entities, GameModelCollection& models, const TestScene& styleScene )
+void ApplyObjectMaterials( SceneEntityStore& entities, SceneController& models, const TestScene& styleScene )
 {
     ResetObjectMaterials( entities, models );
     const auto& colliders = models.Colliders().Records();

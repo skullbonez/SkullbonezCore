@@ -1,893 +1,136 @@
 # SkullbonezCore Class Structure
 
-This is a readable class-structure map for `SkullbonezSource/`.
+This reference describes the current runtime ownership graph. It intentionally
+focuses on durable owners and typed data boundaries rather than every helper.
 
-It is intentionally layered. A single class diagram containing every helper
-struct would be too dense to use, so the first diagrams show ownership and
-inheritance by subsystem. The final catalog lists the declarations that the
-diagrams summarize.
-
-Validation: none required. This is a documentation-only reference.
-
-## Legend
-
-- Solid inheritance arrows mean "implements" or "derives from."
-- Composition arrows mean a class owns the member.
-- Dashed dependency arrows mean "uses", "creates", "selects", or "talks to."
-- The catalog is header-oriented and includes key helper structs/enums because
-  SkullbonezCore stores much of its runtime state in plain structs.
-
-## Whole Engine Ownership Map
+## Top-level ownership
 
 ```mermaid
-flowchart TB
-    App["Run\nmain runtime harness"]
+flowchart TD
+    Run["Run — process composition and frame order"]
+    Scene["SceneController — active-scene lifetime"]
+    Runtime["SceneRuntime — queue and scene-run state"]
+    Entities["SceneEntityStore — identity and authored metadata"]
+    Physics["PhysicsEngine — simulation and physics stores"]
+    RenderRows["RenderInstanceStore — render presentation and frame snapshot"]
+    Cameras["CameraCollection"]
+    World["WorldEnvironment"]
+    Terrain["SceneTerrain"]
+    Renderer["RuntimeRenderer"]
+    Replay["ReplayRuntime"]
+    Tools["RuntimeTools"]
 
-    subgraph Runtime["Runtime shell"]
-        Window["Window"]
-        Input["Input / InputState"]
-        InputController["InputController"]
-        Timers["Timer / RunTimerState"]
-        Config["Config\nWindowConfig / render flags / cinematic config"]
-        Capture["CaptureSystem"]
-        RuntimeDiagnostics["RuntimeDiagnostics"]
-        Text["Text2d"]
-        Profiler["Profiler / ProfilerScope / GpuProfilerScope"]
-        PlatformProfiler["PlatformProfiler"]
-    end
-
-    subgraph SceneAssets["Scene and assets"]
-        AssetSystem["AssetSystem"]
-        TestScene["TestScene\nscene data structs"]
-        TextureCollection["TextureCollection\nsingleton texture registry"]
-    end
-
-    subgraph WorldPhysics["World, geometry, and physics"]
-        WorldEnvironment["WorldEnvironment\nwater, gravity, drag"]
-        Terrain["Terrain\nrender mesh + collision surface"]
-        SkyBox["SkyBox"]
-        GameModelCollection["GameModelCollection\nmodel-order facade"]
-        PhysicsBodyStore["PhysicsBodyStore"]
-        ColliderStore["ColliderStore"]
-        GameModel["GameModel\nrenderable physical object"]
-        RigidBody["RigidBody"]
-        CollisionShape["CollisionShape\nvariant"]
-        BoundingSphere["BoundingSphere"]
-        BoundingBox["BoundingBox"]
-        SpatialGrid["SpatialGrid"]
-        TornadoField["TornadoField"]
-        PhysicsDebug["PhysicsDebugVisualizer"]
-        CollisionViz["CollisionVisualizer"]
-        BroadphaseViz["BroadphaseVisualizer"]
-        SkullScope["SkullScope\nqueryable physics diagnostics"]
-    end
-
-    subgraph Rendering["Rendering facade and DX12 backend"]
-        Gfx["Gfx() global backend accessor"]
-        IRenderBackend["IRenderBackend"]
-        RenderBackendDX12["RenderBackendDX12"]
-        IShader["IShader"]
-        IMesh["IMesh"]
-        IFramebuffer["IFramebuffer"]
-        RenderGraph["RenderGraph\nbarrier graph contract"]
-    end
-
-    subgraph DX12Internals["DX12 internals"]
-        Dx12RenderDevice["Dx12RenderDevice"]
-        Dx12FenceTimeline["Dx12FenceTimeline"]
-        Dx12DescriptorAllocator["Dx12DescriptorAllocator\nSRV/UAV shader-visible rows"]
-        Dx12CpuDescriptorAllocator["Dx12CpuDescriptorAllocator\nRTV/DSV CPU rows"]
-        Dx12FrameUploadSystem["Dx12FrameUploadSystem"]
-        Dx12ReadbackBuffer["Dx12ReadbackBuffer"]
-        BLAS["BLAS"]
-        TLAS["TLAS"]
-        SBT["SBT"]
-    end
-
-    subgraph UI["In-game UI"]
-        InGameUI["InGameUI"]
-        UIFrameData["InGameUIFrameData"]
-        UICommands["InGameUICommands"]
-        Widgets["UIButton / UICheckBox / UISlider / UIComboBox / UITabBar"]
-        UIDraw["UIDrawContext / UIDrawList / UIRect"]
-        UIState["UIWindowState / UIInteractionState / tab state structs"]
-        UICache["UICacheState"]
-        UIBackdropBlur["UIBackdropBlur"]
-    end
-
-    App --> Window
-    App --> Timers
-    App --> Config
-    App --> AssetSystem
-    App --> GameModelCollection
-    GameModelCollection -.-> PhysicsBodyStore
-    GameModelCollection -.-> ColliderStore
-    App --> WorldEnvironment
-    App --> InGameUI
-    App -.-> TextureCollection
-    App -.-> Terrain
-    App -.-> SkyBox
-    App -.-> TestScene
-    App -.-> Input
-    App -.-> InputController
-    App -.-> Capture
-    App -.-> RuntimeDiagnostics
-    App -.-> Text
-    App -.-> Profiler
-    App -.-> PlatformProfiler
-    App -.-> Gfx
-
-    Gfx --> IRenderBackend
-    RenderBackendDX12 -. implements .-> IRenderBackend
-    IRenderBackend -. creates .-> IShader
-    IRenderBackend -. creates .-> IMesh
-    IRenderBackend -. creates .-> IFramebuffer
-    RenderBackendDX12 --> Dx12RenderDevice
-    RenderBackendDX12 --> Dx12DescriptorAllocator
-    RenderBackendDX12 --> Dx12CpuDescriptorAllocator
-    RenderBackendDX12 --> Dx12FrameUploadSystem
-    RenderBackendDX12 --> Dx12ReadbackBuffer
-    RenderBackendDX12 --> BLAS
-    RenderBackendDX12 --> TLAS
-    RenderBackendDX12 --> SBT
-    RenderBackendDX12 -.-> RenderGraph
-    Dx12RenderDevice --> Dx12FenceTimeline
-
-    GameModelCollection --> GameModel
-    GameModelCollection --> SpatialGrid
-    GameModelCollection --> TornadoField
-    GameModelCollection --> SkullScope
-    GameModelCollection -.-> PhysicsDebug
-    GameModel --> RigidBody
-    GameModel --> CollisionShape
-    CollisionShape --> BoundingSphere
-    CollisionShape --> BoundingBox
-    GameModel -.-> WorldEnvironment
-    GameModel -.-> Terrain
-    WorldEnvironment -. creates .-> IMesh
-    WorldEnvironment -. creates .-> IShader
-    Terrain -. creates .-> IMesh
-    Terrain -. creates .-> IShader
-
-    InGameUI -. reads .-> UIFrameData
-    InGameUI -. emits .-> UICommands
-    InGameUI --> Widgets
-    InGameUI --> UIState
-    InGameUI --> UICache
-    InGameUI --> UIBackdropBlur
-    InGameUI -. draws with .-> UIDraw
+    Run --> Scene
+    Run --> Renderer
+    Run --> Replay
+    Run --> Tools
+    Scene --> Runtime
+    Scene --> Entities
+    Scene --> Physics
+    Scene --> RenderRows
+    Scene --> Cameras
+    Scene --> World
+    Scene --> Terrain
 ```
 
-## Runtime Harness
+`Run` constructs concrete owners, sequences startup/shutdown and top-level frame
+order, and pumps the operating-system window. Scene, replay, render, tools,
+input, diagnostics, capture, and UI business state belongs to their concrete
+owners.
 
-`Run` is the orchestration class. It owns the long-lived runtime
-state, loads scenes, initializes DX12, runs physics ticks, renders frames,
-drives the UI, captures screenshots, and coordinates validation/test modes.
+## Scene identity and row ownership
+
+`PhysicsSceneObjectId` is the one stable cross-system identity. Scene save/load,
+undo, picking, logging, replay correlation, and future cross-system features use
+it. A dense model row is only a temporary alignment hint.
+
+`SceneEntityStore` owns:
+
+- stable scene object identity;
+- the current physics body handle;
+- durable render material intent and display name;
+- asset provenance;
+- behavior grouping such as ragdoll or releasable-tree membership.
+
+`PhysicsBodyStore` and `ColliderStore` own hot simulation rows. Their typed
+handles and dense arrays stay inside physics-facing operations after a scene id
+is resolved at the owner boundary.
+
+`RenderInstanceStore` owns render presentation rows and the prepared instance
+snapshot. Short fixed-contact and audio-contact timers live beside that
+presentation data; they are not durable scene or deterministic physics state.
+
+## Coordinated scene operations
+
+`SceneController` owns the active scene's entity store, physics engine, render
+instance store, cameras, world settings, and terrain. The implementation is
+split by cohesion:
+
+- `SceneController.cpp` handles scene state, physics stepping, navigation, and
+  request policy.
+- `SceneController.Objects.cpp` handles cross-store creation/deletion,
+  topology repair at cold boundaries, render-instance preparation, and
+  scene-scoped physics/debug packaging.
+- `RunScene.cpp` implements the cold scene load/save transaction.
+
+Creation is a fail-before-mutation transaction: validate entity identity and
+capacity, preflight physics and render rows, then publish entity, body,
+collider, and render rows in the same dense order. Deletion is a cold swap-last
+transaction across those same owners. No replacement all-domain context,
+service bag, callback pack, or legacy model wrapper participates.
+
+## Frame data flow
 
 ```mermaid
-classDiagram
-direction TB
-
-class Run {
-  +Initialise()
-  +RunSceneLoadOnly()
-  +Run()
-}
-
-class RunPerfLogState
-class RunPhysicsDiagnosticsState
-class RunRuntimeSettings
-class RunTimerState
-class RunSubsystemState
-class RunCameraState
-class SceneRuntime
-class SimulationSystem
-class RuntimeDiagnostics
-class InputController
-class RunSceneState
-class RunScreenshotState
-class RunLiveStyleControlState
-class RunDebugState
-class RunFireState
-class RunUIStressState
-class SceneRuntimeResetSnapshot
-
-class AssetSystem
-class Terrain
-class TextureCollection
-class SkyBox
-class Window
-class GameModelCollection
-class PhysicsBodyStore
-class ColliderStore
-class WorldEnvironment
-class InGameUI
-class BroadphaseVisualizer
-class CollisionVisualizer
-class PhysicsDebugVisualizer
-
-Run *-- RunPerfLogState
-Run *-- RunPhysicsDiagnosticsState
-Run *-- RunRuntimeSettings
-Run *-- RunTimerState
-Run *-- RunSubsystemState
-Run *-- RunCameraState
-Run *-- SceneRuntime
-Run *-- SimulationSystem
-Run ..> RuntimeDiagnostics
-Run ..> InputController
-SceneRuntime *-- RunSceneState
-Run *-- RunScreenshotState
-Run *-- RunLiveStyleControlState
-Run *-- RunDebugState
-Run *-- RunFireState
-Run *-- RunUIStressState
-Run ..> SceneRuntimeResetSnapshot
-
-RunSubsystemState *-- AssetSystem
-RunSubsystemState o-- Terrain
-RunSubsystemState o-- TextureCollection
-RunSubsystemState o-- SkyBox
-RunSubsystemState o-- Window
-Run *-- GameModelCollection
-GameModelCollection ..> PhysicsBodyStore
-GameModelCollection ..> ColliderStore
-Run *-- WorldEnvironment
-Run *-- InGameUI
-Run *-- BroadphaseVisualizer
-Run *-- CollisionVisualizer
-Run *-- PhysicsDebugVisualizer
+flowchart LR
+    Input["InputRouter / runtime commands"] --> Scene
+    Scene -->|"fixed step"| Physics
+    Physics -->|"body + collider rows"| RenderRows
+    Entities -->|"material, name, grouping"| RenderRows
+    RenderRows -->|"prepared frame view"| Renderer
+    Physics -->|"solver sample"| Replay
+    Replay -->|"validated pose override"| RenderRows
 ```
 
-`SceneRuntime` is now an owned runtime subsystem for scene queue/index state and
-`RunSceneState`. `SimulationSystem` owns timestep policy and the physics
-accumulators for fixed-step and variable-step playback. `CaptureSystem` owns
-BMP backbuffer readback plus scene screenshot/autocycle policy. `RuntimeDiagnostics`
-owns perf CSV, scene-finished, and SkullScope run logging policy. `InputController`
-owns runtime key-edge capture plus mouse-look reset/delta policy. `Run`
-still applies input commands and capture completion actions such as scene
-advance, quit, or interactive hold, then coordinates the heavier load/reset side
-effects around that state, including object construction, terrain, cameras, UI
-defaults, diagnostics context, and renderer setup.
+Physics hot loops consume compact store arrays and bounded scratch buffers.
+Owner-side UI, audio, diagnostics, and replay work happens before or after those
+loops through typed values or bounded side-effect queues.
 
-The old `GameModelStreamProvider` / `GameModelSoACache` stream boundary has
-been deleted. `GameModelCollection` now prepares store-backed render snapshots
-through `RenderInstanceStore`, while physics-facing readers use
-`PhysicsBodyStore` and `ColliderStore` records instead of borrowed
-`GameModel`-derived SoA streams.
+## Rendering
 
-## Rendering Interfaces And Backend Family
+`RuntimeRenderer` owns renderer policy and builds frame views. DX12 is the only
+runtime backend. `RenderInstanceStore` supplies transform, bounds, material,
+shape, fixed-state, and contact-feedback values without reopening scene
+metadata during draw submission.
 
-`IRenderBackend` is the engine-facing renderer facade. DX12 is now the only
-runtime implementation. The interface still carries some broad, backend-shaped
-names because Phase 7 of the retirement plan will decide what becomes a clean
-future backend contract and what should move behind DX12-owned subsystem types.
+## Replay
 
-```mermaid
-classDiagram
-direction LR
+`ReplayRecorder` owns retained presentation and solver samples.
+`ReplayRuntime` owns scrub, prediction, branching, artifact IO, and replay
+interaction policy. Replay body identity is validated against physics-owned
+rows before a one-frame render pose override is accepted.
 
-class IRenderBackend {
-  <<interface>>
-  +Init(hwnd, hdc, width, height)
-  +Shutdown()
-  +Present()
-  +CreateShader(baseName)
-  +CreateMesh(data, vertexCount, hasNormals, hasTexCoords)
-  +CreateFramebuffer(width, height, colorFormat)
-  +CreateTexture2D(data, w, h, channels, generateMips, linearFilter)
-  +CaptureBackbuffer(outWidth, outHeight)
-}
+## Physics
 
-class RenderBackendDX12
-class IShader {
-  <<interface>>
-}
-class ShaderDX12
-class IMesh {
-  <<interface>>
-}
-class MeshDX12
-class IFramebuffer {
-  <<interface>>
-}
-class FramebufferDX12
+`PhysicsEngine` owns `PhysicsScene`, which owns the physics body/collider stores,
+solver state, broadphase, constraints, tornado state, and diagnostics streams.
+`SimulationSystem` owns timestep policy. SceneController supplies world forces,
+worker capability, and bounded diagnostic names to a step; it does not mirror
+physics state into a second object model.
 
-IRenderBackend <|-- RenderBackendDX12
+## Editor and tools
 
-IShader <|-- ShaderDX12
+Editor and launcher paths receive `SceneController` only when they need a
+coordinated scene mutation. Store-only reads resolve through the scene's
+`PhysicsEngine`, `SceneEntityStore`, or prepared `RenderInstanceStore`. New
+features should prefer the narrowest concrete owner available.
 
-IMesh <|-- MeshDX12
+## Validation map
 
-IFramebuffer <|-- FramebufferDX12
+- Scene-controller or runtime ownership changes: `tools\validate_full.bat`.
+- Physics behavior changes: `tools\validate_physics.bat`.
+- Render/DX12 changes: `tools\validate_dx12_renderer.bat` and
+  `tools\run_graphics_stress.bat 1`.
+- Performance-sensitive hot paths: `tools\validate_perf.bat`.
 
-RenderBackendDX12 ..> ShaderDX12
-RenderBackendDX12 ..> MeshDX12
-RenderBackendDX12 ..> FramebufferDX12
-```
-
-## DX12 Backend Detail
-
-The DX12 backend is a facade around renderer features. `Dx12RenderDevice` now
-owns the low-level factory/device/queue/swap-chain/fence lifetime, while helper
-allocators own the explicit DX12 table and upload-buffer policies.
-
-```mermaid
-classDiagram
-direction TB
-
-class RenderBackendDX12 {
-  +Init(hwnd, hdc, width, height)
-  +Present()
-  +CreateShader(baseName)
-  +CreateMesh(data, vertexCount, hasNormals, hasTexCoords)
-  +CreateFramebuffer(width, height, colorFormat)
-  +PrepareDraw(format, instanced, im, dvb)
-  +SubAllocateUpload(size, alignment)
-  +ExecuteGraphTransitionBarrier(...)
-  +ExecuteGraphUavBarrier(...)
-}
-
-class Dx12RenderDevice {
-  +Init(desc)
-  +Shutdown()
-  +Device()
-  +GraphicsQueue()
-  +CommandList()
-  +FrameFence()
-}
-
-class Dx12FenceTimeline
-class Dx12DescriptorAllocator
-class Dx12CpuDescriptorAllocator
-class Dx12FrameUploadSystem
-class Dx12UploadArena
-class Dx12ReadbackBuffer
-class GpuTimerStateDX12
-class TextureEntryDX12
-class DynamicVBDX12
-class InstancedMeshDX12
-class PSOKey12
-class BLAS
-class TLAS
-class SBT
-class RenderGraph
-
-RenderBackendDX12 *-- Dx12RenderDevice
-RenderBackendDX12 *-- Dx12DescriptorAllocator : SRV/UAV rows
-RenderBackendDX12 *-- Dx12CpuDescriptorAllocator : RTV rows
-RenderBackendDX12 *-- Dx12CpuDescriptorAllocator : DSV rows
-RenderBackendDX12 *-- Dx12FrameUploadSystem
-RenderBackendDX12 *-- Dx12ReadbackBuffer
-RenderBackendDX12 *-- GpuTimerStateDX12
-RenderBackendDX12 *-- TextureEntryDX12
-RenderBackendDX12 *-- DynamicVBDX12
-RenderBackendDX12 *-- InstancedMeshDX12
-RenderBackendDX12 *-- PSOKey12
-RenderBackendDX12 *-- BLAS
-RenderBackendDX12 *-- TLAS
-RenderBackendDX12 *-- SBT
-RenderBackendDX12 ..> RenderGraph
-
-Dx12RenderDevice *-- Dx12FenceTimeline
-Dx12FrameUploadSystem *-- Dx12UploadArena
-GpuTimerStateDX12 *-- Dx12ReadbackBuffer
-```
-
-## Render Graph Contract
-
-The render graph is the API-neutral contract for resources, passes, access
-intent, callback scheduling, and transient texture lifetimes. DX12 production
-transition and UAV barriers remain explicit backend-owned calls; pass command
-recording still lives in extracted runtime pass classes or graph-scheduled
-callbacks.
-
-```mermaid
-classDiagram
-direction LR
-
-class RenderGraph {
-  +DeclareResource(desc)
-  +AddPass(desc)
-  +Compile()
-  +DumpText()
-}
-
-class RenderGraphResourceHandle
-class RenderGraphResourceDesc
-class RenderGraphResourceUse
-class RenderGraphPassDesc
-class RenderGraphTransitionDesc
-class RenderGraphCompileResult
-class RenderGraphQueueType
-class RenderGraphResourceAccess
-
-RenderGraph *-- RenderGraphResourceDesc
-RenderGraph *-- RenderGraphPassDesc
-RenderGraphPassDesc *-- RenderGraphResourceUse
-RenderGraphResourceUse --> RenderGraphResourceHandle
-RenderGraphResourceUse --> RenderGraphResourceAccess
-RenderGraphPassDesc --> RenderGraphQueueType
-RenderGraphCompileResult *-- RenderGraphTransitionDesc
-RenderGraphTransitionDesc --> RenderGraphResourceHandle
-```
-
-## Scene, Physics, Geometry, And World
-
-Physics ownership flows through `GameModelCollection`. Individual `GameModel`
-objects own their body and collision shape; the collection sees all objects and
-therefore owns broadphase, contact caches, solver rows, sleep policy, and
-diagnostics.
-
-```mermaid
-classDiagram
-direction TB
-
-class GameModelCollection {
-  +AddGameModel(model)
-  +RunPhysics(dt)
-  +RenderModels(view, proj, lightPos)
-  +PrepareRenderInstances()
-}
-
-class GameModel {
-  +ApplyForces(dt)
-  +UpdatePosition(dt)
-  +CollisionDetectTerrain(dt)
-  +BuildTerrainContactManifold(...)
-  +SweepGameModel(target, dt)
-}
-
-class RigidBody
-class CollisionShape {
-  <<variant>>
-}
-class BoundingSphere
-class BoundingBox
-class SpatialGrid
-class PersistentContact
-class PersistentContactCacheEntry
-class PersistentContactSolverStats
-class SolverBodyState
-class PhysicsDebugContact
-class PhysicsPipelineRecord
-class TerrainContactManifold
-class TerrainContactPoint
-class ObjectContactManifold
-class ObjectContactPoint
-class WorldEnvironment
-class Terrain
-class SkyBox
-class TornadoField
-class SkullScope
-class PhysicsDebugVisualizer
-class CollisionVisualizer
-class BroadphaseVisualizer
-
-GameModelCollection *-- GameModel
-GameModelCollection *-- SpatialGrid
-GameModelCollection *-- PersistentContact
-GameModelCollection *-- PersistentContactCacheEntry
-GameModelCollection *-- PersistentContactSolverStats
-GameModelCollection *-- SolverBodyState
-GameModelCollection *-- PhysicsDebugContact
-GameModelCollection *-- PhysicsPipelineRecord
-GameModelCollection *-- TerrainContactManifold
-GameModelCollection *-- TornadoField
-GameModelCollection *-- SkullScope
-
-GameModel *-- RigidBody
-GameModel *-- CollisionShape
-CollisionShape --> BoundingSphere
-CollisionShape --> BoundingBox
-GameModel o-- WorldEnvironment
-GameModel o-- Terrain
-GameModel ..> TerrainContactManifold
-TerrainContactManifold *-- TerrainContactPoint
-ObjectContactManifold *-- ObjectContactPoint
-
-WorldEnvironment o-- Terrain
-Terrain ..> BoundingBox
-Terrain ..> BoundingSphere
-PhysicsDebugVisualizer ..> GameModelCollection
-CollisionVisualizer ..> GameModelCollection
-BroadphaseVisualizer ..> SpatialGrid
-```
-
-## Math And Geometry Primitives
-
-The math layer is mostly value types and free-function helpers. These are used
-across rendering, terrain, collision, camera, and physics.
-
-```mermaid
-classDiagram
-direction LR
-
-class Vector3
-class Matrix4
-class RotationMatrix
-class Quaternion
-class GeometricMath
-class Ray
-class TerrainPost
-class Triangle
-class Plane
-class XZBounds
-class Box
-class XZCoords
-class BoundingSphere
-class BoundingBox
-
-Quaternion ..> RotationMatrix
-RotationMatrix ..> Matrix4
-GeometricMath ..> Vector3
-GeometricMath ..> Ray
-GeometricMath ..> Triangle
-GeometricMath ..> Plane
-TerrainPost --> Vector3
-Triangle --> TerrainPost
-Plane --> Vector3
-BoundingSphere --> Vector3
-BoundingBox --> Vector3
-BoundingBox --> RotationMatrix
-```
-
-## Scene And Asset Data
-
-Scene files produce `TestScene`, which holds declarative scene data. The runtime
-uses it to build cameras, world settings, terrain overrides, physics objects,
-render/debug toggles, and UI state.
-
-```mermaid
-classDiagram
-direction TB
-
-class AssetSystem
-class AssetKind
-class ShaderProgramKind
-class ShaderProgramContract
-class SourceAssetRecord
-class TextureSourceAsset
-class ShaderSourceAsset
-class TextureCollection
-class TestScene
-class TestSceneParser
-class SceneCamera
-class SceneBall
-class SceneBallState
-class SceneBox
-class SceneOptions
-class SceneCaptureOptions
-class SceneLoggingOptions
-class SceneRuntimeOverrides
-class SceneTerrainOverride
-class SceneWorldOverride
-class SceneUIOptions
-class SceneObjectMaterialOverride
-
-AssetSystem *-- SourceAssetRecord
-AssetSystem *-- TextureSourceAsset
-AssetSystem *-- ShaderSourceAsset
-ShaderSourceAsset *-- ShaderProgramContract
-TextureCollection o-- AssetSystem
-TestSceneParser ..> TestScene
-TestScene *-- SceneCamera
-TestScene *-- SceneBall
-TestScene *-- SceneBallState
-TestScene *-- SceneBox
-TestScene *-- SceneOptions
-TestScene *-- SceneCaptureOptions
-TestScene *-- SceneLoggingOptions
-TestScene *-- SceneRuntimeOverrides
-TestScene *-- SceneTerrainOverride
-TestScene *-- SceneWorldOverride
-TestScene *-- SceneUIOptions
-TestScene *-- SceneObjectMaterialOverride
-```
-
-## UI Structure
-
-The UI reads `InGameUIFrameData` and emits `InGameUICommands`. It does not own
-engine simulation objects directly; the runtime applies the commands.
-
-```mermaid
-classDiagram
-direction TB
-
-class InGameUI {
-  +UpdateInput(hwnd, screenW, screenH, now, sceneOptions, count, selected)
-  +Draw(data)
-}
-
-class InGameUIFrameData
-class InGameUICommands
-class InGameUIInputResult
-class UIWindowState
-class UIInteractionState
-class UICacheState
-class UIBackdropBlur
-class UIDrawContext
-class UIDrawList
-class UIRect
-class UIButton
-class UICheckBox
-class UIComboBox
-class UIScrollBar
-class UISlider
-class UITabBar
-class UIIconButton
-class UIControlsTabState
-class UIOptionsTabState
-class UIPhysicsTabState
-class UIProfilerTabState
-class UISceneTabState
-
-InGameUI ..> InGameUIFrameData
-InGameUI ..> InGameUICommands
-InGameUI ..> InGameUIInputResult
-InGameUI *-- UIWindowState
-InGameUI *-- UIInteractionState
-InGameUI *-- UICacheState
-InGameUI *-- UIBackdropBlur
-InGameUI *-- UIButton
-InGameUI *-- UICheckBox
-InGameUI *-- UIComboBox
-InGameUI *-- UIScrollBar
-InGameUI *-- UISlider
-InGameUI *-- UITabBar
-InGameUI *-- UIControlsTabState
-InGameUI *-- UIOptionsTabState
-InGameUI *-- UIPhysicsTabState
-InGameUI *-- UIProfilerTabState
-InGameUI *-- UISceneTabState
-InGameUI ..> UIDrawContext
-UIDrawContext --> UIRect
-UIDrawList --> UIRect
-UIIconButton --> UIButton
-```
-
-## Complete Declaration Catalog
-
-This catalog keeps the diagrams grounded in the headers. It is grouped by
-subsystem rather than by dependency edge.
-
-### Runtime, Window, Input, Config, Profiling
-
-- `Run`
-- `RunPerfLogState`
-- `RunPhysicsDiagnosticsState`
-- `RunRuntimeSettings`
-- `RunTimerState`
-- `RunSubsystemState`
-- `RunCameraState`
-- `RunSceneState`
-- `RunScreenshotState`
-- `RunLiveStyleControlState`
-- `RunDebugState`
-- `RunFireState`
-- `RunUIStressState`
-- `SceneRuntimeResetSnapshot`
-- `RuntimeDiagnostics`
-- `RuntimePerfTickContext`
-- `GeneratedObjectTypeOverride`
-- `OverlayMode`
-- `Window`
-- `InputState`
-- `Input`
-- `InputController`
-- `RuntimeKeyEdge`
-- `Timer`
-- `CaptureSystem`
-- `RuntimeCaptureSceneContext`
-- `RuntimeCaptureResult`
-- `RuntimeCaptureSink`
-- `Config`
-- `WindowConfig`
-- `RuntimeRenderFlags`
-- `SceneLightConfig`
-- `CinematicRenderConfig`
-- `Profiler`
-- `ProfilerScope`
-- `GpuProfilerScope`
-- `PlatformProfiler`
-- `Log`
-- `Helper`
-- `ResponseInformation`
-
-### Rendering Interfaces And Render Types
-
-- `IRenderBackend`
-- `RenderCapabilities`
-- `BlendFactor`
-- `IShader`
-- `IMesh`
-- `IFramebuffer`
-- `FramebufferColorFormat`
-- `ShadowFrameData`
-- Global backend functions: `Gfx()`, `IsGfxReady()`, `SetGfxBackend()`, `DestroyGfxBackend()`
-
-### DirectX 12 Backend And DXR
-
-- `RenderBackendDX12`
-- `ShaderDX12`
-- `MeshDX12`
-- `FramebufferDX12`
-- `Dx12RenderDevice`
-- `Dx12RenderDeviceInitDesc`
-- `Dx12FenceTimeline`
-- `Dx12FenceTimelineStats`
-- `Dx12DescriptorAllocator`
-- `Dx12DescriptorAllocatorStats`
-- `Dx12CpuDescriptorAllocator`
-- `Dx12CpuDescriptorAllocatorStats`
-- `Dx12CpuDescriptorAllocation`
-- `Dx12UploadArena`
-- `Dx12UploadArenaStats`
-- `Dx12FrameUploadSystem`
-- `Dx12ReadbackBuffer`
-- `Dx12ReadbackBufferStats`
-- `TextureEntryDX12`
-- `DynamicVBDX12`
-- `InstancedMeshDX12`
-- `PSOKey12`
-- `GpuTimerStateDX12`
-- `VertexFormat12`
-- `BLAS`
-- `TLAS`
-- `SBT`
-
-### Render Graph
-
-- `RenderGraph`
-- `RenderGraphQueueType`
-- `RenderGraphResourceAccess`
-- `RenderGraphResourceHandle`
-- `RenderGraphResourceDesc`
-- `RenderGraphResourceUse`
-- `RenderGraphPassDesc`
-- `RenderGraphTransitionDesc`
-- `RenderGraphCompileResult`
-
-### Scene, Assets, Textures
-
-- `AssetSystem`
-- `AssetKind`
-- `ShaderProgramKind`
-- `ShaderProgramContract`
-- `SourceAssetRecord`
-- `TextureSourceAsset`
-- `ShaderSourceAsset`
-- `TextureCollection`
-- `TestScene`
-- `TestSceneParser`
-- `SceneCamera`
-- `SceneBall`
-- `SceneBallState`
-- `SceneBox`
-- `SceneObjectMaterialOverride`
-- `SceneOptions`
-- `SceneCaptureOptions`
-- `SceneLoggingOptions`
-- `SceneRuntimeOverrides`
-- `SceneTerrainOverride`
-- `SceneWorldOverride`
-- `SceneUIOptions`
-
-### World, Geometry, And Math
-
-- `WorldEnvironment`
-- `Terrain`
-- `SkyBox`
-- `Text2d`
-- `TerrainPost`
-- `Triangle`
-- `Plane`
-- `XZBounds`
-- `Box`
-- `XZCoords`
-- `Ray`
-- `GeometricMath`
-- `Vector3`
-- `Matrix4`
-- `RotationMatrix`
-- `Quaternion`
-- `PrimitiveMeshBuilder` helper structs: `VertexPNUV`, `LocalVertex`, `CubeFace`
-
-### Collision And Physics
-
-- `GameModel`
-- `GameModelCollection`
-- `PhysicsBodyStore`
-- `ColliderStore`
-- `RigidBody`
-- `CollisionShape`
-- `BoundingSphere`
-- `BoundingBox`
-- `TerrainContactPoint`
-- `TerrainContactManifold`
-- `ObjectContactPoint`
-- `ObjectContactManifold`
-- `SpatialGrid`
-- `SpatialGrid::Entry`
-- `SpatialGrid::Bucket`
-- `SpatialGrid::ActiveCell`
-- `TornadoField`
-- `TornadoFieldConfig`
-- `PhysicsDebugVisualizer`
-- `PhysicsPipelineStage`
-- `PhysicsPipelineRecord`
-- `PhysicsDebugContact`
-- `CollisionVisualizer`
-- `BroadphaseVisualizer`
-- `BoxTerrainVertexSupportProbe`
-- `BoxTerrainSupportClassification`
-- `SkullScope`
-
-### UI
-
-- `InGameUI`
-- `InGameUITab`
-- `InGameUIFrameData`
-- `InGameUICommands`
-- `InGameUIInputResult`
-- `UIOnlyCommands`
-- `UIRendererCommands`
-- `UISceneCommands`
-- `UIPhysicsCommands`
-- `UISceneOptionCommands`
-- `UIWaterCommands`
-- `UIRunCommands`
-- `UICinematicCommands`
-- `UICinematicParam`
-- `UICinematicFeature`
-- `UIButton`
-- `UICheckBox`
-- `UIComboBox`
-- `UIIconButton`
-- `UIScrollBar`
-- `UISlider`
-- `UITabBar`
-- `UIBackdropBlur`
-- `UIBackdropBlurInvalidationReason`
-- `UICacheState`
-- `UICacheFrameKey`
-- `UIDrawContext`
-- `UIDrawList`
-- `UIDrawList::CommandType`
-- `UIDrawList::Stats`
-- `UIDrawList::Command`
-- `UIRect`
-- `UIInputSnapshot`
-- `UIWindowState`
-- `UIInteractionState`
-- `UIColor`
-- `FooterToggleStyle`
-- `UIPalette`
-- `UIRadii`
-- `UITextStyle`
-- `UIControlStyle`
-- `TitleButtonIcon`
-- `TitleButtonRects`
-- `UIControlsTabState`
-- `UIOptionsTabState`
-- `UIPhysicsTabState`
-- `UIProfilerTabState`
-- `TimelineSegment`
-- `PerformanceHistogramSample`
-- `UISceneTabState`
-
-## Reading Notes
-
-- `CollisionShape` is a `std::variant<BoundingSphere, BoundingBox>`, not a base
-  class hierarchy.
-- `TextureCollection` and `SkyBox` are singleton-style classes.
-- `Gfx()` hides the active DX12 implementation behind `IRenderBackend`; runtime
-  renderer switching has been retired.
-- `RenderBackendDX12` is split across multiple `.cpp` files but remains one
-  class in `RenderBackendDX12.h`.
-- `RenderGraph` owns the access vocabulary, callback scheduling declarations,
-  and transient texture lifetime plan. DX12 explicit backend helpers own live
-  transition and UAV barrier emission.
-- Many nested solver/UI structs are intentionally plain data. They are listed
-  because they are part of the runtime architecture even though they are not
-  polymorphic classes.
+See `AGENTS.md` for the authoritative gate mapping and policy details.

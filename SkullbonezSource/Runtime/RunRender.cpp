@@ -46,7 +46,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
     // rendering asks for view matrices.
     m_camera.UpdateViewingOrientation( m_timers,
                                        m_sceneController.Cameras(),
-                                       m_sceneController.Models(),
+                                       m_sceneController,
                                        m_replayRuntime.Camera().active,
                                        m_sceneController.State().isSceneMode,
                                        m_attachedCamera.State().activeFollow,
@@ -62,7 +62,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
     int attachedTargetIndex = -1;
     if ( RunCameraModeIsAttached( m_camera.mode ) )
     {
-        (void)m_attachedCamera.ResolveTargetIdentity( m_sceneController.Models(), attachedTargetIndex );
+        (void)m_attachedCamera.ResolveTargetIdentity( m_sceneController, attachedTargetIndex );
     }
     const RenderReplayOverlayView replayOverlay{ m_replayRuntime,
                                                  m_sceneController.Entities(),
@@ -106,7 +106,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
     framePolicy.totalSimulationSeconds = m_timers.simulationTimer.GetTotalTime();
     m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext{ m_renderBackendView,
                                                                      renderModels,
-                                                                     m_sceneController.Models(),
+                                                                     m_sceneController,
                                                                      m_sceneController.Physics(),
                                                                      m_UI,
                                                                      framePolicy,

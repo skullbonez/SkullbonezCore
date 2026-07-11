@@ -29,7 +29,7 @@ Related:
 #include "RunTimerState.h"
 #include "../Assets/AssetKeys.h"
 #include "../Core/Config.h"
-#include "../GameObjects/GameModelCollection.h"
+#include "Scene/SceneController.h"
 #include "../World/Terrain.h"
 #include "../Core/Profiler.h"
 
@@ -39,7 +39,7 @@ namespace SkullbonezCore::Basics
 {
 void RunCameraState::UpdateViewingOrientation( RunTimerState& timers,
                                                Environment::CameraCollection& cameras,
-                                               const GameObjects::GameModelCollection& models,
+                                               const Basics::SceneController& models,
                                                bool replayCameraActive,
                                                bool sceneMode,
                                                bool attachedActiveFollow,
@@ -105,7 +105,7 @@ void RunCameraState::AdvanceAutoCycleClock( bool sceneMode, float simulationDt )
 
 void RunCameraState::TickControls( Environment::CameraCollection& cameras,
                                    Geometry::Terrain& terrain,
-                                   GameObjects::GameModelCollection& models,
+                                   Basics::SceneController& models,
                                    AttachedCameraController& attachedCamera,
                                    const EngineConfig& config,
                                    bool editorModeEnabled,

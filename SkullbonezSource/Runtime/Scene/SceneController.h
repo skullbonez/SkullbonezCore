@@ -46,8 +46,13 @@ Related:
 #include "SceneRuntime.h"
 #include "SceneRuntimeCoordinator.h"
 #include "SceneTerrain.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "../../Core/MainMemoryStats.h"
+#include "../../Core/SbResult.h"
+#include "../../Maths/Vector3.h"
+#include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"
+#include "../../Physics/PhysicsEngineStoreQueries.h"
+#include "../../Rendering/RenderInstanceStore.h"
 #include "../CameraCollection.h"
 #include "../../World/WorldEnvironment.h"
 
@@ -56,10 +61,6 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace GameObjects
-{
-class GameModelCollection;
-}
 namespace Assets
 {
 class AssetSystem;
@@ -129,8 +130,18 @@ struct SceneDefaultsSaveView
     const RunCameraState& camera;
 };
 
+// Concept: scene creation returns the recoverable authoring result together
+// with the physics handle published by the successful cross-store commit.
+struct SceneEntityCreateResult
+{
+    SbResult status;
+    Physics::PhysicsBodyHandle body;
+};
+
 class SceneController
 {
+#include "SceneController.Objects.inl"
+
   public:
     SceneController();
     explicit SceneController( std::vector<std::string> queue );
@@ -145,8 +156,6 @@ class SceneController
     const RunSceneUIOverrideState& UIOverrides() const;
     SceneEntityStore& Entities();
     const SceneEntityStore& Entities() const;
-    GameObjects::GameModelCollection& Models();
-    const GameObjects::GameModelCollection& Models() const;
     Environment::CameraCollection& Cameras();
     const Environment::CameraCollection& Cameras() const;
     Environment::WorldEnvironment& World();
@@ -300,9 +309,6 @@ class SceneController
     // Lifetime: physics topology is born and cleared with the active scene.
     // Presentation owners borrow this engine; they never own or replace it.
     Physics::PhysicsEngine m_physics;
-    // Lifetime: presentation rows share the scene lifetime and borrow the
-    // controller-owned physics engine. Run never owns or replaces this store.
-    GameObjects::GameModelCollection m_models;
 };
 } // namespace Basics
 } // namespace SkullbonezCore

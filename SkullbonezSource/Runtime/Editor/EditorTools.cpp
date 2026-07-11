@@ -31,7 +31,7 @@ Related:
 #include "../Scene/SceneRuntime.h"
 #include "../Tools/RuntimeTools.h"
 #include "../../Core/Common.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "../Scene/SceneController.h"
 #include "../../Scene/SceneSnapshotWriter.h"
 #include "../../UI/UICommands.h"
 #include "../../UI/UITabEditor.h"
@@ -443,7 +443,7 @@ void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction
         {
             // Lifetime: the save view borrows cold owner arrays only for this
             // synchronous file write; editor input retains none of the rows.
-            const auto& joints = context.models.GetPointJointConstraints();
+            const auto& joints = Physics::PhysicsEngineStoreQueries::PointJointConstraints( context.models.Physics() );
             const SceneSaveView saveView{ context.entities,
                                           context.models.BodyStore(),
                                           context.models.Colliders(),

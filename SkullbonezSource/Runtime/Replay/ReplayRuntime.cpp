@@ -11,7 +11,7 @@ Mental model:
 Glossary:
   Branch: Child replay timeline created from a restored source frame.
   Body store: Physics-owned live body records used for pose and velocity
-    authority while legacy GameModel mirrors are retired.
+    authority while legacy object-record mirrors are retired.
   Cause tree row: UI row derived from retained solver contacts or prediction
     future nodes.
   Collider store: Physics-owned shape, material, and radius records paired with
@@ -46,7 +46,7 @@ Related:
 #include "../RuntimeInteractionCommands.h"
 #include "../../Core/AmortizedTask.h"
 #include "../../Core/Profiler.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "../Scene/SceneController.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"
@@ -462,7 +462,7 @@ FindReplayPredictionBodyByIdWithHint( const RunReplayPredictionFrame& frame, Rep
 
 // Concept: cause-tree focus needs a display radius, not exact shape math.
 // Replay samples carry model indices, while live fallback can use body-handle
-// pairing to stay off GameModel pose and shape mirrors.
+// pairing to stay off legacy object record pose and shape mirrors.
 float ReplayRuntimeColliderRadius( const ColliderRecord& collider )
 {
     return (std::max)( collider.boundingRadius, 1.0f );

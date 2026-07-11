@@ -477,7 +477,7 @@ struct ReplayCaptureInput
     Physics::PhysicsEngine* physics = nullptr;
     const SceneEntityStore* entities = nullptr;
     // Replay recorders borrow stores for physics state and the scene entity
-    // owner for names, so capture does not depend on GameModel writeback.
+    // owner for names, so capture does not depend on legacy object record writeback.
     const Physics::PhysicsBodyStore* bodyStore = nullptr;
     const Physics::ColliderStore* colliderStore = nullptr;
     const ReplayLauncherVisualSample* launcherVisual = nullptr;

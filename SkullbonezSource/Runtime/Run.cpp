@@ -87,7 +87,7 @@ SkullbonezCore::Environment::CameraMovementSettings BuildCameraMovementSettings(
 void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
                                RunLaunchOptions& target,
                                RuntimeRenderer& renderer,
-                               SkullbonezCore::GameObjects::GameModelCollection& models,
+                               SkullbonezCore::Basics::SceneController& models,
                                SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio )
 {
     target.allocationGuardMode = launch.allocationGuardMode;
@@ -114,7 +114,7 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     if ( launch.noSleep )
     {
         target.noSleep = true;
-        models.SetPhysicsSleepEnabled( false );
+        models.Physics().SetSleepEnabled( false );
     }
     if ( launch.noContactAudio )
     {
@@ -125,9 +125,9 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     {
         target.hasTornadoOverride = true;
         target.tornadoEnabled = launch.tornadoEnabled;
-        TornadoFieldConfig tornadoField = models.GetTornadoFieldConfig();
+        TornadoFieldConfig tornadoField = models.Physics().GetTornadoFieldConfig();
         tornadoField.enabled = launch.tornadoEnabled;
-        models.SetTornadoFieldConfig( tornadoField );
+        models.Physics().SetTornadoFieldConfig( tornadoField );
         if ( renderer.TornadoVisualAutoEnableWithTornado() )
         {
             renderer.SetTornadoVisualEnabled( launch.tornadoEnabled );
@@ -136,9 +136,9 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     if ( launch.tornadoVectors )
     {
         target.tornadoVectors = true;
-        TornadoFieldConfig tornadoField = models.GetTornadoFieldConfig();
+        TornadoFieldConfig tornadoField = models.Physics().GetTornadoFieldConfig();
         tornadoField.visualizeVelocityField = true;
-        models.SetTornadoFieldConfig( tornadoField );
+        models.Physics().SetTornadoFieldConfig( tornadoField );
     }
     if ( launch.hasCinematicRenderingOverride )
     {
@@ -343,7 +343,7 @@ void ApplyStartupPresentationPolicy( const RunStartupOverrides& overrides,
 #ifdef _DEBUG
 void ApplyStartupDiagnosticsPolicy( const RunStartupOverrides& overrides,
                                     DiagnosticsRuntime& diagnosticsRuntime,
-                                    SkullbonezCore::GameObjects::GameModelCollection& models )
+                                    SkullbonezCore::Basics::SceneController& models )
 {
     if ( overrides.physicsRegressionLogPath && overrides.physicsRegressionLogPath[0] != '\0' )
     {
@@ -397,9 +397,7 @@ Run::Run( Window& window,
     m_diagnosticsRuntime.BindProfiler( profiler );
     m_sceneController.Cameras().ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
     RefreshSceneBrowserList( m_sceneController.Browser() );
-    m_sceneController.Models().BindWorkerPool( workerPool );
-    m_sceneController.Models().BindSceneEntityStore( m_sceneController.Entities() );
-    m_sceneController.Models().ApplyRuntimeConfig( cfg );
+    m_sceneController.ApplyRuntimeConfig( cfg );
     m_renderer.SetVsyncEnabled( cfg.runtimeRender.vsyncEnabled );
     m_renderer.SetPipelineSyncEnabled( cfg.runtimeRender.forcePipelineSync );
     m_contactAudio.SetDebugCountersEnabled( cfg.contactAudio.debugCounters );
@@ -418,7 +416,7 @@ Run::~Run()
     if ( m_diagnosticsRuntime.MainMemoryDumpRequested() )
     {
         m_diagnosticsRuntime.WriteMainMemoryDump( m_replayRuntime,
-                                                  m_sceneController.Models(),
+                                                  m_sceneController,
                                                   m_sceneController.State(),
                                                   "shutdown",
                                                   m_timers.simulationTimer.GetTotalTime() );
@@ -457,7 +455,6 @@ Run::~Run()
         RuntimeRenderer::BackendResourceReleaseContext{ "shutdown_release",
                                                         m_renderBackendView.deviceLifecycle,
                                                         m_renderBackendView.renderResources,
-                                                        m_sceneController.Models(),
                                                         m_UI,
                                                         m_runtimeTools } );
     if ( !releaseResult.ok )
@@ -481,7 +478,7 @@ SbResult Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
     // runtime services.
     const RunLaunchOptions& launch = overrides.launch;
 
-    ApplyRuntimeLaunchPolicy( launch, m_launchOptions, m_renderer, m_sceneController.Models(), m_contactAudio );
+    ApplyRuntimeLaunchPolicy( launch, m_launchOptions, m_renderer, m_sceneController, m_contactAudio );
     if ( overrides.liveStyleControlDirectory && overrides.liveStyleControlDirectory[0] != '\0' )
     {
         if ( m_liveStyle.ConfigureDirectory( overrides.liveStyleControlDirectory ) )
@@ -526,7 +523,7 @@ SbResult Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
 #endif
     ApplyStartupPresentationPolicy( overrides, m_launchOptions, m_debug, m_UI );
 #ifdef _DEBUG
-    ApplyStartupDiagnosticsPolicy( overrides, m_diagnosticsRuntime, m_sceneController.Models() );
+    ApplyStartupDiagnosticsPolicy( overrides, m_diagnosticsRuntime, m_sceneController );
 #endif
     if ( !overrides.interactionScriptPath )
     {
@@ -977,10 +974,10 @@ SbResult Run::RunSceneLoadOnly( const char* snapshotOutPath )
     {
         // Lifetime: scene-load-only borrows owner arrays only until the
         // synchronous snapshot write completes.
-        const auto& joints = m_sceneController.Models().GetPointJointConstraints();
+        const auto& joints = Physics::PhysicsEngineStoreQueries::PointJointConstraints( m_sceneController.Physics() );
         const SceneSaveView saveView{ m_sceneController.Entities(),
-                                      m_sceneController.Models().BodyStore(),
-                                      m_sceneController.Models().Colliders(),
+                                      m_sceneController.BodyStore(),
+                                      m_sceneController.Colliders(),
                                       joints.data(),
                                       static_cast<int>( joints.size() ),
                                       m_sceneController.World().GetGravity(),

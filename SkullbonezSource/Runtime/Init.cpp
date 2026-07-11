@@ -18,7 +18,7 @@ Glossary:
   Standalone physics smoke: Early-exit validation mode that exercises public
     physics API construction without runtime/window/renderer ownership.
   Runtime handle smoke: Early-exit validation mode that uses runtime
-    GameModelCollection construction but proves returned physics handles stay
+    SceneController construction but proves returned physics handles stay
     aligned with body, collider, constraint, and render mirrors.
   Lane R result: Recoverable CLI/startup failure that returns a process exit
     code with owner/message diagnostics instead of using a fatal exception.
@@ -47,8 +47,7 @@ Related:
 #include "../Core/Timer.h"
 #include "../Rendering/DX12/RenderBackendDX12.h"
 #include "RunLaunchOptions.Renderer.h"
-#include "../GameObjects/GameModel.h"
-#include "../GameObjects/GameModelCollection.h"
+#include "Scene/SceneController.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsBodyStore.h"
 #include "../Physics/PhysicsApi.h"
@@ -633,15 +632,12 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     // window or renderer. WinMain runs the normal command-line/config bootstrap
     // before this helper so collection capacity uses the same config snapshot
     // as a regular runtime launch.
-    auto world = std::make_unique<SkullbonezCore::Environment::WorldEnvironment>();
-    // Lifetime: the validation-only PhysicsEngine contains fixed-capacity
-    // stores too large for the launcher stack. Static cold ownership avoids a
-    // second heap-policy exception and the process executes this smoke once.
-    static SkullbonezCore::Physics::PhysicsEngine physics;
-    auto collection = std::make_unique<SkullbonezCore::GameObjects::GameModelCollection>( physics );
-    static SkullbonezCore::Basics::SceneEntityStore sceneEntities;
-    sceneEntities.Clear();
-    collection->BindSceneEntityStore( sceneEntities );
+    // Lifetime: SceneController owns the validation-only physics and entity
+    // stores exactly as it does during a normal scene. The cold smoke keeps the
+    // owner off the launcher stack and executes once before steady gameplay.
+    auto collection = std::make_unique<SkullbonezCore::Basics::SceneController>();
+    SkullbonezCore::Physics::PhysicsEngine& physics = collection->Physics();
+    SkullbonezCore::Basics::SceneEntityStore& sceneEntities = collection->Entities();
     PhysicsRuntimeHandleSmokeResult result;
     PhysicsBodyHandle createdBodies[2];
 
@@ -727,7 +723,8 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     const PhysicsBodyStore& bodyStore = collection->BodyStore();
     const ColliderStore& colliderStore = collection->Colliders();
     const RenderInstanceStore& renderStore = collection->GetRenderInstanceStore();
-    const std::vector<PointJointConstraint>& pointJoints = collection->GetPointJointConstraints();
+    const std::vector<PointJointConstraint>& pointJoints =
+        PhysicsEngineStoreQueries::PointJointConstraints( collection->Physics() );
     const size_t initialColliderCount = colliderStore.Count();
     const ColliderRecord initialCollider = colliderStore.Records()[0];
 
@@ -838,17 +835,18 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                                              bodyBBeforeDelete->invRotationalInertia );
     const bool destroyedBodyA = collection->DestroySceneEntity( bodyA );
     const PhysicsBodyRecord* survivingBody = collection->BodyStore().RecordForHandle( bodyB );
-    const bool deletionIsAtomic =
-        seededLiveOnlyState && destroyedBodyA && !collection->BodyStore().Contains( bodyA ) && survivingBody &&
-        collection->BodyStore().ModelIndexForHandle( bodyB ) == 0 && sceneEntities.Count() == 1 &&
-        sceneEntities.At( 0 ).body == bodyB && collection->BodyStore().Count() == 1 &&
-        collection->Colliders().Count() == 1 && collection->Colliders().HandleForBodyHandle( bodyB ).IsValid() &&
-        collection->GetRenderInstanceStore().Count() == 1 &&
-        collection->GetRenderInstanceStore().PresentationCount() == 1 &&
-        physics.AuthoredBodyDescriptorCount().value == 1u && collection->GetPointJointConstraints().empty() &&
-        fabsf( survivingBody->position.x - liveOnlyPosition.x ) < 0.0001f &&
-        fabsf( survivingBody->position.y - liveOnlyPosition.y ) < 0.0001f &&
-        fabsf( survivingBody->position.z - liveOnlyPosition.z ) < 0.0001f;
+    const bool deletionIsAtomic = seededLiveOnlyState && destroyedBodyA && !collection->BodyStore().Contains( bodyA ) &&
+                                  survivingBody && collection->BodyStore().ModelIndexForHandle( bodyB ) == 0 &&
+                                  sceneEntities.Count() == 1 && sceneEntities.At( 0 ).body == bodyB &&
+                                  collection->BodyStore().Count() == 1 && collection->Colliders().Count() == 1 &&
+                                  collection->Colliders().HandleForBodyHandle( bodyB ).IsValid() &&
+                                  collection->GetRenderInstanceStore().Count() == 1 &&
+                                  collection->GetRenderInstanceStore().PresentationCount() == 1 &&
+                                  physics.AuthoredBodyDescriptorCount().value == 1u &&
+                                  PhysicsEngineStoreQueries::PointJointConstraints( collection->Physics() ).empty() &&
+                                  fabsf( survivingBody->position.x - liveOnlyPosition.x ) < 0.0001f &&
+                                  fabsf( survivingBody->position.y - liveOnlyPosition.y ) < 0.0001f &&
+                                  fabsf( survivingBody->position.z - liveOnlyPosition.z ) < 0.0001f;
 
     PhysicsBodyUpdateDesc staleUpdate;
     staleUpdate.body = bodyA;

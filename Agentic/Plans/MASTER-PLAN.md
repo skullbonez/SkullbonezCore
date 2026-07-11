@@ -98,16 +98,16 @@ concrete plan rows and counting it would duplicate tasks.
 | editor-undo-redo | 0 | 5 | 0% |
 | data-format-versioning | 0 | 5 | 0% |
 | engine-config-decomposition | 0 | 5 | 0% |
-| entity-model-endgame | 0 | 4 | 0% |
+| entity-model-endgame | 4 | 4 | 100% |
 | instant-prediction-velocity-chaos | 52 | 52 | 100% |
 | shadow-edge-quality | 0 | 5 | 0% |
-| **Portfolio total** | **217** | **276** | **79%** |
+| **Portfolio total** | **221** | **276** | **80%** |
 
 ## Current Execution Priority
 
 For maximum impact with minimal rework, use this binding critical path:
 
-`entity-model closure` → `renderer ownership` → `DX12 cleanup` →
+`renderer ownership` → `DX12 cleanup` →
 `engine-config decomposition` → `shader contract` →
 `visibility` → `shadows` → `interpolation` → `editor` → `data versioning`
 
@@ -116,40 +116,36 @@ For maximum impact with minimal rework, use this binding critical path:
    implementation campaign. Fix every credible ownership finding, pass the
    closure gate, and delete the eight retained completed plans to remove stale
    control-plane noise.
-2. **`entity-model-endgame`.** Formally establish `PhysicsSceneObjectId`, move
-   transient contact feedback to its final owner, and delete `GameModel` plus
-   `GameModelCollection` before undo/redo, interpolation, or another feature
-   retains identities or APIs from those obsolete types.
-3. **`render-backend-decomposition` A1-A2.** Establish texture ownership and
+2. **`render-backend-decomposition` A1-A2.** Establish texture ownership and
    the concrete pipeline/root-signature owner. A2 is the dependency barrier for
    shader and shadow work. Continue A3-D2 afterward as capacity permits, but the
    next critical-path work may start once A2 is proven stable.
-4. **`dx12-post-final-cleanup`.** Delete dead shaders before inventorying or
+3. **`dx12-post-final-cleanup`.** Delete dead shaders before inventorying or
    baking them, then consolidate god rays, reduce bloom cost, name style modes,
    and complete config deduplication before shader manifests, reflection data,
    and visual references lock in the surviving surface.
-5. **`engine-config-decomposition`.** Start after DX12 cleanup phase 5 so the
+4. **`engine-config-decomposition`.** Start after DX12 cleanup phase 5 so the
    final cinematic/shadow config shape moves directly into domain structs
    without reorganizing duplicated fields twice.
-6. **`shader-pipeline-modernization` P0-P5.** With the surviving shader set and
+5. **`shader-pipeline-modernization` P0-P5.** With the surviving shader set and
    A2 owner established, execute inventory, offline DXC, reflection contracts,
    root-signature consolidation, pipeline cache, then the bindless decision.
    Record P5's decision before shadow S1. P6 hot reload is optional follow-up.
-7. **`render-visibility-architecture`.** P0 instrumentation may start at any
+6. **`render-visibility-architecture`.** P0 instrumentation may start at any
    time; implementation waits for stable backend ownership. Complete main,
    shadow, reflection, and instancing culling before final shadow-quality work
    so its GPU budget reflects the actual visible workload.
-8. **`shadow-edge-quality`.** S0 baseline capture may run earlier. S1 waits for
+7. **`shadow-edge-quality`.** S0 baseline capture may run earlier. S1 waits for
    backend A2, shader P3, shader P5's binding decision, and visibility closure.
    Then execute filtering, snapping/bias, and only afterward decide whether
    cascades or clipmaps are necessary.
-9. **`sim-render-interpolation`.** Begin after entity identity and renderer
+8. **`sim-render-interpolation`.** Begin after entity identity and renderer
     ownership stabilize; avoid churning presentation transforms, cameras,
     capture timing, and replay across moving foundations.
-10. **`editor-undo-redo`.** Interaction ownership is ready, but history must
+9. **`editor-undo-redo`.** Interaction ownership is ready, but history must
     target final `PhysicsSceneObjectId` and post-`GameModelCollection` scene
     APIs, so entity-model closure is a hard prerequisite.
-11. **`data-format-versioning`.** Asset/hull preparation is independent, but
+10. **`data-format-versioning`.** Asset/hull preparation is independent, but
     schedule delivery here. The `engine.cfg` portion waits for config
     decomposition so version plumbing targets the surviving parser/domain
     structure once.
@@ -180,7 +176,7 @@ aggregate closure gate passes; do not treat retention as a permanent archive.
 | [interaction-state-machine](TODO/interaction-state-machine.md) | Complete | 6/6 remaining phases | Retain as closure evidence; typed gesture payload, native capture, focus/UI crossing, deletion proofs, and repeat adversarial review pass |
 | [replay-architecture-and-right-sizing](TODO/replay-architecture-and-right-sizing.md) | Complete | 6/6 | Retain as closure evidence; stable identity, bounded memory, named gates, rollback proof, and source-size justifications are complete |
 | [physics-authority-and-identity](TODO/physics-authority-and-identity.md) | Complete | 16/16 current items | Retain as closure evidence; handle-owned mutation, coordinated lifecycle, stable runtime identity, full gate, and repeat adversarial review complete |
-| [render-backend-decomposition](TODO/render-backend-decomposition.md) | In progress | 0/8 remaining items | After entity-model closure, execute A1-A2; A2 unlocks DX12 cleanup and the later shader contract, while A3-D2 may continue afterward |
+| [render-backend-decomposition](TODO/render-backend-decomposition.md) | In progress | 0/8 remaining items | Execute A1-A2 now; A2 unlocks DX12 cleanup and the later shader contract, while A3-D2 may continue afterward |
 | [stale-plan-reference-cleanup-15.6-checklist](TODO/stale-plan-reference-cleanup-15.6-checklist.md) | Complete | 86/86 files | Retain as reconciled evidence; no source rows remain |
 
 ## Planned Architecture Work (2026-07-11 gap review)
@@ -198,7 +194,6 @@ Reconciliation notes live inside each plan.
 | [editor-undo-redo](TODO/editor-undo-redo.md) | Planned | 0/5 | After entity-model closure; build history on final `PhysicsSceneObjectId` and post-`GameModelCollection` scene APIs |
 | [data-format-versioning](TODO/data-format-versioning.md) | Planned | 0/5 | Deliver after editor; asset/hull preparation is independent, but `engine.cfg` waits for config decomposition; scene v1→v2 remains the precedent |
 | [engine-config-decomposition](TODO/engine-config-decomposition.md) | Planned | 0/5 | After DX12 cleanup phase 5; fold the final cinematic/shadow config shape directly into domain structs |
-| [entity-model-endgame](TODO/entity-model-endgame.md) | Planned | 0/4 | Next critical-path plan; promote `PhysicsSceneObjectId`, relocate contact feedback, and delete `GameModel`/`GameModelCollection` before dependent features retain obsolete identity APIs |
 
 ## Features
 

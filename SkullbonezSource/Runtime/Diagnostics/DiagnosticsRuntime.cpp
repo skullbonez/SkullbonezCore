@@ -43,7 +43,7 @@ Related:
 #include "../../Physics/PhysicsDebugData.h"
 #include "../../Rendering/IRenderDiagnostics.h"
 #include "../../Scene/TestScene.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "../Scene/SceneController.h"
 #include "../../UI/UICommands.h"
 #include "../../UI/UI.h"
 
@@ -760,7 +760,7 @@ RuntimeProfilerFrameTimes DiagnosticsRuntime::SampleProfilerFrameTimes() const
 
 
 const MainMemoryStats& DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayRuntime& replay,
-                                                                   const GameObjects::GameModelCollection& models,
+                                                                   const Basics::SceneController& models,
                                                                    double nowSeconds,
                                                                    bool force,
                                                                    bool includePrivateWorkingSet )
@@ -800,7 +800,7 @@ const MainMemoryStats& DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayR
     if ( stats.process.available )
     {
         // Why: Task Manager numbers include memory not tracked by replay or
-        // GameModelCollection. The reconciliation fields make that gap explicit
+        // SceneController. The reconciliation fields make that gap explicit
         // instead of hiding it in the engine bucket.
         if ( stats.process.taskManagerBytes >= stats.trackedEngineBytes )
         {
@@ -859,7 +859,7 @@ bool DiagnosticsRuntime::MainMemoryDumpRequested() const
 
 
 bool DiagnosticsRuntime::WriteMainMemoryDump( const ReplayRuntime& replay,
-                                              const GameObjects::GameModelCollection& models,
+                                              const Basics::SceneController& models,
                                               const RunSceneState& scene,
                                               const char* checkpoint,
                                               double nowSeconds )
@@ -1043,7 +1043,7 @@ void DiagnosticsRuntime::SetPhysicsCollisionTimeLogOverride( const char* path )
 }
 
 
-void DiagnosticsRuntime::SetPhysicsDiagnosticsPath( GameObjects::GameModelCollection& models,
+void DiagnosticsRuntime::SetPhysicsDiagnosticsPath( Basics::SceneController& models,
                                                     const char* path,
                                                     bool fixedStepForcedByDiagnostics )
 {
@@ -1065,7 +1065,7 @@ void DiagnosticsRuntime::LogSceneFinished( SceneController& scene,
 }
 
 
-void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( GameObjects::GameModelCollection& models,
+void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( Basics::SceneController& models,
                                                      const RunSceneState& scene,
                                                      const EngineConfig& config,
                                                      const char* scenePath,

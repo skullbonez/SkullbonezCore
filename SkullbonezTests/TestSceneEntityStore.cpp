@@ -158,3 +158,90 @@ TEST_CASE( "RenderInstanceStore: preflighted creation publishes every render row
     CHECK( renderStore.Records()[0].material.baseColor[0] == doctest::Approx( 0.25f ) );
     CHECK_FALSE( renderStore.CanAppendCreationRow( 0 ) );
 }
+
+TEST_CASE( "RenderInstanceStore: contact feedback follows presentation rows and decays" )
+{
+    using namespace SkullbonezCore::Rendering;
+
+    RenderInstanceStore renderStore;
+    REQUIRE( renderStore.ResizePresentationRecords( 2 ) );
+
+    renderStore.NotifyFixedContact( 0, 0.5f );
+    renderStore.NotifyAudioContact( 1, 0.1f );
+    renderStore.TickContactFeedback( 2, 0.05f );
+
+    REQUIRE( renderStore.PresentationRecords().size() == 2u );
+    CHECK( renderStore.PresentationRecords()[0].fixedContactAlpha == doctest::Approx( 0.9f ) );
+    CHECK( renderStore.PresentationRecords()[0].audioContactAlpha == doctest::Approx( 0.0f ) );
+    CHECK( renderStore.PresentationRecords()[1].fixedContactAlpha == doctest::Approx( 0.0f ) );
+    CHECK( renderStore.PresentationRecords()[1].audioContactAlpha == doctest::Approx( 0.5f ) );
+
+    renderStore.TickContactFeedback( 2, 1.0f );
+    CHECK( renderStore.PresentationRecords()[0].fixedContactAlpha == doctest::Approx( 0.0f ) );
+    CHECK( renderStore.PresentationRecords()[1].audioContactAlpha == doctest::Approx( 0.0f ) );
+}
+
+TEST_CASE( "RenderInstanceStore: contact feedback survives swap-last deletion and refresh" )
+{
+    using namespace SkullbonezCore::Physics;
+    using namespace SkullbonezCore::Rendering;
+
+    RenderInstanceStore renderStore;
+    const auto commitRenderRow = [&]( int index, uint32_t sceneId )
+    {
+        RenderInstancePresentationRecord presentation;
+        PhysicsBodyRecord body;
+        body.handle = PhysicsBodyHandle{ static_cast<uint32_t>( index ), 1u };
+        body.sceneObjectId = PhysicsSceneObjectId{ sceneId };
+        body.replayBodyId = sceneId;
+        ColliderRecord collider;
+        collider.handle = PhysicsColliderHandle{ static_cast<uint32_t>( index ), 1u };
+        collider.body = body.handle;
+        collider.sceneObjectId = body.sceneObjectId;
+        collider.replayBodyId = sceneId;
+        collider.shape =
+            SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR );
+        collider.shapeKind = ColliderShapeKind::Sphere;
+        collider.boundingRadius = 1.0f;
+        renderStore.CommitCreationRow( presentation, body, collider, index );
+    };
+
+    commitRenderRow( 0, 101u );
+    commitRenderRow( 1, 303u );
+    commitRenderRow( 2, 202u );
+    renderStore.NotifyFixedContact( 0, 0.5f );
+    renderStore.NotifyAudioContact( 2, 0.1f );
+
+    REQUIRE( renderStore.DestroyCreationRowAtSwapLast( 0 ) );
+    REQUIRE( renderStore.Count() == 2 );
+    REQUIRE( renderStore.PresentationCount() == 2 );
+    CHECK( renderStore.Records()[0].replayBodyId == 202u );
+    CHECK( renderStore.PresentationRecords()[0].fixedContactAlpha == doctest::Approx( 0.0f ) );
+    CHECK( renderStore.PresentationRecords()[0].audioContactAlpha == doctest::Approx( 1.0f ) );
+
+    static PhysicsBodyStore bodyStore;
+    bodyStore.Clear();
+    PhysicsBodyRecord body;
+    body.sceneObjectId = PhysicsSceneObjectId{ 202u };
+    body.replayBodyId = 202u;
+    const PhysicsBodyHandle bodyHandle = bodyStore.CreateBodyRecord( body );
+    static ColliderStore colliderStore;
+    colliderStore.Clear();
+    ColliderRecord collider;
+    collider.body = bodyHandle;
+    collider.sceneObjectId = body.sceneObjectId;
+    collider.replayBodyId = body.replayBodyId;
+    collider.shape =
+        SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    collider.shapeKind = ColliderShapeKind::Sphere;
+    collider.boundingRadius = 1.0f;
+    REQUIRE( colliderStore.CreateColliderRecord( collider ).IsValid() );
+
+    REQUIRE( renderStore.ResizePresentationRecords( 1 ) );
+    REQUIRE( renderStore.PresentationCount() == 1 );
+    renderStore.TickContactFeedback( 1, 0.05f );
+    renderStore.Refresh( bodyStore, colliderStore );
+    REQUIRE( renderStore.Count() == 1 );
+    CHECK( renderStore.Records()[0].replayBodyId == 202u );
+    CHECK( renderStore.Records()[0].audioContactAlpha == doctest::Approx( 0.5f ) );
+}

@@ -9,7 +9,7 @@ Mental model:
   calls, shader bindings, and validation artifacts. Draw transforms come from
   RenderInstanceStore and hull geometry comes from ColliderStore so
   physics-owned pose/shape data does not have to be copied back into every
-  GameModel merely for rendering.
+  legacy object record merely for rendering.
 
 Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
@@ -765,9 +765,4 @@ bool GameModelRenderer::GetObjectShadowBounds( const RenderInstanceStore& render
     outRadius = std::clamp( clusterRadius + padding, 48.0f, queryDistance + padding );
     outHeightRange = (std::max)( bounds.maxY - bounds.minY + padding * 2.0f, 64.0f );
     return true;
-}
-
-
-void GameModelRenderer::ResetRenderResources()
-{
 }

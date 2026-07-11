@@ -40,9 +40,9 @@ namespace Environment
 {
 class WorldEnvironment;
 }
-namespace GameObjects
+namespace Basics
 {
-class GameModelCollection;
+class SceneController;
 }
 namespace Geometry
 {
@@ -67,7 +67,7 @@ struct SceneRuntimeGeneratedControlContext
     const EngineConfig& config;
     Environment::WorldEnvironment& world;
     Geometry::Terrain* terrain = nullptr;
-    GameObjects::GameModelCollection& models;
+    Basics::SceneController& models;
     SimulationSystem& simulation;
     RuntimeTools& tools;
     Rendering::IRenderDeviceLifecycle* renderLifecycle = nullptr;

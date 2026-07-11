@@ -40,7 +40,7 @@ Related:
 #include "../CameraCollection.h"
 #include "../Window.h"
 #include "../../Assets/AssetSystem.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "../Scene/SceneController.h"
 #include "../InputController.h"
 #include "../RuntimeInteractionCommands.h"
 #include "../RuntimePickService.h"
@@ -92,7 +92,7 @@ using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
-using SkullbonezCore::GameObjects::GameModelCollection;
+using SkullbonezCore::Basics::SceneController;
 using Json = nlohmann::ordered_json;
 
 namespace
@@ -129,7 +129,7 @@ bool TransformClipPointToWorld( const Matrix4& inverseViewProjection, float x, f
 
 
 bool RecordEditorTransformEventFromBodyStore( ReplayRuntime& replayRuntime,
-                                              SkullbonezCore::GameObjects::GameModelCollection& collection,
+                                              SkullbonezCore::Basics::SceneController& collection,
                                               int modelIndex,
                                               uint32_t changedFlags,
                                               int scaleAxis,
@@ -356,8 +356,8 @@ using EditorGizmoGroupIndices = std::array<int, RunEditorPlacementState::GIZMO_D
 
 // Why: editor transform grouping is scene-object metadata, not physics state.
 // The collection owns a dense grouping row beside model order, so gizmo grouping
-// does not parse display names or read legacy physics metadata from GameModel.
-int GatherSelectedEditorTransformGroup( const GameModelCollection& collection,
+// does not parse display names or read legacy physics metadata from legacy object record.
+int GatherSelectedEditorTransformGroup( const SceneController& collection,
                                         int selectedIndex,
                                         EditorGizmoGroupIndices& outIndices )
 {
@@ -430,7 +430,7 @@ bool TryResolveEditorBodyCollider( const PhysicsBodyStore& bodyStore,
 }
 
 
-bool TryGetEditorSelectionFrame( const GameModelCollection& collection,
+bool TryGetEditorSelectionFrame( const SceneController& collection,
                                  const PhysicsBodyStore& bodyStore,
                                  const ColliderStore& colliderStore,
                                  PhysicsBodyHandle selectedBodyHandle,
@@ -446,7 +446,7 @@ bool TryGetEditorSelectionFrame( const GameModelCollection& collection,
         return false;
     }
 
-    // Invariant: editor selection may group by GameModel name metadata, but the
+    // Invariant: editor selection may group by legacy object record name metadata, but the
     // interactive frame itself must use live body/collider rows so stale
     // presentation poses do not steer hit testing or drag math.
     std::array<const PhysicsBodyRecord*, RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY> bodies = {};
@@ -492,7 +492,7 @@ bool TryGetEditorSelectionFrame( const GameModelCollection& collection,
 }
 
 
-bool TryTraceEditorSelectionOverlayFromStores( const GameModelCollection& collection,
+bool TryTraceEditorSelectionOverlayFromStores( const SceneController& collection,
                                                const PhysicsBodyStore& bodyStore,
                                                const ColliderStore& colliderStore,
                                                PhysicsBodyHandle selectedBodyHandle,
@@ -541,7 +541,7 @@ bool TryTraceEditorSelectionOverlayFromStores( const GameModelCollection& collec
     origin /= static_cast<float>( count );
 
     // Why: selection grouping still uses model-owned editor identity, but the
-    // visible overlay follows the live body/collider rows so legacy GameModel
+    // visible overlay follows the live body/collider rows so legacy object-record
     // pose/shape caches are not required for presentation.
     float radius = 1.0f;
     for ( int i = 0; i < count; ++i )
@@ -559,7 +559,7 @@ bool TryTraceEditorSelectionOverlayFromStores( const GameModelCollection& collec
 
 
 void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
-                                       const GameModelCollection& collection,
+                                       const SceneController& collection,
                                        const PhysicsBodyStore& bodyStore,
                                        bool allowRagdollGroup )
 {
@@ -625,7 +625,7 @@ int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, i
 // Why: editor/runtime tools still speak model indices for selection and replay
 // gesture identity, but command mutation can enter PhysicsEngine through the
 // current body-store row once topology drift is repaired at this boundary.
-void WakeEditorPhysicsBody( SkullbonezCore::GameObjects::GameModelCollection& collection,
+void WakeEditorPhysicsBody( SkullbonezCore::Basics::SceneController& collection,
                             PhysicsEngine& physics,
                             int modelIndex )
 {
@@ -651,7 +651,7 @@ void WakeEditorPhysicsBody( SkullbonezCore::GameObjects::GameModelCollection& co
 }
 
 
-void SeedEditorPhysicsBodyAsleep( SkullbonezCore::GameObjects::GameModelCollection& collection,
+void SeedEditorPhysicsBodyAsleep( SkullbonezCore::Basics::SceneController& collection,
                                   PhysicsEngine& physics,
                                   int modelIndex )
 {
@@ -677,7 +677,7 @@ void SeedEditorPhysicsBodyAsleep( SkullbonezCore::GameObjects::GameModelCollecti
 }
 
 
-void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollection& collection,
+void ResetEditorModelMotionAndWake( SkullbonezCore::Basics::SceneController& collection,
                                     PhysicsEngine& physics,
                                     int index,
                                     PhysicsBodyUpdateDesc update )
@@ -704,7 +704,7 @@ void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollec
 }
 
 
-void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollection& collection,
+void ResetEditorModelMotionAndWake( SkullbonezCore::Basics::SceneController& collection,
                                     PhysicsEngine& physics,
                                     int index,
                                     PhysicsBodyUpdateDesc update,
@@ -1084,7 +1084,7 @@ EditorViewportPlacementResult RuntimeTools::RouteEditorViewportPlacement( const 
 
 
 int RuntimeTools::RefreshEditorPointerPreview( const EditorPointerPreviewInput& input,
-                                               GameObjects::GameModelCollection& collection,
+                                               Basics::SceneController& collection,
                                                PhysicsEngine& physics,
                                                RuntimeInteractionController& interaction,
                                                Geometry::Terrain* terrain,
@@ -1126,7 +1126,7 @@ int RuntimeTools::RefreshEditorPointerPreview( const EditorPointerPreviewInput& 
 
 
 bool RuntimeTools::PrepareEditorPointerSelection( const EditorPointerSelectionInput& input,
-                                                  const GameObjects::GameModelCollection& collection,
+                                                  const Basics::SceneController& collection,
                                                   RuntimeInteractionSelectionPlan& outPlan,
                                                   WorldInteractionOwner& outOwner,
                                                   InteractionExitReason& outReason )
@@ -1165,7 +1165,7 @@ bool RuntimeTools::PrepareEditorPointerSelection( const EditorPointerSelectionIn
 EditorPlacementScalePointerResult
 RuntimeTools::RouteEditorPlacementScalePointer( bool leftReleased,
                                                 bool suppressWorldAction,
-                                                GameObjects::GameModelCollection& collection,
+                                                Basics::SceneController& collection,
                                                 PhysicsEngine& physics,
                                                 RunSceneState& scene,
                                                 Environment::WorldEnvironment& world,
@@ -1231,7 +1231,7 @@ RuntimeTools::RouteEditorPlacementScalePointer( bool leftReleased,
 
 
 EditorGizmoDragPointerResult RuntimeTools::RouteEditorGizmoDragPointer( const EditorGizmoDragPointerInput& input,
-                                                                        GameObjects::GameModelCollection& collection,
+                                                                        Basics::SceneController& collection,
                                                                         PhysicsEngine& physics,
                                                                         RuntimeInteractionController& interaction,
                                                                         ReplayRuntime& replayRuntime )
@@ -1371,7 +1371,7 @@ bool RuntimeTools::PrepareEditorGizmoGesture( bool inspectGizmoActive,
                                               const Vector3& rayDirection,
                                               int clientX,
                                               int clientY,
-                                              GameObjects::GameModelCollection& collection,
+                                              Basics::SceneController& collection,
                                               PhysicsEngine& physics,
                                               RuntimeInteractionController& interaction,
                                               EditorGizmoGesturePlan& outPlan )
@@ -1495,7 +1495,7 @@ bool RuntimeTools::PrepareEditorGizmoGesture( bool inspectGizmoActive,
 
 
 EditorGizmoGestureResult RuntimeTools::CommitEditorGizmoGesture( const EditorGizmoGesturePlan& plan,
-                                                                 GameObjects::GameModelCollection& collection,
+                                                                 Basics::SceneController& collection,
                                                                  PhysicsEngine& physics,
                                                                  RuntimeInteractionController& interaction )
 {
@@ -1598,7 +1598,7 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const EditorPointerRou
                                                           RuntimeTools& runtimeTools,
                                                           ReplayRuntime& replayRuntime,
                                                           RuntimeInteractionController& interaction,
-                                                          GameObjects::GameModelCollection& models,
+                                                          Basics::SceneController& models,
                                                           PhysicsEngine& physics,
                                                           RunSceneState& scene,
                                                           Environment::WorldEnvironment& world,

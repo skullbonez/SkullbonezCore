@@ -208,6 +208,15 @@ polymorphic service objects, callback chains, handle lookups, scattered
   tests or validation evidence that would catch the regression. Do not replace
   the deleted artifact with a new compatibility spelling.
 
+## Scene Object Identity Policy
+
+`PhysicsSceneObjectId` is the single stable cross-system identity for a scene
+object. Undo, scene serialization, picking, logging, replay correlation, and
+future cross-system features must use it rather than introducing `EntityId` or
+another unified id. Physics, rendering, audio, and other hot subsystem paths
+use their own typed handles or dense rows after resolving the scene id at the
+owner boundary; a dense row is never durable identity.
+
 ## Runtime Static Allocation Policy
 
 Runtime allocation policy is global zero allocation by default. Dynamically
@@ -300,12 +309,12 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 | `RenderBackendDX12*.cpp/h`, `Rendering/DX12/*` | `validate_dx12_renderer` + `run_graphics_stress.bat 1` |
 | `SkullbonezData/shaders/*` | `validate_dx12_renderer` + `run_graphics_stress.bat 1` |
 | `RigidBody*`, `PhysicsWorld*`, `SimulationSystem*` | `validate_physics` |
-| `GameModelCollection*` physics solver changes | `validate_physics` |
+| `SceneController.Objects*` physics coordination changes | `validate_physics` |
 | `BoundingSphere*`, `BoundingBox*`, `ConvexHullShape*`, `CollisionShape*` | `validate_physics` |
 | `GameModel*` physics body/state changes | `validate_physics` |
 | `WorldEnvironment*` | `validate_physics` |
 | `SpatialGrid*` | `validate_physics` + `validate_perf` |
-| `GameModelCollection*` render stream or hot-loop changes | `validate_dx12_renderer` + `validate_perf` |
+| `SceneController.Objects*` render stream or hot-loop changes | `validate_dx12_renderer` + `validate_perf` |
 | `Config*`, `SkullbonezData/engine.cfg` physics defaults such as gravity, fluid, drag, friction, sleep, solver, or broadphase values | `validate_physics` |
 | `TestOutput/baselines/physics_regression_varied.csv` | `validate_physics` |
 | Other physics CSV baselines or `TestOutput/baselines/physics_query*.json` | `validate_physics_deep` |

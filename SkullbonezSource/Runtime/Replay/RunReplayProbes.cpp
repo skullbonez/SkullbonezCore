@@ -79,7 +79,7 @@ Vector3 RenderProbeMatrixTranslation( const Matrix4& matrix )
     return Vector3( matrix.m[12], matrix.m[13], matrix.m[14] );
 }
 
-bool TryPrepareReplayProbeRenderPosition( SkullbonezCore::GameObjects::GameModelCollection& collection,
+bool TryPrepareReplayProbeRenderPosition( SkullbonezCore::Basics::SceneController& collection,
                                           int modelIndex,
                                           Vector3& outPosition )
 {
@@ -93,7 +93,7 @@ bool TryPrepareReplayProbeRenderPosition( SkullbonezCore::GameObjects::GameModel
     return true;
 }
 
-bool ApplyReplayProbePresentationSampleForRender( SkullbonezCore::GameObjects::GameModelCollection& collection,
+bool ApplyReplayProbePresentationSampleForRender( SkullbonezCore::Basics::SceneController& collection,
                                                   ReplayRuntime& replayRuntime,
                                                   const ReplayPresentationSample& sample )
 {
@@ -107,13 +107,13 @@ bool ApplyReplayProbePresentationSampleForRender( SkullbonezCore::GameObjects::G
                                                            sample );
 }
 
-void RestoreReplayProbeRenderInstances( SkullbonezCore::GameObjects::GameModelCollection& collection )
+void RestoreReplayProbeRenderInstances( SkullbonezCore::Basics::SceneController& collection )
 {
     collection.PrepareRenderInstances();
 }
 
-const PhysicsBodyRecord*
-TryGetReplayProbeBodyRecord( const SkullbonezCore::GameObjects::GameModelCollection& collection, int modelIndex )
+const PhysicsBodyRecord* TryGetReplayProbeBodyRecord( const SkullbonezCore::Basics::SceneController& collection,
+                                                      int modelIndex )
 {
     const PhysicsBodyStore& bodyStore = collection.BodyStore();
     const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( modelIndex );
@@ -129,11 +129,10 @@ TryGetReplayProbeBodyRecord( const SkullbonezCore::GameObjects::GameModelCollect
 // Why: editor transform replay still mutates authoring data, but the shape it
 // scales from is already owned by ColliderStore. Reading the store row here
 // avoids treating presentation data as collision authority.
-const ColliderRecord*
-TryGetEditorTransformColliderRecord( const SkullbonezCore::GameObjects::GameModelCollection& collection,
-                                     PhysicsColliderHandle colliderHandle,
-                                     int modelIndex,
-                                     uint32_t replayBodyId )
+const ColliderRecord* TryGetEditorTransformColliderRecord( const SkullbonezCore::Basics::SceneController& collection,
+                                                           PhysicsColliderHandle colliderHandle,
+                                                           int modelIndex,
+                                                           uint32_t replayBodyId )
 {
     const ColliderStore& colliderStore = collection.Colliders();
     const PhysicsBodyStore& bodyStore = collection.BodyStore();
@@ -184,7 +183,7 @@ struct ReplaySaveProbeEventCoverageContext
     SkullbonezCore::Environment::CameraCollection& cameras;
     SceneTerrain& terrain;
     SkullbonezCore::Environment::WorldEnvironment& world;
-    SkullbonezCore::GameObjects::GameModelCollection& models;
+    SkullbonezCore::Basics::SceneController& models;
     PhysicsEngine& physics;
     int gameModelCapacity = 0;
 };
@@ -335,7 +334,7 @@ struct ReplaySaveProbeArtifactContext
 {
     RunReplaySaveProbeState& saveProbe;
     ReplayRuntime& replayRuntime;
-    SkullbonezCore::GameObjects::GameModelCollection& models;
+    SkullbonezCore::Basics::SceneController& models;
 };
 
 
@@ -500,7 +499,7 @@ SceneGeneratedModelContext BuildSceneGeneratedModelContext( RunSceneState& scene
                                                             const EngineConfig& config,
                                                             SkullbonezCore::Environment::WorldEnvironment& world,
                                                             SkullbonezCore::Geometry::Terrain* terrain,
-                                                            SkullbonezCore::GameObjects::GameModelCollection& models,
+                                                            SkullbonezCore::Basics::SceneController& models,
                                                             SkullbonezCore::Physics::PhysicsEngine& physics,
                                                             GeneratedObjectTypeOverride objectTypeOverride )
 {
@@ -762,7 +761,7 @@ struct ReplayRestoreEventContext
     SkullbonezCore::Assets::AssetSystem& assets;
     SceneTerrain& terrain;
     SkullbonezCore::Environment::WorldEnvironment& world;
-    SkullbonezCore::GameObjects::GameModelCollection& models;
+    SkullbonezCore::Basics::SceneController& models;
     PhysicsEngine& physics;
     int gameModelCapacity = 0;
 };
@@ -848,7 +847,7 @@ bool TryApplyReplayRestoreWorldLauncherEvent( ReplayRestoreEventContext& context
 
 template <typename RequestInteractiveScene>
 bool ApplyReplayRestoreEditorPlaceEvent( RuntimeTools& runtimeTools,
-                                         SkullbonezCore::GameObjects::GameModelCollection& models,
+                                         SkullbonezCore::Basics::SceneController& models,
                                          PhysicsEngine& physics,
                                          RunSceneState& scene,
                                          SkullbonezCore::Environment::WorldEnvironment& world,
@@ -912,7 +911,7 @@ bool ApplyReplayRestoreEditorPlaceEvent( RuntimeTools& runtimeTools,
     return true;
 }
 
-bool ApplyReplayRestoreEditorTransformEvent( SkullbonezCore::GameObjects::GameModelCollection& models,
+bool ApplyReplayRestoreEditorTransformEvent( SkullbonezCore::Basics::SceneController& models,
                                              PhysicsEngine& physics,
                                              const ReplayEventSample& event,
                                              char* eventOutReason,
@@ -1273,7 +1272,7 @@ bool PrepareReplayRestoreArtifactSelection( const char* path,
 }
 
 bool ReplayCheckpointTopologyMatchesLive( const ReplaySolverFrameSample& checkpoint,
-                                          const SkullbonezCore::GameObjects::GameModelCollection& models )
+                                          const SkullbonezCore::Basics::SceneController& models )
 {
     const int liveModelCount = models.SceneEntityCount();
     if ( checkpoint.bodies.size() > static_cast<std::size_t>( liveModelCount ) )
@@ -1336,7 +1335,7 @@ void FormatReplayRestoreDivergenceMessage( char* message,
                                            std::size_t restoredBodyCount,
                                            const ReplayV2SolverHashSample& expectedHash,
                                            const std::vector<ReplayPresentationSample>& presentationSamples,
-                                           const SkullbonezCore::GameObjects::GameModelCollection& models,
+                                           const SkullbonezCore::Basics::SceneController& models,
                                            std::size_t eventsApplied )
 {
     const ReplayPresentationSample* expectedPresentation =
@@ -1417,7 +1416,7 @@ struct ReplayRestoreStepContext
     SkullbonezCore::Assets::AssetSystem& assets;
     SkullbonezCore::Threading::WorkerPool& workerPool;
     SkullbonezCore::Environment::WorldEnvironment& world;
-    SkullbonezCore::GameObjects::GameModelCollection& models;
+    SkullbonezCore::Basics::SceneController& models;
     ReplayRestoreEventContext& eventContext;
     const ReplayRestoreArtifactData& artifact;
     const ReplaySolverFrameSample& checkpoint;
@@ -1729,7 +1728,7 @@ struct ReplayRestoreOwnerContext
     SkullbonezCore::Assets::AssetSystem& assets;
     SkullbonezCore::Threading::WorkerPool& workerPool;
     SkullbonezCore::Environment::WorldEnvironment& world;
-    SkullbonezCore::GameObjects::GameModelCollection& models;
+    SkullbonezCore::Basics::SceneController& models;
     GeneratedObjectTypeOverride& generatedObjectTypeOverride;
     int gameModelCapacity = 0;
 };
@@ -1807,7 +1806,7 @@ bool RebuildReplayGeneratedSceneTopology( ReplayRestoreOwnerContext& context,
     }
     else
     {
-        const SbResult setupResult = SceneGeneratedSetup::SetUpGameModels(
+        const SbResult setupResult = SceneGeneratedSetup::SetUpSceneEntities(
             BuildSceneGeneratedModelContext( context.scene,
                                              context.config,
                                              context.world,
@@ -2163,7 +2162,7 @@ SbResult ReplayRuntime::TickScrubProbe( const ReplayRestoreTransaction& transact
 
     const int probedModelIndex = liveBody->modelRow.value;
     const PhysicsBodyRecord* probedBody =
-        TryGetReplayProbeBodyRecord( transaction.sampleOwners.sceneController.Models(), probedModelIndex );
+        TryGetReplayProbeBodyRecord( transaction.sampleOwners.sceneController, probedModelIndex );
     if ( !probedBody )
     {
         return ReplayProbeFailure( "replay scrub probe selected an invalid live body index" );
@@ -2180,47 +2179,46 @@ SbResult ReplayRuntime::TickScrubProbe( const ReplayRestoreTransaction& transact
             "replay scrub probe live body did not match the current replay sample before applying scrub state" );
     }
 
-    const bool applied = ApplyReplayProbePresentationSampleForRender( transaction.sampleOwners.sceneController.Models(),
-                                                                      *this,
-                                                                      *selected );
+    const bool applied =
+        ApplyReplayProbePresentationSampleForRender( transaction.sampleOwners.sceneController, *this, *selected );
     if ( !applied )
     {
         return ReplayProbeFailure( "replay scrub probe failed to apply the selected presentation sample" );
     }
     const PhysicsBodyRecord* appliedBody =
-        TryGetReplayProbeBodyRecord( transaction.sampleOwners.sceneController.Models(), probedModelIndex );
+        TryGetReplayProbeBodyRecord( transaction.sampleOwners.sceneController, probedModelIndex );
     if ( !appliedBody )
     {
-        RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController.Models() );
+        RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController );
         return ReplayProbeFailure( "replay scrub probe lost the selected live body after applying scrub state" );
     }
     const Math::Vector::Vector3 liveAfterApplyPosition = appliedBody->position;
     const float livePreservedDeltaSquared = distanceSquared( liveAfterApplyPosition, preApplyPosition );
     if ( livePreservedDeltaSquared > m_probes.scrub.minDistanceSquared )
     {
-        RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController.Models() );
+        RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController );
         return ReplayProbeFailure( "replay scrub probe mutated the live body while applying scrub state" );
     }
 
     Math::Vector::Vector3 appliedRenderPosition;
-    if ( !TryPrepareReplayProbeRenderPosition( transaction.sampleOwners.sceneController.Models(),
+    if ( !TryPrepareReplayProbeRenderPosition( transaction.sampleOwners.sceneController,
                                                probedModelIndex,
                                                appliedRenderPosition ) )
     {
-        RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController.Models() );
+        RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController );
         return ReplayProbeFailure( "replay scrub probe lost the selected render instance after applying scrub state" );
     }
     const float appliedDeltaSquared = distanceSquared( appliedRenderPosition, selectedBody->position );
     if ( appliedDeltaSquared > m_probes.scrub.minDistanceSquared )
     {
-        RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController.Models() );
+        RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController );
         return ReplayProbeFailure(
             "replay scrub probe did not move the render instance to the selected replay sample" );
     }
 
-    RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController.Models() );
+    RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController );
     const PhysicsBodyRecord* restoredBody =
-        TryGetReplayProbeBodyRecord( transaction.sampleOwners.sceneController.Models(), probedModelIndex );
+        TryGetReplayProbeBodyRecord( transaction.sampleOwners.sceneController, probedModelIndex );
     if ( !restoredBody )
     {
         return ReplayProbeFailure( "replay scrub probe lost the selected live body after restoring scrub state" );
@@ -2333,7 +2331,7 @@ SbResult ReplayRuntime::TickSaveProbe( const ReplayRestoreTransaction& transacti
                                                                   transaction.sampleOwners.sceneController.Cameras(),
                                                                   transaction.sampleOwners.sceneController.Terrain(),
                                                                   transaction.sampleOwners.sceneController.World(),
-                                                                  transaction.sampleOwners.sceneController.Models(),
+                                                                  transaction.sampleOwners.sceneController,
                                                                   transaction.sampleOwners.sceneController.Physics(),
                                                                   topology.gameModelCapacity };
         const SbResult eventCoverageResult =
@@ -2349,9 +2347,7 @@ SbResult ReplayRuntime::TickSaveProbe( const ReplayRestoreTransaction& transacti
         return SbResult::Success();
     }
 
-    ReplaySaveProbeArtifactContext artifactContext{ m_probes.save,
-                                                    *this,
-                                                    transaction.sampleOwners.sceneController.Models() };
+    ReplaySaveProbeArtifactContext artifactContext{ m_probes.save, *this, transaction.sampleOwners.sceneController };
     return ValidateReplaySaveProbeArtifact( artifactContext );
 }
 
@@ -2456,55 +2452,54 @@ SbResult ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayRestoreTransa
 
     const int probedModelIndex = selectedBody->modelRow.value;
     const PhysicsBodyRecord* probedBody =
-        TryGetReplayProbeBodyRecord( transaction.sampleOwners.sceneController.Models(), probedModelIndex );
+        TryGetReplayProbeBodyRecord( transaction.sampleOwners.sceneController, probedModelIndex );
     if ( !probedBody )
     {
         return ReplayProbeFailure( "replay load probe loaded an invalid body index" );
     }
 
     const Math::Vector::Vector3 preApplyPosition = probedBody->position;
-    const bool applied = ApplyReplayProbePresentationSampleForRender( transaction.sampleOwners.sceneController.Models(),
-                                                                      *this,
-                                                                      *selected );
+    const bool applied =
+        ApplyReplayProbePresentationSampleForRender( transaction.sampleOwners.sceneController, *this, *selected );
     if ( !applied )
     {
         return ReplayProbeFailure( "replay load probe failed to apply the selected loaded v2 sample" );
     }
 
     const PhysicsBodyRecord* appliedBody =
-        TryGetReplayProbeBodyRecord( transaction.sampleOwners.sceneController.Models(), probedModelIndex );
+        TryGetReplayProbeBodyRecord( transaction.sampleOwners.sceneController, probedModelIndex );
     if ( !appliedBody )
     {
-        RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController.Models() );
+        RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController );
         return ReplayProbeFailure( "replay load probe lost the selected body after applying the v2 sample" );
     }
     const Math::Vector::Vector3 liveAfterApplyPosition = appliedBody->position;
     const float livePreservedDeltaSquared = distanceSquared( liveAfterApplyPosition, preApplyPosition );
     if ( livePreservedDeltaSquared > 0.0001f )
     {
-        RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController.Models() );
+        RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController );
         return ReplayProbeFailure( "replay load probe mutated the live body while applying the v2 sample" );
     }
 
     Math::Vector::Vector3 appliedRenderPosition;
-    if ( !TryPrepareReplayProbeRenderPosition( transaction.sampleOwners.sceneController.Models(),
+    if ( !TryPrepareReplayProbeRenderPosition( transaction.sampleOwners.sceneController,
                                                probedModelIndex,
                                                appliedRenderPosition ) )
     {
-        RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController.Models() );
+        RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController );
         return ReplayProbeFailure( "replay load probe lost the selected render instance after applying the v2 sample" );
     }
     const float appliedDeltaSquared = distanceSquared( appliedRenderPosition, selectedBody->position );
     if ( appliedDeltaSquared > 0.0001f )
     {
-        RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController.Models() );
+        RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController );
         return ReplayProbeFailure(
             "replay load probe did not move the render instance to the selected loaded v2 sample" );
     }
 
-    RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController.Models() );
+    RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController );
     const PhysicsBodyRecord* restoredBody =
-        TryGetReplayProbeBodyRecord( transaction.sampleOwners.sceneController.Models(), probedModelIndex );
+        TryGetReplayProbeBodyRecord( transaction.sampleOwners.sceneController, probedModelIndex );
     if ( !restoredBody )
     {
         return ReplayProbeFailure( "replay load probe lost the selected body after restoring the v2 sample" );
@@ -2750,7 +2745,7 @@ bool ReplayRuntime::RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransac
                                                    topologyOwners.assets,
                                                    topologyOwners.workerPool,
                                                    transaction.sampleOwners.sceneController.World(),
-                                                   transaction.sampleOwners.sceneController.Models(),
+                                                   transaction.sampleOwners.sceneController,
                                                    topologyOwners.generatedObjectTypeOverride,
                                                    topologyOwners.gameModelCapacity };
     if ( !EnsureReplayRestoreCheckpointTopology( restoreOwnerContext,

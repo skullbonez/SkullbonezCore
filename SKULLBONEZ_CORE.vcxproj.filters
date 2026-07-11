@@ -169,11 +169,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\GameObjects\GameModel.cpp">
-      <Filter>Source Files\GameObjects</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\GameObjects\GameModelCollection.cpp">
-      <Filter>Source Files\GameObjects</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Objects.cpp">
+      <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\GameModelRenderer.cpp">
       <Filter>Source Files\Rendering</Filter>
@@ -683,11 +680,8 @@
     <ClInclude Include="SkullbonezSource\Core\Fence.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\GameObjects\GameModel.h">
-      <Filter>Header Files\GameObjects</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\GameObjects\GameModelCollection.h">
-      <Filter>Header Files\GameObjects</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.Objects.inl">
+      <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\GameObjects\SceneCapacity.h">
       <Filter>Header Files\GameObjects</Filter>

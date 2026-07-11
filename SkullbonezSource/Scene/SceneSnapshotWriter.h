@@ -17,7 +17,7 @@ Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
   surface.
   - Snapshot serialization reads durable metadata from SceneEntityStore, never
-    transient GameModel feedback rows.
+    transient legacy object record feedback rows.
   - The writer retains no view pointer after Save returns.
   - Owner count or identity disagreement is fatal topology drift; file failure
     is a recoverable Lane R result.

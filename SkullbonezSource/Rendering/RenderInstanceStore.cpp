@@ -32,6 +32,7 @@ Related:
 #include "RenderInstanceStore.h"
 
 #include <cassert>
+#include <algorithm>
 #include <cstddef>
 
 #include "../Core/Common.h"
@@ -88,6 +89,19 @@ RenderInstanceShapeKind ShapeKindFromCollider( ColliderShapeKind shapeKind )
         return RenderInstanceShapeKind::ConvexHull;
     }
     return RenderInstanceShapeKind::Sphere;
+}
+
+float ContactAlpha( float seconds, float fadeSeconds )
+{
+    return fadeSeconds > 0.0f ? std::clamp( seconds / fadeSeconds, 0.0f, 1.0f ) : 0.0f;
+}
+
+void TickContactSeconds( float& seconds, float deltaSeconds )
+{
+    if ( seconds > 0.0f && deltaSeconds > 0.0f )
+    {
+        seconds = (std::max)( 0.0f, seconds - deltaSeconds );
+    }
 }
 } // namespace
 
@@ -215,6 +229,51 @@ const std::vector<RenderInstancePresentationRecord>& RenderInstanceStore::Presen
 int RenderInstanceStore::PresentationCount() const
 {
     return static_cast<int>( m_presentationRecords.size() );
+}
+
+std::size_t RenderInstanceStore::PresentationCapacity() const
+{
+    return m_presentationRecords.capacity();
+}
+
+uint64_t RenderInstanceStore::PresentationCapacityBytes() const
+{
+    return static_cast<uint64_t>( m_presentationRecords.capacity() ) * sizeof( RenderInstancePresentationRecord );
+}
+
+void RenderInstanceStore::NotifyFixedContact( int modelIndex, float highlightSeconds )
+{
+    RenderInstancePresentationRecord* record = MutablePresentationRecordForModelIndex( modelIndex );
+    if ( record && highlightSeconds > record->fixedContactSeconds )
+    {
+        record->fixedContactSeconds = highlightSeconds;
+        record->fixedContactAlpha = ContactAlpha( record->fixedContactSeconds, 0.5f );
+    }
+}
+
+void RenderInstanceStore::NotifyAudioContact( int modelIndex, float highlightSeconds )
+{
+    RenderInstancePresentationRecord* record = MutablePresentationRecordForModelIndex( modelIndex );
+    if ( record && highlightSeconds > record->audioContactSeconds )
+    {
+        record->audioContactSeconds = highlightSeconds;
+        record->audioContactAlpha = ContactAlpha( record->audioContactSeconds, 0.1f );
+    }
+}
+
+void RenderInstanceStore::TickContactFeedback( int modelCount, float deltaSeconds )
+{
+    // Invariant: feedback follows the same dense rows as render presentation;
+    // swap-last deletion moves both timers with the affected scene object.
+    const int tickCount = (std::min)( (std::max)( modelCount, 0 ), PresentationCount() );
+    for ( int index = 0; index < tickCount; ++index )
+    {
+        RenderInstancePresentationRecord& record = m_presentationRecords[static_cast<std::size_t>( index )];
+        TickContactSeconds( record.fixedContactSeconds, deltaSeconds );
+        TickContactSeconds( record.audioContactSeconds, deltaSeconds );
+        record.fixedContactAlpha = ContactAlpha( record.fixedContactSeconds, 0.5f );
+        record.audioContactAlpha = ContactAlpha( record.audioContactSeconds, 0.1f );
+    }
 }
 
 

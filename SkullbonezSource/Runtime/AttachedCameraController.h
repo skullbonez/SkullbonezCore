@@ -40,9 +40,9 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace GameObjects
+namespace Basics
 {
-class GameModelCollection;
+class SceneController;
 }
 namespace Environment
 {
@@ -139,27 +139,27 @@ class AttachedCameraController
     const char* ModeLabel() const;
     void CaptureReturnState( RunCameraMode previousMode, Environment::CameraCollection& cameras );
     void RestoreReturnState( Environment::CameraCollection& cameras );
-    bool ResolveTargetIdentity( const GameObjects::GameModelCollection& collection, int& outModelIndex );
-    bool TickFollow( const GameObjects::GameModelCollection& collection,
+    bool ResolveTargetIdentity( const Basics::SceneController& collection, int& outModelIndex );
+    bool TickFollow( const Basics::SceneController& collection,
                      Environment::CameraCollection& cameras,
                      float orbitYawDelta,
                      float orbitPitchDelta );
-    bool CycleMode( const GameObjects::GameModelCollection& collection, Environment::CameraCollection& cameras );
-    bool TogglePin( const GameObjects::GameModelCollection& collection, Environment::CameraCollection& cameras );
-    bool ApplyOrbitInput( const GameObjects::GameModelCollection& collection,
+    bool CycleMode( const Basics::SceneController& collection, Environment::CameraCollection& cameras );
+    bool TogglePin( const Basics::SceneController& collection, Environment::CameraCollection& cameras );
+    bool ApplyOrbitInput( const Basics::SceneController& collection,
                           Environment::CameraCollection& cameras,
                           bool attachModeActive,
                           int unhandledWheelDelta,
                           bool uiBlocksCameraMouse );
-    bool SetTarget( const GameObjects::GameModelCollection& collection,
+    bool SetTarget( const Basics::SceneController& collection,
                     Environment::CameraCollection& cameras,
                     int modelIndex,
                     AttachedCameraTargetSelection& outSelection );
-    AttachedCameraSeedResult SeedTarget( const GameObjects::GameModelCollection& collection,
+    AttachedCameraSeedResult SeedTarget( const Basics::SceneController& collection,
                                          Environment::CameraCollection& cameras,
                                          int seedModelIndex,
                                          AttachedCameraTargetSelection& outSelection );
-    bool PickTarget( const GameObjects::GameModelCollection& collection,
+    bool PickTarget( const Basics::SceneController& collection,
                      Environment::CameraCollection& cameras,
                      bool hasWorldRay,
                      const Math::Vector::Vector3& rayOrigin,
@@ -168,20 +168,19 @@ class AttachedCameraController
 
     static void Reset( AttachedCameraState& state );
     static void ClearTarget( AttachedCameraState& state );
-    static bool TryAttachTargetHandlesFromModelIndex( const GameObjects::GameModelCollection& collection,
+    static bool TryAttachTargetHandlesFromModelIndex( const Basics::SceneController& collection,
                                                       int modelIndex,
                                                       AttachedCameraTarget& target );
-    static bool TryResolveTargetIdentity( const GameObjects::GameModelCollection& collection,
+    static bool TryResolveTargetIdentity( const Basics::SceneController& collection,
                                           AttachedCameraTarget& target,
                                           int& outModelIndex );
-    static bool TryResolvePhysicsTarget( const GameObjects::GameModelCollection& collection,
+    static bool TryResolvePhysicsTarget( const Basics::SceneController& collection,
                                          AttachedCameraTarget& target,
                                          AttachedCameraPhysicsTarget& outTarget,
                                          int* outModelIndex = nullptr );
-    static bool TryResolveRagdollHead( const GameObjects::GameModelCollection& collection,
-                                       int selectedModelIndex,
-                                       int& outHeadModelIndex );
-    static bool CycleSubmode( const GameObjects::GameModelCollection& collection,
+    static bool
+    TryResolveRagdollHead( const Basics::SceneController& collection, int selectedModelIndex, int& outHeadModelIndex );
+    static bool CycleSubmode( const Basics::SceneController& collection,
                               AttachedCameraState& state,
                               AttachedCameraPhysicsTarget& outTarget,
                               bool& outShouldCaptureFixedOffset );
@@ -194,7 +193,7 @@ class AttachedCameraController
                               const AttachedCameraPhysicsTarget& target );
     static bool
     ApplyOrbitWheel( AttachedCameraState& state, const AttachedCameraPhysicsTarget& target, int unhandledWheelDelta );
-    static bool BuildFollowPose( const GameObjects::GameModelCollection& collection,
+    static bool BuildFollowPose( const Basics::SceneController& collection,
                                  AttachedCameraState& state,
                                  const AttachedCameraPhysicsTarget& target,
                                  int modelIndex,
@@ -204,7 +203,7 @@ class AttachedCameraController
                                  AttachedCameraPoseCommand& outCommand );
 
   private:
-    static bool SelectTarget( const GameObjects::GameModelCollection& collection,
+    static bool SelectTarget( const Basics::SceneController& collection,
                               AttachedCameraState& state,
                               int modelIndex,
                               AttachedCameraTargetSelection& outSelection );

@@ -1701,7 +1701,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
                                         RuntimeInteractionController& interaction,
                                         const InputRouter& inputRouter,
                                         RunCameraState& camera,
-                                        GameModelCollection& gameModels,
+                                        SceneController& sceneController,
                                         const SceneEntityStore& entities,
                                         SkullbonezCore::UI::InGameUI& ui,
                                         const RunInteractionAutomationAction& action,
@@ -1716,8 +1716,8 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     case RunInteractionAutomationAssertKind::SelectedObject:
     {
         evaluation.expected = action.text;
-        const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), gameModels.BodyStore() );
-        if ( selectedIndex >= 0 && selectedIndex < gameModels.SceneEntityCount() )
+        const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), sceneController.BodyStore() );
+        if ( selectedIndex >= 0 && selectedIndex < sceneController.SceneEntityCount() )
         {
             evaluation.actual = entities.At( selectedIndex ).displayName;
         }
@@ -2095,8 +2095,8 @@ bool TryProjectInteractionAutomationModel( const SceneController& scene,
                 {
                     RuntimePickRequest request;
                     request.purpose = RuntimePickPurpose::EditorSelection;
-                    request.bodyStore = &scene.Models().BodyStore();
-                    request.colliderStore = &scene.Models().Colliders();
+                    request.bodyStore = &scene.BodyStore();
+                    request.colliderStore = &scene.Colliders();
                     request.rayOrigin = rayOrigin;
                     request.rayDirection = rayDirection;
 
@@ -2281,7 +2281,7 @@ SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomat
                 {
                     int modelIndex = -1;
                     return TryFindInteractionAutomationModel( scene, name, modelIndex ) &&
-                           replayRuntime.SetPathTarget( name, modelIndex, scene.Models().BodyStore() );
+                           replayRuntime.SetPathTarget( name, modelIndex, scene.BodyStore() );
                 },
                 [&]( WorldInteractionOwner owner, InteractionExitReason reason )
                 {
@@ -2293,7 +2293,7 @@ SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomat
                         interaction,
                         scene.Cameras(),
                         scene.Terrain().Get(),
-                        scene.Models(),
+                        scene,
                         scene.Physics(),
                         camera,
                         NormalizeRuntimeCameraMode( replayRuntime.Camera().restoreCameraMode,
@@ -2470,7 +2470,7 @@ SkullbonezCore::Basics::TickInteractionAutomationAfterRender( InteractionAutomat
             interaction,
             inputRouter,
             camera,
-            scene.Models(),
+            scene,
             scene.Entities(),
             ui,
             action,
@@ -2577,9 +2577,9 @@ SbResult SkullbonezCore::Basics::WriteInteractionAutomationReport( InteractionAu
         screenshots.push_back( screenshot );
     }
 
-    const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), scene.Models().BodyStore() );
+    const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), scene.BodyStore() );
     const char* selectedName = "";
-    if ( selectedIndex >= 0 && selectedIndex < scene.Models().SceneEntityCount() )
+    if ( selectedIndex >= 0 && selectedIndex < scene.SceneEntityCount() )
     {
         selectedName = scene.Entities().At( selectedIndex ).displayName;
     }

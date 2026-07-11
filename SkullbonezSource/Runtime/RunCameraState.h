@@ -45,9 +45,9 @@ namespace Environment
 {
 class CameraCollection;
 }
-namespace GameObjects
+namespace Basics
 {
-class GameModelCollection;
+class SceneController;
 }
 namespace Geometry
 {
@@ -86,7 +86,7 @@ struct RunCameraState
 
     void UpdateViewingOrientation( RunTimerState& timers,
                                    Environment::CameraCollection& cameras,
-                                   const GameObjects::GameModelCollection& models,
+                                   const Basics::SceneController& models,
                                    bool replayCameraActive,
                                    bool sceneMode,
                                    bool attachedActiveFollow,
@@ -94,7 +94,7 @@ struct RunCameraState
     void AdvanceAutoCycleClock( bool sceneMode, float simulationDt );
     void TickControls( Environment::CameraCollection& cameras,
                        Geometry::Terrain& terrain,
-                       GameObjects::GameModelCollection& models,
+                       Basics::SceneController& models,
                        AttachedCameraController& attachedCamera,
                        const EngineConfig& config,
                        bool editorModeEnabled,

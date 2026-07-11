@@ -15,7 +15,7 @@ Glossary:
   Cause tree: Replay graph used by the tool UI to explain which contact or
     predicted movement caused another replay body to matter.
   Body store: Physics-owned live body records used for pose and velocity
-    authority while legacy GameModel mirrors are retired.
+    authority while legacy object-record mirrors are retired.
   Collider store: Physics-owned shape, material, and radius records paired with
     body handles.
   UI (User Interface): Runtime controls and overlays that expose replay state
@@ -39,7 +39,7 @@ Glossary:
 Invariants:
   - Stored dense rows use ModelRowHint; ReplayBodyId remains the identity check.
   - Scrub/prediction draw poses are presentation-only value overrides; replay
-    must not backup or mutate live GameModel pose for rendering.
+    must not backup or mutate live legacy object record pose for rendering.
   - Prediction cache cursors must be reset whenever target, ragdoll mode, or
     sample storage changes.
   - Prediction worker tasks must be idle before build scratch, trajectory slots,
@@ -75,10 +75,10 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace GameObjects
+namespace Basics
 {
-class GameModelCollection;
-} // namespace GameObjects
+class SceneController;
+}
 
 namespace Environment
 {
@@ -1263,7 +1263,7 @@ class ReplayRuntime
     const ReplaySolverFrameSample* CurrentSolverScrubSample() const;
     const RunReplayPredictionFrame* CurrentPredictionScrubFrame() const;
     // Resolves camera-focus pose/radius from replay samples or live physics
-    // stores; GameModel metadata remains outside this body-authority query.
+    // stores; legacy object record metadata remains outside this body-authority query.
     bool ResolveCauseTreeBodyPosition( ReplayBodyId id,
                                        const Physics::PhysicsBodyStore& bodyStore,
                                        const Physics::ColliderStore& colliderStore,
@@ -1327,7 +1327,7 @@ class ReplayRuntime
                                  const Math::Vector::Vector3& placementScale,
                                  float placementYawRadians );
     // Records exact transform payload values supplied by the caller; replay must
-    // not reread GameModel pose after physics store authority has the body row.
+    // not reread legacy object record pose after physics store authority has the body row.
     void RecordEditorTransformEvent( int modelIndex,
                                      uint32_t changedFlags,
                                      uint32_t replayBodyId,

@@ -35,7 +35,7 @@ Related:
 #include "../Scene/SceneControllerState.h"
 #include "../Scene/SceneRuntime.h"
 #include "../Scene/SceneAuthoredSetup.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "../Scene/SceneController.h"
 #include "../../Physics/CollisionShape.h"
 #include "../../Physics/ConvexHullShape.h"
 #include "../../Physics/PhysicsApi.h"
@@ -95,7 +95,7 @@ PhysicsColliderCreateDesc MakeEditorColliderDesc( CollisionShape shape, float re
 {
     // Why: placement commit already owns the primitive geometry selected by the
     // editor. Pass that value into physics at append time so the collider store
-    // receives exact shape facts without a GameModel readback.
+    // receives exact shape facts without a legacy object record readback.
     return MakeColliderCreateDesc( std::move( shape ), restitution, HashStr( "default" ) );
 }
 

@@ -303,7 +303,7 @@ void ApplyUIStressAction( SkullbonezCore::UI::InGameUI& ui,
 SceneRuntimeStyleContext BuildGraphicsStressStyleContext( RunLaunchOptions& launchOptions,
                                                           RunSceneState& scene,
                                                           SceneController& sceneController,
-                                                          SkullbonezCore::GameObjects::GameModelCollection& models,
+                                                          SkullbonezCore::Basics::SceneController& models,
                                                           const SkullbonezCore::Assets::AssetSystem& assets,
                                                           EngineConfig& config,
                                                           const CinematicRenderConfig& defaultCinematicRender )
@@ -334,7 +334,7 @@ void ApplyGraphicsStressAction( RunLaunchOptions& launchOptions,
                                 RuntimeTools& runtimeTools,
                                 SkullbonezCore::Environment::WorldEnvironment& world,
                                 ReplayRuntime& replayRuntime,
-                                SkullbonezCore::GameObjects::GameModelCollection& models,
+                                SkullbonezCore::Basics::SceneController& models,
                                 GraphicsStressController& stress )
 {
     switch ( stress.NextAction() )
@@ -462,11 +462,11 @@ void ApplyGraphicsStressAction( RunLaunchOptions& launchOptions,
         break;
     case 19:
     {
-        TornadoFieldConfig tornadoField = models.GetTornadoFieldConfig();
+        TornadoFieldConfig tornadoField = models.Physics().GetTornadoFieldConfig();
         tornadoField.enabled = stress.NextInt( 2 ) != 0;
         tornadoField.visualizeVelocityField = stress.NextInt( 2 ) != 0;
         renderer.SetTornadoVisualEnabled( stress.NextInt( 2 ) != 0 );
-        models.SetTornadoFieldConfig( tornadoField );
+        models.Physics().SetTornadoFieldConfig( tornadoField );
         break;
     }
     case 20:
@@ -489,7 +489,7 @@ void ApplyGraphicsStressAction( RunLaunchOptions& launchOptions,
         simulation.Reset();
         break;
     case 23:
-        models.SetPhysicsSleepEnabled( !models.IsPhysicsSleepEnabled() );
+        models.Physics().SetSleepEnabled( !models.Physics().IsSleepEnabled() );
         break;
     case 24:
         debug.isTopTextHidden = !debug.isTopTextHidden;
@@ -808,7 +808,7 @@ SbResult SkullbonezCore::Basics::RunUIStressActions( DiagnosticsRuntime& m_diagn
                                                     m_config,
                                                     m_sceneController.World(),
                                                     m_sceneController.Terrain().Get(),
-                                                    m_sceneController.Models(),
+                                                    m_sceneController,
                                                     m_simulation,
                                                     m_runtimeTools,
                                                     m_renderBackendView.deviceLifecycle,
@@ -1040,7 +1040,7 @@ void SkullbonezCore::Basics::ExecuteGraphicsStressFrame( GraphicsStressControlle
                                    runtimeTools,
                                    sceneController.World(),
                                    replayRuntime,
-                                   sceneController.Models(),
+                                   sceneController,
                                    stress );
     }
 
@@ -1060,7 +1060,7 @@ void SkullbonezCore::Basics::ExecuteGraphicsStressFrame( GraphicsStressControlle
         // same seed/frame/scene-load position as the repro log.
         const MainMemoryStats& memoryStats =
             diagnosticsRuntime.RefreshMainMemoryStats( replayRuntime,
-                                                       sceneController.Models(),
+                                                       sceneController,
                                                        timers.simulationTimer.GetTotalTime(),
                                                        true );
         const SkullbonezCore::Rendering::RenderMemoryStats renderStats = renderDiagnostics.GetRenderMemoryStats();

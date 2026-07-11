@@ -47,9 +47,9 @@ SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneControlle
     // Invariant: Capture every field restored below. Adding a new preserved
     // runtime knob requires updating both sides of this snapshot contract.
     snapshot.renderPresentation = renderer.PresentationSettings();
-    snapshot.physicsSleepEnabled = controller.Models().IsPhysicsSleepEnabled();
-    snapshot.tornadoField = controller.Models().GetTornadoFieldConfig();
-    snapshot.tornadoSystem = controller.Models().GetTornadoSystemConfig();
+    snapshot.physicsSleepEnabled = controller.Physics().IsSleepEnabled();
+    snapshot.tornadoField = controller.Physics().GetTornadoFieldConfig();
+    snapshot.tornadoSystem = controller.Physics().GetTornadoSystemConfig();
     snapshot.debug = debug;
     snapshot.isScenePhysics = scene.isScenePhysics;
     snapshot.isSceneText = scene.isSceneText;
@@ -96,9 +96,9 @@ void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
     // Why: Interactive resets preserve the user's run-control choices, but
     // suppressing exit also forces automation-safe non-exit behavior.
     renderer.RestorePresentationSettings( snapshot.renderPresentation );
-    controller.Models().SetPhysicsSleepEnabled( snapshot.physicsSleepEnabled );
-    controller.Models().SetTornadoFieldConfig( snapshot.tornadoField );
-    controller.Models().SetTornadoSystemConfig( snapshot.tornadoSystem );
+    controller.Physics().SetSleepEnabled( snapshot.physicsSleepEnabled );
+    controller.Physics().SetTornadoFieldConfig( snapshot.tornadoField );
+    controller.Physics().SetTornadoSystemConfig( snapshot.tornadoSystem );
     debug = snapshot.debug;
     scene.isScenePhysics = snapshot.isScenePhysics;
     scene.isSceneText = snapshot.isSceneText;

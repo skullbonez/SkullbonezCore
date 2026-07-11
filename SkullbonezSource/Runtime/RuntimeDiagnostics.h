@@ -38,9 +38,9 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace GameObjects
+namespace Basics
 {
-class GameModelCollection;
+class SceneController;
 }
 
 namespace Runtime
@@ -127,13 +127,13 @@ class RuntimeDiagnostics
     static void SetPhysicsRegressionLogOverride( RunPerfLogState& perfLog, const char* path );
     static void SetPhysicsCollisionTimeLogOverride( RunPerfLogState& perfLog, const char* path );
     static void SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& diagnostics,
-                                           GameObjects::GameModelCollection& models,
+                                           Basics::SceneController& models,
                                            const char* path,
                                            bool fixedStepForcedByDiagnostics );
     static void
     LogSceneFinished( RunSceneState& scene, const char* scenePath, const char* rendererName, const char* reason );
     static void BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
-                                            GameObjects::GameModelCollection& models,
+                                            Basics::SceneController& models,
                                             const RunSceneState& scene,
                                             const EngineConfig& config,
                                             const char* scenePath,

@@ -32,9 +32,9 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace GameObjects
+namespace Basics
 {
-class GameModelCollection;
+class SceneController;
 }
 namespace Rendering
 {
@@ -60,7 +60,7 @@ struct DiagnosticsKeyboardShortcutContext
     // the edge and diagnostics mutates only debug presentation state.
     RunDebugState& debug;
     int& cameraTrackBallIndex;
-    const GameObjects::GameModelCollection& sceneEntities;
+    const Basics::SceneController& sceneEntities;
     const Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
     bool sceneMode = false;
     double simulationSeconds = 0.0;
@@ -140,7 +140,7 @@ class DiagnosticsRuntime
     void TickPerfLog( const RuntimePerfTickContext& context );
     RuntimeProfilerFrameTimes SampleProfilerFrameTimes() const;
     const MainMemoryStats& RefreshMainMemoryStats( const ReplayRuntime& replay,
-                                                   const GameObjects::GameModelCollection& models,
+                                                   const Basics::SceneController& models,
                                                    double nowSeconds,
                                                    bool force,
                                                    bool includePrivateWorkingSet = true );
@@ -154,7 +154,7 @@ class DiagnosticsRuntime
     const char* MainMemoryDumpPath() const;
     bool MainMemoryDumpRequested() const;
     bool WriteMainMemoryDump( const ReplayRuntime& replay,
-                              const GameObjects::GameModelCollection& models,
+                              const Basics::SceneController& models,
                               const RunSceneState& scene,
                               const char* checkpoint,
                               double nowSeconds );
@@ -166,13 +166,12 @@ class DiagnosticsRuntime
 
     void SetPhysicsRegressionLogOverride( const char* path );
     void SetPhysicsCollisionTimeLogOverride( const char* path );
-    void SetPhysicsDiagnosticsPath( GameObjects::GameModelCollection& models,
-                                    const char* path,
-                                    bool fixedStepForcedByDiagnostics );
+    void
+    SetPhysicsDiagnosticsPath( Basics::SceneController& models, const char* path, bool fixedStepForcedByDiagnostics );
     void LogSceneFinished( SceneController& scene,
                            const Rendering::IRenderDiagnostics* renderDiagnostics,
                            const char* reason );
-    void BeginPhysicsDiagnosticsRun( GameObjects::GameModelCollection& models,
+    void BeginPhysicsDiagnosticsRun( Basics::SceneController& models,
                                      const RunSceneState& scene,
                                      const EngineConfig& config,
                                      const char* scenePath,

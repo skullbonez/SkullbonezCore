@@ -56,7 +56,7 @@ Related:
 #include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
 #include "../../Core/Profiler.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "../Scene/SceneController.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsEngineStoreQueries.h"
 #include "../../Rendering/Helper.h"
@@ -418,7 +418,7 @@ void RenderReplayPredictionGhosts( ReplayRuntime& replayRuntime,
 
     // Why: ghost drawing is a render projection path. Shape and material come
     // from the prepared store snapshots so replay visualization does not need
-    // the GameModel collider mirror to stay fresh after physics steps.
+    // the legacy object record collider mirror to stay fresh after physics steps.
     if ( !frame.colliders || !frame.renderInstances )
     {
         return;
@@ -1954,7 +1954,6 @@ SbResult RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendReso
     {
         WorldEnvironment,
         HelperOwner,
-        GameModelResources,
         CollisionVisualizer,
         UIResources,
         RenderPassResources,
@@ -1974,7 +1973,6 @@ SbResult RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendReso
     const BackendResourcePhase releaseSteps[] = {
         { "world_environment", BackendResourceStep::WorldEnvironment },
         { "helper_owner", BackendResourceStep::HelperOwner },
-        { "game_model_resources", BackendResourceStep::GameModelResources },
         { "collision_visualizer", BackendResourceStep::CollisionVisualizer },
         { "ui_resources", BackendResourceStep::UIResources },
         { "render_pass_resources", BackendResourceStep::RenderPassResources },
@@ -2012,9 +2010,6 @@ SbResult RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendReso
             break;
         case BackendResourceStep::HelperOwner:
             m_renderHelper.reset();
-            break;
-        case BackendResourceStep::GameModelResources:
-            context.models.ResetRenderResources();
             break;
         case BackendResourceStep::CollisionVisualizer:
             m_collisionVisualizer.ResetResources( context.renderResources );
@@ -2173,29 +2168,31 @@ void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnos
 }
 
 
-RuntimeRenderModelFrameView
-RuntimeRenderer::BuildModelFrameView( SkullbonezCore::GameObjects::GameModelCollection& models,
-                                      PhysicsEngine& physics ) const
+RuntimeRenderModelFrameView RuntimeRenderer::BuildModelFrameView( SkullbonezCore::Basics::SceneController& scene,
+                                                                  PhysicsEngine& physics,
+                                                                  Threading::WorkerPool& workerPool,
+                                                                  const EngineConfig& config ) const
 {
-    return RuntimeRenderModelFrameView{ models.MutableRenderInstances(),
-                                        models.Colliders(),
-                                        SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ),
-                                        physics,
-                                        models.RenderPresentationRecords(),
-                                        models.GetCollisionVisualContacts(),
-                                        models.GetSleepStates(),
-                                        models.GetSleepIslandVisualIds(),
-                                        models.GetSleepSupportedStates(),
-                                        models.GetSleepInhibitedStates(),
-                                        models.GetPhysicsDebugContacts(),
-                                        models.GetPhysicsPipelineTrace(),
-                                        models.RenderWorkerPool(),
-                                        models.SceneEntityCount(),
-                                        models.ShouldRenderCollisionVolumes(),
-                                        models.ShouldUseShadowParallelPrep(),
-                                        models.GetSceneKineticEnergy(),
-                                        models.GetTornadoSystemElapsedSeconds(),
-                                        models.CollectMemoryStats() };
+    return RuntimeRenderModelFrameView{
+        scene.MutableRenderInstances(),
+        SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( physics ),
+        SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ),
+        physics,
+        scene.RenderPresentationRecords(),
+        SkullbonezCore::Physics::PhysicsEngineStoreQueries::CollisionVisualContacts( physics ),
+        SkullbonezCore::Physics::PhysicsEngineStoreQueries::SleepStates( physics ),
+        SkullbonezCore::Physics::PhysicsEngineStoreQueries::SleepIslandVisualIds( physics ),
+        SkullbonezCore::Physics::PhysicsEngineStoreQueries::SleepSupportedStates( physics ),
+        SkullbonezCore::Physics::PhysicsEngineStoreQueries::SleepInhibitedStates( physics ),
+        SkullbonezCore::Physics::PhysicsEngineStoreQueries::DebugContacts( physics ),
+        SkullbonezCore::Physics::PhysicsEngineStoreQueries::PipelineTrace( physics ),
+        &workerPool,
+        scene.SceneEntityCount(),
+        config.runtimeRender.renderCollisionVolumes,
+        config.shadowParallelPrep,
+        scene.GetSceneKineticEnergy(),
+        physics.GetTornadoSystemElapsedSeconds(),
+        scene.CollectMemoryStats() };
 }
 
 

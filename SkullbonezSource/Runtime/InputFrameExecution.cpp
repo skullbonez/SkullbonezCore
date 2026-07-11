@@ -305,7 +305,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
             m_interaction,
             m_sceneController.Cameras(),
             m_sceneController.Terrain().Get(),
-            m_sceneController.Models(),
+            m_sceneController,
             m_sceneController.Physics(),
             m_camera,
             NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
@@ -330,7 +330,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
     {
         EnterInteractiveSceneRun();
         const RunInternal::EditorPlacementModeChangeResult placementMode = RunInternal::ToggleEditorPlacementMode(
-            { m_runtimeTools.Editor(), m_sceneController.Models(), m_sceneController.Physics(), m_interaction } );
+            { m_runtimeTools.Editor(), m_sceneController, m_sceneController.Physics(), m_interaction } );
         completeEditorPlacementModeTransition( source, placementMode );
     };
     const bool flyCamera =
@@ -480,7 +480,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
             break;
         case RuntimeInputAction::CycleAttachedCameraSubmode:
             if ( RunCameraModeIsAttached( m_camera.mode ) &&
-                 m_attachedCamera.CycleMode( m_sceneController.Models(), m_sceneController.Cameras() ) )
+                 m_attachedCamera.CycleMode( m_sceneController, m_sceneController.Cameras() ) )
             {
                 m_inputRouter.RecordModeAction( m_runtimeInput,
                                                 m_camera,
@@ -494,8 +494,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
         case RuntimeInputAction::ToggleAttachedCameraPin:
             if ( RunCameraModeIsAttached( m_camera.mode ) )
             {
-                const bool activeFollow =
-                    m_attachedCamera.TogglePin( m_sceneController.Models(), m_sceneController.Cameras() );
+                const bool activeFollow = m_attachedCamera.TogglePin( m_sceneController, m_sceneController.Cameras() );
                 if ( !activeFollow )
                 {
                     if ( m_inputRouter.ReleasePointerToUi( EvaluateRuntimePointerPresentation( m_inputRouter,
@@ -522,7 +521,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
             {
                 const double simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
                 m_runtimeTools.WriteLauncherReproSnapshotWithStatusMessage(
-                    { m_sceneController.Models(),
+                    { m_sceneController,
                       m_sceneController.Entities(),
                       &m_sceneController.Cameras(),
                       m_sceneController.Terrain().Get(),
@@ -530,7 +529,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                       SceneState(),
                       m_sceneController.CurrentPath(),
                       m_launchOptions,
-                      m_sceneController.Models().IsPhysicsSleepEnabled(),
+                      m_sceneController.Physics().IsSleepEnabled(),
                       m_renderer.VsyncEnabled(),
                       m_renderer.PipelineSyncEnabled(),
                       m_config.contactEpsilon,
@@ -651,7 +650,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
             HandleDiagnosticsKeyboardShortcut(
                 DiagnosticsKeyboardShortcutContext{ m_debug,
                                                     m_camera.trackBallRow.value,
-                                                    m_sceneController.Models(),
+                                                    m_sceneController,
                                                     m_renderBackendView.renderDiagnostics,
                                                     SceneState().isSceneMode,
                                                     m_timers.simulationTimer.GetTimeSinceLastStart() },
@@ -717,7 +716,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                     SceneRuntimeStyleContext{ m_launchOptions,
                                               SceneState(),
                                               m_sceneController.Browser(),
-                                              m_sceneController.Models(),
+                                              m_sceneController,
                                               m_sceneController.Entities(),
                                               m_assets,
                                               ActiveSceneCinematicConfig( SceneState(), m_config ),
@@ -786,7 +785,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                 m_interaction,
                 m_sceneController.Cameras(),
                 m_sceneController.Terrain().Get(),
-                m_sceneController.Models(),
+                m_sceneController,
                 m_sceneController.Physics(),
                 m_camera,
                 NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
@@ -988,7 +987,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
         m_attachedCamera,
         m_interaction,
         m_sceneController.Entities(),
-        m_sceneController.Models(),
+        m_sceneController,
         m_sceneController.Physics(),
         SceneState(),
         m_sceneController.World(),

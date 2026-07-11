@@ -28,7 +28,6 @@ Related:
 #include "../../Core/Config.h"
 #include "../../Core/Log.h"
 #include "../../Core/WorkerPool.h"
-#include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsEngineStoreQueries.h"
 #include "../../Physics/PhysicsDiagnosticsSink.h"
@@ -58,8 +57,9 @@ void WriteScenePhysicsDiagnosticsCsv( void*, const char* fileName, const char* f
 #endif
 } // namespace
 
-SceneController::SceneController() : m_models( m_physics )
+SceneController::SceneController()
 {
+    ReserveForActiveGameModelCapacity();
 }
 
 
@@ -68,12 +68,12 @@ void SceneController::StepPhysics( float fixedDt,
                                    const Physics::PhysicsWorldForces& worldForces,
                                    Threading::WorkerPool& workerPool )
 {
-    const int modelCount = m_models.SceneEntityCount();
+    const int modelCount = SceneEntityCount();
     // Invariant: PhysicsBodyStore is the per-tick body authority. Descriptor
     // sidecars are imported only when topology changes; same-count editor or
     // replay mutations must commit explicitly before this step reads rows.
-    m_models.RepairPhysicsBodyAndColliderTopology();
-    m_models.TickContactHighlights( modelCount, fixedDt );
+    RepairPhysicsBodyAndColliderTopology();
+    TickContactHighlights( modelCount, fixedDt );
 
     const char* const* diagnosticNames = nullptr;
     int diagnosticNameCount = 0;
@@ -85,8 +85,8 @@ void SceneController::StepPhysics( float fixedDt,
     {
         // Lifetime: Debug diagnostics borrow name pointers only until Step
         // returns; physics never retains this presentation table.
-        m_models.FillPhysicsDiagnosticsNames( Physics::PhysicsEngineStoreQueries::BodyStore( m_physics ).Count(),
-                                              physicsDiagnosticsModelNames );
+        FillPhysicsDiagnosticsNames( Physics::PhysicsEngineStoreQueries::BodyStore( m_physics ).Count(),
+                                     physicsDiagnosticsModelNames );
         diagnosticNames = physicsDiagnosticsModelNames.empty() ? nullptr : physicsDiagnosticsModelNames.data();
         diagnosticNameCount = static_cast<int>( physicsDiagnosticsModelNames.size() );
     }
@@ -98,7 +98,7 @@ void SceneController::StepPhysics( float fixedDt,
     // state. Keeping this edge beside the scene stores makes that split visible.
     for ( int index : Physics::PhysicsEngineStoreQueries::FixedContactHighlightBodies( m_physics ) )
     {
-        m_models.NotifyFixedContact( index, 0.5f );
+        NotifyFixedContact( index, 0.5f );
     }
 }
 
@@ -146,9 +146,9 @@ bool SceneController::CrossScenePauseLocked() const
 }
 
 
-SceneController::SceneController( std::vector<std::string> queue )
-    : m_runtime( std::move( queue ) ), m_models( m_physics )
+SceneController::SceneController( std::vector<std::string> queue ) : m_runtime( std::move( queue ) )
 {
+    ReserveForActiveGameModelCapacity();
 }
 
 
@@ -158,7 +158,7 @@ bool SceneController::TrimForReplayRestore( int bodyCount )
     const int liveColliderCount = Physics::PhysicsEngineStoreQueries::Colliders( m_physics ).Count();
     const uint32_t authoredBodyCount = m_physics.AuthoredBodyDescriptorCount().value;
     if ( bodyCount < 0 || bodyCount > liveBodyCount || static_cast<uint32_t>( bodyCount ) > authoredBodyCount ||
-         !m_models.CanTrimPresentationRowsForSceneRestore( bodyCount ) || bodyCount > m_entities.Count() )
+         !CanTrimPresentationRowsForSceneRestore( bodyCount ) || bodyCount > m_entities.Count() )
     {
         return false;
     }
@@ -178,7 +178,7 @@ bool SceneController::TrimForReplayRestore( int bodyCount )
     if ( !m_physics.TrimBodiesToCount( bodies ) ||
          ( liveColliderCount > bodyCount && !m_physics.TrimCollidersToCount( colliders ) ) ||
          !m_physics.TrimAuthoredBodyDescriptorsToCount( authored ) ||
-         !m_models.TrimPresentationRowsForSceneRestore( bodyCount ) || !m_entities.TrimToCount( bodyCount ) )
+         !TrimPresentationRowsForSceneRestore( bodyCount ) || !m_entities.TrimToCount( bodyCount ) )
     {
         SB_FATAL( "Runtime/SceneController",
                   "Replay topology commit failed after a successful preflight; live owners may be partially trimmed" );
@@ -234,18 +234,6 @@ SceneEntityStore& SceneController::Entities()
 const SceneEntityStore& SceneController::Entities() const
 {
     return m_entities;
-}
-
-
-GameObjects::GameModelCollection& SceneController::Models()
-{
-    return m_models;
-}
-
-
-const GameObjects::GameModelCollection& SceneController::Models() const
-{
-    return m_models;
 }
 
 
@@ -531,7 +519,7 @@ void SceneController::ClearRequiredAutomationGates()
 
 void SceneController::UpdateRequiredContacts( float contactEpsilon )
 {
-    m_runtime.UpdateRequiredContacts( m_models, contactEpsilon );
+    m_runtime.UpdateRequiredContacts( *this, contactEpsilon );
 }
 
 

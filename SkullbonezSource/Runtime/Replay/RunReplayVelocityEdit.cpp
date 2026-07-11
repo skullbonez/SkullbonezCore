@@ -18,7 +18,7 @@ Invariants:
   - Pointer capture must end whenever the drag exits or the edited target becomes invalid.
   - Edited velocities are clamped before waking or mutating the physics body.
   - Hit testing, drag-start values, and gizmo drawing must read store rows, not
-    the post-step GameModel body mirror.
+    the post-step legacy object record body mirror.
   - Velocity-edit helper functions are file-local to this translation unit.
 
 Related:
@@ -275,7 +275,7 @@ static bool TryResolveReplayVelocityBodyView( const ReplayRuntime& replayRuntime
     // Invariant: replay velocity edit resolves identity to a body handle before
     // it reads pose, velocity, or shape rows. modelIndex remains only for UI
     // gesture metadata and collider pairing while replay/editor identity moves
-    // away from transient GameModel order.
+    // away from transient legacy object record order.
     outView.body = bodyHandle;
     outView.modelRow.value = modelIndex;
     outView.position = body->position;

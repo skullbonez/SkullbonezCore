@@ -196,8 +196,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherTools.cpp" />
     <ClCompile Include="SkullbonezSource\Core\AmortizedTask.cpp" />
     <ClCompile Include="SkullbonezSource\Core\FatalError.cpp" />
-    <ClCompile Include="SkullbonezSource\GameObjects\GameModel.cpp" />
-    <ClCompile Include="SkullbonezSource\GameObjects\GameModelCollection.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Objects.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\GameModelRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\SceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.cpp" />
@@ -369,8 +368,7 @@
     <ClInclude Include="SkullbonezSource\Core\MainMemoryStats.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DrawCallTrace.h" />
     <ClInclude Include="SkullbonezSource\Core\Fence.h" />
-    <ClInclude Include="SkullbonezSource\GameObjects\GameModel.h" />
-    <ClInclude Include="SkullbonezSource\GameObjects\GameModelCollection.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.Objects.inl" />
     <ClInclude Include="SkullbonezSource\GameObjects\SceneCapacity.h" />
     <ClInclude Include="SkullbonezSource\Rendering\GameModelRenderer.h" />
     <ClInclude Include="SkullbonezSource\Scene\SceneSnapshotWriter.h" />

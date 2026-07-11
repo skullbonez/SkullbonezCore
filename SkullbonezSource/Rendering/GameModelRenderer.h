@@ -98,7 +98,6 @@ class GameModelRenderer
                                        Math::Vector::Vector3& outCenter,
                                        float& outRadius,
                                        float& outHeightRange );
-    static void ResetRenderResources();
 };
 } // namespace GameObjects
 } // namespace SkullbonezCore

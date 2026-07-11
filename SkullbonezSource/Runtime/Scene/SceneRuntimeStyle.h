@@ -39,9 +39,9 @@ namespace Assets
 {
 class AssetSystem;
 }
-namespace GameObjects
+namespace Basics
 {
-class GameModelCollection;
+class SceneController;
 }
 namespace Basics
 {
@@ -53,7 +53,7 @@ struct SceneRuntimeStyleContext
     RunLaunchOptions& launchOptions;
     RunSceneState& scene;
     RunSceneBrowserState& sceneBrowser;
-    GameObjects::GameModelCollection& models;
+    Basics::SceneController& models;
     SceneEntityStore& entities;
     const Assets::AssetSystem& assets;
     CinematicRenderConfig& activeCinematic;

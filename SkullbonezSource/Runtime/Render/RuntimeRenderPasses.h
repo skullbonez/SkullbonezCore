@@ -63,9 +63,9 @@ struct PhysicsDebugContact;
 struct PhysicsPipelineRecord;
 } // namespace Physics
 
-namespace GameObjects
+namespace Basics
 {
-class GameModelCollection;
+class SceneController;
 }
 
 namespace Environment
@@ -386,7 +386,7 @@ struct UiTextPassState
     bool crossScenePauseLocked = false;
     const RunSceneState& scene;
     const RenderPresentationSettings& renderPresentation;
-    const GameObjects::GameModelCollection& modelOwner;
+    const Basics::SceneController& modelOwner;
     const EngineConfig& config;
     const Environment::WorldEnvironment& world;
     const RunRayCastTestState& rayCastTest;

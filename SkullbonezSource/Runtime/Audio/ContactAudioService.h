@@ -40,7 +40,7 @@ Glossary:
 Invariants:
   - No audio decision writes back into physics state.
   - Listener and contact data are copied before playback; the audio backend
-    never dereferences GameModel, Camera, or PhysicsWorld objects.
+    never dereferences legacy object record, Camera, or PhysicsWorld objects.
 
 Related:
   - SkullbonezSource/Runtime/Audio/ContactAudioService.cpp

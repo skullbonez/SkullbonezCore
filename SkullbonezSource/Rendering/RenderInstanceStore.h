@@ -128,6 +128,8 @@ struct RenderInstancePresentationRecord
     bool simpleRagdollPart = false;                                      // Replay ghost filter metadata copied from scene grouping.
     float fixedContactAlpha = 0.0f;                                      // Render-only red contact feedback strength.
     float audioContactAlpha = 0.0f;                                      // Render-only white audio-emitter feedback strength.
+    float fixedContactSeconds = 0.0f;                                    // Seconds remaining for fixed-body contact feedback.
+    float audioContactSeconds = 0.0f;                                    // Seconds remaining for contact-audio feedback.
 };
 
 class RenderInstanceStore
@@ -147,6 +149,11 @@ class RenderInstanceStore
     RenderInstancePresentationRecord* MutablePresentationRecordForModelIndex( int modelIndex );
     const std::vector<RenderInstancePresentationRecord>& PresentationRecords() const;
     int PresentationCount() const;
+    std::size_t PresentationCapacity() const;
+    uint64_t PresentationCapacityBytes() const;
+    void NotifyFixedContact( int modelIndex, float highlightSeconds );
+    void NotifyAudioContact( int modelIndex, float highlightSeconds );
+    void TickContactFeedback( int modelCount, float deltaSeconds );
     void Clear();
     void Refresh( const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore );
     void Refresh( const std::vector<RenderInstancePresentationRecord>& presentation,

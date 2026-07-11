@@ -2,6 +2,15 @@
 
 This file holds details that are useful during debugging or manual testing but too large for `README.md`.
 
+## Scene Object Identity
+
+`PhysicsSceneObjectId` is the stable identity shared across scene save/load,
+undo, picking, logging, replay correlation, and other cross-system operations.
+It survives dense-store compaction and must not be replaced by a generic
+`EntityId`. Once an owner resolves that id, physics and render hot paths use
+their typed handles or dense rows locally; those row indices are temporary
+hints, not persisted identity.
+
 ## Command-Line Arguments
 
 | Argument | Values | Description |
@@ -239,11 +248,12 @@ The v2 artifact gate builds Debug, launches `replay_v2_solver_one.scene.json` wi
 
 `SceneRuntime` lives in `SkullbonezSource/Runtime/Scene/SceneRuntime.h/.cpp` and owns the active `RunSceneState` plus the scene queue. `SimulationSystem` lives in `SkullbonezSource/Physics/SimulationSystem.h/.cpp` and owns timestep policy plus the fixed-step/variable-step physics accumulators. `ReplayRecorder` lives in `SkullbonezSource/Runtime/Replay/ReplayRecorder.h/.cpp` and owns the bounded presentation sample ring plus hash logging. `CaptureSystem` lives in `SkullbonezSource/Runtime/CaptureSystem.h/.cpp` and owns BMP readback plus scene screenshot/autocycle capture policy. `RuntimeDiagnostics` lives in `SkullbonezSource/Runtime/RuntimeDiagnostics.h/.cpp` and owns perf CSV, scene-finished, and SkullScope run logging policy. `InputController` lives in `SkullbonezSource/Runtime/InputController.h/.cpp` and owns runtime key-edge capture plus mouse-look reset/delta policy. `Run` still coordinates the broad scene load/reset side effects: object construction, terrain swaps, camera setup, UI override application, diagnostics context, input command application, capture completion actions, replay capture/scrub callbacks, and render/backend setup. Treat these as runtime subsystem extraction slices, not the final runtime split.
 
-The old `GameModelStreamProvider` / `GameModelSoACache` boundary has been
-deleted. Runtime rendering now prepares the physics-backed `RenderInstanceStore`
-once per frame through `GameModelCollection::PrepareRenderInstances()`, while
-physics-facing readers use `PhysicsBodyStore` and `ColliderStore` records rather
-than borrowed `GameModel` SoA streams.
+The obsolete model wrappers have been deleted. `SceneController` coordinates
+scene-lifetime creation and prepares the physics-backed `RenderInstanceStore`
+once per frame, while physics-facing readers use `PhysicsBodyStore` and
+`ColliderStore` records directly. Durable identity, names, grouping, and
+material intent live in `SceneEntityStore`; transient contact feedback lives in
+render presentation rows.
 
 ## Scene JSON Fields
 

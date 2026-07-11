@@ -309,7 +309,7 @@ SceneAuthoredModelContext
 BuildSceneAuthoredModelContext( RunSceneState& sceneState,
                                 SkullbonezCore::Environment::WorldEnvironment& world,
                                 SkullbonezCore::Geometry::Terrain* terrain,
-                                SkullbonezCore::GameObjects::GameModelCollection& models,
+                                SkullbonezCore::Basics::SceneController& models,
                                 SceneEntityStore& entities,
                                 SkullbonezCore::Physics::PhysicsEngine& physics,
                                 std::vector<RunRequiredContactState>& requiredContacts,
@@ -335,7 +335,7 @@ SceneGeneratedModelContext BuildSceneGeneratedModelContext( RunSceneState& scene
                                                             const EngineConfig& config,
                                                             SkullbonezCore::Environment::WorldEnvironment& world,
                                                             SkullbonezCore::Geometry::Terrain* terrain,
-                                                            SkullbonezCore::GameObjects::GameModelCollection& models,
+                                                            SkullbonezCore::Basics::SceneController& models,
                                                             SkullbonezCore::Physics::PhysicsEngine& physics,
                                                             GeneratedObjectTypeOverride objectTypeOverride )
 {
@@ -456,7 +456,7 @@ SbResult UseFlatSlopeTerrain( SceneTerrain& terrainOwner,
 SbResult SaveCurrentEditableSceneSnapshot( const std::string& scenePath,
                                            const RunSceneState& sceneState,
                                            const SceneEntityStore& entities,
-                                           const SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                                           const SkullbonezCore::Basics::SceneController& modelCollection,
                                            const WorldEnvironment& world,
                                            const CameraCollection& cameras,
                                            bool waterHidden,
@@ -464,7 +464,8 @@ SbResult SaveCurrentEditableSceneSnapshot( const std::string& scenePath,
 {
     // Lifetime: editable persistence borrows the active scene's owner arrays
     // only for the synchronous write; scene reload may replace them afterward.
-    const auto& joints = modelCollection.GetPointJointConstraints();
+    const auto& joints =
+        SkullbonezCore::Physics::PhysicsEngineStoreQueries::PointJointConstraints( modelCollection.Physics() );
     const SceneSaveView saveView{ entities,
                                   modelCollection.BodyStore(),
                                   modelCollection.Colliders(),
@@ -533,7 +534,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
 {
     // Operator sleep policy is physics-owned and survives ordinary scene
     // changes. The scene reset snapshot restores the same owner explicitly.
-    const bool retainedPhysicsSleepEnabled = Models().IsPhysicsSleepEnabled();
+    const bool retainedPhysicsSleepEnabled = Physics().IsSleepEnabled();
     if ( !request.accepted )
     {
         // Lane R: a rejected navigation value cannot identify a scene to load;
@@ -564,9 +565,9 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
         }
         if ( mode == RunCameraMode::Scene )
         {
-            return Models().SceneEntityCount() > 0 ? RunCameraMode::Demo : RunCameraMode::Inspect;
+            return SceneEntityCount() > 0 ? RunCameraMode::Demo : RunCameraMode::Inspect;
         }
-        if ( mode == RunCameraMode::Demo && Models().SceneEntityCount() <= 0 )
+        if ( mode == RunCameraMode::Demo && SceneEntityCount() <= 0 )
         {
             return RunCameraMode::Inspect;
         }
@@ -636,7 +637,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
 
     m_sceneController.Cameras().Reset();
-    m_sceneController.Models().Clear();
+    m_sceneController.Clear();
 
     m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
     AttachedCameraController::Reset( m_attachedCamera );
@@ -664,7 +665,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
         }
         afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
         RunInternal::ClearEditorManipulationState(
-            { m_runtimeTools.Editor(), m_sceneController.Models(), m_sceneController.Physics(), m_interaction } );
+            { m_runtimeTools.Editor(), m_sceneController, m_sceneController.Physics(), m_interaction } );
         m_runtimeTools.Editor().viewportLookActive = false;
         m_runtimeTools.Editor().placementModeEnabled = false;
         m_runtimeTools.Editor().hotGizmoAxis = -1;
@@ -784,7 +785,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
                                              m_config,
                                              m_sceneController.World(),
                                              m_sceneController.Terrain().Get(),
-                                             m_sceneController.Models(),
+                                             m_sceneController,
                                              m_sceneController.Physics(),
                                              m_launchOptions.generatedObjectTypeOverride ),
             SceneGeneratedPopulationRequest{ m_sceneController.UIOverrides().modelCountOverride,
@@ -803,7 +804,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
         ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext{ m_launchOptions,
                                                               SceneState(),
                                                               m_sceneController.Browser(),
-                                                              m_sceneController.Models(),
+                                                              m_sceneController,
                                                               m_sceneController.Entities(),
                                                               assets,
                                                               ActiveSceneCinematicConfig( SceneState(), m_config ),
@@ -995,7 +996,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
                                              m_config,
                                              m_sceneController.World(),
                                              m_sceneController.Terrain().Get(),
-                                             m_sceneController.Models(),
+                                             m_sceneController,
                                              m_sceneController.Physics(),
                                              m_launchOptions.generatedObjectTypeOverride ),
             SceneGeneratedPopulationRequest{ m_sceneController.UIOverrides().modelCountOverride,
@@ -1013,11 +1014,11 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
         }
         if ( !generatedModels.applied )
         {
-            const SbResult authoredSetup = SceneAuthoredSetup::SetUpGameModels(
+            const SbResult authoredSetup = SceneAuthoredSetup::SetUpSceneEntities(
                 BuildSceneAuthoredModelContext( SceneState(),
                                                 m_sceneController.World(),
                                                 m_sceneController.Terrain().Get(),
-                                                m_sceneController.Models(),
+                                                m_sceneController,
                                                 m_sceneController.Entities(),
                                                 m_sceneController.Physics(),
                                                 m_sceneController.RequiredContacts(),
@@ -1032,13 +1033,13 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
         }
         // Physics regression log: current-solver per-frame CSV enabled only by command line.
 #ifdef _DEBUG
-        m_sceneController.Models().SetPhysicsRegressionLogPath(
+        m_sceneController.Physics().SetPhysicsRegressionLogPath(
             m_diagnosticsRuntime.PerfLog().physicsRegressionLogOverride );
-        m_sceneController.Models().SetPhysicsCollisionTimeLogPath(
+        m_sceneController.Physics().SetPhysicsCollisionTimeLogPath(
             m_diagnosticsRuntime.PerfLog().physicsCollisionTimeLogOverride );
         if ( m_diagnosticsRuntime.PhysicsDiagnostics().isEnabled )
         {
-            m_sceneController.Models().SetPhysicsDiagnosticsPath( m_diagnosticsRuntime.PhysicsDiagnostics().path );
+            m_sceneController.Physics().SetPhysicsDiagnosticsPath( m_diagnosticsRuntime.PhysicsDiagnostics().path );
         }
 #endif
 
@@ -1127,11 +1128,11 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
             tornadoField.enabled = false;
             m_renderer.SetTornadoVisualEnabled( true );
         }
-        m_sceneController.Models().SetTornadoFieldConfig( tornadoField );
-        m_sceneController.Models().SetTornadoSystemConfig( tornadoSystem );
+        m_sceneController.Physics().SetTornadoFieldConfig( tornadoField );
+        m_sceneController.Physics().SetTornadoSystemConfig( tornadoSystem );
     }
-    Physics::TornadoFieldConfig tornadoField = m_sceneController.Models().GetTornadoFieldConfig();
-    Physics::TornadoSystemConfig tornadoSystem = m_sceneController.Models().GetTornadoSystemConfig();
+    Physics::TornadoFieldConfig tornadoField = m_sceneController.Physics().GetTornadoFieldConfig();
+    Physics::TornadoSystemConfig tornadoSystem = m_sceneController.Physics().GetTornadoSystemConfig();
     if ( m_launchOptions.hasTornadoOverride )
     {
         if ( tornadoSystem.enabled || !tornadoSystem.vortices.empty() )
@@ -1153,17 +1154,17 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
         tornadoField.visualizeVelocityField = true;
         tornadoSystem.visualizeVelocityField = true;
     }
-    m_sceneController.Models().SetTornadoFieldConfig( tornadoField );
-    m_sceneController.Models().SetTornadoSystemConfig( tornadoSystem );
+    m_sceneController.Physics().SetTornadoFieldConfig( tornadoField );
+    m_sceneController.Physics().SetTornadoSystemConfig( tornadoSystem );
     if ( sceneMutualGravityEnabled )
     {
         // Why: n-body space scenes have no contacts to wake quiet bodies later;
         // authored mutual gravity owns sleep policy for the duration of setup.
-        m_sceneController.Models().SetPhysicsSleepEnabled( false );
+        m_sceneController.Physics().SetSleepEnabled( false );
     }
     else if ( !shouldPreserveRuntimeState )
     {
-        m_sceneController.Models().SetPhysicsSleepEnabled( retainedPhysicsSleepEnabled );
+        m_sceneController.Physics().SetSleepEnabled( retainedPhysicsSleepEnabled );
     }
     if ( m_launchOptions.frameCountOverride > 0 )
     {
@@ -1236,7 +1237,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
 
 #ifdef _DEBUG
     m_diagnosticsRuntime.BeginPhysicsDiagnosticsRun(
-        m_sceneController.Models(),
+        m_sceneController,
         SceneState(),
         m_config,
         scenePath.c_str(),
@@ -1355,7 +1356,7 @@ SbResult SceneController::SaveCurrentDefaults( const SceneDefaultsSaveView& view
         const SbResult saveResult = SaveCurrentEditableSceneSnapshot( *scenePath,
                                                                       State(),
                                                                       Entities(),
-                                                                      Models(),
+                                                                      *this,
                                                                       World(),
                                                                       Cameras(),
                                                                       view.debug.isWaterHidden,

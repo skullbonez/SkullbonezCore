@@ -51,13 +51,17 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace GameObjects
+namespace Basics
 {
-class GameModelCollection;
+class SceneController;
 }
 namespace Physics
 {
 class PhysicsEngine;
+}
+namespace Threading
+{
+class WorkerPool;
 }
 namespace Basics
 {
@@ -69,7 +73,6 @@ class RuntimeRenderer
         const char* phaseName = nullptr;
         Rendering::IRenderDeviceLifecycle* deviceLifecycle = nullptr;
         Rendering::IRenderResourceFactory* renderResources = nullptr;
-        GameObjects::GameModelCollection& models;
         UI::InGameUI& ui;
         RuntimeTools& tools;
     };
@@ -83,7 +86,7 @@ class RuntimeRenderer
         // presentation prep has its own renderer snapshot owner. Deletion
         // condition: remove this borrow when model prep moves behind that owner.
         // Checker budget: RenderFrameEntry may use it only for PrepareRenderInstances().
-        GameObjects::GameModelCollection& renderModelOwner;
+        Basics::SceneController& renderModelOwner;
         Physics::PhysicsEngine& physics;
         UI::InGameUI& ui;
         RuntimeRenderFramePolicy framePolicy;
@@ -117,8 +120,10 @@ class RuntimeRenderer
 
     void EnsureFrameResources( const RenderResourceContext& resources );
     // Packages model-owned render/debug views before the frame passes consume them.
-    RuntimeRenderModelFrameView BuildModelFrameView( GameObjects::GameModelCollection& models,
-                                                     Physics::PhysicsEngine& physics ) const;
+    RuntimeRenderModelFrameView BuildModelFrameView( Basics::SceneController& scene,
+                                                     Physics::PhysicsEngine& physics,
+                                                     Threading::WorkerPool& workerPool,
+                                                     const EngineConfig& config ) const;
     void RenderFrameEntry( const FrameEntryContext& context );
     void RenderFrame( const RuntimeRenderInputs& renderInputs );
     void ReleaseBackendOwnedResources( Rendering::IRenderResourceFactory* renderResources );

@@ -24,7 +24,7 @@ Related:
 #include "EditorOverlayTools.h"
 #include "EditorTools.h"
 #include "../Tools/RuntimeTools.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "../Scene/SceneController.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 

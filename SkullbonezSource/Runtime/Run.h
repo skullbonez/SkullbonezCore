@@ -29,7 +29,7 @@ Invariants:
   - Public startup code should configure Run through the small launch surface
     below instead of reaching into runtime-owned state.
   - Camera follow helpers should take store-sampled body state instead of
-    reopening GameModel as a live physics mirror.
+    reopening legacy object record as a live physics mirror.
 
 Related:
   - SkullbonezSource/Runtime/Run.cpp
