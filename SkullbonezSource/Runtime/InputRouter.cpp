@@ -344,6 +344,7 @@ void InputRouter::Reset()
     m_committedNativeCapture = false;
     m_cursorVisibleRequested = true;
     m_committedCursorVisible = true;
+    m_pointerPresentationCommitted = false;
     m_hasFrame = false;
     m_appFocused = false;
     m_frameFocused = false;
@@ -498,10 +499,14 @@ bool InputRouter::ConsumePointerPresentationChange( PointerPresentationState& st
 {
     state.nativeCapture = m_nativeCaptureRequested;
     state.cursorVisible = m_cursorVisibleRequested;
-    const bool changed =
-        m_committedNativeCapture != m_nativeCaptureRequested || m_committedCursorVisible != m_cursorVisibleRequested;
+    // Hazard: Win32's process-local cursor latch predates InputRouter and may
+    // start hidden. Publish once even when desired values equal member defaults;
+    // otherwise the composition root never normalizes the native cursor.
+    const bool changed = !m_pointerPresentationCommitted || m_committedNativeCapture != m_nativeCaptureRequested ||
+                         m_committedCursorVisible != m_cursorVisibleRequested;
     m_committedNativeCapture = m_nativeCaptureRequested;
     m_committedCursorVisible = m_cursorVisibleRequested;
+    m_pointerPresentationCommitted = true;
     return changed;
 }
 

@@ -39,7 +39,9 @@ Invariants:
   - UI, replay, editor, and camera consumers observe one copied post-UI pointer
     snapshot; only InputRouter advances button-edge memory.
   - Native capture and cursor visibility are desired state. The composition
-    root applies only changes reported by ConsumePointerPresentationChange.
+    root applies only changes reported by ConsumePointerPresentationChange;
+    the first consume always publishes both values so Win32 cannot retain a
+    pre-router startup state.
   - Transition cleanup borrows concrete owners synchronously and never stores
     their references or absorbs their domain state.
 
@@ -531,6 +533,8 @@ class InputRouter
     bool m_committedNativeCapture = false;
     bool m_cursorVisibleRequested = true;
     bool m_committedCursorVisible = true;
+    // False forces the first composition frame to initialize Win32 capture and cursor state.
+    bool m_pointerPresentationCommitted = false;
     bool m_hasFrame = false;
     bool m_appFocused = false;
     bool m_frameFocused = false;

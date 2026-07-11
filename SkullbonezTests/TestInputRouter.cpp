@@ -299,11 +299,19 @@ TEST_CASE( "Input router: post-UI pointer snapshot is published once as a value"
 }
 
 
-TEST_CASE( "Input router: focus loss cancels native capture and restores cursor intent" )
+TEST_CASE( "Input router: cold start initializes cursor and focus loss restores cursor intent" )
 {
     InputRouter router;
     InputActions output;
     PointerPresentationState presentation;
+
+    // Regression: the Win32 cursor latch starts outside InputRouter ownership.
+    // The first consume must publish visible/no-capture even though those are
+    // also the router's member defaults.
+    REQUIRE( router.ConsumePointerPresentationChange( presentation ) );
+    CHECK_FALSE( presentation.nativeCapture );
+    CHECK( presentation.cursorVisible );
+    CHECK_FALSE( router.ConsumePointerPresentationChange( presentation ) );
 
     router.BeginFrame( FocusedFrame( {} ), {}, output );
     router.RequestNativeCapture();

@@ -10,12 +10,12 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `claude/directx-12-rendering-review-wolqlc`, tracking `origin/claude/directx-12-rendering-review-wolqlc` |
-| Current pushed baseline | `dfcbaed2 docs: bind the minimal-rework plan sequence` |
-| Current objective | Enforce progress-bearing commit subjects, then execute the binding critical path beginning with instant prediction |
+| Branch | `main`, tracking `origin/main` |
+| Current pushed baseline | `8fbd206e Merge pull request #113 from skullbonez/claude/directx-12-rendering-review-wolqlc` |
+| Current objective | Restore the cold-start native cursor, then add a selected-ball/live-simulation path perf regression before resuming instant prediction |
 | Portfolio progress | 166 / 274 tasks = 61% overall |
-| Last broad local gate | `tools\validate_full.bat` passed the final engine-cleanup source in 96.5s: every CPU target, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, handle smoke, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | Documentation-only; no repository validation required |
+| Last broad local gate | `tools\validate_full.bat` passed the cold-start cursor fix on 2026-07-11 in about 139s: every CPU target, 131/131 doctest cases with 2,818 assertions, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, handle smoke, and the 44,401-line varied physics baseline byte-exactly |
+| Validation for current edits | Runtime/Input cursor hotfix passed `tools\validate_full.bat`; documentation-only governance edits require no additional validation |
 
 ## Live Queue
 
