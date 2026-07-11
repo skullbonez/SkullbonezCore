@@ -10,10 +10,10 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `0d67e0a6 refactor: remove runtime shell state shelf` |
+| Current pushed baseline | `cb8c56c7 refactor: move shell values to domain owners` |
 | Current objective | Finish F1 multi-domain settings split and broad frame-context/substitute-hub proof |
-| Last broad local gate | `tools\validate_full.bat` passed the F1 field-owner slice with 130/130 doctest cases, 2,770 assertions, zero-warning Profile/Debug builds, DX12 with zero InfoQueue errors and matching screenshots, standalone physics smoke, and the 44,401-line varied baseline byte-exactly in 110.8s |
-| Latest focused gates | Five interaction scenarios passed in 34.1s; the prior owner-boundary project/allocation checks remain green |
+| Last broad local gate | `tools\validate_full.bat` passed the F2 frame-context deletion with 130/130 doctest cases, 2,770 assertions, zero-warning Profile/Debug builds, DX12 with zero InfoQueue errors and matching screenshots, standalone physics smoke, and the 44,401-line varied baseline byte-exactly in 130.2s |
+| Latest focused gates | Corrected Profile build and all five interaction scenarios passed in 18.7s; the prior owner-boundary project/allocation checks remain green |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -77,6 +77,12 @@ from the shell/debug shelf. Replay, defaults, frame UI, and SceneController own
 those values directly. Five interaction scenarios and the full gate pass; the
 touched-source comment audit is 22/22. Remaining F1 work is the multi-domain
 runtime-settings split plus broad frame/substitute-owner contexts.
+
+F2 no longer has a local multi-domain context in `RunFrame.cpp`. UI text,
+post-physics visualization, contact audio, and replay capture use explicit
+synchronous borrows, and audio/replay are separate domain functions. The
+Profile-only unused-parameter finding was fixed; interaction and full gates pass
+and the touched-source comment audit is 1/1. Substitute-owner auditing continues.
 
 D3 is complete. The repository has no tracked `.inl` files. The former editor
 mini-palette fragment is split into real palette policy/layout, drawing, and

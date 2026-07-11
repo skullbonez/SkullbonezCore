@@ -107,140 +107,119 @@ bool ShouldFlashContactAudioDecision( ContactAudioFlashMode mode,
 }
 
 
-struct ExecuteUiTextFrameContext
+void RenderExecuteUiTextFrame( RuntimeRenderer& renderer,
+                               SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics,
+                               const SkullbonezCore::UI::UIRenderContext& uiRender,
+                               const RuntimeRenderModelFrameView& renderModels,
+                               DiagnosticsRuntime& diagnosticsRuntime,
+                               ReplayRuntime& replayRuntime,
+                               RunTimerState& timers,
+                               RunDebugState& debug,
+                               RunSceneState& scene,
+                               RunRuntimeSettings& runtimeSettings,
+                               EngineConfig& config,
+                               SkullbonezCore::Environment::WorldEnvironment& worldEnvironment,
+                               RuntimeTools& runtimeTools,
+                               SkullbonezCore::UI::InGameUI& ui,
+                               RuntimeInputContext& runtimeInput,
+                               RunCameraState& camera,
+                               SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio,
+                               SceneController& sceneController,
+                               SkullbonezCore::Threading::WorkerPool& workerPool,
+                               Window& window,
+                               RunLaunchOptions& launchOptions,
+                               uint32_t cameraModeEnabledMask,
+                               const char* cameraModeLabel,
+                               const char* launcherFireModeLabel,
+                               bool isLauncherCameraMode,
+                               double secondsPerFrame )
 {
-    RuntimeRenderer& renderer;
-    SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics;
-    const SkullbonezCore::UI::UIRenderContext& uiRender;
-    const RuntimeRenderModelFrameView& renderModels;
-    DiagnosticsRuntime& diagnosticsRuntime;
-    ReplayRuntime& replayRuntime;
-    RunTimerState& timers;
-    RunDebugState& debug;
-    RunSceneState& scene;
-    RunRuntimeSettings& runtimeSettings;
-    EngineConfig& config;
-    SkullbonezCore::Environment::WorldEnvironment& worldEnvironment;
-    RuntimeTools& runtimeTools;
-    SkullbonezCore::UI::InGameUI& ui;
-    RuntimeInputContext& runtimeInput;
-    RunCameraState& camera;
-    SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio;
-    SceneController& sceneController;
-    SkullbonezCore::Threading::WorkerPool& workerPool;
-    Window& window;
-    RunLaunchOptions& launchOptions;
-    uint32_t cameraModeEnabledMask = 0;
-    const char* cameraModeLabel = nullptr;
-    const char* launcherFireModeLabel = nullptr;
-    bool isLauncherCameraMode = false;
-    double secondsPerFrame = 0.0;
-};
-
-
-void RenderExecuteUiTextFrame( ExecuteUiTextFrameContext& context )
-{
-    // Concept: frame-loop UI text is a late render pass. Keep the state package
-    // rebuilt here and refresh the scalar view only after the renderer says the
-    // pass will execute, matching the previous Run::Execute ordering.
-    const RunSceneBrowserState& uiSceneBrowser = context.sceneController.Browser();
-    const std::string* uiScenePath = context.sceneController.CurrentPath();
+    // Lifetime: these explicit borrows exist only for the late UI pass. Keeping
+    // them visible prevents another multi-domain frame context from becoming a
+    // retained substitute for the application shell.
+    const RunSceneBrowserState& uiSceneBrowser = sceneController.Browser();
+    const std::string* uiScenePath = sceneController.CurrentPath();
     RuntimeViewModel runtimeViewModel;
     const UiTextPassState uiTextState{
-        context.debug,
-        context.sceneController.CrossScenePauseLocked(),
-        context.timers,
-        context.scene,
-        context.runtimeSettings,
-        context.config,
-        context.worldEnvironment,
-        context.runtimeTools.RayCastTest(),
-        context.runtimeTools.Editor(),
-        context.ui,
-        context.runtimeInput,
-        context.camera,
+        debug,
+        sceneController.CrossScenePauseLocked(),
+        timers,
+        scene,
+        runtimeSettings,
+        config,
+        worldEnvironment,
+        runtimeTools.RayCastTest(),
+        runtimeTools.Editor(),
+        ui,
+        runtimeInput,
+        camera,
         runtimeViewModel,
         uiSceneBrowser,
-        context.renderer.RenderPassResources(),
-        &context.workerPool,
-        context.window.ClientWidth(),
-        context.window.ClientHeight(),
-        context.sceneController.QueueSize(),
-        context.sceneController.HasCurrentEntry(),
+        renderer.RenderPassResources(),
+        &workerPool,
+        window.ClientWidth(),
+        window.ClientHeight(),
+        sceneController.QueueSize(),
+        sceneController.HasCurrentEntry(),
         uiScenePath ? uiScenePath->c_str() : nullptr,
-        CurrentSceneBrowserIndex( context.sceneController, uiSceneBrowser ),
-        context.cameraModeEnabledMask,
-        context.cameraModeLabel,
-        context.launcherFireModeLabel,
-        context.isLauncherCameraMode,
-        context.replayRuntime.ShouldRenderScrubber( context.runtimeTools.Editor().editorModeEnabled,
-                                                    context.ui.IsVisible(),
-                                                    context.ui.IsMinimized() ),
-        context.replayRuntime.HasPathVisualizerTarget() };
+        CurrentSceneBrowserIndex( sceneController, uiSceneBrowser ),
+        cameraModeEnabledMask,
+        cameraModeLabel,
+        launcherFireModeLabel,
+        isLauncherCameraMode,
+        replayRuntime.ShouldRenderScrubber( runtimeTools.Editor().editorModeEnabled, ui.IsVisible(), ui.IsMinimized() ),
+        replayRuntime.HasPathVisualizerTarget() };
 
-    if ( context.renderer.ShouldRenderUiText( uiTextState ) )
+    if ( renderer.ShouldRenderUiText( uiTextState ) )
     {
-        runtimeViewModel =
-            RuntimeViewModelBuilder::Build( RuntimeViewModelContext{ context.sceneController,
-                                                                     context.diagnosticsRuntime.Capture(),
-                                                                     context.runtimeSettings,
-                                                                     context.sceneController.Physics() },
-                                            context.contactAudio );
-        const CinematicRenderConfig& uiCinematic = ActiveSceneCinematicConfig( context.scene, context.config );
-        const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( context.scene,
-                                                                            context.config,
-                                                                            context.launchOptions,
-                                                                            context.debug,
-                                                                            true );
-        const ReplayOverlayFrameState replayOverlay{
-            context.runtimeTools.Editor().editorModeEnabled,
-            context.ui.IsVisible(),
-            context.ui.IsMinimized(),
-            context.scene.isScenePhysics,
-            context.window.ClientWidth(),
-            context.window.ClientHeight(),
-            context.timers.simulationTimer.GetTotalTime(),
-        };
-        const int uiDrawCallStart = context.renderDiagnostics.GetFrameDrawCallCount();
+        runtimeViewModel = RuntimeViewModelBuilder::Build( RuntimeViewModelContext{ sceneController,
+                                                                                    diagnosticsRuntime.Capture(),
+                                                                                    runtimeSettings,
+                                                                                    sceneController.Physics() },
+                                                           contactAudio );
+        const CinematicRenderConfig& uiCinematic = ActiveSceneCinematicConfig( scene, config );
+        const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug, true );
+        const ReplayOverlayFrameState replayOverlay{ runtimeTools.Editor().editorModeEnabled,
+                                                     ui.IsVisible(),
+                                                     ui.IsMinimized(),
+                                                     scene.isScenePhysics,
+                                                     window.ClientWidth(),
+                                                     window.ClientHeight(),
+                                                     timers.simulationTimer.GetTotalTime() };
+        const int uiDrawCallStart = renderDiagnostics.GetFrameDrawCallCount();
         PROFILE_BEGIN( "Frame/UI" );
         {
             RuntimeAllocation::RuntimeAllocationScope allocationScope(
                 RuntimeAllocation::RuntimeAllocationPhase::Render );
-            DRAW_CALL_TRACE_SCOPE( context.renderDiagnostics, "Frame/UI" );
-            context.renderer.RenderUiText( context.renderDiagnostics,
-                                           context.uiRender,
-                                           uiTextState,
-                                           context.renderModels,
-                                           context.diagnosticsRuntime,
-                                           context.replayRuntime,
-                                           replayOverlay,
-                                           uiCinematic,
-                                           uiCinematicRendering,
-                                           context.secondsPerFrame );
+            DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Frame/UI" );
+            renderer.RenderUiText( renderDiagnostics,
+                                   uiRender,
+                                   uiTextState,
+                                   renderModels,
+                                   diagnosticsRuntime,
+                                   replayRuntime,
+                                   replayOverlay,
+                                   uiCinematic,
+                                   uiCinematicRendering,
+                                   secondsPerFrame );
         }
         PROFILE_END( "Frame/UI" );
-        const int uiDrawCallEnd = context.renderDiagnostics.GetFrameDrawCallCount();
-        context.timers.lastUIDrawCalls = (std::max)( 0, uiDrawCallEnd - uiDrawCallStart );
+        const int uiDrawCallEnd = renderDiagnostics.GetFrameDrawCallCount();
+        timers.lastUIDrawCalls = (std::max)( 0, uiDrawCallEnd - uiDrawCallStart );
     }
     else
     {
-        context.timers.lastUIDrawCalls = 0;
+        timers.lastUIDrawCalls = 0;
     }
 }
 
 
-struct ExecutePostPhysicsVisualizationContext
-{
-    RunDebugState& debug;
-    SkullbonezCore::GameObjects::GameModelCollection& models;
-    BroadphaseVisualizer& broadphaseVisualizer;
-    CollisionVisualizer& collisionVisualizer;
-    PhysicsDebugVisualizer& physicsDebugVisualizer;
-};
-
-
 template <typename UpdateRequiredBroadphaseXCells, typename UpdateRequiredContacts>
-void TickExecutePostPhysicsVisualizers( ExecutePostPhysicsVisualizationContext& context,
+void TickExecutePostPhysicsVisualizers( RunDebugState& debug,
+                                        SkullbonezCore::GameObjects::GameModelCollection& models,
+                                        BroadphaseVisualizer& broadphaseVisualizer,
+                                        CollisionVisualizer& collisionVisualizer,
+                                        PhysicsDebugVisualizer& physicsDebugVisualizer,
                                         double secondsPerFrame,
                                         UpdateRequiredBroadphaseXCells updateRequiredBroadphaseXCells,
                                         UpdateRequiredContacts updateRequiredContacts )
@@ -251,38 +230,37 @@ void TickExecutePostPhysicsVisualizers( ExecutePostPhysicsVisualizationContext& 
     // Why: broadphase visualizer state runs even when the overlay is hidden so
     // cell fades and scene-gate checks stay coherent across toggles.
     {
-        context.broadphaseVisualizer.SetEnabled( context.debug.isBroadphaseOverlay );
-        context.broadphaseVisualizer.SetCellSize( context.models.GetSpatialGrid().GetCellSize() );
-        const SpatialGrid& grid = context.models.GetSpatialGrid();
+        broadphaseVisualizer.SetEnabled( debug.isBroadphaseOverlay );
+        broadphaseVisualizer.SetCellSize( models.GetSpatialGrid().GetCellSize() );
+        const SpatialGrid& grid = models.GetSpatialGrid();
         SpatialGrid::ActiveCell activeCellBuf[SpatialGrid::MAX_BUCKETS];
         int activeCellCount = grid.GetActiveCellCount();
         grid.GetActiveCells( activeCellBuf, SpatialGrid::MAX_BUCKETS );
-        const std::vector<int64_t>& collisionKeys = context.models.GetCollisionCellKeys();
-        context.broadphaseVisualizer.Update( static_cast<float>( secondsPerFrame ),
-                                             activeCellBuf,
-                                             activeCellCount,
-                                             collisionKeys.data(),
-                                             static_cast<int>( collisionKeys.size() ) );
+        const std::vector<int64_t>& collisionKeys = models.GetCollisionCellKeys();
+        broadphaseVisualizer.Update( static_cast<float>( secondsPerFrame ),
+                                     activeCellBuf,
+                                     activeCellCount,
+                                     collisionKeys.data(),
+                                     static_cast<int>( collisionKeys.size() ) );
         updateRequiredBroadphaseXCells( activeCellBuf, (std::min)( activeCellCount, SpatialGrid::MAX_BUCKETS ) );
     }
     PROFILE_END( "Frame/PostPhysics/BroadphaseVisualizer" );
 
     PROFILE_BEGIN( "Frame/PostPhysics/CollisionVisualizer" );
-    context.collisionVisualizer.SetEnabled( context.debug.isCollisionVisualizer );
-    context.models.UpdateCollisionVisualizer( context.collisionVisualizer, static_cast<float>( secondsPerFrame ) );
+    collisionVisualizer.SetEnabled( debug.isCollisionVisualizer );
+    models.UpdateCollisionVisualizer( collisionVisualizer, static_cast<float>( secondsPerFrame ) );
     PROFILE_END( "Frame/PostPhysics/CollisionVisualizer" );
 
     PROFILE_BEGIN( "Frame/PostPhysics/PhysicsDebugVisualizer" );
-    context.physicsDebugVisualizer.SetFlags( context.debug.physicsDebugFlags );
-    context.physicsDebugVisualizer.SetContactLingerSeconds( context.debug.physicsDebugContactLinger );
-    context.physicsDebugVisualizer.SetPipelineStageCursor( context.debug.physicsDebugPipelineStageCursor );
-    context.models.UpdatePhysicsDebugVisualizer( context.physicsDebugVisualizer,
-                                                 static_cast<float>( secondsPerFrame ) );
+    physicsDebugVisualizer.SetFlags( debug.physicsDebugFlags );
+    physicsDebugVisualizer.SetContactLingerSeconds( debug.physicsDebugContactLinger );
+    physicsDebugVisualizer.SetPipelineStageCursor( debug.physicsDebugPipelineStageCursor );
+    models.UpdatePhysicsDebugVisualizer( physicsDebugVisualizer, static_cast<float>( secondsPerFrame ) );
     updateRequiredContacts();
     PROFILE_END( "Frame/PostPhysics/PhysicsDebugVisualizer" );
 
     PROFILE_BEGIN( "Frame/PostPhysics/EndCollisionVisualFrame" );
-    context.models.EndCollisionVisualFrame();
+    models.EndCollisionVisualFrame();
     PROFILE_END( "Frame/PostPhysics/EndCollisionVisualFrame" );
 
     PROFILE_END( "Frame/PostPhysics" );
@@ -294,210 +272,184 @@ void TickExecutePostPhysicsVisualizers( ExecutePostPhysicsVisualizationContext& 
 namespace
 {
 
-struct SimulationPostStepPipelineContext
+void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio,
+                                  RunRuntimeSettings& runtimeSettings,
+                                  RunTimerState& timers,
+                                  DiagnosticsRuntime& diagnosticsRuntime,
+                                  RunSceneState& scene,
+                                  SkullbonezCore::Environment::CameraCollection& cameras,
+                                  SkullbonezCore::GameObjects::GameModelCollection& models )
 {
-    SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio;
-    RunRuntimeSettings& runtimeSettings;
-    RunTimerState& timers;
-    DiagnosticsRuntime& diagnosticsRuntime;
-    RunSceneState& scene;
-    RunDebugState& debug;
-    SkullbonezCore::Environment::CameraCollection& cameras;
-    RuntimeTools& runtimeTools;
-    ReplayRuntime& replayRuntime;
-    SkullbonezCore::Environment::WorldEnvironment& world;
-    SkullbonezCore::GameObjects::GameModelCollection& models;
-    PhysicsEngine& physics;
-    const SceneEntityStore& entities;
-};
-
-struct SimulationPostStepPipelineResult
-{
-    bool replayCaptured = false;
-};
-
-class SimulationPostStepPipeline
-{
-  public:
-    static SimulationPostStepPipelineResult Run( SimulationPostStepPipelineContext& context )
-    {
-        SimulationPostStepPipelineResult result;
-        if ( context.contactAudio.IsEnabled() )
-        {
-            RunContactAudio( context );
-        }
-        if ( context.replayRuntime.IsCaptureEnabled() )
-        {
-            CaptureReplayFrame( context );
-            result.replayCaptured = true;
-        }
-        return result;
-    }
-
-  private:
-    static void RunContactAudio( SimulationPostStepPipelineContext& context )
-    {
-        PROFILE_SCOPED( "Frame/Physics/Step/ContactAudio" );
-
-        const Vector3 listenerPosition = context.cameras.GetRenderCameraTranslation();
-        context.contactAudio.BeginPhysicsStep( PHYSICS_FIXED_DT, listenerPosition );
-
-        const auto& colliderRecords = context.models.Colliders().Records();
-        auto materialForBody = [&]( int bodyIndex ) -> uint32_t
-        {
-            if ( bodyIndex >= 0 && bodyIndex < static_cast<int>( colliderRecords.size() ) )
-            {
-                return colliderRecords[static_cast<std::size_t>( bodyIndex )].contactMaterialId;
-            }
-            return HashStr( "default" );
-        };
-
-        if ( context.contactAudio.SimpleModeEnabled() )
-        {
-            // Why: Simple Mode answers the practical sound question directly:
-            // did a dynamic body experience enough mass-scaled linear velocity
-            // change to be heard? Motion comes from PhysicsBodyStore and contact
-            // material comes from the paired ColliderStore row.
-            const auto& bodyRecords = context.models.BodyStore().Records();
-            const int simpleBodyCount = static_cast<int>(
-                bodyRecords.size() < colliderRecords.size() ? bodyRecords.size() : colliderRecords.size() );
-            context.contactAudio.BeginSimpleLinearStep( simpleBodyCount );
-            for ( int bodyIndex = 0; bodyIndex < simpleBodyCount; ++bodyIndex )
-            {
-                const PhysicsBodyRecord& body = bodyRecords[static_cast<std::size_t>( bodyIndex )];
-                if ( body.isFixed )
-                {
-                    continue;
-                }
-                context.contactAudio.SubmitLinearMotion(
-                    bodyIndex,
-                    colliderRecords[static_cast<std::size_t>( bodyIndex )].contactMaterialId,
-                    body.position,
-                    body.linearVelocity,
-                    body.mass );
-            }
-        }
-        else
-        {
-            // Why: PhysicsDebugContact rows are emitted after accumulated normal
-            // impulses are known. Audio can consume those facts without entering
-            // solver math or changing deterministic physics state.
-            const std::vector<PhysicsDebugContact>& contacts = context.models.GetPhysicsDebugContacts();
-            for ( const PhysicsDebugContact& contact : contacts )
-            {
-                if ( contact.bodyA < 0 || contact.normalImpulse <= 0.0f )
-                {
-                    continue;
-                }
-
-                SkullbonezCore::Runtime::Audio::ContactAudioEvent event;
-                event.bodyA = contact.bodyA;
-                event.bodyB = contact.bodyB;
-                event.featureId = contact.featureId;
-                event.materialA = materialForBody( contact.bodyA );
-                event.materialB = materialForBody( contact.bodyB );
-                event.point = contact.point;
-                event.normal = contact.normal;
-                event.normalImpulse = contact.normalImpulse;
-                // Why: sound uses pre-solve relative motion so stationary wall bricks
-                // receiving propagated constraint force do not all become emitters.
-                event.normalClosingSpeed = contact.preSolveClosingSpeed;
-                event.tangentSlipSpeed = contact.preSolveSlipSpeed;
-                event.isTerrain = contact.bodyB < 0;
-                event.hasMotionData = true;
-                context.contactAudio.SubmitContact( event );
-            }
-        }
-
-        context.contactAudio.EndPhysicsStep();
-#ifdef _DEBUG
-        if ( context.diagnosticsRuntime.PhysicsDiagnosticsEnabled() )
-        {
-            RuntimeDiagnostics::LogContactAudioStepStats( context.diagnosticsRuntime.PhysicsDiagnostics(),
-                                                          context.scene,
-                                                          context.contactAudio.StepStats() );
-            const int decisionCount = context.contactAudio.DecisionCount();
-            for ( int i = 0; i < decisionCount; ++i )
-            {
-                SkullbonezCore::Runtime::Audio::ContactAudioDecision decision;
-                if ( context.contactAudio.GetDecision( i, decision ) )
-                {
-                    RuntimeDiagnostics::LogContactAudioDecision( context.diagnosticsRuntime.PhysicsDiagnostics(),
-                                                                 context.scene,
-                                                                 decision );
-                }
-            }
-        }
+#ifndef _DEBUG
+    (void)diagnosticsRuntime;
+    (void)scene;
 #endif
-        if ( context.runtimeSettings.contactAudioFlashMode != ContactAudioFlashMode::Off )
-        {
-            // Why: Sound-tab diagnostics can visualize emitted sounds, all
-            // candidates, or rejected candidates without touching physics state.
-            constexpr float CONTACT_AUDIO_FLASH_SECONDS = 0.1f;
-            const int decisionCount = context.contactAudio.DecisionCount();
-            for ( int i = 0; i < decisionCount; ++i )
-            {
-                SkullbonezCore::Runtime::Audio::ContactAudioDecision decision;
-                if ( !context.contactAudio.GetDecision( i, decision ) ||
-                     !ShouldFlashContactAudioDecision( context.runtimeSettings.contactAudioFlashMode, decision ) )
-                {
-                    continue;
-                }
+    PROFILE_SCOPED( "Frame/Physics/Step/ContactAudio" );
 
-                context.models.NotifyAudioContact( decision.event.bodyA, CONTACT_AUDIO_FLASH_SECONDS );
-                context.models.NotifyAudioContact( decision.event.bodyB, CONTACT_AUDIO_FLASH_SECONDS );
-            }
-        }
-        if ( context.runtimeSettings.contactAudioDebugCounters )
-        {
-            context.timers.contactAudioStatsLogTime += PHYSICS_FIXED_DT;
-            if ( context.timers.contactAudioStatsLogTime >= 1.0f )
-            {
-                const SkullbonezCore::Runtime::Audio::ContactAudioStats& stats = context.contactAudio.Stats();
-                printf( "[audio] contact stats facts=%u patches=%u merged=%u threshold=%u cooldown=%u "
-                        "submitted=%u rolling=%u/%u budget=%u dropped=%u\n",
-                        stats.eventsSeen,
-                        stats.patchCandidates,
-                        stats.mergedCandidates,
-                        stats.rejectedByThreshold,
-                        stats.rejectedByCooldown,
-                        stats.submittedVoices,
-                        stats.rollingSubmittedVoices,
-                        stats.rollingCandidates,
-                        stats.candidateOverflows + stats.burstWindowSkippedCandidates + stats.budgetRejectedCandidates,
-                        stats.droppedVoices );
-                context.contactAudio.ResetFrameStats();
-                context.timers.contactAudioStatsLogTime = 0.0f;
-            }
-        }
-    }
+    const Vector3 listenerPosition = cameras.GetRenderCameraTranslation();
+    contactAudio.BeginPhysicsStep( PHYSICS_FIXED_DT, listenerPosition );
 
-    static void CaptureReplayFrame( SimulationPostStepPipelineContext& context )
+    const auto& colliderRecords = models.Colliders().Records();
+    auto materialForBody = [&]( int bodyIndex ) -> uint32_t
     {
-        RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Replay );
-        PROFILE_SCOPED( "Frame/Physics/Step/ReplayCapture" );
-        ReplayLauncherVisualSample& launcherVisual = context.replayRuntime.LauncherVisualCaptureScratch();
-        context.runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
+        if ( bodyIndex >= 0 && bodyIndex < static_cast<int>( colliderRecords.size() ) )
+        {
+            return colliderRecords[static_cast<std::size_t>( bodyIndex )].contactMaterialId;
+        }
+        return HashStr( "default" );
+    };
 
-        ReplayCaptureInput input;
-        input.sceneFrame = context.scene.currentFrame;
-        input.simulationSeconds = context.timers.simulationTimer.GetTimeSinceLastStart();
-        input.physicsDt = PHYSICS_FIXED_DT;
-        input.fixedStep = context.scene.isFixedStep;
-        input.scenePhysicsEnabled = context.scene.isScenePhysics;
-        input.sceneTextEnabled = context.scene.isSceneText;
-        input.waterHidden = context.debug.isWaterHidden;
-        input.terrainHidden = context.debug.isTerrainHidden;
-        input.cameras = &context.cameras;
-        input.world = &context.world;
-        input.physics = &context.physics;
-        input.entities = &context.entities;
-        input.bodyStore = &context.models.BodyStore();
-        input.colliderStore = &context.models.Colliders();
-        input.launcherVisual = &launcherVisual;
-        context.replayRuntime.CaptureFrame( input );
+    if ( contactAudio.SimpleModeEnabled() )
+    {
+        // Why: Simple Mode answers the practical sound question directly:
+        // did a dynamic body experience enough mass-scaled linear velocity
+        // change to be heard? Motion comes from PhysicsBodyStore and contact
+        // material comes from the paired ColliderStore row.
+        const auto& bodyRecords = models.BodyStore().Records();
+        const int simpleBodyCount = static_cast<int>(
+            bodyRecords.size() < colliderRecords.size() ? bodyRecords.size() : colliderRecords.size() );
+        contactAudio.BeginSimpleLinearStep( simpleBodyCount );
+        for ( int bodyIndex = 0; bodyIndex < simpleBodyCount; ++bodyIndex )
+        {
+            const PhysicsBodyRecord& body = bodyRecords[static_cast<std::size_t>( bodyIndex )];
+            if ( body.isFixed )
+            {
+                continue;
+            }
+            contactAudio.SubmitLinearMotion( bodyIndex,
+                                             colliderRecords[static_cast<std::size_t>( bodyIndex )].contactMaterialId,
+                                             body.position,
+                                             body.linearVelocity,
+                                             body.mass );
+        }
     }
-};
+    else
+    {
+        // Why: PhysicsDebugContact rows are emitted after accumulated normal
+        // impulses are known. Audio can consume those facts without entering
+        // solver math or changing deterministic physics state.
+        const std::vector<PhysicsDebugContact>& contacts = models.GetPhysicsDebugContacts();
+        for ( const PhysicsDebugContact& contact : contacts )
+        {
+            if ( contact.bodyA < 0 || contact.normalImpulse <= 0.0f )
+            {
+                continue;
+            }
+
+            SkullbonezCore::Runtime::Audio::ContactAudioEvent event;
+            event.bodyA = contact.bodyA;
+            event.bodyB = contact.bodyB;
+            event.featureId = contact.featureId;
+            event.materialA = materialForBody( contact.bodyA );
+            event.materialB = materialForBody( contact.bodyB );
+            event.point = contact.point;
+            event.normal = contact.normal;
+            event.normalImpulse = contact.normalImpulse;
+            // Why: sound uses pre-solve relative motion so stationary wall bricks
+            // receiving propagated constraint force do not all become emitters.
+            event.normalClosingSpeed = contact.preSolveClosingSpeed;
+            event.tangentSlipSpeed = contact.preSolveSlipSpeed;
+            event.isTerrain = contact.bodyB < 0;
+            event.hasMotionData = true;
+            contactAudio.SubmitContact( event );
+        }
+    }
+
+    contactAudio.EndPhysicsStep();
+#ifdef _DEBUG
+    if ( diagnosticsRuntime.PhysicsDiagnosticsEnabled() )
+    {
+        RuntimeDiagnostics::LogContactAudioStepStats( diagnosticsRuntime.PhysicsDiagnostics(),
+                                                      scene,
+                                                      contactAudio.StepStats() );
+        const int decisionCount = contactAudio.DecisionCount();
+        for ( int i = 0; i < decisionCount; ++i )
+        {
+            SkullbonezCore::Runtime::Audio::ContactAudioDecision decision;
+            if ( contactAudio.GetDecision( i, decision ) )
+            {
+                RuntimeDiagnostics::LogContactAudioDecision( diagnosticsRuntime.PhysicsDiagnostics(), scene, decision );
+            }
+        }
+    }
+#endif
+    if ( runtimeSettings.contactAudioFlashMode != ContactAudioFlashMode::Off )
+    {
+        // Why: Sound-tab diagnostics can visualize emitted sounds, all
+        // candidates, or rejected candidates without touching physics state.
+        constexpr float CONTACT_AUDIO_FLASH_SECONDS = 0.1f;
+        const int decisionCount = contactAudio.DecisionCount();
+        for ( int i = 0; i < decisionCount; ++i )
+        {
+            SkullbonezCore::Runtime::Audio::ContactAudioDecision decision;
+            if ( !contactAudio.GetDecision( i, decision ) ||
+                 !ShouldFlashContactAudioDecision( runtimeSettings.contactAudioFlashMode, decision ) )
+            {
+                continue;
+            }
+
+            models.NotifyAudioContact( decision.event.bodyA, CONTACT_AUDIO_FLASH_SECONDS );
+            models.NotifyAudioContact( decision.event.bodyB, CONTACT_AUDIO_FLASH_SECONDS );
+        }
+    }
+    if ( runtimeSettings.contactAudioDebugCounters )
+    {
+        timers.contactAudioStatsLogTime += PHYSICS_FIXED_DT;
+        if ( timers.contactAudioStatsLogTime >= 1.0f )
+        {
+            const SkullbonezCore::Runtime::Audio::ContactAudioStats& stats = contactAudio.Stats();
+            printf( "[audio] contact stats facts=%u patches=%u merged=%u threshold=%u cooldown=%u "
+                    "submitted=%u rolling=%u/%u budget=%u dropped=%u\n",
+                    stats.eventsSeen,
+                    stats.patchCandidates,
+                    stats.mergedCandidates,
+                    stats.rejectedByThreshold,
+                    stats.rejectedByCooldown,
+                    stats.submittedVoices,
+                    stats.rollingSubmittedVoices,
+                    stats.rollingCandidates,
+                    stats.candidateOverflows + stats.burstWindowSkippedCandidates + stats.budgetRejectedCandidates,
+                    stats.droppedVoices );
+            contactAudio.ResetFrameStats();
+            timers.contactAudioStatsLogTime = 0.0f;
+        }
+    }
+}
+
+void CaptureReplayPostStep( ReplayRuntime& replayRuntime,
+                            RuntimeTools& runtimeTools,
+                            const RunSceneState& scene,
+                            RunTimerState& timers,
+                            const RunDebugState& debug,
+                            SkullbonezCore::Environment::CameraCollection& cameras,
+                            SkullbonezCore::Environment::WorldEnvironment& world,
+                            PhysicsEngine& physics,
+                            const SceneEntityStore& entities,
+                            SkullbonezCore::GameObjects::GameModelCollection& models )
+{
+    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Replay );
+    PROFILE_SCOPED( "Frame/Physics/Step/ReplayCapture" );
+    ReplayLauncherVisualSample& launcherVisual = replayRuntime.LauncherVisualCaptureScratch();
+    runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
+
+    ReplayCaptureInput input;
+    input.sceneFrame = scene.currentFrame;
+    input.simulationSeconds = timers.simulationTimer.GetTimeSinceLastStart();
+    input.physicsDt = PHYSICS_FIXED_DT;
+    input.fixedStep = scene.isFixedStep;
+    input.scenePhysicsEnabled = scene.isScenePhysics;
+    input.sceneTextEnabled = scene.isSceneText;
+    input.waterHidden = debug.isWaterHidden;
+    input.terrainHidden = debug.isTerrainHidden;
+    input.cameras = &cameras;
+    input.world = &world;
+    input.physics = &physics;
+    input.entities = &entities;
+    input.bodyStore = &models.BodyStore();
+    input.colliderStore = &models.Colliders();
+    input.launcherVisual = &launcherVisual;
+    replayRuntime.CaptureFrame( input );
+}
 
 } // namespace
 
@@ -630,13 +582,12 @@ SbResult Run::Execute()
                 TickPhysics( secondsPerFrame );
             }
 
-            ExecutePostPhysicsVisualizationContext postPhysicsVisualizationContext{ m_debug,
-                                                                                    m_sceneController.Models(),
-                                                                                    m_broadphaseVisualizer,
-                                                                                    m_collisionVisualizer,
-                                                                                    m_physicsDebugVisualizer };
             TickExecutePostPhysicsVisualizers(
-                postPhysicsVisualizationContext,
+                m_debug,
+                m_sceneController.Models(),
+                m_broadphaseVisualizer,
+                m_collisionVisualizer,
+                m_physicsDebugVisualizer,
                 secondsPerFrame,
                 [this]( const SpatialGrid::ActiveCell* activeCells, int activeCellCount )
                 { m_sceneController.UpdateRequiredBroadphaseXCells( activeCells, activeCellCount ); },
@@ -704,35 +655,33 @@ SbResult Run::Execute()
             }
             PROFILE_END( "Frame/Render" );
 
-            ExecuteUiTextFrameContext uiTextFrameContext{ m_renderer,
-                                                          frameRenderDiagnostics,
-                                                          uiRender,
-                                                          renderModels,
-                                                          m_diagnosticsRuntime,
-                                                          m_replayRuntime,
-                                                          m_timers,
-                                                          m_debug,
-                                                          m_sceneController.State(),
-                                                          m_runtimeSettings,
-                                                          m_config,
-                                                          m_sceneController.World(),
-                                                          m_runtimeTools,
-                                                          m_UI,
-                                                          m_inputRouter.RuntimeContext(),
-                                                          m_camera,
-                                                          m_contactAudio,
-                                                          m_sceneController,
-                                                          m_workerPool,
-                                                          m_window,
-                                                          m_launchOptions,
-                                                          RuntimeCameraModeEnabledMask( m_sceneController ),
-                                                          m_camera.mode == RunCameraMode::Attach
-                                                              ? m_attachedCamera.ModeLabel()
-                                                              : RunCameraModeLabel( m_camera.mode ),
-                                                          m_runtimeTools.LauncherFireModeLabel(),
-                                                          RunCameraModeUsesLauncher( m_camera.mode ),
-                                                          secondsPerFrame };
-            RenderExecuteUiTextFrame( uiTextFrameContext );
+            RenderExecuteUiTextFrame( m_renderer,
+                                      frameRenderDiagnostics,
+                                      uiRender,
+                                      renderModels,
+                                      m_diagnosticsRuntime,
+                                      m_replayRuntime,
+                                      m_timers,
+                                      m_debug,
+                                      m_sceneController.State(),
+                                      m_runtimeSettings,
+                                      m_config,
+                                      m_sceneController.World(),
+                                      m_runtimeTools,
+                                      m_UI,
+                                      m_inputRouter.RuntimeContext(),
+                                      m_camera,
+                                      m_contactAudio,
+                                      m_sceneController,
+                                      m_workerPool,
+                                      m_window,
+                                      m_launchOptions,
+                                      RuntimeCameraModeEnabledMask( m_sceneController ),
+                                      m_camera.mode == RunCameraMode::Attach ? m_attachedCamera.ModeLabel()
+                                                                             : RunCameraModeLabel( m_camera.mode ),
+                                      m_runtimeTools.LauncherFireModeLabel(),
+                                      RunCameraModeUsesLauncher( m_camera.mode ),
+                                      secondsPerFrame );
 
             PROFILE_BEGIN( "Frame/PostDraw/LiveStyleCapture" );
             {
@@ -937,22 +886,32 @@ void Run::AfterPhysicsStep()
                                                       m_sceneController.Physics(),
                                                       m_inputRouter,
                                                       m_interaction );
-    SimulationPostStepPipelineContext context{ m_contactAudio,
-                                               m_runtimeSettings,
-                                               m_timers,
-                                               m_diagnosticsRuntime,
-                                               m_sceneController.State(),
-                                               m_debug,
-                                               m_sceneController.Cameras(),
-                                               m_runtimeTools,
-                                               m_replayRuntime,
-                                               m_sceneController.World(),
-                                               m_sceneController.Models(),
-                                               m_sceneController.Physics(),
-                                               m_sceneController.Entities() };
-    const SimulationPostStepPipelineResult result = SimulationPostStepPipeline::Run( context );
+    if ( m_contactAudio.IsEnabled() )
+    {
+        ExecuteContactAudioPostStep( m_contactAudio,
+                                     m_runtimeSettings,
+                                     m_timers,
+                                     m_diagnosticsRuntime,
+                                     m_sceneController.State(),
+                                     m_sceneController.Cameras(),
+                                     m_sceneController.Models() );
+    }
+    const bool replayCaptured = m_replayRuntime.IsCaptureEnabled();
+    if ( replayCaptured )
+    {
+        CaptureReplayPostStep( m_replayRuntime,
+                               m_runtimeTools,
+                               m_sceneController.State(),
+                               m_timers,
+                               m_debug,
+                               m_sceneController.Cameras(),
+                               m_sceneController.World(),
+                               m_sceneController.Physics(),
+                               m_sceneController.Entities(),
+                               m_sceneController.Models() );
+    }
 #ifdef _DEBUG
-    if ( result.replayCaptured )
+    if ( replayCaptured )
     {
         const ReplayRuntime::SceneTimelineResetInput timelineReset = ReplayRuntime::DescribeSceneTimeline(
             m_sceneController,

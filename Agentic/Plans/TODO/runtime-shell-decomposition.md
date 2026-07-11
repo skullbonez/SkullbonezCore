@@ -1252,6 +1252,21 @@ split and broad frame-context/substitute-owner audit.
   and `RuntimeRenderer` must not retain `Run*`/`Run&`, callback bags, `void*`
   contexts, friend backdoors, broad mutable contexts, forwarding-only APIs, or
   authority over unrelated domains.
+
+F2 frame-boundary progress (2026-07-11): `RunFrame.cpp` contains no local
+`*Context` type. The former UI-text, post-physics visualization, and combined
+contact-audio/replay post-step bags are deleted. UI, visualization, audio, and
+replay work now receive explicit synchronous borrows, and audio/replay are
+separate domain functions rather than one replacement pipeline owner. The first
+Profile attempt exposed two Debug-only diagnostic parameters as `/W4` unused;
+the non-Debug ownership proof was made explicit and the corrected interaction
+gate passed all five scenarios in 18.7s. `tools\validate_full.bat` then passed in
+130.2s with the complete CPU umbrella, zero-warning Profile/Debug builds, zero
+DX12 InfoQueue errors, matching screenshots, standalone handle smoke, and the
+44,401-line varied baseline byte-exactly. Comment audit:
+`Agentic/Reports/2026-07-11/runtime-shell-f2-frame-context-comment-audit.md`,
+1 checked, 0 deferred. F2 remains open for the stress/automation, scene/replay,
+render/UI, and owner API surfaces.
 - [ ] F3. After every other runtime-shell item and required gate passes, run one
   independent read-only adversarial ownership review. Record concrete evidence
   for zero remaining god-object or disguised shared-state-hub findings in
