@@ -59,12 +59,19 @@ config keys keep parsing; pass roster is not restructured.
 - [ ] 2.5 Verify `godRaysEnabled` and `volumetricLightingEnabled` toggles
       still behave sensibly from the Cine tab; update `Config.h` comments
       (and tooltip text if present) to the new meaning.
-- [ ] 2.6 Gate: `tools\validate_dx12_renderer.bat`; capture before/after
+- [ ] 2.6 Reconcile UI sliders and live-style routing with the trimmed
+      cbuffer: `sunShaftStrength`/`sunShaftFalloff` (`UITabCinematic.cpp`
+      ~331-333, `ApplyCinematicUIParam`, `LiveStyleController`) must reach
+      the volumetric pass; remove any UI param route that now feeds nothing.
+- [ ] 2.7 If any RenderGraph pass declaration, resource use, or debug label
+      changed, run `tools\validate_dx12_arch_tests.bat` (known gap from
+      Plan 11 — see `Agentic/SessionState.md`).
+- [ ] 2.8 Gate: `tools\validate_dx12_renderer.bat`; capture before/after
       screenshots; DX12 validation errors 0.
-- [ ] 2.7 Intentional baseline update in its own commit (visual-only
+- [ ] 2.9 Intentional baseline update in its own commit (visual-only
       baselines; do not touch physics baselines), then rerun
       `tools\validate_dx12_renderer.bat` clean against the new baselines.
-- [ ] 2.8 Commit + push.
+- [ ] 2.10 Commit + push.
 
 ## Phase 3 — Bloom cost cleanup
 
@@ -77,7 +84,11 @@ config keys keep parsing; pass roster is not restructured.
 - [ ] 3.4 Gate: `tools\validate_dx12_renderer.bat` (+ isolated baseline
       update commit only if the image changed) and `tools\validate_perf.bat`
       (per-pixel hot-path change); allocation guard clean.
-- [ ] 3.5 Commit + push.
+- [ ] 3.5 If the (expected, faster) new timings trip the perf-baseline
+      thresholds, refresh `TestOutput/baselines/*_perf.json` intentionally
+      via `tools\update_baselines.bat` in an isolated commit and rerun
+      `tools\validate_perf.bat` clean. Never touch physics baselines here.
+- [ ] 3.6 Commit + push.
 
 ## Phase 4 — Named style modes (visuals unchanged)
 
