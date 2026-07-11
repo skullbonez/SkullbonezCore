@@ -383,7 +383,23 @@ record the reason in the commit body or handoff.
 
 When committing, write commit notes that are useful future handoff material, not a terse log line.
 
-- Use a short, action-oriented subject. Conventional prefixes like `docs:`, `fix:`, or `feat:` are fine when they fit.
+Every commit subject must begin with the exact progress header defined by the
+authoritative ledger in `Agentic/Plans/MASTER-PLAN.md`:
+
+```text
+<PLAN_NAME>, TASK <DONE> / <TASK_COUNT>, <OVERALL_PERCENT>% OVERALL COMPLETE — <ACTION SUMMARY>
+```
+
+Resolve all three values from the post-commit ledger state before staging. The
+overall percentage is the rounded portfolio-done total divided by the current
+portfolio task total; never estimate it. Every plan-implementation prompt must
+include the fully resolved required subject line. One plan owns each commit;
+split unrelated work, and use the MASTER-PLAN governance rule only for an
+unavoidable aggregate documentation/governance commit.
+
+- Keep the action summary after the required progress header short and action-
+  oriented. Conventional prefixes like `docs:`, `fix:`, or `feat:` may begin
+  that summary when they fit.
 - Add a body for anything beyond a trivial single-file cleanup. Explain what changed, why it changed, and the important implementation details by area.
 - Mention validation explicitly, including the command run and the meaningful result. Do not reduce this to "tests passed."
 - Call out baseline, artifact, or session-state updates when they are part of the change.

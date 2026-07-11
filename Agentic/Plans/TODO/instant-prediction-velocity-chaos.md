@@ -1,9 +1,14 @@
 # Instant 20s Prediction While Dragging Velocity (N-body chaos playground)
 
-Date: 2026-07-10
-Status: Not started — 0%. Feature backlog.
+Date: 2026-07-11 (status reconciled)
+Status: Planned — owner-priority live work. 0/6 implementation phases complete;
+the execution checklist has 1/50 preparation items checked.
 Impact area: Replay prediction scheduling, replay velocity-edit interaction,
 scene system (one new scene), worker pool usage, prediction overlay UX.
+
+Owner directive (2026-07-11): this feature is important and remains live in
+`TODO/`. Do not pause, park, move it to `WNF/`, or deprioritize it by inference;
+only an explicit later owner directive may change that status.
 
 ## Decisions locked with owner (2026-07-10)
 

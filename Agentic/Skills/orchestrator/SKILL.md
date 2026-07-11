@@ -87,7 +87,16 @@ usage, not repository artifacts or validation logs.
 For each plan or source slice, in order:
 
 1. Read the plan enough to understand scope, required validation, and
-   archival/report expectations.
+   archival/report expectations. Read the authoritative progress ledger in
+   `Agentic/Plans/MASTER-PLAN.md`, calculate the post-slice plan count and
+   rounded overall portfolio percentage, and include this fully resolved line
+   in the active implementation prompt/task framing before edits:
+
+```text
+Required commit subject first line: <PLAN_NAME>, TASK <DONE> / <TASK_COUNT>, <OVERALL_PERCENT>% OVERALL COMPLETE — <ACTION SUMMARY>
+```
+
+   Recalculate it if scope or task completion changes before commit.
 2. Complete exactly that plan in the main agent. Do not launch an implementation
    worker or ask a sub-agent to edit files.
 3. Inspect the result with `git status --short` and targeted file reads or
@@ -116,9 +125,12 @@ Return findings with file/line references and a clear verdict.
 8. Run `git status --short --branch` before staging.
 9. Stage only files belonging to the completed plan and its required
     reports/session-state updates.
-10. Commit with useful notes: what changed, why, implementation details by
-    area, exact validation command and result, and baseline/report/session-state
-    updates.
+10. Commit with the required MASTER progress header as the subject's first
+    fields, followed by a concise action summary. Use the post-commit ledger
+    values and update MASTER in the same commit whenever task completion or the
+    portfolio denominator changes. The body records what changed, why,
+    implementation details by area, exact validation command and result, and
+    baseline/report/session-state updates.
 11. Push normally. Never force-push.
 
 Only advance to the next plan after the current plan is reviewed, validated as

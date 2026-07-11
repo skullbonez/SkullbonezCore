@@ -66,6 +66,11 @@ is owned by `dx12-failure-propagation.md` and should land before owner moves.
 2. `validation-gate-integrity.md` V1 before new DX12 CPU tests.
 3. `runtime-shell-decomposition.md` extraction 5 consumes the stable facet/
    owner result; avoid moving the same render hook twice.
+4. Binding order is fixed: A2 establishes the concrete pipeline/root-signature
+   owner before `shader-pipeline-modernization.md` P1-P3 changes its bytecode
+   and binding contract. `shadow-edge-quality.md` S1 then extends the surviving
+   consolidated contract. Do not create a temporary second owner in either
+   dependent plan.
 
 ## Acceptance
 
