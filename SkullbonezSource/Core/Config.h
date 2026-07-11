@@ -10,6 +10,8 @@ Mental model:
   the glossary/invariants below.
 
 Glossary:
+  Domain config: Narrow value structure whose fields share one concrete runtime
+    owner, such as camera navigation or replay prediction scheduling.
   PGS (Projected Gauss-Seidel): Iterative constraint-solver method used for
   bounded contact impulses.
   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
@@ -18,6 +20,10 @@ Glossary:
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
   surface.
+  - Moving a setting into a domain struct must preserve its key, default,
+    accepted range, dump position, and every validation-sensitive consumer.
+  - `terrainRaw` selects both render and collision geometry; an asset-path move
+    must still receive physics validation at the formal gate.
 
 Related:
   - SkullbonezSource/Core/Config.cpp
@@ -58,6 +64,82 @@ struct RuntimeRenderFlags
     bool vsyncEnabled = true;
     bool forcePipelineSync = false;
     bool renderCollisionVolumes = false;
+    bool shadowParallelPrep = false;   // Render-only worker scheduling; physics parallelism has a separate owner.
+};
+
+// Cold source paths resolved by AssetSystem or terrain construction before
+// steady gameplay. The terrain heightfield is also collision geometry, so its
+// spelling is physics-validation-sensitive even though this value only owns a path.
+struct AssetPathsConfig
+{
+    std::string skyFront = "sky1.jpg";
+    std::string skyLeft = "sky2.jpg";
+    std::string skyBack = "sky3.jpg";
+    std::string skyRight = "sky4.jpg";
+    std::string skyUp = "sky5.jpg";
+    std::string skyDown = "sky6.jpg";
+    std::string terrainTexture = "ground.jpg";
+    std::string sphereTexture = "boundingSphere.jpg";
+    std::string terrainRaw = "terrain.raw";
+};
+
+// Camera-owned projection and navigation policy. Units are world units except
+// mouseSensitivity and cameraCollisionThreshold, which scale angular input.
+struct CameraConfig
+{
+    float frustumNear = 1.0f;
+    float frustumFar = 5500.0f;
+    float mouseSensitivity = 0.2f;
+    float keySpeed = 200.0f;
+    float cameraTweenRate = 3.0f;
+    float cameraCollisionThreshold = 0.01f;
+    float minCameraHeight = 1.5f;
+    float maxCameraHeight = 110.0f;
+    float minViewMag = 2.0f;
+    float maxViewMag = 300.0f;
+};
+
+// Skybox presentation values consumed by SkyBox geometry and the render pass.
+struct SkyboxConfig
+{
+    float renderHeight = 30.0f;
+    int overflow = 1;
+    float scale = 10.0f;
+};
+
+// Startup resource bounds. Scene overrides may replace these values, but the
+// compiled model maximum and WorkerPool maximum remain the hard caps.
+struct RuntimeCapacityConfig
+{
+    int gameModelCapacity = 4000;
+    int workerThreads = -1;            // -1 = auto, 0 = disabled, positive = explicit worker count.
+};
+
+// Private replay-prediction scheduling policy. These values never alter the
+// authoritative solver; they select instant or amortized private-engine work.
+struct ReplayPredictionConfig
+{
+    float instantBudgetMs = 30.0f;
+    int probeTicks = 50;
+};
+
+// Parser/dump compatibility owner for the retired projected blob-shadow path.
+// No runtime renderer currently consumes these values; live shadow maps use
+// ShadowQualityConfig inside ordinaryRender and cinematicRender.
+struct BlobShadowConfig
+{
+    float maxHeight = 50.0f;
+    float maxAlpha = 0.8f;
+    float offset = 0.2f;
+    float scale = 1.2f;
+};
+
+// Visual ocean-wave parameters copied into WorldEnvironment's bound render
+// style. They do not move the physics fluid surface or affect buoyancy.
+struct WaterRenderStyleSettings
+{
+    float oceanWaveHeight = 4.0f;
+    float oceanPerturbStrength = 0.002f;
 };
 
 struct ContactAudioConfig
@@ -344,64 +426,34 @@ class EngineConfig
     void Load( const char* path );
     void Dump( FILE* out ) const;
 
-    // Asset paths
-    std::string skyFront = "sky1.jpg";
-    std::string skyLeft = "sky2.jpg";
-    std::string skyBack = "sky3.jpg";
-    std::string skyRight = "sky4.jpg";
-    std::string skyUp = "sky5.jpg";
-    std::string skyDown = "sky6.jpg";
-    std::string terrainTexture = "ground.jpg";
-    std::string sphereTexture = "boundingSphere.jpg";
-    std::string terrainRaw = "terrain.raw";
-
-    // Window and rendering flags
+    // Migration invariant: domains moved out of the remaining flat E3 fields
+    // stay composed here; parser rows retain historical order and key spellings.
+    AssetPathsConfig assetPaths;
     WindowConfig window;
+    CameraConfig camera;
+    SkyboxConfig skybox;
+    RuntimeCapacityConfig runtimeCapacity;
     RuntimeRenderFlags runtimeRender;
+    ReplayPredictionConfig replayPrediction;
+    BlobShadowConfig blobShadow;
+    WaterRenderStyleSettings waterRenderStyle;
     ContactAudioConfig contactAudio;
     SceneLightConfig sceneLight;
     OrdinaryRenderConfig ordinaryRender;
     CinematicRenderConfig cinematicRender;
-
-    // Frustum
-    float frustumNear = 1.0f;
-    float frustumFar = 5500.0f;
-
-    // Camera controls
-    float mouseSensitivity = 0.2f;
-    float keySpeed = 200.0f;
-    float cameraTweenRate = 3.0f;
-    float cameraCollisionThreshold = 0.01f;
-    float minCameraHeight = 1.5f;
-    float maxCameraHeight = 110.0f;
-    float minViewMag = 2.0f;
-    float maxViewMag = 300.0f;
 
     // Terrain
     float terrainScale = 5.0f;
     float terrainHeightScale = 0.15f;
     int terrainRenderStepSize = 2;
 
-    // Skybox
-    float skyboxRenderHeight = 30.0f;
-    int skyboxOverflow = 1;
-    float skyboxScale = 10.0f;
-
     // Threading
-    int gameModelCapacity = 4000;
-    int workerThreads = -1;
     bool physicsParallel = true;
     bool physicsParallelApplyForces = true;
     bool physicsParallelTornadoField = false;
     bool physicsParallelNarrowphase = false;
     bool physicsParallelTerrainDetect = true;
     bool physicsParallelIntegrate = true;
-    bool shadowParallelPrep = false;
-
-    // Replay prediction measures private-engine throughput before choosing a
-    // scheduling mode. A zero budget keeps the legacy amortized path.
-    float replayPredictionInstantBudgetMs = 30.0f;
-    int replayPredictionProbeTicks = 50;
 
     // Physics
     float gravity = -30.0f;
@@ -445,12 +497,6 @@ class EngineConfig
     float physicsSleepAngularSpeed = 0.3f;
     int physicsSleepFrames = 30;
 
-    // Shadows
-    float shadowMaxHeight = 50.0f;
-    float shadowMaxAlpha = 0.8f;
-    float shadowOffset = 0.2f;
-    float shadowScale = 1.2f;
-
     // Generated-object spawn ranges
     float spawnXBase = 400.0f;
     int spawnXRange = 400;
@@ -466,15 +512,11 @@ class EngineConfig
     int ballRestitutionRange = 5;
     int ballRadiusRange = 10;
     int ballForceRange = 1000;
-
-    // Water
-    float oceanWaveHeight = 4.0f;
-    float oceanPerturbStrength = 0.002f;
 };
 
 inline int ActiveGameModelCapacity( const EngineConfig& config )
 {
-    return std::clamp( config.gameModelCapacity, 1, MAX_GAME_MODELS );
+    return std::clamp( config.runtimeCapacity.gameModelCapacity, 1, MAX_GAME_MODELS );
 }
 
 } // namespace Basics

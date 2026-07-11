@@ -97,11 +97,11 @@ concrete plan rows and counting it would duplicate tasks.
 | sim-render-interpolation | 0 | 5 | 0% |
 | editor-undo-redo | 0 | 5 | 0% |
 | data-format-versioning | 0 | 5 | 0% |
-| engine-config-decomposition | 0 | 5 | 0% |
+| engine-config-decomposition | 2 | 5 | 40% |
 | entity-model-endgame | 4 | 4 | 100% |
 | instant-prediction-velocity-chaos | 52 | 52 | 100% |
 | shadow-edge-quality | 0 | 5 | 0% |
-| **Portfolio total** | **235** | **276** | **85%** |
+| **Portfolio total** | **237** | **276** | **86%** |
 
 ## Current Execution Priority
 
@@ -187,7 +187,7 @@ Reconciliation notes live inside each plan.
 | [sim-render-interpolation](TODO/sim-render-interpolation.md) | Planned | 0/5 | After entity-model closure and stable renderer ownership; P1 capture-determinism guard lands first |
 | [editor-undo-redo](TODO/editor-undo-redo.md) | Planned | 0/5 | After entity-model closure; build history on final `PhysicsSceneObjectId` and post-`GameModelCollection` scene APIs |
 | [data-format-versioning](TODO/data-format-versioning.md) | Planned | 0/5 | Deliver after editor; asset/hull preparation is independent, but `engine.cfg` waits for config decomposition; scene v1→v2 remains the precedent |
-| [engine-config-decomposition](TODO/engine-config-decomposition.md) | Planned | 0/5 | After DX12 cleanup phase 5; fold the final cinematic/shadow config shape directly into domain structs |
+| [engine-config-decomposition](TODO/engine-config-decomposition.md) | Active | 2/5 | E1/E2 moved 33 fields into eight narrow non-physics domains with an exact dump contract and full gate; isolate the 48 physics-sensitive defaults next |
 
 ## Features
 

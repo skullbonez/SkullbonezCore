@@ -1100,8 +1100,8 @@ void SkyPass::Render( const RenderFrameContext& frame, const Math::Transformatio
 
     // The cube-map sky follows camera X/Z so the box feels infinitely far away,
     // while its Y stays authored by config to preserve the long-standing horizon.
-    Matrix4 skyView = view * Matrix4::Translate( frame.eye.x, m_config.skyboxRenderHeight, frame.eye.z ) *
-                      Matrix4::Scale( m_config.skyboxScale );
+    Matrix4 skyView = view * Matrix4::Translate( frame.eye.x, m_config.skybox.renderHeight, frame.eye.z ) *
+                      Matrix4::Scale( m_config.skybox.scale );
     // Pass contract: cube-map skybox faces sample only slot 0. Slots owned by
     // water, post, or shadows must not leak into these six mesh draws.
     ClearRenderTextureSlotsExcept( RenderCommands( frame ), RENDER_TEXTURE_SLOT_0 );
@@ -2211,8 +2211,8 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
                                   frame.eye,
                                   frame.viewProjection,
                                   cinematic,
-                                  m_config.frustumNear,
-                                  m_config.frustumFar );
+                                  m_config.camera.frustumNear,
+                                  m_config.camera.frustumFar );
         // Pass contract: texture slot 0 is rendered color, slot 1 is rendered
         // depth. The shader uses depth to tell sky pixels from solid geometry so
         // rays pass through sky and fade when they cross hills/balls.
@@ -2314,8 +2314,8 @@ void TonemapPass::Render( const RenderFrameContext& frame,
         const CinematicRenderConfig& cinematic = *frame.cinematic;
         BindTonemapPassParams( *m_tonemapResources.shader,
                                cinematic,
-                               m_config.frustumNear,
-                               m_config.frustumFar,
+                               m_config.camera.frustumNear,
+                               m_config.camera.frustumFar,
                                m_sceneResources.hdrTarget->GetWidth(),
                                m_sceneResources.hdrTarget->GetHeight(),
                                volumetricReady );

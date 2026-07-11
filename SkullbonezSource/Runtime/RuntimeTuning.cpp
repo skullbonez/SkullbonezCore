@@ -263,7 +263,7 @@ void ApplyWorkerThreadCountOverride( EngineConfig& config,
             ? -1
             : std::clamp( requestedWorkerThreads, 0, SkullbonezCore::Threading::WorkerPool::MaxThreadCount() );
     const int resolvedWorkerThreads = SkullbonezCore::Threading::WorkerPool::ResolveThreadCount( clampedWorkerThreads );
-    config.workerThreads = clampedWorkerThreads;
+    config.runtimeCapacity.workerThreads = clampedWorkerThreads;
     if ( workerPool.GetThreadCount() != resolvedWorkerThreads )
     {
         workerPool.Initialise( clampedWorkerThreads );

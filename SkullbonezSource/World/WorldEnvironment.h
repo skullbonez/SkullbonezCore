@@ -182,7 +182,10 @@ class WorldEnvironment
     Physics::PhysicsWorldForces GetPhysicsWorldForces() const;                       // Tick-local force inputs for physics-owned integration.
 
   private:
-    struct WaterRenderStyleSettings
+    // Snapshot of both render profiles plus the config-owned ocean controls.
+    // The public config value is Basics::WaterRenderStyleSettings; this bound
+    // copy also retains profile state needed across render calls.
+    struct BoundWaterRenderStyleSettings
     {
         Basics::OrdinaryRenderConfig ordinary;                                       // Ordinary water shader style from current runtime config.
         Basics::CinematicRenderConfig cinematicFallback;                             // Used when cinematic render has no per-frame override.
@@ -213,7 +216,7 @@ class WorldEnvironment
     std::unique_ptr<Rendering::IShader> m_calmShader;
     std::unique_ptr<Rendering::IMesh> m_oceanMesh;                                   // Outer water: waves + perturbation
     std::unique_ptr<Rendering::IShader> m_oceanShader;
-    WaterRenderStyleSettings m_waterStyle;                                           // Owned water shader style subset; defaults support standalone worlds.
+    BoundWaterRenderStyleSettings m_waterStyle;                                      // Owned water shader style subset; defaults support standalone worlds.
     WaterMeshBuildSettings m_waterMeshBuild;                                         // Owned water mesh rebuild subset.
     FluidForceSettings m_fluidForces;                                                // Owned fluid-force subset used by deterministic physics.
     Assets::AssetSystem* m_assets = nullptr;                                         // Borrowed asset registry for water shaders.

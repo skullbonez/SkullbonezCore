@@ -121,10 +121,10 @@ void RunCameraState::TickControls( Environment::CameraCollection& cameras,
         cameras,
         terrain,
         RuntimeCameraMovementInput{
-            cameraDt * config.keySpeed,
-            CAMERA_MOUSE_REFERENCE_DT * config.mouseSensitivity,
-            config.minCameraHeight,
-            config.maxCameraHeight,
+            cameraDt * config.camera.keySpeed,
+            CAMERA_MOUSE_REFERENCE_DT * config.camera.mouseSensitivity,
+            config.camera.minCameraHeight,
+            config.camera.maxCameraHeight,
             attachedOrbitOwnsCamera,
             RunCameraModeUsesFlyControls( mode, attachedCamera.State().activeFollow, director.grabbed ),
             editorModeEnabled,
@@ -134,11 +134,11 @@ void RunCameraState::TickControls( Environment::CameraCollection& cameras,
     if ( RunCameraModeIsAttached( mode ) )
     {
         const float orbitYawDelta =
-            static_cast<float>( input.xMove ) * CAMERA_MOUSE_REFERENCE_DT * config.mouseSensitivity;
+            static_cast<float>( input.xMove ) * CAMERA_MOUSE_REFERENCE_DT * config.camera.mouseSensitivity;
         const float orbitPitchDelta =
-            static_cast<float>( input.yMove ) * CAMERA_MOUSE_REFERENCE_DT * config.mouseSensitivity;
+            static_cast<float>( input.yMove ) * CAMERA_MOUSE_REFERENCE_DT * config.camera.mouseSensitivity;
         (void)attachedCamera.TickFollow( models, cameras, orbitYawDelta, orbitPitchDelta );
     }
-    cameras.SetTweenSpeed( config.cameraTweenRate * cameraDt );
+    cameras.SetTweenSpeed( config.camera.cameraTweenRate * cameraDt );
 }
 } // namespace SkullbonezCore::Basics

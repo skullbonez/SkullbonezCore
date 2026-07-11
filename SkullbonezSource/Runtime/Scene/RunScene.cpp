@@ -107,7 +107,7 @@ void ApplySceneWorkerThreadSetting( EngineConfig& config,
     const int clampedWorkerThreads =
         std::clamp( requestedWorkerThreads, -1, SkullbonezCore::Threading::WorkerPool::MaxThreadCount() );
     const int resolvedWorkerThreads = SkullbonezCore::Threading::WorkerPool::ResolveThreadCount( clampedWorkerThreads );
-    config.workerThreads = clampedWorkerThreads;
+    config.runtimeCapacity.workerThreads = clampedWorkerThreads;
     if ( workerPool.GetThreadCount() != resolvedWorkerThreads )
     {
         workerPool.Initialise( clampedWorkerThreads );
@@ -742,7 +742,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
     // Branch on file-backed scene mode vs generated demo mode.
     if ( scenePath.empty() )
     {
-        m_config.gameModelCapacity = m_startup.gameModelCapacity;
+        m_config.runtimeCapacity.gameModelCapacity = m_startup.gameModelCapacity;
         ApplySceneWorkerThreadSetting( m_config, workerPool, m_startup.workerThreads );
         if ( m_launchOptions.seedOverride > 0 )
         {
@@ -757,7 +757,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
                                m_config,
                                assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
                                                                "terrain.raw",
-                                                               m_config.terrainRaw.c_str() ),
+                                                               m_config.assetPaths.terrainRaw.c_str() ),
                                m_renderBackendView.deviceLifecycle,
                                m_renderBackendView.renderResources );
         if ( !terrainResult.ok )
@@ -835,7 +835,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
         {
             sceneTornadoSystem = scene.GetTornadoSystemConfig();
         }
-        m_config.gameModelCapacity =
+        m_config.runtimeCapacity.gameModelCapacity =
             scene.HasModelCapacityOverride() ? scene.GetModelCapacity() : m_startup.gameModelCapacity;
         ApplySceneWorkerThreadSetting(
             m_config,
@@ -952,7 +952,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
                                    m_config,
                                    assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
                                                                    "terrain.raw",
-                                                                   m_config.terrainRaw.c_str() ),
+                                                                   m_config.assetPaths.terrainRaw.c_str() ),
                                    m_renderBackendView.deviceLifecycle,
                                    m_renderBackendView.renderResources );
             if ( !terrainResult.ok )

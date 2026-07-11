@@ -72,10 +72,10 @@ constexpr std::size_t REPLAY_LAUNCHER_LASER_SHOT_CAPACITY = 32;
 SkullbonezCore::Environment::CameraMovementSettings BuildCameraMovementSettings( const EngineConfig& cfg )
 {
     SkullbonezCore::Environment::CameraMovementSettings settings;
-    settings.minViewMag = cfg.minViewMag;
-    settings.maxViewMag = cfg.maxViewMag;
-    settings.minCameraHeight = cfg.minCameraHeight;
-    settings.cameraCollisionThreshold = cfg.cameraCollisionThreshold;
+    settings.minViewMag = cfg.camera.minViewMag;
+    settings.maxViewMag = cfg.camera.maxViewMag;
+    settings.minCameraHeight = cfg.camera.minCameraHeight;
+    settings.cameraCollisionThreshold = cfg.camera.cameraCollisionThreshold;
     return settings;
 }
 
@@ -367,8 +367,8 @@ void ApplyStartupDiagnosticsPolicy( const RunStartupOverrides& overrides,
 
 void RunStartupState::ApplyStartupConfig( const EngineConfig& config )
 {
-    gameModelCapacity = std::clamp( config.gameModelCapacity, 1, MAX_GAME_MODELS );
-    workerThreads = config.workerThreads;
+    gameModelCapacity = std::clamp( config.runtimeCapacity.gameModelCapacity, 1, MAX_GAME_MODELS );
+    workerThreads = config.runtimeCapacity.workerThreads;
 }
 
 
@@ -800,7 +800,7 @@ void Run::Initialise()
     }
     const std::string terrainRawPath = m_assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
                                                                          "terrain.raw",
-                                                                         cfg.terrainRaw.c_str() );
+                                                                         cfg.assetPaths.terrainRaw.c_str() );
     std::unique_ptr<Terrain> startupTerrain;
     const SbResult startupTerrainResult = Terrain::TryCreateFromHeightMap( terrainRawPath.c_str(),
                                                                            256,

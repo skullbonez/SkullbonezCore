@@ -3879,7 +3879,7 @@ void RunReplayPredictionWorkerRange( ReplayRuntime& replayRuntime,
             std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - probeStart ).count();
         prediction.simulation.probeElapsedMs += elapsedMs;
         prediction.simulation.probeTicksCompleted += completedTicks;
-        if ( prediction.simulation.probeTicksCompleted >= config.replayPredictionProbeTicks &&
+        if ( prediction.simulation.probeTicksCompleted >= config.replayPrediction.probeTicks &&
              prediction.simulation.probeElapsedMs > 0.0 )
         {
             const double ticksPerMs =
@@ -4019,8 +4019,8 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
 
     prediction.simulation.sourceFrameIndex = sourceFrameIndex;
     prediction.simulation.sourceSolverHash = sourceSolverHash;
-    prediction.build.instantBudgetMs = static_cast<double>( config.replayPredictionInstantBudgetMs );
-    prediction.build.probeTickBudget = config.replayPredictionProbeTicks;
+    prediction.build.instantBudgetMs = static_cast<double>( config.replayPrediction.instantBudgetMs );
+    prediction.build.probeTickBudget = config.replayPrediction.probeTicks;
     prediction.build.jobStart = std::chrono::steady_clock::now();
     if ( const ReplaySolverFrameSample* latest = replayRuntime.Solver().LatestSample() )
     {

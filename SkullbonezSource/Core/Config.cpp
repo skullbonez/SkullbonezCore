@@ -18,6 +18,8 @@ Glossary:
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
   surface.
+  - ConfigSettings row order is Dump order. Domain moves change destination
+    paths only; key spelling, accepted range, and relative order stay fixed.
 
 Related:
   - SkullbonezSource/Core/Config.h
@@ -284,37 +286,37 @@ const ConfigSetting* ConfigSettings( size_t& outCount )
         CONFIG_INT( "bits_per_pixel", window.bitsPerPixel, 1, 128 ),
         CONFIG_INT( "refresh_rate", window.refreshRate, 1, 1000 ),
 
-        CONFIG_FLOAT( "frustum_near", frustumNear, 0.0001, 100000000.0 ),
-        CONFIG_FLOAT( "frustum_far", frustumFar, 0.0001, 100000000.0 ),
+        CONFIG_FLOAT( "frustum_near", camera.frustumNear, 0.0001, 100000000.0 ),
+        CONFIG_FLOAT( "frustum_far", camera.frustumFar, 0.0001, 100000000.0 ),
 
-        CONFIG_FLOAT( "mouse_sensitivity", mouseSensitivity, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "key_speed", keySpeed, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "camera_tween_rate", cameraTweenRate, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "camera_collision_threshold", cameraCollisionThreshold, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "min_camera_height", minCameraHeight, -1000000.0, 1000000.0 ),
-        CONFIG_FLOAT( "max_camera_height", maxCameraHeight, -1000000.0, 1000000.0 ),
-        CONFIG_FLOAT( "min_view_mag", minViewMag, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "max_view_mag", maxViewMag, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "mouse_sensitivity", camera.mouseSensitivity, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "key_speed", camera.keySpeed, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "camera_tween_rate", camera.cameraTweenRate, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "camera_collision_threshold", camera.cameraCollisionThreshold, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "min_camera_height", camera.minCameraHeight, -1000000.0, 1000000.0 ),
+        CONFIG_FLOAT( "max_camera_height", camera.maxCameraHeight, -1000000.0, 1000000.0 ),
+        CONFIG_FLOAT( "min_view_mag", camera.minViewMag, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "max_view_mag", camera.maxViewMag, 0.0, 1000000.0 ),
 
         CONFIG_FLOAT( "terrain_scale", terrainScale, 0.0001, 1000000.0 ),
         CONFIG_FLOAT( "terrain_height_scale", terrainHeightScale, -1000000.0, 1000000.0 ),
         CONFIG_INT( "terrain_render_step_size", terrainRenderStepSize, 1, 1024 ),
 
-        CONFIG_FLOAT( "skybox_render_height", skyboxRenderHeight, -1000000.0, 1000000.0 ),
-        CONFIG_INT( "skybox_overflow", skyboxOverflow, -1000000, 1000000 ),
-        CONFIG_FLOAT( "skybox_scale", skyboxScale, 0.0001, 1000000.0 ),
+        CONFIG_FLOAT( "skybox_render_height", skybox.renderHeight, -1000000.0, 1000000.0 ),
+        CONFIG_INT( "skybox_overflow", skybox.overflow, -1000000, 1000000 ),
+        CONFIG_FLOAT( "skybox_scale", skybox.scale, 0.0001, 1000000.0 ),
 
-        CONFIG_INT( "game_model_capacity", gameModelCapacity, 1, MAX_GAME_MODELS ),
-        CONFIG_INT( "worker_threads", workerThreads, -1, 1024 ),
+        CONFIG_INT( "game_model_capacity", runtimeCapacity.gameModelCapacity, 1, MAX_GAME_MODELS ),
+        CONFIG_INT( "worker_threads", runtimeCapacity.workerThreads, -1, 1024 ),
         CONFIG_BOOL( "physics_parallel", physicsParallel ),
         CONFIG_BOOL( "physics_parallel_apply_forces", physicsParallelApplyForces ),
         CONFIG_BOOL( "physics_parallel_tornado_field", physicsParallelTornadoField ),
         CONFIG_BOOL( "physics_parallel_narrowphase", physicsParallelNarrowphase ),
         CONFIG_BOOL( "physics_parallel_terrain_detect", physicsParallelTerrainDetect ),
         CONFIG_BOOL( "physics_parallel_integrate", physicsParallelIntegrate ),
-        CONFIG_BOOL( "shadow_parallel_prep", shadowParallelPrep ),
-        CONFIG_FLOAT( "replay_prediction_instant_budget_ms", replayPredictionInstantBudgetMs, 0.0, 10000.0 ),
-        CONFIG_INT( "replay_prediction_probe_ticks", replayPredictionProbeTicks, 8, 2400 ),
+        CONFIG_BOOL( "shadow_parallel_prep", runtimeRender.shadowParallelPrep ),
+        CONFIG_FLOAT( "replay_prediction_instant_budget_ms", replayPrediction.instantBudgetMs, 0.0, 10000.0 ),
+        CONFIG_INT( "replay_prediction_probe_ticks", replayPrediction.probeTicks, 8, 2400 ),
 
         CONFIG_FLOAT( "scene_light_color_r", sceneLight.colorR, -1000000.0, 1000000.0 ),
         CONFIG_FLOAT( "scene_light_color_g", sceneLight.colorG, -1000000.0, 1000000.0 ),
@@ -471,10 +473,10 @@ const ConfigSetting* ConfigSettings( size_t& outCount )
         CONFIG_FLOAT( "physics_sleep_angular_speed", physicsSleepAngularSpeed, 0.0, 1000000.0 ),
         CONFIG_INT( "physics_sleep_frames", physicsSleepFrames, 0, 1000000 ),
 
-        CONFIG_FLOAT( "shadow_max_height", shadowMaxHeight, 0.0, 1000000.0 ),
-        CONFIG_FLOAT( "shadow_max_alpha", shadowMaxAlpha, 0.0, 1.0 ),
-        CONFIG_FLOAT( "shadow_offset", shadowOffset, -1000000.0, 1000000.0 ),
-        CONFIG_FLOAT( "shadow_scale", shadowScale, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "shadow_max_height", blobShadow.maxHeight, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "shadow_max_alpha", blobShadow.maxAlpha, 0.0, 1.0 ),
+        CONFIG_FLOAT( "shadow_offset", blobShadow.offset, -1000000.0, 1000000.0 ),
+        CONFIG_FLOAT( "shadow_scale", blobShadow.scale, 0.0, 1000000.0 ),
 
         CONFIG_FLOAT( "spawn_x_base", spawnXBase, -1000000.0, 1000000.0 ),
         CONFIG_INT( "spawn_x_range", spawnXRange, 0, 1000000 ),
@@ -491,18 +493,18 @@ const ConfigSetting* ConfigSettings( size_t& outCount )
         CONFIG_INT( "ball_radius_range", ballRadiusRange, 0, 1000000 ),
         CONFIG_INT( "ball_force_range", ballForceRange, 0, 1000000 ),
 
-        CONFIG_STRING( "sky_front", skyFront ),
-        CONFIG_STRING( "sky_left", skyLeft ),
-        CONFIG_STRING( "sky_back", skyBack ),
-        CONFIG_STRING( "sky_right", skyRight ),
-        CONFIG_STRING( "sky_up", skyUp ),
-        CONFIG_STRING( "sky_down", skyDown ),
-        CONFIG_STRING( "terrain_texture", terrainTexture ),
-        CONFIG_STRING( "sphere_texture", sphereTexture ),
-        CONFIG_STRING( "terrain_raw", terrainRaw ),
+        CONFIG_STRING( "sky_front", assetPaths.skyFront ),
+        CONFIG_STRING( "sky_left", assetPaths.skyLeft ),
+        CONFIG_STRING( "sky_back", assetPaths.skyBack ),
+        CONFIG_STRING( "sky_right", assetPaths.skyRight ),
+        CONFIG_STRING( "sky_up", assetPaths.skyUp ),
+        CONFIG_STRING( "sky_down", assetPaths.skyDown ),
+        CONFIG_STRING( "terrain_texture", assetPaths.terrainTexture ),
+        CONFIG_STRING( "sphere_texture", assetPaths.sphereTexture ),
+        CONFIG_STRING( "terrain_raw", assetPaths.terrainRaw ),
 
-        CONFIG_FLOAT( "ocean_wave_height", oceanWaveHeight, -1000000.0, 1000000.0 ),
-        CONFIG_FLOAT( "ocean_perturb_strength", oceanPerturbStrength, -1000000.0, 1000000.0 ),
+        CONFIG_FLOAT( "ocean_wave_height", waterRenderStyle.oceanWaveHeight, -1000000.0, 1000000.0 ),
+        CONFIG_FLOAT( "ocean_perturb_strength", waterRenderStyle.oceanPerturbStrength, -1000000.0, 1000000.0 ),
 
         CONFIG_BOOL( "vsync_enabled", runtimeRender.vsyncEnabled ),
         CONFIG_BOOL( "force_pipeline_sync", runtimeRender.forcePipelineSync ),

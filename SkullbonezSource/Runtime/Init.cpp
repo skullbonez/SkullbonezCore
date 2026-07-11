@@ -1933,11 +1933,11 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
                   snprintf( message, sizeof( message ), "--workers expects -1, 0, or 1..%d.", maxWorkerThreads );
                   return FailCommandLineParse( message );
               }
-              config.workerThreads = workerThreads;
+              config.runtimeCapacity.workerThreads = workerThreads;
               fprintf( stdout,
                        "[workers] Override: %d (resolved %d, max %d)\n",
-                       config.workerThreads,
-                       WorkerPool::ResolveThreadCount( config.workerThreads ),
+                       config.runtimeCapacity.workerThreads,
+                       WorkerPool::ResolveThreadCount( config.runtimeCapacity.workerThreads ),
                        maxWorkerThreads );
               return true;
           } },
@@ -1951,10 +1951,10 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
               {
                   return FailCommandLineParse( "--model-capacity expects 1..%d.", MAX_GAME_MODELS );
               }
-              config.gameModelCapacity = capacity;
+              config.runtimeCapacity.gameModelCapacity = capacity;
               fprintf( stdout,
                        "[models] Active model capacity: %d (compiled max %d)\n",
-                       config.gameModelCapacity,
+                       config.runtimeCapacity.gameModelCapacity,
                        MAX_GAME_MODELS );
               return true;
           } },
@@ -1989,7 +1989,7 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
               {
                   return FailCommandLineParse( "--shadow-parallel-prep expects optional on|off." );
               }
-              config.shadowParallelPrep = enabled;
+              config.runtimeRender.shadowParallelPrep = enabled;
               fprintf( stdout,
                        "[workers] Shadow parallel prep %s via command line.\n",
                        enabled ? "enabled" : "disabled" );
@@ -3413,7 +3413,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     }
 
     WorkerPool workerPool;
-    workerPool.Initialise( cfg.workerThreads );
+    workerPool.Initialise( cfg.runtimeCapacity.workerThreads );
     if ( args.workerSelfTest )
     {
         const bool workersOk = RunWorkerSystemSelfTest( workerPool, stdout );
@@ -3425,7 +3425,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     Window windowOwner;
     Window* window = &windowOwner;
     window->SetStartupWindowSize( cfg.window.screenX, cfg.window.screenY );
-    window->SetProjectionFrustum( cfg.frustumNear, cfg.frustumFar );
+    window->SetProjectionFrustum( cfg.camera.frustumNear, cfg.camera.frustumFar );
     const SbResult windowResult = window->CreateAppWindow( hInstance, cfg.window.fullscreen );
     if ( !windowResult.ok )
     {

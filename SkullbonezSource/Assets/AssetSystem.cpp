@@ -127,19 +127,49 @@ void AssetSystem::RegisterBuiltInSourceAssets( const Basics::EngineConfig& confi
     // Concept: built-in runtime assets are source records, not GPU resources.
     // Renderer lifecycle code consumes these records later when backend facets
     // are available.
-    RegisterTextureSourceAsset( "texture.terrain", config.terrainTexture.c_str(), TEXTURE_GROUND, true, true, 3 );
+    RegisterTextureSourceAsset( "texture.terrain",
+                                config.assetPaths.terrainTexture.c_str(),
+                                TEXTURE_GROUND,
+                                true,
+                                true,
+                                3 );
     RegisterTextureSourceAsset( "texture.sphere",
-                                config.sphereTexture.c_str(),
+                                config.assetPaths.sphereTexture.c_str(),
                                 TEXTURE_BOUNDING_SPHERE,
                                 true,
                                 true,
                                 3 );
-    RegisterTextureSourceAsset( "texture.sky.left", config.skyLeft.c_str(), TEXTURE_SKY_LEFT, true, true, 3 );
-    RegisterTextureSourceAsset( "texture.sky.right", config.skyRight.c_str(), TEXTURE_SKY_RIGHT, true, true, 3 );
-    RegisterTextureSourceAsset( "texture.sky.front", config.skyFront.c_str(), TEXTURE_SKY_FRONT, true, true, 3 );
-    RegisterTextureSourceAsset( "texture.sky.back", config.skyBack.c_str(), TEXTURE_SKY_BACK, true, true, 3 );
-    RegisterTextureSourceAsset( "texture.sky.up", config.skyUp.c_str(), TEXTURE_SKY_UP, true, true, 3 );
-    RegisterTextureSourceAsset( "texture.sky.down", config.skyDown.c_str(), TEXTURE_SKY_DOWN, true, true, 3 );
+    RegisterTextureSourceAsset( "texture.sky.left",
+                                config.assetPaths.skyLeft.c_str(),
+                                TEXTURE_SKY_LEFT,
+                                true,
+                                true,
+                                3 );
+    RegisterTextureSourceAsset( "texture.sky.right",
+                                config.assetPaths.skyRight.c_str(),
+                                TEXTURE_SKY_RIGHT,
+                                true,
+                                true,
+                                3 );
+    RegisterTextureSourceAsset( "texture.sky.front",
+                                config.assetPaths.skyFront.c_str(),
+                                TEXTURE_SKY_FRONT,
+                                true,
+                                true,
+                                3 );
+    RegisterTextureSourceAsset( "texture.sky.back",
+                                config.assetPaths.skyBack.c_str(),
+                                TEXTURE_SKY_BACK,
+                                true,
+                                true,
+                                3 );
+    RegisterTextureSourceAsset( "texture.sky.up", config.assetPaths.skyUp.c_str(), TEXTURE_SKY_UP, true, true, 3 );
+    RegisterTextureSourceAsset( "texture.sky.down",
+                                config.assetPaths.skyDown.c_str(),
+                                TEXTURE_SKY_DOWN,
+                                true,
+                                true,
+                                3 );
 
     RegisterAssetLibrarySourceAsset( "assetlib.low_poly_nature", "assets/low_poly_nature.assets.json" );
     RegisterAssetLibrarySourceAsset( "assetlib.buildings", "assets/buildings.assets.json" );

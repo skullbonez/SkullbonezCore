@@ -2178,7 +2178,7 @@ RuntimeRenderModelFrameView RuntimeRenderer::BuildModelFrameView( SkullbonezCore
         &workerPool,
         scene.SceneEntityCount(),
         config.runtimeRender.renderCollisionVolumes,
-        config.shadowParallelPrep,
+        config.runtimeRender.shadowParallelPrep,
         scene.GetSceneKineticEnergy(),
         physics.GetTornadoSystemElapsedSeconds(),
         scene.CollectMemoryStats() };
