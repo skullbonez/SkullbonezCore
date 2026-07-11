@@ -80,6 +80,10 @@ class GameModelCollection;
 namespace Physics
 {
 class PhysicsEngine;
+} // namespace Physics
+namespace UI
+{
+class InGameUI;
 }
 namespace Basics
 {
@@ -94,7 +98,9 @@ class RuntimeTools;
 class AttachedCameraController;
 class SceneEntityStore;
 class SceneController;
+class DiagnosticsRuntime;
 class Window;
+struct RunDebugState;
 
 struct EditorPointerRouteInput
 {
@@ -306,6 +312,11 @@ class InputRouter
   public:
     InputRouter();
 
+    RuntimeInputContext& RuntimeContext();
+    const RuntimeInputContext& RuntimeContext() const;
+    InputActions& Actions();
+    const InputActions& Actions() const;
+
     // Captures button edges, advances every binding's key memory, and handles
     // focus transitions. The output is reset here so subsequent RoutePhase
     // calls append one ordered frame result.
@@ -328,8 +339,8 @@ class InputRouter
     // Cross-domain policy facts arrive as values and are not retained.
     RuntimeInputSnapshot BuildRuntimeSnapshot( const RuntimeInteractionFrameInput& frameInput,
                                                bool suppressWorldAction ) const;
-    // Publishes the immutable value consumed after TakeInput returns; later
-    // phases must not reopen DeviceFrame.
+    // Publishes the immutable value consumed after the input turn; later phases
+    // must not reopen DeviceFrame.
     const RuntimeInputSnapshot& PublishRuntimeSnapshot( const RuntimeInteractionFrameInput& frameInput,
                                                         bool suppressWorldAction );
     const RuntimeInputSnapshot& RuntimeSnapshot() const;
@@ -394,6 +405,38 @@ class InputRouter
                           ReplayRuntime& replayRuntime,
                           AttachedCameraController& attachedCamera,
                           SceneController& sceneController );
+    bool HandleUnfocusedFrame( RuntimeInputContext& runtimeInput,
+                               RuntimeInteractionController& interaction,
+                               RuntimeTools& runtimeTools,
+                               ReplayRuntime& replayRuntime,
+                               AttachedCameraController& attachedCamera,
+                               RunCameraState& camera,
+                               SceneController& sceneController,
+                               UI::InGameUI& ui );
+    bool DispatchAfterUiDismiss( InputActions& actions,
+                                 bool uiUserInteracted,
+                                 RunCameraState& camera,
+                                 AttachedCameraController& attachedCamera,
+                                 RuntimeTools& runtimeTools,
+                                 ReplayRuntime& replayRuntime,
+                                 SceneController& sceneController,
+                                 DiagnosticsRuntime& diagnosticsRuntime,
+                                 RunDebugState& debug,
+                                 UI::InGameUI& ui,
+                                 double nowSeconds );
+    void DispatchCaptureActions( InputActions& actions,
+                                 const RunCameraState& camera,
+                                 const AttachedCameraController& attachedCamera,
+                                 const ReplayRuntime& replayRuntime,
+                                 SceneController& sceneController,
+                                 DiagnosticsRuntime& diagnosticsRuntime,
+                                 const UI::InGameUI& ui );
+    void RecordModeAction( RuntimeInputContext& runtimeInput,
+                           const RunCameraState& camera,
+                           const RuntimeTools& runtimeTools,
+                           const AttachedCameraController& attachedCamera,
+                           RuntimeInputAction action,
+                           RuntimeInputActionSource source );
     EditorPointerRouteResult RouteEditorPointer( const EditorPointerRouteInput& input,
                                                  RuntimeTools& runtimeTools,
                                                  ReplayRuntime& replayRuntime,
@@ -481,6 +524,8 @@ class InputRouter
     DeviceInputFrame m_deviceFrame;
     UiInputHitSnapshot m_uiSnapshot;
     RuntimeInputSnapshot m_runtimeSnapshot;
+    RuntimeInputContext m_runtimeContext;          // Semantic mode/action history belongs with routed edge memory.
+    InputActions m_actions;                        // Fixed per-frame semantic output; reset by BeginFrame.
     bool m_nativeCaptureRequested = false;
     bool m_committedNativeCapture = false;
     bool m_cursorVisibleRequested = true;

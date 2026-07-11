@@ -1967,7 +1967,7 @@ void Run::TickInteractionAutomationBeforeInput()
             m_inputRouter.ApplyCameraMode( m_camera,
                                            targetMode,
                                            RuntimeInputActionSource::Runtime,
-                                           m_runtimeInput,
+                                           m_inputRouter.RuntimeContext(),
                                            m_interaction,
                                            m_runtimeTools,
                                            m_replayRuntime,

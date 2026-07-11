@@ -131,9 +131,7 @@ class Run
     RunRuntimeSettings m_runtimeSettings;                               // Scene/app runtime swap policy toggles
     RunTimerState m_timers;                                             // Frame/simulation timers and rolling timing values
     RunSubsystemState m_systems;                                        // Window, texture, skybox, asset, and pass-resource shelf.
-    RuntimeInputContext m_runtimeInput;                                 // Semantic input mode/action state owned by input routing.
     InputRouter m_inputRouter;                                          // Owns keyboard/pointer edge memory and binding-context enforcement.
-    InputActions m_inputActions;                                        // Fixed ordered semantic events for the current device frame.
     RuntimeInteractionController m_interaction;                         // Authoritative runtime workspace and world-input owner.
     RunInteractionAutomationState
         m_interactionAutomation;                                        // CLI harness that injects runtime mouse input for regression tests.
@@ -165,22 +163,12 @@ class Run
     void RefreshRuntimeViewModel();                                     // Rebuilds scalar presentation state from narrow owner borrows
     void RelativeUpdateCamera( uint32_t hash );                         // Keeps non-selected relative cameras inside terrain height limits.
     void UpdateLogic( float simulationDt, float cameraDt );             // simulationDt drives physics; cameraDt is unscaled wall time.
-    void TakeInput();                                                   // Applies focused input to camera, UI, scene cycling, diagnostics, and editor tools.
     void TickInteractionAutomationBeforeInput();                        // Applies scripted mouse/button state before normal input routing.
     void TickInteractionAutomationAfterRender();                        // Runs assertions/screenshots and finishes scripted automation.
     void ClearInteractionAutomationInput();                             // Releases input overrides after completion or failure.
     void WriteInteractionAutomationReport();                            // Writes JSON result for --interaction-report.
     bool TryFindInteractionAutomationModel( const char* name, int& outIndex ) const;
     bool TryProjectInteractionAutomationModel( const char* name, POINT& outMouse );
-    bool DrainCaptureRequests();                                        // Executes capture-owned input requests against the active backend.
-    bool DrainRenderDefaultRequests();                                  // Persists final frame-mutated render values at the input checkpoint.
-    void UpdateRuntimeInputModeAfterAction(
-        RuntimeInputAction action,
-        RuntimeInputActionSource source );                              // Records the mode transition caused by one runtime/tool action.
-    bool HandleUnfocusedInputFrame();                                   // Resets transient input when the app loses focus.
-    void DispatchPostUIKeyboardActions();                               // Runs capture and late reset keyboard actions after UI input.
-    void DispatchAfterUIKeyboardActions(
-        bool uiUserInteracted );                                        // Runs ESC/UI dismissal after UI controls get first refusal.
     RuntimeInteractionTransition EnterInteractionForCameraMode(
         RunCameraMode mode );                                           // Converts camera/tool requests into controller workspace transitions.
     const char* CameraModeLabel( RunCameraMode mode ) const;            // Compact name for UI and transition diagnostics.
@@ -196,7 +184,6 @@ class Run
     void EnterInteractiveSceneRun();                                    // Locks scene automation into non-quitting interactive mode
     bool CanSceneAutomationQuit() const;                                // True for CLI suites/tests; false once the user owns scene flow
     void HoldCompletedInteractiveScene();                               // Keep the current scene alive after interactive automation completes
-    SbResult RunUIStressActions();                                      // Lane R deterministic UI churn result; stops before unsafe generated rebuilds.
     void RunGraphicsStressActions(
         const Rendering::IRenderDiagnostics&
             renderDiagnostics );                                        // Deterministic render/scene churn used to shake out DX12 crashes.

@@ -89,6 +89,21 @@ TEST_CASE( "Input router: key snapshot is bounded and ignores invalid virtual ke
 }
 
 
+TEST_CASE( "Input router: semantic context and action storage belong to the router" )
+{
+    InputRouter router;
+    const InputRouter& constRouter = router;
+    CHECK( &router.RuntimeContext() == &constRouter.RuntimeContext() );
+    CHECK( &router.Actions() == &constRouter.Actions() );
+
+    router.BeginFrame( FocusedFrame( {}, true ), RuntimeInputKeyBindingView{}, router.Actions() );
+    CHECK( router.Actions().mouse.leftPressed );
+
+    router.BeginFrame( FocusedFrame( {}, false ), RuntimeInputKeyBindingView{}, router.Actions() );
+    CHECK( router.Actions().mouse.leftReleased );
+}
+
+
 TEST_CASE( "Input router: press hold and release preserve binding order" )
 {
     const RuntimeInputKeyBinding bindings[] = {

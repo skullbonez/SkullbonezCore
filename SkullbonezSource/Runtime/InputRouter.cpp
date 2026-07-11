@@ -157,6 +157,30 @@ InputRouter::InputRouter()
 }
 
 
+RuntimeInputContext& InputRouter::RuntimeContext()
+{
+    return m_runtimeContext;
+}
+
+
+const RuntimeInputContext& InputRouter::RuntimeContext() const
+{
+    return m_runtimeContext;
+}
+
+
+InputActions& InputRouter::Actions()
+{
+    return m_actions;
+}
+
+
+const InputActions& InputRouter::Actions() const
+{
+    return m_actions;
+}
+
+
 void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBindingView bindings, InputActions& output )
 {
     m_deviceFrame = frame;

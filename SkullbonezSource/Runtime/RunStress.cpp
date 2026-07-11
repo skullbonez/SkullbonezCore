@@ -729,18 +729,39 @@ float GraphicsStressController::RandomCinematicParamValue( UI::UICinematicParam 
 }
 
 
-SbResult Run::RunUIStressActions()
+// Lifetime: UI stress is a validation harness over synchronous owner borrows.
+// It keeps only deterministic counters in DiagnosticsRuntime and retains no
+// scene, UI, renderer, or input owner after the action batch returns.
+SbResult RunInternal::RunUIStressActions( DiagnosticsRuntime& m_diagnosticsRuntime,
+                                          Window* window,
+                                          RunTimerState& m_timers,
+                                          SkullbonezCore::UI::InGameUI& m_UI,
+                                          RunRuntimeSettings& m_runtimeSettings,
+                                          RuntimeRenderBackendView& m_renderBackendView,
+                                          RunDebugState& m_debug,
+                                          SceneController& m_sceneController,
+                                          RunCameraState& m_camera,
+                                          EngineConfig& m_config,
+                                          SimulationSystem& m_simulation,
+                                          RuntimeTools& m_runtimeTools,
+                                          const RunLaunchOptions& m_launchOptions,
+                                          const RunStartupState& m_startup,
+                                          ReplayRuntime& m_replayRuntime,
+                                          InputRouter& m_inputRouter,
+                                          RuntimeInteractionController& m_interaction,
+                                          AttachedCameraController& m_attachedCamera,
+                                          RunCameraMode replayRestoreCameraMode )
 {
     UIStressState& stress = m_diagnosticsRuntime.UIStress();
-    if ( !stress.enabled || !m_systems.window )
+    if ( !stress.enabled || !window )
     {
         return SbResult::Success();
     }
 
     ++stress.framesRun;
     const double UINow = m_timers.simulationTimer.GetTotalTime();
-    const int screenW = (std::max)( 1, m_systems.window->ClientWidth() );
-    const int screenH = (std::max)( 1, m_systems.window->ClientHeight() );
+    const int screenW = (std::max)( 1, window->ClientWidth() );
+    const int screenH = (std::max)( 1, window->ClientHeight() );
 
     m_UI.SetVisible( true, UINow );
     m_UI.SetMinimized( false, UINow );
@@ -750,9 +771,9 @@ SbResult Run::RunUIStressActions()
     // This gate is a UI control-state crash sweep. Runtime rebuilds and world
     // debug toggles belong to render/physics validation, so they stay frozen here.
     const bool allowRuntimeChurn = StressHarness::AllowsRuntimeChurn();
-    const auto makeSceneGeneratedControlContext = [this]() -> SceneRuntimeGeneratedControlContext
+    const auto makeSceneGeneratedControlContext = [&]() -> SceneRuntimeGeneratedControlContext
     {
-        return SceneRuntimeGeneratedControlContext{ SceneState(),
+        return SceneRuntimeGeneratedControlContext{ m_sceneController.State(),
                                                     m_sceneController.UIOverrides(),
                                                     m_camera,
                                                     m_sceneController,
@@ -766,8 +787,7 @@ SbResult Run::RunUIStressActions()
                                                     m_launchOptions.generatedObjectTypeOverride,
                                                     m_startup.gameModelCapacity };
     };
-    const auto executeSceneGeneratedControlAction =
-        [this]( const SceneRuntimeGeneratedControlAction& action ) -> SbResult
+    const auto executeSceneGeneratedControlAction = [&]( const SceneRuntimeGeneratedControlAction& action ) -> SbResult
     {
         if ( !action.status.ok )
         {
@@ -779,20 +799,19 @@ SbResult Run::RunUIStressActions()
         {
             const ReplayRuntime::SceneTimelineResetInput reset = ReplayRuntime::DescribeSceneTimeline(
                 m_sceneController,
-                SceneState(),
+                m_sceneController.State(),
                 m_startup.gameModelCapacity,
                 static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
             m_replayRuntime.ResetSceneTimeline(
                 reset,
-                ReplayRuntime::SceneTimelineResetOwners{
-                    m_inputRouter,
-                    m_interaction,
-                    &m_sceneController.Cameras(),
-                    m_sceneController.Terrain().Get(),
-                    m_camera,
-                    NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
-                    m_attachedCamera.State().activeFollow,
-                    m_camera.director.grabbed } );
+                ReplayRuntime::SceneTimelineResetOwners{ m_inputRouter,
+                                                         m_interaction,
+                                                         &m_sceneController.Cameras(),
+                                                         m_sceneController.Terrain().Get(),
+                                                         m_camera,
+                                                         replayRestoreCameraMode,
+                                                         m_attachedCamera.State().activeFollow,
+                                                         m_camera.director.grabbed } );
         }
         if ( action.scheduleProfileReset )
         {
@@ -831,7 +850,7 @@ SbResult Run::RunUIStressActions()
                                          m_runtimeSettings,
                                          m_renderBackendView,
                                          m_debug,
-                                         SceneState(),
+                                         m_sceneController.State(),
                                          m_timers,
                                          m_simulation,
                                          m_sceneController,

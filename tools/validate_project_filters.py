@@ -218,6 +218,7 @@ RUNTIME_PREFIXES = (
     "Init",
     "Input",
     "InputController",
+    "InputFrame",
     "InputRouter",
     "LiveStyleController",
     "Run",

@@ -33,6 +33,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
+#include "InputFrame.h"
 #include "Replay/ReplayRuntimeOwnerViews.h"
 #include "RunDemoDirector.h"
 #include "Scene/SceneRuntimeLoad.h"
@@ -616,7 +617,33 @@ SbResult Run::Execute()
 
             PROFILE_BEGIN( "Frame/Input" );
             TickInteractionAutomationBeforeInput();
-            TakeInput();
+            ProcessInputFrame( m_inputRouter,
+                               m_config,
+                               m_launchOptions,
+                               m_applicationExit,
+                               m_defaultCinematicRender,
+                               m_renderDefaults,
+                               m_startup,
+                               m_diagnosticsRuntime,
+                               m_runtimeSettings,
+                               m_timers,
+                               m_systems,
+                               m_interaction,
+                               m_camera,
+                               m_attachedCamera,
+                               m_simulation,
+                               m_replayRuntime,
+                               m_contactAudio,
+                               m_UI,
+                               m_debug,
+                               m_graphicsStress,
+                               m_runtimeTools,
+                               m_physicsDebugVisualizer,
+                               m_runtimeViewModel,
+                               m_renderBackendView,
+                               m_renderer,
+                               m_sceneController,
+                               sPerfPass );
             TickLiveStyleControl();
             PROFILE_END( "Frame/Input" );
 
@@ -690,7 +717,7 @@ SbResult Run::Execute()
                                                           m_sceneController.World(),
                                                           m_runtimeTools,
                                                           m_UI,
-                                                          m_runtimeInput,
+                                                          m_inputRouter.RuntimeContext(),
                                                           m_camera,
                                                           m_runtimeViewModel,
                                                           m_sceneController,

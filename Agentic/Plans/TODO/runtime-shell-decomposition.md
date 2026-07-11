@@ -769,6 +769,34 @@ in 11.1s; all five interaction scenarios passed in 14.9s; perf completed in
 matching screenshots, standalone topology smoke, and the 20,001-line
 byte-exact physics baseline. Comment audit: 1/1 touched source-bearing file.
 
+B1f is complete. `InputRouter` now owns the semantic `RuntimeInputContext` and
+fixed `InputActions` buffer alongside device/key/pointer edge memory; `Run` no
+longer stores either input value. `Run::TakeInput`, the focus/keyboard/mode
+forwarders, UI-stress method, and capture/default drain methods are deleted from
+the complete logical `Run` surface. `ProcessInputFrame` is a stateless
+composition boundary: it receives explicit synchronous borrows, retains no
+host pointer/reference or callback pack, and leaves durable policy/state in the
+concrete owners. Later runtime phases have zero direct hardware key or pointer
+polls; platform polling remains confined to `Input.cpp` and cursor restoration
+inside `Window.cpp`.
+
+The milestone adversarial pass found one blocking defect in the first shape:
+the full 26-owner composition had been attached to `InputRouter::ProcessFrame`,
+which would have made the extracted owner the next god object. The correction
+moved stateless sequencing to `InputFrame.h`/`ProcessInputFrame` and restored
+`InputRouter` to cohesive input state and policy ownership. The required repeat
+pass found no material defect. D1/E1 remain responsible for physically splitting
+the 3,192-line implementation and deleting the visible `RunSubsystemState` and
+`RunInternal` composition borrows; they are not stored or hidden by B1f.
+
+Final corrected evidence: staged fast passed in 34.4s with 14 candidates and no
+size violations; the CPU umbrella passed all four lanes with 130/130 doctest
+cases and 2,770 assertions in 10.9s; all five interaction scenarios passed in
+15.1s; perf completed in 32.7s; and full passed in 53.1s with zero warnings,
+zero DX12 InfoQueue errors, matching screenshots, standalone topology smoke,
+and the 20,001-line byte-exact physics baseline. Comment audit: 11/11 touched
+source-bearing files, zero deferred.
+
 ## Remaining Work
 
 ### A. Narrow the render host
@@ -794,7 +822,7 @@ byte-exact physics baseline. Comment audit: 1/1 touched source-bearing file.
   position and edge values for a frame.
 - [x] B1e. Give one owner focus cancellation, cursor requests, and native mouse
   capture. Reconcile UI, replay, editor, and camera capture on focus loss.
-- [ ] B1f. Delete direct `Input::Is*`/mouse-position polling from later frame,
+- [x] B1f. Delete direct `Input::Is*`/mouse-position polling from later frame,
   physics, render, editor, and replay phases; complete extraction 1's `Run`
   method/state deletion proof.
 - [x] B2a. Add value-only `ApplicationExitState`. Preserve the first owned

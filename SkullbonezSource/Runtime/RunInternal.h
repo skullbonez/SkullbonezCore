@@ -105,6 +105,28 @@ inline constexpr const char* LAUNCHER_REPRO_SNAPSHOT_PATH = "Debug/launcher_repr
 inline constexpr double LAUNCHER_REPRO_MESSAGE_SECONDS = 3.0;
 #endif
 
+// Runs deterministic UI diagnostic churn through explicit one-frame borrows.
+// The harness owns no runtime domain and retains none of these references.
+SbResult RunUIStressActions( DiagnosticsRuntime& diagnosticsRuntime,
+                             Window* window,
+                             RunTimerState& timers,
+                             UI::InGameUI& ui,
+                             RunRuntimeSettings& runtimeSettings,
+                             RuntimeRenderBackendView& renderBackendView,
+                             RunDebugState& debug,
+                             SceneController& sceneController,
+                             RunCameraState& camera,
+                             EngineConfig& config,
+                             SimulationSystem& simulation,
+                             RuntimeTools& runtimeTools,
+                             const RunLaunchOptions& launchOptions,
+                             const RunStartupState& startup,
+                             ReplayRuntime& replayRuntime,
+                             InputRouter& inputRouter,
+                             RuntimeInteractionController& interaction,
+                             AttachedCameraController& attachedCamera,
+                             RunCameraMode replayRestoreCameraMode );
+
 // Applies one fixed physics step plus Run-owned presentation/diagnostic edges.
 // Live frames and replay target restore use the same helper so hash validation
 // does not drift from normal gameplay stepping.

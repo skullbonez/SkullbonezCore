@@ -409,7 +409,7 @@ Run::Run( Window& window,
                   RenderSceneView{ m_sceneController, m_sceneController.Browser() },
                   RenderReplayOverlayView{ m_replayRuntime, m_sceneController.Entities() },
                   RenderToolOverlayView{ m_runtimeTools },
-                  RenderUiView{ m_UI, m_runtimeInput, m_camera, m_runtimeViewModel } )
+                  RenderUiView{ m_UI, m_inputRouter.RuntimeContext(), m_camera, m_runtimeViewModel } )
 {
     const EngineConfig& cfg = m_config;
     m_diagnosticsRuntime.BindProfiler( profiler );

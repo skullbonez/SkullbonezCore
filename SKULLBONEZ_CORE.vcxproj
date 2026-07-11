@@ -372,6 +372,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\InputController.Bindings.h" />
     <ClInclude Include="SkullbonezSource\Runtime\InputController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\InputRouter.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\InputFrame.h" />
     <ClInclude Include="SkullbonezSource\Runtime\LiveStyleController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\DiagnosticsController.h" />
     <ClInclude Include="SkullbonezSource\Core\LockOrderValidator.h" />

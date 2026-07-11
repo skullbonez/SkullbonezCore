@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `7e373a06 refactor: move camera mode transitions to InputRouter` |
-| Current objective | Complete the final B1f Run input method/state deletion proof |
-| Last broad local gate | `tools\validate_full.bat` passed broad UI-context deletion with 129/129 doctest cases, 2,766 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.4s |
+| Current pushed baseline | `249135a2 refactor: delete broad runtime UI frame context` |
+| Current objective | D1 split `RunInput.cpp` along the proven input-owner boundaries |
+| Last broad local gate | `tools\validate_full.bat` passed final B1f input ownership with 130/130 doctest cases, 2,770 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 53.1s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -49,23 +49,20 @@ reports, and git history.
 
 ## Current Queue
 
-`InputRouter` now owns the complete device snapshot, semantic and pointer edge
-memory, all-of binding contexts, one post-UI hit value, focus cancellation, and
-native capture/cursor intent. Direct later hardware polls, duplicate UI/replay/
-editor pointer memories, and both input callback packs are deleted. B1a-B1e are
-complete except the intentionally separate B1f final `Run` method/state
-extraction proof.
+Input ownership B1a-B1f is complete. `InputRouter` owns device, semantic-action,
+focus, pointer, and presentation state; `Run` stores no input context/action
+buffer and exposes no input frame, focus, keyboard, pointer, capture-drain, or
+default-drain method. `ProcessInputFrame` is stateless top-level composition
+with explicit synchronous borrows and no host pointer/reference or callback
+pack. Later phases do not poll hardware directly.
 
-The UI command transition callback pack is deleted. Stress ordering is
-explicit, generated-scene timeline reset calls `ReplayRuntime` directly, and
-placement/editor/camera transitions compose the existing editor, camera,
-interaction, and input owners without returning through `Run`. The broad UI
-frame context and `Run::TakeInput` are the remaining B1f deletion proof.
-
-The broad UI frame context is now deleted as well. UI sampling, command
-application, and pointer finalization use explicit synchronous owner borrows,
-with scene sub-owners derived from `SceneController`. `Run::TakeInput` and its
-remaining method/state surface are the sole open B1f proof.
+The B1f adversarial pass rejected an initial `InputRouter::ProcessFrame` shape
+because it attached unrelated stress/persistence/capture/scene execution to the
+owner. The corrected `InputFrame` composition contract leaves `InputRouter`
+cohesive; the required repeat pass was clean. Fast, CPU, five interactions,
+perf, and full all pass from the corrected source. D1/E1 now own the physical
+`RunInput.cpp` split and deletion of visible `RunSubsystemState`/`RunInternal`
+composition borrows.
 
 Owner queue B2b-B2e is complete. Capture, render-default persistence, and scene
 requests now use fixed owner storage; application exit remains value-only.
@@ -467,8 +464,7 @@ and full gates pass from the final source.
 
 ## Workstreams To Prioritize
 
-1. Close the dependent B1f scene/input seam and promote `SceneController` to
-   own real load/reset/save lifecycle and delete `Run` scene callbacks.
+1. Complete runtime-shell D1-D3, then E1-E3 and the final F1-F3 ownership proof.
 2. Finish physics stable-identity D1-D4 and the remaining interaction/UI work.
 3. Finish validation-gate V3-V4 and behavioral-test P3/P5/P6 evidence.
 4. Close remaining interaction/UI and physics authority items.

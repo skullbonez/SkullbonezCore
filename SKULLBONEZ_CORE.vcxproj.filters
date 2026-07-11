@@ -689,6 +689,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\InputRouter.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\InputFrame.h">
+      <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\LiveStyleController.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
