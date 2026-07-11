@@ -1257,6 +1257,42 @@ void ReplayRuntime::SetVelocityEditAltKeyDown( bool isDown )
     m_velocityEdit.keyboardAltWasDown = isDown;
 }
 
+
+ReplayRuntime::KeyboardVelocityEditResult
+ReplayRuntime::ApplyKeyboardVelocityEdit( const KeyboardVelocityEditInput& input )
+{
+    KeyboardVelocityEditResult result;
+    if ( input.altDown && !m_velocityEdit.keyboardAltWasDown )
+    {
+        const bool enableVelocityEdit = !m_velocityEdit.enabled;
+        if ( SetVelocityEditEnabled( enableVelocityEdit ) )
+        {
+            result.cancelToolDrag = true;
+            if ( enableVelocityEdit )
+            {
+                result.enterInteractive = true;
+                if ( SetLiveAdvanceHeld( true ) )
+                {
+                    result.cameraAction = ShouldUseInspectionCamera()
+                                              ? KeyboardVelocityEditCameraAction::EnterInspection
+                                              : KeyboardVelocityEditCameraAction::ExitInspection;
+                }
+                result.setWorldOwner = true;
+                result.worldOwner = WorldInteractionOwner::ReplayVelocityEdit;
+            }
+            else if ( input.currentWorldOwner == WorldInteractionOwner::ReplayVelocityEdit )
+            {
+                result.setWorldOwner = true;
+                result.worldOwner = WorldInteractionOwner::ReplayScrub;
+            }
+        }
+        m_scrubber.visibleUntil = input.now + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
+        m_scrubber.visible = true;
+    }
+    m_velocityEdit.keyboardAltWasDown = input.altDown;
+    return result;
+}
+
 float ReplayRuntime::TrackPosition( RunReplayTrack track ) const
 {
     return track == RunReplayTrack::Solver ? m_scrubber.solverPosition : m_scrubber.presentationPosition;

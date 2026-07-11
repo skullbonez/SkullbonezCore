@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `28f7b2d9 refactor: move world ray projection into router` |
-| Current objective | Continue B1f by deleting TakeInput UI/keyboard callback packs and remaining late frame/render/replay hardware reads |
-| Last broad local gate | `tools\validate_full.bat` passed InputController-owned camera movement with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.2s |
+| Current pushed baseline | `f148837d refactor: move camera movement into input owner` |
+| Current objective | Continue B1f by deleting the omnibus UI-frame callback pack and remaining late frame/render/replay hardware reads |
+| Last broad local gate | `tools\validate_full.bat` passed ReplayRuntime-owned keyboard velocity-edit transitions with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.0s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -387,6 +387,12 @@ update no longer reads the device frame, and Run's camera forwarding method is
 deleted. Fast, CPU, five interaction scenarios, perf, and full pass; comment
 audit is 6/6. B1f continues with TakeInput callback packs and remaining late
 frame/render/replay hardware reads.
+
+ReplayRuntime now owns the mapped Alt-edge and velocity-edit transition and
+returns bounded cross-owner effects. RunInput's post-mapped keyboard context
+and six-callback template are deleted. Fast, CPU, five interaction scenarios,
+perf, and full pass; comment audit is 3/3. B1f continues with the omnibus
+UI-frame pack and remaining late frame/render/replay hardware reads.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets

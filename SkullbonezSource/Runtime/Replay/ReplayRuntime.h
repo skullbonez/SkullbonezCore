@@ -1044,6 +1044,32 @@ class ReplayRuntime
         bool exitInspectionCamera = false;
     };
 
+    struct KeyboardVelocityEditInput
+    {
+        bool altDown = false;
+        WorldInteractionOwner currentWorldOwner = WorldInteractionOwner::None;
+        double now = 0.0;
+    };
+
+    enum class KeyboardVelocityEditCameraAction
+    {
+        None,
+        EnterInspection,
+        ExitInspection
+    };
+
+    // Concept: replay mutates its Alt-edge and velocity-edit state internally,
+    // then publishes only the cross-owner effects that the frame coordinator
+    // must sequence. No callback can reach back into the application shell.
+    struct KeyboardVelocityEditResult
+    {
+        bool cancelToolDrag = false;
+        bool enterInteractive = false;
+        KeyboardVelocityEditCameraAction cameraAction = KeyboardVelocityEditCameraAction::None;
+        bool setWorldOwner = false;
+        WorldInteractionOwner worldOwner = WorldInteractionOwner::None;
+    };
+
     ReplayRuntime();
 
     ReplayRecorder& Presentation();
@@ -1092,6 +1118,7 @@ class ReplayRuntime
     const RunReplayVelocityEditState& VelocityEdit() const;
     bool SetVelocityEditEnabled( bool enabled );
     void SetVelocityEditAltKeyDown( bool isDown );
+    KeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const KeyboardVelocityEditInput& input );
     float TrackPosition( RunReplayTrack track ) const;
     void SetTrackPosition( RunReplayTrack track, float position );
     void SyncActiveTrackPosition();

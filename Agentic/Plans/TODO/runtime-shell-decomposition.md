@@ -664,6 +664,20 @@ InfoQueue errors, matching screenshots, standalone topology smoke, and the
 20,001-line byte-exact physics baseline. Comment audit: 6/6 touched
 source-bearing files.
 
+ReplayRuntime now owns the keyboard Alt-edge and velocity-edit state
+transition. It returns only bounded camera, interaction-owner, and tool-cancel
+effects for the frame coordinator to sequence; the post-mapped keyboard
+context, six-template callback pack, and direct replay-state implementation in
+RunInput are deleted. B1f remains open for the omnibus UI-frame context/callback
+pack and remaining late frame/render/replay hardware reads.
+
+Evidence: the zero-warning Debug build passed. Fast passed in 39.2s; the CPU
+umbrella passed in 11.1s with 129/129 doctest cases and 2,755 assertions; all
+five interaction scenarios passed in 14.9s; perf completed in 32.3s; and full
+passed in 52.0s with zero warnings, zero DX12 InfoQueue errors, matching
+screenshots, standalone topology smoke, and the 20,001-line byte-exact physics
+baseline. Comment audit: 3/3 touched source-bearing files.
+
 ## Remaining Work
 
 ### A. Narrow the render host

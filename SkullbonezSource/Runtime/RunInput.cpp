@@ -423,77 +423,6 @@ void RecordSceneRuntimeUIActions( const SceneRuntimeUICommandResult& commands, R
     }
 }
 
-struct PostMappedKeyboardShortcutContext
-{
-    // Lifetime: borrowed for one post-keyboard dispatch pass. The helper does
-    // not store owner references or callbacks past the current frame.
-    RuntimeTools& runtimeTools;
-    ReplayRuntime& replayRuntime;
-    RuntimeInteractionController& interaction;
-    RunTimerState& timers;
-};
-
-template <typename ApplyEditorPlacementModeToggle,
-          typename CancelReplayToolDragState,
-          typename EnterInteractiveSceneRun,
-          typename EnterReplayInspectionCamera,
-          typename ExitReplayInspectionCamera,
-          typename SetWorldInteractionOwner>
-void ApplyPostMappedKeyboardShortcutState( PostMappedKeyboardShortcutContext context,
-                                           const RunInternal::EditorKeyboardShortcutResult& shortcut,
-                                           ApplyEditorPlacementModeToggle applyEditorPlacementModeToggle,
-                                           CancelReplayToolDragState cancelReplayToolDragState,
-                                           EnterInteractiveSceneRun enterInteractiveSceneRun,
-                                           EnterReplayInspectionCamera enterReplayInspectionCamera,
-                                           ExitReplayInspectionCamera exitReplayInspectionCamera,
-                                           SetWorldInteractionOwner setWorldInteractionOwner )
-{
-    if ( context.runtimeTools.Editor().editorModeEnabled )
-    {
-        context.replayRuntime.SetVelocityEditAltKeyDown( shortcut.altDown );
-        if ( shortcut.togglePlacementMode )
-        {
-            applyEditorPlacementModeToggle( RuntimeInputActionSource::Keyboard );
-        }
-        return;
-    }
-
-    const bool altDown = shortcut.altDown;
-    if ( altDown && !context.replayRuntime.VelocityEdit().keyboardAltWasDown )
-    {
-        const bool enableVelocityEdit = !context.replayRuntime.VelocityEdit().enabled;
-        if ( context.replayRuntime.SetVelocityEditEnabled( enableVelocityEdit ) )
-        {
-            cancelReplayToolDragState();
-            if ( enableVelocityEdit )
-            {
-                enterInteractiveSceneRun();
-                if ( context.replayRuntime.SetLiveAdvanceHeld( true ) )
-                {
-                    if ( context.replayRuntime.ShouldUseInspectionCamera() )
-                    {
-                        enterReplayInspectionCamera();
-                    }
-                    else
-                    {
-                        exitReplayInspectionCamera();
-                    }
-                }
-                setWorldInteractionOwner( WorldInteractionOwner::ReplayVelocityEdit,
-                                          InteractionExitReason::EnterReplay );
-            }
-            else if ( context.interaction.Owner() == WorldInteractionOwner::ReplayVelocityEdit )
-            {
-                setWorldInteractionOwner( WorldInteractionOwner::ReplayScrub, InteractionExitReason::EnterReplay );
-            }
-        }
-        context.replayRuntime.Scrubber().visibleUntil =
-            context.timers.simulationTimer.GetTotalTime() + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
-        context.replayRuntime.Scrubber().visible = true;
-    }
-    context.replayRuntime.VelocityEdit().keyboardAltWasDown = altDown;
-}
-
 struct RuntimeUIFrameContext
 {
     // Lifetime: borrowed for one UI command frame. The helper applies decoded
@@ -2373,13 +2302,27 @@ void Run::TakeInput()
         }
     }
 
-    ApplyPostMappedKeyboardShortcutState(
-        PostMappedKeyboardShortcutContext{ m_runtimeTools, m_replayRuntime, m_interaction, m_timers },
-        keyboardEditorToolShortcut,
-        applyEditorPlacementModeToggle,
-        [this]() { m_replayRuntime.CancelToolDragState( m_interaction, m_inputRouter ); },
-        [this]() { EnterInteractiveSceneRun(); },
-        [this]()
+    if ( m_runtimeTools.Editor().editorModeEnabled )
+    {
+        m_replayRuntime.SetVelocityEditAltKeyDown( keyboardEditorToolShortcut.altDown );
+        if ( keyboardEditorToolShortcut.togglePlacementMode )
+        {
+            applyEditorPlacementModeToggle( RuntimeInputActionSource::Keyboard );
+        }
+    }
+    else
+    {
+        const ReplayRuntime::KeyboardVelocityEditResult velocityEditResult = m_replayRuntime.ApplyKeyboardVelocityEdit(
+            { keyboardEditorToolShortcut.altDown, m_interaction.Owner(), m_timers.simulationTimer.GetTotalTime() } );
+        if ( velocityEditResult.cancelToolDrag )
+        {
+            m_replayRuntime.CancelToolDragState( m_interaction, m_inputRouter );
+        }
+        if ( velocityEditResult.enterInteractive )
+        {
+            EnterInteractiveSceneRun();
+        }
+        if ( velocityEditResult.cameraAction == ReplayRuntime::KeyboardVelocityEditCameraAction::EnterInspection )
         {
             m_replayRuntime.EnterInspectionCamera( &m_sceneController.Cameras(),
                                                    m_camera,
@@ -2387,8 +2330,8 @@ void Run::TakeInput()
                                                    m_interaction,
                                                    m_inputRouter,
                                                    m_runtimeTools.MousePickup() );
-        },
-        [this]()
+        }
+        else if ( velocityEditResult.cameraAction == ReplayRuntime::KeyboardVelocityEditCameraAction::ExitInspection )
         {
             m_replayRuntime.ExitInspectionCamera(
                 &m_sceneController.Cameras(),
@@ -2399,12 +2342,12 @@ void Run::TakeInput()
                 m_camera.director.grabbed,
                 m_interaction,
                 m_inputRouter );
-        },
-        [this]( WorldInteractionOwner owner, InteractionExitReason reason )
+        }
+        if ( velocityEditResult.setWorldOwner )
         {
             m_inputRouter.SetWorldInteractionOwner(
-                owner,
-                reason,
+                velocityEditResult.worldOwner,
+                InteractionExitReason::EnterReplay,
                 m_replayRuntime,
                 m_runtimeTools,
                 m_interaction,
@@ -2416,7 +2359,8 @@ void Run::TakeInput()
                 NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
                 m_attachedCamera.State().activeFollow,
                 m_camera.director.grabbed );
-        } );
+        }
+    }
     ReplayRuntime::PathPickInput replayPointerRay;
     replayPointerRay.hasWorldRay = m_inputRouter.TryBuildWorldRay( m_sceneController.Cameras(),
                                                                    *m_systems.window,
