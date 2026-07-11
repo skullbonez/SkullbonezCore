@@ -376,6 +376,11 @@ ReplayRuntime::ApplyLiveRestoreRequest( const ReplayRestoreTransaction& transact
 
 namespace
 {
+void EndReplayScrubberGesture( ReplayRuntime& replayRuntime,
+                               InputRouter& inputRouter,
+                               RuntimeInteractionController& interaction,
+                               RuntimeInteractionGestureKind kind );
+
 void KeepReplayScrubberVisible( ReplayRuntime& replayRuntime, double now )
 {
     replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
@@ -408,8 +413,10 @@ void ApplyReplayLiveAdvanceAction( ReplayRuntime& replayRuntime,
         replayRuntime.Prediction().enabled = false;
         if ( interaction.Gesture().kind == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag )
         {
-            replayRuntime.EndToolGesture( interaction, RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag );
-            inputRouter.ReleaseNativeCapture();
+            EndReplayScrubberGesture( replayRuntime,
+                                      inputRouter,
+                                      interaction,
+                                      RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag );
         }
         if ( !promotedBuildPrefix )
         {
@@ -592,6 +599,34 @@ void HandleReplaySavePressed( ReplayRuntime& replayRuntime, double now, bool& ou
 }
 
 
+bool BeginReplayScrubberGesture( ReplayRuntime& replayRuntime,
+                                 InputRouter& inputRouter,
+                                 RuntimeInteractionController& interaction,
+                                 RuntimeInteractionGestureKind kind,
+                                 WorldInteractionOwner owner,
+                                 int mouseX,
+                                 int mouseY )
+{
+    if ( !replayRuntime.BeginToolGesture(
+             interaction, kind, owner, RuntimePointerButton::Left, mouseX, mouseY ) )
+    {
+        return false;
+    }
+    inputRouter.RequestNativeCapture();
+    return true;
+}
+
+
+void EndReplayScrubberGesture( ReplayRuntime& replayRuntime,
+                               InputRouter& inputRouter,
+                               RuntimeInteractionController& interaction,
+                               RuntimeInteractionGestureKind kind )
+{
+    replayRuntime.EndToolGesture( interaction, kind );
+    inputRouter.ReleaseNativeCapture();
+}
+
+
 void HandleReplayLoadPressed( ReplayRuntime& replayRuntime,
                               HWND window,
                               double now,
@@ -686,18 +721,18 @@ bool HandleReplayPredictionHorizonPressed( ReplayRuntime& replayRuntime,
                                            double now,
                                            bool& outEnterInteractive )
 {
-    if ( !replayRuntime.BeginToolGesture( interaction,
-                                         RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag,
-                                         WorldInteractionOwner::ReplayPrediction,
-                                         RuntimePointerButton::Left,
-                                         mouseX,
-                                         mouseY ) )
+    if ( !BeginReplayScrubberGesture( replayRuntime,
+                                      inputRouter,
+                                      interaction,
+                                      RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag,
+                                      WorldInteractionOwner::ReplayPrediction,
+                                      mouseX,
+                                      mouseY ) )
     {
         return false;
     }
     SetReplayPredictionHorizonFromPointer(
         replayRuntime, interaction, horizon, mouseX, now, false, outEnterInteractive );
-    inputRouter.RequestNativeCapture();
     return true;
 }
 
@@ -711,19 +746,79 @@ bool HandleReplayScrubPressed( ReplayRuntime& replayRuntime,
                                bool& outEnterInteractive )
 {
     outEnterInteractive = true;
-    if ( !replayRuntime.BeginToolGesture( interaction,
-                                         RuntimeInteractionGestureKind::ReplayScrubDrag,
-                                         WorldInteractionOwner::ReplayScrub,
-                                         RuntimePointerButton::Left,
-                                         mouseX,
-                                         mouseY ) )
+    if ( !BeginReplayScrubberGesture( replayRuntime,
+                                      inputRouter,
+                                      interaction,
+                                      RuntimeInteractionGestureKind::ReplayScrubDrag,
+                                      WorldInteractionOwner::ReplayScrub,
+                                      mouseX,
+                                      mouseY ) )
     {
         return false;
     }
     replayRuntime.Scrubber().activeTrack = track;
     replayRuntime.SyncActiveTrackPosition();
-    inputRouter.RequestNativeCapture();
     return true;
+}
+
+
+bool TickReplayScrubberGesture( ReplayRuntime& replayRuntime,
+                                InputRouter& inputRouter,
+                                RuntimeInteractionController& interaction,
+                                bool loadedPresentation,
+                                int mouseX,
+                                int screenW,
+                                int screenH,
+                                const SkullbonezCore::UI::UIRect& predictionHorizon,
+                                bool leftReleased,
+                                double now,
+                                bool& outEnterInteractive )
+{
+    switch ( interaction.Gesture().kind )
+    {
+    case RuntimeInteractionGestureKind::ReplayScrubDrag:
+    {
+        replayRuntime.SetTrackPosition(
+            replayRuntime.Scrubber().activeTrack,
+            ReplayScrubberPositionFromMouse( mouseX, screenW, screenH, replayRuntime.Scrubber().activeTrack ) );
+        if ( loadedPresentation )
+        {
+            replayRuntime.Scrubber().historicalSamplePaused = true;
+        }
+        else
+        {
+            const float presentT = replayRuntime.SolverPresentTrackPosition();
+            if ( ReplayRuntime::AtPresentTrackPosition( replayRuntime.Scrubber().position, presentT ) )
+            {
+                replayRuntime.SetTrackPosition( replayRuntime.Scrubber().activeTrack, presentT );
+                replayRuntime.Scrubber().historicalSamplePaused = false;
+            }
+            else
+            {
+                replayRuntime.Scrubber().historicalSamplePaused = true;
+            }
+        }
+        if ( leftReleased )
+        {
+            EndReplayScrubberGesture(
+                replayRuntime, inputRouter, interaction, RuntimeInteractionGestureKind::ReplayScrubDrag );
+        }
+        return true;
+    }
+    case RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag:
+        SetReplayPredictionHorizonFromPointer(
+            replayRuntime, interaction, predictionHorizon, mouseX, now, false, outEnterInteractive );
+        if ( leftReleased )
+        {
+            EndReplayScrubberGesture( replayRuntime,
+                                      inputRouter,
+                                      interaction,
+                                      RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag );
+        }
+        return true;
+    default:
+        return false;
+    }
 }
 } // namespace
 
@@ -1032,47 +1127,20 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
         break;
     }
 
-    if ( scrubDragActive() )
-    {
-        m_replayRuntime.SetTrackPosition(
-            m_replayRuntime.Scrubber().activeTrack,
-            ReplayScrubberPositionFromMouse( mouse.x, screenW, screenH, m_replayRuntime.Scrubber().activeTrack ) );
-        if ( loadedPresentation )
-        {
-            m_replayRuntime.Scrubber().historicalSamplePaused = true;
-        }
-        else
-        {
-            const float presentT = m_replayRuntime.SolverPresentTrackPosition();
-            if ( ReplayRuntime::AtPresentTrackPosition( m_replayRuntime.Scrubber().position, presentT ) )
-            {
-                m_replayRuntime.SetTrackPosition( m_replayRuntime.Scrubber().activeTrack, presentT );
-                m_replayRuntime.Scrubber().historicalSamplePaused = false;
-            }
-            else
-            {
-                m_replayRuntime.Scrubber().historicalSamplePaused = true;
-            }
-        }
-
-        if ( leftReleased )
-        {
-            m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayScrubDrag );
-            m_inputRouter.ReleaseNativeCapture();
-        }
-    }
-    else if ( horizonDragActive() )
-    {
-        SetReplayPredictionHorizonFromPointer(
-            *this, m_interaction, predictHorizon, mouse.x, now, false, outEnterInteractive );
-        consumesMouse = true;
-        if ( leftReleased )
-        {
-            m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag );
-            m_inputRouter.ReleaseNativeCapture();
-        }
-    }
-    else if ( !loadedPresentation && !m_replayRuntime.Scrubber().historicalSamplePaused )
+    const bool scrubberGestureHandled = TickReplayScrubberGesture( *this,
+                                                                   m_inputRouter,
+                                                                   m_interaction,
+                                                                   loadedPresentation,
+                                                                   mouse.x,
+                                                                   screenW,
+                                                                   screenH,
+                                                                   predictHorizon,
+                                                                   leftReleased,
+                                                                   now,
+                                                                   outEnterInteractive );
+    consumesMouse = consumesMouse || scrubberGestureHandled;
+    if ( !scrubberGestureHandled && !loadedPresentation &&
+         !m_replayRuntime.Scrubber().historicalSamplePaused )
     {
         m_replayRuntime.SetAllTrackPositions( m_replayRuntime.SolverPresentTrackPosition() );
     }

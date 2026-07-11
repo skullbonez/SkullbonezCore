@@ -669,6 +669,29 @@ void TestReplayToolGesturesCapturePointer()
 }
 
 
+void TestReplayGestureSceneResetCancelsCapture()
+{
+    RuntimeInteractionController controller;
+    controller.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                    WorldInteractionOwner::ReplayScrub,
+                                                    InteractionExitReason::EnterReplay );
+    BeginGesture( controller, MakeReplayGesture( RuntimeInteractionGestureKind::ReplayScrubDrag ) );
+
+    const RuntimeInteractionTransition transition = controller.ResetForScene( InteractionExitReason::ResetScene );
+
+    EXPECT_TRUE( transition.workspaceChanged );
+    EXPECT_TRUE( transition.ownerChanged );
+    EXPECT_TRUE( transition.gestureChanged );
+    EXPECT_TRUE( transition.pointerCaptureChanged );
+    EXPECT_EQ( transition.previousGesture.kind, RuntimeInteractionGestureKind::ReplayScrubDrag );
+    EXPECT_EQ( transition.gesture.kind, RuntimeInteractionGestureKind::None );
+    EXPECT_EQ( transition.previousPointerCapture, RuntimePointerCaptureOwner::ToolGesture );
+    EXPECT_EQ( transition.pointerCapture, RuntimePointerCaptureOwner::None );
+    EXPECT_EQ( controller.Workspace(), RuntimeWorkspace::Live );
+    EXPECT_EQ( controller.Owner(), WorldInteractionOwner::None );
+}
+
+
 void TestGizmoDragCapturesPointerForEditorAndInspect()
 {
     struct GizmoCase
@@ -896,6 +919,7 @@ int main()
         { "CameraModeCommandsMapToInteractionOwners", &TestCameraModeCommandsMapToInteractionOwners },
         { "WorkspaceOwnerTransitionKeepsExactReplayOwner", &TestWorkspaceOwnerTransitionKeepsExactReplayOwner },
         { "ReplayToolGesturesCapturePointer", &TestReplayToolGesturesCapturePointer },
+        { "ReplayGestureSceneResetCancelsCapture", &TestReplayGestureSceneResetCancelsCapture },
         { "GizmoDragCapturesPointerForEditorAndInspect", &TestGizmoDragCapturesPointerForEditorAndInspect },
         { "ExactBoxPickRejectsOldBoundingSphereEnvelope", &TestExactBoxPickRejectsOldBoundingSphereEnvelope },
         { "TreeTrunkHullPickUsesConvexFaces", &TestTreeTrunkHullPickUsesConvexFaces },

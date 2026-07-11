@@ -10,10 +10,10 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `0186818a refactor: build replay scrubber as a control surface` |
-| Current objective | Execute runtime UI/control U4: centralize control gesture begin/update/cancel/release lifecycle |
+| Current pushed baseline | `70f75d60 refactor: dispatch replay scrubber actions by value` |
+| Current objective | Execute runtime UI/control U5: make replay render and input consume one control geometry/state snapshot |
 | Last broad local gate | `tools\validate_full.bat` passed final interaction source in 72.5s: 131/131 doctests and 2,814 assertions, every standalone CPU lane, zero-warning Profile/Debug builds, DX12 InfoQueue errors = 0 with matching screenshots, handle smoke, and the 44,401-line varied baseline byte-exactly |
-| Latest focused gates | U3 corrected Profile build passed in 5.1s and replay scrub passed in 73.3s, both zero-warning/error; U3 comment audit 1/1 |
+| Latest focused gates | U4 Profile build 5.2s, CPU umbrella 17.2s with 24/24 interaction cases, replay scrub 74.0s; all zero-warning/error; U4 comment audit 2/2 |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -26,6 +26,7 @@ reports, and git history.
 - `97d3b27c docs: inventory runtime UI control surfaces`
 - `a448a6ca feat: add fixed-capacity runtime UI surfaces`
 - `0186818a refactor: build replay scrubber as a control surface`
+- `70f75d60 refactor: dispatch replay scrubber actions by value`
 - `125bb8a9 docs: inventory DX12 failure surfaces`
 - `0c9097ec fix: reduce box manifolds by depth and spread`
 - `e752c395 style: format manifold reducer`
@@ -69,14 +70,16 @@ A final main-pass inventory then caught and deleted the generic mouse-pickup
 `active` mirror. Policy, five Win32 scenarios, final replay scrub, and full pass. Evidence:
 `Agentic/Reports/2026-07-11/interaction-state-machine-closure-review.md`.
 
-Runtime UI/control is complete through U3 at 4/7. The owning plan reconciles all
+Runtime UI/control is complete through U4 at 5/7. The owning plan reconciles all
 60 tracked `SkullbonezSource/UI` source files plus 36 interactive replay,
 editor, input, automation, shared-control, and render-boundary files. U1 adds
 the inline typed surface; U2 converts the scrubber into 13 rows and deletes the
 `overX` ladder. U3 maps those rows to semantic actions and routes both pointer
 and Enter branch restore through named synchronous handlers without callbacks
-or a context bag. Replay scrub passes. U6 conversion/review remains
-independently unchecked. Next execute U4 centralized gesture lifecycle.
+or a context bag. U4 centralizes scrubber begin/update/end and retains
+controller-owned cancel, with a new scene-reset capture regression. CPU and
+replay scrub gates pass. U6 conversion/review remains independently unchecked.
+Next execute U5 shared render/input snapshots.
 Interaction gesture geometry and capture remain with
 `RuntimeInteractionController`.
 

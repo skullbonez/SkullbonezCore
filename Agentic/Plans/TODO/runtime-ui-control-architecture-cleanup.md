@@ -1,7 +1,7 @@
 # Runtime UI Control Architecture Cleanup
 
 Date: 2026-07-10 (promoted into the authoritative TODO inventory)
-Status: In progress - 4/7 phases complete
+Status: In progress - 5/7 phases complete
 Impact area: replay UI, editor UI, diagnostics UI, input routing, interaction
 gesture ownership
 Owner: runtime UI surfaces; subsystem commands remain with their domain owners
@@ -269,7 +269,7 @@ Delete or absorb these patterns across runtime UI:
 | U1 Shared control vocabulary | Complete | Inline `RuntimeUiSurface` values and four Debug/Release CPU tests pass |
 | U2 Replay scrubber vertical slice | Complete | 13-row surface owns scrubber hit/reveal state; old `overX` ladder deleted |
 | U3 Action dispatch | Complete | Control action table plus named value dispatch shared by pointer and Enter restore |
-| U4 Gesture lifecycle | Pending | Central begin/update/cancel/release tests |
+| U4 Gesture lifecycle | Complete | Central scrubber begin/tick/end plus controller-owned cancel and reset tests |
 | U5 Shared render/input snapshots | Pending | Draw and hit-test geometry equality tests |
 | U6 Remaining runtime surfaces | Pending | Inventory reconciled with zero unchecked files |
 
@@ -484,11 +484,29 @@ pointer-capturing controls.
 
 Acceptance:
 
-- Begin, update, cancel, and release are centralized.
-- Pointer capture cannot remain stuck after release, unavailable UI, scene load,
+- [x] Begin, update, cancel, and release are centralized.
+- [x] Pointer capture cannot remain stuck after release, unavailable UI, scene load,
   or mode transition.
-- Drag state does not require separate `dragging` booleans for every widget
+- [x] Drag state does not require separate `dragging` booleans for every widget
   unless those booleans are compatibility mirrors during migration.
+
+Evidence:
+
+- `BeginReplayScrubberGesture`, `TickReplayScrubberGesture`, and
+  `EndReplayScrubberGesture` own the scrub/horizon begin-update-release sequence.
+  Both gesture kinds use the same native capture acquire/release path.
+- Unavailable UI and runtime transitions call `CancelToolDragState`, which asks
+  `RuntimeInteractionController` for the typed active gesture and releases
+  native capture only when replay owns it. No widget-specific dragging flag was
+  introduced.
+- The CPU suite adds `ReplayGestureSceneResetCancelsCapture`; existing replay
+  gesture, workspace transition, camera focus-loss, and release cases cover the
+  other controller exits.
+- Profile build passed in 5.2s. `tools\validate_all_cpu_tests.bat` passed in
+  17.2s with 131/131 doctests, 2,814 assertions, and 24/24 interaction cases in
+  Debug and Release. `tools\validate_replay_scrub.bat` passed in 74.0s. All
+  builds reported zero warnings/errors and all runtime probes passed.
+- Comment audit: 2/2 touched source-bearing files checked, zero deferred.
 
 ### Phase 6: Renderer And Input Share Snapshots
 
