@@ -161,6 +161,7 @@ DX12_RENDERING_PREFIXES = (
     "RenderGraphTransientDX12",
     "RenderDeviceDX12",
     "SBTDX12",
+    "ShaderBytecodeManifest",
     "ShaderDX12",
     "TLASDX12",
 )
@@ -597,7 +598,7 @@ def expected_filter_for(item: ProjectItem, project_flat_area: str | None = None)
             return EXTERNAL_FILTER
         if lower.startswith("skullbonezdata\\audio\\") and suffix in {".json", ".md", ".ogg"}:
             return RESOURCE_FILTER
-        if lower.startswith("skullbonezdata\\shaders\\") and suffix in {".hlsl", ".dxil"}:
+        if lower.startswith("skullbonezdata\\shaders\\") and suffix in {".hlsl", ".dxil", ".json"}:
             return SHADER_FILTER
         if lower.startswith("skullbonezdata\\scenes\\") and (lower.endswith(".scene.json") or lower.endswith(".suite.json")):
             return SCENE_FILTER

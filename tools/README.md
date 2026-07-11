@@ -161,6 +161,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `check_physics_regression.py` | Byte-exact core physics CSV diff, with `--deep` for the broader CSV set |
 | `update_baselines.bat` | Copy current Profile visual/perf artifacts into `TestOutput\baselines`; do not use for physics CSV or SkullScope baselines |
 | `archive_validation_artifacts.bat` | Archive current Profile artifacts under `TestOutput\NNN_<commit>` |
+| `bake_shaders.bat` | Bake all shipping raster/compute shaders with pinned DXC, or verify freshness with `--check` |
 
 `validate_perf.bat` is a hard gate: baseline regressions and
 `check_perf_budgets.py` absolute-budget failures return nonzero. Do not treat

@@ -1,13 +1,12 @@
 /*
 File: SkullbonezSource/Rendering/DX12/ShaderDX12.cpp
 Purpose:
-  Compiles and binds shaders/root signatures for the DX12 renderer.
+  Loads, reflects, and binds baked shaders for the DX12 renderer.
 
 Mental model:
-  ShaderDX12.cpp compiles and binds shaders/root signatures for the DX12
-  renderer. As an implementation unit, keep edits anchored on DX12 ownership,
-  descriptors, resources, and command submission and on the
-  glossary/invariants below.
+  The offline bake owns compilation. This wrapper accepts manifest-current
+  DXIL, reflects its constant layout during cold startup, and publishes the
+  bytecode and uniform uploads needed by pipeline draws.
 
 Glossary:
   Upload arena: Frame-scoped CPU-visible staging memory used for packed shader
@@ -25,6 +24,7 @@ Invariants:
   must stay explicit.
   - Address zero means constant upload failed; FlushCB must not dereference it
     or clear the dirty bit.
+  - Runtime source compilation requires the explicit developer launch option.
 
 Related:
   - SkullbonezSource/Rendering/DX12/ShaderDX12.h
@@ -32,6 +32,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "ShaderDX12.h"
+#include "ShaderBytecodeManifest.h"
 #include "RenderBackendDX12.h"
 #include "../ShaderContracts.h"
 #include "../../Core/Log.h"
@@ -44,6 +45,7 @@ Related:
 #include <d3dcompiler.h>
 #include <wrl/client.h>
 #include <algorithm>
+#include <cstdio>
 
 
 using namespace SkullbonezCore::Rendering;
@@ -105,88 +107,81 @@ bool ShaderDX12::Compile( const char* hlslPath )
     m_resourceMap.clear();
 #endif
 
-    // Read file
-    std::ifstream file( hlslPath, std::ios::binary );
-    if ( !file.is_open() )
+    std::string loadError;
+    bool loadedBaked = LoadManifestCurrentShaderBytecode( hlslPath, "vs", m_vsBlob, loadError ) &&
+                       LoadManifestCurrentShaderBytecode( hlslPath, "ps", m_psBlob, loadError );
+    if ( !loadedBaked )
     {
-        // Lane R: authored shader files can be missing or unreadable. Keep the
-        // shader wrapper as a status-return boundary so the resource factory can
-        // decide how to report the failure to its caller.
-        Log().WriteEventf( "dx12_shader_file_open_failed path=%s", hlslPath ? hlslPath : "<null>" );
-        Log().FlushAll();
-        return false;
-    }
-    std::string source( ( std::istreambuf_iterator<char>( file ) ), std::istreambuf_iterator<char>() );
+        // Lane R: stale/missing authored assets fail startup. Source compilation
+        // is retained only as an explicit developer escape hatch until hot reload
+        // owns the same cold path.
+        if ( !DevShaderSourceCompileEnabled() )
+        {
+            Log().WriteEventf( "dx12_shader_bytecode_rejected path=%s reason=%s",
+                               hlslPath ? hlslPath : "<null>",
+                               loadError.c_str() );
+            Log().FlushAll();
+            return false;
+        }
 
-    UINT flags = D3DCOMPILE_ENABLE_STRICTNESS;
+        std::ifstream file( hlslPath, std::ios::binary );
+        if ( !file.is_open() )
+        {
+            Log().WriteEventf( "dx12_shader_file_open_failed path=%s", hlslPath ? hlslPath : "<null>" );
+            Log().FlushAll();
+            return false;
+        }
+        const std::string source( ( std::istreambuf_iterator<char>( file ) ), std::istreambuf_iterator<char>() );
+        UINT flags = D3DCOMPILE_ENABLE_STRICTNESS;
 #ifdef _DEBUG
-    flags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+        flags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
 #else
-    flags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
+        flags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
 #endif
-
-    // Compile the vertex shader from HLSL source code. D3DCompile takes human-readable HLSL text
-    // and converts it into GPU bytecode. The "vs_5_0" target means Vertex Shader Model 5.0.
-    // D3D_COMPILE_STANDARD_FILE_INCLUDE enables #include directives in the shader source.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompile
-    ComPtr<ID3DBlob> errors;
-    HRESULT hr = D3DCompile( source.c_str(),
-                             source.size(),
-                             hlslPath,
-                             nullptr,
-                             D3D_COMPILE_STANDARD_FILE_INCLUDE,
-                             "main_vs",
-                             "vs_5_0",
-                             flags,
-                             0,
-                             m_vsBlob.ReleaseAndGetAddressOf(),
-                             errors.GetAddressOf() );
-    if ( FAILED( hr ) )
-    {
-        std::string msg = "VS compile failed: ";
-        if ( errors )
-        {
-            msg += static_cast<const char*>( errors->GetBufferPointer() );
-        }
-        Log().WriteEventf( "dx12_shader_compile_failed stage=vs hresult=0x%08X path=%s message=%s",
-                           static_cast<unsigned int>( hr ),
+        Log().WriteEventf( "dx12_shader_dev_source_fallback path=%s reason=%s",
                            hlslPath ? hlslPath : "<null>",
-                           msg.c_str() );
-        Log().FlushAll();
-        return false;
+                           loadError.c_str() );
+        fprintf( stdout,
+                 "[shader] DEV source fallback path=%s reason=%s\n",
+                 hlslPath ? hlslPath : "<null>",
+                 loadError.c_str() );
+        fflush( stdout );
+
+        auto compileFallback = [&]( const char* entry, const char* target, const char* stage, ComPtr<ID3DBlob>& blob )
+        {
+            ComPtr<ID3DBlob> errors;
+            const HRESULT result = D3DCompile( source.c_str(),
+                                               source.size(),
+                                               hlslPath,
+                                               nullptr,
+                                               D3D_COMPILE_STANDARD_FILE_INCLUDE,
+                                               entry,
+                                               target,
+                                               flags,
+                                               0,
+                                               blob.ReleaseAndGetAddressOf(),
+                                               errors.GetAddressOf() );
+            if ( FAILED( result ) )
+            {
+                const char* message = errors ? static_cast<const char*>( errors->GetBufferPointer() ) : "<none>";
+                Log().WriteEventf( "dx12_shader_compile_failed stage=%s hresult=0x%08X path=%s message=%s",
+                                   stage,
+                                   static_cast<unsigned int>( result ),
+                                   hlslPath ? hlslPath : "<null>",
+                                   message );
+                Log().FlushAll();
+                return false;
+            }
+            return true;
+        };
+        if ( !compileFallback( "main_vs", "vs_5_0", "vs", m_vsBlob ) ||
+             !compileFallback( "main_ps", "ps_5_0", "ps", m_psBlob ) )
+        {
+            return false;
+        }
     }
-    errors.Reset();
+
     m_vsBytecodeHash = HashShaderBytecode( m_vsBlob.Get() );
-
-    // Compile the pixel shader from the same HLSL file. The "ps_5_0" target means Pixel Shader
-    // Model 5.0. Both VS and PS live in the same .hlsl file with different entry points.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompile
-    hr = D3DCompile( source.c_str(),
-                     source.size(),
-                     hlslPath,
-                     nullptr,
-                     D3D_COMPILE_STANDARD_FILE_INCLUDE,
-                     "main_ps",
-                     "ps_5_0",
-                     flags,
-                     0,
-                     m_psBlob.ReleaseAndGetAddressOf(),
-                     errors.GetAddressOf() );
-    if ( FAILED( hr ) )
-    {
-        std::string msg = "PS compile failed: ";
-        if ( errors )
-        {
-            msg += static_cast<const char*>( errors->GetBufferPointer() );
-        }
-        Log().WriteEventf( "dx12_shader_compile_failed stage=ps hresult=0x%08X path=%s message=%s",
-                           static_cast<unsigned int>( hr ),
-                           hlslPath ? hlslPath : "<null>",
-                           msg.c_str() );
-        Log().FlushAll();
-        return false;
-    }
-    errors.Reset();
     m_psBytecodeHash = HashShaderBytecode( m_psBlob.Get() );
 
     // Reflect both stages so PS-only post/sky uniforms are visible to SetFloat/SetVec*.
@@ -213,7 +208,7 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
     // Reflection tells us the name, offset, and size of each variable in the shader's cbuffer,
     // so we can write data at the correct byte offsets when setting uniforms from C++.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dreflect
-    ComPtr<ID3D11ShaderReflection> reflect;
+    ComPtr<ID3D12ShaderReflection> reflect;
     if ( !blob )
     {
         Log().WriteEventf( "dx12_shader_reflect_failed stage=%s hresult=0x%08X path=%s reason=missing_bytecode",
@@ -223,11 +218,8 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
         Log().FlushAll();
         return false;
     }
-    HRESULT hr = D3DReflect( blob->GetBufferPointer(),
-                             blob->GetBufferSize(),
-                             IID_ID3D11ShaderReflection,
-                             reinterpret_cast<void**>( reflect.GetAddressOf() ) );
-    if ( FAILED( hr ) || !reflect )
+    HRESULT hr = E_FAIL;
+    if ( !ReflectShaderBytecode( blob, reflect, hr ) )
     {
         // Lane R: reflection depends on compiler output and device tooling. A
         // failed reflection pass means this shader cannot expose a safe uniform
@@ -254,7 +246,7 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
         return false;
     };
 
-    D3D11_SHADER_DESC shaderDesc = {};
+    D3D12_SHADER_DESC shaderDesc = {};
     hr = reflect->GetDesc( &shaderDesc );
     if ( FAILED( hr ) )
     {
@@ -264,7 +256,7 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
 #ifdef _DEBUG
     for ( UINT i = 0; i < shaderDesc.BoundResources; ++i )
     {
-        D3D11_SHADER_INPUT_BIND_DESC bindDesc = {};
+        D3D12_SHADER_INPUT_BIND_DESC bindDesc = {};
         hr = reflect->GetResourceBindingDesc( i, &bindDesc );
         if ( FAILED( hr ) )
         {
@@ -279,12 +271,12 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
 
     for ( UINT i = 0; i < shaderDesc.ConstantBuffers; ++i )
     {
-        ID3D11ShaderReflectionConstantBuffer* cb = reflect->GetConstantBufferByIndex( i );
+        ID3D12ShaderReflectionConstantBuffer* cb = reflect->GetConstantBufferByIndex( i );
         if ( !cb )
         {
             return reflectionFailure( "GetConstantBufferByIndex", E_POINTER );
         }
-        D3D11_SHADER_BUFFER_DESC bufDesc = {};
+        D3D12_SHADER_BUFFER_DESC bufDesc = {};
         hr = cb->GetDesc( &bufDesc );
         if ( FAILED( hr ) )
         {
@@ -298,12 +290,12 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
 
         for ( UINT v = 0; v < bufDesc.Variables; ++v )
         {
-            ID3D11ShaderReflectionVariable* var = cb->GetVariableByIndex( v );
+            ID3D12ShaderReflectionVariable* var = cb->GetVariableByIndex( v );
             if ( !var )
             {
                 return reflectionFailure( "GetVariableByIndex", E_POINTER );
             }
-            D3D11_SHADER_VARIABLE_DESC varDesc = {};
+            D3D12_SHADER_VARIABLE_DESC varDesc = {};
             hr = var->GetDesc( &varDesc );
             if ( FAILED( hr ) )
             {

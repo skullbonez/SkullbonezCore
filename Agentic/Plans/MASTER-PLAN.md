@@ -92,7 +92,7 @@ concrete plan rows and counting it would duplicate tasks.
 | render-backend-decomposition | 8 | 8 | 100% |
 | stale-plan-reference-cleanup-15.6-checklist | 86 | 86 | 100% |
 | dx12-post-final-cleanup | 6 | 6 | 100% |
-| shader-pipeline-modernization | 0 | 8 | 0% |
+| shader-pipeline-modernization | 2 | 8 | 25% |
 | render-visibility-architecture | 0 | 7 | 0% |
 | sim-render-interpolation | 0 | 5 | 0% |
 | editor-undo-redo | 0 | 5 | 0% |
@@ -101,7 +101,7 @@ concrete plan rows and counting it would duplicate tasks.
 | entity-model-endgame | 4 | 4 | 100% |
 | instant-prediction-velocity-chaos | 52 | 52 | 100% |
 | shadow-edge-quality | 0 | 5 | 0% |
-| **Portfolio total** | **240** | **276** | **87%** |
+| **Portfolio total** | **242** | **276** | **88%** |
 
 ## Current Execution Priority
 
@@ -174,7 +174,7 @@ Reconciliation notes live inside each plan.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [shader-pipeline-modernization](TODO/shader-pipeline-modernization.md) | Planned | 0/8 | Start now; A2, DX12 cleanup, and config decomposition are complete. Execute P0-P5 in order and record P5 before shadow S1; P6 is optional follow-up |
+| [shader-pipeline-modernization](TODO/shader-pipeline-modernization.md) | Active | 2/8 | P0-P1 inventory and offline SM6.0 DXIL bake/load are complete with freshness, visual, and stress evidence; generate and validate reflection contracts next |
 | [render-visibility-architecture](TODO/render-visibility-architecture.md) | Planned | 0/7 | P0 instrumentation may start any time; implementation follows stable backend ownership and closes before shadow-quality implementation |
 | [sim-render-interpolation](TODO/sim-render-interpolation.md) | Planned | 0/5 | After entity-model closure and stable renderer ownership; P1 capture-determinism guard lands first |
 | [editor-undo-redo](TODO/editor-undo-redo.md) | Planned | 0/5 | After entity-model closure; build history on final `PhysicsSceneObjectId` and post-`GameModelCollection` scene APIs |

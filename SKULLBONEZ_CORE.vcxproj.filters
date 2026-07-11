@@ -499,6 +499,9 @@
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Textures.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\ShaderBytecodeManifest.cpp">
+      <Filter>Source Files\Rendering\DX12</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderDeviceDX12.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
@@ -1043,6 +1046,9 @@
     <ClInclude Include="SkullbonezSource\Rendering\DX12\ShaderDX12.h">
       <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\ShaderBytecodeManifest.h">
+      <Filter>Header Files\Rendering\DX12</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\DX12\MeshDX12.h">
       <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
@@ -1213,6 +1219,135 @@
     <None Include="SkullbonezData\shaders\post_volumetric_light.hlsl">
       <Filter>Resource Files\HLSL</Filter>
     </None>
+    <None Include="SkullbonezData\shaders\collision_visualizer.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\collision_visualizer.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\generate_mips.cs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\grid_line.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\grid_line.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\launcher_laser.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\launcher_laser.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\lit_textured.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\lit_textured.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\lit_textured_instanced.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\lit_textured_instanced.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\post_tonemap.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\post_tonemap.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\post_volumetric_light.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\post_volumetric_light.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\shadow_depth.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\shadow_depth.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\shadow_depth_instanced.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\shadow_depth_instanced.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\sky_atmosphere.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\sky_atmosphere.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\soft_additive_ribbon.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\soft_additive_ribbon.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\solid_color.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\solid_color.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\solid_color_batch.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\solid_color_batch.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\text.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\text.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\tornado_fx.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\tornado_fx.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\trajectory_ribbon.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\trajectory_ribbon.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\ui_render_target_preview.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\ui_render_target_preview.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\UIBackdropBlur.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\UIBackdropBlur.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\unlit_textured.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\unlit_textured.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\water_calm.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\water_calm.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\water_ocean.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\water_ocean.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
     <None Include="SkullbonezData\shaders\reflect.rt.dxil">
       <Filter>Resource Files\HLSL</Filter>
     </None>
@@ -1250,6 +1385,9 @@
       <Filter>Resource Files\HLSL</Filter>
     </None>
     <None Include="SkullbonezData\shaders\water_ocean.hlsl">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\shader_manifest.json">
       <Filter>Resource Files\HLSL</Filter>
     </None>
     <None Include="SkullbonezData\scenes\at_rest.scene.json">

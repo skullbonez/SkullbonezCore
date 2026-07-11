@@ -1,13 +1,12 @@
 /*
 File: SkullbonezSource/Rendering/DX12/ShaderDX12.h
 Purpose:
-  Compiles and binds shaders/root signatures for the DX12 renderer.
+  Declares the baked-shader wrapper used by the DX12 renderer.
 
 Mental model:
-  ShaderDX12.h compiles and binds shaders/root signatures for the DX12
-  renderer. As a public header, keep edits anchored on DX12 ownership,
-  descriptors, resources, and command submission and on the
-  glossary/invariants below.
+  A shader owns verified vertex/pixel bytecode plus a reflected constant layout.
+  Draw code writes named values into its CPU byte copy, then flushes that copy
+  through the frame upload owner before binding the pipeline.
 
 Glossary:
   CBV (Constant Buffer View): Descriptor or root binding that lets shaders read
@@ -59,8 +58,9 @@ struct ShaderProgramDesc;
     DirectX 12 shader wrapper.
 
     A single HLSL file provides the vertex shader (VS) and pixel shader (PS).
-    The wrapper compiles both, reflects the constant-buffer layout, stores a
-    CPU-side copy of uniform bytes, and exposes bytecode for DX12 PSO creation.
+    The wrapper loads both baked stages, reflects the constant-buffer layout,
+    stores a CPU-side copy of uniform bytes, and exposes bytecode for DX12 PSO
+    creation. Source compilation is an explicit dev-only fallback.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class ShaderDX12 : public IShader
 {
