@@ -52,6 +52,7 @@ Related:
 #pragma once
 
 #include "ReplayRecorder.h"
+#include "ReplayPredictionScheduling.h"
 #include "../../Assets/AssetKeys.h"
 #include "../../GameObjects/SceneCapacity.h"
 #include "TrajectoryStore.h"
@@ -600,11 +601,22 @@ struct RunReplayPredictionTrajectoryBuildState
 struct RunReplayPredictionBuildState
 {
     bool dirty = true;
+    // Concept: velocity edits do not form a queue. While an instant worker job
+    // is in flight, this bit remembers only that the newest live state needs one
+    // replacement build after completion.
+    bool pendingLatestRestart = false;
+    uint32_t supersededRestartCount = 0;
+    uint32_t latestRestartBeginCount = 0;
     bool building = false;
     bool complete = false;
+    ReplayPredictionBuildMode buildMode = ReplayPredictionBuildMode::Undecided;
     int nextTick = 1;
     int targetTickCount = 0;
     double lastBuildTime = 0.0;
+    double lastBuildWallMs = 0.0;
+    double instantBudgetMs = 0.0;
+    int probeTickBudget = 8;
+    std::chrono::steady_clock::time_point jobStart = {};
     // Runtime allocation policy: prediction buildFrames can be pre-sized for a
     // whole horizon while only buildFrameCount rows are populated. Render reads
     // frames, not the pre-sized build vector, until completion swaps them.
@@ -635,6 +647,14 @@ struct RunReplayPredictionSimulationState
     ReplayFrameIndex sourceFrameIndex = 0;
     uint64_t sourceSolverHash = 0;
     double sourceSimulationSeconds = 0.0;
+    // Invariant: the worker is the sole writer of probe accumulators and
+    // release-publishes measuredTicksPerMs. The frame thread acquire-loads it
+    // before choosing a build mode. Same-source velocity restarts retain the
+    // calibration; scene/branch/body-count changes reset it.
+    std::atomic<double> measuredTicksPerMs{ 0.0 };
+    double probeElapsedMs = 0.0;
+    int probeTicksCompleted = 0;
+    int calibratedModelCount = -1;
     // Concept: prediction simulates the future in its own engine. Live stores
     // are never written by prediction, so replay preview state stays isolated.
     // Lifetime: constructed lazily on first prediction begin under the replay

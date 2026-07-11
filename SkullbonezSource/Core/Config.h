@@ -312,6 +312,11 @@ class EngineConfig
     bool physicsParallelIntegrate = true;
     bool shadowParallelPrep = false;
 
+    // Replay prediction measures private-engine throughput before choosing a
+    // scheduling mode. A zero budget keeps the legacy amortized path.
+    float replayPredictionInstantBudgetMs = 30.0f;
+    int replayPredictionProbeTicks = 50;
+
     // Physics
     float gravity = -30.0f;
     float fluidHeight = 25.0f;

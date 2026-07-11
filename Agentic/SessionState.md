@@ -11,28 +11,24 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-11th-july` |
-| Current pushed baseline | `96f5d50e docs: bind DX12 stress and plan-runner commit rules` |
-| Current objective | Owner-validates the implemented no-flicker selected-ball path fix and perf regression, then resumes instant-prediction phases 1–3 |
-| Portfolio progress | 170 / 276 tasks = 62% overall |
-| Last broad local gate | `tools\validate_full.bat` passed the cold-start cursor fix on 2026-07-11 in about 139s: every CPU target, 131/131 doctest cases with 2,818 assertions, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, handle smoke, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | Owner explicitly retained validation. Run `tools\validate_perf.bat` for the selected-ball structural/perf proof and `tools\validate_full.bat` for Runtime/Replay changes before merge. |
+| Current pushed baseline | `68b09031 instant-prediction-velocity-chaos, TASK 5 / 52, 62% OVERALL COMPLETE — fix selected-ball path rebuild regression` |
+| Current objective | Close `entity-model-endgame`, while preparing the engine-cleanup aggregate ownership review in parallel |
+| Portfolio progress | 217 / 276 tasks = 79% overall |
+| Last broad local gate | `tools\validate_full.bat` passed final instant-prediction source on 2026-07-11 in about 107s: every CPU target, 133/133 doctest cases with 2,827 assertions, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, handle smoke, and the 44,401-line varied physics baseline byte-exactly |
+| Validation for current edits | Instant prediction passed `validate_fast`, `validate_tests`, `validate_full`, `validate_perf`, the chaos drag probe, and forced Instant-vs-Amortized fingerprint comparison. |
 
 ## Live Queue
 
-1. `instant-prediction-velocity-chaos` is important owner-priority live work.
-   It remains in `Plans/TODO/`; its execution checklist is at 5/52 preparation
-   items. Deliver phases 1-3 first, then the chaos scene, UX, validation, and
-   closure. Never pause or park it without an explicit owner directive.
-2. Prepare the engine-cleanup aggregate review in parallel with prediction;
+1. Prepare the engine-cleanup aggregate review in parallel with the critical path;
    fix findings, pass the closure gate, and delete all eight retained completed
    plans.
-3. After prediction, close `entity-model-endgame` before dependent features
+2. Close `entity-model-endgame` before dependent features
    retain obsolete `GameModel`/`GameModelCollection` identities or APIs.
-4. Continue the binding path recorded in MASTER: render A1-A2, DX12 cleanup,
+3. Continue the binding path recorded in MASTER: render A1-A2, DX12 cleanup,
    config decomposition, shader P0-P5, visibility, shadows, interpolation,
    editor undo/redo, then data-format versioning. Phase-level preparation and
    dependency barriers are authoritative in MASTER and the owning plans.
-5. Validation-gate V3 remains an external parallel lane at 5/6. The hosted CPU PR lane
+4. Validation-gate V3 remains an external parallel lane at 5/6. The hosted CPU PR lane
    has a successful real run. Remaining work is a `merge_group` proof, required
    `main` branch protection, and trusted DX12-runner administration. Persistent
    self-hosted DX12 stays trusted-main/manual only; public-PR GPU evidence needs
@@ -43,7 +39,6 @@ plan inventory.
 - `Plans/TODO/` contains live implementation work.
 - `Plans/WNF/` contains only owner-parked “will not do now” work and is ignored
   unless the owner explicitly restores a plan to `TODO/`.
-- `instant-prediction-velocity-chaos` is explicitly live and is not a WNF plan.
 - The MASTER critical path is binding; preparation may run early only where it
   is explicitly named, and no work crosses a recorded dependency barrier.
 - Every plan-runner commit and plan-implementation prompt starts with the

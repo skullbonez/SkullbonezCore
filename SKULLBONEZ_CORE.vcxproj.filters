@@ -902,6 +902,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionReserve.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionScheduling.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRetainedMemory.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>

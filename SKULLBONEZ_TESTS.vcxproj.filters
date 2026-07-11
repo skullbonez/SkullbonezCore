@@ -108,6 +108,9 @@
     <ClCompile Include="SkullbonezTests\TestRuntimeInputBindings.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestReplayPredictionScheduling.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestInputRouter.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>

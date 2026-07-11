@@ -53,6 +53,7 @@ Related:
 #include "RuntimePickService.h"
 
 #include "../Physics/PhysicsEngineStoreQueries.h"
+#include "../Physics/PhysicsTimestep.h"
 #include "../Core/Config.h"
 #include "../Rendering/IRenderCaptureBackend.h"
 #include "../UI/UI.h"
@@ -62,6 +63,7 @@ Related:
 #pragma warning( pop )
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <sstream>
@@ -510,6 +512,20 @@ const char* ReplayTrackName( RunReplayTrack track )
     return track == RunReplayTrack::Solver ? "Solver" : "Presentation";
 }
 
+const char* ReplayPredictionBuildModeName( ReplayPredictionBuildMode mode )
+{
+    switch ( mode )
+    {
+    case ReplayPredictionBuildMode::Instant:
+        return "Instant";
+    case ReplayPredictionBuildMode::Amortized:
+        return "Amortized";
+    case ReplayPredictionBuildMode::Undecided:
+    default:
+        return "Undecided";
+    }
+}
+
 bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
 {
     if ( value.size() == 1 )
@@ -675,6 +691,12 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "replayPastTrajectoryPublishedPointCountMin";
     case RunInteractionAutomationAssertKind::PredictionPathVisible:
         return "predictionPathVisible";
+    case RunInteractionAutomationAssertKind::PredictionFullHorizonComplete:
+        return "predictionFullHorizonComplete";
+    case RunInteractionAutomationAssertKind::PredictionBuildMode:
+        return "predictionBuildMode";
+    case RunInteractionAutomationAssertKind::PredictionSupersededRestartCountMin:
+        return "predictionSupersededRestartCountMin";
     case RunInteractionAutomationAssertKind::PredictionBaselineVisible:
         return "predictionBaselineVisible";
     case RunInteractionAutomationAssertKind::PredictionDivergenceMin:
@@ -984,7 +1006,8 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
         if ( hasTarget && record )
         {
             RunReplayPredictionState& prediction = replayRuntime.Prediction();
-            if ( !prediction.build.complete || prediction.simulation.frames.size() < 2 )
+            if ( ( !prediction.build.complete || prediction.simulation.frames.size() < 2 ) &&
+                 !prediction.baseline.comparisonActive )
             {
                 FailAutomation( state, "replay path target velocity nudge requires a completed prediction baseline" );
             }
@@ -993,10 +1016,13 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
                 // Why: automation needs the same old-vs-new future proof as a
                 // mouse drag, but without depending on pixel-perfect axis hit
                 // testing. Capture is still deferred to the visualizer.
-                prediction.baseline.valid = false;
-                prediction.baseline.comparisonActive = true;
-                prediction.baseline.divergenceValid = false;
-                prediction.baseline.divergenceUnits = 0.0f;
+                if ( prediction.build.complete )
+                {
+                    prediction.baseline.valid = false;
+                    prediction.baseline.comparisonActive = true;
+                    prediction.baseline.divergenceValid = false;
+                    prediction.baseline.divergenceUnits = 0.0f;
+                }
 
                 const Vector3 nextLinearVelocity = record->linearVelocity + action.vectorValue;
                 applied = physics.SetBodyVelocity( body, nextLinearVelocity, record->angularVelocity, true );
@@ -1544,6 +1570,21 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             outAction.assertKind = RunInteractionAutomationAssertKind::PredictionPathVisible;
             outAction.boolValue = ReadBool( member.value() );
         }
+        else if ( name == "predictionFullHorizonComplete" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionFullHorizonComplete;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "predictionBuildMode" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionBuildMode;
+            CopyText( outAction.text, sizeof( outAction.text ), member.value().get<std::string>() );
+        }
+        else if ( name == "predictionSupersededRestartCountMin" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionSupersededRestartCountMin;
+            outAction.numberValue = member.value().get<float>();
+        }
         else if ( name == "predictionBaselineVisible" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::PredictionBaselineVisible;
@@ -1762,6 +1803,34 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( visible );
         evaluation.passed = visible == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionFullHorizonComplete:
+    {
+        const RunReplayPredictionState& prediction = replayRuntime.Prediction();
+        const std::size_t expectedFrameCount =
+            static_cast<std::size_t>( std::ceil( prediction.simulation.horizonSeconds / PHYSICS_FIXED_DT ) ) + 1u;
+        const bool complete = prediction.build.complete && !prediction.build.building &&
+                              prediction.simulation.frames.size() == expectedFrameCount;
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( complete );
+        evaluation.passed = complete == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionBuildMode:
+    {
+        const char* actualMode = ReplayPredictionBuildModeName( replayRuntime.Prediction().build.buildMode );
+        evaluation.expected = action.text;
+        evaluation.actual = actualMode;
+        evaluation.passed = evaluation.expected == evaluation.actual;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionSupersededRestartCountMin:
+    {
+        const uint32_t count = replayRuntime.Prediction().build.supersededRestartCount;
+        evaluation.expected = ">=" + std::to_string( static_cast<uint32_t>( action.numberValue ) );
+        evaluation.actual = std::to_string( count );
+        evaluation.passed = count >= static_cast<uint32_t>( action.numberValue );
         break;
     }
     case RunInteractionAutomationAssertKind::PredictionBaselineVisible:
@@ -2628,6 +2697,13 @@ SbResult SkullbonezCore::Basics::WriteInteractionAutomationReport( InteractionAu
         { "replayPredictionEnabled", predictionState.enabled },
         { "predictionHorizonSeconds", predictionState.simulation.horizonSeconds },
         { "predictionRevealSecondsPerSecond", predictionState.revealClock.secondsPerSecond },
+        { "predictionBuildMode", ReplayPredictionBuildModeName( predictionState.build.buildMode ) },
+        { "predictionMeasuredTicksPerMs",
+          predictionState.simulation.measuredTicksPerMs.load( std::memory_order_acquire ) },
+        { "predictionLastBuildWallMs", predictionState.build.lastBuildWallMs },
+        { "predictionPendingLatestRestart", predictionState.build.pendingLatestRestart },
+        { "predictionSupersededRestartCount", predictionState.build.supersededRestartCount },
+        { "predictionLatestRestartBeginCount", predictionState.build.latestRestartBeginCount },
         { "replayPathTarget",
           replayRuntime.PathVisualizer().hasTarget ? replayRuntime.PathVisualizer().targetName : "" },
         { "replayPathTargetCount", static_cast<int>( replayRuntime.PathVisualizer().targets.size() ) },

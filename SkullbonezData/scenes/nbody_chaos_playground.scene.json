@@ -1,0 +1,198 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {
+    "rendering": true,
+    "skyAtmosphere": true,
+    "clouds": false,
+    "godRays": false,
+    "volumetricLighting": false,
+    "bloom": false,
+    "fog": false,
+    "styleModes": [
+      0,
+      3,
+      2,
+      0
+    ],
+    "exposure": 1.25,
+    "gamma": 1.25,
+    "sunScreenX": 0.61,
+    "sunScreenY": 0.62,
+    "sunColorR": 1,
+    "sunColorG": 0.98,
+    "sunColorB": 0.92,
+    "sunIntensity": 20,
+    "skyHorizonR": 0,
+    "skyHorizonG": 0,
+    "skyHorizonB": 0,
+    "skyZenithR": 0,
+    "skyZenithG": 0,
+    "skyZenithB": 0,
+    "skyGlowStrength": 0
+  },
+  "simulation": {
+    "seed": 3303,
+    "physics": true,
+    "text": false,
+    "modelCapacity": 16,
+    "world": {
+      "gravity": 0,
+      "fluidHeight": -100000,
+      "fluidDensity": 0,
+      "mutualGravity": {
+        "enabled": true,
+        "gravitationalConstant": 55,
+        "softeningLength": 3,
+        "elasticCollisions": true
+      }
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": 7200,
+    "fixedStep": true,
+    "pauseSnapshotState": false,
+    "exitOnComplete": false
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": -100000,
+      "slopeX": 0,
+      "slopeZ": 0
+    }
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        12,
+        195,
+        255
+      ],
+      "view": [
+        0,
+        98,
+        10
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ballState",
+      "name": "chaos_a",
+      "position": [
+        -55,
+        100,
+        -8
+      ],
+      "velocity": [
+        1.1,
+        0,
+        -1.2
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 4,
+      "mass": 16,
+      "restitution": 0.05,
+      "inertia": [
+        102.4,
+        102.4,
+        102.4
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "chaos_b",
+      "position": [
+        42,
+        100,
+        15
+      ],
+      "velocity": [
+        -0.6,
+        0,
+        1.4
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 5,
+      "mass": 22,
+      "restitution": 0.05,
+      "inertia": [
+        220,
+        220,
+        220
+      ],
+      "fixed": false,
+      "sleeping": false
+    },
+    {
+      "type": "ballState",
+      "name": "chaos_c",
+      "position": [
+        4,
+        100,
+        58
+      ],
+      "velocity": [
+        -0.3,
+        0,
+        -0.8
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 3.6,
+      "mass": 12,
+      "restitution": 0.05,
+      "inertia": [
+        62.208,
+        62.208,
+        62.208
+      ],
+      "fixed": false,
+      "sleeping": false
+    }
+  ]
+}

@@ -309,6 +309,8 @@ const ConfigSetting* ConfigSettings( size_t& outCount )
         CONFIG_BOOL( "physics_parallel_terrain_detect", physicsParallelTerrainDetect ),
         CONFIG_BOOL( "physics_parallel_integrate", physicsParallelIntegrate ),
         CONFIG_BOOL( "shadow_parallel_prep", shadowParallelPrep ),
+        CONFIG_FLOAT( "replay_prediction_instant_budget_ms", replayPredictionInstantBudgetMs, 0.0, 10000.0 ),
+        CONFIG_INT( "replay_prediction_probe_ticks", replayPredictionProbeTicks, 8, 2400 ),
 
         CONFIG_FLOAT( "scene_light_color_r", sceneLight.colorR, -1000000.0, 1000000.0 ),
         CONFIG_FLOAT( "scene_light_color_g", sceneLight.colorG, -1000000.0, 1000000.0 ),

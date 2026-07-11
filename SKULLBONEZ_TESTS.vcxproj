@@ -201,6 +201,7 @@
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp" />
     <ClCompile Include="SkullbonezTests\TestReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeInputBindings.cpp" />
+    <ClCompile Include="SkullbonezTests\TestReplayPredictionScheduling.cpp" />
     <ClCompile Include="SkullbonezTests\TestInputRouter.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayRecorder.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayRecorderFullCaptureBoundary.cpp" />

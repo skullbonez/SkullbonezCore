@@ -597,6 +597,9 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
         }
         if ( leftReleased || !leftDown )
         {
+            // Invariant: the final drag sample is applied above while leftDown is
+            // still true, before release ends the gesture. Its dirty request is
+            // therefore the newest live velocity consumed by the coalesced build.
             replayInteraction.EndVelocityEditDrag( m_replayRuntime );
             m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayVelocityDrag );
             m_inputRouter.ReleaseNativeCapture();

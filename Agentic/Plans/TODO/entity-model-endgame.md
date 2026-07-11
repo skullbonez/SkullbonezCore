@@ -10,8 +10,9 @@ Origin: 2026-07-11 architecture gap review, reconciled against the completed
 
 ## Owner decisions (binding, 2026-07-11 — final; do not re-litigate)
 
-Critical-path position: execute immediately after
-`instant-prediction-velocity-chaos.md`. Close this plan before interpolation,
+Critical-path position: execute immediately after the completed
+[instant-prediction closure](../../Reports/2026-07-11/instant-prediction-velocity-chaos-closure.md).
+Close this plan before interpolation,
 editor undo/redo, or another feature retains identity or scene APIs from
 `GameModel`/`GameModelCollection`.
 

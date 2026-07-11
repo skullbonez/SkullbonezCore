@@ -1001,7 +1001,8 @@ bool ReplayRuntime::PromotePredictionBuildPrefixToCommitted()
     m_prediction.build.complete = true;
     m_prediction.simulation.frames.swap( m_prediction.build.buildFrames );
     m_prediction.simulation.frames.resize( promotedFrameCount );
-    m_prediction.build.buildFrames.clear();
+    // Why: keep the inactive frame bank and each row's payload capacity warm.
+    // The publication count, not vector size, decides whether readers may use it.
     m_prediction.ResetBuildFramePublication();
     if ( !RebuildReplayRuntimePredictionCommittedRootTrajectory( m_prediction ) )
     {
@@ -1019,17 +1020,26 @@ void ReplayRuntime::CancelPredictionJob( bool clearSamples )
     m_prediction.build.workerTask.reset();
     m_prediction.build.building = false;
     m_prediction.build.complete = false;
+    m_prediction.build.buildMode = ReplayPredictionBuildMode::Undecided;
+    m_prediction.build.pendingLatestRestart = false;
     m_prediction.simulation.targetModelRow.value = -1;
     m_prediction.build.nextTick = 1;
     m_prediction.build.targetTickCount = 0;
     m_prediction.simulation.predictionEngineReady = false;
     m_prediction.simulation.predictionBodies.clear();
     m_prediction.simulation.predictionWorld = ReplaySolverWorldSnapshot();
-    m_prediction.build.buildFrames.clear();
+    // Runtime allocation policy: cancellation invalidates publication but keeps
+    // the double-buffered frame payloads warm for the next replay rebuild.
     m_prediction.ResetBuildFramePublication();
     m_prediction.trajectoryBuild = RunReplayPredictionTrajectoryBuildState{};
     if ( clearSamples )
     {
+        m_prediction.build.supersededRestartCount = 0;
+        m_prediction.build.latestRestartBeginCount = 0;
+        m_prediction.simulation.measuredTicksPerMs.store( 0.0, std::memory_order_release );
+        m_prediction.simulation.probeElapsedMs = 0.0;
+        m_prediction.simulation.probeTicksCompleted = 0;
+        m_prediction.simulation.calibratedModelCount = -1;
         m_prediction.simulation.frames.clear();
         m_prediction.trajectoryStore.Clear();
         ClearPredictionFutureNodeCache();
@@ -1051,7 +1061,9 @@ void ReplayRuntime::ClearPredictionCache()
 
 void ReplayRuntime::MarkPredictionDirty()
 {
-    CancelPredictionJob( false );
+    // Why: the prediction dispatcher owns cancellation. Marking dirty must stay
+    // non-blocking during velocity drag so an in-flight instant build can finish
+    // and be superseded by one newest-state restart.
     m_prediction.build.dirty = true;
 }
 
