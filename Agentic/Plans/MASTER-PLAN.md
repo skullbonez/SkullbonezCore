@@ -79,7 +79,7 @@ Reconciliation notes live inside each plan.
 |---|---|---:|---|
 | [instant-prediction-velocity-chaos](TODO/instant-prediction-velocity-chaos.md) | In progress (paused) | 1/50 checklist items | Progress checklist: `TODO/instant-prediction-velocity-chaos-progress.md`; resume per owner priority |
 | [shadow-edge-quality](TODO/shadow-edge-quality.md) | Planned | 0/5 | DX12 failure state safe; coordinate renderer owner/binding work |
-| [fracture-replay-feature](TODO/fracture-replay-feature.md) | Blocked backlog | 0/7 | Replay R3, render ownership, and mandatory CPU gate complete |
+| [fracture-replay-feature](WNF/fracture-replay-feature.md) | Paused by owner (moved to `WNF/` 2026-07-11) | 0/7 | Owner resumes explicitly; previously blocked on replay R3, render ownership, and the mandatory CPU gate |
 
 ## Binding Decisions And Open Decisions
 
