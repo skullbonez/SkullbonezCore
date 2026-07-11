@@ -89,7 +89,7 @@ concrete plan rows and counting it would duplicate tasks.
 | interaction-state-machine | 6 | 6 | 100% |
 | replay-architecture-and-right-sizing | 6 | 6 | 100% |
 | physics-authority-and-identity | 16 | 16 | 100% |
-| render-backend-decomposition | 2 | 8 | 25% |
+| render-backend-decomposition | 4 | 8 | 50% |
 | stale-plan-reference-cleanup-15.6-checklist | 86 | 86 | 100% |
 | dx12-post-final-cleanup | 0 | 6 | 0% |
 | shader-pipeline-modernization | 0 | 8 | 0% |
@@ -101,7 +101,7 @@ concrete plan rows and counting it would duplicate tasks.
 | entity-model-endgame | 4 | 4 | 100% |
 | instant-prediction-velocity-chaos | 52 | 52 | 100% |
 | shadow-edge-quality | 0 | 5 | 0% |
-| **Portfolio total** | **223** | **276** | **81%** |
+| **Portfolio total** | **225** | **276** | **82%** |
 
 ## Current Execution Priority
 
@@ -116,8 +116,8 @@ For maximum impact with minimal rework, use this binding critical path:
    implementation campaign. Fix every credible ownership finding, pass the
    closure gate, and delete the eight retained completed plans to remove stale
    control-plane noise.
-2. **`render-backend-decomposition` A3-D2.** Texture and pipeline ownership are
-   complete. Continue with the DXR owner, remainder review, resource-capability
+2. **`render-backend-decomposition` B1-D2.** Texture, pipeline, and DXR ownership
+   plus the remainder review are complete. Continue with the resource-capability
    matrix, alias cleanup, engine-facing cleanup, and capture/profiler proof.
    A2's dependency barrier is cleared, but finish this ordered plan before
    advancing the serial implementation lane.
@@ -177,7 +177,7 @@ aggregate closure gate passes; do not treat retention as a permanent archive.
 | [interaction-state-machine](TODO/interaction-state-machine.md) | Complete | 6/6 remaining phases | Retain as closure evidence; typed gesture payload, native capture, focus/UI crossing, deletion proofs, and repeat adversarial review pass |
 | [replay-architecture-and-right-sizing](TODO/replay-architecture-and-right-sizing.md) | Complete | 6/6 | Retain as closure evidence; stable identity, bounded memory, named gates, rollback proof, and source-size justifications are complete |
 | [physics-authority-and-identity](TODO/physics-authority-and-identity.md) | Complete | 16/16 current items | Retain as closure evidence; handle-owned mutation, coordinated lifecycle, stable runtime identity, full gate, and repeat adversarial review complete |
-| [render-backend-decomposition](TODO/render-backend-decomposition.md) | In progress | 2/8 remaining items | A1-A2 complete; execute A3-D2, starting with a real DXR owner and coherent remainder review |
+| [render-backend-decomposition](TODO/render-backend-decomposition.md) | In progress | 4/8 remaining items | A1-A4 complete; execute B1-D2, starting with the resource-factory consumer matrix and queue/allocator alias cleanup |
 | [stale-plan-reference-cleanup-15.6-checklist](TODO/stale-plan-reference-cleanup-15.6-checklist.md) | Complete | 86/86 files | Retain as reconciled evidence; no source rows remain |
 
 ## Planned Architecture Work (2026-07-11 gap review)

@@ -1,12 +1,13 @@
 /*
 File: SkullbonezSource/Rendering/DX12/RenderBackendDX12.h
 Purpose:
-  Declares the production DX12 renderer plus concrete texture and pipeline owners.
+  Declares the production DX12 renderer plus concrete texture, pipeline, and
+  raytracing owners.
 
 Mental model:
   RenderBackendDX12 coordinates device/frame work. Dx12TextureOwner retains
-  texture residency and binding state, while Dx12PipelineOwner retains the
-  ordinary raster recipe and draw-preparation cache.
+  texture residency and binding state, Dx12PipelineOwner retains the ordinary
+  raster recipe, and Dx12RaytracingOwner retains the optional reflection path.
 
 Glossary:
   Recording epoch: Logical open/closed state of the reusable command list,
@@ -95,8 +96,8 @@ class RenderBackendDX12;
 struct TextureEntryDX12
 {
     ID3D12Resource* resource;
-    UINT srvIndex;                                                     // Index in the persistent SRV region
-    bool owned;                                                        // False for FBO-registered SRVs
+    UINT srvIndex;                                                 // Index in the persistent SRV region
+    bool owned;                                                    // False for FBO-registered SRVs
 };
 
 
@@ -181,8 +182,8 @@ struct GpuTimerStateDX12
     bool resultValid[DX12_TIMER_HEAP_MARKERS] = {};
     uint64_t freq = 1;
     bool readPending = false;
-    UINT64 readFenceValue = 0;                                         // fence value that guarantees the latest ResolveQueryData has completed
-    bool slotWritten[DX12_TIMER_HEAP_SIZE] = {};                       // true for each timestamp slot that had EndQuery recorded this frame
+    UINT64 readFenceValue = 0;                                     // fence value that guarantees the latest ResolveQueryData has completed
+    bool slotWritten[DX12_TIMER_HEAP_SIZE] = {};                   // true for each timestamp slot that had EndQuery recorded this frame
 };
 
 struct DeferredResourceReleaseDX12
@@ -327,6 +328,90 @@ class Dx12PipelineOwner
     bool m_targetsDirty = true;
 };
 
+struct Dx12RaytracingSetupOutcome
+{
+    Basics::SbResult result = Basics::SbResult::Success();
+    bool recordedBuildWork = false;
+};
+
+struct Dx12RaytracingDispatchOutcome
+{
+    Basics::SbResult result = Basics::SbResult::Success();
+    bool rasterStateInvalidated = false;
+};
+
+// Concept: raytracing is one resource lifecycle, not backend frame state.
+//
+// This owner retains the optional Device5/command-list4 capability, reflection
+// pipeline, acceleration structures, descriptors, constants, instance table,
+// and bounded fallback reason. Operations borrow only the concrete device,
+// command-list, descriptor, and texture facilities needed for that call; the
+// owner never stores or reaches back through RenderBackendDX12.
+class Dx12RaytracingOwner
+{
+  public:
+    void ProbeCapability( ID3D12Device* device );
+    bool Supported() const;
+    bool Initialized() const;
+    const Basics::SbResult& FeatureResult() const;
+
+    Dx12RaytracingSetupOutcome BeginSetup( ID3D12Device* device,
+                                           ID3D12GraphicsCommandList* commandList,
+                                           Dx12DescriptorAllocator& descriptors,
+                                           int renderWidth,
+                                           int renderHeight,
+                                           uint64_t terrainVBVA,
+                                           int terrainVertCount,
+                                           int terrainStride,
+                                           uint64_t sphereVBVA,
+                                           int sphereVertCount,
+                                           int sphereStride );
+    Basics::SbResult CompleteSetup( ID3D12Device* device, int maxInstances );
+    void AbortSetup( const Basics::SbResult& failure );
+    Basics::SbResult BuildScene( const float* instanceTransforms, int instanceCount );
+    Dx12RaytracingDispatchOutcome DispatchReflections( ID3D12Device* device,
+                                                       ID3D12DescriptorHeap* shaderVisibleHeap,
+                                                       Dx12DescriptorAllocator& descriptors,
+                                                       const Dx12TextureOwner& textures,
+                                                       const float* invViewProj,
+                                                       const float* cameraPos,
+                                                       float waterY,
+                                                       float time,
+                                                       const float* lightPos,
+                                                       const float* skyColorTop,
+                                                       const float* skyColorBottom,
+                                                       const uint32_t textureHandles[8] );
+    UINT ReflectionSrvIndex() const;
+    void Shutdown();
+
+  private:
+    Basics::SbResult CreateRootSignature( ID3D12Device* device );
+    Basics::SbResult CreatePipeline();
+    Basics::SbResult
+    CreateReflectionTexture( ID3D12Device* device, Dx12DescriptorAllocator& descriptors, int width, int height );
+    bool m_supported = false;
+    Basics::SbResult m_featureResult = Basics::SbResult::Success();
+    ID3D12Device5* m_device5 = nullptr;
+    ID3D12GraphicsCommandList4* m_commandList4 = nullptr;
+    ID3D12StateObject* m_pipeline = nullptr;
+    ID3D12StateObjectProperties* m_pipelineProperties = nullptr;
+    ID3D12RootSignature* m_rootSignature = nullptr;
+    ID3D12Resource* m_reflectionTexture = nullptr;
+    UINT m_reflectionUavIndex = 0;
+    UINT m_reflectionSrvIndex = 0;
+    int m_reflectionWidth = 0;
+    int m_reflectionHeight = 0;
+    bool m_reflectionInSrvState = false;
+    ID3D12Resource* m_constantBuffer = nullptr;
+    uint8_t* m_constantBufferMapped = nullptr;
+    int m_maxInstances = 0;
+    std::array<D3D12_RAYTRACING_INSTANCE_DESC, MAX_GAME_MODELS + 1> m_instances = {};
+    BLAS m_terrainBlas;
+    BLAS m_sphereBlas;
+    TLAS m_tlas;
+    SBT m_sbt;
+};
+
 // Lifetime: graph transient slots own their DX12 resource until the backend
 // releases the graph pool. Descriptor rows come from the backend descriptor
 // allocators and are reused with the slot; they must not be mixed into
@@ -359,13 +444,13 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     static const UINT MAX_RTV_DESCRIPTORS = 32;
     static const UINT MAX_DSV_DESCRIPTORS = 16;
     static const UINT MAX_STATIC_SRVS = 128;
-    static const UINT MAX_TRANSIENT_SRVS = 2048;                       // per frame allocator
+    static const UINT MAX_TRANSIENT_SRVS = 2048;                   // per frame allocator
     // Hazard: replay prediction ribbons upload transient line geometry through
     // this frame arena. Exhaustion is fatal, so keep this cap aligned with the
     // largest expected debug/prediction overlay until the overlay is bounded.
     static const UINT64 UPLOAD_BUFFER_SIZE = 32 * 1024 * 1024;
-    static const int TIMER_HEAP_MARKERS = DX12_TIMER_HEAP_MARKERS;     // must be >= Profiler::MAX_MARKERS
-    static const int TIMER_HEAP_SIZE = DX12_TIMER_HEAP_SIZE;           // begin + end per marker
+    static const int TIMER_HEAP_MARKERS = DX12_TIMER_HEAP_MARKERS; // must be >= Profiler::MAX_MARKERS
+    static const int TIMER_HEAP_SIZE = DX12_TIMER_HEAP_SIZE;       // begin + end per marker
 
     // Ordinary raster binding ABI lives in RenderRasterBindingContract.h so
     // runtime passes and the DX12 backend consume one shader/root-signature map.
@@ -386,10 +471,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // Currently bound render state. DX12 does not remember high-level engine
     // intent for us, so the backend tracks the desired state and emits concrete
     // command-list binds only when the state becomes dirty.
-    BLAS m_terrainBLAS;
-    BLAS m_sphereBLAS;
-    TLAS m_tlas;
-    SBT m_sbt;
+    Dx12RaytracingOwner m_raytracingOwner;
     GpuTimerStateDX12 m_gpuTimers;
 
     // The render device owns the core D3D12 lifetime: factory, device, queue,
@@ -432,15 +514,15 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     Dx12SubmittedWorkState m_submittedWork;
     Dx12DeviceHealthState m_deviceHealth;
     Dx12FaultInjectionState m_faultInjection;
-    uint64_t m_recreationGeneration = 0;                               // Advances only after complete resize publication.
-    int m_platformProfilerGpuDepth = 0;                                // Nesting depth guard for platform GPU marker begin/end balance.
+    uint64_t m_recreationGeneration = 0;                           // Advances only after complete resize publication.
+    int m_platformProfilerGpuDepth = 0;                            // Nesting depth guard for platform GPU marker begin/end balance.
     std::array<PlatformProfilerGpuScopeDX12, PLATFORM_PROFILER_GPU_SCOPE_STACK_MAX> m_platformProfilerGpuStack = {};
 
     ID3D12Resource* m_renderTargets[FRAME_COUNT] = {};
     UINT m_frameIndex = 0;
-    UINT m_allocatorIndex = 0;                                         // Which allocator is active (alternates 0/1)
+    UINT m_allocatorIndex = 0;                                     // Which allocator is active (alternates 0/1)
 
-    UINT64 m_frameFenceValues[FRAME_COUNT] = {};                       // Fence value signaled by each frame's submission
+    UINT64 m_frameFenceValues[FRAME_COUNT] = {};                   // Fence value signaled by each frame's submission
 
     // Descriptor heaps are descriptor tables, not texture arrays.
     //
@@ -458,8 +540,8 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // of a descriptor table.
     ID3D12DescriptorHeap* m_rtvHeap = nullptr;
     ID3D12DescriptorHeap* m_dsvHeap = nullptr;
-    ID3D12DescriptorHeap* m_srvHeap = nullptr;                         // GPU-visible table shaders can read during draws/dispatches.
-    ID3D12DescriptorHeap* m_srvStagingHeap = nullptr;                  // CPU-only table holding persistent descriptor templates.
+    ID3D12DescriptorHeap* m_srvHeap = nullptr;                     // GPU-visible table shaders can read during draws/dispatches.
+    ID3D12DescriptorHeap* m_srvStagingHeap = nullptr;              // CPU-only table holding persistent descriptor templates.
     UINT m_rtvDescSize = 0;
     UINT m_dsvDescSize = 0;
     UINT m_srvDescSize = 0;
@@ -556,30 +638,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     RenderGraphResourceAccess m_backBufferAccess = RenderGraphResourceAccess::Present;
 
 
-    bool m_dxrSupported = false;
-    Basics::SbResult m_dxrFeatureResult = Basics::SbResult::Success(); // Retains one bounded optional-fallback reason.
-    ID3D12Device5* m_device5 = nullptr;
-    ID3D12GraphicsCommandList4* m_cmdList4 = nullptr;
-    ID3D12StateObject* m_rtPSO = nullptr;
-    ID3D12StateObjectProperties* m_rtPSOProps = nullptr;
-    ID3D12RootSignature* m_rtRootSignature = nullptr;
-    ID3D12Resource* m_reflectionUAV = nullptr;
-    // Descriptor rows for the DXR reflection texture. The same resource is a
-    // UAV while rays write pixels and an SRV when the water shader samples the
-    // finished reflection.
-    UINT m_reflectionUAVIndex = 0;
-    UINT m_reflectionSRVIndex = 0;
-    int m_reflectionWidth = 0;
-    int m_reflectionHeight = 0;
-    // Tracks the current resource state of m_reflectionUAV so DispatchRays and
-    // the water pass can transition between write/read usage explicitly.
-    bool m_reflectionInSRVState = false;
-    ID3D12Resource* m_rtConstantBuffer = nullptr;
-    uint8_t* m_rtConstantBufferMapped = nullptr;
-    int m_dxrMaxInstances = 0;
-    std::array<D3D12_RAYTRACING_INSTANCE_DESC, MAX_GAME_MODELS + 1> m_tlasInstances = {};
-
-
     // --- Internal helpers ---
     Basics::SbResult WaitForGpu();
     Basics::SbResult EnsureCommandListOpen();
@@ -611,9 +669,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void ReportDeviceLost( const char* context, HRESULT result ) const;
     ID3D12PipelineState* EnsureGridLinePipeline( DXGI_FORMAT rtvFormat );
     void CheckDXRSupport();
-    Basics::SbResult CreateRTRootSignature();
-    Basics::SbResult CreateRTPipeline();
-    Basics::SbResult CreateReflectionUAV( int width, int height );
     void AssertPlatformProfilerGpuStackClosed( const char* reason ) const;
     int SuspendPlatformProfilerGpuStackForSubmit( const char* reason );
     void RestorePlatformProfilerGpuStackAfterSubmit( int suspendedDepth );
@@ -692,7 +747,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
         RenderCapabilities capabilities;
         capabilities.supportsBackbufferCapture = SupportsBackbufferCapture();
         capabilities.supportsGpuTimers = m_gpuTimers.queryHeap != nullptr;
-        capabilities.supportsDxrReflection = m_dxrSupported;
+        capabilities.supportsDxrReflection = m_raytracingOwner.Supported();
         capabilities.supportsDebugLines = true;
         return capabilities;
     }

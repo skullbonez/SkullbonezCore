@@ -11,18 +11,18 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-11th-july` |
-| Current pushed baseline | `ceddbc3d entity-model-endgame, TASK 4 / 4, 80% OVERALL COMPLETE — delete obsolete entity model wrappers` |
-| Current objective | Execute `render-backend-decomposition` A3-D2, while preparing the engine-cleanup aggregate ownership review in parallel |
-| Portfolio progress | 223 / 276 tasks = 81% overall |
+| Current pushed baseline | `f8158b19 render-backend-decomposition, TASK 2 / 8, 81% OVERALL COMPLETE — extract texture and pipeline owners` |
+| Current objective | Execute `render-backend-decomposition` B1-D2, while preparing the engine-cleanup aggregate ownership review in parallel |
+| Portfolio progress | 225 / 276 tasks = 82% overall |
 | Last broad local gate | `tools\\validate_full.bat` passed final entity-model source on 2026-07-11 in 108.105s: every CPU target, 135/135 doctest cases with 2,847 assertions, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, handle smoke, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | Render A1-A2 passed the Profile build, project/filter validation, all CPU lanes, three consecutive DX12 renderer gates with zero InfoQueue errors and matching screenshots, and the 60.865-second graphics-stress run. |
+| Validation for current edits | Render A3-A4 passed the Profile build, DX12 architecture cases, the DX12 renderer gate in 29.175s with zero InfoQueue errors and matching screenshots, and the 60.867-second graphics-stress run. |
 
 ## Live Queue
 
 1. Prepare the engine-cleanup aggregate review in parallel with the critical path;
    fix findings, pass the closure gate, and delete all eight retained completed
    plans.
-2. Execute render A3-D2, then continue the binding path recorded in MASTER:
+2. Execute render B1-D2, then continue the binding path recorded in MASTER:
    DX12 cleanup, config decomposition, shader P0-P5, visibility, shadows,
    interpolation, editor undo/redo, then data-format versioning. Phase-level
    preparation and dependency barriers are authoritative in MASTER and the
@@ -76,4 +76,4 @@ plan inventory.
 
 Use `Agentic/Plans/MASTER-PLAN.md` for selection and the repo-local orchestrator
 skill when implementing a plan. The next binding implementation slice is
-`render-backend-decomposition` A3-D2.
+`render-backend-decomposition` B1-D2.

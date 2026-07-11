@@ -1,7 +1,7 @@
 # Render Backend Decomposition
 
 Date: 2026-07-10 (source reconciled)
-Status: In progress — 2/8 remaining checklist items complete; completed facet
+Status: In progress — 4/8 remaining checklist items complete; completed facet
 and render-graph decisions are historical evidence, not part of this count
 Impact area: DX12 renderer, backend ownership, runtime render wiring
 Owner: DX12 device/render layer
@@ -35,9 +35,9 @@ is owned by `dx12-failure-propagation.md` and should land before owner moves.
   SRV registration, mip generation, and texture-handle table.
 - [x] A2. Pipeline owner: root signature/bytecode recipe, raster/depth/blend/RTV
   state, PSO cache, and draw-preparation state.
-- [ ] A3. DXR owner: device5/command-list capability, BLAS/TLAS/SBT, reflection
+- [x] A3. DXR owner: device5/command-list capability, BLAS/TLAS/SBT, reflection
   resources, and DXR failure state. It must be a real owner, not a forwarding shim.
-- [ ] A4. Re-evaluate the remainder as the slim device/frame owner; continue
+- [x] A4. Re-evaluate the remainder as the slim device/frame owner; continue
   only where a coherent independent owner remains.
 
 ### B. Resource capability design
@@ -79,6 +79,34 @@ is owned by `dx12-failure-propagation.md` and should land before owner moves.
   three consecutive `validate_dx12_renderer` runs passed with zero InfoQueue
   errors and matching screenshots (39.836s, 22.893s, 22.825s); and
   `run_graphics_stress.bat 1` completed crash-free in 60.865s.
+
+### A3-A4 evidence (2026-07-12)
+
+- `Dx12RaytracingOwner` owns optional Device5/command-list4 capability, the
+  bounded fallback result, root signature and raytracing pipeline, reflection
+  UAV/SRV resource identity, persistently mapped constants, fixed instance
+  rows, BLAS/TLAS, and SBT. It has no backend pointer/reference, friendship,
+  callback pack, or polymorphic hot-path boundary.
+- Initialization reports whether BLAS commands were recorded. The backend
+  remains the sole close/submit/fence authority, then calls the owner's
+  completion phase only after the wait proves scratch memory is releasable.
+  Dispatch reports raster-state invalidation as a value; the coordinator
+  applies it to the texture and pipeline siblings.
+- Reflection handle publication remains a coordinator boundary: the owner
+  exposes only its SRV row, and `ShutdownDXR` unregisters any published texture
+  handle before releasing the reflection resource.
+- Remainder decision: no fourth owner was extracted in A4. The surviving core
+  state is one fence-coupled device/frame lifetime: command epoch and submitted
+  work, frame allocators, descriptor/upload arenas, backbuffers, deferred
+  releases, and render-graph transient targets. Dynamic resource-factory
+  registries are deliberately left for B1's consumer matrix; queue/allocator
+  aliases for C1; capture/readback and profiler state for D2. Extracting any of
+  those here would pre-empt their binding decisions rather than slim the core.
+- Focused iteration evidence: `tools\validate_build.bat Profile` passed with
+  zero warnings and zero errors. The DX12 architecture cases passed;
+  `validate_dx12_renderer` passed in 29.175s with zero InfoQueue errors and
+  matching screenshots; `run_graphics_stress.bat 1` completed crash-free in
+  60.867s.
 
 ## Dependencies
 
