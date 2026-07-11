@@ -10,10 +10,10 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `116fd343 refactor: share cause-window control geometry` |
-| Current objective | Continue validation-gate integrity V3/V4, then locally actionable behavioral-test gaps |
+| Current pushed baseline | `fd9a7f48 refactor: close runtime UI control ownership` |
+| Current objective | Complete locally actionable behavioral-test depth P3/P5/P6 gaps |
 | Last broad local gate | `tools\validate_full.bat` passed final runtime UI/control source in 87.3s: CPU umbrella, zero-warning Profile/Debug builds, DX12 InfoQueue errors = 0 with matching screenshots, handle smoke, and the 44,401-line varied baseline byte-exactly |
-| Latest focused gates | Final U6 pointer-block regression: runtime interaction policy passed in 9.2s with 26/26 Debug and Release cases; allocation policy passed in 7.4s with 310 files and zero allowlist errors |
+| Latest focused gates | V3 workflow syntax: actionlint 1.7.12 passed hosted CPU and trusted DX12 workflows; live GitHub audit found zero workflows/runs/protection/variables/runners on `main` |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -30,6 +30,7 @@ reports, and git history.
 - `1617df02 refactor: centralize replay control gestures`
 - `ad598ddc refactor: share replay control snapshots with rendering`
 - `116fd343 refactor: share cause-window control geometry`
+- `fd9a7f48 refactor: close runtime UI control ownership`
 - `125bb8a9 docs: inventory DX12 failure surfaces`
 - `0c9097ec fix: reduce box manifolds by depth and spread`
 - `e752c395 style: format manifold reducer`
@@ -84,6 +85,14 @@ hover leakage; the required repeat found its missing regression test. Both are
 fixed, the repeat is exhausted, and allocation, 26-case Debug/Release policy,
 DX12, deterministic physics, and full gates pass. Evidence:
 `Agentic/Reports/2026-07-11/runtime-ui-control-u6-review.md`.
+
+Validation-gate integrity has no remaining local implementation gap. V3 stays
+open at 5/6 because live GitHub state has no default-branch workflows, Actions
+runs, branch protection, variables, or runners, and this branch has no PR.
+Opening/integrating a PR or changing repository administration is out of scope.
+Recommended default and unblock evidence are recorded in
+`Agentic/Reports/validation_ci_v3_20260710.md`; continue behavioral-test depth
+without treating the unavailable GPU runner as a local blocker.
 
 Runtime-shell decomposition is complete at 27/27. E1-E3 deleted `RunInternal.h`,
 forwarding-only Run methods, and Common compatibility includes. F1-F2 then

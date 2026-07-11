@@ -184,6 +184,39 @@ protection, and trusted runtime runs are still required. Local validation
 cannot prove hosted image contents, repository policy, runner registration,
 interactive DX12 access, or branch protection.
 
+## Live Activation Audit — 2026-07-11
+
+Read-only GitHub API inspection of `skullbonez/SkullbonezCore` returned:
+
+- default branch `main`; repository is public;
+- zero registered Actions workflows and zero workflow runs, because the new
+  workflow files have not reached the default branch;
+- no pull request for `engine-cleanup-10th-july`;
+- `main` is not protected;
+- zero Actions repository variables; and
+- zero self-hosted runners.
+
+Both local workflow files still pass the downloaded actionlint 1.7.12 binary
+(`ACTIONLINT_CPU_EXIT=0`, `ACTIONLINT_RUNTIME_EXIT=0`), with only the documented
+custom-label diagnostic ignored for the DX12 workflow. This proves the local
+configuration remains actionable but cannot substitute for hosted execution.
+
+The blocker is external GitHub integration and administration, not missing
+local implementation. Opening a PR, merging, and changing repository settings
+are outside this campaign's authority. The recommended activation order is:
+
+1. Integrate the hosted CPU workflow through a reviewed change and prove both a
+   pull-request event and a real `merge_group` event.
+2. Add `Mandatory CPU lane (Windows hosted)` to `main` branch protection only
+   after those runs exist, avoiding a permanently expected merge-queue check.
+3. Register and harden exactly one trusted-ref persistent DX12 runner, set the
+   enable variable, and keep that lane post-merge/informational.
+4. If GPU evidence must block pull requests, replace the persistent machine
+   with an ephemeral isolated worker and security-review that boundary first.
+
+V3 unblocks only when run URLs/logs, branch-protection state, runner labels,
+repository-variable state, and trusted runtime evidence can be recorded below.
+
 ## External Activation Checklist
 
 - [ ] Push the workflow files and observe one successful pull-request run of

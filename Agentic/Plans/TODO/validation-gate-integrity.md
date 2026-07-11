@@ -94,6 +94,20 @@ Separate validation by capability rather than by historical script:
   Runtime may become a required PR check only after replacement by an
   ephemeral, disposable, isolated GPU worker. Binding design and activation
   checklist: `Agentic/Reports/validation_ci_v3_20260710.md`.
+  External blocker audit (2026-07-11): the live public repository reports zero
+  registered workflows on `main`, zero Actions runs, no `main` branch
+  protection, no repository variables, and no self-hosted runners. This branch
+  has no PR. Local workflow syntax remains clean under actionlint 1.7.12. No
+  further repository implementation is missing; activation requires GitHub
+  administrative state and a reviewed integration path that this campaign is
+  explicitly forbidden to create. Recommended default: land the hosted CPU
+  workflow first, prove pull-request and `merge_group` runs, then require its
+  exact stable job name. Keep the persistent DX12 lane disabled and
+  informational until one dedicated trusted-ref runner is registered; require
+  GPU PR evidence only after an ephemeral isolated runner replaces it. Unblock
+  V3 when the external activation checklist in the report has command/run URL
+  evidence for the CPU lane and branch protection, plus trusted runtime-runner
+  evidence where available.
 - [x] **V4 — Sanitizer/static-analysis lane.** Add an MSVC AddressSanitizer
   configuration for CPU-testable engine code and a bounded `/analyze` or
   equivalent static-analysis job. Record suppressions with owner, reason, and
