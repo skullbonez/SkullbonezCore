@@ -16,6 +16,8 @@ Glossary:
     precise shadow-caster silhouette.
   Caster value: Prepared model transform plus conservative world-space radius
     used to make a per-shadow-map visibility decision without owner lookups.
+  Percentage-closer filtering (PCF): Averages several depth comparisons to
+    soften a shadow boundary without blurring stored depth values.
 
 Invariants:
   - ShadowFrameData is frame-local render input; it does not own the depth
@@ -37,6 +39,7 @@ Related:
 #include "../Maths/Vector3.h"
 #include "../Physics/ConvexHullShape.h"
 #include <algorithm>
+#include <cmath>
 #include <vector>
 
 namespace SkullbonezCore
@@ -135,6 +138,53 @@ struct ShadowFrameData
     bool valid = false;
 };
 
+struct ShadowReceiverBias
+{
+    float depth = 0.0f;
+    float slope = 0.0f;
+};
+
+inline ShadowReceiverBias ResolveShadowReceiverBias( const ShadowFrameData& shadow, bool objectReceiver )
+{
+    if ( !objectReceiver )
+    {
+        return { shadow.depthBias, shadow.slopeBias };
+    }
+
+    // High (2048) and Ultra (4096+) use resolution-aware object floors. The old
+    // 0.0015/0.0035 clamps detached contact shadows; these bounded values retain
+    // enough slope protection while allowing higher-resolution maps to reduce
+    // peter-panning proportionally.
+    const float resolutionScale =
+        shadow.mapSize > 0 ? std::clamp( 2048.0f / static_cast<float>( shadow.mapSize ), 0.5f, 1.0f ) : 1.0f;
+    return { (std::max)( shadow.depthBias, 0.00035f * resolutionScale ),
+             (std::max)( shadow.slopeBias, 0.00075f * resolutionScale ) };
+}
+
+inline void SnapShadowProjectionToTexelGrid( Math::Transformation::Matrix4& projection,
+                                             const Math::Transformation::Matrix4& view,
+                                             int mapSize )
+{
+    if ( mapSize <= 0 )
+    {
+        return;
+    }
+
+    // Concept: lock the world origin to an integer shadow-map texel. The view
+    // may follow a moving tight-object focus, but sub-texel motion is absorbed
+    // by the orthographic projection translation instead of crawling across
+    // receiver pixels. Matrix storage is column-major, so m[12]/m[13] are the
+    // clip-space translation terms used by the shader-facing product.
+    const Math::Transformation::Matrix4 viewProjection = projection * view;
+    const float halfMapSize = static_cast<float>( mapSize ) * 0.5f;
+    const float originTexelX = viewProjection.m[12] * halfMapSize;
+    const float originTexelY = viewProjection.m[13] * halfMapSize;
+    const float snappedTexelX = std::round( originTexelX );
+    const float snappedTexelY = std::round( originTexelY );
+    projection.m[12] += ( snappedTexelX - originTexelX ) / halfMapSize;
+    projection.m[13] += ( snappedTexelY - originTexelY ) / halfMapSize;
+}
+
 inline void ApplyShadowReceiverUniforms( IShader& shader,
                                          IRenderCommandContext& commands,
                                          const ShadowFrameData* shadow,
@@ -147,15 +197,13 @@ inline void ApplyShadowReceiverUniforms( IShader& shader,
     // enabled flag of 0, so their shader returns full visibility.
     const bool enabled = shadow && shadow->valid && receive && shadow->depthTextureHandle != 0;
     Math::Transformation::Matrix4 identity;
-    const float depthBias =
-        enabled ? ( objectReceiver ? (std::max)( shadow->depthBias, 0.0015f ) : shadow->depthBias ) : 0.0f;
-    const float slopeBias =
-        enabled ? ( objectReceiver ? (std::max)( shadow->slopeBias, 0.0035f ) : shadow->slopeBias ) : 0.0f;
+    const ShadowReceiverBias bias =
+        enabled ? ResolveShadowReceiverBias( *shadow, objectReceiver ) : ShadowReceiverBias();
     shader.SetMat4( "uShadowViewProj", enabled ? shadow->lightViewProjection : identity );
     shader.SetVec4( "uShadowParams",
                     enabled ? shadow->strength : 0.0f,
-                    depthBias,
-                    slopeBias,
+                    bias.depth,
+                    bias.slope,
                     enabled ? shadow->texelSize * shadow->softness : 0.0f );
     shader.SetVec4( "uShadowFlags",
                     enabled ? 1.0f : 0.0f,

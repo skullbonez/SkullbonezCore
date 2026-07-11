@@ -779,6 +779,10 @@ ShadowPass::BuildTerrainFrameData( const CinematicRenderConfig& cinematic,
     shadowFrame.lightView = Matrix4::LookAt( lightEye, focus, lightUp );
     shadowFrame.lightProjection =
         Matrix4::OrthoZeroToOne( -shadowRadius, shadowRadius, -shadowRadius, shadowRadius, nearPlane, farPlane );
+    shadowFrame.mapSize = m_resources.terrainTarget->GetWidth();
+    Rendering::SnapShadowProjectionToTexelGrid( shadowFrame.lightProjection,
+                                                shadowFrame.lightView,
+                                                shadowFrame.mapSize );
     shadowFrame.lightViewProjection = shadowFrame.lightProjection * shadowFrame.lightView;
     shadowFrame.lightDirectionWorld = lightDir;
     shadowFrame.depthTextureHandle = m_resources.terrainTarget->GetDepthTextureHandle();
@@ -786,7 +790,6 @@ ShadowPass::BuildTerrainFrameData( const CinematicRenderConfig& cinematic,
     // Everything below is copied into shader uniforms by ApplyShadowReceiverUniforms.
     // Keeping the values in one payload makes balls, boxes, terrain, and any
     // future backend consume the same shadow decision for the frame.
-    shadowFrame.mapSize = m_resources.terrainTarget->GetWidth();
     shadowFrame.pcfRadius = std::clamp( cinematic.shadow.pcfRadius, 0, 3 );
     shadowFrame.strength = std::clamp( cinematic.shadow.strength, 0.0f, 1.0f );
     shadowFrame.depthBias = (std::max)( cinematic.shadow.depthBias, 0.0f );
@@ -843,10 +846,13 @@ ShadowPass::BuildObjectFrameData( const CinematicRenderConfig& cinematic,
     shadowFrame.lightView = Matrix4::LookAt( lightEye, focus, lightUp );
     shadowFrame.lightProjection =
         Matrix4::OrthoZeroToOne( -shadowRadius, shadowRadius, -shadowRadius, shadowRadius, nearPlane, farPlane );
+    shadowFrame.mapSize = m_resources.objectTarget->GetWidth();
+    Rendering::SnapShadowProjectionToTexelGrid( shadowFrame.lightProjection,
+                                                shadowFrame.lightView,
+                                                shadowFrame.mapSize );
     shadowFrame.lightViewProjection = shadowFrame.lightProjection * shadowFrame.lightView;
     shadowFrame.lightDirectionWorld = lightDir;
     shadowFrame.depthTextureHandle = m_resources.objectTarget->GetDepthTextureHandle();
-    shadowFrame.mapSize = m_resources.objectTarget->GetWidth();
     shadowFrame.pcfRadius = std::clamp( cinematic.shadow.pcfRadius, 0, 3 );
     shadowFrame.strength = std::clamp( cinematic.shadow.strength, 0.0f, 1.0f );
     shadowFrame.depthBias = (std::max)( cinematic.shadow.depthBias, 0.0f );

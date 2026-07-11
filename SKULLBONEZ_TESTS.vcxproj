@@ -192,6 +192,7 @@
     <ClCompile Include="SkullbonezTests\TestDx12OnlyRuntime.cpp" />
     <ClCompile Include="SkullbonezTests\TestDx12CachedPsoStore.cpp" />
     <ClCompile Include="SkullbonezTests\TestShaderReflectionContracts.cpp" />
+    <ClCompile Include="SkullbonezTests\TestShadow.cpp" />
     <ClCompile Include="SkullbonezTests\TestGeometricMath.cpp" />
     <ClCompile Include="SkullbonezTests\TestMain.cpp" />
     <ClCompile Include="SkullbonezTests\TestFrustum.cpp" />

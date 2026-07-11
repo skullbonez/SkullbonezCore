@@ -16,6 +16,8 @@ Glossary:
     the authored world.
   Detail shadow map: Tighter object-centered depth projection that replaces the
     broad result only inside its valid receiver footprint.
+  Percentage-closer filtering (PCF): Averages fixed depth-comparison taps to
+    soften a shadow edge while keeping the tap pattern deterministic.
 
 Invariants:
   - CPU-side root signatures, input layouts, and descriptor bindings must
@@ -211,41 +213,42 @@ float ShadowVisibilityFromMap(Texture2D shadowMap,
     float bias = shadowParams.y + shadowParams.z * (1.0f - ndotl);
     int radius = (int)floor(shadowFlags.z + 0.5f);
     float texel = max(shadowParams.w, 0.00001f);
-    float visible = 0.0f;
-    float samples = 0.0f;
-    for (int y = -3; y <= 3; ++y)
+    if (radius <= 0)
     {
-        if (abs(y) > radius)
-        {
-            continue;
-        }
-        for (int x = -3; x <= 3; ++x)
-        {
-            if (abs(x) > radius)
-            {
-                continue;
-            }
-            float shadowDepth = shadowMap.SampleLevel(sSampler3, uv + float2((float)x, (float)y) * texel, 0.0f).r;
-            visible += receiverDepth - bias <= shadowDepth ? 1.0f : 0.0f;
-            samples += 1.0f;
-        }
+        float shadowDepth = shadowMap.SampleLevel(sSampler3, uv, 0.0f).r;
+        float visibility = receiverDepth - bias <= shadowDepth ? 1.0f : 0.0f;
+        return lerp(1.0f - shadowParams.x, 1.0f, visibility);
     }
 
-    float visibility = samples > 0.0f ? visible / samples : 1.0f;
+    // Stable disk taps replace the axis-aligned square kernel. The sequence is
+    // fixed in light texture space: camera motion cannot rotate or reseed it,
+    // so soft edges do not shimmer between otherwise identical frames.
+    static const float2 poisson[16] = {
+        float2(-0.94201624f, -0.39906216f), float2( 0.94558609f, -0.76890725f),
+        float2(-0.09418410f, -0.92938870f), float2( 0.34495938f,  0.29387760f),
+        float2(-0.91588581f,  0.45771432f), float2(-0.81544232f, -0.87912464f),
+        float2(-0.38277543f,  0.27676845f), float2( 0.97484398f,  0.75648379f),
+        float2( 0.44323325f, -0.97511554f), float2( 0.53742981f, -0.47373420f),
+        float2(-0.26496911f, -0.41893023f), float2( 0.79197514f,  0.19090188f),
+        float2(-0.24188840f,  0.99706507f), float2(-0.81409955f,  0.91437590f),
+        float2( 0.19984126f,  0.78641367f), float2( 0.14383161f, -0.14100790f)
+    };
+    const int sampleCount = radius >= 2 ? 16 : 12;
+    const float spread = texel * (float)radius;
+    float visible = 0.0f;
+    [unroll]
+    for (int sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex)
+    {
+        float shadowDepth = shadowMap.SampleLevel(sSampler3, uv + poisson[sampleIndex] * spread, 0.0f).r;
+        visible += receiverDepth - bias <= shadowDepth ? 1.0f : 0.0f;
+    }
+
+    float visibility = visible / (float)sampleCount;
     return lerp(1.0f - shadowParams.x, 1.0f, visibility);
 }
 
 float ShadowVisibility(float3 worldPos, float3 normalView, float3 lightView)
 {
-    bool broadInside = false;
-    float broadVisibility = ShadowVisibilityFromMap(uShadowMap,
-                                                    uShadowViewProj,
-                                                    uShadowParams,
-                                                    uShadowFlags,
-                                                    worldPos,
-                                                    normalView,
-                                                    lightView,
-                                                    broadInside);
     bool detailInside = false;
     float detailVisibility = ShadowVisibilityFromMap(uDetailShadowMap,
                                                      uDetailShadowViewProj,
@@ -255,10 +258,25 @@ float ShadowVisibility(float3 worldPos, float3 normalView, float3 lightView)
                                                      normalView,
                                                      lightView,
                                                      detailInside);
-    // The broad map remains the fallback outside the tight projection. Inside
-    // it, prefer the higher-density caster map so coarse broad-map silhouettes
-    // cannot leave a stair-stepped halo around the same object.
-    return detailInside ? detailVisibility : broadVisibility;
+    // The detail projection is authoritative inside its footprint. Return
+    // before evaluating the broad fallback so terrain pixels never pay for two
+    // fixed PCF kernels when only one result can survive.
+    if (detailInside)
+    {
+        return detailVisibility;
+    }
+
+    bool broadInside = false;
+    float broadVisibility = ShadowVisibilityFromMap(uShadowMap,
+                                                    uShadowViewProj,
+                                                    uShadowParams,
+                                                    uShadowFlags,
+                                                    worldPos,
+                                                    normalView,
+                                                    lightView,
+                                                    broadInside);
+    // The broad map remains the fallback outside the tight projection.
+    return broadVisibility;
 }
 
 float3 TerrainModeColor(int mode, float3 texColor, float3 N, float3 worldPos)

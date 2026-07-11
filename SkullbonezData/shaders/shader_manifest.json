@@ -517,8 +517,8 @@
       "stage": "vs",
       "target": "vs_6_0",
       "bytecode": "SkullbonezData/shaders/lit_textured.vs.dxil",
-      "source_sha256": "7c5236b653023d3051e1c926d8a0bc2d297d53f77d4962588ee44f0265476a9e",
-      "compile_inputs_sha256": "f7e5873cd1d4c77a167115e361abe7c1d01208c6099c27e9fb8031fc8486df86",
+      "source_sha256": "16c240b6b1b8dadf0b33cd0cfbb0fb0641515615b76add61f83a53791aa6325f",
+      "compile_inputs_sha256": "50452564c519a15065426046149c6b694a62a3cd16ba5ec53ba5237c05ba82c0",
       "bytecode_sha256": "c80ba9dcf7594bf680e3e9a4afc954bb5fc374f70ab4350ed5ee030cdd9cfc71",
       "bytecode_size": 9664,
       "reflection": {
@@ -705,10 +705,10 @@
       "stage": "ps",
       "target": "ps_6_0",
       "bytecode": "SkullbonezData/shaders/lit_textured.ps.dxil",
-      "source_sha256": "7c5236b653023d3051e1c926d8a0bc2d297d53f77d4962588ee44f0265476a9e",
-      "compile_inputs_sha256": "02e28287dbfec58732e2dea6b06fb37490c8af6dbbd7f8760eb52c568c0445f5",
-      "bytecode_sha256": "9bcd26ea47acc2c962bb0b20a04443e1a05e101c4e61d50e96d13bbb4ff6a56a",
-      "bytecode_size": 16188,
+      "source_sha256": "16c240b6b1b8dadf0b33cd0cfbb0fb0641515615b76add61f83a53791aa6325f",
+      "compile_inputs_sha256": "56c24a89397be78ac3ad9c69d2c48a2789dfc2053f04c4f4780c9daed212df71",
+      "bytecode_sha256": "de1103147f7fd83e49ff3b366b9357f8a2e11fa8654bdf9d24e5a088409c4583",
+      "bytecode_size": 20248,
       "reflection": {
         "cbuffers": [
           {
@@ -961,8 +961,8 @@
       "stage": "vs",
       "target": "vs_6_0",
       "bytecode": "SkullbonezData/shaders/lit_textured_instanced.vs.dxil",
-      "source_sha256": "0f2cae9f53e64d7e4f80cb2a50d5275df185316208eab2f123e7ef6092203b39",
-      "compile_inputs_sha256": "6671d2cca94098248ea915b38f0c160cd944ae1be1df34e53543a34f7bcf1d0b",
+      "source_sha256": "daae702de89e2568997c5a13c2b03b026febb53cf10dba94b20ea64918b563cc",
+      "compile_inputs_sha256": "e52f2723661ccce89b3083a876757513a4097f78461a133c10a87074ef78d280",
       "bytecode_sha256": "44b042aab1d82a6266aac0ef2a901d51bdeb9ade26e25fd2817b493d004e28a4",
       "bytecode_size": 9760,
       "reflection": {
@@ -1185,10 +1185,10 @@
       "stage": "ps",
       "target": "ps_6_0",
       "bytecode": "SkullbonezData/shaders/lit_textured_instanced.ps.dxil",
-      "source_sha256": "0f2cae9f53e64d7e4f80cb2a50d5275df185316208eab2f123e7ef6092203b39",
-      "compile_inputs_sha256": "a004b2d8bcbdd5a88df5a56fc2d7f5f57cd7ebac332fcdb2c2b90d3db341769f",
-      "bytecode_sha256": "9fa845fd2611bda6a3c9ceb46d91d0b8a1dae171e047297835d65730dd958f3c",
-      "bytecode_size": 17748,
+      "source_sha256": "daae702de89e2568997c5a13c2b03b026febb53cf10dba94b20ea64918b563cc",
+      "compile_inputs_sha256": "eeab7944d6ed59a3706c4a3c1c7ec10ff542dc01b9a82198bf532d9c953b5866",
+      "bytecode_sha256": "b424717f008c6461c23f8e47160e647bccf97b7d393400f9e6a9e9f2a24556af",
+      "bytecode_size": 19856,
       "reflection": {
         "cbuffers": [
           {

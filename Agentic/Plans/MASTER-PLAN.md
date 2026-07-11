@@ -100,30 +100,27 @@ concrete plan rows and counting it would duplicate tasks.
 | engine-config-decomposition | 5 | 5 | 100% |
 | entity-model-endgame | 4 | 4 | 100% |
 | instant-prediction-velocity-chaos | 52 | 52 | 100% |
-| shadow-edge-quality | 2 | 5 | 40% |
-| **Portfolio total** | **257** | **276** | **93%** |
+| shadow-edge-quality | 5 | 5 | 100% |
+| **Portfolio total** | **260** | **276** | **94%** |
 
 ## Current Execution Priority
 
 For maximum impact with minimal rework, use this binding critical path:
 
-`shadows` → `interpolation` → `editor` → `data versioning`
+`interpolation` → `editor` → `data versioning`
 
 1. **Engine-cleanup aggregate review and plan deletion — parallel lane.** Run
    review preparation alongside the critical path rather than as another serial
    implementation campaign. Fix every credible ownership finding, pass the
    closure gate, and delete the eight retained completed plans to remove stale
    control-plane noise.
-2. **`shadow-edge-quality`.** Visibility and shader prerequisites are complete.
-   Begin with S0 baseline capture, then execute filtering, snapping/bias, and
-   only afterward decide whether cascades or clipmaps are necessary.
-3. **`sim-render-interpolation`.** Begin after entity identity and renderer
+2. **`sim-render-interpolation`.** Begin after entity identity and renderer
     ownership stabilize; avoid churning presentation transforms, cameras,
     capture timing, and replay across moving foundations.
-4. **`editor-undo-redo`.** Interaction ownership is ready, but history must
+3. **`editor-undo-redo`.** Interaction ownership is ready, but history must
     target final `PhysicsSceneObjectId` and post-`GameModelCollection` scene
     APIs, so entity-model closure is a hard prerequisite.
-5. **`data-format-versioning`.** Asset/hull preparation is independent, but
+4. **`data-format-versioning`.** Asset/hull preparation is independent, but
     schedule delivery here. The `engine.cfg` portion waits for config
     decomposition so version plumbing targets the surviving parser/domain
     structure once.
@@ -172,7 +169,7 @@ Reconciliation notes live inside each plan.
 
 | Plan | State | Verified phase count | Start condition |
 |---|---|---:|---|
-| [shadow-edge-quality](TODO/shadow-edge-quality.md) | In progress | 2/5 | Baselines and terrain detail binding complete; replace square PCF with stable Poisson filtering |
+| [shadow-edge-quality](../Reports/2026-07-12/shadow-edge-quality-closure.md) | Complete | 5/5 | Fixed Poisson filtering, detail-first terrain sampling, texel snapping, measured presets, and no-cascades decision complete |
 
 Fracture replay was moved to `WNF/` by the owner on 2026-07-11 (inventory
 rule 9 applies — it is not live work and is not tracked here).

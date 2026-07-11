@@ -19,6 +19,8 @@ Glossary:
   material3.
   Contact flash alpha: material3.w blend that pushes the final lit color toward
   white for short render-only feedback.
+  Percentage-closer filtering (PCF): Averages fixed depth-comparison taps to
+    soften a shadow edge while keeping the tap pattern deterministic.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -273,27 +275,36 @@ float ShadowVisibility(float3 worldPos, float3 normalView, float3 lightView)
     float bias = uShadowParams.y + uShadowParams.z * (1.0f - saturate(ndotl));
     int radius = (int)floor(uShadowFlags.z + 0.5f);
     float texel = max(uShadowParams.w, 0.00001f);
-    float visible = 0.0f;
-    float samples = 0.0f;
-    for (int y = -3; y <= 3; ++y)
+    if (radius <= 0)
     {
-        if (abs(y) > radius)
-        {
-            continue;
-        }
-        for (int x = -3; x <= 3; ++x)
-        {
-            if (abs(x) > radius)
-            {
-                continue;
-            }
-            float shadowDepth = uShadowMap.SampleLevel(sSampler3, uv + float2((float)x, (float)y) * texel, 0.0f).r;
-            visible += receiverDepth - bias <= shadowDepth ? 1.0f : 0.0f;
-            samples += 1.0f;
-        }
+        float shadowDepth = uShadowMap.SampleLevel(sSampler3, uv, 0.0f).r;
+        float visibility = receiverDepth - bias <= shadowDepth ? 1.0f : 0.0f;
+        return lerp(1.0f - uShadowParams.x, 1.0f, visibility);
     }
 
-    float visibility = samples > 0.0f ? visible / samples : 1.0f;
+    // Stable disk taps replace the axis-aligned square kernel. The fixed
+    // light-texture-space sequence avoids per-frame rotation and camera jitter.
+    static const float2 poisson[16] = {
+        float2(-0.94201624f, -0.39906216f), float2( 0.94558609f, -0.76890725f),
+        float2(-0.09418410f, -0.92938870f), float2( 0.34495938f,  0.29387760f),
+        float2(-0.91588581f,  0.45771432f), float2(-0.81544232f, -0.87912464f),
+        float2(-0.38277543f,  0.27676845f), float2( 0.97484398f,  0.75648379f),
+        float2( 0.44323325f, -0.97511554f), float2( 0.53742981f, -0.47373420f),
+        float2(-0.26496911f, -0.41893023f), float2( 0.79197514f,  0.19090188f),
+        float2(-0.24188840f,  0.99706507f), float2(-0.81409955f,  0.91437590f),
+        float2( 0.19984126f,  0.78641367f), float2( 0.14383161f, -0.14100790f)
+    };
+    const int sampleCount = radius >= 2 ? 16 : 12;
+    const float spread = texel * (float)radius;
+    float visible = 0.0f;
+    [unroll]
+    for (int sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex)
+    {
+        float shadowDepth = uShadowMap.SampleLevel(sSampler3, uv + poisson[sampleIndex] * spread, 0.0f).r;
+        visible += receiverDepth - bias <= shadowDepth ? 1.0f : 0.0f;
+    }
+
+    float visibility = visible / (float)sampleCount;
     return lerp(1.0f - uShadowParams.x, 1.0f, visibility);
 }
 

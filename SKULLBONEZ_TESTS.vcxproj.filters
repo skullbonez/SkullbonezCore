@@ -84,6 +84,9 @@
     <ClCompile Include="SkullbonezTests\TestShaderReflectionContracts.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestShadow.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestGeometricMath.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>

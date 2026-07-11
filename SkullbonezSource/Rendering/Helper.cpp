@@ -348,13 +348,11 @@ static void FillShadowReceiverConstants( PrimitiveBatchShaderConstants& constant
     const bool enabled = shadow && shadow->valid && receive && shadow->depthTextureHandle != 0;
     Matrix4 identity;
     constants.shadowViewProj = enabled ? shadow->lightViewProjection : identity;
-    const float depthBias =
-        enabled ? ( objectReceiver ? (std::max)( shadow->depthBias, 0.0015f ) : shadow->depthBias ) : 0.0f;
-    const float slopeBias =
-        enabled ? ( objectReceiver ? (std::max)( shadow->slopeBias, 0.0035f ) : shadow->slopeBias ) : 0.0f;
+    const ShadowReceiverBias bias =
+        enabled ? ResolveShadowReceiverBias( *shadow, objectReceiver ) : ShadowReceiverBias();
     constants.shadowParams[0] = enabled ? shadow->strength : 0.0f;
-    constants.shadowParams[1] = depthBias;
-    constants.shadowParams[2] = slopeBias;
+    constants.shadowParams[1] = bias.depth;
+    constants.shadowParams[2] = bias.slope;
     constants.shadowParams[3] = enabled ? shadow->texelSize * shadow->softness : 0.0f;
     constants.shadowFlags[0] = enabled ? 1.0f : 0.0f;
     constants.shadowFlags[1] = receive ? 1.0f : 0.0f;
