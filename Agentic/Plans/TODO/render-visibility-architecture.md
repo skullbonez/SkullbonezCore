@@ -1,7 +1,7 @@
 # Render Visibility Architecture
 
 Date: 2026-07-11
-Status: In progress — 29% (P0-P1 complete)
+Status: In progress — 57% (P0-P3 complete)
 Impact area: DX12 renderer submission, `RenderInstanceStore`, shadow and
 reflection passes, perf baselines
 Origin: 2026-07-11 architecture gap review. The renderer submits every scene
@@ -104,7 +104,7 @@ Validation evidence for the grouped P0/P1 slice:
 - `python tools\check_allocation_policy.py --repo .`: 317 files scanned and
   zero allowlist errors; the cull loop uses only fixed stack/store data.
 
-### P2 — Shadow view culling
+### P2 — Shadow view culling ✅
 
 Cull shadow casters against each shadow map's light-space volume, not the
 camera frustum — an off-screen caster whose shadow lands on-screen must
@@ -116,7 +116,19 @@ duplicate) the existing `BuildShadowCasterBatches` worker prep.
 Gate: `validate_dx12_renderer` (shadow screenshots byte-identical),
 `validate_perf`.
 
-### P3 — Reflection view culling
+Completed 2026-07-12. Prepared shadow casters now retain a compact transform
+plus the store-derived conservative radius. Terrain and object shadow submits
+test those value records against their own orthographic light frusta, whose
+existing broad near/far ranges retain off-camera casters along the light
+direction. Survivors stream directly into the existing fixed-capacity instance
+batch; no owner lookup, callback, handle lookup, or growth occurs in the loop.
+
+Standard-suite evidence: the three space-scene objects are all outside the
+terrain receiver volume (`3 candidates / 0 submitted / 3 culled`) but remain in
+the tight object-shadow volume (`3 / 3 / 0`). Water (`300 / 300 / 0`) and solver
+(`1 / 1 / 0`) shadow submissions remain unchanged for both maps.
+
+### P3 — Reflection view culling ✅
 
 Cull the mirrored-camera pass against the reflection frustum plus the water
 clip plane (an instance entirely below the water surface cannot appear in
@@ -124,6 +136,22 @@ the reflection). DXR reflection path is unaffected (TLAS-based; out of
 scope).
 
 Gate: `validate_dx12_renderer` (water/reflection screenshots byte-identical).
+
+Completed 2026-07-12. The planar path now uses its mirrored-camera frustum and
+the already-bound water half-space; a sphere is removed only when its
+conservative bound is wholly outside either volume. DXR remains unchanged.
+`water_ball_test` reflection falls from 300 candidates to 93 submissions (207
+culled), while the screenshot remains within the committed baseline.
+
+Final grouped P2/P3 evidence:
+
+- `tools\validate_tests.bat`: 155/155 cases and 3,522/3,522 assertions passed.
+- `tools\validate_dx12_renderer.bat`: zero DX12 InfoQueue errors; screenshot
+  maxima remained 33 / 61 / 0 for water / solver / three-body.
+- `tools\validate_perf.bat`: absolute budgets and comparisons passed for DX12
+  and physics bench with no regressions.
+- `python tools\check_allocation_policy.py --repo .`: 317 files scanned and
+  zero allowlist errors.
 
 ### P4 — Instanced-batch compaction
 

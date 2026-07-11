@@ -93,7 +93,7 @@ concrete plan rows and counting it would duplicate tasks.
 | stale-plan-reference-cleanup-15.6-checklist | 86 | 86 | 100% |
 | dx12-post-final-cleanup | 6 | 6 | 100% |
 | shader-pipeline-modernization | 8 | 8 | 100% |
-| render-visibility-architecture | 2 | 7 | 29% |
+| render-visibility-architecture | 4 | 7 | 57% |
 | sim-render-interpolation | 0 | 5 | 0% |
 | editor-undo-redo | 0 | 5 | 0% |
 | data-format-versioning | 0 | 5 | 0% |
@@ -101,7 +101,7 @@ concrete plan rows and counting it would duplicate tasks.
 | entity-model-endgame | 4 | 4 | 100% |
 | instant-prediction-velocity-chaos | 52 | 52 | 100% |
 | shadow-edge-quality | 0 | 5 | 0% |
-| **Portfolio total** | **250** | **276** | **91%** |
+| **Portfolio total** | **252** | **276** | **91%** |
 
 ## Current Execution Priority
 
@@ -170,7 +170,7 @@ Reconciliation notes live inside each plan.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [render-visibility-architecture](TODO/render-visibility-architecture.md) | In progress | 2/7 | P0-P1 complete with observable counters and conservative main-view culling; continue P2 shadow-view culling |
+| [render-visibility-architecture](TODO/render-visibility-architecture.md) | In progress | 4/7 | P0-P3 complete for main, shadow, and reflection views; continue P4 instanced-batch compaction proof |
 | [sim-render-interpolation](TODO/sim-render-interpolation.md) | Planned | 0/5 | After entity-model closure and stable renderer ownership; P1 capture-determinism guard lands first |
 | [editor-undo-redo](TODO/editor-undo-redo.md) | Planned | 0/5 | After entity-model closure; build history on final `PhysicsSceneObjectId` and post-`GameModelCollection` scene APIs |
 | [data-format-versioning](TODO/data-format-versioning.md) | Planned | 0/5 | Deliver after editor; asset/hull preparation is independent and config decomposition is complete; scene v1→v2 remains the precedent |

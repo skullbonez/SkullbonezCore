@@ -14,12 +14,16 @@ Glossary:
   Back buffer: Swap-chain image that will be presented to the window.
   Convex hull: Immutable authored collision geometry that can also provide a
     precise shadow-caster silhouette.
+  Caster value: Prepared model transform plus conservative world-space radius
+    used to make a per-shadow-map visibility decision without owner lookups.
 
 Invariants:
   - ShadowFrameData is frame-local render input; it does not own the depth
     texture backing its opaque handle.
   - Disabled receivers must clear the shadow texture binding so stale descriptor
     state cannot affect later draws.
+  - Prepared caster values borrow no model state; convex hull geometry is the
+    only frame-local borrowed payload.
 
 Related:
   - Agentic/Reference/comment-style-guide.md
@@ -40,10 +44,16 @@ namespace Rendering
 {
 inline constexpr int SHADOW_TEXTURE_SLOT = 3;
 
+struct ShadowCasterInstance
+{
+    Math::Transformation::Matrix4 model;
+    float boundingRadius = 0.0f;
+};
+
 struct ShadowConvexHullCaster
 {
     const Math::CollisionDetection::ConvexHullShape* hull = nullptr;
-    Math::Transformation::Matrix4 model;
+    ShadowCasterInstance instance;
 };
 
 struct ShadowCasterBatches
@@ -52,9 +62,9 @@ struct ShadowCasterBatches
     // the main thread may submit them through the active render command path.
     // Convex hull payloads borrow immutable hull geometry owned by the live
     // model collection for this frame.
-    std::vector<Math::Transformation::Matrix4> spheres;
-    std::vector<Math::Transformation::Matrix4> boxes;
-    std::vector<Math::Transformation::Matrix4> pines;
+    std::vector<ShadowCasterInstance> spheres;
+    std::vector<ShadowCasterInstance> boxes;
+    std::vector<ShadowCasterInstance> pines;
     std::vector<ShadowConvexHullCaster> convexHulls;
 
     void ReserveForModelCapacity( int capacity )

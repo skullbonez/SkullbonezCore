@@ -12,6 +12,8 @@ Glossary:
   Frustum plane: Inward-facing plane whose non-negative half-space is visible.
   Conservative epsilon: Extra radius retained around a sphere so numerical
     noise can reduce culling efficiency but cannot remove visible geometry.
+  Half-space: The visible side of one plane, used by the planar-reflection
+    water clip independently of the six frustum planes.
 
 Invariants:
   - Plane normals are unit length, so signed distance and sphere radius use the
@@ -44,6 +46,13 @@ class Frustum
     static Frustum FromViewProjection( const Transformation::Matrix4& view, const Transformation::Matrix4& projection );
 
     bool IntersectsSphere( const Vector::Vector3& center, float radius, float conservativeEpsilon = 0.05f ) const;
+
+    // Accepts normalized or unnormalized plane coefficients and returns true
+    // unless the expanded sphere lies wholly outside the visible half-space.
+    static bool IntersectsHalfSpace( const Vector::Vector3& center,
+                                     float radius,
+                                     const float plane[4],
+                                     float conservativeEpsilon = 0.05f );
 
     const FrustumPlane& Plane( int index ) const;
 

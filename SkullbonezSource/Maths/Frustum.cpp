@@ -90,6 +90,22 @@ bool Frustum::IntersectsSphere( const Vector::Vector3& center, float radius, flo
     return true;
 }
 
+bool Frustum::IntersectsHalfSpace( const Vector::Vector3& center,
+                                   float radius,
+                                   const float plane[4],
+                                   float conservativeEpsilon )
+{
+    const float normalLengthSquared = plane[0] * plane[0] + plane[1] * plane[1] + plane[2] * plane[2];
+    if ( normalLengthSquared <= 1.0e-12f )
+    {
+        return true;
+    }
+    const float expandedRadius =
+        ( (std::max)( 0.0f, radius ) + (std::max)( 0.0f, conservativeEpsilon ) ) * std::sqrt( normalLengthSquared );
+    const float signedDistance = plane[0] * center.x + plane[1] * center.y + plane[2] * center.z + plane[3];
+    return signedDistance >= -expandedRadius;
+}
+
 const FrustumPlane& Frustum::Plane( int index ) const
 {
     assert( index >= 0 && index < PLANE_COUNT );
