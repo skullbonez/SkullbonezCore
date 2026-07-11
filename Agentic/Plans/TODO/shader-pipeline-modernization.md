@@ -61,7 +61,12 @@ possible once the compiler layer is modernized.
   establishes the concrete pipeline/root-signature owner. P1-P3 then modernize
   bytecode and consolidate that owner's contract. P4 places its cache in that
   owner. `TODO/shadow-edge-quality.md` S1 follows P3 and extends the surviving
-  named contract. P0 inventory may run before A2 because it is read-only.
+  named contract.
+- Critical-path refinement: do not run P0 against shaders scheduled for deletion
+  or an interim config shape. P0-P5 therefore wait for both
+  `dx12-post-final-cleanup.md` and `engine-config-decomposition.md`. Record the
+  P5 bindless decision before shadow S1. P6 hot reload is optional follow-up
+  and does not block shadows.
 
 ## Phases
 

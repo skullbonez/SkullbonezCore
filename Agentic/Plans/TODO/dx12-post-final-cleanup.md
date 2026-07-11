@@ -39,6 +39,11 @@ kinds of debt:
 
 ## Scope decisions (binding)
 
+- **Critical-path position.** Start after `render-backend-decomposition.md` A2
+  establishes the pipeline/root-signature owner. Finish this cleanup before
+  `shader-pipeline-modernization.md` P0 so dead shaders, duplicated config, and
+  obsolete visual references never enter the new manifest or contract inventory.
+
 - **Screen-space god rays stay.** The postcard-style screen-space technique
   (rays fade when the sun leaves frame, `belowSun`/`verticalColumn` shaping)
   is an accepted art-direction trade-off. This plan consolidates where the

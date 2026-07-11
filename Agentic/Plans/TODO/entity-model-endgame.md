@@ -10,6 +10,11 @@ Origin: 2026-07-11 architecture gap review, reconciled against the completed
 
 ## Owner decisions (binding, 2026-07-11 — final; do not re-litigate)
 
+Critical-path position: execute immediately after
+`instant-prediction-velocity-chaos.md`. Close this plan before interpolation,
+editor undo/redo, or another feature retains identity or scene APIs from
+`GameModel`/`GameModelCollection`.
+
 1. **`GameModel` and `GameModelCollection` are deleted entirely.** No
    successor object bag. A world object is: store rows
    (`PhysicsBodyStore`/`ColliderStore`/`RenderInstanceStore`/replay rows)

@@ -21,6 +21,9 @@ command history for editor mutations.
 - **Sequenced after `TODO/interaction-state-machine.md` P9** (commands for
   remaining high-risk mutations). Building history on pre-command mutation
   paths would be built twice.
+- **Also sequenced after `TODO/entity-model-endgame.md` closure.** History keys
+  on final `PhysicsSceneObjectId` and calls the post-`GameModelCollection` scene
+  APIs; it must not retain obsolete model identities or forwarding surfaces.
 - **Fixed-capacity ring buffer** (e.g. 64 entries, owner-named constant),
   preallocated before steady gameplay per the allocation policy. Overflow
   drops the oldest entry; depth exhaustion is normal, not an error.

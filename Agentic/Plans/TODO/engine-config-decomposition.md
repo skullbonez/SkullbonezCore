@@ -13,6 +13,11 @@ own domain-nouns-over-bags migration rule.
 
 ## Scope decisions (binding)
 
+- **Critical-path position.** Start after `dx12-post-final-cleanup.md` phase 5
+  establishes the final cinematic/shadow config shape. Move that surviving
+  shape directly into domain structs rather than reorganizing duplicate fields
+  twice. Complete before shader modernization begins.
+
 - **Same file format.** `engine.cfg` keys keep parsing exactly as today;
   this is an in-memory structure change plus parser table cleanup, not a
   config file migration (that belongs to `TODO/data-format-versioning.md`
@@ -29,10 +34,9 @@ own domain-nouns-over-bags migration rule.
   per domain struct, replacing long if/else key matching, so adding a field
   is one row. `std::string` asset-path members stay (loaded pre-gameplay,
   cold path) unless the allocation checker objects.
-- Coordinate with `TODO/dx12-post-final-cleanup.md` Phase 5 (shadow block
-  dedupe + sun-field rename): if that phase lands first, fold its structs
-  into this inventory; if this plan lands first, Phase 5 collapses to a
-  rename.
+- `TODO/dx12-post-final-cleanup.md` Phase 5 is a hard prerequisite. Fold its
+  surviving shadow block and renamed sun fields into this inventory; do not
+  execute this plan first or create an interim config decomposition.
 
 ## Phases
 

@@ -29,20 +29,63 @@ Status: Authoritative inventory of every live repository plan
 
 ## Current Execution Priority
 
-1. Schedule `instant-prediction-velocity-chaos` as important owner-priority
-   live feature work. It remains in `TODO/` and is not paused or parked.
-2. Run the final engine-cleanup aggregate ownership review. Fix credible
-   findings, close the campaign gate, then delete every completed plan retained
-   temporarily as closure evidence.
-3. Complete validation V3 administration in parallel when repository access is
-   available: prove `merge_group`, require the hosted CPU check, and activate a
-   trusted-main/manual DX12 runner without exposing it to public-PR code.
-4. Execute render-backend A1-A2. A2 establishes the pipeline/root-signature
-   owner before any dependent implementation changes that contract.
-5. Execute shader modernization P1-P3 against the A2 owner; P0 inventory may
-   run earlier. Shadow S1 follows P3 and extends the consolidated contract.
-6. Slot the remaining 2026-07-11 gap-review plans after their named start
-   conditions. Fracture replay remains owner-parked in `WNF/`.
+For maximum impact with minimal rework, use this binding critical path:
+
+`instant prediction` → `entity-model closure` → `renderer ownership` →
+`DX12 cleanup` → `engine-config decomposition` → `shader contract` →
+`visibility` → `shadows` → `interpolation` → `editor` → `data versioning`
+
+1. **`instant-prediction-velocity-chaos`.** This is the explicit owner-priority
+   feature and goes first. Deliver phases 1-3 as the first useful slice:
+   calibration, instant worker execution, and latest-wins dragging. Then finish
+   the chaos scene, UX, tests, validation, and closure phases. It remains live
+   in `TODO/` and is never inferred to be paused or parked.
+2. **Engine-cleanup aggregate review and plan deletion — parallel lane.** Run
+   review preparation alongside prediction rather than as another serial
+   implementation campaign. Fix every credible ownership finding, pass the
+   closure gate, and delete the eight retained completed plans to remove stale
+   control-plane noise.
+3. **`entity-model-endgame`.** Formally establish `PhysicsSceneObjectId`, move
+   transient contact feedback to its final owner, and delete `GameModel` plus
+   `GameModelCollection` before undo/redo, interpolation, or another feature
+   retains identities or APIs from those obsolete types.
+4. **`render-backend-decomposition` A1-A2.** Establish texture ownership and
+   the concrete pipeline/root-signature owner. A2 is the dependency barrier for
+   shader and shadow work. Continue A3-D2 afterward as capacity permits, but the
+   next critical-path work may start once A2 is proven stable.
+5. **`dx12-post-final-cleanup`.** Delete dead shaders before inventorying or
+   baking them, then consolidate god rays, reduce bloom cost, name style modes,
+   and complete config deduplication before shader manifests, reflection data,
+   and visual references lock in the surviving surface.
+6. **`engine-config-decomposition`.** Start after DX12 cleanup phase 5 so the
+   final cinematic/shadow config shape moves directly into domain structs
+   without reorganizing duplicated fields twice.
+7. **`shader-pipeline-modernization` P0-P5.** With the surviving shader set and
+   A2 owner established, execute inventory, offline DXC, reflection contracts,
+   root-signature consolidation, pipeline cache, then the bindless decision.
+   Record P5's decision before shadow S1. P6 hot reload is optional follow-up.
+8. **`render-visibility-architecture`.** P0 instrumentation may start at any
+   time; implementation waits for stable backend ownership. Complete main,
+   shadow, reflection, and instancing culling before final shadow-quality work
+   so its GPU budget reflects the actual visible workload.
+9. **`shadow-edge-quality`.** S0 baseline capture may run earlier. S1 waits for
+   backend A2, shader P3, shader P5's binding decision, and visibility closure.
+   Then execute filtering, snapping/bias, and only afterward decide whether
+   cascades or clipmaps are necessary.
+10. **`sim-render-interpolation`.** Begin after entity identity and renderer
+    ownership stabilize; avoid churning presentation transforms, cameras,
+    capture timing, and replay across moving foundations.
+11. **`editor-undo-redo`.** Interaction ownership is ready, but history must
+    target final `PhysicsSceneObjectId` and post-`GameModelCollection` scene
+    APIs, so entity-model closure is a hard prerequisite.
+12. **`data-format-versioning`.** Asset/hull preparation is independent, but
+    schedule delivery here. The `engine.cfg` portion waits for config
+    decomposition so version plumbing targets the surviving parser/domain
+    structure once.
+
+Validation V3 administration remains an external parallel lane: prove
+`merge_group`, require the hosted CPU check, and activate a trusted-main/manual
+DX12 runner without exposing persistent infrastructure to public-PR code.
 
 ## Engine Cleanup Campaign
 
@@ -66,7 +109,7 @@ aggregate closure gate passes; do not treat retention as a permanent archive.
 | [interaction-state-machine](TODO/interaction-state-machine.md) | Complete | 6/6 remaining phases | Retain as closure evidence; typed gesture payload, native capture, focus/UI crossing, deletion proofs, and repeat adversarial review pass |
 | [replay-architecture-and-right-sizing](TODO/replay-architecture-and-right-sizing.md) | Complete | 6/6 | Retain as closure evidence; stable identity, bounded memory, named gates, rollback proof, and source-size justifications are complete |
 | [physics-authority-and-identity](TODO/physics-authority-and-identity.md) | Complete | 16/16 current items | Retain as closure evidence; handle-owned mutation, coordinated lifecycle, stable runtime identity, full gate, and repeat adversarial review complete |
-| [render-backend-decomposition](TODO/render-backend-decomposition.md) | In progress | 0/8 remaining items | Begin A1, then establish the A2 pipeline/root-signature owner before shader P1-P3 or shadow S1 changes that contract |
+| [render-backend-decomposition](TODO/render-backend-decomposition.md) | In progress | 0/8 remaining items | After entity-model closure, execute A1-A2; A2 unlocks DX12 cleanup and the later shader contract, while A3-D2 may continue afterward |
 | [stale-plan-reference-cleanup-15.6-checklist](TODO/stale-plan-reference-cleanup-15.6-checklist.md) | Complete | 86/86 files | Retain as reconciled evidence; no source rows remain |
 
 ## Planned Architecture Work (2026-07-11 gap review)
@@ -77,21 +120,21 @@ Reconciliation notes live inside each plan.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [dx12-post-final-cleanup](TODO/dx12-post-final-cleanup.md) | Planned | 0/6 | Independent; shader edits coordinate with shader-pipeline-modernization if both run |
-| [shader-pipeline-modernization](TODO/shader-pipeline-modernization.md) | Planned | 0/8 | P0 may inventory now; implementation P1-P3 follows render-backend A2, and shadow S1 follows P3 |
-| [render-visibility-architecture](TODO/render-visibility-architecture.md) | Planned | 0/7 | Independent; P0 instrumentation can start any time |
-| [sim-render-interpolation](TODO/sim-render-interpolation.md) | Planned | 0/5 | Independent; P1 capture-determinism guard lands first |
-| [editor-undo-redo](TODO/editor-undo-redo.md) | Planned | 0/5 | Unblocked — interaction-state-machine completed 2026-07-11; build on its command/gesture surface |
-| [data-format-versioning](TODO/data-format-versioning.md) | Planned | 0/5 | Scene `version` v2 with deterministic v1 upgrade is the binding semantic precedent; implement equivalent policy for assets/hulls/cfg without rewriting scene history |
-| [engine-config-decomposition](TODO/engine-config-decomposition.md) | Planned | 0/5 | Independent; physics-default moves isolated behind byte-exact `validate_physics` |
-| [entity-model-endgame](TODO/entity-model-endgame.md) | Planned | 0/4 | Reconciled 2026-07-11 by definitive owner ruling: no `SimulationController`, no unified `EntityId`. Remaining scope: promote `PhysicsSceneObjectId` as the single cross-system identity (docs), relocate transient contact feedback, then delete `GameModel` and `GameModelCollection` with structural proof |
+| [dx12-post-final-cleanup](TODO/dx12-post-final-cleanup.md) | Planned | 0/6 | After render-backend A2; complete before shader P0 so dead shaders/config duplication never enter the new inventory or contracts |
+| [shader-pipeline-modernization](TODO/shader-pipeline-modernization.md) | Planned | 0/8 | After A2, DX12 cleanup, and config decomposition; execute P0-P5 in order and record P5 before shadow S1; P6 is optional follow-up |
+| [render-visibility-architecture](TODO/render-visibility-architecture.md) | Planned | 0/7 | P0 instrumentation may start any time; implementation follows stable backend ownership and closes before shadow-quality implementation |
+| [sim-render-interpolation](TODO/sim-render-interpolation.md) | Planned | 0/5 | After entity-model closure and stable renderer ownership; P1 capture-determinism guard lands first |
+| [editor-undo-redo](TODO/editor-undo-redo.md) | Planned | 0/5 | After entity-model closure; build history on final `PhysicsSceneObjectId` and post-`GameModelCollection` scene APIs |
+| [data-format-versioning](TODO/data-format-versioning.md) | Planned | 0/5 | Deliver after editor; asset/hull preparation is independent, but `engine.cfg` waits for config decomposition; scene v1→v2 remains the precedent |
+| [engine-config-decomposition](TODO/engine-config-decomposition.md) | Planned | 0/5 | After DX12 cleanup phase 5; fold the final cinematic/shadow config shape directly into domain structs |
+| [entity-model-endgame](TODO/entity-model-endgame.md) | Planned | 0/4 | Immediately after instant prediction; promote `PhysicsSceneObjectId`, relocate contact feedback, and delete `GameModel`/`GameModelCollection` before dependent features retain obsolete identity APIs |
 
 ## Features
 
 | Plan | State | Verified phase count | Start condition |
 |---|---|---:|---|
-| [instant-prediction-velocity-chaos](TODO/instant-prediction-velocity-chaos.md) | Planned — owner-priority live work | 1/50 preparation checklist items | Keep in `TODO/`; schedule from `TODO/instant-prediction-velocity-chaos-progress.md` and do not park without an explicit owner directive |
-| [shadow-edge-quality](TODO/shadow-edge-quality.md) | Planned | 0/5 | Begin S0 when useful; S1 waits for render-backend A2 and shader P3 |
+| [instant-prediction-velocity-chaos](TODO/instant-prediction-velocity-chaos.md) | Planned — owner-priority live work | 1/50 preparation checklist items | Execute first: phases 1-3 are the first useful slice, then finish scene, UX, validation, and closure; never park without an explicit owner directive |
+| [shadow-edge-quality](TODO/shadow-edge-quality.md) | Planned | 0/5 | S0 may run early; S1 waits for backend A2, shader P3/P5 decision, and visibility closure |
 
 Fracture replay was moved to `WNF/` by the owner on 2026-07-11 (inventory
 rule 9 applies — it is not live work and is not tracked here).
@@ -121,6 +164,9 @@ Binding:
   field, resetting its version history, or adding a competing scene migration.
 - `instant-prediction-velocity-chaos` is important live work and remains in
   `TODO/`; moving it to `WNF/` requires an explicit owner directive.
+- The Current Execution Priority critical path is binding. Plan-local work may
+  run early only where that section explicitly names a preparation or parallel
+  lane; it must not cross a listed dependency barrier.
 - 2026-07-11 owner ruling (definitive): no `SimulationController` — the
   implemented `SimulationSystem` pacing / `SceneController` ownership / `Run`
   frame-order split stands. No unified `EntityId` registry —

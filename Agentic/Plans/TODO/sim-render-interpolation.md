@@ -22,6 +22,11 @@ are untouched — this is presentation-only.
 
 ## Scope decisions (binding)
 
+- **Critical-path position.** Begin only after `entity-model-endgame.md` closes
+  and render-backend ownership is stable. Presentation transforms, cameras,
+  capture timing, and replay must not be migrated across obsolete identity or
+  renderer-owner boundaries.
+
 - **Interpolation, not extrapolation.** Render lags at most one physics tick
   (≤8.3 ms); never predict ahead of the solver.
 - **Presentation-only.** Physics stores keep authoritative state; the

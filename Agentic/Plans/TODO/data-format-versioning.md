@@ -51,6 +51,10 @@ scene history, or add a competing scene migration path.
   the deprecated window.
 - The completed runtime-shell parser split is the implementation boundary;
   extend the surviving format owners rather than reopening scene composition.
+- **Critical-path position.** Asset/hull investigation may run independently,
+  but schedule plan delivery after editor undo/redo. The `engine.cfg` portion
+  waits for `engine-config-decomposition.md` so version plumbing targets the
+  surviving parser/domain structure once.
 
 ## Phases
 

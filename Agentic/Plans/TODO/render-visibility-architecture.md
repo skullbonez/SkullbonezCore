@@ -22,6 +22,12 @@ diagnostics.
 
 ## Scope decisions (binding)
 
+- **Critical-path position.** P0 instrumentation may run at any time because it
+  is read-only. Implementation waits for stable render-backend ownership and
+  completes main, shadow, reflection, and instancing culling before
+  `shadow-edge-quality.md` S1-S4, so shadow tuning measures the real visible
+  workload.
+
 - **Frustum culling only in this plan.** Occlusion culling, LOD, and GPU
   culling are explicitly out of scope; P6 records whether LOD gets its own
   plan.
