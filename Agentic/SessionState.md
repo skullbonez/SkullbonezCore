@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `d0507d33 refactor: split UI sampling from command mutation` |
-| Current objective | Delete the six remaining B1f UI owner-transition callbacks/broad context and complete the Run method/state deletion proof |
-| Last broad local gate | `tools\validate_full.bat` passed published post-UI snapshot ownership with 129/129 doctest cases, 2,766 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.6s |
+| Current pushed baseline | `b32a40a9 refactor: publish input snapshot to later phases` |
+| Current objective | Move the two remaining B1f camera/editor-mode transitions to their owners, delete the broad UI context, and complete the Run method/state proof |
+| Last broad local gate | `tools\validate_full.bat` passed the four-callback UI seam deletion with 129/129 doctest cases, 2,766 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 53.0s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -55,6 +55,12 @@ native capture/cursor intent. Direct later hardware polls, duplicate UI/replay/
 editor pointer memories, and both input callback packs are deleted. B1a-B1e are
 complete except the intentionally separate B1f final `Run` method/state
 extraction proof.
+
+The UI command transition pack is down from six callbacks to two. Stress
+ordering is explicit, generated-scene timeline reset calls `ReplayRuntime`
+directly, and placement-mode transitions compose the existing editor/input
+owners without returning through `Run`; camera mode and whole-editor mode are
+the remaining coupled transition seams.
 
 Owner queue B2b-B2e is complete. Capture, render-default persistence, and scene
 requests now use fixed owner storage; application exit remains value-only.

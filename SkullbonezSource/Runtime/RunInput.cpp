@@ -570,21 +570,12 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( const RuntimeUIFrameContext& context,
 
 // The remaining callbacks are explicit deletion seams for owner transitions
 // whose ordering still affects later commands in this same frame.
-template <typename ApplyCameraMode,
-          typename ApplyEditorPlacementModeChange,
-          typename ApplyEditorModeToggle,
-          typename ApplyEditorPlacementModeToggle,
-          typename ResetReplayTimelineForActiveScene,
-          typename RunUIStressActions>
+template <typename ApplyCameraMode, typename ApplyEditorModeToggle>
 RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& context,
                                                   RuntimeUIFrameResult result,
                                                   bool keyboardToggleEditorMode,
                                                   ApplyCameraMode applyCameraMode,
-                                                  ApplyEditorPlacementModeChange applyEditorPlacementModeChange,
-                                                  ApplyEditorModeToggle applyEditorModeToggle,
-                                                  ApplyEditorPlacementModeToggle applyEditorPlacementModeToggle,
-                                                  ResetReplayTimelineForActiveScene resetReplayTimelineForActiveScene,
-                                                  RunUIStressActions runUIStressActions )
+                                                  ApplyEditorModeToggle applyEditorModeToggle )
 {
     if ( !result.frameActive )
     {
@@ -605,6 +596,40 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& c
     };
     const auto recordUIAction = [&updateInputMode]( RuntimeInputAction action )
     { updateInputMode( action, RuntimeInputActionSource::UI ); };
+    const auto applyEditorPlacementMode = [&context, &result, &updateInputMode]( bool toggle )
+    {
+        result.enterInteractiveScene = true;
+        const RunInternal::EditorGizmoContext editorContext{ context.runtimeTools.Editor(),
+                                                             context.gameModels,
+                                                             context.sceneController.Physics(),
+                                                             context.interaction };
+        const RunInternal::EditorPlacementModeChangeResult placementMode =
+            toggle ? RunInternal::ToggleEditorPlacementMode( editorContext )
+                   : RunInternal::SetEditorPlacementMode( editorContext, true, false );
+        context.inputRouter.SetWorldInteractionOwner( placementMode.worldOwner,
+                                                      InteractionExitReason::EnterEdit,
+                                                      context.replayRuntime,
+                                                      context.runtimeTools,
+                                                      context.interaction,
+                                                      context.sceneController.Cameras(),
+                                                      context.sceneController.Terrain().Get(),
+                                                      context.gameModels,
+                                                      context.sceneController.Physics(),
+                                                      context.camera,
+                                                      context.replayRestoreCameraMode,
+                                                      context.attachedCamera.State().activeFollow,
+                                                      context.camera.director.grabbed );
+        if ( context.inputRouter.ReleasePointerToUi( EvaluateRuntimePointerPresentation( context.inputRouter,
+                                                                                         context.runtimeTools.Editor(),
+                                                                                         context.replayRuntime ) ) )
+        {
+            InputController::ResetMouseLook( context.camera );
+        }
+        context.inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( context.inputRouter,
+                                                                                          context.runtimeTools.Editor(),
+                                                                                          context.replayRuntime ) );
+        updateInputMode( RuntimeInputAction::ToggleEditorTool, RuntimeInputActionSource::UI );
+    };
 
     if ( ApplyRenderVsyncUICommand(
              RenderDeviceUICommandContext{ context.runtimeSettings, context.renderBackendView.deviceLifecycle },
@@ -630,7 +655,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& c
     }
     if ( editorPreModeCommands.enterPlacementMode )
     {
-        applyEditorPlacementModeChange( RuntimeInputActionSource::UI, true, false );
+        applyEditorPlacementMode( false );
     }
     if ( editorPreModeCommands.requestedObjectType )
     {
@@ -643,7 +668,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& c
     }
     if ( editorPreModeCommands.togglePlacementMode )
     {
-        applyEditorPlacementModeToggle( RuntimeInputActionSource::UI );
+        applyEditorPlacementMode( true );
     }
     const RunInternal::EditorPlacementPostModeUICommandResult editorPostModeCommands =
         RunInternal::ApplyEditorPlacementPostModeUICommands( context.runtimeTools.Editor(), uiCommands.editor );
@@ -774,12 +799,25 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& c
                                                     context.launchOptions.generatedObjectTypeOverride,
                                                     context.gameModelCapacity };
     };
-    const auto executeSceneGeneratedControlAction =
-        [&resetReplayTimelineForActiveScene]( const SceneRuntimeGeneratedControlAction& action )
+    const auto executeSceneGeneratedControlAction = [&context]( const SceneRuntimeGeneratedControlAction& action )
     {
         if ( action.resetReplayTimeline )
         {
-            resetReplayTimelineForActiveScene();
+            const ReplayRuntime::SceneTimelineResetInput reset = ReplayRuntime::DescribeSceneTimeline(
+                context.sceneController,
+                context.sceneState,
+                context.gameModelCapacity,
+                static_cast<uint32_t>( context.launchOptions.generatedObjectTypeOverride ) );
+            context.replayRuntime.ResetSceneTimeline(
+                reset,
+                ReplayRuntime::SceneTimelineResetOwners{ context.inputRouter,
+                                                         context.interaction,
+                                                         &context.sceneController.Cameras(),
+                                                         context.sceneController.Terrain().Get(),
+                                                         context.camera,
+                                                         context.replayRestoreCameraMode,
+                                                         context.attachedCamera.State().activeFollow,
+                                                         context.camera.director.grabbed } );
         }
         if ( action.scheduleProfileReset )
         {
@@ -872,12 +910,29 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( const RuntimeUIFrameContext& c
     }
     RecordSceneRuntimeUIActions( sceneUICommands, recordUIAction );
 
-    const SbResult stressResult = runUIStressActions();
-    if ( !stressResult.ok )
+    return result;
+}
+
+RuntimeUIFrameResult FinishRuntimeUIFramePointer( const RuntimeUIFrameContext& context, RuntimeUIFrameResult result )
+{
+    // Invariant: pointer ownership is finalized only after UI mutations and
+    // stress actions succeed; failure leaves later world routing untouched.
+    if ( !result.frameActive || !result.status.ok )
     {
-        result.status = stressResult;
         return result;
     }
+
+    const auto updateInputMode = [&context]( RuntimeInputAction action, RuntimeInputActionSource source )
+    {
+        InputController::ApplyModeAction(
+            context.runtimeInput,
+            InputController::ResolveMode( BuildRuntimeInputModeState( context.camera.mode,
+                                                                      context.runtimeTools.Editor(),
+                                                                      context.attachedCamera.State().activeFollow,
+                                                                      context.camera.director.grabbed ) ),
+            action,
+            source );
+    };
 
     if ( context.attachedCamera.ApplyOrbitInput( context.gameModels,
                                                  context.sceneController.Cameras(),
@@ -1912,18 +1967,6 @@ void Run::TakeInput()
             EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) );
         UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorTool, source );
     };
-    auto applyEditorPlacementModeChange = [this, &completeEditorPlacementModeTransition](
-                                              RuntimeInputActionSource source,
-                                              bool enabled,
-                                              bool clearManipulation )
-    {
-        EnterInteractiveSceneRun();
-        const RunInternal::EditorPlacementModeChangeResult placementMode = RunInternal::SetEditorPlacementMode(
-            { m_runtimeTools.Editor(), m_sceneController.Models(), m_sceneController.Physics(), m_interaction },
-            enabled,
-            clearManipulation );
-        completeEditorPlacementModeTransition( source, placementMode );
-    };
     auto applyEditorPlacementModeToggle =
         [this, &completeEditorPlacementModeTransition]( RuntimeInputActionSource source )
     {
@@ -2429,29 +2472,12 @@ void Run::TakeInput()
         uiFrameResult,
         keyboardToggleEditorMode,
         [this]( RunCameraMode mode, RuntimeInputActionSource source ) { ApplyCameraMode( mode, source ); },
-        applyEditorPlacementModeChange,
-        applyEditorModeToggle,
-        applyEditorPlacementModeToggle,
-        [this]()
-        {
-            const ReplayRuntime::SceneTimelineResetInput reset = ReplayRuntime::DescribeSceneTimeline(
-                m_sceneController,
-                SceneState(),
-                m_startup.gameModelCapacity,
-                static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
-            m_replayRuntime.ResetSceneTimeline(
-                reset,
-                ReplayRuntime::SceneTimelineResetOwners{
-                    m_inputRouter,
-                    m_interaction,
-                    &m_sceneController.Cameras(),
-                    m_sceneController.Terrain().Get(),
-                    m_camera,
-                    NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
-                    m_attachedCamera.State().activeFollow,
-                    m_camera.director.grabbed } );
-        },
-        [this]() { return RunUIStressActions(); } );
+        applyEditorModeToggle );
+    if ( uiFrameResult.status.ok && uiFrameResult.frameActive )
+    {
+        uiFrameResult.status = RunUIStressActions();
+    }
+    uiFrameResult = FinishRuntimeUIFramePointer( uiFrameContext, uiFrameResult );
     if ( uiFrameResult.enterInteractiveScene )
     {
         EnterInteractiveSceneRun();

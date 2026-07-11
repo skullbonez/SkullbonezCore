@@ -713,6 +713,24 @@ including fast/CPU preflight, zero warnings, zero DX12 InfoQueue errors,
 matching screenshots, standalone topology smoke, and the 20,001-line
 byte-exact physics baseline. Comment audit: 10/10 touched source-bearing files.
 
+Four more UI-frame callback seams are deleted. UI stress remains in the same
+post-mutation/pre-pointer slot but is now sequenced explicitly; generated-scene
+timeline reset invokes `ReplayRuntime` with concrete owners; and placement-mode
+set/toggle commands compose `RuntimeTools` state with `InputRouter` interaction
+and pointer ownership directly. The command helper retains only the camera-mode
+and whole-editor-mode transition callbacks. B1f remains open for those two
+coupled mode transitions, deletion of `RuntimeUIFrameContext`, and the final
+`Run::TakeInput` method/state proof.
+
+Evidence from the final source: the Debug build passed with zero warnings; fast
+passed in 26.6s; the CPU umbrella passed all four lanes with 129/129 doctest
+cases and 2,766 assertions in 10.7s; all five interaction scenarios passed in
+15.4s; perf completed in 32.3s; and full passed in 53.0s with zero warnings,
+zero DX12 InfoQueue errors, matching screenshots, standalone topology smoke,
+and the 20,001-line byte-exact physics baseline. The first fast attempt stopped
+only at formatting before build/runtime work; formatting the touched file
+resolved it. Comment audit: 1/1 touched source-bearing file.
+
 ## Remaining Work
 
 ### A. Narrow the render host
