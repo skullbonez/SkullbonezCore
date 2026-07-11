@@ -37,6 +37,7 @@ re-scoped. Constituent history is in git history of the deleted files.
 | [interaction-state-machine](TODO/interaction-state-machine.md) | In progress | 45% | Phases P4–P10: camera capture, launcher/manipulator/editor/replay gesture migration, commands/events, bool-cluster deletion. |
 | [runtime-shell-decomposition](TODO/runtime-shell-decomposition.md) | In progress | 25% | Render-host narrowing, tool/replay/scene ownership moves, mega-TU splits (`RunInput`, `TestSceneParser`), `RunInternal.h` retirement, `Common.h` slimming, RUN blocker knot. |
 | [shadow-edge-quality](TODO/shadow-edge-quality.md) | Planned | 5% | S0 baseline → tight-map terrain receivers → Poisson/PCSS filtering → presets. |
+| [dx12-post-final-cleanup](TODO/dx12-post-final-cleanup.md) | Planned | 0% | DX12 post-chain cleanup from the 2026-07-11 review: delete dead cloud/noise shader code, consolidate the duplicated god-ray march into the half-res volumetric pass, bloom cost cleanup, named style modes, cinematic config dedupe. Progress checklist: `TODO/dx12-post-final-cleanup-progress.md`. |
 | [fracture-replay-feature](TODO/fracture-replay-feature.md) | Backlog | 0% | Feature: GPU fracture with reversible replay; sequence after replay memory data-model decisions. |
 
 ## Retired in substance (no successor file)
