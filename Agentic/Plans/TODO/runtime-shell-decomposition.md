@@ -1,7 +1,7 @@
 # Runtime Shell Decomposition
 
-Date: 2026-07-10 (reconciled)
-Status: In progress — 17/27 checklist items complete; earlier
+Date: 2026-07-11 (reconciled)
+Status: In progress — 21/27 checklist items complete; earlier
 foundation work is summarized separately and is not mixed into this count
 Impact area: runtime architecture, scene lifecycle, input routing, render host
 Owner: application composition root
