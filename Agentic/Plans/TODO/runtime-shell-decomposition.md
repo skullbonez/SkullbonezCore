@@ -678,6 +678,22 @@ passed in 52.0s with zero warnings, zero DX12 InfoQueue errors, matching
 screenshots, standalone topology smoke, and the 20,001-line byte-exact physics
 baseline. Comment audit: 3/3 touched source-bearing files.
 
+The UI frame now has an explicit pre-command phase: it samples UI input,
+publishes the immutable post-UI hit snapshot, ticks replay workspace
+arbitration, and returns fixed command values before post-UI keyboard dispatch.
+Camera-mask lookup, interactive-entry, post-UI dispatch, and input-mode update
+callbacks are deleted; input-mode effects now execute directly through
+InputController. The remaining command phase callback pack is reduced from ten
+callbacks to six owner-transition seams. B1f remains open for those six seams,
+the broad frame context, and late frame/render/replay hardware reads.
+
+Evidence: the zero-warning Debug build passed. Fast passed in 26.6s; the CPU
+umbrella passed in 11.1s with 129/129 doctest cases and 2,755 assertions; all
+five interaction scenarios passed in 15.1s; perf completed in 32.2s; and full
+passed in 52.1s with zero warnings, zero DX12 InfoQueue errors, matching
+screenshots, standalone topology smoke, and the 20,001-line byte-exact physics
+baseline. Comment audit: 1/1 touched source-bearing file.
+
 ## Remaining Work
 
 ### A. Narrow the render host

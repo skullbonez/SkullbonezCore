@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `f148837d refactor: move camera movement into input owner` |
-| Current objective | Continue B1f by deleting the omnibus UI-frame callback pack and remaining late frame/render/replay hardware reads |
-| Last broad local gate | `tools\validate_full.bat` passed ReplayRuntime-owned keyboard velocity-edit transitions with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.0s |
+| Current pushed baseline | `c20bbdb6 refactor: move replay keyboard transition into owner` |
+| Current objective | Delete the six remaining B1f UI owner-transition callbacks and broad context, then remaining late frame/render/replay reads |
+| Last broad local gate | `tools\validate_full.bat` passed the split UI sampling/command phases with 129/129 doctest cases, 2,755 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.1s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -393,6 +393,12 @@ returns bounded cross-owner effects. RunInput's post-mapped keyboard context
 and six-callback template are deleted. Fast, CPU, five interaction scenarios,
 perf, and full pass; comment audit is 3/3. B1f continues with the omnibus
 UI-frame pack and remaining late frame/render/replay hardware reads.
+
+UI sampling/replay arbitration now completes before post-UI keyboard dispatch
+and command mutation, with fixed command values crossing the phase boundary.
+Four shell callbacks are deleted and input-mode updates call InputController
+directly; the remaining command pack is six owner-transition seams. Fast, CPU,
+five interaction scenarios, perf, and full pass; comment audit is 1/1.
 
 Scene provenance C1a is complete: parser-owned library/instance/ordered-part
 records retain exact shape sources, hierarchy transforms use rotated offsets
