@@ -752,6 +752,23 @@ InfoQueue errors, matching screenshots, standalone topology smoke, and the
 20,001-line byte-exact physics baseline. Comment audit: 4/4 touched
 source-bearing files.
 
+The `RuntimeUIFrameContext` multi-domain bag is deleted. UI sampling, command
+application, and pointer finalization now receive explicit synchronous borrows;
+models, physics, world, cameras, terrain, entities, and scene state are derived
+from `SceneController` instead of duplicated in a caller-built aggregate. No
+replacement `*Context`, callback pack, stored host reference, or compatibility
+wrapper was introduced. B1f remains open only for the final `Run::TakeInput`
+method/state deletion proof.
+
+Evidence: the zero-warning Debug build passed after bounded mechanical fixes to
+lambda captures and one unused parameter. The final staged fast gate passed in
+19.7s with four candidates and no size violations; the CPU
+umbrella passed all four lanes with 129/129 doctest cases and 2,766 assertions
+in 11.1s; all five interaction scenarios passed in 14.9s; perf completed in
+32.2s; and full passed in 52.4s with zero warnings, zero DX12 InfoQueue errors,
+matching screenshots, standalone topology smoke, and the 20,001-line
+byte-exact physics baseline. Comment audit: 1/1 touched source-bearing file.
+
 ## Remaining Work
 
 ### A. Narrow the render host

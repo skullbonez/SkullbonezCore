@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `a4d82e5e refactor: delete UI transition callback seams` |
-| Current objective | Delete the broad B1f UI context and complete the final Run input method/state proof |
-| Last broad local gate | `tools\validate_full.bat` passed direct InputRouter camera/editor transition ownership with 129/129 doctest cases, 2,766 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 53.0s |
+| Current pushed baseline | `7e373a06 refactor: move camera mode transitions to InputRouter` |
+| Current objective | Complete the final B1f Run input method/state deletion proof |
+| Last broad local gate | `tools\validate_full.bat` passed broad UI-context deletion with 129/129 doctest cases, 2,766 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 52.4s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -61,6 +61,11 @@ explicit, generated-scene timeline reset calls `ReplayRuntime` directly, and
 placement/editor/camera transitions compose the existing editor, camera,
 interaction, and input owners without returning through `Run`. The broad UI
 frame context and `Run::TakeInput` are the remaining B1f deletion proof.
+
+The broad UI frame context is now deleted as well. UI sampling, command
+application, and pointer finalization use explicit synchronous owner borrows,
+with scene sub-owners derived from `SceneController`. `Run::TakeInput` and its
+remaining method/state surface are the sole open B1f proof.
 
 Owner queue B2b-B2e is complete. Capture, render-default persistence, and scene
 requests now use fixed owner storage; application exit remains value-only.
