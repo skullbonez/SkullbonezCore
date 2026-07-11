@@ -1,7 +1,7 @@
 # Shader Pipeline Modernization And Binding Standardization
 
 Date: 2026-07-11
-Status: In progress — 50% (P0-P3 complete)
+Status: In progress — 63% (P0-P4 complete)
 Impact area: DX12 renderer, all HLSL shaders, shader tooling, build/validation
 scripts
 Origin: 2026-07-11 architecture gap review. Owner directive: complete
@@ -323,6 +323,60 @@ P3 implementation evidence (2026-07-12):
 Gate: `tools\validate_dx12_renderer.bat` ×3 consecutive (cache warm/cold
 paths touch frame startup), `tools\validate_perf.bat`.
 
+### P4 implementation evidence (2026-07-12)
+
+- `Dx12CachedPsoStore` persists driver-produced
+  `ID3D12PipelineState::GetCachedBlob()` records under
+  `%LOCALAPPDATA%\SkullbonezCore\PipelineCache`, with a fixed-buffer
+  `SKULLBONEZ_PSO_CACHE_DIR` override for isolated validation. Startup maps the
+  file read-only and parses at most 96 records into fixed metadata; PSO misses
+  never perform disk I/O or grow storage. Shutdown closes the old mapping,
+  requests fresh blobs while the fixed live PSO array still owns them, and
+  streams a capped 16 MiB replacement through an atomic temporary-file rename.
+- File identity is SHA-256 of the complete P1 manifest (pinned compiler,
+  flags, and every source/compile-input/bytecode hash) plus SHA-256 of the
+  serialized `UnifiedRaster` root signature. Each record is SHA-256-addressed
+  by exact shader bytes and canonical field-by-field graphics descriptor/input
+  layout state. COM pointers and `CachedPSO` output bytes are deliberately
+  excluded. A warm cached-blob rejection is a named Lane R event, evicts the
+  row, and retries the same native PSO creation once without cached bytes.
+- Focused identity tests passed 2 cases and 19 assertions in 2.469s, including
+  repeatability, pointer independence, unchanged identity with an attached
+  cached blob, and invalidation after manifest, root-signature, shader-byte,
+  blend-state, or input-layout mutations. The final Profile solution build
+  passed in 7.075s (6.40s MSBuild) with zero warnings/errors.
+- The initial `ID3D12PipelineLibrary` prototype was rejected rather than
+  shipped: its isolated renderer-suite cold launch exited 0 in 2.029s, but the
+  accepted 106,692-byte library triggered `DXGI_ERROR_DEVICE_REMOVED` on the
+  warm launch. This was the evidence for selecting the plan-permitted explicit
+  cached-blob format. With that replacement, the identical isolated renderer
+  suite exited 0 with empty stderr on both paths: cold 3.690s and warm 2.025s
+  (1.665s / 45.1% lower wall time), persisting a bounded 143,392-byte file.
+  These focused timings establish the path behavior.
+- Formal isolated-cache renderer gates passed three consecutive times: cold
+  24.733s, warm 23.413s, and warm 23.319s. All three reported zero DX12
+  validation errors, unchanged committed-baseline maximum channel differences
+  of 50/70/0, and the same bounded 143,392-byte cache artifact. A final renderer
+  gate after the input-contract regression fix also passed with zero validation
+  errors and matching screenshots.
+- The first perf gate exposed six rejected shadow PSOs per frame: P2 had treated
+  reflected vertex inputs and mesh attributes as equal sets, even though DX12
+  legally permits a POSITION-only shadow shader to consume a richer
+  POSITION/NORMAL/TEXCOORD mesh. The corrected subset contract uses fixed
+  diagnostics, and a regression test proves both the legal superset and a bad
+  POSITION width. Final `tools\validate_tests.bat` passed 149 cases and 3,448
+  assertions. Final `tools\validate_perf.bat` passed with zero steady-gameplay
+  allocations (220,255 total cold/lifecycle allocations), both DX12 and physics
+  absolute budgets, and no baseline regressions.
+- Mandatory `tools\run_graphics_stress.bat 1` completed its one-minute
+  PID-scoped run after 13,177 frames and 367 scene loads. Stdout was 54,552
+  bytes, stderr was empty, and the 663-byte memory CSV plus 4,578-byte shutdown
+  JSON were written.
+- Touched-source/tool comment audit: 12/12 checked, zero deferred. New cache,
+  reflection-contract, regression-test, renderer, and validation-tool files all
+  retain complete learning headers plus local canonical-hash, lifetime,
+  allocation, recovery, and Lane R explanations.
+
 ### P5 — SM6.6 dynamic-resources decision gate (owner decision)
 
 Evaluate moving material/texture binding to SM6.6 `ResourceDescriptorHeap`
@@ -357,8 +411,8 @@ on completion.
       check (test this the same way behavioral-test-depth P5 drills bugs).
 - [x] Root signatures reduced to a named, documented set; no per-shader slot
       folklore comments remain.
-- [ ] Startup does not recompile unchanged shaders or rebuild unchanged PSOs.
-- [ ] `dx12_validation.txt` = 0 errors and screenshots match accepted
+- [x] Startup does not recompile unchanged shaders or rebuild unchanged PSOs.
+- [x] `dx12_validation.txt` = 0 errors and screenshots match accepted
       baselines at every phase.
 
 ## Validation map

@@ -66,6 +66,7 @@ Related:
 #include "../RenderRasterBindingContract.h"
 #include "RenderBackendDX12.CommandRecordingState.h"
 #include "RenderBackendDX12.PipelineState.h"
+#include "Dx12CachedPsoStore.h"
 #include "RenderGraphTransientDX12.h"
 #include "RenderDeviceDX12.h"
 #include "MeshDX12.h"
@@ -595,6 +596,7 @@ class Dx12PipelineOwner
     void ResetDesiredState();
 
     static constexpr size_t CACHE_CAPACITY = 96;
+    Dx12CachedPsoStore m_persistentPsoCache;
     std::array<CachedPSODX12, CACHE_CAPACITY> m_psoCache = {};
     size_t m_psoCacheCount = 0;
     ID3D12RootSignature* m_rootSignature = nullptr;

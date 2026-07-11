@@ -50,6 +50,54 @@ inline const GeneratedShaderReflection::Stage* FindGeneratedShaderStage( const c
     return nullptr;
 }
 
+struct ShaderVertexInputLayoutElement
+{
+    const char* semantic = nullptr;
+    std::uint32_t index = 0;
+    size_t componentCount = 0;
+};
+
+// Concept: a vertex shader's reflected inputs are a required subset of the
+// mesh layout. Extra mesh attributes are legal because depth-only shaders often
+// consume POSITION from a richer POSITION/NORMAL/TEXCOORD vertex stream.
+inline bool ValidateGeneratedShaderVertexInputLayout( const char* sourcePath,
+                                                      const ShaderVertexInputLayoutElement* elements,
+                                                      size_t count,
+                                                      const char*& outError )
+{
+    const auto* reflected = FindGeneratedShaderStage( sourcePath, "vs" );
+    if ( !reflected )
+    {
+        outError = "missing generated vertex-stage metadata";
+        return false;
+    }
+    for ( std::uint32_t reflectedIndex = 0; reflectedIndex < reflected->inputCount; ++reflectedIndex )
+    {
+        const auto& expected = GeneratedShaderReflection::Inputs[reflected->inputStart + reflectedIndex];
+        if ( std::strcmp( expected.systemValue, "NONE" ) != 0 )
+        {
+            continue;
+        }
+        const ShaderVertexInputLayoutElement* matchingElement = nullptr;
+        for ( size_t cpuIndex = 0; cpuIndex < count; ++cpuIndex )
+        {
+            const auto& candidate = elements[cpuIndex];
+            if ( candidate.semantic && std::strcmp( expected.semantic, candidate.semantic ) == 0 &&
+                 expected.index == candidate.index )
+            {
+                matchingElement = &candidate;
+                break;
+            }
+        }
+        if ( !matchingElement || std::strlen( expected.mask ) != matchingElement->componentCount )
+        {
+            outError = "input layout semantic or format mismatch";
+            return false;
+        }
+    }
+    return true;
+}
+
 inline std::uint32_t ShaderValueByteSize( ShaderValueType type )
 {
     switch ( type )

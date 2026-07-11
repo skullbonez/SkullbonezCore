@@ -165,11 +165,11 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device,
     elements[1].Format = DXGI_FORMAT_R32G32B32_FLOAT;
     elements[1].AlignedByteOffset = 12;
 
-    std::string inputContractError;
+    const char* inputContractError = nullptr;
     if ( !shader->ValidateInputLayout( elements, 2, inputContractError ) )
     {
         Log().WriteEventf( "dx12_shader_input_contract_rejected owner=Dx12GeometryOwner reason=%s",
-                           inputContractError.c_str() );
+                           inputContractError );
         Log().FlushAll();
         return false;
     }

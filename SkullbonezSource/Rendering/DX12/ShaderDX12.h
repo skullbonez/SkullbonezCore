@@ -140,7 +140,7 @@ class ShaderDX12 : public IShader
     const void* GetPSBytecode() const;
     SIZE_T GetPSBytecodeSize() const;
     size_t GetPSBytecodeHash() const;
-    bool ValidateInputLayout( const D3D12_INPUT_ELEMENT_DESC* elements, UINT count, std::string& outError ) const;
+    bool ValidateInputLayout( const D3D12_INPUT_ELEMENT_DESC* elements, UINT count, const char*& outError ) const;
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

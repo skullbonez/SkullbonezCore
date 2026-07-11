@@ -303,13 +303,13 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device,
         BuildInputLayout( format, elements, numElements );
     }
 
-    std::string inputContractError;
+    const char* inputContractError = nullptr;
     if ( !m_activeShader->ValidateInputLayout( elements, numElements, inputContractError ) )
     {
         // Lane R: mesh/layout selection is startup-owned pipeline input. A
         // reflected mismatch skips PSO publication and names the owning path.
         Log().WriteEventf( "dx12_shader_input_contract_rejected owner=Dx12PipelineOwner reason=%s",
-                           inputContractError.c_str() );
+                           inputContractError );
         Log().FlushAll();
         return nullptr;
     }
@@ -363,8 +363,19 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device,
     // expensive to create but fast to bind, so we cache them by hash and reuse
     // across frames.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-creategraphicspipelinestate
+    const bool attachedCachedBlob = m_persistentPsoCache.Attach( psoDesc );
     ID3D12PipelineState* pso = nullptr;
     HRESULT hr = device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &pso ) );
+    if ( FAILED( hr ) && attachedCachedBlob )
+    {
+        // Lane R: cached bytes are external driver-specific cold-start input.
+        // Retry the exact recipe once without them and evict the rejected row.
+        Log().WriteEventf( "dx12_pso_disk_cache_rejected owner=Dx12PipelineOwner hresult=0x%08X bytes=%llu",
+                           static_cast<unsigned int>( hr ),
+                           static_cast<unsigned long long>( psoDesc.CachedPSO.CachedBlobSizeInBytes ) );
+        m_persistentPsoCache.RejectAttached( psoDesc );
+        hr = device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &pso ) );
+    }
     if ( FAILED( hr ) || !pso )
     {
         // Lane R: a graphics PSO can fail because the active shader/input layout
@@ -387,6 +398,9 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device,
     // Naming cached PSOs makes PIX and debug-layer output identify the object as
     // a Skullbonez graphics pipeline instead of an anonymous D3D12 pointer.
     NameDx12Object( pso, L"Skullbonez DX12 Cached Graphics PSO" );
+    // Retain only a borrowed pointer in the fixed cold-cache accounting table.
+    // Shutdown asks each still-live PSO for its driver cache blob before release.
+    m_persistentPsoCache.Store( psoDesc, pso );
     return pso;
 }
 
@@ -741,6 +755,9 @@ size_t Dx12PipelineOwner::CacheCount() const
 
 void Dx12PipelineOwner::Shutdown()
 {
+    // Lifetime: serialize while the blob store and source PSOs are still live.
+    // This is bounded cold shutdown I/O, never per-frame cache growth.
+    m_persistentPsoCache.Shutdown();
     for ( size_t index = 0; index < m_psoCacheCount; ++index )
     {
         if ( m_psoCache[index].pso )

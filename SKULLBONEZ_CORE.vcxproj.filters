@@ -478,6 +478,9 @@
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.cpp">
+      <Filter>Source Files\Rendering\DX12</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.DXR.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
@@ -648,6 +651,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h">
+      <Filter>Header Files\Rendering\DX12</Filter>
+    </ClInclude>
     <ClInclude Include="ThirdPtySource\nlohmann\json.hpp">
       <Filter>External</Filter>
     </ClInclude>

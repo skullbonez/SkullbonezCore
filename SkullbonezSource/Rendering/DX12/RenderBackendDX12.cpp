@@ -2285,6 +2285,10 @@ SkullbonezCore::Basics::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* de
         return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12", "CreateRootSignature failed" );
     }
     NameDx12Object( m_rootSignature, L"Skullbonez DX12 UnifiedRaster Root Signature" );
+    // Lane R: a persistent PSO cache is an optional cold-start accelerator.
+    // Its owner logs and discards missing/corrupt/driver-incompatible bytes;
+    // failure must never reject an otherwise valid renderer device.
+    m_persistentPsoCache.Initialize( signature->GetBufferPointer(), signature->GetBufferSize() );
 #ifdef _DEBUG
     Log().WriteEventf(
         "dx12_raster_binding_contract name=%s root_parameters=%u cbv=b%u srv_slots=t%u..t%u material_table=t4 "

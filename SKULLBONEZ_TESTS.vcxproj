@@ -190,6 +190,7 @@
     <ClCompile Include="SkullbonezTests\TestDeterminism.cpp" />
     <ClCompile Include="SkullbonezTests\TestDemoDirector.cpp" />
     <ClCompile Include="SkullbonezTests\TestDx12OnlyRuntime.cpp" />
+    <ClCompile Include="SkullbonezTests\TestDx12CachedPsoStore.cpp" />
     <ClCompile Include="SkullbonezTests\TestShaderReflectionContracts.cpp" />
     <ClCompile Include="SkullbonezTests\TestGeometricMath.cpp" />
     <ClCompile Include="SkullbonezTests\TestMain.cpp" />
@@ -220,6 +221,7 @@
     <ClCompile Include="SkullbonezSource\Core\Profiler.cpp" />
     <ClCompile Include="SkullbonezSource\Core\SkullScope.cpp" />
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp" />
@@ -246,6 +248,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ThirdPtySource\doctest\doctest.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="SKULLBONEZ_MATHS.vcxproj">

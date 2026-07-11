@@ -941,23 +941,12 @@ size_t ShaderDX12::GetPSBytecodeHash() const
 
 bool ShaderDX12::ValidateInputLayout( const D3D12_INPUT_ELEMENT_DESC* elements,
                                       UINT count,
-                                      std::string& outError ) const
+                                      const char*& outError ) const
 {
-    const auto* reflected = FindGeneratedShaderStage( m_sourcePath.c_str(), "vs" );
-    if ( !reflected )
+    constexpr UINT MAX_INPUT_ELEMENTS = 16;
+    if ( count > MAX_INPUT_ELEMENTS )
     {
-        outError = "missing generated vertex-stage metadata";
-        return false;
-    }
-    UINT cpuInputCount = 0;
-    for ( std::uint32_t i = 0; i < reflected->inputCount; ++i )
-    {
-        cpuInputCount +=
-            std::strcmp( GeneratedShaderReflection::Inputs[reflected->inputStart + i].systemValue, "NONE" ) == 0;
-    }
-    if ( cpuInputCount != count )
-    {
-        outError = "input element count mismatch";
+        outError = "input layout exceeds fixed validation capacity";
         return false;
     }
     auto componentCount = []( DXGI_FORMAT format ) -> size_t
@@ -976,22 +965,14 @@ bool ShaderDX12::ValidateInputLayout( const D3D12_INPUT_ELEMENT_DESC* elements,
             return 0;
         }
     };
-    UINT cpuIndex = 0;
-    for ( std::uint32_t reflectedIndex = 0; reflectedIndex < reflected->inputCount; ++reflectedIndex )
+    ShaderVertexInputLayoutElement contractElements[MAX_INPUT_ELEMENTS] = {};
+    for ( UINT index = 0; index < count; ++index )
     {
-        const auto& expected = GeneratedShaderReflection::Inputs[reflected->inputStart + reflectedIndex];
-        if ( std::strcmp( expected.systemValue, "NONE" ) != 0 )
-        {
-            continue;
-        }
-        const auto& actual = elements[cpuIndex];
-        if ( !actual.SemanticName || std::strcmp( expected.semantic, actual.SemanticName ) != 0 ||
-             expected.index != actual.SemanticIndex || std::strlen( expected.mask ) != componentCount( actual.Format ) )
-        {
-            outError = std::string( "input layout mismatch at element " ) + std::to_string( cpuIndex );
-            return false;
-        }
-        ++cpuIndex;
+        contractElements[index] = { elements[index].SemanticName,
+                                    elements[index].SemanticIndex,
+                                    componentCount( elements[index].Format ) };
     }
-    return true;
+    // DX12 permits a mesh to expose attributes unused by a particular shader;
+    // shadow depth, for example, reads POSITION from a richer mesh layout.
+    return ValidateGeneratedShaderVertexInputLayout( m_sourcePath.c_str(), contractElements, count, outError );
 }

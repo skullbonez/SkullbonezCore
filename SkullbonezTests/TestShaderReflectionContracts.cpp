@@ -83,6 +83,21 @@ TEST_CASE( "Shader reflection contracts: every raster input signature matches th
     }
 }
 
+TEST_CASE( "Shader reflection contracts: shadow POSITION accepts a richer mesh layout" )
+{
+    ShaderVertexInputLayoutElement meshLayout[] = {
+        { "POSITION", 0, 3 },
+        { "NORMAL", 0, 3 },
+        { "TEXCOORD", 0, 2 },
+    };
+    const char* error = nullptr;
+    CHECK( ValidateGeneratedShaderVertexInputLayout( "shadow_depth.hlsl", meshLayout, 3, error ) );
+
+    meshLayout[0].componentCount = 2;
+    CHECK_FALSE( ValidateGeneratedShaderVertexInputLayout( "shadow_depth.hlsl", meshLayout, 3, error ) );
+    CHECK( std::string( error ) == "input layout semantic or format mismatch" );
+}
+
 TEST_CASE( "Shader reflection contracts: deliberate resource-slot mismatch is rejected" )
 {
     const ShaderProgramDesc& source = *FindShaderProgramDesc( "lit_textured.hlsl" );

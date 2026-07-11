@@ -154,6 +154,7 @@ RUNTIME_DEBUG_PREFIXES = PHYSICS_DEBUG_PREFIXES
 
 DX12_RENDERING_PREFIXES = (
     "BLASDX12",
+    "Dx12CachedPsoStore",
     "Dx12RenderGraphExecutor",
     "FramebufferDX12",
     "GeneratedShaderReflection",

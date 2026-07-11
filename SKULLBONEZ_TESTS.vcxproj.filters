@@ -49,6 +49,12 @@
     <Filter Include="Source Files\Rendering">
       <UniqueIdentifier>{8E9E77BA-E6E7-4C35-A9C6-8713679A3E3D}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Rendering\DX12">
+      <UniqueIdentifier>{FCB320E1-7619-45CB-AB24-E04477C0B1F9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Rendering\DX12">
+      <UniqueIdentifier>{B2C29F49-A411-4248-82FD-1AB48D77DC51}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SkullbonezTests\TestAssetSystem.cpp">
@@ -68,6 +74,12 @@
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestDx12OnlyRuntime.cpp">
       <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestDx12CachedPsoStore.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.cpp">
+      <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestShaderReflectionContracts.cpp">
       <Filter>Source Files\Tests</Filter>
@@ -236,6 +248,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h">
+      <Filter>Header Files\Rendering\DX12</Filter>
+    </ClInclude>
     <ClInclude Include="ThirdPtySource\doctest\doctest.h">
       <Filter>External</Filter>
     </ClInclude>
