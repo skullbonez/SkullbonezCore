@@ -1,7 +1,7 @@
 # Runtime UI Control Architecture Cleanup
 
 Date: 2026-07-10 (promoted into the authoritative TODO inventory)
-Status: In progress - 1/7 phases complete
+Status: In progress - 2/7 phases complete
 Impact area: replay UI, editor UI, diagnostics UI, input routing, interaction
 gesture ownership
 Owner: runtime UI surfaces; subsystem commands remain with their domain owners
@@ -266,7 +266,7 @@ Delete or absorb these patterns across runtime UI:
 | Phase | State | Completion evidence |
 |---|---|---|
 | U0 Inventory UI surfaces | Complete | 95 tracked source files reconciled below with owner/input/render/gate evidence |
-| U1 Shared control vocabulary | Pending | Fixed-capacity value types and CPU tests |
+| U1 Shared control vocabulary | Complete | Inline `RuntimeUiSurface` values and four Debug/Release CPU tests pass |
 | U2 Replay scrubber vertical slice | Pending | Old scrubber boolean ladder deleted |
 | U3 Action dispatch | Pending | Named handler table and shared shortcut path |
 | U4 Gesture lifecycle | Pending | Central begin/update/cancel/release tests |
@@ -337,6 +337,7 @@ cohesive lower-level primitive/domain handler that should remain unchanged.
 | [x] | [ ] | `SkullbonezSource/Runtime/RunUiTextPass.cpp` | Top-level in-game/replay/diagnostic UI composition; frame composition | consumes immutable frame/UI snapshots | UI text pass and replay overlay render | fast, replay scrub, DX12 renderer |
 | [x] | [ ] | `SkullbonezSource/Runtime/RunFrame.cpp` | Frame ordering only; `Run` composes owners | sequences input before render | sequences UI/tool render passes | full |
 | [x] | [ ] | `SkullbonezSource/Runtime/Render/RuntimeRenderInputs.h` | Value-only UI/tool render handoff; `RuntimeRenderer` consumes | no input mutation | render-service snapshot | build, DX12 renderer |
+| [x] | [ ] | `SkullbonezSource/Runtime/UI/RuntimeUiSurface.h` | Shared disposable control/surface values; domain owners retain persistent state | `ResolvePointer` produces one ordered hot control | domain renderer reads the same control rows | interaction policy, all CPU tests |
 | [x] | [ ] | `SkullbonezSource/Runtime/Scene/SceneRuntimeUiOptions.cpp`, `SkullbonezSource/Runtime/Scene/SceneRuntimeUiOptions.h` | Scene-authored UI visibility/options; scene owner | scene load/options command | sampled by in-game UI frame | fast, full |
 | [x] | [ ] | `SkullbonezSource/UI/UI.cpp`, `SkullbonezSource/UI/UI.h` | Window, chrome, tabs, capture, scroll, mini-palette; `UI::InGameUI` | `InGameUI::UpdateInput` | `InGameUI::Draw` | fast, interaction clicks, DX12 renderer |
 | [x] | [ ] | `SkullbonezSource/UI/UIInput.cpp`, `SkullbonezSource/UI/UIInput.h` | Immutable device-to-UI pointer/key facts; `InGameUI` | UI input helpers | no direct drawing | interaction policy, fast |
@@ -371,8 +372,8 @@ cohesive lower-level primitive/domain handler that should remain unchanged.
 | [x] | [ ] | `SkullbonezSource/UI/UITabSound.cpp`, `SkullbonezSource/UI/UITabSound.h` | Audio diagnostics/toggles/sliders; `InGameUI` tab state | tab content click/slider update | tab draw | fast |
 
 Reconciliation: 60/60 tracked source files under `SkullbonezSource/UI` are
-named above. The 35 additional runtime files are the complete interactive
-replay/editor/input/render boundary selected by the stated rule, for 95/95 U0
+named above. The 36 additional runtime files are the complete interactive
+replay/editor/input/render boundary selected by the stated rule, for 96/96 U0
 files checked and zero deferred. The deterministic automation targets are
 `attach_target_click.json`, `inspect_gizmo_click.json`,
 `launcher_fire_click.json`, `manipulator_pickup_click.json`,
@@ -389,11 +390,27 @@ Keep it value-based and fixed-capacity.
 
 Acceptance:
 
-- No dynamic allocation.
-- No new inheritance.
-- No `std::function`.
-- Controls can represent button, toggle, slider, track, tab, panel, and hot
+- [x] No dynamic allocation.
+- [x] No new inheritance.
+- [x] No `std::function`.
+- [x] Controls can represent button, toggle, slider, track, tab, panel, and hot
   zone.
+
+Evidence:
+
+- `RuntimeUiSurface.h` stores controls inline, rejects zero/duplicate ids and
+  capacity overflow, and resolves the first visible/enabled hit in authored
+  front-to-back order without callbacks or sorting.
+- The vocabulary also includes `ToolHandle`, typed control/action ids, distinct
+  visible/enabled/hovered/focused/active/reveal state, and disposable hot/active
+  surface state. Pointer capture remains in `RuntimeInteractionController`.
+- Four CPU tests cover every required kind, bounded storage and identity,
+  hidden/disabled/z-order hit behavior, and frame reset.
+- `tools\validate_all_cpu_tests.bat` passed in 17.3s on 2026-07-11: 131/131
+  doctests with 2,814 assertions, 22/22 interaction-policy cases in both Debug
+  and Release, scene-parser tests, and DX12 architecture tests; zero build
+  warnings/errors.
+- Comment audit: 2/2 touched source-bearing files checked, zero deferred.
 
 ### Phase 3: First Vertical Slice
 

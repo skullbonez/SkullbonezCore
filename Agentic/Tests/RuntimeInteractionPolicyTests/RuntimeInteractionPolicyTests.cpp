@@ -1,8 +1,8 @@
 /*
 File: Agentic/Tests/RuntimeInteractionPolicyTests/RuntimeInteractionPolicyTests.cpp
 Purpose:
-  Verifies CPU-side runtime interaction and picker rules that should not require
-  a renderer launch.
+  Verifies CPU-side runtime interaction, picker, and fixed-capacity UI surface
+  rules that should not require a renderer launch.
 
 Mental model:
   RuntimeInteractionPolicyTests.cpp verifies CPU-side runtime interaction and
@@ -15,6 +15,8 @@ Glossary:
   Pick ray: World-space line projected from a screen pointer into the scene.
   Collision shape: Authored sphere, oriented box, or convex hull used as the
     pickable geometry for a model.
+  Runtime UI surface: Disposable ordered table that gives input and rendering
+    one shared set of control bounds and states.
 
 Invariants:
   Tests exercise RuntimeInteractionController policy without editor, replay,
@@ -27,10 +29,12 @@ Related:
   - Agentic/Plans/TODO/interaction-state-machine.md
   - SkullbonezSource/Runtime/RuntimeInteractionController.h
   - SkullbonezSource/Runtime/RuntimePickGeometry.h
+  - SkullbonezSource/Runtime/UI/RuntimeUiSurface.h
 */
 #include "Runtime/RuntimeInteractionController.h"
 #include "Runtime/RuntimeInteractionCommands.h"
 #include "Runtime/RuntimePickGeometry.h"
+#include "Runtime/UI/RuntimeUiSurface.h"
 
 #include <cmath>
 #include <exception>
@@ -742,6 +746,106 @@ void TestInvalidToolGestureWithoutCaptureIsRejected()
 }
 
 
+RuntimeUiControl MakeUiControl( uint32_t id,
+                                RuntimeUiControlKind kind,
+                                float x,
+                                float y,
+                                float width,
+                                float height )
+{
+    RuntimeUiControl control;
+    control.id = RuntimeUiControlId{ id };
+    control.kind = kind;
+    control.action = RuntimeUiActionId{ id + 100u };
+    control.drawRect = { x, y, width, height };
+    control.hitRect = control.drawRect;
+    return control;
+}
+
+
+void TestRuntimeUiSurfaceRepresentsEveryControlKind()
+{
+    constexpr RuntimeUiControlKind kinds[] = { RuntimeUiControlKind::Panel, RuntimeUiControlKind::HotZone,
+                                               RuntimeUiControlKind::Button, RuntimeUiControlKind::Toggle,
+                                               RuntimeUiControlKind::Slider, RuntimeUiControlKind::Track,
+                                               RuntimeUiControlKind::Tab, RuntimeUiControlKind::ToolHandle };
+    RuntimeUiSurface<8> surface;
+
+    for ( std::size_t index = 0; index < 8; ++index )
+    {
+        EXPECT_TRUE( surface.TryAdd(
+            MakeUiControl( static_cast<uint32_t>( index + 1 ), kinds[index], 0.0f, 0.0f, 10.0f, 10.0f ) ) );
+    }
+
+    EXPECT_EQ( surface.controlCount, std::size_t{ 8 } );
+    for ( std::size_t index = 0; index < surface.controlCount; ++index )
+    {
+        EXPECT_EQ( surface.controls[index].kind, kinds[index] );
+        EXPECT_TRUE( static_cast<bool>( surface.controls[index].action ) );
+    }
+}
+
+
+void TestRuntimeUiSurfaceRejectsCapacityAndIdentityViolations()
+{
+    RuntimeUiSurface<2> surface;
+    EXPECT_FALSE( surface.TryAdd( MakeUiControl( 0u, RuntimeUiControlKind::Button, 0.0f, 0.0f, 5.0f, 5.0f ) ) );
+    EXPECT_TRUE( surface.TryAdd( MakeUiControl( 1u, RuntimeUiControlKind::Button, 0.0f, 0.0f, 5.0f, 5.0f ) ) );
+    EXPECT_FALSE( surface.TryAdd( MakeUiControl( 1u, RuntimeUiControlKind::Toggle, 5.0f, 0.0f, 5.0f, 5.0f ) ) );
+    EXPECT_TRUE( surface.TryAdd( MakeUiControl( 2u, RuntimeUiControlKind::Slider, 10.0f, 0.0f, 5.0f, 5.0f ) ) );
+    EXPECT_FALSE( surface.TryAdd( MakeUiControl( 3u, RuntimeUiControlKind::Tab, 15.0f, 0.0f, 5.0f, 5.0f ) ) );
+    EXPECT_EQ( surface.controlCount, std::size_t{ 2 } );
+}
+
+
+void TestRuntimeUiSurfaceResolvesOneOrderedEligibleHit()
+{
+    RuntimeUiSurface<4> surface;
+    RuntimeUiControl hidden = MakeUiControl( 1u, RuntimeUiControlKind::Button, 0.0f, 0.0f, 20.0f, 20.0f );
+    hidden.visible = false;
+    RuntimeUiControl disabled = MakeUiControl( 2u, RuntimeUiControlKind::Toggle, 0.0f, 0.0f, 20.0f, 20.0f );
+    disabled.enabled = false;
+    EXPECT_TRUE( surface.TryAdd( hidden ) );
+    EXPECT_TRUE( surface.TryAdd( disabled ) );
+    EXPECT_TRUE( surface.TryAdd( MakeUiControl( 3u, RuntimeUiControlKind::Slider, 0.0f, 0.0f, 20.0f, 20.0f ) ) );
+    EXPECT_TRUE( surface.TryAdd( MakeUiControl( 4u, RuntimeUiControlKind::Panel, 0.0f, 0.0f, 20.0f, 20.0f ) ) );
+
+    surface.ResolvePointer( 10, 10 );
+
+    EXPECT_TRUE( surface.hasHotControl );
+    EXPECT_TRUE( surface.consumesPointer );
+    EXPECT_EQ( surface.hotControl, RuntimeUiControlId{ 3u } );
+    EXPECT_FALSE( surface.controls[0].hovered );
+    EXPECT_FALSE( surface.controls[1].hovered );
+    EXPECT_TRUE( surface.controls[2].hovered );
+    EXPECT_FALSE( surface.controls[3].hovered );
+
+    surface.ResolvePointer( 30, 30 );
+    EXPECT_FALSE( surface.hasHotControl );
+    EXPECT_FALSE( surface.consumesPointer );
+    EXPECT_FALSE( surface.controls[2].hovered );
+}
+
+
+void TestRuntimeUiSurfaceResetClearsDisposableFrameState()
+{
+    RuntimeUiSurface<1> surface;
+    EXPECT_TRUE( surface.TryAdd( MakeUiControl( 8u, RuntimeUiControlKind::HotZone, 0.0f, 0.0f, 5.0f, 5.0f ) ) );
+    surface.ResolvePointer( 2, 2 );
+    surface.activeControl = RuntimeUiControlId{ 8u };
+    surface.hasActiveControl = true;
+
+    surface.Reset();
+
+    EXPECT_EQ( surface.controlCount, std::size_t{ 0 } );
+    EXPECT_FALSE( surface.hasHotControl );
+    EXPECT_FALSE( surface.hasActiveControl );
+    EXPECT_FALSE( surface.consumesPointer );
+    EXPECT_FALSE( static_cast<bool>( surface.hotControl ) );
+    EXPECT_FALSE( static_cast<bool>( surface.activeControl ) );
+}
+
+
 void RunTest( const TestCase& test )
 {
     std::cout << "[ RUN      ] " << test.name << "\n";
@@ -772,6 +876,11 @@ int main()
         { "TreeTrunkHullPickUsesConvexFaces", &TestTreeTrunkHullPickUsesConvexFaces },
         { "RotatedShapePickReturnsNearestEntry", &TestRotatedShapePickReturnsNearestEntry },
         { "InvalidToolGestureWithoutCaptureIsRejected", &TestInvalidToolGestureWithoutCaptureIsRejected },
+        { "RuntimeUiSurfaceRepresentsEveryControlKind", &TestRuntimeUiSurfaceRepresentsEveryControlKind },
+        { "RuntimeUiSurfaceRejectsCapacityAndIdentityViolations",
+          &TestRuntimeUiSurfaceRejectsCapacityAndIdentityViolations },
+        { "RuntimeUiSurfaceResolvesOneOrderedEligibleHit", &TestRuntimeUiSurfaceResolvesOneOrderedEligibleHit },
+        { "RuntimeUiSurfaceResetClearsDisposableFrameState", &TestRuntimeUiSurfaceResetClearsDisposableFrameState },
     };
 
     try
