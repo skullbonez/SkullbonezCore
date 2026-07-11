@@ -14,6 +14,8 @@ Glossary:
   Track: Normalized timeline lane, either presentation or solver-backed.
   Cause window: Resizable replay inspection panel that lists body/contact rows.
   Hot zone: Bottom-screen hover strip that reveals replay controls.
+  Control surface: Fixed-capacity per-frame table shared by scrubber hit testing
+    and, in later phases, drawing.
   UIRect: Pixel-space rectangle shared by hit testing and drawing.
 
 Invariants:
@@ -28,6 +30,7 @@ Related:
 #pragma once
 
 #include "ReplayRuntime.h"
+#include "../UI/RuntimeUiSurface.h"
 #include "../../UI/UIDraw.h"
 
 namespace SkullbonezCore::Basics::ReplayOverlay
@@ -66,6 +69,63 @@ inline constexpr float REPLAY_CAUSE_WINDOW_PADDING = 12.0f;
 inline constexpr float REPLAY_CAUSE_WINDOW_RESIZE_SIZE = 18.0f;
 inline constexpr int REPLAY_CAUSE_WINDOW_MIN_W = 320;
 inline constexpr int REPLAY_CAUSE_WINDOW_MIN_H = 180;
+
+enum class ReplayScrubberControl : uint32_t
+{
+    None,
+    Branch,
+    Pause,
+    VelocityEdit,
+    PredictionToggle,
+    PredictionHorizon,
+    RagdollVisuals,
+    PastPath,
+    Save,
+    Load,
+    ScrubTrack,
+    PredictionPanel,
+    Panel,
+    HotZone
+};
+
+enum class ReplayScrubberAction : uint32_t
+{
+    None,
+    RestoreBranch,
+    TogglePause,
+    ToggleVelocityEdit,
+    TogglePrediction,
+    SetPredictionHorizon,
+    ToggleRagdollVisuals,
+    TogglePastPath,
+    Save,
+    Load,
+    Scrub
+};
+
+inline RuntimeUiControlId ReplayScrubberControlId( ReplayScrubberControl control )
+{
+    return RuntimeUiControlId{ static_cast<uint32_t>( control ) };
+}
+
+struct ReplayScrubberSurfaceInput
+{
+    int screenW = 1;
+    int screenH = 1;
+    RunReplayTrack track = RunReplayTrack::Solver;
+    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
+    bool loadedPresentation = false;
+    bool solverToolsEnabled = false;
+    bool predictionToolsEnabled = false;
+    bool pastPathToolsEnabled = false;
+    bool branchTargetAvailable = false;
+    bool scrubTrackDragEnabled = false;
+    bool hotZoneEnabled = true;
+};
+
+using ReplayScrubberSurface = RuntimeUiSurface<13>;
+
+void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, ReplayScrubberSurface& outSurface );
 
 UI::UIRect ReplayScrubberPanelRect( int screenW, int screenH );
 float ReplayScrubberRowCenterY( const UI::UIRect& panel, RunReplayTrack track );

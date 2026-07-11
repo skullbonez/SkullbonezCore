@@ -14,14 +14,16 @@ Glossary:
   Control id: Stable identifier for one interactive element within a surface.
   Action id: Domain-defined operation requested by a control; the shared UI
     layer stores the value but never interprets or executes it.
-  Hot control: First visible and enabled row whose hit rectangle contains the
-    current pointer.
+  Pointer control: First visible row whose hit rectangle contains the current
+    pointer, including a disabled row that blocks controls behind it.
+  Hot control: Pointer control when that row is enabled.
   Surface: Disposable per-frame ordered control table for one panel or overlay.
 
 Invariants:
   - Storage is inline and cannot grow after construction.
   - Control ids are nonzero and unique within a surface.
-  - Rows are authored front-to-back; the first eligible hit wins.
+  - Rows are authored front-to-back; the first visible hit wins and disabled
+    rows prevent click-through without becoming hot.
   - Persistent domain state and pointer-capture authority stay with their
     existing owners.
 
@@ -109,8 +111,10 @@ struct RuntimeUiSurface
     RuntimeUiControl controls[Capacity] = {};
     std::size_t controlCount = 0;
     RuntimeUiControlId hotControl;
+    RuntimeUiControlId pointerControl;
     RuntimeUiControlId activeControl;
     bool hasHotControl = false;
+    bool hasPointerControl = false;
     bool hasActiveControl = false;
     bool consumesPointer = false;
 
@@ -118,8 +122,10 @@ struct RuntimeUiSurface
     {
         controlCount = 0;
         hotControl = {};
+        pointerControl = {};
         activeControl = {};
         hasHotControl = false;
+        hasPointerControl = false;
         hasActiveControl = false;
         consumesPointer = false;
     }
@@ -164,7 +170,9 @@ struct RuntimeUiSurface
     void ResolvePointer( int pointerX, int pointerY )
     {
         hotControl = {};
+        pointerControl = {};
         hasHotControl = false;
+        hasPointerControl = false;
         consumesPointer = false;
 
         for ( std::size_t index = 0; index < controlCount; ++index )
@@ -175,12 +183,17 @@ struct RuntimeUiSurface
         for ( std::size_t index = 0; index < controlCount; ++index )
         {
             RuntimeUiControl& control = controls[index];
-            if ( control.visible && control.enabled && Contains( control.hitRect, pointerX, pointerY ) )
+            if ( control.visible && Contains( control.hitRect, pointerX, pointerY ) )
             {
-                control.hovered = true;
-                hotControl = control.id;
-                hasHotControl = true;
+                pointerControl = control.id;
+                hasPointerControl = true;
                 consumesPointer = true;
+                if ( control.enabled )
+                {
+                    control.hovered = true;
+                    hotControl = control.id;
+                    hasHotControl = true;
+                }
                 return;
             }
         }

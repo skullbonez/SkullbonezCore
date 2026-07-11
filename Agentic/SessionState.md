@@ -10,10 +10,10 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `97d3b27c docs: inventory runtime UI control surfaces` |
-| Current objective | Execute runtime UI/control U2: convert the replay scrubber to the shared fixed-capacity surface |
+| Current pushed baseline | `a448a6ca feat: add fixed-capacity runtime UI surfaces` |
+| Current objective | Execute runtime UI/control U3: route scrubber pointer and keyboard commands through named action dispatch |
 | Last broad local gate | `tools\validate_full.bat` passed final interaction source in 72.5s: 131/131 doctests and 2,814 assertions, every standalone CPU lane, zero-warning Profile/Debug builds, DX12 InfoQueue errors = 0 with matching screenshots, handle smoke, and the 44,401-line varied baseline byte-exactly |
-| Latest focused gates | U1 `validate_all_cpu_tests` passed in 17.3s: 131/131 doctests, 2,814 assertions, 22/22 interaction cases in Debug and Release, scene parser and DX12 architecture; U1 comment audit 2/2 |
+| Latest focused gates | U2 Profile build passed in 8.8s; `validate_all_cpu_tests` passed in 16.4s with 23/23 interaction cases in Debug/Release; replay scrub passed in 80.3s; U2 comment audit 5/5 |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -24,6 +24,7 @@ reports, and git history.
 - `7724cfe7 refactor: close physics authority and identity`
 - `42c4b4cf refactor: close interaction state ownership`
 - `97d3b27c docs: inventory runtime UI control surfaces`
+- `a448a6ca feat: add fixed-capacity runtime UI surfaces`
 - `125bb8a9 docs: inventory DX12 failure surfaces`
 - `0c9097ec fix: reduce box manifolds by depth and spread`
 - `e752c395 style: format manifold reducer`
@@ -67,15 +68,15 @@ A final main-pass inventory then caught and deleted the generic mouse-pickup
 `active` mirror. Policy, five Win32 scenarios, final replay scrub, and full pass. Evidence:
 `Agentic/Reports/2026-07-11/interaction-state-machine-closure-review.md`.
 
-Runtime UI/control is complete through U1 at 2/7. The owning plan reconciles all
+Runtime UI/control is complete through U2 at 3/7. The owning plan reconciles all
 60 tracked `SkullbonezSource/UI` source files plus 36 interactive replay,
-editor, input, automation, shared-control, and render-boundary files. U1 adds an
-inline, typed `RuntimeUiSurface` covering all required control kinds, ordered
-hit resolution, bounded failure, and disposable hot/active state. Four new CPU
-tests pass in both Debug and Release through the mandatory umbrella. U6
-conversion/review remains independently unchecked. Next execute the U2 replay
-scrubber vertical slice. Interaction gesture geometry and capture remain with
-`RuntimeInteractionController` rather than UI-owned state.
+editor, input, automation, shared-control, and render-boundary files. U1 adds
+the inline typed surface; U2 converts the replay scrubber into 13 front-to-back
+control rows, deletes the `overX` ladder and direct hit tests, and proves
+disabled no-click-through behavior. CPU and replay scrub gates pass. U6
+conversion/review remains independently unchecked. Next execute U3 named
+action dispatch and shared pointer/keyboard command routing. Interaction
+gesture geometry and capture remain with `RuntimeInteractionController`.
 
 Runtime-shell decomposition is complete at 27/27. E1-E3 deleted `RunInternal.h`,
 forwarding-only Run methods, and Common compatibility includes. F1-F2 then

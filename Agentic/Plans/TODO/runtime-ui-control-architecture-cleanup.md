@@ -1,7 +1,7 @@
 # Runtime UI Control Architecture Cleanup
 
 Date: 2026-07-10 (promoted into the authoritative TODO inventory)
-Status: In progress - 2/7 phases complete
+Status: In progress - 3/7 phases complete
 Impact area: replay UI, editor UI, diagnostics UI, input routing, interaction
 gesture ownership
 Owner: runtime UI surfaces; subsystem commands remain with their domain owners
@@ -267,7 +267,7 @@ Delete or absorb these patterns across runtime UI:
 |---|---|---|
 | U0 Inventory UI surfaces | Complete | 95 tracked source files reconciled below with owner/input/render/gate evidence |
 | U1 Shared control vocabulary | Complete | Inline `RuntimeUiSurface` values and four Debug/Release CPU tests pass |
-| U2 Replay scrubber vertical slice | Pending | Old scrubber boolean ladder deleted |
+| U2 Replay scrubber vertical slice | Complete | 13-row surface owns scrubber hit/reveal state; old `overX` ladder deleted |
 | U3 Action dispatch | Pending | Named handler table and shared shortcut path |
 | U4 Gesture lifecycle | Pending | Central begin/update/cancel/release tests |
 | U5 Shared render/input snapshots | Pending | Draw and hit-test geometry equality tests |
@@ -419,11 +419,35 @@ Do not overfit the names to scrubber.
 
 Acceptance:
 
-- Replay scrubber controls are built into a surface.
-- The old `overSaveButton`, `overLoadButton`, `overPauseButton`, and similar
+- [x] Replay scrubber controls are built into a surface.
+- [x] The old `overSaveButton`, `overLoadButton`, `overPauseButton`, and similar
   locals are gone or isolated inside surface construction.
-- Reveal policy reads from control/surface state.
-- The visible track and prediction horizon are real controls.
+- [x] Reveal policy reads from control/surface state.
+- [x] The visible track and prediction horizon are real controls.
+
+Evidence:
+
+- `BuildReplayScrubberSurface` publishes 13 typed rows front-to-back: branch,
+  pause, velocity, prediction toggle/horizon/ragdoll, past path, save/load,
+  scrub track, prediction panel, panel, and reveal hot zone. Geometry comes only
+  from `ReplayOverlayLayout` helpers.
+- `TickScrubberInput` resolves one pointer row and one enabled hot row. Reveal,
+  hover, consumption, click eligibility, and scrub-start exclusions read those
+  rows; the function contains no direct mouse-rectangle `Contains` call.
+- Disabled visible rows stop click-through without becoming hot. The CPU suite
+  adds a focused regression case for that z-order rule.
+- Deletion proof: repository search finds none of the old scrubber identifiers
+  `overSaveButton`, `overLoadButton`, `overPauseButton`, `overPredictToggle`,
+  `overPredictHorizon`, `overPredictUi`, `overBranchButton`,
+  `overVelocityEditToggle`, `overPastPathToggle`, `overScrubTrack`, `overPanel`,
+  or `inHotZone`.
+- Focused Profile build passed in 8.8s with zero warnings/errors.
+- `tools\validate_all_cpu_tests.bat` passed in 16.4s: 131/131 doctests with
+  2,814 assertions, 23/23 interaction cases in Debug and Release, scene parser,
+  and DX12 architecture.
+- `tools\validate_replay_scrub.bat` passed in 80.3s with zero build
+  warnings/errors and all replay probes successful.
+- Comment audit: 5/5 touched source-bearing files checked, zero deferred.
 
 ### Phase 4: Action Dispatch
 

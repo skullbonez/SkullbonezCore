@@ -805,6 +805,7 @@ void TestRuntimeUiSurfaceResolvesOneOrderedEligibleHit()
     hidden.visible = false;
     RuntimeUiControl disabled = MakeUiControl( 2u, RuntimeUiControlKind::Toggle, 0.0f, 0.0f, 20.0f, 20.0f );
     disabled.enabled = false;
+    disabled.visible = false;
     EXPECT_TRUE( surface.TryAdd( hidden ) );
     EXPECT_TRUE( surface.TryAdd( disabled ) );
     EXPECT_TRUE( surface.TryAdd( MakeUiControl( 3u, RuntimeUiControlKind::Slider, 0.0f, 0.0f, 20.0f, 20.0f ) ) );
@@ -813,8 +814,10 @@ void TestRuntimeUiSurfaceResolvesOneOrderedEligibleHit()
     surface.ResolvePointer( 10, 10 );
 
     EXPECT_TRUE( surface.hasHotControl );
+    EXPECT_TRUE( surface.hasPointerControl );
     EXPECT_TRUE( surface.consumesPointer );
     EXPECT_EQ( surface.hotControl, RuntimeUiControlId{ 3u } );
+    EXPECT_EQ( surface.pointerControl, RuntimeUiControlId{ 3u } );
     EXPECT_FALSE( surface.controls[0].hovered );
     EXPECT_FALSE( surface.controls[1].hovered );
     EXPECT_TRUE( surface.controls[2].hovered );
@@ -822,8 +825,28 @@ void TestRuntimeUiSurfaceResolvesOneOrderedEligibleHit()
 
     surface.ResolvePointer( 30, 30 );
     EXPECT_FALSE( surface.hasHotControl );
+    EXPECT_FALSE( surface.hasPointerControl );
     EXPECT_FALSE( surface.consumesPointer );
     EXPECT_FALSE( surface.controls[2].hovered );
+}
+
+
+void TestRuntimeUiSurfaceDisabledControlPreventsClickThrough()
+{
+    RuntimeUiSurface<2> surface;
+    RuntimeUiControl disabled = MakeUiControl( 1u, RuntimeUiControlKind::Button, 0.0f, 0.0f, 20.0f, 20.0f );
+    disabled.enabled = false;
+    EXPECT_TRUE( surface.TryAdd( disabled ) );
+    EXPECT_TRUE( surface.TryAdd( MakeUiControl( 2u, RuntimeUiControlKind::Panel, 0.0f, 0.0f, 20.0f, 20.0f ) ) );
+
+    surface.ResolvePointer( 10, 10 );
+
+    EXPECT_TRUE( surface.hasPointerControl );
+    EXPECT_EQ( surface.pointerControl, RuntimeUiControlId{ 1u } );
+    EXPECT_FALSE( surface.hasHotControl );
+    EXPECT_TRUE( surface.consumesPointer );
+    EXPECT_FALSE( surface.controls[0].hovered );
+    EXPECT_FALSE( surface.controls[1].hovered );
 }
 
 
@@ -839,9 +862,11 @@ void TestRuntimeUiSurfaceResetClearsDisposableFrameState()
 
     EXPECT_EQ( surface.controlCount, std::size_t{ 0 } );
     EXPECT_FALSE( surface.hasHotControl );
+    EXPECT_FALSE( surface.hasPointerControl );
     EXPECT_FALSE( surface.hasActiveControl );
     EXPECT_FALSE( surface.consumesPointer );
     EXPECT_FALSE( static_cast<bool>( surface.hotControl ) );
+    EXPECT_FALSE( static_cast<bool>( surface.pointerControl ) );
     EXPECT_FALSE( static_cast<bool>( surface.activeControl ) );
 }
 
@@ -880,6 +905,8 @@ int main()
         { "RuntimeUiSurfaceRejectsCapacityAndIdentityViolations",
           &TestRuntimeUiSurfaceRejectsCapacityAndIdentityViolations },
         { "RuntimeUiSurfaceResolvesOneOrderedEligibleHit", &TestRuntimeUiSurfaceResolvesOneOrderedEligibleHit },
+        { "RuntimeUiSurfaceDisabledControlPreventsClickThrough",
+          &TestRuntimeUiSurfaceDisabledControlPreventsClickThrough },
         { "RuntimeUiSurfaceResetClearsDisposableFrameState", &TestRuntimeUiSurfaceResetClearsDisposableFrameState },
     };
 
