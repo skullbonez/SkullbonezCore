@@ -67,6 +67,7 @@ struct ReplayOverlayRenderContext
     bool uiVisible = false;
     bool uiMinimized = false;
     bool scenePhysicsEnabled = false;
+    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
     int screenW = 0;
     int screenH = 0;
     double nowSeconds = 0.0;

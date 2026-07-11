@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayInteractionController.h
 Purpose:
-  Owns cold replay interaction commands that mutate replay UI state.
+  Owns replay restore commands and retained drag-start values that mutate
+  replay UI state.
 
 Mental model:
   ReplayInteractionController converts operator replay intent into replay-owned
@@ -20,6 +21,8 @@ Invariants:
     command is applied.
   - Scrubber message, consumed-input state, and live-edge reset are published in
     one place after every restore attempt.
+  - Active drag kind, body, axis, and angular mode remain controller gesture
+    payload; this owner retains only values sampled at gesture start.
 
 Related:
   - SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.cpp
@@ -52,17 +55,8 @@ struct ReplayVelocityEditInputFrame
     bool leftReleased = false;
 };
 
-struct ReplayVelocityEditResetResult
-{
-    bool endDragGesture = false;
-    bool releaseMouseCapture = false;
-};
-
 struct ReplayVelocityEditDragStart
 {
-    Physics::ModelRowHint modelRow;
-    int axis = -1;
-    bool angular = false;
     float axisT = 0.0f;
     float angle = 0.0f;
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
@@ -99,8 +93,8 @@ class ReplayInteractionController
                                   std::size_t reasonSize = 0 );
     ReplayVelocityEditInputFrame BeginVelocityEditInputFrame( bool leftDown, bool leftPressed, bool leftReleased );
     void SetVelocityEditHoverAxes( ReplayRuntime& replayRuntime, int linearAxis, int angularAxis );
-    ReplayVelocityEditResetResult ResetVelocityEditInteraction( ReplayRuntime& replayRuntime, bool clearHoverAxes );
-    ReplayVelocityEditResetResult EndVelocityEditDrag( ReplayRuntime& replayRuntime );
+    void ResetVelocityEditInteraction( ReplayRuntime& replayRuntime, bool clearHoverAxes );
+    void EndVelocityEditDrag( ReplayRuntime& replayRuntime );
     void BeginVelocityEditDrag( ReplayRuntime& replayRuntime, const ReplayVelocityEditDragStart& start );
     void SelectVelocityEditTarget( ReplayRuntime& replayRuntime, double visibleUntil );
     bool ApplyVelocityEditToBody( const ReplayVelocityEditApplyContext& context );

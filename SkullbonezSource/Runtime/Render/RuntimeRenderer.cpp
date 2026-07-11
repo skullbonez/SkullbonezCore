@@ -2288,6 +2288,7 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
                                       ToolOverlayBuildInput{ policy.physicsDebugContactLinger,
                                                              context.toolOverlay.inspectGizmoInteractionActive,
                                                              context.toolOverlay.controlDown,
+                                                             context.replayOverlay.gesture,
                                                              context.toolOverlay.attachedTargetIndex,
                                                              context.toolOverlay.attachedFollow } );
     assert( context.renderModels.renderWorkerPool && "Replay overlay preparation requires the model worker owner" );
@@ -2299,6 +2300,7 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
                                       runtimeTools.EditorTracer(),
                                       ReplayRuntime::ReplayOverlayBuildInput{ context.replayOverlay.scenePhysicsEnabled,
                                                                               runtimeTools.Editor().editorModeEnabled,
+                                                                              context.replayOverlay.gesture,
                                                                               context.replayOverlay.sceneFrame,
                                                                               context.replayOverlay.frameSeconds,
                                                                               context.replayOverlay.totalSeconds } );

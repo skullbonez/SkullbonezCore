@@ -136,6 +136,7 @@ struct RenderReplayOverlayView
     ReplayRuntime& replayRuntime;
     const SceneEntityStore& entities;
     bool scenePhysicsEnabled = false;
+    RuntimeInteractionGesture gesture;
     int sceneFrame = 0;
     double frameSeconds = 0.0;
     double totalSeconds = 0.0;

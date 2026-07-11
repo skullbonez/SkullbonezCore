@@ -87,7 +87,10 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     // Draw it even when the scrubber itself is hidden by UI/editor policy.
     RenderReplayCauseTreeOverlay( context );
 
-    if ( !replayRuntime.ShouldRenderScrubber( context.editorModeEnabled, context.uiVisible, context.uiMinimized ) )
+    if ( !replayRuntime.ShouldRenderScrubber( context.editorModeEnabled,
+                                              context.uiVisible,
+                                              context.uiMinimized,
+                                              context.gesture ) )
     {
         return;
     }
@@ -340,8 +343,9 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
         const float fillW = (std::max)( REPLAY_SCRUBBER_TRACK_HEIGHT, track.w * rowT );
         const float knobX = track.x + track.w * rowT;
         const bool active = activeTrack == trackName;
-        const bool inactiveDuringScrub =
-            ( replayRuntime.Scrubber().dragging || replayRuntime.Scrubber().historicalSamplePaused ) && !active;
+        const bool inactiveDuringScrub = ( context.gesture == RuntimeInteractionGestureKind::ReplayScrubDrag ||
+                                           replayRuntime.Scrubber().historicalSamplePaused ) &&
+                                         !active;
         const bool saveHover = saveEnabled && replayRuntime.Scrubber().saveHovered &&
                                replayRuntime.Scrubber().saveHoveredTrack == trackName;
         const bool saveFeedback =
@@ -506,8 +510,9 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     const UI::UIRect predictHorizon = ReplayScrubberPredictHorizonRect( screenW, screenH );
     const UI::UIRect ragdollVisualToggle = ReplayScrubberRagdollVisualToggleRect( screenW, screenH );
     const UI::UIRect pastPathToggle = ReplayScrubberPastPathToggleRect( screenW, screenH );
-    const bool predictHover = predictionToolsEnabled && ( replayRuntime.Prediction().ui.horizonHovered ||
-                                                          replayRuntime.Prediction().ui.horizonDragging );
+    const bool predictHover =
+        predictionToolsEnabled && ( replayRuntime.Prediction().ui.horizonHovered ||
+                                    context.gesture == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag );
     const bool predictEnabled = predictionToolsEnabled && replayRuntime.Prediction().enabled;
     const bool ragdollVisualsEnabled = predictionToolsEnabled && replayRuntime.Prediction().ragdollVisualsEnabled;
     const bool pastPathToolsEnabled = solverToolsEnabled && replayRuntime.PathVisualizer().hasTarget;

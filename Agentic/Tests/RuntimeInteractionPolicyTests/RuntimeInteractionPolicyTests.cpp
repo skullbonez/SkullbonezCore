@@ -29,6 +29,7 @@ Related:
   - SkullbonezSource/Runtime/RuntimePickGeometry.h
 */
 #include "Runtime/RuntimeInteractionController.h"
+#include "Runtime/RuntimeInteractionCommands.h"
 #include "Runtime/RuntimePickGeometry.h"
 
 #include <cmath>
@@ -161,6 +162,15 @@ RuntimeInteractionGesture MakeReplayGesture( RuntimeInteractionGestureKind kind 
     gesture.button = RuntimePointerButton::Left;
     gesture.startX = 30;
     gesture.startY = 50;
+    if ( kind == RuntimeInteractionGestureKind::ReplayVelocityDrag )
+    {
+        gesture.body = PhysicsBodyHandle{ 9u, 4u };
+        gesture.axis = 2;
+    }
+    else if ( kind == RuntimeInteractionGestureKind::ReplayCauseTreeDrag )
+    {
+        gesture.axis = 0;
+    }
     return gesture;
 }
 
@@ -175,7 +185,37 @@ RuntimeInteractionGesture MakeGizmoGesture( bool angular )
     gesture.body = PhysicsBodyHandle{ 5u, 2u };
     gesture.axis = 1;
     gesture.angular = angular;
+    gesture.gizmoKind = angular ? RuntimeGizmoDragKind::Rotate : RuntimeGizmoDragKind::Translate;
     return gesture;
+}
+
+
+RuntimeGestureEvent BeginGesture( RuntimeInteractionController& controller,
+                                  const RuntimeInteractionGesture& gesture,
+                                  RuntimePointerCaptureOwner captureOwner = RuntimePointerCaptureOwner::ToolGesture,
+                                  InteractionExitReason reason = InteractionExitReason::BeginGesture )
+{
+    RuntimeGestureCommand command;
+    command.gesture = gesture;
+    command.captureOwner = captureOwner;
+    command.reason = reason;
+    RuntimeGestureEvent event;
+    EXPECT_TRUE( controller.ApplyGestureCommand( command, event ) );
+    return event;
+}
+
+
+RuntimeGestureEvent EndGesture( RuntimeInteractionController& controller,
+                                RuntimeInteractionGestureKind kind,
+                                InteractionExitReason reason = InteractionExitReason::EndGesture )
+{
+    RuntimeGestureCommand command;
+    command.action = RuntimeGestureCommandAction::End;
+    command.gesture.kind = kind;
+    command.reason = reason;
+    RuntimeGestureEvent event;
+    EXPECT_TRUE( controller.ApplyGestureCommand( command, event ) );
+    return event;
 }
 
 
@@ -272,12 +312,11 @@ void TestMousePickupDragRunsPhysicsWithoutStepHold()
     EXPECT_EQ( controller.Workspace(), RuntimeWorkspace::Live );
     EXPECT_EQ( controller.Owner(), WorldInteractionOwner::Manipulator );
 
-    const RuntimeInteractionTransition beginTransition =
-        controller.BeginGesture( MakeMousePickupGesture(),
-                                 RuntimePointerCaptureOwner::ToolGesture,
-                                 InteractionExitReason::EnterManipulator );
-    EXPECT_TRUE( beginTransition.gestureChanged );
-    EXPECT_TRUE( beginTransition.pointerCaptureChanged );
+    const RuntimeGestureEvent beginEvent = BeginGesture( controller,
+                                                         MakeMousePickupGesture(),
+                                                         RuntimePointerCaptureOwner::ToolGesture,
+                                                         InteractionExitReason::EnterManipulator );
+    EXPECT_EQ( beginEvent.type, RuntimeGestureEventType::Began );
 
     RuntimeInteractionFrameInput input = MakeDefaultFrameInput();
     input.stepHeld = false;
@@ -295,18 +334,17 @@ void TestToolGestureSuppressesCameraLook()
     RuntimeInteractionController controller;
     controller.EnterManipulator();
 
-    const RuntimeInteractionTransition beginTransition =
-        controller.BeginGesture( MakeMousePickupGesture(),
-                                 RuntimePointerCaptureOwner::ToolGesture,
-                                 InteractionExitReason::EnterManipulator );
+    const RuntimeGestureEvent beginEvent = BeginGesture( controller,
+                                                         MakeMousePickupGesture(),
+                                                         RuntimePointerCaptureOwner::ToolGesture,
+                                                         InteractionExitReason::EnterManipulator );
 
-    EXPECT_TRUE( beginTransition.gestureChanged );
-    EXPECT_TRUE( beginTransition.pointerCaptureChanged );
-    EXPECT_EQ( beginTransition.previousPointerCapture, RuntimePointerCaptureOwner::None );
-    EXPECT_EQ( beginTransition.pointerCapture, RuntimePointerCaptureOwner::ToolGesture );
-    EXPECT_EQ( beginTransition.gesture.kind, RuntimeInteractionGestureKind::MousePickupDrag );
-    EXPECT_EQ( beginTransition.gesture.body.index, 7u );
-    EXPECT_EQ( beginTransition.gesture.body.generation, 3u );
+    EXPECT_EQ( beginEvent.type, RuntimeGestureEventType::Began );
+    EXPECT_EQ( beginEvent.previousPointerCapture, RuntimePointerCaptureOwner::None );
+    EXPECT_EQ( beginEvent.pointerCapture, RuntimePointerCaptureOwner::ToolGesture );
+    EXPECT_EQ( beginEvent.gesture.kind, RuntimeInteractionGestureKind::MousePickupDrag );
+    EXPECT_EQ( beginEvent.gesture.body.index, 7u );
+    EXPECT_EQ( beginEvent.gesture.body.generation, 3u );
 
     RuntimeInteractionFrameInput input = MakeDefaultFrameInput();
     input.rightMouseLookHeld = true;
@@ -319,6 +357,83 @@ void TestToolGestureSuppressesCameraLook()
     EXPECT_EQ( policy.gesture, RuntimeInteractionGestureKind::MousePickupDrag );
     EXPECT_EQ( policy.cameraLook, CameraLookState::Passive );
     EXPECT_FALSE( policy.cameraMouseLookActive );
+}
+
+
+void TestGestureCommandsEmitOnlyAfterSuccessfulMutation()
+{
+    RuntimeInteractionController controller;
+    controller.EnterManipulator();
+
+    RuntimeGestureCommand begin;
+    begin.gesture = MakeMousePickupGesture();
+    begin.reason = InteractionExitReason::EnterManipulator;
+    RuntimeGestureEvent event;
+    EXPECT_TRUE( controller.ApplyGestureCommand( begin, event ) );
+    EXPECT_EQ( event.type, RuntimeGestureEventType::Began );
+    EXPECT_EQ( event.previousGesture.kind, RuntimeInteractionGestureKind::None );
+    EXPECT_EQ( event.gesture.kind, RuntimeInteractionGestureKind::MousePickupDrag );
+    EXPECT_EQ( event.pointerCapture, RuntimePointerCaptureOwner::ToolGesture );
+
+    RuntimeGestureCommand wrongEnd;
+    wrongEnd.action = RuntimeGestureCommandAction::End;
+    wrongEnd.gesture.kind = RuntimeInteractionGestureKind::GizmoDrag;
+    wrongEnd.reason = InteractionExitReason::EndGesture;
+    EXPECT_TRUE( !controller.ApplyGestureCommand( wrongEnd, event ) );
+    EXPECT_EQ( event.type, RuntimeGestureEventType::None );
+    EXPECT_EQ( controller.Gesture().kind, RuntimeInteractionGestureKind::MousePickupDrag );
+
+    RuntimeGestureCommand end;
+    end.action = RuntimeGestureCommandAction::End;
+    end.gesture.kind = RuntimeInteractionGestureKind::MousePickupDrag;
+    end.reason = InteractionExitReason::EndGesture;
+    EXPECT_TRUE( controller.ApplyGestureCommand( end, event ) );
+    EXPECT_EQ( event.type, RuntimeGestureEventType::Ended );
+    EXPECT_EQ( event.previousGesture.kind, RuntimeInteractionGestureKind::MousePickupDrag );
+    EXPECT_EQ( event.gesture.kind, RuntimeInteractionGestureKind::None );
+    EXPECT_EQ( event.pointerCapture, RuntimePointerCaptureOwner::None );
+}
+
+
+void TestEditorPlacementScaleUsesTypedCapture()
+{
+    RuntimeInteractionController controller;
+    controller.EnterEdit();
+    RuntimeInteractionGesture gesture;
+    gesture.kind = RuntimeInteractionGestureKind::EditorPlacementScaleDrag;
+    gesture.button = RuntimePointerButton::Left;
+    gesture.startX = 120;
+    gesture.startY = 80;
+
+    const RuntimeGestureEvent beginEvent = BeginGesture( controller, gesture );
+    EXPECT_EQ( beginEvent.type, RuntimeGestureEventType::Began );
+    EXPECT_EQ( controller.Owner(), WorldInteractionOwner::EditorPlacement );
+    EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::ToolGesture );
+
+    const RuntimeGestureEvent endEvent =
+        EndGesture( controller, RuntimeInteractionGestureKind::EditorPlacementScaleDrag );
+    EXPECT_EQ( endEvent.type, RuntimeGestureEventType::Ended );
+    EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::None );
+}
+
+
+void TestFocusLossCancelsCameraLookGesture()
+{
+    RuntimeInteractionController controller;
+    controller.EnterInspect();
+    RuntimeInteractionFrameInput frameInput = MakeDefaultFrameInput();
+    frameInput.rightMouseLookHeld = true;
+    RuntimeInteractionFramePolicy policy = controller.BuildFramePolicy( frameInput );
+    RuntimeInputSnapshot snapshot;
+    snapshot.appFocused = true;
+    snapshot.pointer.rightDown = true;
+    controller.SyncCameraLookGesture( snapshot, policy, true );
+    EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::CameraLook );
+
+    snapshot.appFocused = false;
+    controller.SyncCameraLookGesture( snapshot, policy, true );
+    EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::None );
+    EXPECT_EQ( controller.Gesture().kind, RuntimeInteractionGestureKind::None );
 }
 
 
@@ -348,9 +463,7 @@ void TestCameraLookGestureCapturesPointer()
 void TestCameraLookGestureEndsCleanly()
 {
     RuntimeInteractionController controller;
-    controller.BeginGesture( MakeCameraLookGesture(),
-                             RuntimePointerCaptureOwner::CameraLook,
-                             InteractionExitReason::BeginGesture );
+    BeginGesture( controller, MakeCameraLookGesture(), RuntimePointerCaptureOwner::CameraLook );
 
     controller.CancelCameraLookGesture();
 
@@ -362,23 +475,20 @@ void TestCameraLookGestureEndsCleanly()
 void TestCameraLookReleaseAllowsToolGesture()
 {
     RuntimeInteractionController controller;
-    controller.BeginGesture( MakeCameraLookGesture(),
-                             RuntimePointerCaptureOwner::CameraLook,
-                             InteractionExitReason::BeginGesture );
+    BeginGesture( controller, MakeCameraLookGesture(), RuntimePointerCaptureOwner::CameraLook );
 
-    const RuntimeInteractionTransition endTransition = controller.EndGesture( InteractionExitReason::EndGesture );
+    const RuntimeGestureEvent endEvent = EndGesture( controller, RuntimeInteractionGestureKind::CameraLook );
 
-    EXPECT_EQ( endTransition.pointerCapture, RuntimePointerCaptureOwner::None );
+    EXPECT_EQ( endEvent.pointerCapture, RuntimePointerCaptureOwner::None );
     EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::None );
 
     controller.EnterManipulator();
-    const RuntimeInteractionTransition beginToolTransition =
-        controller.BeginGesture( MakeMousePickupGesture(),
-                                 RuntimePointerCaptureOwner::ToolGesture,
-                                 InteractionExitReason::EnterManipulator );
+    const RuntimeGestureEvent beginToolEvent = BeginGesture( controller,
+                                                             MakeMousePickupGesture(),
+                                                             RuntimePointerCaptureOwner::ToolGesture,
+                                                             InteractionExitReason::EnterManipulator );
 
-    EXPECT_TRUE( beginToolTransition.gestureChanged );
-    EXPECT_TRUE( beginToolTransition.pointerCaptureChanged );
+    EXPECT_EQ( beginToolEvent.type, RuntimeGestureEventType::Began );
     EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::ToolGesture );
     EXPECT_EQ( controller.Gesture().kind, RuntimeInteractionGestureKind::MousePickupDrag );
 }
@@ -388,18 +498,18 @@ void TestEndGesturePublishesCleanupMetadata()
 {
     RuntimeInteractionController controller;
     controller.EnterManipulator();
-    controller.BeginGesture( MakeMousePickupGesture(),
-                             RuntimePointerCaptureOwner::ToolGesture,
-                             InteractionExitReason::EnterManipulator );
+    BeginGesture( controller,
+                  MakeMousePickupGesture(),
+                  RuntimePointerCaptureOwner::ToolGesture,
+                  InteractionExitReason::EnterManipulator );
 
-    const RuntimeInteractionTransition endTransition = controller.EndGesture( InteractionExitReason::EndGesture );
+    const RuntimeGestureEvent endEvent = EndGesture( controller, RuntimeInteractionGestureKind::MousePickupDrag );
 
-    EXPECT_TRUE( endTransition.gestureChanged );
-    EXPECT_TRUE( endTransition.pointerCaptureChanged );
-    EXPECT_EQ( endTransition.previousGesture.kind, RuntimeInteractionGestureKind::MousePickupDrag );
-    EXPECT_EQ( endTransition.gesture.kind, RuntimeInteractionGestureKind::None );
-    EXPECT_EQ( endTransition.previousPointerCapture, RuntimePointerCaptureOwner::ToolGesture );
-    EXPECT_EQ( endTransition.pointerCapture, RuntimePointerCaptureOwner::None );
+    EXPECT_EQ( endEvent.type, RuntimeGestureEventType::Ended );
+    EXPECT_EQ( endEvent.previousGesture.kind, RuntimeInteractionGestureKind::MousePickupDrag );
+    EXPECT_EQ( endEvent.gesture.kind, RuntimeInteractionGestureKind::None );
+    EXPECT_EQ( endEvent.previousPointerCapture, RuntimePointerCaptureOwner::ToolGesture );
+    EXPECT_EQ( endEvent.pointerCapture, RuntimePointerCaptureOwner::None );
     EXPECT_EQ( controller.Gesture().kind, RuntimeInteractionGestureKind::None );
     EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::None );
 }
@@ -409,9 +519,10 @@ void TestWorkspaceTransitionClearsCapturedGesture()
 {
     RuntimeInteractionController controller;
     controller.EnterManipulator();
-    controller.BeginGesture( MakeMousePickupGesture(),
-                             RuntimePointerCaptureOwner::ToolGesture,
-                             InteractionExitReason::EnterManipulator );
+    BeginGesture( controller,
+                  MakeMousePickupGesture(),
+                  RuntimePointerCaptureOwner::ToolGesture,
+                  InteractionExitReason::EnterManipulator );
 
     const RuntimeInteractionTransition transition = controller.EnterLive();
 
@@ -464,9 +575,10 @@ void TestCameraModeCommandsMapToInteractionOwners()
     {
         RuntimeInteractionController controller;
         controller.EnterManipulator();
-        controller.BeginGesture( MakeMousePickupGesture(),
-                                 RuntimePointerCaptureOwner::ToolGesture,
-                                 InteractionExitReason::EnterManipulator );
+        BeginGesture( controller,
+                      MakeMousePickupGesture(),
+                      RuntimePointerCaptureOwner::ToolGesture,
+                      InteractionExitReason::EnterManipulator );
 
         const RuntimeInteractionTransition transition = controller.EnterCameraMode( modeCase.mode );
 
@@ -526,13 +638,9 @@ void TestReplayToolGesturesCapturePointer()
                                                         replayCase.owner,
                                                         InteractionExitReason::EnterReplay );
 
-        const RuntimeInteractionTransition beginTransition =
-            controller.BeginGesture( MakeReplayGesture( replayCase.kind ),
-                                     RuntimePointerCaptureOwner::ToolGesture,
-                                     InteractionExitReason::BeginGesture );
+        const RuntimeGestureEvent beginEvent = BeginGesture( controller, MakeReplayGesture( replayCase.kind ) );
 
-        EXPECT_TRUE( beginTransition.gestureChanged );
-        EXPECT_TRUE( beginTransition.pointerCaptureChanged );
+        EXPECT_EQ( beginEvent.type, RuntimeGestureEventType::Began );
         EXPECT_EQ( controller.Workspace(), RuntimeWorkspace::Replay );
         EXPECT_EQ( controller.Owner(), replayCase.owner );
         EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::ToolGesture );
@@ -549,9 +657,8 @@ void TestReplayToolGesturesCapturePointer()
         EXPECT_EQ( policy.cameraLook, CameraLookState::Passive );
         EXPECT_FALSE( policy.cameraMouseLookActive );
 
-        const RuntimeInteractionTransition endTransition = controller.EndGesture( InteractionExitReason::EndGesture );
-        EXPECT_TRUE( endTransition.gestureChanged );
-        EXPECT_TRUE( endTransition.pointerCaptureChanged );
+        const RuntimeGestureEvent endEvent = EndGesture( controller, replayCase.kind );
+        EXPECT_EQ( endEvent.type, RuntimeGestureEventType::Ended );
         EXPECT_EQ( controller.Gesture().kind, RuntimeInteractionGestureKind::None );
         EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::None );
     }
@@ -579,13 +686,9 @@ void TestGizmoDragCapturesPointerForEditorAndInspect()
                                                         gizmoCase.owner,
                                                         InteractionExitReason::EnterEdit );
 
-        const RuntimeInteractionTransition beginTransition =
-            controller.BeginGesture( MakeGizmoGesture( gizmoCase.angular ),
-                                     RuntimePointerCaptureOwner::ToolGesture,
-                                     InteractionExitReason::BeginGesture );
+        const RuntimeGestureEvent beginEvent = BeginGesture( controller, MakeGizmoGesture( gizmoCase.angular ) );
 
-        EXPECT_TRUE( beginTransition.gestureChanged );
-        EXPECT_TRUE( beginTransition.pointerCaptureChanged );
+        EXPECT_EQ( beginEvent.type, RuntimeGestureEventType::Began );
         EXPECT_EQ( controller.Workspace(), gizmoCase.workspace );
         EXPECT_EQ( controller.Owner(), gizmoCase.owner );
         EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::ToolGesture );
@@ -604,28 +707,27 @@ void TestGizmoDragCapturesPointerForEditorAndInspect()
         EXPECT_EQ( policy.cameraLook, CameraLookState::Passive );
         EXPECT_FALSE( policy.cameraMouseLookActive );
 
-        const RuntimeInteractionTransition endTransition = controller.EndGesture( InteractionExitReason::EndGesture );
-        EXPECT_TRUE( endTransition.gestureChanged );
-        EXPECT_TRUE( endTransition.pointerCaptureChanged );
+        const RuntimeGestureEvent endEvent = EndGesture( controller, RuntimeInteractionGestureKind::GizmoDrag );
+        EXPECT_EQ( endEvent.type, RuntimeGestureEventType::Ended );
         EXPECT_EQ( controller.Gesture().kind, RuntimeInteractionGestureKind::None );
         EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::None );
     }
 }
 
 
-#ifndef _DEBUG
 void TestInvalidToolGestureWithoutCaptureIsRejected()
 {
     RuntimeInteractionController controller;
     controller.EnterManipulator();
 
-    const RuntimeInteractionTransition rejectedTransition =
-        controller.BeginGesture( MakeMousePickupGesture(),
-                                 RuntimePointerCaptureOwner::None,
-                                 InteractionExitReason::EnterManipulator );
+    RuntimeGestureCommand command;
+    command.gesture = MakeMousePickupGesture();
+    command.captureOwner = RuntimePointerCaptureOwner::None;
+    command.reason = InteractionExitReason::EnterManipulator;
+    RuntimeGestureEvent rejectedEvent;
+    EXPECT_FALSE( controller.ApplyGestureCommand( command, rejectedEvent ) );
 
-    EXPECT_FALSE( rejectedTransition.gestureChanged );
-    EXPECT_FALSE( rejectedTransition.pointerCaptureChanged );
+    EXPECT_EQ( rejectedEvent.type, RuntimeGestureEventType::None );
     EXPECT_EQ( controller.Gesture().kind, RuntimeInteractionGestureKind::None );
     EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::None );
 
@@ -638,7 +740,6 @@ void TestInvalidToolGestureWithoutCaptureIsRejected()
     EXPECT_EQ( policy.cameraLook, CameraLookState::RightMouseLook );
     EXPECT_TRUE( policy.cameraMouseLookActive );
 }
-#endif
 
 
 void RunTest( const TestCase& test )
@@ -655,6 +756,9 @@ int main()
     const TestCase tests[] = {
         { "MousePickupDragRunsPhysicsWithoutStepHold", &TestMousePickupDragRunsPhysicsWithoutStepHold },
         { "ToolGestureSuppressesCameraLook", &TestToolGestureSuppressesCameraLook },
+        { "GestureCommandsEmitOnlyAfterSuccessfulMutation", &TestGestureCommandsEmitOnlyAfterSuccessfulMutation },
+        { "EditorPlacementScaleUsesTypedCapture", &TestEditorPlacementScaleUsesTypedCapture },
+        { "FocusLossCancelsCameraLookGesture", &TestFocusLossCancelsCameraLookGesture },
         { "CameraLookGestureCapturesPointer", &TestCameraLookGestureCapturesPointer },
         { "CameraLookGestureEndsCleanly", &TestCameraLookGestureEndsCleanly },
         { "CameraLookReleaseAllowsToolGesture", &TestCameraLookReleaseAllowsToolGesture },
@@ -667,9 +771,7 @@ int main()
         { "ExactBoxPickRejectsOldBoundingSphereEnvelope", &TestExactBoxPickRejectsOldBoundingSphereEnvelope },
         { "TreeTrunkHullPickUsesConvexFaces", &TestTreeTrunkHullPickUsesConvexFaces },
         { "RotatedShapePickReturnsNearestEntry", &TestRotatedShapePickReturnsNearestEntry },
-#ifndef _DEBUG
         { "InvalidToolGestureWithoutCaptureIsRejected", &TestInvalidToolGestureWithoutCaptureIsRejected },
-#endif
     };
 
     try

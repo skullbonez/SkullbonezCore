@@ -239,7 +239,7 @@ void ResetEditorUnfocusedInputState( EditorGizmoContext context )
     // editor choices such as object type and static/dynamic placement survive
     // so toggling focus does not rewrite the authoring mode.
     context.editor.viewportLookActive = false;
-    context.editor.placementScaleActive = false;
+    EndEditorPlacementScaleGesture( context );
     context.editor.placementScaleWheelSteps = 0;
     CancelEditorGizmoDragState( context );
     context.editor.gizmoDragStartAxisT = 0.0f;
@@ -252,7 +252,7 @@ void ResetEditorUnfocusedInputState( EditorGizmoContext context )
 void ClearEditorManipulationState( EditorGizmoContext context )
 {
     context.editor.placementPreviewVisible = false;
-    context.editor.placementScaleActive = false;
+    EndEditorPlacementScaleGesture( context );
     context.editor.placementScaleWheelSteps = 0;
     context.editor.placementScale = EditorDefaultPlacementScale( context.editor.objectType );
     context.editor.placementScaleStart = context.editor.placementScale;
@@ -319,8 +319,8 @@ void ExitEditorModeState( EditorGizmoContext context )
     context.editor.viewportLookActive = false;
     context.editor.placementPreviewVisible = false;
     context.editor.placementModeEnabled = false;
+    EndEditorPlacementScaleGesture( context );
     CancelEditorGizmoDragState( context );
-    context.editor.placementScaleActive = false;
     context.editor.placementScaleWheelSteps = 0;
     context.editor.placementScale = EditorDefaultPlacementScale( context.editor.objectType );
     context.editor.placementScaleStart = context.editor.placementScale;
@@ -348,11 +348,12 @@ void ToggleEditorPlaceStaticObject( RunEditorPlacementState& editor )
 }
 
 
-void ToggleEditorTerrainAlign( RunEditorPlacementState& editor )
+void ToggleEditorTerrainAlign( EditorGizmoContext context )
 {
+    RunEditorPlacementState& editor = context.editor;
     editor.autoTerrainAlign = !editor.autoTerrainAlign;
     editor.placementPreviewVisible = false;
-    editor.placementScaleActive = false;
+    EndEditorPlacementScaleGesture( context );
     editor.placementScaleWheelSteps = 0;
 }
 
@@ -398,9 +399,10 @@ EditorPlacementPreModeUICommandResult ApplyEditorPlacementPreModeUICommands( Edi
 }
 
 
-EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( RunEditorPlacementState& editor,
+EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( EditorGizmoContext context,
                                                                                const UI::UIEditorCommands& commands )
 {
+    RunEditorPlacementState& editor = context.editor;
     EditorPlacementPostModeUICommandResult result;
     if ( commands.togglePlaceStatic )
     {
@@ -409,7 +411,7 @@ EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( R
     }
     if ( commands.toggleTerrainAlign )
     {
-        ToggleEditorTerrainAlign( editor );
+        ToggleEditorTerrainAlign( context );
         result.toggledTerrainAlign = true;
     }
     return result;

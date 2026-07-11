@@ -106,6 +106,7 @@ struct EditorPlacementPreviewContext
     RunEditorPlacementState& editor;
     Geometry::Terrain* terrain;
     const Assets::AssetSystem& assets;
+    bool scaleGestureActive = false;
 };
 
 struct EditorObjectPlacementContext
@@ -218,10 +219,11 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
 bool BeginEditorGizmoDragGesture( EditorGizmoContext context,
                                   int modelIndex,
                                   int axis,
-                                  bool angular,
+                                  RuntimeGizmoDragKind gizmoKind,
                                   int clientX,
                                   int clientY );
 void EndEditorGizmoDragGesture( EditorGizmoContext context );
+void EndEditorPlacementScaleGesture( EditorGizmoContext context );
 void CancelEditorGizmoDragState( EditorGizmoContext context );
 void ResetEditorUnfocusedInputState( EditorGizmoContext context );
 void ClearEditorManipulationState( EditorGizmoContext context );
@@ -316,12 +318,12 @@ void EnterEditorModeState( EditorGizmoContext context, RunCameraMode restoreCame
 void ExitEditorModeState( EditorGizmoContext context );
 bool SetEditorPlaceStaticObject( RunEditorPlacementState& editor, bool placeStaticObject );
 void ToggleEditorPlaceStaticObject( RunEditorPlacementState& editor );
-void ToggleEditorTerrainAlign( RunEditorPlacementState& editor );
+void ToggleEditorTerrainAlign( EditorGizmoContext context );
 EditorObjectTypeRequestResult
 SelectEditorObjectType( EditorGizmoContext context, int requestedObjectType, bool enterPlacementMode );
 EditorPlacementPreModeUICommandResult ApplyEditorPlacementPreModeUICommands( EditorGizmoContext context,
                                                                              const UI::UIEditorCommands& commands );
-EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( RunEditorPlacementState& editor,
+EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( EditorGizmoContext context,
                                                                                const UI::UIEditorCommands& commands );
 int HitEditorGizmoAxis( EditorGizmoContext context,
                         const Math::Vector::Vector3& rayOrigin,

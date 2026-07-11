@@ -286,6 +286,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
     InputController::BeginFrame( m_runtimeInput,
                                  BuildRuntimeInputModeState( m_camera.mode,
                                                              m_runtimeTools.Editor(),
+                                                             m_interaction.Gesture(),
                                                              m_attachedCamera.State().activeFollow,
                                                              m_camera.director.grabbed ),
                                  true,
@@ -321,6 +322,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                         m_camera,
                                         m_runtimeTools,
                                         m_attachedCamera,
+                                        m_interaction.Gesture(),
                                         RuntimeInputAction::ToggleEditorTool,
                                         source );
     };
@@ -484,6 +486,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                                 m_camera,
                                                 m_runtimeTools,
                                                 m_attachedCamera,
+                                                m_interaction.Gesture(),
                                                 RuntimeInputAction::CycleAttachedCameraSubmode,
                                                 RuntimeInputActionSource::Keyboard );
             }
@@ -508,6 +511,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                                 m_camera,
                                                 m_runtimeTools,
                                                 m_attachedCamera,
+                                                m_interaction.Gesture(),
                                                 RuntimeInputAction::ToggleAttachedCameraPin,
                                                 RuntimeInputActionSource::Keyboard );
             }
@@ -559,6 +563,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                                     m_camera,
                                                     m_runtimeTools,
                                                     m_attachedCamera,
+                                                    m_interaction.Gesture(),
                                                     event.action,
                                                     event.source );
                 }
@@ -577,6 +582,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                                 m_camera,
                                                 m_runtimeTools,
                                                 m_attachedCamera,
+                                                m_interaction.Gesture(),
                                                 event.action,
                                                 event.source );
             }
@@ -592,6 +598,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                                 m_camera,
                                                 m_runtimeTools,
                                                 m_attachedCamera,
+                                                m_interaction.Gesture(),
                                                 event.action,
                                                 event.source );
             }
@@ -607,6 +614,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                                 m_camera,
                                                 m_runtimeTools,
                                                 m_attachedCamera,
+                                                m_interaction.Gesture(),
                                                 event.action,
                                                 event.source );
             }
@@ -622,6 +630,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                                 m_camera,
                                                 m_runtimeTools,
                                                 m_attachedCamera,
+                                                m_interaction.Gesture(),
                                                 event.action,
                                                 event.source );
             }
@@ -683,6 +692,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                                 m_camera,
                                                 m_runtimeTools,
                                                 m_attachedCamera,
+                                                m_interaction.Gesture(),
                                                 event.action,
                                                 event.source );
             }
@@ -863,6 +873,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                                  m_camera,
                                                  m_runtimeTools,
                                                  m_replayRuntime,
+                                                 m_interaction,
                                                  NormalizeCameraModeForCurrentScene( m_camera.mode ),
                                                  m_attachedCamera,
                                                  m_sceneController,
@@ -998,6 +1009,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                         m_camera,
                                         m_runtimeTools,
                                         m_attachedCamera,
+                                        m_interaction.Gesture(),
                                         pointerResult.modeActions[actionIndex],
                                         RuntimeInputActionSource::Mouse );
     }

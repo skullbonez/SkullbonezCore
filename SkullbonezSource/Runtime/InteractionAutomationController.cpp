@@ -599,6 +599,10 @@ const char* ActionTypeName( RunInteractionAutomationActionType type )
         return "setCameraPose";
     case RunInteractionAutomationActionType::SetCameraMode:
         return "setCameraMode";
+    case RunInteractionAutomationActionType::LoseFocus:
+        return "loseFocus";
+    case RunInteractionAutomationActionType::MoveMouse:
+        return "moveMouse";
     case RunInteractionAutomationActionType::ClickObject:
         return "clickObject";
     case RunInteractionAutomationActionType::ClickReplayControl:
@@ -667,6 +671,14 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "gizmoVisible";
     case RunInteractionAutomationAssertKind::MousePickupActive:
         return "mousePickupActive";
+    case RunInteractionAutomationAssertKind::PointerCapture:
+        return "pointerCapture";
+    case RunInteractionAutomationAssertKind::NativeCaptureRequested:
+        return "nativeCaptureRequested";
+    case RunInteractionAutomationAssertKind::CursorVisibleRequested:
+        return "cursorVisibleRequested";
+    case RunInteractionAutomationAssertKind::UiBlocksMouse:
+        return "uiBlocksMouse";
     case RunInteractionAutomationAssertKind::LauncherRayActive:
         return "launcherRayActive";
     case RunInteractionAutomationAssertKind::ReplayActiveTrack:
@@ -1316,6 +1328,31 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             outAction.button =
                 button == "right" ? RunInteractionAutomationButton::Right : RunInteractionAutomationButton::Left;
         }
+        if ( entry.contains( "holdFrames" ) )
+        {
+            outAction.holdFrames = (std::max)( 1, entry["holdFrames"].get<int>() );
+        }
+        return true;
+    }
+
+    if ( entry.contains( "loseFocus" ) )
+    {
+        outAction.type = RunInteractionAutomationActionType::LoseFocus;
+        outAction.holdFrames = (std::max)( 1, entry["loseFocus"].get<int>() );
+        return true;
+    }
+
+    if ( entry.contains( "moveMouse" ) )
+    {
+        const Json& point = entry["moveMouse"];
+        if ( !point.is_array() || point.size() != 2 )
+        {
+            outError = "moveMouse must be a 2-integer array";
+            return false;
+        }
+        outAction.type = RunInteractionAutomationActionType::MoveMouse;
+        outAction.mouse = { point[0].get<long>(), point[1].get<long>() };
+        outAction.hasMouse = true;
         return true;
     }
 
@@ -1515,6 +1552,26 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             outAction.assertKind = RunInteractionAutomationAssertKind::MousePickupActive;
             outAction.boolValue = ReadBool( member.value() );
         }
+        else if ( name == "pointerCapture" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PointerCapture;
+            CopyText( outAction.text, sizeof( outAction.text ), member.value().get<std::string>() );
+        }
+        else if ( name == "nativeCaptureRequested" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::NativeCaptureRequested;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "cursorVisibleRequested" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::CursorVisibleRequested;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "uiBlocksMouse" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::UiBlocksMouse;
+            outAction.boolValue = ReadBool( member.value() );
+        }
         else if ( name == "launcherRayActive" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::LauncherRayActive;
@@ -1564,6 +1621,7 @@ InteractionAutomationAssertionEvaluation
 EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
                                         ReplayRuntime& replayRuntime,
                                         RuntimeInteractionController& interaction,
+                                        const InputRouter& inputRouter,
                                         RunCameraState& camera,
                                         GameModelCollection& gameModels,
                                         const SceneEntityStore& entities,
@@ -1733,12 +1791,49 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     }
     case RunInteractionAutomationAssertKind::MousePickupActive:
     {
-        const bool active = runtimeTools.MousePickup().active;
+        const bool active = interaction.Gesture().kind == RuntimeInteractionGestureKind::MousePickupDrag;
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( active );
         evaluation.passed = active == action.boolValue;
         break;
     }
+    case RunInteractionAutomationAssertKind::PointerCapture:
+    {
+        const auto captureName = []( RuntimePointerCaptureOwner owner ) -> const char*
+        {
+            switch ( owner )
+            {
+            case RuntimePointerCaptureOwner::None:
+                return "None";
+            case RuntimePointerCaptureOwner::UI:
+                return "UI";
+            case RuntimePointerCaptureOwner::CameraLook:
+                return "CameraLook";
+            case RuntimePointerCaptureOwner::ToolGesture:
+                return "ToolGesture";
+            }
+            return "Unknown";
+        };
+        evaluation.expected = action.text;
+        evaluation.actual = captureName( interaction.PointerCapture() );
+        evaluation.passed = evaluation.actual == evaluation.expected;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::NativeCaptureRequested:
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( inputRouter.NativeCaptureRequested() );
+        evaluation.passed = inputRouter.NativeCaptureRequested() == action.boolValue;
+        break;
+    case RunInteractionAutomationAssertKind::CursorVisibleRequested:
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( inputRouter.CursorVisibleRequested() );
+        evaluation.passed = inputRouter.CursorVisibleRequested() == action.boolValue;
+        break;
+    case RunInteractionAutomationAssertKind::UiBlocksMouse:
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( inputRouter.UiSnapshot().blocksCameraMouse );
+        evaluation.passed = inputRouter.UiSnapshot().blocksCameraMouse == action.boolValue;
+        break;
     case RunInteractionAutomationAssertKind::LauncherRayActive:
     {
         const bool active = runtimeTools.Laser().HasActiveShots();
@@ -1898,6 +1993,7 @@ void SkullbonezCore::Basics::ClearInteractionAutomationInput( InteractionAutomat
     state.releaseLeftFrame = -1;
     state.releaseRightFrame = -1;
     state.releaseKeyFrame = -1;
+    state.unfocusedInputFrames = 0;
     Input::ClearAutomationState();
 }
 
@@ -2088,6 +2184,12 @@ SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomat
             AppendReportAction( state, frame, action.type, action.text, nullptr, true, "key press injected" );
             action.processed = true;
             break;
+        case RunInteractionAutomationActionType::MoveMouse:
+            state.mouseClientPosition = action.mouse;
+            state.hasMouseClientPosition = true;
+            AppendReportAction( state, frame, action.type, nullptr, &action.mouse, true, "mouse move injected" );
+            action.processed = true;
+            break;
         case RunInteractionAutomationActionType::ClickReplayControl:
             ApplyInteractionAutomationReplayControlClick( state,
                                                           window,
@@ -2117,12 +2219,12 @@ SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomat
                 if ( action.button == RunInteractionAutomationButton::Right )
                 {
                     state.rightMouseDown = true;
-                    state.releaseRightFrame = frame + 1;
+                    state.releaseRightFrame = frame + action.holdFrames;
                 }
                 else
                 {
                     state.leftMouseDown = true;
-                    state.releaseLeftFrame = frame + 1;
+                    state.releaseLeftFrame = frame + action.holdFrames;
                 }
             }
             else
@@ -2139,6 +2241,11 @@ SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomat
             action.processed = true;
             break;
         }
+        case RunInteractionAutomationActionType::LoseFocus:
+            state.unfocusedInputFrames = action.holdFrames;
+            AppendReportAction( state, frame, action.type, "input", nullptr, true, "focus loss injected" );
+            action.processed = true;
+            break;
         case RunInteractionAutomationActionType::AssertState:
         case RunInteractionAutomationActionType::Screenshot:
             break;
@@ -2147,6 +2254,8 @@ SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomat
 
     Input::AutomationState inputState;
     inputState.enabled = true;
+    inputState.overrideAppFocused = state.unfocusedInputFrames > 0;
+    inputState.appFocused = !inputState.overrideAppFocused;
     inputState.hasMouseClientPosition = state.hasMouseClientPosition;
     inputState.mouseClientPosition = state.mouseClientPosition;
     inputState.leftMouseDown = state.leftMouseDown;
@@ -2154,6 +2263,10 @@ SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomat
     inputState.keyVirtualKey = state.keyVirtualKey;
     inputState.keyDown = state.keyDown;
     Input::SetAutomationState( inputState );
+    if ( state.unfocusedInputFrames > 0 )
+    {
+        --state.unfocusedInputFrames;
+    }
     return result;
 }
 
@@ -2163,6 +2276,7 @@ SkullbonezCore::Basics::TickInteractionAutomationAfterRender( InteractionAutomat
                                                               RuntimeTools& runtimeTools,
                                                               ReplayRuntime& replayRuntime,
                                                               RuntimeInteractionController& interaction,
+                                                              InputRouter& inputRouter,
                                                               RunCameraState& camera,
                                                               UI::InGameUI& ui,
                                                               CaptureController& capture,
@@ -2224,6 +2338,7 @@ SkullbonezCore::Basics::TickInteractionAutomationAfterRender( InteractionAutomat
             runtimeTools,
             replayRuntime,
             interaction,
+            inputRouter,
             camera,
             scene.Models(),
             scene.Entities(),
@@ -2446,7 +2561,7 @@ SbResult SkullbonezCore::Basics::WriteInteractionAutomationReport( InteractionAu
         { "selectedObject", selectedName },
         { "selectedModelIndex", selectedIndex },
         { "gizmoVisible", gizmoVisible },
-        { "mousePickupActive", runtimeTools.MousePickup().active },
+        { "mousePickupActive", interaction.Gesture().kind == RuntimeInteractionGestureKind::MousePickupDrag },
         { "launcherRayActive", runtimeTools.Laser().HasActiveShots() },
         { "memoryOverlayEnabled", ui.IsMemoryOverlayEnabled() },
         { "replayPredictionEnabled", predictionState.enabled },

@@ -12,8 +12,8 @@ Glossary:
   Mouse pickup: Manipulator tool that drags a dynamic body toward a camera-facing target plane.
   Grab offset: World-space offset from body center to the point initially picked by the ray.
   Physics body handle: Generational id for the picked body-store row.
-  Gesture model row: Dense model row copied into RuntimeInteractionGesture when
-    the drag starts; live pickup state uses the physics body handle instead.
+  Gesture body: Stable handle captured in the begin command and retained by the
+    controller for the drag lifetime.
 
 Invariants:
   - Pointer capture and interaction gesture state must end whenever pickup is canceled.
@@ -30,6 +30,7 @@ Related:
 #include "../Tools/RuntimeTools.h"
 #include "../InputRouter.h"
 #include "../RuntimeInteractionController.h"
+#include "../RuntimeInteractionCommands.h"
 #include "../RuntimePickService.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/PhysicsBodyStore.h"
@@ -102,7 +103,7 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePicku
         return true;
     };
 
-    if ( m_mousePickup.active )
+    if ( interaction.Gesture().kind == RuntimeInteractionGestureKind::MousePickupDrag )
     {
         routeResult.consumed = true;
         if ( input.leftReleased || !input.leftDown )
@@ -163,21 +164,8 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePicku
     {
         return routeResult;
     }
-    m_mousePickup.active = true;
-    m_mousePickup.mouseCaptured = true;
-    m_mousePickup.body = result.body;
-    m_mousePickup.planePoint = grabPoint;
-    m_mousePickup.planeNormal = cameraNormal;
-    m_mousePickup.cameraPlaneDistance = cameraPlaneDistance;
-    m_mousePickup.grabOffset = grabPoint - pickedBody->position;
-    m_mousePickup.targetPoint = grabPoint;
-    m_mousePickup.preservedAngularVelocity = pickedBody->angularVelocity;
-    m_mousePickup.lastImpulse = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-    inputRouter.RequestNativeCapture();
     if ( !input.hasClientPosition )
     {
-        inputRouter.ReleaseNativeCapture();
-        CancelMousePickup( inputRouter, interaction );
         routeResult.consumed = false;
         return routeResult;
     }
@@ -187,9 +175,24 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePicku
     gesture.startX = input.clientX;
     gesture.startY = input.clientY;
     gesture.body = result.body;
-    interaction.BeginGesture( gesture,
-                              RuntimePointerCaptureOwner::ToolGesture,
-                              InteractionExitReason::EnterManipulator );
+    RuntimeGestureCommand command;
+    command.gesture = gesture;
+    command.reason = InteractionExitReason::EnterManipulator;
+    RuntimeGestureEvent event;
+    if ( !interaction.ApplyGestureCommand( command, event ) )
+    {
+        return routeResult;
+    }
+
+    m_mousePickup.body = result.body;
+    m_mousePickup.planePoint = grabPoint;
+    m_mousePickup.planeNormal = cameraNormal;
+    m_mousePickup.cameraPlaneDistance = cameraPlaneDistance;
+    m_mousePickup.grabOffset = grabPoint - pickedBody->position;
+    m_mousePickup.targetPoint = grabPoint;
+    m_mousePickup.preservedAngularVelocity = pickedBody->angularVelocity;
+    m_mousePickup.lastImpulse = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    inputRouter.RequestNativeCapture();
     routeResult.enteredInteractive = true;
     updatePickupTarget();
     return routeResult;
@@ -201,7 +204,7 @@ void RuntimeTools::ApplyMousePickupPhysicsStep( GameObjects::GameModelCollection
                                                 InputRouter& inputRouter,
                                                 RuntimeInteractionController& interaction )
 {
-    if ( !m_mousePickup.active )
+    if ( interaction.Gesture().kind != RuntimeInteractionGestureKind::MousePickupDrag )
     {
         return;
     }
@@ -257,7 +260,7 @@ void RuntimeTools::RestoreMousePickupAngularVelocity( GameObjects::GameModelColl
                                                       InputRouter& inputRouter,
                                                       RuntimeInteractionController& interaction )
 {
-    if ( !m_mousePickup.active )
+    if ( interaction.Gesture().kind != RuntimeInteractionGestureKind::MousePickupDrag )
     {
         return;
     }

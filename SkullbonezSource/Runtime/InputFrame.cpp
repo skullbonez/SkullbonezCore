@@ -109,6 +109,7 @@ void ReportRuntimeInputFailure( const SbResult& result )
 
 RuntimeInputModeState BuildRuntimeInputModeState( RunCameraMode mode,
                                                   const RunEditorPlacementState& editor,
+                                                  const RuntimeInteractionGesture& gesture,
                                                   bool attachActiveFollow,
                                                   bool directorGrabbed )
 {
@@ -119,10 +120,10 @@ RuntimeInputModeState BuildRuntimeInputModeState( RunCameraMode mode,
     state.editor = editor.editorModeEnabled;
     state.editorPlacement = editor.placementModeEnabled;
     state.editorViewportLook = editor.viewportLookActive;
-    state.editorPlacementScale = editor.placementScaleActive;
-    state.editorGizmoDrag = editor.gizmoDragActive;
-    state.editorGizmoRotation = editor.gizmoDragIsRotation;
-    state.editorGizmoScale = editor.gizmoDragIsScale;
+    state.editorPlacementScale = gesture.kind == RuntimeInteractionGestureKind::EditorPlacementScaleDrag;
+    state.editorGizmoDrag = gesture.kind == RuntimeInteractionGestureKind::GizmoDrag;
+    state.editorGizmoRotation = state.editorGizmoDrag && gesture.gizmoKind == RuntimeGizmoDragKind::Rotate;
+    state.editorGizmoScale = state.editorGizmoDrag && gesture.gizmoKind == RuntimeGizmoDragKind::Scale;
     return state;
 }
 
@@ -659,6 +660,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
             runtimeInput,
             InputController::ResolveMode( BuildRuntimeInputModeState( camera.mode,
                                                                       runtimeTools.Editor(),
+                                                                      interaction.Gesture(),
                                                                       attachedCamera.State().activeFollow,
                                                                       camera.director.grabbed ) ),
             action,
@@ -831,7 +833,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         applyEditorPlacementMode( true );
     }
     const RunInternal::EditorPlacementPostModeUICommandResult editorPostModeCommands =
-        RunInternal::ApplyEditorPlacementPostModeUICommands( runtimeTools.Editor(), uiCommands.editor );
+        RunInternal::ApplyEditorPlacementPostModeUICommands( editorGizmoContext, uiCommands.editor );
     if ( editorPostModeCommands.toggledPlaceStatic )
     {
         result.enterInteractiveScene = true;
@@ -1070,6 +1072,7 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
                                                   RunCameraState& camera,
                                                   RuntimeTools& runtimeTools,
                                                   ReplayRuntime& replayRuntime,
+                                                  RuntimeInteractionController& interaction,
                                                   RunCameraMode replayCurrentCameraMode,
                                                   AttachedCameraController& attachedCamera,
                                                   SceneController& sceneController,
@@ -1088,6 +1091,7 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
             runtimeInput,
             InputController::ResolveMode( BuildRuntimeInputModeState( camera.mode,
                                                                       runtimeTools.Editor(),
+                                                                      interaction.Gesture(),
                                                                       attachedCamera.State().activeFollow,
                                                                       camera.director.grabbed ) ),
             action,
@@ -1111,6 +1115,7 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
                                                      ui.BlocksCameraMouse(),
                                                      editorDevice.hasClientPosition,
                                                      runtimeInput.CurrentMode() == RuntimeInputMode::EditorViewportLook,
+                                                     interaction.Gesture().kind,
                                                      editorDevice.clientX,
                                                      editorDevice.clientY } );
     if ( editorPointerResult.resetMouseLook )

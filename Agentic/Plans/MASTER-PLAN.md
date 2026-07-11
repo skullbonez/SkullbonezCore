@@ -48,7 +48,7 @@ Status: Authoritative inventory of every live repository plan
 | [behavioral-test-depth](TODO/behavioral-test-depth.md) | In progress | 3/6; P3/P5 partial | P3 with scene/entity ownership C1-C3; then remaining P5/P6 drills |
 | [runtime-shell-decomposition](TODO/runtime-shell-decomposition.md) | Complete | 27/27 completed items | Retain as closure evidence; final inventory, deletion proofs, adversarial review, and required gates pass |
 | [runtime-ui-control-architecture-cleanup](TODO/runtime-ui-control-architecture-cleanup.md) | Planned | 0/7 | U0 tracked UI-surface inventory |
-| [interaction-state-machine](TODO/interaction-state-machine.md) | In progress | 0/6 remaining phases | I4 capture/focus behavior with CPU + interaction proof |
+| [interaction-state-machine](TODO/interaction-state-machine.md) | Complete | 6/6 remaining phases | Retain as closure evidence; typed gesture payload, native capture, focus/UI crossing, deletion proofs, and repeat adversarial review pass |
 | [replay-architecture-and-right-sizing](TODO/replay-architecture-and-right-sizing.md) | Complete | 6/6 | Retain as closure evidence; stable identity, bounded memory, named gates, rollback proof, and source-size justifications are complete |
 | [physics-authority-and-identity](TODO/physics-authority-and-identity.md) | Complete | 16/16 current items | Handle-owned mutation, coordinated lifecycle, stable runtime identity, full gate, and repeat adversarial review complete |
 | [render-backend-decomposition](TODO/render-backend-decomposition.md) | In progress | 0/8 remaining items | Begin the texture-owner split from the completed RuntimeRenderer composition boundary |

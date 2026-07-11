@@ -116,7 +116,8 @@ void InputRouter::ApplyInteractionTransitionCleanup( const RuntimeInteractionTra
         runtimeTools.CancelMousePickup( *this, interaction );
     }
 
-    if ( ( !enteringEdit && !inspectGizmoClaimWithinInspect && runtimeTools.HasActiveEditorInteractionState() ) ||
+    if ( ( !enteringEdit && !inspectGizmoClaimWithinInspect &&
+           runtimeTools.HasActiveEditorInteractionState( interaction ) ) ||
          ( IsEditorWorldOwner( transition.previousOwner ) && !editorOwnerSwitchWithinEdit &&
            !inspectGizmoClaimWithinInspect ) )
     {
@@ -233,6 +234,7 @@ void InputRouter::RecordModeAction( RuntimeInputContext& runtimeInput,
                                     const RunCameraState& camera,
                                     const RuntimeTools& runtimeTools,
                                     const AttachedCameraController& attachedCamera,
+                                    const RuntimeInteractionGesture& gesture,
                                     RuntimeInputAction action,
                                     RuntimeInputActionSource source )
 {
@@ -240,6 +242,7 @@ void InputRouter::RecordModeAction( RuntimeInputContext& runtimeInput,
         runtimeInput,
         InputController::ResolveMode( BuildRuntimeInputModeState( camera.mode,
                                                                   runtimeTools.Editor(),
+                                                                  gesture,
                                                                   attachedCamera.State().activeFollow,
                                                                   camera.director.grabbed ) ),
         action,
@@ -332,7 +335,8 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
         pickupInput.cameraEye = input.cameraEye;
         pickupInput.cameraView = input.cameraView;
         if ( pickupInput.manipulatorMode && !pickupInput.editorMode && !pickupInput.replayInspection &&
-             ( runtimeTools.MousePickup().active || pickupInput.leftPressed ) )
+             ( interaction.Gesture().kind == RuntimeInteractionGestureKind::MousePickupDrag ||
+               pickupInput.leftPressed ) )
         {
             pickupInput.hasWorldRay = input.hasWorldRay;
             pickupInput.hasClampedWorldRay = input.hasClampedWorldRay;
@@ -591,6 +595,7 @@ void InputRouter::ApplyCameraMode( RunCameraState& camera,
         runtimeInput,
         InputController::ResolveMode( BuildRuntimeInputModeState( m_camera.mode,
                                                                   m_runtimeTools.Editor(),
+                                                                  m_interaction.Gesture(),
                                                                   m_attachedCamera.State().activeFollow,
                                                                   m_camera.director.grabbed ) ),
         source == RuntimeInputActionSource::UI ? RuntimeInputAction::SetCameraMode
@@ -696,33 +701,19 @@ bool InputRouter::HandleUnfocusedFrame( RuntimeInputContext& runtimeInput,
     replayRuntime.Prediction().ui.decreaseHovered = false;
     replayRuntime.Prediction().ui.increaseHovered = false;
     replayRuntime.Prediction().ui.horizonHovered = false;
-    replayRuntime.Prediction().ui.horizonDragging = false;
     replayRuntime.PathVisualizer().pastPathHovered = false;
     replayRuntime.VelocityEdit().toggleHovered = false;
     replayRuntime.VelocityEdit().keyboardAltWasDown = false;
-    replayRuntime.VelocityEdit().dragging = false;
-    replayRuntime.VelocityEdit().draggingAngular = false;
-    replayRuntime.VelocityEdit().activeAxis = -1;
     replayRuntime.VelocityEdit().hotLinearAxis = -1;
     replayRuntime.VelocityEdit().hotAngularAxis = -1;
-    if ( replayRuntime.VelocityEdit().mouseCaptured )
-    {
-        ReleaseNativeCapture();
-        replayRuntime.VelocityEdit().mouseCaptured = false;
-    }
     runtimeTools.CancelMousePickup( *this, interaction );
-    if ( replayRuntime.CauseTree().draggingWindow || replayRuntime.CauseTree().resizingWindow )
-    {
-        ReleaseNativeCapture();
-        replayRuntime.CauseTree().draggingWindow = false;
-        replayRuntime.CauseTree().resizingWindow = false;
-    }
     RunInternal::ResetEditorUnfocusedInputState(
         { runtimeTools.Editor(), sceneController.Models(), sceneController.Physics(), interaction } );
     InputController::ResetUnfocusedInput( camera );
     InputController::BeginFrame( runtimeInput,
                                  BuildRuntimeInputModeState( camera.mode,
                                                              runtimeTools.Editor(),
+                                                             interaction.Gesture(),
                                                              attachedCamera.State().activeFollow,
                                                              camera.director.grabbed ),
                                  false,

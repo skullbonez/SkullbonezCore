@@ -23,6 +23,7 @@ Related:
   - SkullbonezSource/Runtime/RunInput.cpp
 */
 #include "RuntimeInteractionController.h"
+#include "RuntimeInteractionCommands.h"
 
 #include <algorithm>
 #include <cassert>
@@ -62,15 +63,24 @@ bool IsActiveGestureValid( const RuntimeInteractionGesture& gesture,
         return captureOwner == RuntimePointerCaptureOwner::CameraLook;
     case RuntimeInteractionGestureKind::ObjectPick:
         return captureOwner == RuntimePointerCaptureOwner::ToolGesture && owner != WorldInteractionOwner::None;
+    case RuntimeInteractionGestureKind::EditorPlacementScaleDrag:
+        return captureOwner == RuntimePointerCaptureOwner::ToolGesture &&
+               owner == WorldInteractionOwner::EditorPlacement;
     case RuntimeInteractionGestureKind::GizmoDrag:
-        return captureOwner == RuntimePointerCaptureOwner::ToolGesture && IsGizmoOwner( owner );
+        return captureOwner == RuntimePointerCaptureOwner::ToolGesture && IsGizmoOwner( owner ) &&
+               gesture.gizmoKind != RuntimeGizmoDragKind::None && gesture.axis >= 0 && gesture.body.IsValid();
     case RuntimeInteractionGestureKind::MousePickupDrag:
-        return captureOwner == RuntimePointerCaptureOwner::ToolGesture && owner == WorldInteractionOwner::Manipulator;
+        return captureOwner == RuntimePointerCaptureOwner::ToolGesture && owner == WorldInteractionOwner::Manipulator &&
+               gesture.body.IsValid();
     case RuntimeInteractionGestureKind::ReplayScrubDrag:
-    case RuntimeInteractionGestureKind::ReplayVelocityDrag:
     case RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag:
-    case RuntimeInteractionGestureKind::ReplayCauseTreeDrag:
         return captureOwner == RuntimePointerCaptureOwner::ToolGesture && IsReplayOwner( owner );
+    case RuntimeInteractionGestureKind::ReplayVelocityDrag:
+        return captureOwner == RuntimePointerCaptureOwner::ToolGesture &&
+               owner == WorldInteractionOwner::ReplayVelocityEdit && gesture.body.IsValid() && gesture.axis >= 0;
+    case RuntimeInteractionGestureKind::ReplayCauseTreeDrag:
+        return captureOwner == RuntimePointerCaptureOwner::ToolGesture &&
+               owner == WorldInteractionOwner::ReplayCauseTree && ( gesture.axis == 0 || gesture.axis == 1 );
     }
 
     return false;
@@ -221,9 +231,6 @@ RuntimeInteractionTransition RuntimeInteractionController::BeginGesture( const R
     const bool canBegin = previousGesture.kind == RuntimeInteractionGestureKind::None &&
                           previousPointerCapture == RuntimePointerCaptureOwner::None &&
                           CanBeginGesture( gesture, captureOwner, m_owner );
-#ifdef _DEBUG
-    assert( canBegin );
-#endif
     if ( !canBegin )
     {
         return CaptureTransition( previousWorkspace,
@@ -267,6 +274,43 @@ RuntimeInteractionTransition RuntimeInteractionController::EndGesture( Interacti
                               previousGesture,
                               previousPointerCapture,
                               reason );
+}
+
+
+bool RuntimeInteractionController::ApplyGestureCommand( const RuntimeGestureCommand& command,
+                                                        RuntimeGestureEvent& outEvent )
+{
+    outEvent = RuntimeGestureEvent{};
+    RuntimeInteractionTransition transition;
+    if ( command.action == RuntimeGestureCommandAction::Begin )
+    {
+        transition = BeginGesture( command.gesture, command.captureOwner, command.reason );
+        if ( !transition.gestureChanged || m_gesture.kind != command.gesture.kind )
+        {
+            return false;
+        }
+        outEvent.type = RuntimeGestureEventType::Began;
+    }
+    else
+    {
+        if ( command.gesture.kind == RuntimeInteractionGestureKind::None || m_gesture.kind != command.gesture.kind )
+        {
+            return false;
+        }
+        transition = EndGesture( command.reason );
+        if ( !transition.gestureChanged )
+        {
+            return false;
+        }
+        outEvent.type = RuntimeGestureEventType::Ended;
+    }
+
+    // Invariant: notification is filled only after the controller mutation won.
+    outEvent.previousGesture = transition.previousGesture;
+    outEvent.gesture = transition.gesture;
+    outEvent.previousPointerCapture = transition.previousPointerCapture;
+    outEvent.pointerCapture = transition.pointerCapture;
+    return true;
 }
 
 

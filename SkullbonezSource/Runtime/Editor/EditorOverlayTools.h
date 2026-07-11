@@ -35,6 +35,7 @@ Related:
 #pragma once
 
 #include "../../Maths/Vector3.h"
+#include "../RuntimeInteractionController.h"
 
 namespace SkullbonezCore
 {
@@ -113,6 +114,7 @@ struct EditorToolOverlayTraceInput
     float rayLingerSeconds = 0.0f;
     bool inspectGizmoActive = false;
     bool scaleMode = false;
+    RuntimeInteractionGesture gesture;
     int attachedCameraTargetIndex = -1;
     bool attachedCameraActiveFollow = false;
 };

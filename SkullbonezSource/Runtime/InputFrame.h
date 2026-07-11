@@ -108,6 +108,7 @@ struct KeyboardContextFacts
 
 RuntimeInputModeState BuildRuntimeInputModeState( RunCameraMode mode,
                                                   const RunEditorPlacementState& editor,
+                                                  const RuntimeInteractionGesture& gesture,
                                                   bool attachActiveFollow,
                                                   bool directorGrabbed );
 PointerPresentationPolicy EvaluateRuntimePointerPresentation( const InputRouter& inputRouter,
@@ -179,6 +180,7 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
                                                   RunCameraState& camera,
                                                   RuntimeTools& runtimeTools,
                                                   ReplayRuntime& replayRuntime,
+                                                  RuntimeInteractionController& interaction,
                                                   RunCameraMode replayCurrentCameraMode,
                                                   AttachedCameraController& attachedCamera,
                                                   SceneController& sceneController,

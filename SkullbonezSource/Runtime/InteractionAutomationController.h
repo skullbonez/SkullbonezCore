@@ -69,6 +69,8 @@ enum class RunInteractionAutomationActionType
     SetPhaseStyle,
     SetCameraPose,
     SetCameraMode,
+    LoseFocus,
+    MoveMouse,
     ClickObject,
     ClickReplayControl,
     ScrubReplaySolverTrack,
@@ -109,6 +111,10 @@ enum class RunInteractionAutomationAssertKind
     PredictionTrajectoryFingerprintReady,
     GizmoVisible,
     MousePickupActive,
+    PointerCapture,
+    NativeCaptureRequested,
+    CursorVisibleRequested,
+    UiBlocksMouse,
     LauncherRayActive,
     ReplayActiveTrack,
     ReplayHistoricalSamplePaused,
@@ -124,6 +130,7 @@ struct RunInteractionAutomationAction
     RunCameraMode cameraMode = RunCameraMode::Inspect;
     DemoCameraPose cameraPose;
     int keyVirtualKey = 0;
+    int holdFrames = 1;
     bool boolValue = false;
     float numberValue = 0.0f;
     Math::Vector::Vector3 vectorValue = Math::Vector::ZERO_VECTOR; // Generic vector payload for replay proof actions.
@@ -177,6 +184,7 @@ struct InteractionAutomationController
     int releaseLeftFrame = -1;
     int releaseRightFrame = -1;
     int releaseKeyFrame = -1;
+    int unfocusedInputFrames = 0;
 };
 
 struct InteractionAutomationFrameResult
@@ -208,6 +216,7 @@ TickInteractionAutomationAfterRender( InteractionAutomationController& state,
                                       RuntimeTools& runtimeTools,
                                       ReplayRuntime& replayRuntime,
                                       RuntimeInteractionController& interaction,
+                                      InputRouter& inputRouter,
                                       RunCameraState& camera,
                                       UI::InGameUI& ui,
                                       CaptureController& capture,

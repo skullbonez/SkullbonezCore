@@ -43,6 +43,7 @@ Related:
 #include "../../Rendering/IFramebuffer.h"
 #include "../../Rendering/Shadow.h"
 #include "RenderPresentationSettings.h"
+#include "../RuntimeInteractionController.h"
 
 #include <cstdint>
 #include <memory>
@@ -351,6 +352,7 @@ struct ReplayOverlayFrameState
     bool uiVisible = false;
     bool uiMinimized = false;
     bool scenePhysicsEnabled = false;
+    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
     int screenW = 1;
     int screenH = 1;
     double nowSeconds = 0.0;

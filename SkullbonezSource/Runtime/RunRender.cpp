@@ -67,6 +67,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
     const RenderReplayOverlayView replayOverlay{ m_replayRuntime,
                                                  m_sceneController.Entities(),
                                                  m_sceneController.State().isScenePhysics,
+                                                 m_interaction.Gesture(),
                                                  m_sceneController.State().currentFrame,
                                                  m_timers.simulationTimer.GetTimeSinceLastStart(),
                                                  m_timers.simulationTimer.GetTotalTime() };
@@ -74,8 +75,8 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
     const bool editorOverlayWorkVisible =
         m_runtimeTools.HasLingeredRayCastLine( rayLinger ) ||
         m_runtimeTools.HasSelectionOverlayWork( renderModels.modelCount, m_camera.mode ) ||
-        m_runtimeTools.HasMousePickupOverlayWork() || m_replayRuntime.HasPathVisualizerTarget() ||
-        m_replayRuntime.HasCameraFocus() ||
+        m_runtimeTools.HasMousePickupOverlayWork( m_interaction.Gesture() ) ||
+        m_replayRuntime.HasPathVisualizerTarget() || m_replayRuntime.HasCameraFocus() ||
         ( m_replayRuntime.VelocityEditActive() && !m_runtimeTools.Editor().editorModeEnabled ) ||
         m_runtimeTools.HasLauncherShots();
     const RenderToolOverlayView toolOverlay{

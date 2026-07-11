@@ -435,6 +435,7 @@ class InputRouter
                            const RunCameraState& camera,
                            const RuntimeTools& runtimeTools,
                            const AttachedCameraController& attachedCamera,
+                           const RuntimeInteractionGesture& gesture,
                            RuntimeInputAction action,
                            RuntimeInputActionSource source );
     EditorPointerRouteResult RouteEditorPointer( const EditorPointerRouteInput& input,

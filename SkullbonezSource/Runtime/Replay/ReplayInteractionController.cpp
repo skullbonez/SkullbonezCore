@@ -151,43 +151,30 @@ void ReplayInteractionController::SetVelocityEditHoverAxes( ReplayRuntime& repla
 }
 
 
-ReplayVelocityEditResetResult ReplayInteractionController::ResetVelocityEditInteraction( ReplayRuntime& replayRuntime,
-                                                                                         bool clearHoverAxes )
+void ReplayInteractionController::ResetVelocityEditInteraction( ReplayRuntime& replayRuntime, bool clearHoverAxes )
 {
     RunReplayVelocityEditState& velocityEdit = replayRuntime.VelocityEdit();
-    ReplayVelocityEditResetResult result;
     if ( clearHoverAxes )
     {
         velocityEdit.hotLinearAxis = -1;
         velocityEdit.hotAngularAxis = -1;
     }
-    result.endDragGesture = velocityEdit.dragging;
-    velocityEdit.dragging = false;
-    velocityEdit.draggingAngular = false;
-    velocityEdit.activeAxis = -1;
-    result.releaseMouseCapture = velocityEdit.mouseCaptured;
-    velocityEdit.mouseCaptured = false;
-    return result;
 }
 
 
-ReplayVelocityEditResetResult ReplayInteractionController::EndVelocityEditDrag( ReplayRuntime& replayRuntime )
+void ReplayInteractionController::EndVelocityEditDrag( ReplayRuntime& replayRuntime )
 {
-    return ResetVelocityEditInteraction( replayRuntime, false );
+    ResetVelocityEditInteraction( replayRuntime, false );
 }
 
 
 void ReplayInteractionController::BeginVelocityEditDrag( ReplayRuntime& replayRuntime,
                                                          const ReplayVelocityEditDragStart& start )
 {
-    // Invariant: replay velocity edit drag state stores the body handle's model
-    // slot only as gesture metadata. Live velocity mutation resolves the handle
-    // again before touching PhysicsBodyStore.
+    // Invariant: active body, axis, and angular mode live in the controller's
+    // typed gesture. Replay retains only the sampled start values used by drag math.
     replayRuntime.Prediction().enabled = true;
     RunReplayVelocityEditState& velocityEdit = replayRuntime.VelocityEdit();
-    velocityEdit.dragging = true;
-    velocityEdit.draggingAngular = start.angular;
-    velocityEdit.activeAxis = start.axis;
     velocityEdit.dragStartAxisT = start.axisT;
     velocityEdit.dragStartAngle = start.angle;
     velocityEdit.dragStartLinearVelocity = start.linearVelocity;

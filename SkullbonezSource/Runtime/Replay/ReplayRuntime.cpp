@@ -43,6 +43,7 @@ Related:
 #include "ReplayV2Artifact.h"
 #include "../RuntimeFileWriter.h"
 #include "../InputRouter.h"
+#include "../RuntimeInteractionCommands.h"
 #include "../../Core/AmortizedTask.h"
 #include "../../Core/Profiler.h"
 #include "../../GameObjects/GameModelCollection.h"
@@ -861,7 +862,7 @@ void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics,
     const PhysicsBodyStore& bodyStore = Physics::PhysicsEngineStoreQueries::BodyStore( physics );
     const ColliderStore& colliderStore = Physics::PhysicsEngineStoreQueries::Colliders( physics );
     RenderCauseFocusOverlay( bodyStore, colliderStore, entities, tracer );
-    RenderVelocityEditOverlay( physics, input.editorModeEnabled, tracer );
+    RenderVelocityEditOverlay( physics, input.editorModeEnabled, input.gesture, tracer );
 }
 
 
@@ -1100,7 +1101,7 @@ bool ReplayRuntime::SetPathTarget( const char* name, int modelIndex, const Physi
     return true;
 }
 
-void ReplayRuntime::BeginToolGesture( RuntimeInteractionController& interaction,
+bool ReplayRuntime::BeginToolGesture( RuntimeInteractionController& interaction,
                                       RuntimeInteractionGestureKind kind,
                                       WorldInteractionOwner owner,
                                       RuntimePointerButton button,
@@ -1121,14 +1122,22 @@ void ReplayRuntime::BeginToolGesture( RuntimeInteractionController& interaction,
     gesture.body = body;
     gesture.axis = axis;
     gesture.angular = angular;
-    interaction.BeginGesture( gesture, RuntimePointerCaptureOwner::ToolGesture, InteractionExitReason::BeginGesture );
+    RuntimeGestureCommand command;
+    command.gesture = gesture;
+    RuntimeGestureEvent event;
+    return interaction.ApplyGestureCommand( command, event );
 }
 
 void ReplayRuntime::EndToolGesture( RuntimeInteractionController& interaction, RuntimeInteractionGestureKind kind )
 {
     if ( interaction.Gesture().kind == kind )
     {
-        interaction.EndGesture( InteractionExitReason::EndGesture );
+        RuntimeGestureCommand command;
+        command.action = RuntimeGestureCommandAction::End;
+        command.gesture.kind = kind;
+        command.reason = InteractionExitReason::EndGesture;
+        RuntimeGestureEvent event;
+        (void)interaction.ApplyGestureCommand( command, event );
     }
 }
 
@@ -1140,8 +1149,15 @@ void ReplayRuntime::CancelToolGesture( RuntimeInteractionController& interaction
     case RuntimeInteractionGestureKind::ReplayVelocityDrag:
     case RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag:
     case RuntimeInteractionGestureKind::ReplayCauseTreeDrag:
-        interaction.EndGesture( InteractionExitReason::EndGesture );
+    {
+        RuntimeGestureCommand command;
+        command.action = RuntimeGestureCommandAction::End;
+        command.gesture.kind = interaction.Gesture().kind;
+        command.reason = InteractionExitReason::EndGesture;
+        RuntimeGestureEvent event;
+        (void)interaction.ApplyGestureCommand( command, event );
         break;
+    }
     default:
         break;
     }
@@ -1149,31 +1165,25 @@ void ReplayRuntime::CancelToolGesture( RuntimeInteractionController& interaction
 
 void ReplayRuntime::CancelToolDragState( RuntimeInteractionController& interaction, InputRouter& inputRouter )
 {
+    const RuntimeInteractionGestureKind gesture = interaction.Gesture().kind;
+    const bool ownsReplayCapture = interaction.PointerCapture() == RuntimePointerCaptureOwner::ToolGesture &&
+                                   ( gesture == RuntimeInteractionGestureKind::ReplayScrubDrag ||
+                                     gesture == RuntimeInteractionGestureKind::ReplayVelocityDrag ||
+                                     gesture == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag ||
+                                     gesture == RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
     CancelToolGesture( interaction );
-    if ( m_scrubber.mouseCaptured || m_velocityEdit.mouseCaptured || m_causeTree.draggingWindow ||
-         m_causeTree.resizingWindow )
+    if ( ownsReplayCapture )
     {
         inputRouter.ReleaseNativeCapture();
     }
-    m_scrubber.dragging = false;
-    m_scrubber.mouseCaptured = false;
-    m_prediction.ui.horizonDragging = false;
-    m_velocityEdit.dragging = false;
-    m_velocityEdit.draggingAngular = false;
-    m_velocityEdit.activeAxis = -1;
-    m_velocityEdit.mouseCaptured = false;
-    m_causeTree.draggingWindow = false;
-    m_causeTree.resizingWindow = false;
 }
 
 bool ReplayRuntime::HasActiveInteractionState() const
 {
-    return m_camera.active || m_camera.focusKind != RunReplayCameraFocusKind::None || m_scrubber.dragging ||
-           m_scrubber.historicalSamplePaused || m_scrubber.liveAdvanceHeld || m_scrubber.mouseCaptured ||
-           m_pathVisualizer.hasTarget || !m_pathVisualizer.targets.empty() || m_prediction.enabled ||
-           m_prediction.ui.horizonDragging || m_prediction.build.building || m_velocityEdit.enabled ||
-           m_velocityEdit.dragging || m_velocityEdit.mouseCaptured || m_causeTree.draggingWindow ||
-           m_causeTree.resizingWindow || m_causeTree.selectedRow >= 0 || !m_causeTree.rows.empty();
+    return m_camera.active || m_camera.focusKind != RunReplayCameraFocusKind::None ||
+           m_scrubber.historicalSamplePaused || m_scrubber.liveAdvanceHeld || m_pathVisualizer.hasTarget ||
+           !m_pathVisualizer.targets.empty() || m_prediction.enabled || m_prediction.build.building ||
+           m_velocityEdit.enabled || m_causeTree.selectedRow >= 0 || !m_causeTree.rows.empty();
 }
 
 bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionController& interaction,
@@ -1186,8 +1196,6 @@ bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionCont
     m_scrubber.visible = false;
     m_scrubber.visibleAlpha = 0.0f;
     m_scrubber.fadeUpdatedAt = 0.0;
-    m_scrubber.dragging = false;
-    m_scrubber.mouseCaptured = false;
     m_scrubber.branchHovered = false;
     m_scrubber.pauseHovered = false;
     m_scrubber.saveHovered = false;
@@ -1201,8 +1209,6 @@ bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionCont
     m_velocityEdit = RunReplayVelocityEditState{};
     m_causeTree.hoveredRow = -1;
     m_causeTree.selectedRow = -1;
-    m_causeTree.draggingWindow = false;
-    m_causeTree.resizingWindow = false;
     m_causeTree.scrollY = 0.0f;
     m_causeTree.rows.clear();
     return exitInspectionCamera;
@@ -1239,7 +1245,6 @@ bool ReplayRuntime::SetVelocityEditEnabled( bool enabled )
     m_velocityEdit.enabled = enabled;
     m_velocityEdit.hotLinearAxis = -1;
     m_velocityEdit.hotAngularAxis = -1;
-    m_velocityEdit.activeAxis = -1;
 
     if ( enabled )
     {
@@ -1373,7 +1378,6 @@ ReplayRuntime::ScrubberUnavailableResult ReplayRuntime::ResetUnavailableScrubber
     m_prediction.ui.decreaseHovered = false;
     m_prediction.ui.increaseHovered = false;
     m_prediction.ui.horizonHovered = false;
-    m_prediction.ui.horizonDragging = false;
     m_pathVisualizer.pastPathHovered = false;
     m_velocityEdit.toggleHovered = false;
     m_scrubber.branchHovered = false;
@@ -1482,7 +1486,10 @@ float ReplayRuntime::PredictionNormalizedFromTrack( float position, float presen
     return std::clamp( ( position - presentT ) / ( 1.0f - presentT ), 0.0f, 1.0f );
 }
 
-bool ReplayRuntime::ShouldRenderScrubber( bool editorModeEnabled, bool uiVisible, bool uiMinimized ) const
+bool ReplayRuntime::ShouldRenderScrubber( bool editorModeEnabled,
+                                          bool uiVisible,
+                                          bool uiMinimized,
+                                          RuntimeInteractionGestureKind gesture ) const
 {
     if ( editorModeEnabled || !uiVisible || !uiMinimized )
     {
@@ -1495,8 +1502,9 @@ bool ReplayRuntime::ShouldRenderScrubber( bool editorModeEnabled, bool uiVisible
     // Why: visibility is about whether a replay control surface is armed, not
     // whether enough retained frames exist to enable scrub/prediction tools.
     return ( loadedPresentation || solverReplayEnabled ) &&
-           ( m_scrubber.visible || m_scrubber.dragging || m_scrubber.historicalSamplePaused ||
-             m_scrubber.liveAdvanceHeld );
+           ( m_scrubber.visible || gesture == RuntimeInteractionGestureKind::ReplayScrubDrag ||
+             gesture == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag ||
+             m_scrubber.historicalSamplePaused || m_scrubber.liveAdvanceHeld );
 }
 
 bool ReplayRuntime::ShouldUseInspectionCamera() const
@@ -1526,14 +1534,11 @@ bool ReplayRuntime::ArmLoadedPresentationScrubber( float normalized, double now 
 
     ClearPathVisualizerState();
     m_prediction.enabled = false;
-    m_prediction.ui.horizonDragging = false;
     m_velocityEdit = RunReplayVelocityEditState{};
     m_scrubber.activeTrack = RunReplayTrack::Presentation;
     SetTrackPosition( RunReplayTrack::Presentation, normalized );
     m_scrubber.solverPosition = 1.0f;
-    m_scrubber.dragging = false;
     m_scrubber.historicalSamplePaused = true;
-    m_scrubber.mouseCaptured = false;
     m_scrubber.visible = true;
     m_scrubber.visibleUntil = now + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
     return true;

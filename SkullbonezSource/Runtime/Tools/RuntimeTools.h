@@ -4,9 +4,9 @@ Purpose:
   Owns transient runtime tool state while tool behavior moves out of Run.
 
 Mental model:
-  RuntimeTools owns short-lived interaction state for launcher/tool behavior and
-  render feedback instead of storing that state directly on Run. Mouse pickup
-  routing consumes a value snapshot and owns its complete gesture transition.
+  RuntimeTools owns tool payload and render feedback instead of storing those
+  values directly on Run. RuntimeInteractionController alone owns which
+  gesture is active; tools retain only the start values needed to apply it.
 
 Glossary:
   Asset system: Runtime-owned registry borrowed by editor ghost tracing when a
@@ -42,6 +42,8 @@ Invariants:
     after model collection edits.
   - Mouse pickup stores only a physics body handle for live command paths; any
     model row used for gestures or UI is resolved locally from that handle.
+  - Editor payload never mirrors active placement/gizmo ownership, axis, or
+    transform mode outside RuntimeInteractionGesture.
 
 Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.cpp
@@ -54,6 +56,7 @@ Related:
 #include "../../Core/MainMemoryStats.h"
 #include "../Editor/LauncherLaser.h"
 #include "../RuntimeCameraMode.h"
+#include "../RuntimeInteractionController.h"
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/Vector3.h"
@@ -170,6 +173,7 @@ struct ToolOverlayBuildInput
     float rayLingerSeconds = 0.0f;
     bool inspectGizmoActive = false;
     bool scaleMode = false;
+    RuntimeInteractionGesture gesture;
     int attachedCameraTargetIndex = -1;
     bool attachedCameraActiveFollow = false;
 };
@@ -205,8 +209,6 @@ enum class LauncherReproSnapshotStatus
 
 struct RunMousePickupState
 {
-    bool active = false;
-    bool mouseCaptured = false;
     Physics::PhysicsBodyHandle body;
     Math::Vector::Vector3 planePoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 planeNormal = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
@@ -344,6 +346,7 @@ struct EditorViewportPlacementInput
     bool blocksCameraMouse = false;
     bool hasClientPosition = false;
     bool inputModeIsViewportLook = false;
+    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
     int clientX = 0;
     int clientY = 0;
 };
@@ -395,10 +398,6 @@ struct RunEditorPlacementState
     RunCameraMode restoreCameraModeAfterEditor = RunCameraMode::Demo;
     bool viewportLookActive = false;
     bool placementPreviewVisible = false;
-    bool placementScaleActive = false;
-    bool gizmoDragActive = false;
-    bool gizmoDragIsRotation = false;
-    bool gizmoDragIsScale = false;
     int objectType = UI::EditorTab::OBJECT_BOX;
     int placedObjectSerial = 0;
     // Lifetime: selectedBody/selectedCollider are live store identities. The
@@ -408,7 +407,6 @@ struct RunEditorPlacementState
     Physics::PhysicsColliderHandle selectedCollider;
     int hotGizmoAxis = -1;
     int hotRotationAxis = -1;
-    int activeGizmoAxis = -1;
     float gizmoDragStartAxisT = 0.0f;
     float gizmoDragStartRotationAngle = 0.0f;
     float placementYawRadians = 0.0f;
@@ -661,7 +659,7 @@ class RuntimeTools
     void TickRayCastTestLines( float dt );
     bool HasLingeredRayCastLine( float maxAgeSeconds ) const;
     bool HasSelectionOverlayWork( int modelCount, RunCameraMode cameraMode ) const;
-    bool HasMousePickupOverlayWork() const;
+    bool HasMousePickupOverlayWork( const RuntimeInteractionGesture& gesture ) const;
     bool HasLauncherShots() const;
     const char* LauncherFireModeLabel() const;
     void BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const;
@@ -760,6 +758,7 @@ class RuntimeTools
                                                                         Geometry::Terrain* terrain,
                                                                         Assets::AssetSystem& assets,
                                                                         int activeModelCapacity,
+                                                                        RuntimeInteractionController& interaction,
                                                                         ReplayRuntime& replayRuntime );
     EditorGizmoDragPointerResult RouteEditorGizmoDragPointer( const EditorGizmoDragPointerInput& input,
                                                               GameObjects::GameModelCollection& collection,
@@ -782,8 +781,11 @@ class RuntimeTools
                                                        GameObjects::GameModelCollection& collection,
                                                        Physics::PhysicsEngine& physics,
                                                        RuntimeInteractionController& interaction );
-    EditorPlacementScaleStartResult
-    BeginEditorPlacementScalePointer( bool inspectGizmoActive, bool hasClientPosition, int clientX, int clientY );
+    EditorPlacementScaleStartResult BeginEditorPlacementScalePointer( bool inspectGizmoActive,
+                                                                      bool hasClientPosition,
+                                                                      int clientX,
+                                                                      int clientY,
+                                                                      RuntimeInteractionController& interaction );
     EditorViewportPlacementResult RouteEditorViewportPlacement( const EditorViewportPlacementInput& input );
     bool CommitSelectionCommand( const RuntimeInteractionSelectionPlan& plan, RuntimeInteractionEvent& outEvent );
     bool ApplySelectionCommand( const RuntimeInteractionCommand& command,
@@ -792,7 +794,7 @@ class RuntimeTools
 
     RunEditorPlacementState& Editor();
     const RunEditorPlacementState& Editor() const;
-    bool HasActiveEditorInteractionState() const;
+    bool HasActiveEditorInteractionState( const RuntimeInteractionController& interaction ) const;
     bool InspectGizmoInteractionActive( RunCameraMode cameraMode, bool replayInspectionActive ) const;
     int RefreshEditorPointerPreview( const EditorPointerPreviewInput& input,
                                      GameObjects::GameModelCollection& collection,

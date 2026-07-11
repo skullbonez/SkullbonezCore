@@ -112,6 +112,7 @@ ReplayOverlay::ReplayOverlayRenderContext BuildReplayOverlayRenderContext( const
              overlay.uiVisible,
              overlay.uiMinimized,
              overlay.scenePhysicsEnabled,
+             overlay.gesture,
              overlay.screenW,
              overlay.screenH,
              overlay.nowSeconds };

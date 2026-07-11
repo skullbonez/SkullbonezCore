@@ -269,14 +269,12 @@ inline ReplayMemoryPolicy ResolveReplayMemoryPolicy( ReplayMemoryPolicy policy )
 struct RunReplayScrubberState
 {
     bool visible = false;
-    bool dragging = false;
     bool historicalSamplePaused = false;
     bool liveAdvanceHeld = false;
     bool branchHovered = false;
     bool pauseHovered = false;
     bool pauseRestoreFlyMode = false;
     bool pauseRestoreLauncherMode = false;
-    bool mouseCaptured = false;
     bool saveHovered = false;
     bool loadHovered = false;
     bool restoreWasDown = false;
@@ -421,8 +419,6 @@ struct RunReplayCauseTreeState
     int width = 380;
     int height = 420;
     float scrollY = 0.0f;
-    bool draggingWindow = false;
-    bool resizingWindow = false;
     int dragOffsetX = 0;
     int dragOffsetY = 0;
     int resizeStartMouseX = 0;
@@ -563,14 +559,13 @@ struct RunReplayPredictionRevealClock
 struct RunReplayPredictionUiState
 {
     // Concept: these fields are replay-overlay hit-test memory. Hover values are
-    // rewritten each input tick from panel geometry, while horizonDragging must
-    // persist across ticks until the mouse release clears the slider capture.
+    // rewritten each input tick from panel geometry. Active slider ownership
+    // lives only in RuntimeInteractionController's typed gesture.
     bool checkboxHovered = false;
     bool ragdollVisualsHovered = false;
     bool decreaseHovered = false;
     bool increaseHovered = false;
     bool horizonHovered = false;
-    bool horizonDragging = false;
 };
 
 struct RunReplayPredictionFutureNodeCache
@@ -773,12 +768,8 @@ struct RunReplayVelocityEditState
     bool enabled = false;
     bool toggleHovered = false;
     bool keyboardAltWasDown = false;
-    bool dragging = false;
-    bool draggingAngular = false;
-    bool mouseCaptured = false;
     int hotLinearAxis = -1;
     int hotAngularAxis = -1;
-    int activeAxis = -1;
     float dragStartAxisT = 0.0f;
     float dragStartAngle = 0.0f;
     Math::Vector::Vector3 dragStartLinearVelocity = Math::Vector::ZERO_VECTOR;
@@ -842,6 +833,7 @@ class ReplayRuntime
     {
         bool scenePhysicsEnabled = false;
         bool editorModeEnabled = false;
+        RuntimeInteractionGesture gesture;
         int sceneFrame = 0;
         double frameSeconds = 0.0;
         double totalSeconds = 0.0;
@@ -1141,7 +1133,10 @@ class ReplayRuntime
     static bool TrackPositionIsFuture( float position, float presentT );
     static float SolverNormalizedFromTrack( float position, float presentT );
     static float PredictionNormalizedFromTrack( float position, float presentT );
-    bool ShouldRenderScrubber( bool editorModeEnabled, bool uiVisible, bool uiMinimized ) const;
+    bool ShouldRenderScrubber( bool editorModeEnabled,
+                               bool uiVisible,
+                               bool uiMinimized,
+                               RuntimeInteractionGestureKind gesture ) const;
     bool ShouldUseInspectionCamera() const;
     bool InspectionActive() const;
     bool InspectionMouseLookActive( bool rightMouseDown, bool uiWantsNativeCursor, bool uiBlocksCameraMouse ) const;
@@ -1391,7 +1386,10 @@ class ReplayRuntime
                                   const Physics::ColliderStore& colliderStore,
                                   const SceneEntityStore& entities,
                                   RunEditorTracer& tracer );
-    void RenderVelocityEditOverlay( Physics::PhysicsEngine& physics, bool editorModeEnabled, RunEditorTracer& tracer );
+    void RenderVelocityEditOverlay( Physics::PhysicsEngine& physics,
+                                    bool editorModeEnabled,
+                                    const RuntimeInteractionGesture& gesture,
+                                    RunEditorTracer& tracer );
     PathPickResult TryPickPathTarget( const PathPickInput& input,
                                       const SceneEntityStore& entities,
                                       const Physics::PhysicsBodyStore& bodyStore,
@@ -1399,7 +1397,7 @@ class ReplayRuntime
                                       const std::vector<Rendering::RenderInstancePresentationRecord>& presentation );
     bool RouteWorldPointer( const WorldPointerInput& input );
     bool SetPathTarget( const char* name, int modelIndex, const Physics::PhysicsBodyStore& bodyStore );
-    void BeginToolGesture( RuntimeInteractionController& interaction,
+    bool BeginToolGesture( RuntimeInteractionController& interaction,
                            RuntimeInteractionGestureKind kind,
                            WorldInteractionOwner owner,
                            RuntimePointerButton button,

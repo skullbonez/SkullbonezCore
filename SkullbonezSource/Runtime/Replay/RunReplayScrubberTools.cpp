@@ -28,6 +28,7 @@ Related:
 #include "../../Assets/AssetKeys.h"
 #include "../CameraCollection.h"
 #include "../InputRouter.h"
+#include "../RuntimeInteractionCommands.h"
 #include "../RunCameraState.h"
 #include "../Tools/RuntimeTools.h"
 #include "../../Core/Profiler.h"
@@ -123,13 +124,15 @@ void ReplayRuntime::EnterInspectionCamera( Environment::CameraCollection* camera
     unbounded.m_zMax = 99999.9f;
     cameras->SetCameraXZBounds( CAMERA_FREE, unbounded );
     camera.cameraTime = 0.0f;
-    if ( mousePickup.mouseCaptured )
-    {
-        inputRouter.ReleaseNativeCapture();
-    }
     if ( interaction.Gesture().kind == RuntimeInteractionGestureKind::MousePickupDrag )
     {
-        interaction.EndGesture( InteractionExitReason::EndGesture );
+        inputRouter.ReleaseNativeCapture();
+        RuntimeGestureCommand command;
+        command.action = RuntimeGestureCommandAction::End;
+        command.gesture.kind = RuntimeInteractionGestureKind::MousePickupDrag;
+        command.reason = InteractionExitReason::EndGesture;
+        RuntimeGestureEvent event;
+        (void)interaction.ApplyGestureCommand( command, event );
     }
     mousePickup = RunMousePickupState{};
     if ( !IsReplayScrubberToolOwner( interaction.Owner() ) )
@@ -497,16 +500,18 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
     // forward-prediction segment can feel dead until Space changes the mode.
     const bool overScrubTrack = scrubTrackDragEnabled && scrubTrackRect.Contains( mouse.x, mouse.y );
     const RunReplayTrack hoveredTrack = scrubTrack;
-    const bool canTakeMouse =
-        !uiBlocksMouse || m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().ui.horizonDragging;
+    const auto scrubDragActive = [&]()
+    { return m_interaction.Gesture().kind == RuntimeInteractionGestureKind::ReplayScrubDrag; };
+    const auto horizonDragActive = [&]()
+    { return m_interaction.Gesture().kind == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag; };
+    const bool canTakeMouse = !uiBlocksMouse || scrubDragActive() || horizonDragActive();
     const bool hotZoneCanReveal = inHotZone && !uiBlocksMouse;
     const bool pointerOverScrubberSurface = hotZoneCanReveal || overPanel || overScrubTrack;
     const bool pointerOverScrubberCommand = overSaveButton || overLoadButton || overBranchButton || overPauseButton;
     const bool pointerOverReplayTool = overVelocityEditToggle || overPredictUi || overPastPathToggle;
     const bool pointerRequestsReplayOverlay =
         pointerOverScrubberSurface || pointerOverScrubberCommand || pointerOverReplayTool;
-    const bool replayDragInProgress =
-        m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().ui.horizonDragging;
+    const bool replayDragInProgress = scrubDragActive() || horizonDragActive();
     const bool replayStateKeepsScrubberVisible = replayDragInProgress ||
                                                  m_replayRuntime.Scrubber().historicalSamplePaused ||
                                                  m_replayRuntime.Scrubber().liveAdvanceHeld;
@@ -597,26 +602,24 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
         m_replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
     }
     m_replayRuntime.Scrubber().saveHovered =
-        overSaveButton && ( m_replayRuntime.Scrubber().visibleUntil >= now || m_replayRuntime.Scrubber().dragging ||
+        overSaveButton && ( m_replayRuntime.Scrubber().visibleUntil >= now || scrubDragActive() ||
                             m_replayRuntime.Scrubber().historicalSamplePaused );
     m_replayRuntime.Scrubber().loadHovered =
-        overLoadButton && ( m_replayRuntime.Scrubber().visibleUntil >= now || m_replayRuntime.Scrubber().dragging ||
+        overLoadButton && ( m_replayRuntime.Scrubber().visibleUntil >= now || scrubDragActive() ||
                             m_replayRuntime.Scrubber().historicalSamplePaused );
     m_replayRuntime.Scrubber().saveHoveredTrack = hoveredTrack;
-    const bool branchControlVisible =
-        m_replayRuntime.Scrubber().visibleUntil >= now || m_replayRuntime.Scrubber().dragging ||
-        m_replayRuntime.Scrubber().historicalSamplePaused || m_replayRuntime.Scrubber().liveAdvanceHeld;
+    const bool branchControlVisible = m_replayRuntime.Scrubber().visibleUntil >= now || scrubDragActive() ||
+                                      m_replayRuntime.Scrubber().historicalSamplePaused ||
+                                      m_replayRuntime.Scrubber().liveAdvanceHeld;
     m_replayRuntime.Scrubber().branchHovered = branchTargetAvailable && overBranchButton && branchControlVisible;
     const bool solverControlVisible =
         solverToolsEnabled &&
-        ( m_replayRuntime.Scrubber().visibleUntil >= now || m_replayRuntime.Scrubber().dragging ||
-          m_replayRuntime.Prediction().ui.horizonDragging || m_replayRuntime.Scrubber().historicalSamplePaused ||
-          m_replayRuntime.Scrubber().liveAdvanceHeld );
+        ( m_replayRuntime.Scrubber().visibleUntil >= now || scrubDragActive() || horizonDragActive() ||
+          m_replayRuntime.Scrubber().historicalSamplePaused || m_replayRuntime.Scrubber().liveAdvanceHeld );
     const bool predictionControlVisible =
         predictionToolsEnabled &&
-        ( m_replayRuntime.Scrubber().visibleUntil >= now || m_replayRuntime.Scrubber().dragging ||
-          m_replayRuntime.Prediction().ui.horizonDragging || m_replayRuntime.Scrubber().historicalSamplePaused ||
-          m_replayRuntime.Scrubber().liveAdvanceHeld );
+        ( m_replayRuntime.Scrubber().visibleUntil >= now || scrubDragActive() || horizonDragActive() ||
+          m_replayRuntime.Scrubber().historicalSamplePaused || m_replayRuntime.Scrubber().liveAdvanceHeld );
     m_replayRuntime.Scrubber().pauseHovered = solverToolsEnabled && overPauseButton && solverControlVisible;
     m_replayRuntime.VelocityEdit().toggleHovered = solverToolsEnabled && overVelocityEditToggle && solverControlVisible;
     m_replayRuntime.PathVisualizer().pastPathHovered =
@@ -684,7 +687,12 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
                 promotedBuildPrefix = m_replayRuntime.PromotePredictionBuildPrefixToCommitted();
             }
             m_replayRuntime.Prediction().enabled = false;
-            m_replayRuntime.Prediction().ui.horizonDragging = false;
+            if ( horizonDragActive() )
+            {
+                m_replayRuntime.EndToolGesture( m_interaction,
+                                                RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag );
+                m_inputRouter.ReleaseNativeCapture();
+            }
             if ( !promotedBuildPrefix )
             {
                 m_replayRuntime.CancelPredictionJob( false );
@@ -802,19 +810,17 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
     else if ( predictionToolsEnabled && leftPressed && canTakeMouse && overPredictHorizon &&
               m_replayRuntime.Scrubber().visibleUntil >= now )
     {
-        m_replayRuntime.Prediction().ui.horizonDragging = true;
-        m_replayRuntime.BeginToolGesture( m_interaction,
-                                          RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag,
-                                          WorldInteractionOwner::ReplayPrediction,
-                                          RuntimePointerButton::Left,
-                                          mouse.x,
-                                          mouse.y );
-        setPredictionHorizonFromMouse( false );
-        if ( !m_replayRuntime.Scrubber().mouseCaptured )
+        if ( !m_replayRuntime.BeginToolGesture( m_interaction,
+                                                RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag,
+                                                WorldInteractionOwner::ReplayPrediction,
+                                                RuntimePointerButton::Left,
+                                                mouse.x,
+                                                mouse.y ) )
         {
-            m_inputRouter.RequestNativeCapture();
-            m_replayRuntime.Scrubber().mouseCaptured = true;
+            return consumesMouse;
         }
+        setPredictionHorizonFromMouse( false );
+        m_inputRouter.RequestNativeCapture();
     }
     else if ( predictionToolsEnabled && leftPressed && canTakeMouse && overPredictToggle &&
               m_replayRuntime.Scrubber().visibleUntil >= now )
@@ -862,23 +868,21 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
               !overPredictUi && !overPastPathToggle && !overLoadButton && scrubTrackStartTarget )
     {
         outEnterInteractive = true;
-        m_replayRuntime.BeginToolGesture( m_interaction,
-                                          RuntimeInteractionGestureKind::ReplayScrubDrag,
-                                          WorldInteractionOwner::ReplayScrub,
-                                          RuntimePointerButton::Left,
-                                          mouse.x,
-                                          mouse.y );
+        if ( !m_replayRuntime.BeginToolGesture( m_interaction,
+                                                RuntimeInteractionGestureKind::ReplayScrubDrag,
+                                                WorldInteractionOwner::ReplayScrub,
+                                                RuntimePointerButton::Left,
+                                                mouse.x,
+                                                mouse.y ) )
+        {
+            return consumesMouse;
+        }
         m_replayRuntime.Scrubber().activeTrack = scrubTrack;
         m_replayRuntime.SyncActiveTrackPosition();
-        m_replayRuntime.Scrubber().dragging = true;
-        if ( !m_replayRuntime.Scrubber().mouseCaptured )
-        {
-            m_inputRouter.RequestNativeCapture();
-            m_replayRuntime.Scrubber().mouseCaptured = true;
-        }
+        m_inputRouter.RequestNativeCapture();
     }
 
-    if ( m_replayRuntime.Scrubber().dragging )
+    if ( scrubDragActive() )
     {
         m_replayRuntime.SetTrackPosition(
             m_replayRuntime.Scrubber().activeTrack,
@@ -903,27 +907,17 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
 
         if ( leftReleased )
         {
-            m_replayRuntime.Scrubber().dragging = false;
             m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayScrubDrag );
-            if ( m_replayRuntime.Scrubber().mouseCaptured )
-            {
-                m_inputRouter.ReleaseNativeCapture();
-                m_replayRuntime.Scrubber().mouseCaptured = false;
-            }
+            m_inputRouter.ReleaseNativeCapture();
         }
     }
-    else if ( m_replayRuntime.Prediction().ui.horizonDragging )
+    else if ( horizonDragActive() )
     {
         setPredictionHorizonFromMouse( false );
         if ( leftReleased )
         {
-            m_replayRuntime.Prediction().ui.horizonDragging = false;
             m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag );
-            if ( m_replayRuntime.Scrubber().mouseCaptured )
-            {
-                m_inputRouter.ReleaseNativeCapture();
-                m_replayRuntime.Scrubber().mouseCaptured = false;
-            }
+            m_inputRouter.ReleaseNativeCapture();
         }
     }
     else if ( !loadedPresentation && !m_replayRuntime.Scrubber().historicalSamplePaused )
@@ -932,9 +926,8 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
     }
 
     const bool scrubberTargetVisible =
-        m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().ui.horizonDragging ||
-        m_replayRuntime.Scrubber().historicalSamplePaused || m_replayRuntime.Scrubber().liveAdvanceHeld ||
-        m_replayRuntime.Scrubber().visibleUntil >= now;
+        scrubDragActive() || horizonDragActive() || m_replayRuntime.Scrubber().historicalSamplePaused ||
+        m_replayRuntime.Scrubber().liveAdvanceHeld || m_replayRuntime.Scrubber().visibleUntil >= now;
     {
         // Concept: visibility is a stateful opacity, not a boolean draw cut.
         // This lets the bottom bar ease in from hover while staying interactive

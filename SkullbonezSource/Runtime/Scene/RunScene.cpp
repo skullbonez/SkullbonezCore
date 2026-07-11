@@ -669,7 +669,6 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
         m_runtimeTools.Editor().placementModeEnabled = false;
         m_runtimeTools.Editor().hotGizmoAxis = -1;
         m_runtimeTools.Editor().hotRotationAxis = -1;
-        m_runtimeTools.Editor().activeGizmoAxis = -1;
         m_interaction.ResetForScene( InteractionExitReason::LoadScene );
         afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Interaction );
     }

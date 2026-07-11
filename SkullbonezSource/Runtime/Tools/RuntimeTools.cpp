@@ -172,11 +172,13 @@ bool RuntimeTools::ApplySelectionCommand( const RuntimeInteractionCommand& comma
 }
 
 
-bool RuntimeTools::HasActiveEditorInteractionState() const
+bool RuntimeTools::HasActiveEditorInteractionState( const RuntimeInteractionController& interaction ) const
 {
+    const RuntimeInteractionGestureKind gesture = interaction.Gesture().kind;
     return m_editor.editorModeEnabled || m_editor.placementModeEnabled || m_editor.viewportLookActive ||
-           m_editor.placementPreviewVisible || m_editor.placementScaleActive || m_editor.gizmoDragActive ||
-           m_editor.hotGizmoAxis >= 0 || m_editor.hotRotationAxis >= 0 || m_editor.activeGizmoAxis >= 0;
+           m_editor.placementPreviewVisible || gesture == RuntimeInteractionGestureKind::EditorPlacementScaleDrag ||
+           gesture == RuntimeInteractionGestureKind::GizmoDrag || m_editor.hotGizmoAxis >= 0 ||
+           m_editor.hotRotationAxis >= 0;
 }
 
 
@@ -196,7 +198,6 @@ void RuntimeTools::ClearEditorInteractionForTransition( bool clearSelection,
     m_editor.placementModeEnabled = false;
     m_editor.hotGizmoAxis = -1;
     m_editor.hotRotationAxis = -1;
-    m_editor.activeGizmoAxis = -1;
     if ( clearSelection )
     {
         RuntimeInteractionCommand command;
@@ -209,16 +210,17 @@ void RuntimeTools::ClearEditorInteractionForTransition( bool clearSelection,
 
 void RuntimeTools::CancelMousePickup( InputRouter& inputRouter, RuntimeInteractionController& interaction )
 {
-    // Invariant: RuntimeTools owns the picked-body/capture fact. Cancellation
-    // releases input presentation and the gesture before clearing the handle,
-    // so no later frame phase can observe a half-active drag.
-    if ( m_mousePickup.mouseCaptured )
-    {
-        inputRouter.ReleaseNativeCapture();
-    }
+    // Invariant: the controller gesture is the sole capture fact. Clear native
+    // presentation only when this owner actually held the typed pickup gesture.
     if ( interaction.Gesture().kind == RuntimeInteractionGestureKind::MousePickupDrag )
     {
-        interaction.EndGesture( InteractionExitReason::EndGesture );
+        inputRouter.ReleaseNativeCapture();
+        RuntimeGestureCommand command;
+        command.action = RuntimeGestureCommandAction::End;
+        command.gesture.kind = RuntimeInteractionGestureKind::MousePickupDrag;
+        command.reason = InteractionExitReason::EndGesture;
+        RuntimeGestureEvent event;
+        (void)interaction.ApplyGestureCommand( command, event );
     }
     m_mousePickup = RunMousePickupState{};
 }
@@ -411,9 +413,9 @@ bool RuntimeTools::HasSelectionOverlayWork( int modelCount, RunCameraMode camera
     return placementPreview || editorSelection || inspectSelection || attachSelection;
 }
 
-bool RuntimeTools::HasMousePickupOverlayWork() const
+bool RuntimeTools::HasMousePickupOverlayWork( const RuntimeInteractionGesture& gesture ) const
 {
-    return m_mousePickup.active && m_mousePickup.body.IsValid();
+    return gesture.kind == RuntimeInteractionGestureKind::MousePickupDrag && m_mousePickup.body.IsValid();
 }
 
 bool RuntimeTools::HasLauncherShots() const
@@ -901,6 +903,7 @@ void RuntimeTools::PrepareOverlayTrace( GameObjects::GameModelCollection& models
                                               { input.rayLingerSeconds,
                                                 input.inspectGizmoActive,
                                                 input.scaleMode,
+                                                input.gesture,
                                                 input.attachedCameraTargetIndex,
                                                 input.attachedCameraActiveFollow } );
 }

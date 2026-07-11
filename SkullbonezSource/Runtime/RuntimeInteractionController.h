@@ -6,8 +6,8 @@ Purpose:
 
 Mental model:
   Runtime workspaces are mutually exclusive. A transition records what owned
-  world input before the new mode starts so Run can clear old mouse capture,
-  hover, drag, and replay/editor affordances before applying the new mode.
+  world input before the new mode starts so InputRouter and domain owners can
+  clear capture and payload before applying the new mode.
 
 Glossary:
   Workspace: Coarse runtime mode such as live, inspect, edit, or replay.
@@ -21,6 +21,8 @@ Invariants:
   - Gesture and pointer-capture state must be cleared together on mode changes.
   - Object gestures retain a body handle; dense rows are resolved only by the
     owner that consumes the gesture.
+  - Active drag kind, axis, and angular/scale mode exist only in the typed
+    gesture; replay and editor payload owners must not mirror them in booleans.
 
 Related:
   - SkullbonezSource/Runtime/RuntimeInteractionController.cpp
@@ -37,6 +39,8 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+struct RuntimeGestureCommand;
+struct RuntimeGestureEvent;
 enum class RuntimeWorkspace
 {
     Live,
@@ -97,12 +101,21 @@ enum class RuntimeInteractionGestureKind
     None,
     CameraLook,
     ObjectPick,
+    EditorPlacementScaleDrag,
     GizmoDrag,
     MousePickupDrag,
     ReplayScrubDrag,
     ReplayVelocityDrag,
     ReplayPredictionHorizonDrag,
     ReplayCauseTreeDrag
+};
+
+enum class RuntimeGizmoDragKind
+{
+    None,
+    Translate,
+    Rotate,
+    Scale
 };
 
 enum class InteractionExitReason
@@ -128,6 +141,7 @@ struct RuntimeInteractionGesture
     Physics::PhysicsBodyHandle body;
     int axis = -1;
     bool angular = false;
+    RuntimeGizmoDragKind gizmoKind = RuntimeGizmoDragKind::None;
 };
 
 struct RuntimeInteractionTransition
@@ -236,10 +250,9 @@ class RuntimeInteractionController
     RuntimeInteractionTransition SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace workspace,
                                                                       WorldInteractionOwner owner,
                                                                       InteractionExitReason reason );
-    RuntimeInteractionTransition BeginGesture( const RuntimeInteractionGesture& gesture,
-                                               RuntimePointerCaptureOwner captureOwner,
-                                               InteractionExitReason reason );
-    RuntimeInteractionTransition EndGesture( InteractionExitReason reason );
+    // Commands are accepted only by the current owner; events publish the
+    // resulting state after a successful mutation.
+    bool ApplyGestureCommand( const RuntimeGestureCommand& command, RuntimeGestureEvent& outEvent );
     // Camera-look gesture ownership is interaction policy, not Run routing.
     // Sync begins only from an idle pointer owner and cancels on focus/policy exit.
     void SyncCameraLookGesture( const RuntimeInputSnapshot& input,
@@ -251,6 +264,10 @@ class RuntimeInteractionController
     RuntimeInteractionFramePolicy BuildFramePolicy( const RuntimeInteractionFrameInput& input ) const;
 
   private:
+    RuntimeInteractionTransition BeginGesture( const RuntimeInteractionGesture& gesture,
+                                               RuntimePointerCaptureOwner captureOwner,
+                                               InteractionExitReason reason );
+    RuntimeInteractionTransition EndGesture( InteractionExitReason reason );
     RuntimeInteractionTransition CaptureTransition( RuntimeWorkspace previousWorkspace,
                                                     WorldInteractionOwner previousOwner,
                                                     CameraLookState previousCameraLook,

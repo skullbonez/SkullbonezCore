@@ -157,7 +157,8 @@ bool Input::IsAppFocused()
 SbResult Input::CaptureDeviceInputFrame( DeviceInputFrame& frame )
 {
     frame = {};
-    frame.appFocused = IsAppFocused();
+    frame.appFocused = s_automationState.enabled && s_automationState.overrideAppFocused ? s_automationState.appFocused
+                                                                                         : IsAppFocused();
     if ( !frame.appFocused )
     {
         ResetMouseLookDeltas();

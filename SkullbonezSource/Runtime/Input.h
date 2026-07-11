@@ -125,6 +125,8 @@ class Input
     struct AutomationState
     {
         bool enabled = false;
+        bool overrideAppFocused = false;                            // Automation-only focus-loss probe for one captured frame.
+        bool appFocused = true;
         bool hasMouseClientPosition = false;
         POINT mouseClientPosition = {};
         bool leftMouseDown = false;

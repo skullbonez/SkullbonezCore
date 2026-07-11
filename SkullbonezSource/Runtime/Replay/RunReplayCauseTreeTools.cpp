@@ -227,15 +227,17 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
 
     const int screenW = screenWidth;
     const int screenH = screenHeight;
+    const auto causeTreeDragMode = [&]()
+    {
+        const RuntimeInteractionGesture& gesture = m_interaction.Gesture();
+        return gesture.kind == RuntimeInteractionGestureKind::ReplayCauseTreeDrag ? gesture.axis : -1;
+    };
     const auto endCauseTreeDragIfReleased = [&]()
     {
-        if ( leftReleased &&
-             ( m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow ) )
+        if ( leftReleased && causeTreeDragMode() >= 0 )
         {
             m_inputRouter.ReleaseNativeCapture();
             m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
-            m_replayRuntime.CauseTree().draggingWindow = false;
-            m_replayRuntime.CauseTree().resizingWindow = false;
         }
     };
     if ( editorModeEnabled || screenW <= 0 || screenH <= 0 )
@@ -263,7 +265,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
     const UI::UIRect content = ReplayCauseWindowContentRect( m_replayRuntime.CauseTree() );
     const UI::UIRect resize = ReplayCauseWindowResizeRect( m_replayRuntime.CauseTree() );
 
-    if ( m_replayRuntime.CauseTree().draggingWindow )
+    if ( causeTreeDragMode() == 0 )
     {
         m_replayRuntime.CauseTree().x = mouse.x - m_replayRuntime.CauseTree().dragOffsetX;
         m_replayRuntime.CauseTree().y = mouse.y - m_replayRuntime.CauseTree().dragOffsetY;
@@ -272,12 +274,11 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         {
             m_inputRouter.ReleaseNativeCapture();
             m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
-            m_replayRuntime.CauseTree().draggingWindow = false;
         }
         return true;
     }
 
-    if ( m_replayRuntime.CauseTree().resizingWindow )
+    if ( causeTreeDragMode() == 1 )
     {
         m_replayRuntime.CauseTree().width =
             m_replayRuntime.CauseTree().resizeStartWidth + ( mouse.x - m_replayRuntime.CauseTree().resizeStartMouseX );
@@ -288,7 +289,6 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         {
             m_inputRouter.ReleaseNativeCapture();
             m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
-            m_replayRuntime.CauseTree().resizingWindow = false;
         }
         return true;
     }
@@ -312,15 +312,17 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
 
     if ( leftPressed && resize.Contains( mouse.x, mouse.y ) )
     {
-        m_replayRuntime.BeginToolGesture( m_interaction,
-                                          RuntimeInteractionGestureKind::ReplayCauseTreeDrag,
-                                          WorldInteractionOwner::ReplayCauseTree,
-                                          RuntimePointerButton::Left,
-                                          mouse.x,
-                                          mouse.y,
-                                          PhysicsBodyHandle{},
-                                          1 );
-        m_replayRuntime.CauseTree().resizingWindow = true;
+        if ( !m_replayRuntime.BeginToolGesture( m_interaction,
+                                                RuntimeInteractionGestureKind::ReplayCauseTreeDrag,
+                                                WorldInteractionOwner::ReplayCauseTree,
+                                                RuntimePointerButton::Left,
+                                                mouse.x,
+                                                mouse.y,
+                                                PhysicsBodyHandle{},
+                                                1 ) )
+        {
+            return false;
+        }
         m_replayRuntime.CauseTree().resizeStartMouseX = mouse.x;
         m_replayRuntime.CauseTree().resizeStartMouseY = mouse.y;
         m_replayRuntime.CauseTree().resizeStartWidth = m_replayRuntime.CauseTree().width;
@@ -331,15 +333,17 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
 
     if ( leftPressed && title.Contains( mouse.x, mouse.y ) )
     {
-        m_replayRuntime.BeginToolGesture( m_interaction,
-                                          RuntimeInteractionGestureKind::ReplayCauseTreeDrag,
-                                          WorldInteractionOwner::ReplayCauseTree,
-                                          RuntimePointerButton::Left,
-                                          mouse.x,
-                                          mouse.y,
-                                          PhysicsBodyHandle{},
-                                          0 );
-        m_replayRuntime.CauseTree().draggingWindow = true;
+        if ( !m_replayRuntime.BeginToolGesture( m_interaction,
+                                                RuntimeInteractionGestureKind::ReplayCauseTreeDrag,
+                                                WorldInteractionOwner::ReplayCauseTree,
+                                                RuntimePointerButton::Left,
+                                                mouse.x,
+                                                mouse.y,
+                                                PhysicsBodyHandle{},
+                                                0 ) )
+        {
+            return false;
+        }
         m_replayRuntime.CauseTree().dragOffsetX = mouse.x - m_replayRuntime.CauseTree().x;
         m_replayRuntime.CauseTree().dragOffsetY = mouse.y - m_replayRuntime.CauseTree().y;
         m_inputRouter.RequestNativeCapture();
