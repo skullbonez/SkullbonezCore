@@ -37,6 +37,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
 */
 #include "ReplayRuntime.h"
+#include "../../Assets/AssetKeys.h"
 #include "ReplayOverlayLayout.h"
 #include "ReplayRetainedMemory.h"
 #include "ReplayV2Artifact.h"

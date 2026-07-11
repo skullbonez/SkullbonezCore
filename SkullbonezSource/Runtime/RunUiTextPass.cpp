@@ -25,25 +25,64 @@ Invariants:
     glyphs into later frame work.
 
 Related:
-  - SkullbonezSource/Runtime/RunInternal.h
+  - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
   - SkullbonezSource/UI/UI.h
   - Agentic/Reference/comment-style-guide.md
 */
-#include "RunInternal.h"
+#include "Run.h"
+#include "Scene/SceneRuntime.h"
 #include "Allocation/RuntimeReserveAllocator.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
 #include "Replay/ReplayOverlayRenderer.h"
 #include "Replay/ReplayRuntime.h"
 #include "../Core/WorkerPool.h"
+#include "../Physics/PhysicsDebugData.h"
+#include "../Core/Profiler.h"
+#include "../Rendering/IRenderDiagnostics.h"
 #include "../Rendering/IRenderRayTracing.h"
 #include "../UI/UIDraw.h"
 #include "../UI/UIStyle.h"
 
 using namespace SkullbonezCore::Basics;
-using namespace SkullbonezCore::Basics::RunInternal;
+using SkullbonezCore::Physics::PhysicsPipelineStage;
+using SkullbonezCore::Physics::PhysicsPipelineStageName;
+using SkullbonezCore::Text::Text2d;
+using SkullbonezCore::UI::InGameUIFrameData;
+using SkullbonezCore::UI::InGameUITab;
 
 namespace
 {
+void DrawUiTestPattern( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands, int screenW, int screenH )
+{
+    const SkullbonezCore::UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands );
+    draw.Rect( 0.0f, 0.0f, static_cast<float>( screenW ), static_cast<float>( screenH ), 0.20f, 0.31f, 0.36f, 1.0f );
+
+    constexpr float tile = 88.0f;
+    for ( float y = 0.0f; y < static_cast<float>( screenH ); y += tile )
+    {
+        for ( float x = 0.0f; x < static_cast<float>( screenW ); x += tile )
+        {
+            const bool alternate = ( ( static_cast<int>( x / tile ) + static_cast<int>( y / tile ) ) & 1 ) != 0;
+            const float red = alternate ? 0.10f : 1.0f;
+            const float green = alternate ? 0.78f : 0.72f;
+            const float blue = alternate ? 0.96f : 0.18f;
+            const float alpha = alternate ? 0.96f : 0.94f;
+            draw.Rect( x, y, tile, tile, red, green, blue, alpha );
+            draw.Rect( x + 12.0f, y + 12.0f, tile - 24.0f, 5.0f, 0.96f, 0.98f, 1.0f, 0.74f );
+            draw.Rect( x + tile - 18.0f, y + 18.0f, 5.0f, tile - 32.0f, 0.12f, 0.20f, 0.24f, 0.54f );
+        }
+    }
+
+    // Invariant: the same geometry feeds both screenshot blur/reference lanes;
+    // changing it intentionally requires matching visual-baseline evidence.
+    draw.Rect( 44.0f, 46.0f, 780.0f, 560.0f, 1.0f, 1.0f, 1.0f, 0.18f );
+    draw.Rect( 76.0f, 116.0f, 720.0f, 8.0f, 0.98f, 0.12f, 0.46f, 0.82f );
+    draw.Rect( 76.0f, 300.0f, 720.0f, 8.0f, 0.30f, 1.0f, 0.56f, 0.78f );
+    draw.Rect( 76.0f, 484.0f, 720.0f, 8.0f, 0.38f, 0.54f, 1.0f, 0.82f );
+    Text2d::FlushQuads( renderCommands );
+}
+
+
 MainMemoryStats BuildMainMemoryOverlayStats( const DiagnosticsRuntime& diagnosticsRuntime,
                                              const MainMemoryGameObjectStats& gameObjects )
 {
@@ -435,7 +474,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     const char* sceneName = "";
     if ( view.sceneMode && state.sceneHasCurrentEntry && state.currentScenePath )
     {
-        sceneName = FileNameFromPath( state.currentScenePath );
+        sceneName = SceneFileNameFromPath( state.currentScenePath );
     }
 
     if ( state.ui.NeedsUiTextPass() )
@@ -446,7 +485,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.screenH = state.screenH;
         if ( state.debug.isUITestPattern )
         {
-            DrawUITestPattern( renderCommands, UIData.screenW, UIData.screenH );
+            DrawUiTestPattern( renderCommands, UIData.screenW, UIData.screenH );
         }
         UIData.rendererName = rendererName;
         UIData.sceneName = sceneName;

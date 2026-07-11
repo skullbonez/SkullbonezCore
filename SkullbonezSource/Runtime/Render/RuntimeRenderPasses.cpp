@@ -39,13 +39,22 @@ Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp owns frame orchestration.
   - Agentic/Reference/comment-style-guide.md
 */
-#include "../RunInternal.h"
+#include "RuntimeRenderPasses.h"
+#include "../../Assets/AssetKeys.h"
+#include "RuntimeRenderResources.h"
+#include "../Debug/CollisionVisualizer.h"
+#include "../Debug/PhysicsDebugVisualizer.h"
+#include "../Debug/BroadphaseVisualizer.h"
+#include "../Replay/ReplayRuntime.h"
+#include "../Tools/RuntimeTools.h"
 #include "../Scene/SceneTerrain.h"
 #include "../RuntimeTuning.h"
 #include "../../Assets/TextureCollection.h"
 #include "../../Core/PlatformProfiler.h"
+#include "../../Core/Profiler.h"
 #include "../../Core/Log.h"
 #include "../../Rendering/IRenderDiagnostics.h"
+#include "../../Rendering/IRenderDeviceLifecycle.h"
 #include "../../Rendering/IRenderRayTracing.h"
 #include "../../Rendering/IRenderResourceFactory.h"
 #include "../../Rendering/GameModelRenderer.h"
@@ -53,6 +62,9 @@ Related:
 #include "../../Rendering/RenderGraph.h"
 #include "../../Rendering/RenderInstanceStore.h"
 #include "../../Rendering/RenderRasterBindingContract.h"
+#include "../../World/Terrain.h"
+#include "../../World/SkyBox.h"
+#include "../../World/WorldEnvironment.h"
 
 #include <cstdio>
 
@@ -62,6 +74,8 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
 namespace Textures = SkullbonezCore::Textures;
+using SkullbonezCore::Geometry::XZBounds;
+using SkullbonezCore::Math::Vector::Vector3;
 
 namespace
 {

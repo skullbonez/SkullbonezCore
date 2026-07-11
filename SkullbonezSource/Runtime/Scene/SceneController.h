@@ -73,6 +73,7 @@ namespace Physics
 {
 class PhysicsEngine;
 class PhysicsDebugVisualizer;
+struct PhysicsWorldForces;
 } // namespace Physics
 namespace Threading
 {
@@ -146,6 +147,13 @@ class SceneController
     const SceneTerrain& Terrain() const;
     Physics::PhysicsEngine& Physics();
     const Physics::PhysicsEngine& Physics() const;
+    // Executes one deterministic live-scene physics step against the
+    // controller-owned model and physics stores. Replay restore may call this
+    // same boundary so its hash proof cannot drift from ordinary frame steps.
+    void StepPhysics( float fixedDt,
+                      const EngineConfig& config,
+                      const Physics::PhysicsWorldForces& worldForces,
+                      Threading::WorkerPool& workerPool );
 
     bool HasEntry( int index ) const;
     bool HasCurrentEntry() const;

@@ -43,6 +43,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "PhysicsWorld.h"
+#include "../Assets/AssetKeys.h"
 #include "../Runtime/Replay/ReplayRetainedMemory.h"
 
 #include "../Core/Config.h"

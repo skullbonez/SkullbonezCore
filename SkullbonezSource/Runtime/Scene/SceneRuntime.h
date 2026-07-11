@@ -123,6 +123,10 @@ constexpr bool SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent 
 }
 
 const char* SceneRuntimeLifecycleEventName( SceneRuntimeLifecycleEvent event );
+// Returns the final scene path component without allocating. The returned
+// pointer aliases the caller-owned path string.
+const char* SceneFileNameFromPath( const char* path );
+std::string NormalizeSceneQueuePath( const std::string& path );
 
 struct RunSceneState
 {

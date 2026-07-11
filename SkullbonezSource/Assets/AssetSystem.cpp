@@ -31,6 +31,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "AssetSystem.h"
+#include "AssetKeys.h"
 #include "../Core/Config.h"
 #include "../Core/FatalError.h"
 #include "../Rendering/IRenderResourceFactory.h"

@@ -26,7 +26,13 @@ Related:
   - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
   - Agentic/Reference/comment-style-guide.md
 */
-#include "../RunInternal.h"
+#include "ReplayRuntime.h"
+#include "../../Assets/AssetKeys.h"
+#include "../Editor/EditorTools.h"
+#include "../Tools/RuntimeTools.h"
+#include "../InputRouter.h"
+#include "../Scene/SceneEntityStore.h"
+#include "../../Core/Profiler.h"
 
 #include "ReplayInteractionController.h"
 #include "ReplayOverlayLayout.h"
@@ -42,8 +48,8 @@ using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Basics::RunInternal;
 using namespace SkullbonezCore::Basics::ReplayOverlay;
+using SkullbonezCore::Math::Vector::Vector3;
 
 namespace
 {

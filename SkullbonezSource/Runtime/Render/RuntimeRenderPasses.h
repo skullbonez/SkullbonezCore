@@ -36,6 +36,7 @@ Related:
 #pragma once
 
 #include "../../Core/SbResult.h"
+#include "../../Core/Config.h"
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/TornadoField.h"

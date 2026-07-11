@@ -25,6 +25,7 @@ Related:
   - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #include "SceneRuntimeDefaults.h"
+#include "../WindowConstants.h"
 #include "../../Core/Common.h"
 
 #include <algorithm>

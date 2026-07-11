@@ -52,6 +52,8 @@ Related:
 #pragma once
 
 #include "ReplayRecorder.h"
+#include "../../Assets/AssetKeys.h"
+#include "../../GameObjects/SceneCapacity.h"
 #include "TrajectoryStore.h"
 #include "../RuntimeCameraMode.h"
 #include "../RuntimeInteractionController.h"

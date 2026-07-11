@@ -37,6 +37,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace GameObjects
+{
+class GameModelCollection;
+}
 namespace Basics
 {
 struct TornadoVisualSettings
@@ -75,6 +79,9 @@ struct RunRuntimeSettings
     TornadoVisualSettings tornadoVisual;                   // Render-only tornado art tuning outside deterministic physics state.
 
     void ApplyStartupConfig( const EngineConfig& config ); // Copies config-owned live toggles at process startup.
+    // Mirrors the deterministic tornado value pair into the live scene physics
+    // owner at an explicit cold/UI synchronization point.
+    void ApplyTornadoPhysics( GameObjects::GameModelCollection& models ) const;
 };
 
 } // namespace Basics

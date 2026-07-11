@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `5a93a5c4 test: promote varied physics to byte-exact baseline` |
-| Current objective | E1 retire `RunInternal.h` without a replacement state hub |
-| Last broad local gate | `tools\validate_full.bat` passed D3 UI include-fragment conversion with 130/130 doctest cases, 2,770 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and the then-current 20,001-line byte-exact physics baseline in 54.4s |
+| Current pushed baseline | `e0bccc8f docs: reconcile engine cleanup phase counts` |
+| Current objective | F1 rebuild the complete logical `Run` method/field ownership inventory |
+| Last broad local gate | `tools\validate_full.bat` passed E1-E3 compatibility-surface deletion with 130/130 doctest cases, 2,770 assertions, zero-warning Profile/Debug builds, DX12 with zero InfoQueue errors and matching screenshots, standalone physics smoke, and the 44,401-line varied baseline byte-exactly in 122.0s |
 | Latest focused gates | At `5a93a5c4`, `tools\validate_fast.bat`, `tools\validate_physics.bat`, and `tools\validate_physics_deep.bat` passed; the normal gate matched the 44,401-line varied baseline and the deep gate retained the old seeded workload by exact SHA-256 signature |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
@@ -52,6 +52,15 @@ reports, and git history.
 - `1b2b9a60 refactor: split scene parser by schema domain`
 
 ## Current Queue
+
+E1-E3 are complete. `RunInternal.h`, `RunCapture.cpp`, the capture backpointer
+sink, forwarding-only `Run` methods, and every Common domain alias include are
+deleted. Compiler-exposed consumers carry direct owner headers; live physics
+stepping belongs to `SceneController`, and screenshot automation receives typed
+capture owners rather than a host callback. The deletion proofs, 100-file
+comment audit, focused Debug build, and full gate pass. F1 now owns the complete
+logical `Run` method/field inventory before the substitute-owner and independent
+closure reviews.
 
 D3 is complete. The repository has no tracked `.inl` files. The former editor
 mini-palette fragment is split into real palette policy/layout, drawing, and

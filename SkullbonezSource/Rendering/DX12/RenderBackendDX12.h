@@ -54,6 +54,7 @@ Related:
 
 
 #include "../IRenderCaptureBackend.h"
+#include "../../GameObjects/SceneCapacity.h"
 #include "../IRenderCommandContext.h"
 #include "../IRenderDeviceLifecycle.h"
 #include "../IRenderDiagnostics.h"

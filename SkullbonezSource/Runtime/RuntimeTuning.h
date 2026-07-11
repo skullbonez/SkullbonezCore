@@ -44,8 +44,11 @@ Related:
 #pragma once
 
 #include "RenderDefaultsStore.h"
-#include "RunInternal.h"
+#include "RunDebugState.h"
+#include "RunRuntimeSettings.h"
+#include "RuntimeCameraMode.h"
 #include "Scene/SceneRuntimeStyle.h"
+#include "../UI/UICommands.h"
 
 namespace SkullbonezCore
 {
@@ -57,10 +60,24 @@ namespace Rendering
 {
 class IRenderDeviceLifecycle;
 }
+namespace Runtime
+{
+namespace Audio
+{
+class ContactAudioService;
+}
+} // namespace Runtime
 
 namespace Basics
 {
 class SimulationSystem;
+class ReplayRuntime;
+using Environment::WorldEnvironment;
+using UI::UICinematicFeature;
+using UI::UICinematicParam;
+using UI::UIRenderParam;
+using UI::UISoundBandParam;
+using UI::UISoundParam;
 
 namespace RunInternal
 {

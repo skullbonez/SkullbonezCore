@@ -23,3 +23,15 @@ Related:
   - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #include "RuntimeRenderHost.h"
+#include "../../Core/FatalError.h"
+#include "../../Rendering/IRenderCaptureBackend.h"
+
+SkullbonezCore::Rendering::IRenderCaptureBackend&
+SkullbonezCore::Basics::RuntimeRenderBackendView::RequireCaptureBackend() const
+{
+    if ( !captureBackend )
+    {
+        SB_FATAL( "Runtime/RenderBackendView", "Screenshot capture requires a startup-bound capture backend" );
+    }
+    return *captureBackend;
+}

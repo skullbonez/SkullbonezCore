@@ -24,6 +24,7 @@ Related:
   - UI.cpp owns the surrounding UI frame.
 */
 #include "UIFrameComposition.h"
+#include "../Assets/AssetKeys.h"
 
 namespace SkullbonezCore::UI::FrameComposition
 {

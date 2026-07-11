@@ -26,6 +26,7 @@ Related:
   - Agentic/Reference/physics-overview.md
 */
 #include "TerrainContactManifold.h"
+#include "../Assets/AssetKeys.h"
 
 #include "../Core/Common.h"
 #include "../Core/FatalError.h"

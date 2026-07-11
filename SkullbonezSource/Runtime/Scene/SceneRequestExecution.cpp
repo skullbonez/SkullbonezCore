@@ -28,7 +28,7 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
-#include "../RunInternal.h"
+#include "SceneController.h"
 #include "../InputFrame.h"
 #include "SceneRuntimeCreate.h"
 
@@ -42,7 +42,6 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Basics::RunInternal;
 
 
 bool SceneController::ExecutePending( EngineConfig& m_config,

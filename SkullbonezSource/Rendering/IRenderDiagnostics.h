@@ -35,6 +35,7 @@ Related:
 #pragma once
 
 #include "../Core/Common.h"
+#include "../Assets/AssetKeys.h"
 
 #include <cstddef>
 #include <cstdint>

@@ -27,6 +27,7 @@ Related:
 */
 
 #pragma once
+#include "../Assets/AssetKeys.h"
 
 #include "Fence.h"
 #include "Profiler.h"

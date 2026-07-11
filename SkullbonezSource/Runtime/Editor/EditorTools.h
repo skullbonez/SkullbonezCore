@@ -29,6 +29,8 @@ Related:
 */
 #pragma once
 
+#include "../Replay/ReplayInteractionController.h"
+
 #include "EditorHullAssets.h"
 #include "../InputController.h"
 #include "../RuntimeCameraMode.h"

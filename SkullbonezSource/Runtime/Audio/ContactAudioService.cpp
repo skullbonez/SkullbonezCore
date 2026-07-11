@@ -43,6 +43,8 @@ Related:
   - SkullbonezData/audio/contact_audio.materials.json
 */
 #include "ContactAudioService.h"
+#include "../../Assets/AssetKeys.h"
+#include "../../GameObjects/SceneCapacity.h"
 
 #include "../../Core/Common.h"
 

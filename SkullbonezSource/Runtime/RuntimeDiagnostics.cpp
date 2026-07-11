@@ -30,6 +30,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RuntimeDiagnostics.h"
+#include "../Assets/AssetKeys.h"
 
 #include "../Core/Common.h"
 #include "../Core/Config.h"

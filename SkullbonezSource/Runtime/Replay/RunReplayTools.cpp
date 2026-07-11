@@ -47,7 +47,10 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
-#include "../RunInternal.h"
+#include "ReplayRuntime.h"
+#include "../Editor/EditorTools.h"
+#include "../Tools/RuntimeTools.h"
+#include "../Scene/SceneEntityStore.h"
 #include "../Editor/EditorHullAssets.h"
 #include "../InputController.h"
 #include "ReplayInteractionController.h"
@@ -59,6 +62,7 @@ Related:
 #include "../Allocation/RuntimeReserveAllocator.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
+#include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngineStoreQueries.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../../Physics/PhysicsTimestep.h"
@@ -95,10 +99,14 @@ using SkullbonezCore::Assets::EditorHullAsset;
 using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
+using SkullbonezCore::Math::Vector::Vector3;
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace
 {
+constexpr double REPLAY_PREDICTION_REFRESH_SECONDS = 0.35;
+constexpr double REPLAY_PREDICTION_MAX_WORK_MILLISECONDS = 5.0;
+
 bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
                                      ReplayBodyId id,
                                      int modelIndexHint,

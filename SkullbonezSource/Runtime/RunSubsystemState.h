@@ -25,7 +25,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Run.h
-  - SkullbonezSource/Runtime/RunInternal.h
+  - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
   - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */

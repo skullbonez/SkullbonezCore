@@ -30,7 +30,7 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
-#include "RunInternal.h"
+#include "Run.h"
 #include "InputFrame.h"
 #include "AttachedCameraController.h"
 #include "Editor/EditorTools.h"
@@ -423,86 +423,6 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
 
     result.consumed = consumed;
     return result;
-}
-
-
-RuntimeInteractionTransition Run::EnterInteractionForCameraMode( RunCameraMode mode )
-{
-    return m_interaction.EnterCameraMode( NormalizeCameraModeForCurrentScene( mode ) );
-}
-
-
-const char* Run::CameraModeLabel( RunCameraMode mode ) const
-{
-    switch ( mode )
-    {
-    case RunCameraMode::Demo:
-        return "Demo";
-    case RunCameraMode::Scene:
-        return "Scene";
-    case RunCameraMode::Inspect:
-        return "Inspect";
-    case RunCameraMode::Attach:
-    {
-        static thread_local char label[96];
-        const char* submode = "Fixed";
-        if ( m_attachedCamera.State().submode == AttachedCameraSubmode::VelocityForward )
-        {
-            submode = "Velocity";
-        }
-        else if ( m_attachedCamera.State().submode == AttachedCameraSubmode::RagdollEyes )
-        {
-            submode = "Eyes";
-        }
-        if ( m_attachedCamera.State().target.modelIndex < 0 )
-        {
-            sprintf_s( label,
-                       sizeof( label ),
-                       "Attach: pick target%s",
-                       m_attachedCamera.State().activeFollow ? "" : " Pinned" );
-        }
-        else
-        {
-            sprintf_s( label,
-                       sizeof( label ),
-                       "Attach: %s %s%s",
-                       submode,
-                       m_attachedCamera.State().target.name[0] ? m_attachedCamera.State().target.name : "target",
-                       m_attachedCamera.State().activeFollow ? "" : " Pinned" );
-        }
-        return label;
-    }
-    case RunCameraMode::Launcher:
-        return "Launcher";
-    case RunCameraMode::Manipulator:
-        return "Manipulator";
-    case RunCameraMode::Director:
-        return "Director";
-    default:
-        return "Unknown";
-    }
-}
-
-
-bool Run::IsDemoCameraModeAvailable() const
-{
-    if ( SceneState().isSceneMode )
-    {
-        return false;
-    }
-    return m_sceneController.Models().SceneEntityCount() > 0;
-}
-
-
-RunCameraMode Run::NormalizeCameraModeForCurrentScene( RunCameraMode mode ) const
-{
-    return NormalizeRuntimeCameraMode( mode, SceneState().isSceneMode, CameraModeEnabledMask() );
-}
-
-
-uint32_t Run::CameraModeEnabledMask() const
-{
-    return RuntimeCameraModeEnabledMask( m_sceneController );
 }
 
 

@@ -215,6 +215,35 @@ const AttachedCameraState& AttachedCameraController::State() const
 }
 
 
+const char* AttachedCameraController::ModeLabel() const
+{
+    static thread_local char label[96];
+    const char* submode = "Fixed";
+    if ( m_state.submode == AttachedCameraSubmode::VelocityForward )
+    {
+        submode = "Velocity";
+    }
+    else if ( m_state.submode == AttachedCameraSubmode::RagdollEyes )
+    {
+        submode = "Eyes";
+    }
+    if ( m_state.target.modelIndex < 0 )
+    {
+        sprintf_s( label, sizeof( label ), "Attach: pick target%s", m_state.activeFollow ? "" : " Pinned" );
+    }
+    else
+    {
+        sprintf_s( label,
+                   sizeof( label ),
+                   "Attach: %s %s%s",
+                   submode,
+                   m_state.target.name[0] ? m_state.target.name : "target",
+                   m_state.activeFollow ? "" : " Pinned" );
+    }
+    return label;
+}
+
+
 void AttachedCameraController::CaptureReturnState( RunCameraMode previousMode, Environment::CameraCollection& cameras )
 {
     if ( previousMode == RunCameraMode::Attach )

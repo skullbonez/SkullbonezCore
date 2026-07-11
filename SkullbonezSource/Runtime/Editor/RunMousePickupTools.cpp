@@ -27,7 +27,7 @@ Related:
   - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
   - Agentic/Reference/comment-style-guide.md
 */
-#include "../RunInternal.h"
+#include "../Run.h"
 #include "../RuntimePickService.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
@@ -44,6 +44,8 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+using Math::Vector::Vector3;
+using Math::Vector::VectorMagSquared;
 using Physics::PhysicsBodyRecord;
 using Physics::PhysicsBodyStore;
 

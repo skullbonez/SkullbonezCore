@@ -21,8 +21,12 @@ Related:
   - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
 */
-#include "../RunInternal.h"
+#include "ReplayRuntime.h"
+#include "../../Assets/AssetKeys.h"
+#include "../CameraCollection.h"
 #include "../InputController.h"
+#include "../InputRouter.h"
+#include "../../Core/Profiler.h"
 #include "ReplayOverlayLayout.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
@@ -33,7 +37,6 @@ Related:
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Basics::RunInternal;
 using namespace SkullbonezCore::Basics::ReplayOverlay;
 
 namespace

@@ -30,9 +30,10 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
-#include "RunInternal.h"
 #include "InputFrame.h"
 #include "AttachedCameraController.h"
+#include "ApplicationExitState.h"
+#include "Diagnostics/DiagnosticsRuntime.h"
 #include "Editor/EditorTools.h"
 #include "InputController.Bindings.h"
 #include "InputController.h"
@@ -40,15 +41,31 @@ Related:
 #include "Replay/ReplayRestoreService.h"
 #include "Replay/ReplayRuntimeOwnerViews.h"
 #include "RunDemoDirector.h"
+#include "GraphicsStressController.h"
+#include "RenderDefaultsStore.h"
+#include "Render/RuntimeRenderer.h"
+#include "RunDebugState.h"
+#include "RunLaunchOptions.h"
+#include "RunRuntimeSettings.h"
+#include "RunStartupState.h"
+#include "RunSubsystemState.h"
+#include "RunTimerState.h"
+#include "RuntimeViewModel.h"
+#include "Tools/RuntimeTools.h"
 #include "RuntimeInteractionCommands.h"
 #include "Scene/SceneRuntimeCreate.h"
 #include "RuntimeTuning.h"
 #include "Scene/SceneRuntimeGeneratedControls.h"
 #include "Scene/SceneRuntimeLoad.h"
 #include "Scene/SceneRuntimeStyle.h"
+#include "Scene/SceneController.h"
+#include "Audio/ContactAudioService.h"
 #include "../Core/Log.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsBodyStore.h"
+#include "../Physics/SimulationSystem.h"
+#include "../UI/UI.h"
+#include "../Rendering/IRenderDiagnostics.h"
 #include "../UI/UILayout.h"
 
 #include <cstddef>
@@ -63,6 +80,9 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
 using namespace SkullbonezCore::Basics::RunInternal;
+using SkullbonezCore::Hardware::Input;
+using SkullbonezCore::Hardware::InputState;
+using SkullbonezCore::UI::InGameUITab;
 
 
 // Concept: the input turn is an orchestration boundary, not a new domain owner.
@@ -119,7 +139,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
     };
     const auto RunUIStressActions = [&]()
     {
-        return RunInternal::RunUIStressActions(
+        return SkullbonezCore::Basics::RunUIStressActions(
             m_diagnosticsRuntime,
             m_systems.window,
             m_timers,
@@ -181,7 +201,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
         }
         const RenderDefaultsSaveBatchResult batch =
             m_renderDefaults.DrainAtFrameCheckpoint( m_config.ordinaryRender,
-                                                     RuntimeActiveCinematicConfig( SceneState(), m_config ) );
+                                                     ActiveSceneCinematicConfig( SceneState(), m_config ) );
         if ( !batch.status.ok )
         {
             std::fprintf( stderr, "%s: %s\n", batch.status.error.owner, batch.status.error.message );
@@ -698,7 +718,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                               m_sceneController.Models(),
                                               m_sceneController.Entities(),
                                               m_systems.assets,
-                                              RuntimeActiveCinematicConfig( SceneState(), m_config ),
+                                              ActiveSceneCinematicConfig( SceneState(), m_config ),
                                               m_defaultCinematicRender },
                     cinematicIndex );
             if ( !appliedCinematic )

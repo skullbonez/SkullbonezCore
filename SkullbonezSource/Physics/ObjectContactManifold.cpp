@@ -36,6 +36,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "ObjectContactManifold.h"
+#include "../Assets/AssetKeys.h"
 
 #include <algorithm>
 #include <cstddef>

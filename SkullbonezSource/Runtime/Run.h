@@ -158,8 +158,6 @@ class Run
     inline static int sPerfPass = 0;
     void Render( const RuntimeRenderModelFrameView&
                      renderModels );                                    // Skips 3D in text-only runs, then records passes for the current camera state.
-    RunSceneState& SceneState();                                        // Mutable scene-run state owned by SceneController
-    const RunSceneState& SceneState() const;                            // Read-only scene-run state owned by SceneController
     void RefreshRuntimeViewModel();                                     // Rebuilds scalar presentation state from narrow owner borrows
     void RelativeUpdateCamera( uint32_t hash );                         // Keeps non-selected relative cameras inside terrain height limits.
     void UpdateLogic( float simulationDt, float cameraDt );             // simulationDt drives physics; cameraDt is unscaled wall time.
@@ -169,18 +167,7 @@ class Run
     void WriteInteractionAutomationReport();                            // Writes JSON result for --interaction-report.
     bool TryFindInteractionAutomationModel( const char* name, int& outIndex ) const;
     bool TryProjectInteractionAutomationModel( const char* name, POINT& outMouse );
-    RuntimeInteractionTransition EnterInteractionForCameraMode(
-        RunCameraMode mode );                                           // Converts camera/tool requests into controller workspace transitions.
-    const char* CameraModeLabel( RunCameraMode mode ) const;            // Compact name for UI and transition diagnostics.
-    uint32_t CameraModeEnabledMask() const;                             // One bit per camera mode; disabled modes remain visible in UI.
-    bool IsDemoCameraModeAvailable() const;                             // True when Demo can track at least one live model.
-    RunCameraMode NormalizeCameraModeForCurrentScene(
-        RunCameraMode mode ) const;                                     // Clamps passive camera modes to generated-demo vs authored-scene ownership.
-    SbResult ReleaseBackendOwnedRenderResources(
-        const char* phaseName );                                        // Ordered GPU-resource release hook while the backend is alive.
-    SbResult RebuildRegisteredRenderResources();                        // Recreates renderer resources from source asset records.
     void SetViewingOrientation();                                       // Camera-view setup for the current frame.
-    SbResult SaveScreenshot( const char* path );                        // Lane R backbuffer capture result; current encoder writes BMP files.
     void EnterInteractiveSceneRun();                                    // Locks scene automation into non-quitting interactive mode
     bool CanSceneAutomationQuit() const;                                // True for CLI suites/tests; false once the user owns scene flow
     void HoldCompletedInteractiveScene();                               // Keep the current scene alive after interactive automation completes
@@ -193,15 +180,12 @@ class Run
     // --- Per-frame tick helpers (called from Execute()) ---
     void TickPhysics( double dt );                                      // Physics dispatch: fixed-step and variable-step accumulator
     bool TickScreenshots();                                             // Screenshot triggers; returns true when frame should restart (continue)
-    void TickLiveStyleControl();                                        // Poll live.style.json/capture.txt and apply look changes without scene reload
     void TickLiveStyleControlCapture();
     void TickAutoCycle();                                               // Auto-cycle ball capture; posts WM_QUIT when all balls captured
     bool TickSceneAdvance();                                            // Frame count, exit/hold on completion, restarts; returns true to continue
     void UpdateWaterHeightControls( float dt );                         // Slide water surface up/down while held
 #ifdef _DEBUG
     void LogSceneFinished( const char* reason );
-    void BeginPhysicsDiagnosticsRun( const char* scenePath );
-    void EndPhysicsDiagnosticsRun( const char* status );
 #endif
 
   public:
@@ -222,7 +206,6 @@ class Run
         const char* scriptPath,
         const char* reportPath );                                       // CLI harness for deterministic world-click interaction scripts.
     SbResult InteractionAutomationResult() const;                       // Non-throwing CLI automation result after Execute().
-    void DumpTextureAssets( FILE* out ) const;
 };
 } // namespace Basics
 } // namespace SkullbonezCore

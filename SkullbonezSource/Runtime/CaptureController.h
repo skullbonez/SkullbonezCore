@@ -57,7 +57,8 @@ class CaptureController
     const RunScreenshotState& Screenshot() const;
 
     void ResetScreenshot();
-    RuntimeCaptureResult TickScreenshots( const RuntimeCaptureSceneContext& context, const RuntimeCaptureSink& sink );
+    RuntimeCaptureResult TickScreenshots( const RuntimeCaptureSceneContext& context,
+                                          Rendering::IRenderCaptureBackend& backend );
     RuntimeCaptureResult TickAutoCycle( bool isSceneMode,
                                         bool isInteractiveRun,
                                         int ballCount,
@@ -65,7 +66,7 @@ class CaptureController
                                         float& autoCycleAccum,
                                         int& autoCycleShotsTaken,
                                         int& trackBallIndex,
-                                        const RuntimeCaptureSink& sink );
+                                        Rendering::IRenderCaptureBackend& backend );
 
     // Accepts one bounded BMP path for the next input-frame capture checkpoint.
     // Invalid or truncating paths return Lane R failure without entering the queue.

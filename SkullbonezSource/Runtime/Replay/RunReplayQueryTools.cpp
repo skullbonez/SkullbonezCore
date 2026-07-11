@@ -20,7 +20,8 @@ Related:
   - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
   - SkullbonezSource/Runtime/RuntimePickService.h
 */
-#include "../RunInternal.h"
+#include "ReplayRuntime.h"
+#include "../Scene/SceneEntityStore.h"
 #include "../RuntimePickService.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
@@ -34,7 +35,6 @@ using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {

@@ -40,6 +40,7 @@ Related:
 #include <vector>
 
 #include "ColliderStore.h"
+#include "../GameObjects/SceneCapacity.h"
 #include "PersistentContactSolver.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsDiagnosticsSink.h"

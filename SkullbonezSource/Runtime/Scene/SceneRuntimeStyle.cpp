@@ -27,6 +27,8 @@ Related:
   - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #include "SceneRuntimeStyle.h"
+#include "../WindowConstants.h"
+#include "../RunDebugState.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Scene/TestScene.h"
@@ -40,6 +42,31 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+CinematicRenderConfig& ActiveSceneCinematicConfig( RunSceneState& scene, EngineConfig& config )
+{
+    return scene.isSceneMode ? scene.cinematicRender : config.cinematicRender;
+}
+
+
+const CinematicRenderConfig& ActiveSceneCinematicConfig( const RunSceneState& scene, const EngineConfig& config )
+{
+    return scene.isSceneMode ? scene.cinematicRender : config.cinematicRender;
+}
+
+
+bool IsSceneCinematicRenderingEnabled( const RunSceneState& scene,
+                                       const EngineConfig& config,
+                                       const RunLaunchOptions& launchOptions,
+                                       const RunDebugState& debug,
+                                       bool graphicsReady )
+{
+    const bool enabled = launchOptions.hasCinematicRenderingOverride
+                             ? launchOptions.cinematicRendering
+                             : ActiveSceneCinematicConfig( scene, config ).enabled;
+    return enabled && graphicsReady && !debug.isTextOnly;
+}
+
+
 namespace
 {
 using SkullbonezCore::GameObjects::GameModelCollection;

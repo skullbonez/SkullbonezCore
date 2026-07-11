@@ -38,6 +38,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsScene.h
 */
 #include "PhysicsScene.h"
+#include "../GameObjects/SceneCapacity.h"
 #include "PhysicsApi.h"
 
 #include "../Core/Common.h"

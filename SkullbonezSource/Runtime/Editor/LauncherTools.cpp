@@ -27,10 +27,20 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
-#include "../RunInternal.h"
+#include "../Tools/RuntimeTools.h"
+#include "../CameraCollection.h"
+#include "../RunDebugState.h"
+#include "../RunLaunchOptions.h"
+#include "../RunRuntimeSettings.h"
+#include "../Scene/SceneGeneratedSetup.h"
+#include "../Scene/SceneRuntime.h"
+#include "../../GameObjects/GameModelCollection.h"
+#include "../../World/WorldEnvironment.h"
 #include "../Scene/SceneEntityStore.h"
 #include "../../Physics/ColliderStore.h"
+#include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsBodyStore.h"
+#include "../../World/TerrainSupportClassifier.h"
 
 #include <cfloat>
 #include <memory>
@@ -41,12 +51,16 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Basics::RunInternal;
+using SkullbonezCore::Environment::CameraCollection;
 using SkullbonezCore::GameObjects::GameModelCollection;
+using SkullbonezCore::Math::Vector::Vector3;
 
 #ifdef _DEBUG
 namespace
 {
+constexpr const char* LAUNCHER_REPRO_SNAPSHOT_PATH = "Debug/launcher_repro_snapshots.txt";
+constexpr double LAUNCHER_REPRO_MESSAGE_SECONDS = 3.0;
+
 const char* LauncherReproShapeName( ColliderShapeKind kind )
 {
     switch ( kind )
@@ -87,7 +101,7 @@ const PhysicsBodyRecord* LauncherReproBodyForCollider( const PhysicsBodyStore& b
 
 
 bool RuntimeTools::PickLauncherReproTarget( GameModelCollection& collection,
-                                            CameraCollection* cameras,
+                                            SkullbonezCore::Environment::CameraCollection* cameras,
                                             int& outIndex,
                                             float& outRayT,
                                             float& outCrosshairDistance ) const

@@ -35,6 +35,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Window.h"
+#include "WindowConstants.h"
 #include "../Rendering/IRenderDeviceLifecycle.h"
 #include "Input.h"
 #include "../Core/Log.h"

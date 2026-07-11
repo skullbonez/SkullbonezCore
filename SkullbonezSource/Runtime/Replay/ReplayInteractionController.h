@@ -39,6 +39,12 @@ class PhysicsEngine;
 }
 namespace Basics
 {
+// Invariant: replay input clamping and editor visualization share this exact
+// scale so gizmo affordances cannot advertise velocity the command rejects.
+inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_MAX = 140.0f;
+inline constexpr float REPLAY_VELOCITY_EDIT_ANGULAR_MAX = 5.0f;
+inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_EXTRA = 36.0f;
+
 struct ReplayVelocityEditInputFrame
 {
     bool leftDown = false;

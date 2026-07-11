@@ -21,7 +21,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
-  - SkullbonezSource/Runtime/RunInternal.h
+  - SkullbonezSource/Runtime/Editor/EditorTools.h
 */
 #include "EditorTools.h"
 #include "../Tools/RuntimeTools.h"

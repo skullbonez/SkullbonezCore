@@ -50,6 +50,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "GameModelCollection.h"
+#include "../Core/Config.h"
 
 #include "../Core/FatalError.h"
 #include "../Core/MainMemoryStats.h"

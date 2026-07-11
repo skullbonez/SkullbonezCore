@@ -134,6 +134,9 @@ class AttachedCameraController
   public:
     AttachedCameraState& State();
     const AttachedCameraState& State() const;
+    // Lifetime: returns thread-local presentation text valid until the next
+    // ModeLabel call on the same thread; callers must not retain the pointer.
+    const char* ModeLabel() const;
     void CaptureReturnState( RunCameraMode previousMode, Environment::CameraCollection& cameras );
     void RestoreReturnState( Environment::CameraCollection& cameras );
     bool ResolveTargetIdentity( const GameObjects::GameModelCollection& collection, int& outModelIndex );

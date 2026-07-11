@@ -43,6 +43,7 @@ Related:
 #include <vector>
 
 #include "PhysicsHandles.h"
+#include "../GameObjects/SceneCapacity.h"
 #include "PhysicsFixedList.h"
 #include "../Maths/Quaternion.h"
 #include "../Maths/Vector3.h"

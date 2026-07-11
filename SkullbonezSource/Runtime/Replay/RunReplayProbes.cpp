@@ -27,7 +27,10 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
   - Agentic/Reference/comment-style-guide.md
 */
-#include "../RunInternal.h"
+#include "ReplayRuntime.h"
+#include "../Diagnostics/DiagnosticsRuntime.h"
+#include "../Scene/SceneController.h"
+#include "../RunSubsystemState.h"
 #include "../RuntimeTuning.h"
 #include "../Editor/EditorTools.h"
 #include "ReplayInteractionController.h"
@@ -36,6 +39,8 @@ Related:
 #include "ReplayV2Artifact.h"
 
 #include "../../Core/FatalError.h"
+#include "../../Core/Profiler.h"
+#include "../../Physics/SimulationSystem.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngineStoreQueries.h"
@@ -1398,6 +1403,7 @@ void FormatReplayRestoreDivergenceMessage( char* message,
 struct ReplayRestoreStepContext
 {
     RuntimeTools& runtimeTools;
+    SceneController& sceneController;
     RunSceneState& scene;
     const EngineConfig& config;
     RunSubsystemState& systems;
@@ -1508,12 +1514,10 @@ bool StepReplayRestoreTarget( ReplayRestoreStepContext& context,
         context.models.BeginCollisionVisualFrame();
 
         const auto physicsWorldForces = context.world.GetPhysicsWorldForces();
-        StepRuntimePhysicsTick( context.models,
-                                context.eventContext.physics,
-                                PHYSICS_FIXED_DT,
-                                context.config,
-                                physicsWorldForces,
-                                *context.systems.workerPool );
+        context.sceneController.StepPhysics( PHYSICS_FIXED_DT,
+                                             context.config,
+                                             physicsWorldForces,
+                                             *context.systems.workerPool );
         result.currentFrame = nextFrame;
 
         const ReplayV2SolverHashSample* expectedHash =
@@ -1888,6 +1892,7 @@ bool RunReplayRestoreTargetStep( ReplayRestoreOwnerContext& context,
                                                    context.sceneController.Physics(),
                                                    context.gameModelCapacity };
     ReplayRestoreStepContext stepContext{ context.runtimeTools,
+                                          context.sceneController,
                                           context.scene,
                                           context.config,
                                           context.systems,

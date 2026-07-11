@@ -43,6 +43,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "PersistentContactSolver.h"
+#include "../Assets/AssetKeys.h"
 
 #include "../Core/Config.h"
 #include "ContactSolverCommon.h"

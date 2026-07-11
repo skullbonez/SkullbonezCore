@@ -37,7 +37,18 @@ Related:
   - SkullbonezSource/Rendering/RenderPipeline.h owns executed frame graph diagnostics.
   - Agentic/Reference/comment-style-guide.md
 */
-#include "../RunInternal.h"
+#include "RuntimeRenderer.h"
+#include "../../Assets/AssetKeys.h"
+#include "RuntimeRenderPasses.h"
+#include "../CameraCollection.h"
+#include "../RunCameraState.h"
+#include "../RunSubsystemState.h"
+#include "../RunTimerState.h"
+#include "../RuntimeDiagnostics.h"
+#include "../Window.h"
+#include "../Scene/SceneController.h"
+#include "../Tools/RuntimeTools.h"
+#include "../Debug/CollisionVisualizer.h"
 #include "../Scene/SceneTerrain.h"
 #include "../Allocation/RuntimeAllocationTracker.h"
 #include "../Allocation/RuntimeReserveAllocator.h"
@@ -45,13 +56,18 @@ Related:
 #include "../../Assets/TextureCollection.h"
 #include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
+#include "../../Core/Profiler.h"
+#include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsEngineStoreQueries.h"
 #include "../../Rendering/Helper.h"
 #include "../../Rendering/IRenderDiagnostics.h"
+#include "../../Rendering/IRenderDeviceLifecycle.h"
 #include "../../Rendering/RenderInstanceStore.h"
 #include "../../Rendering/RenderGraph.h"
 #include "../../Rendering/RenderPipeline.h"
+#include "../../World/SkyBox.h"
+#include "../../World/WorldEnvironment.h"
 
 #include <algorithm>
 #include <chrono>
@@ -71,6 +87,7 @@ namespace Math = SkullbonezCore::Math;
 namespace Physics = SkullbonezCore::Physics;
 namespace Rendering = SkullbonezCore::Rendering;
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+using SkullbonezCore::Math::Vector::Vector3;
 
 namespace
 {

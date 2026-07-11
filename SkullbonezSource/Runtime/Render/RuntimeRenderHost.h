@@ -172,6 +172,9 @@ struct RuntimeRenderBackendView
     Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;   // Capability, draw-trace, timer, and memory snapshots.
     Rendering::IRenderCaptureBackend* captureBackend = nullptr;   // Screenshot/readback capability.
     Rendering::IRenderRayTracing* rayTracingBackend = nullptr;    // Optional DXR facet borrowed from the active renderer.
+
+    // Returns the startup-required capture facet or terminates through Lane F.
+    Rendering::IRenderCaptureBackend& RequireCaptureBackend() const;
 };
 
 } // namespace Basics

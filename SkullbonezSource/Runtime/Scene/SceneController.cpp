@@ -25,19 +25,78 @@ Related:
 #include "SceneController.h"
 
 #include "../../Core/FatalError.h"
+#include "../../Core/Config.h"
+#include "../../Core/Log.h"
+#include "../../Core/WorkerPool.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsEngineStoreQueries.h"
+#include "../../Physics/PhysicsDiagnosticsSink.h"
+#include "../../Physics/PhysicsWorldForces.h"
 
+#include <cstdarg>
 #include <cstring>
 #include <utility>
+#include <vector>
 
 namespace SkullbonezCore
 {
 namespace Basics
 {
+namespace
+{
+#ifdef _DEBUG
+void WriteScenePhysicsDiagnosticsCsv( void*, const char* fileName, const char* fmt, va_list args )
+{
+    // Why: Physics receives only a value writer; the scene owner keeps the
+    // process logging dependency outside the solver and its hot store loops.
+    Log().WriteVf( fileName, fmt, args );
+}
+#endif
+} // namespace
+
 SceneController::SceneController() : m_models( m_physics )
 {
+}
+
+
+void SceneController::StepPhysics( float fixedDt,
+                                   const EngineConfig& config,
+                                   const Physics::PhysicsWorldForces& worldForces,
+                                   Threading::WorkerPool& workerPool )
+{
+    const int modelCount = m_models.SceneEntityCount();
+    // Invariant: PhysicsBodyStore is the per-tick body authority. Descriptor
+    // sidecars are imported only when topology changes; same-count editor or
+    // replay mutations must commit explicitly before this step reads rows.
+    m_models.RepairPhysicsBodyAndColliderTopology();
+    m_models.TickContactHighlights( modelCount, fixedDt );
+
+    const char* const* diagnosticNames = nullptr;
+    int diagnosticNameCount = 0;
+    Physics::PhysicsDiagnosticsCsvWriter diagnosticsCsvWriter;
+#ifdef _DEBUG
+    diagnosticsCsvWriter.writeVf = WriteScenePhysicsDiagnosticsCsv;
+    std::vector<const char*> physicsDiagnosticsModelNames;
+    if ( m_physics.ShouldEmitStepDiagnostics() || m_physics.ShouldEmitCollisionTimeDiagnostics() )
+    {
+        // Lifetime: Debug diagnostics borrow name pointers only until Step
+        // returns; physics never retains this presentation table.
+        m_models.FillPhysicsDiagnosticsNames( Physics::PhysicsEngineStoreQueries::BodyStore( m_physics ).Count(),
+                                              physicsDiagnosticsModelNames );
+        diagnosticNames = physicsDiagnosticsModelNames.empty() ? nullptr : physicsDiagnosticsModelNames.data();
+        diagnosticNameCount = static_cast<int>( physicsDiagnosticsModelNames.size() );
+    }
+#endif
+    m_physics
+        .Step( fixedDt, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount, diagnosticsCsvWriter );
+
+    // Why: fixed-contact highlights are presentation feedback, not solver
+    // state. Keeping this edge beside the scene stores makes that split visible.
+    for ( int index : Physics::PhysicsEngineStoreQueries::FixedContactHighlightBodies( m_physics ) )
+    {
+        m_models.NotifyFixedContact( index, 0.5f );
+    }
 }
 
 

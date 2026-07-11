@@ -36,6 +36,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "../Core/Common.h"
+#include "WindowConstants.h"
 #include "../Core/Log.h"
 #include "Audio/ContactAudioService.h"
 #include "Run.h"
@@ -3059,6 +3060,7 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     launch.hasCinematicShadowsOverride = args.hasCinematicShadowsOverride;
     launch.cinematicShadows = args.cinematicShadows;
     launch.demoHeroStyle = args.demoHeroStyle;
+    launch.dumpTextureAssets = args.dumpAssets;
     launch.interactiveSceneRun = args.interactiveRun;
     launch.frameCountOverride = args.frameCountOverride;
     launch.uiStress = args.uiStress;
@@ -3203,10 +3205,6 @@ int RunApp( Window* window,
                 {
                     return reportInteractionAutomationResult( automationSetupResult );
                 }
-            }
-            if ( args.dumpAssets )
-            {
-                cRun->DumpTextureAssets( stdout );
             }
             if ( args.sceneLoadOnly )
             {

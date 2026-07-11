@@ -24,6 +24,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "UITabProfiler.h"
+#include "../Assets/AssetKeys.h"
 
 #include "../Core/Common.h"
 #include "../Rendering/Text.h"

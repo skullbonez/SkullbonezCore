@@ -1,7 +1,7 @@
 # Runtime Shell Decomposition
 
 Date: 2026-07-11 (reconciled)
-Status: In progress — 21/27 checklist items complete; earlier
+Status: In progress — 24/27 checklist items complete; earlier
 foundation work is summarized separately and is not mixed into this count
 Impact area: runtime architecture, scene lifecycle, input routing, render host
 Owner: application composition root
@@ -1167,11 +1167,31 @@ defect.
 
 ### E. Collapse compatibility surfaces
 
-- [ ] E1. Retire `RunInternal.h`; constants/helpers move to a single owner and
+- [x] E1. Retire `RunInternal.h`; constants/helpers move to a single owner and
   no sibling `Internal` header replaces it.
-- [ ] E2. Delete `Run::*` wrappers that only forward to a subsystem.
-- [ ] E3. Slim `Core/Common.h`: remove the stale config compatibility include
+- [x] E2. Delete `Run::*` wrappers that only forward to a subsystem.
+- [x] E3. Slim `Core/Common.h`: remove the stale config compatibility include
   and alias includes according to current consumers.
+
+E1-E3 acceptance evidence (2026-07-11): `RunInternal.h` and the forwarding-only
+`RunCapture.cpp` facade are deleted from disk and project metadata. Constants
+now live with input, scene, replay, launcher, camera, render, or runtime-settings
+owners; live physics stepping is a `SceneController` boundary. Screenshot policy
+receives `CaptureController` plus the typed render-capture facet directly, so no
+`void*`/callback can recover `Run`. The remaining direct-delegate audit deleted
+the renderer-release and live-style `Run::*` wrappers; the sole trivial `Run`
+return accessor is the final scene result consumed at application exit.
+`Core/Common.h` contains no config, asset-key, window, math, scene-capacity, or
+physics-timestep include and every compiler-exposed consumer now includes its
+owner contract directly. Deletion searches found zero `RunInternal.h`,
+`RuntimeCaptureSink`, deleted wrapper definition, or Common domain-include
+matches. All 100 touched source-bearing files were inspected against the
+comment guide (100 checked, 0 deferred). Focused Debug build passed with zero
+warnings/errors in 7.6s. `tools\validate_full.bat` then passed in 122.0s:
+format/project metadata, 130/130 doctest cases and 2,770 assertions, standalone
+CPU suites, zero-warning Profile/Debug builds, DX12 with zero InfoQueue errors
+and matching screenshots, standalone physics handle smoke, and the 44,401-line
+varied physics baseline byte-exactly.
 
 ### F. Prove the god object is gone
 

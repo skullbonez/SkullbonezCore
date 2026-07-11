@@ -28,6 +28,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Text.h"
+#include "../Runtime/WindowConstants.h"
 #include "../Assets/AssetSystem.h"
 #include "IRenderCommandContext.h"
 #include "IRenderResourceFactory.h"

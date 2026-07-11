@@ -32,7 +32,7 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
-#include "RunInternal.h"
+#include "Run.h"
 #include "InputFrame.h"
 #include "Replay/ReplayRuntimeOwnerViews.h"
 #include "RunDemoDirector.h"
@@ -47,12 +47,15 @@ Related:
 
 #include "../Core/FatalError.h"
 #include "../Core/Log.h"
+#include "../Core/Profiler.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsEngineStoreQueries.h"
 #include "../Physics/PhysicsApi.h"
 #include "../Physics/PhysicsDiagnosticsSink.h"
 #include "../Physics/PhysicsTimestep.h"
 #include "../Rendering/RenderInstanceStore.h"
+#include "../Rendering/IRenderDiagnostics.h"
+#include "../Rendering/IRenderDeviceLifecycle.h"
 
 #include <cmath>
 #include <cstdarg>
@@ -74,6 +77,10 @@ namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace
 {
+constexpr double PERF_TEST_PASS_SECONDS = 2.0;
+constexpr float WATER_HEIGHT_CONTROL_SPEED = 20.0f; // World meters per second.
+constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
+
 // Why: Profile builds do not emit Debug-only scene-finished telemetry, so
 // automation exits need an explicit stdout breadcrumb near the quit request.
 void PrintRuntimeExitReason( const char* reason )
@@ -155,8 +162,8 @@ void RenderExecuteUiTextFrame( ExecuteUiTextFrameContext& context, RefreshRuntim
         uiSceneBrowser,
         context.systems.renderPasses,
         context.systems.workerPool,
-        RuntimeWindowScreenWidth( context.systems, context.config ),
-        RuntimeWindowScreenHeight( context.systems, context.config ),
+        context.systems.window ? context.systems.window->ClientWidth() : context.config.window.screenX,
+        context.systems.window ? context.systems.window->ClientHeight() : context.config.window.screenY,
         context.sceneController.QueueSize(),
         context.sceneController.HasCurrentEntry(),
         uiScenePath ? uiScenePath->c_str() : nullptr,
@@ -173,8 +180,8 @@ void RenderExecuteUiTextFrame( ExecuteUiTextFrameContext& context, RefreshRuntim
     if ( context.renderer.ShouldRenderUiText( uiTextState ) )
     {
         refreshRuntimeViewModel();
-        const CinematicRenderConfig& uiCinematic = RuntimeActiveCinematicConfig( context.scene, context.config );
-        const bool uiCinematicRendering = RuntimeCinematicRenderingEnabled( context.scene,
+        const CinematicRenderConfig& uiCinematic = ActiveSceneCinematicConfig( context.scene, context.config );
+        const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( context.scene,
                                                                             context.config,
                                                                             context.launchOptions,
                                                                             context.debug,
@@ -184,8 +191,8 @@ void RenderExecuteUiTextFrame( ExecuteUiTextFrameContext& context, RefreshRuntim
             context.ui.IsVisible(),
             context.ui.IsMinimized(),
             context.scene.isScenePhysics,
-            RuntimeWindowScreenWidth( context.systems, context.config ),
-            RuntimeWindowScreenHeight( context.systems, context.config ),
+            context.systems.window ? context.systems.window->ClientWidth() : context.config.window.screenX,
+            context.systems.window ? context.systems.window->ClientHeight() : context.config.window.screenY,
             context.timers.simulationTimer.GetTotalTime(),
         };
         const int uiDrawCallStart = context.renderDiagnostics.GetFrameDrawCallCount();
@@ -277,70 +284,6 @@ void TickExecutePostPhysicsVisualizers( ExecutePostPhysicsVisualizationContext& 
 
 
 } // namespace
-
-namespace SkullbonezCore::Basics::RunInternal
-{
-#ifdef _DEBUG
-void WriteRuntimePhysicsDiagnosticsCsv( void*, const char* fileName, const char* fmt, va_list args )
-{
-    // Why: Physics receives only a value writer; the runtime frame edge owns the
-    // decision to route that writer to the process debug log singleton.
-    Log().WriteVf( fileName, fmt, args );
-}
-#endif
-
-// Concept: fixed-step edge.
-//
-// PhysicsEngine::Step owns the store-backed solve. GameModelCollection still
-// owns topology repair, model highlight timers, and Debug presentation names,
-// so the runtime frame applies those owner-side edges explicitly around the
-// store-owned engine step.
-void StepRuntimePhysicsTick( SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
-                             PhysicsEngine& physicsEngine,
-                             float fixedDt,
-                             const EngineConfig& config,
-                             const PhysicsWorldForces& worldForces,
-                             SkullbonezCore::Threading::WorkerPool& workerPool )
-{
-    const int modelCount = modelCollection.SceneEntityCount();
-    // Invariant: PhysicsBodyStore is the per-tick body authority. Descriptor
-    // sidecars are imported only when model/body/collider topology changes;
-    // same-count editor or replay mutations must commit explicitly before this
-    // step reads store rows.
-    modelCollection.RepairPhysicsBodyAndColliderTopology();
-    modelCollection.TickContactHighlights( modelCount, fixedDt );
-
-    const char* const* diagnosticNames = nullptr;
-    int diagnosticNameCount = 0;
-    PhysicsDiagnosticsCsvWriter diagnosticsCsvWriter;
-#ifdef _DEBUG
-    diagnosticsCsvWriter.writeVf = WriteRuntimePhysicsDiagnosticsCsv;
-    std::vector<const char*> physicsDiagnosticsModelNames;
-    if ( physicsEngine.ShouldEmitStepDiagnostics() || physicsEngine.ShouldEmitCollisionTimeDiagnostics() )
-    {
-        // Lifetime: Debug diagnostics borrow model name pointers only until
-        // Step returns; physics never retains this presentation table after
-        // emitting frame diagnostics.
-        modelCollection.FillPhysicsDiagnosticsNames(
-            SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physicsEngine ).Count(),
-            physicsDiagnosticsModelNames );
-        diagnosticNames = physicsDiagnosticsModelNames.empty() ? nullptr : physicsDiagnosticsModelNames.data();
-        diagnosticNameCount = static_cast<int>( physicsDiagnosticsModelNames.size() );
-    }
-#endif
-    physicsEngine
-        .Step( fixedDt, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount, diagnosticsCsvWriter );
-
-    // Why: fixed-contact highlights are presentation feedback, not solver
-    // state. Keeping this edge here leaves the normal step visibly store-owned
-    // instead of hiding side effects in GameModelCollection.
-    for ( int index : SkullbonezCore::Physics::PhysicsEngineStoreQueries::FixedContactHighlightBodies( physicsEngine ) )
-    {
-        modelCollection.NotifyFixedContact( index, 0.5f );
-    }
-}
-
-} // namespace SkullbonezCore::Basics::RunInternal
 
 namespace
 {
@@ -571,7 +514,7 @@ SbResult Run::Execute()
                 {
                     printf( "[graphics-stress] WM_QUIT received at frame=%d scene_frame=%d scene_loads=%d\n",
                             m_graphicsStress.FramesRun(),
-                            SceneState().currentFrame,
+                            m_sceneController.State().currentFrame,
                             m_graphicsStress.SceneLoadsRequested() );
                     fflush( stdout );
                 }
@@ -644,7 +587,15 @@ SbResult Run::Execute()
                                m_renderer,
                                m_sceneController,
                                sPerfPass );
-            TickLiveStyleControl();
+            m_liveStyle.Tick(
+                SceneRuntimeStyleContext{ m_launchOptions,
+                                          m_sceneController.State(),
+                                          m_sceneController.Browser(),
+                                          m_sceneController.Models(),
+                                          m_sceneController.Entities(),
+                                          m_systems.assets,
+                                          ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
+                                          m_defaultCinematicRender } );
             PROFILE_END( "Frame/Input" );
 
             m_sceneController.Models().BeginCollisionVisualFrame();
@@ -711,7 +662,7 @@ SbResult Run::Execute()
                                                           m_replayRuntime,
                                                           m_timers,
                                                           m_debug,
-                                                          SceneState(),
+                                                          m_sceneController.State(),
                                                           m_runtimeSettings,
                                                           m_config,
                                                           m_sceneController.World(),
@@ -723,8 +674,10 @@ SbResult Run::Execute()
                                                           m_sceneController,
                                                           m_systems,
                                                           m_launchOptions,
-                                                          CameraModeEnabledMask(),
-                                                          CameraModeLabel( m_camera.mode ),
+                                                          RuntimeCameraModeEnabledMask( m_sceneController ),
+                                                          m_camera.mode == RunCameraMode::Attach
+                                                              ? m_attachedCamera.ModeLabel()
+                                                              : RunCameraModeLabel( m_camera.mode ),
                                                           m_runtimeTools.LauncherFireModeLabel(),
                                                           RunCameraModeUsesLauncher( m_camera.mode ),
                                                           secondsPerFrame };
@@ -788,7 +741,7 @@ SbResult Run::Execute()
 #endif
 
             m_diagnosticsRuntime.TickPerfLog( RuntimePerfTickContext{ sPerfPass + 1,
-                                                                      SceneState().currentFrame + 1,
+                                                                      m_sceneController.State().currentFrame + 1,
                                                                       m_timers.physicsTime,
                                                                       m_timers.renderTime } );
 
@@ -823,7 +776,7 @@ void Run::TickPhysics( double secondsPerFrame )
     constexpr bool physicsCapture = false;
 #endif
     RuntimeInteractionFramePolicy policy = m_interaction.BuildFramePolicy(
-        RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
+        RuntimeInteractionFrameInput{ m_sceneController.State().isScenePhysics,
                                       stepRequested,
                                       false,
                                       replayLiveAdvanceHeld,
@@ -831,7 +784,7 @@ void Run::TickPhysics( double secondsPerFrame )
                                       m_runtimeTools.Editor().viewportLookActive,
                                       inputSnapshot.frameInput.replayInspectionLookActive,
                                       physicsCapture,
-                                      SceneState().timeScale } );
+                                      m_sceneController.State().timeScale } );
     if ( m_debug.isCrossScenePauseLocked )
     {
         // Invariant: the P-key pause lock outranks camera/tool mode. Launcher
@@ -849,9 +802,9 @@ void Run::TickPhysics( double secondsPerFrame )
     const bool canStepPhysics = m_systems.config != nullptr && m_systems.workerPool != nullptr;
     const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput{ secondsPerFrame,
                                                                               policy.physicsTimeScale,
-                                                                              SceneState().isSceneMode,
-                                                                              SceneState().isScenePhysics,
-                                                                              SceneState().isFixedStep,
+                                                                              m_sceneController.State().isSceneMode,
+                                                                              m_sceneController.State().isScenePhysics,
+                                                                              m_sceneController.State().isFixedStep,
                                                                               policy.physicsAdvance,
                                                                               stepRequested,
                                                                               canStepPhysics } );
@@ -869,12 +822,10 @@ void Run::TickPhysics( double secondsPerFrame )
                 ApplyMousePickupPhysicsStep();
             }
 
-            StepRuntimePhysicsTick( m_sceneController.Models(),
-                                    m_sceneController.Physics(),
-                                    PHYSICS_FIXED_DT,
-                                    *m_systems.config,
-                                    physicsWorldForces,
-                                    *m_systems.workerPool );
+            m_sceneController.StepPhysics( PHYSICS_FIXED_DT,
+                                           *m_systems.config,
+                                           physicsWorldForces,
+                                           *m_systems.workerPool );
 
             if ( manipulatorPhysics || replayCapture || contactAudioStep )
             {
@@ -894,18 +845,19 @@ void Run::TickPhysics( double secondsPerFrame )
         // Why: Scene-mode, no-physics harnesses intentionally skip simulation
         // UpdateLogic, but Director is presentation state. It still needs phase
         // style/camera entry work so authored show decks behave in static scenes.
-        DemoDirectorPlayback::Tick( m_camera,
-                                    m_sceneController.Cameras(),
-                                    m_replayRuntime.Prediction(),
-                                    SceneRuntimeStyleContext{ m_launchOptions,
-                                                              SceneState(),
-                                                              m_sceneController.Browser(),
-                                                              m_sceneController.Models(),
-                                                              m_sceneController.Entities(),
-                                                              m_systems.assets,
-                                                              RuntimeActiveCinematicConfig( SceneState(), m_config ),
-                                                              m_defaultCinematicRender },
-                                    static_cast<float>( secondsPerFrame ) );
+        DemoDirectorPlayback::Tick(
+            m_camera,
+            m_sceneController.Cameras(),
+            m_replayRuntime.Prediction(),
+            SceneRuntimeStyleContext{ m_launchOptions,
+                                      m_sceneController.State(),
+                                      m_sceneController.Browser(),
+                                      m_sceneController.Models(),
+                                      m_sceneController.Entities(),
+                                      m_systems.assets,
+                                      ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
+                                      m_defaultCinematicRender },
+            static_cast<float>( secondsPerFrame ) );
     }
 }
 
@@ -917,7 +869,7 @@ void Run::AfterPhysicsStep()
                                                m_runtimeSettings,
                                                m_timers,
                                                m_diagnosticsRuntime,
-                                               SceneState(),
+                                               m_sceneController.State(),
                                                m_debug,
                                                m_sceneController.Cameras(),
                                                m_runtimeTools,
@@ -933,11 +885,11 @@ void Run::AfterPhysicsStep()
     {
         const ReplayRuntime::SceneTimelineResetInput timelineReset = ReplayRuntime::DescribeSceneTimeline(
             m_sceneController,
-            SceneState(),
+            m_sceneController.State(),
             m_startup.gameModelCapacity,
             static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
         const ReplayProbeWorld replayWorld{
-            SceneState(),
+            m_sceneController.State(),
             m_runtimeSettings,
             m_debug,
             m_runtimeTools,
@@ -949,7 +901,9 @@ void Run::AfterPhysicsStep()
             m_startup.gameModelCapacity,
             m_diagnosticsRuntime,
             m_runtimeTools.MousePickup(),
-            NormalizeCameraModeForCurrentScene( m_camera.mode ),
+            NormalizeRuntimeCameraMode( m_camera.mode,
+                                        m_sceneController.State().isSceneMode,
+                                        RuntimeCameraModeEnabledMask( m_sceneController ) ),
             m_timers.simulationTimer.GetTotalTime(),
             timelineReset,
             ReplayRuntime::SceneTimelineResetOwners{
@@ -958,7 +912,9 @@ void Run::AfterPhysicsStep()
                 &m_sceneController.Cameras(),
                 m_sceneController.Terrain().Get(),
                 m_camera,
-                NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+                NormalizeRuntimeCameraMode( m_replayRuntime.Camera().restoreCameraMode,
+                                            m_sceneController.State().isSceneMode,
+                                            RuntimeCameraModeEnabledMask( m_sceneController ) ),
                 m_attachedCamera.State().activeFollow,
                 m_camera.director.grabbed } };
         // Why: ReplayRuntime owns probe sequencing and bounded failure state;
@@ -982,22 +938,22 @@ void Run::AfterPhysicsStep()
 
 void Run::EnterInteractiveSceneRun()
 {
-    SceneState().isInteractiveRun = true;
-    SceneState().isExitOnComplete = false;
+    m_sceneController.State().isInteractiveRun = true;
+    m_sceneController.State().isExitOnComplete = false;
     m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
 }
 
 
 bool Run::CanSceneAutomationQuit() const
 {
-    return !SceneState().isInteractiveRun;
+    return !m_sceneController.State().isInteractiveRun;
 }
 
 
 void Run::HoldCompletedInteractiveScene()
 {
-    SceneState().isTestComplete = true;
-    SceneState().isExitOnComplete = false;
+    m_sceneController.State().isTestComplete = true;
+    m_sceneController.State().isExitOnComplete = false;
     m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
     m_camera.autoCycleInterval = -1.0f;
     m_camera.autoCycleAccum = 0.0f;
@@ -1013,17 +969,14 @@ bool Run::TickScreenshots()
         return false;
     }
 
-    const RuntimeCaptureSink sink{ this,
-                                   []( void* context, const char* path ) -> SbResult
-                                   { return static_cast<Run*>( context )->SaveScreenshot( path ); } };
     const std::string* scenePath = m_sceneController.CurrentPath();
     const RuntimeCaptureResult result = m_diagnosticsRuntime.Capture().TickScreenshots(
-        RuntimeCaptureSceneContext{ SceneState().isSceneMode,
-                                    SceneState().isInteractiveRun,
-                                    SceneState().currentFrame,
+        RuntimeCaptureSceneContext{ m_sceneController.State().isSceneMode,
+                                    m_sceneController.State().isInteractiveRun,
+                                    m_sceneController.State().currentFrame,
                                     m_timers.simulationTimer.GetTimeSinceLastStart() * 1000.0,
                                     scenePath ? scenePath->c_str() : nullptr },
-        sink );
+        m_renderBackendView.RequireCaptureBackend() );
 
     PROFILE_END( "Frame/PostDraw/Screenshots" );
 
@@ -1072,7 +1025,7 @@ bool Run::TickScreenshots()
     {
         const SceneLoadRequest request = m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
                                                                          sPerfPass,
-                                                                         SceneState().isInteractiveRun );
+                                                                         m_sceneController.State().isInteractiveRun );
         const bool advanced = request.HasLoad() && m_sceneController
                                                        .Load( request,
                                                               m_config,
@@ -1130,18 +1083,15 @@ void Run::TickAutoCycle()
         return;
     }
 
-    const RuntimeCaptureSink sink{ this,
-                                   []( void* context, const char* path ) -> SbResult
-                                   { return static_cast<Run*>( context )->SaveScreenshot( path ); } };
     const RuntimeCaptureResult result =
-        m_diagnosticsRuntime.Capture().TickAutoCycle( SceneState().isSceneMode,
-                                                      SceneState().isInteractiveRun,
+        m_diagnosticsRuntime.Capture().TickAutoCycle( m_sceneController.State().isSceneMode,
+                                                      m_sceneController.State().isInteractiveRun,
                                                       m_sceneController.Models().SceneEntityCount(),
                                                       m_camera.autoCycleInterval,
                                                       m_camera.autoCycleAccum,
                                                       m_camera.autoCycleShotsTaken,
                                                       m_camera.trackBallIndex,
-                                                      sink );
+                                                      m_renderBackendView.RequireCaptureBackend() );
 
     if ( !result.captureResult.ok )
     {
@@ -1215,7 +1165,7 @@ bool Run::TickSceneAdvance()
         return false;
     }
 
-    ++SceneState().currentFrame;
+    ++m_sceneController.State().currentFrame;
 
     const std::vector<RunRequiredContactState>& requiredContacts = m_sceneController.RequiredContacts();
     const std::vector<RunRequiredBroadphaseXCellsState>& requiredBroadphaseXCells =
@@ -1226,16 +1176,17 @@ bool Run::TickSceneAdvance()
     const bool requiredContactsComplete = m_sceneController.RequiredContactsComplete();
     const bool requiredBroadphaseComplete = m_sceneController.RequiredBroadphaseXCellsComplete();
     const bool requiredSceneComplete = requiredContactsComplete && requiredBroadphaseComplete;
-    if ( hasRequiredSceneGate && requiredSceneComplete && !SceneState().isTestComplete )
+    if ( hasRequiredSceneGate && requiredSceneComplete && !m_sceneController.State().isTestComplete )
     {
 #ifdef _DEBUG
         LogSceneFinished( "required_scene_gates" );
 #endif
-        if ( SceneState().isExitOnComplete && CanSceneAutomationQuit() )
+        if ( m_sceneController.State().isExitOnComplete && CanSceneAutomationQuit() )
         {
-            if ( !executeSceneLoadRequest( m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
-                                                                           sPerfPass,
-                                                                           SceneState().isInteractiveRun ) ) )
+            if ( !executeSceneLoadRequest(
+                     m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
+                                                     sPerfPass,
+                                                     m_sceneController.State().isInteractiveRun ) ) )
             {
                 PostQuitMessage( 0 );
             }
@@ -1244,7 +1195,7 @@ bool Run::TickSceneAdvance()
 
         if ( CanSceneAutomationQuit() )
         {
-            SceneState().isTestComplete = true;
+            m_sceneController.State().isTestComplete = true;
         }
         else
         {
@@ -1253,14 +1204,16 @@ bool Run::TickSceneAdvance()
     }
 
     // Check if target frame count is reached (skip if screenshot auto-exit is still pending)
-    if ( SceneState().targetFrameCount > 0 && !m_diagnosticsRuntime.Capture().Screenshot().isScreenshotSaved )
+    if ( m_sceneController.State().targetFrameCount > 0 &&
+         !m_diagnosticsRuntime.Capture().Screenshot().isScreenshotSaved )
     {
-        if ( SceneState().currentFrame >= SceneState().targetFrameCount )
+        if ( m_sceneController.State().currentFrame >= m_sceneController.State().targetFrameCount )
         {
             const bool frameCountCompletesScene = !hasRequiredSceneGate || requiredSceneComplete;
 #ifdef _DEBUG
-            if ( !SceneState().isTestComplete &&
-                 ( frameCountCompletesScene || SceneState().currentFrame == SceneState().targetFrameCount ) )
+            if ( !m_sceneController.State().isTestComplete &&
+                 ( frameCountCompletesScene ||
+                   m_sceneController.State().currentFrame == m_sceneController.State().targetFrameCount ) )
             {
                 LogSceneFinished( frameCountCompletesScene ? "frame_count" : "required_scene_gates_missing" );
                 if ( !frameCountCompletesScene )
@@ -1301,11 +1254,12 @@ bool Run::TickSceneAdvance()
                 return false;
             }
 
-            if ( SceneState().isExitOnComplete && CanSceneAutomationQuit() )
+            if ( m_sceneController.State().isExitOnComplete && CanSceneAutomationQuit() )
             {
-                if ( !executeSceneLoadRequest( m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
-                                                                               sPerfPass,
-                                                                               SceneState().isInteractiveRun ) ) )
+                if ( !executeSceneLoadRequest(
+                         m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
+                                                         sPerfPass,
+                                                         m_sceneController.State().isInteractiveRun ) ) )
                 {
                     PostQuitMessage( 0 );
                 }
@@ -1315,7 +1269,7 @@ bool Run::TickSceneAdvance()
             {
                 if ( frameCountCompletesScene && CanSceneAutomationQuit() )
                 {
-                    SceneState().isTestComplete = true;
+                    m_sceneController.State().isTestComplete = true;
                 }
                 else if ( frameCountCompletesScene )
                 {
@@ -1326,41 +1280,42 @@ bool Run::TickSceneAdvance()
     }
 
     // Generated demo mode: restart every 20s to keep the sandbox moving indefinitely.
-    if ( !SceneState().isSceneMode &&
+    if ( !m_sceneController.State().isSceneMode &&
          !RunCameraModeUsesManualControls( m_camera.mode,
                                            m_attachedCamera.State().activeFollow,
                                            m_camera.director.grabbed ) &&
          m_timers.simulationTimer.GetTimeSinceLastStart() > 20.0 )
     {
-        const SbResult loadResult = m_sceneController.Load( SceneLoadRequest::Load( SceneState().currentSceneIndex,
-                                                                                    SceneState().isInteractiveRun,
-                                                                                    SceneState().isInteractiveRun,
-                                                                                    SceneState().isInteractiveRun ),
-                                                            m_config,
-                                                            m_launchOptions,
-                                                            m_defaultCinematicRender,
-                                                            m_startup,
-                                                            m_diagnosticsRuntime,
-                                                            m_runtimeSettings,
-                                                            m_timers,
-                                                            m_systems.assets,
-                                                            *m_systems.workerPool,
-                                                            *m_systems.window,
-                                                            m_inputRouter,
-                                                            m_interaction,
-                                                            m_camera,
-                                                            m_attachedCamera.State(),
-                                                            m_simulation,
-                                                            m_replayRuntime,
-                                                            m_contactAudio,
-                                                            m_UI,
-                                                            m_debug,
-                                                            m_graphicsStress,
-                                                            m_runtimeTools,
-                                                            m_physicsDebugVisualizer,
-                                                            m_renderBackendView,
-                                                            m_renderer,
-                                                            sPerfPass );
+        const SbResult loadResult =
+            m_sceneController.Load( SceneLoadRequest::Load( m_sceneController.State().currentSceneIndex,
+                                                            m_sceneController.State().isInteractiveRun,
+                                                            m_sceneController.State().isInteractiveRun,
+                                                            m_sceneController.State().isInteractiveRun ),
+                                    m_config,
+                                    m_launchOptions,
+                                    m_defaultCinematicRender,
+                                    m_startup,
+                                    m_diagnosticsRuntime,
+                                    m_runtimeSettings,
+                                    m_timers,
+                                    m_systems.assets,
+                                    *m_systems.workerPool,
+                                    *m_systems.window,
+                                    m_inputRouter,
+                                    m_interaction,
+                                    m_camera,
+                                    m_attachedCamera.State(),
+                                    m_simulation,
+                                    m_replayRuntime,
+                                    m_contactAudio,
+                                    m_UI,
+                                    m_debug,
+                                    m_graphicsStress,
+                                    m_runtimeTools,
+                                    m_physicsDebugVisualizer,
+                                    m_renderBackendView,
+                                    m_renderer,
+                                    sPerfPass );
         if ( !loadResult.ok )
         {
             return false;
@@ -1370,7 +1325,7 @@ bool Run::TickSceneAdvance()
     }
 
     // Perf-log scenes without an explicit frame count still use a timed pass duration.
-    if ( m_diagnosticsRuntime.PerfTestActive() && SceneState().targetFrameCount <= 0 &&
+    if ( m_diagnosticsRuntime.PerfTestActive() && m_sceneController.State().targetFrameCount <= 0 &&
          m_timers.simulationTimer.GetTimeSinceLastStart() > PERF_TEST_PASS_SECONDS )
     {
 #ifdef _DEBUG
@@ -1378,7 +1333,7 @@ bool Run::TickSceneAdvance()
 #endif
         if ( !executeSceneLoadRequest( m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
                                                                        sPerfPass,
-                                                                       SceneState().isInteractiveRun ) ) )
+                                                                       m_sceneController.State().isInteractiveRun ) ) )
         {
             if ( CanSceneAutomationQuit() )
             {
@@ -1399,7 +1354,7 @@ bool Run::TickSceneAdvance()
 void Run::UpdateLogic( float simulationDt, float cameraDt )
 {
     // Auto-cycle
-    if ( SceneState().isSceneMode && m_camera.autoCycleInterval > 0.0f )
+    if ( m_sceneController.State().isSceneMode && m_camera.autoCycleInterval > 0.0f )
     {
         m_camera.autoCycleAccum += simulationDt;
     }
@@ -1430,7 +1385,7 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
                                     RunCameraModeUsesManualControls( m_camera.mode,
                                                                      m_attachedCamera.State().activeFollow,
                                                                      m_camera.director.grabbed ),
-                                    SceneState().isSceneMode } );
+                                    m_sceneController.State().isSceneMode } );
     if ( RunCameraModeIsAttached( m_camera.mode ) )
     {
         const float orbitYawDelta =
@@ -1442,18 +1397,19 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
                                            orbitYawDelta,
                                            orbitPitchDelta );
     }
-    DemoDirectorPlayback::Tick( m_camera,
-                                m_sceneController.Cameras(),
-                                m_replayRuntime.Prediction(),
-                                SceneRuntimeStyleContext{ m_launchOptions,
-                                                          SceneState(),
-                                                          m_sceneController.Browser(),
-                                                          m_sceneController.Models(),
-                                                          m_sceneController.Entities(),
-                                                          m_systems.assets,
-                                                          RuntimeActiveCinematicConfig( SceneState(), m_config ),
-                                                          m_defaultCinematicRender },
-                                cameraDt );
+    DemoDirectorPlayback::Tick(
+        m_camera,
+        m_sceneController.Cameras(),
+        m_replayRuntime.Prediction(),
+        SceneRuntimeStyleContext{ m_launchOptions,
+                                  m_sceneController.State(),
+                                  m_sceneController.Browser(),
+                                  m_sceneController.Models(),
+                                  m_sceneController.Entities(),
+                                  m_systems.assets,
+                                  ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
+                                  m_defaultCinematicRender },
+        cameraDt );
 
     UpdateWaterHeightControls( simulationDt );
 

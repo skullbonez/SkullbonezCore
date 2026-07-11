@@ -30,6 +30,7 @@ Related:
 #pragma once
 
 #include "../../Core/Common.h"
+#include "../../GameObjects/SceneCapacity.h"
 #include "../../Rendering/IFramebuffer.h"
 #include "../../Rendering/IShader.h"
 #include "../../Rendering/Shadow.h"

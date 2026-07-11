@@ -27,10 +27,13 @@ Related:
   - SkullbonezSource/Runtime/Editor/EditorPlacementAssets.h
   - SkullbonezSource/Runtime/Editor/RunEditorPlacementAssets.cpp
 */
-#include "../RunInternal.h"
 #include "EditorPlacementAssets.h"
+#include "../../Assets/AssetKeys.h"
 #include "EditorTools.h"
 #include "EditorHullAssets.h"
+#include "../Tools/RuntimeTools.h"
+#include "../Scene/SceneControllerState.h"
+#include "../Scene/SceneRuntime.h"
 #include "../Scene/SceneAuthoredSetup.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/CollisionShape.h"

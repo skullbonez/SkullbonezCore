@@ -23,7 +23,7 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
-#include "RunInternal.h"
+#include "Run.h"
 #include "Scene/SceneRuntimeStyle.h"
 #include <cstdio>
 #include <cstring>
@@ -34,7 +34,6 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {
@@ -339,19 +338,6 @@ void LiveStyleController::MarkCaptureFailed( const char* message )
 }
 
 
-void Run::TickLiveStyleControl()
-{
-    m_liveStyle.Tick( SceneRuntimeStyleContext{ m_launchOptions,
-                                                SceneState(),
-                                                m_sceneController.Browser(),
-                                                m_sceneController.Models(),
-                                                m_sceneController.Entities(),
-                                                m_systems.assets,
-                                                RuntimeActiveCinematicConfig( SceneState(), m_config ),
-                                                m_defaultCinematicRender } );
-}
-
-
 void Run::TickLiveStyleControlCapture()
 {
     if ( !m_liveStyle.HasPendingCapture() )
@@ -359,7 +345,9 @@ void Run::TickLiveStyleControlCapture()
         return;
     }
 
-    const SbResult captureResult = SaveScreenshot( m_liveStyle.PendingScreenshotPath() );
+    const SbResult captureResult =
+        m_diagnosticsRuntime.Capture().SaveScreenshot( m_renderBackendView.RequireCaptureBackend(),
+                                                       m_liveStyle.PendingScreenshotPath() );
     if ( !captureResult.ok )
     {
         m_liveStyle.MarkCaptureFailed( captureResult.error.message );

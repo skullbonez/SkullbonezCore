@@ -23,10 +23,14 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
-#include "RunInternal.h"
+#include "Run.h"
+#include "InputFrame.h"
 #include "RuntimeTuning.h"
 #include "Scene/SceneRuntimeGeneratedControls.h"
 #include "Scene/SceneRuntimeStyle.h"
+#include "../Rendering/IRenderDeviceLifecycle.h"
+#include "../Rendering/IRenderDiagnostics.h"
+#include "../Core/Profiler.h"
 
 #include <cstdio>
 
@@ -36,6 +40,7 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
+using SkullbonezCore::UI::InGameUITab;
 
 namespace
 {
@@ -311,7 +316,7 @@ SceneRuntimeStyleContext BuildGraphicsStressStyleContext( GraphicsStressActionCo
                                      context.models,
                                      context.sceneController.Entities(),
                                      context.assets,
-                                     RuntimeActiveCinematicConfig( context.scene, context.config ),
+                                     ActiveSceneCinematicConfig( context.scene, context.config ),
                                      context.defaultCinematicRender };
 }
 
@@ -322,7 +327,7 @@ void ApplyGraphicsStressAction( GraphicsStressActionContext& context, GraphicsSt
     {
     case 0:
     {
-        CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( context.scene, context.config );
+        CinematicRenderConfig& cinematic = ActiveSceneCinematicConfig( context.scene, context.config );
         cinematic.enabled = !cinematic.enabled;
         context.launchOptions.hasCinematicRenderingOverride = false;
         if ( context.scene.isSceneMode )
@@ -336,7 +341,7 @@ void ApplyGraphicsStressAction( GraphicsStressActionContext& context, GraphicsSt
     }
     case 1:
     {
-        CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( context.scene, context.config );
+        CinematicRenderConfig& cinematic = ActiveSceneCinematicConfig( context.scene, context.config );
         const UICinematicFeature feature =
             static_cast<UICinematicFeature>( stress.NextInt( static_cast<int>( UICinematicFeature::Count ) ) );
         if ( feature == UICinematicFeature::Shadows )
@@ -348,7 +353,7 @@ void ApplyGraphicsStressAction( GraphicsStressActionContext& context, GraphicsSt
     }
     case 2:
     {
-        CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( context.scene, context.config );
+        CinematicRenderConfig& cinematic = ActiveSceneCinematicConfig( context.scene, context.config );
         const UICinematicParam param =
             static_cast<UICinematicParam>( stress.NextInt( static_cast<int>( UICinematicParam::Count ) ) );
         ApplyCinematicUIParam( cinematic, context.scene, param, stress.RandomCinematicParamValue( param ) );
@@ -441,7 +446,7 @@ void ApplyGraphicsStressAction( GraphicsStressActionContext& context, GraphicsSt
         context.runtimeSettings.tornadoField.enabled = stress.NextInt( 2 ) != 0;
         context.runtimeSettings.tornadoField.visualizeVelocityField = stress.NextInt( 2 ) != 0;
         context.runtimeSettings.tornadoVisual.enabled = stress.NextInt( 2 ) != 0;
-        SyncTornadoRuntimeSettingsToPhysics( context.models, context.runtimeSettings );
+        context.runtimeSettings.ApplyTornadoPhysics( context.models );
         break;
     case 20:
         context.runtimeSettings.tornadoVisual.shellAlpha = stress.NextFloat( 0.02f, 0.40f );
@@ -732,25 +737,25 @@ float GraphicsStressController::RandomCinematicParamValue( UI::UICinematicParam 
 // Lifetime: UI stress is a validation harness over synchronous owner borrows.
 // It keeps only deterministic counters in DiagnosticsRuntime and retains no
 // scene, UI, renderer, or input owner after the action batch returns.
-SbResult RunInternal::RunUIStressActions( DiagnosticsRuntime& m_diagnosticsRuntime,
-                                          Window* window,
-                                          RunTimerState& m_timers,
-                                          SkullbonezCore::UI::InGameUI& m_UI,
-                                          RunRuntimeSettings& m_runtimeSettings,
-                                          RuntimeRenderBackendView& m_renderBackendView,
-                                          RunDebugState& m_debug,
-                                          SceneController& m_sceneController,
-                                          RunCameraState& m_camera,
-                                          EngineConfig& m_config,
-                                          SimulationSystem& m_simulation,
-                                          RuntimeTools& m_runtimeTools,
-                                          const RunLaunchOptions& m_launchOptions,
-                                          const RunStartupState& m_startup,
-                                          ReplayRuntime& m_replayRuntime,
-                                          InputRouter& m_inputRouter,
-                                          RuntimeInteractionController& m_interaction,
-                                          AttachedCameraController& m_attachedCamera,
-                                          RunCameraMode replayRestoreCameraMode )
+SbResult SkullbonezCore::Basics::RunUIStressActions( DiagnosticsRuntime& m_diagnosticsRuntime,
+                                                     Window* window,
+                                                     RunTimerState& m_timers,
+                                                     SkullbonezCore::UI::InGameUI& m_UI,
+                                                     RunRuntimeSettings& m_runtimeSettings,
+                                                     RuntimeRenderBackendView& m_renderBackendView,
+                                                     RunDebugState& m_debug,
+                                                     SceneController& m_sceneController,
+                                                     RunCameraState& m_camera,
+                                                     EngineConfig& m_config,
+                                                     SimulationSystem& m_simulation,
+                                                     RuntimeTools& m_runtimeTools,
+                                                     const RunLaunchOptions& m_launchOptions,
+                                                     const RunStartupState& m_startup,
+                                                     ReplayRuntime& m_replayRuntime,
+                                                     InputRouter& m_inputRouter,
+                                                     RuntimeInteractionController& m_interaction,
+                                                     AttachedCameraController& m_attachedCamera,
+                                                     RunCameraMode replayRestoreCameraMode )
 {
     UIStressState& stress = m_diagnosticsRuntime.UIStress();
     if ( !stress.enabled || !window )
@@ -967,14 +972,14 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
 
     m_UI.SetVisible( true, m_timers.simulationTimer.GetTotalTime() );
     m_UI.SetMinimized( false, m_timers.simulationTimer.GetTotalTime() );
-    SceneState().isInteractiveRun = true;
-    SceneState().isExitOnComplete = false;
+    m_sceneController.State().isInteractiveRun = true;
+    m_sceneController.State().isExitOnComplete = false;
 
     GraphicsStressActionContext actionContext{ m_launchOptions,
                                                m_config,
                                                m_runtimeSettings,
                                                m_debug,
-                                               SceneState(),
+                                               m_sceneController.State(),
                                                m_timers,
                                                m_camera,
                                                m_UI,

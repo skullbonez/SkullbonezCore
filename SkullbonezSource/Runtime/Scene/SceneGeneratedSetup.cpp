@@ -29,6 +29,7 @@ Related:
   - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #include "SceneGeneratedSetup.h"
+#include "../../Assets/AssetKeys.h"
 #include "SceneRuntime.h"
 #include "../CameraCollection.h"
 #include "../../Core/Common.h"

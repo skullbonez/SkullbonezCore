@@ -55,9 +55,9 @@ void CaptureController::ResetScreenshot()
 
 
 RuntimeCaptureResult CaptureController::TickScreenshots( const RuntimeCaptureSceneContext& context,
-                                                         const RuntimeCaptureSink& sink )
+                                                         Rendering::IRenderCaptureBackend& backend )
 {
-    return CaptureSystem::TickScreenshots( m_screenshot, context, sink );
+    return CaptureSystem::TickScreenshots( m_screenshot, context, *this, backend );
 }
 
 
@@ -68,7 +68,7 @@ RuntimeCaptureResult CaptureController::TickAutoCycle( bool isSceneMode,
                                                        float& autoCycleAccum,
                                                        int& autoCycleShotsTaken,
                                                        int& trackBallIndex,
-                                                       const RuntimeCaptureSink& sink )
+                                                       Rendering::IRenderCaptureBackend& backend )
 {
     return CaptureSystem::TickAutoCycle( isSceneMode,
                                          isInteractiveRun,
@@ -77,7 +77,8 @@ RuntimeCaptureResult CaptureController::TickAutoCycle( bool isSceneMode,
                                          autoCycleAccum,
                                          autoCycleShotsTaken,
                                          trackBallIndex,
-                                         sink );
+                                         *this,
+                                         backend );
 }
 
 

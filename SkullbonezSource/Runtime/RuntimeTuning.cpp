@@ -30,21 +30,32 @@ Related:
 */
 #include "RuntimeTuning.h"
 
+#include "Audio/ContactAudioService.h"
 #include "../Core/WorkerPool.h"
 #include "../GameObjects/GameModelCollection.h"
 #include "../Physics/SimulationSystem.h"
 #include "../Rendering/IRenderDeviceLifecycle.h"
 #include "../UI/UILayout.h"
 #include "../World/WorldEnvironment.h"
+#include "../Scene/TestScene.h"
 #include "Replay/ReplayRuntime.h"
 
 #include <algorithm>
 #include <cmath>
 
+using SkullbonezCore::Math::Vector::Vector3;
+
 namespace SkullbonezCore
 {
 namespace Basics
 {
+void RunRuntimeSettings::ApplyTornadoPhysics( GameObjects::GameModelCollection& models ) const
+{
+    models.SetTornadoFieldConfig( tornadoField );
+    models.SetTornadoSystemConfig( tornadoSystem );
+}
+
+
 namespace RunInternal
 {
 namespace
@@ -422,15 +433,15 @@ RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands( RuntimePr
     }
     if ( sceneOptions.toggleShadows )
     {
-        if ( RuntimeCinematicRenderingEnabled( context.scene,
+        if ( IsSceneCinematicRenderingEnabled( context.scene,
                                                config,
                                                context.launchOptions,
                                                debug,
                                                context.graphicsReady ) )
         {
-            const bool shadowsActive = RuntimeActiveCinematicConfig( context.scene, config ).shadowsEnabled;
+            const bool shadowsActive = ActiveSceneCinematicConfig( context.scene, config ).shadowsEnabled;
             context.launchOptions.hasCinematicShadowsOverride = false;
-            SetCinematicShadowsEnabledFromUI( RuntimeActiveCinematicConfig( context.scene, config ),
+            SetCinematicShadowsEnabledFromUI( ActiveSceneCinematicConfig( context.scene, config ),
                                               context.scene,
                                               !shadowsActive );
         }
@@ -905,7 +916,7 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
     }
     if ( tornadoFieldChanged )
     {
-        SyncTornadoRuntimeSettingsToPhysics( context.modelCollection, runtimeSettings );
+        runtimeSettings.ApplyTornadoPhysics( context.modelCollection );
     }
     return result;
 }

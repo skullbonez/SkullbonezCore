@@ -26,7 +26,10 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
-#include "RunInternal.h"
+#include "Run.h"
+#include "RuntimeCameraMode.h"
+#include "InputFrame.h"
+#include "WindowConstants.h"
 #include "Replay/ReplayOverlayLayout.h"
 #include "Replay/ReplayRestoreService.h"
 #include "Replay/ReplayRuntimeOwnerViews.h"
@@ -39,6 +42,8 @@ Related:
 #include "../Core/FatalError.h"
 #include "../Core/Log.h"
 #include "../Physics/PhysicsTimestep.h"
+#include "../Rendering/IRenderDiagnostics.h"
+#include "../World/Terrain.h"
 
 #include <cmath>
 #include <cstdio>
@@ -49,10 +54,14 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
+using SkullbonezCore::Environment::WorldEnvironment;
 using SkullbonezCore::GameObjects::SceneSaveRequest;
 using SkullbonezCore::GameObjects::SceneSaveView;
 using SkullbonezCore::GameObjects::SceneSnapshotWriter;
-using namespace SkullbonezCore::Basics::RunInternal;
+using SkullbonezCore::Geometry::SkyBox;
+using SkullbonezCore::Geometry::Terrain;
+using SkullbonezCore::Geometry::XZBounds;
+using SkullbonezCore::UI::InGameUITab;
 using namespace SkullbonezCore::Basics::ReplayOverlay;
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
@@ -122,13 +131,13 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
         {
             runtimeSettings.tornadoVisual.enabled = launch.tornadoEnabled;
         }
-        SyncTornadoRuntimeSettingsToPhysics( models, runtimeSettings );
+        runtimeSettings.ApplyTornadoPhysics( models );
     }
     if ( launch.tornadoVectors )
     {
         target.tornadoVectors = true;
         runtimeSettings.tornadoField.visualizeVelocityField = true;
-        SyncTornadoRuntimeSettingsToPhysics( models, runtimeSettings );
+        runtimeSettings.ApplyTornadoPhysics( models );
     }
     if ( launch.hasCinematicRenderingOverride )
     {
@@ -144,6 +153,7 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     {
         target.demoHeroStyle = true;
     }
+    target.dumpTextureAssets = launch.dumpTextureAssets;
     if ( launch.interactiveSceneRun )
     {
         target.interactiveSceneRun = true;
@@ -426,17 +436,6 @@ Run::Run( Window& window,
 }
 
 
-RunSceneState& Run::SceneState()
-{
-    return m_sceneController.State();
-}
-
-
-const RunSceneState& Run::SceneState() const
-{
-    return m_sceneController.State();
-}
-
 void Run::RefreshRuntimeViewModel()
 {
     m_runtimeViewModel = RuntimeViewModelBuilder::Build( RuntimeViewModelContext{ m_sceneController,
@@ -451,14 +450,14 @@ Run::~Run()
 {
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Shutdown );
 #ifdef _DEBUG
-    EndPhysicsDiagnosticsRun( "process_end" );
+    m_diagnosticsRuntime.EndPhysicsDiagnosticsRun( m_sceneController.State(), "process_end" );
 #endif
 
     if ( m_diagnosticsRuntime.MainMemoryDumpRequested() )
     {
         m_diagnosticsRuntime.WriteMainMemoryDump( m_replayRuntime,
                                                   m_sceneController.Models(),
-                                                  SceneState(),
+                                                  m_sceneController.State(),
                                                   "shutdown",
                                                   m_timers.simulationTimer.GetTotalTime() );
     }
@@ -492,7 +491,13 @@ Run::~Run()
     // Lifetime: clean up backend-owned render resources while the current
     // backend is still alive. RuntimeRenderer performs the checked drain before
     // its first release so no owner can destroy resources after a failed wait.
-    const SbResult releaseResult = ReleaseBackendOwnedRenderResources( "shutdown_release" );
+    const SbResult releaseResult = m_renderer.ReleaseBackendOwnedRuntimeResources(
+        RuntimeRenderer::BackendResourceReleaseContext{ "shutdown_release",
+                                                        m_renderBackendView.deviceLifecycle,
+                                                        m_renderBackendView.renderResources,
+                                                        m_sceneController.Models(),
+                                                        m_UI,
+                                                        m_runtimeTools } );
     if ( !releaseResult.ok )
     {
         // Lane F: a destructor cannot propagate Lane R to a caller, and letting
@@ -501,30 +506,6 @@ Run::~Run()
                   "Backend resource release could not establish GPU safety. owner=%s reason=%s",
                   releaseResult.error.owner[0] != '\0' ? releaseResult.error.owner : "Rendering/DX12",
                   releaseResult.error.message[0] != '\0' ? releaseResult.error.message : "GPU drain failed" );
-    }
-}
-
-
-SbResult Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
-{
-    SkullbonezCore::Rendering::IRenderDeviceLifecycle* releaseDeviceLifecycle = m_renderBackendView.deviceLifecycle;
-    SkullbonezCore::Rendering::IRenderResourceFactory* releaseRenderResources = m_renderBackendView.renderResources;
-
-    return m_renderer.ReleaseBackendOwnedRuntimeResources(
-        RuntimeRenderer::BackendResourceReleaseContext{ phaseName,
-                                                        releaseDeviceLifecycle,
-                                                        releaseRenderResources,
-                                                        m_sceneController.Models(),
-                                                        m_UI,
-                                                        m_runtimeTools } );
-}
-
-
-void Run::DumpTextureAssets( FILE* out ) const
-{
-    if ( m_systems.textures )
-    {
-        m_systems.textures->DumpTextureAssets( out );
     }
 }
 
@@ -562,7 +543,9 @@ void Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
             &m_sceneController.Cameras(),
             m_sceneController.Terrain().Get(),
             m_camera,
-            NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+            NormalizeRuntimeCameraMode( m_replayRuntime.Camera().restoreCameraMode,
+                                        m_sceneController.State().isSceneMode,
+                                        RuntimeCameraModeEnabledMask( m_sceneController ) ),
             m_attachedCamera.State().activeFollow,
             m_camera.director.grabbed,
             m_interaction,
@@ -883,11 +866,19 @@ void Run::Initialise()
     m_systems.assets.RegisterBuiltInSourceAssets( m_config );
 
     // Build renderer-owned resources from source asset records.
-    const SbResult rebuildResourcesResult = RebuildRegisteredRenderResources();
+    const SbResult rebuildResourcesResult = m_renderer.RebuildRegisteredRenderResources(
+        RuntimeRenderer::RegisteredResourceRebuildContext{ m_renderBackendView.renderResources,
+                                                           m_systems.assets,
+                                                           *m_systems.textures,
+                                                           m_config } );
     if ( !rebuildResourcesResult.ok )
     {
         m_lastSceneLoadResult = rebuildResourcesResult;
         return;
+    }
+    if ( m_launchOptions.dumpTextureAssets )
+    {
+        m_systems.textures->DumpTextureAssets( stdout );
     }
 
     const std::string terrainRawPath =
@@ -987,7 +978,7 @@ void Run::Initialise()
 
     const ReplayRuntime::SceneTimelineResetInput timelineReset =
         ReplayRuntime::DescribeSceneTimeline( m_sceneController,
-                                              SceneState(),
+                                              m_sceneController.State(),
                                               m_startup.gameModelCapacity,
                                               static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
     ReplayRuntime::SceneTimelineResetOwners timelineOwners{
@@ -996,16 +987,21 @@ void Run::Initialise()
         &m_sceneController.Cameras(),
         m_sceneController.Terrain().Get(),
         m_camera,
-        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+        NormalizeRuntimeCameraMode( m_replayRuntime.Camera().restoreCameraMode,
+                                    m_sceneController.State().isSceneMode,
+                                    RuntimeCameraModeEnabledMask( m_sceneController ) ),
         m_attachedCamera.State().activeFollow,
         m_camera.director.grabbed };
-    const ReplayRuntime::ReplayStartupLoadInput loadInput{ m_timers.simulationTimer.GetTotalTime(),
-                                                           &m_sceneController.Cameras(),
-                                                           m_runtimeTools.MousePickup(),
-                                                           NormalizeCameraModeForCurrentScene( m_camera.mode ),
-                                                           timelineOwners };
+    const ReplayRuntime::ReplayStartupLoadInput loadInput{
+        m_timers.simulationTimer.GetTotalTime(),
+        &m_sceneController.Cameras(),
+        m_runtimeTools.MousePickup(),
+        NormalizeRuntimeCameraMode( m_camera.mode,
+                                    m_sceneController.State().isSceneMode,
+                                    RuntimeCameraModeEnabledMask( m_sceneController ) ),
+        timelineOwners };
 #ifdef _DEBUG
-    const ReplayProbeWorld probeWorld{ SceneState(),
+    const ReplayProbeWorld probeWorld{ m_sceneController.State(),
                                        m_runtimeSettings,
                                        m_debug,
                                        m_runtimeTools,
@@ -1017,7 +1013,9 @@ void Run::Initialise()
                                        m_startup.gameModelCapacity,
                                        m_diagnosticsRuntime,
                                        m_runtimeTools.MousePickup(),
-                                       NormalizeCameraModeForCurrentScene( m_camera.mode ),
+                                       NormalizeRuntimeCameraMode( m_camera.mode,
+                                                                   m_sceneController.State().isSceneMode,
+                                                                   RuntimeCameraModeEnabledMask( m_sceneController ) ),
                                        m_timers.simulationTimer.GetTotalTime(),
                                        timelineReset,
                                        timelineOwners };
@@ -1082,16 +1080,16 @@ SbResult Run::RunSceneLoadOnly( const char* snapshotOutPath )
                                             m_sceneController.Cameras().GetCameraTranslation(),
                                             m_sceneController.Cameras().GetCameraView(),
                                             m_sceneController.Cameras().GetCameraUp(),
-                                            SceneState().isScenePhysics,
-                                            SceneState().isSceneText,
-                                            SceneState().isEditableScene,
-                                            SceneState().isFixedStep,
+                                            m_sceneController.State().isScenePhysics,
+                                            m_sceneController.State().isSceneText,
+                                            m_sceneController.State().isEditableScene,
+                                            m_sceneController.State().isFixedStep,
                                             m_debug.isWaterHidden,
                                             m_debug.isTerrainHidden,
-                                            SceneState().hasFlatSlope,
-                                            SceneState().flatBaseY,
-                                            SceneState().flatSlopeX,
-                                            SceneState().flatSlopeZ };
+                                            m_sceneController.State().hasFlatSlope,
+                                            m_sceneController.State().flatBaseY,
+                                            m_sceneController.State().flatSlopeX,
+                                            m_sceneController.State().flatSlopeZ };
         const SbResult saveResult = SceneSnapshotWriter::Save( saveView, saveRequest );
         if ( !saveResult.ok )
         {
@@ -1158,23 +1156,8 @@ void Run::LogSceneFinished( const char* reason )
 
     const char* rendererName =
         m_renderBackendView.renderDiagnostics ? m_renderBackendView.renderDiagnostics->GetRendererName() : "unknown";
-    m_diagnosticsRuntime.LogSceneFinished( SceneState(), scenePath, rendererName, reason );
+    m_diagnosticsRuntime.LogSceneFinished( m_sceneController.State(), scenePath, rendererName, reason );
 }
 
 
-void Run::BeginPhysicsDiagnosticsRun( const char* scenePath )
-{
-    m_diagnosticsRuntime.BeginPhysicsDiagnosticsRun(
-        m_sceneController.Models(),
-        SceneState(),
-        m_config,
-        scenePath,
-        m_renderBackendView.renderDiagnostics ? m_renderBackendView.renderDiagnostics->GetRendererName() : "unknown" );
-}
-
-
-void Run::EndPhysicsDiagnosticsRun( const char* status )
-{
-    m_diagnosticsRuntime.EndPhysicsDiagnosticsRun( SceneState(), status );
-}
 #endif

@@ -85,6 +85,28 @@ struct RuntimeUIFrameResult
     int editorUnhandledWheelDelta = 0;
 };
 
+// Runs one deterministic UI stress action batch through explicit synchronous
+// owner borrows. The validation harness retains only counters in diagnostics.
+SbResult RunUIStressActions( DiagnosticsRuntime& diagnosticsRuntime,
+                             Window* window,
+                             RunTimerState& timers,
+                             UI::InGameUI& ui,
+                             RunRuntimeSettings& runtimeSettings,
+                             RuntimeRenderBackendView& renderBackendView,
+                             RunDebugState& debug,
+                             SceneController& sceneController,
+                             RunCameraState& camera,
+                             EngineConfig& config,
+                             SimulationSystem& simulation,
+                             RuntimeTools& runtimeTools,
+                             const RunLaunchOptions& launchOptions,
+                             const RunStartupState& startup,
+                             ReplayRuntime& replayRuntime,
+                             InputRouter& inputRouter,
+                             RuntimeInteractionController& interaction,
+                             AttachedCameraController& attachedCamera,
+                             RunCameraMode replayRestoreCameraMode );
+
 // Shared value-policy helpers used by the stateless coordinator and the
 // InputRouter methods that commit accepted transitions.
 struct KeyboardContextFacts

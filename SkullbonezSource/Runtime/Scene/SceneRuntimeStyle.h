@@ -46,6 +46,7 @@ class GameModelCollection;
 namespace Basics
 {
 class TestScene;
+struct RunDebugState;
 
 struct SceneRuntimeStyleContext
 {
@@ -60,6 +61,13 @@ struct SceneRuntimeStyleContext
 };
 
 void ApplyCinematicSceneOverrides( CinematicRenderConfig& target, uint64_t mask, const CinematicRenderConfig& source );
+CinematicRenderConfig& ActiveSceneCinematicConfig( RunSceneState& scene, EngineConfig& config );
+const CinematicRenderConfig& ActiveSceneCinematicConfig( const RunSceneState& scene, const EngineConfig& config );
+bool IsSceneCinematicRenderingEnabled( const RunSceneState& scene,
+                                       const EngineConfig& config,
+                                       const RunLaunchOptions& launchOptions,
+                                       const RunDebugState& debug,
+                                       bool graphicsReady );
 bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int index );
 void ApplyLiveStyleScene( SceneRuntimeStyleContext context, const TestScene& styleScene );
 bool ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext context );

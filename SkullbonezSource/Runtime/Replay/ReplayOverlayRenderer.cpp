@@ -28,6 +28,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
 */
 #include "ReplayOverlayRenderer.h"
+#include "../../Assets/AssetKeys.h"
 #include "ReplayOverlayLayout.h"
 #include "../../Core/Common.h"
 #include "../../Core/Profiler.h"

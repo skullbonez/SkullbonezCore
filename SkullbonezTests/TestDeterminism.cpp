@@ -42,6 +42,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "../SkullbonezSource/Physics/PhysicsTimestep.h"
 
 #include "../SkullbonezSource/Assets/AssetSystem.h"
 #include "../SkullbonezSource/Core/Common.h"

@@ -24,6 +24,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "UI.h"
+#include "../Assets/AssetKeys.h"
 #include "UIFrameComposition.h"
 #include "../Runtime/InputRouter.h"
 #include "../Assets/AssetSystem.h"

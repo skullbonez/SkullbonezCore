@@ -30,12 +30,17 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
-#include "../RunInternal.h"
 #include "EditorOverlayTools.h"
 #include "EditorPlacementAssets.h"
 #include "EditorTools.h"
 #include "EditorHullAssets.h"
+#include "../Replay/ReplayRuntime.h"
+#include "../Tools/RuntimeTools.h"
+#include "../InputRouter.h"
+#include "../CameraCollection.h"
+#include "../Window.h"
 #include "../../Assets/AssetSystem.h"
+#include "../../GameObjects/GameModelCollection.h"
 #include "../InputController.h"
 #include "../RuntimeInteractionCommands.h"
 #include "../RuntimePickService.h"
@@ -49,6 +54,8 @@ Related:
 #include "../../Physics/Ragdoll.h"
 #include "../../Core/WorkerPool.h"
 #include "../../UI/UILayout.h"
+#include "../../World/Terrain.h"
+#include "../../World/WorldEnvironment.h"
 #include "../../../ThirdPtySource/nlohmann/json.hpp"
 
 #include <algorithm>
@@ -63,6 +70,12 @@ Related:
 #include <fstream>
 #include <string>
 #include <utility>
+
+using SkullbonezCore::Math::Vector::Vector3;
+namespace Assets = SkullbonezCore::Assets;
+namespace Environment = SkullbonezCore::Environment;
+namespace GameObjects = SkullbonezCore::GameObjects;
+namespace Geometry = SkullbonezCore::Geometry;
 #include <vector>
 
 using namespace SkullbonezCore::Basics;

@@ -25,7 +25,6 @@ Related:
 #include "InputRouter.h"
 
 #include "RunCameraState.h"
-#include "RunInternal.h"
 #include "CameraCollection.h"
 #include "../World/Terrain.h"
 
@@ -37,6 +36,12 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+namespace
+{
+constexpr long CAMERA_MOUSE_MAX_DELTA_PIXELS = 96;
+constexpr long CAMERA_MOUSE_SPIKE_DELTA_PIXELS = 320;
+} // namespace
+
 void RuntimeInputContext::BeginFrame( bool appFocused, bool uiBlocksKeyboard, bool uiBlocksMouse )
 {
     m_appFocused = appFocused;
@@ -468,17 +473,15 @@ void InputController::SetMouseLookDelta( RunCameraState& camera, long rawX, long
     const long absX = rawX < 0 ? -rawX : rawX;
     const long absY = rawY < 0 ? -rawY : rawY;
 
-    if ( absX > RunInternal::CAMERA_MOUSE_SPIKE_DELTA_PIXELS || absY > RunInternal::CAMERA_MOUSE_SPIKE_DELTA_PIXELS )
+    if ( absX > CAMERA_MOUSE_SPIKE_DELTA_PIXELS || absY > CAMERA_MOUSE_SPIKE_DELTA_PIXELS )
     {
         camera.input.xMove = 0;
         camera.input.yMove = 0;
         return;
     }
 
-    camera.input.xMove =
-        std::clamp( rawX, -RunInternal::CAMERA_MOUSE_MAX_DELTA_PIXELS, RunInternal::CAMERA_MOUSE_MAX_DELTA_PIXELS );
-    camera.input.yMove =
-        std::clamp( rawY, -RunInternal::CAMERA_MOUSE_MAX_DELTA_PIXELS, RunInternal::CAMERA_MOUSE_MAX_DELTA_PIXELS );
+    camera.input.xMove = std::clamp( rawX, -CAMERA_MOUSE_MAX_DELTA_PIXELS, CAMERA_MOUSE_MAX_DELTA_PIXELS );
+    camera.input.yMove = std::clamp( rawY, -CAMERA_MOUSE_MAX_DELTA_PIXELS, CAMERA_MOUSE_MAX_DELTA_PIXELS );
 }
 
 RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( RunCameraState& camera,

@@ -31,7 +31,9 @@ Related:
   - SkullbonezSource/Runtime/RuntimeInteractionController.h
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
 */
-#include "RunInternal.h"
+#include "Run.h"
+#include "RuntimeCameraMode.h"
+#include "InputFrame.h"
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "Editor/EditorTools.h"
 #include "Replay/ReplayOverlayLayout.h"
@@ -56,6 +58,7 @@ using namespace SkullbonezCore::Basics::ReplayOverlay;
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
+using SkullbonezCore::Hardware::Input;
 namespace Physics = SkullbonezCore::Physics;
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
@@ -1048,8 +1051,10 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
     // owner of prediction, pause/play, velocity-edit, and branch transitions.
     if ( strcmp( action.text, "predict" ) == 0 )
     {
-        const int screenW = RuntimeWindowScreenWidth( context.systems, context.config );
-        const int screenH = RuntimeWindowScreenHeight( context.systems, context.config );
+        const int screenW =
+            context.systems.window ? context.systems.window->ClientWidth() : context.config.window.screenX;
+        const int screenH =
+            context.systems.window ? context.systems.window->ClientHeight() : context.config.window.screenY;
         const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
         // Why: interaction scripts should match the real UI: Predict can branch
         // from the current live solver state even before a paused scene has
@@ -1076,8 +1081,10 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
 
     if ( strcmp( action.text, "past" ) == 0 || strcmp( action.text, "pastPath" ) == 0 )
     {
-        const int screenW = RuntimeWindowScreenWidth( context.systems, context.config );
-        const int screenH = RuntimeWindowScreenHeight( context.systems, context.config );
+        const int screenW =
+            context.systems.window ? context.systems.window->ClientWidth() : context.config.window.screenX;
+        const int screenH =
+            context.systems.window ? context.systems.window->ClientHeight() : context.config.window.screenY;
         const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
         const bool pastPathControlEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2 &&
                                             context.replayRuntime.PathVisualizer().hasTarget;
@@ -1102,8 +1109,10 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
 
     if ( strcmp( action.text, "pause" ) == 0 || strcmp( action.text, "play" ) == 0 )
     {
-        const int screenW = RuntimeWindowScreenWidth( context.systems, context.config );
-        const int screenH = RuntimeWindowScreenHeight( context.systems, context.config );
+        const int screenW =
+            context.systems.window ? context.systems.window->ClientWidth() : context.config.window.screenX;
+        const int screenH =
+            context.systems.window ? context.systems.window->ClientHeight() : context.config.window.screenY;
         const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
         const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
         if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
@@ -1131,8 +1140,10 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
 
     if ( strcmp( action.text, "velocity" ) == 0 )
     {
-        const int screenW = RuntimeWindowScreenWidth( context.systems, context.config );
-        const int screenH = RuntimeWindowScreenHeight( context.systems, context.config );
+        const int screenW =
+            context.systems.window ? context.systems.window->ClientWidth() : context.config.window.screenX;
+        const int screenH =
+            context.systems.window ? context.systems.window->ClientHeight() : context.config.window.screenY;
         const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
         const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
         if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
@@ -1159,8 +1170,10 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
 
     if ( strcmp( action.text, "branch" ) == 0 )
     {
-        const int screenW = RuntimeWindowScreenWidth( context.systems, context.config );
-        const int screenH = RuntimeWindowScreenHeight( context.systems, context.config );
+        const int screenW =
+            context.systems.window ? context.systems.window->ClientWidth() : context.config.window.screenX;
+        const int screenH =
+            context.systems.window ? context.systems.window->ClientHeight() : context.config.window.screenY;
         const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
         const bool branchTargetAvailable = context.replayRuntime.Scrubber().historicalSamplePaused &&
                                            context.replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver &&
@@ -1199,8 +1212,8 @@ void ApplyInteractionAutomationSolverTrackScrub( InteractionAutomationReplayCont
                                                  RunInteractionAutomationAction& action,
                                                  int frame )
 {
-    const int screenW = RuntimeWindowScreenWidth( context.systems, context.config );
-    const int screenH = RuntimeWindowScreenHeight( context.systems, context.config );
+    const int screenW = context.systems.window ? context.systems.window->ClientWidth() : context.config.window.screenX;
+    const int screenH = context.systems.window ? context.systems.window->ClientHeight() : context.config.window.screenY;
     const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
     const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
     if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
@@ -1918,11 +1931,11 @@ void Run::TickInteractionAutomationBeforeInput()
         return;
     }
 
-    const int frame = SceneState().currentFrame;
+    const int frame = m_sceneController.State().currentFrame;
     InteractionAutomationReplayControlContext replayControlContext{ state,
                                                                     m_systems,
                                                                     m_config,
-                                                                    SceneState(),
+                                                                    m_sceneController.State(),
                                                                     m_timers,
                                                                     m_replayRuntime };
     InteractionAutomationDirectorCameraContext directorCameraContext{ state, m_sceneController.Cameras(), m_camera };
@@ -2025,7 +2038,9 @@ void Run::TickInteractionAutomationBeforeInput()
                         m_sceneController.Models(),
                         m_sceneController.Physics(),
                         m_camera,
-                        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+                        NormalizeRuntimeCameraMode( m_replayRuntime.Camera().restoreCameraMode,
+                                                    m_sceneController.State().isSceneMode,
+                                                    RuntimeCameraModeEnabledMask( m_sceneController ) ),
                         m_attachedCamera.State().activeFollow,
                         m_camera.director.grabbed );
                 } );
@@ -2111,7 +2126,7 @@ void Run::TickInteractionAutomationAfterRender()
 
     RuntimeAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
         RuntimeAllocation::RuntimeAllocationPhase::Diagnostics );
-    const int frame = SceneState().currentFrame;
+    const int frame = m_sceneController.State().currentFrame;
     InteractionAutomationAssertContext assertContext{ m_runtimeTools,
                                                       m_replayRuntime,
                                                       m_interaction,
@@ -2130,7 +2145,9 @@ void Run::TickInteractionAutomationAfterRender()
         {
             if ( RuntimeFileWriter::EnsureParentDirectory( action.path ) )
             {
-                const SbResult captureResult = SaveScreenshot( action.path );
+                const SbResult captureResult =
+                    m_diagnosticsRuntime.Capture().SaveScreenshot( m_renderBackendView.RequireCaptureBackend(),
+                                                                   action.path );
                 if ( captureResult.ok )
                 {
                     state.screenshots.emplace_back( action.path );
@@ -2358,7 +2375,7 @@ void Run::WriteInteractionAutomationReport()
     report["ok"] = !state.failed;
     report["scene"] = scenePath ? *scenePath : "";
     report["script"] = state.scriptPath;
-    report["framesRun"] = SceneState().currentFrame;
+    report["framesRun"] = m_sceneController.State().currentFrame;
     report["actions"] = actions;
     report["assertions"] = assertions;
     report["screenshots"] = screenshots;

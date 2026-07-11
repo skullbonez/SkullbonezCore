@@ -33,9 +33,25 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
-#include "../RunInternal.h"
+#include "SceneController.h"
+#include "../WindowConstants.h"
 #include "../Allocation/RuntimeAllocationTracker.h"
 #include "../RuntimeTuning.h"
+#include "../Diagnostics/DiagnosticsRuntime.h"
+#include "../AttachedCameraController.h"
+#include "../GraphicsStressController.h"
+#include "../InputRouter.h"
+#include "../Replay/ReplayRuntime.h"
+#include "../Audio/ContactAudioService.h"
+#include "../RunStartupState.h"
+#include "../RunTimerState.h"
+#include "../RunSubsystemState.h"
+#include "../Window.h"
+#include "../Render/RuntimeRenderHost.h"
+#include "../Render/RuntimeRenderer.h"
+#include "SceneRuntimeCoordinator.h"
+#include "../../Physics/SimulationSystem.h"
+#include "../Debug/PhysicsDebugVisualizer.h"
 #include "SceneRuntimeLoad.h"
 #include "SceneRuntimeReset.h"
 #include "SceneRuntimeStyle.h"
@@ -49,8 +65,13 @@ Related:
 #include "../../Core/WorkerPool.h"
 #include "../../Rendering/IRenderDeviceLifecycle.h"
 #include "../../Rendering/IRenderRayTracing.h"
+#include "../../Rendering/IRenderDiagnostics.h"
 #include "../../Rendering/IRenderResourceFactory.h"
+#include "../../Rendering/Helper.h"
 #include "../../Scene/SceneSnapshotWriter.h"
+#include "../../Scene/TestScene.h"
+#include "../../World/Terrain.h"
+#include "../../World/WorldEnvironment.h"
 
 #pragma warning( push, 0 )
 #include "../../../ThirdPtySource/nlohmann/json.hpp"
@@ -62,15 +83,23 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
+using SkullbonezCore::Environment::CameraCollection;
+using SkullbonezCore::Environment::WorldEnvironment;
 using SkullbonezCore::GameObjects::SceneSaveRequest;
 using SkullbonezCore::GameObjects::SceneSaveView;
 using SkullbonezCore::GameObjects::SceneSnapshotWriter;
+using SkullbonezCore::Geometry::Terrain;
+using SkullbonezCore::Geometry::XZBounds;
+using SkullbonezCore::Hardware::Input;
+using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Rendering::IMesh;
 using namespace SkullbonezCore::Basics::RunInternal;
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace
 {
 using Json = nlohmann::ordered_json;
+constexpr float NO_WATER_TERRAIN_CLEARANCE = 100.0f;
 
 void ApplySceneWorkerThreadSetting( EngineConfig& config,
                                     SkullbonezCore::Threading::WorkerPool& workerPool,
@@ -121,7 +150,7 @@ void LogSceneLoadFailure( const SbResult& result, const std::string& scenePath )
 
 bool IsCineScenePath( const std::string& path )
 {
-    const char* name = FileNameFromPath( path.c_str() );
+    const char* name = SceneFileNameFromPath( path.c_str() );
     return strncmp( name, "concept_", 8 ) == 0 || strncmp( name, "cinematic_", 10 ) == 0 ||
            strstr( name, "_cine_" ) != nullptr || strstr( name, "cine_" ) == name;
 }
@@ -780,7 +809,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
                                                               m_sceneController.Models(),
                                                               m_sceneController.Entities(),
                                                               assets,
-                                                              RuntimeActiveCinematicConfig( SceneState(), m_config ),
+                                                              ActiveSceneCinematicConfig( SceneState(), m_config ),
                                                               m_defaultCinematicRender } );
         const char* rendererName = m_renderBackendView.renderDiagnostics
                                        ? m_renderBackendView.renderDiagnostics->GetRendererName()
@@ -1094,7 +1123,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
         m_runtimeSettings.tornadoSystem = Physics::TornadoSystemConfig();
         ApplyTornadoDefaultsForActiveScene( m_runtimeSettings,
                                             m_sceneController.World(),
-                                            RuntimeActiveCinematicConfig( SceneState(), m_config ) );
+                                            ActiveSceneCinematicConfig( SceneState(), m_config ) );
         if ( hasSceneTornadoSystem )
         {
             m_runtimeSettings.tornadoSystem = sceneTornadoSystem;
@@ -1123,7 +1152,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
         m_runtimeSettings.tornadoField.visualizeVelocityField = true;
         m_runtimeSettings.tornadoSystem.visualizeVelocityField = true;
     }
-    SyncTornadoRuntimeSettingsToPhysics( m_sceneController.Models(), m_runtimeSettings );
+    m_runtimeSettings.ApplyTornadoPhysics( m_sceneController.Models() );
     if ( sceneMutualGravityEnabled )
     {
         // Why: n-body space scenes have no contacts to wake quiet bodies later;
@@ -1164,7 +1193,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
     }
     if ( m_launchOptions.hasCinematicShadowsOverride )
     {
-        RuntimeActiveCinematicConfig( SceneState(), m_config ).shadowsEnabled = m_launchOptions.cinematicShadows;
+        ActiveSceneCinematicConfig( SceneState(), m_config ).shadowsEnabled = m_launchOptions.cinematicShadows;
         SceneState().cinematicOverrideMask |= SCENE_CINE_SHADOWS;
     }
     if ( m_launchOptions.hasPhysicsDebugFlagsOverride )

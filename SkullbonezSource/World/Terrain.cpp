@@ -26,6 +26,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Terrain.h"
+#include "../Assets/AssetKeys.h"
 #include "../Assets/AssetSystem.h"
 #include "../Core/FatalError.h"
 #include "../Core/Profiler.h"

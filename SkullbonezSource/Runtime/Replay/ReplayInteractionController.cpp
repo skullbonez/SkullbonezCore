@@ -24,6 +24,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
 */
 #include "ReplayInteractionController.h"
+#include "../../Assets/AssetKeys.h"
 
 #include "ReplayOverlayLayout.h"
 #include "../../Core/Profiler.h"

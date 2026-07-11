@@ -251,7 +251,6 @@
     <ClCompile Include="SkullbonezSource\Core\LockOrderValidator.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Log.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Config.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\RunCapture.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Run.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorPlacementAssets.cpp" />
@@ -394,7 +393,6 @@
     <ClInclude Include="SkullbonezSource\Runtime\RunCameraState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunDemoDirector.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunDebugState.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\RunInternal.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunInteractionAutomationState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunLaunchOptions.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunReplayProbeState.h" />

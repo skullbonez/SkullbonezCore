@@ -33,6 +33,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "../SkullbonezSource/Physics/PhysicsTimestep.h"
 
 #include "../SkullbonezSource/Core/Common.h"
 #include "../SkullbonezSource/Core/Config.h"

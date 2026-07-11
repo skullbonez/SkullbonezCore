@@ -31,9 +31,10 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
-#include "RunInternal.h"
 #include "InputFrame.h"
 #include "AttachedCameraController.h"
+#include "ApplicationExitState.h"
+#include "Diagnostics/DiagnosticsRuntime.h"
 #include "Editor/EditorTools.h"
 #include "InputController.Bindings.h"
 #include "InputController.h"
@@ -41,16 +42,28 @@ Related:
 #include "Replay/ReplayRestoreService.h"
 #include "Replay/ReplayRuntimeOwnerViews.h"
 #include "RunDemoDirector.h"
+#include "RunDebugState.h"
+#include "RunLaunchOptions.h"
+#include "RunRuntimeSettings.h"
+#include "RunStartupState.h"
+#include "RunSubsystemState.h"
+#include "RunTimerState.h"
+#include "Window.h"
+#include "Render/RuntimeRenderHost.h"
+#include "../Core/Profiler.h"
 #include "RuntimeInteractionCommands.h"
 #include "Scene/SceneRuntimeCreate.h"
 #include "RuntimeTuning.h"
 #include "Scene/SceneRuntimeGeneratedControls.h"
 #include "Scene/SceneRuntimeLoad.h"
 #include "Scene/SceneRuntimeStyle.h"
+#include "Scene/SceneController.h"
 #include "../Core/Log.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsBodyStore.h"
 #include "../UI/UILayout.h"
+#include "../UI/UI.h"
+#include "../World/Terrain.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -64,6 +77,9 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
 using namespace SkullbonezCore::Basics::RunInternal;
+using SkullbonezCore::Geometry::XZBounds;
+using SkullbonezCore::UI::InGameUICommands;
+using SkullbonezCore::UI::InGameUIInputResult;
 
 namespace SkullbonezCore
 {
@@ -1019,7 +1035,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     {
         recordUIAction( RuntimeInputAction::ApplyWorldWaterSettings );
     }
-    CinematicRenderConfig& activeCinematic = RuntimeActiveCinematicConfig( sceneController.State(), config );
+    CinematicRenderConfig& activeCinematic = ActiveSceneCinematicConfig( sceneController.State(), config );
     const CinematicUICommandContext cinematicUICommandContext{ launchOptions,
                                                                sceneController.State(),
                                                                activeCinematic,

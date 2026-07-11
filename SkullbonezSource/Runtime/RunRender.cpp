@@ -23,7 +23,8 @@ Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderHost.h
   - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
-#include "RunInternal.h"
+#include "Run.h"
+#include "../Core/Profiler.h"
 #include "RuntimeTuning.h"
 
 using namespace SkullbonezCore::Basics;
@@ -49,9 +50,9 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
     // reads one coherent eye/view/up triple for this frame.
     m_sceneController.Cameras().SetCamera();
 
-    const CinematicRenderConfig& activeCinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
+    const CinematicRenderConfig& activeCinematic = ActiveSceneCinematicConfig( m_sceneController.State(), m_config );
     const bool cinematicRequested =
-        RuntimeCinematicRenderingEnabled( SceneState(), m_config, m_launchOptions, m_debug, true );
+        IsSceneCinematicRenderingEnabled( m_sceneController.State(), m_config, m_launchOptions, m_debug, true );
     int attachedTargetIndex = -1;
     if ( RunCameraModeIsAttached( m_camera.mode ) )
     {
@@ -59,8 +60,8 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
     }
     const RenderReplayOverlayView replayOverlay{ m_replayRuntime,
                                                  m_sceneController.Entities(),
-                                                 SceneState().isScenePhysics,
-                                                 SceneState().currentFrame,
+                                                 m_sceneController.State().isScenePhysics,
+                                                 m_sceneController.State().currentFrame,
                                                  m_timers.simulationTimer.GetTimeSinceLastStart(),
                                                  m_timers.simulationTimer.GetTotalTime() };
     const RenderToolOverlayView toolOverlay{
@@ -82,16 +83,6 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
 }
 
 
-SbResult Run::RebuildRegisteredRenderResources()
-{
-    return m_renderer.RebuildRegisteredRenderResources(
-        RuntimeRenderer::RegisteredResourceRebuildContext{ m_renderBackendView.renderResources,
-                                                           m_systems.assets,
-                                                           *m_systems.textures,
-                                                           m_config } );
-}
-
-
 void Run::SetViewingOrientation()
 {
     if ( m_replayRuntime.Camera().active )
@@ -104,7 +95,7 @@ void Run::SetViewingOrientation()
     }
 
     // In scene mode, use the authored camera without generated-demo tracking or cycling.
-    if ( SceneState().isSceneMode )
+    if ( m_sceneController.State().isSceneMode )
     {
         return;
     }

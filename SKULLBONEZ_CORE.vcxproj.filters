@@ -292,9 +292,6 @@
     <ClCompile Include="SkullbonezSource\Core\Config.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\RunCapture.cpp">
-      <Filter>Source Files\Runtime</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Run.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
@@ -762,9 +759,6 @@
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RunDebugState.h">
-      <Filter>Header Files\Runtime</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\RunInternal.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RunInteractionAutomationState.h">

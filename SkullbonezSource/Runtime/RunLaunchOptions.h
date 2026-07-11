@@ -58,6 +58,7 @@ struct RunLaunchOptions
     bool hasCinematicShadowsOverride = false;
     bool cinematicShadows = false;
     bool demoHeroStyle = false;                               // CLI --demohero applies the low-poly hero look to generated demo mode
+    bool dumpTextureAssets = false;                           // CLI --dump-assets prints the startup-built texture registry once.
     bool interactiveSceneRun = false;                         // CLI --interactive/--hold keeps scene automation from quitting the app
     int frameCountOverride = -1;                              // CLI --frames override applied after each scene load
     bool uiStress = false;                                    // CLI --ui-stress enables generated/demo stress without a scene file
