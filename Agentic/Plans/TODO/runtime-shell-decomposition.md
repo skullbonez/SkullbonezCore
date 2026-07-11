@@ -1101,11 +1101,33 @@ assertions; `tools\validate_interaction_clicks.bat` passed all five scenarios in
 zero DX12 InfoQueue errors, matching screenshots, standalone physics smoke, and
 the 20,001-line byte-exact physics baseline.
 
+D2 is complete. The former 4,333-line parser is now grouped by authored schema
+domain: `TestSceneParserAssets.cpp` owns library validation and provenance-aware
+instance expansion; `TestSceneParserBodies.cpp` owns bodies, joints, materials,
+requirements, and object groups; `TestSceneParserRuntime.cpp` owns simulation,
+playback, tornado, capture, logging, and runtime settings;
+`TestSceneParserPresentation.cpp` owns debug water, terrain, editor, UI,
+cinematic, and camera fields; and the 634-line `TestSceneParser.cpp` retains
+document order, schema identity upgrades, style includes, and public entry
+points. `TestSceneParserSchema.h` is a 1,176-line cohesive declaration and
+inline value-helper surface, not a second mutable model or generic compatibility
+module. Every implementation unit is below 1,100 lines. The production, main
+test, and standalone parser projects compile the complete domain set. Comment
+audit: 6/6 touched parser source-bearing files inspected, zero deferred.
+Evidence: focused Debug built with zero warnings in 6.0s; the eight focused
+doctest parser cases passed 97 assertions; final `tools\validate_fast.bat`
+passed in 37.4s with 12 staged candidates and zero format/filter/size/build
+failures; `tools\validate_scene_parser_tests.bat` passed all six parser groups
+in 12.4s; `tools\validate_all_cpu_tests.bat` passed in 11.0s with 130/130 cases
+and 2,770 assertions; and `tools\validate_full.bat` passed in 53.1s with
+zero-warning builds, zero DX12 InfoQueue errors, matching screenshots,
+standalone physics smoke, and the 20,001-line byte-exact physics baseline.
+
 ### D. Mega-TU decomposition
 
 - [x] D1. Split `RunInput.cpp` only as ownership extraction 1 lands; do not move
   the same code twice.
-- [ ] D2. Split `TestSceneParser.cpp` by schema domain
+- [x] D2. Split `TestSceneParser.cpp` by schema domain
   (bodies/assets/groups/water/cameras). It already uses nlohmann JSON; this is
   schema/ownership decomposition, not a JSON-library replacement.
 - [ ] D3. Convert shared `.inl` composition to real translation units as owners

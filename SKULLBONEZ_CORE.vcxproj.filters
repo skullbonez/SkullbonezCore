@@ -442,6 +442,18 @@
     <ClCompile Include="SkullbonezSource\Scene\TestSceneParser.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Scene\TestSceneParserAssets.cpp">
+      <Filter>Source Files\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Scene\TestSceneParserBodies.cpp">
+      <Filter>Source Files\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Scene\TestSceneParserPresentation.cpp">
+      <Filter>Source Files\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Scene\TestSceneParserRuntime.cpp">
+      <Filter>Source Files\Scene</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
@@ -939,6 +951,9 @@
       <Filter>Header Files\World</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Scene\TestScene.h">
+      <Filter>Header Files\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Scene\TestSceneParserSchema.h">
       <Filter>Header Files\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\PlatformProfiler.h">

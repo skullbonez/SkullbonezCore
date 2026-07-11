@@ -197,6 +197,11 @@ SCENE_PREFIXES = (
     "SceneSnapshotWriter",
     "TestScene",
     "TestSceneParser",
+    "TestSceneParserAssets",
+    "TestSceneParserBodies",
+    "TestSceneParserPresentation",
+    "TestSceneParserRuntime",
+    "TestSceneParserSchema",
 )
 
 WORLD_PREFIXES = (

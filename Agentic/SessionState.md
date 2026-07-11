@@ -10,9 +10,9 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `68a0642b refactor: complete runtime input ownership` |
-| Current objective | D2 split `TestSceneParser.cpp` by schema domain |
-| Last broad local gate | `tools\validate_full.bat` passed D1 input translation-unit decomposition with 130/130 doctest cases, 2,770 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 53.1s |
+| Current pushed baseline | `8870ea69 refactor: split runtime input translation units` |
+| Current objective | D3 convert shared `.inl` composition as owners move |
+| Last broad local gate | `tools\validate_full.bat` passed D2 parser schema-domain decomposition with 130/130 doctest cases, 2,770 assertions, zero-warning builds, DX12 with zero InfoQueue errors/matching screenshots, standalone physics smoke, and 20,001-line byte-exact physics in 53.1s |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -47,8 +47,16 @@ reports, and git history.
 - `f5cbeb57 fix: bound replay retained memory by owner`
 - `8e39056c refactor: narrow replay live-owner identity`
 - `68a0642b refactor: complete runtime input ownership`
+- `8870ea69 refactor: split runtime input translation units`
 
 ## Current Queue
+
+D2 is complete. `TestSceneParser` is split into document composition, asset,
+body/group, runtime/simulation, and presentation/environment translation units
+over one cohesive schema declaration/value-helper header. Production, doctest,
+and standalone parser projects compile the full set. Focused parser, fast, CPU,
+and full gates pass. D3 now owns remaining shared `.inl` composition conversion
+where concrete owners already exist.
 
 D1 is complete. The former 3,192-line `RunInput.cpp` is split at established
 owner boundaries into the 951-line `InputRouter` implementation, 1,144-line
