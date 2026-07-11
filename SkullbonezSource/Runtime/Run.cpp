@@ -817,7 +817,10 @@ void Run::Initialise()
     }
     m_sceneController.Terrain().Replace( std::move( startupTerrain ), false );
 
-    m_sceneController.World() = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
+    m_sceneController.World() = WorldEnvironment( cfg.worldForces.fluidHeight,
+                                                  cfg.worldForces.fluidDensity,
+                                                  cfg.worldForces.gasDensity,
+                                                  cfg.worldForces.gravity );
     m_sceneController.World().BindRenderContexts( m_config, m_assets, renderResources );
     XZBounds tb = m_sceneController.Terrain().Get()->GetXZBounds();
     m_sceneController.World().SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );

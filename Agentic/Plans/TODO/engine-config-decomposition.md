@@ -1,7 +1,7 @@
 # EngineConfig Decomposition
 
 Date: 2026-07-11
-Status: E2 complete — 2/5 phases checked (40%)
+Status: E3 complete — 3/5 phases checked (60%)
 Impact area: `Core/Config.h`/`Config.cpp`, every config consumer, engine.cfg
 Origin: 2026-07-11 architecture gap review. `EngineConfig` is the largest
 remaining catch-all bag: window setup, asset paths, frustum, physics
@@ -49,7 +49,7 @@ own domain-nouns-over-bags migration rule.
       remaining render odds and ends), one commit per domain, parser table
       updated in the same commit. Gate: `validate_fast`; `validate_dx12_renderer`
       if any render-consumed field moves.
-- [ ] E3. Physics defaults move, isolated commit(s). Gate:
+- [x] E3. Physics defaults move, isolated commit(s). Gate:
       `validate_physics` byte-exact per commit.
 - [ ] E4. Parser cleanup: single declarative key-binding table per domain;
       unknown-key handling unchanged; `Dump()` regenerated from the same
@@ -260,6 +260,59 @@ the same parser/default/order invariant and benefit from one consumer sweep.
 The value structs remain narrow and independently owned; this grouping does not
 create a replacement config bag or cross the E3/E4 scope barriers. Final gate,
 commit grouping, and the E2 phase checkbox were completed by the coordinator.
+
+## E3 implementation evidence
+
+- [x] Moved all 48 remaining direct fields as the three approved policy
+      families: world/body material policy (`WorldForceConfig`,
+      `BodySimulationPolicyConfig`, `PhysicsMaterialConfig`); solver policy
+      (`BroadphaseConfig`, `PersistentContactSolverConfig`,
+      `TerrainContactConfig`, `PhysicsSleepConfig`); and execution/generated
+      topology (`PhysicsExecutionConfig`, `TerrainGeometryConfig`,
+      `GeneratedSceneConfig`).
+- [x] Updated every `ConfigSettings()` destination and every source/test
+      consumer in lockstep without changing `EngineConfig&` plumbing or random
+      draw/solver execution order.
+- [x] Structural reconciliation: all 48 moved default literals are identical;
+      all 218 parser/dump rows preserve key, type, accepted range, and relative
+      order; no old direct E3 access remains; `EngineConfig` now has exactly
+      zero direct data fields.
+- [x] Focused build: `tools\validate_build.bat Profile` passed on 2026-07-12
+      in 17.28s with 0 warnings and 0 errors.
+- [x] Touched-source comment audit: 20/20 checked, 0 deferred — `Config.cpp`,
+      `Config.h`, `PersistentContactSolver.cpp`, `PhysicsObjectPolicy.cpp`,
+      `PhysicsWorld.cpp`, `TornadoGameplay.cpp`, `Init.cpp`,
+      `InputFrameExecution.cpp`, `Run.cpp`, `RunFrame.cpp`,
+      `RunUiTextPass.cpp`, `RuntimeDiagnostics.cpp`, `RuntimeTuning.cpp`,
+      `RunScene.cpp`, `SceneGeneratedSetup.cpp`, `Terrain.cpp`,
+      `WorldEnvironment.cpp`, `TestDeterminism.cpp`,
+      `TestPersistentContactSolver.cpp`, and `TestTerrain.cpp`. New config
+      structs document owner, units/policy meaning, determinism, broadphase
+      perf sensitivity, terrain render/collision coupling, and generated-scene
+      random-order invariants.
+- [x] Exact pre/post `Dump()` contract: the `[config]` block contains 219
+      lines before and after, `Compare-Object` reports 0 rows, and both blocks
+      retain SHA-256
+      `3bcc5f6247d6266b8f01dba7a7ebcf1963998e998713c80b14dc0deb3a78ab74`.
+- [x] Broadphase-sensitive performance gate: `tools\validate_perf.bat` passed
+      on 2026-07-12 in 65.847s with both absolute budgets passing and clean
+      Profile/Debug builds. The measured physics broadphase average improved
+      14.6% versus the committed comparison baseline in this run.
+- [x] Formal grouped gate: `tools\validate_full.bat` passed on 2026-07-12 in
+      104.114s. Profile and Debug built with 0 warnings/errors; 136 doctest
+      cases and 2,853 assertions plus every standalone CPU lane passed; DX12
+      InfoQueue reported 0 validation errors and all three screenshot
+      comparisons passed; physics standalone smoke passed and
+      `physics_regression_varied.csv` matched 44,401 lines byte-exactly.
+- [x] Grouped coordinator commit/push and E3 phase checkbox.
+
+Grouping rationale: the owner prioritizes speed and quality over tiny commits,
+and E1 explicitly approved these three E3 families. The 48 moves therefore
+remain one coordinated, uncommitted working slice so a single consumer sweep
+can prove the parser/default/determinism boundary. Each value struct remains a
+narrow domain policy; no replacement physics bag or E4 table architecture was
+introduced. Final gates, commit grouping, and the E3 checkbox were completed
+by the coordinator.
 
 ## Acceptance
 

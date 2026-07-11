@@ -142,6 +142,114 @@ struct WaterRenderStyleSettings
     float oceanPerturbStrength = 0.002f;
 };
 
+// World-level gravity and fluid inputs copied into WorldEnvironment before
+// simulation. Every value affects deterministic force integration.
+struct WorldForceConfig
+{
+    float gravity = -30.0f;
+    float fluidHeight = 25.0f;
+    float fluidDensity = 1.0f;
+    float gasDensity = 0.0f;
+    float fluidAngularDragMultiplier = 2.0f;
+};
+
+// Per-body limits and contact skin/bounce policy stamped at the physics owner
+// boundary. These values must remain bit-identical across deterministic runs.
+struct BodySimulationPolicyConfig
+{
+    float velocityLimit = 5.0f;
+    float contactRestitutionThreshold = 2.0f;
+    float contactEpsilon = 0.05f;
+};
+
+// Material response shared by authored body policy, contact solving, UI
+// tuning, and diagnostics. Coefficients are dimensionless.
+struct PhysicsMaterialConfig
+{
+    float sphereDragCoeff = 0.4f;
+    float frictionCoeff = 0.1f;
+    float objectFrictionCoeff = 0.1f;
+    float rollingFrictionCoeff = 0.02f;
+    float spinFrictionCoeff = 0.3f;
+};
+
+// Broadphase grid policy. Cell size is in world units and changes both
+// candidate-pair cost and collision coverage, so it also requires perf proof.
+struct BroadphaseConfig
+{
+    float cellSize = 24.0f;
+};
+
+// Object/object Projected Gauss-Seidel contact policy. Iteration order and
+// correction constants are part of the byte-exact deterministic baseline.
+struct PersistentContactSolverConfig
+{
+    float slop = 0.005f;
+    float baumgarteBeta = 0.2f;
+    float positionCorrectionPercent = 0.35f;
+    int iterations = 12;
+};
+
+// Terrain-specific contact generation and correction policy. It stays
+// separate because terrain manifolds have different support/rest behavior.
+struct TerrainContactConfig
+{
+    float threshold = 0.15f;
+    float slop = 0.005f;
+    float baumgarteBeta = 0.3f;
+    float maxBaumgarteBias = 2.0f;
+};
+
+// Physics sleep thresholds and consecutive-frame requirement. These values
+// decide when bodies leave active solver work and therefore affect determinism.
+struct PhysicsSleepConfig
+{
+    float linearSpeed = 0.5f;
+    float angularSpeed = 0.3f;
+    int frames = 30;
+};
+
+// Worker-lane switches owned by physics execution. The master flag must gate
+// every child lane so command-line serial mode remains a complete override.
+struct PhysicsExecutionConfig
+{
+    bool parallel = true;
+    bool parallelApplyForces = true;
+    bool parallelTornadoField = false;
+    bool parallelNarrowphase = false;
+    bool parallelTerrainDetect = true;
+    bool parallelIntegrate = true;
+};
+
+// Heightfield scale and sampling policy shared by rendered terrain and
+// collision queries. All three values require renderer and physics proof.
+struct TerrainGeometryConfig
+{
+    float scale = 5.0f;
+    float heightScale = 0.15f;
+    int renderStepSize = 2;
+};
+
+// Deterministic ranges used only by generated-scene construction. Random draws
+// and their order remain unchanged; moving these values must not alter seeds.
+struct GeneratedSceneConfig
+{
+    float spawnXBase = 400.0f;
+    int spawnXRange = 400;
+    float spawnYBase = 100.0f;
+    int spawnYRange = 250;
+    float spawnZBase = 400.0f;
+    int spawnZRange = 400;
+    float ballMassMin = 50.0f;
+    int ballMassRange = 50;
+    float ballMomentMin = 5.0f;
+    int ballMomentRange = 15;
+    float ballRestitutionMin = 0.5f;
+    int ballRestitutionRange = 5;
+    int ballRadiusRange = 10;
+    int ballForceRange = 1000;
+};
+
 struct ContactAudioConfig
 {
     bool enabled = true;               // Master startup switch; CLI mute can still force the service off.
@@ -426,8 +534,8 @@ class EngineConfig
     void Load( const char* path );
     void Dump( FILE* out ) const;
 
-    // Migration invariant: domains moved out of the remaining flat E3 fields
-    // stay composed here; parser rows retain historical order and key spellings.
+    // Composition invariant: parser rows retain historical order and key
+    // spellings while consumers select the narrow domain value they own.
     AssetPathsConfig assetPaths;
     WindowConfig window;
     CameraConfig camera;
@@ -437,81 +545,20 @@ class EngineConfig
     ReplayPredictionConfig replayPrediction;
     BlobShadowConfig blobShadow;
     WaterRenderStyleSettings waterRenderStyle;
+    WorldForceConfig worldForces;
+    BodySimulationPolicyConfig bodySimulation;
+    PhysicsMaterialConfig physicsMaterial;
+    BroadphaseConfig broadphase;
+    PersistentContactSolverConfig persistentContactSolver;
+    TerrainContactConfig terrainContact;
+    PhysicsSleepConfig physicsSleep;
+    PhysicsExecutionConfig physicsExecution;
+    TerrainGeometryConfig terrainGeometry;
+    GeneratedSceneConfig generatedScene;
     ContactAudioConfig contactAudio;
     SceneLightConfig sceneLight;
     OrdinaryRenderConfig ordinaryRender;
     CinematicRenderConfig cinematicRender;
-
-    // Terrain
-    float terrainScale = 5.0f;
-    float terrainHeightScale = 0.15f;
-    int terrainRenderStepSize = 2;
-
-    // Threading
-    bool physicsParallel = true;
-    bool physicsParallelApplyForces = true;
-    bool physicsParallelTornadoField = false;
-    bool physicsParallelNarrowphase = false;
-    bool physicsParallelTerrainDetect = true;
-    bool physicsParallelIntegrate = true;
-
-    // Physics
-    float gravity = -30.0f;
-    float fluidHeight = 25.0f;
-    float fluidDensity = 1.0f;
-    float gasDensity = 0.0f;
-    float velocityLimit = 5.0f;
-    float sphereDragCoeff = 0.4f;
-    float fluidAngularDragMultiplier = 2.0f;
-    float frictionCoeff = 0.1f;
-    float objectFrictionCoeff = 0.1f;
-    float rollingFrictionCoeff = 0.02f;
-    float spinFrictionCoeff = 0.3f;
-    float contactRestitutionThreshold = 2.0f;
-    float contactEpsilon = 0.05f;
-    float broadphaseCell = 24.0f;
-
-    // Persistent object/object contact solver tuning. These defaults match the
-    // current Catto-style PGS behavior; exposing them in config makes intentional
-    // solver experiments reproducible and ensures SkullScope can report the
-    // exact policy used for a deterministic diagnostics run.
-    float persistentContactSlop = 0.005f;
-    float persistentContactBaumgarteBeta = 0.2f;
-    float persistentContactPositionCorrectionPercent = 0.35f;
-    int persistentContactSolverIterations = 12;
-
-    // Terrain contact tuning. The terrain path uses the shared Catto row math
-    // for tangent basis and effective mass, but still has terrain-specific
-    // manifold generation and rest-support policy. These fields keep those
-    // policy choices visible while the paths continue to converge.
-    float terrainContactThreshold = 0.15f;
-    float terrainContactSlop = 0.005f;
-    float terrainContactBaumgarteBeta = 0.3f;
-    float terrainMaxBaumgarteBias = 2.0f;
-
-    // Sleep policy tuning. Sleeping is an engine optimization layered on top of
-    // Catto solving, so these thresholds are separate from contact row math.
-    // Raising them keeps more bodies awake for diagnostics; lowering them can
-    // reduce broadphase/narrowphase work once stacks have settled.
-    float physicsSleepLinearSpeed = 0.5f;
-    float physicsSleepAngularSpeed = 0.3f;
-    int physicsSleepFrames = 30;
-
-    // Generated-object spawn ranges
-    float spawnXBase = 400.0f;
-    int spawnXRange = 400;
-    float spawnYBase = 100.0f;
-    int spawnYRange = 250;
-    float spawnZBase = 400.0f;
-    int spawnZRange = 400;
-    float ballMassMin = 50.0f;
-    int ballMassRange = 50;
-    float ballMomentMin = 5.0f;
-    int ballMomentRange = 15;
-    float ballRestitutionMin = 0.5f;
-    int ballRestitutionRange = 5;
-    int ballRadiusRange = 10;
-    int ballForceRange = 1000;
 };
 
 inline int ActiveGameModelCapacity( const EngineConfig& config )

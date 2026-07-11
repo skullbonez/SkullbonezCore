@@ -434,8 +434,8 @@ TerrainContactBodyView TerrainContactBodyViewForIndex( const PhysicsBodyRecordLi
     body.terrain = record.terrain;
     body.boundingRadius = record.boundingRadius;
     body.contactEpsilon = record.contactEpsilon;
-    body.terrainContactThreshold = config.terrainContactThreshold;
-    body.restitutionThreshold = config.contactRestitutionThreshold;
+    body.terrainContactThreshold = config.terrainContact.threshold;
+    body.restitutionThreshold = config.bodySimulation.contactRestitutionThreshold;
     body.isFixed = record.isFixed;
     return body;
 }
@@ -969,9 +969,9 @@ PhysicsWorld::PhysicsWorld()
 
 void PhysicsWorld::ApplyRuntimeConfig( const Basics::EngineConfig& config )
 {
-    const float configuredCell = (std::max)( BROADPHASE_MIN_CELL_SIZE, config.broadphaseCell );
+    const float configuredCell = (std::max)( BROADPHASE_MIN_CELL_SIZE, config.broadphase.cellSize );
     m_spatialGrid.SetCellSize( configuredCell );
-    m_seedSleepFrameCount = static_cast<uint8_t>( (std::max)( 0, (std::min)( config.physicsSleepFrames, 255 ) ) );
+    m_seedSleepFrameCount = static_cast<uint8_t>( (std::max)( 0, (std::min)( config.physicsSleep.frames, 255 ) ) );
 }
 
 
@@ -2991,7 +2991,7 @@ void PhysicsWorld::BuildSolverBroadphaseCandidatePairs( const PhysicsBodyStore& 
         // cells while the config value remains an upper bound for legacy scenes.
         // Invariant: the choice uses only deterministic store/collider/config data,
         // so byte-exact physics baselines do not depend on allocator or hash state.
-        const float configuredCell = (std::max)( BROADPHASE_MIN_CELL_SIZE, config.broadphaseCell );
+        const float configuredCell = (std::max)( BROADPHASE_MIN_CELL_SIZE, config.broadphase.cellSize );
         const float sceneCell =
             (std::max)( BROADPHASE_MIN_CELL_SIZE, ( largestBroadphaseRadius + contactSkin ) * 2.0f );
         m_spatialGrid.SetCellSize( (std::min)( configuredCell, sceneCell ) );
@@ -3039,7 +3039,7 @@ void PhysicsWorld::BuildSolverBroadphaseCandidatePairs( const PhysicsBodyStore& 
                                                       movingIndex,
                                                       targetIndex,
                                                       dt,
-                                                      config.contactEpsilon ) )
+                                                      config.bodySimulation.contactEpsilon ) )
                 {
                     AppendCandidatePairIfMissing( candidatePairs,
                                                   broadphaseCandidateFilterContext,
@@ -3603,11 +3603,11 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     // The counter storage is still uint8_t, so physics_sleep_frames is clamped
     // to 1..255 here. Widening that storage is a separate data-layout change and
     // should be measured before doing it in a hot per-body array.
-    const float sleepLinear = (std::max)( 0.0f, config.physicsSleepLinearSpeed );
-    const float sleepAngular = (std::max)( 0.0f, config.physicsSleepAngularSpeed );
+    const float sleepLinear = (std::max)( 0.0f, config.physicsSleep.linearSpeed );
+    const float sleepAngular = (std::max)( 0.0f, config.physicsSleep.angularSpeed );
     const float SLEEP_LINEAR_SQ = sleepLinear * sleepLinear;
     const float SLEEP_ANGULAR_SQ = sleepAngular * sleepAngular;
-    const uint8_t SLEEP_FRAMES = static_cast<uint8_t>( (std::max)( 1, (std::min)( config.physicsSleepFrames, 255 ) ) );
+    const uint8_t SLEEP_FRAMES = static_cast<uint8_t>( (std::max)( 1, (std::min)( config.physicsSleep.frames, 255 ) ) );
 
     EnsureUnderwaterSleepLockBuffer( modelCount );
     for ( int x = 0; x < modelCount; ++x )
@@ -3633,7 +3633,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         dt,
     };
 
-    if ( config.physicsParallel && config.physicsParallelApplyForces )
+    if ( config.physicsExecution.parallel && config.physicsExecution.parallelApplyForces )
     {
         workerPool.ParallelForNoAlloc( 0,
                                        modelCount,
@@ -3655,7 +3655,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     // Broadphase: build spatial grid from all object positions (include sleeping for wake detection)
     std::vector<std::pair<int, int>>& candidatePairs = m_candidatePairs;
-    const float contactSkin = (std::max)( 0.0f, config.contactEpsilon );
+    const float contactSkin = (std::max)( 0.0f, config.bodySimulation.contactEpsilon );
     BuildSolverBroadphaseCandidatePairs( bodyStore,
                                          bodyRecords,
                                          colliderRecords,
@@ -3687,7 +3687,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                                     SLEEP_LINEAR_SQ,
                                                                     SLEEP_ANGULAR_SQ,
                                                                     contactSkin,
-                                                                    config.contactEpsilon,
+                                                                    config.bodySimulation.contactEpsilon,
                                                                     invCellSize,
                                                                     dt };
 
@@ -3698,8 +3698,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     m_objectNarrowphaseIslandWriteOffsets.clear();
     bool ranParallelNarrowphase = false;
     const bool mayBenefitFromIslandDispatch =
-        PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED && config.physicsParallel && config.physicsParallelNarrowphase &&
-        candidatePairCount >= PHYSICS_NARROWPHASE_PARALLEL_MIN_PAIRS &&
+        PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED && config.physicsExecution.parallel &&
+        config.physicsExecution.parallelNarrowphase && candidatePairCount >= PHYSICS_NARROWPHASE_PARALLEL_MIN_PAIRS &&
         candidatePairCount <= modelCount * PHYSICS_NARROWPHASE_PARALLEL_MAX_PAIRS_PER_BODY &&
         workerPool.GetThreadCount() > 0;
     if ( mayBenefitFromIslandDispatch )
@@ -3775,7 +3775,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                                  diagnosticNames,
                                                                  diagnosticNameCount,
                                                                  diagnosticsCsvWriter };
-    if ( config.physicsParallel && config.physicsParallelTerrainDetect )
+    if ( config.physicsExecution.parallel && config.physicsExecution.parallelTerrainDetect )
     {
         workerPool.ParallelForNoAlloc( 0,
                                        modelCount,
@@ -3823,7 +3823,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                             m_sleepState,
                                                             m_timeRemaining };
 
-    if ( config.physicsParallel && config.physicsParallelIntegrate )
+    if ( config.physicsExecution.parallel && config.physicsExecution.parallelIntegrate )
     {
         workerPool.ParallelForNoAlloc( 0,
                                        modelCount,

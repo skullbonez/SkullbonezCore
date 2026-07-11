@@ -773,25 +773,25 @@ PhysicsFrictionUICommandResult ApplyPhysicsFrictionUICommands( PhysicsFrictionUI
     bool runtimePhysicsConfigChanged = false;
     if ( commands.requestTerrainFrictionCoeff )
     {
-        liveConfig.frictionCoeff = std::clamp( commands.requestedTerrainFrictionCoeff,
-                                               UI::Layout::UI_FRICTION_COEFF_MIN,
-                                               UI::Layout::UI_FRICTION_COEFF_MAX );
+        liveConfig.physicsMaterial.frictionCoeff = std::clamp( commands.requestedTerrainFrictionCoeff,
+                                                               UI::Layout::UI_FRICTION_COEFF_MIN,
+                                                               UI::Layout::UI_FRICTION_COEFF_MAX );
         runtimePhysicsConfigChanged = true;
         ++result.applySettingsActionCount;
     }
     if ( commands.requestObjectFrictionCoeff )
     {
-        liveConfig.objectFrictionCoeff = std::clamp( commands.requestedObjectFrictionCoeff,
-                                                     UI::Layout::UI_FRICTION_COEFF_MIN,
-                                                     UI::Layout::UI_FRICTION_COEFF_MAX );
+        liveConfig.physicsMaterial.objectFrictionCoeff = std::clamp( commands.requestedObjectFrictionCoeff,
+                                                                     UI::Layout::UI_FRICTION_COEFF_MIN,
+                                                                     UI::Layout::UI_FRICTION_COEFF_MAX );
         runtimePhysicsConfigChanged = true;
         ++result.applySettingsActionCount;
     }
     if ( commands.requestRollingFrictionCoeff )
     {
-        liveConfig.rollingFrictionCoeff = std::clamp( commands.requestedRollingFrictionCoeff,
-                                                      UI::Layout::UI_ROLLING_FRICTION_COEFF_MIN,
-                                                      UI::Layout::UI_ROLLING_FRICTION_COEFF_MAX );
+        liveConfig.physicsMaterial.rollingFrictionCoeff = std::clamp( commands.requestedRollingFrictionCoeff,
+                                                                      UI::Layout::UI_ROLLING_FRICTION_COEFF_MIN,
+                                                                      UI::Layout::UI_ROLLING_FRICTION_COEFF_MAX );
         runtimePhysicsConfigChanged = true;
         ++result.applySettingsActionCount;
     }

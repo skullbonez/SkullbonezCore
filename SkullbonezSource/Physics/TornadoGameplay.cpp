@@ -348,7 +348,8 @@ void TornadoGameplay::ApplyBodyForces( const TornadoGameplayStepState& stepState
         bodyRecord.linearVelocity = velocity;
     };
 
-    if ( context.runtimeConfig.physicsParallel && context.runtimeConfig.physicsParallelTornadoField )
+    if ( context.runtimeConfig.physicsExecution.parallel &&
+         context.runtimeConfig.physicsExecution.parallelTornadoField )
     {
         context.workerPool.ParallelForNoAlloc( 0,
                                                modelCount,

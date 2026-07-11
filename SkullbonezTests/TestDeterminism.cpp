@@ -122,18 +122,18 @@ struct MicroWorldSnapshot
 EngineConfig MakeDeterministicConfig()
 {
     EngineConfig config;
-    config.physicsParallel = false;
-    config.physicsParallelApplyForces = false;
-    config.physicsParallelTornadoField = false;
-    config.physicsParallelNarrowphase = false;
-    config.physicsParallelTerrainDetect = false;
-    config.physicsParallelIntegrate = false;
-    config.fluidDensity = 0.0f;
-    config.gasDensity = 0.0f;
-    config.gravity = -9.8f;
-    config.velocityLimit = 1000.0f;
-    config.broadphaseCell = 32.0f;
-    config.physicsSleepFrames = 1000000;
+    config.physicsExecution.parallel = false;
+    config.physicsExecution.parallelApplyForces = false;
+    config.physicsExecution.parallelTornadoField = false;
+    config.physicsExecution.parallelNarrowphase = false;
+    config.physicsExecution.parallelTerrainDetect = false;
+    config.physicsExecution.parallelIntegrate = false;
+    config.worldForces.fluidDensity = 0.0f;
+    config.worldForces.gasDensity = 0.0f;
+    config.worldForces.gravity = -9.8f;
+    config.bodySimulation.velocityLimit = 1000.0f;
+    config.broadphase.cellSize = 32.0f;
+    config.physicsSleep.frames = 1000000;
     return config;
 }
 
@@ -316,7 +316,7 @@ void SeedTwoBodyGravityWorld( PhysicsEngine& engine,
                               float radius )
 {
     EngineConfig config = MakeDeterministicConfig();
-    config.gravity = 0.0f;
+    config.worldForces.gravity = 0.0f;
     engine.Clear();
     engine.ApplyRuntimeConfig( config );
     engine.SetSleepEnabled( false );
@@ -401,7 +401,7 @@ void CheckTerrainPenetrationWithinTolerance( const PhysicsEngine& engine, const 
     // Concept: this is the fast invariant partner to byte-exact CSV baselines.
     // It does not care about exact impulse history, only that settled body rows
     // and terrain manifolds stay inside the configured contact envelope.
-    const float maxAllowedPenetration = config.terrainContactThreshold + config.contactEpsilon;
+    const float maxAllowedPenetration = config.terrainContact.threshold + config.bodySimulation.contactEpsilon;
     for ( int i = 0; i < SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( engine ).Count(); ++i )
     {
         const PhysicsBodyRecord& record = RequireBodyRecord( engine, i );
@@ -776,7 +776,7 @@ TEST_CASE( "PhysicsEngine mutual gravity: pair force is antisymmetric" )
                              0.5f );
 
     EngineConfig config = MakeDeterministicConfig();
-    config.gravity = 0.0f;
+    config.worldForces.gravity = 0.0f;
     const PhysicsWorldForces forces = MutualGravityForces( 120.0f, 0.25f );
 
     StepMicroWorldWith( pairWorld, 1, config, forces );
@@ -802,7 +802,7 @@ TEST_CASE( "PhysicsEngine mutual gravity: softening keeps near pairs finite" )
                              0.01f );
 
     EngineConfig config = MakeDeterministicConfig();
-    config.gravity = 0.0f;
+    config.worldForces.gravity = 0.0f;
     const PhysicsWorldForces forces = MutualGravityForces( 1000.0f, 5.0f );
 
     StepMicroWorldWith( closeWorld, 1, config, forces );
@@ -837,7 +837,7 @@ TEST_CASE( "PhysicsEngine mutual gravity: equal-mass two-body orbit stays bounde
                              0.5f );
 
     EngineConfig config = MakeDeterministicConfig();
-    config.gravity = 0.0f;
+    config.worldForces.gravity = 0.0f;
     const PhysicsWorldForces forces = MutualGravityForces( gravitationalConstant, softeningLength );
 
     StepMicroWorldWith( orbitWorld, 300, config, forces );
@@ -857,7 +857,7 @@ TEST_CASE( "PhysicsEngine mutual gravity: chaotic triple is deterministic" )
     static PhysicsEngine first;
     static PhysicsEngine second;
     EngineConfig config = MakeDeterministicConfig();
-    config.gravity = 0.0f;
+    config.worldForces.gravity = 0.0f;
 
     auto seedTriple = [&config]( PhysicsEngine& engine )
     {
@@ -898,7 +898,7 @@ TEST_CASE( "PhysicsEngine mutual gravity: elastic space collision preserves clos
                              radius );
 
     EngineConfig config = MakeDeterministicConfig();
-    config.gravity = 0.0f;
+    config.worldForces.gravity = 0.0f;
     PhysicsWorldForces forces = MutualGravityForces( 0.001f, 1.0f );
     REQUIRE( forces.mutualGravity.elasticCollisions );
 
@@ -933,9 +933,9 @@ TEST_CASE( "PhysicsEngine invariants: fluid damping does not add kinetic energy"
     SeedMicroWorld( damped );
 
     EngineConfig config = MakeDeterministicConfig();
-    config.gravity = 0.0f;
-    config.fluidDensity = 2.0f;
-    config.fluidAngularDragMultiplier = 2.0f;
+    config.worldForces.gravity = 0.0f;
+    config.worldForces.fluidDensity = 2.0f;
+    config.worldForces.fluidAngularDragMultiplier = 2.0f;
     const PhysicsWorldForces forces = DampingForces();
 
     const float initialEnergy = TotalKineticEnergy( damped );
@@ -960,7 +960,7 @@ TEST_CASE( "PhysicsEngine invariants: authored velocity wakes a sleeping body" )
     sleepWorld.SetSleepEnabled( true );
 
     EngineConfig config = MakeDeterministicConfig();
-    config.gravity = 0.0f;
+    config.worldForces.gravity = 0.0f;
     const PhysicsWorldForces forces = NoGravityForces();
 
     const PhysicsBodyHandle body = RequireBodyHandle( sleepWorld, 0 );
@@ -986,13 +986,13 @@ TEST_CASE( "PhysicsEngine sleep policy: quiet supported body sleeps after thresh
     static PhysicsEngine sleepWorld;
 
     EngineConfig config = MakeDeterministicConfig();
-    config.physicsSleepFrames = 3;
-    config.physicsSleepLinearSpeed = 0.25f;
-    config.physicsSleepAngularSpeed = 0.25f;
+    config.physicsSleep.frames = 3;
+    config.physicsSleep.linearSpeed = 0.25f;
+    config.physicsSleep.angularSpeed = 0.25f;
     const PhysicsWorldForces forces = DeterministicForces();
 
     SeedSupportedSleepWorld( sleepWorld, config );
-    StepMicroWorldWith( sleepWorld, config.physicsSleepFrames + 24, config, forces );
+    StepMicroWorldWith( sleepWorld, config.physicsSleep.frames + 24, config, forces );
 
     CHECK( RequireBodyRecord( sleepWorld, 0 ).isSleeping );
     CHECK( DiagnosticsSleepStateAt( sleepWorld, 0 ) );

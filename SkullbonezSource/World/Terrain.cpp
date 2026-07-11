@@ -281,7 +281,7 @@ void Terrain::ReleaseRenderResources()
 
 void Terrain::ConfigureRenderStepSize()
 {
-    int requestedStep = Config().terrainRenderStepSize;
+    int requestedStep = Config().terrainGeometry.renderStepSize;
     requestedStep = (std::max)( 1, (std::min)( requestedStep, m_stepSize ) );
 
     const int renderRawExtent = m_mapSize - m_stepSize;
@@ -407,7 +407,7 @@ void Terrain::BuildCollisionCache()
 
 int Terrain::GetQuadCacheIndex( float xPosition, float zPosition, bool& isTriangleA )
 {
-    float scaledStepSize = m_stepSize * Config().terrainScale;
+    float scaledStepSize = m_stepSize * Config().terrainGeometry.scale;
     int xPosting = static_cast<int>( floorf( zPosition / scaledStepSize ) );
     int zPosting = static_cast<int>( floorf( xPosition / scaledStepSize ) );
     int quadsPerSide = m_postsPerSide - 1;
@@ -526,7 +526,7 @@ float Terrain::SampleRenderHeightRaw( float rawX, float rawZ ) const
 
     const float h0 = h00 + ( h10 - h00 ) * tx;
     const float h1 = h01 + ( h11 - h01 ) * tx;
-    return ( h0 + ( h1 - h0 ) * tz ) * Config().terrainHeightScale * Config().terrainScale;
+    return ( h0 + ( h1 - h0 ) * tz ) * Config().terrainGeometry.heightScale * Config().terrainGeometry.scale;
 }
 
 
@@ -539,7 +539,7 @@ Vector3 Terrain::SampleRenderNormalRaw( float rawX, float rawZ ) const
     const float top = (std::max)( 0.0f, rawZ - sampleStep );
     const float bottom = (std::min)( rawExtent, rawZ + sampleStep );
 
-    const float terrainScale = Config().terrainScale;
+    const float terrainScale = Config().terrainGeometry.scale;
     const float hLeft = SampleRenderHeightRaw( left, rawZ );
     const float hRight = SampleRenderHeightRaw( right, rawZ );
     const float hTop = SampleRenderHeightRaw( rawX, top );
@@ -566,7 +566,7 @@ Vector3 Terrain::SampleRenderNormalRaw( float rawX, float rawZ ) const
 TerrainPost Terrain::BuildRenderPost( float rawX, float rawZ ) const
 {
     TerrainPost post;
-    const float terrainScale = Config().terrainScale;
+    const float terrainScale = Config().terrainGeometry.scale;
     post.vPosition.SetAll( rawX * terrainScale, SampleRenderHeightRaw( rawX, rawZ ), rawZ * terrainScale );
     post.vNormal = SampleRenderNormalRaw( rawX, rawZ );
     return post;
@@ -785,7 +785,7 @@ float Terrain::GetTerrainHeightAt( float xPosition, float zPosition, bool isFlui
 
     if ( isFluidMin )
     {
-        return ( terrainHeight < Config().fluidHeight ) ? Config().fluidHeight : terrainHeight;
+        return ( terrainHeight < Config().worldForces.fluidHeight ) ? Config().worldForces.fluidHeight : terrainHeight;
     }
     else
     {
@@ -843,8 +843,8 @@ bool Terrain::IsInBounds( float xPosition, float zPosition )
     */
 
     return ( ( xPosition >= 0.0f ) && ( zPosition >= 0.0f ) &&
-             ( xPosition < m_terrainSizeWorldCoords * Config().terrainScale ) &&
-             ( zPosition < m_terrainSizeWorldCoords * Config().terrainScale ) );
+             ( xPosition < m_terrainSizeWorldCoords * Config().terrainGeometry.scale ) &&
+             ( zPosition < m_terrainSizeWorldCoords * Config().terrainGeometry.scale ) );
 }
 
 
@@ -863,8 +863,8 @@ XZBounds Terrain::GetXZBounds()
 
     bounds.m_xMin = 0.0f;
     bounds.m_zMin = 0.0f;
-    bounds.m_xMax = m_terrainSizeWorldCoords * Config().terrainScale;
-    bounds.m_zMax = m_terrainSizeWorldCoords * Config().terrainScale;
+    bounds.m_xMax = m_terrainSizeWorldCoords * Config().terrainGeometry.scale;
+    bounds.m_zMax = m_terrainSizeWorldCoords * Config().terrainGeometry.scale;
 
     return bounds;
 }
@@ -898,14 +898,14 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
     // NOTE:  X and Z params are switched in this method to account for world
     // co-ordinate space find which quadric we are in (treat m_terrain as orthagonal
     // XZ projection to locate the quadric)
-    int xPosting = static_cast<int>( floorf( zPosition / ( m_stepSize * Config().terrainScale ) ) );
-    int zPosting = static_cast<int>( floorf( xPosition / ( m_stepSize * Config().terrainScale ) ) );
+    int xPosting = static_cast<int>( floorf( zPosition / ( m_stepSize * Config().terrainGeometry.scale ) ) );
+    int zPosting = static_cast<int>( floorf( xPosition / ( m_stepSize * Config().terrainGeometry.scale ) ) );
 
     // Use the bottom-right post as the target quad so the A/B split below can
     // work in one local coordinate frame.
     int targetQuadric = zPosting * m_postsPerSide + xPosting + m_postsPerSide;
 
-    float scaledStepSize = m_stepSize * Config().terrainScale;
+    float scaledStepSize = m_stepSize * Config().terrainGeometry.scale;
 
     // NOTE:  X and Z params are switched in this method to account for world
     // co-ordinate space make our X and Z positions relative to the target quadric
@@ -972,10 +972,11 @@ void Terrain::TranslatePostings()
     {
         for ( int Z = 0; Z < m_mapSize; Z += m_stepSize )
         {
-            m_postData[indexCounter].vPosition.SetAll(
-                static_cast<float>( X ) * Config().terrainScale,
-                static_cast<float>( GetPixelHeightAt( X, Z ) ) * Config().terrainHeightScale * Config().terrainScale,
-                static_cast<float>( Z ) * Config().terrainScale );
+            m_postData[indexCounter].vPosition.SetAll( static_cast<float>( X ) * Config().terrainGeometry.scale,
+                                                       static_cast<float>( GetPixelHeightAt( X, Z ) ) *
+                                                           Config().terrainGeometry.heightScale *
+                                                           Config().terrainGeometry.scale,
+                                                       static_cast<float>( Z ) * Config().terrainGeometry.scale );
 
             ++indexCounter;
         }

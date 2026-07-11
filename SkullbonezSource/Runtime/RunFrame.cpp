@@ -620,7 +620,7 @@ SbResult Run::Execute()
                 secondsPerFrame,
                 [this]( const SpatialGrid::ActiveCell* activeCells, int activeCellCount )
                 { m_sceneController.UpdateRequiredBroadphaseXCells( activeCells, activeCellCount ); },
-                [this]() { m_sceneController.UpdateRequiredContacts( m_config.contactEpsilon ); } );
+                [this]() { m_sceneController.UpdateRequiredContacts( m_config.bodySimulation.contactEpsilon ); } );
 
             // Concept: graphics stress is render/runtime churn, not UI command
             // processing. Tick it once per rendered frame so headless and

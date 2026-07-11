@@ -119,7 +119,7 @@ void WorldEnvironment::ApplyWaterAndFluidSettings( const SkullbonezCore::Basics:
     m_waterStyle.oceanWaveHeight = config.waterRenderStyle.oceanWaveHeight;
     m_waterStyle.oceanPerturbStrength = config.waterRenderStyle.oceanPerturbStrength;
     m_waterMeshBuild.frustumFar = config.camera.frustumFar;
-    m_fluidForces.angularDragMultiplier = config.fluidAngularDragMultiplier;
+    m_fluidForces.angularDragMultiplier = config.worldForces.fluidAngularDragMultiplier;
 }
 
 

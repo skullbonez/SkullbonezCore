@@ -882,9 +882,9 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.rayCastVisualization = state.rayCastTest.visualizeRays;
         UIData.rayCastImpulseStrength = state.rayCastTest.impulseStrength;
         UIData.launcherProjectileSpeed = state.rayCastTest.projectileSpeed;
-        UIData.terrainFrictionCoeff = liveConfig.frictionCoeff;
-        UIData.objectFrictionCoeff = liveConfig.objectFrictionCoeff;
-        UIData.rollingFrictionCoeff = liveConfig.rollingFrictionCoeff;
+        UIData.terrainFrictionCoeff = liveConfig.physicsMaterial.frictionCoeff;
+        UIData.objectFrictionCoeff = liveConfig.physicsMaterial.objectFrictionCoeff;
+        UIData.rollingFrictionCoeff = liveConfig.physicsMaterial.rollingFrictionCoeff;
         UIData.waterFreezeDebug = state.debug.isWaterFreezeDebug;
         UIData.waterFlatDebug = state.debug.isWaterFlatDebug;
         UIData.terrainHidden = state.debug.isTerrainHidden;

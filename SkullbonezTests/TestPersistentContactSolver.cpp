@@ -114,14 +114,14 @@ struct SolverFixture
         : bodyRecords( TestBodyRecords() ),
           colliderRecords( TestColliderRecords() )
     {
-        config.physicsParallel = false;
-        config.gravity = -30.0f;
-        config.frictionCoeff = 0.2f;
-        config.contactRestitutionThreshold = 0.1f;
-        config.terrainContactSlop = 0.0f;
-        config.terrainContactBaumgarteBeta = 0.25f;
-        config.terrainMaxBaumgarteBias = 6.0f;
-        config.persistentContactSolverIterations = 12;
+        config.physicsExecution.parallel = false;
+        config.worldForces.gravity = -30.0f;
+        config.physicsMaterial.frictionCoeff = 0.2f;
+        config.bodySimulation.contactRestitutionThreshold = 0.1f;
+        config.terrainContact.slop = 0.0f;
+        config.terrainContact.baumgarteBeta = 0.25f;
+        config.terrainContact.maxBaumgarteBias = 6.0f;
+        config.persistentContactSolver.iterations = 12;
     }
 
     void AddDynamicSphere( const Vector3& position,
@@ -147,7 +147,7 @@ struct SolverFixture
         collider.shapeKind = ColliderShapeKind::Sphere;
         collider.boundingRadius = radius;
         collider.restitution = restitution;
-        collider.friction = config.frictionCoeff;
+        collider.friction = config.physicsMaterial.frictionCoeff;
         colliderRecords.push_back( collider );
 
         sleepState.assign( bodyRecords.size(), 0u );
@@ -247,9 +247,10 @@ TEST_CASE( "Persistent contact solver: friction cone clamps diagonal tangent imp
     REQUIRE( fixture.persistentContactCache.size() == 1u );
     const PersistentContactCacheEntry& cached = fixture.persistentContactCache[0];
     const float tangentMagnitude = sqrtf( cached.accT1 * cached.accT1 + cached.accT2 * cached.accT2 );
-    const float terrainWarmStart = fixture.bodyRecords[0].mass * fabsf( fixture.config.gravity ) * kSolverDt;
-    const float frictionLimit =
-        fixture.config.frictionCoeff * ( ( cached.accN > terrainWarmStart ) ? cached.accN : terrainWarmStart );
+    const float terrainWarmStart =
+        fixture.bodyRecords[0].mass * fabsf( fixture.config.worldForces.gravity ) * kSolverDt;
+    const float frictionLimit = fixture.config.physicsMaterial.frictionCoeff *
+                                ( ( cached.accN > terrainWarmStart ) ? cached.accN : terrainWarmStart );
     CHECK( tangentMagnitude > 0.0f );
     CHECK( tangentMagnitude <= frictionLimit + 0.0001f );
 }
@@ -263,7 +264,7 @@ TEST_CASE( "Persistent contact solver: restitution creates separating terrain ve
     fixture.Solve();
 
     REQUIRE( fixture.debugContacts.size() == 1u );
-    CHECK( fixture.debugContacts[0].preSolveClosingSpeed > fixture.config.contactRestitutionThreshold );
+    CHECK( fixture.debugContacts[0].preSolveClosingSpeed > fixture.config.bodySimulation.contactRestitutionThreshold );
     CHECK( fixture.debugContacts[0].normalImpulse > 0.0f );
     CHECK( fixture.bodyRecords[0].linearVelocity.y > 0.0f );
 }

@@ -42,7 +42,7 @@ using SkullbonezCore::Geometry::Terrain;
 TEST_CASE( "Terrain: flat slope reports analytic height, plane, and bounds" )
 {
     EngineConfig config;
-    config.fluidHeight = 25.0f;
+    config.worldForces.fluidHeight = 25.0f;
     AssetSystem assets;
     SkullbonezTests::NullRenderResourceFactory resources;
     Terrain terrain( 10.0f, 0.25f, -0.1f, config, assets, resources );
@@ -56,7 +56,7 @@ TEST_CASE( "Terrain: flat slope reports analytic height, plane, and bounds" )
     const float z = 30.0f;
     const float expectedHeight = 10.0f + 0.25f * x - 0.1f * z;
     CHECK( terrain.GetTerrainHeightAt( x, z, false ) == doctest::Approx( expectedHeight ) );
-    CHECK( terrain.GetTerrainHeightAt( x, z, true ) == doctest::Approx( config.fluidHeight ) );
+    CHECK( terrain.GetTerrainHeightAt( x, z, true ) == doctest::Approx( config.worldForces.fluidHeight ) );
 
     float planeHeight = 0.0f;
     Plane plane;

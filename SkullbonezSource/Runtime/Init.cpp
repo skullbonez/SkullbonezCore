@@ -1968,12 +1968,12 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
               {
                   return FailCommandLineParse( "--physics-parallel expects optional on|off." );
               }
-              config.physicsParallel = enabled;
-              config.physicsParallelApplyForces = enabled;
-              config.physicsParallelTornadoField = enabled;
-              config.physicsParallelNarrowphase = enabled;
-              config.physicsParallelTerrainDetect = enabled;
-              config.physicsParallelIntegrate = enabled;
+              config.physicsExecution.parallel = enabled;
+              config.physicsExecution.parallelApplyForces = enabled;
+              config.physicsExecution.parallelTornadoField = enabled;
+              config.physicsExecution.parallelNarrowphase = enabled;
+              config.physicsExecution.parallelTerrainDetect = enabled;
+              config.physicsExecution.parallelIntegrate = enabled;
               fprintf( stdout,
                        "[workers] Physics parallel jobs %s via command line.\n",
                        enabled ? "enabled" : "disabled" );

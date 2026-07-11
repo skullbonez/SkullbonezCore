@@ -357,7 +357,10 @@ void UpdateWorldTerrainBounds( WorldEnvironment& world, Terrain* terrain )
 
 void ApplyConfiguredWorldEnvironment( WorldEnvironment& world, const EngineConfig& cfg, Terrain* terrain )
 {
-    world = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
+    world = WorldEnvironment( cfg.worldForces.fluidHeight,
+                              cfg.worldForces.fluidDensity,
+                              cfg.worldForces.gasDensity,
+                              cfg.worldForces.gravity );
     world.BindRuntimeConfig( cfg );
     UpdateWorldTerrainBounds( world, terrain );
 }
@@ -970,7 +973,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
         {
             m_sceneController.World() = WorldEnvironment( scene.GetWorldFluidHeight(),
                                                           scene.GetWorldFluidDensity(),
-                                                          m_config.gasDensity,
+                                                          m_config.worldForces.gasDensity,
                                                           scene.GetWorldGravity() );
             m_sceneController.World().SetMutualGravitySettings( scene.GetWorldMutualGravitySettings() );
             m_sceneController.World().BindRuntimeConfig( m_config );
