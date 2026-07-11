@@ -11,8 +11,9 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `claude/directx-12-rendering-review-wolqlc`, tracking `origin/claude/directx-12-rendering-review-wolqlc` |
-| Current pushed baseline | `1ee7e374 docs: reconcile plan ownership and priority` |
-| Current objective | Execute the binding minimal-rework critical path beginning with instant prediction, then entity-model closure |
+| Current pushed baseline | `dfcbaed2 docs: bind the minimal-rework plan sequence` |
+| Current objective | Enforce progress-bearing commit subjects, then execute the binding critical path beginning with instant prediction |
+| Portfolio progress | 166 / 274 tasks = 61% overall |
 | Last broad local gate | `tools\validate_full.bat` passed the final engine-cleanup source in 96.5s: every CPU target, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, handle smoke, and the 44,401-line varied physics baseline byte-exactly |
 | Validation for current edits | Documentation-only; no repository validation required |
 
@@ -45,6 +46,9 @@ plan inventory.
 - `instant-prediction-velocity-chaos` is explicitly live and is not a WNF plan.
 - The MASTER critical path is binding; preparation may run early only where it
   is explicitly named, and no work crosses a recorded dependency barrier.
+- Every commit and plan-implementation prompt starts with the resolved MASTER
+  progress header: plan name, completed plan tasks, and rounded overall
+  portfolio completion.
 - A completed plan may remain in the tip tree only when MASTER explicitly marks
   it as evidence for an unmet aggregate closure gate; it is deleted when that
   gate passes.

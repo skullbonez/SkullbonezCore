@@ -27,6 +27,76 @@ Status: Authoritative inventory of every live repository plan
    ignore that folder entirely — do not list, resume, update, or delete its
    contents unless the owner explicitly moves a file back out of it.
 
+## Commit Progress Contract
+
+Every commit subject (the first line of the commit message) must begin with the
+owning plan, that plan's completed task count after the commit, and overall
+portfolio completion after the commit:
+
+```text
+<PLAN_NAME>, TASK <DONE> / <TASK_COUNT>, <OVERALL_PERCENT>% OVERALL COMPLETE — <ACTION SUMMARY>
+```
+
+Example with ten 10-task plans: if plans 1 and 2 are complete and plan 3 is at
+5/10, the correct overall value is 25/100 = 25%:
+
+```text
+Plan 3, TASK 5 / 10, 25% OVERALL COMPLETE — implement the current slice
+```
+
+Rules:
+
+1. `DONE` is the owning plan's completed ledger tasks after the commit, not the
+   ordinal number of the commit or the number of raw Markdown checkboxes.
+2. `OVERALL_PERCENT` is `round(100 * portfolio done / portfolio total)` using
+   the authoritative ledger below. Never estimate it subjectively.
+3. Companion/progress checklists do not add a second denominator. Their count
+   is represented by the owning plan's ledger row. The prediction plan is the
+   current deliberate 50-task exception because its execution checklist is the
+   accepted task source.
+4. Completed-plan ledger rows remain after their plan files are deleted. They
+   preserve arithmetic only; git history and reports remain the evidence
+   archive. New or rescoped plans update the ledger and denominator in the same
+   commit.
+5. One plan owns each commit. Split unrelated plan work. For an unavoidable
+   aggregate governance/documentation commit, use `MASTER-PLAN` with the
+   bounded governance task count and list every affected plan in the body; the
+   overall percentage still comes from this ledger.
+6. Every plan-implementation prompt must include the fully resolved required
+   first line before implementation begins. `AGENTS.md` and the orchestrator
+   skill repeat this requirement so it is present in agent prompts, not merely
+   discoverable here.
+
+### Portfolio Progress Ledger
+
+Scope: every concrete non-WNF plan in the current MASTER portfolio. The engine-
+cleanup campaign meta-plan is excluded because its work is represented by the
+concrete plan rows and counting it would duplicate tasks.
+
+| Plan | Done | Tasks | Plan complete |
+|---|---:|---:|---:|
+| validation-gate-integrity | 5 | 6 | 83% |
+| dx12-failure-propagation | 6 | 6 | 100% |
+| behavioral-test-depth | 6 | 6 | 100% |
+| runtime-shell-decomposition | 27 | 27 | 100% |
+| runtime-ui-control-architecture-cleanup | 7 | 7 | 100% |
+| interaction-state-machine | 6 | 6 | 100% |
+| replay-architecture-and-right-sizing | 6 | 6 | 100% |
+| physics-authority-and-identity | 16 | 16 | 100% |
+| render-backend-decomposition | 0 | 8 | 0% |
+| stale-plan-reference-cleanup-15.6-checklist | 86 | 86 | 100% |
+| dx12-post-final-cleanup | 0 | 6 | 0% |
+| shader-pipeline-modernization | 0 | 8 | 0% |
+| render-visibility-architecture | 0 | 7 | 0% |
+| sim-render-interpolation | 0 | 5 | 0% |
+| editor-undo-redo | 0 | 5 | 0% |
+| data-format-versioning | 0 | 5 | 0% |
+| engine-config-decomposition | 0 | 5 | 0% |
+| entity-model-endgame | 0 | 4 | 0% |
+| instant-prediction-velocity-chaos | 1 | 50 | 2% |
+| shadow-edge-quality | 0 | 5 | 0% |
+| **Portfolio total** | **166** | **274** | **61%** |
+
 ## Current Execution Priority
 
 For maximum impact with minimal rework, use this binding critical path:
