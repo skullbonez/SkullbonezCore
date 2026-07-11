@@ -27,6 +27,7 @@ Related:
 #pragma once
 
 #include "../Core/Common.h"
+#include "../Runtime/WindowConstants.h"
 #include <cstddef>
 #include <cstdint>
 #include <memory>

@@ -28,6 +28,8 @@ Invariants:
   - `m_maxInstances` is the allocation ceiling for the per-frame TLAS instance
     descriptor upload. Frame rebuilds may use a smaller prefix but must not
     exceed the buffers allocated by `Init()`.
+  - Instance bytes and build commands are emitted only after Map succeeds and
+    returns a non-null pointer.
 
 Related:
   - SkullbonezSource/Rendering/DX12/TLASDX12.h
@@ -52,6 +54,7 @@ Related:
 //
 #include "TLASDX12.h"
 #include "../../Core/FatalError.h"
+#include "RenderBackendDX12.CommandRecordingState.h"
 #include "RenderDeviceDX12.h"
 #include <cstring>
 
@@ -118,6 +121,13 @@ SbResult TLAS::Init( ID3D12Device5* device, int maxInstances )
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device5-getraytracingaccelerationstructureprebuildinfo
     D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuild = {};
     device->GetRaytracingAccelerationStructurePrebuildInfo( &inputs, &prebuild );
+    // Hazard: this API has no HRESULT; zero capacity is its unusable-output
+    // signal. Reject it before creating nominal zero-byte build resources.
+    if ( prebuild.ScratchDataSizeInBytes == 0 || prebuild.ResultDataMaxSizeInBytes == 0 )
+    {
+        Reset();
+        return SbResult::Failure( "Rendering/DX12", "TLAS: prebuild info returned zero scratch or result capacity" );
+    }
 
     // Allocate scratch buffer
     D3D12_HEAP_PROPERTIES defaultHeap = {};
@@ -160,10 +170,10 @@ SbResult TLAS::Init( ID3D12Device5* device, int maxInstances )
 }
 
 
-void TLAS::Build( ID3D12Device5* device,
-                  ID3D12GraphicsCommandList4* cmdList,
-                  const D3D12_RAYTRACING_INSTANCE_DESC* instances,
-                  int instanceCount )
+SbResult TLAS::Build( ID3D12Device5* device,
+                      ID3D12GraphicsCommandList4* cmdList,
+                      const D3D12_RAYTRACING_INSTANCE_DESC* instances,
+                      int instanceCount )
 {
     (void)device;
 
@@ -178,9 +188,15 @@ void TLAS::Build( ID3D12Device5* device,
     // Map the instance descriptor buffer to CPU memory and write the new instance transforms.
     // Map/Unmap is the DX12 way of writing CPU data to a GPU-accessible buffer.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12resource-map
-    void* mapped = nullptr;
-    m_instanceDescs->Map( 0, nullptr, &mapped );
-    memcpy( mapped, instances, (size_t)instanceCount * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ) );
+    void* rawMapped = nullptr;
+    const HRESULT mapResult = m_instanceDescs->Map( 0, nullptr, &rawMapped );
+    const Dx12MappedPointerResult mappedResult =
+        ValidateDx12MappedPointer( mapResult, rawMapped, "TLAS instance descriptor Map" );
+    if ( !mappedResult.result.ok )
+    {
+        return mappedResult.result;
+    }
+    memcpy( mappedResult.pointer, instances, (size_t)instanceCount * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ) );
     m_instanceDescs->Unmap( 0, nullptr );
 
     // Build inputs tell DXR where the per-instance table lives and how many
@@ -214,6 +230,7 @@ void TLAS::Build( ID3D12Device5* device,
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
     barrier.UAV.pResource = m_result;
     cmdList->ResourceBarrier( 1, &barrier );
+    return SbResult::Success();
 }
 
 

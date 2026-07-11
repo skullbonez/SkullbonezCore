@@ -34,6 +34,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.h
 */
 #include "PhysicsBodyStore.h"
+#include "../Assets/AssetKeys.h"
 #include "ColliderStore.h"
 #include "PhysicsApi.h"
 #include "PhysicsWorldForces.h"

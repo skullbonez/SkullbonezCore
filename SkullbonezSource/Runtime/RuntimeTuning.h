@@ -35,7 +35,7 @@ Invariants:
   - Sound commands delegate value limits to ContactAudioService setters.
   - Physics config edits are mirrored into GameModelCollection immediately so
     existing and newly added bodies share the same runtime policy.
-  - Tornado commands sync runtime settings back to physics after field edits.
+  - Tornado commands commit copied field/system values back to the physics owner.
 
 Related:
   - SkullbonezSource/Runtime/RunInput.cpp
@@ -43,8 +43,11 @@ Related:
 */
 #pragma once
 
-#include "RunInternal.h"
+#include "RenderDefaultsStore.h"
+#include "RunDebugState.h"
+#include "RuntimeCameraMode.h"
 #include "Scene/SceneRuntimeStyle.h"
+#include "../UI/UICommands.h"
 
 namespace SkullbonezCore
 {
@@ -56,10 +59,25 @@ namespace Rendering
 {
 class IRenderDeviceLifecycle;
 }
+namespace Runtime
+{
+namespace Audio
+{
+class ContactAudioService;
+}
+} // namespace Runtime
 
 namespace Basics
 {
 class SimulationSystem;
+class ReplayRuntime;
+class RuntimeRenderer;
+using Environment::WorldEnvironment;
+using UI::UICinematicFeature;
+using UI::UICinematicParam;
+using UI::UIRenderParam;
+using UI::UISoundBandParam;
+using UI::UISoundParam;
 
 namespace RunInternal
 {
@@ -72,24 +90,22 @@ struct SoundUICommandContext
     // The helper may lazily initialize contact audio, but it does not store any
     // service or settings references after returning.
     SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio;
-    RunRuntimeSettings& runtimeSettings;
     bool contactAudioDisabledByLaunch = false;
 };
 
 struct TornadoUICommandContext
 {
     // Lifetime: borrowed only while one Physics-tab tornado command packet is applied.
-    // The helper writes runtime settings and immediately mirrors deterministic field
-    // config into physics; it does not retain model or settings references.
-    RunRuntimeSettings& runtimeSettings;
+    // The helper copies, edits, and commits deterministic field config through
+    // the model/physics owner; render-only art stays with RuntimeRenderer.
+    RuntimeRenderer& renderer;
     GameObjects::GameModelCollection& modelCollection;
 };
 
 struct PhysicsSleepPolicyUICommandContext
 {
     // Lifetime: borrowed only while one Physics-tab sleep-policy toggle is applied.
-    // The helper writes runtime settings and mirrors the policy into physics.
-    RunRuntimeSettings& runtimeSettings;
+    // The helper toggles the policy directly on the model/physics owner.
     GameObjects::GameModelCollection& modelCollection;
 };
 
@@ -110,7 +126,7 @@ struct RuntimePresentationUICommandContext
     RunSceneState& scene;
     EngineConfig& config;
     RunLaunchOptions& launchOptions;
-    RuntimeCommandQueue& runtimeCommands;
+    RenderDefaultsStore& renderDefaults;
     bool graphicsReady = false;
     double simulationSeconds = 0.0;
 };
@@ -122,7 +138,7 @@ struct CinematicUICommandContext
     RunLaunchOptions& launchOptions;
     RunSceneState& scene;
     CinematicRenderConfig& cinematic;
-    RuntimeCommandQueue& runtimeCommands;
+    RenderDefaultsStore& renderDefaults;
 };
 
 struct TornadoUICommandResult
@@ -194,7 +210,7 @@ struct RenderDeviceUICommandContext
 {
     // Lifetime: borrowed only while one renderer command packet is applied. The
     // lifecycle pointer may be null while backend resources are not active.
-    RunRuntimeSettings& runtimeSettings;
+    RuntimeRenderer& renderer;
     Rendering::IRenderDeviceLifecycle* deviceLifecycle = nullptr;
 };
 

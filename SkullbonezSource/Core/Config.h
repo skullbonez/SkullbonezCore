@@ -26,7 +26,9 @@ Related:
 */
 #pragma once
 
+#include "../GameObjects/SceneCapacity.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <string>
 
@@ -378,6 +380,11 @@ class EngineConfig
     float oceanWaveHeight = 4.0f;
     float oceanPerturbStrength = 0.002f;
 };
+
+inline int ActiveGameModelCapacity( const EngineConfig& config )
+{
+    return std::clamp( config.gameModelCapacity, 1, MAX_GAME_MODELS );
+}
 
 } // namespace Basics
 } // namespace SkullbonezCore

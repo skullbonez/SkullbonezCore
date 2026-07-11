@@ -33,7 +33,7 @@
 #     regressions fail the scrub gate.
 #
 # Related:
-#   - SkullbonezSource/Runtime/RunInteractionAutomation.cpp
+#   - SkullbonezSource/Runtime/InteractionAutomationController.cpp
 #   - SkullbonezData/interaction/prediction_determinism_probe.json
 #
 

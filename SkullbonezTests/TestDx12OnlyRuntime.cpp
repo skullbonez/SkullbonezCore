@@ -19,7 +19,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/RunLaunchOptions.Renderer.h owns the table.
-  - engine-cleanup-plans/03-governance-apparatus-reduction.md step 1.1.
+  - AGENTS.md documents the DX12-only runtime contract.
 */
 
 #include "../ThirdPtySource/doctest/doctest.h"

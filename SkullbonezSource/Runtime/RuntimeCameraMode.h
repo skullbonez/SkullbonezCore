@@ -70,4 +70,28 @@ inline bool RunCameraModeIsAttached( RunCameraMode mode )
 {
     return mode == RunCameraMode::Attach;
 }
+
+inline const char* RunCameraModeLabel( RunCameraMode mode )
+{
+    switch ( mode )
+    {
+    case RunCameraMode::Demo:
+        return "Demo";
+    case RunCameraMode::Scene:
+        return "Scene";
+    case RunCameraMode::Inspect:
+        return "Inspect";
+    case RunCameraMode::Launcher:
+        return "Launcher";
+    case RunCameraMode::Manipulator:
+        return "Manipulator";
+    case RunCameraMode::Director:
+        return "Director";
+    case RunCameraMode::Attach:
+        return "Attach";
+    case RunCameraMode::Count:
+    default:
+        return "Unknown";
+    }
+}
 } // namespace SkullbonezCore::Basics

@@ -30,7 +30,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/PhysicsApi.h
-  - Agentic/Plans/runtime-run-decomposition-plan.md
+  - Agentic/Plans/TODO/physics-authority-and-identity.md
 */
 #pragma once
 

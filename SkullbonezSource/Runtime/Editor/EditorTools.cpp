@@ -20,18 +20,19 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Editor/EditorTools.h
-  - Agentic/Plans/physics-playground-refactor-and-file-prefix-cleanup-plan.md
+  - Agentic/Plans/TODO/interaction-state-machine.md
 */
 #include "EditorTools.h"
 
 #include "../CameraCollection.h"
+#include "../CaptureController.h"
 #include "../InputController.h"
-#include "../RuntimeCommandQueue.h"
 #include "../RuntimeFileWriter.h"
 #include "../Scene/SceneRuntime.h"
 #include "../Tools/RuntimeTools.h"
 #include "../../Core/Common.h"
 #include "../../GameObjects/GameModelCollection.h"
+#include "../../Scene/SceneSnapshotWriter.h"
 #include "../../UI/UICommands.h"
 #include "../../UI/UITabEditor.h"
 #include "../../World/WorldEnvironment.h"
@@ -39,6 +40,9 @@ Related:
 #include <algorithm>
 #include <utility>
 
+using SkullbonezCore::GameObjects::SceneSaveRequest;
+using SkullbonezCore::GameObjects::SceneSaveView;
+using SkullbonezCore::GameObjects::SceneSnapshotWriter;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace SkullbonezCore
@@ -235,10 +239,7 @@ void ResetEditorUnfocusedInputState( EditorGizmoContext context )
     // editor choices such as object type and static/dynamic placement survive
     // so toggling focus does not rewrite the authoring mode.
     context.editor.viewportLookActive = false;
-    context.editor.altShortcutWasDown = false;
-    context.editor.tabShortcutWasDown = false;
-    context.editor.tildeShortcutWasDown = false;
-    context.editor.placementScaleActive = false;
+    EndEditorPlacementScaleGesture( context );
     context.editor.placementScaleWheelSteps = 0;
     CancelEditorGizmoDragState( context );
     context.editor.gizmoDragStartAxisT = 0.0f;
@@ -251,22 +252,13 @@ void ResetEditorUnfocusedInputState( EditorGizmoContext context )
 void ClearEditorManipulationState( EditorGizmoContext context )
 {
     context.editor.placementPreviewVisible = false;
-    context.editor.placementScaleActive = false;
+    EndEditorPlacementScaleGesture( context );
     context.editor.placementScaleWheelSteps = 0;
     context.editor.placementScale = EditorDefaultPlacementScale( context.editor.objectType );
     context.editor.placementScaleStart = context.editor.placementScale;
     CancelEditorGizmoDragState( context );
     context.editor.placementAltitudeSteps = 0;
     context.editor.placementYawRadians = 0.0f;
-}
-
-
-EditorKeyboardShortcutResult HandleEditorKeyboardShortcuts( EditorKeyboardShortcutContext context )
-{
-    return HandleEditorKeyboardShortcut(
-        RuntimeInputAction::ToggleEditorTool,
-        Hardware::Input::IsKeyDown( VK_MENU ),
-        InputController::CaptureKeyboardActionPress( context.input, RuntimeInputAction::ToggleEditorTool, VK_MENU ) );
 }
 
 
@@ -327,8 +319,8 @@ void ExitEditorModeState( EditorGizmoContext context )
     context.editor.viewportLookActive = false;
     context.editor.placementPreviewVisible = false;
     context.editor.placementModeEnabled = false;
+    EndEditorPlacementScaleGesture( context );
     CancelEditorGizmoDragState( context );
-    context.editor.placementScaleActive = false;
     context.editor.placementScaleWheelSteps = 0;
     context.editor.placementScale = EditorDefaultPlacementScale( context.editor.objectType );
     context.editor.placementScaleStart = context.editor.placementScale;
@@ -356,11 +348,12 @@ void ToggleEditorPlaceStaticObject( RunEditorPlacementState& editor )
 }
 
 
-void ToggleEditorTerrainAlign( RunEditorPlacementState& editor )
+void ToggleEditorTerrainAlign( EditorGizmoContext context )
 {
+    RunEditorPlacementState& editor = context.editor;
     editor.autoTerrainAlign = !editor.autoTerrainAlign;
     editor.placementPreviewVisible = false;
-    editor.placementScaleActive = false;
+    EndEditorPlacementScaleGesture( context );
     editor.placementScaleWheelSteps = 0;
 }
 
@@ -406,9 +399,10 @@ EditorPlacementPreModeUICommandResult ApplyEditorPlacementPreModeUICommands( Edi
 }
 
 
-EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( RunEditorPlacementState& editor,
+EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( EditorGizmoContext context,
                                                                                const UI::UIEditorCommands& commands )
 {
+    RunEditorPlacementState& editor = context.editor;
     EditorPlacementPostModeUICommandResult result;
     if ( commands.togglePlaceStatic )
     {
@@ -417,14 +411,14 @@ EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( R
     }
     if ( commands.toggleTerrainAlign )
     {
-        ToggleEditorTerrainAlign( editor );
+        ToggleEditorTerrainAlign( context );
         result.toggledTerrainAlign = true;
     }
     return result;
 }
 
 
-void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction action, int virtualKey )
+void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction action, bool wasPressed )
 {
     // Why: the binding table owns the key/action pair, while editor tools keep
     // numbered snapshot paths and screenshot commands behind the editor boundary.
@@ -432,7 +426,7 @@ void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction
     {
     case RuntimeInputAction::SaveSceneSnapshot:
     {
-        if ( !InputController::CaptureKeyboardActionPress( context.input, action, virtualKey ) )
+        if ( !wasPressed )
         {
             return;
         }
@@ -447,20 +441,36 @@ void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction
                                                   sSnapshotSeq,
                                                   100 ) )
         {
-            context.models.SaveSceneSnapshot( path,
-                                              context.scene.isScenePhysics,
-                                              context.scene.isSceneText,
-                                              context.world,
-                                              context.cameras.GetCameraTranslation(),
-                                              context.cameras.GetCameraView(),
-                                              context.cameras.GetCameraUp() );
+            // Lifetime: the save view borrows cold owner arrays only for this
+            // synchronous file write; editor input retains none of the rows.
+            const auto& joints = context.models.GetPointJointConstraints();
+            const SceneSaveView saveView{ context.entities,
+                                          context.models.BodyStore(),
+                                          context.models.Colliders(),
+                                          joints.data(),
+                                          static_cast<int>( joints.size() ),
+                                          context.world.GetGravity(),
+                                          context.world.GetFluidSurfaceHeight(),
+                                          context.world.GetFluidDensity(),
+                                          context.world.GetMutualGravitySettings() };
+            const SceneSaveRequest request{ path,
+                                            context.cameras.GetCameraTranslation(),
+                                            context.cameras.GetCameraView(),
+                                            context.cameras.GetCameraUp(),
+                                            context.scene.isScenePhysics,
+                                            context.scene.isSceneText };
+            const SbResult saveResult = SceneSnapshotWriter::Save( saveView, request );
+            if ( !saveResult.ok )
+            {
+                fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );
+            }
         }
         return;
     }
 
     case RuntimeInputAction::SaveScreenshot:
     {
-        if ( !InputController::CaptureKeyboardActionPress( context.input, action, virtualKey ) )
+        if ( !wasPressed )
         {
             return;
         }
@@ -475,9 +485,12 @@ void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction
                                                   sScreenshotSeq,
                                                   100 ) )
         {
-            RuntimeCommand command{ RuntimeCommandType::SaveScreenshot };
-            command.text = path;
-            context.commands.Push( std::move( command ) );
+            const SbResult queueResult = context.capture.QueueScreenshot( path );
+            if ( !queueResult.ok )
+            {
+                std::fprintf( stderr, "%s: %s\n", queueResult.error.owner, queueResult.error.message );
+                std::fflush( stderr );
+            }
         }
         return;
     }
@@ -488,11 +501,6 @@ void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction
 }
 
 
-void HandleEditorSaveHotkeys( EditorSaveHotkeyContext context )
-{
-    HandleEditorSaveHotkey( context, RuntimeInputAction::SaveSceneSnapshot, VK_F2 );
-    HandleEditorSaveHotkey( context, RuntimeInputAction::SaveScreenshot, VK_F3 );
-}
 } // namespace RunInternal
 } // namespace Basics
 } // namespace SkullbonezCore

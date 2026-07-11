@@ -34,14 +34,14 @@ any further gated implementation.
 
 ## Files Updated
 
-- `engine-cleanup-plans/03-governance-apparatus-reduction.md`
-- `engine-cleanup-plans/04-error-handling-policy-reconciliation.md`
+- Deleted Plan 03 governance-apparatus reduction (git history)
+- Deleted Plan 04 error-handling reconciliation (git history)
 - Engine cleanup plan 07 allocation-gate right-sizing (completed and deleted
   per MASTER convention on 2026-07-10)
 - Engine cleanup Plan 11 render-abstraction leaks (completed and deleted per
   MASTER convention on 2026-07-10)
-- `engine-cleanup-plans/13-facade-retirement.md`
-- `engine-cleanup-plans/14-public-physics-api-boundary.md`
+- Deleted Plan 13 facade retirement (git history)
+- Deleted Plan 14 public physics API boundary (git history)
 - `engine-cleanup-plans/00-EXECUTION-GUIDE.md`
 - `engine-cleanup-plans/README.md`
 - `Agentic/SessionState.md`

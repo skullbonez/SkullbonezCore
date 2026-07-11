@@ -1,33 +1,29 @@
 /*
 File: SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.cpp
 Purpose:
-  Implements scene lifecycle selection decisions.
+  Implements SceneController navigation and value-only load decisions.
 
 Mental model:
-  This file chooses which queued or browser scene should load. It deliberately
-  returns scene control intents while Phase 3 continues moving object
-  population, world setup, replay reset, and renderer rebuild responsibilities
-  out of Run.
+  SceneController chooses which queued or browser scene should load and returns
+  an accepted value request without retaining caller behavior.
 
 Glossary:
   Browser scene: Scene path discovered from `SkullbonezData/scenes`.
-  Control intent: Small return object that tells Run which scene side effect to
-    perform next.
+  Load decision: Value-only request naming the chosen queue row and load flags.
   Cinematic deck: Queue range of cinematic/concept scene paths.
 
 Invariants:
-  - Coordinator methods return intents; they do not load scenes directly.
+  - SceneController navigation methods return values; they do not retain load callbacks.
   - Browser-to-queue matching uses normalized path strings.
   - Cinematic deck navigation must match SceneRuntime's filename rules.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h
   - SkullbonezSource/Runtime/Scene/SceneController.h
-  - Agentic/Plans/runtime-run-decomposition-plan.md
+  - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #include "SceneRuntimeCoordinator.h"
 #include "SceneController.h"
-#include "../RuntimeCommandQueue.h"
 #include "../../UI/UICommands.h"
 
 #include <algorithm>
@@ -72,94 +68,50 @@ bool IsCineScenePath( const std::string& path )
 } // namespace
 
 
-SceneRuntimeCoordinator::SceneRuntimeCoordinator( SceneController& sceneController )
-    : m_sceneController( sceneController )
+SceneLoadRequest SceneController::LoadSceneFromBrowserIndex( int index )
 {
-}
-
-
-bool ExecuteSceneRuntimeControlAction( SceneRuntimeControlExecutionContext context,
-                                       const SceneRuntimeControlAction& action )
-{
-    if ( action.enterInteractiveSceneRun && context.enterInteractiveSceneRun )
-    {
-        context.enterInteractiveSceneRun( context.context );
-    }
-
-    // Invariant: SceneRuntimeCoordinator produces intent only. The execution
-    // context names each Run-owned side effect until scene loading fully moves
-    // behind scene-owned APIs.
-    switch ( action.type )
-    {
-    case SceneRuntimeControlActionType::ClearCurrentSceneAutomation:
-        context.scene.isExitOnComplete = false;
-        context.screenshotAndExit = false;
-        return true;
-    case SceneRuntimeControlActionType::LoadScene:
-        return context.loadScene ? context.loadScene( context.context,
-                                                      action.index,
-                                                      action.preserveUIState,
-                                                      action.suppressExitOnComplete,
-                                                      action.preserveRuntimeState )
-                                 : false;
-    case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
-        if ( context.enterInteractiveSceneRun )
-        {
-            context.enterInteractiveSceneRun( context.context );
-        }
-        return ApplyCinematicModeFromBrowserIndex( context.style, action.index );
-    case SceneRuntimeControlActionType::None:
-        return false;
-    }
-    return false;
-}
-
-
-SceneRuntimeControlAction
-SceneRuntimeCoordinator::LoadSceneFromBrowserIndex( int index, const std::vector<std::string>& sceneBrowserPaths )
-{
+    const std::vector<std::string>& sceneBrowserPaths = m_browser.paths;
     if ( index < 0 || index >= static_cast<int>( sceneBrowserPaths.size() ) )
     {
-        return SceneRuntimeControlAction::None();
+        return SceneLoadRequest::None();
     }
 
     const std::string selectedPath = NormalizeScenePath( sceneBrowserPaths[index] );
-    const int queuedIndex = m_sceneController.FindNormalizedPath( selectedPath );
+    const int queuedIndex = FindNormalizedPath( selectedPath );
     if ( queuedIndex >= 0 )
     {
-        if ( queuedIndex != m_sceneController.CurrentIndex() )
+        if ( queuedIndex != CurrentIndex() )
         {
-            return SceneRuntimeControlAction::LoadScene( queuedIndex, true, true, false, true );
+            return SceneLoadRequest::Load( queuedIndex, true, true, false, true );
         }
-        return SceneRuntimeControlAction::ClearCurrentSceneAutomation( true );
+        return SceneLoadRequest::AcceptedWithoutLoad( true );
     }
 
-    return SceneRuntimeControlAction::LoadScene( m_sceneController.Append( selectedPath ), true, true, false, true );
+    return SceneLoadRequest::Load( Append( selectedPath ), true, true, false, true );
 }
 
 
-SceneRuntimeControlAction SceneRuntimeCoordinator::LoadDemoSceneFromUI()
+SceneLoadRequest SceneController::LoadDemoSceneFromUI()
 {
-    const int demoIndex = m_sceneController.FindGeneratedDemo();
+    const int demoIndex = FindGeneratedDemo();
     if ( demoIndex >= 0 )
     {
-        return SceneRuntimeControlAction::LoadScene( demoIndex, true, true, false, true );
+        return SceneLoadRequest::Load( demoIndex, true, true, false, true );
     }
 
-    return SceneRuntimeControlAction::LoadScene( m_sceneController.Append( "" ), true, true, false, true );
+    return SceneLoadRequest::Load( Append( "" ), true, true, false, true );
 }
 
 
-SceneRuntimeControlAction
-SceneRuntimeCoordinator::ApplyAdjacentCinematicMode( int direction,
-                                                     const std::vector<std::string>& sceneBrowserPaths,
-                                                     int selectedCineModeSceneIndex,
-                                                     int currentSceneBrowserIndex,
-                                                     bool isCinematicTabActive )
+int SceneController::AdjacentCinematicModeBrowserIndex( int direction,
+                                                        int selectedCineModeSceneIndex,
+                                                        int currentSceneBrowserIndex,
+                                                        bool isCinematicTabActive ) const
 {
+    const std::vector<std::string>& sceneBrowserPaths = m_browser.paths;
     if ( direction == 0 )
     {
-        return SceneRuntimeControlAction::None();
+        return -1;
     }
 
     std::vector<int> cineIndices;
@@ -179,7 +131,7 @@ SceneRuntimeCoordinator::ApplyAdjacentCinematicMode( int direction,
 
     if ( cineIndices.empty() )
     {
-        return SceneRuntimeControlAction::None();
+        return -1;
     }
 
     const int currentSceneIndex = currentSceneBrowserIndex;
@@ -198,39 +150,34 @@ SceneRuntimeCoordinator::ApplyAdjacentCinematicMode( int direction,
     const bool cineContext = currentPosition >= 0 || selectedCineModeSceneIndex >= 0 || isCinematicTabActive;
     if ( !cineContext )
     {
-        return SceneRuntimeControlAction::None();
+        return -1;
     }
 
     const int cineCount = static_cast<int>( cineIndices.size() );
     const int nextPosition = currentPosition < 0
                                  ? ( direction < 0 ? cineCount - 1 : 0 )
                                  : ( currentPosition + ( direction < 0 ? -1 : 1 ) + cineCount ) % cineCount;
-    return SceneRuntimeControlAction::ApplyCinematicModeFromBrowserIndex( cineIndices[nextPosition] );
+    return cineIndices[nextPosition];
 }
 
 
-SceneRuntimeControlAction
-SceneRuntimeCoordinator::LoadAdjacentSceneFromBrowser( int direction,
-                                                       const std::vector<std::string>& sceneBrowserPaths,
-                                                       int currentSceneBrowserIndex )
+SceneLoadRequest SceneController::LoadAdjacentSceneFromBrowser( int direction, int currentSceneBrowserIndex )
 {
+    const std::vector<std::string>& sceneBrowserPaths = m_browser.paths;
     if ( direction == 0 )
     {
-        return SceneRuntimeControlAction::None();
+        return SceneLoadRequest::None();
     }
 
-    if ( m_sceneController.CurrentQueueIsCinematicDeck() )
+    if ( CurrentQueueIsCinematicDeck() )
     {
-        return SceneRuntimeControlAction::LoadScene( m_sceneController.AdjacentQueueIndex( direction ),
-                                                     true,
-                                                     true,
-                                                     false );
+        return SceneLoadRequest::Load( AdjacentQueueIndex( direction ), true, true, false );
     }
 
     const int sceneCount = static_cast<int>( sceneBrowserPaths.size() );
     if ( sceneCount <= 0 )
     {
-        return SceneRuntimeControlAction::None();
+        return SceneLoadRequest::None();
     }
 
     const int currentIndex = currentSceneBrowserIndex;
@@ -254,7 +201,7 @@ SceneRuntimeCoordinator::LoadAdjacentSceneFromBrowser( int direction,
         {
             const int cineCount = static_cast<int>( cineIndices.size() );
             const int nextCinePosition = ( currentCinePosition + ( direction < 0 ? -1 : 1 ) + cineCount ) % cineCount;
-            return LoadSceneFromBrowserIndex( cineIndices[nextCinePosition], sceneBrowserPaths );
+            return LoadSceneFromBrowserIndex( cineIndices[nextCinePosition] );
         }
     }
 
@@ -268,89 +215,89 @@ SceneRuntimeCoordinator::LoadAdjacentSceneFromBrowser( int direction,
         nextIndex = ( currentIndex + ( direction < 0 ? -1 : 1 ) + sceneCount ) % sceneCount;
     }
 
-    return LoadSceneFromBrowserIndex( nextIndex, sceneBrowserPaths );
+    return LoadSceneFromBrowserIndex( nextIndex );
 }
 
 
-SceneRuntimeControlAction SceneRuntimeCoordinator::ResetCurrentScene( bool preserveUIState,
-                                                                      bool suppressExitOnComplete,
-                                                                      bool preserveRuntimeState )
+SceneLoadRequest
+SceneController::ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
-    if ( !m_sceneController.HasCurrentEntry() )
+    if ( !HasCurrentEntry() )
     {
-        return SceneRuntimeControlAction::None();
+        return SceneLoadRequest::None();
     }
 
-    m_sceneController.MarkManualReset();
-    return SceneRuntimeControlAction::LoadScene( m_sceneController.CurrentIndex(),
-                                                 preserveUIState,
-                                                 suppressExitOnComplete,
-                                                 preserveRuntimeState );
+    SceneLoadRequest request =
+        SceneLoadRequest::Load( CurrentIndex(), preserveUIState, suppressExitOnComplete, preserveRuntimeState, true );
+    request.markManualReset = true;
+    return request;
 }
 
 
-SceneRuntimeControlAction
-SceneRuntimeCoordinator::AdvanceScene( bool perfTestActive, int& perfPass, bool preserveInteractiveUI )
+SceneLoadRequest SceneController::AdvanceScene( bool perfTestActive, bool preserveInteractiveUI )
 {
-    if ( perfTestActive && perfPass == 0 )
+    if ( perfTestActive && m_perfPass == 0 )
     {
-        perfPass = 1;
-        return SceneRuntimeControlAction::LoadScene( m_sceneController.CurrentIndex(),
-                                                     preserveInteractiveUI,
-                                                     preserveInteractiveUI,
-                                                     preserveInteractiveUI );
+        m_perfPass = 1;
+        return SceneLoadRequest::Load( CurrentIndex(),
+                                       preserveInteractiveUI,
+                                       preserveInteractiveUI,
+                                       preserveInteractiveUI );
     }
 
-    perfPass = 0;
+    m_perfPass = 0;
 
-    const int nextIndex = m_sceneController.NextIndex();
-    if ( !m_sceneController.HasEntry( nextIndex ) )
+    const int nextIndex = NextIndex();
+    if ( !HasEntry( nextIndex ) )
     {
-        return SceneRuntimeControlAction::None();
+        return SceneLoadRequest::None();
     }
 
-    return SceneRuntimeControlAction::LoadScene( nextIndex, preserveInteractiveUI, preserveInteractiveUI, false );
+    return SceneLoadRequest::Load( nextIndex, preserveInteractiveUI, preserveInteractiveUI, false );
 }
 
-SceneRuntimeUICommandResult QueueSceneUIRuntimeCommands( RuntimeCommandQueue& runtimeCommands,
-                                                         const UI::UISceneCommands& commands )
+
+int SceneController::PerfPass() const
+{
+    return m_perfPass;
+}
+
+SceneRuntimeUICommandResult SubmitSceneUIRequests( SceneController& sceneController,
+                                                   const UI::UISceneCommands& commands )
 {
     SceneRuntimeUICommandResult result;
     if ( commands.resetScene )
     {
-        runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
+        sceneController.SubmitResetCurrentScene();
         result.resetScene = true;
     }
     if ( commands.resetSceneDefaults )
     {
-        RuntimeCommand command{ RuntimeCommandType::ResetCurrentScene };
-        command.preserveUIState = false;
-        command.preserveRuntimeState = false;
-        runtimeCommands.Push( command );
+        sceneController.SubmitResetCurrentScene( false, true, false );
         result.resetSceneDefaults = true;
     }
     if ( commands.requestDemoScene )
     {
-        runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::LoadDemoScene } );
+        sceneController.SubmitLoadDemoScene();
         result.loadDemoScene = true;
     }
     if ( commands.saveSceneDefaults )
     {
-        runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::SaveSceneDefaults } );
+        sceneController.SubmitSaveCurrentDefaults();
         result.saveSceneDefaults = true;
     }
     if ( commands.createScene )
     {
-        RuntimeCommand command{ RuntimeCommandType::CreateScene };
-        command.text = commands.requestedSceneName;
-        runtimeCommands.Push( command );
+        result.status = sceneController.SubmitCreateScene( commands.requestedSceneName );
+        if ( !result.status.ok )
+        {
+            return result;
+        }
         result.createScene = true;
     }
     if ( commands.requestedSceneIndex >= 0 )
     {
-        RuntimeCommand command{ RuntimeCommandType::LoadSceneIndex };
-        command.index = commands.requestedSceneIndex;
-        runtimeCommands.Push( command );
+        sceneController.SubmitLoadBrowserIndex( commands.requestedSceneIndex );
         result.selectScene = true;
     }
     return result;

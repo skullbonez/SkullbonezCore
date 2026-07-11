@@ -13,15 +13,20 @@ Glossary:
   Cause window: Movable replay inspection panel that explains selected contact
     and solver relationships.
   UIRect: Pixel-space rectangle shared by hit testing and drawing.
+  Control surface: Ordered per-frame table that binds those rectangles to
+    semantic controls and actions without retaining replay state.
 
 Invariants:
   - Input and rendering must call these helpers for the same rectangles.
+  - Scrubber controls are published front-to-back so disabled rows block
+    click-through and broad panel rows cannot steal specific actions.
   - Clamp movable overlay windows before drawing or hit testing them.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
 */
 #include "ReplayOverlayLayout.h"
+#include "../../Core/FatalError.h"
 
 #include <algorithm>
 #include <cmath>
@@ -174,6 +179,227 @@ UI::UIRect ReplayScrubberHotZoneRect( int screenW, int screenH )
              (std::max)( 0.0f, static_cast<float>( screenH ) - REPLAY_SCRUBBER_HOT_ZONE_HEIGHT ),
              width,
              REPLAY_SCRUBBER_HOT_ZONE_HEIGHT };
+}
+
+void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, ReplayScrubberSurface& outSurface )
+{
+    outSurface.Reset();
+
+    const auto addControl = [&]( ReplayScrubberControl id,
+                                 ReplayScrubberAction action,
+                                 RuntimeUiControlKind kind,
+                                 const UI::UIRect& drawRect,
+                                 const UI::UIRect& hitRect,
+                                 bool visible,
+                                 bool enabled )
+    {
+        RuntimeUiControl control;
+        control.id = ReplayScrubberControlId( id );
+        control.action = RuntimeUiActionId{ static_cast<uint32_t>( action ) };
+        control.kind = kind;
+        control.drawRect = drawRect;
+        control.hitRect = hitRect;
+        control.visible = visible;
+        control.enabled = enabled;
+        control.requestsReveal = true;
+        if ( !outSurface.TryAdd( control ) )
+        {
+            // Lane F: a duplicate id or undersized compile-time table makes UI
+            // z-order and dispatch ambiguous, so the frame cannot safely continue.
+            SB_FATAL( "ReplayScrubberSurface", "Cannot publish replay scrubber control id=%u.", control.id.value );
+        }
+    };
+
+    const UI::UIRect branch = ReplayScrubberBranchButtonRect( input.screenW, input.screenH );
+    const UI::UIRect pause = ReplayScrubberPauseButtonRect( input.screenW, input.screenH );
+    const UI::UIRect velocity = ReplayScrubberVelocityEditToggleRect( input.screenW, input.screenH );
+    const UI::UIRect predictionToggle = ReplayScrubberPredictToggleRect( input.screenW, input.screenH );
+    const UI::UIRect predictionPanel = ReplayScrubberPredictControlRect( input.screenW, input.screenH );
+    const UI::UIRect predictionHorizon = ReplayScrubberPredictHorizonRect( input.screenW, input.screenH );
+    const UI::UIRect ragdoll = ReplayScrubberRagdollVisualToggleRect( input.screenW, input.screenH );
+    const UI::UIRect pastPath = ReplayScrubberPastPathToggleRect( input.screenW, input.screenH );
+    const UI::UIRect save = ReplayScrubberSaveButtonRect( input.screenW, input.screenH, input.track );
+    const UI::UIRect load = ReplayScrubberLoadButtonRect( input.screenW, input.screenH, input.track );
+    const UI::UIRect track = ReplayScrubberTrackRect( input.screenW, input.screenH, input.track );
+    const UI::UIRect panel = ReplayScrubberPanelRect( input.screenW, input.screenH );
+    const UI::UIRect hotZone = ReplayScrubberHotZoneRect( input.screenW, input.screenH );
+    const float horizonHitBottom =
+        (std::max)( predictionHorizon.y + predictionHorizon.h, predictionPanel.y + predictionPanel.h );
+    const float horizonHitTop = (std::min)( predictionHorizon.y, predictionPanel.y );
+    const UI::UIRect predictionHorizonHit = { predictionHorizon.x,
+                                              horizonHitTop,
+                                              predictionHorizon.w,
+                                              horizonHitBottom - horizonHitTop };
+
+    // Invariant: rows are added front-to-back. Disabled controls still block
+    // click-through, while broad panel/reveal zones sit behind real controls.
+    addControl( ReplayScrubberControl::Branch,
+                ReplayScrubberAction::RestoreBranch,
+                RuntimeUiControlKind::Button,
+                branch,
+                branch,
+                true,
+                input.branchTargetAvailable );
+    addControl( ReplayScrubberControl::Pause,
+                ReplayScrubberAction::TogglePause,
+                RuntimeUiControlKind::Button,
+                pause,
+                pause,
+                !input.loadedPresentation,
+                input.solverToolsEnabled );
+    addControl( ReplayScrubberControl::VelocityEdit,
+                ReplayScrubberAction::ToggleVelocityEdit,
+                RuntimeUiControlKind::Toggle,
+                velocity,
+                velocity,
+                !input.loadedPresentation,
+                input.solverToolsEnabled );
+    addControl( ReplayScrubberControl::PredictionToggle,
+                ReplayScrubberAction::TogglePrediction,
+                RuntimeUiControlKind::Toggle,
+                predictionToggle,
+                predictionToggle,
+                !input.loadedPresentation,
+                input.predictionToolsEnabled );
+    addControl( ReplayScrubberControl::PredictionHorizon,
+                ReplayScrubberAction::SetPredictionHorizon,
+                RuntimeUiControlKind::Slider,
+                predictionHorizon,
+                predictionHorizonHit,
+                !input.loadedPresentation,
+                input.predictionToolsEnabled );
+    addControl( ReplayScrubberControl::RagdollVisuals,
+                ReplayScrubberAction::ToggleRagdollVisuals,
+                RuntimeUiControlKind::Toggle,
+                ragdoll,
+                ragdoll,
+                !input.loadedPresentation,
+                input.predictionToolsEnabled );
+    addControl( ReplayScrubberControl::PastPath,
+                ReplayScrubberAction::TogglePastPath,
+                RuntimeUiControlKind::Toggle,
+                pastPath,
+                pastPath,
+                !input.loadedPresentation,
+                input.pastPathToolsEnabled );
+    addControl( ReplayScrubberControl::Save,
+                ReplayScrubberAction::Save,
+                RuntimeUiControlKind::Button,
+                save,
+                save,
+                true,
+                input.solverToolsEnabled );
+    addControl( ReplayScrubberControl::Load,
+                ReplayScrubberAction::Load,
+                RuntimeUiControlKind::Button,
+                load,
+                load,
+                true,
+                true );
+    addControl( ReplayScrubberControl::ScrubTrack,
+                ReplayScrubberAction::Scrub,
+                RuntimeUiControlKind::Track,
+                track,
+                track,
+                true,
+                input.scrubTrackDragEnabled );
+    addControl( ReplayScrubberControl::PredictionPanel,
+                ReplayScrubberAction::None,
+                RuntimeUiControlKind::Panel,
+                predictionPanel,
+                predictionPanel,
+                !input.loadedPresentation,
+                input.predictionToolsEnabled );
+    addControl( ReplayScrubberControl::Panel,
+                ReplayScrubberAction::None,
+                RuntimeUiControlKind::Panel,
+                panel,
+                panel,
+                true,
+                true );
+    addControl( ReplayScrubberControl::HotZone,
+                ReplayScrubberAction::None,
+                RuntimeUiControlKind::HotZone,
+                hotZone,
+                hotZone,
+                input.hotZoneEnabled,
+                true );
+
+    ReplayScrubberControl active = ReplayScrubberControl::None;
+    if ( input.gesture == RuntimeInteractionGestureKind::ReplayScrubDrag )
+    {
+        active = ReplayScrubberControl::ScrubTrack;
+    }
+    else if ( input.gesture == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag )
+    {
+        active = ReplayScrubberControl::PredictionHorizon;
+    }
+    if ( active != ReplayScrubberControl::None )
+    {
+        outSurface.activeControl = ReplayScrubberControlId( active );
+        outSurface.hasActiveControl = true;
+        if ( RuntimeUiControl* control = outSurface.Find( outSurface.activeControl ) )
+        {
+            control->active = true;
+        }
+    }
+}
+
+ReplayScrubberSurfaceInput DescribeReplayScrubberSurface( const ReplayRuntime& replayRuntime,
+                                                          bool scenePhysicsEnabled,
+                                                          bool uiBlocksMouse,
+                                                          int screenW,
+                                                          int screenH,
+                                                          RuntimeInteractionGestureKind gesture )
+{
+    ReplayScrubberSurfaceInput input;
+    input.screenW = screenW;
+    input.screenH = screenH;
+    input.gesture = gesture;
+    input.loadedPresentation = replayRuntime.HasLoadedPresentation();
+    input.track = input.loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
+    const ReplayRecorderStats solverStats = replayRuntime.Solver().GetStats();
+    const bool solverReplayEnabled = solverStats.enabled;
+    const bool solverReplayAvailable = solverReplayEnabled && solverStats.sampleCount >= 2;
+    input.solverToolsEnabled = !input.loadedPresentation && solverReplayAvailable;
+    input.predictionToolsEnabled = !input.loadedPresentation && solverReplayEnabled && scenePhysicsEnabled;
+    input.pastPathToolsEnabled = input.solverToolsEnabled && replayRuntime.PathVisualizer().hasTarget;
+    const bool predictionTimelineAvailable =
+        input.predictionToolsEnabled && ( replayRuntime.ActivePredictionFrames().size() >= 2 ||
+                                          replayRuntime.Prediction().BuildPrefixShouldBePresented() );
+    input.scrubTrackDragEnabled = input.loadedPresentation || input.solverToolsEnabled || predictionTimelineAvailable;
+    input.branchTargetAvailable =
+        replayRuntime.Scrubber().historicalSamplePaused &&
+        ( ( input.loadedPresentation && replayRuntime.Scrubber().activeTrack == RunReplayTrack::Presentation &&
+            replayRuntime.CurrentScrubSample() != nullptr ) ||
+          ( input.solverToolsEnabled && replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver &&
+            replayRuntime.CurrentSolverScrubSample() != nullptr ) );
+    input.hotZoneEnabled = !uiBlocksMouse;
+    return input;
+}
+
+void BuildReplayCauseWindowSurface( const RunReplayCauseTreeState& state, ReplayCauseWindowSurface& outSurface )
+{
+    outSurface.Reset();
+    const auto add = [&]( ReplayCauseWindowControl id, RuntimeUiControlKind kind, const UI::UIRect& bounds )
+    {
+        RuntimeUiControl control;
+        control.id = ReplayCauseWindowControlId( id );
+        control.action = RuntimeUiActionId{ static_cast<uint32_t>( id ) };
+        control.kind = kind;
+        control.drawRect = bounds;
+        control.hitRect = bounds;
+        if ( !outSurface.TryAdd( control ) )
+        {
+            SB_FATAL( "ReplayCauseWindowSurface", "Cannot publish cause-window control id=%u.", control.id.value );
+        }
+    };
+
+    // Resize and title sit in front of content and the broad panel background.
+    add( ReplayCauseWindowControl::Resize, RuntimeUiControlKind::ToolHandle, ReplayCauseWindowResizeRect( state ) );
+    add( ReplayCauseWindowControl::Title, RuntimeUiControlKind::Track, ReplayCauseWindowTitleRect( state ) );
+    add( ReplayCauseWindowControl::Content, RuntimeUiControlKind::Panel, ReplayCauseWindowContentRect( state ) );
+    add( ReplayCauseWindowControl::Panel, RuntimeUiControlKind::Panel, ReplayCauseWindowRect( state ) );
 }
 
 UI::UIRect ReplayCauseTreePanelRect( int screenW, int screenH )

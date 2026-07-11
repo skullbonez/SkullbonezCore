@@ -65,9 +65,11 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteraction
 
     if ( context.editor.editorModeEnabled && context.editor.placementModeEnabled )
     {
+        const bool placementScaleActive =
+            context.interaction.Gesture().kind == RuntimeInteractionGestureKind::EditorPlacementScaleDrag;
         EditorTerrainPlacement terrainPlacement;
         const EditorTerrainPlacement* terrainPlacementForPreview = nullptr;
-        if ( !context.editor.placementScaleActive && input.hasMouseRay &&
+        if ( !placementScaleActive && input.hasMouseRay &&
              TryGetEditorTerrainPlacement( context.terrain,
                                            input.mouseRayOrigin,
                                            input.mouseRayDirection,
@@ -76,7 +78,7 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteraction
             terrainPlacementForPreview = &terrainPlacement;
         }
         context.editor.placementPreviewVisible =
-            TryUpdateEditorPlacementPreview( { context.editor, context.terrain, context.assets },
+            TryUpdateEditorPlacementPreview( { context.editor, context.terrain, context.assets, placementScaleActive },
                                              context.editor.objectType,
                                              terrainPlacementForPreview );
     }
@@ -108,10 +110,10 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteraction
         return result;
     }
 
-    if ( selectedModelIndex >= 0 && !context.editor.gizmoDragActive && !context.editor.placementModeEnabled &&
-         input.hasMouseRay )
+    if ( selectedModelIndex >= 0 && context.interaction.Gesture().kind != RuntimeInteractionGestureKind::GizmoDrag &&
+         !context.editor.placementModeEnabled && input.hasMouseRay )
     {
-        UpdateEditorGizmoHotAxes( { context.editor, context.models, context.interaction },
+        UpdateEditorGizmoHotAxes( { context.editor, context.models, context.physics, context.interaction },
                                   input.mouseRayOrigin,
                                   input.mouseRayDirection,
                                   input.scaleMode );
@@ -156,7 +158,10 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
         const int selectedModelIndex = PeekSelectedEditorModelIndex( context.editor, context.bodyStore );
         Vector3 gizmoOrigin;
         float radius = 1.0f;
-        const bool scaleMode = context.editor.gizmoDragIsScale || input.scaleMode;
+        const bool gizmoDragActive = input.gesture.kind == RuntimeInteractionGestureKind::GizmoDrag;
+        const bool gizmoScale = gizmoDragActive && input.gesture.gizmoKind == RuntimeGizmoDragKind::Scale;
+        const bool gizmoRotation = gizmoDragActive && input.gesture.gizmoKind == RuntimeGizmoDragKind::Rotate;
+        const bool scaleMode = gizmoScale || input.scaleMode;
         if ( selectedModelIndex >= 0 && selectedModelIndex < context.models.SceneEntityCount() &&
              TryTraceEditorSelectionOverlayFromStores( context.models,
                                                        context.bodyStore,
@@ -172,14 +177,14 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
                                      radius,
                                      context.editor.hotGizmoAxis,
                                      context.editor.hotRotationAxis,
-                                     context.editor.activeGizmoAxis,
-                                     context.editor.gizmoDragIsRotation,
+                                     gizmoDragActive ? input.gesture.axis : -1,
+                                     gizmoRotation,
                                      scaleMode,
-                                     context.editor.gizmoDragIsScale );
+                                     gizmoScale );
         }
     }
 
-    if ( context.mousePickup.active && context.mousePickup.body.IsValid() )
+    if ( input.gesture.kind == RuntimeInteractionGestureKind::MousePickupDrag && context.mousePickup.body.IsValid() )
     {
         const PhysicsBodyRecord* body = context.bodyStore.RecordForHandle( context.mousePickup.body );
         const PhysicsColliderHandle colliderHandle =

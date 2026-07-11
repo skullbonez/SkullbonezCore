@@ -29,7 +29,7 @@ Related:
   - SkullbonezSource/Runtime/Run.h
   - SkullbonezSource/Runtime/InputController.h
   - SkullbonezSource/Runtime/RunDemoDirector.h
-  - engine-cleanup-plans/01-run-god-object-decomposition.md
+  - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #pragma once
 
@@ -37,11 +37,27 @@ Related:
 #include "DemoDirector.h"
 #include "Input.h"
 #include "RuntimeCameraMode.h"
+#include "../Physics/PhysicsHandles.h"
 
 namespace SkullbonezCore
 {
+namespace Environment
+{
+class CameraCollection;
+}
+namespace GameObjects
+{
+class GameModelCollection;
+}
+namespace Geometry
+{
+class Terrain;
+}
 namespace Basics
 {
+class AttachedCameraController;
+class EngineConfig;
+struct RunTimerState;
 struct RunCameraState
 {
     Hardware::InputState input = {};                           // Snapshot consumed by camera controls for this frame.
@@ -49,17 +65,42 @@ struct RunCameraState
     int selectedCamera = 0;                                    // Keeps track of which camera is selected
     RunCameraMode mode = RunCameraMode::Demo;                  // Explicit operator camera mode shown in the minimized HUD.
     RunCameraMode modeBeforeLauncher = RunCameraMode::Inspect; // N returns to the last non-launcher workspace.
-    RunCameraMode modeBeforeAttach = RunCameraMode::Inspect;   // Pre-Attach workspace used by explicit attach-restore paths.
     DemoDirectorPlaybackState director;                        // Fixed shot-list playback state for Director camera mode.
     bool needsMouseLookReset = true;                           // Discard stale absolute mouse deltas after UI/focus/fly transitions
     bool hasMouseLookLastClient = false;
     POINT mouseLookLastClient = {};
+    bool mouseLookOwnsCursor = false;                          // Resolved post-UI pointer policy captured with this frame's camera input.
+    float travelSpeedMultiplier = 1.0f;                        // Captured Shift modifier; late camera update never reopens device state.
     float cameraTime = 0.0f;                                   // Camera helper clock
-    int trackBallIndex = -1;                                   // Index of ball to track with camera (-1 = no tracking)
+    Physics::ModelRowHint trackBallRow;                        // Cache for camera tracking; never object identity.
     float trackHeight = 300.0f;                                // Camera height above tracked ball
     float autoCycleInterval = -1.0f;                           // Seconds between per-ball auto screenshots (-1 = disabled)
     float autoCycleAccum = 0.0f;                               // Accumulated real-time seconds since last shot
     int autoCycleShotsTaken = 0;                               // Number of per-ball screenshots taken so far
+
+    void StopAutoCycle()
+    {
+        autoCycleInterval = -1.0f;
+        autoCycleAccum = 0.0f;
+    }
+
+    void UpdateViewingOrientation( RunTimerState& timers,
+                                   Environment::CameraCollection& cameras,
+                                   const GameObjects::GameModelCollection& models,
+                                   bool replayCameraActive,
+                                   bool sceneMode,
+                                   bool attachedActiveFollow,
+                                   bool cameraLookCaptured );
+    void AdvanceAutoCycleClock( bool sceneMode, float simulationDt );
+    void TickControls( Environment::CameraCollection& cameras,
+                       Geometry::Terrain& terrain,
+                       GameObjects::GameModelCollection& models,
+                       AttachedCameraController& attachedCamera,
+                       const EngineConfig& config,
+                       bool editorModeEnabled,
+                       bool viewportLookActive,
+                       bool sceneMode,
+                       float cameraDt );
 };
 
 } // namespace Basics

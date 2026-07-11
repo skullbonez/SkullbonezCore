@@ -237,22 +237,20 @@ void FramebufferDX12::Bind() const
     m_savedRTV = m_backend.GetCurrentRTV();
     m_savedDSV = m_backend.GetCurrentDSV();
 
-    // Clear stale texture bindings for these FBO textures before the state
-    // transition. A texture cannot be sampled and written as a target at the
-    // same time.
-    m_backend.SetRenderingToFBO( true, m_srvIndex, m_depthSrvIndex, ToDX12ColorFormat( m_colorFormat ) );
-
     // Transition color texture from SRV to render target.
     // In DX12, resources must be explicitly transitioned between states. The GPU needs to know
     // when a texture switches from being read by a shader (SRV) to being written to (RENDER_TARGET).
     // Failing to do this causes GPU corruption or validation errors — the driver does NOT track this for you.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-resourcebarrier
-    m_backend.ExecuteGraphTransition( "FramebufferBindColor",
-                                      "FramebufferColor",
-                                      m_colorTexture,
-                                      RenderGraphResourceAccess::PixelShaderResource,
-                                      RenderGraphResourceAccess::RenderTarget );
+    if ( !m_backend.ExecuteGraphTransition( "FramebufferBindColor",
+                                            "FramebufferColor",
+                                            m_colorTexture,
+                                            RenderGraphResourceAccess::PixelShaderResource,
+                                            RenderGraphResourceAccess::RenderTarget ) )
+    {
+        return;
+    }
 
     if ( m_depthState != D3D12_RESOURCE_STATE_DEPTH_WRITE )
     {
@@ -261,14 +259,20 @@ void FramebufferDX12::Bind() const
         const RenderGraphResourceAccess beforeDepthAccess = ( m_depthState == D3D12_RESOURCE_STATE_DEPTH_READ )
                                                                 ? RenderGraphResourceAccess::DepthRead
                                                                 : RenderGraphResourceAccess::PixelShaderResource;
-        m_backend.ExecuteGraphTransition( "FramebufferBindDepth",
-                                          "FramebufferDepth",
-                                          m_depthTexture,
-                                          beforeDepthAccess,
-                                          RenderGraphResourceAccess::DepthWrite );
+        if ( !m_backend.ExecuteGraphTransition( "FramebufferBindDepth",
+                                                "FramebufferDepth",
+                                                m_depthTexture,
+                                                beforeDepthAccess,
+                                                RenderGraphResourceAccess::DepthWrite ) )
+        {
+            return;
+        }
         m_depthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
     }
 
+    // Clear stale texture bindings only after every required transition was
+    // recorded. A failed epoch must not publish the FBO as writable state.
+    m_backend.SetRenderingToFBO( true, m_srvIndex, m_depthSrvIndex, ToDX12ColorFormat( m_colorFormat ) );
     m_backend.SetCurrentTargets( m_rtvHandle, m_dsvHandle );
 }
 
@@ -285,11 +289,14 @@ void FramebufferDX12::Unbind() const
     // This is the reverse of the Bind() transition — every state change must be paired.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-resourcebarrier
-    m_backend.ExecuteGraphTransition( "FramebufferUnbindColor",
-                                      "FramebufferColor",
-                                      m_colorTexture,
-                                      RenderGraphResourceAccess::RenderTarget,
-                                      RenderGraphResourceAccess::PixelShaderResource );
+    if ( !m_backend.ExecuteGraphTransition( "FramebufferUnbindColor",
+                                            "FramebufferColor",
+                                            m_colorTexture,
+                                            RenderGraphResourceAccess::RenderTarget,
+                                            RenderGraphResourceAccess::PixelShaderResource ) )
+    {
+        return;
+    }
 
     if ( m_depthState != D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE )
     {
@@ -298,11 +305,14 @@ void FramebufferDX12::Unbind() const
         const RenderGraphResourceAccess beforeDepthAccess = ( m_depthState == D3D12_RESOURCE_STATE_DEPTH_READ )
                                                                 ? RenderGraphResourceAccess::DepthRead
                                                                 : RenderGraphResourceAccess::DepthWrite;
-        m_backend.ExecuteGraphTransition( "FramebufferUnbindDepth",
-                                          "FramebufferDepth",
-                                          m_depthTexture,
-                                          beforeDepthAccess,
-                                          RenderGraphResourceAccess::PixelShaderResource );
+        if ( !m_backend.ExecuteGraphTransition( "FramebufferUnbindDepth",
+                                                "FramebufferDepth",
+                                                m_depthTexture,
+                                                beforeDepthAccess,
+                                                RenderGraphResourceAccess::PixelShaderResource ) )
+        {
+            return;
+        }
         m_depthState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
     }
 

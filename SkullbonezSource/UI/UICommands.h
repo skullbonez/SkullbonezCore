@@ -383,8 +383,16 @@ struct InGameUICommands
 
 struct InGameUIInputResult
 {
+    enum class NativeMouseCaptureRequest
+    {
+        Unchanged,
+        Acquire,
+        Release
+    };
+
     InGameUICommands commands;
     int unhandledWheelDelta = 0;
+    NativeMouseCaptureRequest nativeMouseCapture = NativeMouseCaptureRequest::Unchanged;
 };
 
 } // namespace UI

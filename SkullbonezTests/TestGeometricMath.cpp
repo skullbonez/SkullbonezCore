@@ -21,7 +21,7 @@
 // Related:
 //   - SkullbonezSource/Maths/GeometricMath.h
 //   - SkullbonezSource/Maths/GeometricStructures.h
-//   - fable_plans/01-unit-test-pyramid-progress.md
+//   - Agentic/Plans/TODO/behavioral-test-depth.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"

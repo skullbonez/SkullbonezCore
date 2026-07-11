@@ -10,6 +10,8 @@ Mental model:
   glossary/invariants below.
 
 Glossary:
+  Upload arena: Frame-scoped CPU-visible staging memory used for packed shader
+  constants before a draw binds their GPU address.
   CBV (Constant Buffer View): Descriptor or root binding that lets shaders read
   a packed block of constants.
   PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
@@ -21,6 +23,8 @@ Glossary:
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
+  - Address zero means constant upload failed; FlushCB must not dereference it
+    or clear the dirty bit.
 
 Related:
   - SkullbonezSource/Rendering/DX12/ShaderDX12.h
@@ -234,14 +238,36 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
         return false;
     }
 
+    // Hazard: reflection descriptor structs are undefined when their query
+    // fails. Stop at the first bad query rather than publishing offsets, sizes,
+    // or resource slots from zero-initialized placeholder data.
+    auto reflectionFailure = [&]( const char* operation, HRESULT result )
+    {
+        Log().WriteEventf( "dx12_shader_reflect_failed stage=%s operation=%s hresult=0x%08X path=%s",
+                           stageName ? stageName : "unknown",
+                           operation ? operation : "unknown",
+                           static_cast<unsigned int>( result ),
+                           hlslPath ? hlslPath : "<null>" );
+        Log().FlushAll();
+        return false;
+    };
+
     D3D11_SHADER_DESC shaderDesc = {};
-    reflect->GetDesc( &shaderDesc );
+    hr = reflect->GetDesc( &shaderDesc );
+    if ( FAILED( hr ) )
+    {
+        return reflectionFailure( "shader GetDesc", hr );
+    }
 
 #ifdef _DEBUG
     for ( UINT i = 0; i < shaderDesc.BoundResources; ++i )
     {
         D3D11_SHADER_INPUT_BIND_DESC bindDesc = {};
-        reflect->GetResourceBindingDesc( i, &bindDesc );
+        hr = reflect->GetResourceBindingDesc( i, &bindDesc );
+        if ( FAILED( hr ) )
+        {
+            return reflectionFailure( "GetResourceBindingDesc", hr );
+        }
         if ( bindDesc.Name && bindDesc.Name[0] != '\0' )
         {
             m_resourceMap[bindDesc.Name] = { bindDesc.BindPoint, bindDesc.Type, bindDesc.Dimension };
@@ -252,8 +278,16 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
     for ( UINT i = 0; i < shaderDesc.ConstantBuffers; ++i )
     {
         ID3D11ShaderReflectionConstantBuffer* cb = reflect->GetConstantBufferByIndex( i );
+        if ( !cb )
+        {
+            return reflectionFailure( "GetConstantBufferByIndex", E_POINTER );
+        }
         D3D11_SHADER_BUFFER_DESC bufDesc = {};
-        cb->GetDesc( &bufDesc );
+        hr = cb->GetDesc( &bufDesc );
+        if ( FAILED( hr ) )
+        {
+            return reflectionFailure( "constant buffer GetDesc", hr );
+        }
 
         if ( bufDesc.Size > m_cbReflectedSize )
         {
@@ -263,8 +297,16 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
         for ( UINT v = 0; v < bufDesc.Variables; ++v )
         {
             ID3D11ShaderReflectionVariable* var = cb->GetVariableByIndex( v );
+            if ( !var )
+            {
+                return reflectionFailure( "GetVariableByIndex", E_POINTER );
+            }
             D3D11_SHADER_VARIABLE_DESC varDesc = {};
-            var->GetDesc( &varDesc );
+            hr = var->GetDesc( &varDesc );
+            if ( FAILED( hr ) )
+            {
+                return reflectionFailure( "variable GetDesc", hr );
+            }
             m_uniformMap[varDesc.Name] = { varDesc.StartOffset, varDesc.Size };
         }
     }
@@ -781,6 +823,10 @@ D3D12_GPU_VIRTUAL_ADDRESS ShaderDX12::FlushCB() const
     // with that same alignment and flushes/resets the upload arena if needed,
     // instead of letting a busy frame throw after the arena fills up.
     D3D12_GPU_VIRTUAL_ADDRESS addr = m_backend.ReserveUpload( m_cbSize, 256 );
+    if ( addr == 0 )
+    {
+        return 0;
+    }
     memcpy( m_backend.GetUploadPtr( addr ), m_cbData.data(), m_cbSize );
     m_cbDirty = false;
     return addr;

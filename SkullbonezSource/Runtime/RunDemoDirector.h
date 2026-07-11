@@ -4,7 +4,7 @@ Purpose:
   Declares presentation-only Demo Director playback/style/pacing helpers for Run split files.
 
 Mental model:
-  Run owns the camera/style state and subsystem pointers, but Director playback
+  SceneController owns the cameras while Run owns style/playback state, but Director playback
   is a narrow helper module. Callers pass the shelves it needs explicitly so
   this feature does not grow the Run class method surface.
 
@@ -13,11 +13,11 @@ Glossary:
     plus optional phase styles and prediction reveal pacing.
   Shot-list phase: One authored camera/style/advance record from `.shot.json`.
   Reveal pacing: Presentation-only replay overlay speed authored per phase.
-  Run shelf: A Run-owned aggregate such as RunCameraState or RunSubsystemState.
+  Camera owner: The scene-owned CameraCollection mutated by Director playback.
 
 Invariants:
   - Helpers must stay presentation-only and must not mutate physics state.
-  - Camera writes go through RunSubsystemState::cameras so the existing camera
+  - Camera writes go through the borrowed CameraCollection so the scene camera
     owner remains authoritative.
   - Style writes go through SceneRuntimeStyle so object material/cinematic
     changes remain in the existing scene-style owner.
@@ -27,13 +27,12 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/RunDemoDirector.cpp
   - SkullbonezSource/Runtime/RunCameraState.h
-  - SkullbonezSource/Runtime/RunSubsystemState.h
-  - fable_plans/08-demo-director-progress.md
+  - SkullbonezSource/Runtime/RunCameraState.h
 */
 #pragma once
 
 #include "RunCameraState.h"
-#include "RunSubsystemState.h"
+#include "CameraCollection.h"
 
 namespace SkullbonezCore
 {
@@ -44,17 +43,17 @@ struct RunReplayPredictionState;
 
 namespace DemoDirectorPlayback
 {
-bool LoadShotList( RunCameraState& camera, const RunSubsystemState& systems, const char* path );
-bool AdvancePhase( RunCameraState& camera, const RunSubsystemState& systems );
-void EnterMode( RunCameraState& camera, const RunSubsystemState& systems );
-bool BeginGrab( RunCameraState& camera, const RunSubsystemState& systems );
-bool EndGrab( RunCameraState& camera, const RunSubsystemState& systems );
-bool SetCurrentPhasePose( RunCameraState& camera, const RunSubsystemState& systems );
+bool LoadShotList( RunCameraState& camera, Environment::CameraCollection& cameras, const char* path );
+bool AdvancePhase( RunCameraState& camera, Environment::CameraCollection& cameras );
+void EnterMode( RunCameraState& camera, Environment::CameraCollection& cameras );
+bool BeginGrab( RunCameraState& camera, Environment::CameraCollection& cameras );
+bool EndGrab( RunCameraState& camera, Environment::CameraCollection& cameras );
+bool SetCurrentPhasePose( RunCameraState& camera, Environment::CameraCollection& cameras );
 bool SetCurrentPhaseStyle( RunCameraState& camera, const char* stylePath );
-bool SelectNextPhaseForAuthoring( RunCameraState& camera, const RunSubsystemState& systems );
+bool SelectNextPhaseForAuthoring( RunCameraState& camera, Environment::CameraCollection& cameras );
 bool SaveShotList( const RunCameraState& camera );
 void Tick( RunCameraState& camera,
-           const RunSubsystemState& systems,
+           Environment::CameraCollection& cameras,
            RunReplayPredictionState& prediction,
            SceneRuntimeStyleContext styleContext,
            float cameraDt );

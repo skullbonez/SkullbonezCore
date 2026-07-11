@@ -24,12 +24,15 @@ Glossary:
   deliberately not an authoritative restore checkpoint yet.
   Ring buffer: Fixed-capacity circular array; newest captures evict the oldest
     samples once the retention window is full.
-  Event sample: Runtime intent record, such as restore or branch actions, that
-    must be replayed alongside solver state for authoritative rollback work.
+  Event sample: Accepted owner action, restore, or branch record that must be
+    replayed alongside solver state for authoritative rollback work.
+  Wire code: Explicit serialized value whose meaning is independent of a C++
+    domain enum's declaration order.
 
 Invariants:
   - Capture order is chronological even though storage wraps internally.
   - Hash fields are compatibility surface for deterministic validation.
+  - Owner-action wire values never serialize domain enum ordinals.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp
@@ -45,6 +48,7 @@ Related:
 
 #include "../../Core/MainMemoryStats.h"
 #include "../../Maths/Vector3.h"
+#include "../../Physics/PhysicsHandles.h"
 #include "../Editor/LauncherLaser.h"
 #include "ReplaySolverSnapshot.h"
 
@@ -56,19 +60,16 @@ class CameraCollection;
 class WorldEnvironment;
 } // namespace Environment
 
-namespace GameObjects
-{
-class GameModelCollection;
-} // namespace GameObjects
-
 namespace Physics
 {
 class ColliderStore;
+class PhysicsEngine;
 class PhysicsBodyStore;
 } // namespace Physics
 
 namespace Basics
 {
+class SceneEntityStore;
 inline constexpr int REPLAY_PAST_BUFFER_SECONDS = 60;
 inline constexpr float REPLAY_FUTURE_BUFFER_SECONDS = 20.0f;
 
@@ -118,7 +119,7 @@ struct ReplayWorldPresentationSample
 struct ReplayBodyPresentationSample
 {
     ReplayBodyId id;
-    int modelIndex = -1;
+    Physics::ModelRowHint modelRow; // Optional resolver cache; ReplayBodyId remains durable identity.
     char name[64] = {};
     ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
@@ -140,7 +141,7 @@ struct ReplayBodyPresentationSample
 struct ReplayVisualBodyMetadata
 {
     ReplayBodyId id;
-    int modelIndex = -1;
+    Physics::ModelRowHint modelRow;
     char name[64] = {};
     ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
     float mass = 0.0f;
@@ -176,6 +177,10 @@ struct ReplayVisualDeltaFrame
     std::vector<ReplayVisualBodyDelta> changedBodies;
 };
 
+// Concept: this is the sole durable per-frame visual extension seam. A new
+// replayed visual feature extends this value (or a value it owns), its delta
+// capture, hash, and v2 serialization together; it must not create a parallel
+// retained timeline.
 struct ReplayPresentationSample
 {
     ReplayFrameIndex frameIndex = 0;
@@ -196,7 +201,7 @@ struct ReplayPresentationSample
 struct ReplaySolverBodySample
 {
     ReplayBodyId id;
-    int modelIndex = -1;
+    Physics::ModelRowHint modelRow; // Optional resolver cache; ReplayBodyId remains durable identity.
     char name[64] = {};
     ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
@@ -224,7 +229,7 @@ struct ReplaySolverBodySample
 struct ReplaySolverBodyMetadata
 {
     ReplayBodyId id;
-    int modelIndex = -1;
+    Physics::ModelRowHint modelRow;
     char name[64] = {};
     ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
     float mass = 0.0f;
@@ -357,6 +362,9 @@ struct ReplayLauncherVisualSample
     float projectileSpeed = 0.0f;
 };
 
+// Concept: solver samples own authoritative restore state and may project a
+// presentation sample, but presentation-only feature payloads do not belong in
+// this larger deterministic checkpoint value.
 struct ReplaySolverFrameSample
 {
     ReplayFrameIndex frameIndex = 0;
@@ -392,7 +400,9 @@ enum class ReplayEventKind : uint16_t
 {
     Unknown = 0,
     TimelineStart = 1,
-    RuntimeCommand = 2,
+    // Value 2 belonged to the deleted mixed-command payload. Do not reuse it:
+    // owner actions have explicit codes and intentionally start a new wire lane.
+    OwnerAction = 10,
     BranchRestore = 3,
     WorldOverride = 4,
     LauncherConfig = 5,
@@ -400,6 +410,20 @@ enum class ReplayEventKind : uint16_t
     GeneratedSceneConfig = 7,
     EditorPlace = 8,
     EditorTransform = 9
+};
+
+// Stable wire values for accepted owner work. These numbers are serialized;
+// domain enum ordinals and rejected requests must never be substituted.
+enum class ReplayOwnerEventCode : int32_t
+{
+    SceneLoadBrowserIndex = 1001,
+    SceneLoadDemo = 1002,
+    SceneReset = 1003,
+    SceneCreate = 1004,
+    SceneSaveDefaults = 1005,
+    CaptureScreenshot = 2001,
+    RenderSaveOrdinaryDefaults = 3001,
+    RenderSaveCinematicDefaults = 3002,
 };
 
 struct ReplayEventSample
@@ -446,9 +470,13 @@ struct ReplayCaptureInput
     bool terrainHidden = false;
     Environment::CameraCollection* cameras = nullptr;
     Environment::WorldEnvironment* world = nullptr;
-    GameObjects::GameModelCollection* models = nullptr;
-    // Replay recorders borrow stores for physics state and borrow models only
-    // for presentation names, so capture does not depend on GameModel writeback.
+    // PhysicsEngine is the replay capture command owner for solver snapshots
+    // and diagnostics. Body/collider stores remain explicit read views so the
+    // recorder cannot recover presentation or scene authority through it.
+    Physics::PhysicsEngine* physics = nullptr;
+    const SceneEntityStore* entities = nullptr;
+    // Replay recorders borrow stores for physics state and the scene entity
+    // owner for names, so capture does not depend on GameModel writeback.
     const Physics::PhysicsBodyStore* bodyStore = nullptr;
     const Physics::ColliderStore* colliderStore = nullptr;
     const ReplayLauncherVisualSample* launcherVisual = nullptr;
@@ -459,7 +487,7 @@ struct ReplayRecorderConfig
     bool enabled = false;
     int retentionSeconds = REPLAY_PAST_BUFFER_SECONDS;
     int checkpointIntervalFrames = 30;
-    int runtimeBodyCapacity = 0; // Scene/run body cap for scratch reserves and retained-sample growth checks.
+    int runtimeBodyCapacity = 0;    // Scene/run body cap for scratch reserves and retained-sample growth checks.
     std::string hashLogPath;
 };
 
@@ -485,8 +513,6 @@ struct ReplayEventRecorderStats
     std::size_t eventCapacity = 0;
     std::size_t eventCount = 0;
 };
-
-using ReplaySolverSampleVisitor = void ( * )( const ReplaySolverFrameSample& sample, void* userData );
 
 // Presentation recorder: stores visual scrub samples in a bounded ring buffer.
 // Callers always read samples chronologically even though storage wraps.
@@ -567,7 +593,23 @@ class ReplaySolverRecorder
     void CollectMemoryCategoryBytes( MainMemoryReplayCategoryBytes& categories ) const;
     uint64_t CollectMemoryBytes() const;
     void CopySamplesChronological( std::vector<ReplaySolverFrameSample>& outSamples ) const;
-    void ForEachSampleChronological( ReplaySolverSampleVisitor visitor, void* userData ) const;
+    // Visits resolved samples without allocating a copied artifact vector. The
+    // templated callable keeps replay iteration typed and prevents a stored
+    // void-pointer callback bridge from becoming runtime authority.
+    template <typename Visitor> void ForEachSampleChronological( Visitor visitor ) const
+    {
+        if ( m_sampleCount == 0 || m_samples.empty() )
+        {
+            return;
+        }
+        for ( std::size_t i = 0; i < m_sampleCount; ++i )
+        {
+            if ( ResolveSolverSampleAtOffset( i, m_resolvedSolverSample ) )
+            {
+                visitor( m_resolvedSolverSample );
+            }
+        }
+    }
     const ReplaySolverFrameSample* LatestSample() const;
     const ReplaySolverFrameSample* SampleAtNormalized( float normalized ) const;
 

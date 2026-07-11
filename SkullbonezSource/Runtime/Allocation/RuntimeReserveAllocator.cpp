@@ -42,6 +42,7 @@ using SkullbonezCore::Runtime::Allocation::RuntimeReserveGrowthRequest;
 using SkullbonezCore::Runtime::Allocation::RuntimeReserveGrowthResult;
 using SkullbonezCore::Runtime::Allocation::RuntimeReserveOwnerDesc;
 using SkullbonezCore::Runtime::Allocation::RuntimeReserveOwnerHandle;
+using SkullbonezCore::Runtime::Allocation::RuntimeReserveOwnerStatsView;
 using SkullbonezCore::Runtime::Allocation::RuntimeReservePhase;
 using SkullbonezCore::Runtime::Allocation::RuntimeReserveSubsystem;
 
@@ -420,6 +421,21 @@ RuntimeReserveGrowthResult RuntimeReserveAllocator::RequestGrowth( RuntimeReserv
         return DenyGrowth( owner, ownerIndex, request, "capacity_out_of_range" );
     }
 
+    const int elementBytes = request.elementSizeBytes > 0 ? request.elementSizeBytes : 1;
+    const uint64_t grownBytes = GrowthDeltaBytes( request.oldCapacity, request.requestedCapacity, elementBytes );
+    // Invariant: replay byte-budget owners pass byte capacities with
+    // elementSizeBytes=1. Enforce their cap across every live allocation owned
+    // by the subsystem, not independently for each vector target.
+    if ( owner.subsystem == RuntimeReserveSubsystem::Replay && elementBytes == 1 )
+    {
+        const uint64_t activeBytes = owner.counters.activeBytes.load( std::memory_order_relaxed );
+        const uint64_t hardBytes = static_cast<uint64_t>( owner.hardCapacity );
+        if ( activeBytes > hardBytes || grownBytes > hardBytes - activeBytes )
+        {
+            return DenyGrowth( owner, ownerIndex, request, "owner_byte_budget" );
+        }
+    }
+
     const uint64_t oldGrowthCount = owner.counters.replayGrowths.load( std::memory_order_relaxed );
     if ( ReplayGrowthCountLimitExhausted( owner, oldGrowthCount ) )
     {
@@ -430,8 +446,6 @@ RuntimeReserveGrowthResult RuntimeReserveAllocator::RequestGrowth( RuntimeReserv
     owner.counters.currentCapacity.store( request.requestedCapacity, std::memory_order_relaxed );
     UpdateHighWaterI32( owner.counters.highWaterCapacity, request.requestedCapacity );
 
-    const int elementBytes = request.elementSizeBytes > 0 ? request.elementSizeBytes : 1;
-    const uint64_t grownBytes = GrowthDeltaBytes( request.oldCapacity, request.requestedCapacity, elementBytes );
     RuntimeReserveGrowthResult result = {};
     result.granted = true;
     result.grantedCapacity = request.requestedCapacity;
@@ -531,6 +545,54 @@ int RuntimeReserveAllocator::CopyRecentGrowthEvents( RuntimeReserveGrowthEventVi
                          event.granted };
     }
     return copyCount;
+}
+
+bool RuntimeReserveAllocator::CopyOwnerStats( RuntimeReserveOwnerHandle ownerHandle,
+                                              RuntimeReserveOwnerStatsView& outStats ) noexcept
+{
+    outStats = {};
+    const RuntimeReserveOwnerHandle ownerIndex = NormalizeOwnerHandle( ownerHandle );
+    if ( ownerIndex == UNREGISTERED_OWNER )
+    {
+        return false;
+    }
+    const OwnerRecord& owner = OwnerForHandle( ownerIndex );
+    outStats.ownerName = owner.ownerName;
+    outStats.subsystem = owner.subsystem;
+    outStats.initPhase = owner.initPhase;
+    outStats.capacityReason = owner.capacityReason;
+    outStats.allocations = owner.counters.allocations.load( std::memory_order_relaxed );
+    outStats.activeBytes = owner.counters.activeBytes.load( std::memory_order_relaxed );
+    outStats.highWaterBytes = owner.counters.highWaterBytes.load( std::memory_order_relaxed );
+    outStats.replayGrowths = owner.counters.replayGrowths.load( std::memory_order_relaxed );
+    outStats.failedGrowths = owner.counters.failedGrowths.load( std::memory_order_relaxed );
+    outStats.currentCapacity = owner.counters.currentCapacity.load( std::memory_order_relaxed );
+    outStats.hardCapacity = owner.hardCapacity;
+    outStats.highWaterCapacity = owner.counters.highWaterCapacity.load( std::memory_order_relaxed );
+    outStats.lastGrowthFrame = owner.counters.lastGrowthFrame.load( std::memory_order_relaxed );
+    outStats.allowReplayGrowth = owner.allowReplayGrowth;
+    return true;
+}
+
+bool RuntimeReserveAllocator::CopyOwnerStatsByName( const char* ownerName,
+                                                    RuntimeReserveOwnerStatsView& outStats ) noexcept
+{
+    outStats = {};
+    if ( !ownerName || ownerName[0] == '\0' )
+    {
+        return false;
+    }
+    const int ownerCount = s_registeredOwnerCount.load( std::memory_order_acquire );
+    for ( int index = 1; index < ownerCount && index < MAX_RUNTIME_RESERVE_OWNERS; ++index )
+    {
+        const OwnerRecord& owner = s_owners[index];
+        if ( owner.active.load( std::memory_order_acquire ) != 0u && owner.ownerName &&
+             std::strcmp( owner.ownerName, ownerName ) == 0 )
+        {
+            return CopyOwnerStats( static_cast<RuntimeReserveOwnerHandle>( index ), outStats );
+        }
+    }
+    return false;
 }
 
 uint64_t RuntimeReserveAllocator::GrowthEventCount() noexcept
@@ -692,8 +754,8 @@ const char* RuntimeReserveSubsystemName( RuntimeReserveSubsystem subsystem ) noe
         return "dx12_telemetry";
     case RuntimeReserveSubsystem::UI:
         return "ui";
-    case RuntimeReserveSubsystem::RuntimeCommands:
-        return "runtime_commands";
+    case RuntimeReserveSubsystem::OwnerRequests:
+        return "owner_requests";
     case RuntimeReserveSubsystem::Replay:
         return "replay";
     case RuntimeReserveSubsystem::Diagnostics:

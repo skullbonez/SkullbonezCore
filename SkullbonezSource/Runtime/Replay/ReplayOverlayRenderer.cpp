@@ -5,7 +5,8 @@ Purpose:
 
 Mental model:
   Replay overlay rendering is a late UI pass. Keep the same screen-space layout
-  as replay input by using ReplayOverlayLayout helpers.
+  and pointer eligibility as replay input by rebuilding the same fixed-capacity
+  surfaces from ReplayOverlayLayout.
 
 Glossary:
   UI (User Interface): Runtime controls and overlays drawn over the 3D scene.
@@ -18,8 +19,8 @@ Glossary:
     inspection.
 
 Invariants:
-  - Drawn controls must use ReplayOverlayLayout rectangles so input hit boxes
-    stay identical.
+  - Drawn controls use the same surface rows and pointer-block fact as input, so
+    visible hover and actionable hit state stay identical.
   - Overlay rendering reads replay state only; replay mutation belongs to input
     and runtime replay helpers.
 
@@ -28,6 +29,8 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
 */
 #include "ReplayOverlayRenderer.h"
+#include "../../Core/FatalError.h"
+#include "../../Assets/AssetKeys.h"
 #include "ReplayOverlayLayout.h"
 #include "../../Core/Common.h"
 #include "../../Core/Profiler.h"
@@ -86,7 +89,10 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     // Draw it even when the scrubber itself is hidden by UI/editor policy.
     RenderReplayCauseTreeOverlay( context );
 
-    if ( !replayRuntime.ShouldRenderScrubber( context.editorModeEnabled, context.uiVisible, context.uiMinimized ) )
+    if ( !replayRuntime.ShouldRenderScrubber( context.editorModeEnabled,
+                                              context.uiVisible,
+                                              context.uiMinimized,
+                                              context.gesture ) )
     {
         return;
     }
@@ -107,6 +113,28 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     }
 
     const RunReplayTrack activeTrack = loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
+    const ReplayScrubberSurfaceInput surfaceInput = DescribeReplayScrubberSurface( replayRuntime,
+                                                                                   context.scenePhysicsEnabled,
+                                                                                   false,
+                                                                                   screenW,
+                                                                                   screenH,
+                                                                                   context.gesture );
+    ReplayScrubberSurface surface;
+    BuildReplayScrubberSurface( surfaceInput, surface );
+    surface.ResolvePointer( replayRuntime.Scrubber().mouseX, replayRuntime.Scrubber().mouseY );
+    const auto control = [&]( ReplayScrubberControl id ) -> const RuntimeUiControl&
+    {
+        const RuntimeUiControl* row = surface.Find( ReplayScrubberControlId( id ) );
+        if ( !row )
+        {
+            SB_FATAL( "ReplayScrubberSurface",
+                      "Render snapshot is missing replay scrubber control id=%u.",
+                      static_cast<uint32_t>( id ) );
+        }
+        return *row;
+    };
+    const auto isHotControl = [&]( ReplayScrubberControl id )
+    { return surface.hasHotControl && surface.hotControl == ReplayScrubberControlId( id ); };
     const float t = std::clamp( replayRuntime.TrackPosition( activeTrack ), 0.0f, 1.0f );
     const float solverPresentT = loadedPresentation ? 1.0f : replayRuntime.SolverPresentTrackPosition();
     // Concept: the solver track is split into retained history and generated
@@ -161,7 +189,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     }
 
     const UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands );
-    const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
+    const UI::UIRect panel = control( ReplayScrubberControl::Panel ).drawRect;
     const UI::Style::UIPalette& palette = UI::Style::Palette();
     const UI::Style::UIRadii& radii = UI::Style::Radii();
     const float fade = std::clamp( replayRuntime.Scrubber().visibleAlpha, 0.0f, 1.0f );
@@ -204,8 +232,8 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
               timeLabel );
 
     {
-        const UI::UIRect branchButton = ReplayScrubberBranchButtonRect( screenW, screenH );
-        const bool branchHover = branchEnabled && replayRuntime.Scrubber().branchHovered;
+        const UI::UIRect branchButton = control( ReplayScrubberControl::Branch ).drawRect;
+        const bool branchHover = branchEnabled && isHotControl( ReplayScrubberControl::Branch );
         draw.RoundedRect( branchButton.x,
                           branchButton.y,
                           branchButton.w,
@@ -234,9 +262,9 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
 
     if ( !loadedPresentation )
     {
-        const UI::UIRect pauseButton = ReplayScrubberPauseButtonRect( screenW, screenH );
+        const UI::UIRect pauseButton = control( ReplayScrubberControl::Pause ).drawRect;
         const bool liveAdvanceHeld = replayRuntime.Scrubber().liveAdvanceHeld;
-        const bool pauseHover = solverToolsEnabled && replayRuntime.Scrubber().pauseHovered;
+        const bool pauseHover = solverToolsEnabled && isHotControl( ReplayScrubberControl::Pause );
         draw.RoundedRect( pauseButton.x,
                           pauseButton.y,
                           pauseButton.w,
@@ -267,9 +295,9 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
 
         {
             PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay/VelocityEditControls" );
-            const UI::UIRect velocityEdit = ReplayScrubberVelocityEditToggleRect( screenW, screenH );
+            const UI::UIRect velocityEdit = control( ReplayScrubberControl::VelocityEdit ).drawRect;
             const bool velocityEditEnabled = solverToolsEnabled && replayRuntime.VelocityEdit().enabled;
-            const bool velocityEditHover = solverToolsEnabled && replayRuntime.VelocityEdit().toggleHovered;
+            const bool velocityEditHover = solverToolsEnabled && isHotControl( ReplayScrubberControl::VelocityEdit );
             draw.RoundedRect(
                 velocityEdit.x,
                 velocityEdit.y,
@@ -332,21 +360,21 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                               float outlineB,
                               bool saveEnabled )
     {
-        const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH, trackName );
-        const UI::UIRect saveButton = ReplayScrubberSaveButtonRect( screenW, screenH, trackName );
-        const UI::UIRect loadButton = ReplayScrubberLoadButtonRect( screenW, screenH, trackName );
+        const UI::UIRect track = control( ReplayScrubberControl::ScrubTrack ).drawRect;
+        const UI::UIRect saveButton = control( ReplayScrubberControl::Save ).drawRect;
+        const UI::UIRect loadButton = control( ReplayScrubberControl::Load ).drawRect;
         const float rowT = std::clamp( replayRuntime.TrackPosition( trackName ), 0.0f, 1.0f );
         const float fillW = (std::max)( REPLAY_SCRUBBER_TRACK_HEIGHT, track.w * rowT );
         const float knobX = track.x + track.w * rowT;
         const bool active = activeTrack == trackName;
-        const bool inactiveDuringScrub =
-            ( replayRuntime.Scrubber().dragging || replayRuntime.Scrubber().historicalSamplePaused ) && !active;
-        const bool saveHover = saveEnabled && replayRuntime.Scrubber().saveHovered &&
-                               replayRuntime.Scrubber().saveHoveredTrack == trackName;
+        const bool inactiveDuringScrub = ( context.gesture == RuntimeInteractionGestureKind::ReplayScrubDrag ||
+                                           replayRuntime.Scrubber().historicalSamplePaused ) &&
+                                         !active;
+        const bool saveHover = saveEnabled && isHotControl( ReplayScrubberControl::Save );
         const bool saveFeedback =
             replayRuntime.Scrubber().saveMessage[0] != '\0' && replayRuntime.Scrubber().saveMessageUntil >= now;
         const bool saveFailed = saveFeedback && strstr( replayRuntime.Scrubber().saveMessage, "FAILED" ) != nullptr;
-        const bool loadHover = replayRuntime.Scrubber().loadHovered;
+        const bool loadHover = isHotControl( ReplayScrubberControl::Load );
         const float saveR = saveFeedback ? ( saveFailed ? 0.48f : palette.accent.r )
                                          : ( saveHover ? palette.controlHover.r : palette.control.r );
         const float saveG = saveFeedback ? ( saveFailed ? 0.12f : palette.accent.g )
@@ -500,13 +528,14 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
         return;
     }
 
-    const UI::UIRect predictToggle = ReplayScrubberPredictToggleRect( screenW, screenH );
-    const UI::UIRect predict = ReplayScrubberPredictControlRect( screenW, screenH );
-    const UI::UIRect predictHorizon = ReplayScrubberPredictHorizonRect( screenW, screenH );
-    const UI::UIRect ragdollVisualToggle = ReplayScrubberRagdollVisualToggleRect( screenW, screenH );
-    const UI::UIRect pastPathToggle = ReplayScrubberPastPathToggleRect( screenW, screenH );
-    const bool predictHover = predictionToolsEnabled && ( replayRuntime.Prediction().ui.horizonHovered ||
-                                                          replayRuntime.Prediction().ui.horizonDragging );
+    const UI::UIRect predictToggle = control( ReplayScrubberControl::PredictionToggle ).drawRect;
+    const UI::UIRect predict = control( ReplayScrubberControl::PredictionPanel ).drawRect;
+    const UI::UIRect predictHorizon = control( ReplayScrubberControl::PredictionHorizon ).drawRect;
+    const UI::UIRect ragdollVisualToggle = control( ReplayScrubberControl::RagdollVisuals ).drawRect;
+    const UI::UIRect pastPathToggle = control( ReplayScrubberControl::PastPath ).drawRect;
+    const bool predictHover =
+        predictionToolsEnabled && ( isHotControl( ReplayScrubberControl::PredictionHorizon ) ||
+                                    context.gesture == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag );
     const bool predictEnabled = predictionToolsEnabled && replayRuntime.Prediction().enabled;
     const bool ragdollVisualsEnabled = predictionToolsEnabled && replayRuntime.Prediction().ragdollVisualsEnabled;
     const bool pastPathToolsEnabled = solverToolsEnabled && replayRuntime.PathVisualizer().hasTarget;
@@ -515,9 +544,9 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     const float predictSeconds = std::clamp( replayRuntime.Prediction().simulation.horizonSeconds,
                                              REPLAY_PREDICTION_MIN_SECONDS,
                                              REPLAY_PREDICTION_MAX_SECONDS );
-    const UI::Style::UIColor predictFill = predictionToolsEnabled && replayRuntime.Prediction().ui.checkboxHovered
-                                               ? palette.controlHover
-                                               : palette.control;
+    const UI::Style::UIColor predictFill =
+        predictionToolsEnabled && isHotControl( ReplayScrubberControl::PredictionToggle ) ? palette.controlHover
+                                                                                          : palette.control;
     const UI::Style::UIColor predictControlFill = predictHover ? palette.controlHover : palette.control;
     draw.RoundedRect( predictToggle.x,
                       predictToggle.y,
@@ -528,16 +557,17 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                       predictFill.g,
                       predictFill.b,
                       fadeA( predictionToolsEnabled ? 0.88f : 0.38f ) );
-    draw.Outline( predictToggle.x,
-                  predictToggle.y,
-                  predictToggle.w,
-                  predictToggle.h,
-                  palette.accent.r,
-                  palette.accent.g,
-                  palette.accent.b,
-                  fadeA( predictionToolsEnabled
-                             ? ( replayRuntime.Prediction().ui.checkboxHovered || predictEnabled ? 0.72f : 0.34f )
-                             : 0.14f ) );
+    draw.Outline(
+        predictToggle.x,
+        predictToggle.y,
+        predictToggle.w,
+        predictToggle.h,
+        palette.accent.r,
+        palette.accent.g,
+        palette.accent.b,
+        fadeA( predictionToolsEnabled
+                   ? ( isHotControl( ReplayScrubberControl::PredictionToggle ) || predictEnabled ? 0.72f : 0.34f )
+                   : 0.14f ) );
     const float checkX = predictToggle.x + 7.0f;
     const float checkY = predictToggle.y + 5.0f;
     draw.Outline( checkX,
@@ -637,12 +667,12 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
         ragdollVisualToggle.w,
         ragdollVisualToggle.h,
         radii.smallButton,
-        predictionToolsEnabled && replayRuntime.Prediction().ui.ragdollVisualsHovered ? palette.controlHover.r
-                                                                                      : palette.control.r,
-        predictionToolsEnabled && replayRuntime.Prediction().ui.ragdollVisualsHovered ? palette.controlHover.g
-                                                                                      : palette.control.g,
-        predictionToolsEnabled && replayRuntime.Prediction().ui.ragdollVisualsHovered ? palette.controlHover.b
-                                                                                      : palette.control.b,
+        predictionToolsEnabled && isHotControl( ReplayScrubberControl::RagdollVisuals ) ? palette.controlHover.r
+                                                                                        : palette.control.r,
+        predictionToolsEnabled && isHotControl( ReplayScrubberControl::RagdollVisuals ) ? palette.controlHover.g
+                                                                                        : palette.control.g,
+        predictionToolsEnabled && isHotControl( ReplayScrubberControl::RagdollVisuals ) ? palette.controlHover.b
+                                                                                        : palette.control.b,
         fadeA( predictionToolsEnabled ? 0.88f : 0.38f ) );
     draw.Outline(
         ragdollVisualToggle.x,
@@ -653,7 +683,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
         palette.accent.g,
         palette.accent.b,
         fadeA( predictionToolsEnabled
-                   ? ( replayRuntime.Prediction().ui.ragdollVisualsHovered || ragdollVisualsEnabled ? 0.72f : 0.32f )
+                   ? ( isHotControl( ReplayScrubberControl::RagdollVisuals ) || ragdollVisualsEnabled ? 0.72f : 0.32f )
                    : 0.14f ) );
     const float ragdollCheckX = ragdollVisualToggle.x + 7.0f;
     const float ragdollCheckY = ragdollVisualToggle.y + 5.0f;
@@ -692,12 +722,12 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                       pastPathToggle.w,
                       pastPathToggle.h,
                       radii.smallButton,
-                      pastPathToolsEnabled && replayRuntime.PathVisualizer().pastPathHovered ? palette.controlHover.r
-                                                                                             : palette.control.r,
-                      pastPathToolsEnabled && replayRuntime.PathVisualizer().pastPathHovered ? palette.controlHover.g
-                                                                                             : palette.control.g,
-                      pastPathToolsEnabled && replayRuntime.PathVisualizer().pastPathHovered ? palette.controlHover.b
-                                                                                             : palette.control.b,
+                      pastPathToolsEnabled && isHotControl( ReplayScrubberControl::PastPath ) ? palette.controlHover.r
+                                                                                              : palette.control.r,
+                      pastPathToolsEnabled && isHotControl( ReplayScrubberControl::PastPath ) ? palette.controlHover.g
+                                                                                              : palette.control.g,
+                      pastPathToolsEnabled && isHotControl( ReplayScrubberControl::PastPath ) ? palette.controlHover.b
+                                                                                              : palette.control.b,
                       fadeA( pastPathToolsEnabled ? 0.88f : 0.38f ) );
     draw.Outline( pastPathToggle.x,
                   pastPathToggle.y,
@@ -707,7 +737,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                   palette.accent.g,
                   palette.accent.b,
                   fadeA( pastPathToolsEnabled
-                             ? ( replayRuntime.PathVisualizer().pastPathHovered || pastPathEnabled ? 0.72f : 0.32f )
+                             ? ( isHotControl( ReplayScrubberControl::PastPath ) || pastPathEnabled ? 0.72f : 0.32f )
                              : 0.14f ) );
     const float pastCheckX = pastPathToggle.x + 7.0f;
     const float pastCheckY = pastPathToggle.y + 5.0f;
@@ -772,10 +802,26 @@ void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context )
     // cause-tree state. Clamp window geometry before deriving visible rows so
     // scroll offsets cannot point outside the rendered content.
     EnsureReplayCauseWindowPlacement( replayRuntime.CauseTree(), screenW, screenH );
-    const UI::UIRect panel = ReplayCauseWindowRect( replayRuntime.CauseTree() );
-    const UI::UIRect title = ReplayCauseWindowTitleRect( replayRuntime.CauseTree() );
-    const UI::UIRect content = ReplayCauseWindowContentRect( replayRuntime.CauseTree() );
-    const UI::UIRect resize = ReplayCauseWindowResizeRect( replayRuntime.CauseTree() );
+    ReplayCauseWindowSurface surface;
+    BuildReplayCauseWindowSurface( replayRuntime.CauseTree(), surface );
+    surface.ResolvePointer( replayRuntime.CauseTree().mouseX,
+                            replayRuntime.CauseTree().mouseY,
+                            replayRuntime.CauseTree().pointerBlocked );
+    const auto controlRect = [&]( ReplayCauseWindowControl id ) -> const UI::UIRect&
+    {
+        const RuntimeUiControl* row = surface.Find( ReplayCauseWindowControlId( id ) );
+        if ( !row )
+        {
+            SB_FATAL( "ReplayCauseWindowSurface",
+                      "Render snapshot is missing cause-window control id=%u.",
+                      static_cast<uint32_t>( id ) );
+        }
+        return row->drawRect;
+    };
+    const UI::UIRect panel = controlRect( ReplayCauseWindowControl::Panel );
+    const UI::UIRect title = controlRect( ReplayCauseWindowControl::Title );
+    const UI::UIRect content = controlRect( ReplayCauseWindowControl::Content );
+    const UI::UIRect resize = controlRect( ReplayCauseWindowControl::Resize );
 
     const UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
@@ -873,6 +919,18 @@ void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context )
         (std::max)( 0,
                     static_cast<int>( floorf( replayRuntime.CauseTree().scrollY / REPLAY_CAUSE_WINDOW_ROW_HEIGHT ) ) );
     const int rowCount = static_cast<int>( replayRuntime.CauseTree().rows.size() );
+    int hoveredRow = -1;
+    if ( surface.hasHotControl &&
+         surface.hotControl == ReplayCauseWindowControlId( ReplayCauseWindowControl::Content ) )
+    {
+        const float localY =
+            static_cast<float>( replayRuntime.CauseTree().mouseY ) - content.y + replayRuntime.CauseTree().scrollY;
+        const int candidate = static_cast<int>( floorf( localY / REPLAY_CAUSE_WINDOW_ROW_HEIGHT ) );
+        if ( candidate >= 0 && candidate < rowCount )
+        {
+            hoveredRow = candidate;
+        }
+    }
     for ( int rowIndex = firstRow; rowIndex < rowCount; ++rowIndex )
     {
         const RunReplayCauseTreeRow& row = replayRuntime.CauseTree().rows[static_cast<std::size_t>( rowIndex )];
@@ -888,7 +946,7 @@ void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context )
         }
 
         const UI::UIRect rowRect = { content.x + 2.0f, rowY, rowAreaW, REPLAY_CAUSE_WINDOW_ROW_HEIGHT - 2.0f };
-        const bool hovered = rowIndex == replayRuntime.CauseTree().hoveredRow;
+        const bool hovered = rowIndex == hoveredRow;
         const bool selected = rowIndex == replayRuntime.CauseTree().selectedRow;
         if ( hovered || selected )
         {

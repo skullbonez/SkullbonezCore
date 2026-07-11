@@ -24,6 +24,9 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "UI.h"
+#include "../Assets/AssetKeys.h"
+#include "UIFrameComposition.h"
+#include "../Runtime/InputRouter.h"
 #include "../Assets/AssetSystem.h"
 #include "../Rendering/IRenderCommandContext.h"
 #include "../Rendering/IRenderDiagnostics.h"
@@ -60,917 +63,8 @@ using namespace SkullbonezCore::Text;
 using namespace SkullbonezCore::UI;
 using namespace SkullbonezCore::UI::Widgets;
 using namespace SkullbonezCore::UI::Layout;
+using namespace SkullbonezCore::UI::FrameComposition;
 
-namespace
-{
-uint32_t HashCombine( uint32_t seed, uint32_t value )
-{
-    seed ^= value;
-    seed *= 16777619u;
-    return seed;
-}
-
-
-uint32_t HashTextValue( uint32_t seed, const char* value )
-{
-    if ( !value )
-    {
-        return HashCombine( seed, 0u );
-    }
-
-    while ( *value != '\0' )
-    {
-        seed = HashCombine( seed, static_cast<uint8_t>( *value ) );
-        ++value;
-    }
-    return HashCombine( seed, 0u );
-}
-
-
-uint32_t HashBool( uint32_t seed, bool value )
-{
-    return HashCombine( seed, value ? 1u : 0u );
-}
-
-
-uint32_t HashInt( uint32_t seed, int value )
-{
-    return HashCombine( seed, static_cast<uint32_t>( value ) );
-}
-
-
-uint32_t HashFloat( uint32_t seed, float value, float scale = 100.0f )
-{
-    return HashInt( seed, static_cast<int>( std::round( value * scale ) ) );
-}
-
-// Invariant: camera mode options are indexed by static_cast<int>(RunCameraMode)
-// even though this UI file stays decoupled from the runtime enum header. Keep
-// this table in enum order and keep UI.h default masks at one bit per option.
-constexpr int CAMERA_MODE_OPTION_COUNT = 7;
-const char* const kCameraModeOptions[CAMERA_MODE_OPTION_COUNT] =
-    { "Demo", "Scene", "Inspect", "Attach", "Launcher", "Manipulator", "Director" };
-constexpr float MINIMIZED_CAMERA_MODE_COMBO_W = 104.0f;
-constexpr float MINIMIZED_CAMERA_MODE_GAP = 8.0f;
-constexpr float MINIMIZED_RESTORE_W = 42.0f;
-constexpr float MINIMIZED_RUN_MAX_W = 330.0f;
-
-UIRect MinimizedCameraModeComboBounds( const UIRect& minimized )
-{
-    return { minimized.x + minimized.w - MINIMIZED_RESTORE_W - MINIMIZED_CAMERA_MODE_COMBO_W,
-             minimized.y + 6.0f,
-             MINIMIZED_CAMERA_MODE_COMBO_W,
-             24.0f };
-}
-
-float MinimizedWidthWithCameraModeCombo( const char* title, int screenW )
-{
-    constexpr float margin = 14.0f;
-    constexpr float textSize = 12.5f;
-    constexpr float titleLeft = 32.0f;
-    const float maxW = (std::max)( 154.0f, static_cast<float>( screenW ) - margin * 2.0f );
-    const float titleW = Text2d::MeasureText( textSize, title ? title : "" );
-    const float desiredW =
-        titleLeft + titleW + MINIMIZED_CAMERA_MODE_GAP + MINIMIZED_CAMERA_MODE_COMBO_W + MINIMIZED_RESTORE_W;
-    return std::clamp( desiredW, 154.0f, maxW );
-}
-
-void StripMinimizedRuntimeModeSuffix( const InGameUIFrameData& data, char* title, size_t titleSize )
-{
-    if ( !title || titleSize == 0 )
-    {
-        return;
-    }
-
-    const char* runtimeMode = data.runtimeInputModeLabel ? data.runtimeInputModeLabel : "";
-    if ( runtimeMode[0] == '\0' || std::strcmp( runtimeMode, "Scene" ) == 0 )
-    {
-        return;
-    }
-
-    char suffix[80] = {};
-    snprintf( suffix, sizeof( suffix ), "  [%s]", runtimeMode );
-    const size_t titleLen = strlen( title );
-    const size_t suffixLen = strlen( suffix );
-    if ( titleLen >= suffixLen && std::strcmp( title + titleLen - suffixLen, suffix ) == 0 )
-    {
-        title[titleLen - suffixLen] = '\0';
-    }
-}
-
-uint32_t HashRenderTargetPreviewCatalog( uint32_t hash, const InGameUIFrameData& data )
-{
-    const int count = std::clamp( data.renderTargetPreviewCount, 0, UI_RENDER_TARGET_PREVIEW_MAX );
-    hash = HashInt( hash, count );
-    for ( int i = 0; i < count; ++i )
-    {
-        const UIRenderTargetPreviewResource& resource = data.renderTargetPreviews[i];
-        hash = HashTextValue( hash, resource.label );
-        hash = HashInt( hash, static_cast<int>( resource.textureHandle ) );
-        hash = HashInt( hash, resource.width );
-        hash = HashInt( hash, resource.height );
-        hash = HashBool( hash, resource.available );
-        hash = HashBool( hash, resource.depth );
-        hash = HashBool( hash, resource.hdr );
-    }
-    return hash;
-}
-
-
-uint32_t HashProfilerFrameSnapshot( uint32_t hash, const ProfilerTab::FrameSnapshot& frame )
-{
-    // Invariant: profiler tab draw caching depends on bounded snapshot values,
-    // not live singleton reads. Hash only the fixed arrays copied into UIData.
-    const int markerCount = std::clamp( frame.markerCount, 0, ProfilerTab::MAX_MARKERS );
-    hash = HashInt( hash, markerCount );
-    for ( int markerIndex = 0; markerIndex < markerCount; ++markerIndex )
-    {
-        const ProfilerTab::MarkerSnapshot& marker = frame.markers[markerIndex];
-        hash = HashTextValue( hash, marker.leafName );
-        hash = HashInt( hash, static_cast<int>( marker.hash ) );
-        hash = HashInt( hash, marker.parentIndex );
-        hash = HashInt( hash, marker.depth );
-        hash = HashFloat( hash, marker.lastFrameMs, 1000.0f );
-        hash = HashFloat( hash, marker.lastSelfMs, 1000.0f );
-        hash = HashFloat( hash, marker.avgMs, 1000.0f );
-        hash = HashFloat( hash, marker.selfAvgMs, 1000.0f );
-        hash = HashFloat( hash, marker.p50Ms, 1000.0f );
-        hash = HashFloat( hash, marker.p99Ms, 1000.0f );
-    }
-
-    const int workerSampleCount = std::clamp( frame.workerCoreSampleCount, 0, ProfilerTab::MAX_WORKER_CORE_SAMPLES );
-    hash = HashInt( hash, workerSampleCount );
-    for ( int sampleIndex = 0; sampleIndex < workerSampleCount; ++sampleIndex )
-    {
-        const ProfilerTab::WorkerCoreSampleSnapshot& sample = frame.workerCoreSamples[sampleIndex];
-        hash = HashInt( hash, sample.workerIndex );
-        hash = HashInt( hash, sample.jobCount );
-        hash = HashFloat( hash, sample.coreMs, 1000.0f );
-        hash = HashFloat( hash, sample.avgCoreMs, 1000.0f );
-    }
-
-    const ProfilerTab::DrawTraceSnapshot& drawTrace = frame.drawTrace;
-    const int nodeCount = std::clamp( drawTrace.nodeCount, 0, ProfilerTab::MAX_MARKERS );
-    hash = HashInt( hash, nodeCount );
-    hash = HashInt( hash, drawTrace.nodeOverflowCount );
-    hash = HashInt( hash, drawTrace.eventCount );
-    hash = HashInt( hash, drawTrace.eventOverflowCount );
-    hash = HashInt( hash, drawTrace.scopeMismatchCount );
-    for ( int nodeIndex = 0; nodeIndex < nodeCount; ++nodeIndex )
-    {
-        const ProfilerTab::DrawTraceNodeSnapshot& node = drawTrace.nodes[nodeIndex];
-        hash = HashTextValue( hash, node.leafName );
-        hash = HashInt( hash, static_cast<int>( node.hash ) );
-        hash = HashInt( hash, node.parentIndex );
-        hash = HashInt( hash, node.depth );
-        hash = HashInt( hash, node.drawCallCount );
-        hash = HashInt( hash, node.instanceCount );
-        hash = HashInt( hash, node.vertexCount );
-    }
-    return hash;
-}
-
-
-uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
-{
-    // Invariant: The content signature is the cache invalidation contract.
-    // Include every frame-data value that can change visible UI text, controls,
-    // preview resources, or hit-test-derived drawing.
-    uint32_t hash = 2166136261u;
-    hash = HashTextValue( hash, data.rendererName );
-    hash = HashTextValue( hash, data.sceneName );
-    hash = HashInt( hash, data.sceneOptionCount );
-    hash = HashInt( hash, data.selectedSceneOption );
-    hash = HashInt( hash, data.selectedCineModeSceneOption );
-    for ( int i = 0; i < data.sceneOptionCount && data.sceneOptions; ++i )
-    {
-        hash = HashTextValue( hash, data.sceneOptions[i] );
-    }
-    hash = HashInt( hash, data.drawCallsBeforeUI );
-    hash = HashInt( hash, data.UIDrawCalls );
-    hash = HashInt( hash, static_cast<int>( data.reserveGrowthEventTotalCount ) );
-    hash = HashInt( hash, data.reserveGrowthEventCount );
-    for ( int eventIndex = 0;
-          eventIndex < data.reserveGrowthEventCount && eventIndex < UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX;
-          ++eventIndex )
-    {
-        const SkullbonezCore::Runtime::Allocation::RuntimeReserveGrowthEventView& event =
-            data.reserveGrowthEvents[eventIndex];
-        hash = HashTextValue( hash, event.targetName );
-        hash = HashInt( hash, event.frameNumber );
-        hash = HashInt( hash, event.grantedCapacity );
-        hash = HashInt( hash, static_cast<int>( event.bytes ) );
-        hash = HashBool( hash, event.granted );
-    }
-    hash = HashFloat( hash, data.fps );
-    hash = HashFloat( hash, data.renderMs, 1000.0f );
-    hash = HashFloat( hash, data.physicsMs, 1000.0f );
-    hash = HashFloat( hash, data.cpuFrameMs, 1000.0f );
-    hash = HashFloat( hash, data.gpuFrameMs, 1000.0f );
-    hash = HashFloat( hash, data.workerCoreTotalMs, 1000.0f );
-    hash = HashProfilerFrameSnapshot( hash, data.profiler );
-    hash = HashInt( hash, data.modelCount );
-    hash = HashInt( hash, data.modelCapacity );
-    hash = HashInt( hash, data.workerThreadCount );
-    hash = HashInt( hash, data.maxWorkerThreadCount );
-    hash = HashInt( hash, data.currentFrame );
-    hash = HashInt( hash, data.targetFrameCount );
-    hash = HashInt( hash, static_cast<int>( data.rngSeed ) );
-    hash = HashInt( hash, data.solverBallCount );
-    hash = HashInt( hash, data.solverBoxCount );
-    hash = HashInt( hash, data.currentSceneIndex );
-    hash = HashInt( hash, data.sceneCount );
-    hash = HashInt( hash, static_cast<int>( std::round( data.now * 1000.0 ) ) );
-    hash = HashBool( hash, data.sceneMode );
-    hash = HashBool( hash, data.scenePhysicsEnabled );
-    hash = HashBool( hash, data.sceneTextEnabled );
-    hash = HashBool( hash, data.textOnly );
-    hash = HashBool( hash, data.fixedStep );
-    hash = HashBool( hash, data.exitOnComplete );
-    hash = HashBool( hash, data.testComplete );
-    hash = HashBool( hash, data.vsyncEnabled );
-    hash = HashBool( hash, data.pipelineSyncEnabled );
-    hash = HashBool( hash, data.contactAudioEnabled );
-    hash = HashBool( hash, data.contactAudioAvailable );
-    hash = HashBool( hash, data.contactAudioDebugCounters );
-    hash = HashInt( hash, data.contactAudioFlashMode );
-    hash = HashFloat( hash, data.contactAudioMasterGain, 1000.0f );
-    hash = HashFloat( hash, data.contactAudioMaxDistanceScale, 1000.0f );
-    hash = HashFloat( hash, data.contactAudioMinClosingSpeed, 1000.0f );
-    hash = HashFloat( hash, data.contactAudioMinImpactScore, 1000.0f );
-    hash = HashFloat( hash, data.contactAudioImpactScoreRangeSeconds, 1000.0f );
-    hash = HashBool( hash, data.contactAudioSimpleMode );
-    hash = HashFloat( hash, data.contactAudioSimpleMinLinearEnergy, 1000.0f );
-    hash = HashFloat( hash, data.contactAudioSimpleMinLinearDeltaSpeed, 1000.0f );
-    hash = HashFloat( hash, data.contactAudioSimpleLinearEnergyRange, 1000.0f );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioBurstVoicesPerWindow ) );
-    hash = HashFloat( hash, data.contactAudioRollingLevelDb, 1000.0f );
-    hash = HashFloat( hash, data.contactAudioRollingMaxDistance, 1000.0f );
-    hash = HashFloat( hash, data.contactAudioRollingMinSlipSpeed, 1000.0f );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioRollingVoicesPerWindow ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioEventsSeen ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioPatchCandidates ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioMergedCandidates ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioCandidateOverflows ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioBurstWindowSkippedCandidates ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioBudgetRejectedCandidates ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioRejectedByThreshold ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioRejectedByCooldown ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioSubmittedVoices ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioDroppedVoices ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioRollingCandidates ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioRollingSubmittedVoices ) );
-    const int soundSetCount = std::clamp( data.soundSetCount, 0, UI_SOUND_SET_MAX );
-    hash = HashInt( hash, soundSetCount );
-    for ( int setIndex = 0; setIndex < soundSetCount; ++setIndex )
-    {
-        const UISoundSetFrameData& set = data.soundSets[setIndex];
-        hash = HashTextValue( hash, set.name );
-        hash = HashInt( hash, static_cast<int>( set.materialA ) );
-        hash = HashInt( hash, static_cast<int>( set.materialB ) );
-        hash = HashFloat( hash, set.minImpulse, 1000.0f );
-        hash = HashFloat( hash, set.impulseRange, 1000.0f );
-        hash = HashFloat( hash, set.cooldownMs, 10.0f );
-        hash = HashFloat( hash, set.overrideCooldownMs, 10.0f );
-        hash = HashFloat( hash, set.maxDistance, 100.0f );
-        hash = HashFloat( hash, set.baseGain, 1000.0f );
-        hash = HashFloat( hash, set.pitchMin, 1000.0f );
-        hash = HashFloat( hash, set.pitchMax, 1000.0f );
-        hash = HashInt( hash, static_cast<int>( set.maxVoices ) );
-        hash = HashInt( hash, static_cast<int>( set.sampleCount ) );
-        const int bandCount = std::clamp( static_cast<int>( set.bandCount ), 0, UI_SOUND_BAND_MAX );
-        hash = HashInt( hash, bandCount );
-        for ( int bandIndex = 0; bandIndex < bandCount; ++bandIndex )
-        {
-            const UISoundBandFrameData& band = set.bands[bandIndex];
-            hash = HashTextValue( hash, band.name );
-            hash = HashFloat( hash, band.minImpulse, 1000.0f );
-            hash = HashFloat( hash, band.impulseRange, 1000.0f );
-            hash = HashFloat( hash, band.baseGain, 1000.0f );
-            hash = HashFloat( hash, band.pitchMin, 1000.0f );
-            hash = HashFloat( hash, band.pitchMax, 1000.0f );
-            hash = HashInt( hash, static_cast<int>( band.sampleCount ) );
-        }
-    }
-    hash = HashFloat( hash, data.sceneEnergy, 1000.0f );
-    hash = HashFloat( hash, data.timeScale, 1000.0f );
-    hash = HashFloat( hash, data.trackHeight, 1000.0f );
-    hash = HashFloat( hash, data.autoCycleInterval, 1000.0f );
-    hash = HashFloat( hash, data.worldGravity, 1000.0f );
-    hash = HashFloat( hash, data.worldFluidHeight, 1000.0f );
-    hash = HashFloat( hash, data.worldFluidDensity, 1000.0f );
-    hash = HashInt( hash, static_cast<int>( data.physicsDebugFlags ) );
-    hash = HashTextValue( hash, data.physicsPipelineStageName );
-    hash = HashInt( hash, data.physicsPipelineStageIndex );
-    hash = HashInt( hash, data.physicsPipelineStageCount );
-    hash = HashFloat( hash, data.physicsDebugAlpha, 1000.0f );
-    hash = HashFloat( hash, data.physicsDebugContactLinger, 1000.0f );
-    hash = HashBool( hash, data.physicsSleepEnabled );
-    hash = HashBool( hash, data.collisionVisualizer );
-    hash = HashBool( hash, data.physicsDebugTransparent );
-    hash = HashBool( hash, data.broadphaseOverlay );
-    hash = HashBool( hash, data.tornadoEnabled );
-    hash = HashBool( hash, data.tornadoVisualShell );
-    hash = HashBool( hash, data.tornadoFieldVectors );
-    hash = HashBool( hash, data.rayCastVisualization );
-    hash = HashFloat( hash, data.tornadoRadius, 100.0f );
-    hash = HashFloat( hash, data.tornadoHeight, 100.0f );
-    hash = HashFloat( hash, data.tornadoInwardAcceleration, 100.0f );
-    hash = HashFloat( hash, data.tornadoSwirlAcceleration, 100.0f );
-    hash = HashFloat( hash, data.tornadoLiftAcceleration, 100.0f );
-    hash = HashFloat( hash, data.rayCastImpulseStrength, 100.0f );
-    hash = HashFloat( hash, data.launcherProjectileSpeed, 100.0f );
-    hash = HashFloat( hash, data.terrainFrictionCoeff, 1000.0f );
-    hash = HashFloat( hash, data.objectFrictionCoeff, 1000.0f );
-    hash = HashFloat( hash, data.rollingFrictionCoeff, 1000.0f );
-    hash = HashBool( hash, data.waterFreezeDebug );
-    hash = HashBool( hash, data.waterFlatDebug );
-    hash = HashBool( hash, data.terrainHidden );
-    hash = HashBool( hash, data.waterHidden );
-    hash = HashBool( hash, data.waterNoReflect );
-    hash = HashBool( hash, data.waterRTReflect );
-    hash = HashBool( hash, data.cameraMouseActive );
-    hash = HashBool( hash, data.nativeCursorVisible );
-    hash = HashTextValue( hash, data.runtimeInputModeLabel );
-    hash = HashInt( hash, data.cameraModeIndex );
-    hash = HashInt( hash, static_cast<int>( data.cameraModeEnabledMask ) );
-    hash = HashBool( hash, data.editorModeEnabled );
-    hash = HashBool( hash, data.editorPlacementMode );
-    hash = HashBool( hash, data.editorPlaceStatic );
-    hash = HashBool( hash, data.editorTerrainAlign );
-    hash = HashBool( hash, data.editorViewportLookActive );
-    hash = HashInt( hash, data.editorObjectType );
-    hash = HashBool( hash, data.canSaveSceneDefaults );
-    hash = HashBool( hash, data.cinematicRendering );
-    hash = HashBool( hash, data.ordinaryRender.shadowsEnabled );
-    hash = HashFloat( hash, data.ordinaryRender.sunIntensity, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.sunColorR, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.sunColorG, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.sunColorB, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.ambientStrength, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.skyAmbientR, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.skyAmbientG, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.skyAmbientB, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.groundAmbientR, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.groundAmbientG, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.groundAmbientB, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.shadowStrength, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.shadowSoftness, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.shadowDepthBias, 100000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.shadowSlopeBias, 100000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.waterTintR, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.waterTintG, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.waterTintB, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.waterAlpha, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.waterReflectionStrength, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.waterFresnelF0, 10000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.ballRoughnessScale, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.ballSpecularScale, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.boxRoughnessScale, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.boxSpecularScale, 1000.0f );
-    hash = HashBool( hash, data.cinematic.enabled );
-    hash = HashBool( hash, data.cinematic.skyAtmosphereEnabled );
-    hash = HashBool( hash, data.cinematic.cloudsEnabled );
-    hash = HashBool( hash, data.cinematic.godRaysEnabled );
-    hash = HashBool( hash, data.cinematic.volumetricLightingEnabled );
-    hash = HashBool( hash, data.cinematic.bloomEnabled );
-    hash = HashBool( hash, data.cinematic.fogEnabled );
-    hash = HashBool( hash, data.cinematic.terrainReliefEnabled );
-    hash = HashBool( hash, data.cinematic.shadowsEnabled );
-    hash = HashFloat( hash, data.cinematic.exposure, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.gamma, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.sunScreenX, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.sunScreenY, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.sunColorR, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.sunColorG, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.sunColorB, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.sunIntensity, 100.0f );
-    hash = HashFloat( hash, data.cinematic.skyGlowStrength, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.cloudCoverage, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.cloudSoftness, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.cloudScale, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.cloudIntensity, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.sunShaftStrength, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.sunShaftFalloff, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.volumetricStrength, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.volumetricDensity, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.volumetricDecay, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.bloomThreshold, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.bloomKnee, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.bloomStrength, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.bloomRadius, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.terrainRelief, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.basinDepth, 100.0f );
-    hash = HashFloat( hash, data.cinematic.basinRimLift, 100.0f );
-    hash = HashFloat( hash, data.cinematic.fogColorR, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.fogColorG, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.fogColorB, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.fogStart, 10.0f );
-    hash = HashFloat( hash, data.cinematic.fogEnd, 10.0f );
-    hash = HashFloat( hash, data.cinematic.fogDensity, 100000.0f );
-    hash = HashFloat( hash, data.cinematic.fogMaxOpacity, 1000.0f );
-    hash = HashInt( hash, data.cinematic.skyMode );
-    hash = HashInt( hash, data.cinematic.terrainMode );
-    hash = HashInt( hash, data.cinematic.objectStyle );
-    hash = HashInt( hash, data.cinematic.waterMode );
-    hash = HashFloat( hash, data.cinematic.styleSaturation, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.styleContrast, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.styleVignette, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.terrainTintR, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.terrainTintG, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.terrainTintB, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.terrainAccentR, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.terrainAccentG, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.terrainAccentB, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.terrainGridScale, 100.0f );
-    hash = HashFloat( hash, data.cinematic.terrainGridStrength, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.waterTintR, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.waterTintG, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.waterTintB, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.waterAlpha, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.waterReflectionStrength, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.waterGlintStrength, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.basinCenterX, 10.0f );
-    hash = HashFloat( hash, data.cinematic.basinCenterZ, 10.0f );
-    hash = HashFloat( hash, data.cinematic.basinRadiusX, 10.0f );
-    hash = HashFloat( hash, data.cinematic.basinRadiusZ, 10.0f );
-    hash = HashFloat( hash, data.cinematic.basinFeather, 1000.0f );
-    hash = HashRenderTargetPreviewCatalog( hash, data );
-    return hash;
-}
-
-
-uint32_t BuildUIInteractionSignature( int mouseX,
-                                      int mouseY,
-                                      bool rendererOpen,
-                                      bool reflectionOpen,
-                                      bool sceneOpen,
-                                      bool cineSceneOpen,
-                                      bool editorObjectOpen,
-                                      bool renderTargetOpen,
-                                      bool cameraModeOpen,
-                                      int selectedRenderTarget,
-                                      int activeSlider )
-{
-    uint32_t hash = 2166136261u;
-    hash = HashInt( hash, mouseX );
-    hash = HashInt( hash, mouseY );
-    hash = HashBool( hash, rendererOpen );
-    hash = HashBool( hash, reflectionOpen );
-    hash = HashBool( hash, sceneOpen );
-    hash = HashBool( hash, cineSceneOpen );
-    hash = HashBool( hash, editorObjectOpen );
-    hash = HashBool( hash, renderTargetOpen );
-    hash = HashBool( hash, cameraModeOpen );
-    hash = HashInt( hash, selectedRenderTarget );
-    hash = HashInt( hash, activeSlider );
-    return hash;
-}
-
-
-void FlushUIDrawList( const UIDrawList& drawList,
-                      IRenderCommandContext& renderCommands,
-                      IRenderDiagnostics& renderDiagnostics,
-                      int screenW,
-                      int screenH,
-                      float offsetX = 0.0f,
-                      float offsetY = 0.0f )
-{
-    PROFILE_GPU_BEGIN( "Frame/UI/Draw" );
-    const UIDrawContext immediateDraw( screenW, screenH, nullptr, &renderCommands );
-    drawList.Flush( immediateDraw, offsetX, offsetY );
-    {
-        DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Widgets" );
-        Text2d::FlushQuads( renderCommands );
-    }
-    {
-        DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Text" );
-        Text2d::FlushText( renderCommands );
-    }
-    PROFILE_GPU_END( "Frame/UI/Draw" );
-}
-
-int RenderTargetPreviewCount( const InGameUIFrameData& data )
-{
-    return std::clamp( data.renderTargetPreviewCount, 0, UI_RENDER_TARGET_PREVIEW_MAX );
-}
-
-uint32_t RenderTargetPreviewDisabledMask( const InGameUIFrameData& data )
-{
-    uint32_t mask = 0;
-    const int count = RenderTargetPreviewCount( data );
-    for ( int i = 0; i < count; ++i )
-    {
-        const UIRenderTargetPreviewResource& resource = data.renderTargetPreviews[i];
-        if ( !resource.available || resource.textureHandle == 0 || resource.width <= 0 || resource.height <= 0 )
-        {
-            mask |= 1u << i;
-        }
-    }
-    return mask;
-}
-
-int FirstAvailableRenderTargetPreview( const InGameUIFrameData& data )
-{
-    const int count = RenderTargetPreviewCount( data );
-    for ( int i = 0; i < count; ++i )
-    {
-        const UIRenderTargetPreviewResource& resource = data.renderTargetPreviews[i];
-        if ( resource.available && resource.textureHandle != 0 && resource.width > 0 && resource.height > 0 )
-        {
-            return i;
-        }
-    }
-    return count > 0 ? 0 : -1;
-}
-
-int ResolveRenderTargetPreviewSelection( const InGameUIFrameData& data, int selectedIndex )
-{
-    const int count = RenderTargetPreviewCount( data );
-    if ( count <= 0 )
-    {
-        return -1;
-    }
-
-    if ( selectedIndex >= 0 && selectedIndex < count )
-    {
-        const UIRenderTargetPreviewResource& resource = data.renderTargetPreviews[selectedIndex];
-        if ( resource.available && resource.textureHandle != 0 && resource.width > 0 && resource.height > 0 )
-        {
-            return selectedIndex;
-        }
-    }
-    return FirstAvailableRenderTargetPreview( data );
-}
-
-const char* RenderTargetPreviewTypeText( const UIRenderTargetPreviewResource& resource )
-{
-    if ( resource.depth )
-    {
-        return "Depth SRV";
-    }
-    return resource.hdr ? "RGBA16F SRV" : "RGBA8 SRV";
-}
-
-UIRect IntersectRect( const UIRect& a, const UIRect& b )
-{
-    const float left = (std::max)( a.x, b.x );
-    const float top = (std::max)( a.y, b.y );
-    const float right = (std::min)( a.x + a.w, b.x + b.w );
-    const float bottom = (std::min)( a.y + a.h, b.y + b.h );
-    if ( right <= left || bottom <= top )
-    {
-        return {};
-    }
-    return { left, top, right - left, bottom - top };
-}
-
-UIRect FitRectToAspect( const UIRect& bounds, int width, int height )
-{
-    if ( bounds.w <= 1.0f || bounds.h <= 1.0f || width <= 0 || height <= 0 )
-    {
-        return bounds;
-    }
-
-    const float sourceAspect = static_cast<float>( width ) / static_cast<float>( height );
-    float drawW = bounds.w;
-    float drawH = bounds.w / sourceAspect;
-    if ( drawH > bounds.h )
-    {
-        drawH = bounds.h;
-        drawW = bounds.h * sourceAspect;
-    }
-    return { bounds.x + ( bounds.w - drawW ) * 0.5f, bounds.y + ( bounds.h - drawH ) * 0.5f, drawW, drawH };
-}
-
-
-void BuildEditorObjectCounterText( const InGameUIFrameData& data, char* out, size_t outSize )
-{
-    if ( !out || outSize == 0 )
-    {
-        return;
-    }
-
-    const int modelCount = (std::max)( 0, data.modelCount );
-    const int modelCapacity = (std::max)( 1, data.modelCapacity );
-    snprintf( out, outSize, "Game objects %d / %d", modelCount, modelCapacity );
-    out[outSize - 1] = '\0';
-}
-
-
-UIRect TitleButtonGroupBounds( const Chrome::TitleButtonRects& titleButtons )
-{
-    const float left =
-        (std::min)( titleButtons.minimize.x, (std::min)( titleButtons.maximize.x, titleButtons.close.x ) );
-    const float top =
-        (std::min)( titleButtons.minimize.y, (std::min)( titleButtons.maximize.y, titleButtons.close.y ) );
-    const float right = (std::max)( titleButtons.minimize.x + titleButtons.minimize.w,
-                                    (std::max)( titleButtons.maximize.x + titleButtons.maximize.w,
-                                                titleButtons.close.x + titleButtons.close.w ) );
-    const float bottom = (std::max)( titleButtons.minimize.y + titleButtons.minimize.h,
-                                     (std::max)( titleButtons.maximize.y + titleButtons.maximize.h,
-                                                 titleButtons.close.y + titleButtons.close.h ) );
-    return { left, top, right - left, bottom - top };
-}
-
-
-void DrawEditorObjectCounter( const UIDrawContext& draw,
-                              const InGameUIFrameData& data,
-                              int screenW,
-                              int screenH,
-                              const UIRect* avoidBounds = nullptr )
-{
-    if ( !data.editorModeEnabled )
-    {
-        return;
-    }
-
-    char counterText[64] = {};
-    BuildEditorObjectCounterText( data, counterText, sizeof( counterText ) );
-
-    constexpr float margin = 14.0f;
-    constexpr float fontSize = 12.0f;
-    constexpr float padX = 12.0f;
-    constexpr float height = 30.0f;
-    const float availableW = (std::max)( 1.0f, static_cast<float>( screenW ) - margin * 2.0f );
-    const float minW = (std::min)( 140.0f, availableW );
-    const float width = std::clamp( Text2d::MeasureText( fontSize, counterText ) + padX * 2.0f, minW, availableW );
-    UIRect bounds = { static_cast<float>( screenW ) - margin - width, margin, width, height };
-
-    if ( avoidBounds && IntersectRect( bounds, *avoidBounds ).w > 0.0f )
-    {
-        bounds.x = (std::max)( margin, avoidBounds->x - 10.0f - width );
-        if ( IntersectRect( bounds, *avoidBounds ).w > 0.0f )
-        {
-            bounds.x = static_cast<float>( screenW ) - margin - width;
-            const float maxY = (std::max)( margin, static_cast<float>( screenH ) - margin - height );
-            bounds.y = std::clamp( avoidBounds->y + avoidBounds->h + 8.0f, margin, maxY );
-        }
-    }
-
-    const Style::UIPalette& palette = Style::Palette();
-    Style::UIColor fill = palette.windowRaised;
-    fill.a = 0.90f;
-    draw.RoundedRect( bounds.x + 3.0f,
-                      bounds.y + 4.0f,
-                      bounds.w,
-                      bounds.h,
-                      Style::Radii().control,
-                      palette.shadow.r,
-                      palette.shadow.g,
-                      palette.shadow.b,
-                      0.24f );
-    draw.RoundedPanel( bounds, Style::Radii().control, fill, palette.border );
-    draw.Text( bounds.x + padX,
-               bounds.y + 8.0f,
-               fontSize,
-               palette.textPrimary.r,
-               palette.textPrimary.g,
-               palette.textPrimary.b,
-               counterText );
-}
-
-
-void EnsureRenderTargetPreviewResources( std::unique_ptr<IShader>& shader,
-                                         uint32_t& dynamicVB,
-                                         const UIRenderContext& render )
-{
-    if ( !render.IsReady() )
-    {
-        return;
-    }
-
-    if ( !shader )
-    {
-        shader = render.assets->CreateShader( *render.resources, "shader.ui_render_target_preview" );
-        if ( !shader )
-        {
-            return;
-        }
-        shader->Use();
-        shader->SetInt( "uTexture", 0 );
-    }
-
-    if ( dynamicVB == 0 )
-    {
-        const int attribs[] = { 2, 2 };
-        dynamicVB = render.resources->CreateDynamicVB( attribs, 2, 6 );
-    }
-}
-
-void ResetRenderTargetPreviewResources( std::unique_ptr<IShader>& shader,
-                                        uint32_t& dynamicVB,
-                                        IRenderResourceFactory* resources )
-{
-    shader.reset();
-    if ( dynamicVB != 0 )
-    {
-        if ( resources )
-        {
-            resources->DestroyDynamicVB( dynamicVB );
-        }
-        dynamicVB = 0;
-    }
-}
-
-void DrawRenderTargetPreviewTexture( std::unique_ptr<IShader>& shader,
-                                     uint32_t& dynamicVB,
-                                     const UIDrawContext& draw,
-                                     const UIRenderTargetPreviewResource& resource,
-                                     const UIRect& bounds,
-                                     const UIRect& clipBounds,
-                                     const UIRenderContext& render )
-{
-    if ( !resource.available || resource.textureHandle == 0 || bounds.w <= 1.0f || bounds.h <= 1.0f ||
-         !render.IsReady() )
-    {
-        return;
-    }
-
-    EnsureRenderTargetPreviewResources( shader, dynamicVB, render );
-    if ( !shader || dynamicVB == 0 )
-    {
-        return;
-    }
-
-    const UIRect visible = IntersectRect( bounds, clipBounds );
-    if ( visible.w <= 1.0f || visible.h <= 1.0f )
-    {
-        return;
-    }
-
-    const float uvLeft = std::clamp( ( visible.x - bounds.x ) / bounds.w, 0.0f, 1.0f );
-    const float uvRight = std::clamp( ( visible.x + visible.w - bounds.x ) / bounds.w, 0.0f, 1.0f );
-    const float uvTop = std::clamp( ( visible.y - bounds.y ) / bounds.h, 0.0f, 1.0f );
-    const float uvBottom = std::clamp( ( visible.y + visible.h - bounds.y ) / bounds.h, 0.0f, 1.0f );
-    const float left = draw.TextX( visible.x );
-    const float right = draw.TextX( visible.x + visible.w );
-    const float top = draw.TextY( visible.y );
-    const float bottom = draw.TextY( visible.y + visible.h );
-    const float verts[] = {
-        left, bottom, uvLeft, uvBottom, right, bottom, uvRight, uvBottom, right, top, uvRight, uvTop,
-        left, bottom, uvLeft, uvBottom, right, top,    uvRight, uvTop,    left,  top, uvLeft,  uvTop,
-    };
-
-    const Matrix4 proj = Matrix4::Ortho( -draw.HalfW(), draw.HalfW(), -draw.HalfH(), draw.HalfH(), -1.0f, 1.0f );
-    IRenderCommandContext& commands = *render.commands;
-    const bool depthTestWasEnabled = commands.IsDepthTestEnabled();
-    const bool depthWriteWasEnabled = commands.IsDepthWriteEnabled();
-    const bool blendWasEnabled = commands.IsBlendEnabled();
-    BlendFactor blendSrc = BlendFactor::One;
-    BlendFactor blendDst = BlendFactor::Zero;
-    commands.GetBlendFunc( blendSrc, blendDst );
-
-    const int mode = resource.depth ? 2 : ( resource.hdr ? 1 : 0 );
-    commands.SetDepthTest( false );
-    commands.SetDepthWrite( false );
-    commands.SetBlend( false );
-    shader->Use();
-    shader->SetMat4( "uProjection", proj );
-    shader->SetInt( "uTexture", 0 );
-    shader->SetVec4( "uPreviewParams", static_cast<float>( mode ), 1.0f, 2.2f, 0.0f );
-    commands.BindTexture( resource.textureHandle, 0 );
-    {
-        DRAW_CALL_TRACE_SCOPE( *render.diagnostics, "RenderTargetPreview" );
-        commands.UploadAndDrawDynamicVB( dynamicVB, verts, 6 );
-    }
-    commands.BindTexture( 0, 0 );
-    commands.SetDepthWrite( depthWriteWasEnabled );
-    commands.SetDepthTest( depthTestWasEnabled );
-    commands.SetBlendFunc( blendSrc, blendDst );
-    commands.SetBlend( blendWasEnabled );
-}
-
-int WaterReflectionModeFromData( const InGameUIFrameData& data )
-{
-    if ( data.waterNoReflect )
-    {
-        return 2;
-    }
-    return data.waterRTReflect ? 1 : 0;
-}
-
-constexpr int UI_RENDER_SLIDER_BASE = 6000;
-constexpr float UI_RENDER_FEATURE_START_Y = 48.0f;
-constexpr float UI_RENDER_START_Y = 118.0f;
-constexpr float UI_RENDER_SECTION_H = 28.0f;
-constexpr float UI_RENDER_ROW_H = 42.0f;
-constexpr float UI_RENDER_SAVE_BUTTON_W = 126.0f;
-constexpr float UI_TARGETS_COMBO_Y = 42.0f;
-constexpr float UI_TARGETS_META_Y = 86.0f;
-constexpr float UI_TARGETS_PREVIEW_Y = 132.0f;
-constexpr float UI_TARGETS_PREVIEW_H = 260.0f;
-constexpr float UI_TARGETS_CONTENT_H = 430.0f;
-
-struct RenderSliderSpec
-{
-    const char* section;
-    const char* label;
-    UIRenderParam param;
-    float minValue;
-    float maxValue;
-    float step;
-    const char* valueFormat;
-};
-
-constexpr RenderSliderSpec kRenderSliderSpecs[] = {
-    { "Light", "Sun intensity", UIRenderParam::SunIntensity, 0.00f, 4.00f, 0.01f, "%.2f" },
-    { nullptr, "Sun R", UIRenderParam::SunRed, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Sun G", UIRenderParam::SunGreen, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Sun B", UIRenderParam::SunBlue, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Ambient", UIRenderParam::AmbientStrength, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { "Sky Ambient", "Sky R", UIRenderParam::SkyRed, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Sky G", UIRenderParam::SkyGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Sky B", UIRenderParam::SkyBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { "Ground Ambient", "Ground R", UIRenderParam::GroundRed, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Ground G", UIRenderParam::GroundGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Ground B", UIRenderParam::GroundBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { "Shadows", "Strength", UIRenderParam::ShadowStrength, 0.00f, 1.00f, 0.01f, "%.2f" },
-    { nullptr, "Softness", UIRenderParam::ShadowSoftness, 0.25f, 4.00f, 0.01f, "%.2f" },
-    { nullptr, "Depth bias", UIRenderParam::ShadowDepthBias, 0.00000f, 0.00500f, 0.00001f, "%.5f" },
-    { nullptr, "Slope bias", UIRenderParam::ShadowSlopeBias, 0.00000f, 0.00500f, 0.00001f, "%.5f" },
-    { "Water", "Water R", UIRenderParam::WaterRed, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Water G", UIRenderParam::WaterGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Water B", UIRenderParam::WaterBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Alpha", UIRenderParam::WaterAlpha, 0.00f, 1.00f, 0.01f, "%.2f" },
-    { nullptr, "Reflection", UIRenderParam::WaterReflection, 0.00f, 1.00f, 0.01f, "%.2f" },
-    { nullptr, "Fresnel F0", UIRenderParam::WaterFresnel, 0.000f, 0.120f, 0.001f, "%.3f" },
-    { "Materials", "Ball roughness", UIRenderParam::BallRoughness, 0.25f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Ball specular", UIRenderParam::BallSpecular, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Box roughness", UIRenderParam::BoxRoughness, 0.25f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Box specular", UIRenderParam::BoxSpecular, 0.00f, 2.00f, 0.01f, "%.2f" },
-};
-static_assert( sizeof( kRenderSliderSpecs ) / sizeof( kRenderSliderSpecs[0] ) ==
-                   static_cast<int>( UIRenderParam::Count ),
-               "Render slider specs must match UIRenderParam." );
-
-constexpr int EDITOR_MINI_TREE_TYPE_NONE = -1;
-constexpr int EDITOR_MINI_TREE_TYPE_SMALL = 0;
-constexpr int EDITOR_MINI_TREE_TYPE_PINE = 1;
-constexpr int EDITOR_MINI_TREE_TYPE_CEDAR = 2;
-constexpr int EDITOR_MINI_TREE_TYPE_COUNT = 3;
-constexpr int EDITOR_MINI_TREE_PLACEMENT_NONE = -1;
-constexpr int EDITOR_MINI_TREE_PLACEMENT_FIXED = 0;
-constexpr int EDITOR_MINI_TREE_PLACEMENT_SLEEPING = 1;
-constexpr int EDITOR_MINI_TREE_PLACEMENT_ROOTED = 2;
-constexpr int EDITOR_MINI_RAGDOLL_MODE_SLEEPING = 1;
-constexpr int EDITOR_MINI_RAGDOLL_MODE_COUNT = 2;
-constexpr int EDITOR_MINI_FLYOUT_OPTION_MAX = 3;
-constexpr double EDITOR_MINI_HOLD_SECONDS = 0.32;
-constexpr int EDITOR_MINI_HOLD_MODE_NONE = 0;
-constexpr int EDITOR_MINI_HOLD_MODE_TREE_TYPES = 1;
-constexpr int EDITOR_MINI_HOLD_MODE_RAGDOLL_MODES = 2;
-
-struct EditorMiniPaletteEntry
-{
-    int objectType;
-    int treePlacement;
-    int holdMode;
-};
-
-constexpr EditorMiniPaletteEntry kEditorMiniPaletteEntries[] = {
-    { EditorTab::OBJECT_BOX, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_BALL, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_SPHERE, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_HULL_WEDGE, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_HULL_TRI_PRISM, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_HULL_TAPERED_BLOCK, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_HULL_PYRAMID, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_HULL_HEX_PRISM, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_HULL_DIAMOND, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_ROCK_SLAB, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_ROCK_LUMP, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_ROCK_SHARD, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_ROCK_CHIPPED, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_BRICK_HOUSE_SLEEP, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_BRICK_HOUSE_HIGH_SLEEP, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_CUTE_HOUSE_SLEEP, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_CUTE_HOUSE_HIGH_SLEEP, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_TRIPLE_DECKER_SLEEP, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_TRIPLE_DECKER_HIGH_SLEEP, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_BRICK_WALL_200_SLEEP, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_TREE_BIG, EDITOR_MINI_TREE_PLACEMENT_FIXED, EDITOR_MINI_HOLD_MODE_TREE_TYPES },
-    { EditorTab::OBJECT_TREE_BIG_SLEEP, EDITOR_MINI_TREE_PLACEMENT_SLEEPING, EDITOR_MINI_HOLD_MODE_TREE_TYPES },
-    { EditorTab::OBJECT_TREE_BIG_ROOTED, EDITOR_MINI_TREE_PLACEMENT_ROOTED, EDITOR_MINI_HOLD_MODE_TREE_TYPES },
-    { EditorTab::OBJECT_RAGDOLL, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_RAGDOLL_MODES },
-};
-constexpr int EDITOR_MINI_PALETTE_ENTRY_COUNT =
-    static_cast<int>( sizeof( kEditorMiniPaletteEntries ) / sizeof( kEditorMiniPaletteEntries[0] ) );
-
-struct EditorMiniPaletteLayout
-{
-    UIRect buttons[EDITOR_MINI_PALETTE_ENTRY_COUNT];
-    UIRect flyoutOptions[EDITOR_MINI_FLYOUT_OPTION_MAX];
-    UIRect bounds;
-    UIRect flyoutBounds;
-    float buttonSize = 0.0f;
-    int buttonCount = 0;
-    int flyoutOptionCount = 0;
-    bool flyoutVisible = false;
-};
-
-#include "UIEditorMiniPalette.inl"
-} // namespace
 
 bool InGameUI::IsVisible() const
 {
@@ -1125,7 +219,6 @@ InGameUITab InGameUI::GetActiveTab() const
 
 void InGameUI::CancelInputCapture()
 {
-    m_interaction.leftWasDown = false;
     m_interaction.isDragging = false;
     m_interaction.isResizing = false;
     m_interaction.blocksCameraMouse = false;
@@ -1198,6 +291,7 @@ void InGameUI::SetBlurEnabled( bool enabled )
 void InGameUI::SetRendererComboOpen( bool open )
 {
     m_rendererCombo.SetOpen( open );
+
     if ( open )
     {
         m_reflectionCombo.Close();
@@ -1233,7 +327,7 @@ void InGameUI::SetSceneComboOpen( bool open )
         CinematicTab::CloseCombo( m_cinematicTab );
         m_renderTargetCombo.Close();
         m_cameraModeCombo.Close();
-        SceneTab::CaptureFilterKeyState( m_sceneTab );
+        SceneTab::RequestFilterKeySync( m_sceneTab );
     }
     else
     {
@@ -1542,7 +636,8 @@ void InGameUI::CloseSceneCombo()
 }
 
 
-InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
+InGameUIInputResult InGameUI::UpdateInput( const Basics::DeviceInputFrame& deviceFrame,
+                                           const Basics::RuntimeMouseEdges& mouse,
                                            int screenW,
                                            int screenH,
                                            double now,
@@ -1566,10 +661,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
     cameraModeIndex = std::clamp( cameraModeIndex, 0, CAMERA_MODE_OPTION_COUNT - 1 );
     cameraModeEnabledMask &= ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u;
     m_interaction.blocksCameraMouse = false;
-    const InputControl::UIInputSnapshot input = InputControl::CaptureSnapshot( m_interaction.leftWasDown,
-                                                                               m_hasMouseOverride,
-                                                                               m_mouseOverrideX,
-                                                                               m_mouseOverrideY );
+    const InputControl::UIInputSnapshot input =
+        InputControl::CaptureSnapshot( deviceFrame, mouse, m_hasMouseOverride, m_mouseOverrideX, m_mouseOverrideY );
     const int wheelDelta = input.wheelDelta;
     result.unhandledWheelDelta = wheelDelta;
     m_mouseX = input.mouseX;
@@ -1597,19 +690,17 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
         const bool histogramIsInteracting = ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab );
         if ( input.leftPressed && histogramIsInteracting && !histogramWasInteracting )
         {
-            InputControl::BeginMouseCapture( hwnd );
+            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
         }
         if ( input.leftReleased && histogramWasInteracting )
         {
-            InputControl::EndMouseCapture();
+            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
         }
-        m_interaction.leftWasDown = leftNow;
         m_interaction.blocksCameraMouse = true;
         return result;
     }
     if ( !m_window.isVisible )
     {
-        m_interaction.leftWasDown = leftNow;
         return result;
     }
     ProfilerTab::ApplyDefaultExpansion( m_profilerTab );
@@ -1649,7 +740,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
         {
             if ( m_editorMiniPalettePressActive )
             {
-                InputControl::EndMouseCapture();
+                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
             }
             CancelEditorMiniPaletteInteraction();
 
@@ -1739,7 +830,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
             if ( m_editorMiniPalettePressActive && !leftNow && !input.leftReleased )
             {
                 CancelEditorMiniPaletteInteraction();
-                InputControl::EndMouseCapture();
+                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
             }
 
             if ( m_editorMiniPalettePressActive && !m_editorMiniPaletteFlyoutOpen &&
@@ -1788,7 +879,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                         m_editorMiniPalettePressStart = now;
                         result.commands.ui.userInteracted = true;
                         editorMiniPaletteHandled = true;
-                        InputControl::BeginMouseCapture( hwnd );
+                        result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
                     }
                     else
                     {
@@ -1801,6 +892,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
             {
                 result.commands.ui.userInteracted = true;
                 editorMiniPaletteHandled = true;
+
                 if ( input.leftReleased )
                 {
                     int selectedObjectType = -1;
@@ -1839,7 +931,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                         SelectEditorMiniPaletteObject( selectedObjectType, requestPlaceStatic, requestedPlaceStatic );
                     }
                     CancelEditorMiniPaletteInteraction();
-                    InputControl::EndMouseCapture();
+                    result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
                 }
             }
         }
@@ -1855,7 +947,6 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
             SetMinimized( false, now );
             result.commands.ui.userInteracted = true;
         }
-        m_interaction.leftWasDown = leftNow;
         m_interaction.blocksCameraMouse = insideMinimized || insideCameraModeCombo || cameraModeComboHandled ||
                                           insideEditorMiniPalette || insideEditorMinimizedStatusControl ||
                                           m_editorMiniPalettePressActive;
@@ -1930,7 +1021,12 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
 
     if ( m_activeTab == InGameUITab::Scene )
     {
-        SceneTab::UpdateFilterTyping( m_sceneTab, m_sceneCombo, result, sceneOptions, sceneOptionCount );
+        SceneTab::UpdateFilterTyping( m_sceneTab,
+                                      m_sceneCombo,
+                                      result,
+                                      deviceFrame.keys,
+                                      sceneOptions,
+                                      sceneOptionCount );
     }
 
     bool wheelHandled = false;
@@ -1975,14 +1071,14 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
             m_interaction.resizeStartMouseY = m_mouseY;
             m_interaction.resizeStartW = inputW;
             m_interaction.resizeStartH = inputH;
-            InputControl::BeginMouseCapture( hwnd );
+            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
         }
         else if ( inTitle )
         {
             m_interaction.isDragging = true;
             m_interaction.dragOffsetX = m_mouseX - inputX;
             m_interaction.dragOffsetY = m_mouseY - inputY;
-            InputControl::BeginMouseCapture( hwnd );
+            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
         }
         else if ( inTabs )
         {
@@ -2148,7 +1244,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                                                   m_lastWorkerThreadCount,
                                                   m_lastMaxWorkerThreadCount ) )
             {
-                InputControl::BeginMouseCapture( hwnd );
+                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
                 m_scrollbarVisibleUntil = now + 1.2;
             }
             m_rendererCombo.Close();
@@ -2170,7 +1266,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                                                 scrolledY,
                                                 contentW ) )
             {
-                InputControl::BeginMouseCapture( hwnd );
+                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
                 m_scrollbarVisibleUntil = now + 1.2;
             }
             m_rendererCombo.Close();
@@ -2189,6 +1285,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                                                                          m_resetDefaultsButton,
                                                                          m_saveDefaultsButton,
                                                                          result,
+                                                                         deviceFrame.keys,
                                                                          m_activeSlider,
                                                                          sceneOptions,
                                                                          sceneOptionCount,
@@ -2233,7 +1330,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                                                  contentW ) &&
                  m_activeSlider != 0 && m_activeSlider != previousActiveSlider )
             {
-                InputControl::BeginMouseCapture( hwnd );
+                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
             }
             m_rendererCombo.Close();
             CinematicTab::CloseCombo( m_cinematicTab );
@@ -2255,7 +1352,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                                                contentW ) &&
                  m_activeSlider != 0 && m_activeSlider != previousActiveSlider )
             {
-                InputControl::BeginMouseCapture( hwnd );
+                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
@@ -2278,7 +1375,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                                                  contentW,
                                                  m_lastModelCapacity ) )
             {
-                InputControl::BeginMouseCapture( hwnd );
+                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
@@ -2324,7 +1421,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
 
             if ( capturedSlider )
             {
-                InputControl::BeginMouseCapture( hwnd );
+                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
@@ -2372,7 +1469,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
 
             if ( capturedSlider )
             {
-                InputControl::BeginMouseCapture( hwnd );
+                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
@@ -2395,7 +1492,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
 
             if ( capturedSlider )
             {
-                InputControl::BeginMouseCapture( hwnd );
+                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
@@ -2417,7 +1514,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                                                   m_lastSolverBallCount,
                                                   m_lastSolverBoxCount ) )
             {
-                InputControl::BeginMouseCapture( hwnd );
+                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
@@ -2585,10 +1682,9 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
         SoundTab::ResetPreviewState( m_soundTab );
         m_interaction.isDragging = false;
         m_interaction.isResizing = false;
-        InputControl::EndMouseCapture();
+        result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
     }
 
-    m_interaction.leftWasDown = leftNow;
     m_scrollY = std::clamp( m_scrollY, 0.0f, maxScroll );
     m_interaction.blocksCameraMouse =
         inside || m_interaction.isDragging || m_interaction.isResizing || m_activeSlider != 0;
@@ -2997,6 +2093,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
             }
             const float value =
                 std::clamp( RenderValueForParam( data.ordinaryRender, spec.param ), spec.minValue, spec.maxValue );
+
             snprintf( buf, sizeof( buf ), spec.valueFormat, value );
             m_renderSliders[i].SetBounds( contentX, sliderY, contentW, 34.0f );
             if ( IsRowVisible( contentY, contentH, sliderY, 34.0f ) )

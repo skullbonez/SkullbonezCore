@@ -21,6 +21,8 @@ Glossary:
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
+  - Build returns a Lane R result before recording GPU work when its instance
+    descriptor upload cannot be mapped safely.
 
 Related:
   - SkullbonezSource/Rendering/DX12/TLASDX12.cpp
@@ -59,10 +61,10 @@ class TLAS
     ~TLAS();
 
     Basics::SbResult Init( ID3D12Device5* device, int maxInstances );
-    void Build( ID3D12Device5* device,
-                ID3D12GraphicsCommandList4* cmdList,
-                const D3D12_RAYTRACING_INSTANCE_DESC* instances,
-                int instanceCount );
+    Basics::SbResult Build( ID3D12Device5* device,
+                            ID3D12GraphicsCommandList4* cmdList,
+                            const D3D12_RAYTRACING_INSTANCE_DESC* instances,
+                            int instanceCount );
     D3D12_GPU_VIRTUAL_ADDRESS GetResultVA() const;
     void Reset();
 };

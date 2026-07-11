@@ -12,26 +12,29 @@ Glossary:
   Mouse pickup: Manipulator tool that drags a dynamic body toward a camera-facing target plane.
   Grab offset: World-space offset from body center to the point initially picked by the ray.
   Physics body handle: Generational id for the picked body-store row.
-  Gesture model row: Dense model row copied into RuntimeInteractionGesture when
-    the drag starts; live pickup state uses the physics body handle instead.
+  Gesture body: Stable handle captured in the begin command and retained by the
+    controller for the drag lifetime.
 
 Invariants:
   - Pointer capture and interaction gesture state must end whenever pickup is canceled.
   - Picked handles are revalidated through PhysicsBodyStore before every
     velocity edit or impulse.
-  - Mouse pickup remains a standalone Run implementation file; shared editor
-    declarations stay on Run and RuntimeTools.
+  - Pointer routing and fixed-step spring application mutate pickup state only
+    through `RuntimeTools`; the application shell only sequences the owner.
 
 Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.h
   - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
   - Agentic/Reference/comment-style-guide.md
 */
-#include "../RunInternal.h"
+#include "../Tools/RuntimeTools.h"
+#include "../InputRouter.h"
+#include "../RuntimeInteractionController.h"
+#include "../RuntimeInteractionCommands.h"
 #include "../RuntimePickService.h"
+#include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
-#include "../../UI/UIInput.h"
 
 namespace
 {
@@ -45,46 +48,35 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+using Math::Vector::Vector3;
+using Math::Vector::VectorMagSquared;
 using Physics::PhysicsBodyRecord;
 using Physics::PhysicsBodyStore;
 
-void Run::CancelMousePickup()
+MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePickupPointerInput& input,
+                                                                const GameObjects::GameModelCollection& collection,
+                                                                InputRouter& inputRouter,
+                                                                RuntimeInteractionController& interaction )
 {
-    if ( m_runtimeTools.MousePickup().mouseCaptured )
+    MousePickupPointerResult routeResult;
+    if ( !input.manipulatorMode || input.editorMode || input.replayInspection )
     {
-        UI::InputControl::EndMouseCapture();
-    }
-    if ( m_interaction.Gesture().kind == RuntimeInteractionGestureKind::MousePickupDrag )
-    {
-        m_interaction.EndGesture( InteractionExitReason::EndGesture );
-    }
-    m_runtimeTools.MousePickup() = RunMousePickupState{};
-}
-
-
-bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, bool suppressWorldActionThisFrame )
-{
-    if ( !RunCameraModeIsManipulator( m_camera.mode ) || m_runtimeTools.Editor().editorModeEnabled ||
-         m_replayRuntime.InspectionActive() )
-    {
-        CancelMousePickup();
-        return false;
+        CancelMousePickup( inputRouter, interaction );
+        return routeResult;
     }
 
-    const auto UpdatePickupTarget = [&]() -> bool
+    const auto updatePickupTarget = [&]() -> bool
     {
         // Concept: Manipulator drag follows a camera-facing plane at the
         // captured grab depth. Rebuilding that plane from the current camera
         // lets forward/back camera movement change object depth without
         // introducing a mouse-driven depth jump.
-        Vector3 rayOrigin;
-        Vector3 rayDirection;
-        if ( !TryBuildMouseWorldRay( rayOrigin, rayDirection, true ) )
+        if ( !input.hasClampedWorldRay )
         {
             return false;
         }
 
-        Vector3 cameraNormal = m_systems.cameras->GetCameraView() - m_systems.cameras->GetCameraTranslation();
+        Vector3 cameraNormal = input.cameraView - input.cameraEye;
         const float normalLenSq = VectorMagSquared( cameraNormal );
         if ( normalLenSq <= TOLERANCE * TOLERANCE )
         {
@@ -92,124 +84,127 @@ bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, 
         }
         cameraNormal *= 1.0f / sqrtf( normalLenSq );
 
-        m_runtimeTools.MousePickup().planeNormal = cameraNormal;
-        m_runtimeTools.MousePickup().planePoint =
-            m_systems.cameras->GetCameraTranslation() + cameraNormal * m_runtimeTools.MousePickup().cameraPlaneDistance;
+        m_mousePickup.planeNormal = cameraNormal;
+        m_mousePickup.planePoint = input.cameraEye + cameraNormal * m_mousePickup.cameraPlaneDistance;
 
-        const float denom = rayDirection * cameraNormal;
+        const float denom = input.clampedRayDirection * cameraNormal;
         if ( fabsf( denom ) <= 1.0e-5f )
         {
             return false;
         }
 
-        const float planeT = ( ( m_runtimeTools.MousePickup().planePoint - rayOrigin ) * cameraNormal ) / denom;
+        const float planeT = ( ( m_mousePickup.planePoint - input.clampedRayOrigin ) * cameraNormal ) / denom;
         if ( planeT < 0.0f )
         {
             return false;
         }
 
-        m_runtimeTools.MousePickup().targetPoint = rayOrigin + rayDirection * planeT;
+        m_mousePickup.targetPoint = input.clampedRayOrigin + input.clampedRayDirection * planeT;
         return true;
     };
 
-    if ( m_runtimeTools.MousePickup().active )
+    if ( interaction.Gesture().kind == RuntimeInteractionGestureKind::MousePickupDrag )
     {
-        if ( mouseEdges.leftReleased || !mouseEdges.leftDown )
+        routeResult.consumed = true;
+        if ( input.leftReleased || !input.leftDown )
         {
-            CancelMousePickup();
-            return true;
+            CancelMousePickup( inputRouter, interaction );
+            return routeResult;
         }
-        UpdatePickupTarget();
-        return true;
+        updatePickupTarget();
+        return routeResult;
     }
 
-    if ( !mouseEdges.leftPressed )
+    if ( !input.leftPressed )
     {
-        return false;
+        return routeResult;
     }
-    if ( suppressWorldActionThisFrame || m_UI.WantsNativeMouseCursor() )
+    if ( input.suppressWorldAction || input.uiWantsNativeCursor )
     {
-        return false;
+        return routeResult;
     }
+    routeResult.consumed = true;
 
-    Vector3 rayOrigin;
-    Vector3 rayDirection;
-    if ( !TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
+    if ( !input.hasWorldRay )
     {
-        return true;
+        return routeResult;
     }
 
     RuntimePickRequest request;
     request.purpose = RuntimePickPurpose::ManipulatorPickup;
-    request.bodyStore = &m_cGameModelCollection.BodyStore();
-    request.colliderStore = &m_cGameModelCollection.Colliders();
-    request.rayOrigin = rayOrigin;
-    request.rayDirection = rayDirection;
+    request.bodyStore = &collection.BodyStore();
+    request.colliderStore = &collection.Colliders();
+    request.rayOrigin = input.rayOrigin;
+    request.rayDirection = input.rayDirection;
 
     RuntimePickResult result;
     if ( !RuntimePickService::TryPickModel( request, result ) )
     {
-        return true;
+        return routeResult;
     }
 
-    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.BodyStore();
+    const PhysicsBodyStore& bodyStore = collection.BodyStore();
     const PhysicsBodyRecord* pickedBody = bodyStore.RecordForHandle( result.body );
-    const int pickedIndex = bodyStore.ModelIndexForHandle( result.body );
-    if ( !pickedBody || pickedIndex != result.modelIndex )
+    if ( !pickedBody )
     {
-        return true;
+        return routeResult;
     }
 
-    Vector3 cameraNormal = m_systems.cameras->GetCameraView() - m_systems.cameras->GetCameraTranslation();
+    Vector3 cameraNormal = input.cameraView - input.cameraEye;
     const float normalLenSq = VectorMagSquared( cameraNormal );
     if ( normalLenSq <= TOLERANCE * TOLERANCE )
     {
-        return true;
+        return routeResult;
     }
     cameraNormal *= 1.0f / sqrtf( normalLenSq );
 
-    const Vector3 grabPoint = rayOrigin + rayDirection * result.rayT;
-    const float cameraPlaneDistance = ( grabPoint - m_systems.cameras->GetCameraTranslation() ) * cameraNormal;
+    const Vector3 grabPoint = input.rayOrigin + input.rayDirection * result.rayT;
+    const float cameraPlaneDistance = ( grabPoint - input.cameraEye ) * cameraNormal;
     if ( cameraPlaneDistance <= TOLERANCE )
     {
-        return true;
+        return routeResult;
     }
-    m_runtimeTools.MousePickup().active = true;
-    m_runtimeTools.MousePickup().mouseCaptured = true;
-    m_runtimeTools.MousePickup().body = result.body;
-    m_runtimeTools.MousePickup().planePoint = grabPoint;
-    m_runtimeTools.MousePickup().planeNormal = cameraNormal;
-    m_runtimeTools.MousePickup().cameraPlaneDistance = cameraPlaneDistance;
-    m_runtimeTools.MousePickup().grabOffset = grabPoint - pickedBody->position;
-    m_runtimeTools.MousePickup().targetPoint = grabPoint;
-    m_runtimeTools.MousePickup().preservedAngularVelocity = pickedBody->angularVelocity;
-    m_runtimeTools.MousePickup().lastImpulse = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-    UI::InputControl::BeginMouseCapture( hwnd );
-    const Input::MouseCoordinatesResult mouse = Input::GetClientMouseCoordinates();
-    if ( !mouse.result.ok )
+    if ( !input.hasClientPosition )
     {
-        UI::InputControl::EndMouseCapture();
-        CancelMousePickup();
-        return false;
+        routeResult.consumed = false;
+        return routeResult;
     }
     RuntimeInteractionGesture gesture;
     gesture.kind = RuntimeInteractionGestureKind::MousePickupDrag;
     gesture.button = RuntimePointerButton::Left;
-    gesture.startX = mouse.coordinates.x;
-    gesture.startY = mouse.coordinates.y;
-    gesture.modelIndex = pickedIndex;
-    m_interaction.BeginGesture( gesture,
-                                RuntimePointerCaptureOwner::ToolGesture,
-                                InteractionExitReason::EnterManipulator );
-    EnterInteractiveSceneRun();
-    UpdatePickupTarget();
-    return true;
+    gesture.startX = input.clientX;
+    gesture.startY = input.clientY;
+    gesture.body = result.body;
+    RuntimeGestureCommand command;
+    command.gesture = gesture;
+    command.reason = InteractionExitReason::EnterManipulator;
+    RuntimeGestureEvent event;
+    if ( !interaction.ApplyGestureCommand( command, event ) )
+    {
+        return routeResult;
+    }
+
+    m_mousePickup.body = result.body;
+    m_mousePickup.planePoint = grabPoint;
+    m_mousePickup.planeNormal = cameraNormal;
+    m_mousePickup.cameraPlaneDistance = cameraPlaneDistance;
+    m_mousePickup.grabOffset = grabPoint - pickedBody->position;
+    m_mousePickup.targetPoint = grabPoint;
+    m_mousePickup.preservedAngularVelocity = pickedBody->angularVelocity;
+    m_mousePickup.lastImpulse = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    inputRouter.RequestNativeCapture();
+    routeResult.enteredInteractive = true;
+    updatePickupTarget();
+    return routeResult;
 }
 
 
-void Run::ApplyMousePickupPhysicsStep()
+void RuntimeTools::ApplyMousePickupPhysicsStep( GameObjects::GameModelCollection& models,
+                                                Physics::PhysicsEngine& physics,
+                                                InputRouter& inputRouter,
+                                                RuntimeInteractionController& interaction )
 {
-    if ( !m_runtimeTools.MousePickup().active )
+    if ( interaction.Gesture().kind != RuntimeInteractionGestureKind::MousePickupDrag )
     {
         return;
     }
@@ -217,28 +212,25 @@ void Run::ApplyMousePickupPhysicsStep()
     // Hazard: Pickup stores a live body handle. Revalidate it before every
     // physics write so deleted/reused body slots cannot receive a stale tool
     // impulse.
-    RunMousePickupState& pickup = m_runtimeTools.MousePickup();
-    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.BodyStore();
+    RunMousePickupState& pickup = m_mousePickup;
+    const PhysicsBodyStore& bodyStore = models.BodyStore();
     const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( pickup.body );
     if ( !bodyRecord )
     {
-        CancelMousePickup();
+        CancelMousePickup( inputRouter, interaction );
         return;
     }
 
     if ( bodyRecord->isFixed )
     {
-        CancelMousePickup();
+        CancelMousePickup( inputRouter, interaction );
         return;
     }
     const Vector3 bodyPosition = bodyRecord->position;
     const Vector3 linearVelocity = bodyRecord->linearVelocity;
-    if ( !m_cGameModelCollection.GetPhysicsEngine().SetBodyVelocity( pickup.body,
-                                                                     linearVelocity,
-                                                                     pickup.preservedAngularVelocity,
-                                                                     false ) )
+    if ( !physics.SetBodyVelocity( pickup.body, linearVelocity, pickup.preservedAngularVelocity, false ) )
     {
-        CancelMousePickup();
+        CancelMousePickup( inputRouter, interaction );
         return;
     }
 
@@ -258,41 +250,39 @@ void Run::ApplyMousePickupPhysicsStep()
         impulse *= MOUSE_PICKUP_MAX_IMPULSE / sqrtf( impulseLenSq );
     }
 
-    m_cGameModelCollection.GetPhysicsEngine().ApplyBodyImpulse( pickup.body,
-                                                                impulse,
-                                                                SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    physics.ApplyBodyImpulse( pickup.body, impulse, SkullbonezCore::Math::Vector::ZERO_VECTOR );
     pickup.lastImpulse = impulse;
 }
 
 
-void Run::RestoreMousePickupAngularVelocity()
+void RuntimeTools::RestoreMousePickupAngularVelocity( GameObjects::GameModelCollection& models,
+                                                      Physics::PhysicsEngine& physics,
+                                                      InputRouter& inputRouter,
+                                                      RuntimeInteractionController& interaction )
 {
-    if ( !m_runtimeTools.MousePickup().active )
+    if ( interaction.Gesture().kind != RuntimeInteractionGestureKind::MousePickupDrag )
     {
         return;
     }
 
-    RunMousePickupState& pickup = m_runtimeTools.MousePickup();
-    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.BodyStore();
+    RunMousePickupState& pickup = m_mousePickup;
+    const PhysicsBodyStore& bodyStore = models.BodyStore();
     const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( pickup.body );
     if ( !bodyRecord )
     {
-        CancelMousePickup();
+        CancelMousePickup( inputRouter, interaction );
         return;
     }
 
     if ( bodyRecord->isFixed )
     {
-        CancelMousePickup();
+        CancelMousePickup( inputRouter, interaction );
         return;
     }
 
-    if ( !m_cGameModelCollection.GetPhysicsEngine().SetBodyVelocity( pickup.body,
-                                                                     bodyRecord->linearVelocity,
-                                                                     pickup.preservedAngularVelocity,
-                                                                     false ) )
+    if ( !physics.SetBodyVelocity( pickup.body, bodyRecord->linearVelocity, pickup.preservedAngularVelocity, false ) )
     {
-        CancelMousePickup();
+        CancelMousePickup( inputRouter, interaction );
     }
 }
 } // namespace Basics

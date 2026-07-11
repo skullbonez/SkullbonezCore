@@ -1,41 +1,36 @@
 /*
 File: SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h
 Purpose:
-  Coordinates scene load/reset/advance decisions and control-intent execution
-  above SceneController.
+  Declares scene navigation load decisions and UI request submission helpers.
 
 Mental model:
-  SceneRuntime owns queue state. SceneRuntimeCoordinator owns lifecycle
-  decisions that choose which scene entry to load next. Run provides a narrow
-  execution context for returned control intents until later Phase 3 slices move
-  generated and authored scene application behind scene-owned APIs.
+  SceneController owns queue/browser navigation and returns a value-only load
+  request. SceneController consumes that request through its cold load
+  transaction; callers only wire the explicit per-call owner borrows.
 
 Glossary:
-  Control action: Explicit request for Run to load, clear automation, or apply
-    cinematic mode.
-  Execution context: Borrowed Run-owned operations and state needed to perform
-    one control action without adding another Run method.
-  Scene UI command: One-frame Scene-tab request translated into deferred runtime
-    commands.
+  Load request: Accepted navigation result containing an optional scene load
+    and whether the runtime should become interactive first.
+  Scene UI request: One-frame Scene-tab intent submitted to SceneController.
   Scene browser path: Path discovered from the scenes directory and shown in
     the UI browser.
   Interactive scene run: User-owned scene flow where automation should not exit
     the app.
 
 Invariants:
-  - The coordinator does not own scene browser path storage.
-  - The coordinator does not own renderer, physics, replay, or UI state; the
-    execution context names each remaining borrowed side effect explicitly.
+  - SceneController owns scene browser path storage and navigation decisions.
+  - Navigation results contain values only; they retain no Run backpointer,
+    callback, or borrowed execution context.
   - Scene queue indices stay owned by SceneController/SceneRuntime.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
-  - Agentic/Plans/runtime-run-decomposition-plan.md
+  - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #pragma once
 
-#include "SceneRuntimeStyle.h"
+#include "../../Core/SbResult.h"
 
 #include <string>
 #include <vector>
@@ -49,122 +44,67 @@ struct UISceneCommands;
 namespace Basics
 {
 class SceneController;
-class RuntimeCommandQueue;
 
-enum class SceneRuntimeControlActionType
+struct SceneLoadRequest
 {
-    None,
-    ClearCurrentSceneAutomation,
-    LoadScene,
-    ApplyCinematicModeFromBrowserIndex,
-};
-
-struct SceneRuntimeControlAction
-{
-    SceneRuntimeControlActionType type = SceneRuntimeControlActionType::None;
+    bool accepted = false;
     bool enterInteractiveSceneRun = false;
     int index = -1;
     bool preserveUIState = false;
     bool suppressExitOnComplete = false;
     bool preserveRuntimeState = false;
+    bool markManualReset = false;
 
-    static SceneRuntimeControlAction None()
+    static SceneLoadRequest None()
     {
         return {};
     }
 
-    static SceneRuntimeControlAction ClearCurrentSceneAutomation( bool enterInteractiveSceneRun )
+    static SceneLoadRequest AcceptedWithoutLoad( bool enterInteractiveSceneRun )
     {
-        SceneRuntimeControlAction action;
-        action.type = SceneRuntimeControlActionType::ClearCurrentSceneAutomation;
-        action.enterInteractiveSceneRun = enterInteractiveSceneRun;
-        return action;
+        SceneLoadRequest request;
+        request.accepted = true;
+        request.enterInteractiveSceneRun = enterInteractiveSceneRun;
+        return request;
     }
 
-    static SceneRuntimeControlAction LoadScene( int index,
-                                                bool preserveUIState,
-                                                bool suppressExitOnComplete,
-                                                bool preserveRuntimeState,
-                                                bool enterInteractiveSceneRun = false )
+    static SceneLoadRequest Load( int index,
+                                  bool preserveUIState,
+                                  bool suppressExitOnComplete,
+                                  bool preserveRuntimeState,
+                                  bool enterInteractiveSceneRun = false )
     {
-        SceneRuntimeControlAction action;
-        action.type = SceneRuntimeControlActionType::LoadScene;
-        action.enterInteractiveSceneRun = enterInteractiveSceneRun;
-        action.index = index;
-        action.preserveUIState = preserveUIState;
-        action.suppressExitOnComplete = suppressExitOnComplete;
-        action.preserveRuntimeState = preserveRuntimeState;
-        return action;
+        SceneLoadRequest request;
+        request.accepted = index >= 0;
+        request.enterInteractiveSceneRun = enterInteractiveSceneRun;
+        request.index = index;
+        request.preserveUIState = preserveUIState;
+        request.suppressExitOnComplete = suppressExitOnComplete;
+        request.preserveRuntimeState = preserveRuntimeState;
+        return request;
     }
 
-    static SceneRuntimeControlAction ApplyCinematicModeFromBrowserIndex( int index )
+    bool HasLoad() const
     {
-        SceneRuntimeControlAction action;
-        action.type = SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex;
-        action.index = index;
-        return action;
+        return accepted && index >= 0;
     }
 };
 
 struct SceneRuntimeUICommandResult
 {
     // Invariant: flags report accepted UI commands for RunInput action logging;
-    // queued RuntimeCommand order remains the behavior contract.
+    // the SceneController request batch preserves their submission order.
     bool resetScene = false;
     bool resetSceneDefaults = false;
     bool loadDemoScene = false;
     bool saveSceneDefaults = false;
     bool createScene = false;
     bool selectScene = false;
+    SbResult status = SbResult::Success();
 };
 
-using SceneRuntimeEnterInteractiveSceneRunFn = void ( * )( void* context );
-using SceneRuntimeLoadSceneFn = bool ( * )( void* context,
-                                            int index,
-                                            bool preserveUIState,
-                                            bool suppressExitOnComplete,
-                                            bool preserveRuntimeState );
-
-struct SceneRuntimeControlExecutionContext
-{
-    // Lifetime: every field is borrowed for one immediate control-action
-    // dispatch. Callers must not store this context or reuse it after the frame
-    // state that produced its references has changed.
-    void* context = nullptr;
-    SceneRuntimeEnterInteractiveSceneRunFn enterInteractiveSceneRun = nullptr;
-    SceneRuntimeLoadSceneFn loadScene = nullptr;
-    RunSceneState& scene;
-    bool& screenshotAndExit;
-    SceneRuntimeStyleContext style;
-};
-
-SceneRuntimeUICommandResult QueueSceneUIRuntimeCommands( RuntimeCommandQueue& runtimeCommands,
-                                                         const UI::UISceneCommands& commands );
-bool ExecuteSceneRuntimeControlAction( SceneRuntimeControlExecutionContext context,
-                                       const SceneRuntimeControlAction& action );
-
-class SceneRuntimeCoordinator
-{
-  public:
-    explicit SceneRuntimeCoordinator( SceneController& sceneController );
-
-    SceneRuntimeControlAction LoadSceneFromBrowserIndex( int index, const std::vector<std::string>& sceneBrowserPaths );
-    SceneRuntimeControlAction LoadDemoSceneFromUI();
-    SceneRuntimeControlAction ApplyAdjacentCinematicMode( int direction,
-                                                          const std::vector<std::string>& sceneBrowserPaths,
-                                                          int selectedCineModeSceneIndex,
-                                                          int currentSceneBrowserIndex,
-                                                          bool isCinematicTabActive );
-    SceneRuntimeControlAction LoadAdjacentSceneFromBrowser( int direction,
-                                                            const std::vector<std::string>& sceneBrowserPaths,
-                                                            int currentSceneBrowserIndex );
-    SceneRuntimeControlAction
-    ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState );
-    SceneRuntimeControlAction AdvanceScene( bool perfTestActive, int& perfPass, bool preserveInteractiveUI );
-
-  private:
-    SceneController& m_sceneController;
-};
+SceneRuntimeUICommandResult SubmitSceneUIRequests( SceneController& sceneController,
+                                                   const UI::UISceneCommands& commands );
 
 } // namespace Basics
 } // namespace SkullbonezCore

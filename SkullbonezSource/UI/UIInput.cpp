@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/UI/UIInput.cpp
 Purpose:
-  Implements UI Input widgets, layout, drawing, or UI state for the in-engine controls.
+  Converts immutable runtime input snapshots into UI-local pointer and keyboard
+  values without polling hardware or owning native capture.
 
 Mental model:
   UIInput.cpp implements UI Input widgets, layout, drawing, or UI state for
@@ -17,7 +18,8 @@ Glossary:
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
-  constants.
+    constants.
+  - Device levels and router-owned button edges are copied, never recomputed.
 
 Related:
   - SkullbonezSource/UI/UIInput.h
@@ -25,6 +27,7 @@ Related:
 */
 #include "UIInput.h"
 #include "../Runtime/Input.h"
+#include "../Runtime/InputRouter.h"
 
 namespace SkullbonezCore
 {
@@ -33,10 +36,14 @@ namespace UI
 namespace InputControl
 {
 
-UIInputSnapshot CaptureSnapshot( bool previousLeftDown, bool hasMouseOverride, int overrideX, int overrideY )
+UIInputSnapshot CaptureSnapshot( const Basics::DeviceInputFrame& frame,
+                                 const Basics::RuntimeMouseEdges& mouse,
+                                 bool hasMouseOverride,
+                                 int overrideX,
+                                 int overrideY )
 {
     UIInputSnapshot snapshot;
-    snapshot.wheelDelta = Hardware::Input::ConsumeMouseWheelDelta();
+    snapshot.wheelDelta = frame.wheelDelta;
 
     if ( hasMouseOverride )
     {
@@ -45,22 +52,21 @@ UIInputSnapshot CaptureSnapshot( bool previousLeftDown, bool hasMouseOverride, i
     }
     else
     {
-        const Hardware::Input::MouseCoordinatesResult mouse = Hardware::Input::GetClientMouseCoordinates();
-        if ( mouse.result.ok )
+        if ( frame.hasClientPosition )
         {
-            snapshot.mouseX = static_cast<int>( mouse.coordinates.x );
-            snapshot.mouseY = static_cast<int>( mouse.coordinates.y );
+            snapshot.mouseX = frame.clientX;
+            snapshot.mouseY = frame.clientY;
         }
     }
 
-    snapshot.leftDown = Hardware::Input::IsLeftMouseDown();
-    snapshot.leftPressed = snapshot.leftDown && !previousLeftDown;
-    snapshot.leftReleased = !snapshot.leftDown && previousLeftDown;
+    snapshot.leftDown = mouse.leftDown;
+    snapshot.leftPressed = mouse.leftPressed;
+    snapshot.leftReleased = mouse.leftReleased;
     return snapshot;
 }
 
 
-void CaptureKeyStates( bool keyWasDown[256] )
+void CaptureKeyStates( bool keyWasDown[256], const Basics::InputKeySnapshot& keys )
 {
     if ( !keyWasDown )
     {
@@ -68,40 +74,29 @@ void CaptureKeyStates( bool keyWasDown[256] )
     }
     for ( int key = 0; key < 256; ++key )
     {
-        keyWasDown[key] = IsVirtualKeyDown( key );
+        keyWasDown[key] = IsVirtualKeyDown( keys, key );
     }
 }
 
 
-bool ConsumeKeyPress( bool keyWasDown[256], int virtualKey )
+bool ConsumeKeyPress( bool keyWasDown[256], const Basics::InputKeySnapshot& keys, int virtualKey )
 {
     if ( !keyWasDown || virtualKey < 0 || virtualKey >= 256 )
     {
         return false;
     }
-    const bool isDown = IsVirtualKeyDown( virtualKey );
+    const bool isDown = IsVirtualKeyDown( keys, virtualKey );
     const bool wasPressed = isDown && !keyWasDown[virtualKey];
     keyWasDown[virtualKey] = isDown;
     return wasPressed;
 }
 
 
-bool IsVirtualKeyDown( int virtualKey )
+bool IsVirtualKeyDown( const Basics::InputKeySnapshot& keys, int virtualKey )
 {
-    return ( GetKeyState( virtualKey ) & 0x8000 ) != 0;
+    return keys.IsDown( virtualKey );
 }
 
-
-void BeginMouseCapture( HWND hwnd )
-{
-    SetCapture( hwnd );
-}
-
-
-void EndMouseCapture()
-{
-    ReleaseCapture();
-}
 
 } // namespace InputControl
 } // namespace UI

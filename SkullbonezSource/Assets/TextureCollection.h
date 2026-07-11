@@ -31,6 +31,8 @@ Related:
 
 
 #include "AssetSystem.h"
+#include "AssetKeys.h"
+#include "../GameObjects/SceneCapacity.h"
 #include "../Core/Common.h"
 #include "../Core/SbResult.h"
 

@@ -17,7 +17,8 @@
 # Invariants:
 #   - Runtime-generated artifacts are validated through replay_query and
 #     physics_query rather than by hand-parsing every byte in validation logs.
-#   - Expected failure coverage must prove bad restore paths fail cleanly.
+#   - Expected failure coverage proves both preflight rejection and verified
+#     post-mutation rollback before the runtime returns control.
 #
 # Related:
 #   - tools/replay_query.py
@@ -340,17 +341,38 @@ def probe_restore_failure_row():
     )
     restore_stdout, restore_payload = run_json(restore_command, REPO)
     restores = restore_payload.get("restores") or []
-    if len(restores) != 1:
-        raise RuntimeError(f"expected one replay restore failure row, found {len(restores)}")
-    restore = restores[0]
-    if restore.get("passed"):
-        raise RuntimeError("restore failure query unexpectedly marked the failure row as passed")
-    if restore.get("restore_source") != "v2_file_target":
-        raise RuntimeError(f"unexpected restore failure source: {restore.get('restore_source')}")
-    if "found no saved hash for requested target frame" not in str(restore.get("failure_reason") or ""):
-        raise RuntimeError(f"restore failure row missing reason: {restore}")
-    if not restore.get("failed"):
-        raise RuntimeError(f"restore failure row was not marked failed: {restore}")
+    if len(restores) != 2:
+        raise RuntimeError(f"expected preflight and rollback failure rows, found {len(restores)}")
+    if any(restore.get("passed") or not restore.get("failed") for restore in restores):
+        raise RuntimeError(f"restore failure query unexpectedly marked a row as passed: {restores}")
+    if any(restore.get("restore_source") != "v2_file_target" for restore in restores):
+        raise RuntimeError(f"unexpected restore failure source: {restores}")
+
+    preflight = next(
+        (
+            restore
+            for restore in restores
+            if "found no saved hash for requested target frame" in str(restore.get("failure_reason") or "")
+        ),
+        None,
+    )
+    if preflight is None or preflight.get("fallback_attempted"):
+        raise RuntimeError(f"preflight failure row was missing or attempted rollback: {restores}")
+
+    rollback = next(
+        (
+            restore
+            for restore in restores
+            if "solver hash mismatch" in str(restore.get("failure_reason") or "")
+        ),
+        None,
+    )
+    if rollback is None:
+        raise RuntimeError(f"post-mutation hash failure row was missing: {restores}")
+    if not rollback.get("hash_captured") or rollback.get("hash_matched"):
+        raise RuntimeError(f"post-mutation hash failure did not record the injected mismatch: {rollback}")
+    if not rollback.get("fallback_attempted") or not rollback.get("fallback_restored"):
+        raise RuntimeError(f"post-mutation hash failure did not prove rollback: {rollback}")
     return len(runtime_stdout.encode("utf-8")), len(restore_stdout.encode("utf-8"))
 
 
@@ -438,13 +460,13 @@ def probe_timeline_mutation_rejection():
     probe_lines = [
         line
         for line in combined.splitlines()
-        if "[replay]" in line or "replay restore target probe failed" in line or "unsupported runtime" in line
+        if "[replay]" in line or "replay restore target probe failed" in line or "unsupported replay" in line
     ]
     for line in probe_lines[:12]:
         print(f"  {line}")
     if result.returncode == 0:
         raise RuntimeError("timeline mutation rejection probe unexpectedly restored a mutated artifact")
-    if "unsupported runtime timeline mutation event" not in combined:
+    if "unsupported replay event kind" not in combined:
         raise RuntimeError(f"timeline mutation rejection probe missing expected reason: {combined}")
     if "replay restore target probe failed to apply event sequence" not in combined:
         raise RuntimeError(f"timeline mutation rejection probe did not fail at event replay: {combined}")
@@ -588,7 +610,7 @@ def query_artifact():
         raise RuntimeError(f"expected timelineStart event first, found {event_samples[0]}")
     event_kinds = {sample.get("kind") for sample in event_samples}
     for expected_kind in (
-        "runtimeCommand",
+        "ownerAction",
         "generatedSceneConfig",
         "worldOverride",
         "editorPlace",
@@ -598,9 +620,9 @@ def query_artifact():
     ):
         if expected_kind not in event_kinds:
             raise RuntimeError(f"expected replay event kind {expected_kind}, found {sorted(event_kinds)}")
-    runtime_command_samples = [sample for sample in event_samples if sample.get("kind") == "runtimeCommand"]
-    if not any((sample.get("decoded") or {}).get("command") == "ResetCurrentScene" for sample in runtime_command_samples):
-        raise RuntimeError(f"expected decoded ResetCurrentScene runtime command, found {runtime_command_samples}")
+    owner_action_samples = [sample for sample in event_samples if sample.get("kind") == "ownerAction"]
+    if not any((sample.get("decoded") or {}).get("ownerAction") == "SceneReset" for sample in owner_action_samples):
+        raise RuntimeError(f"expected decoded SceneReset owner action, found {owner_action_samples}")
     for sample in event_samples:
         if sample.get("kind") in (
             "generatedSceneConfig",

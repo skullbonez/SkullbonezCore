@@ -24,7 +24,6 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - SkullbonezSource/Physics/SpatialGrid.h
-  - Agentic/Plans/02-physicsworld-solver-decomposition.md
 */
 #pragma once
 

@@ -155,9 +155,11 @@ class EventInfo:
 
     @property
     def kind_name(self) -> str:
+        # Wire kind 2 belonged to the deleted omnibus runtime-command queue.
+        # Keeping it unmapped is deliberate: old mixed-owner events must be
+        # reported as unsupported instead of acquiring a compatibility alias.
         return {
             1: "timelineStart",
-            2: "runtimeCommand",
             3: "branchRestore",
             4: "worldOverride",
             5: "launcherConfig",
@@ -165,6 +167,7 @@ class EventInfo:
             7: "generatedSceneConfig",
             8: "editorPlace",
             9: "editorTransform",
+            10: "ownerAction",
         }.get(self.kind, "unknown")
 
 
@@ -302,26 +305,22 @@ def decode_transform_payload(text: str) -> dict[str, object] | None:
 
 
 def decoded_event_payload(row: EventInfo) -> dict[str, object] | None:
-    if row.kind == 2:
-        command_names = {
-            0: "None",
-            1: "LoadSceneIndex",
-            2: "LoadDemoScene",
-            3: "ResetCurrentScene",
-            4: "CreateScene",
-            5: "SaveScreenshot",
-            6: "SaveSceneDefaults",
-            7: "SaveRenderDefaults",
-            8: "AdvanceScene",
-            9: "Quit",
+    if row.kind == 10:
+        owner_action_names = {
+            1001: "SceneLoadBrowserIndex",
+            1002: "SceneLoadDemo",
+            1003: "SceneReset",
+            1004: "SceneCreate",
+            1005: "SceneSaveDefaults",
+            2001: "CaptureScreenshot",
+            3001: "RenderSaveOrdinaryDefaults",
+            3002: "RenderSaveCinematicDefaults",
         }
         return {
-            "command": command_names.get(row.values[0], "Unknown"),
-            "commandId": row.values[0],
+            "ownerAction": owner_action_names.get(row.values[0], "Unknown"),
+            "ownerActionCode": row.values[0],
             "index": row.values[1],
-            "preserveUIState": bool(row.flags & 1),
-            "suppressExitOnComplete": bool(row.flags & 2),
-            "preserveRuntimeState": bool(row.flags & 4),
+            "flags": row.flags,
             "text": row.text,
         }
     if row.kind == 4:

@@ -20,7 +20,7 @@
 //
 // Related:
 //   - SkullbonezSource/Runtime/DemoDirector.h
-//   - fable_plans/08-demo-director-progress.md
+//   - Agentic/Plans/TODO/behavioral-test-depth.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"

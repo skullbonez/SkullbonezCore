@@ -62,7 +62,71 @@ enum class SceneRuntimeLifecycleEvent
     AfterSceneActivated,
 };
 
+// Concept: lifecycle receipts make the cold cross-owner work auditable without
+// callbacks or a retained service bag. A bit is supplied only after that
+// concrete owner has consumed the phase at the SceneController load boundary.
+enum class SceneLifecycleConsumer : uint32_t
+{
+    Diagnostics = 1u << 0,
+    RenderDevice = 1u << 1,
+    Simulation = 1u << 2,
+    Audio = 1u << 3,
+    Tools = 1u << 4,
+    Interaction = 1u << 5,
+    Replay = 1u << 6,
+};
+using SceneLifecycleConsumerMask = uint32_t;
+
+constexpr SceneLifecycleConsumerMask SceneLifecycleConsumerBit( SceneLifecycleConsumer consumer )
+{
+    return static_cast<SceneLifecycleConsumerMask>( consumer );
+}
+
+constexpr SceneLifecycleConsumerMask SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent event )
+{
+    switch ( event )
+    {
+    case SceneRuntimeLifecycleEvent::BeforeSceneUnload:
+        return SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
+               SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDevice );
+    case SceneRuntimeLifecycleEvent::AfterSceneCleared:
+        return SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
+               SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation ) |
+               SceneLifecycleConsumerBit( SceneLifecycleConsumer::Audio ) |
+               SceneLifecycleConsumerBit( SceneLifecycleConsumer::Tools ) |
+               SceneLifecycleConsumerBit( SceneLifecycleConsumer::Interaction ) |
+               SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
+    case SceneRuntimeLifecycleEvent::AfterSceneActivated:
+        return SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
+    case SceneRuntimeLifecycleEvent::BeforeScenePopulate:
+    case SceneRuntimeLifecycleEvent::AfterScenePopulate:
+    case SceneRuntimeLifecycleEvent::None:
+        return 0;
+    }
+    return 0;
+}
+
+// Recoverable load failures may restart with BeforeSceneUnload from any phase;
+// all phases within one load attempt remain strictly ordered.
+constexpr bool SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent previous,
+                                                     SceneRuntimeLifecycleEvent next )
+{
+    return next == SceneRuntimeLifecycleEvent::BeforeSceneUnload ||
+           ( previous == SceneRuntimeLifecycleEvent::BeforeSceneUnload &&
+             next == SceneRuntimeLifecycleEvent::AfterSceneCleared ) ||
+           ( previous == SceneRuntimeLifecycleEvent::AfterSceneCleared &&
+             next == SceneRuntimeLifecycleEvent::BeforeScenePopulate ) ||
+           ( previous == SceneRuntimeLifecycleEvent::BeforeScenePopulate &&
+             next == SceneRuntimeLifecycleEvent::AfterScenePopulate ) ||
+           ( previous == SceneRuntimeLifecycleEvent::AfterScenePopulate &&
+             next == SceneRuntimeLifecycleEvent::AfterSceneActivated );
+}
+
 const char* SceneRuntimeLifecycleEventName( SceneRuntimeLifecycleEvent event );
+// Returns the final scene path component without allocating. The returned
+// pointer aliases the caller-owned path string.
+const char* SceneFileNameFromPath( const char* path );
+std::string NormalizeSceneQueuePath( const std::string& path );
 
 struct RunSceneState
 {
@@ -131,8 +195,7 @@ class SceneRuntime
     const std::vector<std::string>& Queue() const;
 
     void BeginLoad( int index );
-    void RecordLifecycleEvent( SceneRuntimeLifecycleEvent event );
-    SceneRuntimeLifecycleEvent LastLifecycleEvent() const;
+    void RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, SceneLifecycleConsumerMask consumers );
     void MarkManualReset();
     int FindNormalizedPath( const std::string& normalizedPath ) const;
     int FindGeneratedDemo() const;

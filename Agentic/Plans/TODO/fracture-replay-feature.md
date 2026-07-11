@@ -1,42 +1,49 @@
-# Reversible GPU Fracture Replay (feature backlog)
+# Reversible GPU Fracture Replay
 
-Date: 2026-07-09 (consolidated from `reversible-fracture-replay-plan.md`;
-full phase detail in that file's git history)
-Status: Not started — 0%. Feature backlog, not architecture debt.
-Impact area: DX12 renderer, shaders, replay UI, scene system, physics triggers
+Date: 2026-07-10 (dependency reconciled)
+Status: Backlog — 0/7 phases complete; blocked
+Impact area: DX12 rendering, shaders, replay presentation, scene authorship,
+physics trigger commands
+Owner: fracture feature; it must extend existing render/replay owners
 
 ## Goal
 
-Shoot a breakable object, watch it burst into many tiny GPU-simulated shards,
-then drag the replay slider backward and watch the shards rejoin the original
-object. Central rule: shard motion is deterministic per fracture seed, so
-reverse scrubbing replays the same trajectories backward.
+A breakable authored object produces deterministic GPU-presented shards that
+can be replayed backward into the original object. Seed, fracture template, and
+presentation samples reproduce identical shard trajectories.
 
-## Shape (from the draft)
+## Blocking Preconditions
 
-1. Fracture plan hooks + scene authorship (mark breakables, author shard
-   templates).
-2. Fracture trigger from shooting.
-3. GPU shard template + instanced rendering.
-4. GPU shard simulation with terrain bounce (deterministic per seed).
-5. Replay presentation samples for shards.
-6. Replay UI slice (reverse scrub).
-7. Focused validation + docs.
+- `replay-architecture-and-right-sizing.md` R3 must define the retained
+  presentation-sample extension contract and capacity policy.
+- `render-backend-decomposition.md` must identify the concrete resource/pipeline
+  owner used by shard templates and instancing.
+- `validation-gate-integrity.md` must make CPU tests mandatory.
 
-First useful slice: one breakable ball → shards → terrain bounce, no replay
-integration yet.
+Do not begin implementation while any precondition is open. This feature must
+not create a parallel replay buffer, custom allocation exception, or new
+`Run::*` integration path.
 
-## Preconditions
+## Phases
 
-- Replay presentation-sample work should land after
-  `TODO/replay-prediction-and-memory.md` phase B decides the visual-sample
-  data model, or shard samples will be built on a format that plan changes.
-- Re-verify the draft's repo-fit notes against current replay/render code
-  before implementation; the draft predates the 2026-07 replay and renderer
-  changes.
+- [ ] F0. Re-verify design against current replay/render/scene owners and record
+  memory/GPU budget.
+- [ ] F1. Add registered breakable asset/scene authorship and deterministic
+  fracture seed/template data.
+- [ ] F2. Route shooting/fracture trigger through physics/scene commands.
+- [ ] F3. Add fixed-capacity shard template and instanced renderer.
+- [ ] F4. Add deterministic GPU shard motion and terrain bounce.
+- [ ] F5. Extend the approved replay presentation sample and reverse scrub.
+- [ ] F6. Add UI, CPU determinism tests, renderer/replay/perf validation, and
+  independent closure review.
+
+## First Useful Slice
+
+One registered breakable ball → bounded shards → terrain bounce, without replay
+integration. It starts only after F0 and all blocking preconditions.
 
 ## Validation
 
-Renderer slices: `validate_dx12_renderer` (+ `validate_perf` for GPU sim
-cost). Replay slices: `validate_full` + `validate_replay_scrub`. Physics
-trigger slices: `validate_physics`.
+Renderer slices use DX12 architecture tests + renderer gate; GPU simulation uses
+perf; replay uses CPU replay tests + replay scrub + full gate; physics trigger
+uses physics determinism. All gates inherit the mandatory CPU umbrella.

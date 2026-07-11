@@ -21,7 +21,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
-  - SkullbonezSource/Runtime/RunInternal.h
+  - SkullbonezSource/Runtime/Editor/EditorTools.h
 */
 #include "EditorTools.h"
 #include "../Tools/RuntimeTools.h"
@@ -38,7 +38,6 @@ Related:
 #include <cmath>
 #include <utility>
 
-using SkullbonezCore::GameObjects::PhysicsBodyStateEdit;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::CollisionDetection::ScaleShapeAxisFromBase;
 using SkullbonezCore::Math::Orientation::Quaternion;
@@ -48,8 +47,10 @@ using SkullbonezCore::Math::Vector::VectorMagSquared;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::MakeColliderCreateDesc;
+using SkullbonezCore::Physics::PHYSICS_BODY_UPDATE_POSE;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
+using SkullbonezCore::Physics::PhysicsBodyUpdateDesc;
 
 namespace SkullbonezCore
 {
@@ -320,13 +321,15 @@ void MoveSelectedEditorObjectAlongAxis( EditorGizmoContext context,
                                         const Vector3& rayOrigin,
                                         const Vector3& rayDirection )
 {
-    if ( !context.editor.gizmoDragActive || context.editor.activeGizmoAxis < 0 )
+    const RuntimeInteractionGesture& gesture = context.interaction.Gesture();
+    if ( gesture.kind != RuntimeInteractionGestureKind::GizmoDrag ||
+         gesture.gizmoKind != RuntimeGizmoDragKind::Translate || gesture.axis < 0 )
     {
         return;
     }
 
     float axisT = 0.0f;
-    if ( !TryEditorAxisPlaneRayParameter( context.editor.activeGizmoAxis,
+    if ( !TryEditorAxisPlaneRayParameter( gesture.axis,
                                           context.editor.gizmoDragStartPosition,
                                           context.editor.gizmoDragPlaneNormal,
                                           rayOrigin,
@@ -344,7 +347,7 @@ void MoveSelectedEditorObjectAlongAxis( EditorGizmoContext context,
         return;
     }
 
-    const Vector3 axisVector = EditorAxisVector( context.editor.activeGizmoAxis );
+    const Vector3 axisVector = EditorAxisVector( gesture.axis );
     const Vector3 delta = axisVector * ( axisT - context.editor.gizmoDragStartAxisT );
     const int groupCount = ValidCapturedEditorGizmoGroupCount( context.editor, context.models.SceneEntityCount() );
     if ( groupCount > 0 )
@@ -355,18 +358,20 @@ void MoveSelectedEditorObjectAlongAxis( EditorGizmoContext context,
         for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )
         {
             const int modelIndex = context.editor.gizmoDragGroupIndices[static_cast<std::size_t>( groupIndex )];
-            PhysicsBodyStateEdit edit;
-            edit.hasPosition = true;
+            PhysicsBodyUpdateDesc edit;
+            edit.updateMask = PHYSICS_BODY_UPDATE_POSE;
             edit.position = context.editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( groupIndex )] + delta;
-            ResetEditorModelMotionAndWake( context.models, modelIndex, edit );
+            edit.orientation = context.editor.gizmoDragGroupStartOrientations[static_cast<std::size_t>( groupIndex )];
+            ResetEditorModelMotionAndWake( context.models, context.physics, modelIndex, edit );
         }
     }
     else
     {
-        PhysicsBodyStateEdit edit;
-        edit.hasPosition = true;
+        PhysicsBodyUpdateDesc edit;
+        edit.updateMask = PHYSICS_BODY_UPDATE_POSE;
         edit.position = context.editor.gizmoDragStartPosition + delta;
-        ResetEditorModelMotionAndWake( context.models, index, edit );
+        edit.orientation = context.editor.gizmoDragStartOrientation;
+        ResetEditorModelMotionAndWake( context.models, context.physics, index, edit );
     }
 }
 
@@ -375,13 +380,15 @@ void ScaleSelectedEditorObjectAlongAxis( EditorGizmoContext context,
                                          const Vector3& rayOrigin,
                                          const Vector3& rayDirection )
 {
-    if ( !context.editor.gizmoDragActive || !context.editor.gizmoDragIsScale || context.editor.activeGizmoAxis < 0 )
+    const RuntimeInteractionGesture& gesture = context.interaction.Gesture();
+    if ( gesture.kind != RuntimeInteractionGestureKind::GizmoDrag || gesture.gizmoKind != RuntimeGizmoDragKind::Scale ||
+         gesture.axis < 0 )
     {
         return;
     }
 
     float axisT = 0.0f;
-    if ( !TryEditorAxisRayParameter( context, context.editor.activeGizmoAxis, rayOrigin, rayDirection, axisT ) )
+    if ( !TryEditorAxisRayParameter( context, gesture.axis, rayOrigin, rayDirection, axisT ) )
     {
         return;
     }
@@ -394,8 +401,7 @@ void ScaleSelectedEditorObjectAlongAxis( EditorGizmoContext context,
         return;
     }
 
-    const float startExtent =
-        EditorShapeAxisExtent( context.editor.gizmoDragStartShape, context.editor.activeGizmoAxis );
+    const float startExtent = EditorShapeAxisExtent( context.editor.gizmoDragStartShape, gesture.axis );
     const float targetExtent = (std::max)( 0.25f, startExtent + axisT - context.editor.gizmoDragStartAxisT );
     const float factor = targetExtent / startExtent;
 
@@ -417,13 +423,11 @@ void ScaleSelectedEditorObjectAlongAxis( EditorGizmoContext context,
     }
 
     CollisionShape scaledShape;
-    if ( ScaleShapeAxisFromBase( context.editor.gizmoDragStartShape,
-                                 context.editor.activeGizmoAxis,
-                                 factor,
-                                 scaledShape ) )
+    if ( ScaleShapeAxisFromBase( context.editor.gizmoDragStartShape, gesture.axis, factor, scaledShape ) )
     {
-        PhysicsBodyStateEdit edit;
+        PhysicsBodyUpdateDesc edit;
         ResetEditorModelMotionAndWake( context.models,
+                                       context.physics,
                                        index,
                                        edit,
                                        MakeColliderCreateDesc( std::move( scaledShape ),
@@ -437,13 +441,15 @@ void RotateSelectedEditorObjectAroundAxis( EditorGizmoContext context,
                                            const Vector3& rayOrigin,
                                            const Vector3& rayDirection )
 {
-    if ( !context.editor.gizmoDragActive || !context.editor.gizmoDragIsRotation || context.editor.activeGizmoAxis < 0 )
+    const RuntimeInteractionGesture& gesture = context.interaction.Gesture();
+    if ( gesture.kind != RuntimeInteractionGestureKind::GizmoDrag ||
+         gesture.gizmoKind != RuntimeGizmoDragKind::Rotate || gesture.axis < 0 )
     {
         return;
     }
 
     float currentAngle = 0.0f;
-    if ( !TryEditorRotationRayAngle( context, context.editor.activeGizmoAxis, rayOrigin, rayDirection, currentAngle ) )
+    if ( !TryEditorRotationRayAngle( context, gesture.axis, rayOrigin, rayDirection, currentAngle ) )
     {
         return;
     }
@@ -456,7 +462,7 @@ void RotateSelectedEditorObjectAroundAxis( EditorGizmoContext context,
         return;
     }
 
-    const Vector3 axisVector = EditorAxisVector( context.editor.activeGizmoAxis );
+    const Vector3 axisVector = EditorAxisVector( gesture.axis );
     const float angleDelta = WrapEditorAngleDelta( currentAngle - context.editor.gizmoDragStartRotationAngle );
     const int groupCount = ValidCapturedEditorGizmoGroupCount( context.editor, context.models.SceneEntityCount() );
     if ( groupCount > 0 )
@@ -472,23 +478,23 @@ void RotateSelectedEditorObjectAroundAxis( EditorGizmoContext context,
             Quaternion orientation =
                 context.editor.gizmoDragGroupStartOrientations[static_cast<std::size_t>( groupIndex )];
             orientation.RotateAboutAxis( axisVector, angleDelta );
-            PhysicsBodyStateEdit edit;
-            edit.hasPosition = true;
+            PhysicsBodyUpdateDesc edit;
+            edit.updateMask = PHYSICS_BODY_UPDATE_POSE;
             edit.position = context.editor.gizmoDragStartPosition +
                             RotatePointAboutArbitrary( angleDelta, axisVector, startOffset );
-            edit.hasOrientation = true;
             edit.orientation = orientation;
-            ResetEditorModelMotionAndWake( context.models, modelIndex, edit );
+            ResetEditorModelMotionAndWake( context.models, context.physics, modelIndex, edit );
         }
     }
     else
     {
         Quaternion orientation = context.editor.gizmoDragStartOrientation;
         orientation.RotateAboutAxis( axisVector, angleDelta );
-        PhysicsBodyStateEdit edit;
-        edit.hasOrientation = true;
+        PhysicsBodyUpdateDesc edit;
+        edit.updateMask = PHYSICS_BODY_UPDATE_POSE;
+        edit.position = context.editor.gizmoDragStartPosition;
         edit.orientation = orientation;
-        ResetEditorModelMotionAndWake( context.models, index, edit );
+        ResetEditorModelMotionAndWake( context.models, context.physics, index, edit );
     }
 }
 

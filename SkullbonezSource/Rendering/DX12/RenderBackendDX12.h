@@ -10,6 +10,10 @@ Mental model:
   glossary/invariants below.
 
 Glossary:
+  Recording epoch: Logical open/closed state of the reusable command list,
+  advanced only by successful Close or Reset operations.
+  Sticky failure: First active command-path error retained until device
+  initialization resets the epoch.
   BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
   mesh's triangles.
   TLAS (Top-Level Acceleration Structure): Raytracing spatial index for scene
@@ -38,6 +42,8 @@ Glossary:
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
+  - Recording failure prevents further command emission and allocator/upload
+    reuse; only successful device initialization clears it.
 
 Related:
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp
@@ -48,12 +54,14 @@ Related:
 
 
 #include "../IRenderCaptureBackend.h"
+#include "../../GameObjects/SceneCapacity.h"
 #include "../IRenderCommandContext.h"
 #include "../IRenderDeviceLifecycle.h"
 #include "../IRenderDiagnostics.h"
 #include "../IRenderResourceFactory.h"
 #include "../IRenderRayTracing.h"
 #include "../RenderRasterBindingContract.h"
+#include "RenderBackendDX12.CommandRecordingState.h"
 #include "RenderGraphTransientDX12.h"
 #include "RenderDeviceDX12.h"
 #include "MeshDX12.h"
@@ -86,8 +94,8 @@ class ShaderDX12;
 struct TextureEntryDX12
 {
     ID3D12Resource* resource;
-    UINT srvIndex;                                                 // Index in the persistent SRV region
-    bool owned;                                                    // False for FBO-registered SRVs
+    UINT srvIndex;                                                     // Index in the persistent SRV region
+    bool owned;                                                        // False for FBO-registered SRVs
 };
 
 
@@ -172,8 +180,8 @@ struct GpuTimerStateDX12
     bool resultValid[DX12_TIMER_HEAP_MARKERS] = {};
     uint64_t freq = 1;
     bool readPending = false;
-    UINT64 readFenceValue = 0;                                     // fence value that guarantees the latest ResolveQueryData has completed
-    bool slotWritten[DX12_TIMER_HEAP_SIZE] = {};                   // true for each timestamp slot that had EndQuery recorded this frame
+    UINT64 readFenceValue = 0;                                         // fence value that guarantees the latest ResolveQueryData has completed
+    bool slotWritten[DX12_TIMER_HEAP_SIZE] = {};                       // true for each timestamp slot that had EndQuery recorded this frame
 };
 
 struct DeferredResourceReleaseDX12
@@ -212,13 +220,13 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     static const UINT MAX_RTV_DESCRIPTORS = 32;
     static const UINT MAX_DSV_DESCRIPTORS = 16;
     static const UINT MAX_STATIC_SRVS = 128;
-    static const UINT MAX_TRANSIENT_SRVS = 2048;                   // per frame allocator
+    static const UINT MAX_TRANSIENT_SRVS = 2048;                       // per frame allocator
     // Hazard: replay prediction ribbons upload transient line geometry through
     // this frame arena. Exhaustion is fatal, so keep this cap aligned with the
     // largest expected debug/prediction overlay until the overlay is bounded.
     static const UINT64 UPLOAD_BUFFER_SIZE = 32 * 1024 * 1024;
-    static const int TIMER_HEAP_MARKERS = DX12_TIMER_HEAP_MARKERS; // must be >= Profiler::MAX_MARKERS
-    static const int TIMER_HEAP_SIZE = DX12_TIMER_HEAP_SIZE;       // begin + end per marker
+    static const int TIMER_HEAP_MARKERS = DX12_TIMER_HEAP_MARKERS;     // must be >= Profiler::MAX_MARKERS
+    static const int TIMER_HEAP_SIZE = DX12_TIMER_HEAP_SIZE;           // begin + end per marker
 
     // Ordinary raster binding ABI lives in RenderRasterBindingContract.h so
     // runtime passes and the DX12 backend consume one shader/root-signature map.
@@ -234,7 +242,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // container and cap exhaustion fails with the missing pipeline shape.
     std::array<CachedPSODX12, MAX_CACHED_GRAPHICS_PSOS> m_psoCache = {};
     size_t m_psoCacheCount = 0;
-    std::vector<TextureEntryDX12> m_textures;                      // Texture registry (1-based, index 0 unused)
+    std::vector<TextureEntryDX12> m_textures;                          // Texture registry (1-based, index 0 unused)
     std::vector<DynamicVBDX12> m_dynamicVBs;
     std::vector<InstancedMeshDX12> m_instancedMeshes;
 
@@ -282,15 +290,25 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
         uint32_t hash = 0;
     };
 
-    bool m_commandListOpen = false;
-    int m_platformProfilerGpuDepth = 0;                            // Nesting depth guard for platform GPU marker begin/end balance.
+    // Invariant: only successful Close/Reset operations change this epoch. A
+    // sticky failure makes every later recording entry point a no-op until a
+    // new device initialization establishes a fresh command-list lifetime.
+    Dx12CommandRecordingState m_commandRecording;
+    // Submission completion is separate from recording state: a closed list
+    // may already be executing without a covering fence. This value blocks
+    // allocator/resource reuse until a real fence proves completion.
+    Dx12SubmittedWorkState m_submittedWork;
+    Dx12DeviceHealthState m_deviceHealth;
+    Dx12FaultInjectionState m_faultInjection;
+    uint64_t m_recreationGeneration = 0;                               // Advances only after complete resize publication.
+    int m_platformProfilerGpuDepth = 0;                                // Nesting depth guard for platform GPU marker begin/end balance.
     std::array<PlatformProfilerGpuScopeDX12, PLATFORM_PROFILER_GPU_SCOPE_STACK_MAX> m_platformProfilerGpuStack = {};
 
     ID3D12Resource* m_renderTargets[FRAME_COUNT] = {};
     UINT m_frameIndex = 0;
-    UINT m_allocatorIndex = 0;                                     // Which allocator is active (alternates 0/1)
+    UINT m_allocatorIndex = 0;                                         // Which allocator is active (alternates 0/1)
 
-    UINT64 m_frameFenceValues[FRAME_COUNT] = {};                   // Fence value signaled by each frame's submission
+    UINT64 m_frameFenceValues[FRAME_COUNT] = {};                       // Fence value signaled by each frame's submission
 
     // Descriptor heaps are descriptor tables, not texture arrays.
     //
@@ -308,8 +326,8 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // of a descriptor table.
     ID3D12DescriptorHeap* m_rtvHeap = nullptr;
     ID3D12DescriptorHeap* m_dsvHeap = nullptr;
-    ID3D12DescriptorHeap* m_srvHeap = nullptr;                     // GPU-visible table shaders can read during draws/dispatches.
-    ID3D12DescriptorHeap* m_srvStagingHeap = nullptr;              // CPU-only table holding persistent descriptor templates.
+    ID3D12DescriptorHeap* m_srvHeap = nullptr;                         // GPU-visible table shaders can read during draws/dispatches.
+    ID3D12DescriptorHeap* m_srvStagingHeap = nullptr;                  // CPU-only table holding persistent descriptor templates.
     UINT m_rtvDescSize = 0;
     UINT m_dsvDescSize = 0;
     UINT m_srvDescSize = 0;
@@ -351,6 +369,12 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // persistent CPU Map() pointers, and the arena reset policy tied to the
     // frame fence.
     Dx12FrameUploadSystem m_uploadSystem;
+
+    // Lifetime: an uncertain screenshot submission cannot release its readback
+    // buffer. Keep the bounded COM references until terminal shutdown proves a
+    // full queue drain; a failed terminal drain stops before Release.
+    std::array<ID3D12Resource*, FRAME_COUNT> m_uncertainReadbackResources = {};
+    size_t m_uncertainReadbackResourceCount = 0;
 
     ID3D12RootSignature* m_rootSignature = nullptr;
     int m_width = 0;
@@ -398,7 +422,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // each persistent descriptor into a transient shader-visible row and binds
     // that transient GPU handle through the root signature.
     UINT m_boundTexSlot[TEXTURE_SLOT_COUNT] = { UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX };
-    UINT m_nullTextureSRVIndex = UINT_MAX;                         // Static null Texture2D SRV copied into cleared texture slots.
+    UINT m_nullTextureSRVIndex = UINT_MAX;                             // Static null Texture2D SRV copied into cleared texture slots.
 
     // Runtime allocation policy: debug-line shader and PSOs are warmed during
     // backend setup for every engine RTV format, so overlay draws do not compile
@@ -423,6 +447,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     bool m_targetsDirty = true;
 
     bool m_dxrSupported = false;
+    Basics::SbResult m_dxrFeatureResult = Basics::SbResult::Success(); // Retains one bounded optional-fallback reason.
     ID3D12Device5* m_device5 = nullptr;
     ID3D12GraphicsCommandList4* m_cmdList4 = nullptr;
     ID3D12StateObject* m_rtPSO = nullptr;
@@ -444,18 +469,23 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     int m_dxrMaxInstances = 0;
     std::array<D3D12_RAYTRACING_INSTANCE_DESC, MAX_GAME_MODELS + 1> m_tlasInstances = {};
 
-    ID3D12PipelineState* m_genMipsPSO = nullptr;                   // Compute PSO for generate_mips.hlsl
-    ID3D12RootSignature* m_genMipsRS = nullptr;                    // Root signature: 4 root constants + SRV + 4 UAVs
-    UINT m_genMipsNullUAV = 0;                                     // Static SRV slot holding a null UAV (padding)
+    ID3D12PipelineState* m_genMipsPSO = nullptr;                       // Compute PSO for generate_mips.hlsl
+    ID3D12RootSignature* m_genMipsRS = nullptr;                        // Root signature: 4 root constants + SRV + 4 UAVs
+    UINT m_genMipsNullUAV = 0;                                         // Static SRV slot holding a null UAV (padding)
 
     // --- Internal helpers ---
     Basics::SbResult WaitForGpu();
-    void EnsureCommandListOpen();
+    Basics::SbResult EnsureCommandListOpen();
+    Basics::SbResult SubmitClosedCommandList();
+    void ConfigureFaultInjection();
+    void WriteFaultInjectionProbeReport() const;
     void AssignDeferredResourceReleaseFence( UINT64 fenceValue );
     void ReleaseCompletedDeferredResources( bool releaseUnfenced );
     void TryConsumeGpuTimerReadback( bool waitForFence );
     Basics::SbResult CreateRootSignature();
     Basics::SbResult CreateDepthStencil( int w, int h );
+    Basics::SbResult CreateDepthStencilResource( int w, int h, ID3D12Resource*& outResource );
+    void PublishDepthStencilView( ID3D12Resource* resource );
     UINT AllocateTransientSRV();
     UINT AllocateTransientSRVRange( UINT count );
     D3D12_GPU_DESCRIPTOR_HANDLE GetSRVGpuHandle( UINT index );
@@ -465,8 +495,8 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // Keeps cached texture-slot state from pointing at an SRV descriptor row
     // whose owning resource is being deleted or unregistered.
     void ClearBoundTextureSlotsForSrv( UINT srvIndex );
-    void FlushUploadBuffer();
-    void FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment );
+    Basics::SbResult FlushUploadBuffer();
+    Basics::SbResult FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment );
     D3D12_GPU_VIRTUAL_ADDRESS SubAllocateUpload( UINT64 size, UINT64 alignment );
     void ReportArchitectureStats( const char* reason ) const;
     GraphTransientResourceDX12* FindGraphTransientSlot( RenderGraphResourceHandle resource );
@@ -482,7 +512,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     Basics::SbResult CreateRTPipeline();
     Basics::SbResult CreateReflectionUAV( int width, int height );
     Basics::SbResult InitGenMipsPipeline();
-    void GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, UINT w, UINT h, UINT numMips );
+    bool GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, UINT w, UINT h, UINT numMips );
     void AssertPlatformProfilerGpuStackClosed( const char* reason ) const;
     int SuspendPlatformProfilerGpuStackForSubmit( const char* reason );
     void RestorePlatformProfilerGpuStackAfterSubmit( int suspendedDepth );
@@ -504,8 +534,9 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     Basics::SbResult Present() override;
     void SetVsyncEnabled( bool enabled ) override;
     bool IsVsyncEnabled() const override;
-    void Finish() override;
-    void FlushGPU() override;
+    Basics::SbResult Finish() override;
+    Basics::SbResult FlushGPU() override;
+    Basics::SbResult DrainForResourceRelease() override;
     Basics::SbResult Resize( int width, int height ) override;
 
     void SetViewport( int x, int y, int w, int h ) override;
@@ -700,13 +731,13 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
                             UINT fboSrvIndex = UINT_MAX,
                             UINT fboDepthSrvIndex = UINT_MAX,
                             DXGI_FORMAT rtvFormat = DXGI_FORMAT_R8G8B8A8_UNORM );
-    void ExecuteGraphTransition( const char* passName,
+    bool ExecuteGraphTransition( const char* passName,
                                  const char* resourceName,
                                  ID3D12Resource* resource,
                                  RenderGraphResourceAccess before,
                                  RenderGraphResourceAccess after,
                                  UINT subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES );
-    void ExecuteGraphUavBarrier( const char* passName, const char* resourceName, ID3D12Resource* resource );
+    bool ExecuteGraphUavBarrier( const char* passName, const char* resourceName, ID3D12Resource* resource );
 
     // Reserve CPU-written upload memory for the current command stream.
     //

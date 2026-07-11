@@ -4,8 +4,9 @@ Purpose:
   Owns transient runtime tool state while tool behavior moves out of Run.
 
 Mental model:
-  RuntimeTools owns short-lived interaction state for launcher/tool behavior and
-  render feedback instead of storing that state directly on Run.
+  RuntimeTools owns tool payload and render feedback instead of storing those
+  values directly on Run. RuntimeInteractionController alone owns which
+  gesture is active; tools retain only the start values needed to apply it.
 
 Glossary:
   Asset system: Runtime-owned registry borrowed by editor ghost tracing when a
@@ -41,6 +42,8 @@ Invariants:
     after model collection edits.
   - Mouse pickup stores only a physics body handle for live command paths; any
     model row used for gestures or UI is resolved locally from that handle.
+  - Editor payload never mirrors active placement/gizmo ownership, axis, or
+    transform mode outside RuntimeInteractionGesture.
 
 Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.cpp
@@ -53,6 +56,7 @@ Related:
 #include "../../Core/MainMemoryStats.h"
 #include "../Editor/LauncherLaser.h"
 #include "../RuntimeCameraMode.h"
+#include "../RuntimeInteractionController.h"
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/Vector3.h"
@@ -108,9 +112,17 @@ namespace SkullbonezCore::Basics
 {
 struct RunDebugState;
 struct RunLaunchOptions;
-struct RunRuntimeSettings;
 struct RunSceneState;
 struct ReplayLauncherVisualSample;
+class SceneEntityStore;
+class InputRouter;
+class RuntimeInteractionController;
+class ReplayRuntime;
+enum class WorldInteractionOwner;
+enum class InteractionExitReason;
+struct RuntimeInteractionCommand;
+struct RuntimeInteractionEvent;
+struct RuntimeInteractionSelectionPlan;
 
 struct RunRayCastTestLine
 {
@@ -156,17 +168,30 @@ struct RayCastLauncherTuningUICommandResult
     float projectileConfigProjectileSpeed = 0.0f;
 };
 
+struct ToolOverlayBuildInput
+{
+    float rayLingerSeconds = 0.0f;
+    bool inspectGizmoActive = false;
+    bool scaleMode = false;
+    RuntimeInteractionGesture gesture;
+    int attachedCameraTargetIndex = -1;
+    bool attachedCameraActiveFollow = false;
+};
+
 #ifdef _DEBUG
 struct LauncherReproSnapshotContext
 {
     GameObjects::GameModelCollection& collection;
+    const SceneEntityStore& entities;
     Environment::CameraCollection* cameras;
     Geometry::Terrain* terrain;
     Environment::WorldEnvironment& world;
     const RunSceneState& sceneState;
     const std::string* currentScenePath;
     const RunLaunchOptions& launchOptions;
-    const RunRuntimeSettings& runtimeSettings;
+    bool physicsSleepEnabled;
+    bool vsyncEnabled;
+    bool pipelineSyncEnabled;
     float contactEpsilon;                                                   // Physics contact tolerance captured from Run config for repro output.
     float frictionCoeff;                                                    // Physics friction setting captured from Run config for repro output.
     const RunDebugState& debug;
@@ -184,8 +209,6 @@ enum class LauncherReproSnapshotStatus
 
 struct RunMousePickupState
 {
-    bool active = false;
-    bool mouseCaptured = false;
     Physics::PhysicsBodyHandle body;
     Math::Vector::Vector3 planePoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 planeNormal = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
@@ -194,6 +217,174 @@ struct RunMousePickupState
     Math::Vector::Vector3 targetPoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 preservedAngularVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 lastImpulse = Math::Vector::ZERO_VECTOR;
+};
+
+struct MousePickupPointerInput
+{
+    // Lifetime: one input-frame value. Rays and camera values are sampled by
+    // input composition before the tool mutates its durable pickup state.
+    bool manipulatorMode = false;
+    bool editorMode = false;
+    bool replayInspection = false;
+    bool suppressWorldAction = false;
+    bool uiWantsNativeCursor = false;
+    bool leftPressed = false;
+    bool leftReleased = false;
+    bool leftDown = false;
+    bool hasWorldRay = false;
+    bool hasClampedWorldRay = false;
+    bool hasClientPosition = false;
+    int clientX = 0;
+    int clientY = 0;
+    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 clampedRayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 clampedRayDirection = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 cameraEye = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 cameraView = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
+};
+
+struct EditorPointerPreviewInput
+{
+    // Lifetime: one post-UI pointer sample; world rays are values so the tool
+    // never reaches back into Window, CameraCollection, or InputRouter.
+    bool blocksCameraMouse = false;
+    bool inspectGizmoActive = false;
+    bool hasWorldRay = false;
+    bool controlDown = false;
+    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
+};
+
+struct EditorPointerSelectionInput
+{
+    // Invariant: selection preparation is side-effect free. InputRouter applies
+    // the returned owner transition before CommitSelectionCommand mutates state.
+    bool inspectGizmoActive = false;
+    bool hasWorldRay = false;
+    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
+};
+
+struct EditorPlacementScalePointerResult
+{
+    // Composition consumes these facts after the tool has atomically ended or
+    // committed the placement gesture; no callback reaches back into Run.
+    bool consumed = false;
+    bool enteredInteractiveScene = false;
+    bool endedGesture = false;
+};
+
+struct EditorGizmoDragPointerInput
+{
+    // Lifetime: one routed pointer frame. The sampled ray remains stable while
+    // the tool mutates physics and records the release event.
+    bool leftDown = false;
+    bool leftReleased = false;
+    bool suppressWorldAction = false;
+    bool hasWorldRay = false;
+    int selectedModelIndex = -1;
+    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
+};
+
+struct EditorGizmoDragPointerResult
+{
+    // Composition publishes the input-mode edge after owner teardown.
+    bool consumed = false;
+    bool endedGesture = false;
+};
+
+enum class EditorGizmoGestureKind
+{
+    None,
+    Translate,
+    Rotate,
+    Scale
+};
+
+struct EditorGizmoGesturePlan
+{
+    // Invariant: preparation captures every value needed after InputRouter
+    // performs cross-owner cleanup; commit never reads a Run callback/context.
+    EditorGizmoGestureKind kind = EditorGizmoGestureKind::None;
+    WorldInteractionOwner owner;
+    InteractionExitReason reason;
+    Physics::PhysicsBodyHandle selectedBody;
+    int axis = -1;
+    int clientX = 0;
+    int clientY = 0;
+    float axisParameter = 0.0f;
+    Math::Vector::Vector3 startPosition = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion startOrientation;
+    Math::Vector::Vector3 dragPlaneNormal = Math::Vector::ZERO_VECTOR;
+    Math::CollisionDetection::CollisionShape startShape;
+};
+
+struct EditorGizmoGestureResult
+{
+    bool attempted = false;
+    bool consumed = false;
+    EditorGizmoGestureKind kind = EditorGizmoGestureKind::None;
+};
+
+struct EditorPlacementScaleStartResult
+{
+    // Composition publishes the semantic begin edge only for a started gesture.
+    bool consumed = false;
+    bool beganGesture = false;
+};
+
+struct EditorViewportPlacementInput
+{
+    // Lifetime: one post-UI device sample; wheel and pointer facts cannot be
+    // resampled while the tool mutates its durable placement state.
+    int unhandledWheelDelta = 0;
+    bool rightDown = false;
+    bool leftDown = false;
+    bool controlDown = false;
+    bool blocksCameraMouse = false;
+    bool hasClientPosition = false;
+    bool inputModeIsViewportLook = false;
+    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
+    int clientX = 0;
+    int clientY = 0;
+};
+
+enum class EditorViewportModeAction
+{
+    None,
+    Begin,
+    End
+};
+
+struct EditorViewportPlacementResult
+{
+    // Composition applies camera/input-mode effects after the tool mutation.
+    bool resetMouseLook = false;
+    bool enteredInteractiveScene = false;
+    EditorViewportModeAction modeAction = EditorViewportModeAction::None;
+};
+
+struct MousePickupPointerResult
+{
+    bool consumed = false;                                                  // Prevents later world owners from seeing this pointer gesture.
+    bool enteredInteractive = false;                                        // Composition disables automation quit after a successful grab begins.
+};
+
+struct LauncherPointerInput
+{
+    bool launcherMode = false;
+    bool leftPressed = false;
+    bool suppressWorldAction = false;
+    bool uiWantsNativeCursor = false;
+    int activeModelCapacity = 0;
+};
+
+struct LauncherPointerResult
+{
+    bool consumed = false;
+    bool enteredInteractive = false;
 };
 
 struct RunEditorPlacementState
@@ -207,13 +398,6 @@ struct RunEditorPlacementState
     RunCameraMode restoreCameraModeAfterEditor = RunCameraMode::Demo;
     bool viewportLookActive = false;
     bool placementPreviewVisible = false;
-    bool placementScaleActive = false;
-    bool gizmoDragActive = false;
-    bool gizmoDragIsRotation = false;
-    bool gizmoDragIsScale = false;
-    bool altShortcutWasDown = false;
-    bool tabShortcutWasDown = false;
-    bool tildeShortcutWasDown = false;
     int objectType = UI::EditorTab::OBJECT_BOX;
     int placedObjectSerial = 0;
     // Lifetime: selectedBody/selectedCollider are live store identities. The
@@ -223,7 +407,6 @@ struct RunEditorPlacementState
     Physics::PhysicsColliderHandle selectedCollider;
     int hotGizmoAxis = -1;
     int hotRotationAxis = -1;
-    int activeGizmoAxis = -1;
     float gizmoDragStartAxisT = 0.0f;
     float gizmoDragStartRotationAngle = 0.0f;
     float placementYawRadians = 0.0f;
@@ -476,7 +659,7 @@ class RuntimeTools
     void TickRayCastTestLines( float dt );
     bool HasLingeredRayCastLine( float maxAgeSeconds ) const;
     bool HasSelectionOverlayWork( int modelCount, RunCameraMode cameraMode ) const;
-    bool HasMousePickupOverlayWork() const;
+    bool HasMousePickupOverlayWork( const RuntimeInteractionGesture& gesture ) const;
     bool HasLauncherShots() const;
     const char* LauncherFireModeLabel() const;
     void BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const;
@@ -498,12 +681,20 @@ class RuntimeTools
                                     Math::Vector::Vector3& outDirection,
                                     Math::Vector::Vector3& outCameraUp ) const;
     bool FireLauncherRay( GameObjects::GameModelCollection& collection,
+                          Physics::PhysicsEngine& physics,
                           RunSceneState& scene,
                           Geometry::Terrain* terrain,
                           int activeModelCapacity,
                           const Math::Vector::Vector3& rayOrigin,
                           const Math::Vector::Vector3& rayDirection,
                           const Math::Vector::Vector3& cameraUp );
+    LauncherPointerResult RouteLauncherPointer( const LauncherPointerInput& input,
+                                                Environment::CameraCollection& cameras,
+                                                ReplayRuntime& replayRuntime,
+                                                GameObjects::GameModelCollection& collection,
+                                                Physics::PhysicsEngine& physics,
+                                                RunSceneState& scene,
+                                                Geometry::Terrain* terrain );
     void FireLauncherLaser( Physics::PhysicsEngine& physics,
                             int modelCount,
                             Geometry::Terrain* terrain,
@@ -536,12 +727,93 @@ class RuntimeTools
 
     RunMousePickupState& MousePickup();
     const RunMousePickupState& MousePickup() const;
+    MousePickupPointerResult RouteMousePickupPointer( const MousePickupPointerInput& input,
+                                                      const GameObjects::GameModelCollection& collection,
+                                                      InputRouter& inputRouter,
+                                                      RuntimeInteractionController& interaction );
+    // Applies the manipulator spring at the fixed-step boundary. Tool state is
+    // owned here; scene physics and input/interaction owners are synchronous borrows.
+    void ApplyMousePickupPhysicsStep( GameObjects::GameModelCollection& models,
+                                      Physics::PhysicsEngine& physics,
+                                      InputRouter& inputRouter,
+                                      RuntimeInteractionController& interaction );
+    void RestoreMousePickupAngularVelocity( GameObjects::GameModelCollection& models,
+                                            Physics::PhysicsEngine& physics,
+                                            InputRouter& inputRouter,
+                                            RuntimeInteractionController& interaction );
+    bool PrepareSelectionCommand( const RuntimeInteractionCommand& command,
+                                  const GameObjects::GameModelCollection& collection,
+                                  RuntimeInteractionSelectionPlan& outPlan );
+    bool PrepareEditorPointerSelection( const EditorPointerSelectionInput& input,
+                                        const GameObjects::GameModelCollection& collection,
+                                        RuntimeInteractionSelectionPlan& outPlan,
+                                        WorldInteractionOwner& outOwner,
+                                        InteractionExitReason& outReason );
+    EditorPlacementScalePointerResult RouteEditorPlacementScalePointer( bool leftReleased,
+                                                                        bool suppressWorldAction,
+                                                                        GameObjects::GameModelCollection& collection,
+                                                                        Physics::PhysicsEngine& physics,
+                                                                        RunSceneState& scene,
+                                                                        Environment::WorldEnvironment& world,
+                                                                        Geometry::Terrain* terrain,
+                                                                        Assets::AssetSystem& assets,
+                                                                        int activeModelCapacity,
+                                                                        RuntimeInteractionController& interaction,
+                                                                        ReplayRuntime& replayRuntime );
+    EditorGizmoDragPointerResult RouteEditorGizmoDragPointer( const EditorGizmoDragPointerInput& input,
+                                                              GameObjects::GameModelCollection& collection,
+                                                              Physics::PhysicsEngine& physics,
+                                                              RuntimeInteractionController& interaction,
+                                                              ReplayRuntime& replayRuntime );
+    bool PrepareEditorGizmoGesture( bool inspectGizmoActive,
+                                    bool scaleMode,
+                                    int selectedModelIndex,
+                                    bool hasWorldRay,
+                                    const Math::Vector::Vector3& rayOrigin,
+                                    const Math::Vector::Vector3& rayDirection,
+                                    int clientX,
+                                    int clientY,
+                                    GameObjects::GameModelCollection& collection,
+                                    Physics::PhysicsEngine& physics,
+                                    RuntimeInteractionController& interaction,
+                                    EditorGizmoGesturePlan& outPlan );
+    EditorGizmoGestureResult CommitEditorGizmoGesture( const EditorGizmoGesturePlan& plan,
+                                                       GameObjects::GameModelCollection& collection,
+                                                       Physics::PhysicsEngine& physics,
+                                                       RuntimeInteractionController& interaction );
+    EditorPlacementScaleStartResult BeginEditorPlacementScalePointer( bool inspectGizmoActive,
+                                                                      bool hasClientPosition,
+                                                                      int clientX,
+                                                                      int clientY,
+                                                                      RuntimeInteractionController& interaction );
+    EditorViewportPlacementResult RouteEditorViewportPlacement( const EditorViewportPlacementInput& input );
+    bool CommitSelectionCommand( const RuntimeInteractionSelectionPlan& plan, RuntimeInteractionEvent& outEvent );
+    bool ApplySelectionCommand( const RuntimeInteractionCommand& command,
+                                const GameObjects::GameModelCollection& collection );
+    void CancelMousePickup( InputRouter& inputRouter, RuntimeInteractionController& interaction );
 
     RunEditorPlacementState& Editor();
     const RunEditorPlacementState& Editor() const;
+    bool HasActiveEditorInteractionState( const RuntimeInteractionController& interaction ) const;
+    bool InspectGizmoInteractionActive( RunCameraMode cameraMode, bool replayInspectionActive ) const;
+    int RefreshEditorPointerPreview( const EditorPointerPreviewInput& input,
+                                     GameObjects::GameModelCollection& collection,
+                                     Physics::PhysicsEngine& physics,
+                                     RuntimeInteractionController& interaction,
+                                     Geometry::Terrain* terrain,
+                                     const Assets::AssetSystem& assets );
+    void ClearEditorInteractionForTransition( bool clearSelection,
+                                              GameObjects::GameModelCollection& collection,
+                                              Physics::PhysicsEngine& physics,
+                                              RuntimeInteractionController& interaction );
 
     RunEditorTracer& EditorTracer();
     const RunEditorTracer& EditorTracer() const;
+    // Rebuilds the fixed-capacity tool draw records before RuntimeRenderer
+    // submits them. World/model/asset owners remain borrowed for this call.
+    void PrepareOverlayTrace( GameObjects::GameModelCollection& models,
+                              const Assets::AssetSystem& assets,
+                              const ToolOverlayBuildInput& input );
 
   private:
     RunRayCastTestState m_rayCastTest;

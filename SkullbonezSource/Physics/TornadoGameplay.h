@@ -28,7 +28,6 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/TornadoGameplay.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
-  - Agentic/Plans/02-physicsworld-solver-decomposition.md
 */
 #pragma once
 

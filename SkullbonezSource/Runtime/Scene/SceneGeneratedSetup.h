@@ -5,9 +5,9 @@ Purpose:
 
 Mental model:
   SceneGeneratedSetup owns deterministic generated scene algorithms: default
-  demo cameras, mixed object spawning, and exact-count solver objects. Run still
-  supplies the live world/model/camera services while later scene phases move
-  more load state into scene-owned coordinators.
+  demo cameras, mixed object spawning, and exact-count solver objects.
+  SceneController supplies the live world/model/camera owners while Run still
+  sequences load work until the final lifecycle extraction.
 
 Glossary:
   Generated scene: Runtime-created demo scene with deterministic cameras and
@@ -28,7 +28,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
   - SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h
-  - Agentic/Plans/runtime-run-decomposition-plan.md
+  - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #pragma once
 

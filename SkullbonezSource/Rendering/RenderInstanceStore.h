@@ -29,6 +29,8 @@ Invariants:
   - Presentation records are the only model-owned values the store needs during
     refresh; physics/collider stores supply transforms and bounds.
   - Store refreshes do not touch GPU resources or renderer lifetime.
+  - Scene creation appends presentation, instance, and handle rows together
+    only after the caller has preflighted the cross-owner transaction.
 
 Related:
   - SkullbonezSource/Rendering/RenderInstanceStore.cpp
@@ -61,6 +63,8 @@ namespace Physics
 {
 class ColliderStore;
 class PhysicsBodyStore;
+struct ColliderRecord;
+struct PhysicsBodyRecord;
 } // namespace Physics
 
 namespace Rendering
@@ -132,9 +136,17 @@ class RenderInstanceStore
     RenderInstanceStore();
 
     void ReservePresentationCapacity( std::size_t capacity );
+    bool CanAppendCreationRow( int expectedCount ) const;
+    void CommitCreationRow( const RenderInstancePresentationRecord& presentation,
+                            const Physics::PhysicsBodyRecord& body,
+                            const Physics::ColliderRecord& collider,
+                            int expectedIndex );
+    // Scene deletion compacts presentation, instance, and handle rows together.
+    bool DestroyCreationRowAtSwapLast( int modelIndex );
     bool ResizePresentationRecords( int presentationCount );
     RenderInstancePresentationRecord* MutablePresentationRecordForModelIndex( int modelIndex );
     const std::vector<RenderInstancePresentationRecord>& PresentationRecords() const;
+    int PresentationCount() const;
     void Clear();
     void Refresh( const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore );
     void Refresh( const std::vector<RenderInstancePresentationRecord>& presentation,

@@ -4,14 +4,12 @@ Purpose:
   Implements scene load-begin orchestration outside Run.
 
 Mental model:
-  The begin phase decides whether a queue index can load, captures or clears
-  live reset state, flushes GPU work before old scene resources are destroyed,
-  and advances SceneController bookkeeping. Later cuts can move the reset body,
-  authored/generated setup, diagnostics, and render reinitialization behind the
-  same scene-owned boundary.
+  Preparation decides whether a queue index can load, captures live reset state,
+  and flushes GPU work before old scene resources are destroyed. Commit advances
+  controller bookkeeping only after preparation and unload consumers succeed.
 
 Glossary:
-  Load begin: Scene load phase that validates queue index, preserves optional
+  Load preparation: Scene load phase that validates queue index, preserves optional
     runtime state, and marks controller bookkeeping.
   Scene browser: UI-facing list of scene files discovered on disk.
   GPU (Graphics Processing Unit): Render device that must be flushed before old
@@ -21,14 +19,15 @@ Invariants:
   - GPU flush happens before caller-owned teardown can destroy scene resources.
   - Browser paths and queue paths compare in normalized slash form.
   - Preserve-runtime-state decisions are captured before controller load state
-    changes.
+    changes; failed preparation leaves every owner unchanged.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.h
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
-  - Agentic/Plans/run-composition-root-shrink-plan.md
+  - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #include "SceneRuntimeLoad.h"
+#include "../WindowConstants.h"
 #include "SceneController.h"
 #include "SceneRuntime.h"
 #include "../../Core/Log.h"
@@ -177,56 +176,69 @@ int CurrentSceneBrowserIndex( const SceneController& controller, const RunSceneB
 }
 
 
-SceneRuntimeLoadBeginResult BeginSceneRuntimeLoad( SceneRuntimeLoadBeginContext& context,
-                                                   int index,
-                                                   bool suppressExitOnComplete,
-                                                   bool preserveRuntimeState )
+SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad( const SceneController& controller,
+                                                     const RuntimeRenderer& renderer,
+                                                     const RunDebugState& debug,
+                                                     const RunCameraState& camera,
+                                                     Rendering::IRenderDeviceLifecycle* renderLifecycle,
+                                                     bool interactiveSceneRunRequested,
+                                                     int index,
+                                                     bool suppressExitOnComplete,
+                                                     bool preserveRuntimeState )
 {
     SceneRuntimeLoadBeginResult result;
-    if ( !context.controller.HasEntry( index ) )
+    if ( !controller.HasEntry( index ) )
     {
         return result;
     }
 
-    if ( suppressExitOnComplete )
+    result.index = index;
+    result.scenePath = &controller.PathAt( index );
+    if ( renderLifecycle )
     {
-        context.reset.scene.isInteractiveRun = true;
+        // Lane R: old scene resources may still be referenced by in-flight GPU
+        // work. A failed drain must leave every scene/controller owner intact.
+        result.status = renderLifecycle->FlushGPU();
+        if ( !result.status.ok )
+        {
+            return result;
+        }
     }
-    if ( context.interactiveSceneRunRequested )
-    {
-        context.reset.scene.isInteractiveRun = true;
-    }
-    result.suppressAutomationExit = context.reset.scene.isInteractiveRun || suppressExitOnComplete;
-    result.shouldPreserveRuntimeState = preserveRuntimeState && context.controller.HasCurrentEntry();
+
+    result.makeInteractive = suppressExitOnComplete || interactiveSceneRunRequested;
+    result.suppressAutomationExit = controller.State().isInteractiveRun || result.makeInteractive;
+    result.shouldPreserveRuntimeState = preserveRuntimeState && controller.HasCurrentEntry();
     if ( result.shouldPreserveRuntimeState )
     {
         // Lifetime: Snapshot before BeginLoad mutates scene bookkeeping so the
         // restore policy sees the live operator-owned state from the old run.
-        result.resetSnapshot = CaptureSceneRuntimeResetSnapshot( context.reset );
-    }
-    else
-    {
-        ClearSceneRuntimeUIOverrides( context.reset );
-    }
-
-    if ( context.renderLifecycle )
-    {
-        // Hazard: Old scene resources may still be referenced by in-flight GPU
-        // work. Flush before the caller tears down models, buffers, or terrain.
-        context.renderLifecycle->FlushGPU();
-    }
-
-    context.controller.BeginLoad( index );
-    result.scenePath = &context.controller.PathAt( index );
-    if ( !result.shouldPreserveRuntimeState )
-    {
-        context.sceneBrowser.selectedCineModeSceneIndex =
-            ( !result.scenePath->empty() && IsCineScenePath( *result.scenePath ) )
-                ? SceneBrowserIndexForPath( context.sceneBrowser, *result.scenePath )
-                : -1;
+        result.resetSnapshot = CaptureSceneRuntimeResetSnapshot( controller, renderer, debug, camera );
     }
     result.shouldLoad = true;
     return result;
+}
+
+
+void CommitSceneRuntimeLoad( SceneController& controller, const SceneRuntimeLoadBeginResult& prepared )
+{
+    // Invariant: preparation has already validated the index and drained the
+    // device; this is the first mutation of scene/controller state.
+    if ( prepared.makeInteractive )
+    {
+        controller.State().isInteractiveRun = true;
+    }
+    if ( !prepared.shouldPreserveRuntimeState )
+    {
+        ClearSceneRuntimeUIOverrides( controller );
+    }
+    controller.BeginLoad( prepared.index );
+    if ( !prepared.shouldPreserveRuntimeState )
+    {
+        controller.Browser().selectedCineModeSceneIndex =
+            ( !prepared.scenePath->empty() && IsCineScenePath( *prepared.scenePath ) )
+                ? SceneBrowserIndexForPath( controller.Browser(), *prepared.scenePath )
+                : -1;
+    }
 }
 
 } // namespace Basics

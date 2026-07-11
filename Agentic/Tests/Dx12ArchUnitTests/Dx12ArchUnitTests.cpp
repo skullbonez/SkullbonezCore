@@ -10,31 +10,58 @@ Mental model:
   glossary/invariants below.
 
 Glossary:
+  Recording epoch: Logical open/closed command-list interval committed only
+    after the corresponding DX12 operation succeeds.
+  Sticky failure: First command-path failure retained until device reset so a
+    later success cannot hide the unsafe earlier result.
+  GPU drain: Close, submit, fence wait, and command-list reopen sequence that
+    must complete before resource mutation is safe.
+  Submitted work: Queue work that remains unsafe for reuse/release until a
+    successful covering fence is observed complete.
+  Dry run: CPU-only render-graph execution mode that records intended barriers
+    without calling a real command list.
 
 Invariants:
   Tests stay CPU-only and must not require a real D3D12 device or renderer launch.
   Descriptor, render-graph, and barrier expectations protect ownership and
   synchronization contracts.
+  Command-state tests use HRESULT values and fake pointers only; they never
+    create or submit GPU work.
+  Submission-state tests model Signal/Wait results without a DX12 queue.
 
 Related:
   - AGENTS.md
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Rendering/DX12/Dx12RenderGraphExecutor.h"
+#include "Rendering/DX12/RenderBackendDX12.CommandRecordingState.h"
 #include "Rendering/DX12/RenderGraphTransientDX12.h"
 #include "Rendering/DX12/RenderDeviceDX12.h"
+#include "Rendering/IRenderDeviceLifecycle.h"
 #include "Rendering/RenderGraph.h"
 
 #include <cstdint>
+#include <cstring>
 #include <exception>
-#include <functional>
 #include <iostream>
+#include <process.h>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 using namespace SkullbonezCore::Rendering;
+using SkullbonezCore::Basics::SbResult;
+
+static_assert( std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().FlushGPU() ), SbResult>::value,
+               "FlushGPU must return a recoverable result to every resource-mutation caller." );
+static_assert(
+    std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().DrainForResourceRelease() ), SbResult>::value,
+    "Terminal resource release must use its own checked drain boundary." );
+static_assert( std::is_trivially_copyable<Dx12SubmittedWorkState>::value,
+               "Submitted-work tracking must remain an allocation-free value record." );
 
 namespace
 {
@@ -78,24 +105,34 @@ void ExpectEqualImpl( const T& actual,
     }
 }
 
-void ExpectThrows( const std::function<void()>& callback, const char* expression, const char* file, int line )
+const char* g_executablePath = nullptr;
+
+void ExpectFatalCase( const char* caseName, const char* file, int line )
 {
-    try
+    if ( !g_executablePath )
     {
-        callback();
-    }
-    catch ( const std::exception& )
-    {
-        return;
+        Fail( file, line, "fatal child executable path is unavailable" );
     }
 
-    Fail( file, line, std::string( "expected exception from: " ) + expression );
+    // Hazard: fatal engine invariants break/terminate the current process, so
+    // each negative contract runs in a child. A normal zero exit means the
+    // expected fatal boundary silently returned.
+    const intptr_t childExit =
+        _spawnl( _P_WAIT, g_executablePath, g_executablePath, "--fatal-case", caseName, static_cast<char*>( nullptr ) );
+    if ( childExit == -1 )
+    {
+        Fail( file, line, std::string( "failed to launch fatal child case: " ) + caseName );
+    }
+    if ( childExit == 0 )
+    {
+        Fail( file, line, std::string( "expected fatal child failure from: " ) + caseName );
+    }
 }
 
 #define EXPECT_TRUE( expression ) ExpectTrue( !!( expression ), #expression, __FILE__, __LINE__ )
 #define EXPECT_EQ( actual, expected )                                                                                  \
     ExpectEqualImpl( ( actual ), ( expected ), #actual, #expected, __FILE__, __LINE__ )
-#define EXPECT_THROWS( expression ) ExpectThrows( [&]() { expression; }, #expression, __FILE__, __LINE__ )
+#define EXPECT_FATAL_CASE( caseName ) ExpectFatalCase( caseName, __FILE__, __LINE__ )
 
 struct TestCase
 {
@@ -113,6 +150,374 @@ Dx12DescriptorAllocator MakeDescriptorAllocator()
                     8,
                     2 );
     return allocator;
+}
+
+Dx12CommandRecordingState MakeOpenCommandState()
+{
+    Dx12CommandRecordingState state;
+    state.ResetForDevice();
+    EXPECT_TRUE( state.CommitAllocatorReset( S_OK ).ok );
+    EXPECT_TRUE( state.CommitListReset( S_OK ).ok );
+    return state;
+}
+
+void TestCommandCloseFailureDoesNotCommitClosedState()
+{
+    Dx12CommandRecordingState state = MakeOpenCommandState();
+
+    const auto result = state.CommitClose( E_FAIL, "test Close" );
+
+    EXPECT_TRUE( !result.ok );
+    EXPECT_TRUE( state.IsOpen() );
+    EXPECT_TRUE( !state.CanRecord() );
+    EXPECT_TRUE( state.HasFailure() );
+}
+
+void TestCommandCloseSuccessCommitsClosedState()
+{
+    Dx12CommandRecordingState state = MakeOpenCommandState();
+
+    const auto result = state.CommitClose( S_OK, "test Close" );
+
+    EXPECT_TRUE( result.ok );
+    EXPECT_TRUE( state.IsClosed() );
+    EXPECT_TRUE( !state.HasFailure() );
+}
+
+void TestAllocatorResetFailureBlocksListReset()
+{
+    Dx12CommandRecordingState state;
+    state.ResetForDevice();
+
+    const auto allocatorResult = state.CommitAllocatorReset( E_FAIL, "test allocator Reset" );
+    const auto listResult = state.CommitListReset( S_OK, "test list Reset" );
+
+    EXPECT_TRUE( !allocatorResult.ok );
+    EXPECT_TRUE( !listResult.ok );
+    EXPECT_TRUE( state.IsClosed() );
+    EXPECT_TRUE( !state.CanRecord() );
+    EXPECT_EQ( std::string( listResult.error.message ), std::string( allocatorResult.error.message ) );
+}
+
+void TestListResetFailureDoesNotCommitOpenState()
+{
+    Dx12CommandRecordingState state;
+    state.ResetForDevice();
+    EXPECT_TRUE( state.CommitAllocatorReset( S_OK ).ok );
+
+    const auto result = state.CommitListReset( E_FAIL, "test list Reset" );
+
+    EXPECT_TRUE( !result.ok );
+    EXPECT_TRUE( state.IsClosed() );
+    EXPECT_TRUE( !state.CanRecord() );
+}
+
+void TestSuccessfulListResetCommitsOpenState()
+{
+    Dx12CommandRecordingState state;
+    state.ResetForDevice();
+
+    EXPECT_TRUE( state.CommitAllocatorReset( S_OK ).ok );
+    EXPECT_TRUE( state.CommitListReset( S_OK ).ok );
+    EXPECT_TRUE( state.IsOpen() );
+    EXPECT_TRUE( state.CanRecord() );
+}
+
+void TestWaitFailurePreservesRecordingEpoch()
+{
+    const auto waitFailure = SbResult::Failure( "TestWait", "fence did not complete" );
+
+    Dx12CommandRecordingState closedState;
+    closedState.ResetForDevice();
+    const auto closedResult = closedState.CommitWait( waitFailure );
+
+    EXPECT_TRUE( !closedResult.ok );
+    EXPECT_TRUE( closedState.IsClosed() );
+    EXPECT_TRUE( !closedState.CanRecord() );
+    EXPECT_EQ( std::string( closedResult.error.owner ), std::string( "TestWait" ) );
+
+    Dx12CommandRecordingState openState = MakeOpenCommandState();
+    const auto openResult = openState.CommitWait( waitFailure );
+
+    EXPECT_TRUE( !openResult.ok );
+    EXPECT_TRUE( openState.IsOpen() );
+    EXPECT_TRUE( !openState.CanRecord() );
+    EXPECT_EQ( std::string( openResult.error.owner ), std::string( "TestWait" ) );
+}
+
+void TestFirstCommandFailureRemainsAuthoritative()
+{
+    Dx12CommandRecordingState state = MakeOpenCommandState();
+
+    const auto first = state.CommitClose( E_FAIL, "first Close" );
+    const auto second = state.RetainFailure( SbResult::Failure( "SecondOwner", "second failure" ) );
+
+    EXPECT_TRUE( !first.ok );
+    EXPECT_TRUE( !second.ok );
+    EXPECT_EQ( std::string( second.error.owner ), std::string( first.error.owner ) );
+    EXPECT_EQ( std::string( second.error.message ), std::string( first.error.message ) );
+}
+
+void TestDeviceResetClearsCommandFailure()
+{
+    Dx12CommandRecordingState state = MakeOpenCommandState();
+    EXPECT_TRUE( !state.CommitClose( E_FAIL ).ok );
+
+    state.ResetForDevice();
+
+    EXPECT_TRUE( state.IsClosed() );
+    EXPECT_TRUE( !state.HasFailure() );
+    EXPECT_TRUE( state.CurrentResult().ok );
+}
+
+void TestMapResultRejectsFailedHresult()
+{
+    void* unexpectedPointer = reinterpret_cast<void*>( static_cast<uintptr_t>( 0x1234u ) );
+
+    const Dx12MappedPointerResult checked = ValidateDx12MappedPointer( E_FAIL, unexpectedPointer, "test Map" );
+
+    EXPECT_TRUE( !checked.result.ok );
+    EXPECT_TRUE( checked.pointer == nullptr );
+}
+
+void TestMapResultRejectsNullPointerAfterSuccess()
+{
+    const Dx12MappedPointerResult checked = ValidateDx12MappedPointer( S_OK, nullptr, "test Map" );
+
+    EXPECT_TRUE( !checked.result.ok );
+    EXPECT_TRUE( checked.pointer == nullptr );
+}
+
+void TestMapResultAcceptsSuccessfulMappedPointer()
+{
+    void* expectedPointer = reinterpret_cast<void*>( static_cast<uintptr_t>( 0x1234u ) );
+
+    const Dx12MappedPointerResult checked = ValidateDx12MappedPointer( S_OK, expectedPointer, "test Map" );
+
+    EXPECT_TRUE( checked.result.ok );
+    EXPECT_TRUE( checked.pointer == expectedPointer );
+}
+
+void TestGpuDrainCloseFailureBlocksSubmission()
+{
+    Dx12CommandRecordingState commandState = MakeOpenCommandState();
+    Dx12GpuDrainProgress drainProgress( commandState.IsOpen() );
+
+    const SbResult closeResult = commandState.CommitClose( E_FAIL, "test FlushGPU Close" );
+    if ( closeResult.ok )
+    {
+        drainProgress.CommitClose();
+    }
+
+    EXPECT_TRUE( !closeResult.ok );
+    EXPECT_TRUE( drainProgress.RequiresClose() );
+    EXPECT_TRUE( !drainProgress.CanSubmit() );
+    EXPECT_TRUE( !drainProgress.CanWait() );
+    EXPECT_TRUE( !drainProgress.IsMutationSafe() );
+}
+
+void TestGpuDrainWaitFailureBlocksReopenAndMutation()
+{
+    Dx12CommandRecordingState commandState = MakeOpenCommandState();
+    Dx12GpuDrainProgress drainProgress( commandState.IsOpen() );
+
+    const SbResult closeResult = commandState.CommitClose( S_OK, "test FlushGPU Close" );
+    EXPECT_TRUE( closeResult.ok );
+    EXPECT_TRUE( drainProgress.CommitClose() );
+    EXPECT_TRUE( drainProgress.CommitSubmission() );
+
+    const SbResult waitResult =
+        commandState.CommitWait( SbResult::Failure( "TestWait", "submitted work did not drain" ) );
+    if ( waitResult.ok )
+    {
+        drainProgress.CommitWait();
+    }
+
+    EXPECT_TRUE( !waitResult.ok );
+    EXPECT_TRUE( drainProgress.CanWait() );
+    EXPECT_TRUE( !drainProgress.CanReopen() );
+    EXPECT_TRUE( !drainProgress.IsMutationSafe() );
+}
+
+void TestGpuDrainSuccessAllowsMutationOnlyAfterReopen()
+{
+    Dx12CommandRecordingState commandState = MakeOpenCommandState();
+    Dx12GpuDrainProgress drainProgress( commandState.IsOpen() );
+
+    EXPECT_TRUE( commandState.CommitClose( S_OK, "test FlushGPU Close" ).ok );
+    EXPECT_TRUE( drainProgress.CommitClose() );
+    EXPECT_TRUE( drainProgress.CommitSubmission() );
+    EXPECT_TRUE( commandState.CommitWait( SbResult::Success() ).ok );
+    EXPECT_TRUE( drainProgress.CommitWait() );
+    EXPECT_TRUE( !drainProgress.IsMutationSafe() );
+
+    EXPECT_TRUE( commandState.CommitAllocatorReset( S_OK, "test FlushGPU allocator Reset" ).ok );
+    EXPECT_TRUE( commandState.CommitListReset( S_OK, "test FlushGPU list Reset" ).ok );
+    EXPECT_TRUE( drainProgress.CommitReopen() );
+
+    EXPECT_TRUE( commandState.CanRecord() );
+    EXPECT_TRUE( drainProgress.IsMutationSafe() );
+}
+
+void TestSubmittedWorkSignalFailureBlocksReuseAndRelease()
+{
+    Dx12SubmittedWorkState submittedWork;
+    submittedWork.ResetForDevice();
+    submittedWork.MarkSubmitted();
+
+    submittedWork.CommitSignal( SbResult::Failure( "TestSignal", "queue signal failed" ), 0 );
+
+    EXPECT_TRUE( submittedWork.Phase() == Dx12SubmittedWorkPhase::CompletionUncertain );
+    EXPECT_TRUE( submittedWork.HasSubmittedWork() );
+    EXPECT_TRUE( submittedWork.HasUnfencedOrUncertainWork() );
+    EXPECT_TRUE( !submittedWork.HasKnownCompletionFence() );
+    EXPECT_TRUE( !submittedWork.CanReleaseWithoutFence() );
+
+    // No arbitrary completed value can cover work whose Signal never committed.
+    submittedWork.ObserveCompletedFence( ~static_cast<UINT64>( 0 ) );
+    EXPECT_TRUE( submittedWork.HasSubmittedWork() );
+}
+
+void TestSubmittedWorkWaitFailurePreservesCompletionFence()
+{
+    Dx12SubmittedWorkState submittedWork;
+    submittedWork.ResetForDevice();
+    submittedWork.MarkSubmitted();
+    submittedWork.CommitSignal( SbResult::Success(), 42 );
+
+    submittedWork.CommitWait( SbResult::Failure( "TestWait", "fence wait failed" ), 42 );
+
+    EXPECT_TRUE( submittedWork.Phase() == Dx12SubmittedWorkPhase::CompletionUncertain );
+    EXPECT_TRUE( submittedWork.HasSubmittedWork() );
+    EXPECT_TRUE( submittedWork.HasKnownCompletionFence() );
+    EXPECT_EQ( submittedWork.CompletionFence(), static_cast<UINT64>( 42 ) );
+    EXPECT_TRUE( !submittedWork.CanReleaseWithoutFence() );
+
+    submittedWork.ObserveCompletedFence( 41 );
+    EXPECT_TRUE( submittedWork.HasSubmittedWork() );
+    submittedWork.ObserveCompletedFence( 42 );
+    EXPECT_TRUE( !submittedWork.HasSubmittedWork() );
+    EXPECT_TRUE( submittedWork.CanReleaseWithoutFence() );
+}
+
+void TestSubmittedWorkSuccessfulSignalAndWaitAllowsReuse()
+{
+    Dx12SubmittedWorkState submittedWork;
+    submittedWork.ResetForDevice();
+    submittedWork.MarkSubmitted();
+    submittedWork.CommitSignal( SbResult::Success(), 7 );
+
+    EXPECT_TRUE( submittedWork.Phase() == Dx12SubmittedWorkPhase::SubmittedFenced );
+    EXPECT_TRUE( !submittedWork.CanReleaseWithoutFence() );
+
+    submittedWork.CommitWait( SbResult::Success(), 7 );
+    EXPECT_TRUE( submittedWork.Phase() == Dx12SubmittedWorkPhase::Idle );
+    EXPECT_TRUE( submittedWork.CanReleaseWithoutFence() );
+}
+
+void TestDeviceLossBlocksWorkAndRetainsFirstFailure()
+{
+    Dx12DeviceHealthState health;
+    health.ResetForDevice();
+
+    const SbResult first = health.RetainDeviceLoss( "Present", E_FAIL );
+    const SbResult second = health.RetainDeviceLoss( "ResizeBuffers", E_OUTOFMEMORY );
+
+    EXPECT_TRUE( !first.ok );
+    EXPECT_TRUE( health.IsLost() );
+    EXPECT_TRUE( !health.CanIssueDeviceWork() );
+    EXPECT_EQ( std::string( second.error.message ), std::string( first.error.message ) );
+}
+
+void TestDeviceHealthResetAllowsNewDeviceWork()
+{
+    Dx12DeviceHealthState health;
+    health.ResetForDevice();
+    EXPECT_TRUE( !health.RetainDeviceLoss( "Present", E_FAIL ).ok );
+
+    health.ResetForDevice();
+
+    EXPECT_TRUE( health.CanIssueDeviceWork() );
+    EXPECT_TRUE( !health.IsLost() );
+    EXPECT_TRUE( health.CurrentResult().ok );
+}
+
+void TestRemovedDeviceAllowsTerminalSubmittedWorkAbandon()
+{
+    Dx12DeviceHealthState health;
+    health.ResetForDevice();
+    Dx12SubmittedWorkState submittedWork;
+    submittedWork.ResetForDevice();
+    submittedWork.MarkSubmitted();
+
+    EXPECT_TRUE( !health.RetainDeviceLoss( "Present", DXGI_ERROR_DEVICE_REMOVED ).ok );
+    EXPECT_TRUE( submittedWork.HasSubmittedWork() );
+
+    submittedWork.AbandonForRemovedDevice();
+
+    EXPECT_TRUE( health.IsLost() );
+    EXPECT_TRUE( submittedWork.CanReleaseWithoutFence() );
+}
+
+void TestRecreationFailurePreservesPublishedGeneration()
+{
+    Dx12RecreationTransaction transaction;
+    transaction.Begin( 7 );
+    EXPECT_TRUE( transaction.CommitCandidateReady() );
+    EXPECT_TRUE( transaction.CommitOldReferencesReleased() );
+
+    const SbResult failure = transaction.Fail( SbResult::Failure( "TestResize", "ResizeBuffers failed" ) );
+
+    EXPECT_TRUE( !failure.ok );
+    EXPECT_TRUE( transaction.HasFailed() );
+    EXPECT_TRUE( !transaction.IsPublished() );
+    EXPECT_EQ( transaction.PublishedGeneration(), static_cast<uint64_t>( 7 ) );
+    EXPECT_TRUE( !transaction.CommitSwapChainResized() );
+}
+
+void TestRecreationPublishesOnlyAfterEveryCandidateIsReady()
+{
+    Dx12RecreationTransaction transaction;
+    transaction.Begin( 3 );
+
+    EXPECT_TRUE( !transaction.CommitPublished( 4 ) );
+    EXPECT_TRUE( transaction.CommitCandidateReady() );
+    EXPECT_TRUE( transaction.CommitOldReferencesReleased() );
+    EXPECT_TRUE( transaction.CommitSwapChainResized() );
+    EXPECT_TRUE( !transaction.IsPublished() );
+    EXPECT_TRUE( transaction.CommitBackBuffersReady() );
+    EXPECT_TRUE( transaction.CommitPublished( 4 ) );
+    EXPECT_TRUE( transaction.IsPublished() );
+    EXPECT_EQ( transaction.PublishedGeneration(), static_cast<uint64_t>( 4 ) );
+}
+
+void TestFaultInjectionBlocksFirstAndSubsequentSubmissions()
+{
+    Dx12FaultInjectionState fault;
+    fault.Configure( "before-first-submit" );
+
+    const SbResult first = fault.BeforeSubmission();
+    const SbResult second = fault.BeforeSubmission();
+
+    EXPECT_TRUE( !first.ok );
+    EXPECT_TRUE( !second.ok );
+    EXPECT_TRUE( fault.WasInjected() );
+    EXPECT_EQ( fault.SubmissionCount(), 0u );
+    EXPECT_EQ( fault.BlockedSubmissionCount(), 1u );
+    EXPECT_EQ( std::string( second.error.message ), std::string( first.error.message ) );
+}
+
+void TestUnarmedFaultInjectionAllowsSubmissionAccounting()
+{
+    Dx12FaultInjectionState fault;
+    fault.Configure( nullptr );
+
+    EXPECT_TRUE( fault.BeforeSubmission().ok );
+    fault.CommitSubmission();
+
+    EXPECT_TRUE( !fault.WasInjected() );
+    EXPECT_EQ( fault.SubmissionCount(), 1u );
+    EXPECT_EQ( fault.BlockedSubmissionCount(), 0u );
 }
 
 struct RenderGraphCallbackTrace
@@ -155,20 +560,20 @@ void TestDescriptorTransientRangeIsContiguous()
     EXPECT_EQ( frameOneStats.currentFrame, 1u );
 }
 
-void TestDescriptorTransientRangeFailureIsAtomic()
+void TestDescriptorTransientRangeCapacityProbeIsAtomic()
 {
     Dx12DescriptorAllocator allocator = MakeDescriptorAllocator();
 
     allocator.ResetFrame( 0 );
     EXPECT_EQ( allocator.AllocateTransientRange( 7 ), 4u );
 
-    EXPECT_THROWS( allocator.AllocateTransientRange( 2 ) );
+    EXPECT_TRUE( !allocator.CanAllocateTransientRange( 2 ) );
 
     const Dx12DescriptorAllocatorStats afterFailedRange = allocator.GetStats();
     EXPECT_EQ( afterFailedRange.transientUsedThisFrame, 7u );
     EXPECT_EQ( afterFailedRange.transientPeakThisRun, 7u );
 
-    EXPECT_THROWS( allocator.AllocateTransientRange( 0 ) );
+    EXPECT_TRUE( !allocator.CanAllocateTransientRange( 0 ) );
 
     const Dx12DescriptorAllocatorStats afterZeroRange = allocator.GetStats();
     EXPECT_EQ( afterZeroRange.transientUsedThisFrame, 7u );
@@ -321,41 +726,19 @@ void TestRenderGraphClearsSpecificStateWhenItReturnsToAllState()
 
 void TestRenderGraphRejectsMixedSpecificThenAllSubresourceTransition()
 {
-    RenderGraph graph;
-    const RenderGraphResourceHandle texture =
-        graph.AddExternalResource( "MixedTexture", RenderGraphResourceAccess::PixelShaderResource );
-
-    const uint32_t writeMipOne = graph.AddPass( "WriteMipOne" );
-    graph.AddWrite( writeMipOne, texture, RenderGraphResourceAccess::UnorderedAccess, 1u );
-
-    const uint32_t writeAll = graph.AddPass( "WriteAll" );
-    graph.AddWrite( writeAll, texture, RenderGraphResourceAccess::RenderTarget );
-
-    EXPECT_THROWS( graph.Compile() );
+    EXPECT_FATAL_CASE( "mixed-subresource-transition" );
 }
 
 void TestRenderGraphRejectsUnknownPassAccess()
 {
-    RenderGraph graph;
-    const RenderGraphResourceHandle texture =
-        graph.AddExternalResource( "Texture", RenderGraphResourceAccess::PixelShaderResource );
-    const uint32_t pass = graph.AddPass( "BadPass" );
-
-    EXPECT_THROWS( graph.AddRead( pass, texture, RenderGraphResourceAccess::Unknown ) );
-    EXPECT_THROWS( graph.AddWrite( pass, texture, RenderGraphResourceAccess::Unknown ) );
+    EXPECT_FATAL_CASE( "unknown-read-access" );
+    EXPECT_FATAL_CASE( "unknown-write-access" );
 }
 
 void TestRenderGraphRejectsBadHandles()
 {
-    RenderGraph graph;
-    const RenderGraphResourceHandle texture =
-        graph.AddExternalResource( "Texture", RenderGraphResourceAccess::PixelShaderResource );
-    const uint32_t pass = graph.AddPass( "Pass" );
-    RenderGraphResourceHandle badResource;
-    badResource.index = texture.index + 100u;
-
-    EXPECT_THROWS( graph.AddRead( pass, badResource, RenderGraphResourceAccess::PixelShaderResource ) );
-    EXPECT_THROWS( graph.AddWrite( pass + 100u, texture, RenderGraphResourceAccess::RenderTarget ) );
+    EXPECT_FATAL_CASE( "bad-read-resource" );
+    EXPECT_FATAL_CASE( "bad-write-pass" );
 }
 
 RenderGraphTransientResourceDesc MakeTransientColorDesc( uint32_t width = 128u, uint32_t height = 64u )
@@ -421,10 +804,7 @@ void TestRenderGraphReusesCompatibleNonOverlappingTransientResources()
 
 void TestRenderGraphRejectsUnusedTransientResource()
 {
-    RenderGraph graph;
-    graph.AddTransientResource( "Unused", MakeTransientColorDesc(), RenderGraphResourceAccess::Unknown );
-
-    EXPECT_THROWS( graph.Compile() );
+    EXPECT_FATAL_CASE( "unused-transient" );
 }
 
 void TestRenderGraphExecutesCallbacksInPassOrder()
@@ -498,12 +878,7 @@ void TestRenderGraphDisabledCallbackDoesNotExecute()
 
 void TestRenderGraphRejectsCallbackWithoutResourceDeclarations()
 {
-    RenderGraph graph;
-    RenderGraphCallbackTrace trace;
-    const uint32_t pass = graph.AddPass( "MissingDeclarations" );
-    graph.SetPassCallback( pass, RecordRenderGraphCallback, &trace );
-
-    EXPECT_THROWS( graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::DryRun ) );
+    EXPECT_FATAL_CASE( "callback-without-resources" );
 }
 
 void TestDx12RenderGraphAccessMapsToDx12States()
@@ -713,9 +1088,92 @@ void TestDx12GraphTransientPoolSlotReuseAllowsSameCompileAlias()
     EXPECT_TRUE( !GraphTransientPoolSlotCanSatisfyDX12( candidate, 3, incompatibleDesc ) );
 }
 
+bool RunFatalCase( const char* caseName )
+{
+    RenderGraph graph;
+    if ( std::strcmp( caseName, "mixed-subresource-transition" ) == 0 )
+    {
+        const RenderGraphResourceHandle texture =
+            graph.AddExternalResource( "MixedTexture", RenderGraphResourceAccess::PixelShaderResource );
+        const uint32_t writeMipOne = graph.AddPass( "WriteMipOne" );
+        graph.AddWrite( writeMipOne, texture, RenderGraphResourceAccess::UnorderedAccess, 1u );
+        const uint32_t writeAll = graph.AddPass( "WriteAll" );
+        graph.AddWrite( writeAll, texture, RenderGraphResourceAccess::RenderTarget );
+        (void)graph.Compile();
+        return true;
+    }
+
+    const RenderGraphResourceHandle texture =
+        graph.AddExternalResource( "Texture", RenderGraphResourceAccess::PixelShaderResource );
+    const uint32_t pass = graph.AddPass( "Pass" );
+    if ( std::strcmp( caseName, "unknown-read-access" ) == 0 )
+    {
+        graph.AddRead( pass, texture, RenderGraphResourceAccess::Unknown );
+    }
+    else if ( std::strcmp( caseName, "unknown-write-access" ) == 0 )
+    {
+        graph.AddWrite( pass, texture, RenderGraphResourceAccess::Unknown );
+    }
+    else if ( std::strcmp( caseName, "bad-read-resource" ) == 0 )
+    {
+        RenderGraphResourceHandle badResource;
+        badResource.index = texture.index + 100u;
+        graph.AddRead( pass, badResource, RenderGraphResourceAccess::PixelShaderResource );
+    }
+    else if ( std::strcmp( caseName, "bad-write-pass" ) == 0 )
+    {
+        graph.AddWrite( pass + 100u, texture, RenderGraphResourceAccess::RenderTarget );
+    }
+    else if ( std::strcmp( caseName, "unused-transient" ) == 0 )
+    {
+        RenderGraph unusedGraph;
+        unusedGraph.AddTransientResource( "Unused", MakeTransientColorDesc(), RenderGraphResourceAccess::Unknown );
+        (void)unusedGraph.Compile();
+    }
+    else if ( std::strcmp( caseName, "callback-without-resources" ) == 0 )
+    {
+        RenderGraph callbackGraph;
+        RenderGraphCallbackTrace trace;
+        const uint32_t callbackPass = callbackGraph.AddPass( "MissingDeclarations" );
+        callbackGraph.SetPassCallback( callbackPass, RecordRenderGraphCallback, &trace );
+        (void)callbackGraph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::DryRun );
+    }
+    else
+    {
+        return false;
+    }
+    return true;
+}
+
 const TestCase kTests[] = {
+    { "Command close failure does not commit closed state", TestCommandCloseFailureDoesNotCommitClosedState },
+    { "Command close success commits closed state", TestCommandCloseSuccessCommitsClosedState },
+    { "Allocator reset failure blocks list reset", TestAllocatorResetFailureBlocksListReset },
+    { "List reset failure does not commit open state", TestListResetFailureDoesNotCommitOpenState },
+    { "Successful list reset commits open state", TestSuccessfulListResetCommitsOpenState },
+    { "Wait failure preserves recording epoch", TestWaitFailurePreservesRecordingEpoch },
+    { "First command failure remains authoritative", TestFirstCommandFailureRemainsAuthoritative },
+    { "Device reset clears command failure", TestDeviceResetClearsCommandFailure },
+    { "Map result rejects failed HRESULT", TestMapResultRejectsFailedHresult },
+    { "Map result rejects null pointer after success", TestMapResultRejectsNullPointerAfterSuccess },
+    { "Map result accepts successful mapped pointer", TestMapResultAcceptsSuccessfulMappedPointer },
+    { "GPU drain close failure blocks submission", TestGpuDrainCloseFailureBlocksSubmission },
+    { "GPU drain wait failure blocks reopen and mutation", TestGpuDrainWaitFailureBlocksReopenAndMutation },
+    { "GPU drain success allows mutation only after reopen", TestGpuDrainSuccessAllowsMutationOnlyAfterReopen },
+    { "Submitted work signal failure blocks reuse and release", TestSubmittedWorkSignalFailureBlocksReuseAndRelease },
+    { "Submitted work wait failure preserves completion fence", TestSubmittedWorkWaitFailurePreservesCompletionFence },
+    { "Submitted work successful signal and wait allows reuse", TestSubmittedWorkSuccessfulSignalAndWaitAllowsReuse },
+    { "Device loss blocks work and retains first failure", TestDeviceLossBlocksWorkAndRetainsFirstFailure },
+    { "Device health reset allows new device work", TestDeviceHealthResetAllowsNewDeviceWork },
+    { "Removed device allows terminal submitted-work abandon", TestRemovedDeviceAllowsTerminalSubmittedWorkAbandon },
+    { "Recreation failure preserves published generation", TestRecreationFailurePreservesPublishedGeneration },
+    { "Recreation publishes only after every candidate is ready",
+      TestRecreationPublishesOnlyAfterEveryCandidateIsReady },
+    { "Fault injection blocks first and subsequent submissions",
+      TestFaultInjectionBlocksFirstAndSubsequentSubmissions },
+    { "Unarmed fault injection allows submission accounting", TestUnarmedFaultInjectionAllowsSubmissionAccounting },
     { "Descriptor transient ranges are contiguous", TestDescriptorTransientRangeIsContiguous },
-    { "Descriptor transient range failures are atomic", TestDescriptorTransientRangeFailureIsAtomic },
+    { "Descriptor transient range capacity probes are atomic", TestDescriptorTransientRangeCapacityProbeIsAtomic },
     { "Render graph skips Unknown initial transitions", TestRenderGraphSkipsUnknownInitialTransition },
     { "Render graph emits explicit initial-state transitions", TestRenderGraphExplicitInitialStateTransitions },
     { "Render graph tracks subresource transitions independently",
@@ -753,8 +1211,17 @@ const TestCase kTests[] = {
 
 } // namespace
 
-int main()
+int main( int argc, char** argv )
 {
+    g_executablePath = argc > 0 ? argv[0] : nullptr;
+    if ( argc == 3 && std::strcmp( argv[1], "--fatal-case" ) == 0 )
+    {
+        // A normal return means the engine failed to enforce the fatal
+        // invariant. The parent test requires this child to terminate nonzero.
+        (void)RunFatalCase( argv[2] );
+        return 0;
+    }
+
     int failures = 0;
 
     for ( const TestCase& test : kTests )

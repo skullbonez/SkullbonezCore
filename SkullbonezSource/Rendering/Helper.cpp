@@ -27,6 +27,8 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Helper.h"
+#include "../Core/Config.h"
+#include "../GameObjects/SceneCapacity.h"
 #include "../Assets/AssetSystem.h"
 #include "../Physics/ConvexHullShape.h"
 #include "../Core/Profiler.h"

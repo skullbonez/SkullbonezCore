@@ -124,7 +124,6 @@ class Dx12FenceTimeline
 
     bool IsReady() const;
     Basics::SbResult Signal( UINT64& outValue );
-    Basics::SbResult SignalAndWait();
     Basics::SbResult WaitForValue( UINT64 value ) const;
 
     UINT64 CompletedValue() const;
@@ -383,6 +382,11 @@ class Dx12DescriptorAllocator
     // exhaustion failure cannot leave the caller with a half-reserved table.
     UINT AllocateTransientRange( UINT count );
 
+    // Reports whether a complete range fits without mutating counters. Fatal
+    // allocation policy remains in AllocateTransientRange; tests and callers
+    // may use this only to reason about capacity before committing a table.
+    bool CanAllocateTransientRange( UINT count ) const;
+
     // CPU handle into the shader-visible heap. The CPU uses this to write or
     // copy a descriptor into a shader-readable slot.
     D3D12_CPU_DESCRIPTOR_HANDLE ShaderVisibleCpuHandle( UINT index ) const;
@@ -632,6 +636,9 @@ class Dx12ReadbackBuffer
 
     void* MapRead( UINT64 sizeBytes ) const;
     void UnmapNoWrite() const;
+    // Transfers the COM reference without releasing it. Use only when a failed
+    // fence wait cannot prove that the GPU has stopped using the resource.
+    ID3D12Resource* DetachAfterUncertainSubmission();
     Dx12ReadbackBufferStats GetStats() const;
 
   private:

@@ -26,7 +26,6 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/TornadoGameplay.h
   - SkullbonezSource/Physics/TornadoField.cpp
-  - Agentic/Plans/02-physicsworld-solver-decomposition.md
 */
 #include "TornadoGameplay.h"
 

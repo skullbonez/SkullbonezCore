@@ -58,7 +58,7 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/PhysicsHandles.h
   - SkullbonezSource/Physics/PhysicsScene.h
-  - Agentic/Plans/runtime-run-decomposition-plan.md
+  - Agentic/Plans/TODO/physics-authority-and-identity.md
 */
 #pragma once
 
@@ -230,6 +230,19 @@ struct PhysicsColliderCreateDesc
     char contactMaterialName[32] = {};
     float projectedSurfaceArea = 0.0f;
     float dragCoefficient = 0.0f;
+};
+
+struct PhysicsAuthoredBodyRegistration
+{
+    // One scene-creation commit publishes both physics rows. Either both
+    // handles are valid or neither row remains live.
+    PhysicsBodyHandle body;
+    PhysicsColliderHandle collider;
+
+    bool IsValid() const
+    {
+        return body.IsValid() && collider.IsValid();
+    }
 };
 
 inline PhysicsColliderCreateDesc MakeColliderCreateDesc( Math::CollisionDetection::CollisionShape shape,

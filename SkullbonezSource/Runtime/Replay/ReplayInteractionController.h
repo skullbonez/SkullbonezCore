@@ -1,23 +1,28 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayInteractionController.h
 Purpose:
-  Owns cold replay interaction commands that mutate replay UI state.
+  Owns replay restore commands and retained drag-start values that mutate
+  replay UI state.
 
 Mental model:
   ReplayInteractionController converts operator replay intent into replay-owned
-  state changes. Run still supplies live-world restore APIs because those calls
-  touch scene, physics, world, and camera owners outside ReplayRuntime.
+  state changes. It builds a one-frame restore command; ReplayRuntime owns the
+  cross-owner transaction and returns the result for UI publication.
 
 Glossary:
   Live restore: Applying a historical replay sample back into the active scene.
-  Restore API: Borrowed function table for Run-owned world/physics mutation.
+  Restore request: Value command naming the retained sample or saved artifact
+    target that should become live.
   Live edge: Scrubber position representing the newest branch frame after a
     successful restore.
 
 Invariants:
-  - Restore API callbacks are cold user commands, never per-frame physics hooks.
+  - Restore requests borrow retained samples only until the current workspace
+    command is applied.
   - Scrubber message, consumed-input state, and live-edge reset are published in
     one place after every restore attempt.
+  - Active drag kind, body, axis, and angular mode remain controller gesture
+    payload; this owner retains only values sampled at gesture start.
 
 Related:
   - SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.cpp
@@ -31,40 +36,17 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace GameObjects
+namespace Physics
 {
-class GameModelCollection;
+class PhysicsEngine;
 }
 namespace Basics
 {
-struct ReplayLiveRestoreApi
-{
-    // Lifetime: callbacks borrow the active Run instance for one cold replay
-    // command. The controller never stores this table beyond the call.
-    void* user = nullptr;
-    void ( *enterInteractiveSceneRun )( void* user ) = nullptr;
-    bool ( *restoreV2ArtifactTargetState )( void* user,
-                                            const char* path,
-                                            ReplayFrameIndex requestedFrame,
-                                            bool makeLiveBranch,
-                                            RunReplayV2TargetRestoreResult& outResult,
-                                            char* outReason,
-                                            std::size_t reasonSize ) = nullptr;
-    bool ( *restoreSolverSampleAsLive )( void* user,
-                                         const ReplaySolverFrameSample& sample,
-                                         char* outReason,
-                                         std::size_t reasonSize ) = nullptr;
-};
-
-struct ReplayLiveRestoreContext
-{
-    ReplayRuntime& replayRuntime;
-    double now = 0.0;
-    ReplayLiveRestoreApi api;
-    RunReplayV2TargetRestoreResult* outV2Result = nullptr;
-    char* outReason = nullptr;
-    std::size_t reasonSize = 0;
-};
+// Invariant: replay input clamping and editor visualization share this exact
+// scale so gizmo affordances cannot advertise velocity the command rejects.
+inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_MAX = 140.0f;
+inline constexpr float REPLAY_VELOCITY_EDIT_ANGULAR_MAX = 5.0f;
+inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_EXTRA = 36.0f;
 
 struct ReplayVelocityEditInputFrame
 {
@@ -73,17 +55,8 @@ struct ReplayVelocityEditInputFrame
     bool leftReleased = false;
 };
 
-struct ReplayVelocityEditResetResult
-{
-    bool endDragGesture = false;
-    bool releaseMouseCapture = false;
-};
-
 struct ReplayVelocityEditDragStart
 {
-    int modelIndex = -1;
-    int axis = -1;
-    bool angular = false;
     float axisT = 0.0f;
     float angle = 0.0f;
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
@@ -93,7 +66,7 @@ struct ReplayVelocityEditDragStart
 struct ReplayVelocityEditApplyContext
 {
     ReplayRuntime& replayRuntime;
-    GameObjects::GameModelCollection& models;
+    Physics::PhysicsEngine& physics;
     Physics::PhysicsBodyHandle body;
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
@@ -105,11 +78,23 @@ struct ReplayVelocityEditApplyContext
 class ReplayInteractionController
 {
   public:
-    bool RestoreScrubberSelectionAsLive( const ReplayLiveRestoreContext& context );
-    ReplayVelocityEditInputFrame BeginVelocityEditInputFrame( ReplayRuntime& replayRuntime, bool leftDown );
+    bool BuildScrubberRestoreRequest( ReplayRuntime& replayRuntime,
+                                      double now,
+                                      ReplayLiveRestoreRequest& outRequest,
+                                      char* outReason = nullptr,
+                                      std::size_t reasonSize = 0 );
+    void CompleteScrubberRestore( ReplayRuntime& replayRuntime,
+                                  const ReplayLiveRestoreRequest& request,
+                                  bool restored,
+                                  const RunReplayV2TargetRestoreResult& v2Result,
+                                  const char* reason,
+                                  RunReplayV2TargetRestoreResult* outV2Result = nullptr,
+                                  char* outReason = nullptr,
+                                  std::size_t reasonSize = 0 );
+    ReplayVelocityEditInputFrame BeginVelocityEditInputFrame( bool leftDown, bool leftPressed, bool leftReleased );
     void SetVelocityEditHoverAxes( ReplayRuntime& replayRuntime, int linearAxis, int angularAxis );
-    ReplayVelocityEditResetResult ResetVelocityEditInteraction( ReplayRuntime& replayRuntime, bool clearHoverAxes );
-    ReplayVelocityEditResetResult EndVelocityEditDrag( ReplayRuntime& replayRuntime );
+    void ResetVelocityEditInteraction( ReplayRuntime& replayRuntime, bool clearHoverAxes );
+    void EndVelocityEditDrag( ReplayRuntime& replayRuntime );
     void BeginVelocityEditDrag( ReplayRuntime& replayRuntime, const ReplayVelocityEditDragStart& start );
     void SelectVelocityEditTarget( ReplayRuntime& replayRuntime, double visibleUntil );
     bool ApplyVelocityEditToBody( const ReplayVelocityEditApplyContext& context );

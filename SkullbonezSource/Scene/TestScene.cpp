@@ -16,6 +16,8 @@ Glossary:
     owner diagnostics before process termination.
   Lane R result: Recoverable load outcome carrying owner/message diagnostics
     for authored scene/style data failures.
+  Schema version: Validated scene-file contract version retained with the
+    parsed record so later save/load owners can choose the matching shape.
 
 Invariants:
   - Command-line and scene JSON spellings are user-facing compatibility
@@ -323,6 +325,12 @@ const char* TestScene::GetScreenshotDir() const
 int TestScene::GetCameraCount() const
 {
     return static_cast<int>( m_cameras.size() );
+}
+
+
+uint32_t TestScene::GetSchemaVersion() const
+{
+    return m_schemaVersion;
 }
 
 
@@ -645,6 +653,66 @@ const SceneRequiredBroadphaseXCells& TestScene::GetRequiredBroadphaseXCell( int 
     }
 
     return m_requiredBroadphaseXCells[index];
+}
+
+
+int TestScene::GetAssetLibraryCount() const
+{
+    return static_cast<int>( m_assetLibraries.size() );
+}
+
+
+const SceneAssetLibraryRef& TestScene::GetAssetLibrary( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_assetLibraries.size() ) )
+    {
+        FatalSceneIndexOutOfRange( "AssetLibrary",
+                                   "TestScene::GetAssetLibrary",
+                                   index,
+                                   static_cast<int>( m_assetLibraries.size() ) );
+    }
+
+    return m_assetLibraries[index];
+}
+
+
+int TestScene::GetAssetInstanceCount() const
+{
+    return static_cast<int>( m_assetInstances.size() );
+}
+
+
+const SceneAssetInstanceRecord& TestScene::GetAssetInstance( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_assetInstances.size() ) )
+    {
+        FatalSceneIndexOutOfRange( "AssetInstance",
+                                   "TestScene::GetAssetInstance",
+                                   index,
+                                   static_cast<int>( m_assetInstances.size() ) );
+    }
+
+    return m_assetInstances[index];
+}
+
+
+int TestScene::GetAssetPartCount() const
+{
+    return static_cast<int>( m_assetParts.size() );
+}
+
+
+const SceneAssetPartRef& TestScene::GetAssetPart( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_assetParts.size() ) )
+    {
+        FatalSceneIndexOutOfRange( "AssetPart",
+                                   "TestScene::GetAssetPart",
+                                   index,
+                                   static_cast<int>( m_assetParts.size() ) );
+    }
+
+    return m_assetParts[index];
 }
 
 

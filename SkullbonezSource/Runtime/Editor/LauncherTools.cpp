@@ -27,9 +27,19 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
-#include "../RunInternal.h"
+#include "../Tools/RuntimeTools.h"
+#include "../CameraCollection.h"
+#include "../RunDebugState.h"
+#include "../RunLaunchOptions.h"
+#include "../Scene/SceneGeneratedSetup.h"
+#include "../Scene/SceneRuntime.h"
+#include "../../GameObjects/GameModelCollection.h"
+#include "../../World/WorldEnvironment.h"
+#include "../Scene/SceneEntityStore.h"
 #include "../../Physics/ColliderStore.h"
+#include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsBodyStore.h"
+#include "../../World/TerrainSupportClassifier.h"
 
 #include <cfloat>
 #include <memory>
@@ -40,12 +50,16 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Basics::RunInternal;
+using SkullbonezCore::Environment::CameraCollection;
 using SkullbonezCore::GameObjects::GameModelCollection;
+using SkullbonezCore::Math::Vector::Vector3;
 
 #ifdef _DEBUG
 namespace
 {
+constexpr const char* LAUNCHER_REPRO_SNAPSHOT_PATH = "Debug/launcher_repro_snapshots.txt";
+constexpr double LAUNCHER_REPRO_MESSAGE_SECONDS = 3.0;
+
 const char* LauncherReproShapeName( ColliderShapeKind kind )
 {
     switch ( kind )
@@ -86,7 +100,7 @@ const PhysicsBodyRecord* LauncherReproBodyForCollider( const PhysicsBodyStore& b
 
 
 bool RuntimeTools::PickLauncherReproTarget( GameModelCollection& collection,
-                                            CameraCollection* cameras,
+                                            SkullbonezCore::Environment::CameraCollection* cameras,
                                             int& outIndex,
                                             float& outRayT,
                                             float& outCrosshairDistance ) const
@@ -192,7 +206,6 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
         return LauncherReproSnapshotStatus::NoTarget;
     }
 
-    GameModel& model = context.collection.GetModelAtIndex( targetIndex );
     const ColliderStore& colliderStore = context.collection.Colliders();
     const PhysicsBodyStore& bodyStore = context.collection.BodyStore();
     const ColliderRecord* collider = LauncherReproColliderForModelIndex( bodyStore, colliderStore, targetIndex );
@@ -234,7 +247,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     float shapeDrag = collider->dragCoefficient;
     float mass = body->mass;
     float restitution = collider->restitution;
-    const char* name = model.GetName();
+    const char* name = context.entities.At( targetIndex ).displayName;
     if ( !name || name[0] == '\0' )
     {
         name = "<unnamed>";
@@ -346,15 +359,15 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     fprintf( f, "cmd_seed_override,%u\n", context.launchOptions.seedOverride );
     fprintf( f, "cmd_no_water,%d\n", context.launchOptions.noWater ? 1 : 0 );
     fprintf( f, "cmd_no_sleep,%d\n", context.launchOptions.noSleep ? 1 : 0 );
-    fprintf( f, "physics_sleep_enabled,%d\n", context.runtimeSettings.isPhysicsSleepEnabled ? 1 : 0 );
+    fprintf( f, "physics_sleep_enabled,%d\n", context.physicsSleepEnabled ? 1 : 0 );
     fprintf( f, "fixed_step_effective,%d\n", context.sceneState.isFixedStep ? 1 : 0 );
     fprintf( f, "cmd_fixed_step_override,%d\n", context.launchOptions.fixedStep ? 1 : 0 );
     fprintf( f, "time_scale,%.6f\n", context.sceneState.timeScale );
     fprintf( f, "renderer,%s\n", rendererName );
     fprintf( f, "generated_object_override,%s\n", generatedObjectOverride );
     fprintf( f, "model_count,%d\n", context.collection.SceneEntityCount() );
-    fprintf( f, "vsync_enabled,%d\n", context.runtimeSettings.isVsyncEnabled ? 1 : 0 );
-    fprintf( f, "pipeline_sync_enabled,%d\n", context.runtimeSettings.isPipelineSyncEnabled ? 1 : 0 );
+    fprintf( f, "vsync_enabled,%d\n", context.vsyncEnabled ? 1 : 0 );
+    fprintf( f, "pipeline_sync_enabled,%d\n", context.pipelineSyncEnabled ? 1 : 0 );
     if ( context.sceneState.isSceneMode )
     {
         fprintf( f,
@@ -366,7 +379,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
                  context.sceneState.timeScale,
                  context.sceneState.isFixedStep ? " --fixed-step" : "",
                  context.launchOptions.noWater ? " --no-water" : "",
-                 context.runtimeSettings.isPhysicsSleepEnabled ? "" : " --no-sleep",
+                 context.physicsSleepEnabled ? "" : " --no-sleep",
                  generatedObjectArg );
     }
     else
@@ -378,7 +391,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
                  context.sceneState.timeScale,
                  context.sceneState.isFixedStep ? " --fixed-step" : "",
                  context.launchOptions.noWater ? " --no-water" : "",
-                 context.runtimeSettings.isPhysicsSleepEnabled ? "" : " --no-sleep",
+                 context.physicsSleepEnabled ? "" : " --no-sleep",
                  generatedObjectArg );
     }
     fprintf( f, "water_hidden,%d\n", context.debug.isWaterHidden ? 1 : 0 );

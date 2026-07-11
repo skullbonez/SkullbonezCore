@@ -1,0 +1,1113 @@
+/*
+File: SkullbonezSource/Runtime/RuntimeStressController.cpp
+Purpose:
+  Runs stress and automation paths for validation-oriented launches.
+
+Mental model:
+  Stress controllers execute deterministic validation churn through explicit,
+  synchronous borrows of the owners each action may mutate.
+
+Glossary:
+  Lane R result: Recoverable scene-load or GPU-drain failure surfaced through
+    the stress action result instead of being counted as successful churn.
+
+Invariants:
+  - UI stress randomness is deterministic from UIStressState so crashes can be
+    reproduced from the same launch options.
+  - UI stress keeps runtime churn disabled; graphics stress intentionally flips
+    render/runtime churn on so DX12 state tracking gets exercised.
+  - A generated-scene drain failure ends the stress action before later churn.
+
+Related:
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
+#include "RuntimeStressController.h"
+#include "AttachedCameraController.h"
+#include "GraphicsStressController.h"
+#include "InputFrame.h"
+#include "InputRouter.h"
+#include "Diagnostics/DiagnosticsRuntime.h"
+#include "Render/RuntimeRenderHost.h"
+#include "Render/RuntimeRenderer.h"
+#include "Replay/ReplayRuntime.h"
+#include "RunCameraState.h"
+#include "RunDebugState.h"
+#include "RunLaunchOptions.h"
+#include "RunStartupState.h"
+#include "RunTimerState.h"
+#include "RuntimeInteractionController.h"
+#include "RuntimeTuning.h"
+#include "Scene/SceneController.h"
+#include "Scene/SceneRuntimeCoordinator.h"
+#include "Scene/SceneRuntimeGeneratedControls.h"
+#include "Scene/SceneRuntimeStyle.h"
+#include "Tools/RuntimeTools.h"
+#include "Window.h"
+#include "../Assets/AssetSystem.h"
+#include "../Physics/SimulationSystem.h"
+#include "../Rendering/IRenderDeviceLifecycle.h"
+#include "../Rendering/IRenderDiagnostics.h"
+#include "../Scene/TestScene.h"
+#include "../Core/WorkerPool.h"
+#include "../UI/UI.h"
+#include "../Core/Profiler.h"
+
+#include <cstdio>
+
+using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Math::CollisionDetection;
+using namespace SkullbonezCore::Math::Orientation;
+using namespace SkullbonezCore::Math::Transformation;
+using namespace SkullbonezCore::Physics;
+using namespace SkullbonezCore::Basics::RunInternal;
+using SkullbonezCore::UI::InGameUITab;
+
+namespace
+{
+using UIStressState = DiagnosticsRuntime::UIStressState;
+
+unsigned int NextStressRandom( unsigned int& state )
+{
+    if ( state == 0 )
+    {
+        state = 0xC11E2026u;
+    }
+    state = state * 1664525u + 1013904223u;
+    return state;
+}
+
+
+class StressHarness
+{
+  public:
+    // Concept: UI stress is a deterministic action picker. It emits UI/runtime
+    // policy decisions from the seed while Run applies them to live owners.
+    static int NextInt( UIStressState& stress, int maxExclusive )
+    {
+        if ( maxExclusive <= 0 )
+        {
+            return 0;
+        }
+        return static_cast<int>( NextRandom( stress ) % static_cast<unsigned int>( maxExclusive ) );
+    }
+
+    static float NextFloat( UIStressState& stress, float minValue, float maxValue )
+    {
+        const float unit = static_cast<float>( NextRandom( stress ) & 0xFFFFu ) / 65535.0f;
+        return minValue + ( maxValue - minValue ) * unit;
+    }
+
+    static int ActionCount( const UIStressState& stress )
+    {
+        return std::clamp( stress.actionsPerFrame, 1, 32 );
+    }
+
+    static int NextAction( UIStressState& stress )
+    {
+        return NextInt( stress, 24 );
+    }
+
+    static bool AllowsRuntimeChurn()
+    {
+        return false;
+    }
+
+  private:
+    static unsigned int NextRandom( UIStressState& stress )
+    {
+        return NextStressRandom( stress.randomState );
+    }
+};
+
+
+// Lifetime: every borrow is consumed by one deterministic action and cannot be
+// retained as a replacement shell context.
+void ApplyUIStressAction( SkullbonezCore::UI::InGameUI& ui,
+                          RuntimeRenderer& renderer,
+                          RuntimeRenderBackendView& renderBackendView,
+                          RunDebugState& debug,
+                          RunSceneState& scene,
+                          RunTimerState& timers,
+                          SimulationSystem& simulation,
+                          SceneController& sceneController,
+                          SkullbonezCore::Environment::WorldEnvironment& world,
+                          ReplayRuntime& replayRuntime,
+                          UIStressState& stress,
+                          bool allowRuntimeChurn )
+{
+    switch ( StressHarness::NextAction( stress ) )
+    {
+    case 0:
+        ui.SetActiveTab(
+            static_cast<InGameUITab>( StressHarness::NextInt( stress, static_cast<int>( InGameUITab::Count ) ) ) );
+        break;
+    case 1:
+        ui.SetScrollY( StressHarness::NextFloat( stress, 0.0f, 900.0f ) );
+        break;
+    case 2:
+        // Keep the PRNG sequence stable while leaving backdrop blur to validate_ui.bat.
+        // Stress runs churn control state; blur's DX12 readback path has its own pixel gate.
+        (void)StressHarness::NextInt( stress, 2 );
+        break;
+    case 3:
+        ui.SetProfilerTimelineEnabled( StressHarness::NextInt( stress, 2 ) != 0 );
+        break;
+    case 4:
+        ui.SetPerformanceHistogramEnabled( StressHarness::NextInt( stress, 2 ) != 0 );
+        break;
+    case 5:
+        ui.SetRendererComboOpen( StressHarness::NextInt( stress, 2 ) != 0 );
+        break;
+    case 6:
+        ui.SetWaterComboOpen( StressHarness::NextInt( stress, 2 ) != 0 );
+        break;
+    case 7:
+        ui.SetSceneComboOpen( StressHarness::NextInt( stress, 2 ) != 0 );
+        break;
+    case 8:
+        renderer.SetVsyncEnabled( !renderer.VsyncEnabled() );
+        if ( renderBackendView.deviceLifecycle )
+        {
+            renderBackendView.deviceLifecycle->SetVsyncEnabled( renderer.VsyncEnabled() );
+        }
+        break;
+    case 9:
+        if ( allowRuntimeChurn )
+        {
+            debug.isCollisionVisualizer = !debug.isCollisionVisualizer;
+        }
+        break;
+    case 10:
+    {
+        static const uint32_t kFlags[] = { PHYSICS_DEBUG_AXES,
+                                           PHYSICS_DEBUG_CONTACTS,
+                                           PHYSICS_DEBUG_SLEEP,
+                                           PHYSICS_DEBUG_ALL };
+        const int flagIndex = StressHarness::NextInt( stress, 4 );
+        if ( allowRuntimeChurn )
+        {
+            debug.physicsDebugFlags = kFlags[flagIndex];
+        }
+        break;
+    }
+    case 11:
+        if ( allowRuntimeChurn )
+        {
+            debug.isPhysicsDebugTransparent = !debug.isPhysicsDebugTransparent;
+        }
+        break;
+    case 12:
+        if ( allowRuntimeChurn )
+        {
+            debug.isBroadphaseOverlay = !debug.isBroadphaseOverlay;
+        }
+        break;
+    case 13:
+        if ( allowRuntimeChurn )
+        {
+            scene.isFixedStep = !scene.isFixedStep;
+            simulation.Reset();
+        }
+        break;
+    case 14:
+        if ( allowRuntimeChurn )
+        {
+            debug.isTerrainHidden = !debug.isTerrainHidden;
+        }
+        break;
+    case 15:
+        if ( allowRuntimeChurn )
+        {
+            debug.isWaterHidden = !debug.isWaterHidden;
+        }
+        break;
+    case 16:
+        if ( allowRuntimeChurn )
+        {
+            debug.isWaterFreezeDebug = !debug.isWaterFreezeDebug;
+            if ( debug.isWaterFreezeDebug )
+            {
+                debug.frozenWaterTime = static_cast<float>( timers.simulationTimer.GetTimeSinceLastStart() );
+            }
+        }
+        break;
+    case 17:
+        if ( allowRuntimeChurn )
+        {
+            debug.isWaterFlatDebug = !debug.isWaterFlatDebug;
+        }
+        break;
+    case 18:
+    {
+        const int mode = StressHarness::NextInt( stress, 3 );
+        if ( allowRuntimeChurn )
+        {
+            debug.isWaterRTReflect = mode == 1;
+            debug.isWaterNoReflect = mode == 2;
+        }
+        break;
+    }
+    case 19:
+    {
+        const float timeScale = StressHarness::NextFloat( stress, 0.10f, 4.00f );
+        if ( allowRuntimeChurn )
+        {
+            // Concept: Scene-tab churn goes through the scene controller so
+            // reset preservation and generated-scene rebuilds see one owner.
+            sceneController.UIOverrides().timeScaleOverride = timeScale;
+            scene.timeScale = sceneController.UIOverrides().timeScaleOverride;
+            simulation.Reset();
+        }
+        break;
+    }
+    case 20:
+    {
+        const float alpha = StressHarness::NextFloat( stress, 0.05f, 1.00f );
+        if ( allowRuntimeChurn )
+        {
+            debug.physicsDebugAlpha = alpha;
+        }
+        break;
+    }
+    case 21:
+    {
+        const float contactLinger = StressHarness::NextFloat( stress, 0.00f, 5.00f );
+        if ( allowRuntimeChurn )
+        {
+            debug.physicsDebugContactLinger = contactLinger;
+        }
+        break;
+    }
+    case 22:
+    {
+        const float gravity = -StressHarness::NextFloat( stress, 0.0f, 80.0f );
+        const float fluidHeight = StressHarness::NextFloat( stress, -40.0f, 140.0f );
+        const float fluidDensity = StressHarness::NextFloat( stress, 0.0f, 5.0f );
+        if ( allowRuntimeChurn )
+        {
+            ApplyUIWorldOverride( world, replayRuntime, gravity, fluidHeight, fluidDensity );
+        }
+        break;
+    }
+    case 23:
+        ui.SetActiveTab(
+            static_cast<InGameUITab>( StressHarness::NextInt( stress, static_cast<int>( InGameUITab::Count ) ) ) );
+        break;
+    default:
+        break;
+    }
+}
+
+
+SceneRuntimeStyleContext BuildGraphicsStressStyleContext( RunLaunchOptions& launchOptions,
+                                                          RunSceneState& scene,
+                                                          SceneController& sceneController,
+                                                          SkullbonezCore::GameObjects::GameModelCollection& models,
+                                                          const SkullbonezCore::Assets::AssetSystem& assets,
+                                                          EngineConfig& config,
+                                                          const CinematicRenderConfig& defaultCinematicRender )
+{
+    return SceneRuntimeStyleContext{ launchOptions,
+                                     scene,
+                                     sceneController.Browser(),
+                                     models,
+                                     sceneController.Entities(),
+                                     assets,
+                                     ActiveSceneCinematicConfig( scene, config ),
+                                     defaultCinematicRender };
+}
+
+
+void ApplyGraphicsStressAction( RunLaunchOptions& launchOptions,
+                                EngineConfig& config,
+                                RuntimeRenderer& renderer,
+                                RunDebugState& debug,
+                                RunSceneState& scene,
+                                RunTimerState& timers,
+                                RunCameraState& camera,
+                                SkullbonezCore::UI::InGameUI& ui,
+                                SceneController& sceneController,
+                                const SkullbonezCore::Assets::AssetSystem& assets,
+                                const CinematicRenderConfig& defaultCinematicRender,
+                                SimulationSystem& simulation,
+                                RuntimeTools& runtimeTools,
+                                SkullbonezCore::Environment::WorldEnvironment& world,
+                                ReplayRuntime& replayRuntime,
+                                SkullbonezCore::GameObjects::GameModelCollection& models,
+                                GraphicsStressController& stress )
+{
+    switch ( stress.NextAction() )
+    {
+    case 0:
+    {
+        CinematicRenderConfig& cinematic = ActiveSceneCinematicConfig( scene, config );
+        cinematic.enabled = !cinematic.enabled;
+        launchOptions.hasCinematicRenderingOverride = false;
+        if ( scene.isSceneMode )
+        {
+            scene.hasCinematicRenderingOverride = true;
+            scene.isCinematicRenderingEnabled = cinematic.enabled;
+            scene.cinematicOverrideMask |= SCENE_CINE_RENDERING;
+            scene.uiCinematicOverrideMask |= SCENE_CINE_RENDERING;
+        }
+        break;
+    }
+    case 1:
+    {
+        CinematicRenderConfig& cinematic = ActiveSceneCinematicConfig( scene, config );
+        const UICinematicFeature feature =
+            static_cast<UICinematicFeature>( stress.NextInt( static_cast<int>( UICinematicFeature::Count ) ) );
+        if ( feature == UICinematicFeature::Shadows )
+        {
+            launchOptions.hasCinematicShadowsOverride = false;
+        }
+        ToggleCinematicUIFeature( cinematic, scene, feature );
+        break;
+    }
+    case 2:
+    {
+        CinematicRenderConfig& cinematic = ActiveSceneCinematicConfig( scene, config );
+        const UICinematicParam param =
+            static_cast<UICinematicParam>( stress.NextInt( static_cast<int>( UICinematicParam::Count ) ) );
+        ApplyCinematicUIParam( cinematic, scene, param, stress.RandomCinematicParamValue( param ) );
+        break;
+    }
+    case 3:
+    {
+        const int browserCount = static_cast<int>( sceneController.Browser().paths.size() );
+        const int browserIndex = ( browserCount > 0 && stress.NextInt( 5 ) != 0 ) ? stress.NextInt( browserCount ) : -1;
+        (void)ApplyCinematicModeFromBrowserIndex( BuildGraphicsStressStyleContext( launchOptions,
+                                                                                   scene,
+                                                                                   sceneController,
+                                                                                   models,
+                                                                                   assets,
+                                                                                   config,
+                                                                                   defaultCinematicRender ),
+                                                  browserIndex );
+        break;
+    }
+    case 4:
+        renderer.SetVsyncEnabled( !renderer.VsyncEnabled() );
+        break;
+    case 5:
+        renderer.SetPipelineSyncEnabled( !renderer.PipelineSyncEnabled() );
+        break;
+    case 6:
+        debug.isTerrainHidden = !debug.isTerrainHidden;
+        break;
+    case 7:
+        debug.isWaterHidden = !debug.isWaterHidden;
+        break;
+    case 8:
+        debug.isWaterFreezeDebug = !debug.isWaterFreezeDebug;
+        if ( debug.isWaterFreezeDebug )
+        {
+            debug.frozenWaterTime = static_cast<float>( timers.simulationTimer.GetTimeSinceLastStart() );
+        }
+        break;
+    case 9:
+        debug.isWaterFlatDebug = !debug.isWaterFlatDebug;
+        break;
+    case 10:
+    {
+        const int mode = stress.NextInt( 3 );
+        debug.isWaterRTReflect = mode == 1;
+        debug.isWaterNoReflect = mode == 2;
+        break;
+    }
+    case 11:
+        debug.isCollisionVisualizer = !debug.isCollisionVisualizer;
+        break;
+    case 12:
+        debug.isBroadphaseOverlay = !debug.isBroadphaseOverlay;
+        break;
+    case 13:
+    {
+        static const uint32_t kFlags[] = {
+            PHYSICS_DEBUG_NONE,
+            PHYSICS_DEBUG_AXES,
+            PHYSICS_DEBUG_CONTACTS,
+            PHYSICS_DEBUG_SLEEP,
+            PHYSICS_DEBUG_ALL,
+        };
+        debug.physicsDebugFlags = kFlags[stress.NextInt( static_cast<int>( sizeof( kFlags ) / sizeof( kFlags[0] ) ) )];
+        break;
+    }
+    case 14:
+        debug.isPhysicsDebugTransparent = !debug.isPhysicsDebugTransparent;
+        debug.physicsDebugAlpha = stress.NextFloat( 0.05f, 1.0f );
+        debug.physicsDebugContactLinger = stress.NextFloat( 0.0f, 5.0f );
+        break;
+    case 15:
+    {
+        const float timeScale = stress.NextFloat( 0.05f, 4.0f );
+        sceneController.UIOverrides().timeScaleOverride = timeScale;
+        scene.timeScale = timeScale;
+        simulation.Reset();
+        break;
+    }
+    case 16:
+        ApplyUIWorldOverride( world,
+                              replayRuntime,
+                              -stress.NextFloat( 0.0f, 80.0f ),
+                              stress.NextFloat( -80.0f, 160.0f ),
+                              stress.NextFloat( 0.0f, 5.0f ) );
+        break;
+    case 17:
+        sceneController.UIOverrides().modelCountOverride = 32 + stress.NextInt( 512 );
+        break;
+    case 18:
+        launchOptions.generatedObjectTypeOverride = static_cast<GeneratedObjectTypeOverride>( stress.NextInt( 3 ) );
+        break;
+    case 19:
+    {
+        TornadoFieldConfig tornadoField = models.GetTornadoFieldConfig();
+        tornadoField.enabled = stress.NextInt( 2 ) != 0;
+        tornadoField.visualizeVelocityField = stress.NextInt( 2 ) != 0;
+        renderer.SetTornadoVisualEnabled( stress.NextInt( 2 ) != 0 );
+        models.SetTornadoFieldConfig( tornadoField );
+        break;
+    }
+    case 20:
+    {
+        TornadoVisualSettings tornadoVisual = renderer.TornadoVisualSettingsSnapshot();
+        tornadoVisual.shellAlpha = stress.NextFloat( 0.02f, 0.40f );
+        tornadoVisual.dustAlpha = stress.NextFloat( 0.02f, 0.55f );
+        tornadoVisual.ribbonWidth = stress.NextFloat( 1.0f, 12.0f );
+        tornadoVisual.ribbonCount = 1 + stress.NextInt( 10 );
+        tornadoVisual.particleCount = 16 + stress.NextInt( 240 );
+        renderer.SetTornadoVisualSettings( tornadoVisual );
+        break;
+    }
+    case 21:
+        ui.SetActiveTab( static_cast<InGameUITab>( stress.NextInt( static_cast<int>( InGameUITab::Count ) ) ) );
+        ui.SetScrollY( stress.NextFloat( 0.0f, 1200.0f ) );
+        break;
+    case 22:
+        scene.isFixedStep = !scene.isFixedStep;
+        simulation.Reset();
+        break;
+    case 23:
+        models.SetPhysicsSleepEnabled( !models.IsPhysicsSleepEnabled() );
+        break;
+    case 24:
+        debug.isTopTextHidden = !debug.isTopTextHidden;
+        break;
+    case 25:
+        debug.overlayMode = static_cast<OverlayMode>( stress.NextInt( 6 ) );
+        break;
+    case 26:
+        runtimeTools.Laser().Update( 0.0f );
+        break;
+    case 27:
+        camera.trackHeight = stress.NextFloat( 8.0f, 500.0f );
+        break;
+    case 28:
+        launchOptions.generatedObjectTypeOverride = static_cast<GeneratedObjectTypeOverride>( stress.NextInt( 3 ) );
+        break;
+    case 29:
+        ui.SetProfilerTimelineEnabled( stress.NextInt( 2 ) != 0 );
+        ui.SetPerformanceHistogramEnabled( stress.NextInt( 2 ) != 0 );
+        break;
+    case 30:
+        ui.SetRendererComboOpen( stress.NextInt( 2 ) != 0 );
+        ui.SetWaterComboOpen( stress.NextInt( 2 ) != 0 );
+        ui.SetSceneComboOpen( stress.NextInt( 2 ) != 0 );
+        break;
+    case 31:
+        debug.isUITestPattern = stress.NextInt( 2 ) != 0;
+        break;
+    default:
+        break;
+    }
+}
+
+
+} // namespace
+
+
+void GraphicsStressController::Configure( unsigned int seed,
+                                          int actionsPerFrame,
+                                          int sceneIntervalFrames,
+                                          int memoryLogIntervalFrames )
+{
+    m_enabled = true;
+    m_randomState = seed;
+    m_actionsPerFrame = actionsPerFrame;
+    m_sceneIntervalFrames = sceneIntervalFrames;
+    m_memoryLogIntervalFrames = memoryLogIntervalFrames;
+}
+
+
+void GraphicsStressController::ResumeAfterSceneLoad( unsigned int seed, int actionsPerFrame, int sceneIntervalFrames )
+{
+    m_enabled = true;
+    if ( m_randomState == 0 )
+    {
+        m_randomState = seed;
+    }
+    m_actionsPerFrame = actionsPerFrame;
+    m_sceneIntervalFrames = sceneIntervalFrames;
+}
+
+
+bool GraphicsStressController::IsEnabled() const
+{
+    return m_enabled;
+}
+
+
+unsigned int GraphicsStressController::RandomState() const
+{
+    return m_randomState;
+}
+
+
+int GraphicsStressController::ActionsPerFrame() const
+{
+    return m_actionsPerFrame;
+}
+
+
+int GraphicsStressController::SceneIntervalFrames() const
+{
+    return m_sceneIntervalFrames;
+}
+
+
+int GraphicsStressController::FramesRun() const
+{
+    return m_framesRun;
+}
+
+
+int GraphicsStressController::SceneLoadsRequested() const
+{
+    return m_sceneLoadsRequested;
+}
+
+
+void GraphicsStressController::BeginFrame()
+{
+    ++m_framesRun;
+}
+
+
+void GraphicsStressController::RecordSceneLoad()
+{
+    m_lastSceneLoadFrame = m_framesRun;
+    ++m_sceneLoadsRequested;
+}
+
+
+int GraphicsStressController::NextInt( int maxExclusive )
+{
+    if ( maxExclusive <= 0 )
+    {
+        return 0;
+    }
+    m_randomState = NextStressRandom( m_randomState );
+    return static_cast<int>( m_randomState % static_cast<unsigned int>( maxExclusive ) );
+}
+
+
+float GraphicsStressController::NextFloat( float minValue, float maxValue )
+{
+    m_randomState = NextStressRandom( m_randomState );
+    const float unit = static_cast<float>( m_randomState & 0xFFFFu ) / 65535.0f;
+    return minValue + ( maxValue - minValue ) * unit;
+}
+
+
+int GraphicsStressController::ActionCount() const
+{
+    return std::clamp( m_actionsPerFrame, 1, 64 );
+}
+
+
+int GraphicsStressController::NextAction()
+{
+    return NextInt( 32 );
+}
+
+
+bool GraphicsStressController::SceneLoadDue() const
+{
+    return m_framesRun - m_lastSceneLoadFrame >= m_sceneIntervalFrames;
+}
+
+
+bool GraphicsStressController::ShouldPrintFrameSummary() const
+{
+    return m_framesRun % 60 == 0;
+}
+
+
+bool GraphicsStressController::ShouldLogMemory() const
+{
+    return m_memoryLogIntervalFrames > 0 && ( m_framesRun == 1 || m_framesRun % m_memoryLogIntervalFrames == 0 );
+}
+
+
+float GraphicsStressController::RandomCinematicParamValue( UI::UICinematicParam param )
+{
+    switch ( param )
+    {
+    case UICinematicParam::Exposure:
+        return NextFloat( 0.05f, 3.00f );
+    case UICinematicParam::Gamma:
+        return NextFloat( 1.00f, 3.00f );
+    case UICinematicParam::SkyMode:
+    case UICinematicParam::TerrainMode:
+    case UICinematicParam::ObjectStyle:
+        return NextFloat( 0.0f, 32.0f );
+    case UICinematicParam::WaterMode:
+        return NextFloat( 0.0f, 4.0f );
+    case UICinematicParam::StyleSaturation:
+    case UICinematicParam::StyleContrast:
+        return NextFloat( 0.0f, 2.50f );
+    case UICinematicParam::StyleVignette:
+    case UICinematicParam::SunX:
+    case UICinematicParam::SunY:
+    case UICinematicParam::CloudCoverage:
+    case UICinematicParam::FogOpacity:
+    case UICinematicParam::BasinFeather:
+    case UICinematicParam::WaterAlpha:
+    case UICinematicParam::WaterReflection:
+        return NextFloat( 0.0f, 1.0f );
+    case UICinematicParam::SunBrightness:
+        return NextFloat( 0.0f, 40.0f );
+    case UICinematicParam::SunRed:
+    case UICinematicParam::SunGreen:
+    case UICinematicParam::SunBlue:
+        return NextFloat( 0.0f, 2.0f );
+    case UICinematicParam::SkyGlow:
+        return NextFloat( 0.0f, 8.0f );
+    case UICinematicParam::HorizonRed:
+    case UICinematicParam::HorizonGreen:
+    case UICinematicParam::HorizonBlue:
+    case UICinematicParam::ZenithRed:
+    case UICinematicParam::ZenithGreen:
+    case UICinematicParam::ZenithBlue:
+    case UICinematicParam::CloudIntensity:
+    case UICinematicParam::TerrainTintRed:
+    case UICinematicParam::TerrainTintGreen:
+    case UICinematicParam::TerrainTintBlue:
+    case UICinematicParam::TerrainAccentRed:
+    case UICinematicParam::TerrainAccentGreen:
+    case UICinematicParam::TerrainAccentBlue:
+    case UICinematicParam::WaterTintRed:
+    case UICinematicParam::WaterTintGreen:
+    case UICinematicParam::WaterTintBlue:
+    case UICinematicParam::FogRed:
+    case UICinematicParam::FogGreen:
+    case UICinematicParam::FogBlue:
+        return NextFloat( 0.0f, 1.50f );
+    case UICinematicParam::CloudSoftness:
+        return NextFloat( 0.01f, 0.65f );
+    case UICinematicParam::CloudScale:
+        return NextFloat( 0.50f, 12.0f );
+    case UICinematicParam::ShaftStrength:
+        return NextFloat( 0.0f, 3.0f );
+    case UICinematicParam::ShaftFalloff:
+        return NextFloat( 0.25f, 5.0f );
+    case UICinematicParam::VolumetricStrength:
+        return NextFloat( 0.0f, 2.0f );
+    case UICinematicParam::VolumetricDensity:
+        return NextFloat( 0.0f, 2.50f );
+    case UICinematicParam::VolumetricDecay:
+        return NextFloat( 0.800f, 0.995f );
+    case UICinematicParam::BloomThreshold:
+        return NextFloat( 0.0f, 4.0f );
+    case UICinematicParam::BloomKnee:
+        return NextFloat( 0.01f, 2.0f );
+    case UICinematicParam::BloomStrength:
+        return NextFloat( 0.0f, 2.0f );
+    case UICinematicParam::BloomRadius:
+        return NextFloat( 0.25f, 8.0f );
+    case UICinematicParam::TerrainRelief:
+        return NextFloat( 0.0f, 1.50f );
+    case UICinematicParam::TerrainGridScale:
+        return NextFloat( 0.10f, 120.0f );
+    case UICinematicParam::TerrainGridStrength:
+    case UICinematicParam::WaterGlint:
+        return NextFloat( 0.0f, 4.0f );
+    case UICinematicParam::BasinCenterX:
+    case UICinematicParam::BasinCenterZ:
+        return NextFloat( 0.0f, 1200.0f );
+    case UICinematicParam::BasinRadiusX:
+    case UICinematicParam::BasinRadiusZ:
+        return NextFloat( 1.0f, 500.0f );
+    case UICinematicParam::BasinDepth:
+        return NextFloat( 0.0f, 80.0f );
+    case UICinematicParam::BasinRimLift:
+        return NextFloat( 0.0f, 60.0f );
+    case UICinematicParam::FogDensity:
+        return NextFloat( 0.0f, 0.006f );
+    case UICinematicParam::FogStart:
+        return NextFloat( 0.0f, 500.0f );
+    case UICinematicParam::FogEnd:
+        return NextFloat( 100.0f, 4000.0f );
+    case UICinematicParam::None:
+    case UICinematicParam::Count:
+    default:
+        return 0.0f;
+    }
+}
+
+
+// Lifetime: UI stress is a validation harness over synchronous owner borrows.
+// It keeps only deterministic counters in DiagnosticsRuntime and retains no
+// scene, UI, renderer, or input owner after the action batch returns.
+SbResult SkullbonezCore::Basics::RunUIStressActions( DiagnosticsRuntime& m_diagnosticsRuntime,
+                                                     Window* window,
+                                                     RunTimerState& m_timers,
+                                                     SkullbonezCore::UI::InGameUI& m_UI,
+                                                     RuntimeRenderer& m_renderer,
+                                                     RuntimeRenderBackendView& m_renderBackendView,
+                                                     RunDebugState& m_debug,
+                                                     SceneController& m_sceneController,
+                                                     RunCameraState& m_camera,
+                                                     EngineConfig& m_config,
+                                                     SimulationSystem& m_simulation,
+                                                     RuntimeTools& m_runtimeTools,
+                                                     const RunLaunchOptions& m_launchOptions,
+                                                     const RunStartupState& m_startup,
+                                                     ReplayRuntime& m_replayRuntime,
+                                                     InputRouter& m_inputRouter,
+                                                     RuntimeInteractionController& m_interaction,
+                                                     AttachedCameraController& m_attachedCamera,
+                                                     RunCameraMode replayRestoreCameraMode )
+{
+    UIStressState& stress = m_diagnosticsRuntime.UIStress();
+    if ( !stress.enabled || !window )
+    {
+        return SbResult::Success();
+    }
+
+    ++stress.framesRun;
+    const double UINow = m_timers.simulationTimer.GetTotalTime();
+    const int screenW = (std::max)( 1, window->ClientWidth() );
+    const int screenH = (std::max)( 1, window->ClientHeight() );
+
+    m_UI.SetVisible( true, UINow );
+    m_UI.SetMinimized( false, UINow );
+
+    m_UI.SetMouseOverride( true, StressHarness::NextInt( stress, screenW ), StressHarness::NextInt( stress, screenH ) );
+
+    // This gate is a UI control-state crash sweep. Runtime rebuilds and world
+    // debug toggles belong to render/physics validation, so they stay frozen here.
+    const bool allowRuntimeChurn = StressHarness::AllowsRuntimeChurn();
+    const auto makeSceneGeneratedControlContext = [&]() -> SceneRuntimeGeneratedControlContext
+    {
+        return SceneRuntimeGeneratedControlContext{ m_sceneController.State(),
+                                                    m_sceneController.UIOverrides(),
+                                                    m_camera,
+                                                    m_sceneController,
+                                                    m_config,
+                                                    m_sceneController.World(),
+                                                    m_sceneController.Terrain().Get(),
+                                                    m_sceneController.Models(),
+                                                    m_simulation,
+                                                    m_runtimeTools,
+                                                    m_renderBackendView.deviceLifecycle,
+                                                    m_launchOptions.generatedObjectTypeOverride,
+                                                    m_startup.gameModelCapacity };
+    };
+    const auto executeSceneGeneratedControlAction = [&]( const SceneRuntimeGeneratedControlAction& action ) -> SbResult
+    {
+        if ( !action.status.ok )
+        {
+            // Lane R: resources remain intact; return before later stress churn
+            // and let the input boundary report and end the run.
+            return action.status;
+        }
+        if ( action.resetReplayTimeline )
+        {
+            const ReplayRuntime::SceneTimelineResetInput reset = ReplayRuntime::DescribeSceneTimeline(
+                m_sceneController,
+                m_sceneController.State(),
+                m_startup.gameModelCapacity,
+                static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
+            m_replayRuntime.ResetSceneTimeline(
+                reset,
+                ReplayRuntime::SceneTimelineResetOwners{ m_inputRouter,
+                                                         m_interaction,
+                                                         &m_sceneController.Cameras(),
+                                                         m_sceneController.Terrain().Get(),
+                                                         m_camera,
+                                                         replayRestoreCameraMode,
+                                                         m_attachedCamera.State().activeFollow,
+                                                         m_camera.director.grabbed } );
+        }
+        if ( action.scheduleProfileReset )
+        {
+            PROFILE_SCHEDULE_RESET();
+        }
+        return SbResult::Success();
+    };
+    if ( stress.framesRun == 18 )
+    {
+        const int modelCount = 96 + StressHarness::NextInt( stress, 160 );
+        if ( allowRuntimeChurn )
+        {
+            const SbResult actionResult = executeSceneGeneratedControlAction(
+                ApplyUIModelCountOverride( makeSceneGeneratedControlContext(), modelCount ) );
+            if ( !actionResult.ok )
+            {
+                return actionResult;
+            }
+        }
+    }
+    if ( stress.framesRun == 42 )
+    {
+        const int balls = 24 + StressHarness::NextInt( stress, 220 );
+        const int boxes = StressHarness::NextInt( stress, 1000 - balls + 1 );
+        if ( allowRuntimeChurn )
+        {
+            const SbResult actionResult = executeSceneGeneratedControlAction(
+                ApplyUISolverObjectCounts( makeSceneGeneratedControlContext(), balls, boxes ) );
+            if ( !actionResult.ok )
+            {
+                return actionResult;
+            }
+        }
+    }
+    const int actionCount = StressHarness::ActionCount( stress );
+    for ( int i = 0; i < actionCount; ++i )
+    {
+        ApplyUIStressAction( m_UI,
+                             m_renderer,
+                             m_renderBackendView,
+                             m_debug,
+                             m_sceneController.State(),
+                             m_timers,
+                             m_simulation,
+                             m_sceneController,
+                             m_sceneController.World(),
+                             m_replayRuntime,
+                             stress,
+                             allowRuntimeChurn );
+    }
+    return SbResult::Success();
+}
+
+
+void SkullbonezCore::Basics::ExecuteGraphicsStressFrame( GraphicsStressController& stress,
+                                                         Window* window,
+                                                         EngineConfig& config,
+                                                         RunLaunchOptions& launchOptions,
+                                                         const CinematicRenderConfig& defaultCinematicRender,
+                                                         const RunStartupState& startup,
+                                                         DiagnosticsRuntime& diagnosticsRuntime,
+                                                         RunTimerState& timers,
+                                                         Assets::AssetSystem& assets,
+                                                         Threading::WorkerPool& workerPool,
+                                                         InputRouter& inputRouter,
+                                                         RuntimeInteractionController& interaction,
+                                                         RunCameraState& camera,
+                                                         AttachedCameraController& attachedCamera,
+                                                         SimulationSystem& simulation,
+                                                         ReplayRuntime& replayRuntime,
+                                                         Runtime::Audio::ContactAudioService& contactAudio,
+                                                         UI::InGameUI& ui,
+                                                         RunDebugState& debug,
+                                                         RuntimeTools& runtimeTools,
+                                                         Physics::PhysicsDebugVisualizer& physicsDebugVisualizer,
+                                                         RuntimeRenderBackendView& renderBackendView,
+                                                         RuntimeRenderer& renderer,
+                                                         SceneController& sceneController,
+                                                         const Rendering::IRenderDiagnostics& renderDiagnostics )
+{
+    // Concept: graphics stress is a deterministic fuzzer over scene loading,
+    // cinematic controls, render-path toggles, and heavy generated-scene resets.
+    // Keep every mutation reproducible from the launch seed so a crash line in
+    // latest_stdout.txt can be replayed exactly under cdb.
+    if ( !stress.IsEnabled() || !window )
+    {
+        return;
+    }
+
+    stress.BeginFrame();
+    if ( stress.FramesRun() == 1 )
+    {
+        printf( "[graphics-stress] Running seed=%u actions=%d scene_interval_frames=%d\n",
+                stress.RandomState(),
+                stress.ActionsPerFrame(),
+                stress.SceneIntervalFrames() );
+        fflush( stdout );
+    }
+
+    auto executeSceneLoadRequest = [&]( const SceneLoadRequest& request ) -> bool
+    {
+        if ( !request.accepted )
+        {
+            return false;
+        }
+        return sceneController
+            .Load( request,
+                   config,
+                   launchOptions,
+                   defaultCinematicRender,
+                   startup,
+                   diagnosticsRuntime,
+                   timers,
+                   assets,
+                   workerPool,
+                   *window,
+                   inputRouter,
+                   interaction,
+                   camera,
+                   attachedCamera.State(),
+                   simulation,
+                   replayRuntime,
+                   contactAudio,
+                   ui,
+                   debug,
+                   stress,
+                   runtimeTools,
+                   physicsDebugVisualizer,
+                   renderBackendView,
+                   renderer )
+            .ok;
+    };
+
+    if ( stress.SceneLoadDue() )
+    {
+        // Hazard: suite order is the durable test contract. Browser fallback is
+        // useful for manual app launches, but automated repros must prefer the
+        // checked-in graphics_stress.suite.json scene queue.
+        SceneLoadRequest request = SceneLoadRequest::None();
+        int selectedSceneIndex = -1;
+        const char* selectedSceneSource = "none";
+        if ( sceneController.QueueSize() > 0 )
+        {
+            selectedSceneIndex = stress.NextInt( sceneController.QueueSize() );
+            selectedSceneSource = "queue";
+            request = SceneLoadRequest::Load( selectedSceneIndex, true, true, stress.NextInt( 2 ) != 0, true );
+        }
+        else if ( !sceneController.Browser().paths.empty() )
+        {
+            selectedSceneIndex = stress.NextInt( static_cast<int>( sceneController.Browser().paths.size() ) );
+            selectedSceneSource = "browser";
+            request = sceneController.LoadSceneFromBrowserIndex( selectedSceneIndex );
+        }
+
+        if ( executeSceneLoadRequest( request ) )
+        {
+            stress.RecordSceneLoad();
+            printf( "[graphics-stress] scene_load=%d frame=%d source=%s selected_index=%d action_index=%d\n",
+                    stress.SceneLoadsRequested(),
+                    stress.FramesRun(),
+                    selectedSceneSource,
+                    selectedSceneIndex,
+                    request.index );
+            fflush( stdout );
+        }
+        else
+        {
+            printf( "[graphics-stress] scene_load_skipped frame=%d source=%s selected_index=%d\n",
+                    stress.FramesRun(),
+                    selectedSceneSource,
+                    selectedSceneIndex );
+            fflush( stdout );
+        }
+    }
+
+    ui.SetVisible( true, timers.simulationTimer.GetTotalTime() );
+    ui.SetMinimized( false, timers.simulationTimer.GetTotalTime() );
+    sceneController.EnterInteractiveRun();
+
+    const int actionCount = stress.ActionCount();
+    // Invariant: random values stay inside the same broad ranges exposed by the
+    // runtime UI. The stress test should crash bad DX12 lifetime/state tracking,
+    // not manufacture impossible physics or render data.
+    for ( int i = 0; i < actionCount; ++i )
+    {
+        ApplyGraphicsStressAction( launchOptions,
+                                   config,
+                                   renderer,
+                                   debug,
+                                   sceneController.State(),
+                                   timers,
+                                   camera,
+                                   ui,
+                                   sceneController,
+                                   assets,
+                                   defaultCinematicRender,
+                                   simulation,
+                                   runtimeTools,
+                                   sceneController.World(),
+                                   replayRuntime,
+                                   sceneController.Models(),
+                                   stress );
+    }
+
+    if ( stress.ShouldPrintFrameSummary() )
+    {
+        printf( "[graphics-stress] frame=%d scene_loads=%d rng=%u\n",
+                stress.FramesRun(),
+                stress.SceneLoadsRequested(),
+                stress.RandomState() );
+        fflush( stdout );
+    }
+
+    if ( stress.ShouldLogMemory() )
+    {
+        // Why: long stress runs need memory attribution before shutdown. If the
+        // process is killed after a climb, this stdout line survives with the
+        // same seed/frame/scene-load position as the repro log.
+        const MainMemoryStats& memoryStats =
+            diagnosticsRuntime.RefreshMainMemoryStats( replayRuntime,
+                                                       sceneController.Models(),
+                                                       timers.simulationTimer.GetTotalTime(),
+                                                       true );
+        const SkullbonezCore::Rendering::RenderMemoryStats renderStats = renderDiagnostics.GetRenderMemoryStats();
+        printf( "[graphics-stress-memory] frame=%d scene_loads=%d task_manager_bytes=%llu "
+                "working_set_bytes=%llu private_working_set_bytes=%llu private_commit_bytes=%llu pagefile_bytes=%llu "
+                "tracked_engine_bytes=%llu replay_bytes=%llu game_object_bytes=%llu unattributed_process_bytes=%llu "
+                "render_available=%d render_adapter_available=%d dxgi_local_usage_bytes=%llu "
+                "dxgi_nonlocal_usage_bytes=%llu dxgi_local_budget_bytes=%llu dxgi_nonlocal_budget_bytes=%llu "
+                "upload_capacity_bytes=%llu upload_used_bytes=%llu upload_peak_bytes=%llu timer_readback_bytes=%llu "
+                "textures=%zu texture_capacity=%zu psos=%zu graph_transients=%zu graph_transient_capacity=%zu "
+                "rtv_used=%u rtv_capacity=%u dsv_used=%u dsv_capacity=%u srv_static_used=%u srv_static_capacity=%u "
+                "srv_transient_used=%u srv_transient_capacity=%u srv_transient_peak=%u\n",
+                stress.FramesRun(),
+                stress.SceneLoadsRequested(),
+                static_cast<unsigned long long>( memoryStats.process.taskManagerBytes ),
+                static_cast<unsigned long long>( memoryStats.process.workingSetBytes ),
+                static_cast<unsigned long long>( memoryStats.process.privateWorkingSetBytes ),
+                static_cast<unsigned long long>( memoryStats.process.privateCommitBytes ),
+                static_cast<unsigned long long>( memoryStats.process.pagefileUsageBytes ),
+                static_cast<unsigned long long>( memoryStats.trackedEngineBytes ),
+                static_cast<unsigned long long>( memoryStats.replay.totalBytes ),
+                static_cast<unsigned long long>( memoryStats.gameObjects.totalBytes ),
+                static_cast<unsigned long long>( memoryStats.unattributedProcessBytes ),
+                renderStats.available ? 1 : 0,
+                renderStats.adapterMemoryAvailable ? 1 : 0,
+                static_cast<unsigned long long>( renderStats.localCurrentUsageBytes ),
+                static_cast<unsigned long long>( renderStats.nonLocalCurrentUsageBytes ),
+                static_cast<unsigned long long>( renderStats.localBudgetBytes ),
+                static_cast<unsigned long long>( renderStats.nonLocalBudgetBytes ),
+                static_cast<unsigned long long>( renderStats.uploadCapacityBytes ),
+                static_cast<unsigned long long>( renderStats.uploadUsedBytes ),
+                static_cast<unsigned long long>( renderStats.uploadPeakBytes ),
+                static_cast<unsigned long long>( renderStats.timerReadbackBytes ),
+                renderStats.textureRegistryCount,
+                renderStats.textureRegistryCapacity,
+                renderStats.psoCacheCount,
+                renderStats.graphTransientCount,
+                renderStats.graphTransientCapacity,
+                renderStats.rtvDescriptorsUsed,
+                renderStats.rtvDescriptorsCapacity,
+                renderStats.dsvDescriptorsUsed,
+                renderStats.dsvDescriptorsCapacity,
+                renderStats.srvStaticDescriptorsUsed,
+                renderStats.srvStaticDescriptorsCapacity,
+                renderStats.srvTransientDescriptorsUsedThisFrame,
+                renderStats.srvTransientDescriptorsCapacityPerFrame,
+                renderStats.srvTransientDescriptorsPeakThisRun );
+        fflush( stdout );
+    }
+}

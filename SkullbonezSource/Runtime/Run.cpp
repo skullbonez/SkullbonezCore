@@ -11,16 +11,14 @@ Mental model:
 Glossary:
   FBO (Framebuffer Object): Engine shorthand for an off-screen render target
   exposed through the renderer abstraction.
-  Lane R result: Recoverable scene/load-only failure reported as an SbResult
-    so CLI automation can exit nonzero without a fatal exception.
+  Lane R result: Recoverable scene/load or renderer-drain failure reported as
+    an SbResult so the owning boundary can stop before unsafe mutation.
   Probe failure: CLI validation failure reported as bounded result/report data
     so automation exits nonzero without throwing through the frame loop.
 
 Invariants:
   - Backend-owned render resources must be released while the renderer backend
     is still alive, after a GPU flush, and in the explicit release order below.
-  - WorldEnvironment reset can record upload commands; flush after that step
-    before later resources are released.
 
 Related:
   - SkullbonezSource/Runtime/Run.h
@@ -28,18 +26,24 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
-#include "RunInternal.h"
-#include "Editor/EditorOverlayTools.h"
+#include "Run.h"
+#include "RuntimeCameraMode.h"
+#include "InputFrame.h"
+#include "WindowConstants.h"
 #include "Replay/ReplayOverlayLayout.h"
 #include "Replay/ReplayRestoreService.h"
+#include "Replay/ReplayRuntimeOwnerViews.h"
 #include "Replay/ReplayV2Artifact.h"
 #include "RuntimeFileWriter.h"
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "Allocation/RuntimeReserveAllocator.h"
 #include "Scene/SceneRuntimeLoad.h"
-#include "../UI/UIInput.h"
+#include "../Scene/SceneSnapshotWriter.h"
+#include "../Core/FatalError.h"
 #include "../Core/Log.h"
 #include "../Physics/PhysicsTimestep.h"
+#include "../Rendering/IRenderDiagnostics.h"
+#include "../World/Terrain.h"
 
 #include <cmath>
 #include <cstdio>
@@ -50,7 +54,14 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Basics::RunInternal;
+using SkullbonezCore::Environment::WorldEnvironment;
+using SkullbonezCore::GameObjects::SceneSaveRequest;
+using SkullbonezCore::GameObjects::SceneSaveView;
+using SkullbonezCore::GameObjects::SceneSnapshotWriter;
+using SkullbonezCore::Geometry::SkyBox;
+using SkullbonezCore::Geometry::Terrain;
+using SkullbonezCore::Geometry::XZBounds;
+using SkullbonezCore::UI::InGameUITab;
 using namespace SkullbonezCore::Basics::ReplayOverlay;
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
@@ -75,7 +86,7 @@ SkullbonezCore::Environment::CameraMovementSettings BuildCameraMovementSettings(
 // `ApplyStartupOverrides()`, preserving the original command-line apply order.
 void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
                                RunLaunchOptions& target,
-                               RunRuntimeSettings& runtimeSettings,
+                               RuntimeRenderer& renderer,
                                SkullbonezCore::GameObjects::GameModelCollection& models,
                                SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio )
 {
@@ -103,7 +114,6 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     if ( launch.noSleep )
     {
         target.noSleep = true;
-        runtimeSettings.isPhysicsSleepEnabled = false;
         models.SetPhysicsSleepEnabled( false );
     }
     if ( launch.noContactAudio )
@@ -115,18 +125,20 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     {
         target.hasTornadoOverride = true;
         target.tornadoEnabled = launch.tornadoEnabled;
-        runtimeSettings.tornadoField.enabled = launch.tornadoEnabled;
-        if ( runtimeSettings.tornadoVisual.autoEnableWithTornado )
+        TornadoFieldConfig tornadoField = models.GetTornadoFieldConfig();
+        tornadoField.enabled = launch.tornadoEnabled;
+        models.SetTornadoFieldConfig( tornadoField );
+        if ( renderer.TornadoVisualAutoEnableWithTornado() )
         {
-            runtimeSettings.tornadoVisual.enabled = launch.tornadoEnabled;
+            renderer.SetTornadoVisualEnabled( launch.tornadoEnabled );
         }
-        SyncTornadoRuntimeSettingsToPhysics( models, runtimeSettings );
     }
     if ( launch.tornadoVectors )
     {
         target.tornadoVectors = true;
-        runtimeSettings.tornadoField.visualizeVelocityField = true;
-        SyncTornadoRuntimeSettingsToPhysics( models, runtimeSettings );
+        TornadoFieldConfig tornadoField = models.GetTornadoFieldConfig();
+        tornadoField.visualizeVelocityField = true;
+        models.SetTornadoFieldConfig( tornadoField );
     }
     if ( launch.hasCinematicRenderingOverride )
     {
@@ -142,6 +154,7 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     {
         target.demoHeroStyle = true;
     }
+    target.dumpTextureAssets = launch.dumpTextureAssets;
     if ( launch.interactiveSceneRun )
     {
         target.interactiveSceneRun = true;
@@ -185,7 +198,6 @@ void ApplyStressLaunchPolicy( const RunLaunchOptions& launch,
 
 bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
                                       ReplayRuntime& replayRuntime,
-                                      ReplayLauncherVisualSample& launcherVisualScratch,
                                       int gameModelCapacity )
 {
     if ( !overrides.configureReplayRecording )
@@ -196,6 +208,7 @@ bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
     // Runtime allocation policy: launcher replay visuals are copied every
     // captured physics tick, so keep their scratch vectors reserved before the
     // replay phase begins.
+    ReplayLauncherVisualSample& launcherVisualScratch = replayRuntime.LauncherVisualCaptureScratch();
     launcherVisualScratch.rayLines.reserve( RunRayCastTestState::MAX_LINES );
     launcherVisualScratch.laserShots.reserve( REPLAY_LAUNCHER_LASER_SHOT_CAPACITY );
 
@@ -352,28 +365,6 @@ void ApplyStartupDiagnosticsPolicy( const RunStartupOverrides& overrides,
 } // namespace
 
 
-void RunSubsystemState::BindStartupServices( Window& windowOwner,
-                                             Threading::WorkerPool& workerPoolOwner,
-                                             const EngineConfig& configOwner )
-{
-    // Lifetime: these are process-start borrows. Runtime/Init owns the native
-    // window and worker pool, while Run owns the config reference passed into
-    // the constructor.
-    window = &windowOwner;
-    workerPool = &workerPoolOwner;
-    config = &configOwner;
-    cameraCollection.ApplyMovementSettings( BuildCameraMovementSettings( configOwner ) );
-}
-
-
-void RunRuntimeSettings::ApplyStartupConfig( const EngineConfig& config )
-{
-    isVsyncEnabled = config.runtimeRender.vsyncEnabled;
-    isPipelineSyncEnabled = config.runtimeRender.forcePipelineSync;
-    contactAudioDebugCounters = config.contactAudio.debugCounters;
-}
-
-
 void RunStartupState::ApplyStartupConfig( const EngineConfig& config )
 {
     gameModelCapacity = std::clamp( config.gameModelCapacity, 1, MAX_GAME_MODELS );
@@ -381,144 +372,39 @@ void RunStartupState::ApplyStartupConfig( const EngineConfig& config )
 }
 
 
-RuntimeRendererBindings Run::BuildRuntimeRendererBindings( Profiler* profiler )
-{
-    // Lifetime: Init resolves the optional profiler once, then Run wires that
-    // borrowed diagnostics source into the owners that sample it. Frame code
-    // should not reopen the global profiler accessor.
-    RuntimeRendererBindings bindings;
-    bindings.backend = m_renderBackendView;
-    bindings.runtime.systems = &m_systems;
-    bindings.runtime.config = &m_config;
-    bindings.runtime.launchOptions = &m_launchOptions;
-    bindings.runtime.runtimeSettings = &m_runtimeSettings;
-    bindings.world.worldEnvironment = &m_cWorldEnvironment;
-    bindings.world.collisionVisualizer = &m_collisionVisualizer;
-    bindings.world.broadphaseVisualizer = &m_broadphaseVisualizer;
-    bindings.world.physicsDebugVisualizer = &m_physicsDebugVisualizer;
-    bindings.scene.sceneController = &m_sceneController;
-    bindings.scene.sceneBrowser = &m_sceneController.Browser();
-    bindings.replayOverlay.replayRuntime = &m_replayRuntime;
-    bindings.toolOverlay.tools = &m_runtimeTools;
-    bindings.ui.ui = &m_UI;
-    bindings.ui.runtimeInput = &m_runtimeInput;
-    bindings.ui.camera = &m_camera;
-    bindings.ui.runtimeViewModel = &m_runtimeViewModel;
-    bindings.diagnostics.debug = &m_debug;
-    bindings.diagnostics.timers = &m_timers;
-    bindings.diagnostics.profiler = profiler;
-    return bindings;
-}
-
-
-// Why: RuntimeRenderer still passes C-style hooks down to a few pass owners.
-// Keeping the noncapturing hook lambdas here lets them access Run-owned editor
-// overlay behavior without adding another Run.h method or callback-holder type.
 Run::Run( Window& window,
           std::vector<std::string> sceneQueue,
           EngineConfig& config,
           Threading::WorkerPool& workerPool,
           Profiler* profiler,
           RuntimeRenderBackendView renderBackendView )
-    : m_config( config ), m_sceneController( std::move( sceneQueue ) ), m_sceneCoordinator( m_sceneController ),
+    : m_window( window ), m_workerPool( workerPool ), m_config( config ), m_sceneController( std::move( sceneQueue ) ),
       m_renderBackendView( renderBackendView ),
-      m_renderer(
-          BuildRuntimeRendererBindings( profiler ),
-          []( void* user, const char* phase, const char* step )
-          {
-              if ( Run* run = static_cast<Run*>( user ) )
-              {
-                  run->LogRenderResourceLifecycleStep( phase, step );
-              }
-          },
-          []( void* user,
-              SkullbonezCore::Rendering::IRenderResourceFactory& renderResources,
-              SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
-              const Math::Transformation::Matrix4& viewProjection,
-              const Math::Vector::Vector3& cameraEye,
-              const Math::Vector::Vector3& cameraUp )
-          {
-              Run* run = static_cast<Run*>( user );
-              if ( !run )
-              {
-                  return;
-              }
-
-              RunEditorTracer& tracer = run->m_runtimeTools.EditorTracer();
-              tracer.Clear();
-
-              int attachedTargetIndex = -1;
-              if ( RunCameraModeIsAttached( run->m_camera.mode ) )
-              {
-                  int targetIndex = -1;
-                  if ( run->TryResolveAttachedCameraTarget( targetIndex ) )
-                  {
-                      attachedTargetIndex = targetIndex;
-                  }
-              }
-
-              BuildEditorToolOverlayTrace( { run->m_runtimeTools.Editor(),
-                                             run->m_runtimeTools.RayCastTest(),
-                                             run->m_runtimeTools.MousePickup(),
-                                             run->m_cGameModelCollection,
-                                             run->m_cGameModelCollection.BodyStore(),
-                                             run->m_cGameModelCollection.Colliders(),
-                                             run->m_systems.assets,
-                                             tracer },
-                                           { run->m_debug.physicsDebugContactLinger,
-                                             run->InspectGizmoInteractionActive(),
-                                             Input::IsKeyDown( VK_CONTROL ),
-                                             attachedTargetIndex,
-                                             run->m_attachedCamera.activeFollow } );
-              run->RenderReplayPathVisualizer( tracer );
-              run->RenderReplayCauseFocusOverlay( tracer );
-              run->RenderReplayVelocityEditOverlay( tracer );
-              tracer.Render( viewProjection, cameraEye, cameraUp, renderCommands );
-              run->m_replayRuntime.RecordReplayTrajectorySubmissionFrame(
-                  tracer.ReplaySubmissionStats(),
-                  run->SceneState().currentFrame,
-                  RuntimeAllocation::RuntimeReserveAllocator::GrowthEventCount() );
-              run->m_runtimeTools.Laser().Render( viewProjection,
-                                                  cameraEye,
-                                                  cameraUp,
-                                                  run->m_systems.assets,
-                                                  renderResources,
-                                                  renderCommands );
-          },
-          this )
+      m_renderer( m_renderBackendView,
+                  RenderWorldView{ m_assets,
+                                   m_sceneController.Cameras(),
+                                   m_sceneController.Terrain(),
+                                   window,
+                                   m_config,
+                                   m_sceneController.World(),
+                                   m_collisionVisualizer,
+                                   m_broadphaseVisualizer,
+                                   m_physicsDebugVisualizer,
+                                   profiler },
+                  RenderSceneView{ m_sceneController, m_sceneController.Browser() } )
 {
     const EngineConfig& cfg = m_config;
     m_diagnosticsRuntime.BindProfiler( profiler );
-    m_systems.BindStartupServices( window, workerPool, cfg );
-    RefreshRuntimeViewModel();
+    m_sceneController.Cameras().ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
     RefreshSceneBrowserList( m_sceneController.Browser() );
-    m_cGameModelCollection.BindWorkerPool( workerPool );
-    m_cGameModelCollection.ApplyRuntimeConfig( cfg );
-    m_runtimeSettings.ApplyStartupConfig( cfg );
-    m_defaultCinematicRender = cfg.cinematicRender;
+    m_sceneController.Models().BindWorkerPool( workerPool );
+    m_sceneController.Models().BindSceneEntityStore( m_sceneController.Entities() );
+    m_sceneController.Models().ApplyRuntimeConfig( cfg );
+    m_renderer.SetVsyncEnabled( cfg.runtimeRender.vsyncEnabled );
+    m_renderer.SetPipelineSyncEnabled( cfg.runtimeRender.forcePipelineSync );
+    m_contactAudio.SetDebugCountersEnabled( cfg.contactAudio.debugCounters );
+    m_renderDefaults.CaptureStartupCinematicBaseline( cfg.cinematicRender );
     m_startup.ApplyStartupConfig( cfg );
-}
-
-
-RunSceneState& Run::SceneState()
-{
-    return m_sceneController.State();
-}
-
-
-const RunSceneState& Run::SceneState() const
-{
-    return m_sceneController.State();
-}
-
-void Run::RefreshRuntimeViewModel()
-{
-    m_runtimeViewModel =
-        RuntimeViewModelBuilder::Build( RuntimeViewModelContext{ m_sceneController,
-                                                                 m_diagnosticsRuntime.Capture(),
-                                                                 m_runtimeSettings,
-                                                                 m_cGameModelCollection.GetPhysicsEngine() },
-                                        m_contactAudio );
 }
 
 
@@ -526,14 +412,14 @@ Run::~Run()
 {
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Shutdown );
 #ifdef _DEBUG
-    EndPhysicsDiagnosticsRun( "process_end" );
+    m_diagnosticsRuntime.EndPhysicsDiagnosticsRun( m_sceneController.State(), "process_end" );
 #endif
 
     if ( m_diagnosticsRuntime.MainMemoryDumpRequested() )
     {
         m_diagnosticsRuntime.WriteMainMemoryDump( m_replayRuntime,
-                                                  m_cGameModelCollection,
-                                                  SceneState(),
+                                                  m_sceneController.Models(),
+                                                  m_sceneController.State(),
                                                   "shutdown",
                                                   m_timers.simulationTimer.GetTotalTime() );
     }
@@ -564,65 +450,29 @@ Run::~Run()
                 static_cast<unsigned long long>( replayStats.latestStateHash ) );
     }
 
-    // Hazard: backend resources can still be referenced by queued GPU work.
-    // Flush before releasing the runtime's owning pointers so teardown cannot
-    // free memory while the device is still reading it.
-    if ( m_renderBackendView.deviceLifecycle )
-    {
-        m_renderBackendView.deviceLifecycle->FlushGPU();
-    }
-
     // Lifetime: clean up backend-owned render resources while the current
-    // backend is still alive. The world step now releases water GPU resources
-    // without rebuilding; the flush keeps any already-submitted GPU work out of
-    // teardown.
-    ReleaseBackendOwnedRenderResources( "shutdown_release" );
-}
-
-
-void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
-{
-    SkullbonezCore::Rendering::IRenderDeviceLifecycle* releaseDeviceLifecycle = m_renderBackendView.deviceLifecycle;
-    SkullbonezCore::Rendering::IRenderResourceFactory* releaseRenderResources = m_renderBackendView.renderResources;
-
-    m_renderer.ReleaseBackendOwnedRuntimeResources(
-        RuntimeRenderer::BackendResourceReleaseContext{ phaseName,
-                                                        releaseDeviceLifecycle,
-                                                        releaseRenderResources,
-                                                        m_cGameModelCollection,
+    // backend is still alive. RuntimeRenderer performs the checked drain before
+    // its first release so no owner can destroy resources after a failed wait.
+    const SbResult releaseResult = m_renderer.ReleaseBackendOwnedRuntimeResources(
+        RuntimeRenderer::BackendResourceReleaseContext{ "shutdown_release",
+                                                        m_renderBackendView.deviceLifecycle,
+                                                        m_renderBackendView.renderResources,
+                                                        m_sceneController.Models(),
                                                         m_UI,
                                                         m_runtimeTools } );
-}
-
-
-void Run::DumpTextureAssets( FILE* out ) const
-{
-    if ( m_systems.textures )
+    if ( !releaseResult.ok )
     {
-        m_systems.textures->DumpTextureAssets( out );
+        // Lane F: a destructor cannot propagate Lane R to a caller, and letting
+        // member destruction continue after an uncertain GPU drain is unsafe.
+        SB_FATAL( "Runtime/Run",
+                  "Backend resource release could not establish GPU safety. owner=%s reason=%s",
+                  releaseResult.error.owner[0] != '\0' ? releaseResult.error.owner : "Rendering/DX12",
+                  releaseResult.error.message[0] != '\0' ? releaseResult.error.message : "GPU drain failed" );
     }
 }
 
 
-void Run::LogRenderResourceLifecycleStep( const char* phase, const char* step ) const
-{
-    const SkullbonezCore::Rendering::IRenderDeviceLifecycle* renderLifecycle = m_renderBackendView.deviceLifecycle;
-    const bool gfxReady = renderLifecycle != nullptr;
-    const int backendWidth = renderLifecycle ? renderLifecycle->GetWidth() : 0;
-    const int backendHeight = renderLifecycle ? renderLifecycle->GetHeight() : 0;
-    Log().WriteEventf( "render_resource_lifecycle phase=%s step=%s gfx_ready=%d backend_width=%d backend_height=%d "
-                       "scene_index=%d load=%d",
-                       phase ? phase : "unknown",
-                       step ? step : "unknown",
-                       gfxReady ? 1 : 0,
-                       backendWidth,
-                       backendHeight,
-                       SceneState().currentSceneIndex,
-                       SceneState().loadCount );
-}
-
-
-void Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
+SbResult Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
 {
     // Why: Runtime/Init owns CLI parsing, but Run owns the live side effects
     // needed to make those startup policies active. Keep the public boundary as
@@ -631,13 +481,14 @@ void Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
     // runtime services.
     const RunLaunchOptions& launch = overrides.launch;
 
-    ApplyRuntimeLaunchPolicy( launch, m_launchOptions, m_runtimeSettings, m_cGameModelCollection, m_contactAudio );
+    ApplyRuntimeLaunchPolicy( launch, m_launchOptions, m_renderer, m_sceneController.Models(), m_contactAudio );
     if ( overrides.liveStyleControlDirectory && overrides.liveStyleControlDirectory[0] != '\0' )
     {
         if ( m_liveStyle.ConfigureDirectory( overrides.liveStyleControlDirectory ) )
         {
             m_launchOptions.interactiveSceneRun = true;
-            EnterInteractiveSceneRun();
+            m_sceneController.EnterInteractiveRun();
+            m_diagnosticsRuntime.Capture().DisableAutomationExit();
             m_liveStyle.MarkReady();
         }
     }
@@ -646,191 +497,106 @@ void Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
     {
         m_diagnosticsRuntime.SetMainMemoryDumpPath( overrides.mainMemoryDumpPath );
     }
-    if ( ConfigureStartupReplayRecording( overrides,
-                                          m_replayRuntime,
-                                          m_replayLauncherVisualScratch,
-                                          m_startup.gameModelCapacity ) )
+    if ( ConfigureStartupReplayRecording( overrides, m_replayRuntime, m_startup.gameModelCapacity ) )
     {
-        ExitReplayInspectionCamera();
+        m_replayRuntime.ExitInspectionCamera(
+            &m_sceneController.Cameras(),
+            m_sceneController.Terrain().Get(),
+            m_camera,
+            NormalizeRuntimeCameraMode( m_replayRuntime.Camera().restoreCameraMode,
+                                        m_sceneController.State().isSceneMode,
+                                        RuntimeCameraModeEnabledMask( m_sceneController ) ),
+            m_attachedCamera.State().activeFollow,
+            m_camera.director.grabbed,
+            m_interaction,
+            m_inputRouter );
     }
+    m_replayRuntime.ConfigureStartupWorkflows( ReplayRuntime::ReplayStartupRequest{
+        overrides.replayLoadPath,
+        overrides.replayLoadProbe,
 #ifdef _DEBUG
-    ApplyReplayProbeStartup( overrides, m_replayProbes );
+        overrides.replayRestoreFileProbePath,
+        overrides.replayRestoreTargetFileProbePath,
+        overrides.replayRestoreBranchFileProbePath,
+        overrides.replayRestoreFailureFileProbePath
+#endif
+    } );
+#ifdef _DEBUG
+    ApplyReplayProbeStartup( overrides, m_replayRuntime.Probes() );
 #endif
     ApplyStartupPresentationPolicy( overrides, m_launchOptions, m_debug, m_UI );
 #ifdef _DEBUG
-    ApplyStartupDiagnosticsPolicy( overrides, m_diagnosticsRuntime, m_cGameModelCollection );
+    ApplyStartupDiagnosticsPolicy( overrides, m_diagnosticsRuntime, m_sceneController.Models() );
 #endif
-}
-
-
-SbResult Run::SetInteractionAutomation( const char* scriptPath, const char* reportPath )
-{
-    m_interactionAutomation = RunInteractionAutomationState{};
-    if ( reportPath && reportPath[0] != '\0' )
-    {
-        strcpy_s( m_interactionAutomation.reportPath, sizeof( m_interactionAutomation.reportPath ), reportPath );
-    }
-    else
-    {
-        strcpy_s( m_interactionAutomation.reportPath,
-                  sizeof( m_interactionAutomation.reportPath ),
-                  "TestOutput\\interaction\\interaction_report.json" );
-    }
-
-    if ( !scriptPath || scriptPath[0] == '\0' )
-    {
-        m_interactionAutomation.failed = true;
-        m_interactionAutomation.finished = true;
-        strcpy_s( m_interactionAutomation.failure,
-                  sizeof( m_interactionAutomation.failure ),
-                  "interaction automation requires a script path" );
-        WriteInteractionAutomationReport();
-        return SbResult::Failure( "InteractionAutomation", m_interactionAutomation.failure );
-    }
-
-    strcpy_s( m_interactionAutomation.scriptPath, sizeof( m_interactionAutomation.scriptPath ), scriptPath );
-    m_interactionAutomation.enabled = true;
-    printf( "[interaction] Script: %s\n", m_interactionAutomation.scriptPath );
-    printf( "[interaction] Report: %s\n", m_interactionAutomation.reportPath );
-    return SbResult::Success();
-}
-
-
-SbResult Run::InteractionAutomationResult() const
-{
-    if ( !m_interactionAutomation.failed )
+    if ( !overrides.interactionScriptPath )
     {
         return SbResult::Success();
     }
-    const char* message =
-        m_interactionAutomation.failure[0] != '\0' ? m_interactionAutomation.failure : "interaction automation failed";
-    return SbResult::Failure( "InteractionAutomation", message );
+    const SbResult result = ConfigureInteractionAutomation( m_interactionAutomation,
+                                                            overrides.interactionScriptPath,
+                                                            overrides.interactionReportPath );
+    if ( !result.ok )
+    {
+        (void)WriteInteractionAutomationReport( m_interactionAutomation,
+                                                m_sceneController,
+                                                m_runtimeTools,
+                                                m_replayRuntime,
+                                                m_interaction,
+                                                m_camera,
+                                                m_UI );
+    }
+    return result;
 }
 
 
 #ifdef _DEBUG
-const RunReplayProbeState& Run::ReplayProbes() const
+RunReplayProbeState& ReplayRuntime::Probes()
 {
-    return m_replayProbes;
+    return m_probes;
+}
+
+
+const RunReplayProbeState& ReplayRuntime::Probes() const
+{
+    return m_probes;
 }
 #endif
 
 
-bool Run::LoadReplayPresentationArtifact( const char* path, bool activateScrubber )
+ReplayRuntime::SceneTimelineResetInput ReplayRuntime::DescribeSceneTimeline( const SceneController& sceneController,
+                                                                             const RunSceneState& scene,
+                                                                             int gameModelCapacity,
+                                                                             uint32_t generatedObjectTypeOverride )
 {
-    if ( !path || path[0] == '\0' )
-    {
-        return false;
-    }
-
-    std::vector<ReplayPresentationSample> samples;
-    ReplayV2LoadResult result;
-    if ( !ReplayV2Artifact::LoadPresentation( path, samples, &result ) || samples.size() < 2 )
-    {
-        return false;
-    }
-
-    m_replayRuntime.LoadedPresentation() = RunLoadedReplayPresentationState{};
-    m_replayRuntime.LoadedPresentation().samples.swap( samples );
-    m_replayRuntime.LoadedPresentation().enabled = true;
-    m_replayRuntime.LoadedPresentation().bodyDictionaryCount = result.bodyDictionaryCount;
-    m_replayRuntime.LoadedPresentation().fileBytes = result.fileBytes;
-    m_replayRuntime.LoadedPresentation().firstFrame = result.firstFrame;
-    m_replayRuntime.LoadedPresentation().lastFrame = result.lastFrame;
-    strncpy_s( m_replayRuntime.LoadedPresentation().path,
-               sizeof( m_replayRuntime.LoadedPresentation().path ),
-               path,
-               _TRUNCATE );
-
-    if ( activateScrubber )
-    {
-        if ( m_replayRuntime.Scrubber().liveAdvanceHeld )
-        {
-            m_replayRuntime.SetLiveAdvanceHeld( false );
-        }
-        CancelReplayToolDragState();
-
-        m_replayRuntime.ClearCameraFocusForRestore();
-        ExitReplayInspectionCamera();
-        m_replayRuntime.ArmLoadedPresentationScrubber( 0.25f, m_timers.simulationTimer.GetTotalTime() );
-        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
-                                                            InteractionExitReason::EnterReplay );
-        if ( m_replayRuntime.ShouldUseInspectionCamera() )
-        {
-            EnterReplayInspectionCamera();
-        }
-        else
-        {
-            ExitReplayInspectionCamera();
-        }
-    }
-
-    printf( "[replay] Loaded v2 presentation artifact: path=%s samples=%llu bodies=%llu first_frame=%llu "
-            "last_frame=%llu bytes=%llu\n",
-            m_replayRuntime.LoadedPresentation().path,
-            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().samples.size() ),
-            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().bodyDictionaryCount ),
-            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().firstFrame ),
-            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().lastFrame ),
-            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().fileBytes ) );
-    return true;
-}
-
-
-void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
-{
-    CancelReplayToolDragState();
-
-    const std::string* scenePath = m_sceneController.CurrentPath();
+    const std::string* scenePath = sceneController.CurrentPath();
     const char* sceneLabel = scenePath && !scenePath->empty() ? scenePath->c_str() : "generated";
-    ReplayRuntime::SceneTimelineResetInput replayReset;
+    SceneTimelineResetInput replayReset;
     replayReset.sceneLabel = sceneLabel;
-    replayReset.preserveBranchMetadata = preserveBranchMetadata;
-    replayReset.isSceneMode = SceneState().isSceneMode;
-    replayReset.modelCount = SceneState().modelCount;
-    replayReset.solverBallCount = SceneState().solverBallCount;
-    replayReset.solverBoxCount = SceneState().solverBoxCount;
-    replayReset.rngSeed = SceneState().rngSeed;
-    replayReset.gameModelCapacity = m_startup.gameModelCapacity;
-    replayReset.generatedObjectTypeOverride = static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride );
-    replayReset.hasUiModelCountOverride = m_sceneController.UIOverrides().modelCountOverride >= 0;
-    replayReset.hasUiSolverCountOverride = m_sceneController.UIOverrides().solverBallCountOverride >= 0 ||
-                                           m_sceneController.UIOverrides().solverBoxCountOverride >= 0;
-
-    const ReplayRuntime::SceneTimelineResetResult replayResetBegin =
-        m_replayRuntime.BeginSceneTimelineReset( replayReset );
-    if ( replayResetBegin.exitInspectionCamera )
-    {
-        ExitReplayInspectionCamera();
-    }
-
-    const ReplayRuntime::SceneTimelineResetResult replayResetFinish =
-        m_replayRuntime.FinishSceneTimelineReset( replayReset );
-    if ( replayResetFinish.exitInspectionCamera )
-    {
-        ExitReplayInspectionCamera();
-    }
+    replayReset.isSceneMode = scene.isSceneMode;
+    replayReset.modelCount = scene.modelCount;
+    replayReset.solverBallCount = scene.solverBallCount;
+    replayReset.solverBoxCount = scene.solverBoxCount;
+    replayReset.rngSeed = scene.rngSeed;
+    replayReset.gameModelCapacity = gameModelCapacity;
+    replayReset.generatedObjectTypeOverride = generatedObjectTypeOverride;
+    replayReset.hasUiModelCountOverride = sceneController.UIOverrides().modelCountOverride >= 0;
+    replayReset.hasUiSolverCountOverride = sceneController.UIOverrides().solverBallCountOverride >= 0 ||
+                                           sceneController.UIOverrides().solverBoxCountOverride >= 0;
+    return replayReset;
 }
 
 
-bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize )
+bool ReplayRuntime::ApplySolverSampleState( const ReplaySolverSampleRestoreContext& owners,
+                                            const ReplaySolverFrameSample& sample,
+                                            char* outReason,
+                                            std::size_t reasonSize )
 {
-    return ReplayRestoreService::ApplySolverSampleState( ReplaySolverSampleRestoreContext{ m_cGameModelCollection,
-                                                                                           m_cWorldEnvironment,
-                                                                                           SceneState(),
-                                                                                           m_runtimeSettings,
-                                                                                           m_debug,
-                                                                                           m_systems.cameras,
-                                                                                           m_runtimeTools },
-                                                         sample,
-                                                         outReason,
-                                                         reasonSize );
+    return ReplayRestoreService::ApplySolverSampleState( owners, sample, outReason, reasonSize );
 }
 
-bool Run::CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& reference,
-                                          uint64_t& outSolverHash,
-                                          uint64_t& outPresentationHash,
-                                          std::size_t& outBodyCount )
+bool ReplayRuntime::CaptureCurrentSolverSample( const ReplaySolverSampleRestoreContext& owners,
+                                                const ReplaySolverFrameSample& reference,
+                                                ReplaySolverFrameSample& outSample )
 {
     ReplayRecorderConfig config;
     config.enabled = true;
@@ -844,7 +610,7 @@ bool Run::CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& referen
     }
 
     ReplayLauncherVisualSample launcherVisual;
-    m_runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
+    owners.runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
 
     ReplayCaptureInput input;
     input.branch = reference.branch;
@@ -852,16 +618,17 @@ bool Run::CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& referen
     input.sceneFrame = reference.sceneFrame;
     input.simulationSeconds = reference.simulationSeconds;
     input.physicsDt = reference.physicsDt > 0.0f ? reference.physicsDt : PHYSICS_FIXED_DT;
-    input.fixedStep = SceneState().isFixedStep;
-    input.scenePhysicsEnabled = SceneState().isScenePhysics;
-    input.sceneTextEnabled = SceneState().isSceneText;
-    input.waterHidden = m_debug.isWaterHidden;
-    input.terrainHidden = m_debug.isTerrainHidden;
-    input.cameras = m_systems.cameras;
-    input.world = &m_cWorldEnvironment;
-    input.models = &m_cGameModelCollection;
-    input.bodyStore = &m_cGameModelCollection.BodyStore();
-    input.colliderStore = &m_cGameModelCollection.Colliders();
+    input.fixedStep = owners.scene.isFixedStep;
+    input.scenePhysicsEnabled = owners.scene.isScenePhysics;
+    input.sceneTextEnabled = owners.scene.isSceneText;
+    input.waterHidden = owners.debug.isWaterHidden;
+    input.terrainHidden = owners.debug.isTerrainHidden;
+    input.cameras = &owners.sceneController.Cameras();
+    input.world = &owners.sceneController.World();
+    input.physics = &owners.physics;
+    input.entities = &owners.sceneController.Entities();
+    input.bodyStore = &Physics::PhysicsEngineStoreQueries::BodyStore( owners.physics );
+    input.colliderStore = &Physics::PhysicsEngineStoreQueries::Colliders( owners.physics );
     input.launcherVisual = &launcherVisual;
     verifier.CaptureFrame( input );
 
@@ -871,15 +638,33 @@ bool Run::CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& referen
         return false;
     }
 
-    outSolverHash = verified->solverHash;
-    outPresentationHash = verified->presentationHash;
-    outBodyCount = verified->bodies.size();
+    outSample = *verified;
     return true;
 }
 
-bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample,
-                                           char* outReason,
-                                           std::size_t reasonSize )
+
+bool ReplayRuntime::CaptureCurrentSolverHash( const ReplaySolverSampleRestoreContext& owners,
+                                              const ReplaySolverFrameSample& reference,
+                                              uint64_t& outSolverHash,
+                                              uint64_t& outPresentationHash,
+                                              std::size_t& outBodyCount )
+{
+    ReplaySolverFrameSample verified;
+    if ( !CaptureCurrentSolverSample( owners, reference, verified ) )
+    {
+        return false;
+    }
+    outSolverHash = verified.solverHash;
+    outPresentationHash = verified.presentationHash;
+    outBodyCount = verified.bodies.size();
+    return true;
+}
+
+
+bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayRestoreTransaction& transaction,
+                                               const ReplaySolverFrameSample& sample,
+                                               char* outReason,
+                                               std::size_t reasonSize )
 {
     auto writeReason = [outReason, reasonSize]( const char* message )
     {
@@ -890,18 +675,15 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
     };
 
     ReplaySolverFrameSample liveBackup;
-    bool hasLiveBackup = false;
-    if ( const ReplaySolverFrameSample* latest = m_replayRuntime.Solver().LatestSample() )
+    if ( !CaptureCurrentSolverSample( transaction.sampleOwners, sample, liveBackup ) )
     {
-        if ( latest->frameIndex != sample.frameIndex || latest->solverHash != sample.solverHash )
-        {
-            liveBackup = *latest;
-            hasLiveBackup = true;
-        }
+        writeReason( "failed to capture live replay backup" );
+        return false;
     }
+    const bool hasLiveBackup = true;
 
     char applyReason[128] = {};
-    if ( !ApplyReplaySolverSampleState( sample, applyReason, sizeof( applyReason ) ) )
+    if ( !ApplySolverSampleState( transaction.sampleOwners, sample, applyReason, sizeof( applyReason ) ) )
     {
         writeReason( applyReason[0] != '\0' ? applyReason : "restore apply failed" );
         return false;
@@ -910,28 +692,41 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
     uint64_t restoredSolverHash = 0;
     uint64_t restoredPresentationHash = 0;
     std::size_t restoredBodyCount = 0;
-    const bool hashCaptured =
-        CaptureCurrentReplaySolverHash( sample, restoredSolverHash, restoredPresentationHash, restoredBodyCount );
+    const bool hashCaptured = CaptureCurrentSolverHash( transaction.sampleOwners,
+                                                        sample,
+                                                        restoredSolverHash,
+                                                        restoredPresentationHash,
+                                                        restoredBodyCount );
     const bool hashMatched = hashCaptured && restoredSolverHash == sample.solverHash;
     bool fallbackRestored = false;
 
     if ( !hashMatched && hasLiveBackup )
     {
         char fallbackReason[128] = {};
-        fallbackRestored = ApplyReplaySolverSampleState( liveBackup, fallbackReason, sizeof( fallbackReason ) );
+        fallbackRestored =
+            ApplySolverSampleState( transaction.sampleOwners, liveBackup, fallbackReason, sizeof( fallbackReason ) );
     }
 
 #ifdef _DEBUG
-    m_diagnosticsRuntime.LogReplayRestoreProbe( SceneState(),
-                                                sample,
-                                                restoredSolverHash,
-                                                restoredPresentationHash,
-                                                restoredBodyCount,
-                                                hashCaptured,
-                                                hashMatched,
-                                                !hashMatched && hasLiveBackup,
-                                                fallbackRestored );
+    transaction.diagnostics.LogReplayRestoreProbe( transaction.sampleOwners.scene,
+                                                   sample,
+                                                   restoredSolverHash,
+                                                   restoredPresentationHash,
+                                                   restoredBodyCount,
+                                                   hashCaptured,
+                                                   hashMatched,
+                                                   !hashMatched && hasLiveBackup,
+                                                   fallbackRestored );
 #endif
+
+    // Hazard: a recoverable restore failure may return only after the live
+    // backup was reapplied. Continuing from a half-restored solver would make
+    // later physics output nondeterministic, so rollback failure is Lane F.
+    if ( !hashMatched && !fallbackRestored )
+    {
+        SB_FATAL( "Runtime/ReplayRestore",
+                  "Replay restore verification failed and the live backup could not be restored" );
+    }
 
     if ( !hashCaptured )
     {
@@ -946,26 +741,26 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
     }
 
     const uint32_t parentBranchId =
-        sample.branch.branchId != 0
-            ? sample.branch.branchId
-            : ( m_replayRuntime.Branch().branchId != 0 ? m_replayRuntime.Branch().branchId : 1u );
+        sample.branch.branchId != 0 ? sample.branch.branchId : ( Branch().branchId != 0 ? Branch().branchId : 1u );
     ReplayBranchInfo restoredBranch;
-    restoredBranch.branchId = (std::max)( m_replayRuntime.Branch().branchId, parentBranchId ) + 1u;
+    restoredBranch.branchId = (std::max)( Branch().branchId, parentBranchId ) + 1u;
     restoredBranch.parentBranchId = parentBranchId;
     restoredBranch.startFrame = 0;
     restoredBranch.sourceFrame = sample.frameIndex;
     restoredBranch.sourceSolverHash = sample.solverHash;
-    m_replayRuntime.Branch() = restoredBranch;
-    ResetReplayTimelineForActiveScene( true );
-    m_replayRuntime.RecordEvent( ReplayEventKind::BranchRestore,
-                                 0,
-                                 0,
-                                 static_cast<int32_t>( parentBranchId ),
-                                 sample.sceneFrame,
-                                 0,
-                                 0,
-                                 sample.solverHash,
-                                 "hash-verified solver restore" );
+    Branch() = restoredBranch;
+    SceneTimelineResetInput reset = transaction.timelineReset;
+    reset.preserveBranchMetadata = true;
+    ResetSceneTimeline( reset, transaction.timelineOwners );
+    RecordEvent( ReplayEventKind::BranchRestore,
+                 0,
+                 0,
+                 static_cast<int32_t>( parentBranchId ),
+                 sample.sceneFrame,
+                 0,
+                 0,
+                 sample.solverHash,
+                 "hash-verified solver restore" );
     writeReason( "restored hash match" );
     return true;
 }
@@ -973,8 +768,6 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
 
 void Run::Initialise()
 {
-    assert( m_systems.window );
-
     // Why: timers default to inert storage so Run construction cannot throw
     // before the startup reporter exists. Initialise them at this boundary and
     // return platform counter failures through the normal Lane R process path.
@@ -995,33 +788,29 @@ void Run::Initialise()
     const char* rendererName = renderDiagnostics.GetRendererName();
     char titleText[256];
     sprintf_s( titleText, "%s [%s] -- LOADING!!!", TITLE_TEXT, rendererName );
-    m_systems.window->SetTitleText( titleText );
+    m_window.SetTitleText( titleText );
     const EngineConfig& cfg = m_config;
 
-    m_systems.textures = &m_systems.textureCollection;
-    m_systems.textures->BindAssetSystem( &m_systems.assets );
-    m_systems.textures->BindRenderContexts( &renderResources, &renderCommands );
-    m_systems.assets.RegisterBuiltInSourceAssets( m_config );
-
     // Build renderer-owned resources from source asset records.
-    const SbResult rebuildResourcesResult = RebuildRegisteredRenderResources();
+    const SbResult rebuildResourcesResult = m_renderer.InitialiseProcessResources( renderResources,
+                                                                                   renderCommands,
+                                                                                   m_config,
+                                                                                   m_launchOptions.dumpTextureAssets );
     if ( !rebuildResourcesResult.ok )
     {
         m_lastSceneLoadResult = rebuildResourcesResult;
         return;
     }
-
-    const std::string terrainRawPath =
-        m_systems.assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
-                                                  "terrain.raw",
-                                                  cfg.terrainRaw.c_str() );
+    const std::string terrainRawPath = m_assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
+                                                                         "terrain.raw",
+                                                                         cfg.terrainRaw.c_str() );
     std::unique_ptr<Terrain> startupTerrain;
     const SbResult startupTerrainResult = Terrain::TryCreateFromHeightMap( terrainRawPath.c_str(),
                                                                            256,
                                                                            8,
                                                                            15,
                                                                            m_config,
-                                                                           m_systems.assets,
+                                                                           m_assets,
                                                                            renderResources,
                                                                            startupTerrain );
     if ( !startupTerrainResult.ok )
@@ -1029,38 +818,22 @@ void Run::Initialise()
         m_lastSceneLoadResult = startupTerrainResult;
         return;
     }
-    m_systems.terrain = std::move( startupTerrain );
-    m_systems.isFlatSlopeTerrain = false;
+    m_sceneController.Terrain().Replace( std::move( startupTerrain ), false );
 
-    // Init SkyBox (m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax)
-    m_systems.skyBoxOwner = std::make_unique<SkyBox>( -250, 300, -300, 300, -250, 300 );
-    m_systems.skyBox = m_systems.skyBoxOwner.get();
-    m_systems.skyBox->BindTextures( *m_systems.textures );
-    m_systems.skyBox->BindRenderContexts( m_config, m_systems.assets, renderResources );
-    const SbResult skyBoxResourceResult = m_systems.skyBox->ResetRenderResources();
-    if ( !skyBoxResourceResult.ok )
-    {
-        m_lastSceneLoadResult = skyBoxResourceResult;
-        return;
-    }
-
-    m_cWorldEnvironment = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
-    m_cWorldEnvironment.BindRenderContexts( m_config, m_systems.assets, renderResources );
-    XZBounds tb = m_systems.terrain->GetXZBounds();
-    m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
+    m_sceneController.World() = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
+    m_sceneController.World().BindRenderContexts( m_config, m_assets, renderResources );
+    XZBounds tb = m_sceneController.Terrain().Get()->GetXZBounds();
+    m_sceneController.World().SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
 
     // Why: SDF atlas generation is a startup asset/tooling boundary. Report it
     // as Lane R before scene loading instead of throwing through Run startup.
     const SbResult uiTextResourceResult =
-        m_renderer.EnsureUiTextResources( renderResources, m_systems.assets, cfg.window.screenX, cfg.window.screenY );
+        m_renderer.EnsureUiTextResources( renderResources, m_assets, cfg.window.screenX, cfg.window.screenY );
     if ( !uiTextResourceResult.ok )
     {
         m_lastSceneLoadResult = uiTextResourceResult;
         return;
     }
-
-    // Init cameras (shared across scenes, Reset() between loads)
-    m_systems.cameras = &m_systems.cameraCollection;
 
     m_contactAudio.SetMasterGain( cfg.contactAudio.masterGain );
     m_contactAudio.SetMaxDistanceScale( cfg.contactAudio.maxDistanceScale );
@@ -1080,7 +853,94 @@ void Run::Initialise()
         m_contactAudio.SetEnabled( false );
     }
 
-    m_lastSceneLoadResult = LoadScene( 0 );
+    m_lastSceneLoadResult = m_sceneController.Load( SceneLoadRequest::Load( 0, false, false, false ),
+                                                    m_config,
+                                                    m_launchOptions,
+                                                    m_renderDefaults.CinematicBaseline(),
+                                                    m_startup,
+                                                    m_diagnosticsRuntime,
+                                                    m_timers,
+                                                    m_assets,
+                                                    m_workerPool,
+                                                    m_window,
+                                                    m_inputRouter,
+                                                    m_interaction,
+                                                    m_camera,
+                                                    m_attachedCamera.State(),
+                                                    m_simulation,
+                                                    m_replayRuntime,
+                                                    m_contactAudio,
+                                                    m_UI,
+                                                    m_debug,
+                                                    m_graphicsStress,
+                                                    m_runtimeTools,
+                                                    m_physicsDebugVisualizer,
+                                                    m_renderBackendView,
+                                                    m_renderer );
+    if ( !m_lastSceneLoadResult.ok )
+    {
+        return;
+    }
+
+    const ReplayRuntime::SceneTimelineResetInput timelineReset =
+        ReplayRuntime::DescribeSceneTimeline( m_sceneController,
+                                              m_sceneController.State(),
+                                              m_startup.gameModelCapacity,
+                                              static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
+    ReplayRuntime::SceneTimelineResetOwners timelineOwners{
+        m_inputRouter,
+        m_interaction,
+        &m_sceneController.Cameras(),
+        m_sceneController.Terrain().Get(),
+        m_camera,
+        NormalizeRuntimeCameraMode( m_replayRuntime.Camera().restoreCameraMode,
+                                    m_sceneController.State().isSceneMode,
+                                    RuntimeCameraModeEnabledMask( m_sceneController ) ),
+        m_attachedCamera.State().activeFollow,
+        m_camera.director.grabbed };
+    const ReplayRuntime::ReplayStartupLoadInput loadInput{
+        m_timers.simulationTimer.GetTotalTime(),
+        &m_sceneController.Cameras(),
+        m_runtimeTools.MousePickup(),
+        NormalizeRuntimeCameraMode( m_camera.mode,
+                                    m_sceneController.State().isSceneMode,
+                                    RuntimeCameraModeEnabledMask( m_sceneController ) ),
+        timelineOwners };
+#ifdef _DEBUG
+    ReplaySolverSampleRestoreContext probeSample{ m_sceneController.Physics(),
+                                                  m_sceneController,
+                                                  m_sceneController.State(),
+                                                  m_renderer,
+                                                  m_debug,
+                                                  m_runtimeTools };
+    const ReplayRuntime::ReplayRestoreTransaction probeTransaction{ probeSample,
+                                                                    m_diagnosticsRuntime,
+                                                                    timelineReset,
+                                                                    timelineOwners };
+    const ReplayRuntime::ReplayArtifactTopologyOwners probeTopology{ m_simulation,
+                                                                     m_config,
+                                                                     m_assets,
+                                                                     m_workerPool,
+                                                                     m_launchOptions.generatedObjectTypeOverride,
+                                                                     m_startup.gameModelCapacity };
+    const ReplayRuntime::ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows(
+        loadInput,
+        probeTransaction,
+        probeTopology,
+        m_runtimeTools.MousePickup(),
+        NormalizeRuntimeCameraMode( m_camera.mode,
+                                    m_sceneController.State().isSceneMode,
+                                    RuntimeCameraModeEnabledMask( m_sceneController ) ),
+        m_timers.simulationTimer.GetTotalTime() );
+#else
+    const ReplayRuntime::ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows( loadInput );
+#endif
+    if ( !replayStartup.status.ok )
+    {
+        m_lastSceneLoadResult = replayStartup.status;
+        return;
+    }
+    m_skipExecute = replayStartup.skipExecute;
 }
 
 
@@ -1115,30 +975,65 @@ SbResult Run::RunSceneLoadOnly( const char* snapshotOutPath )
             m_sceneController.PathAt( 0 ).empty() ? "generated" : m_sceneController.PathAt( 0 ).c_str() );
     if ( writeSnapshot )
     {
-        const bool saved = m_cGameModelCollection.SaveSceneSnapshot( snapshotOutPath,
-                                                                     SceneState().isScenePhysics,
-                                                                     SceneState().isSceneText,
-                                                                     m_cWorldEnvironment,
-                                                                     m_systems.cameras->GetCameraTranslation(),
-                                                                     m_systems.cameras->GetCameraView(),
-                                                                     m_systems.cameras->GetCameraUp(),
-                                                                     SceneState().isEditableScene,
-                                                                     SceneState().isFixedStep,
-                                                                     m_debug.isWaterHidden,
-                                                                     m_debug.isTerrainHidden,
-                                                                     SceneState().hasFlatSlope,
-                                                                     SceneState().flatBaseY,
-                                                                     SceneState().flatSlopeX,
-                                                                     SceneState().flatSlopeZ );
-        if ( !saved )
+        // Lifetime: scene-load-only borrows owner arrays only until the
+        // synchronous snapshot write completes.
+        const auto& joints = m_sceneController.Models().GetPointJointConstraints();
+        const SceneSaveView saveView{ m_sceneController.Entities(),
+                                      m_sceneController.Models().BodyStore(),
+                                      m_sceneController.Models().Colliders(),
+                                      joints.data(),
+                                      static_cast<int>( joints.size() ),
+                                      m_sceneController.World().GetGravity(),
+                                      m_sceneController.World().GetFluidSurfaceHeight(),
+                                      m_sceneController.World().GetFluidDensity(),
+                                      m_sceneController.World().GetMutualGravitySettings() };
+        const SceneSaveRequest saveRequest{ snapshotOutPath,
+                                            m_sceneController.Cameras().GetCameraTranslation(),
+                                            m_sceneController.Cameras().GetCameraView(),
+                                            m_sceneController.Cameras().GetCameraUp(),
+                                            m_sceneController.State().isScenePhysics,
+                                            m_sceneController.State().isSceneText,
+                                            m_sceneController.State().isEditableScene,
+                                            m_sceneController.State().isFixedStep,
+                                            m_debug.isWaterHidden,
+                                            m_debug.isTerrainHidden,
+                                            m_sceneController.State().hasFlatSlope,
+                                            m_sceneController.State().flatBaseY,
+                                            m_sceneController.State().flatSlopeX,
+                                            m_sceneController.State().flatSlopeZ };
+        const SbResult saveResult = SceneSnapshotWriter::Save( saveView, saveRequest );
+        if ( !saveResult.ok )
         {
-            return SbResult::Failure( "Runtime/SceneLoadOnly", "Failed to write scene snapshot." );
+            return saveResult;
         }
         printf( "[scene-load-only] Snapshot written: %s\n", snapshotOutPath );
     }
     for ( int i = 1; i < sceneCount; ++i )
     {
-        const SbResult loadResult = LoadScene( i );
+        const SbResult loadResult = m_sceneController.Load( SceneLoadRequest::Load( i, false, false, false ),
+                                                            m_config,
+                                                            m_launchOptions,
+                                                            m_renderDefaults.CinematicBaseline(),
+                                                            m_startup,
+                                                            m_diagnosticsRuntime,
+                                                            m_timers,
+                                                            m_assets,
+                                                            m_workerPool,
+                                                            m_window,
+                                                            m_inputRouter,
+                                                            m_interaction,
+                                                            m_camera,
+                                                            m_attachedCamera.State(),
+                                                            m_simulation,
+                                                            m_replayRuntime,
+                                                            m_contactAudio,
+                                                            m_UI,
+                                                            m_debug,
+                                                            m_graphicsStress,
+                                                            m_runtimeTools,
+                                                            m_physicsDebugVisualizer,
+                                                            m_renderBackendView,
+                                                            m_renderer );
         if ( !loadResult.ok )
         {
             return loadResult;
@@ -1156,37 +1051,3 @@ SbResult Run::RunSceneLoadOnly( const char* snapshotOutPath )
     fflush( stdout );
     return SbResult::Success();
 }
-
-
-#ifdef _DEBUG
-void Run::LogSceneFinished( const char* reason )
-{
-    const char* scenePath = "generated";
-    const std::string* currentScenePath = m_sceneController.CurrentPath();
-    if ( currentScenePath && !currentScenePath->empty() )
-    {
-        scenePath = currentScenePath->c_str();
-    }
-
-    const char* rendererName =
-        m_renderBackendView.renderDiagnostics ? m_renderBackendView.renderDiagnostics->GetRendererName() : "unknown";
-    m_diagnosticsRuntime.LogSceneFinished( SceneState(), scenePath, rendererName, reason );
-}
-
-
-void Run::BeginPhysicsDiagnosticsRun( const char* scenePath )
-{
-    m_diagnosticsRuntime.BeginPhysicsDiagnosticsRun(
-        m_cGameModelCollection,
-        SceneState(),
-        m_config,
-        scenePath,
-        m_renderBackendView.renderDiagnostics ? m_renderBackendView.renderDiagnostics->GetRendererName() : "unknown" );
-}
-
-
-void Run::EndPhysicsDiagnosticsRun( const char* status )
-{
-    m_diagnosticsRuntime.EndPhysicsDiagnosticsRun( SceneState(), status );
-}
-#endif

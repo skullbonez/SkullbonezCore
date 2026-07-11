@@ -1,11 +1,11 @@
 /*
 File: SkullbonezSource/Runtime/InputController.cpp
 Purpose:
-  Converts raw runtime input state into edge-triggered commands and camera deltas.
+  Maintains runtime input-mode state and applies camera mouse-look deltas.
 
 Mental model:
-  This layer is intentionally narrow: it does not apply gameplay commands, it
-  only normalizes keyboard/mouse edges for the runtime.
+  InputRouter normalizes semantic keyboard edges. This layer retains camera and
+  pointer compatibility behavior while later input slices move those paths.
 
 Glossary:
   Input edge: Transition from not pressed to pressed, used for one-shot
@@ -14,19 +14,19 @@ Glossary:
   Runtime command: Normalized input event consumed later by Run.
 
 Invariants:
-  - CaptureActionPress must be called once per frame for each action whose edge
-    is needed; the context stores previous down state.
-  - UI/focus blocking policy is resolved before commands are emitted so later
-    Run code can stay command-oriented.
+  - UI/focus blocking policy is resolved before camera/pointer work is applied.
+  - RuntimeInputContext does not store semantic keyboard edge memory.
 
 Related:
   - SkullbonezSource/Runtime/InputController.h
   - SkullbonezSource/Runtime/RunInput.cpp
 */
 #include "InputController.h"
+#include "InputRouter.h"
 
 #include "RunCameraState.h"
-#include "RunInternal.h"
+#include "CameraCollection.h"
+#include "../World/Terrain.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -38,94 +38,15 @@ namespace Basics
 {
 namespace
 {
-std::size_t ActionIndex( RuntimeInputAction action )
-{
-    return static_cast<std::size_t>( action );
-}
-
-bool IsActionMemoryValid( RuntimeInputAction action )
-{
-    return action != RuntimeInputAction::None && action != RuntimeInputAction::Count;
-}
+constexpr long CAMERA_MOUSE_MAX_DELTA_PIXELS = 96;
+constexpr long CAMERA_MOUSE_SPIKE_DELTA_PIXELS = 320;
 } // namespace
-
-RuntimeInputContext::RuntimeInputContext()
-{
-    m_actionDown.fill( false );
-}
 
 void RuntimeInputContext::BeginFrame( bool appFocused, bool uiBlocksKeyboard, bool uiBlocksMouse )
 {
     m_appFocused = appFocused;
     m_uiBlocksKeyboard = uiBlocksKeyboard;
     m_uiBlocksMouse = uiBlocksMouse;
-}
-
-void RuntimeInputContext::ResetEdges()
-{
-    m_actionDown.fill( false );
-    ResetMouseButtons();
-}
-
-void RuntimeInputContext::ResetMouseButtons()
-{
-    SyncMouseButtons( false, false );
-}
-
-void RuntimeInputContext::SyncMouseButtons( bool leftDown, bool rightDown )
-{
-    m_leftMouseWasDown = leftDown;
-    m_rightMouseWasDown = rightDown;
-}
-
-bool RuntimeInputContext::CaptureActionPress( RuntimeInputAction action, int virtualKey )
-{
-    // Concept: this is edge detection, not command execution. Run decides what
-    // the normalized action means after all UI/focus gates have been applied.
-    const bool isDown = Hardware::Input::IsKeyDown( virtualKey );
-    if ( !IsActionMemoryValid( action ) )
-    {
-        return false;
-    }
-
-    const std::size_t index = ActionIndex( action );
-    const bool wasPressed = isDown && !m_actionDown[index];
-    m_actionDown[index] = isDown;
-    return wasPressed;
-}
-
-void RuntimeInputContext::SetActionDown( RuntimeInputAction action, bool isDown )
-{
-    if ( !IsActionMemoryValid( action ) )
-    {
-        return;
-    }
-
-    m_actionDown[ActionIndex( action )] = isDown;
-}
-
-RuntimeMouseEdges RuntimeInputContext::CaptureMouseButtons( bool leftDown, bool rightDown )
-{
-    RuntimeMouseEdges edges;
-    edges.leftDown = leftDown;
-    edges.leftPressed = leftDown && !m_leftMouseWasDown;
-    edges.leftReleased = !leftDown && m_leftMouseWasDown;
-    edges.rightDown = rightDown;
-    edges.rightPressed = rightDown && !m_rightMouseWasDown;
-    edges.rightReleased = !rightDown && m_rightMouseWasDown;
-    m_leftMouseWasDown = leftDown;
-    m_rightMouseWasDown = rightDown;
-    return edges;
-}
-
-bool RuntimeInputContext::IsEscapeQuickTap( double nowSeconds, double quickTapSeconds ) const
-{
-    return nowSeconds - m_lastEscapeTapTime <= quickTapSeconds;
-}
-
-void RuntimeInputContext::RecordEscapeTap( double nowSeconds )
-{
-    m_lastEscapeTapTime = nowSeconds;
 }
 
 void RuntimeInputContext::SetMode( RuntimeInputMode mode, RuntimeInputAction action, RuntimeInputActionSource source )
@@ -144,7 +65,6 @@ void RuntimeInputContext::SetMode( RuntimeInputMode mode, RuntimeInputAction act
     {
         ++m_transitionCount;
     }
-    SyncMouseButtons( Hardware::Input::IsLeftMouseDown(), Hardware::Input::IsRightMouseDown() );
 }
 
 RuntimeInputMode RuntimeInputContext::CurrentMode() const
@@ -191,23 +111,6 @@ RuntimeInputTransition RuntimeInputContext::TransitionAt( int historyIndex ) con
     return m_transitions[index];
 }
 
-RuntimeKeyEdge
-InputController::CaptureKeyEdge( Hardware::InputState& state, Hardware::InputState::Key memoryKey, int virtualKey )
-{
-    const bool isDown = Hardware::Input::IsKeyDown( virtualKey );
-    const bool wasPressed = isDown && !state.Get( memoryKey );
-    state.Set( memoryKey, isDown );
-    return { isDown, wasPressed };
-}
-
-bool InputController::CaptureKeyPress( bool& wasDown, int virtualKey )
-{
-    const bool isDown = Hardware::Input::IsKeyDown( virtualKey );
-    const bool wasPressed = isDown && !wasDown;
-    wasDown = isDown;
-    return wasPressed;
-}
-
 void InputController::BeginFrame( RuntimeInputContext& context,
                                   const RuntimeInputModeState& modeState,
                                   bool appFocused,
@@ -218,13 +121,6 @@ void InputController::BeginFrame( RuntimeInputContext& context,
     context.SetMode( ResolveMode( modeState ),
                      RuntimeInputAction::None,
                      appFocused ? RuntimeInputActionSource::Runtime : RuntimeInputActionSource::FocusLost );
-}
-
-bool InputController::CaptureKeyboardActionPress( RuntimeInputContext& context,
-                                                  RuntimeInputAction action,
-                                                  int virtualKey )
-{
-    return context.CaptureActionPress( action, virtualKey );
 }
 
 void InputController::ApplyModeAction( RuntimeInputContext& context,
@@ -558,10 +454,10 @@ void InputController::DescribeLastTransitions( const RuntimeInputContext& contex
 void InputController::ResetUnfocusedInput( RunCameraState& camera )
 {
     camera.input = {};
+    camera.mouseLookOwnsCursor = false;
+    camera.travelSpeedMultiplier = 1.0f;
     camera.hasMouseLookLastClient = false;
     camera.needsMouseLookReset = true;
-    Hardware::Input::ResetMouseLookDeltas();
-    Hardware::Input::ConsumeMouseWheelDelta();
 }
 
 void InputController::ResetMouseLook( RunCameraState& camera )
@@ -570,7 +466,6 @@ void InputController::ResetMouseLook( RunCameraState& camera )
     camera.input.yMove = 0;
     camera.hasMouseLookLastClient = false;
     camera.needsMouseLookReset = true;
-    Hardware::Input::ResetMouseLookDeltas();
 }
 
 void InputController::SetMouseLookDelta( RunCameraState& camera, long rawX, long rawY )
@@ -578,23 +473,29 @@ void InputController::SetMouseLookDelta( RunCameraState& camera, long rawX, long
     const long absX = rawX < 0 ? -rawX : rawX;
     const long absY = rawY < 0 ? -rawY : rawY;
 
-    if ( absX > RunInternal::CAMERA_MOUSE_SPIKE_DELTA_PIXELS || absY > RunInternal::CAMERA_MOUSE_SPIKE_DELTA_PIXELS )
+    if ( absX > CAMERA_MOUSE_SPIKE_DELTA_PIXELS || absY > CAMERA_MOUSE_SPIKE_DELTA_PIXELS )
     {
         camera.input.xMove = 0;
         camera.input.yMove = 0;
         return;
     }
 
-    camera.input.xMove =
-        std::clamp( rawX, -RunInternal::CAMERA_MOUSE_MAX_DELTA_PIXELS, RunInternal::CAMERA_MOUSE_MAX_DELTA_PIXELS );
-    camera.input.yMove =
-        std::clamp( rawY, -RunInternal::CAMERA_MOUSE_MAX_DELTA_PIXELS, RunInternal::CAMERA_MOUSE_MAX_DELTA_PIXELS );
+    camera.input.xMove = std::clamp( rawX, -CAMERA_MOUSE_MAX_DELTA_PIXELS, CAMERA_MOUSE_MAX_DELTA_PIXELS );
+    camera.input.yMove = std::clamp( rawY, -CAMERA_MOUSE_MAX_DELTA_PIXELS, CAMERA_MOUSE_MAX_DELTA_PIXELS );
 }
 
 RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( RunCameraState& camera,
                                                                       const RuntimeCameraInputFrameContext& context )
 {
     RuntimeCameraInputFrameResult result;
+    assert( context.deviceFrame && "Camera input requires the immutable device frame" );
+    if ( !context.deviceFrame )
+    {
+        return result;
+    }
+    const DeviceInputFrame& deviceFrame = *context.deviceFrame;
+    camera.mouseLookOwnsCursor = context.mouseLookOwnsCursor;
+    camera.travelSpeedMultiplier = deviceFrame.keys.IsDown( VK_SHIFT ) ? 3.0f : 1.0f;
     if ( context.cameraMouseLookActive )
     {
         // Why: raw mouse input gives stable deltas during native mouse-look, and
@@ -611,20 +512,14 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( RunCameraS
         }
         else
         {
-            Hardware::Input::SetSystemCursorVisible( false );
-            long rawX = 0;
-            long rawY = 0;
-            const bool hasRawDelta = Hardware::Input::ConsumeRawMouseDelta( rawX, rawY );
-            const Hardware::Input::MouseCoordinatesResult currentClientResult =
-                Hardware::Input::GetClientMouseCoordinates();
-            if ( !currentClientResult.result.ok )
+            if ( !deviceFrame.hasClientPosition )
             {
                 ResetMouseLook( camera );
                 result.applyCursorOwnership = true;
-                result.cursorResult = currentClientResult.result;
                 return result;
             }
-            const POINT currentClient = currentClientResult.coordinates;
+            const POINT currentClient{ deviceFrame.clientX, deviceFrame.clientY };
+            const bool hasRawDelta = deviceFrame.rawMouseX != 0 || deviceFrame.rawMouseY != 0;
 
             if ( camera.needsMouseLookReset )
             {
@@ -636,7 +531,7 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( RunCameraS
             }
             else if ( hasRawDelta )
             {
-                SetMouseLookDelta( camera, rawX, rawY );
+                SetMouseLookDelta( camera, deviceFrame.rawMouseX, deviceFrame.rawMouseY );
                 camera.mouseLookLastClient = currentClient;
                 camera.hasMouseLookLastClient = true;
             }
@@ -664,10 +559,10 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( RunCameraS
 
     if ( context.cameraKeyboardControlsActive )
     {
-        camera.input.Set( Hardware::InputState::Up, Hardware::Input::IsKeyDown( 'W' ) );
-        camera.input.Set( Hardware::InputState::Left, Hardware::Input::IsKeyDown( 'A' ) );
-        camera.input.Set( Hardware::InputState::Down, Hardware::Input::IsKeyDown( 'S' ) );
-        camera.input.Set( Hardware::InputState::Right, Hardware::Input::IsKeyDown( 'D' ) );
+        camera.input.Set( Hardware::InputState::Up, deviceFrame.keys.IsDown( 'W' ) );
+        camera.input.Set( Hardware::InputState::Left, deviceFrame.keys.IsDown( 'A' ) );
+        camera.input.Set( Hardware::InputState::Down, deviceFrame.keys.IsDown( 'S' ) );
+        camera.input.Set( Hardware::InputState::Right, deviceFrame.keys.IsDown( 'D' ) );
     }
     else
     {
@@ -678,6 +573,62 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( RunCameraS
         camera.input.Set( Hardware::InputState::Right, false );
     }
     return result;
+}
+
+
+void InputController::ApplyCameraMovement( RunCameraState& camera,
+                                           Environment::CameraCollection& cameras,
+                                           Geometry::Terrain& terrain,
+                                           const RuntimeCameraMovementInput& input )
+{
+    const bool hasTravelInput =
+        camera.input.Get( Hardware::InputState::Up ) || camera.input.Get( Hardware::InputState::Down ) ||
+        camera.input.Get( Hardware::InputState::Left ) || camera.input.Get( Hardware::InputState::Right );
+    if ( !input.attachedOrbitOwnsCamera &&
+         ( input.flyControlsActive || camera.mouseLookOwnsCursor || input.editorViewportLookActive || hasTravelInput ) )
+    {
+        if ( ( !input.editorModeEnabled || input.editorViewportLookActive ) &&
+             ( camera.input.xMove != 0 || camera.input.yMove != 0 ) )
+        {
+            cameras.RotatePrimary( camera.input.xMove * input.mouseMovementQuantity,
+                                   camera.input.yMove * input.mouseMovementQuantity );
+        }
+
+        const float travelQuantity = input.keyMovementQuantity * camera.travelSpeedMultiplier;
+        if ( camera.input.Get( Hardware::InputState::Up ) )
+        {
+            cameras.MovePrimary( Environment::Camera::TravelDirection::Forward, travelQuantity );
+        }
+        if ( camera.input.Get( Hardware::InputState::Left ) )
+        {
+            cameras.MovePrimary( Environment::Camera::TravelDirection::Left, travelQuantity );
+        }
+        if ( camera.input.Get( Hardware::InputState::Down ) )
+        {
+            cameras.MovePrimary( Environment::Camera::TravelDirection::Backward, travelQuantity );
+        }
+        if ( camera.input.Get( Hardware::InputState::Right ) )
+        {
+            cameras.MovePrimary( Environment::Camera::TravelDirection::Right, travelQuantity );
+        }
+        cameras.ApplyPrimaryMovementBuffer();
+    }
+
+    // Passive generated-demo camera bounds do not own manual or pinned follow views.
+    if ( !input.manualControlsActive && !input.editorViewportLookActive && !input.authoredScene )
+    {
+        const Math::Vector::Vector3 translatedCameraPosition = cameras.GetCameraTranslation();
+        const float minY = terrain.GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) +
+                           input.minCameraHeight;
+        if ( minY > translatedCameraPosition.y )
+        {
+            cameras.AmmendPrimaryY( minY );
+        }
+        else if ( translatedCameraPosition.y > input.maxCameraHeight )
+        {
+            cameras.AmmendPrimaryY( input.maxCameraHeight );
+        }
+    }
 }
 } // namespace Basics
 } // namespace SkullbonezCore

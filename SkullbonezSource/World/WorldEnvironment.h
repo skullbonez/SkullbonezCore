@@ -170,7 +170,7 @@ class WorldEnvironment
                            Rendering::IRenderResourceFactory& resources );           // Lazily rebuilds missing backend resources.
     void ResetRenderResources();                                                     // Rebuilds GPU resources after renderer reset/switch
     void ReleaseRenderResources();                                                   // Releases GPU resources without rebuilding.
-    float GetFluidSurfaceHeight();                                                   // World-space Y plane where water begins.
+    float GetFluidSurfaceHeight() const;                                             // World-space Y plane where water begins.
     void SetFluidSurfaceHeight( float height );                                      // Moves the water plane without rebuilding collision geometry.
     float GetGravity() const;                                                        // Gravitational acceleration in m/s^2; negative is downward.
     void SetGravity( float gravity );                                                // Updates gravity for future force integration ticks.

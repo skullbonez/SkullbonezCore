@@ -20,6 +20,18 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderHost.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
-  - Agentic/Plans/run-composition-root-shrink-plan.md
+  - Agentic/Plans/TODO/runtime-shell-decomposition.md
 */
 #include "RuntimeRenderHost.h"
+#include "../../Core/FatalError.h"
+#include "../../Rendering/IRenderCaptureBackend.h"
+
+SkullbonezCore::Rendering::IRenderCaptureBackend&
+SkullbonezCore::Basics::RuntimeRenderBackendView::RequireCaptureBackend() const
+{
+    if ( !captureBackend )
+    {
+        SB_FATAL( "Runtime/RenderBackendView", "Screenshot capture requires a startup-bound capture backend" );
+    }
+    return *captureBackend;
+}

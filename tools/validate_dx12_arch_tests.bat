@@ -75,7 +75,10 @@ if errorlevel 1 (
 
 echo Running DX12 architecture unit tests...
 "%EXE%"
-if errorlevel 1 (
+set "TEST_EXIT=!ERRORLEVEL!"
+REM Hazard: Windows fatal exits can be signed negative NTSTATUS values. The
+REM usual `if errorlevel 1` comparison misses them, so require exact zero.
+if not "!TEST_EXIT!"=="0" (
     echo FAIL: DX12 architecture unit tests failed.
     exit /b 2
 )

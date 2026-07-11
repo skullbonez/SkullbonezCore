@@ -43,6 +43,8 @@ Related:
   - SkullbonezData/audio/contact_audio.materials.json
 */
 #include "ContactAudioService.h"
+#include "../../Assets/AssetKeys.h"
+#include "../../GameObjects/SceneCapacity.h"
 
 #include "../../Core/Common.h"
 
@@ -327,6 +329,10 @@ struct ContactAudioService::Impl
 
     IXAudio2* xaudio = nullptr;
     IXAudio2MasteringVoice* masterVoice = nullptr;
+    // Presentation-only diagnostics stay with the audio owner instead of a
+    // process-wide settings shelf. They never participate in sound selection.
+    bool debugCountersEnabled = false;
+    ContactAudioFlashMode flashMode = ContactAudioFlashMode::Emitted;
     std::vector<DecodedSound> sounds;
     std::vector<SoundSet> sets;
     std::vector<StepCandidate> stepCandidates;
@@ -2096,6 +2102,30 @@ void ContactAudioService::ResetFrameStats()
 {
     m_impl->stats = ContactAudioStats{};
     m_impl->stepStats = ContactAudioStats{};
+}
+
+
+void ContactAudioService::SetDebugCountersEnabled( bool enabled )
+{
+    m_impl->debugCountersEnabled = enabled;
+}
+
+
+bool ContactAudioService::DebugCountersEnabled() const
+{
+    return m_impl->debugCountersEnabled;
+}
+
+
+void ContactAudioService::SetFlashMode( ContactAudioFlashMode mode )
+{
+    m_impl->flashMode = mode;
+}
+
+
+ContactAudioFlashMode ContactAudioService::FlashMode() const
+{
+    return m_impl->flashMode;
 }
 } // namespace Audio
 } // namespace Runtime

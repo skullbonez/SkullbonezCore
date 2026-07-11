@@ -58,6 +58,7 @@ struct RunLaunchOptions
     bool hasCinematicShadowsOverride = false;
     bool cinematicShadows = false;
     bool demoHeroStyle = false;                               // CLI --demohero applies the low-poly hero look to generated demo mode
+    bool dumpTextureAssets = false;                           // CLI --dump-assets prints the startup-built texture registry once.
     bool interactiveSceneRun = false;                         // CLI --interactive/--hold keeps scene automation from quitting the app
     int frameCountOverride = -1;                              // CLI --frames override applied after each scene load
     bool uiStress = false;                                    // CLI --ui-stress enables generated/demo stress without a scene file
@@ -91,10 +92,20 @@ struct RunStartupOverrides
     RunLaunchOptions launch;
     const char* liveStyleControlDirectory = nullptr;          // CLI --live-style-control-dir
     const char* mainMemoryDumpPath = nullptr;                 // CLI --memory-dump
+    const char* interactionScriptPath = nullptr;              // CLI interaction harness script copied by its owner.
+    const char* interactionReportPath = nullptr;              // Optional interaction report destination.
     bool configureReplayRecording = false;                    // True when replay capture or hash logging must be configured
     bool replayRecordingEnabled = true;
     int replayRetentionSeconds = 0;
     const char* replayHashLogPath = nullptr;
+    const char* replayLoadPath = nullptr;
+    bool replayLoadProbe = false;
+#ifdef _DEBUG
+    const char* replayRestoreFileProbePath = nullptr;
+    const char* replayRestoreTargetFileProbePath = nullptr;
+    const char* replayRestoreBranchFileProbePath = nullptr;
+    const char* replayRestoreFailureFileProbePath = nullptr;
+#endif
     bool hasInitialOverlayMode = false;
     OverlayMode initialOverlayMode = OverlayMode::None;
     bool hideTopText = false;

@@ -27,7 +27,6 @@ Invariants:
   - Load/save are cold authoring paths and return bool status instead of throwing.
 
 Related:
-  - fable_plans/08-demo-director-progress.md
   - SkullbonezSource/Runtime/CameraCollection.h
   - Agentic/Reference/comment-style-guide.md
 */

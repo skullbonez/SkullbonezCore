@@ -29,10 +29,11 @@
 // Related:
 //   - SkullbonezSource/Physics/PersistentContactSolver.cpp
 //   - SkullbonezSource/Physics/TerrainContactManifold.h
-//   - engine-cleanup-plans/05-behavioral-test-coverage.md
+//   - Agentic/Plans/TODO/behavioral-test-depth.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "../SkullbonezSource/Physics/PhysicsTimestep.h"
 
 #include "../SkullbonezSource/Core/Common.h"
 #include "../SkullbonezSource/Core/Config.h"

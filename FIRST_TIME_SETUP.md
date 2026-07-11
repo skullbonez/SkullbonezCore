@@ -7,7 +7,10 @@ For agent workflow rules, read `AGENTS.md` first, then `Agentic/README.md`.
 
 ## Install Tools
 
-Install Visual Studio with the Desktop development with C++ workload and LLVM tools. The validation scripts discover MSBuild and clang-format through `vswhere`, so Visual Studio 2022 Professional is not required as long as the C++ and LLVM components are installed.
+Install Visual Studio with the Desktop development with C++ workload, LLVM
+tools, and the C++ AddressSanitizer component. The validation scripts discover
+MSBuild and clang-format through `vswhere`, so Visual Studio Professional is
+not required as long as those C++ components are installed.
 
 Install Git:
 
@@ -85,8 +88,9 @@ uncertain, run from the repository root:
 tools\agent_validate.bat
 ```
 
-This delegates to `tools\validate_full.bat`, which runs renderer validation,
-physics determinism validation, and performance validation.
+This delegates once to `tools\validate_full.bat`, which runs every mandatory
+CPU test target before the DX12 renderer and deterministic physics runtime
+lanes. Performance validation remains a separate targeted gate.
 
 For targeted pre-commit/PR checks:
 
@@ -95,6 +99,7 @@ tools\validate_fast.bat
 tools\validate_dx12_renderer.bat
 tools\validate_physics.bat
 tools\validate_perf.bat
+tools\validate_native_diagnostics.bat
 ```
 
 The scripts now discover local tool locations through helper scripts:
@@ -109,6 +114,10 @@ The scripts now discover local tool locations through helper scripts:
 ## Common First-Run Issues
 
 If `clang-format` is reported missing, install the Visual Studio LLVM tools component. The scripts no longer assume the old fixed path `C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\Llvm\x64\bin\clang-format.exe`.
+
+If native diagnostics reports a missing `clang_rt.asan_dynamic-x86_64.dll`,
+add the C++ AddressSanitizer component through Visual Studio Installer. The
+diagnostic lane writes only under `TestOutput\validation\native_diagnostics`.
 
 If `py` or `python` opens the Microsoft Store or says Python was not found, install Python with the `winget` command above and refresh PATH in the current shell.
 

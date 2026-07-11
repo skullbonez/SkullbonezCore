@@ -1,12 +1,13 @@
 /*
 File: SkullbonezSource/Runtime/RunReplayProbeState.h
 Purpose:
-  Groups debug-only CLI replay probe state used by Run self-tests.
+  Groups debug-only CLI replay probe state owned by ReplayRuntime.
 
 Mental model:
   These probes are launch-requested diagnostics that drive replay scrub,
   restore, and save coverage after the scene has enough captured samples. They
-  are not part of the normal replay owner state in ReplayRuntime.
+  share ReplayRuntime's lifecycle so configuration, one-shot completion, and
+  bounded failure reporting stay beside the workflows they control.
 
 Glossary:
   Scrub probe: Debug launch path that seeks into captured replay history.
@@ -25,9 +26,8 @@ Invariants:
     probe result after the frame loop exits.
 
 Related:
-  - SkullbonezSource/Runtime/Run.h
-  - SkullbonezSource/Runtime/Run.cpp
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
+  - SkullbonezSource/Runtime/Replay/RunReplayProbes.cpp
 */
 #pragma once
 

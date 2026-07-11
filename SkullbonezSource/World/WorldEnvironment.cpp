@@ -488,7 +488,7 @@ void WorldEnvironment::ReleaseRenderResources()
 }
 
 
-float WorldEnvironment::GetFluidSurfaceHeight()
+float WorldEnvironment::GetFluidSurfaceHeight() const
 {
     return m_fluidSurfaceHeight;
 }
