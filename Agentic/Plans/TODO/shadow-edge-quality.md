@@ -17,12 +17,15 @@ crawling during orbit/zoom.
 
 - Complete `dx12-failure-propagation.md` command-state work before root-signature
   or resource-lifetime changes.
-- Binding order is fixed: `render-backend-decomposition.md` A2 establishes the
-  concrete pipeline/root-signature owner, then `shader-pipeline-modernization.md`
-  P1-P3 modernizes and consolidates its contract. Shader P5's bindless decision
-  and `render-visibility-architecture.md` closure must also precede S1. S1 must
-  extend that surviving contract rather than adding a temporary shadow-owned
-  root-signature path. S0 baseline capture may run earlier.
+- Binding order is fixed: the
+  [render-backend closure](../../Reports/2026-07-12/render-backend-decomposition-closure.md)
+  establishes the concrete pipeline/root-signature owner, then the
+  [shader-pipeline closure](../../Reports/2026-07-12/shader-pipeline-modernization-closure.md)
+  consolidates its contract and records the bindless decision. The
+  [visibility closure](../../Reports/2026-07-12/render-visibility-architecture-closure.md)
+  also precedes S1. S1 must extend those surviving contracts rather than
+  adding a temporary shadow-owned root-signature path. S0 baseline capture may
+  run earlier.
 - Use the CPU/full umbrella once `validation-gate-integrity.md` lands.
 
 ## Phases

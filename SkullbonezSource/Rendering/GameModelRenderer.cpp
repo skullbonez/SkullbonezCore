@@ -419,10 +419,6 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
         return drawMaskedModels ? masked : !masked;
     };
     int submittedCount = 0;
-    for ( int visibleIndex = 0; visibleIndex < visibleCount; ++visibleIndex )
-    {
-        submittedCount += shouldDrawModel( visibleIndices[visibleIndex] ) ? 1 : 0;
-    }
     const int drawCountBefore = helperContext.renderDiagnostics.GetFrameDrawCallCount();
 
     {
@@ -447,6 +443,7 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
             {
                 RenderMaterial material = MaterialWithContactHighlights( instance, false );
                 sphereBatch.DrawModel( instance.modelMatrix, material );
+                ++submittedCount;
             }
         }
     }
@@ -482,6 +479,7 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
                 {
                     batch.DrawModel( instance.modelMatrix, material );
                 }
+                ++submittedCount;
             }
         }
     };
@@ -556,6 +554,7 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
                                                       cinematic,
                                                       shadow,
                                                       clampedMaterialAlpha );
+            ++submittedCount;
         }
     }
     const int drawCountAfter = helperContext.renderDiagnostics.GetFrameDrawCallCount();

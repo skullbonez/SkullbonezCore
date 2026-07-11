@@ -11,11 +11,11 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-11th-july` |
-| Current pushed baseline | Visibility P0-P1 is pushed at `3f515c30`; the grouped P2-P3 shadow/reflection slice is ready to commit and push |
-| Current objective | Continue `render-visibility-architecture` at P4 instanced-batch compaction proof, then execute P5-P6 and the remaining binding MASTER path |
-| Portfolio progress | 252 / 276 tasks = 91% overall |
+| Current pushed baseline | Visibility P0-P3 is pushed through `69d91e5e`; P4-P6 closure and the review counter fix are ready to commit and push |
+| Current objective | Execute `shadow-edge-quality` S0-S4, then continue interpolation, editor undo/redo, and data-format versioning |
+| Portfolio progress | 255 / 276 tasks = 92% overall |
 | Last broad local gate | Direct `tools\\validate_full.bat` passed final shader source on 2026-07-12 in approximately 85s: formatting and 657 project/filter items clean, every CPU lane passed (150 doctest cases, 3,505 assertions), zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching 33/61/0 screenshot maxima, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | Visibility P2-P3 passed 155 doctest cases / 3,522 assertions, DX12 renderer baselines with zero InfoQueue errors and 33/61/0 maxima, and both perf comparisons. Standard-scene counters prove 3/3 terrain-shadow culls in the space scene and 207/300 reflection culls in the water scene. Touched-source comment audit is 5/5 with 0 deferred. |
+| Validation for current edits | Visibility closure passed three consecutive DX12 gates plus a final post-review-fix gate (zero errors, 33/61/0 maxima), both perf lanes, and byte-exact 44,401-line physics. Final stress ran 59.777330s for 12,853 frames / 358 scene loads with empty stderr. Plan-end review and narrow follow-up are clear. |
 
 ## Live Queue
 
@@ -78,9 +78,11 @@ plan inventory.
   `Agentic/Reports/2026-07-12/engine-config-decomposition-closure.md`.
 - Shader-pipeline closure evidence:
   `Agentic/Reports/2026-07-12/shader-pipeline-modernization-closure.md`.
+- Render-visibility closure evidence:
+  `Agentic/Reports/2026-07-12/render-visibility-architecture-closure.md`.
 
 ## Next Handoff
 
 Use `Agentic/Plans/MASTER-PLAN.md` for selection and the repo-local orchestrator
-skill when implementing a plan. The next binding implementation phase is
-`render-visibility-architecture` P4 instanced-batch compaction proof.
+skill when implementing a plan. The next binding plan is
+`shadow-edge-quality`, beginning with S0 baseline capture.

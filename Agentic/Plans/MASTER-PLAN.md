@@ -93,7 +93,7 @@ concrete plan rows and counting it would duplicate tasks.
 | stale-plan-reference-cleanup-15.6-checklist | 86 | 86 | 100% |
 | dx12-post-final-cleanup | 6 | 6 | 100% |
 | shader-pipeline-modernization | 8 | 8 | 100% |
-| render-visibility-architecture | 4 | 7 | 57% |
+| render-visibility-architecture | 7 | 7 | 100% |
 | sim-render-interpolation | 0 | 5 | 0% |
 | editor-undo-redo | 0 | 5 | 0% |
 | data-format-versioning | 0 | 5 | 0% |
@@ -101,35 +101,29 @@ concrete plan rows and counting it would duplicate tasks.
 | entity-model-endgame | 4 | 4 | 100% |
 | instant-prediction-velocity-chaos | 52 | 52 | 100% |
 | shadow-edge-quality | 0 | 5 | 0% |
-| **Portfolio total** | **252** | **276** | **91%** |
+| **Portfolio total** | **255** | **276** | **92%** |
 
 ## Current Execution Priority
 
 For maximum impact with minimal rework, use this binding critical path:
 
-`visibility` → `shadows` → `interpolation` → `editor` →
-`data versioning`
+`shadows` → `interpolation` → `editor` → `data versioning`
 
 1. **Engine-cleanup aggregate review and plan deletion — parallel lane.** Run
    review preparation alongside the critical path rather than as another serial
    implementation campaign. Fix every credible ownership finding, pass the
    closure gate, and delete the eight retained completed plans to remove stale
    control-plane noise.
-2. **`render-visibility-architecture`.** P0 instrumentation may start at any
-   time; implementation waits for stable backend ownership. Complete main,
-   shadow, reflection, and instancing culling before final shadow-quality work
-   so its GPU budget reflects the actual visible workload.
-3. **`shadow-edge-quality`.** S0 baseline capture may run earlier. S1 waits for
-   backend A2, shader P3, shader P5's binding decision, and visibility closure.
-   Then execute filtering, snapping/bias, and only afterward decide whether
-   cascades or clipmaps are necessary.
-4. **`sim-render-interpolation`.** Begin after entity identity and renderer
+2. **`shadow-edge-quality`.** Visibility and shader prerequisites are complete.
+   Begin with S0 baseline capture, then execute filtering, snapping/bias, and
+   only afterward decide whether cascades or clipmaps are necessary.
+3. **`sim-render-interpolation`.** Begin after entity identity and renderer
     ownership stabilize; avoid churning presentation transforms, cameras,
     capture timing, and replay across moving foundations.
-5. **`editor-undo-redo`.** Interaction ownership is ready, but history must
+4. **`editor-undo-redo`.** Interaction ownership is ready, but history must
     target final `PhysicsSceneObjectId` and post-`GameModelCollection` scene
     APIs, so entity-model closure is a hard prerequisite.
-6. **`data-format-versioning`.** Asset/hull preparation is independent, but
+5. **`data-format-versioning`.** Asset/hull preparation is independent, but
     schedule delivery here. The `engine.cfg` portion waits for config
     decomposition so version plumbing targets the surviving parser/domain
     structure once.
@@ -170,7 +164,6 @@ Reconciliation notes live inside each plan.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [render-visibility-architecture](TODO/render-visibility-architecture.md) | In progress | 4/7 | P0-P3 complete for main, shadow, and reflection views; continue P4 instanced-batch compaction proof |
 | [sim-render-interpolation](TODO/sim-render-interpolation.md) | Planned | 0/5 | After entity-model closure and stable renderer ownership; P1 capture-determinism guard lands first |
 | [editor-undo-redo](TODO/editor-undo-redo.md) | Planned | 0/5 | After entity-model closure; build history on final `PhysicsSceneObjectId` and post-`GameModelCollection` scene APIs |
 | [data-format-versioning](TODO/data-format-versioning.md) | Planned | 0/5 | Deliver after editor; asset/hull preparation is independent and config decomposition is complete; scene v1→v2 remains the precedent |
@@ -179,7 +172,7 @@ Reconciliation notes live inside each plan.
 
 | Plan | State | Verified phase count | Start condition |
 |---|---|---:|---|
-| [shadow-edge-quality](TODO/shadow-edge-quality.md) | Planned | 0/5 | S0 may run early; S1 waits for backend A2, shader P3/P5 decision, and visibility closure |
+| [shadow-edge-quality](TODO/shadow-edge-quality.md) | Planned | 0/5 | Visibility and shader prerequisites are complete; begin S0 baseline capture |
 
 Fracture replay was moved to `WNF/` by the owner on 2026-07-11 (inventory
 rule 9 applies — it is not live work and is not tracked here).
