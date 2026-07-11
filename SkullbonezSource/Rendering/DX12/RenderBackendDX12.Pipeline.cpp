@@ -303,6 +303,17 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device,
         BuildInputLayout( format, elements, numElements );
     }
 
+    std::string inputContractError;
+    if ( !m_activeShader->ValidateInputLayout( elements, numElements, inputContractError ) )
+    {
+        // Lane R: mesh/layout selection is startup-owned pipeline input. A
+        // reflected mismatch skips PSO publication and names the owning path.
+        Log().WriteEventf( "dx12_shader_input_contract_rejected owner=Dx12PipelineOwner reason=%s",
+                           inputContractError.c_str() );
+        Log().FlushAll();
+        return nullptr;
+    }
+
     D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
     psoDesc.pRootSignature = m_rootSignature;
     psoDesc.VS = { m_activeShader->GetVSBytecode(), m_activeShader->GetVSBytecodeSize() };

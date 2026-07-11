@@ -1,0 +1,138 @@
+/*
+File: ShaderReflectionContracts.h
+Purpose:
+  Compares engine shader declarations with the fixed metadata baked from DXIL.
+
+Mental model:
+  DXC reflection describes the binary ABI. Engine declarations are an
+  independent CPU expectation; startup accepts a program only when required
+  fields and resources agree.
+
+Glossary:
+  Reflection contract: Fixed description of the binary-visible fields,
+    resources, and vertex inputs produced by the shader compiler.
+
+Invariants:
+  - Validation is allocation-free except for the caller-owned diagnostic text.
+  - Generated metadata is immutable and covers every shipping stage.
+
+Related:
+  - DX12/GeneratedShaderReflection.h
+  - ShaderContracts.h
+  - tools/bake_shaders.py
+*/
+#pragma once
+
+#include "ShaderContracts.h"
+#include "DX12/GeneratedShaderReflection.h"
+
+#include <cstring>
+#include <string>
+
+namespace SkullbonezCore::Rendering
+{
+inline const GeneratedShaderReflection::Stage* FindGeneratedShaderStage( const char* path, const char* stage )
+{
+    size_t baseLength = 0;
+    const char* base = ShaderBaseNameFromPath( path, baseLength );
+    for ( size_t i = 0; i < GeneratedShaderReflection::StageCount; ++i )
+    {
+        const auto& candidate = GeneratedShaderReflection::Stages[i];
+        size_t candidateLength = 0;
+        const char* candidateBase = ShaderBaseNameFromPath( candidate.source, candidateLength );
+        if ( baseLength == candidateLength && std::strncmp( base, candidateBase, baseLength ) == 0 && stage &&
+             std::strcmp( candidate.stage, stage ) == 0 )
+        {
+            return &candidate;
+        }
+    }
+    return nullptr;
+}
+
+inline std::uint32_t ShaderValueByteSize( ShaderValueType type )
+{
+    switch ( type )
+    {
+    case ShaderValueType::Int:
+    case ShaderValueType::Float:
+        return 4;
+    case ShaderValueType::Vec3:
+        return 12;
+    case ShaderValueType::Vec4:
+        return 16;
+    case ShaderValueType::Mat4:
+        return 64;
+    default:
+        return 0;
+    }
+}
+
+inline bool
+ValidateGeneratedShaderProgramContract( const char* path, const ShaderProgramDesc& contract, std::string& outError )
+{
+    const auto* vs = FindGeneratedShaderStage( path, "vs" );
+    const auto* ps = FindGeneratedShaderStage( path, "ps" );
+    if ( !vs || !ps )
+    {
+        outError = "missing generated raster-stage metadata";
+        return false;
+    }
+
+    for ( size_t uniformIndex = 0; uniformIndex < contract.uniformCount; ++uniformIndex )
+    {
+        const ShaderUniformDecl& expected = contract.uniforms[uniformIndex];
+        if ( !expected.required )
+        {
+            continue;
+        }
+        const GeneratedShaderReflection::Field* found = nullptr;
+        const GeneratedShaderReflection::Stage* stages[] = { vs, ps };
+        for ( const auto* reflectedStage : stages )
+        {
+            for ( std::uint32_t i = 0; i < reflectedStage->fieldCount; ++i )
+            {
+                const auto& field = GeneratedShaderReflection::Fields[reflectedStage->fieldStart + i];
+                if ( std::strcmp( field.name, expected.name ) == 0 )
+                {
+                    found = &field;
+                    break;
+                }
+            }
+        }
+        if ( !found || found->size != ShaderValueByteSize( expected.type ) )
+        {
+            outError = std::string( "cbuffer field mismatch: " ) + expected.name;
+            return false;
+        }
+    }
+
+    for ( size_t resourceIndex = 0; resourceIndex < contract.resourceCount; ++resourceIndex )
+    {
+        const ShaderResourceDecl& expected = contract.resources[resourceIndex];
+        if ( !expected.required )
+        {
+            continue;
+        }
+        bool matched = false;
+        const GeneratedShaderReflection::Stage* stages[] = { vs, ps };
+        for ( const auto* reflectedStage : stages )
+        {
+            for ( std::uint32_t i = 0; i < reflectedStage->resourceCount; ++i )
+            {
+                const auto& resource = GeneratedShaderReflection::Resources[reflectedStage->resourceStart + i];
+                matched =
+                    matched ||
+                    ( std::strcmp( resource.name, expected.name ) == 0 && resource.registerClass == 't' &&
+                      resource.slot == static_cast<std::uint32_t>( expected.slot ) && resource.space == 0 &&
+                      std::strcmp( resource.type, "texture" ) == 0 && std::strcmp( resource.dimension, "2d" ) == 0 );
+            }
+        }
+        if ( !matched )
+        {
+            outError = std::string( "resource binding mismatch: " ) + expected.name;
+            return false;
+        }
+    }
+    return true;
+}
+} // namespace SkullbonezCore::Rendering

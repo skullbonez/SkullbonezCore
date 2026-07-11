@@ -165,6 +165,15 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device,
     elements[1].Format = DXGI_FORMAT_R32G32B32_FLOAT;
     elements[1].AlignedByteOffset = 12;
 
+    std::string inputContractError;
+    if ( !shader->ValidateInputLayout( elements, 2, inputContractError ) )
+    {
+        Log().WriteEventf( "dx12_shader_input_contract_rejected owner=Dx12GeometryOwner reason=%s",
+                           inputContractError.c_str() );
+        Log().FlushAll();
+        return false;
+    }
+
     D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
     psoDesc.InputLayout.pInputElementDescs = elements;
     psoDesc.InputLayout.NumElements = 2;

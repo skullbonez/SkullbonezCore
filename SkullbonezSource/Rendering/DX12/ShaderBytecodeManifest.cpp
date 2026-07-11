@@ -23,6 +23,7 @@ Related:
   - ShaderDX12.cpp
 */
 #include "ShaderBytecodeManifest.h"
+#include "../ShaderReflectionContracts.h"
 
 #include "../../../ThirdPtySource/nlohmann/json.hpp"
 
@@ -165,6 +166,119 @@ bool CommandLineHasExactToken( const char* expected )
     }
     return false;
 }
+
+bool ResourceShapeMatches( const GeneratedShaderReflection::Resource& expected,
+                           const D3D12_SHADER_INPUT_BIND_DESC& actual )
+{
+    const bool typeMatches = ( std::strcmp( expected.type, "cbuffer" ) == 0 && actual.Type == D3D_SIT_CBUFFER ) ||
+                             ( std::strcmp( expected.type, "sampler" ) == 0 && actual.Type == D3D_SIT_SAMPLER ) ||
+                             ( std::strcmp( expected.type, "texture" ) == 0 && actual.Type == D3D_SIT_TEXTURE ) ||
+                             ( std::strcmp( expected.type, "uav" ) == 0 && actual.Type == D3D_SIT_UAV_RWTYPED );
+    const bool dimensionMatches =
+        ( std::strcmp( expected.dimension, "na" ) == 0 && actual.Dimension == D3D_SRV_DIMENSION_UNKNOWN ) ||
+        ( std::strcmp( expected.dimension, "buffer" ) == 0 && actual.Dimension == D3D_SRV_DIMENSION_BUFFER ) ||
+        ( std::strcmp( expected.dimension, "2d" ) == 0 && actual.Dimension == D3D_SRV_DIMENSION_TEXTURE2D ) ||
+        ( std::strcmp( expected.dimension, "2darray" ) == 0 && actual.Dimension == D3D_SRV_DIMENSION_TEXTURE2DARRAY ) ||
+        ( std::strcmp( expected.dimension, "3d" ) == 0 && actual.Dimension == D3D_SRV_DIMENSION_TEXTURE3D ) ||
+        ( std::strcmp( expected.dimension, "cube" ) == 0 && actual.Dimension == D3D_SRV_DIMENSION_TEXTURECUBE );
+    return typeMatches && dimensionMatches;
+}
+
+bool ValidateLoadedReflection( const char* hlslPath, const char* stage, ID3DBlob* blob, std::string& outError )
+{
+    const auto* expectedStage = FindGeneratedShaderStage( hlslPath, stage );
+    if ( !expectedStage )
+    {
+        outError = "generated reflection has no matching stage";
+        return false;
+    }
+    ComPtr<ID3D12ShaderReflection> reflection;
+    HRESULT result = E_FAIL;
+    if ( !ReflectShaderBytecode( blob, reflection, result ) )
+    {
+        outError = "cannot reflect loaded shader container";
+        return false;
+    }
+    D3D12_SHADER_DESC shader = {};
+    if ( FAILED( reflection->GetDesc( &shader ) ) )
+    {
+        outError = "cannot query loaded shader reflection";
+        return false;
+    }
+
+    for ( std::uint32_t expectedIndex = 0; expectedIndex < expectedStage->fieldCount; ++expectedIndex )
+    {
+        const auto& expected = GeneratedShaderReflection::Fields[expectedStage->fieldStart + expectedIndex];
+        bool matched = false;
+        for ( UINT cbIndex = 0; cbIndex < shader.ConstantBuffers && !matched; ++cbIndex )
+        {
+            ID3D12ShaderReflectionConstantBuffer* cb = reflection->GetConstantBufferByIndex( cbIndex );
+            D3D12_SHADER_BUFFER_DESC cbDesc = {};
+            if ( !cb || FAILED( cb->GetDesc( &cbDesc ) ) || !cbDesc.Name ||
+                 std::strcmp( cbDesc.Name, expected.cbuffer ) != 0 || cbDesc.Size != expectedStage->cbufferSize )
+            {
+                continue;
+            }
+            for ( UINT variableIndex = 0; variableIndex < cbDesc.Variables; ++variableIndex )
+            {
+                D3D12_SHADER_VARIABLE_DESC variable = {};
+                ID3D12ShaderReflectionVariable* reflectedVariable = cb->GetVariableByIndex( variableIndex );
+                matched = reflectedVariable && SUCCEEDED( reflectedVariable->GetDesc( &variable ) ) && variable.Name &&
+                          std::strcmp( variable.Name, expected.name ) == 0 && variable.StartOffset == expected.offset &&
+                          variable.Size == expected.size;
+                if ( matched )
+                {
+                    break;
+                }
+            }
+        }
+        if ( !matched )
+        {
+            outError = std::string( "cbuffer field metadata mismatch: " ) + expected.name;
+            return false;
+        }
+    }
+
+    if ( shader.BoundResources != expectedStage->resourceCount )
+    {
+        outError = "bound-resource count metadata mismatch";
+        return false;
+    }
+    for ( std::uint32_t expectedIndex = 0; expectedIndex < expectedStage->resourceCount; ++expectedIndex )
+    {
+        const auto& expected = GeneratedShaderReflection::Resources[expectedStage->resourceStart + expectedIndex];
+        bool matched = false;
+        for ( UINT resourceIndex = 0; resourceIndex < shader.BoundResources; ++resourceIndex )
+        {
+            D3D12_SHADER_INPUT_BIND_DESC resource = {};
+            if ( FAILED( reflection->GetResourceBindingDesc( resourceIndex, &resource ) ) || !resource.Name )
+            {
+                continue;
+            }
+            const char registerClass = resource.Type == D3D_SIT_CBUFFER   ? 'b'
+                                       : resource.Type == D3D_SIT_SAMPLER ? 's'
+                                       : resource.Type == D3D_SIT_TEXTURE ? 't'
+                                                                          : 'u';
+            matched = std::strcmp( resource.Name, expected.name ) == 0 && registerClass == expected.registerClass &&
+                      resource.BindPoint == expected.slot && resource.Space == expected.space &&
+                      ResourceShapeMatches( expected, resource );
+            if ( matched )
+            {
+                break;
+            }
+        }
+        if ( !matched )
+        {
+            outError = std::string( "resource metadata mismatch: " ) + expected.name;
+            return false;
+        }
+    }
+
+    // Input signatures are compared against the concrete CPU layout when the
+    // raster PSO is created. Compute stages intentionally have no CPU vertex
+    // layout; their cbuffer and b/t/s/u metadata is still checked above.
+    return true;
+}
 } // namespace
 
 bool DevShaderSourceCompileEnabled()
@@ -271,6 +385,12 @@ bool LoadManifestCurrentShaderBytecode( const char* hlslPath,
         return false;
     }
     std::memcpy( outBlob->GetBufferPointer(), bytecodeBytes.data(), bytecodeBytes.size() );
+    if ( !ValidateLoadedReflection( hlslPath, stage, outBlob.Get(), outError ) )
+    {
+        outBlob.Reset();
+        outError = "shader reflection metadata rejected owner=ShaderBytecodeManifest: " + outError;
+        return false;
+    }
     return true;
 }
 

@@ -1040,6 +1040,12 @@
     <ClInclude Include="SkullbonezSource\Rendering\ShaderContracts.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\ShaderReflectionContracts.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\GeneratedShaderReflection.h">
+      <Filter>Header Files\Rendering\DX12</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\Shadow.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>

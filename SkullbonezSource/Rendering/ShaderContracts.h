@@ -5,7 +5,8 @@ Purpose:
 
 Mental model:
   Shader contracts name the uniforms, resources, texture slots, and vertex
-  layout each pass expects. They are diagnostics, not a new binding backend.
+  layout each pass expects. Startup verifies required ABI rows against generated
+  DXIL reflection; per-draw setter diagnostics remain development-only.
 
 Glossary:
   Uniform: Named shader constant set by engine code before drawing.
@@ -20,11 +21,12 @@ Glossary:
 Invariants:
   - These contracts must not encode native D3D12 descriptors or root-signature
     implementation details.
-  - Missing contract data should warn in development while release builds stay
-    tolerant.
+  - Missing required startup ABI data is a recoverable shader-load failure in
+    every build; missing per-draw setter calls remain development diagnostics.
 
 Related:
   - SkullbonezSource/Rendering/DX12/ShaderDX12.cpp
+  - SkullbonezSource/Rendering/ShaderReflectionContracts.h
   - Agentic/Reference/shader-inventory.md
 */
 #pragma once
@@ -80,6 +82,54 @@ struct ShaderProgramDesc
     const ShaderResourceDecl* resources;
     size_t resourceCount;
 };
+
+struct ShaderVertexInputContract
+{
+    const char* baseName;
+    const char* signature;
+};
+
+// CPU-owned input-layout vocabulary. Each token is semantic/index, component
+// mask, and system value in the same order used to create the PSO layout.
+inline const ShaderVertexInputContract* ShippingShaderVertexInputContracts()
+{
+    static constexpr ShaderVertexInputContract contracts[] = {
+        { "collision_visualizer",
+          "POSITION0:xyz:NONE,NORMAL0:xyz:NONE,TEXCOORD1:xyzw:NONE,TEXCOORD2:xyzw:NONE,TEXCOORD3:xyzw:NONE,TEXCOORD4:"
+          "xyzw:NONE,TEXCOORD5:xyzw:NONE" },
+        { "grid_line", "POSITION0:xyz:NONE,TEXCOORD0:xyz:NONE" },
+        { "launcher_laser", "POSITION0:xyz:NONE,TEXCOORD0:xyzw:NONE" },
+        { "lit_textured", "POSITION0:xyz:NONE,NORMAL0:xyz:NONE,TEXCOORD0:xy:NONE" },
+        { "lit_textured_instanced",
+          "POSITION0:xyz:NONE,NORMAL0:xyz:NONE,TEXCOORD0:xy:NONE,TEXCOORD1:xyzw:NONE,TEXCOORD2:xyzw:NONE,TEXCOORD3:"
+          "xyzw:NONE,TEXCOORD4:xyzw:NONE,TEXCOORD5:xyzw:NONE,TEXCOORD6:xyzw:NONE,TEXCOORD7:xyzw:NONE,TEXCOORD8:xyzw:"
+          "NONE" },
+        { "post_tonemap", "POSITION0:xy:NONE,TEXCOORD0:xy:NONE" },
+        { "post_volumetric_light", "POSITION0:xy:NONE,TEXCOORD0:xy:NONE" },
+        { "shadow_depth", "POSITION0:xyz:NONE" },
+        { "shadow_depth_instanced",
+          "POSITION0:xyz:NONE,TEXCOORD1:xyzw:NONE,TEXCOORD2:xyzw:NONE,TEXCOORD3:xyzw:NONE,TEXCOORD4:xyzw:NONE" },
+        { "sky_atmosphere", "POSITION0:xy:NONE,TEXCOORD0:xy:NONE" },
+        { "soft_additive_ribbon", "POSITION0:xyz:NONE,TEXCOORD0:xyzw:NONE,TEXCOORD1:xyzw:NONE" },
+        { "solid_color", "POSITION0:xy:NONE" },
+        { "solid_color_batch", "POSITION0:xy:NONE,TEXCOORD0:xyzw:NONE" },
+        { "text", "POSITION0:xy:NONE,TEXCOORD0:xy:NONE,TEXCOORD1:xyz:NONE" },
+        { "tornado_fx", "POSITION0:xyz:NONE,TEXCOORD0:xyzw:NONE,TEXCOORD1:xyzw:NONE" },
+        { "trajectory_ribbon",
+          "POSITION0:xyz:NONE,TEXCOORD0:xyzw:NONE,TEXCOORD1:xyzw:NONE,TEXCOORD2:xy:NONE,SV_VertexID0:x:VERTID" },
+        { "ui_render_target_preview", "POSITION0:xy:NONE,TEXCOORD0:xy:NONE" },
+        { "UIBackdropBlur", "POSITION0:xy:NONE,TEXCOORD0:xy:NONE" },
+        { "unlit_textured", "POSITION0:xyz:NONE,TEXCOORD0:xy:NONE" },
+        { "water_calm", "POSITION0:xyz:NONE" },
+        { "water_ocean", "POSITION0:xyz:NONE" },
+    };
+    return contracts;
+}
+
+inline constexpr size_t ShippingShaderVertexInputContractCount()
+{
+    return 21;
+}
 
 inline const char* ShaderValueTypeName( ShaderValueType type )
 {
@@ -199,7 +249,9 @@ inline const ShaderProgramDesc* HighRiskShaderContracts()
         { "uShadowFlags", ShaderValueType::Vec4, true },
     };
     static constexpr ShaderResourceDecl litTexturedInstancedResources[] = {
-        { "uTexture", 0, ShaderResourceKind::Texture2D, true },
+        // Instanced materials are sourced from uMaterialTable; the legacy t0
+        // declaration is optimized out of the shipping pixel stage.
+        { "uTexture", 0, ShaderResourceKind::Texture2D, false },
         { "uShadowMap", 3, ShaderResourceKind::Texture2D, false },
         { "uMaterialTable", 4, ShaderResourceKind::Texture2D, true },
     };

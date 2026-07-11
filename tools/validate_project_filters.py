@@ -156,6 +156,7 @@ DX12_RENDERING_PREFIXES = (
     "BLASDX12",
     "Dx12RenderGraphExecutor",
     "FramebufferDX12",
+    "GeneratedShaderReflection",
     "MeshDX12",
     "RenderBackendDX12",
     "RenderGraphTransientDX12",
@@ -189,6 +190,7 @@ RENDERING_PREFIXES = (
     "RenderSceneView",
     "RenderMaterial",
     "ShaderContracts",
+    "ShaderReflectionContracts",
     "Shadow",
     "Text",
 )

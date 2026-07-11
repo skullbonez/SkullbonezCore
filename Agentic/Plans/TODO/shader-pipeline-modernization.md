@@ -1,7 +1,7 @@
 # Shader Pipeline Modernization And Binding Standardization
 
 Date: 2026-07-11
-Status: In progress — 25% (P0-P1 complete)
+Status: In progress — 38% (P0-P2 complete)
 Impact area: DX12 renderer, all HLSL shaders, shader tooling, build/validation
 scripts
 Origin: 2026-07-11 architecture gap review. Owner directive: complete
@@ -199,6 +199,56 @@ legitimately shifts pixels, in an isolated reviewed commit.
 Gate: `tools\validate_tests.bat` + `tools\validate_dx12_renderer.bat`,
 baselines unchanged (metadata-only phase).
 
+P2 implementation evidence (2026-07-12):
+
+- [x] Pinned `dxc -dumpbin` reflection now covers all 43 shipping
+  raster/compute stages. The manifest records cbuffer names/sizes and every
+  field name/offset/size, all `b/t/s/u` resources with space/type/dimension,
+  and VS input signatures. The bake also emits
+  `GeneratedShaderReflection.h` as deterministic fixed POD; `--check` rejects
+  either stale representation. P1 compiler flags, version pin, and bytecode
+  hashes remain the compilation identity.
+- [x] `ShaderDX12` validates required CPU uniform/resource declarations during
+  startup and compares the loaded container's cbuffer size and every field
+  offset/size against generated metadata. `Dx12PipelineOwner` validates the
+  concrete CPU input layout against the VS signature before publishing a PSO.
+  Failures are named Lane R events owned by `ShaderDX12` or
+  `Dx12PipelineOwner`; no exception or callback boundary was added.
+- [x] `TestShaderReflectionContracts.cpp` proves 43/43 stage coverage,
+  explicitly covers the compute stage (16-byte cbuffer, seven resources, no
+  raster input), checks all seven current CPU program contracts, and performs
+  deliberate mismatch drills by changing `lit_textured.uTexture` from t0 to
+  t2 and `uModel` from a 64-byte matrix to a 16-byte vector. Exact focused command
+  `Profile\SKULLBONEZ_TESTS.exe --test-case="Shader reflection contracts:*"`
+  passed 5 cases and 103 assertions after both mutations were restored in-memory;
+  the additional case compares all 21 raster VS signatures against the
+  independent CPU-owned input-layout table.
+- [x] Focused evidence: bake plus reflection generation passed in 2.34s;
+  immediate `python tools\bake_shaders.py --check` passed 43 stages; targeted
+  test build passed with zero warnings/errors; `tools\validate_build.bat
+  Profile` passed in 6.603s wall time (5.99s MSBuild) with zero
+  warnings/errors; direct two-frame DX12 smoke exited 0 in 2.851s with 52,571
+  stdout bytes and zero stderr bytes. The coordinator then made the generated
+  header formatter-canonical: the first `validate_fast` stopped before build
+  in 10.548s on `GeneratedShaderReflection.h`; the bake now discovers the
+  repository's pinned `clang-format`, formats the emitted bytes, and preserves
+  byte-exact `--check` freshness. The retry passed in 35.583s with 653/653
+  project/filter rows and zero build warnings/errors.
+- [x] Formal evidence: `tools\validate_tests.bat` passed in 2.533s with 144
+  cases and 3,414 assertions. `tools\validate_dx12_renderer.bat` passed in
+  24.432s with zero DX12 validation errors and committed-baseline maximum
+  channel differences of 50 (`water_ball_test`), 70 (`solver_smoke`), and 0
+  (`space_three_body`); no baseline was updated. Mandatory
+  `tools\run_graphics_stress.bat 1` passed in 60.916s with PID-scoped timeout
+  exit 0 after 12,780 frames and 355 scene loads; stdout was 53,075 bytes,
+  stderr was empty, and the 666-byte CSV plus 4,580-byte shutdown JSON memory
+  artifacts were written.
+- [x] Touched-source/tool comment audit: 11/11 files checked, zero deferred.
+  The ten authored source/tool files retain complete learning headers and local
+  contract/invariant explanations; the eleventh is the deterministic generated
+  reflection header whose generator banner makes the no-manual-edit contract
+  explicit.
+
 ### P3 — Root signature consolidation
 
 - Design a small named set of root signatures (expected: one raster contract
@@ -257,9 +307,9 @@ on completion.
 
 ## Acceptance
 
-- [ ] No shipping-path runtime shader compilation; all shaders load pinned
+- [x] No shipping-path runtime shader compilation; all shaders load pinned
       SM6.x DXIL with hash-verified freshness.
-- [ ] A deliberate CPU/HLSL cbuffer mismatch is caught by the P2 machine
+- [x] A deliberate CPU/HLSL cbuffer mismatch is caught by the P2 machine
       check (test this the same way behavioral-test-depth P5 drills bugs).
 - [ ] Root signatures reduced to a named, documented set; no per-shader slot
       folklore comments remain.

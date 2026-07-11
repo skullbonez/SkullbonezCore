@@ -520,6 +520,8 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderGraphTransientDX12.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderDeviceDX12.h" />
     <ClInclude Include="SkullbonezSource\Rendering\ShaderContracts.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\ShaderReflectionContracts.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\GeneratedShaderReflection.h" />
     <ClInclude Include="SkullbonezSource\Rendering\Shadow.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\ShaderBytecodeManifest.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\ShaderDX12.h" />

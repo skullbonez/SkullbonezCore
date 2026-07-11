@@ -190,6 +190,7 @@
     <ClCompile Include="SkullbonezTests\TestDeterminism.cpp" />
     <ClCompile Include="SkullbonezTests\TestDemoDirector.cpp" />
     <ClCompile Include="SkullbonezTests\TestDx12OnlyRuntime.cpp" />
+    <ClCompile Include="SkullbonezTests\TestShaderReflectionContracts.cpp" />
     <ClCompile Include="SkullbonezTests\TestGeometricMath.cpp" />
     <ClCompile Include="SkullbonezTests\TestMain.cpp" />
     <ClCompile Include="SkullbonezTests\TestMatrix4.cpp" />

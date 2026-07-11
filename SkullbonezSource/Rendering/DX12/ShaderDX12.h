@@ -85,6 +85,7 @@ class ShaderDX12 : public IShader
     mutable bool m_cbDirty;
     size_t m_vsBytecodeHash;
     size_t m_psBytecodeHash;
+    std::string m_sourcePath;
     const ShaderProgramDesc* m_contract;
 #ifdef _DEBUG
     struct ResourceInfo
@@ -139,6 +140,7 @@ class ShaderDX12 : public IShader
     const void* GetPSBytecode() const;
     SIZE_T GetPSBytecodeSize() const;
     size_t GetPSBytecodeHash() const;
+    bool ValidateInputLayout( const D3D12_INPUT_ELEMENT_DESC* elements, UINT count, std::string& outError ) const;
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

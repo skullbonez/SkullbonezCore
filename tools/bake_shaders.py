@@ -32,6 +32,8 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -42,6 +44,7 @@ DXC_VERSION = "1.8.2502.11"
 SHADER_MODEL = "6_0"
 COMMON_FLAGS = ("-WX", "-Ges", "-O3", "-Zpc", "-Qstrip_debug")
 RASTER_STAGES = (("vs", "main_vs"), ("ps", "main_ps"))
+REFLECTION_HEADER = "SkullbonezSource/Rendering/DX12/GeneratedShaderReflection.h"
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -74,6 +77,33 @@ def verify_dxc(dxc: Path) -> str:
     if result.returncode != 0 or DXC_VERSION not in output:
         raise SystemExit(f"DXC version mismatch: expected {DXC_VERSION}, got {output or '<no output>'}")
     return output.replace("\r\n", "\n")
+
+
+def find_clang_format() -> Path:
+    override = os.environ.get("SKULLBONEZ_CLANG_FORMAT")
+    if override and Path(override).is_file():
+        return Path(override).resolve()
+    discovered = shutil.which("clang-format")
+    if discovered:
+        return Path(discovered).resolve()
+
+    program_files_x86 = os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")
+    vswhere = Path(program_files_x86) / "Microsoft Visual Studio" / "Installer" / "vswhere.exe"
+    if vswhere.is_file():
+        result = subprocess.run(
+            [str(vswhere), "-latest", "-products", "*", "-find", r"VC\Tools\Llvm\x64\bin\clang-format.exe"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            candidate = result.stdout.strip().splitlines()
+            if candidate and Path(candidate[0]).is_file():
+                return Path(candidate[0]).resolve()
+    raise SystemExit(
+        "clang-format was not found. Install the Visual Studio C++ LLVM tools or set "
+        "SKULLBONEZ_CLANG_FORMAT to clang-format.exe."
+    )
 
 
 def shader_jobs(shader_dir: Path) -> list[dict[str, str]]:
@@ -119,6 +149,157 @@ def compile_job(repo: Path, dxc: Path, job: dict[str, str], output: Path) -> byt
     return output.read_bytes()
 
 
+def reflect_job(repo: Path, dxc: Path, job: dict[str, str], bytecode_path: Path) -> dict[str, object]:
+    """Extract the ABI from the compiled DXIL container, never from HLSL text."""
+    result = subprocess.run(
+        [str(dxc), "-dumpbin", str(bytecode_path)], cwd=repo, capture_output=True, text=True, check=False
+    )
+    dump = (result.stdout + result.stderr).replace("\r\n", "\n")
+    if result.returncode != 0:
+        raise SystemExit(f"DXC reflection failed for {job['bytecode']}:\n{dump.strip()}")
+
+    cbuffers: list[dict[str, object]] = []
+    buffer_section = dump.split("; Buffer Definitions:", 1)
+    resource_section = dump.split("; Resource Bindings:", 1)
+    if len(buffer_section) == 2:
+        body = buffer_section[1].split("; Resource Bindings:", 1)[0]
+        for match in re.finditer(r"; cbuffer (\w+)\n; \{(.*?); \}\n", body, re.DOTALL):
+            name, block = match.groups()
+            size_match = re.search(r"\}\s+\w+;\s+; Offset:\s*0 Size:\s*(\d+)", block)
+            if not size_match:
+                raise SystemExit(f"Cannot parse reflected cbuffer size for {job['bytecode']}:{name}")
+            fields = [
+                {"type": field.group(1), "name": field.group(2), "offset": int(field.group(3))}
+                for field in re.finditer(
+                    r"^;\s+(?:column_major\s+)?([\w.<>]+(?:\d+x\d+|\d+)?)\s+(\w+)(?:\[[^]]+\])?;\s+; Offset:\s*(\d+)\s*$",
+                    block,
+                    re.MULTILINE,
+                )
+            ]
+            total_size = int(size_match.group(1))
+            for field in fields:
+                type_match = re.search(r"(\d+)(?:x(\d+))?$", str(field["type"]))
+                field["size"] = 4 * ( int(type_match.group(1)) if type_match else 1 ) * (
+                    int(type_match.group(2)) if type_match and type_match.group(2) else 1
+                )
+            cbuffers.append({"name": name, "size": total_size, "fields": fields})
+
+    resources: list[dict[str, object]] = []
+    if len(resource_section) == 2:
+        body = resource_section[1].split("; ViewId state:", 1)[0].split("target datalayout", 1)[0]
+        row_pattern = re.compile(
+            r"^;\s+(\w+)\s+(cbuffer|sampler|texture|UAV|structured|byteaddress)\s+(\S+)\s+(\S+)\s+\S+\s+((?:cb|[bstu])\d+)(?:,space(\d+))?\s+(\d+)\s*$",
+            re.MULTILINE | re.IGNORECASE,
+        )
+        for row in row_pattern.finditer(body):
+            name, kind, fmt, dimension, binding, space, count = row.groups()
+            register_class = "b" if binding.startswith("cb") else binding[0]
+            slot_text = binding[2:] if binding.startswith("cb") else binding[1:]
+            resources.append(
+                {
+                    "name": name,
+                    "register_class": register_class,
+                    "slot": int(slot_text),
+                    "space": int(space or 0),
+                    "count": int(count),
+                    "type": kind.lower(),
+                    "format": fmt.lower(),
+                    "dimension": dimension.lower(),
+                }
+            )
+
+    inputs: list[dict[str, object]] = []
+    signature = dump.split("; Input signature:", 1)
+    if len(signature) == 2:
+        body = signature[1].split("; Output signature:", 1)[0]
+        input_pattern = re.compile(
+            r"^;\s+(\w+)\s+(\d+)\s+([xyzw]+)\s+(\d+)\s+(\w+)\s+(\w+)\s+([xyzw]+)\s*$",
+            re.MULTILINE,
+        )
+        for row in input_pattern.finditer(body):
+            name, index, mask, register, system_value, fmt, used = row.groups()
+            inputs.append(
+                {
+                    "semantic": name,
+                    "index": int(index),
+                    "mask": mask,
+                    "register": int(register),
+                    "system_value": system_value,
+                    "format": fmt,
+                    "used": used,
+                }
+            )
+
+    return {"cbuffers": cbuffers, "resources": resources, "inputs": inputs}
+
+
+def cpp_string(value: str) -> str:
+    return json.dumps(value, ensure_ascii=True)
+
+
+def generated_reflection_header(entries: list[dict[str, object]]) -> bytes:
+    fields: list[dict[str, object]] = []
+    resources: list[dict[str, object]] = []
+    inputs: list[dict[str, object]] = []
+    stages: list[dict[str, object]] = []
+    for entry in entries:
+        reflection = entry["reflection"]
+        field_start = len(fields)
+        resource_start = len(resources)
+        input_start = len(inputs)
+        stage_cbuffers = reflection["cbuffers"]
+        for cbuffer in stage_cbuffers:
+            for field in cbuffer["fields"]:
+                fields.append({**field, "cbuffer": cbuffer["name"]})
+        resources.extend(reflection["resources"])
+        inputs.extend(reflection["inputs"])
+        stages.append(
+            {
+                "source": entry["source"], "stage": entry["stage"],
+                "cbuffer_start": field_start, "cbuffer_count": len(fields) - field_start,
+                "resource_start": resource_start, "resource_count": len(resources) - resource_start,
+                "input_start": input_start, "input_count": len(inputs) - input_start,
+                "cbuffer_name": stage_cbuffers[0]["name"] if stage_cbuffers else "",
+                "cbuffer_size": stage_cbuffers[0]["size"] if stage_cbuffers else 0,
+            }
+        )
+
+    lines = [
+        "// Generated by tools/bake_shaders.py from pinned DXC container reflection. Do not edit.",
+        "#pragma once", "", "#include <cstddef>", "#include <cstdint>", "",
+        "namespace SkullbonezCore::Rendering::GeneratedShaderReflection", "{",
+        "struct Field { const char* cbuffer; const char* name; std::uint32_t offset; std::uint32_t size; };",
+        "struct Resource { const char* name; char registerClass; std::uint32_t slot; std::uint32_t space; const char* type; const char* dimension; };",
+        "struct Input { const char* semantic; std::uint32_t index; const char* mask; const char* format; const char* systemValue; };",
+        "struct Stage { const char* source; const char* stage; const char* cbufferName; std::uint32_t cbufferSize; std::uint32_t fieldStart; std::uint32_t fieldCount; std::uint32_t resourceStart; std::uint32_t resourceCount; std::uint32_t inputStart; std::uint32_t inputCount; };", "",
+        "inline constexpr Field Fields[] = {",
+    ]
+    lines += [f"    {{ {cpp_string(str(f['cbuffer']))}, {cpp_string(str(f['name']))}, {f['offset']}u, {f['size']}u }}," for f in fields]
+    lines += ["};", "", "inline constexpr Resource Resources[] = {"]
+    lines += [f"    {{ {cpp_string(str(r['name']))}, '{r['register_class']}', {r['slot']}u, {r['space']}u, {cpp_string(str(r['type']))}, {cpp_string(str(r['dimension']))} }}," for r in resources]
+    lines += ["};", "", "inline constexpr Input Inputs[] = {"]
+    lines += [f"    {{ {cpp_string(str(i['semantic']))}, {i['index']}u, {cpp_string(str(i['mask']))}, {cpp_string(str(i['format']))}, {cpp_string(str(i['system_value']))} }}," for i in inputs]
+    lines += ["};", "", "inline constexpr Stage Stages[] = {"]
+    lines += [f"    {{ {cpp_string(str(s['source']))}, {cpp_string(str(s['stage']))}, {cpp_string(str(s['cbuffer_name']))}, {s['cbuffer_size']}u, {s['cbuffer_start']}u, {s['cbuffer_count']}u, {s['resource_start']}u, {s['resource_count']}u, {s['input_start']}u, {s['input_count']}u }}," for s in stages]
+    lines += ["};", "inline constexpr std::size_t StageCount = sizeof( Stages ) / sizeof( Stages[0] );", "} // namespace SkullbonezCore::Rendering::GeneratedShaderReflection", ""]
+    return "\n".join(lines).encode("utf-8")
+
+
+def format_generated_header(repo: Path, header_path: Path, source: bytes) -> bytes:
+    clang_format = find_clang_format()
+    result = subprocess.run(
+        [str(clang_format), "-style=file", f"--assume-filename={header_path}"],
+        cwd=repo,
+        input=source,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        message = result.stderr.decode("utf-8", errors="replace").strip()
+        raise SystemExit(f"clang-format failed for generated shader reflection metadata: {message}")
+    return result.stdout
+
+
 def build_manifest(repo: Path, dxc: Path, version_text: str, check_only: bool) -> dict[str, object]:
     shader_dir = repo / "SkullbonezData" / "shaders"
     entries: list[dict[str, object]] = []
@@ -150,6 +331,7 @@ def build_manifest(repo: Path, dxc: Path, version_text: str, check_only: bool) -
             "args": compile_args,
             "source_sha256": source_hash,
         }
+        reflection = reflect_job(repo, dxc, job, bytecode_path)
         entry = dict(job)
         entry.update(
             {
@@ -157,6 +339,7 @@ def build_manifest(repo: Path, dxc: Path, version_text: str, check_only: bool) -
                 "compile_inputs_sha256": sha256_bytes(canonical_json(compile_inputs)),
                 "bytecode_sha256": sha256_bytes(bytecode),
                 "bytecode_size": len(bytecode),
+                "reflection": reflection,
             }
         )
         entries.append(entry)
@@ -182,18 +365,25 @@ def main() -> int:
 
     repo = Path(__file__).resolve().parent.parent
     manifest_path = repo / "SkullbonezData" / "shaders" / "shader_manifest.json"
+    reflection_header_path = repo / REFLECTION_HEADER
     dxc = find_dxc()
     version_text = verify_dxc(dxc)
     manifest = build_manifest(repo, dxc, version_text, args.check)
     manifest_bytes = json.dumps(manifest, indent=2, ensure_ascii=True).encode("utf-8") + b"\n"
+    reflection_header_bytes = format_generated_header(
+        repo, reflection_header_path, generated_reflection_header(manifest["entries"])
+    )
 
     if args.check:
         if not manifest_path.is_file() or manifest_path.read_bytes() != manifest_bytes:
             raise SystemExit("Shader manifest is stale; run tools\\bake_shaders.bat and commit the generated assets.")
+        if not reflection_header_path.is_file() or reflection_header_path.read_bytes() != reflection_header_bytes:
+            raise SystemExit("Shader reflection metadata is stale; run tools\\bake_shaders.bat and commit it.")
         print(f"Shader bake freshness PASS: {len(manifest['entries'])} stages, DXC {DXC_VERSION}.")
         return 0
 
     manifest_path.write_bytes(manifest_bytes)
+    reflection_header_path.write_bytes(reflection_header_bytes)
     print(f"Shader bake PASS: wrote {len(manifest['entries'])} stages with DXC {DXC_VERSION}.")
     return 0
 

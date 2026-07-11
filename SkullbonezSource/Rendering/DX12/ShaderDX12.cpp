@@ -35,6 +35,7 @@ Related:
 #include "ShaderBytecodeManifest.h"
 #include "RenderBackendDX12.h"
 #include "../ShaderContracts.h"
+#include "../ShaderReflectionContracts.h"
 #include "../../Core/Log.h"
 #include <d3d11shader.h>
 #include <string>
@@ -96,6 +97,7 @@ ShaderDX12::~ShaderDX12() = default;
 
 bool ShaderDX12::Compile( const char* hlslPath )
 {
+    m_sourcePath = hlslPath ? hlslPath : "";
     m_contract = FindShaderProgramDesc( hlslPath );
     m_uniformMap.clear();
     m_cbReflectedSize = 0;
@@ -184,6 +186,21 @@ bool ShaderDX12::Compile( const char* hlslPath )
     m_vsBytecodeHash = HashShaderBytecode( m_vsBlob.Get() );
     m_psBytecodeHash = HashShaderBytecode( m_psBlob.Get() );
 
+    if ( m_contract )
+    {
+        std::string contractError;
+        if ( !ValidateGeneratedShaderProgramContract( hlslPath, *m_contract, contractError ) )
+        {
+            // Lane R: authored shader assets are external startup inputs. Reject
+            // a stale CPU/DXIL ABI with the owning shader and exact mismatch.
+            Log().WriteEventf( "dx12_shader_reflection_contract_rejected owner=ShaderDX12 path=%s reason=%s",
+                               hlslPath ? hlslPath : "<null>",
+                               contractError.c_str() );
+            Log().FlushAll();
+            return false;
+        }
+    }
+
     // Reflect both stages so PS-only post/sky uniforms are visible to SetFloat/SetVec*.
     if ( !ReflectCB( m_vsBlob.Get(), hlslPath, "vs" ) || !ReflectCB( m_psBlob.Get(), hlslPath, "ps" ) )
     {
@@ -253,6 +270,12 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
         return reflectionFailure( "shader GetDesc", hr );
     }
 
+    const GeneratedShaderReflection::Stage* bakedStage = FindGeneratedShaderStage( hlslPath, stageName );
+    if ( !bakedStage )
+    {
+        return reflectionFailure( "generated metadata lookup", E_INVALIDARG );
+    }
+
 #ifdef _DEBUG
     for ( UINT i = 0; i < shaderDesc.BoundResources; ++i )
     {
@@ -302,6 +325,59 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
                 return reflectionFailure( "variable GetDesc", hr );
             }
             m_uniformMap[varDesc.Name] = { varDesc.StartOffset, varDesc.Size };
+        }
+    }
+
+    // Invariant: startup reflects the loaded bytes again and compares every
+    // field against the checked-in POD table. This catches stale generated
+    // metadata, offsets, or cbuffer sizes even if an asset was copied by hand.
+    if ( bakedStage->cbufferSize != 0 )
+    {
+        bool sizeMatched = false;
+        for ( UINT i = 0; i < shaderDesc.ConstantBuffers; ++i )
+        {
+            ID3D12ShaderReflectionConstantBuffer* cb = reflect->GetConstantBufferByIndex( i );
+            D3D12_SHADER_BUFFER_DESC desc = {};
+            if ( cb && SUCCEEDED( cb->GetDesc( &desc ) ) && desc.Name &&
+                 std::strcmp( desc.Name, bakedStage->cbufferName ) == 0 && desc.Size == bakedStage->cbufferSize )
+            {
+                sizeMatched = true;
+            }
+        }
+        if ( !sizeMatched )
+        {
+            return reflectionFailure( "generated cbuffer size mismatch", E_INVALIDARG );
+        }
+    }
+    for ( std::uint32_t expectedIndex = 0; expectedIndex < bakedStage->fieldCount; ++expectedIndex )
+    {
+        const auto& expected = GeneratedShaderReflection::Fields[bakedStage->fieldStart + expectedIndex];
+        bool matched = false;
+        for ( UINT i = 0; i < shaderDesc.ConstantBuffers && !matched; ++i )
+        {
+            ID3D12ShaderReflectionConstantBuffer* cb = reflect->GetConstantBufferByIndex( i );
+            D3D12_SHADER_BUFFER_DESC cbDesc = {};
+            if ( !cb || FAILED( cb->GetDesc( &cbDesc ) ) || !cbDesc.Name ||
+                 std::strcmp( cbDesc.Name, expected.cbuffer ) != 0 )
+            {
+                continue;
+            }
+            for ( UINT variableIndex = 0; variableIndex < cbDesc.Variables; ++variableIndex )
+            {
+                D3D12_SHADER_VARIABLE_DESC variable = {};
+                ID3D12ShaderReflectionVariable* reflectedVariable = cb->GetVariableByIndex( variableIndex );
+                if ( reflectedVariable && SUCCEEDED( reflectedVariable->GetDesc( &variable ) ) && variable.Name &&
+                     std::strcmp( variable.Name, expected.name ) == 0 && variable.StartOffset == expected.offset &&
+                     variable.Size == expected.size )
+                {
+                    matched = true;
+                    break;
+                }
+            }
+        }
+        if ( !matched )
+        {
+            return reflectionFailure( "generated cbuffer field mismatch", E_INVALIDARG );
         }
     }
     // Align CB size to 256 bytes (DX12 requirement)
@@ -860,4 +936,62 @@ SIZE_T ShaderDX12::GetPSBytecodeSize() const
 size_t ShaderDX12::GetPSBytecodeHash() const
 {
     return m_psBytecodeHash;
+}
+
+
+bool ShaderDX12::ValidateInputLayout( const D3D12_INPUT_ELEMENT_DESC* elements,
+                                      UINT count,
+                                      std::string& outError ) const
+{
+    const auto* reflected = FindGeneratedShaderStage( m_sourcePath.c_str(), "vs" );
+    if ( !reflected )
+    {
+        outError = "missing generated vertex-stage metadata";
+        return false;
+    }
+    UINT cpuInputCount = 0;
+    for ( std::uint32_t i = 0; i < reflected->inputCount; ++i )
+    {
+        cpuInputCount +=
+            std::strcmp( GeneratedShaderReflection::Inputs[reflected->inputStart + i].systemValue, "NONE" ) == 0;
+    }
+    if ( cpuInputCount != count )
+    {
+        outError = "input element count mismatch";
+        return false;
+    }
+    auto componentCount = []( DXGI_FORMAT format ) -> size_t
+    {
+        switch ( format )
+        {
+        case DXGI_FORMAT_R32_FLOAT:
+            return 1;
+        case DXGI_FORMAT_R32G32_FLOAT:
+            return 2;
+        case DXGI_FORMAT_R32G32B32_FLOAT:
+            return 3;
+        case DXGI_FORMAT_R32G32B32A32_FLOAT:
+            return 4;
+        default:
+            return 0;
+        }
+    };
+    UINT cpuIndex = 0;
+    for ( std::uint32_t reflectedIndex = 0; reflectedIndex < reflected->inputCount; ++reflectedIndex )
+    {
+        const auto& expected = GeneratedShaderReflection::Inputs[reflected->inputStart + reflectedIndex];
+        if ( std::strcmp( expected.systemValue, "NONE" ) != 0 )
+        {
+            continue;
+        }
+        const auto& actual = elements[cpuIndex];
+        if ( !actual.SemanticName || std::strcmp( expected.semantic, actual.SemanticName ) != 0 ||
+             expected.index != actual.SemanticIndex || std::strlen( expected.mask ) != componentCount( actual.Format ) )
+        {
+            outError = std::string( "input layout mismatch at element " ) + std::to_string( cpuIndex );
+            return false;
+        }
+        ++cpuIndex;
+    }
+    return true;
 }
