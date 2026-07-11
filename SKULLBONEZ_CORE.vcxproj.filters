@@ -140,6 +140,9 @@
     <Filter Include="Header Files\Runtime\Editor">
       <UniqueIdentifier>{A91AAE52-33DA-9F4F-0395-E82114382396}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Runtime\UI">
+      <UniqueIdentifier>{A88A8D21-67C3-4E5D-865E-94A1A2C9893F}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\World">
       <UniqueIdentifier>{7B1F33A5-5D6A-2875-88A4-7ABBFD2038D8}</UniqueIdentifier>
     </Filter>
@@ -811,6 +814,9 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionController.h">
       <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\UI\RuntimeUiSurface.h">
+      <Filter>Header Files\Runtime\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimePickGeometry.h">
       <Filter>Header Files\Runtime</Filter>

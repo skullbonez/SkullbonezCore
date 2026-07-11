@@ -5,7 +5,8 @@ Purpose:
 
 Mental model:
   Replay overlay rendering is a late UI pass. Keep the same screen-space layout
-  as replay input by using ReplayOverlayLayout helpers.
+  and pointer eligibility as replay input by rebuilding the same fixed-capacity
+  surfaces from ReplayOverlayLayout.
 
 Glossary:
   UI (User Interface): Runtime controls and overlays drawn over the 3D scene.
@@ -18,8 +19,8 @@ Glossary:
     inspection.
 
 Invariants:
-  - Drawn controls must use ReplayOverlayLayout rectangles so input hit boxes
-    stay identical.
+  - Drawn controls use the same surface rows and pointer-block fact as input, so
+    visible hover and actionable hit state stay identical.
   - Overlay rendering reads replay state only; replay mutation belongs to input
     and runtime replay helpers.
 
@@ -803,7 +804,9 @@ void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context )
     EnsureReplayCauseWindowPlacement( replayRuntime.CauseTree(), screenW, screenH );
     ReplayCauseWindowSurface surface;
     BuildReplayCauseWindowSurface( replayRuntime.CauseTree(), surface );
-    surface.ResolvePointer( replayRuntime.CauseTree().mouseX, replayRuntime.CauseTree().mouseY );
+    surface.ResolvePointer( replayRuntime.CauseTree().mouseX,
+                            replayRuntime.CauseTree().mouseY,
+                            replayRuntime.CauseTree().pointerBlocked );
     const auto controlRect = [&]( ReplayCauseWindowControl id ) -> const UI::UIRect&
     {
         const RuntimeUiControl* row = surface.Find( ReplayCauseWindowControlId( id ) );

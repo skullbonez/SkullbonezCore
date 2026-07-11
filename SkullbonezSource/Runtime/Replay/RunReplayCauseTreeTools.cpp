@@ -5,8 +5,9 @@ Purpose:
 
 Mental model:
   The cause tree is an explanatory replay UI over retained solver contacts and
-  predicted movement. It owns window drag/resize/row hover state and asks
-  ReplayRuntime to resolve body positions for camera focus.
+  predicted movement. It owns window placement and drag/resize state, derives
+  row hover from a disposable shared surface, and asks ReplayRuntime to resolve
+  body positions for camera focus.
 
 Glossary:
   Cause tree: Contact, solver-row, and predicted-motion graph explaining replay
@@ -15,6 +16,7 @@ Glossary:
 
 Invariants:
   - Window drag and resize gestures must release pointer capture on mouse up.
+  - A higher-priority UI block suppresses cause-window actions and draw hover.
   - Focus changes hold live replay advance so selected historical rows remain visible.
 
 Related:
@@ -107,6 +109,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         m_replayRuntime.BeginCauseTreeInputFrame( pointer.leftPressed, pointer.leftReleased );
     const bool leftPressed = inputEdges.leftPressed;
     const bool leftReleased = inputEdges.leftReleased;
+    m_replayRuntime.CauseTree().pointerBlocked = true;
 
     const auto activateReplayCameraForCauseRow = [&]( const RunReplayCauseTreeRow& row, int rowIndex )
     {
@@ -263,9 +266,10 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
     const POINT mouse{ runtimePointer.clientX, runtimePointer.clientY };
     m_replayRuntime.CauseTree().mouseX = mouse.x;
     m_replayRuntime.CauseTree().mouseY = mouse.y;
+    m_replayRuntime.CauseTree().pointerBlocked = uiBlocksMouse;
     ReplayCauseWindowSurface surface;
     BuildReplayCauseWindowSurface( m_replayRuntime.CauseTree(), surface );
-    surface.ResolvePointer( mouse.x, mouse.y );
+    surface.ResolvePointer( mouse.x, mouse.y, uiBlocksMouse );
     const auto isHotControl = [&]( ReplayCauseWindowControl control )
     { return surface.hasHotControl && surface.hotControl == ReplayCauseWindowControlId( control ); };
     const RuntimeUiControl* contentControl =

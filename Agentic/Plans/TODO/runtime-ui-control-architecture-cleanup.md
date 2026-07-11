@@ -1,7 +1,7 @@
 # Runtime UI Control Architecture Cleanup
 
 Date: 2026-07-10 (promoted into the authoritative TODO inventory)
-Status: In progress - 6/7 phases complete
+Status: Complete - 7/7 phases complete
 Impact area: replay UI, editor UI, diagnostics UI, input routing, interaction
 gesture ownership
 Owner: runtime UI surfaces; subsystem commands remain with their domain owners
@@ -265,13 +265,13 @@ Delete or absorb these patterns across runtime UI:
 
 | Phase | State | Completion evidence |
 |---|---|---|
-| U0 Inventory UI surfaces | Complete | 95 tracked source files reconciled below with owner/input/render/gate evidence |
+| U0 Inventory UI surfaces | Complete | 96 tracked source files reconciled below with owner/input/render/gate evidence |
 | U1 Shared control vocabulary | Complete | Inline `RuntimeUiSurface` values and four Debug/Release CPU tests pass |
 | U2 Replay scrubber vertical slice | Complete | 13-row surface owns scrubber hit/reveal state; old `overX` ladder deleted |
 | U3 Action dispatch | Complete | Control action table plus named value dispatch shared by pointer and Enter restore |
 | U4 Gesture lifecycle | Complete | Central scrubber begin/tick/end plus controller-owned cancel and reset tests |
 | U5 Shared render/input snapshots | Complete | Input/render derive the same 13 rows; hover mirrors and render layout duplication deleted |
-| U6 Remaining runtime surfaces | Pending | Inventory reconciled with zero unchecked files |
+| U6 Remaining runtime surfaces | Complete | 58 logical rows / 96 files reconciled, zero deferred; repeat adversarial review findings fixed |
 
 ### Phase 1: Inventory UI Surfaces
 
@@ -312,64 +312,64 @@ cohesive lower-level primitive/domain handler that should remain unchanged.
 
 | U0 | U6 | Tracked source file(s) | Surface and persistent owner | Input entry | Render entry | Validation path |
 |---|---|---|---|---|---|---|
-| [x] | [ ] | `SkullbonezSource/Runtime/Replay/ReplayInteractionController.cpp`, `SkullbonezSource/Runtime/Replay/ReplayInteractionController.h` | Replay scrub/velocity command application; `ReplayRuntime` | `ReplayRuntime::TickScrubberInput`, `TickVelocityEditInput` | state consumed by replay overlay/velocity render | `validate_replay_scrub`, interaction policy |
-| [x] | [ ] | `SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.cpp`, `SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h` | Scrubber/prediction/cause-tree geometry; disposable replay layout | replay ticks build layout | `RenderReplayScrubberOverlay` | `validate_replay_scrub`, DX12 renderer |
-| [x] | [ ] | `SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.cpp`, `SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.h` | Replay text/control presentation; `ReplayRuntime` supplies state | no mutation; consumes built surface | `RenderReplayScrubberOverlay` | `validate_replay_scrub`, DX12 renderer |
-| [x] | [ ] | `SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp`, `SkullbonezSource/Runtime/Replay/ReplayRuntime.h` | Replay workspace, scrubber, prediction, velocity, path, cause tree; `ReplayRuntime` | public replay tick/route methods | public replay render methods and render snapshots | replay scrub, policy, full |
-| [x] | [ ] | `SkullbonezSource/Runtime/Replay/ReplayRuntimeOwnerViews.h` | Narrow replay input/render owner views; `ReplayRuntime` | input owner view | render owner view | replay scrub, build |
-| [x] | [ ] | `SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.cpp` | Scrubber buttons, track, prediction slider, hot zone; `ReplayRuntime` | `TickScrubberInput` | layout passed to overlay renderer | replay scrub |
-| [x] | [ ] | `SkullbonezSource/Runtime/Replay/RunReplayCauseTreeTools.cpp` | Cause-tree panel rows, drag/resize/hot zones; `ReplayRuntime` | `TickCauseTreeInput` | replay overlay renderer | replay scrub, interaction policy |
-| [x] | [ ] | `SkullbonezSource/Runtime/Replay/RunReplayQueryTools.cpp` | World-space replay target/path selection; `ReplayRuntime` | `RouteWorldPointer` | path/cause focus overlay | replay scrub, click scenarios |
-| [x] | [ ] | `SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp` | Velocity gizmo handles; `ReplayRuntime` plus interaction owner | `TickVelocityEditInput` | `RenderVelocityEditOverlay` | replay scrub, click scenarios |
-| [x] | [ ] | `SkullbonezSource/Runtime/Replay/RunReplayTools.cpp` | Prediction/path visualizer controls and world overlays; `ReplayRuntime` | prediction actions routed by scrubber/world pointer | prediction/path/cause render methods | replay scrub, DX12 renderer |
-| [x] | [ ] | `SkullbonezSource/Runtime/Editor/EditorOverlayTools.h` | Editor overlay snapshot vocabulary; `RuntimeTools` | built after editor input | consumed by tool overlay pass | interaction clicks, DX12 renderer |
-| [x] | [ ] | `SkullbonezSource/Runtime/Editor/EditorPlacementAssets.h` | Placement selection/preview state used by controls; `RuntimeTools` | editor placement commands | placement preview overlay | interaction clicks, full |
-| [x] | [ ] | `SkullbonezSource/Runtime/Editor/EditorTools.cpp`, `SkullbonezSource/Runtime/Editor/EditorTools.h` | Editor mode, shortcuts, placement and gizmo policy; `RuntimeTools` | named editor action/shortcut helpers | state consumed by overlay builders | interaction policy, clicks |
-| [x] | [ ] | `SkullbonezSource/Runtime/Editor/RunEditorTools.cpp` | Editor pointer preview/selection and gesture preparation; `RuntimeTools` | `RefreshEditorPointerPreview`, `PrepareEditorPointerSelection`, `PrepareEditorGizmoGesture` | editor tracer/overlay state | interaction policy, clicks |
-| [x] | [ ] | `SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.cpp` | Translate/rotate/scale handles; interaction controller owns gesture | gizmo hit/update helpers | tracer gizmo geometry | inspect/manipulator scenarios |
-| [x] | [ ] | `SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp` | Placement action handler; scene/physics owners perform mutation | placement command from editor UI | placement result/preview | interaction clicks, full |
-| [x] | [ ] | `SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp` | Editor tool overlay construction; `RuntimeTools` | samples post-input tool state | `BuildEditorToolOverlayTrace` | interaction clicks, DX12 renderer |
-| [x] | [ ] | `SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp` | World-space editor/replay line and gizmo presentation; `RuntimeTools` | no command mutation | `RunEditorTracer::Render` | DX12 renderer, interaction clicks |
-| [x] | [ ] | `SkullbonezSource/Runtime/Tools/RuntimeTools.cpp`, `SkullbonezSource/Runtime/Tools/RuntimeTools.h` | Persistent editor/tool state and tool render view; `RuntimeTools` | tool/editor routing methods | `BuildRenderView` and tracer access | interaction policy, clicks, full |
-| [x] | [ ] | `SkullbonezSource/Runtime/InputFrame.cpp`, `SkullbonezSource/Runtime/InputFrame.h` | Per-frame UI/input snapshot and typed command boundary; input owners | `BuildInputFrame` | post-input state handed to frame rendering | interaction policy, fast |
-| [x] | [ ] | `SkullbonezSource/Runtime/InputFrameExecution.cpp` | UI command dispatch to domain owners; input executor | `ExecuteInputFrame` | no direct drawing | interaction policy, fast |
-| [x] | [ ] | `SkullbonezSource/Runtime/InteractionAutomationController.cpp`, `SkullbonezSource/Runtime/InteractionAutomationController.h` | Deterministic pointer/control targets and assertions; automation owner | automation step injection | report/screenshot evidence | five click scenarios, replay scrub |
-| [x] | [ ] | `SkullbonezSource/Runtime/RunUiTextPass.cpp` | Top-level in-game/replay/diagnostic UI composition; frame composition | consumes immutable frame/UI snapshots | UI text pass and replay overlay render | fast, replay scrub, DX12 renderer |
-| [x] | [ ] | `SkullbonezSource/Runtime/RunFrame.cpp` | Frame ordering only; `Run` composes owners | sequences input before render | sequences UI/tool render passes | full |
-| [x] | [ ] | `SkullbonezSource/Runtime/Render/RuntimeRenderInputs.h` | Value-only UI/tool render handoff; `RuntimeRenderer` consumes | no input mutation | render-service snapshot | build, DX12 renderer |
-| [x] | [ ] | `SkullbonezSource/Runtime/UI/RuntimeUiSurface.h` | Shared disposable control/surface values; domain owners retain persistent state | `ResolvePointer` produces one ordered hot control | domain renderer reads the same control rows | interaction policy, all CPU tests |
-| [x] | [ ] | `SkullbonezSource/Runtime/Scene/SceneRuntimeUiOptions.cpp`, `SkullbonezSource/Runtime/Scene/SceneRuntimeUiOptions.h` | Scene-authored UI visibility/options; scene owner | scene load/options command | sampled by in-game UI frame | fast, full |
-| [x] | [ ] | `SkullbonezSource/UI/UI.cpp`, `SkullbonezSource/UI/UI.h` | Window, chrome, tabs, capture, scroll, mini-palette; `UI::InGameUI` | `InGameUI::UpdateInput` | `InGameUI::Draw` | fast, interaction clicks, DX12 renderer |
-| [x] | [ ] | `SkullbonezSource/UI/UIInput.cpp`, `SkullbonezSource/UI/UIInput.h` | Immutable device-to-UI pointer/key facts; `InGameUI` | UI input helpers | no direct drawing | interaction policy, fast |
-| [x] | [ ] | `SkullbonezSource/UI/UIFrameComposition.cpp`, `SkullbonezSource/UI/UIFrameComposition.h` | Mini-palette/frame composition; `InGameUI` | mini-palette interaction helpers | mini-palette draw composition | interaction clicks, DX12 renderer |
-| [x] | [ ] | `SkullbonezSource/UI/UIEditorMiniPalette.cpp`, `SkullbonezSource/UI/UIEditorMiniPaletteDraw.cpp` | Editor viewport palette controls; `InGameUI` | palette layout/hit policy | palette drawing | interaction clicks, DX12 renderer |
-| [x] | [ ] | `SkullbonezSource/UI/UIWindowChrome.cpp`, `SkullbonezSource/UI/UIWindowChrome.h` | Window drag/resize/title buttons; `InGameUI` | chrome rectangles consumed by `UpdateInput` | title/chrome drawing | fast, DX12 renderer |
-| [x] | [ ] | `SkullbonezSource/UI/UILayout.cpp`, `SkullbonezSource/UI/UILayout.h` | Shared deterministic rectangles; disposable layout | bounds builders | same bounds passed to draw | CPU UI geometry tests, fast |
-| [x] | [ ] | `SkullbonezSource/UI/UIButton.cpp`, `SkullbonezSource/UI/UIButton.h` | Button primitive; parent surface owns action | `UIButton::HitTest` | `UIButton::Draw` | CPU UI geometry tests, fast |
-| [x] | [ ] | `SkullbonezSource/UI/UICheckBox.cpp`, `SkullbonezSource/UI/UICheckBox.h` | Toggle primitive; parent surface owns action | `UICheckBox::HitTest` | checkbox draw | CPU UI geometry tests, fast |
-| [x] | [ ] | `SkullbonezSource/UI/UIComboBox.cpp`, `SkullbonezSource/UI/UIComboBox.h` | Combo/open-row primitive; owning tab retains selection | combo input helpers | combo draw | CPU UI geometry tests, fast |
-| [x] | [ ] | `SkullbonezSource/UI/UIIconButton.cpp`, `SkullbonezSource/UI/UIIconButton.h` | Icon-button primitive; parent surface owns action | icon hit test | icon-button draw | CPU UI geometry tests, fast |
-| [x] | [ ] | `SkullbonezSource/UI/UIScrollBar.cpp`, `SkullbonezSource/UI/UIScrollBar.h` | Scrollbar track/thumb primitive; `InGameUI` owns scroll | scrollbar hit/update | scrollbar draw | CPU gesture tests, fast |
-| [x] | [ ] | `SkullbonezSource/UI/UISlider.cpp`, `SkullbonezSource/UI/UISlider.h` | Slider track/value primitive; owning tab owns value | slider hit/value helpers | slider draw | CPU gesture/geometry tests, fast |
-| [x] | [ ] | `SkullbonezSource/UI/UITabBar.cpp`, `SkullbonezSource/UI/UITabBar.h` | Tab selectors; `InGameUI` owns active tab | tab hit test | tab-bar draw | CPU UI geometry tests, fast |
-| [x] | [ ] | `SkullbonezSource/UI/UIBackdropBlur.cpp`, `SkullbonezSource/UI/UIBackdropBlur.h` | Non-interactive UI backdrop resource/presentation; `InGameUI` | none | backdrop draw | DX12 renderer |
-| [x] | [ ] | `SkullbonezSource/UI/UICache.cpp`, `SkullbonezSource/UI/UICache.h` | Disposable UI draw-cache key/state; `InGameUI` | invalidated by input/state change | cached draw-list publication | fast, DX12 renderer |
-| [x] | [ ] | `SkullbonezSource/UI/UICommands.h` | Typed UI-to-domain command values; frame input result | emitted by controls/tabs | no drawing | CPU command tests, fast |
-| [x] | [ ] | `SkullbonezSource/UI/UIDraw.cpp`, `SkullbonezSource/UI/UIDraw.h` | Immediate draw context; renderer resource owner | none | base shape/text emission | DX12 renderer |
-| [x] | [ ] | `SkullbonezSource/UI/UIDrawList.cpp`, `SkullbonezSource/UI/UIDrawList.h` | Fixed UI draw command storage; `InGameUI` | none | draw-list build/replay | CPU capacity tests, DX12 renderer |
-| [x] | [ ] | `SkullbonezSource/UI/UIDrawWidgets.cpp`, `SkullbonezSource/UI/UIDrawWidgets.h` | Stateless widget styling helpers | consumes control state only | widget drawing | DX12 renderer |
-| [x] | [ ] | `SkullbonezSource/UI/UIState.h` | Plain UI rectangles/window state; `InGameUI` | bounds/capture state | consumed across draw paths | CPU geometry tests, fast |
-| [x] | [ ] | `SkullbonezSource/UI/UIStyle.cpp`, `SkullbonezSource/UI/UIStyle.h` | Non-interactive palette/metrics | none | styling lookup | DX12 renderer |
-| [x] | [ ] | `SkullbonezSource/UI/UITabCinematic.cpp`, `SkullbonezSource/UI/UITabCinematic.h` | Cinematic controls; `InGameUI` tab state | tab content click/slider update | tab draw | fast, DX12 renderer |
-| [x] | [ ] | `SkullbonezSource/UI/UITabControls.cpp`, `SkullbonezSource/UI/UITabControls.h` | Camera/control settings; `InGameUI` tab state | tab content click/slider update | tab draw | fast |
-| [x] | [ ] | `SkullbonezSource/UI/UITabEditor.cpp`, `SkullbonezSource/UI/UITabEditor.h` | Editor mode/placement controls; `InGameUI` tab state | tab content click | tab draw | interaction clicks, fast |
-| [x] | [ ] | `SkullbonezSource/UI/UITabMemory.cpp`, `SkullbonezSource/UI/UITabMemory.h` | Memory diagnostics controls/overlay; `InGameUI` | tab/overlay input | memory panel/overlay draw | fast, DX12 renderer |
-| [x] | [ ] | `SkullbonezSource/UI/UITabOptions.cpp`, `SkullbonezSource/UI/UITabOptions.h` | Render/runtime toggles/sliders; `InGameUI` tab state | tab content click/slider update | tab draw | fast, DX12 renderer |
-| [x] | [ ] | `SkullbonezSource/UI/UITabPhysics.cpp`, `SkullbonezSource/UI/UITabPhysics.h` | Physics diagnostics/toggles/sliders; `InGameUI` tab state | tab content click/slider update | tab draw | fast, physics |
-| [x] | [ ] | `SkullbonezSource/UI/UITabProfiler.cpp`, `SkullbonezSource/UI/UITabProfiler.h` | Profiler tree/timeline/histogram controls; `InGameUI` | tab/histogram input | tab and overlay draw | fast, DX12 renderer |
-| [x] | [ ] | `SkullbonezSource/UI/UITabScene.cpp`, `SkullbonezSource/UI/UITabScene.h` | Scene selector/filter/time controls; `InGameUI` | tab/filter/combo/slider input | tab draw | fast, full |
-| [x] | [ ] | `SkullbonezSource/UI/UITabSky.cpp`, `SkullbonezSource/UI/UITabSky.h` | Sky/environment controls; `InGameUI` tab state | tab content click/slider update | tab draw | fast, DX12 renderer |
-| [x] | [ ] | `SkullbonezSource/UI/UITabSound.cpp`, `SkullbonezSource/UI/UITabSound.h` | Audio diagnostics/toggles/sliders; `InGameUI` tab state | tab content click/slider update | tab draw | fast |
+| [x] | [x] | `SkullbonezSource/Runtime/Replay/ReplayInteractionController.cpp`, `SkullbonezSource/Runtime/Replay/ReplayInteractionController.h` | Replay scrub/velocity command application; `ReplayRuntime` | `ReplayRuntime::TickScrubberInput`, `TickVelocityEditInput` | state consumed by replay overlay/velocity render | `validate_replay_scrub`, interaction policy |
+| [x] | [x] | `SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.cpp`, `SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h` | Scrubber/prediction/cause-tree geometry; disposable replay layout | replay ticks build layout | `RenderReplayScrubberOverlay` | `validate_replay_scrub`, DX12 renderer |
+| [x] | [x] | `SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.cpp`, `SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.h` | Replay text/control presentation; `ReplayRuntime` supplies state | no mutation; consumes built surface | `RenderReplayScrubberOverlay` | `validate_replay_scrub`, DX12 renderer |
+| [x] | [x] | `SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp`, `SkullbonezSource/Runtime/Replay/ReplayRuntime.h` | Replay workspace, scrubber, prediction, velocity, path, cause tree; `ReplayRuntime` | public replay tick/route methods | public replay render methods and render snapshots | replay scrub, policy, full |
+| [x] | [x] | `SkullbonezSource/Runtime/Replay/ReplayRuntimeOwnerViews.h` | Narrow replay input/render owner views; `ReplayRuntime` | input owner view | render owner view | replay scrub, build |
+| [x] | [x] | `SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.cpp` | Scrubber buttons, track, prediction slider, hot zone; `ReplayRuntime` | `TickScrubberInput` | layout passed to overlay renderer | replay scrub |
+| [x] | [x] | `SkullbonezSource/Runtime/Replay/RunReplayCauseTreeTools.cpp` | Cause-tree panel rows, drag/resize/hot zones; `ReplayRuntime` | `TickCauseTreeInput` | replay overlay renderer | replay scrub, interaction policy |
+| [x] | [x] | `SkullbonezSource/Runtime/Replay/RunReplayQueryTools.cpp` | World-space replay target/path selection; `ReplayRuntime` | `RouteWorldPointer` | path/cause focus overlay | replay scrub, click scenarios |
+| [x] | [x] | `SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp` | Velocity gizmo handles; `ReplayRuntime` plus interaction owner | `TickVelocityEditInput` | `RenderVelocityEditOverlay` | replay scrub, click scenarios |
+| [x] | [x] | `SkullbonezSource/Runtime/Replay/RunReplayTools.cpp` | Prediction/path visualizer controls and world overlays; `ReplayRuntime` | prediction actions routed by scrubber/world pointer | prediction/path/cause render methods | replay scrub, DX12 renderer |
+| [x] | [x] | `SkullbonezSource/Runtime/Editor/EditorOverlayTools.h` | Editor overlay snapshot vocabulary; `RuntimeTools` | built after editor input | consumed by tool overlay pass | interaction clicks, DX12 renderer |
+| [x] | [x] | `SkullbonezSource/Runtime/Editor/EditorPlacementAssets.h` | Placement selection/preview state used by controls; `RuntimeTools` | editor placement commands | placement preview overlay | interaction clicks, full |
+| [x] | [x] | `SkullbonezSource/Runtime/Editor/EditorTools.cpp`, `SkullbonezSource/Runtime/Editor/EditorTools.h` | Editor mode, shortcuts, placement and gizmo policy; `RuntimeTools` | named editor action/shortcut helpers | state consumed by overlay builders | interaction policy, clicks |
+| [x] | [x] | `SkullbonezSource/Runtime/Editor/RunEditorTools.cpp` | Editor pointer preview/selection and gesture preparation; `RuntimeTools` | `RefreshEditorPointerPreview`, `PrepareEditorPointerSelection`, `PrepareEditorGizmoGesture` | editor tracer/overlay state | interaction policy, clicks |
+| [x] | [x] | `SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.cpp` | Translate/rotate/scale handles; interaction controller owns gesture | gizmo hit/update helpers | tracer gizmo geometry | inspect/manipulator scenarios |
+| [x] | [x] | `SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp` | Placement action handler; scene/physics owners perform mutation | placement command from editor UI | placement result/preview | interaction clicks, full |
+| [x] | [x] | `SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp` | Editor tool overlay construction; `RuntimeTools` | samples post-input tool state | `BuildEditorToolOverlayTrace` | interaction clicks, DX12 renderer |
+| [x] | [x] | `SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp` | World-space editor/replay line and gizmo presentation; `RuntimeTools` | no command mutation | `RunEditorTracer::Render` | DX12 renderer, interaction clicks |
+| [x] | [x] | `SkullbonezSource/Runtime/Tools/RuntimeTools.cpp`, `SkullbonezSource/Runtime/Tools/RuntimeTools.h` | Persistent editor/tool state and tool render view; `RuntimeTools` | tool/editor routing methods | `BuildRenderView` and tracer access | interaction policy, clicks, full |
+| [x] | [x] | `SkullbonezSource/Runtime/InputFrame.cpp`, `SkullbonezSource/Runtime/InputFrame.h` | Per-frame UI/input snapshot and typed command boundary; input owners | `BuildInputFrame` | post-input state handed to frame rendering | interaction policy, fast |
+| [x] | [x] | `SkullbonezSource/Runtime/InputFrameExecution.cpp` | UI command dispatch to domain owners; input executor | `ExecuteInputFrame` | no direct drawing | interaction policy, fast |
+| [x] | [x] | `SkullbonezSource/Runtime/InteractionAutomationController.cpp`, `SkullbonezSource/Runtime/InteractionAutomationController.h` | Deterministic pointer/control targets and assertions; automation owner | automation step injection | report/screenshot evidence | five click scenarios, replay scrub |
+| [x] | [x] | `SkullbonezSource/Runtime/RunUiTextPass.cpp` | Top-level in-game/replay/diagnostic UI composition; frame composition | consumes immutable frame/UI snapshots | UI text pass and replay overlay render | fast, replay scrub, DX12 renderer |
+| [x] | [x] | `SkullbonezSource/Runtime/RunFrame.cpp` | Frame ordering only; `Run` composes owners | sequences input before render | sequences UI/tool render passes | full |
+| [x] | [x] | `SkullbonezSource/Runtime/Render/RuntimeRenderInputs.h` | Value-only UI/tool render handoff; `RuntimeRenderer` consumes | no input mutation | render-service snapshot | build, DX12 renderer |
+| [x] | [x] | `SkullbonezSource/Runtime/UI/RuntimeUiSurface.h` | Shared disposable control/surface values; domain owners retain persistent state | `ResolvePointer` produces one ordered hot control | domain renderer reads the same control rows | interaction policy, all CPU tests |
+| [x] | [x] | `SkullbonezSource/Runtime/Scene/SceneRuntimeUiOptions.cpp`, `SkullbonezSource/Runtime/Scene/SceneRuntimeUiOptions.h` | Scene-authored UI visibility/options; scene owner | scene load/options command | sampled by in-game UI frame | fast, full |
+| [x] | [x] | `SkullbonezSource/UI/UI.cpp`, `SkullbonezSource/UI/UI.h` | Window, chrome, tabs, capture, scroll, mini-palette; `UI::InGameUI` | `InGameUI::UpdateInput` | `InGameUI::Draw` | fast, interaction clicks, DX12 renderer |
+| [x] | [x] | `SkullbonezSource/UI/UIInput.cpp`, `SkullbonezSource/UI/UIInput.h` | Immutable device-to-UI pointer/key facts; `InGameUI` | UI input helpers | no direct drawing | interaction policy, fast |
+| [x] | [x] | `SkullbonezSource/UI/UIFrameComposition.cpp`, `SkullbonezSource/UI/UIFrameComposition.h` | Mini-palette/frame composition; `InGameUI` | mini-palette interaction helpers | mini-palette draw composition | interaction clicks, DX12 renderer |
+| [x] | [x] | `SkullbonezSource/UI/UIEditorMiniPalette.cpp`, `SkullbonezSource/UI/UIEditorMiniPaletteDraw.cpp` | Editor viewport palette controls; `InGameUI` | palette layout/hit policy | palette drawing | interaction clicks, DX12 renderer |
+| [x] | [x] | `SkullbonezSource/UI/UIWindowChrome.cpp`, `SkullbonezSource/UI/UIWindowChrome.h` | Window drag/resize/title buttons; `InGameUI` | chrome rectangles consumed by `UpdateInput` | title/chrome drawing | fast, DX12 renderer |
+| [x] | [x] | `SkullbonezSource/UI/UILayout.cpp`, `SkullbonezSource/UI/UILayout.h` | Shared deterministic rectangles; disposable layout | bounds builders | same bounds passed to draw | CPU UI geometry tests, fast |
+| [x] | [x] | `SkullbonezSource/UI/UIButton.cpp`, `SkullbonezSource/UI/UIButton.h` | Button primitive; parent surface owns action | `UIButton::HitTest` | `UIButton::Draw` | CPU UI geometry tests, fast |
+| [x] | [x] | `SkullbonezSource/UI/UICheckBox.cpp`, `SkullbonezSource/UI/UICheckBox.h` | Toggle primitive; parent surface owns action | `UICheckBox::HitTest` | checkbox draw | CPU UI geometry tests, fast |
+| [x] | [x] | `SkullbonezSource/UI/UIComboBox.cpp`, `SkullbonezSource/UI/UIComboBox.h` | Combo/open-row primitive; owning tab retains selection | combo input helpers | combo draw | CPU UI geometry tests, fast |
+| [x] | [x] | `SkullbonezSource/UI/UIIconButton.cpp`, `SkullbonezSource/UI/UIIconButton.h` | Icon-button primitive; parent surface owns action | icon hit test | icon-button draw | CPU UI geometry tests, fast |
+| [x] | [x] | `SkullbonezSource/UI/UIScrollBar.cpp`, `SkullbonezSource/UI/UIScrollBar.h` | Scrollbar track/thumb primitive; `InGameUI` owns scroll | scrollbar hit/update | scrollbar draw | CPU gesture tests, fast |
+| [x] | [x] | `SkullbonezSource/UI/UISlider.cpp`, `SkullbonezSource/UI/UISlider.h` | Slider track/value primitive; owning tab owns value | slider hit/value helpers | slider draw | CPU gesture/geometry tests, fast |
+| [x] | [x] | `SkullbonezSource/UI/UITabBar.cpp`, `SkullbonezSource/UI/UITabBar.h` | Tab selectors; `InGameUI` owns active tab | tab hit test | tab-bar draw | CPU UI geometry tests, fast |
+| [x] | [x] | `SkullbonezSource/UI/UIBackdropBlur.cpp`, `SkullbonezSource/UI/UIBackdropBlur.h` | Non-interactive UI backdrop resource/presentation; `InGameUI` | none | backdrop draw | DX12 renderer |
+| [x] | [x] | `SkullbonezSource/UI/UICache.cpp`, `SkullbonezSource/UI/UICache.h` | Disposable UI draw-cache key/state; `InGameUI` | invalidated by input/state change | cached draw-list publication | fast, DX12 renderer |
+| [x] | [x] | `SkullbonezSource/UI/UICommands.h` | Typed UI-to-domain command values; frame input result | emitted by controls/tabs | no drawing | CPU command tests, fast |
+| [x] | [x] | `SkullbonezSource/UI/UIDraw.cpp`, `SkullbonezSource/UI/UIDraw.h` | Immediate draw context; renderer resource owner | none | base shape/text emission | DX12 renderer |
+| [x] | [x] | `SkullbonezSource/UI/UIDrawList.cpp`, `SkullbonezSource/UI/UIDrawList.h` | Fixed UI draw command storage; `InGameUI` | none | draw-list build/replay | CPU capacity tests, DX12 renderer |
+| [x] | [x] | `SkullbonezSource/UI/UIDrawWidgets.cpp`, `SkullbonezSource/UI/UIDrawWidgets.h` | Stateless widget styling helpers | consumes control state only | widget drawing | DX12 renderer |
+| [x] | [x] | `SkullbonezSource/UI/UIState.h` | Plain UI rectangles/window state; `InGameUI` | bounds/capture state | consumed across draw paths | CPU geometry tests, fast |
+| [x] | [x] | `SkullbonezSource/UI/UIStyle.cpp`, `SkullbonezSource/UI/UIStyle.h` | Non-interactive palette/metrics | none | styling lookup | DX12 renderer |
+| [x] | [x] | `SkullbonezSource/UI/UITabCinematic.cpp`, `SkullbonezSource/UI/UITabCinematic.h` | Cinematic controls; `InGameUI` tab state | tab content click/slider update | tab draw | fast, DX12 renderer |
+| [x] | [x] | `SkullbonezSource/UI/UITabControls.cpp`, `SkullbonezSource/UI/UITabControls.h` | Camera/control settings; `InGameUI` tab state | tab content click/slider update | tab draw | fast |
+| [x] | [x] | `SkullbonezSource/UI/UITabEditor.cpp`, `SkullbonezSource/UI/UITabEditor.h` | Editor mode/placement controls; `InGameUI` tab state | tab content click | tab draw | interaction clicks, fast |
+| [x] | [x] | `SkullbonezSource/UI/UITabMemory.cpp`, `SkullbonezSource/UI/UITabMemory.h` | Memory diagnostics controls/overlay; `InGameUI` | tab/overlay input | memory panel/overlay draw | fast, DX12 renderer |
+| [x] | [x] | `SkullbonezSource/UI/UITabOptions.cpp`, `SkullbonezSource/UI/UITabOptions.h` | Render/runtime toggles/sliders; `InGameUI` tab state | tab content click/slider update | tab draw | fast, DX12 renderer |
+| [x] | [x] | `SkullbonezSource/UI/UITabPhysics.cpp`, `SkullbonezSource/UI/UITabPhysics.h` | Physics diagnostics/toggles/sliders; `InGameUI` tab state | tab content click/slider update | tab draw | fast, physics |
+| [x] | [x] | `SkullbonezSource/UI/UITabProfiler.cpp`, `SkullbonezSource/UI/UITabProfiler.h` | Profiler tree/timeline/histogram controls; `InGameUI` | tab/histogram input | tab and overlay draw | fast, DX12 renderer |
+| [x] | [x] | `SkullbonezSource/UI/UITabScene.cpp`, `SkullbonezSource/UI/UITabScene.h` | Scene selector/filter/time controls; `InGameUI` | tab/filter/combo/slider input | tab draw | fast, full |
+| [x] | [x] | `SkullbonezSource/UI/UITabSky.cpp`, `SkullbonezSource/UI/UITabSky.h` | Sky/environment controls; `InGameUI` tab state | tab content click/slider update | tab draw | fast, DX12 renderer |
+| [x] | [x] | `SkullbonezSource/UI/UITabSound.cpp`, `SkullbonezSource/UI/UITabSound.h` | Audio diagnostics/toggles/sliders; `InGameUI` tab state | tab content click/slider update | tab draw | fast |
 
 Reconciliation: 60/60 tracked source files under `SkullbonezSource/UI` are
 named above. The 36 additional runtime files are the complete interactive
@@ -551,9 +551,9 @@ Apply the same pattern to the remaining runtime UI surfaces in small slices:
 
 Acceptance:
 
-- New controls are added by adding a control row and handler, not by editing a
+- [x] New controls are added by adding a control row and handler, not by editing a
   half-dozen unrelated conditions.
-- Existing UI behavior is preserved unless the slice explicitly fixes a bug.
+- [x] Existing UI behavior is preserved unless the slice explicitly fixes a bug.
 
 Progress evidence:
 
@@ -563,8 +563,32 @@ Progress evidence:
   derives row hover from the content control and input-owned pointer snapshot.
 - Cause-tree Profile build passed in 13.0s, replay scrub passed in 84.8s, and
   DX12 renderer passed in 23.8s with formatting clean, InfoQueue errors = 0,
-  and all captures matching. This is a U6 sub-boundary only; the phase remains
-  open pending the 96-row disposition reconciliation.
+  and all captures matching.
+- Final reconciliation inspected all 58 logical checklist rows covering 96
+  source files: 9 converted shared-surface files, 60 cohesive files in the
+  established `InGameUI` widget system, and 27 domain/value boundaries. All
+  rows are checked and none are deferred. The retained widget system owns one
+  set of bounds per widget for both `HitTest` and `Draw`; retained world-space
+  editor/replay controls use typed `RuntimeInteractionController` gestures.
+- The first rubber-duck review found cause-window render hover could survive a
+  higher-priority UI block. Input now publishes a disposable `pointerBlocked`
+  frame fact, and both input and rendering resolve the shared surface with it.
+  The required repeat found a regression-test gap; the added blocked-pointer
+  CPU case proves prior hover, pointer ownership, and consumption are cleared.
+  No ownership, allocation, compatibility, or callback finding remains. Review:
+  `Agentic/Reports/2026-07-11/runtime-ui-control-u6-review.md`.
+- Deletion proofs find zero stored scrubber/cause hover bridges, zero
+  `RunReplayPredictionUiState`, zero scoped `overX` control booleans, zero
+  renderer-side `ReplayScrubber*Rect` calls, and zero `std::function` in the
+  inventoried UI surface set.
+- `tools\validate_runtime_interaction_policy.bat` passed after the review fix
+  in 9.2s with 26/26 cases in both Debug and Release.
+- `tools\validate_full.bat` passed from final source in 87.3s: CPU umbrella,
+  zero-warning Profile/Debug builds, DX12 InfoQueue errors = 0 with all three
+  captures matching, and the 44,401-line physics baseline byte-exact.
+- `tools\check_allocation_policy.py --repo .` passed in 7.4s with 310 files
+  scanned and zero allowlist errors. Comment audit: 6/6 touched
+  source-bearing files inspected, zero deferred.
 
 ## Validation
 

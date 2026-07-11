@@ -421,6 +421,7 @@ struct RunReplayCauseTreeState
     int resizeStartHeight = 0;
     int mouseX = 0;
     int mouseY = 0;
+    bool pointerBlocked = true;                                       // Frame input says a higher-priority UI owns this pointer.
 };
 
 struct RunReplayPathVisualizerState

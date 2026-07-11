@@ -168,6 +168,13 @@ template <std::size_t Capacity> struct RuntimeUiSurface
 
     void ResolvePointer( int pointerX, int pointerY )
     {
+        ResolvePointer( pointerX, pointerY, false );
+    }
+
+    // Publishes one disposable hit result, or clears it when another surface
+    // already owns the pointer for this frame.
+    void ResolvePointer( int pointerX, int pointerY, bool pointerBlocked )
+    {
         hotControl = {};
         pointerControl = {};
         hasHotControl = false;
@@ -177,6 +184,13 @@ template <std::size_t Capacity> struct RuntimeUiSurface
         for ( std::size_t index = 0; index < controlCount; ++index )
         {
             controls[index].hovered = false;
+        }
+
+        // Invariant: a higher-priority surface blocks both actions and visual
+        // hover; clearing first prevents the previous pointer result leaking.
+        if ( pointerBlocked )
+        {
+            return;
         }
 
         for ( std::size_t index = 0; index < controlCount; ++index )

@@ -342,6 +342,12 @@ RUNTIME_DIAGNOSTICS_PREFIXES = (
     "DiagnosticsRuntime",
 )
 
+# Why: shared runtime UI values have their own physical owner and Solution
+# Explorer filter; keeping this explicit prevents them drifting into Runtime.
+RUNTIME_UI_PREFIXES = (
+    "RuntimeUiSurface",
+)
+
 CORE_PREFIXES = (
     "AmortizedTask",
     "Common",
@@ -370,6 +376,7 @@ AREA_PREFIXES = (
     ("Runtime\\Tools", RUNTIME_TOOLS_PREFIXES),
     ("Runtime\\Diagnostics", RUNTIME_DIAGNOSTICS_PREFIXES),
     ("Runtime\\Debug", RUNTIME_DEBUG_PREFIXES),
+    ("Runtime\\UI", RUNTIME_UI_PREFIXES),
     ("Physics\\Debug", PHYSICS_DEBUG_PREFIXES),
     ("Rendering", RENDERING_PREFIXES),
     ("Physics", PHYSICS_PREFIXES),

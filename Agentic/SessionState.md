@@ -10,10 +10,10 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `ad598ddc refactor: share replay control snapshots with rendering` |
-| Current objective | Execute runtime UI/control U6: reconcile and convert/review every remaining inventory row |
-| Last broad local gate | `tools\validate_full.bat` passed final interaction source in 72.5s: 131/131 doctests and 2,814 assertions, every standalone CPU lane, zero-warning Profile/Debug builds, DX12 InfoQueue errors = 0 with matching screenshots, handle smoke, and the 44,401-line varied baseline byte-exactly |
-| Latest focused gates | U6 cause-window slice: Profile 13.0s, replay scrub 84.8s, DX12 23.8s with InfoQueue 0 and matching captures; formatting clean |
+| Current pushed baseline | `116fd343 refactor: share cause-window control geometry` |
+| Current objective | Continue validation-gate integrity V3/V4, then locally actionable behavioral-test gaps |
+| Last broad local gate | `tools\validate_full.bat` passed final runtime UI/control source in 87.3s: CPU umbrella, zero-warning Profile/Debug builds, DX12 InfoQueue errors = 0 with matching screenshots, handle smoke, and the 44,401-line varied baseline byte-exactly |
+| Latest focused gates | Final U6 pointer-block regression: runtime interaction policy passed in 9.2s with 26/26 Debug and Release cases; allocation policy passed in 7.4s with 310 files and zero allowlist errors |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -29,6 +29,7 @@ reports, and git history.
 - `70f75d60 refactor: dispatch replay scrubber actions by value`
 - `1617df02 refactor: centralize replay control gestures`
 - `ad598ddc refactor: share replay control snapshots with rendering`
+- `116fd343 refactor: share cause-window control geometry`
 - `125bb8a9 docs: inventory DX12 failure surfaces`
 - `0c9097ec fix: reduce box manifolds by depth and spread`
 - `e752c395 style: format manifold reducer`
@@ -72,24 +73,17 @@ A final main-pass inventory then caught and deleted the generic mouse-pickup
 `active` mirror. Policy, five Win32 scenarios, final replay scrub, and full pass. Evidence:
 `Agentic/Reports/2026-07-11/interaction-state-machine-closure-review.md`.
 
-Runtime UI/control is complete through U5 at 6/7. The owning plan reconciles all
-60 tracked `SkullbonezSource/UI` source files plus 36 interactive replay,
-editor, input, automation, shared-control, and render-boundary files. U1 adds
-the inline typed surface; U2 converts the scrubber into 13 rows and deletes the
-`overX` ladder. U3 maps those rows to semantic actions and routes both pointer
-and Enter branch restore through named synchronous handlers without callbacks
-or a context bag. U4 centralizes scrubber begin/update/end and retains
-controller-owned cancel. U5 makes input and rendering derive the same control
-rows and deletes all scrubber hover bridges and render-side layout duplication.
-CPU, replay scrub, and DX12 gates pass. U6 conversion/review remains
-independently unchecked and is next.
-
-U6 cause-tree sub-boundary is complete but U6 remains open. Cause-window panel,
-title, content, and resize input/render now share four surface rows; direct hit
-tests and the stored row-hover bridge are deleted. Continue the 96-row
-disposition reconciliation before awarding phase completion.
-Interaction gesture geometry and capture remain with
-`RuntimeInteractionController`.
+Runtime UI/control is complete at 7/7. The 58-row inventory reconciles all 96
+source files with zero deferred: 9 shared-surface files, 60 cohesive
+`InGameUI` widget files, and 27 domain/value boundaries. Scrubber and
+cause-window input/render share fixed-capacity control rows; stored hover
+bridges, `overX` ladders, renderer layout duplication, and the empty prediction
+UI compatibility state are deleted. Gesture capture remains solely with
+`RuntimeInteractionController`. The first plan review found blocked-pointer
+hover leakage; the required repeat found its missing regression test. Both are
+fixed, the repeat is exhausted, and allocation, 26-case Debug/Release policy,
+DX12, deterministic physics, and full gates pass. Evidence:
+`Agentic/Reports/2026-07-11/runtime-ui-control-u6-review.md`.
 
 Runtime-shell decomposition is complete at 27/27. E1-E3 deleted `RunInternal.h`,
 forwarding-only Run methods, and Common compatibility includes. F1-F2 then

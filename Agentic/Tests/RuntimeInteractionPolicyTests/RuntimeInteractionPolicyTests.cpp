@@ -769,12 +769,7 @@ void TestInvalidToolGestureWithoutCaptureIsRejected()
 }
 
 
-RuntimeUiControl MakeUiControl( uint32_t id,
-                                RuntimeUiControlKind kind,
-                                float x,
-                                float y,
-                                float width,
-                                float height )
+RuntimeUiControl MakeUiControl( uint32_t id, RuntimeUiControlKind kind, float x, float y, float width, float height )
 {
     RuntimeUiControl control;
     control.id = RuntimeUiControlId{ id };
@@ -788,10 +783,14 @@ RuntimeUiControl MakeUiControl( uint32_t id,
 
 void TestRuntimeUiSurfaceRepresentsEveryControlKind()
 {
-    constexpr RuntimeUiControlKind kinds[] = { RuntimeUiControlKind::Panel, RuntimeUiControlKind::HotZone,
-                                               RuntimeUiControlKind::Button, RuntimeUiControlKind::Toggle,
-                                               RuntimeUiControlKind::Slider, RuntimeUiControlKind::Track,
-                                               RuntimeUiControlKind::Tab, RuntimeUiControlKind::ToolHandle };
+    constexpr RuntimeUiControlKind kinds[] = { RuntimeUiControlKind::Panel,
+                                               RuntimeUiControlKind::HotZone,
+                                               RuntimeUiControlKind::Button,
+                                               RuntimeUiControlKind::Toggle,
+                                               RuntimeUiControlKind::Slider,
+                                               RuntimeUiControlKind::Track,
+                                               RuntimeUiControlKind::Tab,
+                                               RuntimeUiControlKind::ToolHandle };
     RuntimeUiSurface<8> surface;
 
     for ( std::size_t index = 0; index < 8; ++index )
@@ -870,6 +869,22 @@ void TestRuntimeUiSurfaceDisabledControlPreventsClickThrough()
     EXPECT_TRUE( surface.consumesPointer );
     EXPECT_FALSE( surface.controls[0].hovered );
     EXPECT_FALSE( surface.controls[1].hovered );
+}
+
+
+void TestRuntimeUiSurfaceBlockedPointerClearsHover()
+{
+    RuntimeUiSurface<1> surface;
+    EXPECT_TRUE( surface.TryAdd( MakeUiControl( 1u, RuntimeUiControlKind::Button, 0.0f, 0.0f, 20.0f, 20.0f ) ) );
+    surface.ResolvePointer( 10, 10 );
+    EXPECT_TRUE( surface.controls[0].hovered );
+
+    surface.ResolvePointer( 10, 10, true );
+
+    EXPECT_FALSE( surface.hasHotControl );
+    EXPECT_FALSE( surface.hasPointerControl );
+    EXPECT_FALSE( surface.consumesPointer );
+    EXPECT_FALSE( surface.controls[0].hovered );
 }
 
 
@@ -952,8 +967,8 @@ int main()
         { "RuntimeUiSurfaceResolvesOneOrderedEligibleHit", &TestRuntimeUiSurfaceResolvesOneOrderedEligibleHit },
         { "RuntimeUiSurfaceDisabledControlPreventsClickThrough",
           &TestRuntimeUiSurfaceDisabledControlPreventsClickThrough },
-        { "RuntimeUiSurfacePublishesHitStateWithDrawGeometry",
-          &TestRuntimeUiSurfacePublishesHitStateWithDrawGeometry },
+        { "RuntimeUiSurfaceBlockedPointerClearsHover", &TestRuntimeUiSurfaceBlockedPointerClearsHover },
+        { "RuntimeUiSurfacePublishesHitStateWithDrawGeometry", &TestRuntimeUiSurfacePublishesHitStateWithDrawGeometry },
         { "RuntimeUiSurfaceResetClearsDisposableFrameState", &TestRuntimeUiSurfaceResetClearsDisposableFrameState },
     };
 
