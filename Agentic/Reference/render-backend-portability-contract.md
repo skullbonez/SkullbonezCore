@@ -102,7 +102,7 @@ DX12 mapping:
 Current ordinary raster DX12 ABI:
 
 - one per-draw constant buffer at `b0`;
-- texture SRV slots `t0..t4`, mapped from `BindTexture(handle, slot)`;
+- texture SRV slots `t0..t5`, mapped from `BindTexture(handle, slot)`;
 - static samplers `s0`, `s1`, and `s3`;
 - material v1 object data packed through instance payloads plus the fixed `t4`
   material-table texture, rather than a structured-buffer or bindless material

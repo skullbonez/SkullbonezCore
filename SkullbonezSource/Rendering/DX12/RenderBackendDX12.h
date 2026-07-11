@@ -530,7 +530,7 @@ class Dx12TextureOwner
                        bool& graphicsStateInvalidated );
 
     std::vector<TextureEntryDX12> m_textures;
-    UINT m_boundTexSlot[TEXTURE_SLOT_COUNT] = { UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX };
+    UINT m_boundTexSlot[TEXTURE_SLOT_COUNT] = { UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX };
     UINT m_nullTextureSRVIndex = UINT_MAX;
     ID3D12PipelineState* m_genMipsPSO = nullptr;
     ID3D12RootSignature* m_genMipsRS = nullptr;

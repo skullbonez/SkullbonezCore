@@ -1,6 +1,6 @@
 # DX12 Binding ABI
 
-Status: current DX12 ordinary raster contract as of the object material-table cleanup slice.
+Status: current DX12 ordinary raster contract as of the terrain detail-shadow slice.
 
 Validation: renderer behavior changes require `tools\validate_dx12_renderer.bat`; documentation-only edits to this file do not.
 
@@ -16,6 +16,7 @@ The main DX12 graphics root signature is intentionally small and fixed:
 | 3 | `t2` | Texture slot 2 from `BindTexture(handle, 2)` |
 | 4 | `t3` | Texture slot 3 from `BindTexture(handle, 3)` |
 | 5 | `t4` | Object material table from `BindTexture(handle, 4)` |
+| 6 | `t5` | Terrain detail-shadow map from `BindTexture(handle, 5)` |
 
 Static samplers:
 
@@ -32,7 +33,7 @@ BindTexture(handle, slot)
 ```
 
 For ordinary raster shaders, `slot` maps directly to HLSL SRV register `t<slot>`.
-Current valid slots are `0..4`. Invalid slots are ignored for compatibility and
+Current valid slots are `0..5`. Invalid slots are ignored for compatibility and
 emit a Debug diagnostic event.
 
 ## Shader Contract Implications
@@ -45,6 +46,8 @@ contracts. Its resource `slot` values use the ABI above:
 - tonemap uses `t0` scene, `t1` depth, and `t2` volumetric;
 - optional shadow maps use `t3`.
 - the instanced object material-kind default table uses `t4`.
+- terrain optionally layers the tight object-shadow map from `t5` without
+  changing the `t4` material-table row.
 
 The shader cleanup branch added CPU `RenderMaterial` data, expanded the
 instanced object payload to material rows, and added a tiny material texture
@@ -91,7 +94,7 @@ and then retrying the allocation.
 ## Deferred Work
 
 Do not expand this root signature opportunistically. Revisit it only when a
-runtime contract needs more than `t0..t4`, the current material texture cannot
+runtime contract needs more than `t0..t5`, the current material texture cannot
 express the material data, or a pass requires a resource model that cannot be
 expressed by the current slots.
 

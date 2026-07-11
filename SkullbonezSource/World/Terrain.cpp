@@ -616,7 +616,8 @@ void Terrain::Render( const Matrix4& view,
                       const float* lightPosition,
                       const float* clipPlane,
                       const SkullbonezCore::Basics::CinematicRenderConfig* cinematicOverride,
-                      const ShadowFrameData* shadow )
+                      const ShadowFrameData* shadow,
+                      const ShadowFrameData* detailShadow )
 {
     if ( !m_terrainShader || !m_terrainMesh )
     {
@@ -716,6 +717,10 @@ void Terrain::Render( const Matrix4& view,
     }
     m_terrainShader->SetVec4( "uLightPosition", lx, ly, lz, lightPosition[3] );
     ApplyShadowReceiverUniforms( *m_terrainShader, commands, shadow, shadow ? shadow->terrainReceives : false );
+    ApplyDetailShadowReceiverUniforms( *m_terrainShader,
+                                       commands,
+                                       detailShadow,
+                                       detailShadow ? detailShadow->objectsReceive : false );
 
     m_terrainMesh->Draw();
 }

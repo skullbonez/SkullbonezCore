@@ -14,7 +14,7 @@ work should update the HLSL contract, `SkullbonezSource/Rendering/ShaderContract
 and `tools/shader_contracts.json`.
 
 The current ordinary raster binding ABI is documented in
-`Agentic/Reference/dx12-binding-abi.md`: CBV `b0`, SRV texture slots `t0..t4`,
+`Agentic/Reference/dx12-binding-abi.md`: CBV `b0`, SRV texture slots `t0..t5`,
 and static samplers `s0`, `s1`, and `s3`. Resource slots in the runtime shader
 contract table map directly to `BindTexture(handle, slot)`.
 
@@ -63,7 +63,7 @@ return without failing the draw.
 | Shader | Pass Category | Vertex Layout | Resources |
 |--------|---------------|---------------|-----------|
 | `lit_textured_instanced.hlsl` | objects | `P3_N3_UV2_I4x4_Material4x3` | `t0 uTexture`, optional `t3 uShadowMap`, `t4 uMaterialTable` |
-| `lit_textured.hlsl` | terrain | `P3_N3_UV2` | `t0 uTexture`, optional `t3 uShadowMap` |
+| `lit_textured.hlsl` | terrain | `P3_N3_UV2` | `t0 uTexture`, optional `t3 uShadowMap`, optional `t5 uDetailShadowMap` |
 | `water_calm.hlsl` | water | `P3` | `t1 uReflectionTex` |
 | `water_ocean.hlsl` | water | `P3` | `t1 uReflectionTex` |
 | `sky_atmosphere.hlsl` | sky | `FullscreenP2_UV2` | none |

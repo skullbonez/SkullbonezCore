@@ -115,8 +115,9 @@ class Terrain
                  const float* lightPosition,
                  const float* clipPlane,
                  const Basics::CinematicRenderConfig* cinematic = nullptr,
-                 const Rendering::ShadowFrameData* shadow =
-                     nullptr );                                            // Terrain color pass with optional cinematic and shadow inputs.
+                 const Rendering::ShadowFrameData* shadow = nullptr,
+                 const Rendering::ShadowFrameData* detailShadow =
+                     nullptr );                                            // Terrain color pass with optional broad and tight shadow inputs.
     void RenderShadowDepth( const Math::Transformation::Matrix4& lightView,
                             const Math::Transformation::Matrix4& lightProjection,
                             const Basics::CinematicRenderConfig* cinematic =

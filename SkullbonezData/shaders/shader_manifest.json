@@ -517,15 +517,15 @@
       "stage": "vs",
       "target": "vs_6_0",
       "bytecode": "SkullbonezData/shaders/lit_textured.vs.dxil",
-      "source_sha256": "317cbeef8e16586110d9e79e95c78236e644a08cfc62000dff7f73c837d949a9",
-      "compile_inputs_sha256": "f02de90414a9c7ebd4c1735f8b88db08d6c0c7df456cca129604fb199c29aea8",
-      "bytecode_sha256": "4a80a7e18c71f021580c3682d6dc37ff028761309e73a0104ff664f933a0a4b9",
-      "bytecode_size": 9544,
+      "source_sha256": "7c5236b653023d3051e1c926d8a0bc2d297d53f77d4962588ee44f0265476a9e",
+      "compile_inputs_sha256": "f7e5873cd1d4c77a167115e361abe7c1d01208c6099c27e9fb8031fc8486df86",
+      "bytecode_sha256": "c80ba9dcf7594bf680e3e9a4afc954bb5fc374f70ab4350ed5ee030cdd9cfc71",
+      "bytecode_size": 9664,
       "reflection": {
         "cbuffers": [
           {
             "name": "Uniforms",
-            "size": 480,
+            "size": 576,
             "fields": [
               {
                 "type": "float4x4",
@@ -633,6 +633,24 @@
                 "type": "float4",
                 "name": "uShadowFlags",
                 "offset": 464,
+                "size": 16
+              },
+              {
+                "type": "float4x4",
+                "name": "uDetailShadowViewProj",
+                "offset": 480,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uDetailShadowParams",
+                "offset": 544,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uDetailShadowFlags",
+                "offset": 560,
                 "size": 16
               }
             ]
@@ -687,15 +705,15 @@
       "stage": "ps",
       "target": "ps_6_0",
       "bytecode": "SkullbonezData/shaders/lit_textured.ps.dxil",
-      "source_sha256": "317cbeef8e16586110d9e79e95c78236e644a08cfc62000dff7f73c837d949a9",
-      "compile_inputs_sha256": "b8375eb19152a6ea5fefeeb79ab8d74abf79c44feec9fef8e66f726417d7fa2b",
-      "bytecode_sha256": "178bc9fd7eef9eeb085afc5cc23414270e1a46ce6b0f924e7f4385edccfa5a6c",
-      "bytecode_size": 14008,
+      "source_sha256": "7c5236b653023d3051e1c926d8a0bc2d297d53f77d4962588ee44f0265476a9e",
+      "compile_inputs_sha256": "02e28287dbfec58732e2dea6b06fb37490c8af6dbbd7f8760eb52c568c0445f5",
+      "bytecode_sha256": "9bcd26ea47acc2c962bb0b20a04443e1a05e101c4e61d50e96d13bbb4ff6a56a",
+      "bytecode_size": 16188,
       "reflection": {
         "cbuffers": [
           {
             "name": "Uniforms",
-            "size": 480,
+            "size": 576,
             "fields": [
               {
                 "type": "float4x4",
@@ -804,6 +822,24 @@
                 "name": "uShadowFlags",
                 "offset": 464,
                 "size": 16
+              },
+              {
+                "type": "float4x4",
+                "name": "uDetailShadowViewProj",
+                "offset": 480,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uDetailShadowParams",
+                "offset": 544,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uDetailShadowFlags",
+                "offset": 560,
+                "size": 16
               }
             ]
           }
@@ -853,6 +889,16 @@
             "name": "uShadowMap",
             "register_class": "t",
             "slot": 3,
+            "space": 0,
+            "count": 1,
+            "type": "texture",
+            "format": "f32",
+            "dimension": "2d"
+          },
+          {
+            "name": "uDetailShadowMap",
+            "register_class": "t",
+            "slot": 5,
             "space": 0,
             "count": 1,
             "type": "texture",

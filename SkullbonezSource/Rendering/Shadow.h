@@ -22,6 +22,7 @@ Invariants:
     texture backing its opaque handle.
   - Disabled receivers must clear the shadow texture binding so stale descriptor
     state cannot affect later draws.
+  - Detail shadow sampling appends t5 and never aliases the t4 material table.
   - Prepared caster values borrow no model state; convex hull geometry is the
     only frame-local borrowed payload.
 
@@ -43,6 +44,7 @@ namespace SkullbonezCore
 namespace Rendering
 {
 inline constexpr int SHADOW_TEXTURE_SLOT = 3;
+inline constexpr int DETAIL_SHADOW_TEXTURE_SLOT = 5;
 
 struct ShadowCasterInstance
 {
@@ -177,6 +179,33 @@ inline void ApplyShadowReceiverUniforms( IShader& shader,
         // descriptor lifetime visible to the backend.
         commands.BindTexture( 0, SHADOW_TEXTURE_SLOT );
     }
+}
+
+inline void ApplyDetailShadowReceiverUniforms( IShader& shader,
+                                               IRenderCommandContext& commands,
+                                               const ShadowFrameData* shadow,
+                                               bool receive )
+{
+    // Concept: terrain keeps its broad-map payload at t3 and layers a tighter
+    // object projection through t5. This deliberately appends a binding after
+    // the t4 material table instead of reinterpreting object material state.
+    const bool enabled = shadow && shadow->valid && receive && shadow->depthTextureHandle != 0;
+    Math::Transformation::Matrix4 identity;
+    shader.SetMat4( "uDetailShadowViewProj", enabled ? shadow->lightViewProjection : identity );
+    shader.SetVec4( "uDetailShadowParams",
+                    enabled ? shadow->strength : 0.0f,
+                    enabled ? shadow->depthBias : 0.0f,
+                    enabled ? shadow->slopeBias : 0.0f,
+                    enabled ? shadow->texelSize * shadow->softness : 0.0f );
+    shader.SetVec4( "uDetailShadowFlags",
+                    enabled ? 1.0f : 0.0f,
+                    receive ? 1.0f : 0.0f,
+                    enabled ? static_cast<float>( shadow->pcfRadius ) : 0.0f,
+                    enabled && shadow->zeroToOneDepth ? 1.0f : 0.0f );
+    shader.SetInt( "uDetailShadowMap", DETAIL_SHADOW_TEXTURE_SLOT );
+    // Lifetime: the frame payload borrows the depth handle. Clearing t5 on the
+    // disabled path prevents a descriptor from surviving its producing pass.
+    commands.BindTexture( enabled ? shadow->depthTextureHandle : 0, DETAIL_SHADOW_TEXTURE_SLOT );
 }
 } // namespace Rendering
 } // namespace SkullbonezCore

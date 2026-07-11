@@ -100,8 +100,8 @@ concrete plan rows and counting it would duplicate tasks.
 | engine-config-decomposition | 5 | 5 | 100% |
 | entity-model-endgame | 4 | 4 | 100% |
 | instant-prediction-velocity-chaos | 52 | 52 | 100% |
-| shadow-edge-quality | 0 | 5 | 0% |
-| **Portfolio total** | **255** | **276** | **92%** |
+| shadow-edge-quality | 2 | 5 | 40% |
+| **Portfolio total** | **257** | **276** | **93%** |
 
 ## Current Execution Priority
 
@@ -172,7 +172,7 @@ Reconciliation notes live inside each plan.
 
 | Plan | State | Verified phase count | Start condition |
 |---|---|---:|---|
-| [shadow-edge-quality](TODO/shadow-edge-quality.md) | Planned | 0/5 | Visibility and shader prerequisites are complete; begin S0 baseline capture |
+| [shadow-edge-quality](TODO/shadow-edge-quality.md) | In progress | 2/5 | Baselines and terrain detail binding complete; replace square PCF with stable Poisson filtering |
 
 Fracture replay was moved to `WNF/` by the owner on 2026-07-11 (inventory
 rule 9 applies — it is not live work and is not tracked here).

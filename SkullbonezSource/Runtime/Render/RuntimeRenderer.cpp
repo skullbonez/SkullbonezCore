@@ -219,6 +219,7 @@ struct TerrainGraphCallbackData
     const RenderFrameContext* frame = nullptr;
     const CinematicRenderConfig* cinematic = nullptr;
     const SkullbonezCore::Rendering::ShadowFrameData* shadow = nullptr;
+    const SkullbonezCore::Rendering::ShadowFrameData* detailShadow = nullptr;
     bool terrainHidden = false;
 };
 
@@ -354,7 +355,8 @@ void ExecuteTerrainGraphCallback( const SkullbonezCore::Rendering::RenderGraphPa
         SB_FATAL( "RunRender", "TerrainPass graph callback missing execution data." );
     }
     const float* clipPlane = data->frame->renderHelper ? data->frame->renderHelper->GetClipPlane() : nullptr;
-    data->terrainPass->Render( { *data->frame, data->cinematic, data->shadow, clipPlane, data->terrainHidden } );
+    data->terrainPass->Render(
+        { *data->frame, data->cinematic, data->shadow, data->detailShadow, clipPlane, data->terrainHidden } );
 }
 
 void ExecuteWaterGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/, void* userData )
@@ -936,6 +938,7 @@ bool RuntimeRenderer::ExecuteTerrainThroughRenderGraph( const RenderFrameContext
                                                         bool useCinematicTarget,
                                                         const CinematicRenderConfig* activeCinematic,
                                                         const Rendering::ShadowFrameData* terrainShadow,
+                                                        const Rendering::ShadowFrameData* objectShadow,
                                                         bool terrainHidden )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
@@ -945,6 +948,12 @@ bool RuntimeRenderer::ExecuteTerrainThroughRenderGraph( const RenderFrameContext
         terrainShadowResource = graph.AddExternalResource( "TerrainShadowMapDepth",
                                                            Rendering::RenderGraphResourceAccess::PixelShaderResource );
     }
+    Rendering::RenderGraphResourceHandle objectShadowResource;
+    if ( objectShadow && objectShadow->valid )
+    {
+        objectShadowResource = graph.AddExternalResource( "ObjectShadowMapDepth",
+                                                          Rendering::RenderGraphResourceAccess::PixelShaderResource );
+    }
 
     const uint32_t terrainPass = graph.AddPass( "TerrainPass",
                                                 Rendering::RenderGraphQueueType::Graphics,
@@ -953,6 +962,10 @@ bool RuntimeRenderer::ExecuteTerrainThroughRenderGraph( const RenderFrameContext
     {
         graph.AddRead( terrainPass, terrainShadowResource, Rendering::RenderGraphResourceAccess::PixelShaderResource );
     }
+    if ( objectShadowResource.IsValid() )
+    {
+        graph.AddRead( terrainPass, objectShadowResource, Rendering::RenderGraphResourceAccess::PixelShaderResource );
+    }
     AddFrameTargetWrites( graph, terrainPass, useCinematicTarget );
 
     TerrainGraphCallbackData callbackData;
@@ -960,6 +973,7 @@ bool RuntimeRenderer::ExecuteTerrainThroughRenderGraph( const RenderFrameContext
     callbackData.frame = &frame;
     callbackData.cinematic = activeCinematic;
     callbackData.shadow = terrainShadow;
+    callbackData.detailShadow = objectShadow;
     callbackData.terrainHidden = terrainHidden;
     graph.SetPassCallback( terrainPass, ExecuteTerrainGraphCallback, &callbackData, true, "Frame/Render/Terrain" );
 
@@ -1708,6 +1722,11 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     const bool shadowCallbackOwned = shadowGraph.callbackOwned;
     const Rendering::ShadowFrameData* terrainShadowFrame = shadowPass.terrainShadow;
     const Rendering::ShadowFrameData* objectShadowFrame = shadowPass.objectShadow;
+    // The object receiver falls back to the broad map when no tight map was
+    // produced. Terrain must not declare and sample that same resource twice;
+    // a distinct pointer is the frame-local proof that t5 has a real producer.
+    const Rendering::ShadowFrameData* terrainDetailShadowFrame =
+        objectShadowFrame != terrainShadowFrame ? objectShadowFrame : nullptr;
 
     const bool collisionStateColorsVisible = policy.collisionVisualizer;
     const bool debugTransparentBodyPass = policy.physicsDebugTransparent && policy.physicsDebugAlpha < 1.0f;
@@ -1805,6 +1824,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
                                                                         useCinematicTarget,
                                                                         activeCinematic,
                                                                         terrainShadowFrame,
+                                                                        terrainDetailShadowFrame,
                                                                         policy.terrainHidden );
 
     // Water is deliberately downstream of ReflectionPass; it samples the

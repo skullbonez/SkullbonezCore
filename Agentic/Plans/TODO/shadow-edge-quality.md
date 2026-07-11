@@ -1,8 +1,7 @@
 # Shadow Edge Quality
 
 Date: 2026-07-10 (reconciled)
-Status: Planned — 0/5 phases complete; initial inventory is preparation, not
-implementation completion
+Status: In progress — 2/5 phases complete
 Impact area: DX12 renderer, shaders, shadow configuration, visual baselines
 Owner: shadow rendering
 
@@ -30,9 +29,9 @@ crawling during orbit/zoom.
 
 ## Phases
 
-- [ ] S0. Commit objective baseline scenes/captures: silhouette, terrain
+- [x] S0. Commit objective baseline scenes/captures: silhouette, terrain
   receiver, and motion stress, including depth previews and settings.
-- [ ] S1. Feed the tight object map into terrain receivers through an explicit
+- [x] S1. Feed the tight object map into terrain receivers through an explicit
   second binding; do not steal the object-material slot. Clear disabled bindings
   and name lifetime in shadow resources.
 - [ ] S2. Replace square PCF with stable 12–16 tap Poisson filtering. Consider

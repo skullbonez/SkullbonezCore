@@ -12,10 +12,15 @@ Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
+  Broad shadow map: Terrain-sized depth projection used as the fallback across
+    the authored world.
+  Detail shadow map: Tighter object-centered depth projection that replaces the
+    broad result only inside its valid receiver footprint.
 
 Invariants:
   - CPU-side root signatures, input layouts, and descriptor bindings must
   match this shader exactly.
+  - The detail map occupies t5; t4 remains the instanced material-table ABI.
 
 Related:
   - Agentic/Reference/comment-style-guide.md
@@ -91,12 +96,16 @@ cbuffer Uniforms : register(b0)
     float4x4 uShadowViewProj;
     float4   uShadowParams;     // strength, depth bias, slope bias, texel step
     float4   uShadowFlags;      // enabled, receive, pcf radius, zero-to-one depth
+    float4x4 uDetailShadowViewProj;
+    float4   uDetailShadowParams; // tight-object strength, depth bias, slope bias, texel step
+    float4   uDetailShadowFlags;  // enabled, receive, pcf radius, zero-to-one depth
 };
 
 // Texture and sampler bindings are separate DX12 objects bound to different slots.
 // register(t0) = texture slot 0; register(s0) = sampler slot 0.
 Texture2D    uTexture  : register(t0);
 Texture2D    uShadowMap : register(t3);
+Texture2D    uDetailShadowMap : register(t5);
 SamplerState sSampler0 : register(s0);
 SamplerState sSampler3 : register(s3);
 
@@ -163,14 +172,22 @@ float3 FacetNormalFromDerivatives(float3 viewPos, float3 fallbackNormal)
     return dot(faceN, fallbackNormal) < 0.0f ? -faceN : faceN;
 }
 
-float ShadowVisibility(float3 worldPos, float3 normalView, float3 lightView)
+float ShadowVisibilityFromMap(Texture2D shadowMap,
+                              float4x4 shadowViewProj,
+                              float4 shadowParams,
+                              float4 shadowFlags,
+                              float3 worldPos,
+                              float3 normalView,
+                              float3 lightView,
+                              out bool projectionInside)
 {
-    if (uShadowFlags.x < 0.5f || uShadowFlags.y < 0.5f || uShadowParams.x <= 0.0f)
+    projectionInside = false;
+    if (shadowFlags.x < 0.5f || shadowFlags.y < 0.5f || shadowParams.x <= 0.0f)
     {
         return 1.0f;
     }
 
-    float4 shadowClip = mul(uShadowViewProj, float4(worldPos, 1.0f));
+    float4 shadowClip = mul(shadowViewProj, float4(worldPos, 1.0f));
     if (shadowClip.w <= 0.0f)
     {
         return 1.0f;
@@ -178,21 +195,22 @@ float ShadowVisibility(float3 worldPos, float3 normalView, float3 lightView)
 
     float3 ndc = shadowClip.xyz / shadowClip.w;
     float2 uv = ndc.xy * 0.5f + 0.5f;
-    if (uShadowFlags.w > 0.5f)
+    if (shadowFlags.w > 0.5f)
     {
         uv.y = 1.0f - uv.y;
     }
-    float receiverDepth = uShadowFlags.w > 0.5f ? ndc.z : ndc.z * 0.5f + 0.5f;
+    float receiverDepth = shadowFlags.w > 0.5f ? ndc.z : ndc.z * 0.5f + 0.5f;
 
     if (uv.x <= 0.0f || uv.x >= 1.0f || uv.y <= 0.0f || uv.y >= 1.0f || receiverDepth <= 0.0f || receiverDepth >= 1.0f)
     {
         return 1.0f;
     }
+    projectionInside = true;
 
     float ndotl = max(dot(normalize(normalView), normalize(lightView)), 0.0f);
-    float bias = uShadowParams.y + uShadowParams.z * (1.0f - ndotl);
-    int radius = (int)floor(uShadowFlags.z + 0.5f);
-    float texel = max(uShadowParams.w, 0.00001f);
+    float bias = shadowParams.y + shadowParams.z * (1.0f - ndotl);
+    int radius = (int)floor(shadowFlags.z + 0.5f);
+    float texel = max(shadowParams.w, 0.00001f);
     float visible = 0.0f;
     float samples = 0.0f;
     for (int y = -3; y <= 3; ++y)
@@ -207,14 +225,40 @@ float ShadowVisibility(float3 worldPos, float3 normalView, float3 lightView)
             {
                 continue;
             }
-            float shadowDepth = uShadowMap.SampleLevel(sSampler3, uv + float2((float)x, (float)y) * texel, 0.0f).r;
+            float shadowDepth = shadowMap.SampleLevel(sSampler3, uv + float2((float)x, (float)y) * texel, 0.0f).r;
             visible += receiverDepth - bias <= shadowDepth ? 1.0f : 0.0f;
             samples += 1.0f;
         }
     }
 
     float visibility = samples > 0.0f ? visible / samples : 1.0f;
-    return lerp(1.0f - uShadowParams.x, 1.0f, visibility);
+    return lerp(1.0f - shadowParams.x, 1.0f, visibility);
+}
+
+float ShadowVisibility(float3 worldPos, float3 normalView, float3 lightView)
+{
+    bool broadInside = false;
+    float broadVisibility = ShadowVisibilityFromMap(uShadowMap,
+                                                    uShadowViewProj,
+                                                    uShadowParams,
+                                                    uShadowFlags,
+                                                    worldPos,
+                                                    normalView,
+                                                    lightView,
+                                                    broadInside);
+    bool detailInside = false;
+    float detailVisibility = ShadowVisibilityFromMap(uDetailShadowMap,
+                                                     uDetailShadowViewProj,
+                                                     uDetailShadowParams,
+                                                     uDetailShadowFlags,
+                                                     worldPos,
+                                                     normalView,
+                                                     lightView,
+                                                     detailInside);
+    // The broad map remains the fallback outside the tight projection. Inside
+    // it, prefer the higher-density caster map so coarse broad-map silhouettes
+    // cannot leave a stair-stepped halo around the same object.
+    return detailInside ? detailVisibility : broadVisibility;
 }
 
 float3 TerrainModeColor(int mode, float3 texColor, float3 N, float3 worldPos)

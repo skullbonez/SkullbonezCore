@@ -23,7 +23,7 @@ Invariants:
   - UnifiedRaster is the one raster root signature. Lit, unlit, water, post,
     text, and UI families differ only in which rows they consume.
   - Engine texture slot N maps to shader resource register tN.
-  - Reflection must reject raster bytecode outside b0, t0..t4, s0/s1/s3, or
+  - Reflection must reject raster bytecode outside b0, t0..t5, s0/s1/s3, or
     register space zero before the root signature is published.
 
 Related:
@@ -45,10 +45,10 @@ namespace UnifiedRasterRootSignature
 inline constexpr const char* NAME = "UnifiedRaster";
 inline constexpr std::uint32_t REGISTER_SPACE = 0;
 inline constexpr std::uint32_t ROOT_PARAMETER_DRAW_CONSTANTS = 0; // CBV b0, all raster stages
-inline constexpr std::uint32_t ROOT_PARAMETER_FIRST_TEXTURE = 1;  // one table for each t0..t4 row
+inline constexpr std::uint32_t ROOT_PARAMETER_FIRST_TEXTURE = 1;  // one table for each t0..t5 row
 inline constexpr std::uint32_t SHADER_REGISTER_DRAW_CONSTANTS = 0;
 inline constexpr std::uint32_t SHADER_REGISTER_FIRST_TEXTURE = 0;
-inline constexpr int TEXTURE_SLOT_COUNT = 5;
+inline constexpr int TEXTURE_SLOT_COUNT = 6;
 inline constexpr std::uint32_t ROOT_PARAMETER_COUNT =
     ROOT_PARAMETER_FIRST_TEXTURE + static_cast<std::uint32_t>( TEXTURE_SLOT_COUNT );
 
@@ -80,6 +80,10 @@ inline constexpr TextureSlot TEXTURE_SLOTS[] = {
       SHADER_REGISTER_FIRST_TEXTURE + 4,
       ROOT_PARAMETER_FIRST_TEXTURE + 4,
       "instanced material defaults" },
+    { "DetailShadowMap",
+      SHADER_REGISTER_FIRST_TEXTURE + 5,
+      ROOT_PARAMETER_FIRST_TEXTURE + 5,
+      "terrain tight object-shadow sampling" },
 };
 
 struct StaticSampler
@@ -108,6 +112,8 @@ inline constexpr bool AcceptsSamplerRegister( std::uint32_t slot )
 static_assert( sizeof( TEXTURE_SLOTS ) / sizeof( TEXTURE_SLOTS[0] ) == TEXTURE_SLOT_COUNT );
 static_assert( TEXTURE_SLOTS[4].shaderRegister == 4 && TEXTURE_SLOTS[4].rootParameter == 5,
                "UnifiedRaster keeps the material table at t4/root parameter 5." );
+static_assert( TEXTURE_SLOTS[5].shaderRegister == 5 && TEXTURE_SLOTS[5].rootParameter == 6,
+               "UnifiedRaster appends the terrain detail shadow without moving t4." );
 } // namespace UnifiedRasterRootSignature
 
 // Engine-facing texture binding still uses an integer slot count. Native root

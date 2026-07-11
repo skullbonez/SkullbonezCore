@@ -84,6 +84,7 @@ constexpr unsigned int RENDER_TEXTURE_SLOT_0 = 1u << 0;
 constexpr unsigned int RENDER_TEXTURE_SLOT_1 = 1u << 1;
 constexpr unsigned int RENDER_TEXTURE_SLOT_2 = 1u << 2;
 constexpr unsigned int RENDER_TEXTURE_SLOT_3 = 1u << 3;
+constexpr unsigned int RENDER_TEXTURE_SLOT_5 = 1u << 5;
 constexpr std::size_t TORNADO_VISUAL_FLOATS_PER_VERTEX = 11u;
 constexpr float TORNADO_FX_KIND_RIBBON = 0.0f;
 constexpr float TORNADO_FX_KIND_DUST = 1.0f;
@@ -164,13 +165,14 @@ void BindRenderTextureSlots( SkullbonezCore::Rendering::IRenderCommandContext& r
                              uint32_t slot1,
                              uint32_t slot2,
                              uint32_t slot3,
-                             uint32_t slot4 = 0 )
+                             uint32_t slot4 = 0,
+                             uint32_t slot5 = 0 )
 {
-    // Contract: ordinary raster shaders expose t0..t4. Slot t4 is reserved for
+    // Contract: ordinary raster shaders expose t0..t5. Slot t4 is reserved for
     // the object material table, but pass hygiene still clears it to the typed
     // null SRV; object batches bind the material table again immediately before
-    // drawing.
-    const uint32_t handles[RENDER_TEXTURE_SLOT_COUNT] = { slot0, slot1, slot2, slot3, slot4 };
+    // drawing. Terrain alone uses t5 for the tight object-shadow map.
+    const uint32_t handles[RENDER_TEXTURE_SLOT_COUNT] = { slot0, slot1, slot2, slot3, slot4, slot5 };
     for ( int slot = 0; slot < RENDER_TEXTURE_SLOT_COUNT; ++slot )
     {
         renderCommands.BindTexture( handles[slot], slot );
@@ -1415,12 +1417,14 @@ void TerrainPass::Render( const TerrainPassInputs& inputs )
 
     PROFILE_GPU_BEGIN( "Frame/Render/Terrain" );
     DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/Terrain" );
-    // Pass contract: terrain reads ground albedo from slot 0 and optional
-    // shadow depth from slot 3.
+    // Pass contract: terrain reads ground albedo from t0, the broad shadow map
+    // from t3, and the tight object-shadow map from t5. The material table stays
+    // at t4 for instanced object draws and is never repurposed here.
     Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
     ClearRenderTextureSlotsExcept(
         renderCommands,
-        RENDER_TEXTURE_SLOT_0 | ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
+        RENDER_TEXTURE_SLOT_0 | ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) |
+            ( inputs.detailShadow && inputs.detailShadow->valid ? RENDER_TEXTURE_SLOT_5 : 0u ) );
     if ( SelectRenderTexture( inputs.frame, TEXTURE_GROUND, "Frame/Render/Terrain" ) )
     {
         m_terrain.Get()->Render( inputs.frame.baseView,
@@ -1429,7 +1433,8 @@ void TerrainPass::Render( const TerrainPassInputs& inputs )
                                  inputs.frame.lightPosition,
                                  inputs.clipPlane,
                                  inputs.cinematic,
-                                 inputs.shadow );
+                                 inputs.shadow,
+                                 inputs.detailShadow );
     }
     PROFILE_GPU_END( "Frame/Render/Terrain" );
 }

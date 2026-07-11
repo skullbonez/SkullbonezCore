@@ -129,8 +129,8 @@ TEST_CASE( "Shader reflection contracts: deliberate resource-slot mismatch is re
 TEST_CASE( "Shader reflection contracts: deliberate cbuffer-size mismatch is rejected" )
 {
     const ShaderProgramDesc& source = *FindShaderProgramDesc( "lit_textured.hlsl" );
-    ShaderUniformDecl mutatedUniforms[18] = {};
-    REQUIRE( source.uniformCount == 18u );
+    ShaderUniformDecl mutatedUniforms[21] = {};
+    REQUIRE( source.uniformCount == 21u );
     for ( size_t i = 0; i < source.uniformCount; ++i )
     {
         mutatedUniforms[i] = source.uniforms[i];
@@ -150,11 +150,13 @@ TEST_CASE( "Shader reflection contracts: every raster stage fits UnifiedRaster" 
     CHECK_MESSAGE( ValidateGeneratedUnifiedRasterRootSignature( error ), error );
 
     CHECK( std::string( UnifiedRasterRootSignature::NAME ) == "UnifiedRaster" );
-    CHECK( UnifiedRasterRootSignature::ROOT_PARAMETER_COUNT == 6u );
+    CHECK( UnifiedRasterRootSignature::ROOT_PARAMETER_COUNT == 7u );
     CHECK( UnifiedRasterRootSignature::TEXTURE_SLOTS[3].shaderRegister == 3u );
     CHECK( std::string( UnifiedRasterRootSignature::TEXTURE_SLOTS[3].name ) == "ShadowMap" );
     CHECK( UnifiedRasterRootSignature::TEXTURE_SLOTS[4].rootParameter == 5u );
     CHECK( std::string( UnifiedRasterRootSignature::TEXTURE_SLOTS[4].name ) == "MaterialTable" );
+    CHECK( UnifiedRasterRootSignature::TEXTURE_SLOTS[5].rootParameter == 6u );
+    CHECK( std::string( UnifiedRasterRootSignature::TEXTURE_SLOTS[5].name ) == "DetailShadowMap" );
 }
 
 TEST_CASE( "Shader reflection contracts: UnifiedRaster rejects unowned slots" )
@@ -165,7 +167,7 @@ TEST_CASE( "Shader reflection contracts: UnifiedRaster rejects unowned slots" )
 
     GeneratedShaderReflection::Resource mutated = GeneratedShaderReflection::Resources[pixelStage->resourceStart];
     mutated.registerClass = 't';
-    mutated.slot = 5;
+    mutated.slot = 6;
     mutated.type = "texture";
     mutated.dimension = "2d";
     std::string error;

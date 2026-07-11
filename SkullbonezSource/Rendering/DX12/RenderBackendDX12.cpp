@@ -2251,7 +2251,7 @@ SkullbonezCore::Basics::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* de
 
     // Serialize the root signature description into a binary blob. The root signature defines
     // what data shaders can access: [0] CBV at b0 (constants), [1..5] SRV
-    // tables at t0..t4, plus static samplers for regular, FBO, and shadow reads.
+    // tables at t0..t5, plus static samplers for regular, FBO, and shadow reads.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-d3d12serializeversionedrootsignature
     ComPtr<ID3DBlob> signature;
     ComPtr<ID3DBlob> error;

@@ -295,6 +295,7 @@ struct TerrainPassInputs
     const RenderFrameContext& frame;
     const CinematicRenderConfig* cinematic;
     const Rendering::ShadowFrameData* shadow;
+    const Rendering::ShadowFrameData* detailShadow;
     const float* clipPlane = nullptr;       // Borrowed from RenderHelper for this terrain draw.
     bool terrainHidden;                     // Frame snapshot of the debug/scene visibility flag.
 };

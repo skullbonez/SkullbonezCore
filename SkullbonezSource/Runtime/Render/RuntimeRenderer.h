@@ -241,6 +241,7 @@ class RuntimeRenderer
                                            bool useCinematicTarget,
                                            const CinematicRenderConfig* activeCinematic,
                                            const Rendering::ShadowFrameData* terrainShadow,
+                                           const Rendering::ShadowFrameData* objectShadow,
                                            bool terrainHidden );
     bool ExecuteWaterThroughRenderGraph( const RenderFrameContext& frame,
                                          const ReflectionPassOutput& reflection,

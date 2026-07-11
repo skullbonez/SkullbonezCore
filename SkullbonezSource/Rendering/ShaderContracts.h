@@ -65,7 +65,7 @@ struct ShaderResourceDecl
     // Contract: raster resources use the named UnifiedRaster binding ABI.
     //
     // Slot N means SRV register tN, bound through BindTexture(handle, N). The
-    // UnifiedRaster exposes t0..t4; semantic ownership lives in
+    // UnifiedRaster exposes t0..t5; semantic ownership lives in
     // RenderRasterBindingContract.h and reflection rejects any other slot.
     int slot;
     ShaderResourceKind kind;
@@ -341,10 +341,14 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
         { "uShadowViewProj", ShaderValueType::Mat4, true },
         { "uShadowParams", ShaderValueType::Vec4, true },
         { "uShadowFlags", ShaderValueType::Vec4, true },
+        { "uDetailShadowViewProj", ShaderValueType::Mat4, false },
+        { "uDetailShadowParams", ShaderValueType::Vec4, false },
+        { "uDetailShadowFlags", ShaderValueType::Vec4, false },
     };
     static constexpr ShaderResourceDecl litTexturedResources[] = {
         { "uTexture", 0, ShaderResourceKind::Texture2D, true },
         { "uShadowMap", 3, ShaderResourceKind::Texture2D, false },
+        { "uDetailShadowMap", 5, ShaderResourceKind::Texture2D, false },
     };
 
     static constexpr ShaderUniformDecl waterCalmUniforms[] = {
