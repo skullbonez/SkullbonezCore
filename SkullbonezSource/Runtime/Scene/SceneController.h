@@ -5,11 +5,10 @@ Purpose:
   metadata, physics, and scene requests.
 
 Mental model:
-  SceneController is the narrow API around scene queue and scene-run state.
-  Run temporarily executes broad load side effects, while this controller owns
-  scene state, camera slots, replaceable terrain, world settings, physics
-  topology, fixed entity records, browser navigation, and the ordered request
-  batch those side effects consume.
+  SceneController owns scene queue, load transactions, frame completion policy,
+  camera slots, replaceable terrain, world settings, physics topology, fixed
+  entity records, browser navigation, and the ordered request batch. The process
+  shell supplies explicit cold-operation owners and sequences returned results.
 
 Glossary:
   Scene runtime: Current scene state plus queue navigation data.
@@ -45,6 +44,7 @@ Related:
 #include "SceneEntityStore.h"
 #include "SceneRequestQueue.h"
 #include "SceneRuntime.h"
+#include "SceneRuntimeCoordinator.h"
 #include "SceneTerrain.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/PhysicsEngine.h"
@@ -111,7 +111,16 @@ struct RunRuntimeSettings;
 struct RunStartupState;
 struct RunTimerState;
 struct RuntimeRenderBackendView;
-struct SceneLoadRequest;
+struct SceneFrameAdvanceResult
+{
+    SceneLoadRequest loadRequest;
+    const char* finishReason = nullptr;
+    bool restartFrame = false;
+    bool requestQuit = false;
+    bool holdInteractive = false;
+    bool quitIfLoadFails = false;
+    bool restartSimulationTimerAfterLoad = false;
+};
 struct SceneDefaultsSaveView
 {
     // Lifetime: every owner is borrowed only for one synchronous cold save.
@@ -154,6 +163,16 @@ class SceneController
                       const EngineConfig& config,
                       const Physics::PhysicsWorldForces& worldForces,
                       Threading::WorkerPool& workerPool );
+    void ApplyWaterHeightControl( bool pageDown, bool pageUp, float dt );
+    void EnterInteractiveRun();
+    bool CanAutomationQuit() const;
+    void MarkInteractiveRunComplete();
+    SceneFrameAdvanceResult AdvanceFrame( bool proceedAllowed,
+                                          bool perfTestActive,
+                                          bool screenshotSaved,
+                                          bool manualCameraActive,
+                                          double elapsedSeconds,
+                                          int& perfPass );
 
     bool HasEntry( int index ) const;
     bool HasCurrentEntry() const;

@@ -33,7 +33,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Run.cpp
-  - SkullbonezSource/Runtime/RunSubsystemState.h
+  - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderResources.h
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
@@ -66,8 +66,7 @@ Related:
 #include "RunLaunchOptions.h"
 #include "RunCameraState.h"
 #include "RunRuntimeSettings.h"
-#include "RunSubsystemState.h"
-#include "RunInteractionAutomationState.h"
+#include "InteractionAutomationController.h"
 #include "RunStartupState.h"
 #include "RunTimerState.h"
 #include "RuntimeViewModel.h"
@@ -115,7 +114,10 @@ class Run
     // top-level subsystem for
     // process lifetime/order, or keep launch/session choices that coordinate
     // multiple subsystems and therefore do not have one narrower owner yet.
+    Window& m_window;                                                   // Startup-owned native window borrowed for process lifetime.
+    Threading::WorkerPool& m_workerPool;                                // Startup-owned worker service borrowed for process lifetime.
     EngineConfig& m_config;                                             // Borrowed process config loaded and CLI-patched by Runtime/Init.cpp.
+    Assets::AssetSystem m_assets;                                       // Process source-asset registry shared by scene and renderer owners.
     SceneController m_sceneController;                                  // Owns scene queue, cameras, world, entities, physics, and models.
     SbResult m_lastSceneLoadResult;                                     // Last queue load outcome observed by startup/load-only paths.
     bool m_skipExecute = false;                                         // Startup-only probes can complete without entering the frame loop.
@@ -130,10 +132,9 @@ class Run
     DiagnosticsRuntime m_diagnosticsRuntime;                            // Capture, perf, and queryable physics diagnostics owner.
     RunRuntimeSettings m_runtimeSettings;                               // Scene/app runtime swap policy toggles
     RunTimerState m_timers;                                             // Frame/simulation timers and rolling timing values
-    RunSubsystemState m_systems;                                        // Window, texture, skybox, asset, and pass-resource shelf.
     InputRouter m_inputRouter;                                          // Owns keyboard/pointer edge memory and binding-context enforcement.
     RuntimeInteractionController m_interaction;                         // Authoritative runtime workspace and world-input owner.
-    RunInteractionAutomationState
+    InteractionAutomationController
         m_interactionAutomation;                                        // CLI harness that injects runtime mouse input for regression tests.
     RunCameraState m_camera;                                            // Camera/input state and ball-tracking settings
     AttachedCameraController m_attachedCamera;                          // Owns non-serialized Attach target/orbit/follow state.
@@ -158,35 +159,13 @@ class Run
     inline static int sPerfPass = 0;
     void Render( const RuntimeRenderModelFrameView&
                      renderModels );                                    // Skips 3D in text-only runs, then records passes for the current camera state.
-    void RefreshRuntimeViewModel();                                     // Rebuilds scalar presentation state from narrow owner borrows
-    void RelativeUpdateCamera( uint32_t hash );                         // Keeps non-selected relative cameras inside terrain height limits.
     void UpdateLogic( float simulationDt, float cameraDt );             // simulationDt drives physics; cameraDt is unscaled wall time.
-    void TickInteractionAutomationBeforeInput();                        // Applies scripted mouse/button state before normal input routing.
-    void TickInteractionAutomationAfterRender();                        // Runs assertions/screenshots and finishes scripted automation.
-    void ClearInteractionAutomationInput();                             // Releases input overrides after completion or failure.
-    void WriteInteractionAutomationReport();                            // Writes JSON result for --interaction-report.
-    bool TryFindInteractionAutomationModel( const char* name, int& outIndex ) const;
-    bool TryProjectInteractionAutomationModel( const char* name, POINT& outMouse );
-    void SetViewingOrientation();                                       // Camera-view setup for the current frame.
-    void EnterInteractiveSceneRun();                                    // Locks scene automation into non-quitting interactive mode
-    bool CanSceneAutomationQuit() const;                                // True for CLI suites/tests; false once the user owns scene flow
-    void HoldCompletedInteractiveScene();                               // Keep the current scene alive after interactive automation completes
-    void RunGraphicsStressActions(
-        const Rendering::IRenderDiagnostics&
-            renderDiagnostics );                                        // Deterministic render/scene churn used to shake out DX12 crashes.
     void AfterPhysicsStep();                                            // Post-step hooks that must see committed physics state.
-    void ApplyMousePickupPhysicsStep();                                 // Manipulator spring impulse before one fixed physics step.
-    void RestoreMousePickupAngularVelocity();                           // Holds grabbed body angular velocity stable during drag.
     // --- Per-frame tick helpers (called from Execute()) ---
     void TickPhysics( double dt );                                      // Physics dispatch: fixed-step and variable-step accumulator
     bool TickScreenshots();                                             // Screenshot triggers; returns true when frame should restart (continue)
-    void TickLiveStyleControlCapture();
     void TickAutoCycle();                                               // Auto-cycle ball capture; posts WM_QUIT when all balls captured
     bool TickSceneAdvance();                                            // Frame count, exit/hold on completion, restarts; returns true to continue
-    void UpdateWaterHeightControls( float dt );                         // Slide water surface up/down while held
-#ifdef _DEBUG
-    void LogSceneFinished( const char* reason );
-#endif
 
   public:
     Run( Window& window,

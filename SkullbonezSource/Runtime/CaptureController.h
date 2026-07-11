@@ -57,6 +57,7 @@ class CaptureController
     const RunScreenshotState& Screenshot() const;
 
     void ResetScreenshot();
+    void DisableAutomationExit();
     RuntimeCaptureResult TickScreenshots( const RuntimeCaptureSceneContext& context,
                                           Rendering::IRenderCaptureBackend& backend );
     RuntimeCaptureResult TickAutoCycle( bool isSceneMode,

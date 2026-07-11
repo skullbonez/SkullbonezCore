@@ -46,7 +46,6 @@ Related:
 #include "RunLaunchOptions.h"
 #include "RunRuntimeSettings.h"
 #include "RunStartupState.h"
-#include "RunSubsystemState.h"
 #include "RunTimerState.h"
 #include "Window.h"
 #include "Render/RuntimeRenderHost.h"
@@ -529,26 +528,22 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeInputContext& runtimeInput,
                                           RuntimeInteractionController& interaction,
                                           RunTimerState& timers,
                                           SceneController& sceneController,
-                                          RunSubsystemState& systems,
+                                          Window& window,
                                           SkullbonezCore::UI::InGameUI& ui,
                                           uint32_t cameraModeEnabledMask,
                                           bool suppressWorldActionThisFrame )
 {
     RuntimeUIFrameResult result;
     result.suppressWorldActionThisFrame = suppressWorldActionThisFrame;
-    if ( !systems.window )
-    {
-        return result;
-    }
     result.frameActive = true;
 
     const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex( sceneController, sceneController.Browser() );
-    const HWND windowHandle = systems.window->NativeWindowHandle();
+    const HWND windowHandle = window.NativeWindowHandle();
     InGameUIInputResult UIResult = ui.UpdateInput(
         inputRouter.DeviceFrame(),
         inputRouter.UiSnapshot().mouse,
-        systems.window->ClientWidth(),
-        systems.window->ClientHeight(),
+        window.ClientWidth(),
+        window.ClientHeight(),
         timers.simulationTimer.GetTotalTime(),
         runtimeTools.Editor().editorModeEnabled,
         runtimeTools.Editor().placementModeEnabled,
@@ -614,8 +609,8 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeInputContext& runtimeInput,
                                              sceneController.State().isScenePhysics,
                                              ui.IsVisible(),
                                              ui.IsMinimized(),
-                                             systems.window->ClientWidth(),
-                                             systems.window->ClientHeight(),
+                                             window.ClientWidth(),
+                                             window.ClientHeight(),
                                              timers.simulationTimer.GetTotalTime() },
         result.replayWorkspace );
     result.enterInteractiveScene = result.enterInteractiveScene || result.replayWorkspace.enterInteractive;
@@ -645,7 +640,8 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                   RunRuntimeSettings& runtimeSettings,
                                                   EngineConfig& config,
                                                   SceneController& sceneController,
-                                                  RunSubsystemState& systems,
+                                                  Assets::AssetSystem& assets,
+                                                  Threading::WorkerPool& workerPool,
                                                   SimulationSystem& simulation,
                                                   SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio,
                                                   RuntimeRenderBackendView& renderBackendView,
@@ -914,14 +910,11 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         }
     }
     RecordRuntimePresentationWaterUIActions( presentationCommands, recordUIAction );
-    const RunSimulationUICommandResult runSimulationCommands =
-        ApplyRunSimulationUICommands( RunSimulationUICommandContext{ sceneController.State(),
-                                                                     sceneController.UIOverrides(),
-                                                                     config,
-                                                                     *systems.workerPool },
-                                      uiCommands.sceneOptions,
-                                      uiCommands.run,
-                                      uiCommands.profiler );
+    const RunSimulationUICommandResult runSimulationCommands = ApplyRunSimulationUICommands(
+        RunSimulationUICommandContext{ sceneController.State(), sceneController.UIOverrides(), config, workerPool },
+        uiCommands.sceneOptions,
+        uiCommands.run,
+        uiCommands.profiler );
     RecordRunSimulationUIActions( runSimulationCommands, recordUIAction );
     const DiagnosticsPhysicsDebugValueUICommandResult physicsDebugValueCommands =
         ApplyDiagnosticsPhysicsDebugValueUICommands( debug, uiCommands.physics );
@@ -1056,7 +1049,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                                sceneController.Browser(),
                                                                sceneController.Models(),
                                                                sceneController.Entities(),
-                                                               systems.assets,
+                                                               assets,
                                                                activeCinematic,
                                                                defaultCinematicRender },
                                      uiCommands.cinematic );

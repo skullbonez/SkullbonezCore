@@ -10,10 +10,10 @@ reports, and git history.
 | Field | Value |
 |---|---|
 | Branch | `engine-cleanup-10th-july`, tracking `origin/engine-cleanup-10th-july` |
-| Current pushed baseline | `e0bccc8f docs: reconcile engine cleanup phase counts` |
-| Current objective | F1 rebuild the complete logical `Run` method/field ownership inventory |
-| Last broad local gate | `tools\validate_full.bat` passed E1-E3 compatibility-surface deletion with 130/130 doctest cases, 2,770 assertions, zero-warning Profile/Debug builds, DX12 with zero InfoQueue errors and matching screenshots, standalone physics smoke, and the 44,401-line varied baseline byte-exactly in 122.0s |
-| Latest focused gates | At `5a93a5c4`, `tools\validate_fast.bat`, `tools\validate_physics.bat`, and `tools\validate_physics_deep.bat` passed; the normal gate matched the 44,401-line varied baseline and the deep gate retained the old seeded workload by exact SHA-256 signature |
+| Current pushed baseline | `87b7594b refactor: collapse runtime shell compatibility surfaces` |
+| Current objective | Finish F1 raw-field mapping and substitute-hub proof after deleting `RunSubsystemState` and forwarding surfaces |
+| Last broad local gate | `tools\validate_full.bat` passed the F1 owner-boundary slice with 130/130 doctest cases, 2,770 assertions, zero-warning Profile/Debug builds, DX12 with zero InfoQueue errors and matching screenshots, standalone physics smoke, and the 44,401-line varied baseline byte-exactly in 109.8s |
+| Latest focused gates | Five interaction scenarios passed in 34.9s; project-filter validation covered 604/604 production items; allocation-policy self-test and the 309-file repository scan passed in 7.5s with zero allowlist errors |
 | Native evidence | Injected heap-use-after-free caught; healthy ASan and five-file `/analyze` passed in 16.185s |
 
 ## Pushed Cleanup Commits
@@ -61,6 +61,15 @@ capture owners rather than a host callback. The deletion proofs, 100-file
 comment audit, focused Debug build, and full gate pass. F1 now owns the complete
 logical `Run` method/field inventory before the substitute-owner and independent
 closure reviews.
+
+F1 owner-boundary progress deletes `RunSubsystemState` outright. Window and
+worker lifetime are explicit, assets have one process registry, and
+`RuntimeRenderer` owns textures, sky, and pass resources. Mouse pickup,
+live-style capture, graphics stress, camera selection/control, scene completion,
+diagnostics finish logging, and interaction automation no longer add forwarding
+methods to `Run`. Five interaction scenarios, allocation/project checks, and the
+full gate pass; the touched-source comment audit is 37/37. F1 remains open for
+the raw-field/substitute-hub proof and the interaction automation size decision.
 
 D3 is complete. The repository has no tracked `.inl` files. The former editor
 mini-palette fragment is split into real palette policy/layout, drawing, and

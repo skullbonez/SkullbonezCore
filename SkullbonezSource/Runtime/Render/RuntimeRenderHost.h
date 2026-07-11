@@ -114,12 +114,9 @@ struct RuntimeViewModel;
 struct RenderWorldView
 {
     Assets::AssetSystem& assets;
-    Textures::TextureCollection& textures;
     Environment::CameraCollection& cameras;
     SceneTerrain& terrain;
-    std::unique_ptr<Geometry::SkyBox>& skyBox;
     Window& window;
-    RunRenderPassResources& renderPasses;
     EngineConfig& config;
     RunRuntimeSettings& runtimeSettings;
     Environment::WorldEnvironment& worldEnvironment;

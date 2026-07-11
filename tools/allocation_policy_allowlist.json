@@ -27,15 +27,15 @@
       "removal_or_wrapper_plan": "Leave as startup composition-root ownership unless process bootstrap moves to arena-backed lifetime storage."
     },
     {
-      "path": "SkullbonezSource/Runtime/Run.cpp",
+      "path": "SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp",
       "patterns": [
-        "std::make_unique<SkyBox>"
+        "std::make_unique<Geometry::SkyBox>"
       ],
-      "owner": "Runtime world resource owner",
+      "owner": "RuntimeRenderer sky resource owner",
       "phase": "scene_load_backend_resource_init",
       "reason": "The skybox owner is rebuilt during scene/resource initialization, not ordinary gameplay simulation.",
       "cap": "One skybox owner for the active scene/resource set.",
-      "removal_or_wrapper_plan": "If scene churn remains allocation-sensitive, move these owner objects into preallocated world-resource storage."
+      "removal_or_wrapper_plan": "If backend initialization becomes allocation-sensitive, replace this cold owner construction with renderer-owned preallocated storage."
     },
     {
       "path": "SkullbonezSource/Runtime/Scene/RunScene.cpp",
@@ -930,17 +930,17 @@
       "removal_or_wrapper_plan": "Move runtime orchestration storage to typed fixed buffers or owner wrappers as each subsystem is decomposed."
     },
     {
-      "path": "SkullbonezSource/Runtime/RunInteractionAutomation.cpp",
+      "path": "SkullbonezSource/Runtime/InteractionAutomationController.cpp",
       "patterns": [
         ".emplace_back(",
         ".push_back(",
         ".reserve("
       ],
-      "owner": "Runtime orchestration preallocation surface",
+      "owner": "Interaction automation controller",
       "phase": "startup_scene_load_diagnostics",
-      "reason": "Runtime orchestration, automation, demo, and pass setup vectors grow while preparing startup, scene, diagnostics, or bounded command data.",
-      "cap": "Bounded by startup arguments, scene/model counts, render pass counts, or automation script sizes.",
-      "removal_or_wrapper_plan": "Move runtime orchestration storage to typed fixed buffers or owner wrappers as each subsystem is decomposed."
+      "reason": "Automation script parsing and report assembly grow only during validation startup and artifact writing, outside steady gameplay.",
+      "cap": "Bounded by the explicitly supplied automation script action count and generated report rows.",
+      "removal_or_wrapper_plan": "Keep growth inside the cold validation harness; interaction-state-machine cleanup may split parser and executor ownership."
     },
     {
       "path": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp",

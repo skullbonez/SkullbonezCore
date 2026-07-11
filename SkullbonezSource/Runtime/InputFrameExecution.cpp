@@ -31,6 +31,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "InputFrame.h"
+#include "RuntimeStressController.h"
 #include "AttachedCameraController.h"
 #include "ApplicationExitState.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
@@ -48,7 +49,6 @@ Related:
 #include "RunLaunchOptions.h"
 #include "RunRuntimeSettings.h"
 #include "RunStartupState.h"
-#include "RunSubsystemState.h"
 #include "RunTimerState.h"
 #include "RuntimeViewModel.h"
 #include "Tools/RuntimeTools.h"
@@ -100,7 +100,9 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                                 DiagnosticsRuntime& m_diagnosticsRuntime,
                                                 RunRuntimeSettings& m_runtimeSettings,
                                                 RunTimerState& m_timers,
-                                                RunSubsystemState& m_systems,
+                                                Assets::AssetSystem& m_assets,
+                                                Threading::WorkerPool& m_workerPool,
+                                                Window& m_window,
                                                 RuntimeInteractionController& m_interaction,
                                                 RunCameraState& m_camera,
                                                 AttachedCameraController& m_attachedCamera,
@@ -133,15 +135,14 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
     const auto CameraModeEnabledMask = [&]() { return RuntimeCameraModeEnabledMask( m_sceneController ); };
     const auto EnterInteractiveSceneRun = [&]()
     {
-        SceneState().isInteractiveRun = true;
-        SceneState().isExitOnComplete = false;
-        m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
+        m_sceneController.EnterInteractiveRun();
+        m_diagnosticsRuntime.Capture().DisableAutomationExit();
     };
     const auto RunUIStressActions = [&]()
     {
         return SkullbonezCore::Basics::RunUIStressActions(
             m_diagnosticsRuntime,
-            m_systems.window,
+            &m_window,
             m_timers,
             m_UI,
             m_runtimeSettings,
@@ -378,9 +379,9 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                    m_diagnosticsRuntime,
                    m_runtimeSettings,
                    m_timers,
-                   m_systems.assets,
-                   *m_systems.workerPool,
-                   *m_systems.window,
+                   m_assets,
+                   m_workerPool,
+                   m_window,
                    m_inputRouter,
                    m_interaction,
                    m_camera,
@@ -717,7 +718,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                               m_sceneController.Browser(),
                                               m_sceneController.Models(),
                                               m_sceneController.Entities(),
-                                              m_systems.assets,
+                                              m_assets,
                                               ActiveSceneCinematicConfig( SceneState(), m_config ),
                                               m_defaultCinematicRender },
                     cinematicIndex );
@@ -794,7 +795,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
     }
     ReplayRuntime::PathPickInput replayPointerRay;
     replayPointerRay.hasWorldRay = m_inputRouter.TryBuildWorldRay( m_sceneController.Cameras(),
-                                                                   *m_systems.window,
+                                                                   m_window,
                                                                    replayPointerRay.rayOrigin,
                                                                    replayPointerRay.rayDirection );
     RuntimeUIFrameResult uiFrameResult =
@@ -810,7 +811,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                              m_interaction,
                              m_timers,
                              m_sceneController,
-                             m_systems,
+                             m_window,
                              m_UI,
                              CameraModeEnabledMask(),
                              UIBlocksKeyboardBeforeInput );
@@ -854,7 +855,8 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                      m_runtimeSettings,
                                      m_config,
                                      m_sceneController,
-                                     m_systems,
+                                     m_assets,
+                                     m_workerPool,
                                      m_simulation,
                                      m_contactAudio,
                                      m_renderBackendView,
@@ -908,7 +910,8 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                                                    timelineOwners };
         const ReplayRuntime::ReplayArtifactTopologyOwners topologyOwners{ m_simulation,
                                                                           m_config,
-                                                                          m_systems,
+                                                                          m_assets,
+                                                                          m_workerPool,
                                                                           m_launchOptions.generatedObjectTypeOverride,
                                                                           m_startup.gameModelCapacity };
         const ReplayRuntime::ReplayLiveRestoreOutcome restoreOutcome =
@@ -967,11 +970,11 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
     pointerInput.activeModelCapacity = m_startup.gameModelCapacity;
     pointerInput.cameraMode = m_camera.mode;
     pointerInput.hasWorldRay = m_inputRouter.TryBuildWorldRay( m_sceneController.Cameras(),
-                                                               *m_systems.window,
+                                                               m_window,
                                                                pointerInput.rayOrigin,
                                                                pointerInput.rayDirection );
     pointerInput.hasClampedWorldRay = m_inputRouter.TryBuildWorldRay( m_sceneController.Cameras(),
-                                                                      *m_systems.window,
+                                                                      m_window,
                                                                       pointerInput.clampedRayOrigin,
                                                                       pointerInput.clampedRayDirection,
                                                                       true );
@@ -989,7 +992,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
         SceneState(),
         m_sceneController.World(),
         m_sceneController.Terrain().Get(),
-        m_systems.assets,
+        m_assets,
         m_sceneController.Cameras(),
         m_camera,
         NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
@@ -1066,9 +1069,9 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                                                       m_diagnosticsRuntime,
                                                                       m_runtimeSettings,
                                                                       m_timers,
-                                                                      m_systems.assets,
-                                                                      *m_systems.workerPool,
-                                                                      *m_systems.window,
+                                                                      m_assets,
+                                                                      m_workerPool,
+                                                                      m_window,
                                                                       m_inputRouter,
                                                                       m_interaction,
                                                                       m_camera,

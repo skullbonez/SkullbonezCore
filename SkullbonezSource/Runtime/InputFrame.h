@@ -32,6 +32,14 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+}
+namespace Threading
+{
+class WorkerPool;
+}
 namespace Physics
 {
 class PhysicsDebugVisualizer;
@@ -69,7 +77,6 @@ struct RunDebugState;
 struct RunLaunchOptions;
 struct RunRuntimeSettings;
 struct RunStartupState;
-struct RunSubsystemState;
 struct RunTimerState;
 struct RuntimeRenderBackendView;
 struct RuntimeViewModel;
@@ -84,28 +91,6 @@ struct RuntimeUIFrameResult
     bool enterInteractiveScene = false;
     int editorUnhandledWheelDelta = 0;
 };
-
-// Runs one deterministic UI stress action batch through explicit synchronous
-// owner borrows. The validation harness retains only counters in diagnostics.
-SbResult RunUIStressActions( DiagnosticsRuntime& diagnosticsRuntime,
-                             Window* window,
-                             RunTimerState& timers,
-                             UI::InGameUI& ui,
-                             RunRuntimeSettings& runtimeSettings,
-                             RuntimeRenderBackendView& renderBackendView,
-                             RunDebugState& debug,
-                             SceneController& sceneController,
-                             RunCameraState& camera,
-                             EngineConfig& config,
-                             SimulationSystem& simulation,
-                             RuntimeTools& runtimeTools,
-                             const RunLaunchOptions& launchOptions,
-                             const RunStartupState& startup,
-                             ReplayRuntime& replayRuntime,
-                             InputRouter& inputRouter,
-                             RuntimeInteractionController& interaction,
-                             AttachedCameraController& attachedCamera,
-                             RunCameraMode replayRestoreCameraMode );
 
 // Shared value-policy helpers used by the stateless coordinator and the
 // InputRouter methods that commit accepted transitions.
@@ -161,7 +146,7 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeInputContext& runtimeInput,
                                           RuntimeInteractionController& interaction,
                                           RunTimerState& timers,
                                           SceneController& sceneController,
-                                          RunSubsystemState& systems,
+                                          Window& window,
                                           UI::InGameUI& ui,
                                           uint32_t cameraModeEnabledMask,
                                           bool suppressWorldActionThisFrame );
@@ -182,7 +167,8 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                   RunRuntimeSettings& runtimeSettings,
                                                   EngineConfig& config,
                                                   SceneController& sceneController,
-                                                  RunSubsystemState& systems,
+                                                  Assets::AssetSystem& assets,
+                                                  Threading::WorkerPool& workerPool,
                                                   SimulationSystem& simulation,
                                                   Runtime::Audio::ContactAudioService& contactAudio,
                                                   RuntimeRenderBackendView& renderBackendView,
@@ -212,7 +198,9 @@ void ProcessInputFrame( InputRouter& inputRouter,
                         DiagnosticsRuntime& diagnosticsRuntime,
                         RunRuntimeSettings& runtimeSettings,
                         RunTimerState& timers,
-                        RunSubsystemState& systems,
+                        Assets::AssetSystem& assets,
+                        Threading::WorkerPool& workerPool,
+                        Window& window,
                         RuntimeInteractionController& interaction,
                         RunCameraState& camera,
                         AttachedCameraController& attachedCamera,

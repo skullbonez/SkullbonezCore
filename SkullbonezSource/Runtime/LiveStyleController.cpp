@@ -1,10 +1,10 @@
 /*
-File: SkullbonezSource/Runtime/RunLiveStyle.cpp
+File: SkullbonezSource/Runtime/LiveStyleController.cpp
 Purpose:
   Applies live style-harness updates without restarting physics or scene state.
 
 Mental model:
-  RunLiveStyle.cpp applies live style-harness updates without restarting
+  LiveStyleController applies live style-harness updates without restarting
   physics or scene state. As an implementation unit, keep edits anchored on
   local owner boundaries and call direction and on the glossary/invariants
   below.
@@ -23,17 +23,16 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
-#include "Run.h"
+#include "LiveStyleController.h"
+#include "CaptureController.h"
+#include "../Rendering/IRenderCaptureBackend.h"
 #include "Scene/SceneRuntimeStyle.h"
+#include "../Scene/TestScene.h"
 #include <cstdio>
 #include <cstring>
 
 
 using namespace SkullbonezCore::Basics;
-using namespace SkullbonezCore::Math::CollisionDetection;
-using namespace SkullbonezCore::Math::Orientation;
-using namespace SkullbonezCore::Math::Transformation;
-using namespace SkullbonezCore::Physics;
 
 namespace
 {
@@ -338,20 +337,18 @@ void LiveStyleController::MarkCaptureFailed( const char* message )
 }
 
 
-void Run::TickLiveStyleControlCapture()
+void LiveStyleController::SavePendingCapture( CaptureController& capture, Rendering::IRenderCaptureBackend& backend )
 {
-    if ( !m_liveStyle.HasPendingCapture() )
+    if ( !HasPendingCapture() )
     {
         return;
     }
 
-    const SbResult captureResult =
-        m_diagnosticsRuntime.Capture().SaveScreenshot( m_renderBackendView.RequireCaptureBackend(),
-                                                       m_liveStyle.PendingScreenshotPath() );
+    const SbResult captureResult = capture.SaveScreenshot( backend, PendingScreenshotPath() );
     if ( !captureResult.ok )
     {
-        m_liveStyle.MarkCaptureFailed( captureResult.error.message );
+        MarkCaptureFailed( captureResult.error.message );
         return;
     }
-    m_liveStyle.MarkCaptureSaved();
+    MarkCaptureSaved();
 }

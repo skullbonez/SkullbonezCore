@@ -1200,6 +1200,38 @@ varied physics baseline byte-exactly.
   shell responsibilities (owner construction/wiring, startup/shutdown, OS
   message pump, top-level frame order, final exit reporting), or move it to a
   concrete domain owner. Inspect all `Run*.cpp`, not only `Run.cpp`.
+
+F1 owner-boundary progress (2026-07-11): the visible `RunSubsystemState` shelf
+is deleted rather than renamed. `Window` and `WorkerPool` are explicit
+process-lifetime borrows, `AssetSystem` is the concrete source registry, and
+`RuntimeRenderer` now owns `TextureCollection`, `SkyBox`, and all named pass
+resources. Input and Debug replay paths receive only the asset/worker borrows
+they use. The shell forwarding methods for mouse pickup, live-style capture,
+runtime-view rebuilding, diagnostics finish logging, graphics stress, camera
+selection, water control, and interaction automation are deleted; those
+decisions now enter concrete tool, style, diagnostics, stress, camera, scene,
+and automation owners. Scene completion/gate policy is a value-returning
+`SceneController::AdvanceFrame` operation, while its remaining `Run` method only
+sequences the returned load/hold/quit result.
+
+The current method inventory maps construction, startup probes/configuration,
+the OS loop/final-result accessors, and seven frame-order helpers to the five
+permitted shell responsibilities. F1 deliberately remains open while the raw
+field inventory and substitute-hub audit are reconciled, and while the
+2,558-line cold interaction automation parser/executor is split or justified by
+the owning interaction-state-machine phase. Deletion searches find zero
+`RunSubsystemState`, old automation/live-style/stress filenames, or removed
+wrapper definitions in production source/project metadata.
+
+Accepted evidence: project-filter validation passed with 604/604 production
+items; allocation-policy self-test and the 309-file repository scan passed with
+zero allowlist errors in 7.5s; all five interaction scenarios passed in 34.9s;
+and `tools\validate_full.bat` passed in 109.8s with 130/130 doctest cases and
+2,770 assertions, all standalone CPU suites, zero-warning Profile/Debug builds,
+zero DX12 InfoQueue errors, matching screenshots, standalone physics handle
+smoke, and the 44,401-line varied baseline byte-exactly. Comment audit:
+`Agentic/Reports/2026-07-11/runtime-shell-f1-owner-boundary-comment-audit.md`,
+37 checked, 0 deferred.
 - [ ] F2. Audit the extracted owners and their boundary records for sideways
   migration. `InputRouter`, command owners, `SceneController`, `ReplayRuntime`,
   and `RuntimeRenderer` must not retain `Run*`/`Run&`, callback bags, `void*`

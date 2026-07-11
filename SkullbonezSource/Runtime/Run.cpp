@@ -364,19 +364,6 @@ void ApplyStartupDiagnosticsPolicy( const RunStartupOverrides& overrides,
 } // namespace
 
 
-void RunSubsystemState::BindStartupServices( Window& windowOwner,
-                                             Threading::WorkerPool& workerPoolOwner,
-                                             const EngineConfig& configOwner )
-{
-    // Lifetime: these are process-start borrows. Runtime/Init owns the native
-    // window and worker pool, while Run owns the config reference passed into
-    // the constructor.
-    window = &windowOwner;
-    workerPool = &workerPoolOwner;
-    config = &configOwner;
-}
-
-
 void RunRuntimeSettings::ApplyStartupConfig( const EngineConfig& config )
 {
     isVsyncEnabled = config.runtimeRender.vsyncEnabled;
@@ -398,15 +385,13 @@ Run::Run( Window& window,
           Threading::WorkerPool& workerPool,
           Profiler* profiler,
           RuntimeRenderBackendView renderBackendView )
-    : m_config( config ), m_sceneController( std::move( sceneQueue ) ), m_renderBackendView( renderBackendView ),
+    : m_window( window ), m_workerPool( workerPool ), m_config( config ), m_sceneController( std::move( sceneQueue ) ),
+      m_renderBackendView( renderBackendView ),
       m_renderer( m_renderBackendView,
-                  RenderWorldView{ m_systems.assets,
-                                   m_systems.textureCollection,
+                  RenderWorldView{ m_assets,
                                    m_sceneController.Cameras(),
                                    m_sceneController.Terrain(),
-                                   m_systems.skyBoxOwner,
                                    window,
-                                   m_systems.renderPasses,
                                    m_config,
                                    m_runtimeSettings,
                                    m_sceneController.World(),
@@ -423,9 +408,12 @@ Run::Run( Window& window,
 {
     const EngineConfig& cfg = m_config;
     m_diagnosticsRuntime.BindProfiler( profiler );
-    m_systems.BindStartupServices( window, workerPool, cfg );
     m_sceneController.Cameras().ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
-    RefreshRuntimeViewModel();
+    m_runtimeViewModel = RuntimeViewModelBuilder::Build( RuntimeViewModelContext{ m_sceneController,
+                                                                                  m_diagnosticsRuntime.Capture(),
+                                                                                  m_runtimeSettings,
+                                                                                  m_sceneController.Physics() },
+                                                         m_contactAudio );
     RefreshSceneBrowserList( m_sceneController.Browser() );
     m_sceneController.Models().BindWorkerPool( workerPool );
     m_sceneController.Models().BindSceneEntityStore( m_sceneController.Entities() );
@@ -433,16 +421,6 @@ Run::Run( Window& window,
     m_runtimeSettings.ApplyStartupConfig( cfg );
     m_defaultCinematicRender = cfg.cinematicRender;
     m_startup.ApplyStartupConfig( cfg );
-}
-
-
-void Run::RefreshRuntimeViewModel()
-{
-    m_runtimeViewModel = RuntimeViewModelBuilder::Build( RuntimeViewModelContext{ m_sceneController,
-                                                                                  m_diagnosticsRuntime.Capture(),
-                                                                                  m_runtimeSettings,
-                                                                                  m_sceneController.Physics() },
-                                                         m_contactAudio );
 }
 
 
@@ -525,7 +503,8 @@ void Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
         if ( m_liveStyle.ConfigureDirectory( overrides.liveStyleControlDirectory ) )
         {
             m_launchOptions.interactiveSceneRun = true;
-            EnterInteractiveSceneRun();
+            m_sceneController.EnterInteractiveRun();
+            m_diagnosticsRuntime.Capture().DisableAutomationExit();
             m_liveStyle.MarkReady();
         }
     }
@@ -573,46 +552,24 @@ void Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
 
 SbResult Run::SetInteractionAutomation( const char* scriptPath, const char* reportPath )
 {
-    m_interactionAutomation = RunInteractionAutomationState{};
-    if ( reportPath && reportPath[0] != '\0' )
+    const SbResult result = ConfigureInteractionAutomation( m_interactionAutomation, scriptPath, reportPath );
+    if ( !result.ok )
     {
-        strcpy_s( m_interactionAutomation.reportPath, sizeof( m_interactionAutomation.reportPath ), reportPath );
+        (void)WriteInteractionAutomationReport( m_interactionAutomation,
+                                                m_sceneController,
+                                                m_runtimeTools,
+                                                m_replayRuntime,
+                                                m_interaction,
+                                                m_camera,
+                                                m_UI );
     }
-    else
-    {
-        strcpy_s( m_interactionAutomation.reportPath,
-                  sizeof( m_interactionAutomation.reportPath ),
-                  "TestOutput\\interaction\\interaction_report.json" );
-    }
-
-    if ( !scriptPath || scriptPath[0] == '\0' )
-    {
-        m_interactionAutomation.failed = true;
-        m_interactionAutomation.finished = true;
-        strcpy_s( m_interactionAutomation.failure,
-                  sizeof( m_interactionAutomation.failure ),
-                  "interaction automation requires a script path" );
-        WriteInteractionAutomationReport();
-        return SbResult::Failure( "InteractionAutomation", m_interactionAutomation.failure );
-    }
-
-    strcpy_s( m_interactionAutomation.scriptPath, sizeof( m_interactionAutomation.scriptPath ), scriptPath );
-    m_interactionAutomation.enabled = true;
-    printf( "[interaction] Script: %s\n", m_interactionAutomation.scriptPath );
-    printf( "[interaction] Report: %s\n", m_interactionAutomation.reportPath );
-    return SbResult::Success();
+    return result;
 }
 
 
 SbResult Run::InteractionAutomationResult() const
 {
-    if ( !m_interactionAutomation.failed )
-    {
-        return SbResult::Success();
-    }
-    const char* message =
-        m_interactionAutomation.failure[0] != '\0' ? m_interactionAutomation.failure : "interaction automation failed";
-    return SbResult::Failure( "InteractionAutomation", message );
+    return SkullbonezCore::Basics::InteractionAutomationResult( m_interactionAutomation );
 }
 
 
@@ -835,8 +792,6 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayRestoreTransaction& t
 
 void Run::Initialise()
 {
-    assert( m_systems.window );
-
     // Why: timers default to inert storage so Run construction cannot throw
     // before the startup reporter exists. Initialise them at this boundary and
     // return platform counter failures through the normal Lane R process path.
@@ -857,41 +812,29 @@ void Run::Initialise()
     const char* rendererName = renderDiagnostics.GetRendererName();
     char titleText[256];
     sprintf_s( titleText, "%s [%s] -- LOADING!!!", TITLE_TEXT, rendererName );
-    m_systems.window->SetTitleText( titleText );
+    m_window.SetTitleText( titleText );
     const EngineConfig& cfg = m_config;
 
-    m_systems.textures = &m_systems.textureCollection;
-    m_systems.textures->BindAssetSystem( &m_systems.assets );
-    m_systems.textures->BindRenderContexts( &renderResources, &renderCommands );
-    m_systems.assets.RegisterBuiltInSourceAssets( m_config );
-
     // Build renderer-owned resources from source asset records.
-    const SbResult rebuildResourcesResult = m_renderer.RebuildRegisteredRenderResources(
-        RuntimeRenderer::RegisteredResourceRebuildContext{ m_renderBackendView.renderResources,
-                                                           m_systems.assets,
-                                                           *m_systems.textures,
-                                                           m_config } );
+    const SbResult rebuildResourcesResult = m_renderer.InitialiseProcessResources( renderResources,
+                                                                                   renderCommands,
+                                                                                   m_config,
+                                                                                   m_launchOptions.dumpTextureAssets );
     if ( !rebuildResourcesResult.ok )
     {
         m_lastSceneLoadResult = rebuildResourcesResult;
         return;
     }
-    if ( m_launchOptions.dumpTextureAssets )
-    {
-        m_systems.textures->DumpTextureAssets( stdout );
-    }
-
-    const std::string terrainRawPath =
-        m_systems.assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
-                                                  "terrain.raw",
-                                                  cfg.terrainRaw.c_str() );
+    const std::string terrainRawPath = m_assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
+                                                                         "terrain.raw",
+                                                                         cfg.terrainRaw.c_str() );
     std::unique_ptr<Terrain> startupTerrain;
     const SbResult startupTerrainResult = Terrain::TryCreateFromHeightMap( terrainRawPath.c_str(),
                                                                            256,
                                                                            8,
                                                                            15,
                                                                            m_config,
-                                                                           m_systems.assets,
+                                                                           m_assets,
                                                                            renderResources,
                                                                            startupTerrain );
     if ( !startupTerrainResult.ok )
@@ -901,26 +844,15 @@ void Run::Initialise()
     }
     m_sceneController.Terrain().Replace( std::move( startupTerrain ), false );
 
-    // Init SkyBox (m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax)
-    m_systems.skyBoxOwner = std::make_unique<SkyBox>( -250, 300, -300, 300, -250, 300 );
-    m_systems.skyBoxOwner->BindTextures( *m_systems.textures );
-    m_systems.skyBoxOwner->BindRenderContexts( m_config, m_systems.assets, renderResources );
-    const SbResult skyBoxResourceResult = m_systems.skyBoxOwner->ResetRenderResources();
-    if ( !skyBoxResourceResult.ok )
-    {
-        m_lastSceneLoadResult = skyBoxResourceResult;
-        return;
-    }
-
     m_sceneController.World() = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
-    m_sceneController.World().BindRenderContexts( m_config, m_systems.assets, renderResources );
+    m_sceneController.World().BindRenderContexts( m_config, m_assets, renderResources );
     XZBounds tb = m_sceneController.Terrain().Get()->GetXZBounds();
     m_sceneController.World().SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
 
     // Why: SDF atlas generation is a startup asset/tooling boundary. Report it
     // as Lane R before scene loading instead of throwing through Run startup.
     const SbResult uiTextResourceResult =
-        m_renderer.EnsureUiTextResources( renderResources, m_systems.assets, cfg.window.screenX, cfg.window.screenY );
+        m_renderer.EnsureUiTextResources( renderResources, m_assets, cfg.window.screenX, cfg.window.screenY );
     if ( !uiTextResourceResult.ok )
     {
         m_lastSceneLoadResult = uiTextResourceResult;
@@ -953,9 +885,9 @@ void Run::Initialise()
                                                     m_diagnosticsRuntime,
                                                     m_runtimeSettings,
                                                     m_timers,
-                                                    m_systems.assets,
-                                                    *m_systems.workerPool,
-                                                    *m_systems.window,
+                                                    m_assets,
+                                                    m_workerPool,
+                                                    m_window,
                                                     m_inputRouter,
                                                     m_interaction,
                                                     m_camera,
@@ -1008,7 +940,8 @@ void Run::Initialise()
                                        m_sceneController,
                                        m_simulation,
                                        m_config,
-                                       m_systems,
+                                       m_assets,
+                                       m_workerPool,
                                        m_launchOptions.generatedObjectTypeOverride,
                                        m_startup.gameModelCapacity,
                                        m_diagnosticsRuntime,
@@ -1107,9 +1040,9 @@ SbResult Run::RunSceneLoadOnly( const char* snapshotOutPath )
                                                             m_diagnosticsRuntime,
                                                             m_runtimeSettings,
                                                             m_timers,
-                                                            m_systems.assets,
-                                                            *m_systems.workerPool,
-                                                            *m_systems.window,
+                                                            m_assets,
+                                                            m_workerPool,
+                                                            m_window,
                                                             m_inputRouter,
                                                             m_interaction,
                                                             m_camera,
@@ -1142,22 +1075,3 @@ SbResult Run::RunSceneLoadOnly( const char* snapshotOutPath )
     fflush( stdout );
     return SbResult::Success();
 }
-
-
-#ifdef _DEBUG
-void Run::LogSceneFinished( const char* reason )
-{
-    const char* scenePath = "generated";
-    const std::string* currentScenePath = m_sceneController.CurrentPath();
-    if ( currentScenePath && !currentScenePath->empty() )
-    {
-        scenePath = currentScenePath->c_str();
-    }
-
-    const char* rendererName =
-        m_renderBackendView.renderDiagnostics ? m_renderBackendView.renderDiagnostics->GetRendererName() : "unknown";
-    m_diagnosticsRuntime.LogSceneFinished( m_sceneController.State(), scenePath, rendererName, reason );
-}
-
-
-#endif

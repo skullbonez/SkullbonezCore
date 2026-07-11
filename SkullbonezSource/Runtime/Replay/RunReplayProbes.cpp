@@ -30,7 +30,8 @@ Related:
 #include "ReplayRuntime.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Scene/SceneController.h"
-#include "../RunSubsystemState.h"
+#include "../../Assets/AssetSystem.h"
+#include "../../Core/WorkerPool.h"
 #include "../RuntimeTuning.h"
 #include "../Editor/EditorTools.h"
 #include "ReplayInteractionController.h"
@@ -179,7 +180,7 @@ struct ReplaySaveProbeEventCoverageContext
     ReplayRuntime& replayRuntime;
     RuntimeTools& runtimeTools;
     RunSceneState& scene;
-    RunSubsystemState& systems;
+    SkullbonezCore::Assets::AssetSystem& assets;
     SkullbonezCore::Environment::CameraCollection& cameras;
     SceneTerrain& terrain;
     SkullbonezCore::Environment::WorldEnvironment& world;
@@ -210,7 +211,7 @@ SbResult InjectReplaySaveProbeEventCoverage( ReplaySaveProbeEventCoverageContext
                                                    context.scene,
                                                    context.world,
                                                    context.terrain.Get(),
-                                                   context.systems.assets,
+                                                   context.assets,
                                                    context.gameModelCapacity };
     EditorObjectPlacementRequest placementRequest{ SkullbonezCore::UI::EditorTab::OBJECT_BOX,
                                                    true,
@@ -758,7 +759,7 @@ struct ReplayRestoreEventContext
 {
     RuntimeTools& runtimeTools;
     RunSceneState& scene;
-    RunSubsystemState& systems;
+    SkullbonezCore::Assets::AssetSystem& assets;
     SceneTerrain& terrain;
     SkullbonezCore::Environment::WorldEnvironment& world;
     SkullbonezCore::GameObjects::GameModelCollection& models;
@@ -851,7 +852,7 @@ bool ApplyReplayRestoreEditorPlaceEvent( RuntimeTools& runtimeTools,
                                          PhysicsEngine& physics,
                                          RunSceneState& scene,
                                          SkullbonezCore::Environment::WorldEnvironment& world,
-                                         RunSubsystemState& systems,
+                                         SkullbonezCore::Assets::AssetSystem& assets,
                                          SceneTerrain& terrain,
                                          int gameModelCapacity,
                                          const ReplayEventSample& event,
@@ -887,7 +888,7 @@ bool ApplyReplayRestoreEditorPlaceEvent( RuntimeTools& runtimeTools,
                                                    scene,
                                                    world,
                                                    terrain.Get(),
-                                                   systems.assets,
+                                                   assets,
                                                    gameModelCapacity };
     EditorObjectPlacementRequest placementRequest{ event.value0,
                                                    ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,
@@ -1096,7 +1097,7 @@ bool ApplyReplayRestoreEventForTarget( ReplayRestoreEventContext& context,
                                                    context.physics,
                                                    context.scene,
                                                    context.world,
-                                                   context.systems,
+                                                   context.assets,
                                                    context.terrain,
                                                    context.gameModelCapacity,
                                                    event,
@@ -1406,7 +1407,8 @@ struct ReplayRestoreStepContext
     SceneController& sceneController;
     RunSceneState& scene;
     const EngineConfig& config;
-    RunSubsystemState& systems;
+    SkullbonezCore::Assets::AssetSystem& assets;
+    SkullbonezCore::Threading::WorkerPool& workerPool;
     SkullbonezCore::Environment::WorldEnvironment& world;
     SkullbonezCore::GameObjects::GameModelCollection& models;
     ReplayRestoreEventContext& eventContext;
@@ -1514,10 +1516,7 @@ bool StepReplayRestoreTarget( ReplayRestoreStepContext& context,
         context.models.BeginCollisionVisualFrame();
 
         const auto physicsWorldForces = context.world.GetPhysicsWorldForces();
-        context.sceneController.StepPhysics( PHYSICS_FIXED_DT,
-                                             context.config,
-                                             physicsWorldForces,
-                                             *context.systems.workerPool );
+        context.sceneController.StepPhysics( PHYSICS_FIXED_DT, context.config, physicsWorldForces, context.workerPool );
         result.currentFrame = nextFrame;
 
         const ReplayV2SolverHashSample* expectedHash =
@@ -1720,7 +1719,8 @@ struct ReplayRestoreOwnerContext
     SceneController& sceneController;
     RunSceneState& scene;
     const EngineConfig& config;
-    RunSubsystemState& systems;
+    SkullbonezCore::Assets::AssetSystem& assets;
+    SkullbonezCore::Threading::WorkerPool& workerPool;
     SkullbonezCore::Environment::WorldEnvironment& world;
     SkullbonezCore::GameObjects::GameModelCollection& models;
     GeneratedObjectTypeOverride& generatedObjectTypeOverride;
@@ -1885,7 +1885,7 @@ bool RunReplayRestoreTargetStep( ReplayRestoreOwnerContext& context,
 {
     ReplayRestoreEventContext restoreEventContext{ context.runtimeTools,
                                                    context.scene,
-                                                   context.systems,
+                                                   context.assets,
                                                    context.sceneController.Terrain(),
                                                    context.world,
                                                    context.models,
@@ -1895,7 +1895,8 @@ bool RunReplayRestoreTargetStep( ReplayRestoreOwnerContext& context,
                                           context.sceneController,
                                           context.scene,
                                           context.config,
-                                          context.systems,
+                                          context.assets,
+                                          context.workerPool,
                                           context.world,
                                           context.models,
                                           restoreEventContext,
@@ -2068,7 +2069,8 @@ struct ReplayProbeRestoreOperands
           transaction{ sample, world.diagnostics, world.timelineReset, world.timelineOwners },
           topology{ world.simulation,
                     world.config,
-                    world.systems,
+                    world.assets,
+                    world.workerPool,
                     world.generatedObjectTypeOverride,
                     world.gameModelCapacity }
     {
@@ -2325,7 +2327,7 @@ SbResult ReplayRuntime::TickSaveProbe( const ReplayProbeWorld& liveWorld, bool& 
                                                                   *this,
                                                                   liveWorld.runtimeTools,
                                                                   liveWorld.scene,
-                                                                  liveWorld.systems,
+                                                                  liveWorld.assets,
                                                                   liveWorld.sceneController.Cameras(),
                                                                   liveWorld.sceneController.Terrain(),
                                                                   liveWorld.sceneController.World(),
@@ -2737,7 +2739,8 @@ bool ReplayRuntime::RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransac
                                                    transaction.sampleOwners.sceneController,
                                                    transaction.sampleOwners.scene,
                                                    topologyOwners.config,
-                                                   topologyOwners.systems,
+                                                   topologyOwners.assets,
+                                                   topologyOwners.workerPool,
                                                    transaction.sampleOwners.sceneController.World(),
                                                    transaction.sampleOwners.sceneController.Models(),
                                                    topologyOwners.generatedObjectTypeOverride,

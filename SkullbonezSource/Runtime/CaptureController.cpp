@@ -54,6 +54,12 @@ void CaptureController::ResetScreenshot()
 }
 
 
+void CaptureController::DisableAutomationExit()
+{
+    m_screenshot.isScreenshotAndExit = false;
+}
+
+
 RuntimeCaptureResult CaptureController::TickScreenshots( const RuntimeCaptureSceneContext& context,
                                                          Rendering::IRenderCaptureBackend& backend )
 {

@@ -42,7 +42,6 @@ Related:
 #include "RuntimeRenderPasses.h"
 #include "../CameraCollection.h"
 #include "../RunCameraState.h"
-#include "../RunSubsystemState.h"
 #include "../RunTimerState.h"
 #include "../RuntimeDiagnostics.h"
 #include "../Window.h"
@@ -1462,14 +1461,13 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend,
                                   const RenderToolOverlayView& toolOverlay,
                                   const RenderUiView& ui )
     : m_lifecycleLog( backend.deviceLifecycle, scene.sceneController.State() ), m_assets( world.assets ),
-      m_textures( world.textures ), m_cameras( world.cameras ), m_terrain( world.terrain ), m_skyBox( world.skyBox ),
-      m_window( world.window ), m_passResources( world.renderPasses ), m_debug( world.debug ), m_timers( world.timers ),
-      m_config( world.config ), m_runtimeSettings( world.runtimeSettings ), m_world( world.worldEnvironment ),
-      m_renderHelper( std::in_place, backend.renderResources ), m_collisionVisualizer( world.collisionVisualizer ),
-      m_broadphaseVisualizer( world.broadphaseVisualizer ), m_physicsDebugVisualizer( world.physicsDebugVisualizer ),
-      m_runtimeTools( toolOverlay.tools ), m_editor( m_runtimeTools.Editor() ), m_camera( ui.camera ),
-      m_profiler( world.profiler ), m_replayRuntime( replayOverlay.replayRuntime ),
-      m_fullscreenQuadPass( m_passResources.fullscreen ),
+      m_cameras( world.cameras ), m_terrain( world.terrain ), m_window( world.window ), m_debug( world.debug ),
+      m_timers( world.timers ), m_config( world.config ), m_runtimeSettings( world.runtimeSettings ),
+      m_world( world.worldEnvironment ), m_renderHelper( std::in_place, backend.renderResources ),
+      m_collisionVisualizer( world.collisionVisualizer ), m_broadphaseVisualizer( world.broadphaseVisualizer ),
+      m_physicsDebugVisualizer( world.physicsDebugVisualizer ), m_runtimeTools( toolOverlay.tools ),
+      m_editor( m_runtimeTools.Editor() ), m_camera( ui.camera ), m_profiler( world.profiler ),
+      m_replayRuntime( replayOverlay.replayRuntime ), m_fullscreenQuadPass( m_passResources.fullscreen ),
       m_skyPass( m_passResources.sky, m_passResources.fullscreen, m_skyBox, m_config ),
       m_sceneTargetPass( m_passResources.cinematicScene ),
       m_shadowPass( m_passResources.shadows, m_terrain, m_config, m_lifecycleLog ),
@@ -1500,6 +1498,9 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend,
     m_renderPassGraphScratch.ReserveForRuntimePassGraph();
     m_renderPassCompileScratch.ReserveForRuntimePassGraph();
 }
+
+
+RuntimeRenderer::~RuntimeRenderer() = default;
 
 
 SkullbonezCore::Rendering::RenderGraph& RuntimeRenderer::BeginRenderPassGraph()
@@ -1957,8 +1958,13 @@ SbResult RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendReso
 }
 
 
-SbResult RuntimeRenderer::RebuildRegisteredRenderResources( const RegisteredResourceRebuildContext& context )
+SbResult RuntimeRenderer::InitialiseProcessResources( Rendering::IRenderResourceFactory& renderResources,
+                                                      Rendering::IRenderCommandContext& renderCommands,
+                                                      const EngineConfig& config,
+                                                      bool dumpTextureAssets )
 {
+    m_textures.BindAssetSystem( &m_assets );
+    m_textures.BindRenderContexts( &renderResources, &renderCommands );
     enum class RebuildStep
     {
         RecreateHelperOwner,
@@ -1985,15 +1991,15 @@ SbResult RuntimeRenderer::RebuildRegisteredRenderResources( const RegisteredReso
         switch ( phase.step )
         {
         case RebuildStep::RecreateHelperOwner:
-            m_renderHelper.emplace( context.renderResources );
+            m_renderHelper.emplace( &renderResources );
             break;
         case RebuildStep::RegisterBuiltInSources:
-            context.assets.RegisterBuiltInSourceAssets( context.config );
+            m_assets.RegisterBuiltInSourceAssets( config );
             break;
         case RebuildStep::RebuildTextures:
             // Recreate backend texture handles from stable source asset records.
             {
-                const SbResult textureResult = context.textures.RebuildTexturesFromSourceAssets();
+                const SbResult textureResult = m_textures.RebuildTexturesFromSourceAssets();
                 if ( !textureResult.ok )
                 {
                     return textureResult;
@@ -2001,6 +2007,19 @@ SbResult RuntimeRenderer::RebuildRegisteredRenderResources( const RegisteredReso
             }
             break;
         }
+    }
+    if ( dumpTextureAssets )
+    {
+        m_textures.DumpTextureAssets( stdout );
+    }
+
+    m_skyBox = std::make_unique<Geometry::SkyBox>( -250, 300, -300, 300, -250, 300 );
+    m_skyBox->BindTextures( m_textures );
+    m_skyBox->BindRenderContexts( config, m_assets, renderResources );
+    const SbResult skyBoxResult = m_skyBox->ResetRenderResources();
+    if ( !skyBoxResult.ok )
+    {
+        return skyBoxResult;
     }
     return SbResult::Success();
 }

@@ -4,9 +4,9 @@ Purpose:
   Provides the runtime diagnostics ownership boundary.
 
 Mental model:
-  Run asks DiagnosticsRuntime for capture, performance, memory, and physics
-  diagnostic work. This file mostly forwards to the underlying controllers, but
-  owns the memory snapshot cache and the shutdown memory-dump artifact.
+  DiagnosticsRuntime sequences capture, performance, memory, and physics
+  diagnostic work. Artifact-specific controllers own their formats while this
+  owner retains the process memory cache and shutdown memory-dump lifecycle.
 
 Glossary:
   Artifact path: Stable validation/debug output path written for tools or
@@ -39,6 +39,7 @@ Related:
 #include "../Replay/ReplayRuntime.h"
 #include "../RunDebugState.h"
 #include "../Scene/SceneRuntime.h"
+#include "../Scene/SceneController.h"
 #include "../../Physics/PhysicsDebugData.h"
 #include "../../Rendering/IRenderDiagnostics.h"
 #include "../../Scene/TestScene.h"
@@ -1059,12 +1060,14 @@ void DiagnosticsRuntime::SetPhysicsDiagnosticsPath( GameObjects::GameModelCollec
 }
 
 
-void DiagnosticsRuntime::LogSceneFinished( RunSceneState& scene,
-                                           const char* scenePath,
-                                           const char* rendererName,
+void DiagnosticsRuntime::LogSceneFinished( SceneController& scene,
+                                           const Rendering::IRenderDiagnostics* renderDiagnostics,
                                            const char* reason )
 {
-    RuntimeDiagnostics::LogSceneFinished( scene, scenePath, rendererName, reason );
+    const std::string* currentPath = scene.CurrentPath();
+    const char* scenePath = currentPath && !currentPath->empty() ? currentPath->c_str() : "generated";
+    const char* rendererName = renderDiagnostics ? renderDiagnostics->GetRendererName() : "unknown";
+    RuntimeDiagnostics::LogSceneFinished( scene.State(), scenePath, rendererName, reason );
 }
 
 

@@ -103,7 +103,7 @@ SbResult Terrain::TryCreateFromHeightMap( const char* sFileName,
                                           std::unique_ptr<Terrain>& outTerrain )
 {
     // Concept: RAW terrain files are external asset input. The factory keeps
-    // a failed load out of RunSubsystemState and reports Lane R instead of
+    // a failed load out of the scene owner and reports Lane R instead of
     // letting constructor exceptions escape through scene startup.
     outTerrain.reset();
     std::unique_ptr<Terrain> terrain =

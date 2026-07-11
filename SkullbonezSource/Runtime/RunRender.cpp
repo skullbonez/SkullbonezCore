@@ -44,7 +44,13 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
 
     // Update the active camera selection and any transition/tween state before
     // rendering asks for view matrices.
-    SetViewingOrientation();
+    m_camera.UpdateViewingOrientation( m_timers,
+                                       m_sceneController.Cameras(),
+                                       m_sceneController.Models(),
+                                       m_replayRuntime.Camera().active,
+                                       m_sceneController.State().isSceneMode,
+                                       m_attachedCamera.State().activeFollow,
+                                       m_interaction.PointerCapture() == RuntimePointerCaptureOwner::CameraLook );
 
     // Selected camera state is copied into the camera collection so render code below
     // reads one coherent eye/view/up triple for this frame.
@@ -80,95 +86,4 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
                                                                      activeCinematic,
                                                                      cinematicRequested,
                                                                      m_replayRuntime.Prediction().enabled } );
-}
-
-
-void Run::SetViewingOrientation()
-{
-    if ( m_replayRuntime.Camera().active )
-    {
-        PROFILE_SCOPED( "Frame/Replay/Camera" );
-        m_camera.cameraTime = 0.0f;
-        m_timers.cameraTimer.StopTimer();
-        m_timers.cameraTimer.StartTimer();
-        return;
-    }
-
-    // In scene mode, use the authored camera without generated-demo tracking or cycling.
-    if ( m_sceneController.State().isSceneMode )
-    {
-        return;
-    }
-
-    // Momentary right-mouse camera look should not fight generated camera cycling.
-    if ( RunCameraModeUsesFlyControls( m_camera.mode,
-                                       m_attachedCamera.State().activeFollow,
-                                       m_camera.director.grabbed ) ||
-         m_interaction.PointerCapture() == RuntimePointerCaptureOwner::CameraLook )
-    {
-        m_camera.cameraTime = 0.0f;
-        m_timers.cameraTimer.StopTimer();
-        m_timers.cameraTimer.StartTimer();
-        return;
-    }
-
-    // Maintain the camera timer and cycle generated-demo camera slots.
-    m_timers.cameraTimer.StopTimer();
-    m_camera.cameraTime += static_cast<float>( m_timers.cameraTimer.GetElapsedTime() );
-    m_timers.cameraTimer.StartTimer();
-    if ( m_camera.cameraTime > 5.0f )
-    {
-        ++m_camera.selectedCamera;
-        if ( m_camera.selectedCamera == 3 )
-        {
-            m_camera.selectedCamera = 0;
-        }
-        m_camera.cameraTime = 0.0f;
-    }
-
-    switch ( m_camera.selectedCamera )
-    {
-    case 0:
-        m_sceneController.Cameras().SelectCamera( CAMERA_GAME_MODEL_1, true );
-        break;
-    case 1:
-        m_sceneController.Cameras().SelectCamera( CAMERA_GAME_MODEL_2, true );
-        break;
-    case 2:
-        m_sceneController.Cameras().SelectCamera( CAMERA_FREE, true );
-        break;
-    }
-
-    // Object-follow cameras keep their eye fixed and retarget their view point
-    // to the tracked model each frame.
-    if ( m_sceneController.Cameras().IsCameraSelected( CAMERA_GAME_MODEL_1 ) )
-    {
-        Vector3 targetPosition;
-        if ( m_sceneController.Models().TryGetModelPosition( 0, targetPosition ) )
-        {
-            m_sceneController.Cameras().SetViewCoordinates( targetPosition );
-        }
-    }
-    if ( m_sceneController.Cameras().IsCameraSelected( CAMERA_GAME_MODEL_2 ) )
-    {
-        Vector3 targetPosition;
-        if ( m_sceneController.Models().TryGetModelPosition( 1, targetPosition ) )
-        {
-            m_sceneController.Cameras().SetViewCoordinates( targetPosition );
-        }
-    }
-}
-
-
-void Run::RelativeUpdateCamera( uint32_t hash )
-{
-    if ( !m_sceneController.Cameras().IsCameraSelected( hash ) )
-    {
-        Vector3 translatedCameraPosition = m_sceneController.Cameras().GetCameraTranslation( hash );
-        const float minY = m_sceneController.Terrain().Get()->GetTerrainHeightAt( translatedCameraPosition.x,
-                                                                                  translatedCameraPosition.z,
-                                                                                  true ) +
-                           m_config.minCameraHeight;
-        m_sceneController.Cameras().RelativeUpdate( hash, minY, m_config.maxCameraHeight );
-    }
 }

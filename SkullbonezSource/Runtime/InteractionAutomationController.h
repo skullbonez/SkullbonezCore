@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/RunInteractionAutomationState.h
+File: SkullbonezSource/Runtime/InteractionAutomationController.h
 Purpose:
   Defines the CLI interaction automation script and report state.
 
@@ -21,13 +21,14 @@ Invariants:
     the automation owner after actions complete or fail.
 
 Related:
-  - SkullbonezSource/Runtime/RunInteractionAutomation.cpp
+  - SkullbonezSource/Runtime/InteractionAutomationController.cpp
   - SkullbonezSource/Runtime/Input.h
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 
 #include "../Core/Common.h"
+#include "../Core/SbResult.h"
 #include "../Maths/Vector3.h"
 #include "DemoDirector.h"
 #include "RuntimeCameraMode.h"
@@ -37,8 +38,27 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Rendering
+{
+class IRenderCaptureBackend;
+}
+namespace UI
+{
+class InGameUI;
+}
 namespace Basics
 {
+class AttachedCameraController;
+class CaptureController;
+class InputRouter;
+class ReplayRuntime;
+class RuntimeInteractionController;
+class RuntimeTools;
+class SceneController;
+class Window;
+class EngineConfig;
+struct RunCameraState;
+struct RunTimerState;
 enum class RunInteractionAutomationActionType
 {
     LoadShotList,
@@ -134,7 +154,7 @@ struct RunInteractionAutomationReportAssertion
     bool passed = false;
 };
 
-struct RunInteractionAutomationState
+struct InteractionAutomationController
 {
     bool enabled = false;
     bool scriptLoaded = false;
@@ -158,5 +178,46 @@ struct RunInteractionAutomationState
     int releaseRightFrame = -1;
     int releaseKeyFrame = -1;
 };
+
+struct InteractionAutomationFrameResult
+{
+    bool requestQuit = false;
+    SbResult status = SbResult::Success();
+};
+
+SbResult ConfigureInteractionAutomation( InteractionAutomationController& state,
+                                         const char* scriptPath,
+                                         const char* reportPath );
+SbResult InteractionAutomationResult( const InteractionAutomationController& state );
+void ClearInteractionAutomationInput( InteractionAutomationController& state );
+InteractionAutomationFrameResult TickInteractionAutomationBeforeInput( InteractionAutomationController& state,
+                                                                       Window* window,
+                                                                       const EngineConfig& config,
+                                                                       SceneController& scene,
+                                                                       RunTimerState& timers,
+                                                                       ReplayRuntime& replayRuntime,
+                                                                       RunCameraState& camera,
+                                                                       InputRouter& inputRouter,
+                                                                       RuntimeInteractionController& interaction,
+                                                                       RuntimeTools& runtimeTools,
+                                                                       AttachedCameraController& attachedCamera,
+                                                                       UI::InGameUI& ui );
+InteractionAutomationFrameResult
+TickInteractionAutomationAfterRender( InteractionAutomationController& state,
+                                      SceneController& scene,
+                                      RuntimeTools& runtimeTools,
+                                      ReplayRuntime& replayRuntime,
+                                      RuntimeInteractionController& interaction,
+                                      RunCameraState& camera,
+                                      UI::InGameUI& ui,
+                                      CaptureController& capture,
+                                      Rendering::IRenderCaptureBackend& captureBackend );
+SbResult WriteInteractionAutomationReport( InteractionAutomationController& state,
+                                           const SceneController& scene,
+                                           const RuntimeTools& runtimeTools,
+                                           const ReplayRuntime& replayRuntime,
+                                           const RuntimeInteractionController& interaction,
+                                           const RunCameraState& camera,
+                                           const UI::InGameUI& ui );
 } // namespace Basics
 } // namespace SkullbonezCore

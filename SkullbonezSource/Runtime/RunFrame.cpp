@@ -33,6 +33,8 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Run.h"
+#include "../Core/WorkerPool.h"
+#include "RuntimeStressController.h"
 #include "InputFrame.h"
 #include "Replay/ReplayRuntimeOwnerViews.h"
 #include "RunDemoDirector.h"
@@ -77,9 +79,6 @@ namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace
 {
-constexpr double PERF_TEST_PASS_SECONDS = 2.0;
-constexpr float WATER_HEIGHT_CONTROL_SPEED = 20.0f; // World meters per second.
-constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
 
 // Why: Profile builds do not emit Debug-only scene-finished telemetry, so
 // automation exits need an explicit stdout breadcrumb near the quit request.
@@ -128,7 +127,8 @@ struct ExecuteUiTextFrameContext
     RunCameraState& camera;
     RuntimeViewModel& runtimeViewModel;
     SceneController& sceneController;
-    RunSubsystemState& systems;
+    SkullbonezCore::Threading::WorkerPool& workerPool;
+    Window& window;
     RunLaunchOptions& launchOptions;
     uint32_t cameraModeEnabledMask = 0;
     const char* cameraModeLabel = nullptr;
@@ -160,10 +160,10 @@ void RenderExecuteUiTextFrame( ExecuteUiTextFrameContext& context, RefreshRuntim
         context.camera,
         context.runtimeViewModel,
         uiSceneBrowser,
-        context.systems.renderPasses,
-        context.systems.workerPool,
-        context.systems.window ? context.systems.window->ClientWidth() : context.config.window.screenX,
-        context.systems.window ? context.systems.window->ClientHeight() : context.config.window.screenY,
+        context.renderer.RenderPassResources(),
+        &context.workerPool,
+        context.window.ClientWidth(),
+        context.window.ClientHeight(),
         context.sceneController.QueueSize(),
         context.sceneController.HasCurrentEntry(),
         uiScenePath ? uiScenePath->c_str() : nullptr,
@@ -191,8 +191,8 @@ void RenderExecuteUiTextFrame( ExecuteUiTextFrameContext& context, RefreshRuntim
             context.ui.IsVisible(),
             context.ui.IsMinimized(),
             context.scene.isScenePhysics,
-            context.systems.window ? context.systems.window->ClientWidth() : context.config.window.screenX,
-            context.systems.window ? context.systems.window->ClientHeight() : context.config.window.screenY,
+            context.window.ClientWidth(),
+            context.window.ClientHeight(),
             context.timers.simulationTimer.GetTotalTime(),
         };
         const int uiDrawCallStart = context.renderDiagnostics.GetFrameDrawCallCount();
@@ -552,14 +552,34 @@ SbResult Run::Execute()
             SkullbonezCore::Rendering::IRenderResourceFactory& frameRenderResources =
                 *m_renderBackendView.renderResources;
             SkullbonezCore::Rendering::IRenderCommandContext& frameRenderCommands = *m_renderBackendView.renderCommands;
-            const SkullbonezCore::UI::UIRenderContext uiRender = { &m_systems.assets,
+            const SkullbonezCore::UI::UIRenderContext uiRender = { &m_assets,
                                                                    &frameRenderResources,
                                                                    &frameRenderCommands,
                                                                    &frameRenderDiagnostics };
             frameRenderDiagnostics.ResetFrameDrawCalls();
 
             PROFILE_BEGIN( "Frame/Input" );
-            TickInteractionAutomationBeforeInput();
+            const InteractionAutomationFrameResult automationBeforeInput =
+                TickInteractionAutomationBeforeInput( m_interactionAutomation,
+                                                      &m_window,
+                                                      m_config,
+                                                      m_sceneController,
+                                                      m_timers,
+                                                      m_replayRuntime,
+                                                      m_camera,
+                                                      m_inputRouter,
+                                                      m_interaction,
+                                                      m_runtimeTools,
+                                                      m_attachedCamera,
+                                                      m_UI );
+            if ( !automationBeforeInput.status.ok )
+            {
+                m_applicationExit.RequestOwnedFailure( automationBeforeInput.status );
+            }
+            if ( automationBeforeInput.requestQuit )
+            {
+                PostQuitMessage( 0 );
+            }
             ProcessInputFrame( m_inputRouter,
                                m_config,
                                m_launchOptions,
@@ -570,7 +590,9 @@ SbResult Run::Execute()
                                m_diagnosticsRuntime,
                                m_runtimeSettings,
                                m_timers,
-                               m_systems,
+                               m_assets,
+                               m_workerPool,
+                               m_window,
                                m_interaction,
                                m_camera,
                                m_attachedCamera,
@@ -593,7 +615,7 @@ SbResult Run::Execute()
                                           m_sceneController.Browser(),
                                           m_sceneController.Models(),
                                           m_sceneController.Entities(),
-                                          m_systems.assets,
+                                          m_assets,
                                           ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
                                           m_defaultCinematicRender } );
             PROFILE_END( "Frame/Input" );
@@ -621,7 +643,33 @@ SbResult Run::Execute()
             // processing. Tick it once per rendered frame so headless and
             // overnight launches keep mutating DX12 state even when the UI
             // command panel is not producing control messages.
-            RunGraphicsStressActions( frameRenderDiagnostics );
+            ExecuteGraphicsStressFrame( m_graphicsStress,
+                                        &m_window,
+                                        m_config,
+                                        m_launchOptions,
+                                        m_defaultCinematicRender,
+                                        m_startup,
+                                        m_diagnosticsRuntime,
+                                        m_runtimeSettings,
+                                        m_timers,
+                                        m_assets,
+                                        m_workerPool,
+                                        m_inputRouter,
+                                        m_interaction,
+                                        m_camera,
+                                        m_attachedCamera,
+                                        m_simulation,
+                                        m_replayRuntime,
+                                        m_contactAudio,
+                                        m_UI,
+                                        m_debug,
+                                        m_runtimeTools,
+                                        m_physicsDebugVisualizer,
+                                        m_renderBackendView,
+                                        m_renderer,
+                                        m_sceneController,
+                                        sPerfPass,
+                                        frameRenderDiagnostics );
 
             if ( m_runtimeSettings.isPipelineSyncEnabled )
             {
@@ -672,7 +720,8 @@ SbResult Run::Execute()
                                                           m_camera,
                                                           m_runtimeViewModel,
                                                           m_sceneController,
-                                                          m_systems,
+                                                          m_workerPool,
+                                                          m_window,
                                                           m_launchOptions,
                                                           RuntimeCameraModeEnabledMask( m_sceneController ),
                                                           m_camera.mode == RunCameraMode::Attach
@@ -681,18 +730,45 @@ SbResult Run::Execute()
                                                           m_runtimeTools.LauncherFireModeLabel(),
                                                           RunCameraModeUsesLauncher( m_camera.mode ),
                                                           secondsPerFrame };
-            RenderExecuteUiTextFrame( uiTextFrameContext, [this]() { RefreshRuntimeViewModel(); } );
+            RenderExecuteUiTextFrame( uiTextFrameContext,
+                                      [this]()
+                                      {
+                                          m_runtimeViewModel = RuntimeViewModelBuilder::Build(
+                                              RuntimeViewModelContext{ m_sceneController,
+                                                                       m_diagnosticsRuntime.Capture(),
+                                                                       m_runtimeSettings,
+                                                                       m_sceneController.Physics() },
+                                              m_contactAudio );
+                                      } );
 
             PROFILE_BEGIN( "Frame/PostDraw/LiveStyleCapture" );
             {
                 RuntimeAllocation::RuntimeAllocationScope allocationScope(
                     RuntimeAllocation::RuntimeAllocationPhase::Capture );
-                TickLiveStyleControlCapture();
+                m_liveStyle.SavePendingCapture( m_diagnosticsRuntime.Capture(),
+                                                m_renderBackendView.RequireCaptureBackend() );
             }
             PROFILE_END( "Frame/PostDraw/LiveStyleCapture" );
 
             PROFILE_BEGIN( "Frame/PostDraw/InteractionAutomation" );
-            TickInteractionAutomationAfterRender();
+            const InteractionAutomationFrameResult automationAfterRender =
+                TickInteractionAutomationAfterRender( m_interactionAutomation,
+                                                      m_sceneController,
+                                                      m_runtimeTools,
+                                                      m_replayRuntime,
+                                                      m_interaction,
+                                                      m_camera,
+                                                      m_UI,
+                                                      m_diagnosticsRuntime.Capture(),
+                                                      m_renderBackendView.RequireCaptureBackend() );
+            if ( !automationAfterRender.status.ok )
+            {
+                m_applicationExit.RequestOwnedFailure( automationAfterRender.status );
+            }
+            if ( automationAfterRender.requestQuit )
+            {
+                PostQuitMessage( 0 );
+            }
             PROFILE_END( "Frame/PostDraw/InteractionAutomation" );
 
             {
@@ -799,7 +875,7 @@ void Run::TickPhysics( double secondsPerFrame )
     const bool manipulatorPhysics = policy.manipulatorActive;
     const bool contactAudioStep = m_contactAudio.IsEnabled();
     const auto physicsWorldForces = m_sceneController.World().GetPhysicsWorldForces();
-    const bool canStepPhysics = m_systems.config != nullptr && m_systems.workerPool != nullptr;
+    constexpr bool canStepPhysics = true;
     const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput{ secondsPerFrame,
                                                                               policy.physicsTimeScale,
                                                                               m_sceneController.State().isSceneMode,
@@ -819,13 +895,13 @@ void Run::TickPhysics( double secondsPerFrame )
             PROFILE_SCOPED( "Frame/Physics/Step" );
             if ( manipulatorPhysics )
             {
-                ApplyMousePickupPhysicsStep();
+                m_runtimeTools.ApplyMousePickupPhysicsStep( m_sceneController.Models(),
+                                                            m_sceneController.Physics(),
+                                                            m_inputRouter,
+                                                            m_interaction );
             }
 
-            m_sceneController.StepPhysics( PHYSICS_FIXED_DT,
-                                           *m_systems.config,
-                                           physicsWorldForces,
-                                           *m_systems.workerPool );
+            m_sceneController.StepPhysics( PHYSICS_FIXED_DT, m_config, physicsWorldForces, m_workerPool );
 
             if ( manipulatorPhysics || replayCapture || contactAudioStep )
             {
@@ -854,7 +930,7 @@ void Run::TickPhysics( double secondsPerFrame )
                                       m_sceneController.Browser(),
                                       m_sceneController.Models(),
                                       m_sceneController.Entities(),
-                                      m_systems.assets,
+                                      m_assets,
                                       ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
                                       m_defaultCinematicRender },
             static_cast<float>( secondsPerFrame ) );
@@ -864,7 +940,10 @@ void Run::TickPhysics( double secondsPerFrame )
 
 void Run::AfterPhysicsStep()
 {
-    RestoreMousePickupAngularVelocity();
+    m_runtimeTools.RestoreMousePickupAngularVelocity( m_sceneController.Models(),
+                                                      m_sceneController.Physics(),
+                                                      m_inputRouter,
+                                                      m_interaction );
     SimulationPostStepPipelineContext context{ m_contactAudio,
                                                m_runtimeSettings,
                                                m_timers,
@@ -896,7 +975,8 @@ void Run::AfterPhysicsStep()
             m_sceneController,
             m_simulation,
             m_config,
-            m_systems,
+            m_assets,
+            m_workerPool,
             m_launchOptions.generatedObjectTypeOverride,
             m_startup.gameModelCapacity,
             m_diagnosticsRuntime,
@@ -929,34 +1009,11 @@ void Run::AfterPhysicsStep()
         }
         if ( probeResult.enterInteractive )
         {
-            EnterInteractiveSceneRun();
+            m_sceneController.EnterInteractiveRun();
+            m_diagnosticsRuntime.Capture().DisableAutomationExit();
         }
     }
 #endif
-}
-
-
-void Run::EnterInteractiveSceneRun()
-{
-    m_sceneController.State().isInteractiveRun = true;
-    m_sceneController.State().isExitOnComplete = false;
-    m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
-}
-
-
-bool Run::CanSceneAutomationQuit() const
-{
-    return !m_sceneController.State().isInteractiveRun;
-}
-
-
-void Run::HoldCompletedInteractiveScene()
-{
-    m_sceneController.State().isTestComplete = true;
-    m_sceneController.State().isExitOnComplete = false;
-    m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
-    m_camera.autoCycleInterval = -1.0f;
-    m_camera.autoCycleAccum = 0.0f;
 }
 
 
@@ -1000,11 +1057,13 @@ bool Run::TickScreenshots()
 #ifdef _DEBUG
     if ( result.completion == RuntimeCaptureCompletion::ScreenshotAndExit )
     {
-        LogSceneFinished( "screenshot_and_exit" );
+        m_diagnosticsRuntime.LogSceneFinished( m_sceneController,
+                                               m_renderBackendView.renderDiagnostics,
+                                               "screenshot_and_exit" );
     }
     else if ( result.completion == RuntimeCaptureCompletion::Screenshot )
     {
-        LogSceneFinished( "screenshot" );
+        m_diagnosticsRuntime.LogSceneFinished( m_sceneController, m_renderBackendView.renderDiagnostics, "screenshot" );
     }
 #endif
 
@@ -1035,9 +1094,9 @@ bool Run::TickScreenshots()
                                                               m_diagnosticsRuntime,
                                                               m_runtimeSettings,
                                                               m_timers,
-                                                              m_systems.assets,
-                                                              *m_systems.workerPool,
-                                                              *m_systems.window,
+                                                              m_assets,
+                                                              m_workerPool,
+                                                              m_window,
                                                               m_inputRouter,
                                                               m_interaction,
                                                               m_camera,
@@ -1066,7 +1125,9 @@ bool Run::TickScreenshots()
         break;
     }
     case RuntimeCaptureAutomation::HoldInteractive:
-        HoldCompletedInteractiveScene();
+        m_sceneController.MarkInteractiveRunComplete();
+        m_diagnosticsRuntime.Capture().DisableAutomationExit();
+        m_camera.StopAutoCycle();
         break;
     case RuntimeCaptureAutomation::None:
         break;
@@ -1111,7 +1172,7 @@ void Run::TickAutoCycle()
     }
 
 #ifdef _DEBUG
-    LogSceneFinished( "auto_cycle" );
+    m_diagnosticsRuntime.LogSceneFinished( m_sceneController, m_renderBackendView.renderDiagnostics, "auto_cycle" );
 #endif
 
     if ( result.automation == RuntimeCaptureAutomation::Quit )
@@ -1120,283 +1181,100 @@ void Run::TickAutoCycle()
     }
     else if ( result.automation == RuntimeCaptureAutomation::HoldInteractive )
     {
-        HoldCompletedInteractiveScene();
+        m_sceneController.MarkInteractiveRunComplete();
+        m_diagnosticsRuntime.Capture().DisableAutomationExit();
+        m_camera.StopAutoCycle();
     }
 }
 
 
 bool Run::TickSceneAdvance()
 {
-    const auto executeSceneLoadRequest = [this]( const SceneLoadRequest& request )
-    {
-        return request.HasLoad() && m_sceneController
-                                        .Load( request,
-                                               m_config,
-                                               m_launchOptions,
-                                               m_defaultCinematicRender,
-                                               m_startup,
-                                               m_diagnosticsRuntime,
-                                               m_runtimeSettings,
-                                               m_timers,
-                                               m_systems.assets,
-                                               *m_systems.workerPool,
-                                               *m_systems.window,
-                                               m_inputRouter,
-                                               m_interaction,
-                                               m_camera,
-                                               m_attachedCamera.State(),
-                                               m_simulation,
-                                               m_replayRuntime,
-                                               m_contactAudio,
-                                               m_UI,
-                                               m_debug,
-                                               m_graphicsStress,
-                                               m_runtimeTools,
-                                               m_physicsDebugVisualizer,
-                                               m_renderBackendView,
-                                               m_renderer,
-                                               sPerfPass )
-                                        .ok;
-    };
     const bool sceneProceedAllowed =
         !m_debug.isCrossScenePauseLocked || m_inputRouter.RuntimeSnapshot().frameInput.stepHeld;
-    if ( !sceneProceedAllowed )
+    const SceneFrameAdvanceResult result =
+        m_sceneController.AdvanceFrame( sceneProceedAllowed,
+                                        m_diagnosticsRuntime.PerfTestActive(),
+                                        m_diagnosticsRuntime.Capture().Screenshot().isScreenshotSaved,
+                                        RunCameraModeUsesManualControls( m_camera.mode,
+                                                                         m_attachedCamera.State().activeFollow,
+                                                                         m_camera.director.grabbed ),
+                                        m_timers.simulationTimer.GetTimeSinceLastStart(),
+                                        sPerfPass );
+#ifdef _DEBUG
+    if ( result.finishReason )
+    {
+        m_diagnosticsRuntime.LogSceneFinished( m_sceneController,
+                                               m_renderBackendView.renderDiagnostics,
+                                               result.finishReason );
+    }
+#endif
+    if ( result.holdInteractive )
+    {
+        m_diagnosticsRuntime.Capture().DisableAutomationExit();
+        m_camera.StopAutoCycle();
+    }
+
+    bool loadSucceeded = true;
+    if ( result.loadRequest.HasLoad() )
+    {
+        loadSucceeded = m_sceneController
+                            .Load( result.loadRequest,
+                                   m_config,
+                                   m_launchOptions,
+                                   m_defaultCinematicRender,
+                                   m_startup,
+                                   m_diagnosticsRuntime,
+                                   m_runtimeSettings,
+                                   m_timers,
+                                   m_assets,
+                                   m_workerPool,
+                                   m_window,
+                                   m_inputRouter,
+                                   m_interaction,
+                                   m_camera,
+                                   m_attachedCamera.State(),
+                                   m_simulation,
+                                   m_replayRuntime,
+                                   m_contactAudio,
+                                   m_UI,
+                                   m_debug,
+                                   m_graphicsStress,
+                                   m_runtimeTools,
+                                   m_physicsDebugVisualizer,
+                                   m_renderBackendView,
+                                   m_renderer,
+                                   sPerfPass )
+                            .ok;
+    }
+    if ( loadSucceeded && result.restartSimulationTimerAfterLoad )
+    {
+        m_timers.simulationTimer.StartTimer();
+    }
+    if ( result.requestQuit || ( !loadSucceeded && result.quitIfLoadFails ) )
+    {
+        PostQuitMessage( 0 );
+    }
+    if ( !loadSucceeded && !result.quitIfLoadFails )
     {
         return false;
     }
-
-    ++m_sceneController.State().currentFrame;
-
-    const std::vector<RunRequiredContactState>& requiredContacts = m_sceneController.RequiredContacts();
-    const std::vector<RunRequiredBroadphaseXCellsState>& requiredBroadphaseXCells =
-        m_sceneController.RequiredBroadphaseXCells();
-    const bool hasRequiredContactGate = !requiredContacts.empty();
-    const bool hasRequiredBroadphaseGate = !requiredBroadphaseXCells.empty();
-    const bool hasRequiredSceneGate = hasRequiredContactGate || hasRequiredBroadphaseGate;
-    const bool requiredContactsComplete = m_sceneController.RequiredContactsComplete();
-    const bool requiredBroadphaseComplete = m_sceneController.RequiredBroadphaseXCellsComplete();
-    const bool requiredSceneComplete = requiredContactsComplete && requiredBroadphaseComplete;
-    if ( hasRequiredSceneGate && requiredSceneComplete && !m_sceneController.State().isTestComplete )
-    {
-#ifdef _DEBUG
-        LogSceneFinished( "required_scene_gates" );
-#endif
-        if ( m_sceneController.State().isExitOnComplete && CanSceneAutomationQuit() )
-        {
-            if ( !executeSceneLoadRequest(
-                     m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
-                                                     sPerfPass,
-                                                     m_sceneController.State().isInteractiveRun ) ) )
-            {
-                PostQuitMessage( 0 );
-            }
-            return true;
-        }
-
-        if ( CanSceneAutomationQuit() )
-        {
-            m_sceneController.State().isTestComplete = true;
-        }
-        else
-        {
-            HoldCompletedInteractiveScene();
-        }
-    }
-
-    // Check if target frame count is reached (skip if screenshot auto-exit is still pending)
-    if ( m_sceneController.State().targetFrameCount > 0 &&
-         !m_diagnosticsRuntime.Capture().Screenshot().isScreenshotSaved )
-    {
-        if ( m_sceneController.State().currentFrame >= m_sceneController.State().targetFrameCount )
-        {
-            const bool frameCountCompletesScene = !hasRequiredSceneGate || requiredSceneComplete;
-#ifdef _DEBUG
-            if ( !m_sceneController.State().isTestComplete &&
-                 ( frameCountCompletesScene ||
-                   m_sceneController.State().currentFrame == m_sceneController.State().targetFrameCount ) )
-            {
-                LogSceneFinished( frameCountCompletesScene ? "frame_count" : "required_scene_gates_missing" );
-                if ( !frameCountCompletesScene )
-                {
-                    for ( const RunRequiredContactState& contact : requiredContacts )
-                    {
-                        if ( contact.bodyA < 0 || contact.bodyB < 0 || !contact.touched )
-                        {
-                            fprintf( stderr,
-                                     "[scene] required_contact missing: %s <-> %s\n",
-                                     contact.nameA,
-                                     contact.nameB );
-                        }
-                    }
-                    for ( const RunRequiredBroadphaseXCellsState& cells : requiredBroadphaseXCells )
-                    {
-                        if ( !cells.activated )
-                        {
-                            fprintf( stderr,
-                                     "[scene] required_broadphase_x_cells missing: x %d..%d y %d z %d first_missing=%d "
-                                     "active_cells=%d observed_x=%s%d..%d\n",
-                                     cells.minCellX,
-                                     cells.maxCellX,
-                                     cells.cellY,
-                                     cells.cellZ,
-                                     cells.lastMissingCellX,
-                                     cells.lastActiveCellCount,
-                                     cells.hasObservedXRange ? "" : "none ",
-                                     cells.lastObservedMinX,
-                                     cells.lastObservedMaxX );
-                        }
-                    }
-                }
-            }
-#endif
-            if ( !frameCountCompletesScene )
-            {
-                return false;
-            }
-
-            if ( m_sceneController.State().isExitOnComplete && CanSceneAutomationQuit() )
-            {
-                if ( !executeSceneLoadRequest(
-                         m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
-                                                         sPerfPass,
-                                                         m_sceneController.State().isInteractiveRun ) ) )
-                {
-                    PostQuitMessage( 0 );
-                }
-                return true;
-            }
-            else
-            {
-                if ( frameCountCompletesScene && CanSceneAutomationQuit() )
-                {
-                    m_sceneController.State().isTestComplete = true;
-                }
-                else if ( frameCountCompletesScene )
-                {
-                    HoldCompletedInteractiveScene();
-                }
-            }
-        }
-    }
-
-    // Generated demo mode: restart every 20s to keep the sandbox moving indefinitely.
-    if ( !m_sceneController.State().isSceneMode &&
-         !RunCameraModeUsesManualControls( m_camera.mode,
-                                           m_attachedCamera.State().activeFollow,
-                                           m_camera.director.grabbed ) &&
-         m_timers.simulationTimer.GetTimeSinceLastStart() > 20.0 )
-    {
-        const SbResult loadResult =
-            m_sceneController.Load( SceneLoadRequest::Load( m_sceneController.State().currentSceneIndex,
-                                                            m_sceneController.State().isInteractiveRun,
-                                                            m_sceneController.State().isInteractiveRun,
-                                                            m_sceneController.State().isInteractiveRun ),
-                                    m_config,
-                                    m_launchOptions,
-                                    m_defaultCinematicRender,
-                                    m_startup,
-                                    m_diagnosticsRuntime,
-                                    m_runtimeSettings,
-                                    m_timers,
-                                    m_systems.assets,
-                                    *m_systems.workerPool,
-                                    *m_systems.window,
-                                    m_inputRouter,
-                                    m_interaction,
-                                    m_camera,
-                                    m_attachedCamera.State(),
-                                    m_simulation,
-                                    m_replayRuntime,
-                                    m_contactAudio,
-                                    m_UI,
-                                    m_debug,
-                                    m_graphicsStress,
-                                    m_runtimeTools,
-                                    m_physicsDebugVisualizer,
-                                    m_renderBackendView,
-                                    m_renderer,
-                                    sPerfPass );
-        if ( !loadResult.ok )
-        {
-            return false;
-        }
-        m_timers.simulationTimer.StartTimer();
-        return true;
-    }
-
-    // Perf-log scenes without an explicit frame count still use a timed pass duration.
-    if ( m_diagnosticsRuntime.PerfTestActive() && m_sceneController.State().targetFrameCount <= 0 &&
-         m_timers.simulationTimer.GetTimeSinceLastStart() > PERF_TEST_PASS_SECONDS )
-    {
-#ifdef _DEBUG
-        LogSceneFinished( "perf_duration" );
-#endif
-        if ( !executeSceneLoadRequest( m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
-                                                                       sPerfPass,
-                                                                       m_sceneController.State().isInteractiveRun ) ) )
-        {
-            if ( CanSceneAutomationQuit() )
-            {
-                PostQuitMessage( 0 );
-            }
-            else
-            {
-                HoldCompletedInteractiveScene();
-            }
-        }
-        return true;
-    }
-
-    return false;
+    return result.restartFrame;
 }
 
 
 void Run::UpdateLogic( float simulationDt, float cameraDt )
 {
-    // Auto-cycle
-    if ( m_sceneController.State().isSceneMode && m_camera.autoCycleInterval > 0.0f )
-    {
-        m_camera.autoCycleAccum += simulationDt;
-    }
-
-    // Camera controls are presentation-time behavior, not simulation-time
-    // behavior. Keyboard travel is velocity-based, so it consumes unscaled real
-    // frame time. Mouse look consumes a per-frame cursor delta, so using live dt
-    // would make sensitivity vary with FPS; the fixed reference preserves the
-    // existing 60 Hz tuning while making the result frame-rate independent.
-    const EngineConfig& cfg = m_config;
-    const bool attachedOrbitOwnsCamera = RunCameraModeIsAttached( m_camera.mode ) &&
-                                         m_attachedCamera.State().activeFollow &&
-                                         m_attachedCamera.State().submode != AttachedCameraSubmode::RagdollEyes;
-    InputController::ApplyCameraMovement(
-        m_camera,
-        m_sceneController.Cameras(),
-        *m_sceneController.Terrain().Get(),
-        RuntimeCameraMovementInput{ cameraDt * cfg.keySpeed,
-                                    CAMERA_MOUSE_REFERENCE_DT * cfg.mouseSensitivity,
-                                    cfg.minCameraHeight,
-                                    cfg.maxCameraHeight,
-                                    attachedOrbitOwnsCamera,
-                                    RunCameraModeUsesFlyControls( m_camera.mode,
-                                                                  m_attachedCamera.State().activeFollow,
-                                                                  m_camera.director.grabbed ),
-                                    m_runtimeTools.Editor().editorModeEnabled,
-                                    m_runtimeTools.Editor().viewportLookActive,
-                                    RunCameraModeUsesManualControls( m_camera.mode,
-                                                                     m_attachedCamera.State().activeFollow,
-                                                                     m_camera.director.grabbed ),
-                                    m_sceneController.State().isSceneMode } );
-    if ( RunCameraModeIsAttached( m_camera.mode ) )
-    {
-        const float orbitYawDelta =
-            static_cast<float>( m_camera.input.xMove ) * CAMERA_MOUSE_REFERENCE_DT * m_config.mouseSensitivity;
-        const float orbitPitchDelta =
-            static_cast<float>( m_camera.input.yMove ) * CAMERA_MOUSE_REFERENCE_DT * m_config.mouseSensitivity;
-        (void)m_attachedCamera.TickFollow( m_sceneController.Models(),
-                                           m_sceneController.Cameras(),
-                                           orbitYawDelta,
-                                           orbitPitchDelta );
-    }
+    m_camera.AdvanceAutoCycleClock( m_sceneController.State().isSceneMode, simulationDt );
+    m_camera.TickControls( m_sceneController.Cameras(),
+                           *m_sceneController.Terrain().Get(),
+                           m_sceneController.Models(),
+                           m_attachedCamera,
+                           m_config,
+                           m_runtimeTools.Editor().editorModeEnabled,
+                           m_runtimeTools.Editor().viewportLookActive,
+                           m_sceneController.State().isSceneMode,
+                           cameraDt );
     DemoDirectorPlayback::Tick(
         m_camera,
         m_sceneController.Cameras(),
@@ -1406,31 +1284,12 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
                                   m_sceneController.Browser(),
                                   m_sceneController.Models(),
                                   m_sceneController.Entities(),
-                                  m_systems.assets,
+                                  m_assets,
                                   ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
                                   m_defaultCinematicRender },
         cameraDt );
 
-    UpdateWaterHeightControls( simulationDt );
-
-    // Tween speed is also presentation-time behavior. The selected destination
-    // camera can still track moving scene objects, but the interpolation rate
-    // itself should be stable in real seconds instead of following time_scale.
-    m_sceneController.Cameras().SetTweenSpeed( cfg.cameraTweenRate * cameraDt );
-}
-
-
-void Run::UpdateWaterHeightControls( float dt )
-{
-    const bool downNow = m_inputRouter.RuntimeSnapshot().pageDown;
-    const bool upNow = m_inputRouter.RuntimeSnapshot().pageUp;
-    if ( downNow == upNow )
-    {
-        return;
-    }
-
-    const float direction = upNow ? 1.0f : -1.0f;
-    const float height =
-        m_sceneController.World().GetFluidSurfaceHeight() + direction * WATER_HEIGHT_CONTROL_SPEED * dt;
-    m_sceneController.World().SetFluidSurfaceHeight( height );
+    m_sceneController.ApplyWaterHeightControl( m_inputRouter.RuntimeSnapshot().pageDown,
+                                               m_inputRouter.RuntimeSnapshot().pageUp,
+                                               simulationDt );
 }

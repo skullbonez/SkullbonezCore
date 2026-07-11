@@ -4,9 +4,9 @@ Purpose:
   Owns runtime diagnostics and capture controllers behind one diagnostics boundary.
 
 Mental model:
-  DiagnosticsRuntime is the Phase 7 compatibility owner. Capture, perf logs,
-  and SkullScope state keep their existing controllers and artifact formats,
-  while Run reaches them through one diagnostics runtime member.
+  DiagnosticsRuntime owns the process diagnostics lifecycle. Capture, perf,
+  memory, and SkullScope controllers keep their artifact-specific state behind
+  this boundary while frame code requests synchronous diagnostics operations.
 
 Glossary:
   Capture controller: Screenshot trigger and automation state.
@@ -49,6 +49,7 @@ namespace Basics
 {
 class Profiler;
 class ReplayRuntime;
+class SceneController;
 class TestScene;
 enum class RuntimeInputAction;
 struct RunDebugState;
@@ -168,7 +169,9 @@ class DiagnosticsRuntime
     void SetPhysicsDiagnosticsPath( GameObjects::GameModelCollection& models,
                                     const char* path,
                                     bool fixedStepForcedByDiagnostics );
-    void LogSceneFinished( RunSceneState& scene, const char* scenePath, const char* rendererName, const char* reason );
+    void LogSceneFinished( SceneController& scene,
+                           const Rendering::IRenderDiagnostics* renderDiagnostics,
+                           const char* reason );
     void BeginPhysicsDiagnosticsRun( GameObjects::GameModelCollection& models,
                                      const RunSceneState& scene,
                                      const EngineConfig& config,

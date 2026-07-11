@@ -118,7 +118,6 @@ struct RunDebugState;
 struct RunMousePickupState;
 struct RunRuntimeSettings;
 struct RunSceneState;
-struct RunSubsystemState;
 struct ReplayV2SaveResult;
 struct ReplaySolverSampleRestoreContext;
 #ifdef _DEBUG

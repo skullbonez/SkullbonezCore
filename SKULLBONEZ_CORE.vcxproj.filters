@@ -349,13 +349,13 @@
     <ClCompile Include="SkullbonezSource\Runtime\RunDemoDirector.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\RunInteractionAutomation.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\InteractionAutomationController.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RunInput.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\RunLiveStyle.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\LiveStyleController.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.cpp">
@@ -376,10 +376,13 @@
     <ClCompile Include="SkullbonezSource\Runtime\RunRender.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\RunCameraState.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\RunScene.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\RunStress.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\RuntimeStressController.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeTuning.cpp">
@@ -701,6 +704,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\GraphicsStressController.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\RuntimeStressController.h">
+      <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\ApplicationExitState.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
@@ -761,7 +767,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\RunDebugState.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\RunInteractionAutomationState.h">
+    <ClInclude Include="SkullbonezSource\Runtime\InteractionAutomationController.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RunLaunchOptions.h">
@@ -771,9 +777,6 @@
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RunRuntimeSettings.h">
-      <Filter>Header Files\Runtime</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\RunSubsystemState.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RunStartupState.h">

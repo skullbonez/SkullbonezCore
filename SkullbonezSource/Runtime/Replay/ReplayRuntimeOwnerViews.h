@@ -29,6 +29,14 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+}
+namespace Threading
+{
+class WorkerPool;
+}
 namespace Basics
 {
 // Lifetime: startup replay loading borrows only interaction/camera owners.
@@ -58,7 +66,8 @@ struct ReplayRuntime::ReplayArtifactTopologyOwners
 {
     SimulationSystem& simulation;
     const EngineConfig& config;
-    RunSubsystemState& systems;
+    Assets::AssetSystem& assets;
+    Threading::WorkerPool& workerPool;
     GeneratedObjectTypeOverride& generatedObjectTypeOverride;
     int gameModelCapacity = 0;
 };
@@ -76,7 +85,8 @@ struct ReplayProbeWorld
     SceneController& sceneController;
     SimulationSystem& simulation;
     const EngineConfig& config;
-    RunSubsystemState& systems;
+    Assets::AssetSystem& assets;
+    Threading::WorkerPool& workerPool;
     GeneratedObjectTypeOverride& generatedObjectTypeOverride;
     int gameModelCapacity = 0;
     DiagnosticsRuntime& diagnostics;

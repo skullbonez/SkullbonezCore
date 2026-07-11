@@ -732,6 +732,16 @@ class RuntimeTools
                                                       const GameObjects::GameModelCollection& collection,
                                                       InputRouter& inputRouter,
                                                       RuntimeInteractionController& interaction );
+    // Applies the manipulator spring at the fixed-step boundary. Tool state is
+    // owned here; scene physics and input/interaction owners are synchronous borrows.
+    void ApplyMousePickupPhysicsStep( GameObjects::GameModelCollection& models,
+                                      Physics::PhysicsEngine& physics,
+                                      InputRouter& inputRouter,
+                                      RuntimeInteractionController& interaction );
+    void RestoreMousePickupAngularVelocity( GameObjects::GameModelCollection& models,
+                                            Physics::PhysicsEngine& physics,
+                                            InputRouter& inputRouter,
+                                            RuntimeInteractionController& interaction );
     bool PrepareSelectionCommand( const RuntimeInteractionCommand& command,
                                   const GameObjects::GameModelCollection& collection,
                                   RuntimeInteractionSelectionPlan& outPlan );

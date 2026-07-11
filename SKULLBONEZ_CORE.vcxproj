@@ -261,9 +261,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorObjectPlacement.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunFrame.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunDemoDirector.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\RunInteractionAutomation.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\InteractionAutomationController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunInput.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\RunLiveStyle.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\LiveStyleController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayTools.cpp" />
@@ -271,8 +271,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunRender.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\RunCameraState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\RunScene.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\RunStress.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\RuntimeStressController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunUiTextPass.cpp" />
     <ClCompile Include="SkullbonezSource\World\SkyBox.cpp" />
     <ClCompile Include="SkullbonezSource\World\Terrain.cpp" />
@@ -376,6 +377,7 @@
     <ClInclude Include="SkullbonezSource\Core\SkullScope.h" />
     <ClInclude Include="SkullbonezSource\Rendering\Helper.h" />
     <ClInclude Include="SkullbonezSource\Runtime\GraphicsStressController.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\RuntimeStressController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\ApplicationExitState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Input.h" />
     <ClInclude Include="SkullbonezSource\Runtime\InputController.Bindings.h" />
@@ -393,11 +395,10 @@
     <ClInclude Include="SkullbonezSource\Runtime\RunCameraState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunDemoDirector.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunDebugState.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\RunInteractionAutomationState.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\InteractionAutomationController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunLaunchOptions.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunReplayProbeState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunRuntimeSettings.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\RunSubsystemState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunStartupState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunTimerState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeCameraMode.h" />

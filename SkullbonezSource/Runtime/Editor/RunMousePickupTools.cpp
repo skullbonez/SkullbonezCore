@@ -19,16 +19,19 @@ Invariants:
   - Pointer capture and interaction gesture state must end whenever pickup is canceled.
   - Picked handles are revalidated through PhysicsBodyStore before every
     velocity edit or impulse.
-  - Pointer routing mutates pickup state only through `RuntimeTools`; Run keeps
-    only the later physics-step hooks until that boundary is extracted.
+  - Pointer routing and fixed-step spring application mutate pickup state only
+    through `RuntimeTools`; the application shell only sequences the owner.
 
 Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.h
   - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
   - Agentic/Reference/comment-style-guide.md
 */
-#include "../Run.h"
+#include "../Tools/RuntimeTools.h"
+#include "../InputRouter.h"
+#include "../RuntimeInteractionController.h"
 #include "../RuntimePickService.h"
+#include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
 
@@ -194,9 +197,12 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePicku
 }
 
 
-void Run::ApplyMousePickupPhysicsStep()
+void RuntimeTools::ApplyMousePickupPhysicsStep( GameObjects::GameModelCollection& models,
+                                                Physics::PhysicsEngine& physics,
+                                                InputRouter& inputRouter,
+                                                RuntimeInteractionController& interaction )
 {
-    if ( !m_runtimeTools.MousePickup().active )
+    if ( !m_mousePickup.active )
     {
         return;
     }
@@ -204,28 +210,25 @@ void Run::ApplyMousePickupPhysicsStep()
     // Hazard: Pickup stores a live body handle. Revalidate it before every
     // physics write so deleted/reused body slots cannot receive a stale tool
     // impulse.
-    RunMousePickupState& pickup = m_runtimeTools.MousePickup();
-    const PhysicsBodyStore& bodyStore = m_sceneController.Models().BodyStore();
+    RunMousePickupState& pickup = m_mousePickup;
+    const PhysicsBodyStore& bodyStore = models.BodyStore();
     const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( pickup.body );
     if ( !bodyRecord )
     {
-        m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
+        CancelMousePickup( inputRouter, interaction );
         return;
     }
 
     if ( bodyRecord->isFixed )
     {
-        m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
+        CancelMousePickup( inputRouter, interaction );
         return;
     }
     const Vector3 bodyPosition = bodyRecord->position;
     const Vector3 linearVelocity = bodyRecord->linearVelocity;
-    if ( !m_sceneController.Physics().SetBodyVelocity( pickup.body,
-                                                       linearVelocity,
-                                                       pickup.preservedAngularVelocity,
-                                                       false ) )
+    if ( !physics.SetBodyVelocity( pickup.body, linearVelocity, pickup.preservedAngularVelocity, false ) )
     {
-        m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
+        CancelMousePickup( inputRouter, interaction );
         return;
     }
 
@@ -245,39 +248,39 @@ void Run::ApplyMousePickupPhysicsStep()
         impulse *= MOUSE_PICKUP_MAX_IMPULSE / sqrtf( impulseLenSq );
     }
 
-    m_sceneController.Physics().ApplyBodyImpulse( pickup.body, impulse, SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    physics.ApplyBodyImpulse( pickup.body, impulse, SkullbonezCore::Math::Vector::ZERO_VECTOR );
     pickup.lastImpulse = impulse;
 }
 
 
-void Run::RestoreMousePickupAngularVelocity()
+void RuntimeTools::RestoreMousePickupAngularVelocity( GameObjects::GameModelCollection& models,
+                                                      Physics::PhysicsEngine& physics,
+                                                      InputRouter& inputRouter,
+                                                      RuntimeInteractionController& interaction )
 {
-    if ( !m_runtimeTools.MousePickup().active )
+    if ( !m_mousePickup.active )
     {
         return;
     }
 
-    RunMousePickupState& pickup = m_runtimeTools.MousePickup();
-    const PhysicsBodyStore& bodyStore = m_sceneController.Models().BodyStore();
+    RunMousePickupState& pickup = m_mousePickup;
+    const PhysicsBodyStore& bodyStore = models.BodyStore();
     const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( pickup.body );
     if ( !bodyRecord )
     {
-        m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
+        CancelMousePickup( inputRouter, interaction );
         return;
     }
 
     if ( bodyRecord->isFixed )
     {
-        m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
+        CancelMousePickup( inputRouter, interaction );
         return;
     }
 
-    if ( !m_sceneController.Physics().SetBodyVelocity( pickup.body,
-                                                       bodyRecord->linearVelocity,
-                                                       pickup.preservedAngularVelocity,
-                                                       false ) )
+    if ( !physics.SetBodyVelocity( pickup.body, bodyRecord->linearVelocity, pickup.preservedAngularVelocity, false ) )
     {
-        m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
+        CancelMousePickup( inputRouter, interaction );
     }
 }
 } // namespace Basics

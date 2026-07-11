@@ -4,9 +4,9 @@ Purpose:
   Implements scene state, physics ownership, navigation, and deferred requests.
 
 Mental model:
-  Scene state, physics, and deferred intent live together here. Run still
-  executes the returned request batch while deeper scene-loading side effects
-  move out of RunScene.cpp during lifecycle extraction C1.
+  Scene state, physics, navigation, completion gates, and deferred intent live
+  behind one controller. Cold load implementation is split into RunScene.cpp,
+  but remains a SceneController transaction with explicit synchronous borrows.
 
 Glossary:
   Scene runtime: Mutable per-scene queue, completion, and automation state.
@@ -16,7 +16,7 @@ Glossary:
 Invariants:
   - Controller accessors must preserve the existing SceneRuntime semantics.
   - Interactive scene requests cannot bypass the controller-owned ring.
-  - No scene load side effects live here yet; RunScene.cpp still applies them.
+  - Frame completion returns value-only load/quit/hold intent to the process shell.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
@@ -35,6 +35,7 @@ Related:
 #include "../../Physics/PhysicsWorldForces.h"
 
 #include <cstdarg>
+#include <cstdio>
 #include <cstring>
 #include <utility>
 #include <vector>
@@ -45,6 +46,8 @@ namespace Basics
 {
 namespace
 {
+constexpr double SCENE_PERF_PASS_SECONDS = 2.0;
+constexpr float WATER_HEIGHT_CONTROL_SPEED = 20.0f; // World meters per second.
 #ifdef _DEBUG
 void WriteScenePhysicsDiagnosticsCsv( void*, const char* fileName, const char* fmt, va_list args )
 {
@@ -97,6 +100,37 @@ void SceneController::StepPhysics( float fixedDt,
     {
         m_models.NotifyFixedContact( index, 0.5f );
     }
+}
+
+
+void SceneController::ApplyWaterHeightControl( bool pageDown, bool pageUp, float dt )
+{
+    if ( pageDown == pageUp )
+    {
+        return;
+    }
+    const float direction = pageUp ? 1.0f : -1.0f;
+    m_world.SetFluidSurfaceHeight( m_world.GetFluidSurfaceHeight() + direction * WATER_HEIGHT_CONTROL_SPEED * dt );
+}
+
+
+void SceneController::EnterInteractiveRun()
+{
+    m_runtime.State().isInteractiveRun = true;
+    m_runtime.State().isExitOnComplete = false;
+}
+
+
+bool SceneController::CanAutomationQuit() const
+{
+    return !m_runtime.State().isInteractiveRun;
+}
+
+
+void SceneController::MarkInteractiveRunComplete()
+{
+    m_runtime.State().isTestComplete = true;
+    m_runtime.State().isExitOnComplete = false;
 }
 
 
@@ -506,6 +540,134 @@ void SceneController::UpdateRequiredBroadphaseXCells(
 bool SceneController::RequiredBroadphaseXCellsComplete() const
 {
     return m_runtime.RequiredBroadphaseXCellsComplete();
+}
+
+
+SceneFrameAdvanceResult SceneController::AdvanceFrame( bool proceedAllowed,
+                                                       bool perfTestActive,
+                                                       bool screenshotSaved,
+                                                       bool manualCameraActive,
+                                                       double elapsedSeconds,
+                                                       int& perfPass )
+{
+    SceneFrameAdvanceResult result;
+    if ( !proceedAllowed )
+    {
+        return result;
+    }
+
+    ++m_runtime.State().currentFrame;
+    const bool hasRequiredSceneGate = !RequiredContacts().empty() || !RequiredBroadphaseXCells().empty();
+    const bool requiredSceneComplete = RequiredContactsComplete() && RequiredBroadphaseXCellsComplete();
+
+    const auto finishInteractiveOrQueueNext = [&]( const char* reason )
+    {
+        result.finishReason = reason;
+        if ( m_runtime.State().isExitOnComplete && CanAutomationQuit() )
+        {
+            result.loadRequest = AdvanceScene( perfTestActive, perfPass, m_runtime.State().isInteractiveRun );
+            result.requestQuit = !result.loadRequest.HasLoad();
+            result.quitIfLoadFails = true;
+            result.restartFrame = true;
+            return;
+        }
+        if ( CanAutomationQuit() )
+        {
+            m_runtime.State().isTestComplete = true;
+        }
+        else
+        {
+            MarkInteractiveRunComplete();
+            result.holdInteractive = true;
+        }
+    };
+
+    if ( hasRequiredSceneGate && requiredSceneComplete && !m_runtime.State().isTestComplete )
+    {
+        finishInteractiveOrQueueNext( "required_scene_gates" );
+        if ( result.restartFrame )
+        {
+            return result;
+        }
+    }
+
+    if ( m_runtime.State().targetFrameCount > 0 && !screenshotSaved &&
+         m_runtime.State().currentFrame >= m_runtime.State().targetFrameCount )
+    {
+        const bool frameCountCompletesScene = !hasRequiredSceneGate || requiredSceneComplete;
+        if ( !m_runtime.State().isTestComplete )
+        {
+            result.finishReason = frameCountCompletesScene ? "frame_count" : "required_scene_gates_missing";
+        }
+        if ( !frameCountCompletesScene )
+        {
+            // Probe diagnostics belong to the scene gate owner so callers do not
+            // reopen its mutable contact/broadphase rows to explain a failure.
+            for ( const RunRequiredContactState& contact : RequiredContacts() )
+            {
+                if ( contact.bodyA < 0 || contact.bodyB < 0 || !contact.touched )
+                {
+                    fprintf( stderr, "[scene] required_contact missing: %s <-> %s\n", contact.nameA, contact.nameB );
+                }
+            }
+            for ( const RunRequiredBroadphaseXCellsState& cells : RequiredBroadphaseXCells() )
+            {
+                if ( !cells.activated )
+                {
+                    fprintf( stderr,
+                             "[scene] required_broadphase_x_cells missing: x %d..%d y %d z %d first_missing=%d "
+                             "active_cells=%d observed_x=%s%d..%d\n",
+                             cells.minCellX,
+                             cells.maxCellX,
+                             cells.cellY,
+                             cells.cellZ,
+                             cells.lastMissingCellX,
+                             cells.lastActiveCellCount,
+                             cells.hasObservedXRange ? "" : "none ",
+                             cells.lastObservedMinX,
+                             cells.lastObservedMaxX );
+                }
+            }
+            return result;
+        }
+        finishInteractiveOrQueueNext( result.finishReason ? result.finishReason : "frame_count" );
+        if ( result.restartFrame )
+        {
+            return result;
+        }
+    }
+
+    if ( !m_runtime.State().isSceneMode && !manualCameraActive && elapsedSeconds > 20.0 )
+    {
+        result.loadRequest = SceneLoadRequest::Load( m_runtime.State().currentSceneIndex,
+                                                     m_runtime.State().isInteractiveRun,
+                                                     m_runtime.State().isInteractiveRun,
+                                                     m_runtime.State().isInteractiveRun );
+        result.restartFrame = true;
+        result.restartSimulationTimerAfterLoad = true;
+        return result;
+    }
+
+    if ( perfTestActive && m_runtime.State().targetFrameCount <= 0 && elapsedSeconds > SCENE_PERF_PASS_SECONDS )
+    {
+        result.finishReason = "perf_duration";
+        result.loadRequest = AdvanceScene( true, perfPass, m_runtime.State().isInteractiveRun );
+        result.restartFrame = true;
+        if ( !result.loadRequest.HasLoad() )
+        {
+            if ( CanAutomationQuit() )
+            {
+                result.requestQuit = true;
+            }
+            else
+            {
+                MarkInteractiveRunComplete();
+                result.holdInteractive = true;
+            }
+        }
+        result.quitIfLoadFails = CanAutomationQuit();
+    }
+    return result;
 }
 
 

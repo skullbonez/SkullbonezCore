@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/RunInteractionAutomation.cpp
+File: SkullbonezSource/Runtime/InteractionAutomationController.cpp
 Purpose:
   Drives deterministic runtime interaction scripts through the normal input path.
 
@@ -31,8 +31,19 @@ Related:
   - SkullbonezSource/Runtime/RuntimeInteractionController.h
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
 */
-#include "Run.h"
+#include "InteractionAutomationController.h"
+#include "AttachedCameraController.h"
+#include "CaptureController.h"
+#include "InputRouter.h"
+#include "RuntimeInteractionController.h"
 #include "RuntimeCameraMode.h"
+#include "RunCameraState.h"
+#include "RunTimerState.h"
+#include "Tools/RuntimeTools.h"
+#include "Window.h"
+#include "Scene/SceneController.h"
+#include "Scene/SceneRuntime.h"
+#include "Replay/ReplayRuntime.h"
 #include "InputFrame.h"
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "Editor/EditorTools.h"
@@ -42,6 +53,9 @@ Related:
 #include "RuntimePickService.h"
 
 #include "../Physics/PhysicsEngineStoreQueries.h"
+#include "../Core/Config.h"
+#include "../Rendering/IRenderCaptureBackend.h"
+#include "../UI/UI.h"
 
 #pragma warning( push, 0 )
 #include "../../ThirdPtySource/nlohmann/json.hpp"
@@ -693,7 +707,7 @@ bool TryReadFrame( const Json& entry, int& outFrame )
     return true;
 }
 
-void AppendReportAction( RunInteractionAutomationState& state,
+void AppendReportAction( InteractionAutomationController& state,
                          int frame,
                          RunInteractionAutomationActionType type,
                          const char* target,
@@ -721,7 +735,7 @@ void AppendReportAction( RunInteractionAutomationState& state,
     state.actionReports.push_back( report );
 }
 
-void InjectAutomationLeftMousePress( RunInteractionAutomationState& state,
+void InjectAutomationLeftMousePress( InteractionAutomationController& state,
                                      RunInteractionAutomationAction& action,
                                      int frame,
                                      const SkullbonezCore::UI::UIRect& rect )
@@ -737,7 +751,7 @@ void InjectAutomationLeftMousePress( RunInteractionAutomationState& state,
     action.hasMouse = true;
 }
 
-void FailAutomation( RunInteractionAutomationState& state, const char* message )
+void FailAutomation( InteractionAutomationController& state, const char* message )
 {
     state.failed = true;
     if ( state.failure[0] == '\0' )
@@ -748,8 +762,8 @@ void FailAutomation( RunInteractionAutomationState& state, const char* message )
 
 struct InteractionAutomationReplayControlContext
 {
-    RunInteractionAutomationState& state;
-    RunSubsystemState& systems;
+    InteractionAutomationController& state;
+    Window* window;
     const EngineConfig& config;
     const RunSceneState& scene;
     RunTimerState& timers;
@@ -758,14 +772,14 @@ struct InteractionAutomationReplayControlContext
 
 struct InteractionAutomationDirectorCameraContext
 {
-    RunInteractionAutomationState& state;
+    InteractionAutomationController& state;
     SkullbonezCore::Environment::CameraCollection& cameras;
     RunCameraState& camera;
 };
 
 struct InteractionAutomationReplayStateContext
 {
-    RunInteractionAutomationState& state;
+    InteractionAutomationController& state;
     RunTimerState& timers;
     ReplayRuntime& replayRuntime;
     GameModelCollection& gameModels;
@@ -1051,10 +1065,8 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
     // owner of prediction, pause/play, velocity-edit, and branch transitions.
     if ( strcmp( action.text, "predict" ) == 0 )
     {
-        const int screenW =
-            context.systems.window ? context.systems.window->ClientWidth() : context.config.window.screenX;
-        const int screenH =
-            context.systems.window ? context.systems.window->ClientHeight() : context.config.window.screenY;
+        const int screenW = context.window ? context.window->ClientWidth() : context.config.window.screenX;
+        const int screenH = context.window ? context.window->ClientHeight() : context.config.window.screenY;
         const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
         // Why: interaction scripts should match the real UI: Predict can branch
         // from the current live solver state even before a paused scene has
@@ -1081,10 +1093,8 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
 
     if ( strcmp( action.text, "past" ) == 0 || strcmp( action.text, "pastPath" ) == 0 )
     {
-        const int screenW =
-            context.systems.window ? context.systems.window->ClientWidth() : context.config.window.screenX;
-        const int screenH =
-            context.systems.window ? context.systems.window->ClientHeight() : context.config.window.screenY;
+        const int screenW = context.window ? context.window->ClientWidth() : context.config.window.screenX;
+        const int screenH = context.window ? context.window->ClientHeight() : context.config.window.screenY;
         const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
         const bool pastPathControlEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2 &&
                                             context.replayRuntime.PathVisualizer().hasTarget;
@@ -1109,10 +1119,8 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
 
     if ( strcmp( action.text, "pause" ) == 0 || strcmp( action.text, "play" ) == 0 )
     {
-        const int screenW =
-            context.systems.window ? context.systems.window->ClientWidth() : context.config.window.screenX;
-        const int screenH =
-            context.systems.window ? context.systems.window->ClientHeight() : context.config.window.screenY;
+        const int screenW = context.window ? context.window->ClientWidth() : context.config.window.screenX;
+        const int screenH = context.window ? context.window->ClientHeight() : context.config.window.screenY;
         const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
         const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
         if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
@@ -1140,10 +1148,8 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
 
     if ( strcmp( action.text, "velocity" ) == 0 )
     {
-        const int screenW =
-            context.systems.window ? context.systems.window->ClientWidth() : context.config.window.screenX;
-        const int screenH =
-            context.systems.window ? context.systems.window->ClientHeight() : context.config.window.screenY;
+        const int screenW = context.window ? context.window->ClientWidth() : context.config.window.screenX;
+        const int screenH = context.window ? context.window->ClientHeight() : context.config.window.screenY;
         const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
         const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
         if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
@@ -1170,10 +1176,8 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationReplayCo
 
     if ( strcmp( action.text, "branch" ) == 0 )
     {
-        const int screenW =
-            context.systems.window ? context.systems.window->ClientWidth() : context.config.window.screenX;
-        const int screenH =
-            context.systems.window ? context.systems.window->ClientHeight() : context.config.window.screenY;
+        const int screenW = context.window ? context.window->ClientWidth() : context.config.window.screenX;
+        const int screenH = context.window ? context.window->ClientHeight() : context.config.window.screenY;
         const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
         const bool branchTargetAvailable = context.replayRuntime.Scrubber().historicalSamplePaused &&
                                            context.replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver &&
@@ -1212,8 +1216,8 @@ void ApplyInteractionAutomationSolverTrackScrub( InteractionAutomationReplayCont
                                                  RunInteractionAutomationAction& action,
                                                  int frame )
 {
-    const int screenW = context.systems.window ? context.systems.window->ClientWidth() : context.config.window.screenX;
-    const int screenH = context.systems.window ? context.systems.window->ClientHeight() : context.config.window.screenY;
+    const int screenW = context.window ? context.window->ClientWidth() : context.config.window.screenX;
+    const int screenH = context.window ? context.window->ClientHeight() : context.config.window.screenY;
     const ReplayRecorderStats solverReplayStats = context.replayRuntime.Solver().GetStats();
     const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
     if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
@@ -1782,7 +1786,7 @@ EvaluateInteractionAutomationAssertion( InteractionAutomationAssertContext& cont
     return evaluation;
 }
 
-bool LoadScript( RunInteractionAutomationState& state )
+bool LoadScript( InteractionAutomationController& state )
 {
     RuntimeAllocation::RuntimeAllocationScope diagnosticsScope(
         RuntimeAllocation::RuntimeAllocationPhase::Diagnostics );
@@ -1839,7 +1843,7 @@ bool LoadScript( RunInteractionAutomationState& state )
 }
 } // namespace
 
-bool Run::TryFindInteractionAutomationModel( const char* name, int& outIndex ) const
+bool TryFindInteractionAutomationModel( const SceneController& scene, const char* name, int& outIndex )
 {
     outIndex = -1;
     if ( !name || name[0] == '\0' )
@@ -1847,20 +1851,24 @@ bool Run::TryFindInteractionAutomationModel( const char* name, int& outIndex ) c
         return false;
     }
 
-    outIndex = m_sceneController.Entities().FindByDisplayName( name );
+    outIndex = scene.Entities().FindByDisplayName( name );
     return outIndex >= 0;
 }
 
-bool Run::TryProjectInteractionAutomationModel( const char* name, POINT& outMouse )
+bool TryProjectInteractionAutomationModel( const SceneController& scene,
+                                           InputRouter& inputRouter,
+                                           Window* window,
+                                           const char* name,
+                                           POINT& outMouse )
 {
     int modelIndex = -1;
-    if ( !TryFindInteractionAutomationModel( name, modelIndex ) || !m_systems.window )
+    if ( !TryFindInteractionAutomationModel( scene, name, modelIndex ) || !window )
     {
         return false;
     }
 
-    const int width = (std::max)( 1, m_systems.window->ClientWidth() );
-    const int height = (std::max)( 1, m_systems.window->ClientHeight() );
+    const int width = (std::max)( 1, window->ClientWidth() );
+    const int height = (std::max)( 1, window->ClientHeight() );
     const int steps[] = { 96, 48, 24, 12, 6 };
     for ( const int step : steps )
     {
@@ -1872,16 +1880,12 @@ bool Run::TryProjectInteractionAutomationModel( const char* name, POINT& outMous
 
                 Vector3 rayOrigin;
                 Vector3 rayDirection;
-                if ( m_inputRouter.TryBuildWorldRayAt( candidate,
-                                                       m_sceneController.Cameras(),
-                                                       *m_systems.window,
-                                                       rayOrigin,
-                                                       rayDirection ) )
+                if ( inputRouter.TryBuildWorldRayAt( candidate, scene.Cameras(), *window, rayOrigin, rayDirection ) )
                 {
                     RuntimePickRequest request;
                     request.purpose = RuntimePickPurpose::EditorSelection;
-                    request.bodyStore = &m_sceneController.Models().BodyStore();
-                    request.colliderStore = &m_sceneController.Models().Colliders();
+                    request.bodyStore = &scene.Models().BodyStore();
+                    request.colliderStore = &scene.Models().Colliders();
                     request.rayOrigin = rayOrigin;
                     request.rayDirection = rayDirection;
 
@@ -1899,51 +1903,102 @@ bool Run::TryProjectInteractionAutomationModel( const char* name, POINT& outMous
     return false;
 }
 
-void Run::ClearInteractionAutomationInput()
+void SkullbonezCore::Basics::ClearInteractionAutomationInput( InteractionAutomationController& state )
 {
-    m_interactionAutomation.leftMouseDown = false;
-    m_interactionAutomation.rightMouseDown = false;
-    m_interactionAutomation.keyVirtualKey = 0;
-    m_interactionAutomation.keyDown = false;
-    m_interactionAutomation.releaseLeftFrame = -1;
-    m_interactionAutomation.releaseRightFrame = -1;
-    m_interactionAutomation.releaseKeyFrame = -1;
+    state.leftMouseDown = false;
+    state.rightMouseDown = false;
+    state.keyVirtualKey = 0;
+    state.keyDown = false;
+    state.releaseLeftFrame = -1;
+    state.releaseRightFrame = -1;
+    state.releaseKeyFrame = -1;
     Input::ClearAutomationState();
 }
 
-void Run::TickInteractionAutomationBeforeInput()
+
+SbResult SkullbonezCore::Basics::ConfigureInteractionAutomation( InteractionAutomationController& state,
+                                                                 const char* scriptPath,
+                                                                 const char* reportPath )
 {
-    RunInteractionAutomationState& state = m_interactionAutomation;
+    state = InteractionAutomationController{};
+    strcpy_s( state.reportPath,
+              sizeof( state.reportPath ),
+              reportPath && reportPath[0] != '\0' ? reportPath : "TestOutput\\interaction\\interaction_report.json" );
+    if ( !scriptPath || scriptPath[0] == '\0' )
+    {
+        state.failed = true;
+        state.finished = true;
+        strcpy_s( state.failure, sizeof( state.failure ), "interaction automation requires a script path" );
+        return SbResult::Failure( "InteractionAutomation", state.failure );
+    }
+    strcpy_s( state.scriptPath, sizeof( state.scriptPath ), scriptPath );
+    state.enabled = true;
+    printf( "[interaction] Script: %s\n", state.scriptPath );
+    printf( "[interaction] Report: %s\n", state.reportPath );
+    return SbResult::Success();
+}
+
+
+SbResult SkullbonezCore::Basics::InteractionAutomationResult( const InteractionAutomationController& state )
+{
+    if ( !state.failed )
+    {
+        return SbResult::Success();
+    }
+    const char* message = state.failure[0] != '\0' ? state.failure : "interaction automation failed";
+    return SbResult::Failure( "InteractionAutomation", message );
+}
+
+InteractionAutomationFrameResult
+SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomationController& state,
+                                                              Window* window,
+                                                              const EngineConfig& config,
+                                                              SceneController& scene,
+                                                              RunTimerState& timers,
+                                                              ReplayRuntime& replayRuntime,
+                                                              RunCameraState& camera,
+                                                              InputRouter& inputRouter,
+                                                              RuntimeInteractionController& interaction,
+                                                              RuntimeTools& runtimeTools,
+                                                              AttachedCameraController& attachedCamera,
+                                                              UI::InGameUI& ui )
+{
+    InteractionAutomationFrameResult result;
     if ( !state.enabled || state.finished )
     {
-        return;
+        return result;
     }
     if ( !state.scriptLoaded && !LoadScript( state ) )
     {
         state.finished = true;
-        ClearInteractionAutomationInput();
+        ClearInteractionAutomationInput( state );
         // Why: latch the automation-owned diagnostic before WM_QUIT. The
         // report writer is another Lane R boundary, so it also cannot replace
         // the earlier script failure if both operations fail.
-        m_applicationExit.RequestOwnedFailure( InteractionAutomationResult() );
-        WriteInteractionAutomationReport();
-        PostQuitMessage( 0 );
-        return;
+        result.status = InteractionAutomationResult( state );
+        const SbResult reportResult =
+            WriteInteractionAutomationReport( state, scene, runtimeTools, replayRuntime, interaction, camera, ui );
+        if ( result.status.ok )
+        {
+            result.status = reportResult;
+        }
+        result.requestQuit = true;
+        return result;
     }
 
-    const int frame = m_sceneController.State().currentFrame;
+    const int frame = scene.State().currentFrame;
     InteractionAutomationReplayControlContext replayControlContext{ state,
-                                                                    m_systems,
-                                                                    m_config,
-                                                                    m_sceneController.State(),
-                                                                    m_timers,
-                                                                    m_replayRuntime };
-    InteractionAutomationDirectorCameraContext directorCameraContext{ state, m_sceneController.Cameras(), m_camera };
+                                                                    window,
+                                                                    config,
+                                                                    scene.State(),
+                                                                    timers,
+                                                                    replayRuntime };
+    InteractionAutomationDirectorCameraContext directorCameraContext{ state, scene.Cameras(), camera };
     InteractionAutomationReplayStateContext replayStateContext{ state,
-                                                                m_timers,
-                                                                m_replayRuntime,
-                                                                m_sceneController.Models(),
-                                                                m_sceneController.Physics() };
+                                                                timers,
+                                                                replayRuntime,
+                                                                scene.Models(),
+                                                                scene.Physics() };
     if ( state.releaseLeftFrame == frame )
     {
         state.leftMouseDown = false;
@@ -1977,16 +2032,16 @@ void Run::TickInteractionAutomationBeforeInput()
                 action.type == RunInteractionAutomationActionType::DirectorPlay
                     ? ( action.boolValue ? RunCameraMode::Director : RunCameraMode::Inspect )
                     : action.cameraMode;
-            m_inputRouter.ApplyCameraMode( m_camera,
-                                           targetMode,
-                                           RuntimeInputActionSource::Runtime,
-                                           m_inputRouter.RuntimeContext(),
-                                           m_interaction,
-                                           m_runtimeTools,
-                                           m_replayRuntime,
-                                           m_attachedCamera,
-                                           m_sceneController );
-            const bool applied = m_camera.mode == targetMode;
+            inputRouter.ApplyCameraMode( camera,
+                                         targetMode,
+                                         RuntimeInputActionSource::Runtime,
+                                         inputRouter.RuntimeContext(),
+                                         interaction,
+                                         runtimeTools,
+                                         replayRuntime,
+                                         attachedCamera,
+                                         scene );
+            const bool applied = camera.mode == targetMode;
             if ( !applied )
             {
                 FailAutomation( state, "failed to apply automated camera mode" );
@@ -2019,30 +2074,30 @@ void Run::TickInteractionAutomationBeforeInput()
                 replayStateContext,
                 action,
                 frame,
-                [this]( const char* name )
+                [&]( const char* name )
                 {
                     int modelIndex = -1;
-                    return TryFindInteractionAutomationModel( name, modelIndex ) &&
-                           m_replayRuntime.SetPathTarget( name, modelIndex, m_sceneController.Models().BodyStore() );
+                    return TryFindInteractionAutomationModel( scene, name, modelIndex ) &&
+                           replayRuntime.SetPathTarget( name, modelIndex, scene.Models().BodyStore() );
                 },
-                [this]( WorldInteractionOwner owner, InteractionExitReason reason )
+                [&]( WorldInteractionOwner owner, InteractionExitReason reason )
                 {
-                    m_inputRouter.SetWorldInteractionOwner(
+                    inputRouter.SetWorldInteractionOwner(
                         owner,
                         reason,
-                        m_replayRuntime,
-                        m_runtimeTools,
-                        m_interaction,
-                        m_sceneController.Cameras(),
-                        m_sceneController.Terrain().Get(),
-                        m_sceneController.Models(),
-                        m_sceneController.Physics(),
-                        m_camera,
-                        NormalizeRuntimeCameraMode( m_replayRuntime.Camera().restoreCameraMode,
-                                                    m_sceneController.State().isSceneMode,
-                                                    RuntimeCameraModeEnabledMask( m_sceneController ) ),
-                        m_attachedCamera.State().activeFollow,
-                        m_camera.director.grabbed );
+                        replayRuntime,
+                        runtimeTools,
+                        interaction,
+                        scene.Cameras(),
+                        scene.Terrain().Get(),
+                        scene.Models(),
+                        scene.Physics(),
+                        camera,
+                        NormalizeRuntimeCameraMode( replayRuntime.Camera().restoreCameraMode,
+                                                    scene.State().isSceneMode,
+                                                    RuntimeCameraModeEnabledMask( scene ) ),
+                        attachedCamera.State().activeFollow,
+                        camera.director.grabbed );
                 } );
             action.processed = true;
             break;
@@ -2067,7 +2122,8 @@ void Run::TickInteractionAutomationBeforeInput()
         case RunInteractionAutomationActionType::ClickObject:
         {
             POINT mouse = {};
-            const bool projected = TryProjectInteractionAutomationModel( action.text, mouse );
+            const bool projected =
+                TryProjectInteractionAutomationModel( scene, inputRouter, window, action.text, mouse );
             if ( projected )
             {
                 state.mouseClientPosition = mouse;
@@ -2114,26 +2170,31 @@ void Run::TickInteractionAutomationBeforeInput()
     inputState.keyVirtualKey = state.keyVirtualKey;
     inputState.keyDown = state.keyDown;
     Input::SetAutomationState( inputState );
+    return result;
 }
 
-void Run::TickInteractionAutomationAfterRender()
+InteractionAutomationFrameResult
+SkullbonezCore::Basics::TickInteractionAutomationAfterRender( InteractionAutomationController& state,
+                                                              SceneController& scene,
+                                                              RuntimeTools& runtimeTools,
+                                                              ReplayRuntime& replayRuntime,
+                                                              RuntimeInteractionController& interaction,
+                                                              RunCameraState& camera,
+                                                              UI::InGameUI& ui,
+                                                              CaptureController& capture,
+                                                              Rendering::IRenderCaptureBackend& captureBackend )
 {
-    RunInteractionAutomationState& state = m_interactionAutomation;
+    InteractionAutomationFrameResult result;
     if ( !state.enabled || state.finished )
     {
-        return;
+        return result;
     }
 
     RuntimeAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
         RuntimeAllocation::RuntimeAllocationPhase::Diagnostics );
-    const int frame = m_sceneController.State().currentFrame;
-    InteractionAutomationAssertContext assertContext{ m_runtimeTools,
-                                                      m_replayRuntime,
-                                                      m_interaction,
-                                                      m_camera,
-                                                      m_sceneController.Models(),
-                                                      m_sceneController.Entities(),
-                                                      m_UI };
+    const int frame = scene.State().currentFrame;
+    InteractionAutomationAssertContext
+        assertContext{ runtimeTools, replayRuntime, interaction, camera, scene.Models(), scene.Entities(), ui };
     for ( RunInteractionAutomationAction& action : state.actions )
     {
         if ( action.processed || action.frame != frame )
@@ -2145,9 +2206,7 @@ void Run::TickInteractionAutomationAfterRender()
         {
             if ( RuntimeFileWriter::EnsureParentDirectory( action.path ) )
             {
-                const SbResult captureResult =
-                    m_diagnosticsRuntime.Capture().SaveScreenshot( m_renderBackendView.RequireCaptureBackend(),
-                                                                   action.path );
+                const SbResult captureResult = capture.SaveScreenshot( captureBackend, action.path );
                 if ( captureResult.ok )
                 {
                     state.screenshots.emplace_back( action.path );
@@ -2182,11 +2241,8 @@ void Run::TickInteractionAutomationAfterRender()
         const InteractionAutomationAssertionEvaluation evaluation = EvaluateInteractionAutomationAssertion(
             assertContext,
             action,
-            [this]()
-            {
-                return m_runtimeTools.InspectGizmoInteractionActive( m_camera.mode,
-                                                                     m_replayRuntime.InspectionActive() );
-            } );
+            [&]()
+            { return runtimeTools.InspectGizmoInteractionActive( camera.mode, replayRuntime.InspectionActive() ); } );
 
         strcpy_s( assertion.expected, sizeof( assertion.expected ), evaluation.expected.c_str() );
         strcpy_s( assertion.actual, sizeof( assertion.actual ), evaluation.actual.c_str() );
@@ -2216,45 +2272,44 @@ void Run::TickInteractionAutomationAfterRender()
 
     if ( allProcessed && frame >= lastFrame )
     {
-        if ( !state.failed && m_replayRuntime.Prediction().build.building )
+        if ( !state.failed && replayRuntime.Prediction().build.building )
         {
             // Why: prediction reports read committed topology, frame counts,
             // and trajectory hashes. Let the normal render-frame replay path
             // finish its worker swap/rebuild instead of draining physics under
             // the post-draw automation profiler scope.
-            ClearInteractionAutomationInput();
-            return;
+            ClearInteractionAutomationInput( state );
+            return result;
         }
 
         state.finished = true;
-        ClearInteractionAutomationInput();
-        if ( state.failed )
+        ClearInteractionAutomationInput( state );
+        // Invariant: assertion failure retains precedence over report IO.
+        result.status = InteractionAutomationResult( state );
+        const SbResult reportResult =
+            WriteInteractionAutomationReport( state, scene, runtimeTools, replayRuntime, interaction, camera, ui );
+        if ( result.status.ok )
         {
-            // Invariant: assertions precede report IO and therefore own failure
-            // precedence if both the assertion and report write fail.
-            m_applicationExit.RequestOwnedFailure( InteractionAutomationResult() );
+            result.status = reportResult;
         }
-        WriteInteractionAutomationReport();
-        if ( state.failed )
-        {
-            // Why: the second request captures report IO failure only when no
-            // earlier assertion was already latched.
-            m_applicationExit.RequestOwnedFailure( InteractionAutomationResult() );
-            PostQuitMessage( 0 );
-            return;
-        }
-        PostQuitMessage( 0 );
+        result.requestQuit = true;
     }
+    return result;
 }
 
-void Run::WriteInteractionAutomationReport()
+SbResult SkullbonezCore::Basics::WriteInteractionAutomationReport( InteractionAutomationController& state,
+                                                                   const SceneController& scene,
+                                                                   const RuntimeTools& runtimeTools,
+                                                                   const ReplayRuntime& replayRuntime,
+                                                                   const RuntimeInteractionController& interaction,
+                                                                   const RunCameraState& camera,
+                                                                   const UI::InGameUI& ui )
 {
     RuntimeAllocation::RuntimeAllocationScope diagnosticsScope(
         RuntimeAllocation::RuntimeAllocationPhase::Diagnostics );
-    RunInteractionAutomationState& state = m_interactionAutomation;
     if ( state.reportWritten )
     {
-        return;
+        return InteractionAutomationResult( state );
     }
 
     Json actions = Json::array();
@@ -2289,46 +2344,45 @@ void Run::WriteInteractionAutomationReport()
         screenshots.push_back( screenshot );
     }
 
-    const int selectedIndex =
-        PeekSelectedEditorModelIndex( m_runtimeTools.Editor(), m_sceneController.Models().BodyStore() );
+    const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), scene.Models().BodyStore() );
     const char* selectedName = "";
-    if ( selectedIndex >= 0 && selectedIndex < m_sceneController.Models().SceneEntityCount() )
+    if ( selectedIndex >= 0 && selectedIndex < scene.Models().SceneEntityCount() )
     {
-        selectedName = m_sceneController.Entities().At( selectedIndex ).displayName;
+        selectedName = scene.Entities().At( selectedIndex ).displayName;
     }
     const bool gizmoVisible =
         selectedIndex >= 0 &&
-        ( m_runtimeTools.Editor().editorModeEnabled ||
-          m_runtimeTools.InspectGizmoInteractionActive( m_camera.mode, m_replayRuntime.InspectionActive() ) );
+        ( runtimeTools.Editor().editorModeEnabled ||
+          runtimeTools.InspectGizmoInteractionActive( camera.mode, replayRuntime.InspectionActive() ) );
     const bool replayPastPathVisible =
-        m_replayRuntime.PathVisualizer().hasTarget && m_replayRuntime.PathVisualizer().pastPathVisible;
-    const std::size_t predictionVisibleFrameCount = VisiblePredictionFrameCount( m_replayRuntime );
-    const bool predictionPathVisible = ReplayPredictionPathVisible( m_replayRuntime );
-    const bool predictionContactsIncomplete = ReplayPredictionContactsIncomplete( m_replayRuntime );
+        replayRuntime.PathVisualizer().hasTarget && replayRuntime.PathVisualizer().pastPathVisible;
+    const std::size_t predictionVisibleFrameCount = VisiblePredictionFrameCount( replayRuntime );
+    const bool predictionPathVisible = ReplayPredictionPathVisible( replayRuntime );
+    const bool predictionContactsIncomplete = ReplayPredictionContactsIncomplete( replayRuntime );
     uint64_t predictionSourceSolverHash = 0;
     uint64_t liveSolverHash = 0;
     const bool liveSolverHashStableAcrossPrediction =
-        LiveSolverHashStableAcrossPrediction( m_replayRuntime, &predictionSourceSolverHash, &liveSolverHash );
-    const float replaySolverTrackPosition = m_replayRuntime.TrackPosition( RunReplayTrack::Solver );
-    const float replaySolverPresentTrackPosition = m_replayRuntime.SolverPresentTrackPosition();
+        LiveSolverHashStableAcrossPrediction( replayRuntime, &predictionSourceSolverHash, &liveSolverHash );
+    const float replaySolverTrackPosition = replayRuntime.TrackPosition( RunReplayTrack::Solver );
+    const float replaySolverPresentTrackPosition = replayRuntime.SolverPresentTrackPosition();
     const bool replaySolverTrackAtPresent =
         ReplayRuntime::AtPresentTrackPosition( replaySolverTrackPosition, replaySolverPresentTrackPosition );
-    const bool predictionScrubFrameActive = m_replayRuntime.CurrentPredictionScrubFrame() != nullptr;
+    const bool predictionScrubFrameActive = replayRuntime.CurrentPredictionScrubFrame() != nullptr;
     bool predictionTargetDisplacementValid = false;
     Vector3 predictionTargetFirst = ZERO_VECTOR;
     Vector3 predictionTargetLast = ZERO_VECTOR;
     float predictionTargetDisplacement = 0.0f;
-    predictionTargetDisplacementValid = TryPredictionTargetDisplacement( m_replayRuntime,
+    predictionTargetDisplacementValid = TryPredictionTargetDisplacement( replayRuntime,
                                                                          predictionTargetDisplacement,
                                                                          &predictionTargetFirst,
                                                                          &predictionTargetLast );
-    const RunReplayPredictionState& predictionState = m_replayRuntime.Prediction();
+    const RunReplayPredictionState& predictionState = replayRuntime.Prediction();
     const ReplayPredictionBaselineSnapshot& predictionBaseline = predictionState.baseline;
     const bool predictionBaselineVisible = predictionBaseline.valid && predictionBaseline.comparisonActive;
     const PredictionTrajectoryFingerprint predictionTrajectoryFingerprint =
-        BuildPredictionTrajectoryFingerprint( m_replayRuntime );
+        BuildPredictionTrajectoryFingerprint( replayRuntime );
     const ReplayTrajectorySubmissionProbeStats& predictionSubmissionProbe =
-        m_replayRuntime.ReplayTrajectorySubmissionProbe();
+        replayRuntime.ReplayTrajectorySubmissionProbe();
     std::size_t predictionRetainedEntryMarkerCount = 0;
     std::size_t predictionRetainedRestMarkerCount = 0;
     std::size_t predictionRetainedHorizonMarkerCount = 0;
@@ -2357,7 +2411,7 @@ void Run::WriteInteractionAutomationReport()
     Json directorPhaseRevealRate = nullptr;
     const char* directorPhaseName = "";
     const char* directorPhaseStylePath = "";
-    const DemoDirectorPlaybackState& director = m_camera.director;
+    const DemoDirectorPlaybackState& director = camera.director;
     if ( director.hasActiveShotList && director.currentPhaseIndex >= 0 &&
          director.currentPhaseIndex < director.activeShotList.phaseCount )
     {
@@ -2370,49 +2424,49 @@ void Run::WriteInteractionAutomationReport()
         directorPhaseRevealRate = phase.revealRate;
     }
 
-    const std::string* scenePath = m_sceneController.CurrentPath();
+    const std::string* scenePath = scene.CurrentPath();
     Json report;
     report["ok"] = !state.failed;
     report["scene"] = scenePath ? *scenePath : "";
     report["script"] = state.scriptPath;
-    report["framesRun"] = m_sceneController.State().currentFrame;
+    report["framesRun"] = scene.State().currentFrame;
     report["actions"] = actions;
     report["assertions"] = assertions;
     report["screenshots"] = screenshots;
     report["failure"] = state.failure;
     report["finalState"] = Json{
-        { "cameraMode", CameraModeName( m_camera.mode ) },
-        { "directorShotListLoaded", m_camera.director.hasActiveShotList },
-        { "directorPhaseIndex", m_camera.director.currentPhaseIndex },
-        { "directorPhaseCount", m_camera.director.activeShotList.phaseCount },
-        { "directorGrabbed", m_camera.director.grabbed },
-        { "directorShotListPath", m_camera.director.activeShotListPath },
+        { "cameraMode", CameraModeName( camera.mode ) },
+        { "directorShotListLoaded", camera.director.hasActiveShotList },
+        { "directorPhaseIndex", camera.director.currentPhaseIndex },
+        { "directorPhaseCount", camera.director.activeShotList.phaseCount },
+        { "directorGrabbed", camera.director.grabbed },
+        { "directorShotListPath", camera.director.activeShotListPath },
         { "directorPhaseName", directorPhaseName },
         { "directorPhaseStylePath", directorPhaseStylePath },
         { "directorPhaseRevealRate", directorPhaseRevealRate },
-        { "directorAppliedStylePhaseIndex", m_camera.director.appliedStylePhaseIndex },
-        { "directorAppliedStylePath", m_camera.director.appliedStylePath },
-        { "directorAppliedStyleCount", m_camera.director.appliedStyleCount },
-        { "directorAppliedRevealRatePhaseIndex", m_camera.director.appliedRevealRatePhaseIndex },
-        { "directorAppliedRevealRate", m_camera.director.appliedRevealRate },
-        { "directorAppliedRevealRateCount", m_camera.director.appliedRevealRateCount },
+        { "directorAppliedStylePhaseIndex", camera.director.appliedStylePhaseIndex },
+        { "directorAppliedStylePath", camera.director.appliedStylePath },
+        { "directorAppliedStyleCount", camera.director.appliedStyleCount },
+        { "directorAppliedRevealRatePhaseIndex", camera.director.appliedRevealRatePhaseIndex },
+        { "directorAppliedRevealRate", camera.director.appliedRevealRate },
+        { "directorAppliedRevealRateCount", camera.director.appliedRevealRateCount },
         { "directorPhaseCameraEye", directorPhaseCameraEye },
         { "directorPhaseCameraView", directorPhaseCameraView },
         { "directorPhaseCameraUp", directorPhaseCameraUp },
-        { "workspace", WorkspaceName( m_interaction.Workspace() ) },
-        { "owner", OwnerName( m_interaction.Owner() ) },
+        { "workspace", WorkspaceName( interaction.Workspace() ) },
+        { "owner", OwnerName( interaction.Owner() ) },
         { "selectedObject", selectedName },
         { "selectedModelIndex", selectedIndex },
         { "gizmoVisible", gizmoVisible },
-        { "mousePickupActive", m_runtimeTools.MousePickup().active },
-        { "launcherRayActive", m_runtimeTools.Laser().HasActiveShots() },
-        { "memoryOverlayEnabled", m_UI.IsMemoryOverlayEnabled() },
+        { "mousePickupActive", runtimeTools.MousePickup().active },
+        { "launcherRayActive", runtimeTools.Laser().HasActiveShots() },
+        { "memoryOverlayEnabled", ui.IsMemoryOverlayEnabled() },
         { "replayPredictionEnabled", predictionState.enabled },
         { "predictionHorizonSeconds", predictionState.simulation.horizonSeconds },
         { "predictionRevealSecondsPerSecond", predictionState.revealClock.secondsPerSecond },
         { "replayPathTarget",
-          m_replayRuntime.PathVisualizer().hasTarget ? m_replayRuntime.PathVisualizer().targetName : "" },
-        { "replayPathTargetCount", static_cast<int>( m_replayRuntime.PathVisualizer().targets.size() ) },
+          replayRuntime.PathVisualizer().hasTarget ? replayRuntime.PathVisualizer().targetName : "" },
+        { "replayPathTargetCount", static_cast<int>( replayRuntime.PathVisualizer().targets.size() ) },
         { "replayPastPathVisible", replayPastPathVisible },
         { "predictionPathVisible", predictionPathVisible },
         { "predictionContactsIncomplete", predictionContactsIncomplete },
@@ -2453,13 +2507,13 @@ void Run::WriteInteractionAutomationReport()
         { "predictionRetainedEntryMarkerCount", static_cast<int>( predictionRetainedEntryMarkerCount ) },
         { "predictionRetainedRestMarkerCount", static_cast<int>( predictionRetainedRestMarkerCount ) },
         { "predictionRetainedHorizonMarkerCount", static_cast<int>( predictionRetainedHorizonMarkerCount ) },
-        { "replayActiveTrack", ReplayTrackName( m_replayRuntime.Scrubber().activeTrack ) },
-        { "replayHistoricalSamplePaused", m_replayRuntime.Scrubber().historicalSamplePaused },
+        { "replayActiveTrack", ReplayTrackName( replayRuntime.Scrubber().activeTrack ) },
+        { "replayHistoricalSamplePaused", replayRuntime.Scrubber().historicalSamplePaused },
         { "replaySolverTrackPosition", replaySolverTrackPosition },
         { "replaySolverPresentTrackPosition", replaySolverPresentTrackPosition },
         { "replaySolverTrackAtPresent", replaySolverTrackAtPresent },
         { "predictionScrubFrameActive", predictionScrubFrameActive },
-        { "replayFutureNodeCount", static_cast<int>( m_replayRuntime.PathVisualizer().futureNodes.size() ) } };
+        { "replayFutureNodeCount", static_cast<int>( replayRuntime.PathVisualizer().futureNodes.size() ) } };
 
     std::ofstream output;
     if ( !RuntimeFileWriter::OpenTextFile( state.reportPath, output ) )
@@ -2467,10 +2521,11 @@ void Run::WriteInteractionAutomationReport()
         state.reportWritten = true;
         state.failed = true;
         strcpy_s( state.failure, sizeof( state.failure ), "failed to open interaction report path" );
-        return;
+        return SbResult::Failure( "InteractionAutomation", state.failure );
     }
     output << report.dump( 2 ) << "\n";
     output.close();
     state.reportWritten = true;
     printf( "[interaction] Report written: %s ok=%d\n", state.reportPath, state.failed ? 0 : 1 );
+    return InteractionAutomationResult( state );
 }

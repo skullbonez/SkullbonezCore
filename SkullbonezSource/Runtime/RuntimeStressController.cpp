@@ -1,12 +1,11 @@
 /*
-File: SkullbonezSource/Runtime/RunStress.cpp
+File: SkullbonezSource/Runtime/RuntimeStressController.cpp
 Purpose:
   Runs stress and automation paths for validation-oriented launches.
 
 Mental model:
-  RunStress.cpp runs stress and automation paths for validation-oriented
-  launches. As an implementation unit, keep edits anchored on local owner
-  boundaries and call direction and on the glossary/invariants below.
+  Stress controllers execute deterministic validation churn through explicit,
+  synchronous borrows of the owners each action may mutate.
 
 Glossary:
   Lane R result: Recoverable scene-load or GPU-drain failure surfaced through
@@ -23,13 +22,36 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
-#include "Run.h"
+#include "RuntimeStressController.h"
+#include "AttachedCameraController.h"
+#include "GraphicsStressController.h"
 #include "InputFrame.h"
+#include "InputRouter.h"
+#include "Diagnostics/DiagnosticsRuntime.h"
+#include "Render/RuntimeRenderHost.h"
+#include "Render/RuntimeRenderer.h"
+#include "Replay/ReplayRuntime.h"
+#include "RunCameraState.h"
+#include "RunDebugState.h"
+#include "RunLaunchOptions.h"
+#include "RunRuntimeSettings.h"
+#include "RunStartupState.h"
+#include "RunTimerState.h"
+#include "RuntimeInteractionController.h"
 #include "RuntimeTuning.h"
+#include "Scene/SceneController.h"
+#include "Scene/SceneRuntimeCoordinator.h"
 #include "Scene/SceneRuntimeGeneratedControls.h"
 #include "Scene/SceneRuntimeStyle.h"
+#include "Tools/RuntimeTools.h"
+#include "Window.h"
+#include "../Assets/AssetSystem.h"
+#include "../Physics/SimulationSystem.h"
 #include "../Rendering/IRenderDeviceLifecycle.h"
 #include "../Rendering/IRenderDiagnostics.h"
+#include "../Scene/TestScene.h"
+#include "../Core/WorkerPool.h"
+#include "../UI/UI.h"
 #include "../Core/Profiler.h"
 
 #include <cstdio>
@@ -870,14 +892,39 @@ SbResult SkullbonezCore::Basics::RunUIStressActions( DiagnosticsRuntime& m_diagn
 }
 
 
-void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderDiagnostics )
+void SkullbonezCore::Basics::ExecuteGraphicsStressFrame( GraphicsStressController& stress,
+                                                         Window* window,
+                                                         EngineConfig& config,
+                                                         RunLaunchOptions& launchOptions,
+                                                         CinematicRenderConfig& defaultCinematicRender,
+                                                         const RunStartupState& startup,
+                                                         DiagnosticsRuntime& diagnosticsRuntime,
+                                                         RunRuntimeSettings& runtimeSettings,
+                                                         RunTimerState& timers,
+                                                         Assets::AssetSystem& assets,
+                                                         Threading::WorkerPool& workerPool,
+                                                         InputRouter& inputRouter,
+                                                         RuntimeInteractionController& interaction,
+                                                         RunCameraState& camera,
+                                                         AttachedCameraController& attachedCamera,
+                                                         SimulationSystem& simulation,
+                                                         ReplayRuntime& replayRuntime,
+                                                         Runtime::Audio::ContactAudioService& contactAudio,
+                                                         UI::InGameUI& ui,
+                                                         RunDebugState& debug,
+                                                         RuntimeTools& runtimeTools,
+                                                         Physics::PhysicsDebugVisualizer& physicsDebugVisualizer,
+                                                         RuntimeRenderBackendView& renderBackendView,
+                                                         RuntimeRenderer& renderer,
+                                                         SceneController& sceneController,
+                                                         int& perfPass,
+                                                         const Rendering::IRenderDiagnostics& renderDiagnostics )
 {
     // Concept: graphics stress is a deterministic fuzzer over scene loading,
     // cinematic controls, render-path toggles, and heavy generated-scene resets.
     // Keep every mutation reproducible from the launch seed so a crash line in
     // latest_stdout.txt can be replayed exactly under cdb.
-    GraphicsStressController& stress = m_graphicsStress;
-    if ( !stress.IsEnabled() || !m_systems.window )
+    if ( !stress.IsEnabled() || !window )
     {
         return;
     }
@@ -898,33 +945,33 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
         {
             return false;
         }
-        return m_sceneController
+        return sceneController
             .Load( request,
-                   m_config,
-                   m_launchOptions,
-                   m_defaultCinematicRender,
-                   m_startup,
-                   m_diagnosticsRuntime,
-                   m_runtimeSettings,
-                   m_timers,
-                   m_systems.assets,
-                   *m_systems.workerPool,
-                   *m_systems.window,
-                   m_inputRouter,
-                   m_interaction,
-                   m_camera,
-                   m_attachedCamera.State(),
-                   m_simulation,
-                   m_replayRuntime,
-                   m_contactAudio,
-                   m_UI,
-                   m_debug,
-                   m_graphicsStress,
-                   m_runtimeTools,
-                   m_physicsDebugVisualizer,
-                   m_renderBackendView,
-                   m_renderer,
-                   sPerfPass )
+                   config,
+                   launchOptions,
+                   defaultCinematicRender,
+                   startup,
+                   diagnosticsRuntime,
+                   runtimeSettings,
+                   timers,
+                   assets,
+                   workerPool,
+                   *window,
+                   inputRouter,
+                   interaction,
+                   camera,
+                   attachedCamera.State(),
+                   simulation,
+                   replayRuntime,
+                   contactAudio,
+                   ui,
+                   debug,
+                   stress,
+                   runtimeTools,
+                   physicsDebugVisualizer,
+                   renderBackendView,
+                   renderer,
+                   perfPass )
             .ok;
     };
 
@@ -936,17 +983,17 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
         SceneLoadRequest request = SceneLoadRequest::None();
         int selectedSceneIndex = -1;
         const char* selectedSceneSource = "none";
-        if ( m_sceneController.QueueSize() > 0 )
+        if ( sceneController.QueueSize() > 0 )
         {
-            selectedSceneIndex = stress.NextInt( m_sceneController.QueueSize() );
+            selectedSceneIndex = stress.NextInt( sceneController.QueueSize() );
             selectedSceneSource = "queue";
             request = SceneLoadRequest::Load( selectedSceneIndex, true, true, stress.NextInt( 2 ) != 0, true );
         }
-        else if ( !m_sceneController.Browser().paths.empty() )
+        else if ( !sceneController.Browser().paths.empty() )
         {
-            selectedSceneIndex = stress.NextInt( static_cast<int>( m_sceneController.Browser().paths.size() ) );
+            selectedSceneIndex = stress.NextInt( static_cast<int>( sceneController.Browser().paths.size() ) );
             selectedSceneSource = "browser";
-            request = m_sceneController.LoadSceneFromBrowserIndex( selectedSceneIndex );
+            request = sceneController.LoadSceneFromBrowserIndex( selectedSceneIndex );
         }
 
         if ( executeSceneLoadRequest( request ) )
@@ -970,27 +1017,26 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
         }
     }
 
-    m_UI.SetVisible( true, m_timers.simulationTimer.GetTotalTime() );
-    m_UI.SetMinimized( false, m_timers.simulationTimer.GetTotalTime() );
-    m_sceneController.State().isInteractiveRun = true;
-    m_sceneController.State().isExitOnComplete = false;
+    ui.SetVisible( true, timers.simulationTimer.GetTotalTime() );
+    ui.SetMinimized( false, timers.simulationTimer.GetTotalTime() );
+    sceneController.EnterInteractiveRun();
 
-    GraphicsStressActionContext actionContext{ m_launchOptions,
-                                               m_config,
-                                               m_runtimeSettings,
-                                               m_debug,
-                                               m_sceneController.State(),
-                                               m_timers,
-                                               m_camera,
-                                               m_UI,
-                                               m_sceneController,
-                                               m_systems.assets,
-                                               m_defaultCinematicRender,
-                                               m_simulation,
-                                               m_runtimeTools,
-                                               m_sceneController.World(),
-                                               m_replayRuntime,
-                                               m_sceneController.Models() };
+    GraphicsStressActionContext actionContext{ launchOptions,
+                                               config,
+                                               runtimeSettings,
+                                               debug,
+                                               sceneController.State(),
+                                               timers,
+                                               camera,
+                                               ui,
+                                               sceneController,
+                                               assets,
+                                               defaultCinematicRender,
+                                               simulation,
+                                               runtimeTools,
+                                               sceneController.World(),
+                                               replayRuntime,
+                                               sceneController.Models() };
     const int actionCount = stress.ActionCount();
     // Invariant: random values stay inside the same broad ranges exposed by the
     // runtime UI. The stress test should crash bad DX12 lifetime/state tracking,
@@ -1015,10 +1061,10 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
         // process is killed after a climb, this stdout line survives with the
         // same seed/frame/scene-load position as the repro log.
         const MainMemoryStats& memoryStats =
-            m_diagnosticsRuntime.RefreshMainMemoryStats( m_replayRuntime,
-                                                         m_sceneController.Models(),
-                                                         m_timers.simulationTimer.GetTotalTime(),
-                                                         true );
+            diagnosticsRuntime.RefreshMainMemoryStats( replayRuntime,
+                                                       sceneController.Models(),
+                                                       timers.simulationTimer.GetTotalTime(),
+                                                       true );
         const SkullbonezCore::Rendering::RenderMemoryStats renderStats = renderDiagnostics.GetRenderMemoryStats();
         printf( "[graphics-stress-memory] frame=%d scene_loads=%d task_manager_bytes=%llu "
                 "working_set_bytes=%llu private_working_set_bytes=%llu private_commit_bytes=%llu pagefile_bytes=%llu "

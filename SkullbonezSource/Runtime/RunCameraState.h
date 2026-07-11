@@ -40,8 +40,23 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Environment
+{
+class CameraCollection;
+}
+namespace GameObjects
+{
+class GameModelCollection;
+}
+namespace Geometry
+{
+class Terrain;
+}
 namespace Basics
 {
+class AttachedCameraController;
+class EngineConfig;
+struct RunTimerState;
 struct RunCameraState
 {
     Hardware::InputState input = {};                           // Snapshot consumed by camera controls for this frame.
@@ -61,6 +76,30 @@ struct RunCameraState
     float autoCycleInterval = -1.0f;                           // Seconds between per-ball auto screenshots (-1 = disabled)
     float autoCycleAccum = 0.0f;                               // Accumulated real-time seconds since last shot
     int autoCycleShotsTaken = 0;                               // Number of per-ball screenshots taken so far
+
+    void StopAutoCycle()
+    {
+        autoCycleInterval = -1.0f;
+        autoCycleAccum = 0.0f;
+    }
+
+    void UpdateViewingOrientation( RunTimerState& timers,
+                                   Environment::CameraCollection& cameras,
+                                   const GameObjects::GameModelCollection& models,
+                                   bool replayCameraActive,
+                                   bool sceneMode,
+                                   bool attachedActiveFollow,
+                                   bool cameraLookCaptured );
+    void AdvanceAutoCycleClock( bool sceneMode, float simulationDt );
+    void TickControls( Environment::CameraCollection& cameras,
+                       Geometry::Terrain& terrain,
+                       GameObjects::GameModelCollection& models,
+                       AttachedCameraController& attachedCamera,
+                       const EngineConfig& config,
+                       bool editorModeEnabled,
+                       bool viewportLookActive,
+                       bool sceneMode,
+                       float cameraDt );
 };
 
 } // namespace Basics

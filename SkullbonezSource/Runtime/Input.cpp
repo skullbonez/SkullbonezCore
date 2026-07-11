@@ -72,7 +72,7 @@ long g_rawMouseDeltaY = 0;
 bool g_rawMouseHasAbsolutePosition = false;
 long g_rawMouseLastAbsoluteX = 0;
 long g_rawMouseLastAbsoluteY = 0;
-// Scripted input override, not a callback accumulator. RunInteractionAutomation
+// Scripted input override, not a callback accumulator. InteractionAutomationController
 // writes it through SetAutomationState()/ClearAutomationState(); mouse and
 // capture folds it into DeviceInputFrame so deterministic validation uses the
 // same immutable value as physical input.
