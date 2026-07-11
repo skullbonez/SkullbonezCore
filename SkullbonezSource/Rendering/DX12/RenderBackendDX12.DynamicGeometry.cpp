@@ -369,7 +369,8 @@ void Dx12GeometryOwner::DrawLinesColored( const float* data,
     }
     if ( cbAddr )
     {
-        commandList->SetGraphicsRootConstantBufferView( 0, cbAddr );
+        commandList->SetGraphicsRootConstantBufferView( UnifiedRasterRootSignature::ROOT_PARAMETER_DRAW_CONSTANTS,
+                                                        cbAddr );
     }
 
     D3D12_VERTEX_BUFFER_VIEW vbView = {};

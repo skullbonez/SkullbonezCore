@@ -24,6 +24,7 @@ Related:
 #pragma once
 
 #include "ShaderContracts.h"
+#include "RenderRasterBindingContract.h"
 #include "DX12/GeneratedShaderReflection.h"
 
 #include <cstring>
@@ -132,6 +133,78 @@ ValidateGeneratedShaderProgramContract( const char* path, const ShaderProgramDes
             outError = std::string( "resource binding mismatch: " ) + expected.name;
             return false;
         }
+    }
+    return true;
+}
+
+inline bool ValidateUnifiedRasterResource( const GeneratedShaderReflection::Stage& stage,
+                                           const GeneratedShaderReflection::Resource& resource,
+                                           std::string& outError )
+{
+    using namespace UnifiedRasterRootSignature;
+    if ( resource.space != REGISTER_SPACE )
+    {
+        outError =
+            std::string( stage.source ) + ":" + stage.stage + " uses non-zero register space for " + resource.name;
+        return false;
+    }
+
+    if ( resource.registerClass == 'b' )
+    {
+        if ( resource.slot == SHADER_REGISTER_DRAW_CONSTANTS && std::strcmp( resource.type, "cbuffer" ) == 0 )
+        {
+            return true;
+        }
+    }
+    else if ( resource.registerClass == 't' )
+    {
+        if ( std::strcmp( stage.stage, "ps" ) == 0 && AcceptsTextureRegister( resource.slot ) &&
+             std::strcmp( resource.type, "texture" ) == 0 && std::strcmp( resource.dimension, "2d" ) == 0 )
+        {
+            return true;
+        }
+    }
+    else if ( resource.registerClass == 's' )
+    {
+        if ( std::strcmp( stage.stage, "ps" ) == 0 && AcceptsSamplerRegister( resource.slot ) &&
+             std::strcmp( resource.type, "sampler" ) == 0 )
+        {
+            return true;
+        }
+    }
+
+    outError = std::string( stage.source ) + ":" + stage.stage + " binding " + resource.name + " (" +
+               resource.registerClass + std::to_string( resource.slot ) +
+               ") is outside the UnifiedRaster root-signature slot map";
+    return false;
+}
+
+inline bool ValidateGeneratedUnifiedRasterRootSignature( std::string& outError )
+{
+    std::uint32_t rasterStageCount = 0;
+    for ( size_t stageIndex = 0; stageIndex < GeneratedShaderReflection::StageCount; ++stageIndex )
+    {
+        const auto& stage = GeneratedShaderReflection::Stages[stageIndex];
+        if ( std::strcmp( stage.stage, "vs" ) != 0 && std::strcmp( stage.stage, "ps" ) != 0 )
+        {
+            continue;
+        }
+        ++rasterStageCount;
+        for ( std::uint32_t resourceIndex = 0; resourceIndex < stage.resourceCount; ++resourceIndex )
+        {
+            const auto& resource = GeneratedShaderReflection::Resources[stage.resourceStart + resourceIndex];
+            if ( !ValidateUnifiedRasterResource( stage, resource, outError ) )
+            {
+                return false;
+            }
+        }
+    }
+
+    if ( rasterStageCount != 42 )
+    {
+        outError =
+            "UnifiedRaster expected reflection for 42 raster stages, found " + std::to_string( rasterStageCount );
+        return false;
     }
     return true;
 }

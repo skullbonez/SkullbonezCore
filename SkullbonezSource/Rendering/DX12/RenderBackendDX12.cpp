@@ -106,6 +106,7 @@ Related:
 //     structs at every call site.
 //
 #include "RenderBackendDX12.h"
+#include "../ShaderReflectionContracts.h"
 #include "ShaderDX12.h"
 #include "MeshDX12.h"
 #include "FramebufferDX12.h"
@@ -1288,13 +1289,16 @@ void RenderBackendDX12::ReportArchitectureStats( const char* reason ) const
     // "static SRVs" are persistent texture/view slots, "transient SRVs" are
     // per-frame descriptor copies, and "upload peak" is the largest CPU-written
     // staging allocation used by any one in-flight frame.
-    Log().WriteEventf( "dx12_render_architecture_stats reason=%s root_parameters=%u ordinary_raster_srv_slots=t%u..t%u "
+    Log().WriteEventf( "dx12_render_architecture_stats reason=%s raster_contract=%s root_parameters=%u "
+                       "raster_srv_slots=t%u..t%u "
                        "rtv_descriptors=%u/%u dsv_descriptors=%u/%u static_srvs=%u/%u transient_srv_peak=%u/%u "
                        "upload_peak_bytes=%llu upload_capacity_bytes=%llu",
                        reason ? reason : "unknown",
-                       ORDINARY_RASTER_ROOT_PARAMETER_COUNT,
-                       SHADER_REGISTER_FIRST_TEXTURE,
-                       SHADER_REGISTER_FIRST_TEXTURE + static_cast<UINT>( TEXTURE_SLOT_COUNT - 1 ),
+                       UnifiedRasterRootSignature::NAME,
+                       UnifiedRasterRootSignature::ROOT_PARAMETER_COUNT,
+                       UnifiedRasterRootSignature::SHADER_REGISTER_FIRST_TEXTURE,
+                       UnifiedRasterRootSignature::SHADER_REGISTER_FIRST_TEXTURE +
+                           static_cast<UINT>( UnifiedRasterRootSignature::TEXTURE_SLOT_COUNT - 1 ),
                        rtvStats.used,
                        rtvStats.capacity,
                        dsvStats.used,
@@ -2150,6 +2154,16 @@ SkullbonezCore::Basics::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* de
     // startup failure. Desired state returns to cold defaults before publishing
     // a new root signature.
     ResetDesiredState();
+    std::string reflectedContractError;
+    if ( !ValidateGeneratedUnifiedRasterRootSignature( reflectedContractError ) )
+    {
+        // Lane R: checked-in DXIL is startup input. Reject a stale or incompatible
+        // family before publishing a native root signature or any PSO that uses it.
+        return SkullbonezCore::Basics::SbResult::Failure( "Dx12PipelineOwner",
+                                                          "%s reflection rejected: %s",
+                                                          UnifiedRasterRootSignature::NAME,
+                                                          reflectedContractError.c_str() );
+    }
     // Root signature mental model:
     //
     // A shader cannot freely access arbitrary C++ variables or texture objects.
@@ -2157,36 +2171,36 @@ SkullbonezCore::Basics::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* de
     // the command list may provide and which register names the HLSL shader will
     // use to find them.
     //
-    // This renderer's main graphics root signature is deliberately simple:
+    // UnifiedRaster is deliberately simple and shared by every raster family:
     //
-    // - root parameter 0: one constant buffer view at b0. Per-draw matrices,
-    //   colors, and scalar shader values are uploaded there.
-    // - root parameters 1..5: one descriptor table each for texture slots t0..t4.
-    //   Each table points at one transient SRV descriptor row prepared by the
-    //   descriptor allocator. Slot t4 is reserved for the object material table.
-    // - static samplers: fixed filtering/addressing rules named s0, s1, and s3.
+    // - DrawConstants binds the per-draw matrices, colors, and scalar values.
+    // - TEXTURE_SLOTS supplies one descriptor table for each named texture row;
+    //   each table points at one transient SRV row prepared by the allocator.
+    // - STATIC_SAMPLERS supplies the fixed filtering/addressing rules.
     //
     // The future render graph will not replace this shader contract. It will
     // decide when resources are safe to read/write and which pass binds them.
-    D3D12_DESCRIPTOR_RANGE1 srvRanges[TEXTURE_SLOT_COUNT] = {};
-    for ( int slot = 0; slot < TEXTURE_SLOT_COUNT; ++slot )
+    D3D12_DESCRIPTOR_RANGE1 srvRanges[UnifiedRasterRootSignature::TEXTURE_SLOT_COUNT] = {};
+    for ( int slot = 0; slot < UnifiedRasterRootSignature::TEXTURE_SLOT_COUNT; ++slot )
     {
         srvRanges[slot].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
         srvRanges[slot].NumDescriptors = 1;
-        srvRanges[slot].BaseShaderRegister = SHADER_REGISTER_FIRST_TEXTURE + static_cast<UINT>( slot );
-        srvRanges[slot].RegisterSpace = 0;
+        srvRanges[slot].BaseShaderRegister = UnifiedRasterRootSignature::TEXTURE_SLOTS[slot].shaderRegister;
+        srvRanges[slot].RegisterSpace = UnifiedRasterRootSignature::REGISTER_SPACE;
         srvRanges[slot].OffsetInDescriptorsFromTableStart = 0;
     }
 
-    D3D12_ROOT_PARAMETER1 params[ORDINARY_RASTER_ROOT_PARAMETER_COUNT] = {};
-    params[ROOT_PARAMETER_FRAME_CONSTANTS].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-    params[ROOT_PARAMETER_FRAME_CONSTANTS].Descriptor.ShaderRegister = SHADER_REGISTER_FRAME_CONSTANTS;
-    params[ROOT_PARAMETER_FRAME_CONSTANTS].Descriptor.RegisterSpace = 0;
-    params[ROOT_PARAMETER_FRAME_CONSTANTS].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    D3D12_ROOT_PARAMETER1 params[UnifiedRasterRootSignature::ROOT_PARAMETER_COUNT] = {};
+    params[UnifiedRasterRootSignature::ROOT_PARAMETER_DRAW_CONSTANTS].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    params[UnifiedRasterRootSignature::ROOT_PARAMETER_DRAW_CONSTANTS].Descriptor.ShaderRegister =
+        UnifiedRasterRootSignature::SHADER_REGISTER_DRAW_CONSTANTS;
+    params[UnifiedRasterRootSignature::ROOT_PARAMETER_DRAW_CONSTANTS].Descriptor.RegisterSpace =
+        UnifiedRasterRootSignature::REGISTER_SPACE;
+    params[UnifiedRasterRootSignature::ROOT_PARAMETER_DRAW_CONSTANTS].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-    for ( int slot = 0; slot < TEXTURE_SLOT_COUNT; ++slot )
+    for ( int slot = 0; slot < UnifiedRasterRootSignature::TEXTURE_SLOT_COUNT; ++slot )
     {
-        const UINT rootParameter = ROOT_PARAMETER_FIRST_TEXTURE + static_cast<UINT>( slot );
+        const UINT rootParameter = UnifiedRasterRootSignature::TEXTURE_SLOTS[slot].rootParameter;
         params[rootParameter].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
         params[rootParameter].DescriptorTable.NumDescriptorRanges = 1;
         params[rootParameter].DescriptorTable.pDescriptorRanges = &srvRanges[slot];
@@ -2202,7 +2216,7 @@ SkullbonezCore::Basics::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* de
     samplers[0].MaxAnisotropy = 1;
     samplers[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
     samplers[0].MaxLOD = D3D12_FLOAT32_MAX; // allow all mip levels (default 0 = mip 0 only!)
-    samplers[0].ShaderRegister = SAMPLER_REGISTER_LINEAR_WRAP;
+    samplers[0].ShaderRegister = UnifiedRasterRootSignature::STATIC_SAMPLERS[0].shaderRegister;
     samplers[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
     // s1: linear clamp (FBO / reflection textures)
@@ -2213,7 +2227,7 @@ SkullbonezCore::Basics::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* de
     samplers[1].MaxAnisotropy = 1;
     samplers[1].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
     samplers[1].MaxLOD = D3D12_FLOAT32_MAX;
-    samplers[1].ShaderRegister = SAMPLER_REGISTER_LINEAR_CLAMP;
+    samplers[1].ShaderRegister = UnifiedRasterRootSignature::STATIC_SAMPLERS[1].shaderRegister;
     samplers[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
     // s3: point clamp for manual shadow-map PCF.
@@ -2224,12 +2238,12 @@ SkullbonezCore::Basics::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* de
     samplers[2].MaxAnisotropy = 1;
     samplers[2].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
     samplers[2].MaxLOD = D3D12_FLOAT32_MAX;
-    samplers[2].ShaderRegister = SAMPLER_REGISTER_SHADOW_POINT_CLAMP;
+    samplers[2].ShaderRegister = UnifiedRasterRootSignature::STATIC_SAMPLERS[2].shaderRegister;
     samplers[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
     D3D12_VERSIONED_ROOT_SIGNATURE_DESC rootSigDesc = {};
     rootSigDesc.Version = D3D_ROOT_SIGNATURE_VERSION_1_1;
-    rootSigDesc.Desc_1_1.NumParameters = ORDINARY_RASTER_ROOT_PARAMETER_COUNT;
+    rootSigDesc.Desc_1_1.NumParameters = UnifiedRasterRootSignature::ROOT_PARAMETER_COUNT;
     rootSigDesc.Desc_1_1.pParameters = params;
     rootSigDesc.Desc_1_1.NumStaticSamplers = 3;
     rootSigDesc.Desc_1_1.pStaticSamplers = samplers;
@@ -2270,19 +2284,21 @@ SkullbonezCore::Basics::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* de
         }
         return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12", "CreateRootSignature failed" );
     }
-    NameDx12Object( m_rootSignature, L"Skullbonez DX12 Main Root Signature" );
+    NameDx12Object( m_rootSignature, L"Skullbonez DX12 UnifiedRaster Root Signature" );
 #ifdef _DEBUG
     Log().WriteEventf(
-        "dx12_ordinary_raster_binding_abi root_parameters=%u cbv=b%u srv_slots=t%u..t%u material_table=t4 "
+        "dx12_raster_binding_contract name=%s root_parameters=%u cbv=b%u srv_slots=t%u..t%u material_table=t4 "
         "samplers=s%u,s%u,s%u bind_texture_slots=%d material_payload=packed_instance_params",
-        ORDINARY_RASTER_ROOT_PARAMETER_COUNT,
-        SHADER_REGISTER_FRAME_CONSTANTS,
-        SHADER_REGISTER_FIRST_TEXTURE,
-        SHADER_REGISTER_FIRST_TEXTURE + static_cast<UINT>( TEXTURE_SLOT_COUNT - 1 ),
-        SAMPLER_REGISTER_LINEAR_WRAP,
-        SAMPLER_REGISTER_LINEAR_CLAMP,
-        SAMPLER_REGISTER_SHADOW_POINT_CLAMP,
-        TEXTURE_SLOT_COUNT );
+        UnifiedRasterRootSignature::NAME,
+        UnifiedRasterRootSignature::ROOT_PARAMETER_COUNT,
+        UnifiedRasterRootSignature::SHADER_REGISTER_DRAW_CONSTANTS,
+        UnifiedRasterRootSignature::SHADER_REGISTER_FIRST_TEXTURE,
+        UnifiedRasterRootSignature::SHADER_REGISTER_FIRST_TEXTURE +
+            static_cast<UINT>( UnifiedRasterRootSignature::TEXTURE_SLOT_COUNT - 1 ),
+        UnifiedRasterRootSignature::STATIC_SAMPLERS[0].shaderRegister,
+        UnifiedRasterRootSignature::STATIC_SAMPLERS[1].shaderRegister,
+        UnifiedRasterRootSignature::STATIC_SAMPLERS[2].shaderRegister,
+        UnifiedRasterRootSignature::TEXTURE_SLOT_COUNT );
 #endif
     return SkullbonezCore::Basics::SbResult::Success();
 }

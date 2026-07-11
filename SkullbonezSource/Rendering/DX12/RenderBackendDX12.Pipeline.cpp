@@ -408,9 +408,9 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
     // hashes, blend/depth/cull state, polygon offset, instancing mode, and
     // render-target format all participate in the Pipeline State Object. If any
     // of those values changes, the cached PSO may no longer describe the draw correctly.
-    // Include the root signature too: today ordinary raster draws share one
-    // signature, but future fullscreen, material-table, or graph-local resource
-    // signatures must not accidentally reuse an incompatible cached PSO.
+    // Include the root signature too: today raster draws share UnifiedRaster,
+    // but future graph-local resource signatures must not accidentally reuse an
+    // incompatible cached PSO.
     PSOKey12 key = {};
     key.rootSignature = m_rootSignature;
     key.shaderVSHash = m_activeShader->GetVSBytecodeHash();
@@ -456,7 +456,9 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
             }
             if ( cbAddr )
             {
-                commandList->SetGraphicsRootConstantBufferView( 0, cbAddr );
+                commandList->SetGraphicsRootConstantBufferView(
+                    UnifiedRasterRootSignature::ROOT_PARAMETER_DRAW_CONSTANTS,
+                    cbAddr );
             }
         }
         return true;
@@ -546,13 +548,13 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
         }
         if ( cbAddr )
         {
-            commandList->SetGraphicsRootConstantBufferView( ROOT_PARAMETER_FRAME_CONSTANTS, cbAddr );
+            commandList->SetGraphicsRootConstantBufferView( UnifiedRasterRootSignature::ROOT_PARAMETER_DRAW_CONSTANTS,
+                                                            cbAddr );
         }
     }
 
-    // Bind textures by copying their SRV descriptors to the shader-visible heap
-    // and pointing the root descriptor table at them. Root params [1..5] map to
-    // texture slots t0..t4. The object pass uses t4 for the material table.
+    // Bind UnifiedRaster textures by copying their SRV descriptors to the
+    // shader-visible heap and pointing the named slot-map parameters at them.
     //
     // Plain-language flow:
     //
@@ -587,8 +589,9 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
                                                dstHandle,
                                                descriptors.StagingCpuHandle( srcIdx ),
                                                D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
-                commandList->SetGraphicsRootDescriptorTable( ROOT_PARAMETER_FIRST_TEXTURE + static_cast<UINT>( slot ),
-                                                             descriptors.ShaderVisibleGpuHandle( transient ) );
+                commandList->SetGraphicsRootDescriptorTable(
+                    UnifiedRasterRootSignature::TEXTURE_SLOTS[slot].rootParameter,
+                    descriptors.ShaderVisibleGpuHandle( transient ) );
             }
         }
         textures.MarkBindingsClean();

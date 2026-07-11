@@ -1,7 +1,7 @@
 # Shader Pipeline Modernization And Binding Standardization
 
 Date: 2026-07-11
-Status: In progress — 38% (P0-P2 complete)
+Status: In progress — 50% (P0-P3 complete)
 Impact area: DX12 renderer, all HLSL shaders, shader tooling, build/validation
 scripts
 Origin: 2026-07-11 architecture gap review. Owner directive: complete
@@ -268,6 +268,50 @@ Gate per family: `tools\validate_dx12_renderer.bat`, baselines unchanged
 highest-risk slice in this plan — the shadow plan's warning applies to every
 lit shader at once.
 
+P3 implementation evidence (2026-07-12):
+
+- [x] Consolidated the 21 raster families under the single named
+  `UnifiedRaster` root signature. A second text/UI signature was rejected as
+  dishonest duplication: reflection proves those families use the same b0,
+  t0..t4, s0/s1/s3, space-zero envelope as lit, unlit, water, and post. The
+  generate-mips compute signature and existing DXR local/global ownership are
+  unchanged.
+- [x] `RenderRasterBindingContract.h` is now the one documented slot map:
+  `DrawConstants` b0/root 0; `PrimaryTexture` t0/root 1;
+  `SecondaryTexture` t1/root 2; `VolumetricTexture` t2/root 3; `ShadowMap`
+  t3/root 4; `MaterialTable` t4/root 5; and named static samplers
+  `LinearWrap` s0, `LinearClamp` s1, and `ShadowPointClamp` s3. Native
+  descriptor construction and every raster draw-time root bind consume that
+  table instead of repeating root-parameter literals.
+- [x] P2 metadata mechanically verifies the map at startup and in tests across
+  all 42 raster stages. Non-zero spaces, resources outside b0/t0..t4/s0/s1/s3,
+  vertex-stage textures/samplers, non-2D textures, and unexpected register
+  classes fail as a named Lane R `Dx12PipelineOwner` startup result before root
+  signature or PSO publication. Mutation drills prove t5 and s2 are rejected.
+- [x] Family migration was grouped into this coherent binding slice per the
+  owner speed/granularity directive; no HLSL register changed, so the change is
+  intentionally bytecode- and visual-output-inert. Shader-local slot ownership
+  is replaced by the named map in repository shader guidance and CPU contract
+  documentation.
+- [x] Focused evidence: final declared-toolset Profile test build passed in
+  3.588s and engine build passed in 8.643s, both with zero warnings/errors; exact
+  `Profile\SKULLBONEZ_TESTS.exe --test-case="Shader reflection contracts:*"`
+  passed 7 cases and 115 assertions in 2.510s; a visible-window two-frame DX12
+  water-scene smoke exited 0 in 2.028s with 466 stdout bytes and zero stderr.
+  The first build invocation forced unavailable v143 and stopped before
+  compilation in 1.336s; rerunning the project-declared v145 corrected the
+  environment selection. A hidden-window smoke produced a zero-sized client
+  area and stopped in 3.035s; the required visible-window rerun passed.
+- [x] Touched-source comment audit: 7/7 checked, zero deferred.
+- [x] Formal coordinator evidence: `tools\validate_tests.bat` passed in 3.540s
+  with 146 cases and 3,426 assertions. `tools\validate_dx12_renderer.bat`
+  passed in 34.877s with zero DX12 validation errors and unchanged committed
+  baselines (maximum channel differences 50, 70, and 0). Mandatory
+  `tools\run_graphics_stress.bat 1` passed in 60.889s with PID-scoped timeout
+  exit 0 after 13,036 frames and 363 scene loads; stdout was 54,060 bytes,
+  stderr was empty, and the 667-byte CSV plus 4,576-byte shutdown JSON memory
+  artifacts were written.
+
 ### P4 — PSO and bytecode caching
 
 - Add `ID3D12PipelineLibrary`-based PSO cache (or driver-cache-friendly
@@ -311,7 +355,7 @@ on completion.
       SM6.x DXIL with hash-verified freshness.
 - [x] A deliberate CPU/HLSL cbuffer mismatch is caught by the P2 machine
       check (test this the same way behavioral-test-depth P5 drills bugs).
-- [ ] Root signatures reduced to a named, documented set; no per-shader slot
+- [x] Root signatures reduced to a named, documented set; no per-shader slot
       folklore comments remain.
 - [ ] Startup does not recompile unchanged shaders or rebuild unchanged PSOs.
 - [ ] `dx12_validation.txt` = 0 errors and screenshots match accepted

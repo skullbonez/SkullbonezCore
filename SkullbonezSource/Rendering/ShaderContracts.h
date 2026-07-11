@@ -62,11 +62,11 @@ struct ShaderUniformDecl
 struct ShaderResourceDecl
 {
     const char* name;
-    // Contract: ordinary raster resources use the current DX12 binding ABI.
+    // Contract: raster resources use the named UnifiedRaster binding ABI.
     //
     // Slot N means SRV register tN, bound through BindTexture(handle, N). The
-    // ABI currently exposes t0..t4; t4 is the object material table while the
-    // per-instance stream still carries the draw-local material payload.
+    // UnifiedRaster exposes t0..t4; semantic ownership lives in
+    // RenderRasterBindingContract.h and reflection rejects any other slot.
     int slot;
     ShaderResourceKind kind;
     bool required;

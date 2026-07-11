@@ -113,3 +113,39 @@ TEST_CASE( "Shader reflection contracts: deliberate cbuffer-size mismatch is rej
     CHECK_FALSE( ValidateGeneratedShaderProgramContract( "lit_textured.hlsl", mutated, error ) );
     CHECK( error == "cbuffer field mismatch: uModel" );
 }
+
+TEST_CASE( "Shader reflection contracts: every raster stage fits UnifiedRaster" )
+{
+    std::string error;
+    CHECK_MESSAGE( ValidateGeneratedUnifiedRasterRootSignature( error ), error );
+
+    CHECK( std::string( UnifiedRasterRootSignature::NAME ) == "UnifiedRaster" );
+    CHECK( UnifiedRasterRootSignature::ROOT_PARAMETER_COUNT == 6u );
+    CHECK( UnifiedRasterRootSignature::TEXTURE_SLOTS[3].shaderRegister == 3u );
+    CHECK( std::string( UnifiedRasterRootSignature::TEXTURE_SLOTS[3].name ) == "ShadowMap" );
+    CHECK( UnifiedRasterRootSignature::TEXTURE_SLOTS[4].rootParameter == 5u );
+    CHECK( std::string( UnifiedRasterRootSignature::TEXTURE_SLOTS[4].name ) == "MaterialTable" );
+}
+
+TEST_CASE( "Shader reflection contracts: UnifiedRaster rejects unowned slots" )
+{
+    const auto* pixelStage = FindGeneratedShaderStage( "lit_textured", "ps" );
+    REQUIRE( pixelStage != nullptr );
+    REQUIRE( pixelStage->resourceCount > 0u );
+
+    GeneratedShaderReflection::Resource mutated = GeneratedShaderReflection::Resources[pixelStage->resourceStart];
+    mutated.registerClass = 't';
+    mutated.slot = 5;
+    mutated.type = "texture";
+    mutated.dimension = "2d";
+    std::string error;
+    CHECK_FALSE( ValidateUnifiedRasterResource( *pixelStage, mutated, error ) );
+    CHECK( error.find( "outside the UnifiedRaster root-signature slot map" ) != std::string::npos );
+
+    mutated.registerClass = 's';
+    mutated.slot = 2;
+    mutated.type = "sampler";
+    mutated.dimension = "na";
+    error.clear();
+    CHECK_FALSE( ValidateUnifiedRasterResource( *pixelStage, mutated, error ) );
+}
