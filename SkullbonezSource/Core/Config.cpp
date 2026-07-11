@@ -10,6 +10,10 @@ Mental model:
   on the glossary/invariants below.
 
 Glossary:
+  - ConfigSetting: One typed key-to-field registry row, including the accepted
+    range and the destination inside EngineConfig.
+  - Configuration registry: The single table that keeps file parsing,
+    command-line overrides, validation, and compatibility spellings aligned.
 
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility

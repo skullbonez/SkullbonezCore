@@ -11,19 +11,19 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-11th-july` |
-| Current pushed baseline | `89b050bc render-backend-decomposition, TASK 4 / 8, 82% OVERALL COMPLETE — extract DXR ownership and close the remainder review`; the grouped 8/8 closure commit is ready to push |
-| Current objective | Execute `dx12-post-final-cleanup` phases 1-6, then continue the binding MASTER path |
-| Portfolio progress | 229 / 276 tasks = 83% overall |
-| Last broad local gate | `tools\\validate_full.bat` passed final render-backend source on 2026-07-12 in 81.508s: formatting and filters clean, every CPU target passed, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | CPU umbrella passed in 29.444s; renderer passed in 39.264s with zero InfoQueue errors and matching screenshots; perf passed in 35.862s with no steady-gameplay allocations; platform-profiler probe exited 0 in 2.044s; graphics stress completed 60.918s crash-free. Closure review and 18/18 comment audit are clear. |
+| Current pushed baseline | `afdf53c7 dx12-post-final-cleanup, TASK 5 / 6, 85% OVERALL COMPLETE — streamline bloom and cinematic configuration`; the 6/6 closure documentation/comment commit is ready to push |
+| Current objective | Execute `engine-config-decomposition`, then continue the binding MASTER path |
+| Portfolio progress | 235 / 276 tasks = 85% overall |
+| Last broad local gate | `tools\\validate_full.bat` passed final DX12-cleanup source on 2026-07-12 in 112.840s: formatting and filters clean, every CPU lane passed, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
+| Validation for current edits | Enabled cinematic pre/post captures were byte-identical; renderer and perf checkpoints passed; final full gate passed in 112.840s; graphics stress completed 60.932s crash-free with empty stderr. Independent review is resolved and the comment audit is 23/23 with 0 deferred. |
 
 ## Live Queue
 
 1. Prepare the engine-cleanup aggregate review in parallel with the critical path;
    fix findings, pass the closure gate, and delete all eight retained completed
    plans.
-2. Execute DX12 post cleanup, then continue the binding path recorded in MASTER:
-   config decomposition, shader P0-P5, visibility, shadows,
+2. Continue the binding path recorded in MASTER: engine-config decomposition,
+   shader P0-P5, visibility, shadows,
    interpolation, editor undo/redo, then data-format versioning. Phase-level
    preparation and dependency barriers are authoritative in MASTER and the
    owning plans.
@@ -73,9 +73,11 @@ plan inventory.
   `Agentic/Reports/2026-07-11/entity-model-endgame-closure.md`.
 - Render-backend closure evidence:
   `Agentic/Reports/2026-07-12/render-backend-decomposition-closure.md`.
+- DX12 post-cleanup closure evidence:
+  `Agentic/Reports/2026-07-12/dx12-post-final-cleanup-closure.md`.
 
 ## Next Handoff
 
 Use `Agentic/Plans/MASTER-PLAN.md` for selection and the repo-local orchestrator
 skill when implementing a plan. The next binding implementation plan is
-`dx12-post-final-cleanup` phase 1.
+`engine-config-decomposition` phase 1.
