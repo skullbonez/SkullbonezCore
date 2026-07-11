@@ -668,8 +668,8 @@ float GraphicsStressController::RandomCinematicParamValue( UI::UICinematicParam 
     case UICinematicParam::StyleContrast:
         return NextFloat( 0.0f, 2.50f );
     case UICinematicParam::StyleVignette:
-    case UICinematicParam::SunX:
-    case UICinematicParam::SunY:
+    case UICinematicParam::SunAzimuth:
+    case UICinematicParam::SunElevation:
     case UICinematicParam::CloudCoverage:
     case UICinematicParam::FogOpacity:
     case UICinematicParam::BasinFeather:

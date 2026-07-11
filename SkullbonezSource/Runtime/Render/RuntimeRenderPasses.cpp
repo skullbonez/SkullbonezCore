@@ -400,8 +400,8 @@ void BindSkyPassParams( SkullbonezCore::Rendering::IShader& shader,
                         const CinematicRenderConfig& cinematic )
 {
     shader.SetVec4( "uSunParams",
-                    cinematic.sunScreenX,
-                    cinematic.sunScreenY,
+                    cinematic.sunAzimuth,
+                    cinematic.sunElevation,
                     cinematic.sunIntensity,
                     cinematic.skyGlowStrength );
     shader.SetVec3( "uSunColor", cinematic.sunColorR, cinematic.sunColorG, cinematic.sunColorB );
@@ -445,6 +445,8 @@ void BindTonemapPassParams( SkullbonezCore::Rendering::IShader& shader,
                             const CinematicRenderConfig& cinematic,
                             float frustumNear,
                             float frustumFar,
+                            int sceneWidth,
+                            int sceneHeight,
                             bool volumetricReady )
 {
     shader.SetInt( "uSceneTex", 0 );
@@ -459,6 +461,12 @@ void BindTonemapPassParams( SkullbonezCore::Rendering::IShader& shader,
                     cinematic.fogEnabled ? cinematic.fogDensity : 0.0f,
                     cinematic.fogEnabled ? cinematic.fogMaxOpacity : 0.0f );
     shader.SetVec3( "uFogColor", cinematic.fogColorR, cinematic.fogColorG, cinematic.fogColorB );
+    // Invariant: these are the actual HDR scene-target dimensions, not assumed
+    // window dimensions. Supplying their inverse here keeps the per-pixel shader
+    // free of GetDimensions queries while resize updates the bloom footprint.
+    const float inverseSceneWidth = 1.0f / static_cast<float>( sceneWidth > 0 ? sceneWidth : 1 );
+    const float inverseSceneHeight = 1.0f / static_cast<float>( sceneHeight > 0 ? sceneHeight : 1 );
+    shader.SetVec4( "uBloomTexelSize", inverseSceneWidth, inverseSceneHeight, 0.0f, 0.0f );
     shader.SetVec4( "uBloomParams",
                     cinematic.bloomThreshold,
                     cinematic.bloomKnee,
@@ -637,7 +645,7 @@ void ReflectionPass::LogResourceLifecycleStep( const char* phase, const char* st
 
 void ShadowPass::EnsureGpuResources( const RenderResourceContext& resources, const CinematicRenderConfig& cinematic )
 {
-    if ( !cinematic.shadowsEnabled )
+    if ( !cinematic.shadow.enabled )
     {
         return;
     }
@@ -649,7 +657,7 @@ void ShadowPass::EnsureGpuResources( const RenderResourceContext& resources, con
     // cinematic rendering, and screenshot/perf scenes. The cinematic config
     // still supplies map size and bias/softness values, but the feature itself
     // is no longer gated by the cinematic post-processing path.
-    const int mapSize = std::clamp( cinematic.shadowMapSize, 256, 8192 );
+    const int mapSize = std::clamp( cinematic.shadow.mapSize, 256, 8192 );
     auto ensureTarget = [&]( std::unique_ptr<Rendering::IFramebuffer>& target )
     {
         const bool needsTarget = !target || target->GetWidth() != mapSize || target->GetHeight() != mapSize;
@@ -751,7 +759,7 @@ ShadowPass::BuildTerrainFrameData( const CinematicRenderConfig& cinematic,
         (std::max)( m_terrain.Get()->GetMaxHeight() - m_terrain.Get()->GetMinHeight(), 64.0f );
     const float terrainRadius = (std::max)( extentX, extentZ ) * 0.5f;
     const float shadowRadius =
-        std::clamp( terrainRadius + 180.0f, 128.0f, (std::max)( cinematic.shadowMaxDistance, 128.0f ) );
+        std::clamp( terrainRadius + 180.0f, 128.0f, (std::max)( cinematic.shadow.maxDistance, 128.0f ) );
 
     // Center the orthographic projection over the whole terrain instead of the
     // camera. This is a simple single-map v1: it avoids camera-dependent popping
@@ -777,15 +785,15 @@ ShadowPass::BuildTerrainFrameData( const CinematicRenderConfig& cinematic,
     // Keeping the values in one payload makes balls, boxes, terrain, and any
     // future backend consume the same shadow decision for the frame.
     shadowFrame.mapSize = m_resources.terrainTarget->GetWidth();
-    shadowFrame.pcfRadius = std::clamp( cinematic.shadowPcfRadius, 0, 3 );
-    shadowFrame.strength = std::clamp( cinematic.shadowStrength, 0.0f, 1.0f );
-    shadowFrame.depthBias = (std::max)( cinematic.shadowDepthBias, 0.0f );
-    shadowFrame.slopeBias = (std::max)( cinematic.shadowSlopeBias, 0.0f );
+    shadowFrame.pcfRadius = std::clamp( cinematic.shadow.pcfRadius, 0, 3 );
+    shadowFrame.strength = std::clamp( cinematic.shadow.strength, 0.0f, 1.0f );
+    shadowFrame.depthBias = (std::max)( cinematic.shadow.depthBias, 0.0f );
+    shadowFrame.slopeBias = (std::max)( cinematic.shadow.slopeBias, 0.0f );
     shadowFrame.texelSize = shadowFrame.mapSize > 0 ? 1.0f / static_cast<float>( shadowFrame.mapSize ) : 0.0f;
-    shadowFrame.softness = (std::max)( cinematic.shadowSoftness, 0.25f );
+    shadowFrame.softness = (std::max)( cinematic.shadow.softness, 0.25f );
     shadowFrame.zeroToOneDepth = true;
-    shadowFrame.terrainReceives = cinematic.shadowTerrainReceives;
-    shadowFrame.objectsReceive = cinematic.shadowObjectsReceive;
+    shadowFrame.terrainReceives = cinematic.shadow.terrainReceives;
+    shadowFrame.objectsReceive = cinematic.shadow.objectsReceive;
     shadowFrame.valid = shadowFrame.depthTextureHandle != 0 && shadowFrame.mapSize > 0;
     return shadowFrame;
 }
@@ -802,7 +810,7 @@ ShadowPass::BuildObjectFrameData( const CinematicRenderConfig& cinematic,
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame" );
 
     Rendering::ShadowFrameData shadowFrame;
-    if ( !m_resources.objectTarget || !cinematic.shadowObjectsCast || !cinematic.shadowObjectsReceive )
+    if ( !m_resources.objectTarget || !cinematic.shadow.objectsCast || !cinematic.shadow.objectsReceive )
     {
         return shadowFrame;
     }
@@ -810,7 +818,7 @@ ShadowPass::BuildObjectFrameData( const CinematicRenderConfig& cinematic,
     Vector3 focus;
     float shadowRadius = 0.0f;
     float heightRange = 0.0f;
-    const float objectSearchDistance = std::clamp( cinematic.shadowMaxDistance * 0.15f, 180.0f, 320.0f );
+    const float objectSearchDistance = std::clamp( cinematic.shadow.maxDistance * 0.15f, 180.0f, 320.0f );
     if ( !GameObjects::GameModelRenderer::GetObjectShadowBounds( renderInstances,
                                                                  renderWorkerPool,
                                                                  shadowParallelPrep,
@@ -837,15 +845,15 @@ ShadowPass::BuildObjectFrameData( const CinematicRenderConfig& cinematic,
     shadowFrame.lightDirectionWorld = lightDir;
     shadowFrame.depthTextureHandle = m_resources.objectTarget->GetDepthTextureHandle();
     shadowFrame.mapSize = m_resources.objectTarget->GetWidth();
-    shadowFrame.pcfRadius = std::clamp( cinematic.shadowPcfRadius, 0, 3 );
-    shadowFrame.strength = std::clamp( cinematic.shadowStrength, 0.0f, 1.0f );
-    shadowFrame.depthBias = (std::max)( cinematic.shadowDepthBias, 0.0f );
-    shadowFrame.slopeBias = (std::max)( cinematic.shadowSlopeBias, 0.0f );
+    shadowFrame.pcfRadius = std::clamp( cinematic.shadow.pcfRadius, 0, 3 );
+    shadowFrame.strength = std::clamp( cinematic.shadow.strength, 0.0f, 1.0f );
+    shadowFrame.depthBias = (std::max)( cinematic.shadow.depthBias, 0.0f );
+    shadowFrame.slopeBias = (std::max)( cinematic.shadow.slopeBias, 0.0f );
     shadowFrame.texelSize = shadowFrame.mapSize > 0 ? 1.0f / static_cast<float>( shadowFrame.mapSize ) : 0.0f;
-    shadowFrame.softness = (std::max)( cinematic.shadowSoftness, 0.25f );
+    shadowFrame.softness = (std::max)( cinematic.shadow.softness, 0.25f );
     shadowFrame.zeroToOneDepth = true;
     shadowFrame.terrainReceives = false;
-    shadowFrame.objectsReceive = cinematic.shadowObjectsReceive;
+    shadowFrame.objectsReceive = cinematic.shadow.objectsReceive;
     shadowFrame.valid = shadowFrame.depthTextureHandle != 0 && shadowFrame.mapSize > 0;
     return shadowFrame;
 }
@@ -871,7 +879,7 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
     {
         return;
     }
-    if ( ( !renderTerrain || !cinematic.shadowTerrainCasts ) && ( !renderObjects || !cinematic.shadowObjectsCast ) )
+    if ( ( !renderTerrain || !cinematic.shadow.terrainCasts ) && ( !renderObjects || !cinematic.shadow.objectsCast ) )
     {
         return;
     }
@@ -903,7 +911,7 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
     // scene cannot leak into this off-screen pass.
     ClearAllRenderTextureSlots( renderCommands );
 
-    if ( renderTerrain && cinematic.shadowTerrainCasts && !m_activeTerrainHidden && m_terrain.Get() )
+    if ( renderTerrain && cinematic.shadow.terrainCasts && !m_activeTerrainHidden && m_terrain.Get() )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
         DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
@@ -915,7 +923,7 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
         m_terrain.Get()->RenderShadowDepth( shadowFrame.lightView, shadowFrame.lightProjection, &cinematic );
     }
 
-    if ( renderObjects && cinematic.shadowObjectsCast && !m_activeCollisionVisualizerVisible )
+    if ( renderObjects && cinematic.shadow.objectsCast && !m_activeCollisionVisualizerVisible )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
         DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
@@ -981,7 +989,7 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
                                     inputs.frame.lightPosition[2] );
             Rendering::ShadowCasterBatches& objectCasters = m_resources.objectCasterBatches;
             const bool shouldBuildObjectCasters =
-                inputs.cinematic->shadowObjectsCast && !inputs.collisionVisualizerVisible;
+                inputs.cinematic->shadow.objectsCast && !inputs.collisionVisualizerVisible;
             if ( shouldBuildObjectCasters )
             {
                 GameObjects::GameModelRenderer::BuildShadowCasterBatches( *inputs.frame.renderInstances,
@@ -2308,6 +2316,8 @@ void TonemapPass::Render( const RenderFrameContext& frame,
                                cinematic,
                                m_config.frustumNear,
                                m_config.frustumFar,
+                               m_sceneResources.hdrTarget->GetWidth(),
+                               m_sceneResources.hdrTarget->GetHeight(),
                                volumetricReady );
         const bool useGraphVolumetric =
             volumetricReady && graphVolumetric && graphVolumetric->IsValid() && graphVolumetric->shaderResource;

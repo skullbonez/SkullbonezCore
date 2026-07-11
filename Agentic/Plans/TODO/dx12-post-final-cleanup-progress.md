@@ -75,49 +75,51 @@ config keys keep parsing; pass roster is not restructured.
 
 ## Phase 3 — Bloom cost cleanup
 
-- [ ] 3.1 Replace per-pixel `GetDimensions` with a texel-size uniform set by
+- [x] 3.1 Replace per-pixel `GetDimensions` with a texel-size uniform set by
       `BindTonemapPassParams`.
-- [ ] 3.2 Restructure `SampleBloom`/`PrefilterBloom` to remove redundant
+- [x] 3.2 Restructure `SampleBloom`/`PrefilterBloom` to remove redundant
       per-tap recomputation where samples can be shared.
-- [ ] 3.3 Stretch (optional): half-res bloom target via the existing
-      graph-transient machinery; if skipped, record the reason here: ______
-- [ ] 3.4 Gate: `tools\validate_dx12_renderer.bat` (+ isolated baseline
+- [x] 3.3 Stretch (optional): half-res bloom target via the existing
+      graph-transient machinery; skipped because it requires a new graph
+      resource/lifecycle owner, producer-consumer bindings, and baseline surface,
+      expanding the fixed pass roster for a non-trivial ownership change.
+- [x] 3.4 Gate: `tools\validate_dx12_renderer.bat` (+ isolated baseline
       update commit only if the image changed) and `tools\validate_perf.bat`
       (per-pixel hot-path change); allocation guard clean.
-- [ ] 3.5 If the (expected, faster) new timings trip the perf-baseline
+- [x] 3.5 If the (expected, faster) new timings trip the perf-baseline
       thresholds, refresh `TestOutput/baselines/*_perf.json` intentionally
       via `tools\update_baselines.bat` in an isolated commit and rerun
       `tools\validate_perf.bat` clean. Never touch physics baselines here.
-- [ ] 3.6 Commit + push.
+- [x] 3.6 Commit + push.
 
 ## Phase 4 — Named style modes (visuals unchanged)
 
-- [ ] 4.1 Inventory every style-mode value actually used: grep
+- [x] 4.1 Inventory every style-mode value actually used: grep
       `SkullbonezData/scenes/`, `SkullbonezData/engine.cfg`, UI code, and
       shaders for `skyMode`/`terrainMode`/`objectStyle`/`waterMode` values.
-- [ ] 4.2 Add named constants with a complete value table in C++ (in or
+- [x] 4.2 Add named constants with a complete value table in C++ (in or
       beside `CinematicRenderConfig` in `Config.h`); expand the field
       comments at `Config.h:220-223` to enumerate all used values.
-- [ ] 4.3 Replace magic literals in `post_tonemap.hlsl` (`styleMode == 11`)
+- [x] 4.3 Replace magic literals in `post_tonemap.hlsl` (`styleMode == 11`)
       and `sky_atmosphere.hlsl` (`== 11`, `!= 20`) with matching named
       `static const int` constants + a pointer comment to the C++ header.
-- [ ] 4.4 Gate: `tools\validate_dx12_renderer.bat`, baselines unchanged.
-- [ ] 4.5 Commit + push.
+- [x] 4.4 Gate: `tools\validate_dx12_renderer.bat`, baselines unchanged.
+- [x] 4.5 Commit + push.
 
 ## Phase 5 — Config dedupe + sun-field rename (visuals unchanged)
 
-- [ ] 5.1 Extract the shared shadow block from `OrdinaryRenderConfig` and
+- [x] 5.1 Extract the shared shadow block from `OrdinaryRenderConfig` and
       `CinematicRenderConfig` into one named struct; keep every existing
       config key parsing exactly as before.
-- [ ] 5.2 Rename `sunScreenX`/`sunScreenY` to azimuth/elevation names
+- [x] 5.2 Rename `sunScreenX`/`sunScreenY` to azimuth/elevation names
       internally; keep legacy keys as parse aliases; update
       `CinematicSkySunDirection` (`RuntimeTuning`) and UI param plumbing.
-- [ ] 5.3 Confirm no physics-default config lines were touched
+- [x] 5.3 Confirm no physics-default config lines were touched
       (`git diff SkullbonezSource/Core/Config.*` reviewed against the
       physics-default list in `AGENTS.md`).
-- [ ] 5.4 Gate: `tools\validate_fast.bat` then
+- [x] 5.4 Gate: `tools\validate_fast.bat` then
       `tools\validate_dx12_renderer.bat`, baselines unchanged.
-- [ ] 5.5 Commit + push.
+- [x] 5.5 Commit + push.
 
 ## Phase 6 — Final gate, review, handoff
 
@@ -201,3 +203,97 @@ config keys keep parsing; pass roster is not restructured.
   `ShaderContracts.h`, and `RuntimeRenderPasses.cpp`). Formal renderer capture,
   intentional visual baseline handling, commit, and push remain pending for the
   coordinating agent.
+- 2026-07-12 Phase 3 implementation: removed the per-pixel
+  `uSceneTex.GetDimensions` query. `BindTonemapPassParams` now publishes
+  `uBloomTexelSize` from the HDR framebuffer's actual width/height on every
+  frame, and `ShaderContracts.h` declares the matching `Vec4` uniform. Resize
+  therefore updates the sampling footprint without shader-side dimension work.
+- Bloom prefilter restructuring preserves all 13 sample positions, weights, and
+  per-tap nonlinear thresholding. The uniform threshold, safe knee, and
+  two-knee denominator are resolved once per pixel and passed to each tap,
+  eliminating their repeated source-level setup without blurring isolated
+  highlights before thresholding. No new allocation or render pass was added.
+- Optional half-resolution bloom was skipped: it is not a trivial target reuse;
+  it adds a graph resource/lifecycle owner, producer-consumer bindings, and a
+  new baseline surface while expanding the plan's fixed pass roster.
+- Focused build: `tools\validate_build.bat Profile` passed in 5.748 s with
+  0 warnings and 0 errors. Log:
+  `TestOutput/logs/dx12_post_cleanup_phase3_profile_build.log`.
+- Phase 3 touched-file comment audit: 3/3 source files inspected, 0 deferred
+  (`post_tonemap.hlsl`, `ShaderContracts.h`, and `RuntimeRenderPasses.cpp`).
+  Formal renderer/perf gates, any evidence-driven baseline handling, commit,
+  and push remain pending for the coordinating agent.
+- Phase 3 gates: `tools\validate_dx12_renderer.bat` passed in 26.739 s with
+  DX12 validation errors 0 and all three screenshots matching unchanged
+  baselines; manifest:
+  `TestOutput/validation/dx12_renderer/20260711T162131Z/manifest.json`.
+  `tools\validate_perf.bat` passed in 35.571 s: allocation allowlist errors 0,
+  no steady-gameplay allocation violations, both DX12 and physics-bench
+  absolute budgets passed, and both comparisons reported no regressions. Log:
+  `TestOutput/logs/dx12_post_cleanup_phase3_perf.log`. No visual or performance
+  baseline refresh was needed. The Phase 3 commit remains open so it can be
+  grouped with the next substantial cleanup slice.
+- 2026-07-12 Phase 4 tracked-data inventory: direct scene overrides use
+  sky `{0,20}`, terrain `{0,3,13,15}`, object `{0,2}`, water `{0,1}`;
+  tracked style assets referenced by scenes expand those sets to sky
+  `{0..13,15..19}`, terrain `{0..14}`, object `{0..7}`, water `{0,1,2,4}`;
+  `engine.cfg` uses `{11,7,6,4}`. The combined authored sets are therefore sky
+  `{0..13,15..20}`, terrain `{0..15}`, object `{0..7}`, water `{0,1,2,4}`.
+- Shader/domain inventory adds object material modes `8..13` and the supported
+  water mode `3`. Sky `14` is genuinely unassigned; sky values `21..32` and
+  unknown terrain/object values remain accepted by parser/UI and use generic
+  shader fallback behavior. `CinematicStyleMode` in `Config.h` records that
+  distinction and names every authored or shader/domain-supported value.
+- Shader structural proof: `post_tonemap.hlsl` and `sky_atmosphere.hlsl` define
+  matching `SKY_MODE_LOW_POLY_ART = 11` constants; the sky shader also defines
+  `SKY_MODE_OPEN_HORIZON = 20`. All specified `styleMode == 11` / `!= 20`
+  comparisons are absent, and both files point back to
+  `CinematicStyleMode::Sky` in `Config.h`.
+- Focused build: `tools\validate_build.bat Profile` passed in 17.858 s with
+  0 warnings and 0 errors. Log:
+  `TestOutput/logs/dx12_post_cleanup_phase4_profile_build.log`.
+- Phase 4 touched-file comment audit: 3/3 source files inspected, 0 deferred
+  (`Config.h`, `post_tonemap.hlsl`, and `sky_atmosphere.hlsl`). The formal
+  unchanged-baseline renderer gate, grouped commit, and push remain pending for
+  the coordinating agent.
+- Phase 4 renderer gate: `tools\validate_dx12_renderer.bat` passed in
+  54.314 s with 0 warnings, DX12 validation errors 0, and all three captures
+  matching unchanged committed baselines. Manifest:
+  `TestOutput/validation/dx12_renderer/20260711T163018Z/manifest.json`; log:
+  `TestOutput/logs/dx12_post_cleanup_phase4_renderer.log`. The Phase 4 commit
+  remains open to group it with Phases 3 and 5.
+- Phase 5 gates: `tools\validate_fast.bat` passed in 43.686 s, including
+  project filters, Profile build, and all 136 doctest cases / 2,853 assertions.
+  `tools\validate_dx12_renderer.bat` then passed in 24.342 s with zero
+  warnings, DX12 validation errors 0, and all three captures matching unchanged
+  baselines. Renderer manifest:
+  `TestOutput/validation/dx12_renderer/20260711T163847Z/manifest.json`; logs:
+  `TestOutput/logs/dx12_post_cleanup_phase5_fast.log` and
+  `TestOutput/logs/dx12_post_cleanup_phase5_renderer.log`. Phases 3-5 are
+  grouped into one substantial commit; no baseline file changed.
+- 2026-07-12 Phase 5 shadow ownership: `ShadowQualityConfig` is the single
+  composed value owner embedded by ordinary and cinematic render config. A
+  constexpr factory preserves the exact ordinary strength/softness defaults
+  (`0.25/1.05`) and cinematic defaults (`0.58/1.0`); all shared enable,
+  cast/receive, map-size, filter-radius, bias, and distance defaults remain
+  byte-for-byte equivalent. Runtime selection now copies the whole value
+  instead of forwarding twelve individual fields. No inheritance or aliases
+  were introduced.
+- Sun-domain rename: all internal fields, UI commands, override-mask names,
+  hashing, live-style routing, sky binding, and `CinematicSkySunDirection`
+  now use `sunAzimuth`/`sunElevation`. Compatibility boundaries intentionally
+  retain config keys `cinematic_sun_screen_x/y` and scene/style JSON keys
+  `sunScreenX/Y` for parsing and serialization.
+- Structural proof: legacy flat shadow member identifiers are absent; all
+  consumers reach `config.shadow.*`. Old sun names remain only in the four
+  documented compatibility string/comment boundaries. The `Config.h/.cpp`
+  zero-context diff contains no gravity, fluid, drag, friction, sleep, solver,
+  or broadphase physics-default row changes.
+- Focused build: `tools\validate_build.bat Profile` passed in 18.030 s with
+  0 warnings and 0 errors. Log:
+  `TestOutput/logs/dx12_post_cleanup_phase5_profile_build.log`.
+- Phase 5 touched-file comment audit: 19/19 source files inspected, 0 deferred.
+  Compatibility notes were added at config parsing, scene parsing, scene save,
+  and Save Defaults boundaries; the nested shadow parser documents its value
+  owner. Formal fast/renderer gates, grouped commit, and push remain pending for
+  the coordinating agent.

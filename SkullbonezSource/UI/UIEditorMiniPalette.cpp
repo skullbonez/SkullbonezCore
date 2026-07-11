@@ -430,13 +430,13 @@ float RenderValueForParam( const OrdinaryRenderConfig& ordinary, UIRenderParam p
     case UIRenderParam::GroundBlue:
         return ordinary.groundAmbientB;
     case UIRenderParam::ShadowStrength:
-        return ordinary.shadowStrength;
+        return ordinary.shadow.strength;
     case UIRenderParam::ShadowSoftness:
-        return ordinary.shadowSoftness;
+        return ordinary.shadow.softness;
     case UIRenderParam::ShadowDepthBias:
-        return ordinary.shadowDepthBias;
+        return ordinary.shadow.depthBias;
     case UIRenderParam::ShadowSlopeBias:
-        return ordinary.shadowSlopeBias;
+        return ordinary.shadow.slopeBias;
     case UIRenderParam::WaterRed:
         return ordinary.waterTintR;
     case UIRenderParam::WaterGreen:

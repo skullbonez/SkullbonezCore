@@ -182,7 +182,7 @@ void RenderExecuteUiTextFrame( RuntimeRenderer& renderer,
         const CinematicRenderConfig& uiCinematic = ActiveSceneCinematicConfig( scene, config );
         const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug, true );
         const bool shadowsAvailable =
-            uiCinematicRendering ? uiCinematic.shadowsEnabled : config.ordinaryRender.shadowsEnabled;
+            uiCinematicRendering ? uiCinematic.shadow.enabled : config.ordinaryRender.shadow.enabled;
         renderTargetPreviews =
             renderer.BuildRenderTargetPreviewSnapshot( shadowsAvailable,
                                                        uiCinematicRendering,

@@ -287,6 +287,7 @@ inline const ShaderProgramDesc* HighRiskShaderContracts()
         { "uDepthParams", ShaderValueType::Vec4, true },
         { "uFogParams", ShaderValueType::Vec4, true },
         { "uFogColor", ShaderValueType::Vec3, true },
+        { "uBloomTexelSize", ShaderValueType::Vec4, true },
         { "uBloomParams", ShaderValueType::Vec4, true },
         { "uStyleGrade", ShaderValueType::Vec4, true },
     };

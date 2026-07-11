@@ -269,7 +269,7 @@ void Draw( UIOptionsTabState& state,
                        scrolledY + 102.0f,
                        colW,
                        "Shadows",
-                       data.cinematicRendering ? data.cinematic.shadowsEnabled : data.ordinaryRender.shadowsEnabled );
+                       data.cinematicRendering ? data.cinematic.shadow.enabled : data.ordinaryRender.shadow.enabled );
     snprintf( buf, sizeof( buf ), "%.2fx", displayTimeScale );
     state.timeScaleSlider.SetBounds( contentX, scrolledY + 168.0f, contentW, 34.0f );
     if ( IsRowVisible( contentY, contentH, scrolledY + 168.0f, 34.0f ) )

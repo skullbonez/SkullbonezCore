@@ -1639,20 +1639,9 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     const CinematicRenderConfig& renderConfig = services.cinematic;
     const OrdinaryRenderConfig& ordinaryRender = m_config.ordinaryRender;
     CinematicRenderConfig ordinaryShadowConfig = renderConfig;
-    ordinaryShadowConfig.shadowsEnabled = ordinaryRender.shadowsEnabled;
-    ordinaryShadowConfig.shadowTerrainCasts = ordinaryRender.shadowTerrainCasts;
-    ordinaryShadowConfig.shadowObjectsCast = ordinaryRender.shadowObjectsCast;
-    ordinaryShadowConfig.shadowTerrainReceives = ordinaryRender.shadowTerrainReceives;
-    ordinaryShadowConfig.shadowObjectsReceive = ordinaryRender.shadowObjectsReceive;
-    ordinaryShadowConfig.shadowMapSize = ordinaryRender.shadowMapSize;
-    ordinaryShadowConfig.shadowPcfRadius = ordinaryRender.shadowPcfRadius;
-    ordinaryShadowConfig.shadowStrength = ordinaryRender.shadowStrength;
-    ordinaryShadowConfig.shadowSoftness = ordinaryRender.shadowSoftness;
-    ordinaryShadowConfig.shadowDepthBias = ordinaryRender.shadowDepthBias;
-    ordinaryShadowConfig.shadowSlopeBias = ordinaryRender.shadowSlopeBias;
-    ordinaryShadowConfig.shadowMaxDistance = ordinaryRender.shadowMaxDistance;
+    ordinaryShadowConfig.shadow = ordinaryRender.shadow;
     const CinematicRenderConfig& activeShadowStyle = cinematicRender ? renderConfig : ordinaryShadowConfig;
-    const bool shadowMapsEnabled = activeShadowStyle.shadowsEnabled && services.renderReady && !policy.textOnly;
+    const bool shadowMapsEnabled = activeShadowStyle.shadow.enabled && services.renderReady && !policy.textOnly;
 
     const RenderResourceContext resourceContext = BuildRenderResourceContext( renderInputs, cinematicRender );
     {

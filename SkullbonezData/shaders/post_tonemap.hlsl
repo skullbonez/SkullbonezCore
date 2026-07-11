@@ -48,6 +48,7 @@ cbuffer Uniforms : register(b0)
     float4 uFogParams;   // start, end, density, max opacity
     float3 uFogColor;
     float _padding1;
+    float4 uBloomTexelSize; // inverse scene width/height, unused, unused
     float4 uBloomParams; // threshold, knee, strength, radius
     float4 uStyleGrade;  // saturation, contrast, vignette floor, sky mode
 };
@@ -57,6 +58,9 @@ Texture2D    uDepthTex : register(t1);
 Texture2D    uVolumetricTex : register(t2);
 SamplerState sSampler0 : register(s0);
 SamplerState sSampler1 : register(s1);
+
+// Keep this value synchronized with CinematicStyleMode::Sky in Config.h.
+static const int SKY_MODE_LOW_POLY_ART = 11;
 
 struct VS_IN
 {
@@ -97,14 +101,12 @@ float LinearizeDepth(float depth)
     return (nearPlane * farPlane) / (farPlane - depth * (farPlane - nearPlane));
 }
 
-float3 PrefilterBloom(float3 color)
+float3 PrefilterBloom(float3 color, float threshold, float knee, float twoKnee)
 {
     // Bloom should only come from bright pixels. The threshold chooses what is
     // bright enough, and the knee softens the cutoff so bloom fades in smoothly.
     float brightness = max(max(color.r, color.g), color.b);
-    float threshold = max(uBloomParams.x, 0.0f);
-    float knee = max(uBloomParams.y, 0.0001f);
-    float soft = saturate((brightness - threshold + knee) / (2.0f * knee));
+    float soft = saturate((brightness - threshold + knee) / twoKnee);
     soft = soft * soft * knee;
     float contribution = max(brightness - threshold, soft) / max(brightness, 0.0001f);
     return color * contribution;
@@ -129,24 +131,27 @@ float3 SampleBloom(float2 uv)
 
     // This is a tiny blur kernel. We sample neighboring pixels around the
     // current pixel, keep only their bright parts, and add them as glow.
-    uint width;
-    uint height;
-    uSceneTex.GetDimensions(width, height);
-    float2 texel = 1.0f / float2(max(width, 1u), max(height, 1u));
+    // Why: threshold and knee are uniform for every tap. Resolve their safe
+    // values once per pixel while retaining per-tap nonlinear thresholding so
+    // isolated highlights keep the same bloom response.
+    float threshold = max(uBloomParams.x, 0.0f);
+    float knee = max(uBloomParams.y, 0.0001f);
+    float twoKnee = 2.0f * knee;
+    float2 texel = uBloomTexelSize.xy;
     float radius = max(uBloomParams.w, 0.25f);
-    float3 bloom = PrefilterBloom(SampleScene(uv)) * 0.20f;
-    bloom += PrefilterBloom(SampleScene(uv + texel * float2( radius,  0.0f))) * 0.10f;
-    bloom += PrefilterBloom(SampleScene(uv + texel * float2(-radius,  0.0f))) * 0.10f;
-    bloom += PrefilterBloom(SampleScene(uv + texel * float2( 0.0f,  radius))) * 0.10f;
-    bloom += PrefilterBloom(SampleScene(uv + texel * float2( 0.0f, -radius))) * 0.10f;
-    bloom += PrefilterBloom(SampleScene(uv + texel * float2( radius,  radius))) * 0.07f;
-    bloom += PrefilterBloom(SampleScene(uv + texel * float2(-radius,  radius))) * 0.07f;
-    bloom += PrefilterBloom(SampleScene(uv + texel * float2( radius, -radius))) * 0.07f;
-    bloom += PrefilterBloom(SampleScene(uv + texel * float2(-radius, -radius))) * 0.07f;
-    bloom += PrefilterBloom(SampleScene(uv + texel * float2( radius * 2.5f, 0.0f))) * 0.04f;
-    bloom += PrefilterBloom(SampleScene(uv + texel * float2(-radius * 2.5f, 0.0f))) * 0.04f;
-    bloom += PrefilterBloom(SampleScene(uv + texel * float2(0.0f,  radius * 2.5f))) * 0.04f;
-    bloom += PrefilterBloom(SampleScene(uv + texel * float2(0.0f, -radius * 2.5f))) * 0.04f;
+    float3 bloom = PrefilterBloom(SampleScene(uv), threshold, knee, twoKnee) * 0.20f;
+    bloom += PrefilterBloom(SampleScene(uv + texel * float2( radius,  0.0f)), threshold, knee, twoKnee) * 0.10f;
+    bloom += PrefilterBloom(SampleScene(uv + texel * float2(-radius,  0.0f)), threshold, knee, twoKnee) * 0.10f;
+    bloom += PrefilterBloom(SampleScene(uv + texel * float2( 0.0f,  radius)), threshold, knee, twoKnee) * 0.10f;
+    bloom += PrefilterBloom(SampleScene(uv + texel * float2( 0.0f, -radius)), threshold, knee, twoKnee) * 0.10f;
+    bloom += PrefilterBloom(SampleScene(uv + texel * float2( radius,  radius)), threshold, knee, twoKnee) * 0.07f;
+    bloom += PrefilterBloom(SampleScene(uv + texel * float2(-radius,  radius)), threshold, knee, twoKnee) * 0.07f;
+    bloom += PrefilterBloom(SampleScene(uv + texel * float2( radius, -radius)), threshold, knee, twoKnee) * 0.07f;
+    bloom += PrefilterBloom(SampleScene(uv + texel * float2(-radius, -radius)), threshold, knee, twoKnee) * 0.07f;
+    bloom += PrefilterBloom(SampleScene(uv + texel * float2( radius * 2.5f, 0.0f)), threshold, knee, twoKnee) * 0.04f;
+    bloom += PrefilterBloom(SampleScene(uv + texel * float2(-radius * 2.5f, 0.0f)), threshold, knee, twoKnee) * 0.04f;
+    bloom += PrefilterBloom(SampleScene(uv + texel * float2(0.0f,  radius * 2.5f)), threshold, knee, twoKnee) * 0.04f;
+    bloom += PrefilterBloom(SampleScene(uv + texel * float2(0.0f, -radius * 2.5f)), threshold, knee, twoKnee) * 0.04f;
     return bloom * uBloomParams.z;
 }
 
@@ -189,7 +194,7 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float vignette = 1.0f - smoothstep(0.28f, 0.86f, distance(screenUV, float2(0.52f, 0.48f)));
     mapped *= lerp(saturate(uStyleGrade.z), 1.0f, vignette);
     int styleMode = (int)floor(uStyleGrade.w + 0.5f);
-    if (styleMode == 11)
+    if (styleMode == SKY_MODE_LOW_POLY_ART)
     {
         float3 pastel = pow(mapped, float3(0.94f, 0.94f, 0.94f)) * float3(1.00f, 1.03f, 0.99f) + float3(0.006f, 0.012f, 0.018f);
         float3 poster = floor(saturate(pastel) * 18.0f + 0.5f) / 18.0f;

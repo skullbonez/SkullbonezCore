@@ -210,8 +210,10 @@ void SetTouchedCinematicSceneProperties( Json& root, uint64_t touchedMask, const
 
     writeFloat( SCENE_CINE_EXPOSURE, "exposure", c.exposure );
     writeFloat( SCENE_CINE_GAMMA, "gamma", c.gamma );
-    writeFloat( SCENE_CINE_SUN_SCREEN_X, "sunScreenX", c.sunScreenX );
-    writeFloat( SCENE_CINE_SUN_SCREEN_Y, "sunScreenY", c.sunScreenY );
+    // Compatibility: saved scenes keep the established JSON keys even though
+    // the in-memory fields now describe world-sky azimuth and elevation.
+    writeFloat( SCENE_CINE_SUN_AZIMUTH, "sunScreenX", c.sunAzimuth );
+    writeFloat( SCENE_CINE_SUN_ELEVATION, "sunScreenY", c.sunElevation );
     writeFloat( SCENE_CINE_SUN_COLOR_R, "sunColorR", c.sunColorR );
     writeFloat( SCENE_CINE_SUN_COLOR_G, "sunColorG", c.sunColorG );
     writeFloat( SCENE_CINE_SUN_COLOR_B, "sunColorB", c.sunColorB );
@@ -239,14 +241,14 @@ void SetTouchedCinematicSceneProperties( Json& root, uint64_t touchedMask, const
     writeFloat( SCENE_CINE_TERRAIN_RELIEF, "terrainRelief", c.terrainRelief );
     writeFloat( SCENE_CINE_BASIN_DEPTH, "basinDepth", c.basinDepth );
     writeFloat( SCENE_CINE_BASIN_RIM_LIFT, "basinRimLift", c.basinRimLift );
-    writeBool( SCENE_CINE_SHADOWS, "shadows", c.shadowsEnabled );
-    writeInt( SCENE_CINE_SHADOW_MAP_SIZE, "shadowMapSize", c.shadowMapSize );
-    writeInt( SCENE_CINE_SHADOW_PCF_RADIUS, "shadowPcfRadius", c.shadowPcfRadius );
-    writeFloat( SCENE_CINE_SHADOW_STRENGTH, "shadowStrength", c.shadowStrength );
-    writeFloat( SCENE_CINE_SHADOW_SOFTNESS, "shadowSoftness", c.shadowSoftness );
-    writeFloat( SCENE_CINE_SHADOW_DEPTH_BIAS, "shadowDepthBias", c.shadowDepthBias );
-    writeFloat( SCENE_CINE_SHADOW_SLOPE_BIAS, "shadowSlopeBias", c.shadowSlopeBias );
-    writeFloat( SCENE_CINE_SHADOW_MAX_DISTANCE, "shadowMaxDistance", c.shadowMaxDistance );
+    writeBool( SCENE_CINE_SHADOWS, "shadows", c.shadow.enabled );
+    writeInt( SCENE_CINE_SHADOW_MAP_SIZE, "shadowMapSize", c.shadow.mapSize );
+    writeInt( SCENE_CINE_SHADOW_PCF_RADIUS, "shadowPcfRadius", c.shadow.pcfRadius );
+    writeFloat( SCENE_CINE_SHADOW_STRENGTH, "shadowStrength", c.shadow.strength );
+    writeFloat( SCENE_CINE_SHADOW_SOFTNESS, "shadowSoftness", c.shadow.softness );
+    writeFloat( SCENE_CINE_SHADOW_DEPTH_BIAS, "shadowDepthBias", c.shadow.depthBias );
+    writeFloat( SCENE_CINE_SHADOW_SLOPE_BIAS, "shadowSlopeBias", c.shadow.slopeBias );
+    writeFloat( SCENE_CINE_SHADOW_MAX_DISTANCE, "shadowMaxDistance", c.shadow.maxDistance );
     writeFloat( SCENE_CINE_FOG_COLOR_R, "fogColorR", c.fogColorR );
     writeFloat( SCENE_CINE_FOG_COLOR_G, "fogColorG", c.fogColorG );
     writeFloat( SCENE_CINE_FOG_COLOR_B, "fogColorB", c.fogColorB );
@@ -1199,7 +1201,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
     }
     if ( m_launchOptions.hasCinematicShadowsOverride )
     {
-        ActiveSceneCinematicConfig( SceneState(), m_config ).shadowsEnabled = m_launchOptions.cinematicShadows;
+        ActiveSceneCinematicConfig( SceneState(), m_config ).shadow.enabled = m_launchOptions.cinematicShadows;
         SceneState().cinematicOverrideMask |= SCENE_CINE_SHADOWS;
     }
     if ( m_launchOptions.hasPhysicsDebugFlagsOverride )

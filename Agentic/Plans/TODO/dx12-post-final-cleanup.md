@@ -1,7 +1,7 @@
 # DX12 Post-Processing Final Cleanup Pass
 
 Date: 2026-07-11
-Status: In progress — Phases 1-2 complete; Phase 3 next
+Status: In progress — Phases 1-5 complete; Phase 6 closure next
 Impact area: DX12 renderer post chain (shaders + pass binding code), cinematic
 config, visual baselines
 Companion checklist: `Agentic/Plans/TODO/dx12-post-final-cleanup-progress.md`
@@ -141,6 +141,13 @@ or debug label changed (e.g. dropped tonemap reads), also run
 caught this exact gap once (see `Agentic/SessionState.md`, Plan 11 row).
 
 ### Phase 3 — Bloom cost cleanup
+
+Stretch decision (2026-07-12): skip the optional half-resolution bloom target.
+It would require a new render-graph resource and pass-lifecycle owner, new
+producer/consumer bindings, and an additional visual-baseline surface. That is
+not a trivial reuse of the volumetric target and would expand the binding pass
+roster that this plan explicitly keeps fixed. The required in-place tonemap
+cleanup captures the safe hot-path gain without adding that ownership risk.
 
 Minimum (required): hoist per-pixel `GetDimensions` into a texel-size uniform
 supplied by `BindTonemapPassParams`, and restructure `SampleBloom` so

@@ -116,10 +116,10 @@ uint64_t CinematicOverrideMaskForUIParam( UICinematicParam param )
     case UICinematicParam::StyleContrast:
     case UICinematicParam::StyleVignette:
         return SCENE_CINE_STYLE_GRADE;
-    case UICinematicParam::SunX:
-        return SCENE_CINE_SUN_SCREEN_X;
-    case UICinematicParam::SunY:
-        return SCENE_CINE_SUN_SCREEN_Y;
+    case UICinematicParam::SunAzimuth:
+        return SCENE_CINE_SUN_AZIMUTH;
+    case UICinematicParam::SunElevation:
+        return SCENE_CINE_SUN_ELEVATION;
     case UICinematicParam::SunBrightness:
         return SCENE_CINE_SUN_INTENSITY;
     case UICinematicParam::SunRed:
@@ -246,8 +246,8 @@ uint64_t CinematicOverrideMaskForUIFeature( UICinematicFeature feature )
 Vector3 CinematicSkySunDirection( const CinematicRenderConfig& cinematic )
 {
     constexpr float twoPi = 6.28318530718f;
-    const float azimuth = std::clamp( cinematic.sunScreenX, 0.0f, 1.0f ) * twoPi;
-    const float elevation = -0.08f + std::clamp( cinematic.sunScreenY, 0.0f, 1.0f ) * 1.13f;
+    const float azimuth = std::clamp( cinematic.sunAzimuth, 0.0f, 1.0f ) * twoPi;
+    const float elevation = -0.08f + std::clamp( cinematic.sunElevation, 0.0f, 1.0f ) * 1.13f;
     const float cosElevation = cosf( elevation );
     Vector3 direction( sinf( azimuth ) * cosElevation, sinf( elevation ), cosf( azimuth ) * cosElevation );
     direction.Normalise();
@@ -436,7 +436,7 @@ RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands( RuntimePr
                                                debug,
                                                context.graphicsReady ) )
         {
-            const bool shadowsActive = ActiveSceneCinematicConfig( context.scene, config ).shadowsEnabled;
+            const bool shadowsActive = ActiveSceneCinematicConfig( context.scene, config ).shadow.enabled;
             context.launchOptions.hasCinematicShadowsOverride = false;
             SetCinematicShadowsEnabledFromUI( ActiveSceneCinematicConfig( context.scene, config ),
                                               context.scene,
@@ -444,13 +444,13 @@ RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands( RuntimePr
         }
         else
         {
-            config.ordinaryRender.shadowsEnabled = !config.ordinaryRender.shadowsEnabled;
+            config.ordinaryRender.shadow.enabled = !config.ordinaryRender.shadow.enabled;
         }
         result.toggledSceneShadows = true;
     }
     if ( renderTuning.toggleShadows )
     {
-        config.ordinaryRender.shadowsEnabled = !config.ordinaryRender.shadowsEnabled;
+        config.ordinaryRender.shadow.enabled = !config.ordinaryRender.shadow.enabled;
         result.toggledRenderShadows = true;
     }
     if ( renderTuning.saveDefaults )
@@ -978,13 +978,13 @@ void ApplyCinematicUIParam( CinematicRenderConfig& cinematic,
         cinematic.styleVignette = clampValue( rawValue, 0.00f, 1.00f );
         scene.cinematicOverrideMask |= SCENE_CINE_STYLE_GRADE;
         break;
-    case UICinematicParam::SunX:
-        cinematic.sunScreenX = clampValue( rawValue, 0.00f, 1.00f );
-        scene.cinematicOverrideMask |= SCENE_CINE_SUN_SCREEN_X;
+    case UICinematicParam::SunAzimuth:
+        cinematic.sunAzimuth = clampValue( rawValue, 0.00f, 1.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_SUN_AZIMUTH;
         break;
-    case UICinematicParam::SunY:
-        cinematic.sunScreenY = clampValue( rawValue, 0.00f, 1.00f );
-        scene.cinematicOverrideMask |= SCENE_CINE_SUN_SCREEN_Y;
+    case UICinematicParam::SunElevation:
+        cinematic.sunElevation = clampValue( rawValue, 0.00f, 1.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_SUN_ELEVATION;
         break;
     case UICinematicParam::SunBrightness:
         cinematic.sunIntensity = clampValue( rawValue, 0.00f, 40.00f );
@@ -1217,7 +1217,7 @@ void SetCinematicShadowsEnabledFromUI( CinematicRenderConfig& cinematic, RunScen
     // now feeds normal rendering too. Toggling shadows from either the Options
     // tab or the Cine tab must therefore only touch the shadow flag and scene
     // override bits; it must not silently enable the HDR/post-processing stack.
-    cinematic.shadowsEnabled = enabled;
+    cinematic.shadow.enabled = enabled;
     scene.cinematicOverrideMask |= SCENE_CINE_SHADOWS;
     scene.uiCinematicOverrideMask |= SCENE_CINE_SHADOWS;
 }
@@ -1260,16 +1260,16 @@ void ApplyOrdinaryRenderUIParam( OrdinaryRenderConfig& ordinary, UIRenderParam p
         ordinary.groundAmbientB = std::clamp( rawValue, 0.0f, 1.5f );
         break;
     case UIRenderParam::ShadowStrength:
-        ordinary.shadowStrength = std::clamp( rawValue, 0.0f, 1.0f );
+        ordinary.shadow.strength = std::clamp( rawValue, 0.0f, 1.0f );
         break;
     case UIRenderParam::ShadowSoftness:
-        ordinary.shadowSoftness = std::clamp( rawValue, 0.25f, 4.0f );
+        ordinary.shadow.softness = std::clamp( rawValue, 0.25f, 4.0f );
         break;
     case UIRenderParam::ShadowDepthBias:
-        ordinary.shadowDepthBias = std::clamp( rawValue, 0.0f, 0.005f );
+        ordinary.shadow.depthBias = std::clamp( rawValue, 0.0f, 0.005f );
         break;
     case UIRenderParam::ShadowSlopeBias:
-        ordinary.shadowSlopeBias = std::clamp( rawValue, 0.0f, 0.005f );
+        ordinary.shadow.slopeBias = std::clamp( rawValue, 0.0f, 0.005f );
         break;
     case UIRenderParam::WaterRed:
         ordinary.waterTintR = std::clamp( rawValue, 0.0f, 1.5f );
@@ -1341,7 +1341,7 @@ void ToggleCinematicUIFeature( CinematicRenderConfig& cinematic, RunSceneState& 
         scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_RELIEF_ENABLED;
         break;
     case UICinematicFeature::Shadows:
-        SetCinematicShadowsEnabledFromUI( cinematic, scene, !cinematic.shadowsEnabled );
+        SetCinematicShadowsEnabledFromUI( cinematic, scene, !cinematic.shadow.enabled );
         break;
     default:
         break;

@@ -80,8 +80,8 @@ constexpr CinematicSliderSpec kCinematicSliderSpecs[] = {
     { nullptr, "Saturation", SkullbonezCore::UI::UICinematicParam::StyleSaturation, 0.00f, 2.50f, 0.01f, "%.2f" },
     { nullptr, "Contrast", SkullbonezCore::UI::UICinematicParam::StyleContrast, 0.00f, 2.50f, 0.01f, "%.2f" },
     { nullptr, "Vignette", SkullbonezCore::UI::UICinematicParam::StyleVignette, 0.00f, 1.00f, 0.01f, "%.2f" },
-    { "Sun", "Azimuth", SkullbonezCore::UI::UICinematicParam::SunX, 0.00f, 1.00f, 0.005f, "%.3f" },
-    { nullptr, "Elevation", SkullbonezCore::UI::UICinematicParam::SunY, 0.00f, 1.00f, 0.005f, "%.3f" },
+    { "Sun", "Azimuth", SkullbonezCore::UI::UICinematicParam::SunAzimuth, 0.00f, 1.00f, 0.005f, "%.3f" },
+    { nullptr, "Elevation", SkullbonezCore::UI::UICinematicParam::SunElevation, 0.00f, 1.00f, 0.005f, "%.3f" },
     { nullptr, "Brightness", SkullbonezCore::UI::UICinematicParam::SunBrightness, 0.00f, 40.00f, 0.10f, "%.1f" },
     { nullptr, "Sun R", SkullbonezCore::UI::UICinematicParam::SunRed, 0.00f, 2.00f, 0.01f, "%.2f" },
     { nullptr, "Sun G", SkullbonezCore::UI::UICinematicParam::SunGreen, 0.00f, 2.00f, 0.01f, "%.2f" },
@@ -293,10 +293,10 @@ float CinematicValueForParam( const CinematicRenderConfig& cinematic, Skullbonez
         return cinematic.styleContrast;
     case SkullbonezCore::UI::UICinematicParam::StyleVignette:
         return cinematic.styleVignette;
-    case SkullbonezCore::UI::UICinematicParam::SunX:
-        return cinematic.sunScreenX;
-    case SkullbonezCore::UI::UICinematicParam::SunY:
-        return cinematic.sunScreenY;
+    case SkullbonezCore::UI::UICinematicParam::SunAzimuth:
+        return cinematic.sunAzimuth;
+    case SkullbonezCore::UI::UICinematicParam::SunElevation:
+        return cinematic.sunElevation;
     case SkullbonezCore::UI::UICinematicParam::SunBrightness:
         return cinematic.sunIntensity;
     case SkullbonezCore::UI::UICinematicParam::SunRed:
@@ -446,7 +446,7 @@ bool CinematicFeatureEnabled( const CinematicRenderConfig& cinematic, Skullbonez
     case SkullbonezCore::UI::UICinematicFeature::TerrainRelief:
         return cinematic.terrainReliefEnabled;
     case SkullbonezCore::UI::UICinematicFeature::Shadows:
-        return cinematic.shadowsEnabled;
+        return cinematic.shadow.enabled;
     default:
         return false;
     }

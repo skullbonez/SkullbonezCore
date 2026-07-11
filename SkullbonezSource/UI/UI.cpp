@@ -2066,7 +2066,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                            scrolledY + UI_RENDER_FEATURE_START_Y,
                            colW,
                            "Shadows",
-                           data.ordinaryRender.shadowsEnabled );
+                           data.ordinaryRender.shadow.enabled );
         m_saveRenderDefaultsButton.SetBounds( contentX + contentW - UI_RENDER_SAVE_BUTTON_W,
                                               scrolledY + UI_RENDER_FEATURE_START_Y,
                                               UI_RENDER_SAVE_BUTTON_W,

@@ -91,7 +91,7 @@ concrete plan rows and counting it would duplicate tasks.
 | physics-authority-and-identity | 16 | 16 | 100% |
 | render-backend-decomposition | 8 | 8 | 100% |
 | stale-plan-reference-cleanup-15.6-checklist | 86 | 86 | 100% |
-| dx12-post-final-cleanup | 2 | 6 | 33% |
+| dx12-post-final-cleanup | 5 | 6 | 83% |
 | shader-pipeline-modernization | 0 | 8 | 0% |
 | render-visibility-architecture | 0 | 7 | 0% |
 | sim-render-interpolation | 0 | 5 | 0% |
@@ -101,7 +101,7 @@ concrete plan rows and counting it would duplicate tasks.
 | entity-model-endgame | 4 | 4 | 100% |
 | instant-prediction-velocity-chaos | 52 | 52 | 100% |
 | shadow-edge-quality | 0 | 5 | 0% |
-| **Portfolio total** | **231** | **276** | **84%** |
+| **Portfolio total** | **234** | **276** | **85%** |
 
 ## Current Execution Priority
 
@@ -182,7 +182,7 @@ Reconciliation notes live inside each plan.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [dx12-post-final-cleanup](TODO/dx12-post-final-cleanup.md) | Active | 2/6 | Phases 1-2 complete: dead post-shader paths deleted and the half-resolution volumetric pass is the sole sun march; bloom cleanup next |
+| [dx12-post-final-cleanup](TODO/dx12-post-final-cleanup.md) | Active | 5/6 | Phases 1-5 complete: post cost cleanup, named style domains, composed shadow policy, and sun vocabulary are validated; final audit/review/full gate next |
 | [shader-pipeline-modernization](TODO/shader-pipeline-modernization.md) | Planned | 0/8 | After A2, DX12 cleanup, and config decomposition; execute P0-P5 in order and record P5 before shadow S1; P6 is optional follow-up |
 | [render-visibility-architecture](TODO/render-visibility-architecture.md) | Planned | 0/7 | P0 instrumentation may start any time; implementation follows stable backend ownership and closes before shadow-quality implementation |
 | [sim-render-interpolation](TODO/sim-render-interpolation.md) | Planned | 0/5 | After entity-model closure and stable renderer ownership; P1 capture-determinism guard lands first |

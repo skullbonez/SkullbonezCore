@@ -80,6 +80,30 @@ struct SceneLightConfig
     float colorA = 1.0f;
 };
 
+// Value owner for one renderer profile's shadow-map policy. Ordinary and
+// cinematic rendering choose different strength/softness defaults, while the
+// field meanings, limits, and downstream frame contract remain identical.
+struct ShadowQualityConfig
+{
+    bool enabled;
+    bool terrainCasts;
+    bool objectsCast;
+    bool terrainReceives;
+    bool objectsReceive;
+    int mapSize;
+    int pcfRadius;
+    float strength;
+    float softness;
+    float depthBias;
+    float slopeBias;
+    float maxDistance;
+};
+
+inline constexpr ShadowQualityConfig MakeShadowQualityConfig( float strength, float softness )
+{
+    return { true, true, true, true, true, 2048, 1, strength, softness, 0.00005f, 0.00010f, 1500.0f };
+}
+
 struct OrdinaryRenderConfig
 {
     float sunIntensity = 2.20f;
@@ -94,18 +118,7 @@ struct OrdinaryRenderConfig
     float groundAmbientG = 0.10f;
     float groundAmbientB = 0.10f;
 
-    bool shadowsEnabled = true;
-    bool shadowTerrainCasts = true;
-    bool shadowObjectsCast = true;
-    bool shadowTerrainReceives = true;
-    bool shadowObjectsReceive = true;
-    int shadowMapSize = 2048;
-    int shadowPcfRadius = 1;
-    float shadowStrength = 0.25f;
-    float shadowSoftness = 1.05f;
-    float shadowDepthBias = 0.00005f;
-    float shadowSlopeBias = 0.00010f;
-    float shadowMaxDistance = 1500.0f;
+    ShadowQualityConfig shadow = MakeShadowQualityConfig( 0.25f, 1.05f );
 
     float waterTintR = 0.035f;
     float waterTintG = 0.135f;
@@ -119,6 +132,85 @@ struct OrdinaryRenderConfig
     float boxRoughnessScale = 1.08f;
     float boxSpecularScale = 0.82f;
 };
+
+// Style-mode value table shared by config defaults, authored scene/style data,
+// UI sliders, and shader uniforms. Names either match tracked style assets or
+// describe behavior implemented directly by the owning shader. Sky value 14 is
+// currently unassigned; sky values 21..32 remain parser/UI-compatible generic
+// fallbacks but have no tracked authored users or distinct shader behavior.
+namespace CinematicStyleMode
+{
+namespace Sky
+{
+inline constexpr int SunSky = 0;
+inline constexpr int Industrial = 1;
+inline constexpr int Studio = 2;
+inline constexpr int NeonCyberpunk = 3;
+inline constexpr int AlienPlanet = 4;
+inline constexpr int DesertStorm = 5;
+inline constexpr int Painterly = 6;
+inline constexpr int RetroFuture = 7;
+inline constexpr int AtmosphericFog = 8;
+inline constexpr int OceanWorld = 9;
+inline constexpr int SciFiTestChamber = 10;
+inline constexpr int LowPolyArt = 11;
+inline constexpr int MassiveScale = 12;
+inline constexpr int StormFront = 13;
+inline constexpr int TronGrid = 15;
+inline constexpr int Dreamscape = 16;
+inline constexpr int NordicWinter = 17;
+inline constexpr int AbstractRender = 18;
+inline constexpr int PixarInspired = 19;
+inline constexpr int OpenHorizon = 20;
+} // namespace Sky
+
+namespace Terrain
+{
+inline constexpr int TexturedWarm = 0;
+inline constexpr int WornIndustrial = 1;
+inline constexpr int PaleStudio = 2;
+inline constexpr int NeonGrid = 3;
+inline constexpr int AlienVeins = 4;
+inline constexpr int DesertSlope = 5;
+inline constexpr int Posterized = 6;
+inline constexpr int LowPolyBasin = 7;
+inline constexpr int DarkNeutral = 8;
+inline constexpr int CoolStone = 9;
+inline constexpr int SciFiGrid = 10;
+inline constexpr int NordicSnow = 11;
+inline constexpr int Photogrammetry = 12;
+inline constexpr int ChromaticBands = 13;
+inline constexpr int SoftIllustrated = 14;
+inline constexpr int SolidStudio = 15;
+} // namespace Terrain
+
+namespace Object
+{
+inline constexpr int BeachBall = 0;
+inline constexpr int Matte = 1;
+inline constexpr int Metal = 2;
+inline constexpr int Emissive = 3;
+inline constexpr int Fresnel = 4;
+inline constexpr int ToonBands = 5;
+inline constexpr int LowPoly = 6;
+inline constexpr int DarkRim = 7;
+inline constexpr int Foliage = 8;
+inline constexpr int Bark = 9;
+inline constexpr int Stone = 10;
+inline constexpr int Ridge = 11;
+inline constexpr int Sand = 12;
+inline constexpr int PineNeedles = 13;
+} // namespace Object
+
+namespace Water
+{
+inline constexpr int Off = 0;
+inline constexpr int Basin = 1;
+inline constexpr int Ocean = 2;
+inline constexpr int WetFloor = 3;
+inline constexpr int StylizedBasin = 4;
+} // namespace Water
+} // namespace CinematicStyleMode
 
 struct CinematicRenderConfig
 {
@@ -143,10 +235,10 @@ struct CinematicRenderConfig
     float exposure = 1.02f;
     float gamma = 1.50f;
 
-    // Legacy key names keep scene/config compatibility, but these are now
-    // normalized world-sky controls: X is azimuth, Y is elevation.
-    float sunScreenX = 0.50f;
-    float sunScreenY = 0.55f;
+    // Normalized world-sky angles. Legacy config/scene spellings
+    // `sunScreenX`/`sunScreenY` remain aliases at their parsing boundaries.
+    float sunAzimuth = 0.50f;
+    float sunElevation = 0.55f;
 
     // Sun/sky colors are deliberately allowed above normal 0..1 color in the
     // config parser. HDR values make bloom and tonemapping feel like hot sunlight.
@@ -193,20 +285,8 @@ struct CinematicRenderConfig
     float basinDepth = 48.0f;
     float basinRimLift = 32.0f;
 
-    // Real shadow-map controls. Shadows are the default path for generated and
-    // scene-authored rendering.
-    bool shadowsEnabled = true;
-    bool shadowTerrainCasts = true;
-    bool shadowObjectsCast = true;
-    bool shadowTerrainReceives = true;
-    bool shadowObjectsReceive = true;
-    int shadowMapSize = 2048;
-    int shadowPcfRadius = 1;
-    float shadowStrength = 0.58f;
-    float shadowSoftness = 1.0f;
-    float shadowDepthBias = 0.00005f;
-    float shadowSlopeBias = 0.00010f;
-    float shadowMaxDistance = 1500.0f;
+    // Shadows are the default path for generated and scene-authored rendering.
+    ShadowQualityConfig shadow = MakeShadowQualityConfig( 0.58f, 1.0f );
 
     // Fog/haze controls. Fog is applied from depth in post-processing, so it can
     // make distant terrain and balls disappear into warm sunset air.
@@ -221,10 +301,14 @@ struct CinematicRenderConfig
     // Art-direction presets used by the concept scene pack. These extend the
     // original golden-hour cinematic controls without turning the renderer into a
     // full material graph. Modes are consumed by reusable shaders.
-    int skyMode = 11;                  // 0=sun sky, 1=industrial, 2=studio, 3=neon, 4=alien, ...
-    int terrainMode = 7;               // 0=warm terrain, 1=industrial, 2=studio, 3=grid, ...
-    int objectStyle = 6;               // 0=beach ball, 1=matte, 2=metal, 3=emissive, ...
-    int waterMode = 4;                 // 0=off/none, 1=basin pool, 2=ocean, 3=wet floor
+    // Value tables live in CinematicStyleMode above. Sky uses authored values
+    // 0..13 and 15..20; terrain uses 0..15; top-level object styles use 0..7
+    // while shader material kinds extend through 13; water uses 0..4. Unknown
+    // sky/terrain/object values retain the shaders' generic fallback.
+    int skyMode = CinematicStyleMode::Sky::LowPolyArt;
+    int terrainMode = CinematicStyleMode::Terrain::LowPolyBasin;
+    int objectStyle = CinematicStyleMode::Object::LowPoly;
+    int waterMode = CinematicStyleMode::Water::StylizedBasin;
 
     float styleSaturation = 1.44f;
     float styleContrast = 1.34f;

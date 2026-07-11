@@ -308,18 +308,18 @@ SbResult SaveRenderDefaults( const OrdinaryRenderConfig& ordinary )
     setFloat( "ordinary_ground_ambient_r", ordinary.groundAmbientR, "%.2f" );
     setFloat( "ordinary_ground_ambient_g", ordinary.groundAmbientG, "%.2f" );
     setFloat( "ordinary_ground_ambient_b", ordinary.groundAmbientB, "%.2f" );
-    setBool( "ordinary_shadows", ordinary.shadowsEnabled );
-    setBool( "ordinary_shadow_terrain_casts", ordinary.shadowTerrainCasts );
-    setBool( "ordinary_shadow_objects_cast", ordinary.shadowObjectsCast );
-    setBool( "ordinary_shadow_terrain_receives", ordinary.shadowTerrainReceives );
-    setBool( "ordinary_shadow_objects_receive", ordinary.shadowObjectsReceive );
-    setInt( "ordinary_shadow_map_size", ordinary.shadowMapSize );
-    setInt( "ordinary_shadow_pcf_radius", ordinary.shadowPcfRadius );
-    setFloat( "ordinary_shadow_strength", ordinary.shadowStrength, "%.2f" );
-    setFloat( "ordinary_shadow_softness", ordinary.shadowSoftness, "%.2f" );
-    setFloat( "ordinary_shadow_depth_bias", ordinary.shadowDepthBias, "%.5f" );
-    setFloat( "ordinary_shadow_slope_bias", ordinary.shadowSlopeBias, "%.5f" );
-    setFloat( "ordinary_shadow_max_distance", ordinary.shadowMaxDistance, "%.1f" );
+    setBool( "ordinary_shadows", ordinary.shadow.enabled );
+    setBool( "ordinary_shadow_terrain_casts", ordinary.shadow.terrainCasts );
+    setBool( "ordinary_shadow_objects_cast", ordinary.shadow.objectsCast );
+    setBool( "ordinary_shadow_terrain_receives", ordinary.shadow.terrainReceives );
+    setBool( "ordinary_shadow_objects_receive", ordinary.shadow.objectsReceive );
+    setInt( "ordinary_shadow_map_size", ordinary.shadow.mapSize );
+    setInt( "ordinary_shadow_pcf_radius", ordinary.shadow.pcfRadius );
+    setFloat( "ordinary_shadow_strength", ordinary.shadow.strength, "%.2f" );
+    setFloat( "ordinary_shadow_softness", ordinary.shadow.softness, "%.2f" );
+    setFloat( "ordinary_shadow_depth_bias", ordinary.shadow.depthBias, "%.5f" );
+    setFloat( "ordinary_shadow_slope_bias", ordinary.shadow.slopeBias, "%.5f" );
+    setFloat( "ordinary_shadow_max_distance", ordinary.shadow.maxDistance, "%.1f" );
     setFloat( "ordinary_water_tint_r", ordinary.waterTintR, "%.3f" );
     setFloat( "ordinary_water_tint_g", ordinary.waterTintG, "%.3f" );
     setFloat( "ordinary_water_tint_b", ordinary.waterTintB, "%.3f" );
@@ -385,8 +385,10 @@ SbResult SaveSkyDefaults( const CinematicRenderConfig& cinematic )
     setBool( "cinematic_volumetric_lighting", cinematic.volumetricLightingEnabled );
     setFloat( "cinematic_exposure", cinematic.exposure, "%.2f" );
     setFloat( "cinematic_gamma", cinematic.gamma, "%.2f" );
-    setFloat( "cinematic_sun_screen_x", cinematic.sunScreenX, "%.3f" );
-    setFloat( "cinematic_sun_screen_y", cinematic.sunScreenY, "%.3f" );
+    // Compatibility: Save Defaults continues writing the established config
+    // keys so older tools and user files round-trip without migration.
+    setFloat( "cinematic_sun_screen_x", cinematic.sunAzimuth, "%.3f" );
+    setFloat( "cinematic_sun_screen_y", cinematic.sunElevation, "%.3f" );
     setFloat( "cinematic_sun_color_r", cinematic.sunColorR, "%.2f" );
     setFloat( "cinematic_sun_color_g", cinematic.sunColorG, "%.2f" );
     setFloat( "cinematic_sun_color_b", cinematic.sunColorB, "%.2f" );
