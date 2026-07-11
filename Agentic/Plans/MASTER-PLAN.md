@@ -44,6 +44,7 @@ re-scoped. Constituent history is in git history of the deleted files.
 | [editor-undo-redo](TODO/editor-undo-redo.md) | Planned | 0% | Fixed-capacity inverse-command history for editor mutations (place/delete/transform/params); gesture-coalesced entries; sequenced after interaction-state-machine P9. |
 | [data-format-versioning](TODO/data-format-versioning.md) | Planned | 0% | `formatVersion` stamping + Lane R future-version rejection for scene/assets/hull formats; missing field = v0; migration tool; sustaining rule in AGENTS.md. Land before/with runtime-shell D2 parser decision. |
 | [engine-config-decomposition](TODO/engine-config-decomposition.md) | Planned | 0% | Finish decomposing flat `EngineConfig` into owned domain structs; table-driven parse/dump; physics-default moves isolated behind `validate_physics`. Coordinates with dx12-post-final-cleanup Phase 5. |
+| [entity-model-endgame](TODO/entity-model-endgame.md) | Planned | 0% | Destination for the store migration per 2026-07-11 owner decisions: delete `GameModel`/`GameModelCollection` entirely, Run-owned `SimulationController` owns `PhysicsEngine` + fixed-step loop (resolves PHYS-004/009/020 and RUN-015), unified `EntityId` registry. Unblocks physics-authority-and-identity's blocker table. |
 | [fracture-replay-feature](TODO/fracture-replay-feature.md) | Backlog | 0% | Feature: GPU fracture with reversible replay; sequence after replay memory data-model decisions. |
 
 ## Retired in substance (no successor file)

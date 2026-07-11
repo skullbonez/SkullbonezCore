@@ -103,9 +103,13 @@ design; they gate A2/A3/C2:
 | PHYS-021/022 | `PhysicsWorld` hot scratch and contact/diagnostics coupling split follows PHYS-020. |
 | PHYS-012 | Capacity policy relocation is cosmetic until the storage split exists. |
 
-**Design decision needed before the next big slice:** who owns
-`PhysicsEngine` at runtime (a `Run`-owned physics owner? `PhysicsScene`
-promotion?). Decide once, then the blocked rows become mechanical.
+**Design decision resolved 2026-07-11:** the owner decided a new Run-owned
+`SimulationController` owns `PhysicsEngine` and the fixed-step loop, and
+`GameModel`/`GameModelCollection` are deleted entirely behind a unified
+`EntityId` registry. The blocked rows above are now mechanical; the
+destination and phase sequencing live in
+`Agentic/Plans/TODO/entity-model-endgame.md` (decisions are binding — do not
+re-litigate here).
 
 ## Acceptance (open items only)
 
