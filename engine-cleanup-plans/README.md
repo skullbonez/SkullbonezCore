@@ -30,7 +30,7 @@ spelling changes are not architecture evidence.
 
 ## Current Campaign File
 
-[`15-review-gaps.md`](15-review-gaps.md) maps external-review findings to their
+The [aggregate closure report](../Agentic/Reports/2026-07-12/engine-cleanup-aggregate-closure.md) maps external-review findings to their
 owning TODO plans and carries the remaining 15.6 comment-reference cleanup.
 
 Owner decisions recorded in

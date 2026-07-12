@@ -20,7 +20,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderHost.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "RuntimeRenderHost.h"
 #include "../../Core/FatalError.h"

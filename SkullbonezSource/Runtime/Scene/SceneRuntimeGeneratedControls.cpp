@@ -22,12 +22,12 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.h
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "SceneRuntimeGeneratedControls.h"
 #include "SceneController.h"
 #include "../Tools/RuntimeTools.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "SceneController.h"
 #include "../../Physics/SimulationSystem.h"
 #include "../../Rendering/IRenderDeviceLifecycle.h"
 
@@ -126,8 +126,8 @@ SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride( SceneRuntimeGenera
 
     const unsigned int seed = context.scene.rngSeed > 0 ? context.scene.rngSeed : 1u;
     context.scene.rngState = seed;
-    const SbResult setupResult = SceneGeneratedSetup::SetUpGameModels( BuildGeneratedModelContext( context ),
-                                                                       context.uiOverrides.modelCountOverride );
+    const SbResult setupResult = SceneGeneratedSetup::SetUpSceneEntities( BuildGeneratedModelContext( context ),
+                                                                          context.uiOverrides.modelCountOverride );
     if ( !setupResult.ok )
     {
         LogGeneratedControlFailure( setupResult );

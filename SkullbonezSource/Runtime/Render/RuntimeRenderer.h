@@ -30,7 +30,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
   - SkullbonezSource/Runtime/RunRender.cpp
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once
 
@@ -51,13 +51,17 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace GameObjects
+namespace Basics
 {
-class GameModelCollection;
+class SceneController;
 }
 namespace Physics
 {
 class PhysicsEngine;
+}
+namespace Threading
+{
+class WorkerPool;
 }
 namespace Basics
 {
@@ -69,7 +73,6 @@ class RuntimeRenderer
         const char* phaseName = nullptr;
         Rendering::IRenderDeviceLifecycle* deviceLifecycle = nullptr;
         Rendering::IRenderResourceFactory* renderResources = nullptr;
-        GameObjects::GameModelCollection& models;
         UI::InGameUI& ui;
         RuntimeTools& tools;
     };
@@ -83,13 +86,14 @@ class RuntimeRenderer
         // presentation prep has its own renderer snapshot owner. Deletion
         // condition: remove this borrow when model prep moves behind that owner.
         // Checker budget: RenderFrameEntry may use it only for PrepareRenderInstances().
-        GameObjects::GameModelCollection& renderModelOwner;
+        Basics::SceneController& renderModelOwner;
         Physics::PhysicsEngine& physics;
         UI::InGameUI& ui;
         RuntimeRenderFramePolicy framePolicy;
         const RenderReplayOverlayView& replayOverlay;
         const RenderToolOverlayView& toolOverlay;
         const CinematicRenderConfig& cinematic;
+        float presentationAlpha = 1.0f;         // Exact solver state is 1; live frames may use the accumulator fraction.
         bool cinematicRequested = false;
         bool consequenceGradeRequested = false; // True while replay prediction should fade into the causality look.
     };
@@ -108,6 +112,7 @@ class RuntimeRenderer
     void SetVsyncEnabled( bool enabled );
     bool PipelineSyncEnabled() const;
     void SetPipelineSyncEnabled( bool enabled );
+    void ResetSceneRuntimePolicyFromConfig();
     // Returns a read-only visual-style snapshot. Callers edit a copy and commit
     // it through SetTornadoVisualSettings so unrelated presentation fields stay hidden.
     const TornadoVisualSettings& TornadoVisualSettingsSnapshot() const;
@@ -117,8 +122,10 @@ class RuntimeRenderer
 
     void EnsureFrameResources( const RenderResourceContext& resources );
     // Packages model-owned render/debug views before the frame passes consume them.
-    RuntimeRenderModelFrameView BuildModelFrameView( GameObjects::GameModelCollection& models,
-                                                     Physics::PhysicsEngine& physics ) const;
+    RuntimeRenderModelFrameView BuildModelFrameView( Basics::SceneController& scene,
+                                                     Physics::PhysicsEngine& physics,
+                                                     Threading::WorkerPool& workerPool,
+                                                     const EngineConfig& config ) const;
     void RenderFrameEntry( const FrameEntryContext& context );
     void RenderFrame( const RuntimeRenderInputs& renderInputs );
     void ReleaseBackendOwnedResources( Rendering::IRenderResourceFactory* renderResources );
@@ -127,6 +134,10 @@ class RuntimeRenderer
                                          Rendering::IRenderCommandContext& renderCommands,
                                          const EngineConfig& config,
                                          bool dumpTextureAssets );
+    // Scene activation asks the renderer to warm its optional ray-tracing
+    // geometry. Scene code supplies only the backend facets and capacity value;
+    // mesh selection, capability checks, and DXR initialization stay here.
+    SbResult InitialiseSceneRayTracing( const RuntimeRenderBackendView& backend, int modelCapacity );
     // Projects framebuffer metadata into values safe for the UI to retain for
     // the current draw; no framebuffer or pass-resource ownership escapes.
     RuntimeRenderTargetPreviewSnapshot BuildRenderTargetPreviewSnapshot( bool shadowsAvailable,
@@ -236,6 +247,7 @@ class RuntimeRenderer
                                            bool useCinematicTarget,
                                            const CinematicRenderConfig* activeCinematic,
                                            const Rendering::ShadowFrameData* terrainShadow,
+                                           const Rendering::ShadowFrameData* objectShadow,
                                            bool terrainHidden );
     bool ExecuteWaterThroughRenderGraph( const RenderFrameContext& frame,
                                          const ReflectionPassOutput& reflection,

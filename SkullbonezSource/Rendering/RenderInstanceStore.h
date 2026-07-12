@@ -23,6 +23,8 @@ Glossary:
   Shape kind: Cheap render-facing discriminator copied from collider metadata.
   RenderSceneSnapshot: Future immutable frame input consumed by render passes.
   Replay body id: Stable per-scene id shared with physics/replay records.
+  Pose history: Previous/current completed solver endpoints stored in the
+    existing fixed-capacity instance row for allocation-free presentation.
 
 Invariants:
   - Instance order mirrors scene/model slot order so draw order stays stable.
@@ -31,6 +33,7 @@ Invariants:
   - Store refreshes do not touch GPU resources or renderer lifetime.
   - Scene creation appends presentation, instance, and handle rows together
     only after the caller has preflighted the cross-owner transaction.
+  - A discontinuity collapses both pose endpoints before it can be rendered.
 
 Related:
   - SkullbonezSource/Rendering/RenderInstanceStore.cpp
@@ -43,16 +46,13 @@ Related:
 #include <vector>
 
 #include "../Maths/Matrix4.h"
+#include "../Maths/Quaternion.h"
 #include "RenderMaterial.h"
 
 namespace SkullbonezCore
 {
 namespace Math
 {
-namespace Orientation
-{
-class Quaternion;
-}
 namespace Vector
 {
 class Vector3;
@@ -119,6 +119,14 @@ struct RenderInstanceRecord
     bool isFixed = false;                                                // Fixed bodies can receive contact-highlight tinting.
     float fixedContactAlpha = 0.0f;                                      // Render-only red contact feedback strength.
     float audioContactAlpha = 0.0f;                                      // Render-only white audio-emitter feedback strength.
+    Math::Vector::Vector3 previousPosition =
+        Math::Vector::ZERO_VECTOR;                                       // Solver pose before the latest completed fixed tick.
+    Math::Vector::Vector3 currentPosition = Math::Vector::ZERO_VECTOR;   // Solver pose after the latest completed fixed tick.
+    Math::Orientation::Quaternion previousOrientation =
+        Math::Orientation::IDENTITY_QUATERNION;                          // Orientation paired with previousPosition.
+    Math::Orientation::Quaternion currentOrientation =
+        Math::Orientation::IDENTITY_QUATERNION;                          // Orientation paired with currentPosition.
+    bool poseHistoryValid = false;                                       // Both endpoints belong to this live body row.
 };
 
 struct RenderInstancePresentationRecord
@@ -128,6 +136,8 @@ struct RenderInstancePresentationRecord
     bool simpleRagdollPart = false;                                      // Replay ghost filter metadata copied from scene grouping.
     float fixedContactAlpha = 0.0f;                                      // Render-only red contact feedback strength.
     float audioContactAlpha = 0.0f;                                      // Render-only white audio-emitter feedback strength.
+    float fixedContactSeconds = 0.0f;                                    // Seconds remaining for fixed-body contact feedback.
+    float audioContactSeconds = 0.0f;                                    // Seconds remaining for contact-audio feedback.
 };
 
 class RenderInstanceStore
@@ -147,15 +157,26 @@ class RenderInstanceStore
     RenderInstancePresentationRecord* MutablePresentationRecordForModelIndex( int modelIndex );
     const std::vector<RenderInstancePresentationRecord>& PresentationRecords() const;
     int PresentationCount() const;
+    std::size_t PresentationCapacity() const;
+    uint64_t PresentationCapacityBytes() const;
+    void NotifyFixedContact( int modelIndex, float highlightSeconds );
+    void NotifyAudioContact( int modelIndex, float highlightSeconds );
+    void TickContactFeedback( int modelCount, float deltaSeconds );
     void Clear();
-    void Refresh( const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore );
+    void BeginPhysicsStepPoseCapture( const Physics::PhysicsBodyStore& bodyStore );
+    void CompletePhysicsStepPoseCapture( const Physics::PhysicsBodyStore& bodyStore );
+    void Refresh( const Physics::PhysicsBodyStore& bodyStore,
+                  const Physics::ColliderStore& colliderStore,
+                  float presentationAlpha = 1.0f );
     void Refresh( const std::vector<RenderInstancePresentationRecord>& presentation,
                   const Physics::PhysicsBodyStore& bodyStore,
-                  const Physics::ColliderStore& colliderStore );
+                  const Physics::ColliderStore& colliderStore,
+                  float presentationAlpha = 1.0f );
     void Refresh( const RenderInstancePresentationRecord* presentation,
                   int presentationCount,
                   const Physics::PhysicsBodyStore& bodyStore,
-                  const Physics::ColliderStore& colliderStore );
+                  const Physics::ColliderStore& colliderStore,
+                  float presentationAlpha = 1.0f );
     // Applies a one-frame presentation pose, such as replay scrub/prediction,
     // without writing that pose into PhysicsBodyStore or authoring storage.
     bool OverridePose( int modelIndex,
@@ -163,6 +184,10 @@ class RenderInstanceStore
                        const Math::Vector::Vector3& position,
                        const Math::Orientation::Quaternion& orientation,
                        const Physics::ColliderStore& colliderStore );
+    bool TryGetPresentationPose( int modelIndex,
+                                 float presentationAlpha,
+                                 Math::Vector::Vector3& outPosition,
+                                 Math::Orientation::Quaternion& outOrientation ) const;
 
     const RenderInstanceRecord* Data() const;
     int Count() const;

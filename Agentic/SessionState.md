@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-11
+Date: 2026-07-12
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -10,45 +10,31 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `main`, tracking `origin/main` |
-| Current pushed baseline | `8fbd206e Merge pull request #113 from skullbonez/claude/directx-12-rendering-review-wolqlc` |
-| Current objective | Restore the cold-start native cursor, then add a selected-ball/live-simulation path perf regression before resuming instant prediction |
-| Portfolio progress | 166 / 274 tasks = 61% overall |
-| Last broad local gate | `tools\validate_full.bat` passed the cold-start cursor fix on 2026-07-11 in about 139s: every CPU target, 131/131 doctest cases with 2,818 assertions, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, handle smoke, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | Runtime/Input cursor hotfix passed `tools\validate_full.bat`; documentation-only governance edits require no additional validation |
+| Branch | `nightrunner-11th-july` |
+| Current pushed baseline | Aggregate engine-cleanup closure is validated at the current branch tip; the prior pushed baseline was `5649a876` |
+| Current objective | Validation-gate V3 is blocked on external GitHub administration and trusted/ephemeral DX12 runner infrastructure |
+| Portfolio progress | 275 / 276 tasks = 100% rounded overall |
+| Last broad local gate | `tools\\validate_full.bat` passed final aggregate source on 2026-07-12: formatting/metadata clean, every CPU lane passed (173 doctest cases, 3,964 assertions), zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
+| Validation for current edits | Independent aggregate and narrow repeat reviews are clear; explicit DX12, one-minute graphics stress, perf, focused broadphase/capacity tests, comment audit, and full gate all pass. |
 
 ## Live Queue
 
-1. `instant-prediction-velocity-chaos` is important owner-priority live work.
-   It remains in `Plans/TODO/`; its execution checklist is at 1/50 preparation
-   items. Deliver phases 1-3 first, then the chaos scene, UX, validation, and
-   closure. Never pause or park it without an explicit owner directive.
-2. Prepare the engine-cleanup aggregate review in parallel with prediction;
-   fix findings, pass the closure gate, and delete all eight retained completed
-   plans.
-3. After prediction, close `entity-model-endgame` before dependent features
-   retain obsolete `GameModel`/`GameModelCollection` identities or APIs.
-4. Continue the binding path recorded in MASTER: render A1-A2, DX12 cleanup,
-   config decomposition, shader P0-P5, visibility, shadows, interpolation,
-   editor undo/redo, then data-format versioning. Phase-level preparation and
-   dependency barriers are authoritative in MASTER and the owning plans.
-5. Validation-gate V3 remains an external parallel lane at 5/6. The hosted CPU PR lane
-   has a successful real run. Remaining work is a `merge_group` proof, required
-   `main` branch protection, and trusted DX12-runner administration. Persistent
-   self-hosted DX12 stays trusted-main/manual only; public-PR GPU evidence needs
-   an ephemeral isolated runner.
+1. Validation-gate V3 is externally blocked at 5/6. The hosted CPU
+   PR lane has a successful real run. Remaining work is a `merge_group` proof,
+   required `main` branch protection, and trusted DX12-runner administration.
+   Persistent self-hosted DX12 stays trusted-main/manual only; public-PR GPU
+   evidence needs an ephemeral isolated runner.
 
 ## Current Plan Decisions
 
 - `Plans/TODO/` contains live implementation work.
 - `Plans/WNF/` contains only owner-parked “will not do now” work and is ignored
   unless the owner explicitly restores a plan to `TODO/`.
-- `instant-prediction-velocity-chaos` is explicitly live and is not a WNF plan.
 - The MASTER critical path is binding; preparation may run early only where it
   is explicitly named, and no work crosses a recorded dependency barrier.
-- Every commit and plan-implementation prompt starts with the resolved MASTER
-  progress header: plan name, completed plan tasks, and rounded overall
-  portfolio completion.
+- Every plan-runner commit and plan-implementation prompt starts with the
+  resolved MASTER progress header: plan name, completed plan tasks, and rounded
+  overall portfolio completion. Ordinary commits do not claim plan progress.
 - A completed plan may remain in the tip tree only when MASTER explicitly marks
   it as evidence for an unmet aggregate closure gate; it is deleted when that
   gate passes.
@@ -75,9 +61,24 @@ plan inventory.
   `Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md`.
 - Physics authority closure evidence:
   `Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md`.
+- Entity-model closure evidence:
+  `Agentic/Reports/2026-07-11/entity-model-endgame-closure.md`.
+- Render-backend closure evidence:
+  `Agentic/Reports/2026-07-12/render-backend-decomposition-closure.md`.
+- DX12 post-cleanup closure evidence:
+  `Agentic/Reports/2026-07-12/dx12-post-final-cleanup-closure.md`.
+- Engine-config closure evidence:
+  `Agentic/Reports/2026-07-12/engine-config-decomposition-closure.md`.
+- Shader-pipeline closure evidence:
+  `Agentic/Reports/2026-07-12/shader-pipeline-modernization-closure.md`.
+- Render-visibility closure evidence:
+  `Agentic/Reports/2026-07-12/render-visibility-architecture-closure.md`.
+- Shadow-quality closure evidence:
+  `Agentic/Reports/2026-07-12/shadow-edge-quality-closure.md`.
+- Simulation/render interpolation closure evidence:
+  `Agentic/Reports/2026-07-12/sim-render-interpolation-closure.md`.
 
 ## Next Handoff
 
-Use `Agentic/Plans/MASTER-PLAN.md` for selection and the repo-local orchestrator
-skill when implementing a plan. Do not infer that owner-priority prediction work
-is paused merely because another implementation slice runs first.
+Use `Agentic/Plans/MASTER-PLAN.md` for selection. No viable local implementation
+work remains; V3 resumes when the required GitHub and runner authority exists.

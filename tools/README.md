@@ -125,6 +125,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 |--------|---------|
 | `refresh_hulls.bat` | Rewrite every committed convex hull asset from source geometry, then verify the result |
 | `bake_hulls.bat --check\|--write` | Check or rewrite serialized convex hull v2 runtime data from source geometry |
+| `migrate_data_formats.py --check\|--write` | Check or upgrade asset-library, hull, and engine-config files to their current owned versions |
 | `validate_format.bat` | Check clang-format compliance without auto-fixing |
 | `format_fix.bat` | Auto-fix formatting in-place |
 | `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Release`) |
@@ -161,6 +162,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `check_physics_regression.py` | Byte-exact core physics CSV diff, with `--deep` for the broader CSV set |
 | `update_baselines.bat` | Copy current Profile visual/perf artifacts into `TestOutput\baselines`; do not use for physics CSV or SkullScope baselines |
 | `archive_validation_artifacts.bat` | Archive current Profile artifacts under `TestOutput\NNN_<commit>` |
+| `bake_shaders.bat` | Bake all shipping raster/compute shaders with pinned DXC and generate fixed reflection POD metadata; `--check` verifies bytecode, hashes, and metadata freshness |
 
 `validate_perf.bat` is a hard gate: baseline regressions and
 `check_perf_budgets.py` absolute-budget failures return nonzero. Do not treat

@@ -21,7 +21,7 @@
 // Related:
 //   - SkullbonezSource/Scene/TestScene.h
 //   - SkullbonezSource/Scene/TestSceneParser.cpp
-//   - Agentic/Plans/TODO/behavioral-test-depth.md
+//   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -41,6 +41,8 @@ using SkullbonezCore::Basics::TestScene;
 namespace
 {
 constexpr const char* kSmallestCommittedScenePath = "SkullbonezData/scenes/terrain_compare.scene.json";
+constexpr const char* kVersionedAssetScene =
+    R"({"format":"skullbonez.scene.json","version":2,"physics":false,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"assetLibraries":["unit_versioned.assets.json"]})";
 
 struct TemporaryMalformedSceneFile
 {
@@ -184,6 +186,40 @@ TEST_CASE( "TestSceneParser: unknown asset instance reports recoverable load fai
     CheckLoadFailure( TestScene::TryLoadFromFile( unknownAsset.path, scene ),
                       unknownAsset.path,
                       "Unknown asset instance reference" );
+}
+
+
+TEST_CASE( "TestSceneParser: legacy and current asset-library versions load" )
+{
+    const TemporaryMalformedSceneFile sceneFile( "unit_versioned_asset.scene.json", kVersionedAssetScene );
+
+    {
+        const TemporaryMalformedSceneFile legacyLibrary( "unit_versioned.assets.json",
+                                                         R"({"format":"skullbonez.asset_library.json","assets":[]})" );
+        TestScene scene;
+        CHECK( TestScene::TryLoadFromFile( sceneFile.path, scene ).ok );
+    }
+    {
+        const TemporaryMalformedSceneFile currentLibrary(
+            "unit_versioned.assets.json",
+            R"({"format":"skullbonez.asset_library.json","version":1,"assets":[]})" );
+        TestScene scene;
+        CHECK( TestScene::TryLoadFromFile( sceneFile.path, scene ).ok );
+    }
+}
+
+
+TEST_CASE( "TestSceneParser: future asset-library version is a named recoverable failure" )
+{
+    const TemporaryMalformedSceneFile sceneFile( "unit_versioned_asset.scene.json", kVersionedAssetScene );
+    const TemporaryMalformedSceneFile futureLibrary(
+        "unit_versioned.assets.json",
+        R"({"format":"skullbonez.asset_library.json","version":2,"assets":[]})" );
+
+    TestScene scene;
+    CheckLoadFailure( TestScene::TryLoadFromFile( sceneFile.path, scene ),
+                      futureLibrary.path,
+                      "version 2 is newer than current version 1" );
 }
 
 

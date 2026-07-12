@@ -20,7 +20,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeCreate.cpp
   - SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.h
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once
 

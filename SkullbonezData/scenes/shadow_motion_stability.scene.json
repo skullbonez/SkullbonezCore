@@ -1,0 +1,105 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {
+    "rendering": true,
+    "shadows": true,
+    "shadowMapSize": 2048,
+    "shadowPcfRadius": 1,
+    "shadowStrength": 0.7,
+    "shadowSoftness": 1.0,
+    "shadowDepthBias": 5e-05,
+    "shadowSlopeBias": 0.0001,
+    "shadowMaxDistance": 1400.0
+  },
+  "simulation": {
+    "seed": 6210,
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": -500.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": false
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": 36,
+    "exitOnComplete": true
+  },
+  "capture": {
+    "screenshot": {
+      "path": "Profile/shadow_motion_stability.bmp",
+      "frame": 36
+    },
+    "interval": {
+      "dir": "TestOutput/shadow_motion_sequence",
+      "frames": 1
+    }
+  },
+  "logging": {
+    "perfLog": "Profile/shadow_motion_stability_perf_log.csv",
+    "perfLogFlush": false,
+    "perfLogFlushInterval": 0
+  },
+  "debug": {
+    "waterHidden": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 30.0,
+      "slopeX": 0.45,
+      "slopeZ": 0.0
+    }
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        650,
+        390,
+        860
+      ],
+      "view": [
+        500,
+        325,
+        620
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "rolling_shadow_ball",
+      "position": [
+        620,
+        333.0,
+        620
+      ],
+      "radius": 24.0,
+      "mass": 120.0,
+      "moment": 24.0,
+      "restitution": 0.35,
+      "fixed": false,
+      "force": [
+        0,
+        0,
+        0
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

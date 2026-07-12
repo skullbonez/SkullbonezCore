@@ -30,12 +30,13 @@
       "name": "lit_textured",
       "status": "active",
       "stages": ["hlsl"],
-      "uniforms": ["uModel", "uView", "uProjection", "uClipPlane", "uLightPosition", "uLightAmbient", "uLightDiffuse", "uMaterialAmbient", "uMaterialDiffuse", "uCinematicTerrain", "uCinematicBasin", "uStyleModes", "uTerrainTint", "uTerrainAccent", "uTerrainGrid", "uShadowViewProj", "uShadowParams", "uShadowFlags"],
+      "uniforms": ["uModel", "uView", "uProjection", "uClipPlane", "uLightPosition", "uLightAmbient", "uLightDiffuse", "uMaterialAmbient", "uMaterialDiffuse", "uCinematicTerrain", "uCinematicBasin", "uStyleModes", "uTerrainTint", "uTerrainAccent", "uTerrainGrid", "uShadowViewProj", "uShadowParams", "uShadowFlags", "uDetailShadowViewProj", "uDetailShadowParams", "uDetailShadowFlags"],
       "resources": [
         { "name": "uTexture", "type": "Texture2D", "registerClass": "t", "slot": 0 },
-        { "name": "uShadowMap", "type": "Texture2D", "registerClass": "t", "slot": 3 }
+        { "name": "uShadowMap", "type": "Texture2D", "registerClass": "t", "slot": 3 },
+        { "name": "uDetailShadowMap", "type": "Texture2D", "registerClass": "t", "slot": 5 }
       ],
-      "requiredSymbols": ["uModel", "uView", "uProjection", "uTexture", "uShadowMap"]
+      "requiredSymbols": ["uModel", "uView", "uProjection", "uTexture", "uShadowMap", "uDetailShadowMap"]
     },
     {
       "name": "lit_textured_instanced",

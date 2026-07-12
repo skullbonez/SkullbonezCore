@@ -28,6 +28,7 @@ Related:
 #include "UIStyle.h"
 
 #include <algorithm>
+#include <cstdio>
 
 using namespace SkullbonezCore::UI::Layout;
 using namespace SkullbonezCore::UI::Widgets;
@@ -40,6 +41,7 @@ constexpr float EDITOR_PLACE_TOGGLE_Y = 76.0f;
 constexpr float EDITOR_STATIC_TOGGLE_Y = 110.0f;
 constexpr float EDITOR_OBJECT_COMBO_Y = 154.0f;
 constexpr float EDITOR_STATUS_Y = 194.0f;
+constexpr float EDITOR_HISTORY_STATUS_Y = 222.0f;
 
 const char* const kEditorObjectOptions[] = {
     "Box",
@@ -253,6 +255,18 @@ void Draw( UIEditorTabState& state,
                       palette.accentStrong.r,
                       palette.accentStrong.g,
                       palette.accentStrong.b );
+    char historyText[64];
+    snprintf( historyText, sizeof( historyText ), "%d undo / %d redo", data.editorUndoDepth, data.editorRedoDepth );
+    DrawLabelValueAt( draw,
+                      contentY,
+                      contentH,
+                      contentX,
+                      scrolledY + EDITOR_HISTORY_STATUS_Y,
+                      "History",
+                      historyText,
+                      palette.textMuted.r,
+                      palette.textMuted.g,
+                      palette.textMuted.b );
 }
 
 } // namespace EditorTab

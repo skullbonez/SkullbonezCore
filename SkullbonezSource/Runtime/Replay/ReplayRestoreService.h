@@ -40,12 +40,11 @@ Related:
 #include "../Scene/SceneController.h"
 #include "../Scene/SceneRuntime.h"
 #include "../Tools/RuntimeTools.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "../Scene/SceneController.h"
 #include "../../Core/FatalError.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
-#include "../../Physics/PhysicsEngineStoreQueries.h"
 #include "../../Physics/PhysicsHandles.h"
 #include "../../World/WorldEnvironment.h"
 
@@ -142,7 +141,7 @@ class ReplayRestoreService
 
         const int restoreModelCount = static_cast<int>( sample.bodies.size() );
         ResolvedBodyTable resolvedBodies{};
-        if ( !ResolveBodiesForRestore( Physics::PhysicsEngineStoreQueries::BodyStore( context.physics ),
+        if ( !ResolveBodiesForRestore( Physics::PhysicsEngine::ReadBodies( context.physics ),
                                        sample,
                                        resolvedBodies,
                                        outReason,
@@ -156,7 +155,7 @@ class ReplayRestoreService
             WriteReason( outReason, reasonSize, "failed to trim live model list" );
             return false;
         }
-        context.scene.ResetSceneObjectIdCursor( Physics::PhysicsEngineStoreQueries::BodyStore( context.physics ) );
+        context.scene.ResetSceneObjectIdCursor( Physics::PhysicsEngine::ReadBodies( context.physics ) );
 
         for ( std::size_t bodyIndex = 0; bodyIndex < sample.bodies.size(); ++bodyIndex )
         {

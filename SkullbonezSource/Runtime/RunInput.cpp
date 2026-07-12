@@ -71,7 +71,7 @@ void InputRouter::ApplyInteractionTransitionCleanup( const RuntimeInteractionTra
                                                      RuntimeInteractionController& interaction,
                                                      SkullbonezCore::Environment::CameraCollection& cameras,
                                                      SkullbonezCore::Geometry::Terrain* terrain,
-                                                     SkullbonezCore::GameObjects::GameModelCollection& models,
+                                                     SkullbonezCore::Basics::SceneController& models,
                                                      PhysicsEngine& physics,
                                                      RunCameraState& camera,
                                                      RunCameraMode replayRestoreCameraMode,
@@ -144,7 +144,7 @@ void InputRouter::ApplyInteractionTransition( const RuntimeInteractionTransition
                                               RuntimeInteractionController& interaction,
                                               SkullbonezCore::Environment::CameraCollection& cameras,
                                               SkullbonezCore::Geometry::Terrain* terrain,
-                                              SkullbonezCore::GameObjects::GameModelCollection& models,
+                                              SkullbonezCore::Basics::SceneController& models,
                                               PhysicsEngine& physics,
                                               RunCameraState& camera,
                                               RunCameraMode replayRestoreCameraMode,
@@ -201,7 +201,7 @@ InputRouter::SetWorldInteractionOwner( WorldInteractionOwner owner,
                                        RuntimeInteractionController& interaction,
                                        SkullbonezCore::Environment::CameraCollection& cameras,
                                        SkullbonezCore::Geometry::Terrain* terrain,
-                                       SkullbonezCore::GameObjects::GameModelCollection& models,
+                                       SkullbonezCore::Basics::SceneController& models,
                                        PhysicsEngine& physics,
                                        RunCameraState& camera,
                                        RunCameraMode replayRestoreCameraMode,
@@ -256,7 +256,7 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
                                                             AttachedCameraController& attachedCamera,
                                                             RuntimeInteractionController& interaction,
                                                             SceneEntityStore& entities,
-                                                            GameObjects::GameModelCollection& models,
+                                                            Basics::SceneController& models,
                                                             PhysicsEngine& physics,
                                                             RunSceneState& scene,
                                                             Environment::WorldEnvironment& world,
@@ -468,7 +468,7 @@ void InputRouter::ApplyCameraMode( RunCameraState& camera,
 
     if ( mode == RunCameraMode::Demo )
     {
-        const int modelCount = m_sceneController.Models().SceneEntityCount();
+        const int modelCount = m_sceneController.SceneEntityCount();
         if ( !m_camera.trackBallRow.IsValid() || m_camera.trackBallRow.value >= modelCount )
         {
             m_camera.trackBallRow.value = 0;
@@ -491,7 +491,7 @@ void InputRouter::ApplyCameraMode( RunCameraState& camera,
         m_interaction,
         m_sceneController.Cameras(),
         m_sceneController.Terrain().Get(),
-        m_sceneController.Models(),
+        m_sceneController,
         m_sceneController.Physics(),
         m_camera,
         NormalizeRuntimeCameraMode( m_replayRuntime.Camera().restoreCameraMode, authoredScene, enabledMask ),
@@ -555,7 +555,7 @@ void InputRouter::ApplyCameraMode( RunCameraState& camera,
     {
         int seedIndex = -1;
         const RunReplayPathVisualizerState& path = m_replayRuntime.PathVisualizer();
-        const PhysicsBodyStore& bodyStore = m_sceneController.Models().BodyStore();
+        const PhysicsBodyStore& bodyStore = m_sceneController.BodyStore();
         const int modelCount = bodyStore.Count();
         if ( path.hasTarget && path.targetModelRow.value >= 0 && path.targetModelRow.value < modelCount )
         {
@@ -571,10 +571,8 @@ void InputRouter::ApplyCameraMode( RunCameraState& camera,
         }
 
         AttachedCameraTargetSelection selection;
-        const AttachedCameraSeedResult seedResult = m_attachedCamera.SeedTarget( m_sceneController.Models(),
-                                                                                 m_sceneController.Cameras(),
-                                                                                 seedIndex,
-                                                                                 selection );
+        const AttachedCameraSeedResult seedResult =
+            m_attachedCamera.SeedTarget( m_sceneController, m_sceneController.Cameras(), seedIndex, selection );
         if ( seedResult == AttachedCameraSeedResult::SelectedSeed )
         {
             RuntimeInteractionCommand command;
@@ -583,7 +581,7 @@ void InputRouter::ApplyCameraMode( RunCameraState& camera,
             command.collider = selection.collider;
             command.selectionScope = RuntimeInteractionSelectionScope::Inspect;
             command.claimSelectionOwner = false;
-            m_runtimeTools.ApplySelectionCommand( command, m_sceneController.Models() );
+            m_runtimeTools.ApplySelectionCommand( command, m_sceneController );
         }
         if ( seedResult != AttachedCameraSeedResult::Failed )
         {
@@ -702,7 +700,7 @@ bool InputRouter::HandleUnfocusedFrame( RuntimeInputContext& runtimeInput,
     replayRuntime.VelocityEdit().hotAngularAxis = -1;
     runtimeTools.CancelMousePickup( *this, interaction );
     RunInternal::ResetEditorUnfocusedInputState(
-        { runtimeTools.Editor(), sceneController.Models(), sceneController.Physics(), interaction } );
+        { runtimeTools.Editor(), sceneController, sceneController.Physics(), interaction } );
     InputController::ResetUnfocusedInput( camera );
     InputController::BeginFrame( runtimeInput,
                                  BuildRuntimeInputModeState( camera.mode,
@@ -737,6 +735,7 @@ void InputRouter::DispatchCaptureActions( InputActions& actions,
                                              RunCameraModeIsAttached( camera.mode ),
                                              camera.mode == RunCameraMode::Director,
                                              camera.mode == RunCameraMode::Director || flyCamera,
+                                             false,
                                              !replayRuntime.Scrubber().restoreConsumedThisFrame,
                                              false };
     const RuntimeInputKeyBindingView bindings = TakeInputKeyboardBindings();
@@ -746,7 +745,7 @@ void InputRouter::DispatchCaptureActions( InputActions& actions,
         SB_FATAL( "InputRouter", "Fixed input action capacity exhausted while routing capture actions." );
     }
 
-    const RunInternal::EditorSaveHotkeyContext editorSaveHotkeyContext{ sceneController.Models(),
+    const RunInternal::EditorSaveHotkeyContext editorSaveHotkeyContext{ sceneController,
                                                                         sceneController.Entities(),
                                                                         sceneController.State(),
                                                                         sceneController.World(),
@@ -808,6 +807,7 @@ bool InputRouter::DispatchAfterUiDismiss( InputActions& actions,
                                              RunCameraModeIsAttached( camera.mode ),
                                              camera.mode == RunCameraMode::Director,
                                              camera.mode == RunCameraMode::Director || flyCamera,
+                                             runtimeTools.Editor().editorModeEnabled,
                                              !replayRuntime.Scrubber().restoreConsumedThisFrame,
                                              !uiUserInteracted };
     const RuntimeInputKeyBindingView bindings = TakeInputKeyboardBindings();

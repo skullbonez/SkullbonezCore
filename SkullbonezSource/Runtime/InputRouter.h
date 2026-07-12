@@ -48,7 +48,7 @@ Invariants:
 Related:
   - InputController.h defines the existing action and context vocabulary.
   - InputController.Bindings.h publishes the current immutable binding table.
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md owns the extraction.
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md owns the extraction.
 */
 #pragma once
 
@@ -75,9 +75,9 @@ namespace Geometry
 {
 class Terrain;
 }
-namespace GameObjects
+namespace Basics
 {
-class GameModelCollection;
+class SceneController;
 }
 namespace Physics
 {
@@ -357,7 +357,7 @@ class InputRouter
                                             RuntimeInteractionController& interaction,
                                             Environment::CameraCollection& cameras,
                                             Geometry::Terrain* terrain,
-                                            GameObjects::GameModelCollection& models,
+                                            Basics::SceneController& models,
                                             Physics::PhysicsEngine& physics,
                                             RunCameraState& camera,
                                             RunCameraMode replayRestoreCameraMode,
@@ -369,7 +369,7 @@ class InputRouter
                                      RuntimeInteractionController& interaction,
                                      Environment::CameraCollection& cameras,
                                      Geometry::Terrain* terrain,
-                                     GameObjects::GameModelCollection& models,
+                                     Basics::SceneController& models,
                                      Physics::PhysicsEngine& physics,
                                      RunCameraState& camera,
                                      RunCameraMode replayRestoreCameraMode,
@@ -382,7 +382,7 @@ class InputRouter
                                                            RuntimeInteractionController& interaction,
                                                            Environment::CameraCollection& cameras,
                                                            Geometry::Terrain* terrain,
-                                                           GameObjects::GameModelCollection& models,
+                                                           Basics::SceneController& models,
                                                            Physics::PhysicsEngine& physics,
                                                            RunCameraState& camera,
                                                            RunCameraMode replayRestoreCameraMode,
@@ -444,7 +444,7 @@ class InputRouter
                                                  RuntimeTools& runtimeTools,
                                                  ReplayRuntime& replayRuntime,
                                                  RuntimeInteractionController& interaction,
-                                                 GameObjects::GameModelCollection& models,
+                                                 Basics::SceneController& models,
                                                  Physics::PhysicsEngine& physics,
                                                  RunSceneState& scene,
                                                  Environment::WorldEnvironment& world,
@@ -461,7 +461,7 @@ class InputRouter
                                                    AttachedCameraController& attachedCamera,
                                                    RuntimeInteractionController& interaction,
                                                    SceneEntityStore& entities,
-                                                   GameObjects::GameModelCollection& models,
+                                                   Basics::SceneController& models,
                                                    Physics::PhysicsEngine& physics,
                                                    RunSceneState& scene,
                                                    Environment::WorldEnvironment& world,

@@ -43,9 +43,9 @@ namespace Assets
 {
 class AssetSystem;
 }
-namespace GameObjects
+namespace Basics
 {
-class GameModelCollection;
+class SceneController;
 }
 namespace Geometry
 {
@@ -70,7 +70,7 @@ namespace RunInternal
 struct EditorInteractionPreviewContext
 {
     RunEditorPlacementState& editor;
-    GameObjects::GameModelCollection& models;
+    Basics::SceneController& models;
     Physics::PhysicsEngine& physics;
     // Lifetime: preview validation borrows stores only when a selection exists;
     // null means the frame has no live selection identity to validate.
@@ -102,7 +102,7 @@ struct EditorToolOverlayTraceContext
     const RunEditorPlacementState& editor;
     const RunRayCastTestState& rayCastTest;
     const RunMousePickupState& mousePickup;
-    const GameObjects::GameModelCollection& models;
+    const Basics::SceneController& models;
     const Physics::PhysicsBodyStore& bodyStore;
     const Physics::ColliderStore& colliderStore;
     const Assets::AssetSystem& assets;

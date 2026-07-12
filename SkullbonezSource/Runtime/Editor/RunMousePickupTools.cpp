@@ -32,7 +32,7 @@ Related:
 #include "../RuntimeInteractionController.h"
 #include "../RuntimeInteractionCommands.h"
 #include "../RuntimePickService.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "../Scene/SceneController.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
 
@@ -54,7 +54,7 @@ using Physics::PhysicsBodyRecord;
 using Physics::PhysicsBodyStore;
 
 MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePickupPointerInput& input,
-                                                                const GameObjects::GameModelCollection& collection,
+                                                                const Basics::SceneController& collection,
                                                                 InputRouter& inputRouter,
                                                                 RuntimeInteractionController& interaction )
 {
@@ -199,7 +199,7 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePicku
 }
 
 
-void RuntimeTools::ApplyMousePickupPhysicsStep( GameObjects::GameModelCollection& models,
+void RuntimeTools::ApplyMousePickupPhysicsStep( Basics::SceneController& models,
                                                 Physics::PhysicsEngine& physics,
                                                 InputRouter& inputRouter,
                                                 RuntimeInteractionController& interaction )
@@ -255,7 +255,7 @@ void RuntimeTools::ApplyMousePickupPhysicsStep( GameObjects::GameModelCollection
 }
 
 
-void RuntimeTools::RestoreMousePickupAngularVelocity( GameObjects::GameModelCollection& models,
+void RuntimeTools::RestoreMousePickupAngularVelocity( Basics::SceneController& models,
                                                       Physics::PhysicsEngine& physics,
                                                       InputRouter& inputRouter,
                                                       RuntimeInteractionController& interaction )

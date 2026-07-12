@@ -72,10 +72,10 @@ constexpr std::size_t REPLAY_LAUNCHER_LASER_SHOT_CAPACITY = 32;
 SkullbonezCore::Environment::CameraMovementSettings BuildCameraMovementSettings( const EngineConfig& cfg )
 {
     SkullbonezCore::Environment::CameraMovementSettings settings;
-    settings.minViewMag = cfg.minViewMag;
-    settings.maxViewMag = cfg.maxViewMag;
-    settings.minCameraHeight = cfg.minCameraHeight;
-    settings.cameraCollisionThreshold = cfg.cameraCollisionThreshold;
+    settings.minViewMag = cfg.camera.minViewMag;
+    settings.maxViewMag = cfg.camera.maxViewMag;
+    settings.minCameraHeight = cfg.camera.minCameraHeight;
+    settings.cameraCollisionThreshold = cfg.camera.cameraCollisionThreshold;
     return settings;
 }
 
@@ -87,7 +87,7 @@ SkullbonezCore::Environment::CameraMovementSettings BuildCameraMovementSettings(
 void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
                                RunLaunchOptions& target,
                                RuntimeRenderer& renderer,
-                               SkullbonezCore::GameObjects::GameModelCollection& models,
+                               SkullbonezCore::Basics::SceneController& models,
                                SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio )
 {
     target.allocationGuardMode = launch.allocationGuardMode;
@@ -114,7 +114,7 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     if ( launch.noSleep )
     {
         target.noSleep = true;
-        models.SetPhysicsSleepEnabled( false );
+        models.Physics().SetSleepEnabled( false );
     }
     if ( launch.noContactAudio )
     {
@@ -125,9 +125,9 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     {
         target.hasTornadoOverride = true;
         target.tornadoEnabled = launch.tornadoEnabled;
-        TornadoFieldConfig tornadoField = models.GetTornadoFieldConfig();
+        TornadoFieldConfig tornadoField = models.Physics().GetTornadoFieldConfig();
         tornadoField.enabled = launch.tornadoEnabled;
-        models.SetTornadoFieldConfig( tornadoField );
+        models.Physics().SetTornadoFieldConfig( tornadoField );
         if ( renderer.TornadoVisualAutoEnableWithTornado() )
         {
             renderer.SetTornadoVisualEnabled( launch.tornadoEnabled );
@@ -136,9 +136,9 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     if ( launch.tornadoVectors )
     {
         target.tornadoVectors = true;
-        TornadoFieldConfig tornadoField = models.GetTornadoFieldConfig();
+        TornadoFieldConfig tornadoField = models.Physics().GetTornadoFieldConfig();
         tornadoField.visualizeVelocityField = true;
-        models.SetTornadoFieldConfig( tornadoField );
+        models.Physics().SetTornadoFieldConfig( tornadoField );
     }
     if ( launch.hasCinematicRenderingOverride )
     {
@@ -343,7 +343,7 @@ void ApplyStartupPresentationPolicy( const RunStartupOverrides& overrides,
 #ifdef _DEBUG
 void ApplyStartupDiagnosticsPolicy( const RunStartupOverrides& overrides,
                                     DiagnosticsRuntime& diagnosticsRuntime,
-                                    SkullbonezCore::GameObjects::GameModelCollection& models )
+                                    SkullbonezCore::Basics::SceneController& models )
 {
     if ( overrides.physicsRegressionLogPath && overrides.physicsRegressionLogPath[0] != '\0' )
     {
@@ -367,8 +367,8 @@ void ApplyStartupDiagnosticsPolicy( const RunStartupOverrides& overrides,
 
 void RunStartupState::ApplyStartupConfig( const EngineConfig& config )
 {
-    gameModelCapacity = std::clamp( config.gameModelCapacity, 1, MAX_GAME_MODELS );
-    workerThreads = config.workerThreads;
+    gameModelCapacity = std::clamp( config.runtimeCapacity.gameModelCapacity, 1, MAX_GAME_MODELS );
+    workerThreads = config.runtimeCapacity.workerThreads;
 }
 
 
@@ -397,9 +397,7 @@ Run::Run( Window& window,
     m_diagnosticsRuntime.BindProfiler( profiler );
     m_sceneController.Cameras().ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
     RefreshSceneBrowserList( m_sceneController.Browser() );
-    m_sceneController.Models().BindWorkerPool( workerPool );
-    m_sceneController.Models().BindSceneEntityStore( m_sceneController.Entities() );
-    m_sceneController.Models().ApplyRuntimeConfig( cfg );
+    m_sceneController.ApplyRuntimeConfig( cfg );
     m_renderer.SetVsyncEnabled( cfg.runtimeRender.vsyncEnabled );
     m_renderer.SetPipelineSyncEnabled( cfg.runtimeRender.forcePipelineSync );
     m_contactAudio.SetDebugCountersEnabled( cfg.contactAudio.debugCounters );
@@ -418,7 +416,7 @@ Run::~Run()
     if ( m_diagnosticsRuntime.MainMemoryDumpRequested() )
     {
         m_diagnosticsRuntime.WriteMainMemoryDump( m_replayRuntime,
-                                                  m_sceneController.Models(),
+                                                  m_sceneController,
                                                   m_sceneController.State(),
                                                   "shutdown",
                                                   m_timers.simulationTimer.GetTotalTime() );
@@ -457,7 +455,6 @@ Run::~Run()
         RuntimeRenderer::BackendResourceReleaseContext{ "shutdown_release",
                                                         m_renderBackendView.deviceLifecycle,
                                                         m_renderBackendView.renderResources,
-                                                        m_sceneController.Models(),
                                                         m_UI,
                                                         m_runtimeTools } );
     if ( !releaseResult.ok )
@@ -481,7 +478,7 @@ SbResult Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
     // runtime services.
     const RunLaunchOptions& launch = overrides.launch;
 
-    ApplyRuntimeLaunchPolicy( launch, m_launchOptions, m_renderer, m_sceneController.Models(), m_contactAudio );
+    ApplyRuntimeLaunchPolicy( launch, m_launchOptions, m_renderer, m_sceneController, m_contactAudio );
     if ( overrides.liveStyleControlDirectory && overrides.liveStyleControlDirectory[0] != '\0' )
     {
         if ( m_liveStyle.ConfigureDirectory( overrides.liveStyleControlDirectory ) )
@@ -526,7 +523,7 @@ SbResult Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
 #endif
     ApplyStartupPresentationPolicy( overrides, m_launchOptions, m_debug, m_UI );
 #ifdef _DEBUG
-    ApplyStartupDiagnosticsPolicy( overrides, m_diagnosticsRuntime, m_sceneController.Models() );
+    ApplyStartupDiagnosticsPolicy( overrides, m_diagnosticsRuntime, m_sceneController );
 #endif
     if ( !overrides.interactionScriptPath )
     {
@@ -627,8 +624,8 @@ bool ReplayRuntime::CaptureCurrentSolverSample( const ReplaySolverSampleRestoreC
     input.world = &owners.sceneController.World();
     input.physics = &owners.physics;
     input.entities = &owners.sceneController.Entities();
-    input.bodyStore = &Physics::PhysicsEngineStoreQueries::BodyStore( owners.physics );
-    input.colliderStore = &Physics::PhysicsEngineStoreQueries::Colliders( owners.physics );
+    input.bodyStore = &Physics::PhysicsEngine::ReadBodies( owners.physics );
+    input.colliderStore = &Physics::PhysicsEngine::ReadColliders( owners.physics );
     input.launcherVisual = &launcherVisual;
     verifier.CaptureFrame( input );
 
@@ -803,7 +800,7 @@ void Run::Initialise()
     }
     const std::string terrainRawPath = m_assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
                                                                          "terrain.raw",
-                                                                         cfg.terrainRaw.c_str() );
+                                                                         cfg.assetPaths.terrainRaw.c_str() );
     std::unique_ptr<Terrain> startupTerrain;
     const SbResult startupTerrainResult = Terrain::TryCreateFromHeightMap( terrainRawPath.c_str(),
                                                                            256,
@@ -820,7 +817,10 @@ void Run::Initialise()
     }
     m_sceneController.Terrain().Replace( std::move( startupTerrain ), false );
 
-    m_sceneController.World() = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
+    m_sceneController.World() = WorldEnvironment( cfg.worldForces.fluidHeight,
+                                                  cfg.worldForces.fluidDensity,
+                                                  cfg.worldForces.gasDensity,
+                                                  cfg.worldForces.gravity );
     m_sceneController.World().BindRenderContexts( m_config, m_assets, renderResources );
     XZBounds tb = m_sceneController.Terrain().Get()->GetXZBounds();
     m_sceneController.World().SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
@@ -977,10 +977,10 @@ SbResult Run::RunSceneLoadOnly( const char* snapshotOutPath )
     {
         // Lifetime: scene-load-only borrows owner arrays only until the
         // synchronous snapshot write completes.
-        const auto& joints = m_sceneController.Models().GetPointJointConstraints();
+        const auto& joints = Physics::PhysicsEngine::ReadPointJointConstraints( m_sceneController.Physics() );
         const SceneSaveView saveView{ m_sceneController.Entities(),
-                                      m_sceneController.Models().BodyStore(),
-                                      m_sceneController.Models().Colliders(),
+                                      m_sceneController.BodyStore(),
+                                      m_sceneController.Colliders(),
                                       joints.data(),
                                       static_cast<int>( joints.size() ),
                                       m_sceneController.World().GetGravity(),

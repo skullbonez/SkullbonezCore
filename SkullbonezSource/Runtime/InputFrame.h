@@ -22,7 +22,7 @@ Invariants:
 Related:
   - InputRouter.h owns input state and routing policy.
   - RunFrame.cpp owns top-level frame order.
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md owns the extraction.
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md owns the extraction.
 */
 #pragma once
 
@@ -102,6 +102,7 @@ struct KeyboardContextFacts
     bool attachedCamera = false;
     bool director = false;
     bool directorAuthoring = false;
+    bool editor = false;
     bool replayRestoreNotConsumed = false;
     bool uiNotInteracted = false;
 };

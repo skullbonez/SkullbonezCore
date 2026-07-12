@@ -29,21 +29,23 @@ Related:
 #include "RunTimerState.h"
 #include "../Assets/AssetKeys.h"
 #include "../Core/Config.h"
-#include "../GameObjects/GameModelCollection.h"
+#include "Scene/SceneController.h"
 #include "../World/Terrain.h"
 #include "../Core/Profiler.h"
 
+using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace SkullbonezCore::Basics
 {
 void RunCameraState::UpdateViewingOrientation( RunTimerState& timers,
                                                Environment::CameraCollection& cameras,
-                                               const GameObjects::GameModelCollection& models,
+                                               const Basics::SceneController& models,
                                                bool replayCameraActive,
                                                bool sceneMode,
                                                bool attachedActiveFollow,
-                                               bool cameraLookCaptured )
+                                               bool cameraLookCaptured,
+                                               float presentationAlpha )
 {
     if ( replayCameraActive )
     {
@@ -86,7 +88,8 @@ void RunCameraState::UpdateViewingOrientation( RunTimerState& timers,
             continue;
         }
         Vector3 targetPosition;
-        if ( models.TryGetModelPosition( modelIndex, targetPosition ) )
+        Quaternion targetOrientation;
+        if ( models.TryGetPresentationPose( modelIndex, presentationAlpha, targetPosition, targetOrientation ) )
         {
             cameras.SetViewCoordinates( targetPosition );
         }
@@ -105,13 +108,14 @@ void RunCameraState::AdvanceAutoCycleClock( bool sceneMode, float simulationDt )
 
 void RunCameraState::TickControls( Environment::CameraCollection& cameras,
                                    Geometry::Terrain& terrain,
-                                   GameObjects::GameModelCollection& models,
+                                   Basics::SceneController& models,
                                    AttachedCameraController& attachedCamera,
                                    const EngineConfig& config,
                                    bool editorModeEnabled,
                                    bool viewportLookActive,
                                    bool sceneMode,
-                                   float cameraDt )
+                                   float cameraDt,
+                                   float presentationAlpha )
 {
     constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
     const bool attachedOrbitOwnsCamera = RunCameraModeIsAttached( mode ) && attachedCamera.State().activeFollow &&
@@ -121,10 +125,10 @@ void RunCameraState::TickControls( Environment::CameraCollection& cameras,
         cameras,
         terrain,
         RuntimeCameraMovementInput{
-            cameraDt * config.keySpeed,
-            CAMERA_MOUSE_REFERENCE_DT * config.mouseSensitivity,
-            config.minCameraHeight,
-            config.maxCameraHeight,
+            cameraDt * config.camera.keySpeed,
+            CAMERA_MOUSE_REFERENCE_DT * config.camera.mouseSensitivity,
+            config.camera.minCameraHeight,
+            config.camera.maxCameraHeight,
             attachedOrbitOwnsCamera,
             RunCameraModeUsesFlyControls( mode, attachedCamera.State().activeFollow, director.grabbed ),
             editorModeEnabled,
@@ -134,11 +138,11 @@ void RunCameraState::TickControls( Environment::CameraCollection& cameras,
     if ( RunCameraModeIsAttached( mode ) )
     {
         const float orbitYawDelta =
-            static_cast<float>( input.xMove ) * CAMERA_MOUSE_REFERENCE_DT * config.mouseSensitivity;
+            static_cast<float>( input.xMove ) * CAMERA_MOUSE_REFERENCE_DT * config.camera.mouseSensitivity;
         const float orbitPitchDelta =
-            static_cast<float>( input.yMove ) * CAMERA_MOUSE_REFERENCE_DT * config.mouseSensitivity;
-        (void)attachedCamera.TickFollow( models, cameras, orbitYawDelta, orbitPitchDelta );
+            static_cast<float>( input.yMove ) * CAMERA_MOUSE_REFERENCE_DT * config.camera.mouseSensitivity;
+        (void)attachedCamera.TickFollow( models, cameras, orbitYawDelta, orbitPitchDelta, presentationAlpha );
     }
-    cameras.SetTweenSpeed( config.cameraTweenRate * cameraDt );
+    cameras.SetTweenSpeed( config.camera.cameraTweenRate * cameraDt );
 }
 } // namespace SkullbonezCore::Basics

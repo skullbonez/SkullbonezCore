@@ -244,6 +244,12 @@ const char* InputController::DescribeAction( RuntimeInputAction action )
         return "ToggleEditorStaticPlacement";
     case RuntimeInputAction::ToggleEditorTerrainAlign:
         return "ToggleEditorTerrainAlign";
+    case RuntimeInputAction::UndoEditor:
+        return "UndoEditor";
+    case RuntimeInputAction::RedoEditor:
+        return "RedoEditor";
+    case RuntimeInputAction::DeleteEditorSelection:
+        return "DeleteEditorSelection";
     case RuntimeInputAction::BeginEditorViewportLook:
         return "BeginEditorViewportLook";
     case RuntimeInputAction::EndEditorViewportLook:

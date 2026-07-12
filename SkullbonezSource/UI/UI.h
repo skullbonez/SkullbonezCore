@@ -38,6 +38,7 @@ Related:
 #include "../Core/MainMemoryStats.h"
 #include "../Runtime/Allocation/RuntimeReserveAllocator.h"
 #include "../Rendering/IShader.h"
+#include "../Rendering/IRenderDiagnostics.h"
 #include "UIButton.h"
 #include "UICheckBox.h"
 #include "UIComboBox.h"
@@ -198,6 +199,7 @@ struct InGameUIFrameData
     int selectedCineModeSceneOption = -1;
     int drawCallsBeforeUI = 0;
     int UIDrawCalls = 0;
+    Rendering::RenderVisibilityStats visibility;
     float fps = 0.0f;
     float renderMs = 0.0f;
     float physicsMs = 0.0f;
@@ -280,6 +282,9 @@ struct InGameUIFrameData
     uint32_t contactAudioRollingSubmittedVoices = 0;
     float sceneEnergy = 0.0f;
     float timeScale = 1.0f;
+    bool presentationInterpolation = true;
+    bool presentationPinned = false;
+    float presentationAlpha = 1.0f;
     float trackHeight = 0.0f;
     float autoCycleInterval = 0.0f;
     float worldGravity = 0.0f;
@@ -326,6 +331,8 @@ struct InGameUIFrameData
     bool editorTerrainAlign = false;
     bool editorViewportLookActive = false;
     int editorObjectType = 0;
+    int editorUndoDepth = 0;
+    int editorRedoDepth = 0;
     bool canSaveSceneDefaults = false;
     bool cinematicRendering = false;
     Basics::OrdinaryRenderConfig ordinaryRender;

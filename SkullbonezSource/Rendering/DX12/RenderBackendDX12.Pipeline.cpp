@@ -1,13 +1,13 @@
 /*
 File: SkullbonezSource/Rendering/DX12/RenderBackendDX12.Pipeline.cpp
 Purpose:
-  Builds and binds DX12 pipeline state, render targets, and descriptors.
+  Implements Dx12PipelineOwner's root signature, fixed-state recipe, and cache.
 
 Mental model:
-  RenderBackendDX12.Pipeline.cpp builds and binds DX12 pipeline state, render
-  targets, and descriptors. As an implementation unit, keep edits anchored on
-  DX12 ownership, descriptors, resources, and command submission and on the
-  glossary/invariants below.
+  Dx12PipelineOwner turns the active shader, vertex layout, raster/depth/blend
+  choices, and output format into a bounded cached PSO. It owns the dirty-state
+  fast path and receives only the device, command list, recording state,
+  descriptor allocator, and texture bindings required for one draw.
 
 Glossary:
   RTV (Render Target View): Descriptor row used when the GPU writes color
@@ -25,6 +25,8 @@ Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
+  Reload payload: Fixed staging record that retains verified replacement
+    bytecode until every live shader is ready for one atomic commit.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -32,6 +34,8 @@ Invariants:
   - The graphics PSO cache and framebuffer descriptor heaps are fixed backend
     capacity. Exhaustion means renderer capacity planning failed; do not grow
     them during draw submission or render-target allocation.
+  - At most 64 live raster shaders participate in manual reload; replacements
+    validate into fixed payload rows before any current PSO is released.
 
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
@@ -94,7 +98,7 @@ static float TranslatePolygonOffsetSlopeBiasDX12( float factor )
 }
 
 
-size_t RenderBackendDX12::HashPSOKey( const PSOKey12& key )
+size_t Dx12PipelineOwner::HashPSOKey( const PSOKey12& key )
 {
     size_t h = 0;
     auto hashCombine = []( size_t& seed, size_t val ) { seed ^= val + 0x9e3779b9 + ( seed << 6 ) + ( seed >> 2 ); };
@@ -123,7 +127,7 @@ size_t RenderBackendDX12::HashPSOKey( const PSOKey12& key )
 }
 
 
-void RenderBackendDX12::BuildInputLayout( VertexFormat12 format, D3D12_INPUT_ELEMENT_DESC* out, UINT& count )
+void Dx12PipelineOwner::BuildInputLayout( VertexFormat12 format, D3D12_INPUT_ELEMENT_DESC* out, UINT& count )
 {
     count = 0;
     switch ( format )
@@ -156,7 +160,7 @@ void RenderBackendDX12::BuildInputLayout( VertexFormat12 format, D3D12_INPUT_ELE
 }
 
 
-void RenderBackendDX12::BuildInstancedInputLayout( const InstancedMeshDX12& im,
+void Dx12PipelineOwner::BuildInstancedInputLayout( const InstancedMeshDX12& im,
                                                    D3D12_INPUT_ELEMENT_DESC* out,
                                                    UINT& count )
 {
@@ -233,7 +237,7 @@ void RenderBackendDX12::BuildInstancedInputLayout( const InstancedMeshDX12& im,
 }
 
 
-void RenderBackendDX12::BuildDynamicVBInputLayout( const DynamicVBDX12& dvb,
+void Dx12PipelineOwner::BuildDynamicVBInputLayout( const DynamicVBDX12& dvb,
                                                    D3D12_INPUT_ELEMENT_DESC* out,
                                                    UINT& count )
 {
@@ -281,7 +285,8 @@ void RenderBackendDX12::BuildDynamicVBInputLayout( const DynamicVBDX12& dvb,
 }
 
 
-ID3D12PipelineState* RenderBackendDX12::CreatePSO( VertexFormat12 format,
+ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device,
+                                                   VertexFormat12 format,
                                                    bool instanced,
                                                    const InstancedMeshDX12* im,
                                                    const DynamicVBDX12* dvb )
@@ -300,6 +305,17 @@ ID3D12PipelineState* RenderBackendDX12::CreatePSO( VertexFormat12 format,
     else
     {
         BuildInputLayout( format, elements, numElements );
+    }
+
+    const char* inputContractError = nullptr;
+    if ( !m_activeShader->ValidateInputLayout( elements, numElements, inputContractError ) )
+    {
+        // Lane R: mesh/layout selection is startup-owned pipeline input. A
+        // reflected mismatch skips PSO publication and names the owning path.
+        Log().WriteEventf( "dx12_shader_input_contract_rejected owner=Dx12PipelineOwner reason=%s",
+                           inputContractError );
+        Log().FlushAll();
+        return nullptr;
     }
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
@@ -351,8 +367,19 @@ ID3D12PipelineState* RenderBackendDX12::CreatePSO( VertexFormat12 format,
     // expensive to create but fast to bind, so we cache them by hash and reuse
     // across frames.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-creategraphicspipelinestate
+    const bool attachedCachedBlob = m_persistentPsoCache.Attach( psoDesc );
     ID3D12PipelineState* pso = nullptr;
-    HRESULT hr = Device()->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &pso ) );
+    HRESULT hr = device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &pso ) );
+    if ( FAILED( hr ) && attachedCachedBlob )
+    {
+        // Lane R: cached bytes are external driver-specific cold-start input.
+        // Retry the exact recipe once without them and evict the rejected row.
+        Log().WriteEventf( "dx12_pso_disk_cache_rejected owner=Dx12PipelineOwner hresult=0x%08X bytes=%llu",
+                           static_cast<unsigned int>( hr ),
+                           static_cast<unsigned long long>( psoDesc.CachedPSO.CachedBlobSizeInBytes ) );
+        m_persistentPsoCache.RejectAttached( psoDesc );
+        hr = device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &pso ) );
+    }
     if ( FAILED( hr ) || !pso )
     {
         // Lane R: a graphics PSO can fail because the active shader/input layout
@@ -375,29 +402,23 @@ ID3D12PipelineState* RenderBackendDX12::CreatePSO( VertexFormat12 format,
     // Naming cached PSOs makes PIX and debug-layer output identify the object as
     // a Skullbonez graphics pipeline instead of an anonymous D3D12 pointer.
     NameDx12Object( pso, L"Skullbonez DX12 Cached Graphics PSO" );
+    // Retain only a borrowed pointer in the fixed cold-cache accounting table.
+    // Shutdown asks each still-live PSO for its driver cache blob before release.
+    m_persistentPsoCache.Store( psoDesc, pso );
     return pso;
 }
 
 
-bool RenderBackendDX12::PrepareDraw( VertexFormat12 format,
+bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
+                                     ID3D12GraphicsCommandList* commandList,
+                                     Dx12CommandRecordingState& recording,
+                                     Dx12TextureOwner& textures,
+                                     Dx12DescriptorAllocator& descriptors,
+                                     VertexFormat12 format,
                                      bool instanced,
                                      const InstancedMeshDX12* im,
                                      const DynamicVBDX12* dvb )
 {
-    if ( !EnsureCommandListOpen().ok )
-    {
-        return false;
-    }
-
-    if ( !m_renderingToFBO && TransitionBackbuffer( "PrepareDrawBackbuffer", RenderGraphResourceAccess::RenderTarget ) )
-    {
-        m_targetsDirty = true;
-    }
-    if ( m_commandRecording.HasFailure() )
-    {
-        return false;
-    }
-
     // Concept: the PSO cache key is the complete "shape" of a draw pipeline.
     //
     // DX12 cannot cheaply toggle individual pieces of fixed-function state the
@@ -405,9 +426,9 @@ bool RenderBackendDX12::PrepareDraw( VertexFormat12 format,
     // hashes, blend/depth/cull state, polygon offset, instancing mode, and
     // render-target format all participate in the Pipeline State Object. If any
     // of those values changes, the cached PSO may no longer describe the draw correctly.
-    // Include the root signature too: today ordinary raster draws share one
-    // signature, but future fullscreen, material-table, or graph-local resource
-    // signatures must not accidentally reuse an incompatible cached PSO.
+    // Include the root signature too: today raster draws share UnifiedRaster,
+    // but future graph-local resource signatures must not accidentally reuse an
+    // incompatible cached PSO.
     PSOKey12 key = {};
     key.rootSignature = m_rootSignature;
     key.shaderVSHash = m_activeShader->GetVSBytecodeHash();
@@ -441,19 +462,21 @@ bool RenderBackendDX12::PrepareDraw( VertexFormat12 format,
     // shape, such as generated balls or boxes.
     bool psoChanged = m_psoDirty || ( psoHash != m_lastPSOHash );
 
-    if ( !psoChanged && !m_texBindingsDirty && !m_targetsDirty )
+    if ( !psoChanged && !textures.BindingsDirty() && !m_targetsDirty )
     {
         // Only the constant buffer has changed (e.g. model matrix per ball)
         if ( m_activeShader )
         {
             D3D12_GPU_VIRTUAL_ADDRESS cbAddr = m_activeShader->FlushCB();
-            if ( m_commandRecording.HasFailure() )
+            if ( recording.HasFailure() )
             {
                 return false;
             }
             if ( cbAddr )
             {
-                CommandList()->SetGraphicsRootConstantBufferView( 0, cbAddr );
+                commandList->SetGraphicsRootConstantBufferView(
+                    UnifiedRasterRootSignature::ROOT_PARAMETER_DRAW_CONSTANTS,
+                    cbAddr );
             }
         }
         return true;
@@ -507,7 +530,7 @@ bool RenderBackendDX12::PrepareDraw( VertexFormat12 format,
                           static_cast<unsigned int>( key.format ),
                           key.isInstanced ? 1 : 0 );
             }
-            pso = CreatePSO( format, instanced, im, dvb );
+            pso = CreatePSO( device, format, instanced, im, dvb );
             if ( !pso )
             {
                 return false;
@@ -521,12 +544,12 @@ bool RenderBackendDX12::PrepareDraw( VertexFormat12 format,
         // blend, depth, rasterizer, render-target formats) in one call.
         // Docs:
         // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setpipelinestate
-        CommandList()->SetPipelineState( pso );
+        commandList->SetPipelineState( pso );
 
         // Re-bind root signature after PSO change (required by DX12 spec).
         // Docs:
         // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootsignature
-        CommandList()->SetGraphicsRootSignature( m_rootSignature );
+        commandList->SetGraphicsRootSignature( m_rootSignature );
         m_lastPSOHash = psoHash;
     }
 
@@ -537,19 +560,19 @@ bool RenderBackendDX12::PrepareDraw( VertexFormat12 format,
     if ( m_activeShader )
     {
         D3D12_GPU_VIRTUAL_ADDRESS cbAddr = m_activeShader->FlushCB();
-        if ( m_commandRecording.HasFailure() )
+        if ( recording.HasFailure() )
         {
             return false;
         }
         if ( cbAddr )
         {
-            CommandList()->SetGraphicsRootConstantBufferView( ROOT_PARAMETER_FRAME_CONSTANTS, cbAddr );
+            commandList->SetGraphicsRootConstantBufferView( UnifiedRasterRootSignature::ROOT_PARAMETER_DRAW_CONSTANTS,
+                                                            cbAddr );
         }
     }
 
-    // Bind textures by copying their SRV descriptors to the shader-visible heap
-    // and pointing the root descriptor table at them. Root params [1..5] map to
-    // texture slots t0..t4. The object pass uses t4 for the material table.
+    // Bind UnifiedRaster textures by copying their SRV descriptors to the
+    // shader-visible heap and pointing the named slot-map parameters at them.
     //
     // Plain-language flow:
     //
@@ -565,15 +588,11 @@ bool RenderBackendDX12::PrepareDraw( VertexFormat12 format,
     // table row that describes how the shader should read that texture.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootdescriptortable
-    if ( m_texBindingsDirty )
+    if ( textures.BindingsDirty() )
     {
         for ( int slot = 0; slot < TEXTURE_SLOT_COUNT; ++slot )
         {
-            UINT srcIdx = m_boundTexSlot[slot];
-            if ( srcIdx == UINT_MAX )
-            {
-                srcIdx = m_nullTextureSRVIndex;
-            }
+            UINT srcIdx = textures.ResolveBoundSrv( slot );
             if ( srcIdx != UINT_MAX )
             {
                 // The texture's persistent descriptor lives in the CPU-only
@@ -582,25 +601,26 @@ bool RenderBackendDX12::PrepareDraw( VertexFormat12 format,
                 // row. This copy looks redundant at first, but it is the safety
                 // mechanism: transient rows are reset only after the frame fence
                 // proves the GPU is done with them.
-                UINT transient = AllocateTransientSRV();
-                D3D12_CPU_DESCRIPTOR_HANDLE dstHandle = m_srvDescriptors.ShaderVisibleCpuHandle( transient );
-                Device()->CopyDescriptorsSimple( 1,
-                                                 dstHandle,
-                                                 GetSRVStagingCpuHandle( srcIdx ),
-                                                 D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
-                CommandList()->SetGraphicsRootDescriptorTable( ROOT_PARAMETER_FIRST_TEXTURE + static_cast<UINT>( slot ),
-                                                               GetSRVGpuHandle( transient ) );
+                UINT transient = descriptors.AllocateTransient();
+                D3D12_CPU_DESCRIPTOR_HANDLE dstHandle = descriptors.ShaderVisibleCpuHandle( transient );
+                device->CopyDescriptorsSimple( 1,
+                                               dstHandle,
+                                               descriptors.StagingCpuHandle( srcIdx ),
+                                               D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+                commandList->SetGraphicsRootDescriptorTable(
+                    UnifiedRasterRootSignature::TEXTURE_SLOTS[slot].rootParameter,
+                    descriptors.ShaderVisibleGpuHandle( transient ) );
             }
         }
-        m_texBindingsDirty = false;
+        textures.MarkBindingsClean();
     }
 
     // Avoid redundant OM/RS binds; target changes are tracked explicitly.
     if ( m_targetsDirty )
     {
-        CommandList()->RSSetViewports( 1, &m_viewport );
-        CommandList()->RSSetScissorRects( 1, &m_scissorRect );
-        CommandList()->OMSetRenderTargets( 1, &m_currentRTV, FALSE, &m_currentDSV );
+        commandList->RSSetViewports( 1, &m_viewport );
+        commandList->RSSetScissorRects( 1, &m_scissorRect );
+        commandList->OMSetRenderTargets( 1, &m_currentRTV, FALSE, &m_currentDSV );
         m_targetsDirty = false;
     }
 
@@ -608,24 +628,390 @@ bool RenderBackendDX12::PrepareDraw( VertexFormat12 format,
     // TRIANGLELIST means every 3 vertices form an independent triangle.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetprimitivetopology
-    CommandList()->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
+    commandList->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
     m_psoDirty = false;
     return true;
 }
 
 
-void RenderBackendDX12::SetActiveShader( ShaderDX12* shader )
+void Dx12PipelineOwner::SetActiveShader( ShaderDX12* shader )
 {
     m_activeShader = shader;
     m_psoDirty = true;
 }
 
 
-void RenderBackendDX12::SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv )
+void Dx12PipelineOwner::RegisterShader( ShaderDX12* shader )
+{
+    if ( !shader )
+    {
+        return;
+    }
+    for ( size_t index = 0; index < m_liveShaderCount; ++index )
+    {
+        if ( m_liveShaders[index] == shader )
+        {
+            return;
+        }
+    }
+    if ( m_liveShaderCount >= m_liveShaders.size() )
+    {
+        SB_FATAL( "RenderBackendDX12", "Live raster shader registry exhausted. capacity=%zu", m_liveShaders.size() );
+    }
+    m_liveShaders[m_liveShaderCount++] = shader;
+}
+
+
+void Dx12PipelineOwner::UnregisterShader( ShaderDX12* shader )
+{
+    for ( size_t index = 0; index < m_liveShaderCount; ++index )
+    {
+        if ( m_liveShaders[index] != shader )
+        {
+            continue;
+        }
+        m_liveShaders[index] = m_liveShaders[m_liveShaderCount - 1];
+        m_liveShaders[m_liveShaderCount - 1] = nullptr;
+        --m_liveShaderCount;
+        break;
+    }
+    if ( m_activeShader == shader )
+    {
+        m_activeShader = nullptr;
+        m_psoDirty = true;
+    }
+}
+
+
+SkullbonezCore::Basics::SbResult Dx12PipelineOwner::ReloadShadersFromBakedAssets()
+{
+    // Allocation policy: optional candidates are fixed-capacity cold utility
+    // storage. Their internal reflection containers may allocate only while the
+    // caller labels this explicit developer reload as BackendInit.
+    std::array<ShaderDX12ReloadPayload, LIVE_SHADER_CAPACITY> candidates;
+    for ( size_t index = 0; index < m_liveShaderCount; ++index )
+    {
+        ShaderDX12* live = m_liveShaders[index];
+        if ( !live )
+        {
+            continue;
+        }
+        if ( !live->PrepareReload( candidates[index] ) )
+        {
+            // Lane R: a changed shader interface needs a rebuilt executable with
+            // matching generated reflection; keep every current shader/PSO live.
+            return SkullbonezCore::Basics::SbResult::Failure(
+                "Rendering/DX12",
+                "Shader hot reload rejected changed or invalid bytecode contract" );
+        }
+    }
+
+    // Lifetime: the backend drained the GPU before entering this transaction.
+    // Persist old driver blobs while PSOs live, then release every bytecode-bound
+    // PSO before publishing the new shader blobs.
+    m_persistentPsoCache.Shutdown();
+    for ( size_t index = 0; index < m_psoCacheCount; ++index )
+    {
+        if ( m_psoCache[index].pso )
+        {
+            m_psoCache[index].pso->Release();
+        }
+        m_psoCache[index] = {};
+    }
+    m_psoCacheCount = 0;
+    for ( size_t index = 0; index < m_liveShaderCount; ++index )
+    {
+        if ( m_liveShaders[index] )
+        {
+            m_liveShaders[index]->AdoptReload( candidates[index] );
+        }
+    }
+    m_lastPSOHash = 0;
+    m_psoDirty = true;
+    m_targetsDirty = true;
+    m_persistentPsoCache.Initialize( m_rootSignatureSerialized.data(), m_rootSignatureSerializedSize );
+    Log().WriteEventf( "dx12_shader_hot_reload_committed owner=Dx12PipelineOwner shaders=%llu",
+                       static_cast<unsigned long long>( m_liveShaderCount ) );
+    return SkullbonezCore::Basics::SbResult::Success();
+}
+
+
+void Dx12PipelineOwner::SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv )
 {
     m_currentRTV = rtv;
     m_currentDSV = dsv;
     m_targetsDirty = true;
+}
+
+
+void Dx12PipelineOwner::SetRenderingToFBO( bool rendering, DXGI_FORMAT rtvFormat )
+{
+    m_renderingToFBO = rendering;
+    m_currentRTVFormat = rendering ? rtvFormat : DXGI_FORMAT_R8G8B8A8_UNORM;
+    m_psoDirty = true;
+}
+
+
+ShaderDX12* Dx12PipelineOwner::ActiveShader() const
+{
+    return m_activeShader;
+}
+
+
+void Dx12PipelineOwner::SetViewport( const D3D12_VIEWPORT& viewport, const D3D12_RECT& scissor )
+{
+    m_viewport = viewport;
+    m_scissorRect = scissor;
+    m_targetsDirty = true;
+}
+
+
+void Dx12PipelineOwner::InvalidateCommandState()
+{
+    m_lastPSOHash = 0;
+    m_psoDirty = true;
+    m_targetsDirty = true;
+}
+
+
+void Dx12PipelineOwner::InvalidateTargets()
+{
+    m_targetsDirty = true;
+}
+
+
+DXGI_FORMAT Dx12PipelineOwner::RenderTargetFormat() const
+{
+    return m_currentRTVFormat;
+}
+
+
+ID3D12RootSignature* Dx12PipelineOwner::RootSignature() const
+{
+    return m_rootSignature;
+}
+
+
+D3D12_CPU_DESCRIPTOR_HANDLE Dx12PipelineOwner::CurrentRTV() const
+{
+    return m_currentRTV;
+}
+
+
+D3D12_CPU_DESCRIPTOR_HANDLE Dx12PipelineOwner::CurrentDSV() const
+{
+    return m_currentDSV;
+}
+
+
+bool Dx12PipelineOwner::RenderingToFramebuffer() const
+{
+    return m_renderingToFBO;
+}
+
+
+void Dx12PipelineOwner::RestoreRenderTargetFormat( DXGI_FORMAT format )
+{
+    m_currentRTVFormat = format;
+    m_psoDirty = true;
+}
+
+
+void Dx12PipelineOwner::SetCurrentColorTarget( D3D12_CPU_DESCRIPTOR_HANDLE rtv )
+{
+    SetCurrentTargets( rtv, m_currentDSV );
+}
+
+
+void Dx12PipelineOwner::BindCurrentOutputs( ID3D12GraphicsCommandList* commandList ) const
+{
+    // Invariant: target and viewport/scissor state are one draw-output recipe.
+    // Special draw paths use this operation rather than reaching into owner
+    // fields and accidentally publishing only half of that recipe.
+    commandList->OMSetRenderTargets( 1, &m_currentRTV, FALSE, &m_currentDSV );
+    commandList->RSSetViewports( 1, &m_viewport );
+    commandList->RSSetScissorRects( 1, &m_scissorRect );
+}
+
+
+void Dx12PipelineOwner::ClearCurrentColor( ID3D12GraphicsCommandList* commandList, const float color[4] ) const
+{
+    commandList->ClearRenderTargetView( m_currentRTV, color, 0, nullptr );
+}
+
+
+void Dx12PipelineOwner::ClearCurrentDepth( ID3D12GraphicsCommandList* commandList, float depth ) const
+{
+    commandList->ClearDepthStencilView( m_currentDSV, D3D12_CLEAR_FLAG_DEPTH, depth, 0, 0, nullptr );
+}
+
+
+size_t Dx12PipelineOwner::CacheCount() const
+{
+    return m_psoCacheCount;
+}
+
+
+void Dx12PipelineOwner::Shutdown()
+{
+    // Lifetime: serialize while the blob store and source PSOs are still live.
+    // This is bounded cold shutdown I/O, never per-frame cache growth.
+    m_persistentPsoCache.Shutdown();
+    for ( size_t index = 0; index < m_psoCacheCount; ++index )
+    {
+        if ( m_psoCache[index].pso )
+        {
+            m_psoCache[index].pso->Release();
+            m_psoCache[index].pso = nullptr;
+        }
+    }
+    m_psoCacheCount = 0;
+    if ( m_rootSignature )
+    {
+        m_rootSignature->Release();
+        m_rootSignature = nullptr;
+    }
+    m_activeShader = nullptr;
+    m_liveShaders = {};
+    m_liveShaderCount = 0;
+    m_rootSignatureSerialized = {};
+    m_rootSignatureSerializedSize = 0;
+    ResetDesiredState();
+}
+
+
+void Dx12PipelineOwner::ResetDesiredState()
+{
+    Dx12PipelineDesiredState defaults;
+    defaults.Reset();
+    m_activeShader = defaults.m_activeShader;
+    m_viewport = defaults.m_viewport;
+    m_scissorRect = defaults.m_scissorRect;
+    m_currentRTV = defaults.m_currentRTV;
+    m_currentDSV = defaults.m_currentDSV;
+    m_currentRTVFormat = defaults.m_currentRTVFormat;
+    m_depthTestEnabled = defaults.m_depthTestEnabled;
+    m_depthWriteEnabled = defaults.m_depthWriteEnabled;
+    m_blendEnabled = defaults.m_blendEnabled;
+    m_blendSrc = defaults.m_blendSrc;
+    m_blendDst = defaults.m_blendDst;
+    m_cullEnabled = defaults.m_cullEnabled;
+    m_polyOffsetEnabled = defaults.m_polyOffsetEnabled;
+    m_polyOffsetFactor = defaults.m_polyOffsetFactor;
+    m_polyOffsetUnits = defaults.m_polyOffsetUnits;
+    m_renderingToFBO = defaults.m_renderingToFBO;
+    m_lastPSOHash = defaults.m_lastPSOHash;
+    m_psoDirty = defaults.m_psoDirty;
+    m_targetsDirty = defaults.m_targetsDirty;
+}
+
+
+void Dx12PipelineOwner::SetDepthTest( bool enabled )
+{
+    if ( m_depthTestEnabled != enabled )
+    {
+        m_depthTestEnabled = enabled;
+        m_psoDirty = true;
+    }
+}
+
+
+void Dx12PipelineOwner::SetDepthWrite( bool enabled )
+{
+    if ( m_depthWriteEnabled != enabled )
+    {
+        m_depthWriteEnabled = enabled;
+        m_psoDirty = true;
+    }
+}
+
+
+void Dx12PipelineOwner::SetBlend( bool enabled )
+{
+    if ( m_blendEnabled != enabled )
+    {
+        m_blendEnabled = enabled;
+        m_psoDirty = true;
+    }
+}
+
+
+void Dx12PipelineOwner::SetBlendFunc( BlendFactor src, BlendFactor dst )
+{
+    if ( m_blendSrc != src || m_blendDst != dst )
+    {
+        m_blendSrc = src;
+        m_blendDst = dst;
+        m_psoDirty = true;
+    }
+}
+
+
+void Dx12PipelineOwner::SetCullFace( bool enabled )
+{
+    if ( m_cullEnabled != enabled )
+    {
+        m_cullEnabled = enabled;
+        m_psoDirty = true;
+    }
+}
+
+
+void Dx12PipelineOwner::SetPolygonOffset( bool enabled, float factor, float units )
+{
+    if ( m_polyOffsetEnabled != enabled || m_polyOffsetFactor != factor || m_polyOffsetUnits != units )
+    {
+        m_polyOffsetEnabled = enabled;
+        m_polyOffsetFactor = factor;
+        m_polyOffsetUnits = units;
+        m_psoDirty = true;
+    }
+}
+
+
+bool Dx12PipelineOwner::DepthTestEnabled() const
+{
+    return m_depthTestEnabled;
+}
+bool Dx12PipelineOwner::DepthWriteEnabled() const
+{
+    return m_depthWriteEnabled;
+}
+bool Dx12PipelineOwner::BlendEnabled() const
+{
+    return m_blendEnabled;
+}
+bool Dx12PipelineOwner::CullEnabled() const
+{
+    return m_cullEnabled;
+}
+
+
+void Dx12PipelineOwner::GetBlendFunc( BlendFactor& src, BlendFactor& dst ) const
+{
+    src = m_blendSrc;
+    dst = m_blendDst;
+}
+
+
+bool RenderBackendDX12::PrepareDraw( VertexFormat12 format,
+                                     bool instanced,
+                                     const InstancedMeshDX12* instancedMesh,
+                                     const DynamicVBDX12* dynamicVertexBuffer )
+{
+    return m_frameOwner.DrawGate().PreparePipelineDraw( format, instanced, instancedMesh, dynamicVertexBuffer );
+}
+
+
+void RenderBackendDX12::SetActiveShader( ShaderDX12* shader )
+{
+    m_pipelineOwner.SetActiveShader( shader );
+}
+
+
+void RenderBackendDX12::SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv )
+{
+    m_pipelineOwner.SetCurrentTargets( rtv, dsv );
 }
 
 
@@ -634,20 +1020,13 @@ void RenderBackendDX12::SetRenderingToFBO( bool rendering,
                                            UINT fboDepthSrvIndex,
                                            DXGI_FORMAT rtvFormat )
 {
-    m_renderingToFBO = rendering;
-    m_currentRTVFormat = rendering ? rtvFormat : DXGI_FORMAT_R8G8B8A8_UNORM;
-    m_psoDirty = true;
+    m_pipelineOwner.SetRenderingToFBO( rendering, rtvFormat );
     if ( rendering )
     {
-        // Hazard: an FBO texture cannot be sampled while it is also the active
-        // render target.
-        //
-        // The same image can have an RTV view for writing and an SRV view for
-        // reading, but not at the same time in this pass. Clear any texture slot
-        // still pointing at the FBO color/depth SRV before the resource is used
-        // as a render target again.
-        ClearBoundTextureSlotsForSrv( fboSrvIndex );
-        ClearBoundTextureSlotsForSrv( fboDepthSrvIndex );
+        // Hazard: a render-target resource cannot remain sampled through a
+        // texture slot while the output-merger writes it.
+        m_textureOwner.ClearBoundSlotsForSrv( fboSrvIndex );
+        m_textureOwner.ClearBoundSlotsForSrv( fboDepthSrvIndex );
     }
 }
 

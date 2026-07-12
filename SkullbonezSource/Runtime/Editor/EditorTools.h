@@ -51,10 +51,10 @@ namespace Environment
 class CameraCollection;
 class WorldEnvironment;
 } // namespace Environment
-namespace GameObjects
+namespace Basics
 {
-class GameModelCollection;
-} // namespace GameObjects
+class SceneController;
+}
 namespace Geometry
 {
 class Terrain;
@@ -86,7 +86,7 @@ namespace RunInternal
 {
 struct EditorSaveHotkeyContext
 {
-    GameObjects::GameModelCollection& models;
+    Basics::SceneController& models;
     const SceneEntityStore& entities;
     const RunSceneState& scene;
     Environment::WorldEnvironment& world;
@@ -112,7 +112,7 @@ struct EditorPlacementPreviewContext
 struct EditorObjectPlacementContext
 {
     RunEditorPlacementState& editor;
-    GameObjects::GameModelCollection& models;
+    Basics::SceneController& models;
     Physics::PhysicsEngine& physics;
     RunSceneState& scene;
     Environment::WorldEnvironment& world;
@@ -147,7 +147,7 @@ struct EditorObjectPlacementResult
 struct EditorGizmoContext
 {
     RunEditorPlacementState& editor;
-    GameObjects::GameModelCollection& models;
+    Basics::SceneController& models;
     Physics::PhysicsEngine& physics;
     RuntimeInteractionController& interaction;
 };
@@ -233,7 +233,7 @@ int ResolveSelectedEditorModelIndex( RunEditorPlacementState& editor, const Phys
 int PeekSelectedEditorModelIndex( const RunEditorPlacementState& editor, const Physics::PhysicsBodyStore& bodyStore );
 // Concept: split editor tool translation units share this store-backed
 // transform vocabulary. Keep it narrow so gizmo math, overlay tracing, and
-// placement commits do not rediscover pose or shape facts from GameModel.
+// placement commits do not rediscover pose or shape facts from legacy object record.
 Math::Vector::Vector3 EditorAxisVector( int axis );
 float EditorShapeAxisExtent( const Math::CollisionDetection::CollisionShape& shape, int axis );
 float EditorColliderRadius( const Physics::ColliderRecord& collider );
@@ -256,7 +256,7 @@ bool TryResolveEditorBodyCollider( const Physics::PhysicsBodyStore& bodyStore,
                                    int modelIndex,
                                    const Physics::PhysicsBodyRecord*& outBody,
                                    const Physics::ColliderRecord*& outCollider );
-bool TryGetEditorSelectionFrame( const GameObjects::GameModelCollection& collection,
+bool TryGetEditorSelectionFrame( const Basics::SceneController& collection,
                                  const Physics::PhysicsBodyStore& bodyStore,
                                  const Physics::ColliderStore& colliderStore,
                                  Physics::PhysicsBodyHandle selectedBodyHandle,
@@ -264,7 +264,7 @@ bool TryGetEditorSelectionFrame( const GameObjects::GameModelCollection& collect
                                  int selectedIndex,
                                  Math::Vector::Vector3& outOrigin,
                                  float& outRadius );
-bool TryTraceEditorSelectionOverlayFromStores( const GameObjects::GameModelCollection& collection,
+bool TryTraceEditorSelectionOverlayFromStores( const Basics::SceneController& collection,
                                                const Physics::PhysicsBodyStore& bodyStore,
                                                const Physics::ColliderStore& colliderStore,
                                                Physics::PhysicsBodyHandle selectedBodyHandle,
@@ -274,21 +274,19 @@ bool TryTraceEditorSelectionOverlayFromStores( const GameObjects::GameModelColle
                                                Math::Vector::Vector3& outOrigin,
                                                float& outRadius );
 void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
-                                       const GameObjects::GameModelCollection& collection,
+                                       const Basics::SceneController& collection,
                                        const Physics::PhysicsBodyStore& bodyStore,
                                        bool allowRagdollGroup );
 int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, int modelCount );
-void WakeEditorPhysicsBody( GameObjects::GameModelCollection& collection,
-                            Physics::PhysicsEngine& physics,
-                            int modelIndex );
-void SeedEditorPhysicsBodyAsleep( GameObjects::GameModelCollection& collection,
+void WakeEditorPhysicsBody( Basics::SceneController& collection, Physics::PhysicsEngine& physics, int modelIndex );
+void SeedEditorPhysicsBodyAsleep( Basics::SceneController& collection,
                                   Physics::PhysicsEngine& physics,
                                   int modelIndex );
-void ResetEditorModelMotionAndWake( GameObjects::GameModelCollection& collection,
+bool ResetEditorModelMotionAndWake( Basics::SceneController& collection,
                                     Physics::PhysicsEngine& physics,
                                     int index,
                                     Physics::PhysicsBodyUpdateDesc update );
-void ResetEditorModelMotionAndWake( GameObjects::GameModelCollection& collection,
+bool ResetEditorModelMotionAndWake( Basics::SceneController& collection,
                                     Physics::PhysicsEngine& physics,
                                     int index,
                                     Physics::PhysicsBodyUpdateDesc update,

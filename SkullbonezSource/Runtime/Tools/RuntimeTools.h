@@ -22,7 +22,7 @@ Glossary:
   Gizmo drag group: Bounded set of selected model indices transformed as one
     editor gesture.
   Body store: Physics-owned dense body rows borrowed by tool hit tests and
-    command paths without reading mirrored GameModel body state.
+    command paths without reading mirrored legacy object record body state.
   Collider store: Physics-owned dense collider rows borrowed for shape-derived
     hit-test bounds.
   Physics body handle: Generational id for a live simulation body row; runtime
@@ -55,6 +55,7 @@ Related:
 #include "../../Core/Common.h"
 #include "../../Core/MainMemoryStats.h"
 #include "../Editor/LauncherLaser.h"
+#include "../Editor/EditorCommandHistory.h"
 #include "../RuntimeCameraMode.h"
 #include "../RuntimeInteractionController.h"
 #include "../../Maths/Matrix4.h"
@@ -70,10 +71,10 @@ Related:
 #include <string>
 #include <vector>
 
-namespace SkullbonezCore::GameObjects
+namespace SkullbonezCore::Basics
 {
-class GameModelCollection;
-} // namespace SkullbonezCore::GameObjects
+class SceneController;
+} // namespace SkullbonezCore::Basics
 
 namespace SkullbonezCore::Physics
 {
@@ -181,7 +182,7 @@ struct ToolOverlayBuildInput
 #ifdef _DEBUG
 struct LauncherReproSnapshotContext
 {
-    GameObjects::GameModelCollection& collection;
+    Basics::SceneController& collection;
     const SceneEntityStore& entities;
     Environment::CameraCollection* cameras;
     Geometry::Terrain* terrain;
@@ -390,6 +391,8 @@ struct LauncherPointerResult
 struct RunEditorPlacementState
 {
     static constexpr std::size_t GIZMO_DRAG_GROUP_CAPACITY = 16;
+
+    EditorCommandHistory history;
 
     bool editorModeEnabled = false;
     bool placementModeEnabled = false;
@@ -680,7 +683,7 @@ class RuntimeTools
                                     Math::Vector::Vector3& outOrigin,
                                     Math::Vector::Vector3& outDirection,
                                     Math::Vector::Vector3& outCameraUp ) const;
-    bool FireLauncherRay( GameObjects::GameModelCollection& collection,
+    bool FireLauncherRay( Basics::SceneController& collection,
                           Physics::PhysicsEngine& physics,
                           RunSceneState& scene,
                           Geometry::Terrain* terrain,
@@ -691,7 +694,7 @@ class RuntimeTools
     LauncherPointerResult RouteLauncherPointer( const LauncherPointerInput& input,
                                                 Environment::CameraCollection& cameras,
                                                 ReplayRuntime& replayRuntime,
-                                                GameObjects::GameModelCollection& collection,
+                                                Basics::SceneController& collection,
                                                 Physics::PhysicsEngine& physics,
                                                 RunSceneState& scene,
                                                 Geometry::Terrain* terrain );
@@ -701,7 +704,7 @@ class RuntimeTools
                             const Math::Vector::Vector3& rayOrigin,
                             const Math::Vector::Vector3& rayDirection,
                             const Math::Vector::Vector3& cameraUp );
-    bool FireLauncherProjectile( GameObjects::GameModelCollection& collection,
+    bool FireLauncherProjectile( Basics::SceneController& collection,
                                  Physics::PhysicsEngine& physics,
                                  RunSceneState& scene,
                                  Geometry::Terrain* terrain,
@@ -711,7 +714,7 @@ class RuntimeTools
                                  const Math::Vector::Vector3& rayDirection,
                                  const Math::Vector::Vector3& cameraUp );
 #ifdef _DEBUG
-    bool PickLauncherReproTarget( GameObjects::GameModelCollection& collection,
+    bool PickLauncherReproTarget( Basics::SceneController& collection,
                                   Environment::CameraCollection* cameras,
                                   int& outIndex,
                                   float& outRayT,
@@ -728,30 +731,30 @@ class RuntimeTools
     RunMousePickupState& MousePickup();
     const RunMousePickupState& MousePickup() const;
     MousePickupPointerResult RouteMousePickupPointer( const MousePickupPointerInput& input,
-                                                      const GameObjects::GameModelCollection& collection,
+                                                      const Basics::SceneController& collection,
                                                       InputRouter& inputRouter,
                                                       RuntimeInteractionController& interaction );
     // Applies the manipulator spring at the fixed-step boundary. Tool state is
     // owned here; scene physics and input/interaction owners are synchronous borrows.
-    void ApplyMousePickupPhysicsStep( GameObjects::GameModelCollection& models,
+    void ApplyMousePickupPhysicsStep( Basics::SceneController& models,
                                       Physics::PhysicsEngine& physics,
                                       InputRouter& inputRouter,
                                       RuntimeInteractionController& interaction );
-    void RestoreMousePickupAngularVelocity( GameObjects::GameModelCollection& models,
+    void RestoreMousePickupAngularVelocity( Basics::SceneController& models,
                                             Physics::PhysicsEngine& physics,
                                             InputRouter& inputRouter,
                                             RuntimeInteractionController& interaction );
     bool PrepareSelectionCommand( const RuntimeInteractionCommand& command,
-                                  const GameObjects::GameModelCollection& collection,
+                                  const Basics::SceneController& collection,
                                   RuntimeInteractionSelectionPlan& outPlan );
     bool PrepareEditorPointerSelection( const EditorPointerSelectionInput& input,
-                                        const GameObjects::GameModelCollection& collection,
+                                        const Basics::SceneController& collection,
                                         RuntimeInteractionSelectionPlan& outPlan,
                                         WorldInteractionOwner& outOwner,
                                         InteractionExitReason& outReason );
     EditorPlacementScalePointerResult RouteEditorPlacementScalePointer( bool leftReleased,
                                                                         bool suppressWorldAction,
-                                                                        GameObjects::GameModelCollection& collection,
+                                                                        Basics::SceneController& collection,
                                                                         Physics::PhysicsEngine& physics,
                                                                         RunSceneState& scene,
                                                                         Environment::WorldEnvironment& world,
@@ -761,10 +764,18 @@ class RuntimeTools
                                                                         RuntimeInteractionController& interaction,
                                                                         ReplayRuntime& replayRuntime );
     EditorGizmoDragPointerResult RouteEditorGizmoDragPointer( const EditorGizmoDragPointerInput& input,
-                                                              GameObjects::GameModelCollection& collection,
+                                                              Basics::SceneController& collection,
                                                               Physics::PhysicsEngine& physics,
                                                               RuntimeInteractionController& interaction,
                                                               ReplayRuntime& replayRuntime );
+    void RecordEditorTransformHistory( Basics::SceneController& collection,
+                                       RuntimeGizmoDragKind gizmoKind,
+                                       int selectedModelIndex );
+    void RecordEditorPlacementHistory( Basics::SceneController& collection, int modelCountBefore, int modelCountAfter );
+    bool UndoEditorCommand( Basics::SceneController& collection );
+    bool RedoEditorCommand( Basics::SceneController& collection );
+    bool DeleteEditorSelection( Basics::SceneController& collection );
+    void ClearEditorHistory();
     bool PrepareEditorGizmoGesture( bool inspectGizmoActive,
                                     bool scaleMode,
                                     int selectedModelIndex,
@@ -773,12 +784,12 @@ class RuntimeTools
                                     const Math::Vector::Vector3& rayDirection,
                                     int clientX,
                                     int clientY,
-                                    GameObjects::GameModelCollection& collection,
+                                    Basics::SceneController& collection,
                                     Physics::PhysicsEngine& physics,
                                     RuntimeInteractionController& interaction,
                                     EditorGizmoGesturePlan& outPlan );
     EditorGizmoGestureResult CommitEditorGizmoGesture( const EditorGizmoGesturePlan& plan,
-                                                       GameObjects::GameModelCollection& collection,
+                                                       Basics::SceneController& collection,
                                                        Physics::PhysicsEngine& physics,
                                                        RuntimeInteractionController& interaction );
     EditorPlacementScaleStartResult BeginEditorPlacementScalePointer( bool inspectGizmoActive,
@@ -788,8 +799,7 @@ class RuntimeTools
                                                                       RuntimeInteractionController& interaction );
     EditorViewportPlacementResult RouteEditorViewportPlacement( const EditorViewportPlacementInput& input );
     bool CommitSelectionCommand( const RuntimeInteractionSelectionPlan& plan, RuntimeInteractionEvent& outEvent );
-    bool ApplySelectionCommand( const RuntimeInteractionCommand& command,
-                                const GameObjects::GameModelCollection& collection );
+    bool ApplySelectionCommand( const RuntimeInteractionCommand& command, const Basics::SceneController& collection );
     void CancelMousePickup( InputRouter& inputRouter, RuntimeInteractionController& interaction );
 
     RunEditorPlacementState& Editor();
@@ -797,13 +807,13 @@ class RuntimeTools
     bool HasActiveEditorInteractionState( const RuntimeInteractionController& interaction ) const;
     bool InspectGizmoInteractionActive( RunCameraMode cameraMode, bool replayInspectionActive ) const;
     int RefreshEditorPointerPreview( const EditorPointerPreviewInput& input,
-                                     GameObjects::GameModelCollection& collection,
+                                     Basics::SceneController& collection,
                                      Physics::PhysicsEngine& physics,
                                      RuntimeInteractionController& interaction,
                                      Geometry::Terrain* terrain,
                                      const Assets::AssetSystem& assets );
     void ClearEditorInteractionForTransition( bool clearSelection,
-                                              GameObjects::GameModelCollection& collection,
+                                              Basics::SceneController& collection,
                                               Physics::PhysicsEngine& physics,
                                               RuntimeInteractionController& interaction );
 
@@ -811,7 +821,7 @@ class RuntimeTools
     const RunEditorTracer& EditorTracer() const;
     // Rebuilds the fixed-capacity tool draw records before RuntimeRenderer
     // submits them. World/model/asset owners remain borrowed for this call.
-    void PrepareOverlayTrace( GameObjects::GameModelCollection& models,
+    void PrepareOverlayTrace( Basics::SceneController& models,
                               const Assets::AssetSystem& assets,
                               const ToolOverlayBuildInput& input );
 

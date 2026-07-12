@@ -495,6 +495,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.selectedSceneOption = state.currentSceneBrowserIndex;
         UIData.selectedCineModeSceneOption = state.sceneBrowser.selectedCineModeSceneIndex;
         UIData.UIDrawCalls = inputs.timers.lastUIDrawCalls;
+        UIData.visibility = inputs.renderDiagnostics.GetFrameVisibilityStats();
         UIData.fps =
             inputs.timers.rollingFpsTime > 0.0f
                 ? inputs.timers.rollingFpsTime
@@ -845,6 +846,9 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         }
         UIData.sceneEnergy = sceneEnergyForDisplay;
         UIData.timeScale = view.timeScale;
+        UIData.presentationInterpolation = view.presentationInterpolation;
+        UIData.presentationPinned = view.presentationPinned;
+        UIData.presentationAlpha = view.presentationAlpha;
         UIData.trackHeight = state.camera.trackBallRow.IsValid() ? state.camera.trackHeight : 0.0f;
         UIData.autoCycleInterval = state.camera.autoCycleInterval > 0.0f ? state.camera.autoCycleInterval : 0.0f;
         UIData.worldGravity = state.world.GetGravity();
@@ -865,11 +869,11 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         }
         UIData.physicsDebugAlpha = state.debug.physicsDebugAlpha;
         UIData.physicsDebugContactLinger = state.debug.physicsDebugContactLinger;
-        UIData.physicsSleepEnabled = state.modelOwner.IsPhysicsSleepEnabled();
+        UIData.physicsSleepEnabled = state.modelOwner.Physics().IsSleepEnabled();
         UIData.collisionVisualizer = state.debug.isCollisionVisualizer;
         UIData.physicsDebugTransparent = state.debug.isPhysicsDebugTransparent;
         UIData.broadphaseOverlay = state.debug.isBroadphaseOverlay;
-        const Physics::TornadoFieldConfig& tornadoField = state.modelOwner.GetTornadoFieldConfig();
+        const Physics::TornadoFieldConfig& tornadoField = state.modelOwner.Physics().GetTornadoFieldConfig();
         UIData.tornadoEnabled = tornadoField.enabled;
         UIData.tornadoVisualShell = state.renderPresentation.tornadoVisual.enabled && tornadoField.enabled;
         UIData.tornadoFieldVectors = tornadoField.visualizeVelocityField;
@@ -882,9 +886,9 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.rayCastVisualization = state.rayCastTest.visualizeRays;
         UIData.rayCastImpulseStrength = state.rayCastTest.impulseStrength;
         UIData.launcherProjectileSpeed = state.rayCastTest.projectileSpeed;
-        UIData.terrainFrictionCoeff = liveConfig.frictionCoeff;
-        UIData.objectFrictionCoeff = liveConfig.objectFrictionCoeff;
-        UIData.rollingFrictionCoeff = liveConfig.rollingFrictionCoeff;
+        UIData.terrainFrictionCoeff = liveConfig.physicsMaterial.frictionCoeff;
+        UIData.objectFrictionCoeff = liveConfig.physicsMaterial.objectFrictionCoeff;
+        UIData.rollingFrictionCoeff = liveConfig.physicsMaterial.rollingFrictionCoeff;
         UIData.waterFreezeDebug = state.debug.isWaterFreezeDebug;
         UIData.waterFlatDebug = state.debug.isWaterFlatDebug;
         UIData.terrainHidden = state.debug.isTerrainHidden;
@@ -906,6 +910,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.editorTerrainAlign = state.editor.autoTerrainAlign;
         UIData.editorViewportLookActive = state.editor.viewportLookActive;
         UIData.editorObjectType = state.editor.objectType;
+        UIData.editorUndoDepth = static_cast<int>( state.editor.history.UndoDepth() );
+        UIData.editorRedoDepth = static_cast<int>( state.editor.history.RedoDepth() );
         UIData.canSaveSceneDefaults =
             view.sceneMode && state.sceneHasCurrentEntry && state.currentScenePath && state.currentScenePath[0] != '\0';
         UIData.cinematicRendering = inputs.cinematicRendering;

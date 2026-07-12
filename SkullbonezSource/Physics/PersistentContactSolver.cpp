@@ -162,7 +162,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     //   do not jitter while chasing floating-point dust.
     // Small allowed overlap. Without this tolerance, floating-point noise makes
     // the solver chase microscopic errors and resting bodies visibly tremble.
-    const float contactSlop = (std::max)( 0.0f, config.persistentContactSlop );
+    const float contactSlop = (std::max)( 0.0f, config.persistentContactSolver.slop );
 
     // CATTO REF:
     //   Catto 2005, PDF p. 8, Section 3.6, Equation 15 and PDF p. 10,
@@ -171,7 +171,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     // Baumgarte bias is a gentle "please separate" velocity for bodies that are
     // already interpenetrating. It removes overlap over several ticks instead of
     // teleporting everything apart in one harsh correction.
-    const float baumgarteBeta = (std::max)( 0.0f, config.persistentContactBaumgarteBeta );
+    const float baumgarteBeta = (std::max)( 0.0f, config.persistentContactSolver.baumgarteBeta );
 
     // ENGINE-SPECIFIC:
     //   Catto uses the bias term for penetration correction. This partial
@@ -180,8 +180,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     // A final direct positional correction catches the remaining overlap after the
     // velocity solve. The percent is deliberately partial so stacks do not pop.
     const float positionCorrectionPercent =
-        (std::max)( 0.0f, (std::min)( config.persistentContactPositionCorrectionPercent, 1.0f ) );
-    const float maxBaumgarteBias = (std::max)( 0.0f, config.terrainMaxBaumgarteBias );
+        (std::max)( 0.0f, (std::min)( config.persistentContactSolver.positionCorrectionPercent, 1.0f ) );
+    const float maxBaumgarteBias = (std::max)( 0.0f, config.terrainContact.maxBaumgarteBias );
 
     // CATTO REF:
     //   Catto 2005, PDF p. 15, Section 7, and PDF pp. 16-17, Section 7.2,
@@ -190,13 +190,13 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     // Projected Gauss-Seidel works by revisiting every contact repeatedly. Each
     // visit improves the answer a little; twelve passes is a compromise between
     // stack stability and keeping the physics hot path affordable.
-    const int solverIterations = (std::max)( 1, config.persistentContactSolverIterations );
+    const int solverIterations = (std::max)( 1, config.persistentContactSolver.iterations );
     const float invDt = ( dt > TOLERANCE ) ? ( 1.0f / dt ) : 120.0f;
     // Why: mutual-gravity space has no ambient support surface. Contacts should
     // exchange momentum instead of cooling into friction or cached resting rows.
     const bool elasticCollisions = context.elasticCollisions;
-    const float restitutionThreshold = elasticCollisions ? 0.0f : config.contactRestitutionThreshold;
-    const float objectFrictionCoeff = elasticCollisions ? 0.0f : config.objectFrictionCoeff;
+    const float restitutionThreshold = elasticCollisions ? 0.0f : config.bodySimulation.contactRestitutionThreshold;
+    const float objectFrictionCoeff = elasticCollisions ? 0.0f : config.physicsMaterial.objectFrictionCoeff;
 
     // CATTO REF:
     //   Catto 2005, PDF pp. 18-19, Section 8.1/8.2 and Algorithm 5 store lambda
@@ -492,8 +492,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             return;
         }
 
-        const float sleepLinear = (std::max)( 0.0f, config.physicsSleepLinearSpeed );
-        const float sleepAngular = (std::max)( 0.0f, config.physicsSleepAngularSpeed );
+        const float sleepLinear = (std::max)( 0.0f, config.physicsSleep.linearSpeed );
+        const float sleepAngular = (std::max)( 0.0f, config.physicsSleep.angularSpeed );
         const float speedSq = body.linearVelocity * body.linearVelocity;
         const float omegaSq = body.angularVelocity * body.angularVelocity;
         if ( speedSq > sleepLinear * sleepLinear || omegaSq > sleepAngular * sleepAngular )
@@ -513,7 +513,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
 
         const float loadFloor = (std::max)( 1.0e-4f,
                                             m_bodyRecords[static_cast<size_t>( supportedIndex )].mass *
-                                                fabsf( config.gravity ) * dt * 0.01f );
+                                                fabsf( config.worldForces.gravity ) * dt * 0.01f );
         if ( c.accN < loadFloor )
         {
             return;
@@ -557,8 +557,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     {
         const SolverBodyState& solverA = m_solverBodies[bodyA];
         const SolverBodyState& solverB = m_solverBodies[bodyB];
-        const float linearLimit =
-            (std::max)( config.physicsSleepLinearSpeed * 2.0f, config.contactRestitutionThreshold * 0.25f );
+        const float linearLimit = (std::max)( config.physicsSleep.linearSpeed * 2.0f,
+                                              config.bodySimulation.contactRestitutionThreshold * 0.25f );
         const float linearLimitSq = linearLimit * linearLimit;
         for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
         {
@@ -571,7 +571,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             }
         }
 
-        const float angularLimit = (std::max)( config.physicsSleepAngularSpeed * 2.0f, 0.25f );
+        const float angularLimit = (std::max)( config.physicsSleep.angularSpeed * 2.0f, 0.25f );
         const float angularLimitSq = angularLimit * angularLimit;
         return Vector::VectorMagSquared( solverA.angularVelocity ) <= angularLimitSq &&
                Vector::VectorMagSquared( solverB.angularVelocity ) <= angularLimitSq;
@@ -714,8 +714,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
 
             Vector3 centerDelta = m_bodyRecords[static_cast<size_t>( bIndex )].position -
                                   m_bodyRecords[static_cast<size_t>( aIndex )].position;
-            float contactDistance =
-                conservativeContactRadius( colliderA ) + conservativeContactRadius( colliderB ) + config.contactEpsilon;
+            float contactDistance = conservativeContactRadius( colliderA ) + conservativeContactRadius( colliderB ) +
+                                    config.bodySimulation.contactEpsilon;
             if ( Vector::VectorMagSquared( centerDelta ) > contactDistance * contactDistance )
             {
                 continue;
@@ -734,7 +734,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                                                             colliderB.shape,
                                                             aIndex,
                                                             bIndex,
-                                                            config.contactEpsilon,
+                                                            config.bodySimulation.contactEpsilon,
                                                             manifold );
             }
             if ( manifoldBuilt )
@@ -880,7 +880,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             const float supportSeedScale =
                 manifold.supportsRestingPolicy ? 1.0f : ( manifold.inhibitsSleep ? 0.35f : 0.0f );
             const float warmStartTotal = m_bodyRecords[static_cast<size_t>( manifold.bodyA )].mass *
-                                         fabsf( config.gravity ) * fabsf( manifold.normal.y ) * dt * supportSeedScale;
+                                         fabsf( config.worldForces.gravity ) * fabsf( manifold.normal.y ) * dt *
+                                         supportSeedScale;
             const float warmStartPerContact = warmStartTotal / static_cast<float>( manifold.pointCount );
 
             for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
@@ -1014,7 +1015,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             c.bias = 0.0f;
             if ( c.isTerrain )
             {
-                const float terrainSlop = (std::max)( 0.0f, config.terrainContactSlop );
+                const float terrainSlop = (std::max)( 0.0f, config.terrainContact.slop );
                 if ( !c.supportsRestingPolicy && c.penetration <= terrainSlop && vn > -restitutionThreshold )
                 {
                     c.normalMass = 0.0f;
@@ -1026,8 +1027,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                     float penetrationError = c.penetration - terrainSlop;
                     if ( penetrationError > 0.0f )
                     {
-                        const float terrainBeta = (std::max)( 0.0f, config.terrainContactBaumgarteBeta );
-                        const float maxTerrainBias = (std::max)( 0.0f, config.terrainMaxBaumgarteBias );
+                        const float terrainBeta = (std::max)( 0.0f, config.terrainContact.baumgarteBeta );
+                        const float maxTerrainBias = (std::max)( 0.0f, config.terrainContact.maxBaumgarteBias );
                         c.bias = terrainBeta * penetrationError * invDt;
                         if ( c.bias > maxTerrainBias )
                         {
@@ -1082,12 +1083,13 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             //   Catto 2005, PDF p. 12, Section 4.3, Equations 24-25 bound tangent
             //   lambdas by +/-mu*m_c*g. Reason: avoid coupling tangent friction to
             //   solved normal force while keeping static friction usable in games.
-            c.frictionLimit = ( elasticCollisions || !c.allowsTangentFriction )
-                                  ? 0.0f
-                                  : ( c.isTerrain ? config.frictionCoeff * c.terrainWarmStart
-                                                  : ( c.normalCoupledFriction ? 0.0f
-                                                                              : objectFrictionCoeff * contactMass *
-                                                                                    fabsf( config.gravity ) * dt ) );
+            c.frictionLimit =
+                ( elasticCollisions || !c.allowsTangentFriction )
+                    ? 0.0f
+                    : ( c.isTerrain ? config.physicsMaterial.frictionCoeff * c.terrainWarmStart
+                                    : ( c.normalCoupledFriction ? 0.0f
+                                                                : objectFrictionCoeff * contactMass *
+                                                                      fabsf( config.worldForces.gravity ) * dt ) );
 
             // CATTO REF:
             //   Catto 2005, PDF pp. 18-19, Section 8.1 and Algorithm 5. Reason:
@@ -1116,7 +1118,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                     ( elasticCollisions || !c.allowsTangentFriction )
                         ? 0.0f
                         : ( c.isTerrain
-                                ? config.frictionCoeff *
+                                ? config.physicsMaterial.frictionCoeff *
                                       ( ( c.accN > c.terrainWarmStart ) ? c.accN : c.terrainWarmStart )
                                 : ( c.normalCoupledFriction ? objectFrictionCoeff * c.accN : c.frictionLimit ) );
                 Physics::ContactSolver::ClampFrictionVector( c.accT1, c.accT2, cachedFrictionLimit );
@@ -1243,7 +1245,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                     ( elasticCollisions || !c.allowsTangentFriction )
                         ? 0.0f
                         : ( c.isTerrain
-                                ? config.frictionCoeff *
+                                ? config.physicsMaterial.frictionCoeff *
                                       ( ( c.accN > c.terrainWarmStart ) ? c.accN : c.terrainWarmStart )
                                 : ( c.normalCoupledFriction ? objectFrictionCoeff * c.accN : c.frictionLimit ) );
                 Physics::ContactSolver::ClampFrictionVector( c.accT1, c.accT2, frictionLimit );
@@ -1313,7 +1315,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             m_terrainRestApplied[bodyIndex] = 1;
             const PhysicsBodyRecord& record = m_bodyRecords[static_cast<size_t>( bodyIndex )];
             SolverBodyState& body = m_solverBodies[bodyIndex];
-            float normalForce = record.mass * fabsf( config.gravity ) * fabsf( manifold.normal.y );
+            float normalForce = record.mass * fabsf( config.worldForces.gravity ) * fabsf( manifold.normal.y );
             float omegaMagSq = body.angularVelocity * body.angularVelocity;
             if ( omegaMagSq > TOLERANCE * TOLERANCE )
             {
@@ -1342,7 +1344,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                     },
                     m_colliderRecords[static_cast<size_t>( bodyIndex )].shape );
 
-                const float muRolling = (std::max)( 0.0f, config.rollingFrictionCoeff );
+                const float muRolling = (std::max)( 0.0f, config.physicsMaterial.rollingFrictionCoeff );
                 float rollingTorqueMag = muRolling * normalForce * rEff;
                 const Vector3& inertia = record.rotationalInertia;
                 float avgInertia = ( inertia.x + inertia.y + inertia.z ) / 3.0f;
@@ -1447,7 +1449,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
         PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/PositionCorrection" );
         for ( const PersistentContact& c : m_persistentContacts )
         {
-            const float rowContactSlop = c.isTerrain ? (std::max)( 0.0f, config.terrainContactSlop ) : contactSlop;
+            const float rowContactSlop = c.isTerrain ? (std::max)( 0.0f, config.terrainContact.slop ) : contactSlop;
             if ( c.penetration <= rowContactSlop )
             {
                 continue;

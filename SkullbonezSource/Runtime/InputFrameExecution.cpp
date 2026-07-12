@@ -65,6 +65,8 @@ Related:
 #include "../Physics/SimulationSystem.h"
 #include "../UI/UI.h"
 #include "../Rendering/IRenderDiagnostics.h"
+#include "../Rendering/IRenderShaderDevelopment.h"
+#include "Allocation/RuntimeAllocationTracker.h"
 #include "../UI/UILayout.h"
 
 #include <cstddef>
@@ -305,7 +307,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
             m_interaction,
             m_sceneController.Cameras(),
             m_sceneController.Terrain().Get(),
-            m_sceneController.Models(),
+            m_sceneController,
             m_sceneController.Physics(),
             m_camera,
             NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
@@ -330,7 +332,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
     {
         EnterInteractiveSceneRun();
         const RunInternal::EditorPlacementModeChangeResult placementMode = RunInternal::ToggleEditorPlacementMode(
-            { m_runtimeTools.Editor(), m_sceneController.Models(), m_sceneController.Physics(), m_interaction } );
+            { m_runtimeTools.Editor(), m_sceneController, m_sceneController.Physics(), m_interaction } );
         completeEditorPlacementModeTransition( source, placementMode );
     };
     const bool flyCamera =
@@ -342,6 +344,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                                      RunCameraModeIsAttached( m_camera.mode ),
                                                      m_camera.mode == RunCameraMode::Director,
                                                      m_camera.mode == RunCameraMode::Director || flyCamera,
+                                                     m_runtimeTools.Editor().editorModeEnabled,
                                                      !m_replayRuntime.Scrubber().restoreConsumedThisFrame,
                                                      false };
     m_inputRouter.RoutePhase( keyboardBindings,
@@ -417,6 +420,31 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
             // Backtick is captured early but applied after UI command processing.
             keyboardToggleEditorMode = true;
             break;
+        case RuntimeInputAction::UndoEditor:
+            if ( m_runtimeTools.Editor().editorModeEnabled && deviceFrame.keys.IsDown( VK_CONTROL ) )
+            {
+                if ( deviceFrame.keys.IsDown( VK_SHIFT ) )
+                {
+                    (void)m_runtimeTools.RedoEditorCommand( m_sceneController );
+                }
+                else
+                {
+                    (void)m_runtimeTools.UndoEditorCommand( m_sceneController );
+                }
+            }
+            break;
+        case RuntimeInputAction::RedoEditor:
+            if ( m_runtimeTools.Editor().editorModeEnabled && deviceFrame.keys.IsDown( VK_CONTROL ) )
+            {
+                (void)m_runtimeTools.RedoEditorCommand( m_sceneController );
+            }
+            break;
+        case RuntimeInputAction::DeleteEditorSelection:
+            if ( m_runtimeTools.Editor().editorModeEnabled )
+            {
+                (void)m_runtimeTools.DeleteEditorSelection( m_sceneController );
+            }
+            break;
         case RuntimeInputAction::CycleCameraMode:
             m_inputRouter.CycleCameraMode( m_camera,
                                            m_runtimeInput,
@@ -480,7 +508,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
             break;
         case RuntimeInputAction::CycleAttachedCameraSubmode:
             if ( RunCameraModeIsAttached( m_camera.mode ) &&
-                 m_attachedCamera.CycleMode( m_sceneController.Models(), m_sceneController.Cameras() ) )
+                 m_attachedCamera.CycleMode( m_sceneController, m_sceneController.Cameras() ) )
             {
                 m_inputRouter.RecordModeAction( m_runtimeInput,
                                                 m_camera,
@@ -494,8 +522,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
         case RuntimeInputAction::ToggleAttachedCameraPin:
             if ( RunCameraModeIsAttached( m_camera.mode ) )
             {
-                const bool activeFollow =
-                    m_attachedCamera.TogglePin( m_sceneController.Models(), m_sceneController.Cameras() );
+                const bool activeFollow = m_attachedCamera.TogglePin( m_sceneController, m_sceneController.Cameras() );
                 if ( !activeFollow )
                 {
                     if ( m_inputRouter.ReleasePointerToUi( EvaluateRuntimePointerPresentation( m_inputRouter,
@@ -522,7 +549,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
             {
                 const double simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
                 m_runtimeTools.WriteLauncherReproSnapshotWithStatusMessage(
-                    { m_sceneController.Models(),
+                    { m_sceneController,
                       m_sceneController.Entities(),
                       &m_sceneController.Cameras(),
                       m_sceneController.Terrain().Get(),
@@ -530,11 +557,11 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                       SceneState(),
                       m_sceneController.CurrentPath(),
                       m_launchOptions,
-                      m_sceneController.Models().IsPhysicsSleepEnabled(),
+                      m_sceneController.Physics().IsSleepEnabled(),
                       m_renderer.VsyncEnabled(),
                       m_renderer.PipelineSyncEnabled(),
-                      m_config.contactEpsilon,
-                      m_config.frictionCoeff,
+                      m_config.bodySimulation.contactEpsilon,
+                      m_config.physicsMaterial.frictionCoeff,
                       m_debug,
                       m_renderBackendView.renderDiagnostics ? m_renderBackendView.renderDiagnostics->GetRendererName()
                                                             : "DirectX 12",
@@ -651,13 +678,38 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
             HandleDiagnosticsKeyboardShortcut(
                 DiagnosticsKeyboardShortcutContext{ m_debug,
                                                     m_camera.trackBallRow.value,
-                                                    m_sceneController.Models(),
+                                                    m_sceneController,
                                                     m_renderBackendView.renderDiagnostics,
                                                     SceneState().isSceneMode,
                                                     m_timers.simulationTimer.GetTimeSinceLastStart() },
                 event.action,
                 true );
             break;
+        case RuntimeInputAction::ReloadShadersFromSource:
+        {
+            if ( !m_renderBackendView.shaderDevelopment )
+            {
+                fprintf( stderr, "Shader hot reload unavailable: active backend has no development capability.\n" );
+                break;
+            }
+            // Allocation policy: F9 is an explicit cold developer utility. The
+            // bake, manifest parse, reflection maps, and process launch belong
+            // to BackendInit rather than steady input/render accounting.
+            SkullbonezCore::Runtime::Allocation::RuntimeAllocationScope allocationScope(
+                SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase::BackendInit );
+            const SbResult reloadResult = m_renderBackendView.shaderDevelopment->ReloadShadersFromSource();
+            if ( !reloadResult.ok )
+            {
+                fprintf( stderr,
+                         "Shader hot reload failed: owner=%s reason=%s\n",
+                         reloadResult.error.owner,
+                         reloadResult.error.message );
+                Log().WriteEventf( "shader_hot_reload_failed owner=%s reason=%s",
+                                   reloadResult.error.owner,
+                                   reloadResult.error.message );
+            }
+            break;
+        }
         case RuntimeInputAction::ToggleCrossScenePause:
             // P locks scene automation without turning the run interactive;
             // SceneController preserves the policy across load transactions.
@@ -717,7 +769,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                     SceneRuntimeStyleContext{ m_launchOptions,
                                               SceneState(),
                                               m_sceneController.Browser(),
-                                              m_sceneController.Models(),
+                                              m_sceneController,
                                               m_sceneController.Entities(),
                                               m_assets,
                                               ActiveSceneCinematicConfig( SceneState(), m_config ),
@@ -786,7 +838,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                 m_interaction,
                 m_sceneController.Cameras(),
                 m_sceneController.Terrain().Get(),
-                m_sceneController.Models(),
+                m_sceneController,
                 m_sceneController.Physics(),
                 m_camera,
                 NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
@@ -988,7 +1040,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
         m_attachedCamera,
         m_interaction,
         m_sceneController.Entities(),
-        m_sceneController.Models(),
+        m_sceneController,
         m_sceneController.Physics(),
         SceneState(),
         m_sceneController.World(),

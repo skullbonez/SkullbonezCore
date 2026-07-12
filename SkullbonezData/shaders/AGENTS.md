@@ -6,7 +6,8 @@ source for the runtime.
 ## Local Rules
 
 - Do not add GLSL or DX11 shader families.
-- Ordinary raster shader bindings use the documented DX12 ABI: constants at
+- Raster shader bindings use the named `UnifiedRaster` contract in
+  `SkullbonezSource/Rendering/RenderRasterBindingContract.h`: constants at
   `b0`, fixed SRV slots `t0..t4`, and static samplers `s0`, `s1`, and `s3`.
 - Keep shader C++ call sites, HLSL uniforms/resources, and
   `tools/shader_contracts.json` aligned.

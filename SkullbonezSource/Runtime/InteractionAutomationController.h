@@ -72,6 +72,7 @@ enum class RunInteractionAutomationActionType
     LoseFocus,
     MoveMouse,
     ClickObject,
+    ClickPoint,
     ClickReplayControl,
     ScrubReplaySolverTrack,
     SetReplayPredictionEnabled,
@@ -80,6 +81,7 @@ enum class RunInteractionAutomationActionType
     NudgeReplayPathTargetVelocity,
     ShowReplayScrubber,
     PressKey,
+    CaptureEditorSelectionState,
     AssertState,
     Screenshot
 };
@@ -101,7 +103,13 @@ enum class RunInteractionAutomationAssertKind
     DirectorPhaseStylePath,
     ReplayPredictionEnabled,
     ReplayPathTarget,
+    ReplayPastTrajectoryFullRebuildCountMax,
+    ReplayPastTrajectoryIncrementalTrimCountMin,
+    ReplayPastTrajectoryPublishedPointCountMin,
     PredictionPathVisible,
+    PredictionFullHorizonComplete,
+    PredictionBuildMode,
+    PredictionSupersededRestartCountMin,
     PredictionBaselineVisible,
     PredictionDivergenceMin,
     ReplaySolverTrackAtPresent,
@@ -118,7 +126,12 @@ enum class RunInteractionAutomationAssertKind
     LauncherRayActive,
     ReplayActiveTrack,
     ReplayHistoricalSamplePaused,
-    MemoryOverlayEnabled
+    MemoryOverlayEnabled,
+    EditorUndoDepth,
+    EditorRedoDepth,
+    EditorSelectionExists,
+    EditorSelectionHasTerrain,
+    EditorSelectionMatchesCapture
 };
 
 struct RunInteractionAutomationAction
@@ -181,10 +194,13 @@ struct InteractionAutomationController
     bool rightMouseDown = false;
     int keyVirtualKey = 0;
     bool keyDown = false;
+    bool controlDown = false;
     int releaseLeftFrame = -1;
     int releaseRightFrame = -1;
     int releaseKeyFrame = -1;
     int unfocusedInputFrames = 0;
+    uint64_t editorSelectionCaptureFingerprints[2] = {};
+    bool editorSelectionCaptureValid[2] = {};
 };
 
 struct InteractionAutomationFrameResult
@@ -221,6 +237,7 @@ TickInteractionAutomationAfterRender( InteractionAutomationController& state,
                                       UI::InGameUI& ui,
                                       CaptureController& capture,
                                       Rendering::IRenderCaptureBackend& captureBackend );
+bool InteractionAutomationWillCaptureAfterRender( const InteractionAutomationController& state, int frame );
 SbResult WriteInteractionAutomationReport( InteractionAutomationController& state,
                                            const SceneController& scene,
                                            const RuntimeTools& runtimeTools,

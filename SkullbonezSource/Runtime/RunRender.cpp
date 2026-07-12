@@ -21,7 +21,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp
   - SkullbonezSource/Runtime/Render/RuntimeRenderHost.h
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "Run.h"
 #include "../Core/Profiler.h"
@@ -32,7 +32,7 @@ using namespace SkullbonezCore::Basics::RunInternal;
 using SkullbonezCore::Math::Vector::Vector3;
 
 
-void Run::Render( const RuntimeRenderModelFrameView& renderModels )
+void Run::Render( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha )
 {
     m_renderer.SetUiTextRayTracingCapability( nullptr );
 
@@ -46,11 +46,12 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
     // rendering asks for view matrices.
     m_camera.UpdateViewingOrientation( m_timers,
                                        m_sceneController.Cameras(),
-                                       m_sceneController.Models(),
+                                       m_sceneController,
                                        m_replayRuntime.Camera().active,
                                        m_sceneController.State().isSceneMode,
                                        m_attachedCamera.State().activeFollow,
-                                       m_interaction.PointerCapture() == RuntimePointerCaptureOwner::CameraLook );
+                                       m_interaction.PointerCapture() == RuntimePointerCaptureOwner::CameraLook,
+                                       presentationAlpha );
 
     // Selected camera state is copied into the camera collection so render code below
     // reads one coherent eye/view/up triple for this frame.
@@ -62,7 +63,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
     int attachedTargetIndex = -1;
     if ( RunCameraModeIsAttached( m_camera.mode ) )
     {
-        (void)m_attachedCamera.ResolveTargetIdentity( m_sceneController.Models(), attachedTargetIndex );
+        (void)m_attachedCamera.ResolveTargetIdentity( m_sceneController, attachedTargetIndex );
     }
     const RenderReplayOverlayView replayOverlay{ m_replayRuntime,
                                                  m_sceneController.Entities(),
@@ -106,13 +107,14 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
     framePolicy.totalSimulationSeconds = m_timers.simulationTimer.GetTotalTime();
     m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext{ m_renderBackendView,
                                                                      renderModels,
-                                                                     m_sceneController.Models(),
+                                                                     m_sceneController,
                                                                      m_sceneController.Physics(),
                                                                      m_UI,
                                                                      framePolicy,
                                                                      replayOverlay,
                                                                      toolOverlay,
                                                                      activeCinematic,
+                                                                     presentationAlpha,
                                                                      cinematicRequested,
                                                                      m_replayRuntime.Prediction().enabled } );
 }

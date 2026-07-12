@@ -87,6 +87,7 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
         result.committedPhysicsTicks = ticksThisFrame;
 
         result.simulationDt = PHYSICS_FIXED_DT * static_cast<float>( ticksThisFrame );
+        result.presentationAlpha = 1.0f;
         return result;
     }
 
@@ -118,5 +119,9 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
     }
 
     result.simulationDt = scaledDt;
+    if ( canStepPhysics )
+    {
+        result.presentationAlpha = std::clamp( m_physicsAccumulator / PHYSICS_FIXED_DT, 0.0f, 1.0f );
+    }
     return result;
 }

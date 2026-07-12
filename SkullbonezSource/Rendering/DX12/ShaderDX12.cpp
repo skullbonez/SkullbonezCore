@@ -1,13 +1,12 @@
 /*
 File: SkullbonezSource/Rendering/DX12/ShaderDX12.cpp
 Purpose:
-  Compiles and binds shaders/root signatures for the DX12 renderer.
+  Loads, reflects, and binds baked shaders for the DX12 renderer.
 
 Mental model:
-  ShaderDX12.cpp compiles and binds shaders/root signatures for the DX12
-  renderer. As an implementation unit, keep edits anchored on DX12 ownership,
-  descriptors, resources, and command submission and on the
-  glossary/invariants below.
+  The offline bake owns compilation. This wrapper accepts manifest-current
+  DXIL, reflects its constant layout during cold startup or explicit developer
+  reload, and publishes bytecode plus uniform uploads needed by pipeline draws.
 
 Glossary:
   Upload arena: Frame-scoped CPU-visible staging memory used for packed shader
@@ -25,6 +24,8 @@ Invariants:
   must stay explicit.
   - Address zero means constant upload failed; FlushCB must not dereference it
     or clear the dirty bit.
+  - Runtime never compiles source; manual reload adopts only a complete verified
+    offline-DXC pair and leaves the current shader intact on failure.
 
 Related:
   - SkullbonezSource/Rendering/DX12/ShaderDX12.h
@@ -32,18 +33,19 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "ShaderDX12.h"
+#include "ShaderBytecodeManifest.h"
 #include "RenderBackendDX12.h"
 #include "../ShaderContracts.h"
+#include "../ShaderReflectionContracts.h"
 #include "../../Core/Log.h"
 #include <d3d11shader.h>
 #include <string>
-#include <fstream>
-#include <sstream>
 #include <vector>
 #include <cstring>
 #include <d3dcompiler.h>
 #include <wrl/client.h>
 #include <algorithm>
+#include <cstdio>
 
 
 using namespace SkullbonezCore::Rendering;
@@ -80,18 +82,33 @@ size_t HashShaderBytecode( ID3DBlob* blob )
 } // namespace
 
 
-ShaderDX12::ShaderDX12( RenderBackendDX12& backend )
-    : m_backend( backend ), m_cbReflectedSize( 0 ), m_cbSize( 0 ), m_cbDirty( false ), m_vsBytecodeHash( 0 ),
-      m_psBytecodeHash( 0 ), m_contract( nullptr )
+ShaderDX12::ShaderDX12( Dx12RenderDevice& device,
+                        Dx12PipelineOwner& pipeline,
+                        Dx12UploadReservations& uploadReservations,
+                        bool registerWithPipeline )
+    : m_device( device ), m_pipeline( pipeline ), m_uploadReservations( uploadReservations ), m_cbReflectedSize( 0 ),
+      m_cbSize( 0 ), m_cbDirty( false ), m_vsBytecodeHash( 0 ), m_psBytecodeHash( 0 ), m_contract( nullptr )
 {
+    if ( registerWithPipeline )
+    {
+        m_pipeline.RegisterShader( this );
+        m_registeredWithPipeline = true;
+    }
 }
 
 
-ShaderDX12::~ShaderDX12() = default;
+ShaderDX12::~ShaderDX12()
+{
+    if ( m_registeredWithPipeline )
+    {
+        m_pipeline.UnregisterShader( this );
+    }
+}
 
 
 bool ShaderDX12::Compile( const char* hlslPath )
 {
+    m_sourcePath = hlslPath ? hlslPath : "";
     m_contract = FindShaderProgramDesc( hlslPath );
     m_uniformMap.clear();
     m_cbReflectedSize = 0;
@@ -99,97 +116,60 @@ bool ShaderDX12::Compile( const char* hlslPath )
     m_cbData.clear();
     m_vsBytecodeHash = 0;
     m_psBytecodeHash = 0;
-#ifdef _DEBUG
     m_resourceMap.clear();
-#endif
 
-    // Read file
-    std::ifstream file( hlslPath, std::ios::binary );
-    if ( !file.is_open() )
+    std::string loadError;
+    bool loadedBaked = LoadManifestCurrentShaderBytecode( hlslPath, "vs", m_vsBlob, loadError ) &&
+                       LoadManifestCurrentShaderBytecode( hlslPath, "ps", m_psBlob, loadError );
+    if ( !loadedBaked )
     {
-        // Lane R: authored shader files can be missing or unreadable. Keep the
-        // shader wrapper as a status-return boundary so the resource factory can
-        // decide how to report the failure to its caller.
-        Log().WriteEventf( "dx12_shader_file_open_failed path=%s", hlslPath ? hlslPath : "<null>" );
-        Log().FlushAll();
-        return false;
-    }
-    std::string source( ( std::istreambuf_iterator<char>( file ) ), std::istreambuf_iterator<char>() );
-
-    UINT flags = D3DCOMPILE_ENABLE_STRICTNESS;
-#ifdef _DEBUG
-    flags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#else
-    flags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
-#endif
-
-    // Compile the vertex shader from HLSL source code. D3DCompile takes human-readable HLSL text
-    // and converts it into GPU bytecode. The "vs_5_0" target means Vertex Shader Model 5.0.
-    // D3D_COMPILE_STANDARD_FILE_INCLUDE enables #include directives in the shader source.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompile
-    ComPtr<ID3DBlob> errors;
-    HRESULT hr = D3DCompile( source.c_str(),
-                             source.size(),
-                             hlslPath,
-                             nullptr,
-                             D3D_COMPILE_STANDARD_FILE_INCLUDE,
-                             "main_vs",
-                             "vs_5_0",
-                             flags,
-                             0,
-                             m_vsBlob.ReleaseAndGetAddressOf(),
-                             errors.GetAddressOf() );
-    if ( FAILED( hr ) )
-    {
-        std::string msg = "VS compile failed: ";
-        if ( errors )
-        {
-            msg += static_cast<const char*>( errors->GetBufferPointer() );
-        }
-        Log().WriteEventf( "dx12_shader_compile_failed stage=vs hresult=0x%08X path=%s message=%s",
-                           static_cast<unsigned int>( hr ),
+        // Lane R: runtime accepts only the pinned offline-DXC artifact. Manual
+        // hot reload reruns that same bake before asking this loader to try again.
+        Log().WriteEventf( "dx12_shader_bytecode_rejected path=%s reason=%s",
                            hlslPath ? hlslPath : "<null>",
-                           msg.c_str() );
+                           loadError.c_str() );
         Log().FlushAll();
         return false;
     }
-    errors.Reset();
+
     m_vsBytecodeHash = HashShaderBytecode( m_vsBlob.Get() );
+    m_psBytecodeHash = HashShaderBytecode( m_psBlob.Get() );
 
-    // Compile the pixel shader from the same HLSL file. The "ps_5_0" target means Pixel Shader
-    // Model 5.0. Both VS and PS live in the same .hlsl file with different entry points.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompile
-    hr = D3DCompile( source.c_str(),
-                     source.size(),
-                     hlslPath,
-                     nullptr,
-                     D3D_COMPILE_STANDARD_FILE_INCLUDE,
-                     "main_ps",
-                     "ps_5_0",
-                     flags,
-                     0,
-                     m_psBlob.ReleaseAndGetAddressOf(),
-                     errors.GetAddressOf() );
-    if ( FAILED( hr ) )
+    if ( !m_contract )
     {
-        std::string msg = "PS compile failed: ";
-        if ( errors )
-        {
-            msg += static_cast<const char*>( errors->GetBufferPointer() );
-        }
-        Log().WriteEventf( "dx12_shader_compile_failed stage=ps hresult=0x%08X path=%s message=%s",
-                           static_cast<unsigned int>( hr ),
-                           hlslPath ? hlslPath : "<null>",
-                           msg.c_str() );
+        Log().WriteEventf( "dx12_shader_cpu_contract_missing owner=ShaderDX12 path=%s",
+                           hlslPath ? hlslPath : "<null>" );
         Log().FlushAll();
         return false;
     }
-    errors.Reset();
-    m_psBytecodeHash = HashShaderBytecode( m_psBlob.Get() );
+
+    std::string contractError;
+    if ( !ValidateGeneratedShaderProgramContract( hlslPath, *m_contract, contractError ) )
+    {
+        // Lane R: authored shader assets are external startup inputs. Reject
+        // a stale CPU/DXIL ABI with the owning shader and exact mismatch.
+        Log().WriteEventf( "dx12_shader_reflection_contract_rejected owner=ShaderDX12 path=%s reason=%s",
+                           hlslPath ? hlslPath : "<null>",
+                           contractError.c_str() );
+        Log().FlushAll();
+        return false;
+    }
 
     // Reflect both stages so PS-only post/sky uniforms are visible to SetFloat/SetVec*.
     if ( !ReflectCB( m_vsBlob.Get(), hlslPath, "vs" ) || !ReflectCB( m_psBlob.Get(), hlslPath, "ps" ) )
     {
+        return false;
+    }
+    std::string reflectedContractError;
+    if ( !ValidateReflectedContract( reflectedContractError ) )
+    {
+        // Hazard: hot reload changes the baked files without recompiling this
+        // executable's generated metadata. Validate the candidate DXIL itself
+        // before it can enter the transaction, including optional-present rows.
+        Log().WriteEventf( "dx12_shader_live_reflection_contract_rejected owner=ShaderDX12 path=%s reason=%s",
+                           hlslPath ? hlslPath : "<null>",
+                           reflectedContractError.c_str() );
+        Log().FlushAll();
         return false;
     }
 #ifdef _DEBUG
@@ -205,13 +185,68 @@ bool ShaderDX12::Compile( const char* hlslPath )
 }
 
 
+bool ShaderDX12::CanAdoptReload( const ShaderDX12& candidate ) const
+{
+    if ( m_sourcePath != candidate.m_sourcePath || m_contract != candidate.m_contract ||
+         m_cbReflectedSize != candidate.m_cbReflectedSize || m_cbSize != candidate.m_cbSize ||
+         m_uniformMap.size() != candidate.m_uniformMap.size() )
+    {
+        return false;
+    }
+    for ( const auto& current : m_uniformMap )
+    {
+        const auto replacement = candidate.m_uniformMap.find( current.first );
+        if ( replacement == candidate.m_uniformMap.end() || replacement->second.offset != current.second.offset ||
+             replacement->second.size != current.second.size )
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+
+bool ShaderDX12::PrepareReload( ShaderDX12ReloadPayload& payload ) const
+{
+    ShaderDX12 candidate( m_device, m_pipeline, m_uploadReservations, false );
+    if ( !candidate.Compile( m_sourcePath.c_str() ) || !CanAdoptReload( candidate ) )
+    {
+        return false;
+    }
+    payload.vertexBytecode = std::move( candidate.m_vsBlob );
+    payload.pixelBytecode = std::move( candidate.m_psBlob );
+    payload.vertexHash = candidate.m_vsBytecodeHash;
+    payload.pixelHash = candidate.m_psBytecodeHash;
+    return true;
+}
+
+
+void ShaderDX12::AdoptReload( ShaderDX12ReloadPayload& payload )
+{
+    // Invariant: CanAdoptReload proved the constant layout is unchanged. Keep
+    // the live CPU values and only replace bytecode/reflection identity so a
+    // reload cannot erase uniforms that owners set once during construction.
+    m_vsBlob = std::move( payload.vertexBytecode );
+    m_psBlob = std::move( payload.pixelBytecode );
+    m_vsBytecodeHash = payload.vertexHash;
+    m_psBytecodeHash = payload.pixelHash;
+    m_cbDirty = true;
+}
+
+
+const char* ShaderDX12::SourcePath() const
+{
+    return m_sourcePath.c_str();
+}
+
+
 bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* stageName )
 {
     // Use D3DReflect to inspect the compiled shader bytecode and discover constant buffer layouts.
     // Reflection tells us the name, offset, and size of each variable in the shader's cbuffer,
     // so we can write data at the correct byte offsets when setting uniforms from C++.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dreflect
-    ComPtr<ID3D11ShaderReflection> reflect;
+    ComPtr<ID3D12ShaderReflection> reflect;
     if ( !blob )
     {
         Log().WriteEventf( "dx12_shader_reflect_failed stage=%s hresult=0x%08X path=%s reason=missing_bytecode",
@@ -221,11 +256,8 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
         Log().FlushAll();
         return false;
     }
-    HRESULT hr = D3DReflect( blob->GetBufferPointer(),
-                             blob->GetBufferSize(),
-                             IID_ID3D11ShaderReflection,
-                             reinterpret_cast<void**>( reflect.GetAddressOf() ) );
-    if ( FAILED( hr ) || !reflect )
+    HRESULT hr = E_FAIL;
+    if ( !ReflectShaderBytecode( blob, reflect, hr ) )
     {
         // Lane R: reflection depends on compiler output and device tooling. A
         // failed reflection pass means this shader cannot expose a safe uniform
@@ -252,17 +284,22 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
         return false;
     };
 
-    D3D11_SHADER_DESC shaderDesc = {};
+    D3D12_SHADER_DESC shaderDesc = {};
     hr = reflect->GetDesc( &shaderDesc );
     if ( FAILED( hr ) )
     {
         return reflectionFailure( "shader GetDesc", hr );
     }
 
-#ifdef _DEBUG
+    const GeneratedShaderReflection::Stage* bakedStage = FindGeneratedShaderStage( hlslPath, stageName );
+    if ( !bakedStage )
+    {
+        return reflectionFailure( "generated metadata lookup", E_INVALIDARG );
+    }
+
     for ( UINT i = 0; i < shaderDesc.BoundResources; ++i )
     {
-        D3D11_SHADER_INPUT_BIND_DESC bindDesc = {};
+        D3D12_SHADER_INPUT_BIND_DESC bindDesc = {};
         hr = reflect->GetResourceBindingDesc( i, &bindDesc );
         if ( FAILED( hr ) )
         {
@@ -270,19 +307,18 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
         }
         if ( bindDesc.Name && bindDesc.Name[0] != '\0' )
         {
-            m_resourceMap[bindDesc.Name] = { bindDesc.BindPoint, bindDesc.Type, bindDesc.Dimension };
+            m_resourceMap[bindDesc.Name] = { bindDesc.BindPoint, bindDesc.Space, bindDesc.Type, bindDesc.Dimension };
         }
     }
-#endif
 
     for ( UINT i = 0; i < shaderDesc.ConstantBuffers; ++i )
     {
-        ID3D11ShaderReflectionConstantBuffer* cb = reflect->GetConstantBufferByIndex( i );
+        ID3D12ShaderReflectionConstantBuffer* cb = reflect->GetConstantBufferByIndex( i );
         if ( !cb )
         {
             return reflectionFailure( "GetConstantBufferByIndex", E_POINTER );
         }
-        D3D11_SHADER_BUFFER_DESC bufDesc = {};
+        D3D12_SHADER_BUFFER_DESC bufDesc = {};
         hr = cb->GetDesc( &bufDesc );
         if ( FAILED( hr ) )
         {
@@ -296,18 +332,71 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
 
         for ( UINT v = 0; v < bufDesc.Variables; ++v )
         {
-            ID3D11ShaderReflectionVariable* var = cb->GetVariableByIndex( v );
+            ID3D12ShaderReflectionVariable* var = cb->GetVariableByIndex( v );
             if ( !var )
             {
                 return reflectionFailure( "GetVariableByIndex", E_POINTER );
             }
-            D3D11_SHADER_VARIABLE_DESC varDesc = {};
+            D3D12_SHADER_VARIABLE_DESC varDesc = {};
             hr = var->GetDesc( &varDesc );
             if ( FAILED( hr ) )
             {
                 return reflectionFailure( "variable GetDesc", hr );
             }
             m_uniformMap[varDesc.Name] = { varDesc.StartOffset, varDesc.Size };
+        }
+    }
+
+    // Invariant: startup reflects the loaded bytes again and compares every
+    // field against the checked-in POD table. This catches stale generated
+    // metadata, offsets, or cbuffer sizes even if an asset was copied by hand.
+    if ( bakedStage->cbufferSize != 0 )
+    {
+        bool sizeMatched = false;
+        for ( UINT i = 0; i < shaderDesc.ConstantBuffers; ++i )
+        {
+            ID3D12ShaderReflectionConstantBuffer* cb = reflect->GetConstantBufferByIndex( i );
+            D3D12_SHADER_BUFFER_DESC desc = {};
+            if ( cb && SUCCEEDED( cb->GetDesc( &desc ) ) && desc.Name &&
+                 std::strcmp( desc.Name, bakedStage->cbufferName ) == 0 && desc.Size == bakedStage->cbufferSize )
+            {
+                sizeMatched = true;
+            }
+        }
+        if ( !sizeMatched )
+        {
+            return reflectionFailure( "generated cbuffer size mismatch", E_INVALIDARG );
+        }
+    }
+    for ( std::uint32_t expectedIndex = 0; expectedIndex < bakedStage->fieldCount; ++expectedIndex )
+    {
+        const auto& expected = GeneratedShaderReflection::Fields[bakedStage->fieldStart + expectedIndex];
+        bool matched = false;
+        for ( UINT i = 0; i < shaderDesc.ConstantBuffers && !matched; ++i )
+        {
+            ID3D12ShaderReflectionConstantBuffer* cb = reflect->GetConstantBufferByIndex( i );
+            D3D12_SHADER_BUFFER_DESC cbDesc = {};
+            if ( !cb || FAILED( cb->GetDesc( &cbDesc ) ) || !cbDesc.Name ||
+                 std::strcmp( cbDesc.Name, expected.cbuffer ) != 0 )
+            {
+                continue;
+            }
+            for ( UINT variableIndex = 0; variableIndex < cbDesc.Variables; ++variableIndex )
+            {
+                D3D12_SHADER_VARIABLE_DESC variable = {};
+                ID3D12ShaderReflectionVariable* reflectedVariable = cb->GetVariableByIndex( variableIndex );
+                if ( reflectedVariable && SUCCEEDED( reflectedVariable->GetDesc( &variable ) ) && variable.Name &&
+                     std::strcmp( variable.Name, expected.name ) == 0 && variable.StartOffset == expected.offset &&
+                     variable.Size == expected.size )
+                {
+                    matched = true;
+                    break;
+                }
+            }
+        }
+        if ( !matched )
+        {
+            return reflectionFailure( "generated cbuffer field mismatch", E_INVALIDARG );
         }
     }
     // Align CB size to 256 bytes (DX12 requirement)
@@ -317,11 +406,67 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
 }
 
 
+bool ShaderDX12::ValidateReflectedContract( std::string& outError ) const
+{
+    if ( !m_contract )
+    {
+        outError = "missing CPU shader contract";
+        return false;
+    }
+
+    for ( size_t i = 0; i < m_contract->uniformCount; ++i )
+    {
+        const ShaderUniformDecl& expected = m_contract->uniforms[i];
+        const auto found = m_uniformMap.find( expected.name );
+        if ( ( expected.required && found == m_uniformMap.end() ) ||
+             ( found != m_uniformMap.end() && found->second.size != ShaderValueByteSize( expected.type ) ) )
+        {
+            outError = std::string( "cbuffer field mismatch: " ) + expected.name;
+            return false;
+        }
+    }
+
+    for ( size_t i = 0; i < m_contract->resourceCount; ++i )
+    {
+        const ShaderResourceDecl& expected = m_contract->resources[i];
+        const auto found = m_resourceMap.find( expected.name );
+        const bool matches = found != m_resourceMap.end() &&
+                             found->second.bindPoint == static_cast<UINT>( expected.slot ) &&
+                             found->second.space == 0 && found->second.type == D3D_SIT_TEXTURE &&
+                             found->second.dimension == D3D_SRV_DIMENSION_TEXTURE2D;
+        if ( ( expected.required && found == m_resourceMap.end() ) || ( found != m_resourceMap.end() && !matches ) )
+        {
+            outError = std::string( "resource binding mismatch: " ) + expected.name;
+            return false;
+        }
+    }
+    for ( const auto& reflected : m_uniformMap )
+    {
+        if ( !reflected.first.empty() && reflected.first[0] != '_' &&
+             !FindShaderUniformDecl( *m_contract, reflected.first.c_str() ) )
+        {
+            outError = std::string( "undeclared cbuffer field: " ) + reflected.first;
+            return false;
+        }
+    }
+    for ( const auto& reflected : m_resourceMap )
+    {
+        if ( reflected.second.type == D3D_SIT_TEXTURE &&
+             !FindShaderResourceDecl( *m_contract, reflected.first.c_str() ) )
+        {
+            outError = std::string( "undeclared texture resource: " ) + reflected.first;
+            return false;
+        }
+    }
+    return true;
+}
+
+
 void ShaderDX12::Use() const
 {
-    if ( m_backend.GetDevice() )
+    if ( m_device.Device() )
     {
-        m_backend.SetActiveShader( const_cast<ShaderDX12*>( this ) );
+        m_pipeline.SetActiveShader( const_cast<ShaderDX12*>( this ) );
     }
 #ifdef _DEBUG
     ResetContractActivation();
@@ -814,20 +959,20 @@ D3D12_GPU_VIRTUAL_ADDRESS ShaderDX12::FlushCB() const
     ReportMissingRequiredContractUniforms();
 #endif
 
-    if ( !m_backend.GetDevice() )
+    if ( !m_device.Device() )
     {
         return 0;
     }
 
-    // Constant buffers must be 256-byte aligned in DX12. ReserveUpload probes
-    // with that same alignment and flushes/resets the upload arena if needed,
-    // instead of letting a busy frame throw after the arena fills up.
-    D3D12_GPU_VIRTUAL_ADDRESS addr = m_backend.ReserveUpload( m_cbSize, 256 );
+    // Constant buffers are steady-frame data and use the device owner's current
+    // frame arena directly. Capacity exhaustion is a fatal renderer policy
+    // violation; no wrapper may reach through a broad backend host to flush it.
+    D3D12_GPU_VIRTUAL_ADDRESS addr = m_uploadReservations.ReserveConstantUpload( m_cbSize );
     if ( addr == 0 )
     {
         return 0;
     }
-    memcpy( m_backend.GetUploadPtr( addr ), m_cbData.data(), m_cbSize );
+    memcpy( m_uploadReservations.UploadPointer( addr ), m_cbData.data(), m_cbSize );
     m_cbDirty = false;
     return addr;
 }
@@ -866,4 +1011,43 @@ SIZE_T ShaderDX12::GetPSBytecodeSize() const
 size_t ShaderDX12::GetPSBytecodeHash() const
 {
     return m_psBytecodeHash;
+}
+
+
+bool ShaderDX12::ValidateInputLayout( const D3D12_INPUT_ELEMENT_DESC* elements,
+                                      UINT count,
+                                      const char*& outError ) const
+{
+    constexpr UINT MAX_INPUT_ELEMENTS = 16;
+    if ( count > MAX_INPUT_ELEMENTS )
+    {
+        outError = "input layout exceeds fixed validation capacity";
+        return false;
+    }
+    auto componentCount = []( DXGI_FORMAT format ) -> size_t
+    {
+        switch ( format )
+        {
+        case DXGI_FORMAT_R32_FLOAT:
+            return 1;
+        case DXGI_FORMAT_R32G32_FLOAT:
+            return 2;
+        case DXGI_FORMAT_R32G32B32_FLOAT:
+            return 3;
+        case DXGI_FORMAT_R32G32B32A32_FLOAT:
+            return 4;
+        default:
+            return 0;
+        }
+    };
+    ShaderVertexInputLayoutElement contractElements[MAX_INPUT_ELEMENTS] = {};
+    for ( UINT index = 0; index < count; ++index )
+    {
+        contractElements[index] = { elements[index].SemanticName,
+                                    elements[index].SemanticIndex,
+                                    componentCount( elements[index].Format ) };
+    }
+    // DX12 permits a mesh to expose attributes unused by a particular shader;
+    // shadow depth, for example, reads POSITION from a richer mesh layout.
+    return ValidateGeneratedShaderVertexInputLayout( m_sourcePath.c_str(), contractElements, count, outError );
 }

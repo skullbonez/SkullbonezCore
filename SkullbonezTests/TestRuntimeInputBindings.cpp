@@ -21,7 +21,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/InputController.Bindings.h
   - SkullbonezSource/Runtime/RunInput.cpp
-  - Agentic/Plans/TODO/behavioral-test-depth.md
+  - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 
@@ -70,14 +70,20 @@ TEST_CASE( "Runtime input bindings: core keyboard shortcuts map to actions" )
     const RuntimeInputKeyBindingView table = TakeInputKeyboardBindings();
 
     REQUIRE( table.bindings != nullptr );
-    CHECK( table.count == 37u );
+    CHECK( table.count == 41u );
     CheckExactBinding( VK_OEM_3, keyboard, RuntimeInputAction::ToggleEditor );
     CheckExactBinding( VK_TAB, keyboard, RuntimeInputAction::CycleCameraMode );
     CheckExactBinding( 'F', keyboard, RuntimeInputAction::ToggleFlyCamera );
     CheckExactBinding( 'N', keyboard, RuntimeInputAction::ToggleLauncher );
     CheckExactBinding( '0', keyboard, RuntimeInputAction::ToggleUIVisibility );
+    CheckExactBinding( VK_F9, keyboard, RuntimeInputAction::ReloadShadersFromSource );
     CheckExactBinding( VK_LEFT, keyboard, RuntimeInputAction::NavigateScenePrevious );
     CheckExactBinding( VK_RIGHT, keyboard, RuntimeInputAction::NavigateSceneNext );
+    CheckExactBinding( 'Z', keyboard | RuntimeInputBindingContext::Editor, RuntimeInputAction::UndoEditor );
+    CheckExactBinding( 'Y', keyboard | RuntimeInputBindingContext::Editor, RuntimeInputAction::RedoEditor );
+    CheckExactBinding( VK_DELETE,
+                       keyboard | RuntimeInputBindingContext::Editor,
+                       RuntimeInputAction::DeleteEditorSelection );
 }
 
 TEST_CASE( "Runtime input bindings: contextual shortcuts stay on their owning contexts" )

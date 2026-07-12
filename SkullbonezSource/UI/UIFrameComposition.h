@@ -178,7 +178,7 @@ int WaterReflectionModeFromData( const InGameUIFrameData& data );
 
 constexpr int UI_RENDER_SLIDER_BASE = 6000;
 constexpr float UI_RENDER_FEATURE_START_Y = 48.0f;
-constexpr float UI_RENDER_START_Y = 118.0f;
+constexpr float UI_RENDER_START_Y = 158.0f;
 constexpr float UI_RENDER_SECTION_H = 28.0f;
 constexpr float UI_RENDER_ROW_H = 42.0f;
 constexpr float UI_RENDER_SAVE_BUTTON_W = 126.0f;

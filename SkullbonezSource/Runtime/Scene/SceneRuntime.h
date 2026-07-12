@@ -44,9 +44,9 @@ namespace Physics
 {
 class PhysicsBodyStore;
 }
-namespace GameObjects
+namespace Basics
 {
-class GameModelCollection;
+class SceneController;
 }
 namespace Basics
 {
@@ -210,7 +210,7 @@ class SceneRuntime
     std::vector<RunRequiredBroadphaseXCellsState>& RequiredBroadphaseXCells();
     const std::vector<RunRequiredBroadphaseXCellsState>& RequiredBroadphaseXCells() const;
     void ClearRequiredAutomationGates();
-    void UpdateRequiredContacts( GameObjects::GameModelCollection& models, float contactEpsilon );
+    void UpdateRequiredContacts( Basics::SceneController& models, float contactEpsilon );
     bool RequiredContactsComplete() const;
     void UpdateRequiredBroadphaseXCells( const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells,
                                          int activeCellCount );

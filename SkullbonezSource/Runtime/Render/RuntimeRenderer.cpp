@@ -38,6 +38,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RuntimeRenderer.h"
+#include "../../Rendering/IRenderRayTracing.h"
 #include "../../Assets/AssetKeys.h"
 #include "RuntimeRenderPasses.h"
 #include "../CameraCollection.h"
@@ -56,9 +57,9 @@ Related:
 #include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
 #include "../../Core/Profiler.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "../Scene/SceneController.h"
 #include "../../Physics/ColliderStore.h"
-#include "../../Physics/PhysicsEngineStoreQueries.h"
+#include "../../Physics/PhysicsEngine.h"
 #include "../../Rendering/Helper.h"
 #include "../../Rendering/IRenderDiagnostics.h"
 #include "../../Rendering/IRenderDeviceLifecycle.h"
@@ -219,6 +220,7 @@ struct TerrainGraphCallbackData
     const RenderFrameContext* frame = nullptr;
     const CinematicRenderConfig* cinematic = nullptr;
     const SkullbonezCore::Rendering::ShadowFrameData* shadow = nullptr;
+    const SkullbonezCore::Rendering::ShadowFrameData* detailShadow = nullptr;
     bool terrainHidden = false;
 };
 
@@ -354,7 +356,8 @@ void ExecuteTerrainGraphCallback( const SkullbonezCore::Rendering::RenderGraphPa
         SB_FATAL( "RunRender", "TerrainPass graph callback missing execution data." );
     }
     const float* clipPlane = data->frame->renderHelper ? data->frame->renderHelper->GetClipPlane() : nullptr;
-    data->terrainPass->Render( { *data->frame, data->cinematic, data->shadow, clipPlane, data->terrainHidden } );
+    data->terrainPass->Render(
+        { *data->frame, data->cinematic, data->shadow, data->detailShadow, clipPlane, data->terrainHidden } );
 }
 
 void ExecuteWaterGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/, void* userData )
@@ -418,7 +421,7 @@ void RenderReplayPredictionGhosts( ReplayRuntime& replayRuntime,
 
     // Why: ghost drawing is a render projection path. Shape and material come
     // from the prepared store snapshots so replay visualization does not need
-    // the GameModel collider mirror to stay fresh after physics steps.
+    // the legacy object record collider mirror to stay fresh after physics steps.
     if ( !frame.colliders || !frame.renderInstances )
     {
         return;
@@ -936,6 +939,7 @@ bool RuntimeRenderer::ExecuteTerrainThroughRenderGraph( const RenderFrameContext
                                                         bool useCinematicTarget,
                                                         const CinematicRenderConfig* activeCinematic,
                                                         const Rendering::ShadowFrameData* terrainShadow,
+                                                        const Rendering::ShadowFrameData* objectShadow,
                                                         bool terrainHidden )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
@@ -945,6 +949,12 @@ bool RuntimeRenderer::ExecuteTerrainThroughRenderGraph( const RenderFrameContext
         terrainShadowResource = graph.AddExternalResource( "TerrainShadowMapDepth",
                                                            Rendering::RenderGraphResourceAccess::PixelShaderResource );
     }
+    Rendering::RenderGraphResourceHandle objectShadowResource;
+    if ( objectShadow && objectShadow->valid )
+    {
+        objectShadowResource = graph.AddExternalResource( "ObjectShadowMapDepth",
+                                                          Rendering::RenderGraphResourceAccess::PixelShaderResource );
+    }
 
     const uint32_t terrainPass = graph.AddPass( "TerrainPass",
                                                 Rendering::RenderGraphQueueType::Graphics,
@@ -953,6 +963,10 @@ bool RuntimeRenderer::ExecuteTerrainThroughRenderGraph( const RenderFrameContext
     {
         graph.AddRead( terrainPass, terrainShadowResource, Rendering::RenderGraphResourceAccess::PixelShaderResource );
     }
+    if ( objectShadowResource.IsValid() )
+    {
+        graph.AddRead( terrainPass, objectShadowResource, Rendering::RenderGraphResourceAccess::PixelShaderResource );
+    }
     AddFrameTargetWrites( graph, terrainPass, useCinematicTarget );
 
     TerrainGraphCallbackData callbackData;
@@ -960,6 +974,7 @@ bool RuntimeRenderer::ExecuteTerrainThroughRenderGraph( const RenderFrameContext
     callbackData.frame = &frame;
     callbackData.cinematic = activeCinematic;
     callbackData.shadow = terrainShadow;
+    callbackData.detailShadow = objectShadow;
     callbackData.terrainHidden = terrainHidden;
     graph.SetPassCallback( terrainPass, ExecuteTerrainGraphCallback, &callbackData, true, "Frame/Render/Terrain" );
 
@@ -1511,6 +1526,70 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend,
 RuntimeRenderer::~RuntimeRenderer() = default;
 
 
+void RuntimeRenderer::ResetSceneRuntimePolicyFromConfig()
+{
+    SetVsyncEnabled( m_config.runtimeRender.vsyncEnabled );
+    SetPipelineSyncEnabled( m_config.runtimeRender.forcePipelineSync );
+}
+
+
+SbResult RuntimeRenderer::InitialiseSceneRayTracing( const RuntimeRenderBackendView& backend, int modelCapacity )
+{
+    Rendering::IRenderRayTracing* rayTracing = backend.rayTracingBackend;
+    Rendering::IRenderDiagnostics* renderDiagnostics = backend.renderDiagnostics;
+    const bool supported =
+        renderDiagnostics && renderDiagnostics->GetCapabilities().supportsDxrReflection && rayTracing;
+    if ( !supported )
+    {
+        return SbResult::Success();
+    }
+
+    if ( Helper().GetSphereInstMeshHandle() == 0 )
+    {
+        if ( !backend.renderResources || !backend.renderCommands )
+        {
+            // Lane F: capability publication without the resource facets needed
+            // to build the renderer-owned helper mesh is invalid backend wiring.
+            SB_FATAL( "RuntimeRenderer",
+                      "DXR reflection initialization requires resource and command facets. resources=%d commands=%d",
+                      backend.renderResources ? 1 : 0,
+                      backend.renderCommands ? 1 : 0 );
+        }
+        const RenderHelperContext helperContext{ *backend.renderResources,
+                                                 *backend.renderCommands,
+                                                 *renderDiagnostics,
+                                                 m_assets,
+                                                 m_config,
+                                                 Helper() };
+        Helper().EnsureSphereMesh( helperContext );
+    }
+
+    if ( !m_terrain.Get() || !m_terrain.Get()->GetMesh() )
+    {
+        return SbResult::Success();
+    }
+
+    Rendering::IMesh* terrainMesh = m_terrain.Get()->GetMesh();
+    const uint64_t terrainVBVA = terrainMesh->GetVertexBufferGPUVA();
+    const uint32_t sphereHandle = Helper().GetSphereInstMeshHandle();
+    const uint64_t sphereVBVA = rayTracing->GetInstancedMeshStaticVBVA( sphereHandle );
+    if ( terrainVBVA == 0 || sphereVBVA == 0 )
+    {
+        return SbResult::Success();
+    }
+
+    // Lane R: device resource creation and shader bytecode failures remain a
+    // recoverable renderer result reported through the scene-load transaction.
+    return rayTracing->InitDXR( terrainVBVA,
+                                terrainMesh->GetVertexCount(),
+                                terrainMesh->GetStride(),
+                                sphereVBVA,
+                                Helper().GetSphereVertexCount(),
+                                rayTracing->GetInstancedMeshStaticStride( sphereHandle ),
+                                modelCapacity );
+}
+
+
 void RuntimeRenderer::RestorePresentationSettings( const RenderPresentationSettings& settings )
 {
     m_presentationSettings = settings;
@@ -1639,20 +1718,9 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     const CinematicRenderConfig& renderConfig = services.cinematic;
     const OrdinaryRenderConfig& ordinaryRender = m_config.ordinaryRender;
     CinematicRenderConfig ordinaryShadowConfig = renderConfig;
-    ordinaryShadowConfig.shadowsEnabled = ordinaryRender.shadowsEnabled;
-    ordinaryShadowConfig.shadowTerrainCasts = ordinaryRender.shadowTerrainCasts;
-    ordinaryShadowConfig.shadowObjectsCast = ordinaryRender.shadowObjectsCast;
-    ordinaryShadowConfig.shadowTerrainReceives = ordinaryRender.shadowTerrainReceives;
-    ordinaryShadowConfig.shadowObjectsReceive = ordinaryRender.shadowObjectsReceive;
-    ordinaryShadowConfig.shadowMapSize = ordinaryRender.shadowMapSize;
-    ordinaryShadowConfig.shadowPcfRadius = ordinaryRender.shadowPcfRadius;
-    ordinaryShadowConfig.shadowStrength = ordinaryRender.shadowStrength;
-    ordinaryShadowConfig.shadowSoftness = ordinaryRender.shadowSoftness;
-    ordinaryShadowConfig.shadowDepthBias = ordinaryRender.shadowDepthBias;
-    ordinaryShadowConfig.shadowSlopeBias = ordinaryRender.shadowSlopeBias;
-    ordinaryShadowConfig.shadowMaxDistance = ordinaryRender.shadowMaxDistance;
+    ordinaryShadowConfig.shadow = ordinaryRender.shadow;
     const CinematicRenderConfig& activeShadowStyle = cinematicRender ? renderConfig : ordinaryShadowConfig;
-    const bool shadowMapsEnabled = activeShadowStyle.shadowsEnabled && services.renderReady && !policy.textOnly;
+    const bool shadowMapsEnabled = activeShadowStyle.shadow.enabled && services.renderReady && !policy.textOnly;
 
     const RenderResourceContext resourceContext = BuildRenderResourceContext( renderInputs, cinematicRender );
     {
@@ -1719,6 +1787,11 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     const bool shadowCallbackOwned = shadowGraph.callbackOwned;
     const Rendering::ShadowFrameData* terrainShadowFrame = shadowPass.terrainShadow;
     const Rendering::ShadowFrameData* objectShadowFrame = shadowPass.objectShadow;
+    // The object receiver falls back to the broad map when no tight map was
+    // produced. Terrain must not declare and sample that same resource twice;
+    // a distinct pointer is the frame-local proof that t5 has a real producer.
+    const Rendering::ShadowFrameData* terrainDetailShadowFrame =
+        objectShadowFrame != terrainShadowFrame ? objectShadowFrame : nullptr;
 
     const bool collisionStateColorsVisible = policy.collisionVisualizer;
     const bool debugTransparentBodyPass = policy.physicsDebugTransparent && policy.physicsDebugAlpha < 1.0f;
@@ -1816,6 +1889,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
                                                                         useCinematicTarget,
                                                                         activeCinematic,
                                                                         terrainShadowFrame,
+                                                                        terrainDetailShadowFrame,
                                                                         policy.terrainHidden );
 
     // Water is deliberately downstream of ReflectionPass; it samples the
@@ -1954,7 +2028,6 @@ SbResult RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendReso
     {
         WorldEnvironment,
         HelperOwner,
-        GameModelResources,
         CollisionVisualizer,
         UIResources,
         RenderPassResources,
@@ -1974,7 +2047,6 @@ SbResult RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendReso
     const BackendResourcePhase releaseSteps[] = {
         { "world_environment", BackendResourceStep::WorldEnvironment },
         { "helper_owner", BackendResourceStep::HelperOwner },
-        { "game_model_resources", BackendResourceStep::GameModelResources },
         { "collision_visualizer", BackendResourceStep::CollisionVisualizer },
         { "ui_resources", BackendResourceStep::UIResources },
         { "render_pass_resources", BackendResourceStep::RenderPassResources },
@@ -2012,9 +2084,6 @@ SbResult RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendReso
             break;
         case BackendResourceStep::HelperOwner:
             m_renderHelper.reset();
-            break;
-        case BackendResourceStep::GameModelResources:
-            context.models.ResetRenderResources();
             break;
         case BackendResourceStep::CollisionVisualizer:
             m_collisionVisualizer.ResetResources( context.renderResources );
@@ -2173,29 +2242,30 @@ void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnos
 }
 
 
-RuntimeRenderModelFrameView
-RuntimeRenderer::BuildModelFrameView( SkullbonezCore::GameObjects::GameModelCollection& models,
-                                      PhysicsEngine& physics ) const
+RuntimeRenderModelFrameView RuntimeRenderer::BuildModelFrameView( SkullbonezCore::Basics::SceneController& scene,
+                                                                  PhysicsEngine& physics,
+                                                                  Threading::WorkerPool& workerPool,
+                                                                  const EngineConfig& config ) const
 {
-    return RuntimeRenderModelFrameView{ models.MutableRenderInstances(),
-                                        models.Colliders(),
-                                        SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ),
+    return RuntimeRenderModelFrameView{ scene.MutableRenderInstances(),
+                                        SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physics ),
+                                        SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ),
                                         physics,
-                                        models.RenderPresentationRecords(),
-                                        models.GetCollisionVisualContacts(),
-                                        models.GetSleepStates(),
-                                        models.GetSleepIslandVisualIds(),
-                                        models.GetSleepSupportedStates(),
-                                        models.GetSleepInhibitedStates(),
-                                        models.GetPhysicsDebugContacts(),
-                                        models.GetPhysicsPipelineTrace(),
-                                        models.RenderWorkerPool(),
-                                        models.SceneEntityCount(),
-                                        models.ShouldRenderCollisionVolumes(),
-                                        models.ShouldUseShadowParallelPrep(),
-                                        models.GetSceneKineticEnergy(),
-                                        models.GetTornadoSystemElapsedSeconds(),
-                                        models.CollectMemoryStats() };
+                                        scene.RenderPresentationRecords(),
+                                        SkullbonezCore::Physics::PhysicsEngine::ReadCollisionVisualContacts( physics ),
+                                        SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( physics ),
+                                        SkullbonezCore::Physics::PhysicsEngine::ReadSleepIslandVisualIds( physics ),
+                                        SkullbonezCore::Physics::PhysicsEngine::ReadSleepSupportedStates( physics ),
+                                        SkullbonezCore::Physics::PhysicsEngine::ReadSleepInhibitedStates( physics ),
+                                        SkullbonezCore::Physics::PhysicsEngine::ReadDebugContacts( physics ),
+                                        SkullbonezCore::Physics::PhysicsEngine::ReadPipelineTrace( physics ),
+                                        &workerPool,
+                                        scene.SceneEntityCount(),
+                                        config.runtimeRender.renderCollisionVolumes,
+                                        config.runtimeRender.shadowParallelPrep,
+                                        scene.GetSceneKineticEnergy(),
+                                        physics.GetTornadoSystemElapsedSeconds(),
+                                        scene.CollectMemoryStats() };
 }
 
 
@@ -2277,7 +2347,7 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
     // Missing renderer facets should leave live render state untouched.
     SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing = context.backend.rayTracingBackend;
     PROFILE_BEGIN( "Frame/Render/PrepareModels" );
-    context.renderModelOwner.PrepareRenderInstances();
+    context.renderModelOwner.PrepareRenderInstances( context.presentationAlpha );
     PROFILE_END( "Frame/Render/PrepareModels" );
     applyReplayRenderStateForFrame();
 

@@ -22,13 +22,12 @@
 // Related:
 //   - SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp
 //   - SkullbonezTests/TestReplayRecorder.cpp
-//   - Agentic/Plans/TODO/behavioral-test-depth.md
+//   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
-#include "../SkullbonezSource/GameObjects/GameModel.h"
-#include "../SkullbonezSource/GameObjects/GameModelCollection.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneController.h"
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Runtime/CameraCollection.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
@@ -118,14 +117,6 @@ float WorldEnvironment::GetFluidDensity() const
 }
 } // namespace Environment
 
-namespace GameObjects
-{
-const GameModel* GameModelCollection::TryGetModel( int ) const
-{
-    ThrowUnexpectedReplayIntegrationCall( "GameModelCollection::TryGetModel" );
-}
-
-} // namespace GameObjects
 } // namespace SkullbonezCore
 
 TEST_CASE( "ReplayRecorder: solver mirror does not cross the full-capture boundary" )

@@ -31,7 +31,7 @@ Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderHost.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once
 
@@ -63,9 +63,9 @@ struct PhysicsDebugContact;
 struct PhysicsPipelineRecord;
 } // namespace Physics
 
-namespace GameObjects
+namespace Basics
 {
-class GameModelCollection;
+class SceneController;
 }
 
 namespace Environment
@@ -295,6 +295,7 @@ struct TerrainPassInputs
     const RenderFrameContext& frame;
     const CinematicRenderConfig* cinematic;
     const Rendering::ShadowFrameData* shadow;
+    const Rendering::ShadowFrameData* detailShadow;
     const float* clipPlane = nullptr;       // Borrowed from RenderHelper for this terrain draw.
     bool terrainHidden;                     // Frame snapshot of the debug/scene visibility flag.
 };
@@ -386,7 +387,7 @@ struct UiTextPassState
     bool crossScenePauseLocked = false;
     const RunSceneState& scene;
     const RenderPresentationSettings& renderPresentation;
-    const GameObjects::GameModelCollection& modelOwner;
+    const Basics::SceneController& modelOwner;
     const EngineConfig& config;
     const Environment::WorldEnvironment& world;
     const RunRayCastTestState& rayCastTest;

@@ -1,0 +1,3874 @@
+{
+  "format": 1,
+  "compiler": {
+    "sdk": "10.0.26100.0",
+    "dxc": "1.8.2502.11",
+    "reported_version": "dxcompiler.dll: 1.8 - 1.8.2502.11 (239921522); dxil.dll: 1.8(1.8.2502.11)"
+  },
+  "matrix_packing": "column_major",
+  "common_flags": [
+    "-WX",
+    "-Ges",
+    "-O3",
+    "-Zpc",
+    "-Qstrip_debug"
+  ],
+  "shader_model": "6.0",
+  "entries": [
+    {
+      "source": "SkullbonezData/shaders/collision_visualizer.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_0",
+      "bytecode": "SkullbonezData/shaders/collision_visualizer.vs.dxil",
+      "source_sha256": "37295302687f8876712fe312f2010eeb6afd9827f439c7bdf2e043789c80366a",
+      "compile_inputs_sha256": "4af3c4b4e4337bcf0af2b55bb672825bb12e8a6ed0a0d00a6a57f4fcc2828869",
+      "bytecode_sha256": "6a949744656c7bcb0608576026edf89e15d1814b01a4efd0f50ae169767bce06",
+      "bytecode_size": 7012,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 160,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uView",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uProjection",
+                "offset": 64,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uClipPlane",
+                "offset": 128,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uLightPosition",
+                "offset": 144,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xyz",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "NORMAL",
+            "index": 0,
+            "mask": "xyz",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "xyzw",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 2,
+            "mask": "xyzw",
+            "register": 3,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 3,
+            "mask": "xyzw",
+            "register": 4,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 4,
+            "mask": "xyzw",
+            "register": 5,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 5,
+            "mask": "xyzw",
+            "register": 6,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/collision_visualizer.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_0",
+      "bytecode": "SkullbonezData/shaders/collision_visualizer.ps.dxil",
+      "source_sha256": "37295302687f8876712fe312f2010eeb6afd9827f439c7bdf2e043789c80366a",
+      "compile_inputs_sha256": "2cb974c4cc378eb1b366b1e438367ed4bc3068121045f9c01c3b7ddc2ec0c75a",
+      "bytecode_sha256": "c4ebb15128f577e77b1c7a112ccf989a8bc61df4bc0ef8971d58f77a6d741a78",
+      "bytecode_size": 4860,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 160,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uView",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uProjection",
+                "offset": 64,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uClipPlane",
+                "offset": 128,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uLightPosition",
+                "offset": 144,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xyz",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "xyz",
+            "register": 3,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 2,
+            "mask": "xyzw",
+            "register": 4,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/generate_mips.hlsl",
+      "entry": "main_cs",
+      "stage": "cs",
+      "target": "cs_6_0",
+      "bytecode": "SkullbonezData/shaders/generate_mips.cs.dxil",
+      "source_sha256": "b79ec7c7a2495c5100d3ed1f72f246b340d442e369e75b05e60c89cc19122ce2",
+      "compile_inputs_sha256": "9bd3aaf90061138af429293299a6d6579322e3eed4d603e6368eea186b6f8872",
+      "bytecode_sha256": "3e1902234e7d0cd527587489380e24d8065b73c76892f9afee7c793fb68da459",
+      "bytecode_size": 6560,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "GenerateMipsCB",
+            "size": 16,
+            "fields": [
+              {
+                "type": "uint",
+                "name": "NumMipLevels",
+                "offset": 0,
+                "size": 4
+              },
+              {
+                "type": "uint",
+                "name": "SrcDimension",
+                "offset": 4,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "TexelSizeX",
+                "offset": 8,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "TexelSizeY",
+                "offset": 12,
+                "size": 4
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "GenerateMipsCB",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "LinearClampSampler",
+            "register_class": "s",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "sampler",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "SrcMip",
+            "register_class": "t",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "texture",
+            "format": "f32",
+            "dimension": "2d"
+          },
+          {
+            "name": "OutMip1",
+            "register_class": "u",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "uav",
+            "format": "f32",
+            "dimension": "2d"
+          },
+          {
+            "name": "OutMip2",
+            "register_class": "u",
+            "slot": 1,
+            "space": 0,
+            "count": 1,
+            "type": "uav",
+            "format": "f32",
+            "dimension": "2d"
+          },
+          {
+            "name": "OutMip3",
+            "register_class": "u",
+            "slot": 2,
+            "space": 0,
+            "count": 1,
+            "type": "uav",
+            "format": "f32",
+            "dimension": "2d"
+          },
+          {
+            "name": "OutMip4",
+            "register_class": "u",
+            "slot": 3,
+            "space": 0,
+            "count": 1,
+            "type": "uav",
+            "format": "f32",
+            "dimension": "2d"
+          }
+        ],
+        "inputs": []
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/grid_line.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_0",
+      "bytecode": "SkullbonezData/shaders/grid_line.vs.dxil",
+      "source_sha256": "ed3e3dbe7864e2fdfc5070f4de9ddebe06e8d84fb217c25e414ec15e9f7d66fb",
+      "compile_inputs_sha256": "5ee0b862d019bd83576fea49e93a70fad6e3eeebec43bd838944a4ac57383f09",
+      "bytecode_sha256": "a541c8118103cbd9d8d338a5340046a8402dc788cec8455e340118db8c5ebe49",
+      "bytecode_size": 4024,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 64,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uViewProj",
+                "offset": 0,
+                "size": 64
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xyz",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xyz",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/grid_line.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_0",
+      "bytecode": "SkullbonezData/shaders/grid_line.ps.dxil",
+      "source_sha256": "ed3e3dbe7864e2fdfc5070f4de9ddebe06e8d84fb217c25e414ec15e9f7d66fb",
+      "compile_inputs_sha256": "b8624237c8ac3d37d40b7957ed9420b7bae06be5aab73cc980fd5efa3a834be1",
+      "bytecode_sha256": "00efb3478664645e7120266bcb1f865598be048d7643e280b1004b5edadefbe7",
+      "bytecode_size": 2972,
+      "reflection": {
+        "cbuffers": [],
+        "resources": [],
+        "inputs": [
+          {
+            "semantic": "COLOR",
+            "index": 0,
+            "mask": "xyz",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/launcher_laser.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_0",
+      "bytecode": "SkullbonezData/shaders/launcher_laser.vs.dxil",
+      "source_sha256": "2a7eae50d60b83e1a652d8c657b64cb567487cb5f49c4564cbf763339cbd0664",
+      "compile_inputs_sha256": "da1015b29cbc7707ba7748185d8b3612669ca3f9ab06b720eaf4442f56ec8384",
+      "bytecode_sha256": "a3152c98a3148014191618880a60f5bffff8f6a4d104b144f54bed1b52c93078",
+      "bytecode_size": 4060,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 64,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uViewProj",
+                "offset": 0,
+                "size": 64
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xyz",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xyzw",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/launcher_laser.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_0",
+      "bytecode": "SkullbonezData/shaders/launcher_laser.ps.dxil",
+      "source_sha256": "2a7eae50d60b83e1a652d8c657b64cb567487cb5f49c4564cbf763339cbd0664",
+      "compile_inputs_sha256": "54075b96ee137f967fe54e286aab7dbddf81c909f16c7513b2871afebcc84d6d",
+      "bytecode_sha256": "522dbb0862c74b08da066df7f2a0cdf724bc6b9d428d45e52e8243ddc6c07045",
+      "bytecode_size": 2960,
+      "reflection": {
+        "cbuffers": [],
+        "resources": [],
+        "inputs": [
+          {
+            "semantic": "COLOR",
+            "index": 0,
+            "mask": "xyzw",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/lit_textured.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_0",
+      "bytecode": "SkullbonezData/shaders/lit_textured.vs.dxil",
+      "source_sha256": "16c240b6b1b8dadf0b33cd0cfbb0fb0641515615b76add61f83a53791aa6325f",
+      "compile_inputs_sha256": "50452564c519a15065426046149c6b694a62a3cd16ba5ec53ba5237c05ba82c0",
+      "bytecode_sha256": "c80ba9dcf7594bf680e3e9a4afc954bb5fc374f70ab4350ed5ee030cdd9cfc71",
+      "bytecode_size": 9664,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 576,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uModel",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uView",
+                "offset": 64,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uProjection",
+                "offset": 128,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uClipPlane",
+                "offset": 192,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uLightPosition",
+                "offset": 208,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uLightAmbient",
+                "offset": 224,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uLightDiffuse",
+                "offset": 240,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uMaterialAmbient",
+                "offset": 256,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uMaterialDiffuse",
+                "offset": 272,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uCinematicTerrain",
+                "offset": 288,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uCinematicBasin",
+                "offset": 304,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uStyleModes",
+                "offset": 320,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uTerrainTint",
+                "offset": 336,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uTerrainAccent",
+                "offset": 352,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uTerrainGrid",
+                "offset": 368,
+                "size": 16
+              },
+              {
+                "type": "float4x4",
+                "name": "uShadowViewProj",
+                "offset": 384,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uShadowParams",
+                "offset": 448,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uShadowFlags",
+                "offset": 464,
+                "size": 16
+              },
+              {
+                "type": "float4x4",
+                "name": "uDetailShadowViewProj",
+                "offset": 480,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uDetailShadowParams",
+                "offset": 544,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uDetailShadowFlags",
+                "offset": 560,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xyz",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "NORMAL",
+            "index": 0,
+            "mask": "xyz",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/lit_textured.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_0",
+      "bytecode": "SkullbonezData/shaders/lit_textured.ps.dxil",
+      "source_sha256": "16c240b6b1b8dadf0b33cd0cfbb0fb0641515615b76add61f83a53791aa6325f",
+      "compile_inputs_sha256": "56c24a89397be78ac3ad9c69d2c48a2789dfc2053f04c4f4780c9daed212df71",
+      "bytecode_sha256": "de1103147f7fd83e49ff3b366b9357f8a2e11fa8654bdf9d24e5a088409c4583",
+      "bytecode_size": 20248,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 576,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uModel",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uView",
+                "offset": 64,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uProjection",
+                "offset": 128,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uClipPlane",
+                "offset": 192,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uLightPosition",
+                "offset": 208,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uLightAmbient",
+                "offset": 224,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uLightDiffuse",
+                "offset": 240,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uMaterialAmbient",
+                "offset": 256,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uMaterialDiffuse",
+                "offset": 272,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uCinematicTerrain",
+                "offset": 288,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uCinematicBasin",
+                "offset": 304,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uStyleModes",
+                "offset": 320,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uTerrainTint",
+                "offset": 336,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uTerrainAccent",
+                "offset": 352,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uTerrainGrid",
+                "offset": 368,
+                "size": 16
+              },
+              {
+                "type": "float4x4",
+                "name": "uShadowViewProj",
+                "offset": 384,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uShadowParams",
+                "offset": 448,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uShadowFlags",
+                "offset": 464,
+                "size": 16
+              },
+              {
+                "type": "float4x4",
+                "name": "uDetailShadowViewProj",
+                "offset": 480,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uDetailShadowParams",
+                "offset": 544,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uDetailShadowFlags",
+                "offset": 560,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "sSampler0",
+            "register_class": "s",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "sampler",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "sSampler3",
+            "register_class": "s",
+            "slot": 3,
+            "space": 0,
+            "count": 1,
+            "type": "sampler",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "uTexture",
+            "register_class": "t",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "texture",
+            "format": "f32",
+            "dimension": "2d"
+          },
+          {
+            "name": "uShadowMap",
+            "register_class": "t",
+            "slot": 3,
+            "space": 0,
+            "count": 1,
+            "type": "texture",
+            "format": "f32",
+            "dimension": "2d"
+          },
+          {
+            "name": "uDetailShadowMap",
+            "register_class": "t",
+            "slot": 5,
+            "space": 0,
+            "count": 1,
+            "type": "texture",
+            "format": "f32",
+            "dimension": "2d"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xyz",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "xyz",
+            "register": 3,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 2,
+            "mask": "xy",
+            "register": 4,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 3,
+            "mask": "xyz",
+            "register": 5,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 4,
+            "mask": "xyz",
+            "register": 6,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/lit_textured_instanced.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_0",
+      "bytecode": "SkullbonezData/shaders/lit_textured_instanced.vs.dxil",
+      "source_sha256": "daae702de89e2568997c5a13c2b03b026febb53cf10dba94b20ea64918b563cc",
+      "compile_inputs_sha256": "e52f2723661ccce89b3083a876757513a4097f78461a133c10a87074ef78d280",
+      "bytecode_sha256": "44b042aab1d82a6266aac0ef2a901d51bdeb9ade26e25fd2817b493d004e28a4",
+      "bytecode_size": 9760,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 336,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uView",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uProjection",
+                "offset": 64,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uClipPlane",
+                "offset": 128,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uLightPosition",
+                "offset": 144,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uLightAmbient",
+                "offset": 160,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uLightDiffuse",
+                "offset": 176,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uMaterialAmbient",
+                "offset": 192,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uMaterialDiffuse",
+                "offset": 208,
+                "size": 16
+              },
+              {
+                "type": "int",
+                "name": "uObjectStyle",
+                "offset": 224,
+                "size": 4
+              },
+              {
+                "type": "int",
+                "name": "uPrimitiveShape",
+                "offset": 228,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "uMaterialAlpha",
+                "offset": 232,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "_objectStylePad",
+                "offset": 236,
+                "size": 4
+              },
+              {
+                "type": "float4x4",
+                "name": "uShadowViewProj",
+                "offset": 240,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uShadowParams",
+                "offset": 304,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uShadowFlags",
+                "offset": 320,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xyz",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "NORMAL",
+            "index": 0,
+            "mask": "xyz",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "xyzw",
+            "register": 3,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 2,
+            "mask": "xyzw",
+            "register": 4,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 3,
+            "mask": "xyzw",
+            "register": 5,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 4,
+            "mask": "xyzw",
+            "register": 6,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 5,
+            "mask": "xyzw",
+            "register": 7,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 6,
+            "mask": "xyzw",
+            "register": 8,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 7,
+            "mask": "xyzw",
+            "register": 9,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 8,
+            "mask": "xyzw",
+            "register": 10,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/lit_textured_instanced.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_0",
+      "bytecode": "SkullbonezData/shaders/lit_textured_instanced.ps.dxil",
+      "source_sha256": "daae702de89e2568997c5a13c2b03b026febb53cf10dba94b20ea64918b563cc",
+      "compile_inputs_sha256": "eeab7944d6ed59a3706c4a3c1c7ec10ff542dc01b9a82198bf532d9c953b5866",
+      "bytecode_sha256": "b424717f008c6461c23f8e47160e647bccf97b7d393400f9e6a9e9f2a24556af",
+      "bytecode_size": 19856,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 336,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uView",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uProjection",
+                "offset": 64,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uClipPlane",
+                "offset": 128,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uLightPosition",
+                "offset": 144,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uLightAmbient",
+                "offset": 160,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uLightDiffuse",
+                "offset": 176,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uMaterialAmbient",
+                "offset": 192,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uMaterialDiffuse",
+                "offset": 208,
+                "size": 16
+              },
+              {
+                "type": "int",
+                "name": "uObjectStyle",
+                "offset": 224,
+                "size": 4
+              },
+              {
+                "type": "int",
+                "name": "uPrimitiveShape",
+                "offset": 228,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "uMaterialAlpha",
+                "offset": 232,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "_objectStylePad",
+                "offset": 236,
+                "size": 4
+              },
+              {
+                "type": "float4x4",
+                "name": "uShadowViewProj",
+                "offset": 240,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uShadowParams",
+                "offset": 304,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uShadowFlags",
+                "offset": 320,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "sSampler3",
+            "register_class": "s",
+            "slot": 3,
+            "space": 0,
+            "count": 1,
+            "type": "sampler",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "uShadowMap",
+            "register_class": "t",
+            "slot": 3,
+            "space": 0,
+            "count": 1,
+            "type": "texture",
+            "format": "f32",
+            "dimension": "2d"
+          },
+          {
+            "name": "uMaterialTable",
+            "register_class": "t",
+            "slot": 4,
+            "space": 0,
+            "count": 1,
+            "type": "texture",
+            "format": "f32",
+            "dimension": "2d"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xyz",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "xyz",
+            "register": 3,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 2,
+            "mask": "xy",
+            "register": 4,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 3,
+            "mask": "xyzw",
+            "register": 5,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 4,
+            "mask": "xyzw",
+            "register": 6,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 5,
+            "mask": "xyzw",
+            "register": 7,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 6,
+            "mask": "xyz",
+            "register": 9,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 7,
+            "mask": "xyzw",
+            "register": 10,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 8,
+            "mask": "xyz",
+            "register": 11,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 9,
+            "mask": "xyz",
+            "register": 12,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/post_tonemap.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_0",
+      "bytecode": "SkullbonezData/shaders/post_tonemap.vs.dxil",
+      "source_sha256": "c2d278438eb39aaf1e5820054d34a851c045a1b882798540c7d039a33f25f6a2",
+      "compile_inputs_sha256": "5aff5ae8d3bdcf1e2ac33f80d0edf357cb8800fdbb85697ac053989e93c6ef94",
+      "bytecode_sha256": "c3e66506cc23917074cdad5a2de9f8cda1df5e774d0fbf22510f6e8e5620b74e",
+      "bytecode_size": 3104,
+      "reflection": {
+        "cbuffers": [],
+        "resources": [],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xy",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/post_tonemap.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_0",
+      "bytecode": "SkullbonezData/shaders/post_tonemap.ps.dxil",
+      "source_sha256": "c2d278438eb39aaf1e5820054d34a851c045a1b882798540c7d039a33f25f6a2",
+      "compile_inputs_sha256": "821d15ef8c12be538810aaff9db95d83ea04a7d6ddb15c45156bec07ec0c4071",
+      "bytecode_sha256": "1a2d68a15a5f9de143f9759af8e534130432add15e6797ee87f4a785e63244d2",
+      "bytecode_size": 8676,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 112,
+            "fields": [
+              {
+                "type": "float",
+                "name": "uExposure",
+                "offset": 0,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "uGamma",
+                "offset": 4,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "uVolumetricCompositeStrength",
+                "offset": 8,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "_padding0",
+                "offset": 12,
+                "size": 4
+              },
+              {
+                "type": "float4",
+                "name": "uDepthParams",
+                "offset": 16,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uFogParams",
+                "offset": 32,
+                "size": 16
+              },
+              {
+                "type": "float3",
+                "name": "uFogColor",
+                "offset": 48,
+                "size": 12
+              },
+              {
+                "type": "float",
+                "name": "_padding1",
+                "offset": 60,
+                "size": 4
+              },
+              {
+                "type": "float4",
+                "name": "uBloomTexelSize",
+                "offset": 64,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uBloomParams",
+                "offset": 80,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uStyleGrade",
+                "offset": 96,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "sSampler1",
+            "register_class": "s",
+            "slot": 1,
+            "space": 0,
+            "count": 1,
+            "type": "sampler",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "uSceneTex",
+            "register_class": "t",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "texture",
+            "format": "f32",
+            "dimension": "2d"
+          },
+          {
+            "name": "uDepthTex",
+            "register_class": "t",
+            "slot": 1,
+            "space": 0,
+            "count": 1,
+            "type": "texture",
+            "format": "f32",
+            "dimension": "2d"
+          },
+          {
+            "name": "uVolumetricTex",
+            "register_class": "t",
+            "slot": 2,
+            "space": 0,
+            "count": 1,
+            "type": "texture",
+            "format": "f32",
+            "dimension": "2d"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/post_volumetric_light.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_0",
+      "bytecode": "SkullbonezData/shaders/post_volumetric_light.vs.dxil",
+      "source_sha256": "278a019265963f026b1aa7620ae9a6b18d3a64095e57e2feaf136d42e2520239",
+      "compile_inputs_sha256": "8e783b34dd8f26c00a754dcd5f0e48842c6f01783abf8a15627361ac32f93256",
+      "bytecode_sha256": "c3e66506cc23917074cdad5a2de9f8cda1df5e774d0fbf22510f6e8e5620b74e",
+      "bytecode_size": 3104,
+      "reflection": {
+        "cbuffers": [],
+        "resources": [],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xy",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/post_volumetric_light.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_0",
+      "bytecode": "SkullbonezData/shaders/post_volumetric_light.ps.dxil",
+      "source_sha256": "278a019265963f026b1aa7620ae9a6b18d3a64095e57e2feaf136d42e2520239",
+      "compile_inputs_sha256": "5ef63fd439f06781b10edec6ca3d86e29cf11c7bbee328a0e7f72cdaca4fe7f1",
+      "bytecode_sha256": "989c9735b15603d21ff95d0a83c8bcb6568bf80a9c0bd4e4638cbfbb3c4c5494",
+      "bytecode_size": 5900,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 64,
+            "fields": [
+              {
+                "type": "float4",
+                "name": "uDepthParams",
+                "offset": 0,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uSunShaftParams",
+                "offset": 16,
+                "size": 16
+              },
+              {
+                "type": "float3",
+                "name": "uSunColor",
+                "offset": 32,
+                "size": 12
+              },
+              {
+                "type": "float",
+                "name": "_padding0",
+                "offset": 44,
+                "size": 4
+              },
+              {
+                "type": "float4",
+                "name": "uVolumetricParams",
+                "offset": 48,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "sSampler1",
+            "register_class": "s",
+            "slot": 1,
+            "space": 0,
+            "count": 1,
+            "type": "sampler",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "uSceneTex",
+            "register_class": "t",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "texture",
+            "format": "f32",
+            "dimension": "2d"
+          },
+          {
+            "name": "uDepthTex",
+            "register_class": "t",
+            "slot": 1,
+            "space": 0,
+            "count": 1,
+            "type": "texture",
+            "format": "f32",
+            "dimension": "2d"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/shadow_depth.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_0",
+      "bytecode": "SkullbonezData/shaders/shadow_depth.vs.dxil",
+      "source_sha256": "053b1c34c2527978cb53eb3c8806ba2e628af09fe82d715b7a66fef2d2b51991",
+      "compile_inputs_sha256": "be097b11a05784ef78b400f3a5ba6995ee7ff26cbdd925d77ce7e73a566d1f62",
+      "bytecode_sha256": "f04b4658acc45393483b43362f60168af1a0c4c492482d940ba8f3a5759b6007",
+      "bytecode_size": 5708,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 240,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uModel",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uView",
+                "offset": 64,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uProjection",
+                "offset": 128,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uClipPlane",
+                "offset": 192,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uCinematicTerrain",
+                "offset": 208,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uCinematicBasin",
+                "offset": 224,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xyz",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/shadow_depth.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_0",
+      "bytecode": "SkullbonezData/shaders/shadow_depth.ps.dxil",
+      "source_sha256": "053b1c34c2527978cb53eb3c8806ba2e628af09fe82d715b7a66fef2d2b51991",
+      "compile_inputs_sha256": "ef4c7c5b5ed66a503b608928074b03d54ce8b249dd7ffcace2cda220021be145",
+      "bytecode_sha256": "3f9a30ee36e8ca655af31f904184995d1fdb68d057e1a1fcb45cc7a8212f710d",
+      "bytecode_size": 2848,
+      "reflection": {
+        "cbuffers": [],
+        "resources": [],
+        "inputs": []
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/shadow_depth_instanced.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_0",
+      "bytecode": "SkullbonezData/shaders/shadow_depth_instanced.vs.dxil",
+      "source_sha256": "1b64d86ede249bffe92b0a16ec6c20d52e320bb7c66030d2c2b4726249363ed7",
+      "compile_inputs_sha256": "0f68ce6ddf3591a248a1360e45534895cd3c0107f985afb08e20ef7906b78cc0",
+      "bytecode_sha256": "3738af73268ffca85aa2475e2ec29f09fea2c78bda12d526c6f6fcdffc8b6798",
+      "bytecode_size": 5884,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 144,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uView",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uProjection",
+                "offset": 64,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uClipPlane",
+                "offset": 128,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xyz",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "xyzw",
+            "register": 3,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 2,
+            "mask": "xyzw",
+            "register": 4,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 3,
+            "mask": "xyzw",
+            "register": 5,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 4,
+            "mask": "xyzw",
+            "register": 6,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/shadow_depth_instanced.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_0",
+      "bytecode": "SkullbonezData/shaders/shadow_depth_instanced.ps.dxil",
+      "source_sha256": "1b64d86ede249bffe92b0a16ec6c20d52e320bb7c66030d2c2b4726249363ed7",
+      "compile_inputs_sha256": "da9188bf1680654cf7b5d1962f38ed147bf15a6390033604705593f25a6f8d92",
+      "bytecode_sha256": "3f9a30ee36e8ca655af31f904184995d1fdb68d057e1a1fcb45cc7a8212f710d",
+      "bytecode_size": 2848,
+      "reflection": {
+        "cbuffers": [],
+        "resources": [],
+        "inputs": []
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/sky_atmosphere.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_0",
+      "bytecode": "SkullbonezData/shaders/sky_atmosphere.vs.dxil",
+      "source_sha256": "2eefa842365af6bc777403f1f590d01c7fe64ffdba9fdab5e78040c2bd9cc436",
+      "compile_inputs_sha256": "0a87d31e5da3ffc033d7e4d45373f8de91aab5ba572ad4f989144518e9945998",
+      "bytecode_sha256": "f150c80d2da8cae936b4e22e9b0aa0cf3404d16aae751b89681f9f67862e4395",
+      "bytecode_size": 3092,
+      "reflection": {
+        "cbuffers": [],
+        "resources": [],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xy",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/sky_atmosphere.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_0",
+      "bytecode": "SkullbonezData/shaders/sky_atmosphere.ps.dxil",
+      "source_sha256": "2eefa842365af6bc777403f1f590d01c7fe64ffdba9fdab5e78040c2bd9cc436",
+      "compile_inputs_sha256": "54b58a162eb51eb4ec1316b248e99fca7f2603f7ed709ecf15aa3870977bd60b",
+      "bytecode_sha256": "13ee77f689053614cb936c247c2d2cf2f679909de54afc52a73ab03a76068c46",
+      "bytecode_size": 16128,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 224,
+            "fields": [
+              {
+                "type": "float4",
+                "name": "uSunParams",
+                "offset": 0,
+                "size": 16
+              },
+              {
+                "type": "float3",
+                "name": "uSunColor",
+                "offset": 16,
+                "size": 12
+              },
+              {
+                "type": "float",
+                "name": "_padding0",
+                "offset": 28,
+                "size": 4
+              },
+              {
+                "type": "float3",
+                "name": "uHorizonColor",
+                "offset": 32,
+                "size": 12
+              },
+              {
+                "type": "float",
+                "name": "_padding1",
+                "offset": 44,
+                "size": 4
+              },
+              {
+                "type": "float3",
+                "name": "uZenithColor",
+                "offset": 48,
+                "size": 12
+              },
+              {
+                "type": "float",
+                "name": "_padding2",
+                "offset": 60,
+                "size": 4
+              },
+              {
+                "type": "float4",
+                "name": "uCloudParams",
+                "offset": 64,
+                "size": 16
+              },
+              {
+                "type": "float4x4",
+                "name": "uInvView",
+                "offset": 80,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uInvProjection",
+                "offset": 144,
+                "size": 64
+              },
+              {
+                "type": "int",
+                "name": "uSkyMode",
+                "offset": 208,
+                "size": 4
+              },
+              {
+                "type": "float3",
+                "name": "_padding3",
+                "offset": 212,
+                "size": 12
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/soft_additive_ribbon.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_0",
+      "bytecode": "SkullbonezData/shaders/soft_additive_ribbon.vs.dxil",
+      "source_sha256": "799e5218b55db08e9a14b99fed9d6ade2a244e736873284d8bbaaef2f3e22ef7",
+      "compile_inputs_sha256": "db26c4a09e950605b66841dac001c304d88dcee37cfe63daddfa7f44e77111d9",
+      "bytecode_sha256": "bc84c2115d95b56dda201385ca3783c7a12063b910628d1a519373bce9ac4a00",
+      "bytecode_size": 4424,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 64,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uViewProj",
+                "offset": 0,
+                "size": 64
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xyz",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xyzw",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "xyzw",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/soft_additive_ribbon.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_0",
+      "bytecode": "SkullbonezData/shaders/soft_additive_ribbon.ps.dxil",
+      "source_sha256": "799e5218b55db08e9a14b99fed9d6ade2a244e736873284d8bbaaef2f3e22ef7",
+      "compile_inputs_sha256": "c9ee251724bb78a428f3dea75c7c952fb3163529781baa6dda6810460191fc1d",
+      "bytecode_sha256": "8514de3c72bf484997c4db21bd6782fa4bbd771dc0174d901328aa9c71025199",
+      "bytecode_size": 3628,
+      "reflection": {
+        "cbuffers": [],
+        "resources": [],
+        "inputs": [
+          {
+            "semantic": "COLOR",
+            "index": 0,
+            "mask": "xyzw",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xyzw",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/solid_color.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_0",
+      "bytecode": "SkullbonezData/shaders/solid_color.vs.dxil",
+      "source_sha256": "fc8063b3db76f4c429f7b6f1ffe8c022446d48d1c6ac36c4e51c5ad8968c6aec",
+      "compile_inputs_sha256": "4176caba63a522c1b3824dac84ad30a501d2cbc38f1bf6013ade6c83efe7ad00",
+      "bytecode_sha256": "5a509e7e03bc8468c5e31446c11ac1193529ab4c486f8b02eac8e951db44fc80",
+      "bytecode_size": 3636,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 80,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uProjection",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uColor",
+                "offset": 64,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xy",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/solid_color.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_0",
+      "bytecode": "SkullbonezData/shaders/solid_color.ps.dxil",
+      "source_sha256": "fc8063b3db76f4c429f7b6f1ffe8c022446d48d1c6ac36c4e51c5ad8968c6aec",
+      "compile_inputs_sha256": "eb95cc990205b05075257414d1d2ea366e8d8ede6df0c95fe73afdadaae5066a",
+      "bytecode_sha256": "af090769b8f523b19e09b3f6b4f2a65113a736637e8480eb559f16d6da766dfc",
+      "bytecode_size": 3276,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 80,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uProjection",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uColor",
+                "offset": 64,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": []
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/solid_color_batch.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_0",
+      "bytecode": "SkullbonezData/shaders/solid_color_batch.vs.dxil",
+      "source_sha256": "a3b909382f62967e3badc54cefe3eafefd213b5c6c861beec02ca213055ee4f3",
+      "compile_inputs_sha256": "5f6dcb3715a0309694204962ec26e25b8257538b57a50b64a463b6c070bded14",
+      "bytecode_sha256": "fc29c45b0e3953a2759766576313741a186fcbf6cccf497b792378e5697befec",
+      "bytecode_size": 3956,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 64,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uProjection",
+                "offset": 0,
+                "size": 64
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xy",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xyzw",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/solid_color_batch.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_0",
+      "bytecode": "SkullbonezData/shaders/solid_color_batch.ps.dxil",
+      "source_sha256": "a3b909382f62967e3badc54cefe3eafefd213b5c6c861beec02ca213055ee4f3",
+      "compile_inputs_sha256": "d0b0a5333d4baf2ac095072cd62eabc8c3385a33e3c4bbeb57658084bc6b4706",
+      "bytecode_sha256": "a8b6e1f98f25c0069a163cfc66b2c3b5181bfbe27595d88f8355ccb4af1a1ea9",
+      "bytecode_size": 2972,
+      "reflection": {
+        "cbuffers": [],
+        "resources": [],
+        "inputs": [
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xyzw",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/text.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_0",
+      "bytecode": "SkullbonezData/shaders/text.vs.dxil",
+      "source_sha256": "3f31da84b5d63a65fb0710abcaa1572395c2d6b4eb08de86b2cc9eef5757c2a2",
+      "compile_inputs_sha256": "f860bdb7367b7daa6e0fd791206d8670d1fb086b9a683f915ce25e2d75c5cd38",
+      "bytecode_sha256": "1ee6e75414166faa7e30a7cca742bf014f61ac8691794a0ef879daade5050f5a",
+      "bytecode_size": 4216,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 64,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uProjection",
+                "offset": 0,
+                "size": 64
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xy",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "xyz",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/text.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_0",
+      "bytecode": "SkullbonezData/shaders/text.ps.dxil",
+      "source_sha256": "3f31da84b5d63a65fb0710abcaa1572395c2d6b4eb08de86b2cc9eef5757c2a2",
+      "compile_inputs_sha256": "336b2af9d4bbecee5673469e29ec27fa9bfeb8c9ec2c067601500b1eab472d7f",
+      "bytecode_sha256": "d821e3d72051b2678c93dc004c1e7d62a798becd97377b3e86fdbb15634f1535",
+      "bytecode_size": 4224,
+      "reflection": {
+        "cbuffers": [],
+        "resources": [
+          {
+            "name": "sSampler0",
+            "register_class": "s",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "sampler",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "uFontTexture",
+            "register_class": "t",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "texture",
+            "format": "f32",
+            "dimension": "2d"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "xyz",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/tornado_fx.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_0",
+      "bytecode": "SkullbonezData/shaders/tornado_fx.vs.dxil",
+      "source_sha256": "da09f47717a0cb0c70f1eb4630f6accce25b28ff1a4e68ea8b5fa24c70621de4",
+      "compile_inputs_sha256": "f669b16ee24dd9534ac6f678c7ca97b5535ad6e48b6ecea4227b1ee652a45fa1",
+      "bytecode_sha256": "71775c299a37aff1d65dfc14d7114c2ee4b8167d662bd7809450058fbed2f10f",
+      "bytecode_size": 4556,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 64,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uViewProj",
+                "offset": 0,
+                "size": 64
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xyz",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xyzw",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "xyzw",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/tornado_fx.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_0",
+      "bytecode": "SkullbonezData/shaders/tornado_fx.ps.dxil",
+      "source_sha256": "da09f47717a0cb0c70f1eb4630f6accce25b28ff1a4e68ea8b5fa24c70621de4",
+      "compile_inputs_sha256": "454e333cd5ce22e18179cf9768c97d33da1979327dc92573f978e4f399e87307",
+      "bytecode_sha256": "bd77268d41f288ffffdc6d2c4d8a477d161067d0cbc601e472b37873f59d9cbf",
+      "bytecode_size": 4440,
+      "reflection": {
+        "cbuffers": [],
+        "resources": [],
+        "inputs": [
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xyz",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "xyzw",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "COLOR",
+            "index": 0,
+            "mask": "xyzw",
+            "register": 3,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/trajectory_ribbon.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_0",
+      "bytecode": "SkullbonezData/shaders/trajectory_ribbon.vs.dxil",
+      "source_sha256": "06a285be6f3df8586b05afcde52bf7382779152351b6d013f9c24f947b865e0a",
+      "compile_inputs_sha256": "75f095a3126c8a475000e2cf7c09f238da4b649593a459991bd075935c0a1dd1",
+      "bytecode_sha256": "09c7a71bbc1194b3af7feb33503a3de46cd3ef9311d5bb6117803d4e7b47972a",
+      "bytecode_size": 5936,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 96,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uViewProj",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uViewportPixels",
+                "offset": 64,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uRibbonStyle",
+                "offset": 80,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xyz",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xyzw",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "xyzw",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 2,
+            "mask": "xy",
+            "register": 3,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "SV_VertexID",
+            "index": 0,
+            "mask": "x",
+            "register": 4,
+            "system_value": "VERTID",
+            "format": "uint",
+            "used": "x"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/trajectory_ribbon.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_0",
+      "bytecode": "SkullbonezData/shaders/trajectory_ribbon.ps.dxil",
+      "source_sha256": "06a285be6f3df8586b05afcde52bf7382779152351b6d013f9c24f947b865e0a",
+      "compile_inputs_sha256": "9949d2ea81f977fcb2c511dabbd4425662161dfc3e06af048f351bdfa0591c0c",
+      "bytecode_sha256": "aadf0089107287eddb0afa3d8abfb292dfea9fd0051e07742dc8c119f88e1ffa",
+      "bytecode_size": 4700,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 96,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uViewProj",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uViewportPixels",
+                "offset": 64,
+                "size": 16
+              },
+              {
+                "type": "float4",
+                "name": "uRibbonStyle",
+                "offset": 80,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "COLOR",
+            "index": 0,
+            "mask": "xyzw",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "x",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "x"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "yz",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "yz"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/ui_render_target_preview.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_0",
+      "bytecode": "SkullbonezData/shaders/ui_render_target_preview.vs.dxil",
+      "source_sha256": "26bdd7f6faea9b212f1cd60b2932bc5c60eab2cecde5cd7bb11926ea1491e402",
+      "compile_inputs_sha256": "7005ad2069a4b0251ac3bd7a49ecc31827b9535f51e1f0513ed2eb9db030450c",
+      "bytecode_sha256": "32993672afc0f5842589b6215cd4a959fe7d7bba115f7bc61596c7995821d8af",
+      "bytecode_size": 3928,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 80,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uProjection",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uPreviewParams",
+                "offset": 64,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xy",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/ui_render_target_preview.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_0",
+      "bytecode": "SkullbonezData/shaders/ui_render_target_preview.ps.dxil",
+      "source_sha256": "26bdd7f6faea9b212f1cd60b2932bc5c60eab2cecde5cd7bb11926ea1491e402",
+      "compile_inputs_sha256": "3f7cd283dd5d616043b8b614c885629d991b299c6006a181cc3ac609e92b3fa9",
+      "bytecode_sha256": "5ca9701eaa69e63253c81c4d986d56e36f7dc4692fc874436971114b6f5d300b",
+      "bytecode_size": 4968,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 80,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uProjection",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uPreviewParams",
+                "offset": 64,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "sSampler0",
+            "register_class": "s",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "sampler",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "uTexture",
+            "register_class": "t",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "texture",
+            "format": "f32",
+            "dimension": "2d"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/UIBackdropBlur.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_0",
+      "bytecode": "SkullbonezData/shaders/UIBackdropBlur.vs.dxil",
+      "source_sha256": "67ec44b96823543efaa5befdb0d9a79d4401f1e5c727be018876302643568859",
+      "compile_inputs_sha256": "128101714cbe82a9a7fbf3b54d2f99d6b9c5a88c15aa77b1530036f5a3488967",
+      "bytecode_sha256": "42b9081e23d9960a2aec9fead2a20d09c10f225a0a4888acc1b713f09c22cf86",
+      "bytecode_size": 4092,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 80,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uProjection",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uTexelSize",
+                "offset": 64,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xy",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/UIBackdropBlur.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_0",
+      "bytecode": "SkullbonezData/shaders/UIBackdropBlur.ps.dxil",
+      "source_sha256": "67ec44b96823543efaa5befdb0d9a79d4401f1e5c727be018876302643568859",
+      "compile_inputs_sha256": "233d324f70125fda798bbeab981766fd72d75d9a3691fb6f755667ac9e40e572",
+      "bytecode_sha256": "92bb7aecf4b8397d6b2a43159e0c73da605ac276e530756e355b6931ba8c3543",
+      "bytecode_size": 5600,
+      "reflection": {
+        "cbuffers": [],
+        "resources": [
+          {
+            "name": "sSampler0",
+            "register_class": "s",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "sampler",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "uTexture",
+            "register_class": "t",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "texture",
+            "format": "f32",
+            "dimension": "2d"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "zw",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "zw"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/unlit_textured.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_0",
+      "bytecode": "SkullbonezData/shaders/unlit_textured.vs.dxil",
+      "source_sha256": "be52d7692da403b6baa9d24cbf1a0629759718242d0ec78abccf9f3ec73b4cdb",
+      "compile_inputs_sha256": "89773f33b562b9f41b93f172ce37d0c83fae64a45a222e356809b5a2ca6d46f8",
+      "bytecode_sha256": "1eea1952572ff67418c2865e98b4464e8d225edbef7095e7bd63ed0e86ad26e4",
+      "bytecode_size": 4664,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 208,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uModel",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uView",
+                "offset": 64,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uProjection",
+                "offset": 128,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uColorTint",
+                "offset": 192,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xyz",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/unlit_textured.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_0",
+      "bytecode": "SkullbonezData/shaders/unlit_textured.ps.dxil",
+      "source_sha256": "be52d7692da403b6baa9d24cbf1a0629759718242d0ec78abccf9f3ec73b4cdb",
+      "compile_inputs_sha256": "775cbefad3f87f086446366fcba248966252787f5b7ab6db6ac865a7957b2071",
+      "bytecode_sha256": "470394be3d0396a0de8cd36197cabfa1403807d60c664c40bbf67ee84faef9e1",
+      "bytecode_size": 4316,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 208,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uModel",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uView",
+                "offset": 64,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uProjection",
+                "offset": 128,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uColorTint",
+                "offset": 192,
+                "size": 16
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "sSampler0",
+            "register_class": "s",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "sampler",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "uTexture",
+            "register_class": "t",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "texture",
+            "format": "f32",
+            "dimension": "2d"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xy",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/water_calm.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_0",
+      "bytecode": "SkullbonezData/shaders/water_calm.vs.dxil",
+      "source_sha256": "31b8a073b8017303bb1707ca3f2b42d6cc4dd5defa2695620fa5dd3251a3a7f6",
+      "compile_inputs_sha256": "0cb98b1a37c89371482697bb935b6ebf53d44e5cb763871c6d194af230c9259a",
+      "bytecode_sha256": "dda0ccc5294e70b754ab3b8452fc541fdacd8dd2b1a40ae1db505d1a8657c847",
+      "bytecode_size": 5528,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 368,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uModel",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uView",
+                "offset": 64,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uProjection",
+                "offset": 128,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uReflectVP",
+                "offset": 192,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uColorTint",
+                "offset": 256,
+                "size": 16
+              },
+              {
+                "type": "float",
+                "name": "uReflectionStrength",
+                "offset": 272,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "uWaterFresnelF0",
+                "offset": 276,
+                "size": 4
+              },
+              {
+                "type": "float3",
+                "name": "uCameraWorld",
+                "offset": 288,
+                "size": 12
+              },
+              {
+                "type": "int",
+                "name": "uNoReflect",
+                "offset": 300,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "uCinematicMode",
+                "offset": 304,
+                "size": 4
+              },
+              {
+                "type": "int",
+                "name": "uWaterMode",
+                "offset": 308,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "uSunGlintStrength",
+                "offset": 312,
+                "size": 4
+              },
+              {
+                "type": "float3",
+                "name": "uSunColor",
+                "offset": 320,
+                "size": 12
+              },
+              {
+                "type": "float4",
+                "name": "uBasinMask",
+                "offset": 336,
+                "size": 16
+              },
+              {
+                "type": "float",
+                "name": "uBasinMaskFeather",
+                "offset": 352,
+                "size": 4
+              },
+              {
+                "type": "float3",
+                "name": "_pad0",
+                "offset": 356,
+                "size": 12
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xyz",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/water_calm.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_0",
+      "bytecode": "SkullbonezData/shaders/water_calm.ps.dxil",
+      "source_sha256": "31b8a073b8017303bb1707ca3f2b42d6cc4dd5defa2695620fa5dd3251a3a7f6",
+      "compile_inputs_sha256": "40e742852b6f3311e10648e9ad2d894982a9b08f300177ed093d59d793752387",
+      "bytecode_sha256": "b82b15a1725a65b4d3e781f983eab58c502af717431158aca31c64fd7a512104",
+      "bytecode_size": 7884,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 368,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uModel",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uView",
+                "offset": 64,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uProjection",
+                "offset": 128,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uReflectVP",
+                "offset": 192,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uColorTint",
+                "offset": 256,
+                "size": 16
+              },
+              {
+                "type": "float",
+                "name": "uReflectionStrength",
+                "offset": 272,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "uWaterFresnelF0",
+                "offset": 276,
+                "size": 4
+              },
+              {
+                "type": "float3",
+                "name": "uCameraWorld",
+                "offset": 288,
+                "size": 12
+              },
+              {
+                "type": "int",
+                "name": "uNoReflect",
+                "offset": 300,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "uCinematicMode",
+                "offset": 304,
+                "size": 4
+              },
+              {
+                "type": "int",
+                "name": "uWaterMode",
+                "offset": 308,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "uSunGlintStrength",
+                "offset": 312,
+                "size": 4
+              },
+              {
+                "type": "float3",
+                "name": "uSunColor",
+                "offset": 320,
+                "size": 12
+              },
+              {
+                "type": "float4",
+                "name": "uBasinMask",
+                "offset": 336,
+                "size": 16
+              },
+              {
+                "type": "float",
+                "name": "uBasinMaskFeather",
+                "offset": 352,
+                "size": 4
+              },
+              {
+                "type": "float3",
+                "name": "_pad0",
+                "offset": 356,
+                "size": 12
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "sSampler1",
+            "register_class": "s",
+            "slot": 1,
+            "space": 0,
+            "count": 1,
+            "type": "sampler",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "uReflectionTex",
+            "register_class": "t",
+            "slot": 1,
+            "space": 0,
+            "count": 1,
+            "type": "texture",
+            "format": "f32",
+            "dimension": "2d"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "xy",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 2,
+            "mask": "xyz",
+            "register": 3,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/water_ocean.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_0",
+      "bytecode": "SkullbonezData/shaders/water_ocean.vs.dxil",
+      "source_sha256": "b73205c88bdc95e7e8dc1d04284597487537345da95454bb9654e4fde9b1643e",
+      "compile_inputs_sha256": "9f136f683902c8e18d8f05f4ad0686fd1b31e1bcb50af6f7b6d45c7a65579cd1",
+      "bytecode_sha256": "96a15a00b27168ccc06f98fcdfd7136245f0f28a2aa4e9eac0e0c1dbd1fc5f08",
+      "bytecode_size": 6104,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 336,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uModel",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uView",
+                "offset": 64,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uProjection",
+                "offset": 128,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uReflectVP",
+                "offset": 192,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uColorTint",
+                "offset": 256,
+                "size": 16
+              },
+              {
+                "type": "float",
+                "name": "uTime",
+                "offset": 272,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "uWaveHeight",
+                "offset": 276,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "uReflectionStrength",
+                "offset": 280,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "uWaterFresnelF0",
+                "offset": 284,
+                "size": 4
+              },
+              {
+                "type": "float3",
+                "name": "uCameraWorld",
+                "offset": 288,
+                "size": 12
+              },
+              {
+                "type": "float",
+                "name": "uPerturbStrength",
+                "offset": 300,
+                "size": 4
+              },
+              {
+                "type": "int",
+                "name": "uFlatWater",
+                "offset": 304,
+                "size": 4
+              },
+              {
+                "type": "int",
+                "name": "uNoReflect",
+                "offset": 308,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "uCinematicMode",
+                "offset": 312,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "uSunGlintStrength",
+                "offset": 316,
+                "size": 4
+              },
+              {
+                "type": "float3",
+                "name": "uSunColor",
+                "offset": 320,
+                "size": 12
+              },
+              {
+                "type": "float",
+                "name": "_pad0",
+                "offset": 332,
+                "size": 4
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xyz",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/water_ocean.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_0",
+      "bytecode": "SkullbonezData/shaders/water_ocean.ps.dxil",
+      "source_sha256": "b73205c88bdc95e7e8dc1d04284597487537345da95454bb9654e4fde9b1643e",
+      "compile_inputs_sha256": "253f1dada315fca735fb0bbe49c6ce41ef500d1e3facf384f48f3132a5a64a01",
+      "bytecode_sha256": "5660c3e42a6b3051f747cf9ccaaebac455bae0b81a7dd1c8409b586c3b4ce142",
+      "bytecode_size": 6612,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 336,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uModel",
+                "offset": 0,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uView",
+                "offset": 64,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uProjection",
+                "offset": 128,
+                "size": 64
+              },
+              {
+                "type": "float4x4",
+                "name": "uReflectVP",
+                "offset": 192,
+                "size": 64
+              },
+              {
+                "type": "float4",
+                "name": "uColorTint",
+                "offset": 256,
+                "size": 16
+              },
+              {
+                "type": "float",
+                "name": "uTime",
+                "offset": 272,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "uWaveHeight",
+                "offset": 276,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "uReflectionStrength",
+                "offset": 280,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "uWaterFresnelF0",
+                "offset": 284,
+                "size": 4
+              },
+              {
+                "type": "float3",
+                "name": "uCameraWorld",
+                "offset": 288,
+                "size": 12
+              },
+              {
+                "type": "float",
+                "name": "uPerturbStrength",
+                "offset": 300,
+                "size": 4
+              },
+              {
+                "type": "int",
+                "name": "uFlatWater",
+                "offset": 304,
+                "size": 4
+              },
+              {
+                "type": "int",
+                "name": "uNoReflect",
+                "offset": 308,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "uCinematicMode",
+                "offset": 312,
+                "size": 4
+              },
+              {
+                "type": "float",
+                "name": "uSunGlintStrength",
+                "offset": 316,
+                "size": 4
+              },
+              {
+                "type": "float3",
+                "name": "uSunColor",
+                "offset": 320,
+                "size": 12
+              },
+              {
+                "type": "float",
+                "name": "_pad0",
+                "offset": 332,
+                "size": 4
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "sSampler1",
+            "register_class": "s",
+            "slot": 1,
+            "space": 0,
+            "count": 1,
+            "type": "sampler",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "uReflectionTex",
+            "register_class": "t",
+            "slot": 1,
+            "space": 0,
+            "count": 1,
+            "type": "texture",
+            "format": "f32",
+            "dimension": "2d"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "xy",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xy"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 2,
+            "mask": "xyz",
+            "register": 3,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          }
+        ]
+      }
+    }
+  ]
+}

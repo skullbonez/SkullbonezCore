@@ -196,6 +196,13 @@ SbResult Input::CaptureDeviceInputFrame( DeviceInputFrame& frame )
         const std::size_t word = static_cast<std::size_t>( virtualKey ) / 64u;
         words[word] |= uint64_t{ 1 } << ( static_cast<unsigned int>( virtualKey ) & 63u );
     }
+    if ( s_automationState.enabled && s_automationState.controlDown )
+    {
+        // Why: modifier-aware interaction probes must exercise the normal
+        // immutable keyboard snapshot used by editor shortcuts.
+        const std::size_t word = static_cast<std::size_t>( VK_CONTROL ) / 64u;
+        words[word] |= uint64_t{ 1 } << ( static_cast<unsigned int>( VK_CONTROL ) & 63u );
+    }
 
     frame.keys = InputKeySnapshot::FromWords( words );
     const MouseCoordinatesResult clientPosition = GetClientMouseCoordinates();

@@ -29,7 +29,7 @@ Related:
   - SkullbonezSource/Runtime/Run.h
   - SkullbonezSource/Runtime/InputController.h
   - SkullbonezSource/Runtime/RunDemoDirector.h
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once
 
@@ -45,9 +45,9 @@ namespace Environment
 {
 class CameraCollection;
 }
-namespace GameObjects
+namespace Basics
 {
-class GameModelCollection;
+class SceneController;
 }
 namespace Geometry
 {
@@ -84,23 +84,40 @@ struct RunCameraState
         autoCycleAccum = 0.0f;
     }
 
+    void ResetForSceneLoad( bool authoredScene )
+    {
+        // Scene activation chooses only the initial workspace. Camera-local
+        // tracking, automation, and frame input memory are reset here.
+        mode = authoredScene ? RunCameraMode::Scene : RunCameraMode::Demo;
+        trackBallRow.value = -1;
+        trackHeight = 300.0f;
+        autoCycleInterval = -1.0f;
+        autoCycleAccum = 0.0f;
+        autoCycleShotsTaken = 0;
+        input = {};
+        selectedCamera = 0;
+        cameraTime = 0.0f;
+    }
+
     void UpdateViewingOrientation( RunTimerState& timers,
                                    Environment::CameraCollection& cameras,
-                                   const GameObjects::GameModelCollection& models,
+                                   const Basics::SceneController& models,
                                    bool replayCameraActive,
                                    bool sceneMode,
                                    bool attachedActiveFollow,
-                                   bool cameraLookCaptured );
+                                   bool cameraLookCaptured,
+                                   float presentationAlpha );
     void AdvanceAutoCycleClock( bool sceneMode, float simulationDt );
     void TickControls( Environment::CameraCollection& cameras,
                        Geometry::Terrain& terrain,
-                       GameObjects::GameModelCollection& models,
+                       Basics::SceneController& models,
                        AttachedCameraController& attachedCamera,
                        const EngineConfig& config,
                        bool editorModeEnabled,
                        bool viewportLookActive,
                        bool sceneMode,
-                       float cameraDt );
+                       float cameraDt,
+                       float presentationAlpha );
 };
 
 } // namespace Basics

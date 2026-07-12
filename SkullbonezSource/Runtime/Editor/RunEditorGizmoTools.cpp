@@ -25,7 +25,7 @@ Related:
 */
 #include "EditorTools.h"
 #include "../Tools/RuntimeTools.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "../Scene/SceneController.h"
 #include "../../Maths/RotationMatrix.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/CollisionShape.h"

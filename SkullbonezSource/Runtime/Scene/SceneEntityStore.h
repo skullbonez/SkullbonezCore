@@ -25,8 +25,8 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
-  - SkullbonezSource/GameObjects/GameModelCollection.cpp
-  - Agentic/Plans/TODO/physics-authority-and-identity.md
+  - SkullbonezSource/GameObjects/SceneController.cpp
+  - Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md
 */
 #pragma once
 

@@ -68,8 +68,8 @@ struct SkyFeatureSpec
 };
 
 constexpr SkySliderSpec kSkySliderSpecs[] = {
-    { "Direction", "Azimuth", SkullbonezCore::UI::UICinematicParam::SunX, 0.00f, 1.00f, 0.005f, "%.3f" },
-    { nullptr, "Elevation", SkullbonezCore::UI::UICinematicParam::SunY, 0.00f, 1.00f, 0.005f, "%.3f" },
+    { "Direction", "Azimuth", SkullbonezCore::UI::UICinematicParam::SunAzimuth, 0.00f, 1.00f, 0.005f, "%.3f" },
+    { nullptr, "Elevation", SkullbonezCore::UI::UICinematicParam::SunElevation, 0.00f, 1.00f, 0.005f, "%.3f" },
     { "Palette", "Sun power", SkullbonezCore::UI::UICinematicParam::SunBrightness, 0.00f, 40.00f, 0.10f, "%.1f" },
     { nullptr, "Glow", SkullbonezCore::UI::UICinematicParam::SkyGlow, 0.00f, 8.00f, 0.05f, "%.2f" },
     { nullptr, "Sun R", SkullbonezCore::UI::UICinematicParam::SunRed, 0.00f, 2.00f, 0.01f, "%.2f" },
@@ -194,10 +194,10 @@ float SkyValueForParam( const CinematicRenderConfig& cinematic, SkullbonezCore::
         return cinematic.styleContrast;
     case SkullbonezCore::UI::UICinematicParam::StyleVignette:
         return cinematic.styleVignette;
-    case SkullbonezCore::UI::UICinematicParam::SunX:
-        return cinematic.sunScreenX;
-    case SkullbonezCore::UI::UICinematicParam::SunY:
-        return cinematic.sunScreenY;
+    case SkullbonezCore::UI::UICinematicParam::SunAzimuth:
+        return cinematic.sunAzimuth;
+    case SkullbonezCore::UI::UICinematicParam::SunElevation:
+        return cinematic.sunElevation;
     case SkullbonezCore::UI::UICinematicParam::SunBrightness:
         return cinematic.sunIntensity;
     case SkullbonezCore::UI::UICinematicParam::SunRed:

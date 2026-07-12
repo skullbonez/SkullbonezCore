@@ -233,7 +233,7 @@ struct MainMemoryReplayStats
 
 struct MainMemoryGameObjectStats
 {
-    uint64_t modelVectorBytes = 0;                          // Dynamic GameModel vector capacity.
+    uint64_t modelVectorBytes = 0;                          // Dynamic legacy object record vector capacity.
     uint64_t physicsStoreBytes = 0;                         // Physics body-store vector capacity.
     uint64_t colliderStoreBytes = 0;                        // Collider-store vector capacity.
     uint64_t renderStoreBytes = 0;                          // Render-instance vector capacity.

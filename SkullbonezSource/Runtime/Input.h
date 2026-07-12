@@ -133,6 +133,7 @@ class Input
         bool rightMouseDown = false;
         int keyVirtualKey = 0;                                      // Optional one-key automation override.
         bool keyDown = false;
+        bool controlDown = false;                                   // Optional modifier paired with the injected key.
     };
 
     struct InputEventBuffer

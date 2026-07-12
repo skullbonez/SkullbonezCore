@@ -23,7 +23,7 @@ Invariants:
   surface.
   - Saved body pose, velocity, sleep, mass, inertia, and shape data come from
     PhysicsBodyStore/ColliderStore so scene saving does not depend on post-step
-    GameModel body writeback.
+    legacy object record body writeback.
   - No entity or point joint is silently skipped; owner topology disagreement
     is an engine invariant failure.
 

@@ -40,7 +40,15 @@ echo   VALIDATE_DX12_RENDERER
 echo ========================================
 echo.
 
-echo [1/7] Checking formatting...
+echo [1/8] Checking baked shader freshness...
+call "%~dp0bake_shaders.bat" --check
+if errorlevel 1 (
+    echo FAIL: Baked shader bytecode is missing or stale.
+    popd
+    exit /b 1
+)
+
+echo [2/8] Checking formatting...
 call "%~dp0validate_format.bat"
 if errorlevel 1 (
     popd
@@ -52,7 +60,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [2/7] Ensuring Profile x64 build...
+echo [3/8] Ensuring Profile x64 build...
 if /I "%SKULLBONEZ_ASSUME_PROFILE_BUILT%"=="1" (
     echo PASS: Reusing prebuilt Profile x64.
 ) else (
@@ -69,7 +77,7 @@ if /I "%SKULLBONEZ_ASSUME_PROFILE_BUILT%"=="1" (
     echo PASS: Profile build succeeded. Build log: "!BUILD_LOG!"
 )
 
-echo [3/7] Cleaning old DX12 artifacts...
+echo [4/8] Cleaning old DX12 artifacts...
 del /q "%REPO%\Profile\screenshot.bmp" 2>nul
 del /q "%REPO%\Profile\solver_smoke.bmp" 2>nul
 del /q "%REPO%\Profile\space_three_body.bmp" 2>nul
@@ -80,7 +88,7 @@ del /q "%REPO%\Profile\dx12_stdout.txt" 2>nul
 del /q "%REPO%\Profile\dx12_stderr.txt" 2>nul
 del /q "%REPO%\dx12_validation.txt" 2>nul
 
-echo [4/7] Running DX12 render suite...
+echo [5/8] Running DX12 render suite...
 call :run_renderer dx12 "--renderer dx12 --vsync off --suite SkullbonezData/scenes/render_tests.suite.json"
 if errorlevel 1 (
     echo FAIL: DX12 suite exited with error.
@@ -91,7 +99,7 @@ if exist "%REPO%\Profile\screenshot.bmp" rename "%REPO%\Profile\screenshot.bmp" 
 if exist "%REPO%\Profile\solver_smoke.bmp" rename "%REPO%\Profile\solver_smoke.bmp" dx12_solver_smoke.bmp
 if exist "%REPO%\Profile\space_three_body.bmp" rename "%REPO%\Profile\space_three_body.bmp" dx12_space_three_body.bmp
 
-echo [5/7] Checking expected DX12 screenshot artifacts...
+echo [6/8] Checking expected DX12 screenshot artifacts...
 set "MISSING=0"
 for %%f in (dx12_screenshot.bmp dx12_solver_smoke.bmp dx12_space_three_body.bmp) do (
     if not exist "%REPO%\Profile\%%f" (
@@ -105,7 +113,7 @@ if %MISSING% GTR 0 (
     exit /b 4
 )
 
-echo [6/7] Checking DX12 stdout/stderr and InfoQueue validation...
+echo [7/8] Checking DX12 stdout/stderr and InfoQueue validation...
 set "STDOUT_CLEAN=1"
 findstr /I /C:"error" /C:"warning" /C:"failed" "%REPO%\Profile\dx12_stdout.txt" >nul 2>&1
 if not errorlevel 1 (
@@ -131,7 +139,7 @@ if errorlevel 1 (
     exit /b 6
 )
 
-echo [7/7] Comparing DX12 captures against committed baselines...
+echo [8/8] Comparing DX12 captures against committed baselines...
 set "SKORE_REPO=%REPO%"
 "%PYTHON_EXE%" "%~dp0check_dx12_baselines.py" --repo "%REPO%" --out-root "%REPO%\TestOutput\validation\dx12_renderer"
 if errorlevel 1 (

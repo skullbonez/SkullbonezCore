@@ -240,7 +240,7 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
     std::vector<int> bodyIslandIds( modelCount, 0 );
     std::vector<DiagnosticsIslandStats> islandStats( modelCount );
 
-    // Sleep islands are rebuilt every physics step in GameModelCollection.  The
+    // Sleep islands are rebuilt every physics step in SceneController.  The
     // diagnostics copy only the root/id mapping and aggregate counts; it avoids
     // serializing the entire union-find unless a specific query asks for detail.
     auto findIslandRoot = [&]( int index ) -> int

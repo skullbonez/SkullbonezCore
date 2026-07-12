@@ -77,8 +77,8 @@ tools\physics_query.bat Debug\scene.physicsdiag.ndjson pipeline --frames 0:1000
 | Area | Files |
 |------|-------|
 | Rigid body state | `SkullbonezSource/Physics/RigidBody*` |
-| Shared row solver | `SkullbonezSource/GameObjects/GameModelCollection*`, `SkullbonezSource/Physics/PersistentContactSolver*` |
+| Shared row solver | `SkullbonezSource/Physics/PhysicsBodyStore*`, `SkullbonezSource/Physics/PersistentContactSolver*` |
 | Terrain support policy | `SkullbonezSource/World/TerrainSupportClassifier.h` |
 | Shapes | `SkullbonezSource/Physics/BoundingSphere*`, `SkullbonezSource/Physics/BoundingBox*`, `SkullbonezSource/Physics/ConvexHullShape*`, `SkullbonezSource/Physics/CollisionShape.h` |
 | Broadphase | `SkullbonezSource/Physics/SpatialGrid*` |
-| Main physics loop | `SkullbonezSource/GameObjects/GameModelCollection*`, `SkullbonezSource/Physics/PhysicsWorld*`, `SkullbonezSource/Physics/SimulationSystem*` |
+| Main physics loop | `SkullbonezSource/Runtime/Scene/SceneController.Objects*`, `SkullbonezSource/Physics/PhysicsWorld*`, `SkullbonezSource/Physics/SimulationSystem*` |

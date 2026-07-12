@@ -19,8 +19,8 @@ Glossary:
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
-  - Mesh uploads borrow the current frame upload arena from RenderBackendDX12;
-    a missing upload buffer means the backend frame resources were not
+  - Mesh creation receives the current frame upload resource as an operation
+    value; a missing upload buffer means the device frame resources were not
     initialized before mesh creation.
   - An upload reservation failure returns before memcpy or GPU command
     recording; address zero is the failure sentinel.
@@ -34,15 +34,16 @@ Related:
 #include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
 #include "RenderBackendDX12.h"
+#include "../RenderGraph.h"
 #include <cstring>
 
 
 using namespace SkullbonezCore::Rendering;
 
 
-MeshDX12::MeshDX12( RenderBackendDX12& backend )
-    : m_backend( backend ), m_vertexBuffer( nullptr ), m_vertexCount( 0 ), m_stride( 0 ),
-      m_format( VertexFormat12::Pos3 )
+MeshDX12::MeshDX12( Dx12RenderDevice& device, Dx12DrawGate& drawGate, DrawCallTrace& drawTrace, int& drawCount )
+    : m_device( device ), m_drawGate( drawGate ), m_drawTrace( drawTrace ), m_drawCount( drawCount ),
+      m_vertexCount( 0 ), m_stride( 0 ), m_format( VertexFormat12::Pos3 )
 {
     m_vbView = {};
 }
@@ -64,7 +65,8 @@ bool MeshDX12::Create( ID3D12Device* device,
                        int floatsPerVert,
                        VertexFormat12 format,
                        D3D12_GPU_VIRTUAL_ADDRESS uploadAddr,
-                       uint8_t* uploadPtr )
+                       uint8_t* uploadPtr,
+                       ID3D12Resource* uploadBuffer )
 {
     if ( uploadAddr == 0 || !uploadPtr )
     {
@@ -117,7 +119,6 @@ bool MeshDX12::Create( ID3D12Device* device,
 
     memcpy( uploadPtr, data, (size_t)dataSize );
 
-    ID3D12Resource* uploadBuffer = m_backend.GetUploadBuffer();
     // Invariant: ReserveUpload and GetUploadPtr above are only valid when the
     // frame upload system owns a backing resource for the current frame.
     if ( !uploadBuffer )
@@ -137,14 +138,18 @@ bool MeshDX12::Create( ID3D12Device* device,
     // acceleration structure builds (NON_PIXEL_SHADER_RESOURCE). Both are read-only states so they
     // can be combined per D3D12 spec.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_resource_states
-    if ( !m_backend.ExecuteGraphTransition( "MeshVertexUploadFinal",
-                                            "MeshVertexBuffer",
-                                            m_vertexBuffer,
-                                            RenderGraphResourceAccess::CopyDest,
-                                            RenderGraphResourceAccess::VertexAndNonPixelShaderResource ) )
+    D3D12_RESOURCE_BARRIER barrier = {};
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Transition.pResource = m_vertexBuffer;
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+    barrier.Transition.StateAfter =
+        D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    if ( !m_drawGate.CanRecord() )
     {
         return false;
     }
+    cmdList->ResourceBarrier( 1, &barrier );
 
     m_vbView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress();
     m_vbView.SizeInBytes = (UINT)dataSize;
@@ -155,12 +160,12 @@ bool MeshDX12::Create( ID3D12Device* device,
 
 void MeshDX12::Draw() const
 {
-    ID3D12GraphicsCommandList* commandList = m_backend.GetCommandList();
+    ID3D12GraphicsCommandList* commandList = m_device.CommandList();
     if ( !commandList )
     {
         return;
     }
-    if ( !m_backend.PrepareDraw( m_format ) )
+    if ( !m_drawGate.PreparePipelineDraw( m_format, false, nullptr, nullptr ) )
     {
         return;
     }
@@ -176,19 +181,20 @@ void MeshDX12::Draw() const
     // vertex buffer. Parameters: (vertexCount, instanceCount=1, startVertex=0, startInstance=0).
     // "Instanced" here means you *could* draw multiple copies, but we pass 1 for a single mesh.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
-    m_backend.RecordDrawCall( { DrawCallKind::Mesh, "Mesh", m_vertexCount, 1 } );
+    ++m_drawCount;
+    m_drawTrace.RecordDrawCall( { DrawCallKind::Mesh, "Mesh", m_vertexCount, 1 } );
     commandList->DrawInstanced( (UINT)m_vertexCount, 1, 0, 0 );
 }
 
 
 void MeshDX12::DrawInstanced( int instanceCount ) const
 {
-    ID3D12GraphicsCommandList* commandList = m_backend.GetCommandList();
+    ID3D12GraphicsCommandList* commandList = m_device.CommandList();
     if ( !commandList )
     {
         return;
     }
-    if ( !m_backend.PrepareDraw( m_format ) )
+    if ( !m_drawGate.PreparePipelineDraw( m_format, false, nullptr, nullptr ) )
     {
         return;
     }
@@ -198,7 +204,8 @@ void MeshDX12::DrawInstanced( int instanceCount ) const
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetvertexbuffers
     commandList->IASetVertexBuffers( 0, 1, &m_vbView );
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
-    m_backend.RecordDrawCall( { DrawCallKind::Mesh, "MeshInstanced", m_vertexCount, instanceCount } );
+    ++m_drawCount;
+    m_drawTrace.RecordDrawCall( { DrawCallKind::Mesh, "MeshInstanced", m_vertexCount, instanceCount } );
     commandList->DrawInstanced( (UINT)m_vertexCount, (UINT)instanceCount, 0, 0 );
 }
 

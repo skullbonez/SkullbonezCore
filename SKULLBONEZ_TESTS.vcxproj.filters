@@ -40,6 +40,9 @@
     <Filter Include="Source Files\Runtime\Scene">
       <UniqueIdentifier>{F44133F6-7B35-4C37-BB2B-E2F8A746D8A4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\Editor">
+      <UniqueIdentifier>{A84A2248-37E9-4E32-9D84-7709D31D8802}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Scene">
       <UniqueIdentifier>{B4027C52-533E-4F44-9B93-8775E7F77737}</UniqueIdentifier>
     </Filter>
@@ -48,6 +51,12 @@
     </Filter>
     <Filter Include="Source Files\Rendering">
       <UniqueIdentifier>{8E9E77BA-E6E7-4C35-A9C6-8713679A3E3D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Rendering\DX12">
+      <UniqueIdentifier>{FCB320E1-7619-45CB-AB24-E04477C0B1F9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Rendering\DX12">
+      <UniqueIdentifier>{B2C29F49-A411-4248-82FD-1AB48D77DC51}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -69,10 +78,25 @@
     <ClCompile Include="SkullbonezTests\TestDx12OnlyRuntime.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestDx12CachedPsoStore.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.cpp">
+      <Filter>Source Files\Rendering\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestShaderReflectionContracts.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestShadow.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestGeometricMath.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestMain.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestFrustum.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestMatrix4.cpp">
@@ -84,6 +108,9 @@
     <ClCompile Include="SkullbonezTests\TestOwnerRequestQueues.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestEditorCommandHistory.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestSceneEntityStore.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -91,6 +118,9 @@
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestApplicationExitState.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestConfig.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestPersistentContactSolver.cpp">
@@ -106,6 +136,9 @@
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestRuntimeInputBindings.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestReplayPredictionScheduling.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestInputRouter.cpp">
@@ -127,6 +160,9 @@
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestSmoke.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestSimulationSystem.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestTerrain.cpp">
@@ -165,6 +201,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\ApplicationExitState.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
@@ -179,6 +218,9 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\CaptureSystem.cpp">
       <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp">
+      <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RenderDefaultsStore.cpp">
       <Filter>Source Files\Runtime</Filter>
@@ -227,6 +269,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h">
+      <Filter>Header Files\Rendering\DX12</Filter>
+    </ClInclude>
     <ClInclude Include="ThirdPtySource\doctest\doctest.h">
       <Filter>External</Filter>
     </ClInclude>

@@ -80,6 +80,7 @@ SOURCE_PROJECT_SUFFIX_TYPES = {
 }
 
 MATH_PREFIXES = (
+    "Frustum",
     "GeometricMath",
     "GeometricStructures",
     "MathsCommon",
@@ -120,7 +121,6 @@ PHYSICS_PREFIXES = (
     "PhysicsDebugData",
     "PhysicsDiagnosticsSink",
     "PhysicsEngine",
-    "PhysicsEngineStoreQueries",
     "PhysicsFixedList",
     "PhysicsHandles",
     "PhysicsMass",
@@ -154,13 +154,16 @@ RUNTIME_DEBUG_PREFIXES = PHYSICS_DEBUG_PREFIXES
 
 DX12_RENDERING_PREFIXES = (
     "BLASDX12",
+    "Dx12CachedPsoStore",
     "Dx12RenderGraphExecutor",
     "FramebufferDX12",
+    "GeneratedShaderReflection",
     "MeshDX12",
     "RenderBackendDX12",
     "RenderGraphTransientDX12",
     "RenderDeviceDX12",
     "SBTDX12",
+    "ShaderBytecodeManifest",
     "ShaderDX12",
     "TLASDX12",
 )
@@ -177,6 +180,7 @@ RENDERING_PREFIXES = (
     "IRenderDeviceLifecycle",
     "IRenderDiagnostics",
     "IRenderRayTracing",
+    "IRenderShaderDevelopment",
     "IRenderResourceFactory",
     "IShader",
     "PrimitiveMeshBuilder",
@@ -188,6 +192,7 @@ RENDERING_PREFIXES = (
     "RenderSceneView",
     "RenderMaterial",
     "ShaderContracts",
+    "ShaderReflectionContracts",
     "Shadow",
     "Text",
 )
@@ -291,6 +296,7 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayOverlayLayout",
     "ReplayOverlayRenderer",
     "ReplayPredictionReserve",
+    "ReplayPredictionScheduling",
     "ReplayRetainedMemory",
     "ReplayRecorder",
     "ReplayRestoreService",
@@ -319,6 +325,7 @@ RUNTIME_RENDER_PREFIXES = (
 )
 
 RUNTIME_EDITOR_PREFIXES = (
+    "EditorCommandHistory",
     "EditorPlacementAssets",
     "EditorTools",
     "EditorOverlayTools",
@@ -326,6 +333,7 @@ RUNTIME_EDITOR_PREFIXES = (
     "LauncherLaser",
     "LauncherTools",
     "RunEditorGizmoTools",
+    "RunEditorHistory",
     "RunEditorObjectPlacement",
     "RunEditorOverlayTools",
     "RunEditorPlacementAssets",
@@ -596,7 +604,7 @@ def expected_filter_for(item: ProjectItem, project_flat_area: str | None = None)
             return EXTERNAL_FILTER
         if lower.startswith("skullbonezdata\\audio\\") and suffix in {".json", ".md", ".ogg"}:
             return RESOURCE_FILTER
-        if lower.startswith("skullbonezdata\\shaders\\") and suffix in {".hlsl", ".dxil"}:
+        if lower.startswith("skullbonezdata\\shaders\\") and suffix in {".hlsl", ".dxil", ".json"}:
             return SHADER_FILTER
         if lower.startswith("skullbonezdata\\scenes\\") and (lower.endswith(".scene.json") or lower.endswith(".suite.json")):
             return SCENE_FILTER

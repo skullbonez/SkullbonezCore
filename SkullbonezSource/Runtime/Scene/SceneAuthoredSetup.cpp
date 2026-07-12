@@ -34,14 +34,14 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.h
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "SceneAuthoredSetup.h"
 #include "../../Assets/AssetKeys.h"
 #include "SceneRuntime.h"
 #include "../CameraCollection.h"
 #include "../Editor/EditorHullAssets.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "SceneController.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/RotationMatrix.h"
 #include "../../Maths/Vector3.h"
@@ -68,7 +68,7 @@ namespace Basics
 namespace
 {
 using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
-using SkullbonezCore::GameObjects::GameModelCollection;
+using SkullbonezCore::Basics::SceneController;
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
@@ -95,7 +95,7 @@ constexpr float SCENE_EDITOR_TEXTURE_MODE_INVERTED = -2.0f;
 
 // Why: Scene JSON stores authored startup angles in degrees. Convert that
 // authoring unit once here, then pass a quaternion into model/body setup instead
-// of asking GameModel to cache and hand the value back.
+// of asking entity to cache and hand the value back.
 Quaternion MakeSceneEulerQuaternion( float eulerXDeg, float eulerYDeg, float eulerZDeg )
 {
     static constexpr float DEG2RAD = 3.14159265f / 180.0f;
@@ -123,7 +123,7 @@ PhysicsColliderCreateDesc MakeSceneColliderDesc( CollisionShape shape, float res
 {
     // Why: authored scene setup owns the parsed shape/material facts. Importing
     // them as a collider descriptor keeps PhysicsScene/ColliderStore authoritative
-    // for row layout instead of asking GameModelCollection to rediscover them.
+    // for row layout instead of asking SceneController to rediscover them.
     const char* safeName = ( materialName && materialName[0] != '\0' ) ? materialName : "default";
     return MakeColliderCreateDesc( std::move( shape ), restitution, SceneContactMaterialId( safeName ), safeName );
 }
@@ -475,7 +475,7 @@ void SceneAuthoredSetup::SetUpCameras( SceneAuthoredCameraContext context, const
 }
 
 
-SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, const TestScene& scene )
+SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuthoredModelContext context, const TestScene& scene )
 {
     // Invariant: Model insertion order follows scene schema sections. Runtime
     // validation, saved editable scenes, and point-joint name resolution all
@@ -489,18 +489,18 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
     {
         const SceneBall& ball = scene.GetBall( i );
 
-        SceneEntityCreateDesc gameModel;
+        SceneEntityCreateDesc entity;
 
-        gameModel.SetName( ball.name );
-        ApplyEditorPlacedSphereMaterial( gameModel, ball.name );
+        entity.SetName( ball.name );
+        ApplyEditorPlacedSphereMaterial( entity, ball.name );
 
         const bool hasInitialImpulse =
             !ball.isFixed && ( ball.forceX != 0.0f || ball.forceY != 0.0f || ball.forceZ != 0.0f );
         const Physics::PhysicsSceneObjectId sceneObjectId = ball.sceneObjectId;
-        gameModel.sceneObjectId = sceneObjectId;
+        entity.sceneObjectId = sceneObjectId;
         const BoundingSphere shape( ball.m_radius, Vector3( 0.0f, 0.0f, 0.0f ) );
         const auto appendResult = context.models.TryCreateSceneEntity(
-            std::move( gameModel ),
+            std::move( entity ),
             MakeSceneBodyDesc(
                 sceneObjectId,
                 shape,
@@ -533,17 +533,17 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
     {
         const SceneBallState& bs = scene.GetBallState( i );
 
-        SceneEntityCreateDesc gameModel;
+        SceneEntityCreateDesc entity;
 
-        gameModel.SetName( bs.name );
-        ApplyEditorPlacedSphereMaterial( gameModel, bs.name );
-        ApplyAssetAffiliation( gameModel, scene, SceneAssetPartSource::BallState, static_cast<uint32_t>( i ) );
+        entity.SetName( bs.name );
+        ApplyEditorPlacedSphereMaterial( entity, bs.name );
+        ApplyAssetAffiliation( entity, scene, SceneAssetPartSource::BallState, static_cast<uint32_t>( i ) );
 
         const Physics::PhysicsSceneObjectId sceneObjectId = bs.sceneObjectId;
-        gameModel.sceneObjectId = sceneObjectId;
+        entity.sceneObjectId = sceneObjectId;
         const BoundingSphere shape( bs.radius, Vector3( 0.0f, 0.0f, 0.0f ) );
         const auto appendResult = context.models.TryCreateSceneEntity(
-            std::move( gameModel ),
+            std::move( entity ),
             MakeSceneBodyDesc( sceneObjectId,
                                shape,
                                Vector3( bs.posX, bs.posY, bs.posZ ),
@@ -580,15 +580,15 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         float m3 = box.mass / 3.0f;
         Vector3 inertia( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
 
-        SceneEntityCreateDesc gameModel;
+        SceneEntityCreateDesc entity;
 
-        gameModel.SetName( box.name );
+        entity.SetName( box.name );
 
         const Physics::PhysicsSceneObjectId sceneObjectId = box.sceneObjectId;
-        gameModel.sceneObjectId = sceneObjectId;
+        entity.sceneObjectId = sceneObjectId;
         const BoundingBox shape( Vector3( box.halfX, box.halfY, box.halfZ ), Vector3( 0.0f, 0.0f, 0.0f ) );
         const auto appendResult = context.models.TryCreateSceneEntity(
-            std::move( gameModel ),
+            std::move( entity ),
             MakeSceneBodyDesc(
                 sceneObjectId,
                 shape,
@@ -614,16 +614,16 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
     {
         const SceneBoxState& box = scene.GetBoxState( i );
 
-        SceneEntityCreateDesc gameModel;
+        SceneEntityCreateDesc entity;
 
-        gameModel.SetName( box.name );
-        ApplyAssetAffiliation( gameModel, scene, SceneAssetPartSource::BoxState, static_cast<uint32_t>( i ) );
+        entity.SetName( box.name );
+        ApplyAssetAffiliation( entity, scene, SceneAssetPartSource::BoxState, static_cast<uint32_t>( i ) );
 
         const Physics::PhysicsSceneObjectId sceneObjectId = box.sceneObjectId;
-        gameModel.sceneObjectId = sceneObjectId;
+        entity.sceneObjectId = sceneObjectId;
         const BoundingBox shape( Vector3( box.halfX, box.halfY, box.halfZ ), Vector3( 0.0f, 0.0f, 0.0f ) );
         const auto appendResult = context.models.TryCreateSceneEntity(
-            std::move( gameModel ),
+            std::move( entity ),
             MakeSceneBodyDesc( sceneObjectId,
                                shape,
                                Vector3( box.posX, box.posY, box.posZ ),
@@ -661,10 +661,10 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         const Vector3 inertia = hull.ComputeBoxApproxInertia( hullScene.mass );
         const Vector3 authoredPosition( hullScene.posX, hullScene.posY, hullScene.posZ );
 
-        SceneEntityCreateDesc gameModel;
+        SceneEntityCreateDesc entity;
 
-        gameModel.SetName( hullScene.name );
-        ApplyAssetAffiliation( gameModel, scene, SceneAssetPartSource::ConvexHull, static_cast<uint32_t>( i ) );
+        entity.SetName( hullScene.name );
+        ApplyAssetAffiliation( entity, scene, SceneAssetPartSource::ConvexHull, static_cast<uint32_t>( i ) );
 
         Quaternion hullQuaternion;
         // Invariant: asset hierarchy composition has already produced an exact
@@ -684,13 +684,13 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
 
         // Invariant: parsed scene grouping crosses the construction edge as a
         // stable root id and stays separate from asset affiliation.
-        const SbResult groupResult = ApplySceneBehaviorGroup( hullScene.group, gameModel );
+        const SbResult groupResult = ApplySceneBehaviorGroup( hullScene.group, entity );
         if ( !groupResult.ok )
         {
             return groupResult;
         }
         const Physics::PhysicsSceneObjectId sceneObjectId = hullScene.sceneObjectId;
-        gameModel.sceneObjectId = sceneObjectId;
+        entity.sceneObjectId = sceneObjectId;
         PhysicsBodyCreateDesc bodyDesc = MakeSceneBodyDesc(
             sceneObjectId,
             hull,
@@ -709,7 +709,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         bodyDesc.releasesFromFixedOnContact = hullScene.contactReleaseOnImpact;
         bodyDesc.contactReleaseImpulseThreshold = hullScene.contactReleaseImpulseThreshold;
         const auto appendResult = context.models.TryCreateSceneEntity(
-            std::move( gameModel ),
+            std::move( entity ),
             bodyDesc,
             MakeSceneHullColliderDesc( hull, hullScene.restitution, hullScene.contactMaterial ) );
         if ( !appendResult.status.ok )
@@ -736,17 +736,17 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
             return hullLoad;
         }
 
-        SceneEntityCreateDesc gameModel;
+        SceneEntityCreateDesc entity;
 
-        gameModel.SetName( hullScene.name );
-        ApplyAssetAffiliation( gameModel, scene, SceneAssetPartSource::ConvexHullState, static_cast<uint32_t>( i ) );
-        const SbResult groupResult = ApplySceneBehaviorGroup( hullScene.group, gameModel );
+        entity.SetName( hullScene.name );
+        ApplyAssetAffiliation( entity, scene, SceneAssetPartSource::ConvexHullState, static_cast<uint32_t>( i ) );
+        const SbResult groupResult = ApplySceneBehaviorGroup( hullScene.group, entity );
         if ( !groupResult.ok )
         {
             return groupResult;
         }
         const Physics::PhysicsSceneObjectId sceneObjectId = hullScene.sceneObjectId;
-        gameModel.sceneObjectId = sceneObjectId;
+        entity.sceneObjectId = sceneObjectId;
         PhysicsBodyCreateDesc bodyDesc =
             MakeSceneBodyDesc( sceneObjectId,
                                hull,
@@ -763,7 +763,7 @@ SbResult SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context,
         bodyDesc.releasesFromFixedOnContact = hullScene.contactReleaseOnImpact;
         bodyDesc.contactReleaseImpulseThreshold = hullScene.contactReleaseImpulseThreshold;
         const auto appendResult = context.models.TryCreateSceneEntity(
-            std::move( gameModel ),
+            std::move( entity ),
             bodyDesc,
             MakeSceneHullColliderDesc( hull, hullScene.restitution, hullScene.contactMaterial ) );
         if ( !appendResult.status.ok )

@@ -26,15 +26,14 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "SceneGeneratedSetup.h"
 #include "../../Assets/AssetKeys.h"
 #include "SceneRuntime.h"
 #include "../CameraCollection.h"
 #include "../../Core/Common.h"
-#include "../../GameObjects/GameModel.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "SceneController.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/CollisionShape.h"
 #include "../../Physics/PhysicsApi.h"
@@ -134,7 +133,7 @@ void SceneGeneratedSetup::SetUpCameras( SceneGeneratedCameraContext context )
 }
 
 
-SbResult SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, int count )
+SbResult SceneGeneratedSetup::SetUpSceneEntities( SceneGeneratedModelContext context, int count )
 {
     // Concept: Generated demos consume one deterministic RNG stream. Keep object
     // family decisions and per-object random draws in the same order unless
@@ -155,16 +154,17 @@ SbResult SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext contex
     auto randSign = [&]() -> float { return ( NextSceneRand( context.scene.rngState ) % 2 == 0 ) ? 1.0f : -1.0f; };
     for ( int x = 0; x < context.scene.modelCount; ++x )
     {
-        float posX = randFloat( cfg.spawnXBase, cfg.spawnXRange );
-        float posY = randFloat( cfg.spawnYBase, cfg.spawnYRange );
-        float posZ = randFloat( cfg.spawnZBase, cfg.spawnZRange );
-        float mass = randFloat( cfg.ballMassMin, cfg.ballMassRange );
+        float posX = randFloat( cfg.generatedScene.spawnXBase, cfg.generatedScene.spawnXRange );
+        float posY = randFloat( cfg.generatedScene.spawnYBase, cfg.generatedScene.spawnYRange );
+        float posZ = randFloat( cfg.generatedScene.spawnZBase, cfg.generatedScene.spawnZRange );
+        float mass = randFloat( cfg.generatedScene.ballMassMin, cfg.generatedScene.ballMassRange );
         float restitution =
-            cfg.ballRestitutionMin +
-            static_cast<float>( NextSceneRand( context.scene.rngState ) % cfg.ballRestitutionRange ) / 10.0f;
-        Vector3 force( randSigned( cfg.ballForceRange ),
-                       randSigned( cfg.ballForceRange ),
-                       randSigned( cfg.ballForceRange ) );
+            cfg.generatedScene.ballRestitutionMin +
+            static_cast<float>( NextSceneRand( context.scene.rngState ) % cfg.generatedScene.ballRestitutionRange ) /
+                10.0f;
+        Vector3 force( randSigned( cfg.generatedScene.ballForceRange ),
+                       randSigned( cfg.generatedScene.ballForceRange ),
+                       randSigned( cfg.generatedScene.ballForceRange ) );
         Vector3 forcePos( randSign(), randSign(), randSign() );
 
         bool makeBox = false;
@@ -221,9 +221,10 @@ SbResult SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext contex
         }
         else
         {
-            float moment = randFloat( cfg.ballMomentMin, cfg.ballMomentRange );
-            float radius =
-                ( 1.0f + static_cast<float>( NextSceneRand( context.scene.rngState ) % cfg.ballRadiusRange ) ) * 0.5f;
+            float moment = randFloat( cfg.generatedScene.ballMomentMin, cfg.generatedScene.ballMomentRange );
+            float radius = ( 1.0f + static_cast<float>( NextSceneRand( context.scene.rngState ) %
+                                                        cfg.generatedScene.ballRadiusRange ) ) *
+                           0.5f;
 
             SceneEntityCreateDesc gameModel;
 
@@ -285,19 +286,21 @@ SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext con
     // --- Sphere pass ---
     for ( int i = 0; i < balls; ++i )
     {
-        float posX = randFloat( cfg.spawnXBase, cfg.spawnXRange );
-        float posY = randFloat( cfg.spawnYBase, cfg.spawnYRange );
-        float posZ = randFloat( cfg.spawnZBase, cfg.spawnZRange );
-        float mass = randFloat( cfg.ballMassMin, cfg.ballMassRange );
+        float posX = randFloat( cfg.generatedScene.spawnXBase, cfg.generatedScene.spawnXRange );
+        float posY = randFloat( cfg.generatedScene.spawnYBase, cfg.generatedScene.spawnYRange );
+        float posZ = randFloat( cfg.generatedScene.spawnZBase, cfg.generatedScene.spawnZRange );
+        float mass = randFloat( cfg.generatedScene.ballMassMin, cfg.generatedScene.ballMassRange );
         float restitution =
-            cfg.ballRestitutionMin +
-            static_cast<float>( NextSceneRand( context.scene.rngState ) % cfg.ballRestitutionRange ) / 10.0f;
-        float moment = randFloat( cfg.ballMomentMin, cfg.ballMomentRange );
-        float radius =
-            ( 1.0f + static_cast<float>( NextSceneRand( context.scene.rngState ) % cfg.ballRadiusRange ) ) * 0.5f;
-        Vector3 force( randSigned( cfg.ballForceRange ),
-                       randSigned( cfg.ballForceRange ),
-                       randSigned( cfg.ballForceRange ) );
+            cfg.generatedScene.ballRestitutionMin +
+            static_cast<float>( NextSceneRand( context.scene.rngState ) % cfg.generatedScene.ballRestitutionRange ) /
+                10.0f;
+        float moment = randFloat( cfg.generatedScene.ballMomentMin, cfg.generatedScene.ballMomentRange );
+        float radius = ( 1.0f + static_cast<float>( NextSceneRand( context.scene.rngState ) %
+                                                    cfg.generatedScene.ballRadiusRange ) ) *
+                       0.5f;
+        Vector3 force( randSigned( cfg.generatedScene.ballForceRange ),
+                       randSigned( cfg.generatedScene.ballForceRange ),
+                       randSigned( cfg.generatedScene.ballForceRange ) );
         Vector3 forcePos( randSign(), randSign(), randSign() );
 
         SceneEntityCreateDesc gameModel;
@@ -329,16 +332,17 @@ SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext con
     // The spawn code uses half-extents internally, so the factor is m/3 (= m/12 * 4).
     for ( int i = 0; i < boxes; ++i )
     {
-        float posX = randFloat( cfg.spawnXBase, cfg.spawnXRange );
-        float posY = randFloat( cfg.spawnYBase, cfg.spawnYRange );
-        float posZ = randFloat( cfg.spawnZBase, cfg.spawnZRange );
-        float mass = randFloat( cfg.ballMassMin, cfg.ballMassRange );
+        float posX = randFloat( cfg.generatedScene.spawnXBase, cfg.generatedScene.spawnXRange );
+        float posY = randFloat( cfg.generatedScene.spawnYBase, cfg.generatedScene.spawnYRange );
+        float posZ = randFloat( cfg.generatedScene.spawnZBase, cfg.generatedScene.spawnZRange );
+        float mass = randFloat( cfg.generatedScene.ballMassMin, cfg.generatedScene.ballMassRange );
         float restitution =
-            cfg.ballRestitutionMin +
-            static_cast<float>( NextSceneRand( context.scene.rngState ) % cfg.ballRestitutionRange ) / 10.0f;
-        Vector3 force( randSigned( cfg.ballForceRange ),
-                       randSigned( cfg.ballForceRange ),
-                       randSigned( cfg.ballForceRange ) );
+            cfg.generatedScene.ballRestitutionMin +
+            static_cast<float>( NextSceneRand( context.scene.rngState ) % cfg.generatedScene.ballRestitutionRange ) /
+                10.0f;
+        Vector3 force( randSigned( cfg.generatedScene.ballForceRange ),
+                       randSigned( cfg.generatedScene.ballForceRange ),
+                       randSigned( cfg.generatedScene.ballForceRange ) );
         Vector3 forcePos( randSign(), randSign(), randSign() );
 
         float halfExtent = ( 1.0f + static_cast<float>( NextSceneRand( context.scene.rngState ) % 3 ) ) * 0.6f;
@@ -394,7 +398,7 @@ SceneGeneratedSetupResult SceneGeneratedSetup::TrySetUpRequestedModels( SceneGen
 
     if ( request.uiModelCountOverride >= 0 )
     {
-        return { SetUpGameModels( context, request.uiModelCountOverride ), true };
+        return { SetUpSceneEntities( context, request.uiModelCountOverride ), true };
     }
 
     if ( request.sceneSolverBallCount > 0 || request.sceneSolverBoxCount > 0 )
@@ -404,7 +408,7 @@ SceneGeneratedSetupResult SceneGeneratedSetup::TrySetUpRequestedModels( SceneGen
 
     if ( useDefaultWhenNoRequest )
     {
-        return { SetUpGameModels( context, request.defaultModelCount ), true };
+        return { SetUpSceneEntities( context, request.defaultModelCount ), true };
     }
 
     // Why: authored scene loading asks generated setup first so UI/exact solver

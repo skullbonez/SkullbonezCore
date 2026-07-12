@@ -22,7 +22,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeDefaults.h
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "SceneRuntimeDefaults.h"
 #include "../WindowConstants.h"
@@ -254,6 +254,21 @@ bool WriteConfigLines( const std::string& configPath, const std::vector<std::str
     return output.good();
 }
 
+void StampCurrentConfigVersion( std::vector<std::string>& lines )
+{
+    char version[16] = {};
+    sprintf_s( version, "%u", ENGINE_CONFIG_FORMAT_VERSION );
+    if ( ReplaceConfigLine( lines, "format_version", version ) )
+    {
+        return;
+    }
+
+    // Writer invariant: Save Defaults preserves the introductory comments but
+    // upgrades an unversioned v0 file before persisting any edited values.
+    const auto firstBlank = std::find( lines.begin(), lines.end(), std::string{} );
+    lines.insert( firstBlank, std::string( "format_version = " ) + version );
+}
+
 } // namespace
 
 SbResult SaveRenderDefaults( const OrdinaryRenderConfig& ordinary )
@@ -261,6 +276,14 @@ SbResult SaveRenderDefaults( const OrdinaryRenderConfig& ordinary )
     // Concept: Saving ordinary defaults is a text rewrite, not a full config
     // serialization. Unknown keys and comments must survive the round trip.
     const std::string configPath = std::string( DATA_ROOT ) + "engine.cfg";
+    EngineConfig versionProbe;
+    const SbResult versionResult = versionProbe.Load( configPath.c_str() );
+    if ( !versionResult.ok )
+    {
+        // Hazard: writers must never turn a future document into an older
+        // version merely because this build does not understand its fields.
+        return versionResult;
+    }
     std::vector<std::string> lines;
     if ( !LoadConfigLines( configPath, lines ) )
     {
@@ -308,18 +331,18 @@ SbResult SaveRenderDefaults( const OrdinaryRenderConfig& ordinary )
     setFloat( "ordinary_ground_ambient_r", ordinary.groundAmbientR, "%.2f" );
     setFloat( "ordinary_ground_ambient_g", ordinary.groundAmbientG, "%.2f" );
     setFloat( "ordinary_ground_ambient_b", ordinary.groundAmbientB, "%.2f" );
-    setBool( "ordinary_shadows", ordinary.shadowsEnabled );
-    setBool( "ordinary_shadow_terrain_casts", ordinary.shadowTerrainCasts );
-    setBool( "ordinary_shadow_objects_cast", ordinary.shadowObjectsCast );
-    setBool( "ordinary_shadow_terrain_receives", ordinary.shadowTerrainReceives );
-    setBool( "ordinary_shadow_objects_receive", ordinary.shadowObjectsReceive );
-    setInt( "ordinary_shadow_map_size", ordinary.shadowMapSize );
-    setInt( "ordinary_shadow_pcf_radius", ordinary.shadowPcfRadius );
-    setFloat( "ordinary_shadow_strength", ordinary.shadowStrength, "%.2f" );
-    setFloat( "ordinary_shadow_softness", ordinary.shadowSoftness, "%.2f" );
-    setFloat( "ordinary_shadow_depth_bias", ordinary.shadowDepthBias, "%.5f" );
-    setFloat( "ordinary_shadow_slope_bias", ordinary.shadowSlopeBias, "%.5f" );
-    setFloat( "ordinary_shadow_max_distance", ordinary.shadowMaxDistance, "%.1f" );
+    setBool( "ordinary_shadows", ordinary.shadow.enabled );
+    setBool( "ordinary_shadow_terrain_casts", ordinary.shadow.terrainCasts );
+    setBool( "ordinary_shadow_objects_cast", ordinary.shadow.objectsCast );
+    setBool( "ordinary_shadow_terrain_receives", ordinary.shadow.terrainReceives );
+    setBool( "ordinary_shadow_objects_receive", ordinary.shadow.objectsReceive );
+    setInt( "ordinary_shadow_map_size", ordinary.shadow.mapSize );
+    setInt( "ordinary_shadow_pcf_radius", ordinary.shadow.pcfRadius );
+    setFloat( "ordinary_shadow_strength", ordinary.shadow.strength, "%.2f" );
+    setFloat( "ordinary_shadow_softness", ordinary.shadow.softness, "%.2f" );
+    setFloat( "ordinary_shadow_depth_bias", ordinary.shadow.depthBias, "%.5f" );
+    setFloat( "ordinary_shadow_slope_bias", ordinary.shadow.slopeBias, "%.5f" );
+    setFloat( "ordinary_shadow_max_distance", ordinary.shadow.maxDistance, "%.1f" );
     setFloat( "ordinary_water_tint_r", ordinary.waterTintR, "%.3f" );
     setFloat( "ordinary_water_tint_g", ordinary.waterTintG, "%.3f" );
     setFloat( "ordinary_water_tint_b", ordinary.waterTintB, "%.3f" );
@@ -332,6 +355,7 @@ SbResult SaveRenderDefaults( const OrdinaryRenderConfig& ordinary )
     setFloat( "ordinary_box_specular_scale", ordinary.boxSpecularScale, "%.2f" );
 
     AppendMissingOrdinaryConfigLines( lines, missing );
+    StampCurrentConfigVersion( lines );
     if ( !WriteConfigLines( configPath, lines ) )
     {
         return SbResult::Failure( "Runtime/RenderDefaultsStore",
@@ -344,6 +368,12 @@ SbResult SaveRenderDefaults( const OrdinaryRenderConfig& ordinary )
 SbResult SaveSkyDefaults( const CinematicRenderConfig& cinematic )
 {
     const std::string configPath = std::string( DATA_ROOT ) + "engine.cfg";
+    EngineConfig versionProbe;
+    const SbResult versionResult = versionProbe.Load( configPath.c_str() );
+    if ( !versionResult.ok )
+    {
+        return versionResult;
+    }
     std::vector<std::string> lines;
     if ( !LoadConfigLines( configPath, lines ) )
     {
@@ -385,8 +415,10 @@ SbResult SaveSkyDefaults( const CinematicRenderConfig& cinematic )
     setBool( "cinematic_volumetric_lighting", cinematic.volumetricLightingEnabled );
     setFloat( "cinematic_exposure", cinematic.exposure, "%.2f" );
     setFloat( "cinematic_gamma", cinematic.gamma, "%.2f" );
-    setFloat( "cinematic_sun_screen_x", cinematic.sunScreenX, "%.3f" );
-    setFloat( "cinematic_sun_screen_y", cinematic.sunScreenY, "%.3f" );
+    // Compatibility: Save Defaults continues writing the established config
+    // keys so older tools and user files round-trip without migration.
+    setFloat( "cinematic_sun_screen_x", cinematic.sunAzimuth, "%.3f" );
+    setFloat( "cinematic_sun_screen_y", cinematic.sunElevation, "%.3f" );
     setFloat( "cinematic_sun_color_r", cinematic.sunColorR, "%.2f" );
     setFloat( "cinematic_sun_color_g", cinematic.sunColorG, "%.2f" );
     setFloat( "cinematic_sun_color_b", cinematic.sunColorB, "%.2f" );
@@ -413,6 +445,7 @@ SbResult SaveSkyDefaults( const CinematicRenderConfig& cinematic )
     setFloat( "cinematic_style_vignette", cinematic.styleVignette, "%.2f" );
 
     AppendMissingCinematicConfigLines( lines, missing );
+    StampCurrentConfigVersion( lines );
     if ( !WriteConfigLines( configPath, lines ) )
     {
         return SbResult::Failure( "Runtime/RenderDefaultsStore",

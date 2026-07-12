@@ -28,7 +28,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
   - SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once
 
@@ -42,9 +42,9 @@ namespace Environment
 class CameraCollection;
 class WorldEnvironment;
 } // namespace Environment
-namespace GameObjects
+namespace Basics
 {
-class GameModelCollection;
+class SceneController;
 }
 namespace Physics
 {
@@ -77,7 +77,7 @@ struct SceneGeneratedModelContext
     const EngineConfig& config;
     Environment::WorldEnvironment& world;
     Geometry::Terrain* terrain;
-    GameObjects::GameModelCollection& models;
+    Basics::SceneController& models;
     Physics::PhysicsEngine& physics;
     GeneratedObjectTypeOverride objectTypeOverride = GeneratedObjectTypeOverride::Mixed;
 };
@@ -104,7 +104,7 @@ class SceneGeneratedSetup
 {
   public:
     static void SetUpCameras( SceneGeneratedCameraContext context );
-    static SbResult SetUpGameModels( SceneGeneratedModelContext context, int count );
+    static SbResult SetUpSceneEntities( SceneGeneratedModelContext context, int count );
     static SbResult SetUpSolverObjects( SceneGeneratedModelContext context, int balls, int boxes );
     static SceneGeneratedSetupResult TrySetUpRequestedModels( SceneGeneratedModelContext context,
                                                               const SceneGeneratedPopulationRequest& request,

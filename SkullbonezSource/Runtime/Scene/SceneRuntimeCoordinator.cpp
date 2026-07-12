@@ -20,7 +20,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h
   - SkullbonezSource/Runtime/Scene/SceneController.h
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "SceneRuntimeCoordinator.h"
 #include "SceneController.h"

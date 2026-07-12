@@ -185,15 +185,21 @@
     <ClCompile Include="SkullbonezTests\TestAssetSystem.cpp" />
     <ClCompile Include="SkullbonezTests\TestBounds.cpp" />
     <ClCompile Include="SkullbonezTests\TestApplicationExitState.cpp" />
+    <ClCompile Include="SkullbonezTests\TestConfig.cpp" />
     <ClCompile Include="SkullbonezTests\TestConvexHull.cpp" />
     <ClCompile Include="SkullbonezTests\TestDeterminism.cpp" />
     <ClCompile Include="SkullbonezTests\TestDemoDirector.cpp" />
     <ClCompile Include="SkullbonezTests\TestDx12OnlyRuntime.cpp" />
+    <ClCompile Include="SkullbonezTests\TestDx12CachedPsoStore.cpp" />
+    <ClCompile Include="SkullbonezTests\TestShaderReflectionContracts.cpp" />
+    <ClCompile Include="SkullbonezTests\TestShadow.cpp" />
     <ClCompile Include="SkullbonezTests\TestGeometricMath.cpp" />
     <ClCompile Include="SkullbonezTests\TestMain.cpp" />
+    <ClCompile Include="SkullbonezTests\TestFrustum.cpp" />
     <ClCompile Include="SkullbonezTests\TestMatrix4.cpp" />
     <ClCompile Include="SkullbonezTests\TestObjectContactManifold.cpp" />
     <ClCompile Include="SkullbonezTests\TestOwnerRequestQueues.cpp" />
+    <ClCompile Include="SkullbonezTests\TestEditorCommandHistory.cpp" />
     <ClCompile Include="SkullbonezTests\TestSceneEntityStore.cpp" />
     <ClCompile Include="SkullbonezTests\TestSceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezTests\TestPersistentContactSolver.cpp" />
@@ -201,6 +207,7 @@
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp" />
     <ClCompile Include="SkullbonezTests\TestReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeInputBindings.cpp" />
+    <ClCompile Include="SkullbonezTests\TestReplayPredictionScheduling.cpp" />
     <ClCompile Include="SkullbonezTests\TestInputRouter.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayRecorder.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayRecorderFullCaptureBoundary.cpp" />
@@ -208,6 +215,7 @@
     <ClCompile Include="SkullbonezTests\TestSolverBroadphaseStage.cpp" />
     <ClCompile Include="SkullbonezTests\TestSpatialGrid.cpp" />
     <ClCompile Include="SkullbonezTests\TestSmoke.cpp" />
+    <ClCompile Include="SkullbonezTests\TestSimulationSystem.cpp" />
     <ClCompile Include="SkullbonezTests\TestTerrain.cpp" />
     <ClCompile Include="SkullbonezTests\TestVector3.cpp" />
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp" />
@@ -217,14 +225,17 @@
     <ClCompile Include="SkullbonezSource\Core\Profiler.cpp" />
     <ClCompile Include="SkullbonezSource\Core\SkullScope.cpp" />
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\ApplicationExitState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\InputController.Bindings.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\InputRouter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\CaptureController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\CaptureSystem.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RenderDefaultsStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.cpp" />
@@ -243,6 +254,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ThirdPtySource\doctest\doctest.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="SKULLBONEZ_MATHS.vcxproj">

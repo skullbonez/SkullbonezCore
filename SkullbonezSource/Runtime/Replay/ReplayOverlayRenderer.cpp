@@ -770,10 +770,32 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
               !pastPathToolsEnabled ? palette.textMuted.b
                                     : ( pastPathEnabled ? palette.accentStrong.b : palette.textSecondary.b ),
               "PAST" );
+    if ( predictEnabled )
+    {
+        const RunReplayPredictionState& predictionState = replayRuntime.Prediction();
+        const char* modeLabel = predictionState.build.buildMode == ReplayPredictionBuildMode::Instant     ? "Instant"
+                                : predictionState.build.buildMode == ReplayPredictionBuildMode::Amortized ? "Amortized"
+                                                                                                          : "Measuring";
+        const double ticksPerMs = predictionState.simulation.measuredTicksPerMs.load( std::memory_order_acquire );
+        char schedulingLabel[96] = {};
+        sprintf_s( schedulingLabel,
+                   sizeof( schedulingLabel ),
+                   "Prediction: %s | %.0f ticks/ms | %.1f ms rebuild",
+                   modeLabel,
+                   ticksPerMs,
+                   predictionState.build.lastBuildWallMs );
+        drawText( predict.x,
+                  predict.y + 27.0f,
+                  8.0f,
+                  palette.textSecondary.r,
+                  palette.textSecondary.g,
+                  palette.textSecondary.b,
+                  schedulingLabel );
+    }
     if ( predictionContactsIncomplete )
     {
         drawText( predict.x,
-                  predict.y + 27.0f,
+                  predict.y + 38.0f,
                   8.0f,
                   palette.warningAccent.r,
                   palette.warningAccent.g,

@@ -19,6 +19,8 @@ Glossary:
     reflection dispatch.
   Render memory snapshot: Coarse counters that separate engine renderer caches
     from platform-reported adapter memory during stress runs.
+  Visibility counters: Per-view candidate, cull, submission, and draw totals
+    accumulated between frame-diagnostics resets.
   DXGI adapter memory: Windows graphics-kernel budget/usage counters for the
     adapter that owns the active DX12 device.
 
@@ -27,6 +29,8 @@ Invariants:
     backend features.
   - Capability flags describe the active backend lifetime; callers must not
     cache them across backend teardown and replacement.
+  - Visibility snapshots describe only the current frame and never own a
+    visible-index list or influence render decisions.
 
 Related:
   - SkullbonezSource/Rendering/DrawCallTrace.h
@@ -92,6 +96,28 @@ struct RenderMemoryStats
     uint32_t srvTransientDescriptorsPeakThisRun = 0;
 };
 
+enum class RenderVisibilityView : uint8_t
+{
+    Main,
+    Reflection,
+    TerrainShadow,
+    ObjectShadow,
+    Count
+};
+
+struct RenderVisibilityViewStats
+{
+    int candidates = 0;
+    int submitted = 0;
+    int culled = 0;
+    int draws = 0;
+};
+
+struct RenderVisibilityStats
+{
+    RenderVisibilityViewStats views[static_cast<int>( RenderVisibilityView::Count )] = {};
+};
+
 class IRenderDiagnostics
 {
   public:
@@ -121,6 +147,21 @@ class IRenderDiagnostics
     virtual int GetFrameDrawCallCount() const
     {
         return 0;
+    }
+    // Adds one submission region to the named view. Candidates are the rows
+    // tested, submitted are rows surviving culling/masks, and draws are the
+    // backend calls emitted by that region.
+    virtual void RecordVisibility( RenderVisibilityView view, int candidates, int submitted, int culled, int draws )
+    {
+        (void)view;
+        (void)candidates;
+        (void)submitted;
+        (void)culled;
+        (void)draws;
+    }
+    virtual RenderVisibilityStats GetFrameVisibilityStats() const
+    {
+        return RenderVisibilityStats();
     }
     virtual DrawCallTraceSnapshot GetFrameDrawCallTrace() const
     {

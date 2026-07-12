@@ -25,7 +25,7 @@ Glossary:
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
-  - FramebufferDX12 is created from an initialized backend; missing device state
+  - FramebufferDX12 is created from initialized concrete owners; missing device state
     means the render owner lifetime contract was broken before resource
     creation.
 
@@ -38,6 +38,7 @@ Related:
 #include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
 #include "RenderBackendDX12.h"
+#include "../RenderGraph.h"
 
 
 using namespace SkullbonezCore::Rendering;
@@ -51,10 +52,20 @@ static DXGI_FORMAT ToDX12ColorFormat( FramebufferColorFormat format )
 }
 
 
-FramebufferDX12::FramebufferDX12( RenderBackendDX12& backend, FramebufferColorFormat colorFormat )
-    : m_backend( backend ), m_colorTexture( nullptr ), m_depthTexture( nullptr ), m_srvIndex( 0 ), m_depthSrvIndex( 0 ),
-      m_texHandle( 0 ), m_depthTexHandle( 0 ), m_colorFormat( colorFormat ), m_width( 0 ), m_height( 0 ),
-      m_depthState( D3D12_RESOURCE_STATE_DEPTH_WRITE )
+FramebufferDX12::FramebufferDX12( Dx12RenderDevice& device,
+                                  Dx12PipelineOwner& pipeline,
+                                  Dx12TextureOwner& textures,
+                                  Dx12CpuDescriptorAllocator& rtvDescriptors,
+                                  Dx12CpuDescriptorAllocator& dsvDescriptors,
+                                  Dx12DescriptorAllocator& srvDescriptors,
+                                  Dx12DrawGate& drawGate,
+                                  Dx12ResourceRelease& resourceRelease,
+                                  FramebufferColorFormat colorFormat )
+    : m_device( device ), m_pipeline( pipeline ), m_textures( textures ), m_rtvDescriptors( rtvDescriptors ),
+      m_dsvDescriptors( dsvDescriptors ), m_srvDescriptors( srvDescriptors ), m_drawGate( drawGate ),
+      m_resourceRelease( resourceRelease ), m_colorTexture( nullptr ), m_depthTexture( nullptr ), m_srvIndex( 0 ),
+      m_depthSrvIndex( 0 ), m_texHandle( 0 ), m_depthTexHandle( 0 ), m_colorFormat( colorFormat ), m_width( 0 ),
+      m_height( 0 ), m_depthState( D3D12_RESOURCE_STATE_DEPTH_WRITE )
 {
     m_rtvHandle = {};
     m_dsvHandle = {};
@@ -71,15 +82,15 @@ FramebufferDX12::~FramebufferDX12()
 
 bool FramebufferDX12::Create( int width, int height )
 {
-    // Invariant: off-screen targets borrow descriptor allocators and device
-    // state from RenderBackendDX12. Without a device there is no recoverable
+    // Invariant: off-screen targets borrow stable descriptor, texture, pipeline,
+    // retirement, and device owners. Without a device there is no recoverable
     // framebuffer creation boundary inside this helper.
-    if ( !m_backend.GetDevice() )
+    if ( !m_device.Device() )
     {
         SB_FATAL( "FramebufferDX12", "Create requires an initialized DX12 backend." );
     }
 
-    auto* device = m_backend.GetDevice();
+    auto* device = m_device.Device();
 
     // Color texture (RENDER_TARGET + PIXEL_SHADER_RESOURCE)
     D3D12_HEAP_PROPERTIES defaultHeap = {};
@@ -170,14 +181,14 @@ bool FramebufferDX12::Create( int width, int height )
     // Allocate descriptor rows from the backend heaps. The color/depth textures
     // are the resources; RTV/DSV are the binding records that let the output
     // merger write into those resources.
-    m_rtvHandle = m_backend.AllocateRTV();
+    m_rtvHandle = m_rtvDescriptors.Allocate().cpuHandle;
     // Create a Render Target View (RTV). This descriptor tells the GPU how to
     // interpret the color texture when writing pixels to it during rendering.
     // Without this view, the GPU cannot use the texture as a render target.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createrendertargetview
     device->CreateRenderTargetView( m_colorTexture, nullptr, m_rtvHandle );
 
-    m_dsvHandle = m_backend.AllocateDSV();
+    m_dsvHandle = m_dsvDescriptors.Allocate().cpuHandle;
     D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
     dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
     dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
@@ -189,7 +200,7 @@ bool FramebufferDX12::Create( int width, int height )
 
     // Create the SRV used after Unbind() when shaders sample the finished color
     // texture.
-    m_srvIndex = m_backend.AllocateStaticSRV();
+    m_srvIndex = m_srvDescriptors.AllocateStatic();
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Format = colorFormat;
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -199,16 +210,16 @@ bool FramebufferDX12::Create( int width, int height )
     // sample/read the color texture. The same GPU resource can have multiple
     // views: RTV for writing, SRV for reading.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createshaderresourceview
-    device->CreateShaderResourceView( m_colorTexture, &srvDesc, m_backend.GetSRVStagingCpuHandle( m_srvIndex ) );
+    device->CreateShaderResourceView( m_colorTexture, &srvDesc, m_srvDescriptors.StagingCpuHandle( m_srvIndex ) );
 
     // Register the SRV with the normal backend texture registry so renderer code
     // can bind this framebuffer with a texture handle instead of a raw descriptor
     // index.
-    m_texHandle = m_backend.RegisterSRV( m_srvIndex );
+    m_texHandle = m_textures.RegisterSRV( m_srvIndex );
 
     // Depth SRV: the tonemap/volumetric shaders sample this to know where solid
     // geometry blocks fog and rays. It reads only the 24-bit depth component.
-    m_depthSrvIndex = m_backend.AllocateStaticSRV();
+    m_depthSrvIndex = m_srvDescriptors.AllocateStatic();
     D3D12_SHADER_RESOURCE_VIEW_DESC depthSrvDesc = {};
     depthSrvDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
     depthSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -216,8 +227,8 @@ bool FramebufferDX12::Create( int width, int height )
     depthSrvDesc.Texture2D.MipLevels = 1;
     device->CreateShaderResourceView( m_depthTexture,
                                       &depthSrvDesc,
-                                      m_backend.GetSRVStagingCpuHandle( m_depthSrvIndex ) );
-    m_depthTexHandle = m_backend.RegisterSRV( m_depthSrvIndex );
+                                      m_srvDescriptors.StagingCpuHandle( m_depthSrvIndex ) );
+    m_depthTexHandle = m_textures.RegisterSRV( m_depthSrvIndex );
     m_depthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
     m_width = width;
     m_height = height;
@@ -227,15 +238,15 @@ bool FramebufferDX12::Create( int width, int height )
 
 void FramebufferDX12::Bind() const
 {
-    if ( !m_backend.GetDevice() || !m_colorTexture || !m_depthTexture )
+    if ( !m_device.Device() || !m_colorTexture || !m_depthTexture || !m_drawGate.PrepareFramebufferBind() )
     {
         return;
     }
 
     // Save the previously active targets so Unbind() can restore the caller's
     // render destination.
-    m_savedRTV = m_backend.GetCurrentRTV();
-    m_savedDSV = m_backend.GetCurrentDSV();
+    m_savedRTV = m_pipeline.CurrentRTV();
+    m_savedDSV = m_pipeline.CurrentDSV();
 
     // Transition color texture from SRV to render target.
     // In DX12, resources must be explicitly transitioned between states. The GPU needs to know
@@ -243,14 +254,15 @@ void FramebufferDX12::Bind() const
     // Failing to do this causes GPU corruption or validation errors — the driver does NOT track this for you.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-resourcebarrier
-    if ( !m_backend.ExecuteGraphTransition( "FramebufferBindColor",
-                                            "FramebufferColor",
-                                            m_colorTexture,
-                                            RenderGraphResourceAccess::PixelShaderResource,
-                                            RenderGraphResourceAccess::RenderTarget ) )
-    {
-        return;
-    }
+    // Hazard: Bind/Unbind own a symmetric resource-state pair. Emitting only
+    // one side would make later shader reads or target writes invalid.
+    D3D12_RESOURCE_BARRIER colorBarrier = {};
+    colorBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    colorBarrier.Transition.pResource = m_colorTexture;
+    colorBarrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+    colorBarrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    colorBarrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    m_device.CommandList()->ResourceBarrier( 1, &colorBarrier );
 
     if ( m_depthState != D3D12_RESOURCE_STATE_DEPTH_WRITE )
     {
@@ -259,27 +271,33 @@ void FramebufferDX12::Bind() const
         const RenderGraphResourceAccess beforeDepthAccess = ( m_depthState == D3D12_RESOURCE_STATE_DEPTH_READ )
                                                                 ? RenderGraphResourceAccess::DepthRead
                                                                 : RenderGraphResourceAccess::PixelShaderResource;
-        if ( !m_backend.ExecuteGraphTransition( "FramebufferBindDepth",
-                                                "FramebufferDepth",
-                                                m_depthTexture,
-                                                beforeDepthAccess,
-                                                RenderGraphResourceAccess::DepthWrite ) )
+        D3D12_RESOURCE_STATES beforeDepthState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+        if ( beforeDepthAccess == RenderGraphResourceAccess::DepthRead )
         {
-            return;
+            beforeDepthState = D3D12_RESOURCE_STATE_DEPTH_READ;
         }
+        D3D12_RESOURCE_BARRIER depthBarrier = {};
+        depthBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        depthBarrier.Transition.pResource = m_depthTexture;
+        depthBarrier.Transition.StateBefore = beforeDepthState;
+        depthBarrier.Transition.StateAfter = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+        depthBarrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        m_device.CommandList()->ResourceBarrier( 1, &depthBarrier );
         m_depthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
     }
 
     // Clear stale texture bindings only after every required transition was
     // recorded. A failed epoch must not publish the FBO as writable state.
-    m_backend.SetRenderingToFBO( true, m_srvIndex, m_depthSrvIndex, ToDX12ColorFormat( m_colorFormat ) );
-    m_backend.SetCurrentTargets( m_rtvHandle, m_dsvHandle );
+    m_textures.ClearBoundSlotsForSrv( m_srvIndex );
+    m_textures.ClearBoundSlotsForSrv( m_depthSrvIndex );
+    m_pipeline.SetRenderingToFBO( true, ToDX12ColorFormat( m_colorFormat ) );
+    m_pipeline.SetCurrentTargets( m_rtvHandle, m_dsvHandle );
 }
 
 
 void FramebufferDX12::Unbind() const
 {
-    if ( !m_backend.GetDevice() || !m_colorTexture || !m_depthTexture )
+    if ( !m_device.Device() || !m_colorTexture || !m_depthTexture || !m_drawGate.CanRecord() )
     {
         return;
     }
@@ -289,14 +307,13 @@ void FramebufferDX12::Unbind() const
     // This is the reverse of the Bind() transition — every state change must be paired.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-resourcebarrier
-    if ( !m_backend.ExecuteGraphTransition( "FramebufferUnbindColor",
-                                            "FramebufferColor",
-                                            m_colorTexture,
-                                            RenderGraphResourceAccess::RenderTarget,
-                                            RenderGraphResourceAccess::PixelShaderResource ) )
-    {
-        return;
-    }
+    D3D12_RESOURCE_BARRIER colorBarrier = {};
+    colorBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    colorBarrier.Transition.pResource = m_colorTexture;
+    colorBarrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    colorBarrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+    colorBarrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    m_device.CommandList()->ResourceBarrier( 1, &colorBarrier );
 
     if ( m_depthState != D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE )
     {
@@ -305,39 +322,41 @@ void FramebufferDX12::Unbind() const
         const RenderGraphResourceAccess beforeDepthAccess = ( m_depthState == D3D12_RESOURCE_STATE_DEPTH_READ )
                                                                 ? RenderGraphResourceAccess::DepthRead
                                                                 : RenderGraphResourceAccess::DepthWrite;
-        if ( !m_backend.ExecuteGraphTransition( "FramebufferUnbindDepth",
-                                                "FramebufferDepth",
-                                                m_depthTexture,
-                                                beforeDepthAccess,
-                                                RenderGraphResourceAccess::PixelShaderResource ) )
-        {
-            return;
-        }
+        const D3D12_RESOURCE_STATES beforeDepthState = beforeDepthAccess == RenderGraphResourceAccess::DepthRead
+                                                           ? D3D12_RESOURCE_STATE_DEPTH_READ
+                                                           : D3D12_RESOURCE_STATE_DEPTH_WRITE;
+        D3D12_RESOURCE_BARRIER depthBarrier = {};
+        depthBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        depthBarrier.Transition.pResource = m_depthTexture;
+        depthBarrier.Transition.StateBefore = beforeDepthState;
+        depthBarrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+        depthBarrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        m_device.CommandList()->ResourceBarrier( 1, &depthBarrier );
         m_depthState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
     }
 
-    m_backend.SetRenderingToFBO( false );
-    m_backend.SetCurrentTargets( m_savedRTV, m_savedDSV );
+    m_pipeline.SetRenderingToFBO( false, DXGI_FORMAT_R8G8B8A8_UNORM );
+    m_pipeline.SetCurrentTargets( m_savedRTV, m_savedDSV );
 }
 
 
 void FramebufferDX12::ResetResources()
 {
-    const bool backendReady = m_backend.GetDevice() != nullptr;
+    const bool backendReady = m_device.Device() != nullptr;
     if ( backendReady && m_texHandle != 0 )
     {
-        m_backend.UnregisterSRV( m_texHandle );
+        m_textures.UnregisterSRV( m_texHandle );
     }
     if ( backendReady && m_depthTexHandle != 0 )
     {
-        m_backend.UnregisterSRV( m_depthTexHandle );
+        m_textures.UnregisterSRV( m_depthTexHandle );
     }
 
     if ( m_colorTexture )
     {
         if ( backendReady )
         {
-            m_backend.RetireResource( m_colorTexture );
+            m_resourceRelease.Retire( m_colorTexture );
         }
         else
         {
@@ -349,7 +368,7 @@ void FramebufferDX12::ResetResources()
     {
         if ( backendReady )
         {
-            m_backend.RetireResource( m_depthTexture );
+            m_resourceRelease.Retire( m_depthTexture );
         }
         else
         {

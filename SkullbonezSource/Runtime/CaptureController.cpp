@@ -60,6 +60,18 @@ void CaptureController::DisableAutomationExit()
 }
 
 
+bool CaptureController::IsScreenshotDue( const RuntimeCaptureSceneContext& context ) const
+{
+    return CaptureSystem::IsScreenshotDue( m_screenshot, context );
+}
+
+
+bool CaptureController::RequiresDeterministicPresentation( const RuntimeCaptureSceneContext& context ) const
+{
+    return CaptureSystem::RequiresDeterministicPresentation( m_screenshot, context );
+}
+
+
 RuntimeCaptureResult CaptureController::TickScreenshots( const RuntimeCaptureSceneContext& context,
                                                          Rendering::IRenderCaptureBackend& backend )
 {

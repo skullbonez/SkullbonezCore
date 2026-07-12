@@ -20,7 +20,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Editor/EditorTools.h
-  - Agentic/Plans/TODO/interaction-state-machine.md
+  - Agentic/Reports/2026-07-11/interaction-state-machine-closure-review.md
 */
 #include "EditorTools.h"
 
@@ -31,7 +31,7 @@ Related:
 #include "../Scene/SceneRuntime.h"
 #include "../Tools/RuntimeTools.h"
 #include "../../Core/Common.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "../Scene/SceneController.h"
 #include "../../Scene/SceneSnapshotWriter.h"
 #include "../../UI/UICommands.h"
 #include "../../UI/UITabEditor.h"
@@ -315,6 +315,7 @@ void EnterEditorModeState( EditorGizmoContext context, RunCameraMode restoreCame
 
 void ExitEditorModeState( EditorGizmoContext context )
 {
+    context.editor.history.Clear();
     context.editor.editorModeEnabled = false;
     context.editor.viewportLookActive = false;
     context.editor.placementPreviewVisible = false;
@@ -443,7 +444,7 @@ void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction
         {
             // Lifetime: the save view borrows cold owner arrays only for this
             // synchronous file write; editor input retains none of the rows.
-            const auto& joints = context.models.GetPointJointConstraints();
+            const auto& joints = Physics::PhysicsEngine::ReadPointJointConstraints( context.models.Physics() );
             const SceneSaveView saveView{ context.entities,
                                           context.models.BodyStore(),
                                           context.models.Colliders(),

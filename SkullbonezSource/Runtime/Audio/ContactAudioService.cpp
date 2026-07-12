@@ -1573,7 +1573,7 @@ struct ContactAudioService::Impl
             decision.submitted = true;
             decision.flashEligible = true;
             // Lifetime: Run reads this copied event immediately after
-            // EndPhysicsStep(); no GameModel or solver storage is borrowed.
+            // EndPhysicsStep(); no legacy object record or solver storage is borrowed.
             if ( submittedContacts.size() < MAX_STEP_CANDIDATES )
             {
                 submittedContacts.push_back( event );

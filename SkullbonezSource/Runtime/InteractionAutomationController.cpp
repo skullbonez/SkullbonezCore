@@ -52,7 +52,8 @@ Related:
 #include "RuntimeFileWriter.h"
 #include "RuntimePickService.h"
 
-#include "../Physics/PhysicsEngineStoreQueries.h"
+#include "../Physics/PhysicsEngine.h"
+#include "../Physics/PhysicsTimestep.h"
 #include "../Core/Config.h"
 #include "../Rendering/IRenderCaptureBackend.h"
 #include "../UI/UI.h"
@@ -62,6 +63,7 @@ Related:
 #pragma warning( pop )
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <sstream>
@@ -135,6 +137,104 @@ void HashPredictionVector( uint64_t& hash, const Vector3& value )
     HashPredictionFloat( hash, value.x );
     HashPredictionFloat( hash, value.y );
     HashPredictionFloat( hash, value.z );
+}
+
+void HashInteractionText( uint64_t& hash, const char* text, std::size_t capacity )
+{
+    for ( std::size_t index = 0; index < capacity && text[index] != '\0'; ++index )
+    {
+        HashPredictionByte( hash, static_cast<uint8_t>( text[index] ) );
+    }
+    HashPredictionByte( hash, 0u );
+}
+
+struct EditorSelectionFingerprint
+{
+    uint64_t hash = INTERACTION_PREDICTION_FINGERPRINT_OFFSET;
+    bool valid = false;
+    bool hasTerrain = false;
+};
+
+EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtimeTools, SceneController& scene )
+{
+    EditorSelectionFingerprint fingerprint;
+    const int modelIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), scene.BodyStore() );
+    if ( modelIndex < 0 || modelIndex >= scene.SceneEntityCount() )
+    {
+        return fingerprint;
+    }
+    const SceneEntityRecord& entity = scene.Entities().At( modelIndex );
+    const Physics::PhysicsBodyRecord* body = scene.BodyStore().RecordForModelIndex( modelIndex );
+    const Physics::PhysicsColliderHandle colliderHandle = scene.Colliders().HandleForModelIndex( modelIndex );
+    const Physics::ColliderRecord* collider = scene.Colliders().RecordForHandle( colliderHandle );
+    EditorPrimitiveShapeSnapshot shape;
+    if ( !body || !collider || body->sceneObjectId.value != entity.sceneObjectId.value ||
+         !TryCaptureEditorPrimitiveShape( collider->shape, shape ) )
+    {
+        return fingerprint;
+    }
+
+    uint64_t& hash = fingerprint.hash;
+    HashPredictionScalar( hash, entity.sceneObjectId.value );
+    HashInteractionText( hash, entity.displayName, sizeof( entity.displayName ) );
+    HashInteractionText( hash, entity.renderMaterial.name, sizeof( entity.renderMaterial.name ) );
+    HashPredictionScalar( hash, static_cast<uint8_t>( entity.renderMaterial.kind ) );
+    for ( float value : entity.renderMaterial.baseColor )
+    {
+        HashPredictionFloat( hash, value );
+    }
+    for ( float value : entity.renderMaterial.emissiveColor )
+    {
+        HashPredictionFloat( hash, value );
+    }
+    HashPredictionFloat( hash, entity.renderMaterial.emissiveStrength );
+    HashPredictionFloat( hash, entity.renderMaterial.roughness );
+    HashPredictionFloat( hash, entity.renderMaterial.metallic );
+    HashPredictionFloat( hash, entity.renderMaterial.specular );
+    HashPredictionFloat( hash, entity.renderMaterial.transmission );
+    HashPredictionFloat( hash, entity.renderMaterial.stylization );
+    HashPredictionFloat( hash, entity.renderMaterial.textureMode );
+    HashPredictionFloat( hash, entity.renderMaterial.contactFlashAlpha );
+    HashPredictionScalar( hash, entity.renderMaterial.flags );
+
+    HashPredictionVector( hash, body->position );
+    float orientationX = 0.0f;
+    float orientationY = 0.0f;
+    float orientationZ = 0.0f;
+    float orientationW = 1.0f;
+    body->orientation.GetComponents( orientationX, orientationY, orientationZ, orientationW );
+    HashPredictionFloat( hash, orientationX );
+    HashPredictionFloat( hash, orientationY );
+    HashPredictionFloat( hash, orientationZ );
+    HashPredictionFloat( hash, orientationW );
+    HashPredictionVector( hash, body->linearVelocity );
+    HashPredictionVector( hash, body->angularVelocity );
+    HashPredictionVector( hash, body->rotationalInertia );
+    HashPredictionFloat( hash, body->mass );
+    HashPredictionFloat( hash, body->boundingRadius );
+    HashPredictionFloat( hash, body->volume );
+    HashPredictionFloat( hash, body->projectedSurfaceArea );
+    HashPredictionFloat( hash, body->dragCoefficient );
+    HashPredictionFloat( hash, body->contactReleaseImpulseThreshold );
+    HashPredictionFloat( hash, body->angularVelocityLimit );
+    HashPredictionFloat( hash, body->contactEpsilon );
+    HashPredictionScalar( hash, static_cast<uint8_t>( body->isFixed ) );
+    HashPredictionScalar( hash, static_cast<uint8_t>( body->isSleeping ) );
+    HashPredictionScalar( hash, static_cast<uint8_t>( body->releasesFromFixedOnContact ) );
+    HashPredictionScalar( hash, static_cast<uint8_t>( body->usesWorldInertia ) );
+    fingerprint.hasTerrain = body->terrain != nullptr;
+    HashPredictionScalar( hash, static_cast<uint8_t>( fingerprint.hasTerrain ) );
+
+    HashPredictionScalar( hash, static_cast<uint8_t>( shape.kind ) );
+    HashPredictionVector( hash, shape.dimensions );
+    HashPredictionVector( hash, shape.localPosition );
+    HashPredictionFloat( hash, shape.dragCoefficient );
+    HashPredictionFloat( hash, collider->restitution );
+    HashPredictionFloat( hash, collider->friction );
+    HashPredictionScalar( hash, collider->contactMaterialId );
+    HashInteractionText( hash, collider->contactMaterialName, sizeof( collider->contactMaterialName ) );
+    fingerprint.valid = true;
+    return fingerprint;
 }
 
 std::string FormatPredictionHash( uint64_t hash )
@@ -258,6 +358,22 @@ bool ReplayPredictionPathVisible( const ReplayRuntime& replayRuntime )
     return replayRuntime.PathVisualizer().hasTarget &&
            ( !replayRuntime.PathVisualizer().futureNodes.empty() || VisiblePredictionFrameCount( replayRuntime ) >= 2 ||
              !replayRuntime.Prediction().futureNodeCache.futureNodes.empty() );
+}
+
+std::size_t ReplayPastTrajectoryPublishedPointCount( const ReplayRuntime& replayRuntime )
+{
+    // Concept: this is a structural performance/flicker probe. The selected
+    // path must retain a published drawable prefix while its recorder ring
+    // advances, independent of machine-specific frame timing.
+    const RunReplayPathVisualizerState& visualizer = replayRuntime.PathVisualizer();
+    for ( const ReplayTrajectoryRecord& record : replayRuntime.Prediction().trajectoryStore.records )
+    {
+        if ( record.key.lane == ReplayTrajectoryLane::PastRoot && record.key.bodyId.value == visualizer.targetId.value )
+        {
+            return (std::min)( record.publishedPointCount, record.points.size() );
+        }
+    }
+    return 0u;
 }
 
 bool ReplayPredictionContactsIncomplete( const ReplayRuntime& replayRuntime )
@@ -494,6 +610,20 @@ const char* ReplayTrackName( RunReplayTrack track )
     return track == RunReplayTrack::Solver ? "Solver" : "Presentation";
 }
 
+const char* ReplayPredictionBuildModeName( ReplayPredictionBuildMode mode )
+{
+    switch ( mode )
+    {
+    case ReplayPredictionBuildMode::Instant:
+        return "Instant";
+    case ReplayPredictionBuildMode::Amortized:
+        return "Amortized";
+    case ReplayPredictionBuildMode::Undecided:
+    default:
+        return "Undecided";
+    }
+}
+
 bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
 {
     if ( value.size() == 1 )
@@ -527,6 +657,11 @@ bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
         outVirtualKey = VK_F6;
         return true;
     }
+    if ( value == "F9" )
+    {
+        outVirtualKey = VK_F9;
+        return true;
+    }
     if ( value == "Enter" || value == "Return" )
     {
         outVirtualKey = VK_RETURN;
@@ -535,6 +670,21 @@ bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
     if ( value == "Tab" )
     {
         outVirtualKey = VK_TAB;
+        return true;
+    }
+    if ( value == "Tilde" )
+    {
+        outVirtualKey = VK_OEM_3;
+        return true;
+    }
+    if ( value == "Delete" )
+    {
+        outVirtualKey = VK_DELETE;
+        return true;
+    }
+    if ( value == "Alt" )
+    {
+        outVirtualKey = VK_MENU;
         return true;
     }
     return false;
@@ -605,6 +755,8 @@ const char* ActionTypeName( RunInteractionAutomationActionType type )
         return "moveMouse";
     case RunInteractionAutomationActionType::ClickObject:
         return "clickObject";
+    case RunInteractionAutomationActionType::ClickPoint:
+        return "clickPoint";
     case RunInteractionAutomationActionType::ClickReplayControl:
         return "clickReplayControl";
     case RunInteractionAutomationActionType::ScrubReplaySolverTrack:
@@ -621,6 +773,8 @@ const char* ActionTypeName( RunInteractionAutomationActionType type )
         return "showReplayScrubber";
     case RunInteractionAutomationActionType::PressKey:
         return "pressKey";
+    case RunInteractionAutomationActionType::CaptureEditorSelectionState:
+        return "captureEditorSelectionState";
     case RunInteractionAutomationActionType::AssertState:
         return "assert";
     case RunInteractionAutomationActionType::Screenshot:
@@ -651,8 +805,20 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "replayPredictionEnabled";
     case RunInteractionAutomationAssertKind::ReplayPathTarget:
         return "replayPathTarget";
+    case RunInteractionAutomationAssertKind::ReplayPastTrajectoryFullRebuildCountMax:
+        return "replayPastTrajectoryFullRebuildCountMax";
+    case RunInteractionAutomationAssertKind::ReplayPastTrajectoryIncrementalTrimCountMin:
+        return "replayPastTrajectoryIncrementalTrimCountMin";
+    case RunInteractionAutomationAssertKind::ReplayPastTrajectoryPublishedPointCountMin:
+        return "replayPastTrajectoryPublishedPointCountMin";
     case RunInteractionAutomationAssertKind::PredictionPathVisible:
         return "predictionPathVisible";
+    case RunInteractionAutomationAssertKind::PredictionFullHorizonComplete:
+        return "predictionFullHorizonComplete";
+    case RunInteractionAutomationAssertKind::PredictionBuildMode:
+        return "predictionBuildMode";
+    case RunInteractionAutomationAssertKind::PredictionSupersededRestartCountMin:
+        return "predictionSupersededRestartCountMin";
     case RunInteractionAutomationAssertKind::PredictionBaselineVisible:
         return "predictionBaselineVisible";
     case RunInteractionAutomationAssertKind::PredictionDivergenceMin:
@@ -687,6 +853,16 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "replayHistoricalSamplePaused";
     case RunInteractionAutomationAssertKind::MemoryOverlayEnabled:
         return "memoryOverlayEnabled";
+    case RunInteractionAutomationAssertKind::EditorUndoDepth:
+        return "editorUndoDepth";
+    case RunInteractionAutomationAssertKind::EditorRedoDepth:
+        return "editorRedoDepth";
+    case RunInteractionAutomationAssertKind::EditorSelectionExists:
+        return "editorSelectionExists";
+    case RunInteractionAutomationAssertKind::EditorSelectionHasTerrain:
+        return "editorSelectionHasTerrain";
+    case RunInteractionAutomationAssertKind::EditorSelectionMatchesCapture:
+        return "editorSelectionMatchesCapture";
     }
     return "unknown";
 }
@@ -952,8 +1128,7 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
     }
     case RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity:
     {
-        const Physics::PhysicsBodyStore& bodyStore =
-            SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics );
+        const Physics::PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics );
         const Physics::PhysicsBodyHandle body = replayRuntime.ResolveVelocityEditBodyHandle( bodyStore );
         const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
         const bool hasTarget =
@@ -962,7 +1137,8 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
         if ( hasTarget && record )
         {
             RunReplayPredictionState& prediction = replayRuntime.Prediction();
-            if ( !prediction.build.complete || prediction.simulation.frames.size() < 2 )
+            if ( ( !prediction.build.complete || prediction.simulation.frames.size() < 2 ) &&
+                 !prediction.baseline.comparisonActive )
             {
                 FailAutomation( state, "replay path target velocity nudge requires a completed prediction baseline" );
             }
@@ -971,10 +1147,13 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
                 // Why: automation needs the same old-vs-new future proof as a
                 // mouse drag, but without depending on pixel-perfect axis hit
                 // testing. Capture is still deferred to the visualizer.
-                prediction.baseline.valid = false;
-                prediction.baseline.comparisonActive = true;
-                prediction.baseline.divergenceValid = false;
-                prediction.baseline.divergenceUnits = 0.0f;
+                if ( prediction.build.complete )
+                {
+                    prediction.baseline.valid = false;
+                    prediction.baseline.comparisonActive = true;
+                    prediction.baseline.divergenceValid = false;
+                    prediction.baseline.divergenceUnits = 0.0f;
+                }
 
                 const Vector3 nextLinearVelocity = record->linearVelocity + action.vectorValue;
                 applied = physics.SetBodyVelocity( body, nextLinearVelocity, record->angularVelocity, true );
@@ -1335,6 +1514,30 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         return true;
     }
 
+    if ( entry.contains( "clickPoint" ) )
+    {
+        const Json& point = entry["clickPoint"];
+        if ( !point.is_array() || point.size() != 2 )
+        {
+            outError = "clickPoint must be a 2-integer array";
+            return false;
+        }
+        outAction.type = RunInteractionAutomationActionType::ClickPoint;
+        outAction.mouse = { point[0].get<long>(), point[1].get<long>() };
+        outAction.hasMouse = true;
+        if ( entry.contains( "button" ) )
+        {
+            const std::string button = entry["button"].get<std::string>();
+            outAction.button =
+                button == "right" ? RunInteractionAutomationButton::Right : RunInteractionAutomationButton::Left;
+        }
+        if ( entry.contains( "holdFrames" ) )
+        {
+            outAction.holdFrames = (std::max)( 1, entry["holdFrames"].get<int>() );
+        }
+        return true;
+    }
+
     if ( entry.contains( "loseFocus" ) )
     {
         outAction.type = RunInteractionAutomationActionType::LoseFocus;
@@ -1421,6 +1624,20 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             return false;
         }
         CopyText( outAction.text, sizeof( outAction.text ), keyName );
+        outAction.boolValue = entry.value( "control", false );
+        return true;
+    }
+
+    if ( entry.contains( "captureEditorSelectionState" ) )
+    {
+        const int slot = entry["captureEditorSelectionState"].get<int>();
+        if ( slot < 0 || slot >= 2 )
+        {
+            outError = "captureEditorSelectionState slot must be 0 or 1";
+            return false;
+        }
+        outAction.type = RunInteractionAutomationActionType::CaptureEditorSelectionState;
+        outAction.numberValue = static_cast<float>( slot );
         return true;
     }
 
@@ -1502,10 +1719,40 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPathTarget;
             CopyText( outAction.text, sizeof( outAction.text ), member.value().get<std::string>() );
         }
+        else if ( name == "replayPastTrajectoryFullRebuildCountMax" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPastTrajectoryFullRebuildCountMax;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "replayPastTrajectoryIncrementalTrimCountMin" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPastTrajectoryIncrementalTrimCountMin;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "replayPastTrajectoryPublishedPointCountMin" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPastTrajectoryPublishedPointCountMin;
+            outAction.numberValue = member.value().get<float>();
+        }
         else if ( name == "predictionPathVisible" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::PredictionPathVisible;
             outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "predictionFullHorizonComplete" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionFullHorizonComplete;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "predictionBuildMode" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionBuildMode;
+            CopyText( outAction.text, sizeof( outAction.text ), member.value().get<std::string>() );
+        }
+        else if ( name == "predictionSupersededRestartCountMin" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionSupersededRestartCountMin;
+            outAction.numberValue = member.value().get<float>();
         }
         else if ( name == "predictionBaselineVisible" )
         {
@@ -1592,6 +1839,37 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             outAction.assertKind = RunInteractionAutomationAssertKind::MemoryOverlayEnabled;
             outAction.boolValue = ReadBool( member.value() );
         }
+        else if ( name == "editorUndoDepth" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::EditorUndoDepth;
+            outAction.numberValue = static_cast<float>( member.value().get<int>() );
+        }
+        else if ( name == "editorRedoDepth" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::EditorRedoDepth;
+            outAction.numberValue = static_cast<float>( member.value().get<int>() );
+        }
+        else if ( name == "editorSelectionExists" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::EditorSelectionExists;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "editorSelectionHasTerrain" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::EditorSelectionHasTerrain;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "editorSelectionMatchesCapture" )
+        {
+            const int slot = member.value().get<int>();
+            if ( slot < 0 || slot >= 2 )
+            {
+                outError = "editorSelectionMatchesCapture slot must be 0 or 1";
+                return false;
+            }
+            outAction.assertKind = RunInteractionAutomationAssertKind::EditorSelectionMatchesCapture;
+            outAction.numberValue = static_cast<float>( slot );
+        }
         else
         {
             outError = "unknown assertion field: " + name;
@@ -1619,11 +1897,12 @@ struct InteractionAutomationAssertionEvaluation
 template <typename InspectGizmoInteractionActive>
 InteractionAutomationAssertionEvaluation
 EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
+                                        const InteractionAutomationController& automation,
                                         ReplayRuntime& replayRuntime,
                                         RuntimeInteractionController& interaction,
                                         const InputRouter& inputRouter,
                                         RunCameraState& camera,
-                                        GameModelCollection& gameModels,
+                                        SceneController& sceneController,
                                         const SceneEntityStore& entities,
                                         SkullbonezCore::UI::InGameUI& ui,
                                         const RunInteractionAutomationAction& action,
@@ -1638,8 +1917,8 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     case RunInteractionAutomationAssertKind::SelectedObject:
     {
         evaluation.expected = action.text;
-        const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), gameModels.BodyStore() );
-        if ( selectedIndex >= 0 && selectedIndex < gameModels.SceneEntityCount() )
+        const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), sceneController.BodyStore() );
+        if ( selectedIndex >= 0 && selectedIndex < sceneController.SceneEntityCount() )
         {
             evaluation.actual = entities.At( selectedIndex ).displayName;
         }
@@ -1695,12 +1974,64 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
         evaluation.actual = replayRuntime.PathVisualizer().hasTarget ? replayRuntime.PathVisualizer().targetName : "";
         evaluation.passed = evaluation.actual == evaluation.expected;
         break;
+    case RunInteractionAutomationAssertKind::ReplayPastTrajectoryFullRebuildCountMax:
+    {
+        const uint64_t rebuildCount = replayRuntime.PathVisualizer().pastTrajectory.fullRebuildCount;
+        evaluation.expected = "<=" + std::to_string( static_cast<uint64_t>( action.numberValue ) );
+        evaluation.actual = std::to_string( rebuildCount );
+        evaluation.passed = rebuildCount <= static_cast<uint64_t>( action.numberValue );
+        break;
+    }
+    case RunInteractionAutomationAssertKind::ReplayPastTrajectoryIncrementalTrimCountMin:
+    {
+        const uint64_t trimCount = replayRuntime.PathVisualizer().pastTrajectory.incrementalTrimCount;
+        evaluation.expected = ">=" + std::to_string( static_cast<uint64_t>( action.numberValue ) );
+        evaluation.actual = std::to_string( trimCount );
+        evaluation.passed = trimCount >= static_cast<uint64_t>( action.numberValue );
+        break;
+    }
+    case RunInteractionAutomationAssertKind::ReplayPastTrajectoryPublishedPointCountMin:
+    {
+        const std::size_t pointCount = ReplayPastTrajectoryPublishedPointCount( replayRuntime );
+        evaluation.expected = ">=" + std::to_string( static_cast<std::size_t>( action.numberValue ) );
+        evaluation.actual = std::to_string( pointCount );
+        evaluation.passed = pointCount >= static_cast<std::size_t>( action.numberValue );
+        break;
+    }
     case RunInteractionAutomationAssertKind::PredictionPathVisible:
     {
         const bool visible = ReplayPredictionPathVisible( replayRuntime );
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( visible );
         evaluation.passed = visible == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionFullHorizonComplete:
+    {
+        const RunReplayPredictionState& prediction = replayRuntime.Prediction();
+        const std::size_t expectedFrameCount =
+            static_cast<std::size_t>( std::ceil( prediction.simulation.horizonSeconds / PHYSICS_FIXED_DT ) ) + 1u;
+        const bool complete = prediction.build.complete && !prediction.build.building &&
+                              prediction.simulation.frames.size() == expectedFrameCount;
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( complete );
+        evaluation.passed = complete == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionBuildMode:
+    {
+        const char* actualMode = ReplayPredictionBuildModeName( replayRuntime.Prediction().build.buildMode );
+        evaluation.expected = action.text;
+        evaluation.actual = actualMode;
+        evaluation.passed = evaluation.expected == evaluation.actual;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::PredictionSupersededRestartCountMin:
+    {
+        const uint32_t count = replayRuntime.Prediction().build.supersededRestartCount;
+        evaluation.expected = ">=" + std::to_string( static_cast<uint32_t>( action.numberValue ) );
+        evaluation.actual = std::to_string( count );
+        evaluation.passed = count >= static_cast<uint32_t>( action.numberValue );
         break;
     }
     case RunInteractionAutomationAssertKind::PredictionBaselineVisible:
@@ -1863,6 +2194,42 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
         evaluation.passed = enabled == action.boolValue;
         break;
     }
+    case RunInteractionAutomationAssertKind::EditorUndoDepth:
+    case RunInteractionAutomationAssertKind::EditorRedoDepth:
+    {
+        const int actual = static_cast<int>( action.assertKind == RunInteractionAutomationAssertKind::EditorUndoDepth
+                                                 ? runtimeTools.Editor().history.UndoDepth()
+                                                 : runtimeTools.Editor().history.RedoDepth() );
+        const int expected = static_cast<int>( action.numberValue );
+        evaluation.expected = std::to_string( expected );
+        evaluation.actual = std::to_string( actual );
+        evaluation.passed = actual == expected;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::EditorSelectionExists:
+    case RunInteractionAutomationAssertKind::EditorSelectionHasTerrain:
+    {
+        const EditorSelectionFingerprint fingerprint = BuildEditorSelectionFingerprint( runtimeTools, sceneController );
+        const bool actual = action.assertKind == RunInteractionAutomationAssertKind::EditorSelectionExists
+                                ? fingerprint.valid
+                                : ( fingerprint.valid && fingerprint.hasTerrain );
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( actual );
+        evaluation.passed = actual == action.boolValue;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::EditorSelectionMatchesCapture:
+    {
+        const int slot = static_cast<int>( action.numberValue );
+        const EditorSelectionFingerprint fingerprint = BuildEditorSelectionFingerprint( runtimeTools, sceneController );
+        evaluation.expected = automation.editorSelectionCaptureValid[slot]
+                                  ? FormatPredictionHash( automation.editorSelectionCaptureFingerprints[slot] )
+                                  : "valid capture";
+        evaluation.actual = fingerprint.valid ? FormatPredictionHash( fingerprint.hash ) : "no selection";
+        evaluation.passed = automation.editorSelectionCaptureValid[slot] && fingerprint.valid &&
+                            fingerprint.hash == automation.editorSelectionCaptureFingerprints[slot];
+        break;
+    }
     }
     return evaluation;
 }
@@ -1965,8 +2332,8 @@ bool TryProjectInteractionAutomationModel( const SceneController& scene,
                 {
                     RuntimePickRequest request;
                     request.purpose = RuntimePickPurpose::EditorSelection;
-                    request.bodyStore = &scene.Models().BodyStore();
-                    request.colliderStore = &scene.Models().Colliders();
+                    request.bodyStore = &scene.BodyStore();
+                    request.colliderStore = &scene.Colliders();
                     request.rayOrigin = rayOrigin;
                     request.rayDirection = rayDirection;
 
@@ -1990,10 +2357,16 @@ void SkullbonezCore::Basics::ClearInteractionAutomationInput( InteractionAutomat
     state.rightMouseDown = false;
     state.keyVirtualKey = 0;
     state.keyDown = false;
+    state.controlDown = false;
     state.releaseLeftFrame = -1;
     state.releaseRightFrame = -1;
     state.releaseKeyFrame = -1;
     state.unfocusedInputFrames = 0;
+    for ( int slot = 0; slot < 2; ++slot )
+    {
+        state.editorSelectionCaptureFingerprints[slot] = 0;
+        state.editorSelectionCaptureValid[slot] = false;
+    }
     Input::ClearAutomationState();
 }
 
@@ -2083,6 +2456,7 @@ SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomat
     {
         state.keyVirtualKey = 0;
         state.keyDown = false;
+        state.controlDown = false;
         state.releaseKeyFrame = -1;
     }
 
@@ -2151,7 +2525,7 @@ SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomat
                 {
                     int modelIndex = -1;
                     return TryFindInteractionAutomationModel( scene, name, modelIndex ) &&
-                           replayRuntime.SetPathTarget( name, modelIndex, scene.Models().BodyStore() );
+                           replayRuntime.SetPathTarget( name, modelIndex, scene.BodyStore() );
                 },
                 [&]( WorldInteractionOwner owner, InteractionExitReason reason )
                 {
@@ -2163,7 +2537,7 @@ SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomat
                         interaction,
                         scene.Cameras(),
                         scene.Terrain().Get(),
-                        scene.Models(),
+                        scene,
                         scene.Physics(),
                         camera,
                         NormalizeRuntimeCameraMode( replayRuntime.Camera().restoreCameraMode,
@@ -2180,10 +2554,32 @@ SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomat
             // virtual-key state that a real keyboard would have provided.
             state.keyVirtualKey = action.keyVirtualKey;
             state.keyDown = true;
+            state.controlDown = action.boolValue;
             state.releaseKeyFrame = frame + 1;
             AppendReportAction( state, frame, action.type, action.text, nullptr, true, "key press injected" );
             action.processed = true;
             break;
+        case RunInteractionAutomationActionType::CaptureEditorSelectionState:
+        {
+            const int slot = static_cast<int>( action.numberValue );
+            const EditorSelectionFingerprint fingerprint = BuildEditorSelectionFingerprint( runtimeTools, scene );
+            state.editorSelectionCaptureFingerprints[slot] = fingerprint.hash;
+            state.editorSelectionCaptureValid[slot] = fingerprint.valid;
+            if ( !fingerprint.valid )
+            {
+                FailAutomation( state, "failed to capture editor selection state" );
+            }
+            char detail[128] = {};
+            sprintf_s( detail,
+                       sizeof( detail ),
+                       "slot=%d fingerprint=%s terrain=%d",
+                       slot,
+                       FormatPredictionHash( fingerprint.hash ).c_str(),
+                       fingerprint.hasTerrain ? 1 : 0 );
+            AppendReportAction( state, frame, action.type, "selection", nullptr, fingerprint.valid, detail );
+            action.processed = true;
+            break;
+        }
         case RunInteractionAutomationActionType::MoveMouse:
             state.mouseClientPosition = action.mouse;
             state.hasMouseClientPosition = true;
@@ -2241,6 +2637,22 @@ SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomat
             action.processed = true;
             break;
         }
+        case RunInteractionAutomationActionType::ClickPoint:
+            state.mouseClientPosition = action.mouse;
+            state.hasMouseClientPosition = true;
+            if ( action.button == RunInteractionAutomationButton::Right )
+            {
+                state.rightMouseDown = true;
+                state.releaseRightFrame = frame + action.holdFrames;
+            }
+            else
+            {
+                state.leftMouseDown = true;
+                state.releaseLeftFrame = frame + action.holdFrames;
+            }
+            AppendReportAction( state, frame, action.type, nullptr, &action.mouse, true, "mouse press injected" );
+            action.processed = true;
+            break;
         case RunInteractionAutomationActionType::LoseFocus:
             state.unfocusedInputFrames = action.holdFrames;
             AppendReportAction( state, frame, action.type, "input", nullptr, true, "focus loss injected" );
@@ -2262,6 +2674,7 @@ SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomat
     inputState.rightMouseDown = state.rightMouseDown;
     inputState.keyVirtualKey = state.keyVirtualKey;
     inputState.keyDown = state.keyDown;
+    inputState.controlDown = state.controlDown;
     Input::SetAutomationState( inputState );
     if ( state.unfocusedInputFrames > 0 )
     {
@@ -2336,11 +2749,12 @@ SkullbonezCore::Basics::TickInteractionAutomationAfterRender( InteractionAutomat
 
         const InteractionAutomationAssertionEvaluation evaluation = EvaluateInteractionAutomationAssertion(
             runtimeTools,
+            state,
             replayRuntime,
             interaction,
             inputRouter,
             camera,
-            scene.Models(),
+            scene,
             scene.Entities(),
             ui,
             action,
@@ -2400,6 +2814,25 @@ SkullbonezCore::Basics::TickInteractionAutomationAfterRender( InteractionAutomat
     return result;
 }
 
+
+bool SkullbonezCore::Basics::InteractionAutomationWillCaptureAfterRender( const InteractionAutomationController& state,
+                                                                          int frame )
+{
+    if ( !state.enabled || state.finished )
+    {
+        return false;
+    }
+    for ( const RunInteractionAutomationAction& action : state.actions )
+    {
+        if ( !action.processed && action.frame == frame &&
+             action.type == RunInteractionAutomationActionType::Screenshot )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 SbResult SkullbonezCore::Basics::WriteInteractionAutomationReport( InteractionAutomationController& state,
                                                                    const SceneController& scene,
                                                                    const RuntimeTools& runtimeTools,
@@ -2447,9 +2880,9 @@ SbResult SkullbonezCore::Basics::WriteInteractionAutomationReport( InteractionAu
         screenshots.push_back( screenshot );
     }
 
-    const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), scene.Models().BodyStore() );
+    const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), scene.BodyStore() );
     const char* selectedName = "";
-    if ( selectedIndex >= 0 && selectedIndex < scene.Models().SceneEntityCount() )
+    if ( selectedIndex >= 0 && selectedIndex < scene.SceneEntityCount() )
     {
         selectedName = scene.Entities().At( selectedIndex ).displayName;
     }
@@ -2567,9 +3000,21 @@ SbResult SkullbonezCore::Basics::WriteInteractionAutomationReport( InteractionAu
         { "replayPredictionEnabled", predictionState.enabled },
         { "predictionHorizonSeconds", predictionState.simulation.horizonSeconds },
         { "predictionRevealSecondsPerSecond", predictionState.revealClock.secondsPerSecond },
+        { "predictionBuildMode", ReplayPredictionBuildModeName( predictionState.build.buildMode ) },
+        { "predictionMeasuredTicksPerMs",
+          predictionState.simulation.measuredTicksPerMs.load( std::memory_order_acquire ) },
+        { "predictionLastBuildWallMs", predictionState.build.lastBuildWallMs },
+        { "predictionPendingLatestRestart", predictionState.build.pendingLatestRestart },
+        { "predictionSupersededRestartCount", predictionState.build.supersededRestartCount },
+        { "predictionLatestRestartBeginCount", predictionState.build.latestRestartBeginCount },
         { "replayPathTarget",
           replayRuntime.PathVisualizer().hasTarget ? replayRuntime.PathVisualizer().targetName : "" },
         { "replayPathTargetCount", static_cast<int>( replayRuntime.PathVisualizer().targets.size() ) },
+        { "replayPastTrajectoryFullRebuildCount", replayRuntime.PathVisualizer().pastTrajectory.fullRebuildCount },
+        { "replayPastTrajectoryIncrementalTrimCount",
+          replayRuntime.PathVisualizer().pastTrajectory.incrementalTrimCount },
+        { "replayPastTrajectoryPublishedPointCount",
+          static_cast<int>( ReplayPastTrajectoryPublishedPointCount( replayRuntime ) ) },
         { "replayPastPathVisible", replayPastPathVisible },
         { "predictionPathVisible", predictionPathVisible },
         { "predictionContactsIncomplete", predictionContactsIncomplete },

@@ -9,7 +9,7 @@ Mental model:
   calls, shader bindings, and validation artifacts. Draw transforms come from
   RenderInstanceStore and hull geometry comes from ColliderStore so
   physics-owned pose/shape data does not have to be copied back into every
-  GameModel merely for rendering.
+  legacy object record merely for rendering.
 
 Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
@@ -39,6 +39,7 @@ Related:
 #include "../Core/Profiler.h"
 #include "../Core/WorkerPool.h"
 #include "../Physics/ColliderStore.h"
+#include "../Maths/Frustum.h"
 #include "Helper.h"
 #include "IRenderDiagnostics.h"
 #include "RenderInstanceStore.h"
@@ -61,6 +62,7 @@ using SkullbonezCore::Rendering::RenderInstanceStore;
 using SkullbonezCore::Rendering::RenderMaterial;
 using SkullbonezCore::Rendering::RenderMaterialKind;
 using SkullbonezCore::Rendering::ShadowCasterBatches;
+using SkullbonezCore::Rendering::ShadowCasterInstance;
 using SkullbonezCore::Rendering::ShadowFrameData;
 
 namespace
@@ -153,18 +155,18 @@ void AppendShadowCasterToBatches( const RenderInstanceRecord& instance,
     switch ( ResolveShadowCasterStream( instance, modelIndex, colliders, hull ) )
     {
     case ShadowCasterStream::Sphere:
-        batches.spheres.push_back( instance.modelMatrix );
+        batches.spheres.push_back( { instance.modelMatrix, instance.boundingRadius } );
         break;
     case ShadowCasterStream::Box:
-        batches.boxes.push_back( instance.modelMatrix );
+        batches.boxes.push_back( { instance.modelMatrix, instance.boundingRadius } );
         break;
     case ShadowCasterStream::Pine:
-        batches.pines.push_back( instance.modelMatrix );
+        batches.pines.push_back( { instance.modelMatrix, instance.boundingRadius } );
         break;
     case ShadowCasterStream::ConvexHull:
         // Lifetime: convex hull casters borrow ColliderStore geometry and are
         // submitted during this shadow pass before collider storage refreshes.
-        batches.convexHulls.push_back( { hull, instance.modelMatrix } );
+        batches.convexHulls.push_back( { hull, { instance.modelMatrix, instance.boundingRadius } } );
         break;
     case ShadowCasterStream::None:
         break;
@@ -217,16 +219,21 @@ void FillShadowCasterRange( const std::vector<RenderInstanceRecord>& instances,
         switch ( ResolveShadowCasterStream( instance, x, colliders, hull ) )
         {
         case ShadowCasterStream::Sphere:
-            batches.spheres[static_cast<std::size_t>( write.spheres++ )] = instance.modelMatrix;
+            batches.spheres[static_cast<std::size_t>( write.spheres++ )] = { instance.modelMatrix,
+                                                                             instance.boundingRadius };
             break;
         case ShadowCasterStream::Box:
-            batches.boxes[static_cast<std::size_t>( write.boxes++ )] = instance.modelMatrix;
+            batches.boxes[static_cast<std::size_t>( write.boxes++ )] = { instance.modelMatrix,
+                                                                         instance.boundingRadius };
             break;
         case ShadowCasterStream::Pine:
-            batches.pines[static_cast<std::size_t>( write.pines++ )] = instance.modelMatrix;
+            batches.pines[static_cast<std::size_t>( write.pines++ )] = { instance.modelMatrix,
+                                                                         instance.boundingRadius };
             break;
         case ShadowCasterStream::ConvexHull:
-            batches.convexHulls[static_cast<std::size_t>( write.convexHulls++ )] = { hull, instance.modelMatrix };
+            batches.convexHulls[static_cast<std::size_t>( write.convexHulls++ )] = {
+                hull,
+                { instance.modelMatrix, instance.boundingRadius } };
             break;
         case ShadowCasterStream::None:
             break;
@@ -342,7 +349,8 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
                                       const ShadowFrameData* shadow,
                                       float materialAlpha,
                                       const std::vector<uint8_t>* modelMask,
-                                      bool drawMaskedModels )
+                                      bool drawMaskedModels,
+                                      Rendering::RenderVisibilityView visibilityView )
 {
     const std::vector<RenderInstanceRecord>& instances = renderStore.Records();
 
@@ -352,6 +360,49 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
     }
 
     const int modelCount = static_cast<int>( instances.size() );
+    // Invariant: the visible-index scratch array mirrors the scene store's
+    // compile-time ceiling. Crossing it would corrupt render-thread stack data.
+    if ( modelCount > MAX_GAME_MODELS )
+    {
+        SB_FATAL( "Rendering/Visibility",
+                  "Render instance count exceeds visibility capacity. count=%d capacity=%d",
+                  modelCount,
+                  MAX_GAME_MODELS );
+    }
+    int visibleIndices[MAX_GAME_MODELS] = {};
+    int visibleCount = 0;
+    // Why: the planar reflection has its own mirrored camera volume. Its water
+    // half-space removes only instances wholly below the surface; straddlers
+    // still reach the shader clip plane for pixel-accurate clipping.
+    if ( visibilityView == Rendering::RenderVisibilityView::Main ||
+         visibilityView == Rendering::RenderVisibilityView::Reflection )
+    {
+        const Math::Visibility::Frustum frustum = Math::Visibility::Frustum::FromViewProjection( view, proj );
+        const float* reflectionClipPlane = visibilityView == Rendering::RenderVisibilityView::Reflection
+                                               ? helperContext.helper.GetClipPlane()
+                                               : nullptr;
+        for ( int index = 0; index < modelCount; ++index )
+        {
+            const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( index )];
+            const Vector3 center( instance.modelMatrix.m[12], instance.modelMatrix.m[13], instance.modelMatrix.m[14] );
+            const bool insideFrustum = frustum.IntersectsSphere( center, instance.boundingRadius );
+            const bool aboveReflectionPlane =
+                !reflectionClipPlane ||
+                Math::Visibility::Frustum::IntersectsHalfSpace( center, instance.boundingRadius, reflectionClipPlane );
+            if ( insideFrustum && aboveReflectionPlane )
+            {
+                visibleIndices[visibleCount++] = index;
+            }
+        }
+    }
+    else
+    {
+        for ( int index = 0; index < modelCount; ++index )
+        {
+            visibleIndices[visibleCount++] = index;
+        }
+    }
+
     const float clampedMaterialAlpha = std::clamp( materialAlpha, 0.0f, 1.0f );
     const bool alphaBlendedPass = renderCollisionVolumes || clampedMaterialAlpha < 1.0f;
     const auto shouldDrawModel = [&]( int index ) -> bool
@@ -367,6 +418,8 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
         const bool masked = ( *modelMask )[static_cast<std::size_t>( index )] != 0;
         return drawMaskedModels ? masked : !masked;
     };
+    int submittedCount = 0;
+    const int drawCountBefore = helperContext.renderDiagnostics.GetFrameDrawCallCount();
 
     {
         DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Spheres" );
@@ -378,8 +431,9 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
                                                                   cinematic,
                                                                   shadow,
                                                                   clampedMaterialAlpha );
-        for ( int x = 0; x < modelCount; ++x )
+        for ( int visibleIndex = 0; visibleIndex < visibleCount; ++visibleIndex )
         {
+            const int x = visibleIndices[visibleIndex];
             if ( !shouldDrawModel( x ) )
             {
                 continue;
@@ -389,6 +443,7 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
             {
                 RenderMaterial material = MaterialWithContactHighlights( instance, false );
                 sphereBatch.DrawModel( instance.modelMatrix, material );
+                ++submittedCount;
             }
         }
     }
@@ -396,8 +451,9 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
     bool hasPineVisualModels = false;
     auto appendBoxLikeModels = [&]( bool pineVisualPass, RenderHelper::PrimitiveBatchScope& batch )
     {
-        for ( int x = 0; x < modelCount; ++x )
+        for ( int visibleIndex = 0; visibleIndex < visibleCount; ++visibleIndex )
         {
+            const int x = visibleIndices[visibleIndex];
             if ( !shouldDrawModel( x ) )
             {
                 continue;
@@ -423,6 +479,7 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
                 {
                     batch.DrawModel( instance.modelMatrix, material );
                 }
+                ++submittedCount;
             }
         }
     };
@@ -457,8 +514,9 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
     {
         DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "ConvexHulls" );
         const ColliderRecordList* colliders = nullptr;
-        for ( int x = 0; x < modelCount; ++x )
+        for ( int visibleIndex = 0; visibleIndex < visibleCount; ++visibleIndex )
         {
+            const int x = visibleIndices[visibleIndex];
             if ( !shouldDrawModel( x ) )
             {
                 continue;
@@ -496,8 +554,15 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
                                                       cinematic,
                                                       shadow,
                                                       clampedMaterialAlpha );
+            ++submittedCount;
         }
     }
+    const int drawCountAfter = helperContext.renderDiagnostics.GetFrameDrawCallCount();
+    helperContext.renderDiagnostics.RecordVisibility( visibilityView,
+                                                      modelCount,
+                                                      submittedCount,
+                                                      modelCount - visibleCount,
+                                                      (std::max)( 0, drawCountAfter - drawCountBefore ) );
 }
 
 
@@ -559,21 +624,40 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
                                                    const ShadowCasterBatches& batches,
                                                    const Matrix4& view,
                                                    const Matrix4& proj,
-                                                   const CinematicRenderConfig* cinematic )
+                                                   const CinematicRenderConfig* cinematic,
+                                                   Rendering::RenderVisibilityView visibilityView )
 {
     if ( batches.Empty() )
     {
         return;
     }
 
+    const int drawCountBefore = helperContext.renderDiagnostics.GetFrameDrawCallCount();
+    const Math::Visibility::Frustum lightFrustum = Math::Visibility::Frustum::FromViewProjection( view, proj );
+    const auto isVisible = [&]( const ShadowCasterInstance& caster )
+    {
+        const Vector3 center( caster.model.m[12], caster.model.m[13], caster.model.m[14] );
+        // Why: the orthographic light frustum, including its deliberately broad
+        // near/far span, retains off-camera objects whose shadows can reach a
+        // receiver. A one-unit margin absorbs light-matrix and bound rounding.
+        return lightFrustum.IntersectsSphere( center, caster.boundingRadius, 1.0f );
+    };
+    const int candidates = static_cast<int>( batches.spheres.size() + batches.boxes.size() + batches.pines.size() +
+                                             batches.convexHulls.size() );
+    int submitted = 0;
+
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Spheres" );
         DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Spheres" );
 
         auto sphereBatch = helperContext.helper.BeginShadowDepthSphereBatch( helperContext, view, proj, cinematic );
-        for ( const Matrix4& model : batches.spheres )
+        for ( const ShadowCasterInstance& caster : batches.spheres )
         {
-            sphereBatch.DrawShadowModel( model );
+            if ( isVisible( caster ) )
+            {
+                sphereBatch.DrawShadowModel( caster.model );
+                ++submitted;
+            }
         }
     }
 
@@ -582,9 +666,13 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
         DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Boxes" );
 
         auto boxBatch = helperContext.helper.BeginShadowDepthBoxBatch( helperContext, view, proj );
-        for ( const Matrix4& model : batches.boxes )
+        for ( const ShadowCasterInstance& caster : batches.boxes )
         {
-            boxBatch.DrawShadowModel( model );
+            if ( isVisible( caster ) )
+            {
+                boxBatch.DrawShadowModel( caster.model );
+                ++submitted;
+            }
         }
     }
 
@@ -594,9 +682,13 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
         DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Pines" );
 
         auto pineBatch = helperContext.helper.BeginShadowDepthPineBatch( helperContext, view, proj );
-        for ( const Matrix4& model : batches.pines )
+        for ( const ShadowCasterInstance& caster : batches.pines )
         {
-            pineBatch.DrawShadowModel( model );
+            if ( isVisible( caster ) )
+            {
+                pineBatch.DrawShadowModel( caster.model );
+                ++submitted;
+            }
         }
     }
 
@@ -607,16 +699,23 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
 
         for ( const auto& caster : batches.convexHulls )
         {
-            if ( caster.hull )
+            if ( caster.hull && isVisible( caster.instance ) )
             {
                 helperContext.helper.DrawShadowDepthConvexHullModel( helperContext,
                                                                      *caster.hull,
-                                                                     caster.model,
+                                                                     caster.instance.model,
                                                                      view,
                                                                      proj );
+                ++submitted;
             }
         }
     }
+    helperContext.renderDiagnostics.RecordVisibility(
+        visibilityView,
+        candidates,
+        submitted,
+        candidates - submitted,
+        (std::max)( 0, helperContext.renderDiagnostics.GetFrameDrawCallCount() - drawCountBefore ) );
 }
 
 
@@ -627,11 +726,12 @@ void GameModelRenderer::RenderShadowCasters( const RenderHelperContext& helperCo
                                              bool useShadowParallelPrep,
                                              const Matrix4& view,
                                              const Matrix4& proj,
-                                             const CinematicRenderConfig* cinematic )
+                                             const CinematicRenderConfig* cinematic,
+                                             Rendering::RenderVisibilityView visibilityView )
 {
     ShadowCasterBatches batches;
     BuildShadowCasterBatches( renderStore, colliderStore, workerPool, useShadowParallelPrep, batches );
-    SubmitShadowCasterBatches( helperContext, batches, view, proj, cinematic );
+    SubmitShadowCasterBatches( helperContext, batches, view, proj, cinematic, visibilityView );
 }
 
 
@@ -765,9 +865,4 @@ bool GameModelRenderer::GetObjectShadowBounds( const RenderInstanceStore& render
     outRadius = std::clamp( clusterRadius + padding, 48.0f, queryDistance + padding );
     outHeightRange = (std::max)( bounds.maxY - bounds.minY + padding * 2.0f, 64.0f );
     return true;
-}
-
-
-void GameModelRenderer::ResetRenderResources()
-{
 }

@@ -1,8 +1,8 @@
 /*
 File: SkullbonezSource/Rendering/RenderRasterBindingContract.h
 Purpose:
-  Names the ordinary raster shader binding contract shared by runtime passes and
-  the active render backend.
+  Defines the named UnifiedRaster root-signature contract shared by every
+  shipping raster shader family and the active render backend.
 
 Mental model:
   Runtime code binds textures by engine slot, while backend code translates
@@ -20,10 +20,11 @@ Glossary:
     shadow shaders.
 
 Invariants:
+  - UnifiedRaster is the one raster root signature. Lit, unlit, water, post,
+    text, and UI families differ only in which rows they consume.
   - Engine texture slot N maps to shader resource register tN.
-  - The ordinary raster root signature exposes slots t0 through t4.
-  - Material-table work must update this contract, matching HLSL registers, and
-    shader contract docs together.
+  - Reflection must reject raster bytecode outside b0, t0..t5, s0/s1/s3, or
+    register space zero before the root signature is published.
 
 Related:
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.h
@@ -39,19 +40,85 @@ namespace SkullbonezCore
 namespace Rendering
 {
 
-inline constexpr std::uint32_t ROOT_PARAMETER_FRAME_CONSTANTS = 0;      // CBV b0
-inline constexpr std::uint32_t ROOT_PARAMETER_FIRST_TEXTURE = 1;        // t0 descriptor table
-inline constexpr std::uint32_t SHADER_REGISTER_FRAME_CONSTANTS = 0;     // b0
-inline constexpr std::uint32_t SHADER_REGISTER_FIRST_TEXTURE = 0;       // t0
-inline constexpr std::uint32_t SAMPLER_REGISTER_LINEAR_WRAP = 0;        // s0
-inline constexpr std::uint32_t SAMPLER_REGISTER_LINEAR_CLAMP = 1;       // s1
-inline constexpr std::uint32_t SAMPLER_REGISTER_SHADOW_POINT_CLAMP = 3; // s3
-inline constexpr int TEXTURE_SLOT_COUNT = 5;                            // SRV slots t0..t4
-inline constexpr std::uint32_t ORDINARY_RASTER_ROOT_PARAMETER_COUNT =
+namespace UnifiedRasterRootSignature
+{
+inline constexpr const char* NAME = "UnifiedRaster";
+inline constexpr std::uint32_t REGISTER_SPACE = 0;
+inline constexpr std::uint32_t ROOT_PARAMETER_DRAW_CONSTANTS = 0; // CBV b0, all raster stages
+inline constexpr std::uint32_t ROOT_PARAMETER_FIRST_TEXTURE = 1;  // one table for each t0..t5 row
+inline constexpr std::uint32_t SHADER_REGISTER_DRAW_CONSTANTS = 0;
+inline constexpr std::uint32_t SHADER_REGISTER_FIRST_TEXTURE = 0;
+inline constexpr int TEXTURE_SLOT_COUNT = 6;
+inline constexpr std::uint32_t ROOT_PARAMETER_COUNT =
     ROOT_PARAMETER_FIRST_TEXTURE + static_cast<std::uint32_t>( TEXTURE_SLOT_COUNT );
 
-static_assert( TEXTURE_SLOT_COUNT == 5,
-               "Ordinary raster ABI exposes SRV slots t0..t4, including t4 for the object material table." );
+struct TextureSlot
+{
+    const char* name;
+    std::uint32_t shaderRegister;
+    std::uint32_t rootParameter;
+    const char* consumers;
+};
+
+// One slot map replaces shader-local ownership folklore. A family may leave a
+// row unused, but it may not reinterpret the register or register space.
+inline constexpr TextureSlot TEXTURE_SLOTS[] = {
+    { "PrimaryTexture",
+      SHADER_REGISTER_FIRST_TEXTURE + 0,
+      ROOT_PARAMETER_FIRST_TEXTURE + 0,
+      "lit/unlit/text/UI/post scene color" },
+    { "SecondaryTexture",
+      SHADER_REGISTER_FIRST_TEXTURE + 1,
+      ROOT_PARAMETER_FIRST_TEXTURE + 1,
+      "post depth or water reflection" },
+    { "VolumetricTexture",
+      SHADER_REGISTER_FIRST_TEXTURE + 2,
+      ROOT_PARAMETER_FIRST_TEXTURE + 2,
+      "post volumetric composite" },
+    { "ShadowMap", SHADER_REGISTER_FIRST_TEXTURE + 3, ROOT_PARAMETER_FIRST_TEXTURE + 3, "lit shadow sampling" },
+    { "MaterialTable",
+      SHADER_REGISTER_FIRST_TEXTURE + 4,
+      ROOT_PARAMETER_FIRST_TEXTURE + 4,
+      "instanced material defaults" },
+    { "DetailShadowMap",
+      SHADER_REGISTER_FIRST_TEXTURE + 5,
+      ROOT_PARAMETER_FIRST_TEXTURE + 5,
+      "terrain tight object-shadow sampling" },
+};
+
+struct StaticSampler
+{
+    const char* name;
+    std::uint32_t shaderRegister;
+};
+
+inline constexpr StaticSampler STATIC_SAMPLERS[] = {
+    { "LinearWrap", 0 },
+    { "LinearClamp", 1 },
+    { "ShadowPointClamp", 3 },
+};
+
+inline constexpr bool AcceptsTextureRegister( std::uint32_t slot )
+{
+    return slot < static_cast<std::uint32_t>( TEXTURE_SLOT_COUNT );
+}
+
+inline constexpr bool AcceptsSamplerRegister( std::uint32_t slot )
+{
+    return slot == STATIC_SAMPLERS[0].shaderRegister || slot == STATIC_SAMPLERS[1].shaderRegister ||
+           slot == STATIC_SAMPLERS[2].shaderRegister;
+}
+
+static_assert( sizeof( TEXTURE_SLOTS ) / sizeof( TEXTURE_SLOTS[0] ) == TEXTURE_SLOT_COUNT );
+static_assert( TEXTURE_SLOTS[4].shaderRegister == 4 && TEXTURE_SLOTS[4].rootParameter == 5,
+               "UnifiedRaster keeps the material table at t4/root parameter 5." );
+static_assert( TEXTURE_SLOTS[5].shaderRegister == 5 && TEXTURE_SLOTS[5].rootParameter == 6,
+               "UnifiedRaster appends the terrain detail shadow without moving t4." );
+} // namespace UnifiedRasterRootSignature
+
+// Engine-facing texture binding still uses an integer slot count. Native root
+// parameter/register details stay inside the named contract above.
+inline constexpr int TEXTURE_SLOT_COUNT = UnifiedRasterRootSignature::TEXTURE_SLOT_COUNT;
 
 } // namespace Rendering
 } // namespace SkullbonezCore

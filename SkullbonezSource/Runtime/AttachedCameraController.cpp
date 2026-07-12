@@ -15,12 +15,15 @@ Glossary:
   Ragdoll eyes: Attach submode that places the camera near a resolved head body
     and looks along that body's forward axis.
   Orbit wheel: Mouse-wheel zoom applied to attach orbit distance.
+  Presentation pose: Allocation-free interpolated body endpoint used by follow
+    cameras while target identity and selection remain physics-authoritative.
 
 Invariants:
   - Duplicate replay ids invalidate the target instead of selecting an
     arbitrary body.
   - Orbit pitch and distance are clamped before producing a camera pose.
   - Invalid or degenerate pose math fails closed without changing the camera.
+  - Presentation sampling never changes the durable attached target identity.
 
 Related:
   - SkullbonezSource/Runtime/AttachedCameraController.h
@@ -29,7 +32,7 @@ Related:
 #include "AttachedCameraController.h"
 #include "CameraCollection.h"
 #include "RuntimePickService.h"
-#include "../GameObjects/GameModelCollection.h"
+#include "Scene/SceneController.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsBodyStore.h"
 #include "../Physics/PhysicsEngine.h"
@@ -123,7 +126,7 @@ float AttachedCameraTargetRadius( const PhysicsBodyRecord& body, const ColliderR
 }
 
 
-const char* PresentationNameForModelIndex( const GameModelCollection& collection, int modelIndex )
+const char* PresentationNameForModelIndex( const SceneController& collection, int modelIndex )
 {
     const auto& presentationRecords = collection.RenderPresentationRecords();
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( presentationRecords.size() ) )
@@ -283,8 +286,7 @@ void AttachedCameraController::RestoreReturnState( Environment::CameraCollection
 }
 
 
-bool AttachedCameraController::ResolveTargetIdentity( const GameObjects::GameModelCollection& collection,
-                                                      int& outModelIndex )
+bool AttachedCameraController::ResolveTargetIdentity( const Basics::SceneController& collection, int& outModelIndex )
 {
     if ( TryResolveTargetIdentity( collection, m_state.target, outModelIndex ) )
     {
@@ -295,10 +297,11 @@ bool AttachedCameraController::ResolveTargetIdentity( const GameObjects::GameMod
 }
 
 
-bool AttachedCameraController::TickFollow( const GameObjects::GameModelCollection& collection,
+bool AttachedCameraController::TickFollow( const Basics::SceneController& collection,
                                            Environment::CameraCollection& cameras,
                                            float orbitYawDelta,
-                                           float orbitPitchDelta )
+                                           float orbitPitchDelta,
+                                           float presentationAlpha )
 {
     if ( !m_state.activeFollow )
     {
@@ -309,6 +312,11 @@ bool AttachedCameraController::TickFollow( const GameObjects::GameModelCollectio
     if ( !TryResolvePhysicsTarget( collection, m_state.target, target, &modelIndex ) )
     {
         return false;
+    }
+    Quaternion presentedOrientation;
+    if ( collection.TryGetPresentationPose( modelIndex, presentationAlpha, target.position, presentedOrientation ) )
+    {
+        target.rotation = BodyRotation( presentedOrientation );
     }
     AttachedCameraPose currentPose;
     currentPose.eye = cameras.GetCameraTranslation();
@@ -322,6 +330,7 @@ bool AttachedCameraController::TickFollow( const GameObjects::GameModelCollectio
                            currentPose,
                            orbitYawDelta,
                            orbitPitchDelta,
+                           presentationAlpha,
                            command ) )
     {
         return false;
@@ -340,7 +349,51 @@ bool AttachedCameraController::TickFollow( const GameObjects::GameModelCollectio
 }
 
 
-bool AttachedCameraController::CycleMode( const GameObjects::GameModelCollection& collection,
+bool AttachedCameraController::TryGetPresentationListenerPosition( const Basics::SceneController& collection,
+                                                                   const Environment::CameraCollection& cameras,
+                                                                   float presentationAlpha,
+                                                                   Vector3& outPosition ) const
+{
+    if ( !m_state.activeFollow )
+    {
+        return false;
+    }
+    // Lifetime: pose solving updates orbit/entry bookkeeping, so audio uses a
+    // frame-local state copy and cannot consume camera controller transitions.
+    AttachedCameraState state = m_state;
+    int modelIndex = -1;
+    AttachedCameraPhysicsTarget target;
+    if ( !TryResolvePhysicsTarget( collection, state.target, target, &modelIndex ) )
+    {
+        return false;
+    }
+    Quaternion presentedOrientation;
+    if ( collection.TryGetPresentationPose( modelIndex, presentationAlpha, target.position, presentedOrientation ) )
+    {
+        target.rotation = BodyRotation( presentedOrientation );
+    }
+    const AttachedCameraPose currentPose{ cameras.GetRenderCameraTranslation(),
+                                          cameras.GetRenderCameraView(),
+                                          cameras.GetRenderCameraUp() };
+    AttachedCameraPoseCommand command;
+    if ( !BuildFollowPose( collection,
+                           state,
+                           target,
+                           modelIndex,
+                           currentPose,
+                           0.0f,
+                           0.0f,
+                           presentationAlpha,
+                           command ) )
+    {
+        return false;
+    }
+    outPosition = command.pose.eye;
+    return true;
+}
+
+
+bool AttachedCameraController::CycleMode( const Basics::SceneController& collection,
                                           Environment::CameraCollection& cameras )
 {
     AttachedCameraPhysicsTarget target;
@@ -358,7 +411,7 @@ bool AttachedCameraController::CycleMode( const GameObjects::GameModelCollection
 }
 
 
-bool AttachedCameraController::TogglePin( const GameObjects::GameModelCollection& collection,
+bool AttachedCameraController::TogglePin( const Basics::SceneController& collection,
                                           Environment::CameraCollection& cameras )
 {
     m_state.activeFollow = !m_state.activeFollow;
@@ -376,7 +429,7 @@ bool AttachedCameraController::TogglePin( const GameObjects::GameModelCollection
 }
 
 
-bool AttachedCameraController::ApplyOrbitInput( const GameObjects::GameModelCollection& collection,
+bool AttachedCameraController::ApplyOrbitInput( const Basics::SceneController& collection,
                                                 Environment::CameraCollection& cameras,
                                                 bool attachModeActive,
                                                 int unhandledWheelDelta,
@@ -401,7 +454,7 @@ bool AttachedCameraController::ApplyOrbitInput( const GameObjects::GameModelColl
 }
 
 
-bool AttachedCameraController::SetTarget( const GameObjects::GameModelCollection& collection,
+bool AttachedCameraController::SetTarget( const Basics::SceneController& collection,
                                           Environment::CameraCollection& cameras,
                                           int modelIndex,
                                           AttachedCameraTargetSelection& outSelection )
@@ -416,7 +469,7 @@ bool AttachedCameraController::SetTarget( const GameObjects::GameModelCollection
 }
 
 
-AttachedCameraSeedResult AttachedCameraController::SeedTarget( const GameObjects::GameModelCollection& collection,
+AttachedCameraSeedResult AttachedCameraController::SeedTarget( const Basics::SceneController& collection,
                                                                Environment::CameraCollection& cameras,
                                                                int seedModelIndex,
                                                                AttachedCameraTargetSelection& outSelection )
@@ -440,7 +493,7 @@ AttachedCameraSeedResult AttachedCameraController::SeedTarget( const GameObjects
 }
 
 
-bool AttachedCameraController::PickTarget( const GameObjects::GameModelCollection& collection,
+bool AttachedCameraController::PickTarget( const Basics::SceneController& collection,
                                            Environment::CameraCollection& cameras,
                                            bool hasWorldRay,
                                            const Vector3& rayOrigin,
@@ -482,7 +535,7 @@ void AttachedCameraController::ClearTarget( AttachedCameraState& state )
 }
 
 
-bool AttachedCameraController::TryAttachTargetHandlesFromModelIndex( const GameModelCollection& collection,
+bool AttachedCameraController::TryAttachTargetHandlesFromModelIndex( const SceneController& collection,
                                                                      int modelIndex,
                                                                      AttachedCameraTarget& target )
 {
@@ -504,7 +557,7 @@ bool AttachedCameraController::TryAttachTargetHandlesFromModelIndex( const GameM
 }
 
 
-bool AttachedCameraController::TryResolveTargetIdentity( const GameModelCollection& collection,
+bool AttachedCameraController::TryResolveTargetIdentity( const SceneController& collection,
                                                          AttachedCameraTarget& target,
                                                          int& outModelIndex )
 {
@@ -589,7 +642,7 @@ bool AttachedCameraController::TryResolveTargetIdentity( const GameModelCollecti
 }
 
 
-bool AttachedCameraController::TryResolvePhysicsTarget( const GameModelCollection& collection,
+bool AttachedCameraController::TryResolvePhysicsTarget( const SceneController& collection,
                                                         AttachedCameraTarget& target,
                                                         AttachedCameraPhysicsTarget& outTarget,
                                                         int* outModelIndex )
@@ -621,7 +674,7 @@ bool AttachedCameraController::TryResolvePhysicsTarget( const GameModelCollectio
 }
 
 
-bool AttachedCameraController::TryResolveRagdollHead( const GameModelCollection& collection,
+bool AttachedCameraController::TryResolveRagdollHead( const SceneController& collection,
                                                       int selectedModelIndex,
                                                       int& outHeadModelIndex )
 {
@@ -658,7 +711,7 @@ bool AttachedCameraController::TryResolveRagdollHead( const GameModelCollection&
 }
 
 
-bool AttachedCameraController::SelectTarget( const GameModelCollection& collection,
+bool AttachedCameraController::SelectTarget( const SceneController& collection,
                                              AttachedCameraState& state,
                                              int modelIndex,
                                              AttachedCameraTargetSelection& outSelection )
@@ -702,7 +755,7 @@ bool AttachedCameraController::SelectTarget( const GameModelCollection& collecti
 }
 
 
-bool AttachedCameraController::CycleSubmode( const GameModelCollection& collection,
+bool AttachedCameraController::CycleSubmode( const SceneController& collection,
                                              AttachedCameraState& state,
                                              AttachedCameraPhysicsTarget& outTarget,
                                              bool& outShouldCaptureFixedOffset )
@@ -795,13 +848,14 @@ bool AttachedCameraController::ApplyOrbitWheel( AttachedCameraState& state,
 }
 
 
-bool AttachedCameraController::BuildFollowPose( const GameModelCollection& collection,
+bool AttachedCameraController::BuildFollowPose( const SceneController& collection,
                                                 AttachedCameraState& state,
                                                 const AttachedCameraPhysicsTarget& target,
                                                 int modelIndex,
                                                 const AttachedCameraPose& currentPose,
                                                 float orbitYawDelta,
                                                 float orbitPitchDelta,
+                                                float presentationAlpha,
                                                 AttachedCameraPoseCommand& outCommand )
 {
     if ( state.submode == AttachedCameraSubmode::RagdollEyes )
@@ -815,6 +869,14 @@ bool AttachedCameraController::BuildFollowPose( const GameModelCollection& colle
                  !TryResolvePhysicsTarget( collection, headTarget, headState ) )
             {
                 return false;
+            }
+            Quaternion presentedHeadOrientation;
+            if ( collection.TryGetPresentationPose( headIndex,
+                                                    presentationAlpha,
+                                                    headState.position,
+                                                    presentedHeadOrientation ) )
+            {
+                headState.rotation = BodyRotation( presentedHeadOrientation );
             }
 
             const float radius = (std::max)( 0.5f, headState.radius );

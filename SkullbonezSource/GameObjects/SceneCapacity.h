@@ -26,7 +26,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Core/Common.h includes this during the aliasing period.
-  - SkullbonezSource/GameObjects/GameModelCollection.h applies active capacity.
+  - SkullbonezSource/GameObjects/SceneController.h applies active capacity.
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once

@@ -88,6 +88,10 @@ struct ReplayTrajectoryStore
                                                 bool contactDerived );
     bool TryAppendPoint( ReplayTrajectoryRecord& record, const ReplayTrajectoryPoint& point );
     void PublishPrefix( ReplayTrajectoryRecord& record, std::size_t pointCount ) noexcept;
+    // Removes expired published points without replacing the record/version, so
+    // the renderer always sees one continuous retained-path publication.
+    std::size_t TrimPublishedPointsBeforeFrame( ReplayTrajectoryRecord& record,
+                                                ReplayFrameIndex firstRetainedFrame ) noexcept;
     bool ReserveRecords( std::size_t requestedCapacity, int frameNumber );
     bool ReserveRecordPoints( ReplayTrajectoryRecord& record, std::size_t requestedCapacity, int frameNumber );
     std::size_t RecordCount() const noexcept;

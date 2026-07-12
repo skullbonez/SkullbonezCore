@@ -34,24 +34,24 @@ namespace Physics
 PhysicsMaterial PhysicsMaterial::FromConfig( const Basics::EngineConfig& config )
 {
     PhysicsMaterial material;
-    material.frictionCoefficient = config.frictionCoeff;
-    material.sphereDragCoefficient = config.sphereDragCoeff;
+    material.frictionCoefficient = config.physicsMaterial.frictionCoeff;
+    material.sphereDragCoefficient = config.physicsMaterial.sphereDragCoeff;
     return material;
 }
 
 BodySimulationLimits BodySimulationLimits::FromConfig( const Basics::EngineConfig& config )
 {
     BodySimulationLimits limits;
-    limits.angularVelocityLimit = config.velocityLimit;
+    limits.angularVelocityLimit = config.bodySimulation.velocityLimit;
     return limits;
 }
 
 ContactPolicy ContactPolicy::FromConfig( const Basics::EngineConfig& config )
 {
     ContactPolicy policy;
-    policy.contactEpsilon = config.contactEpsilon;
-    policy.terrainContactThreshold = config.terrainContactThreshold;
-    policy.restitutionThreshold = config.contactRestitutionThreshold;
+    policy.contactEpsilon = config.bodySimulation.contactEpsilon;
+    policy.terrainContactThreshold = config.terrainContact.threshold;
+    policy.restitutionThreshold = config.bodySimulation.contactRestitutionThreshold;
     return policy;
 }
 } // namespace Physics

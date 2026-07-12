@@ -15,7 +15,7 @@ Glossary:
   Cause tree: Replay graph used by the tool UI to explain which contact or
     predicted movement caused another replay body to matter.
   Body store: Physics-owned live body records used for pose and velocity
-    authority while legacy GameModel mirrors are retired.
+    authority while legacy object-record mirrors are retired.
   Collider store: Physics-owned shape, material, and radius records paired with
     body handles.
   UI (User Interface): Runtime controls and overlays that expose replay state
@@ -39,7 +39,7 @@ Glossary:
 Invariants:
   - Stored dense rows use ModelRowHint; ReplayBodyId remains the identity check.
   - Scrub/prediction draw poses are presentation-only value overrides; replay
-    must not backup or mutate live GameModel pose for rendering.
+    must not backup or mutate live legacy object record pose for rendering.
   - Prediction cache cursors must be reset whenever target, ragdoll mode, or
     sample storage changes.
   - Prediction worker tasks must be idle before build scratch, trajectory slots,
@@ -52,6 +52,7 @@ Related:
 #pragma once
 
 #include "ReplayRecorder.h"
+#include "ReplayPredictionScheduling.h"
 #include "../../Assets/AssetKeys.h"
 #include "../../GameObjects/SceneCapacity.h"
 #include "TrajectoryStore.h"
@@ -74,10 +75,10 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace GameObjects
+namespace Basics
 {
-class GameModelCollection;
-} // namespace GameObjects
+class SceneController;
+}
 
 namespace Environment
 {
@@ -318,6 +319,10 @@ struct RunReplayPastTrajectoryBuildState
     ReplayFrameIndex firstFrame = 0;
     ReplayFrameIndex builtThroughFrame = 0;
     uint64_t totalFramesEvicted = 0;
+    // Structural perf evidence: one selection rebuild is allowed; ordinary
+    // live retention must advance through version-stable incremental trims.
+    uint64_t fullRebuildCount = 0;
+    uint64_t incrementalTrimCount = 0;
     bool valid = false;
 };
 
@@ -596,11 +601,22 @@ struct RunReplayPredictionTrajectoryBuildState
 struct RunReplayPredictionBuildState
 {
     bool dirty = true;
+    // Concept: velocity edits do not form a queue. While an instant worker job
+    // is in flight, this bit remembers only that the newest live state needs one
+    // replacement build after completion.
+    bool pendingLatestRestart = false;
+    uint32_t supersededRestartCount = 0;
+    uint32_t latestRestartBeginCount = 0;
     bool building = false;
     bool complete = false;
+    ReplayPredictionBuildMode buildMode = ReplayPredictionBuildMode::Undecided;
     int nextTick = 1;
     int targetTickCount = 0;
     double lastBuildTime = 0.0;
+    double lastBuildWallMs = 0.0;
+    double instantBudgetMs = 0.0;
+    int probeTickBudget = 8;
+    std::chrono::steady_clock::time_point jobStart = {};
     // Runtime allocation policy: prediction buildFrames can be pre-sized for a
     // whole horizon while only buildFrameCount rows are populated. Render reads
     // frames, not the pre-sized build vector, until completion swaps them.
@@ -631,6 +647,14 @@ struct RunReplayPredictionSimulationState
     ReplayFrameIndex sourceFrameIndex = 0;
     uint64_t sourceSolverHash = 0;
     double sourceSimulationSeconds = 0.0;
+    // Invariant: the worker is the sole writer of probe accumulators and
+    // release-publishes measuredTicksPerMs. The frame thread acquire-loads it
+    // before choosing a build mode. Same-source velocity restarts retain the
+    // calibration; scene/branch/body-count changes reset it.
+    std::atomic<double> measuredTicksPerMs{ 0.0 };
+    double probeElapsedMs = 0.0;
+    int probeTicksCompleted = 0;
+    int calibratedModelCount = -1;
     // Concept: prediction simulates the future in its own engine. Live stores
     // are never written by prediction, so replay preview state stays isolated.
     // Lifetime: constructed lazily on first prediction begin under the replay
@@ -1239,7 +1263,7 @@ class ReplayRuntime
     const ReplaySolverFrameSample* CurrentSolverScrubSample() const;
     const RunReplayPredictionFrame* CurrentPredictionScrubFrame() const;
     // Resolves camera-focus pose/radius from replay samples or live physics
-    // stores; GameModel metadata remains outside this body-authority query.
+    // stores; legacy object record metadata remains outside this body-authority query.
     bool ResolveCauseTreeBodyPosition( ReplayBodyId id,
                                        const Physics::PhysicsBodyStore& bodyStore,
                                        const Physics::ColliderStore& colliderStore,
@@ -1303,7 +1327,7 @@ class ReplayRuntime
                                  const Math::Vector::Vector3& placementScale,
                                  float placementYawRadians );
     // Records exact transform payload values supplied by the caller; replay must
-    // not reread GameModel pose after physics store authority has the body row.
+    // not reread legacy object record pose after physics store authority has the body row.
     void RecordEditorTransformEvent( int modelIndex,
                                      uint32_t changedFlags,
                                      uint32_t replayBodyId,
@@ -1392,6 +1416,9 @@ class ReplayRuntime
     void CancelToolGesture( RuntimeInteractionController& interaction );
     void CancelToolDragState( RuntimeInteractionController& interaction, InputRouter& inputRouter );
     bool HasActiveInteractionState() const;
+    // Clears replay gesture/camera state as one replay-owned scene transition.
+    // The owner bundle is borrowed for this synchronous operation only.
+    void ClearInteractionForSceneLoad( const SceneTimelineResetOwners& owners );
     // Clears replay-owned transient state and reports whether the camera owner
     // must execute an inspection-camera exit after the state transition.
     bool ClearInteractionForRuntimeTransition( RuntimeInteractionController& interaction, InputRouter& inputRouter );

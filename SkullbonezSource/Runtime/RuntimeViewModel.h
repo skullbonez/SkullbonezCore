@@ -21,6 +21,8 @@ Glossary:
     candidate, rejected, or hidden contact-audio decisions.
   Simple linear mode: Contact-audio path that emits from mass-scaled linear
     velocity changes rather than solver contact rows.
+  Presentation alpha: Bounded live interpolation fraction copied for UI
+    diagnostics; capture pin state explains intentional alpha 1 frames.
 
 Invariants:
   - View models are copies; consumers must not infer ownership from them.
@@ -65,7 +67,7 @@ struct RuntimeContactAudioSnapshot
     float simpleMinLinearEnergy = 270.0f;
     float simpleMinLinearDeltaSpeed = 2.0f;
     float simpleLinearEnergyRange = 320.0f;
-    uint32_t burstVoicesPerWindow = 0; // Max submitted contact sounds per 100 ms burst.
+    uint32_t burstVoicesPerWindow = 0;     // Max submitted contact sounds per 100 ms burst.
     float rollingLevelDb = -24.0f;
     float rollingMaxDistance = 24.0f;
     float rollingMinSlipSpeed = 0.65f;
@@ -79,17 +81,20 @@ struct RuntimeContactAudioSnapshot
 
 struct RuntimeViewModel
 {
-    bool sceneMode = false;            // True when an authored scene is active
-    bool scenePhysics = false;         // Active scene physics toggle
-    bool sceneText = false;            // Active scene text overlay toggle
-    bool fixedStep = false;            // Active fixed-step toggle
-    bool screenshotPending = false;    // True when scene capture has not completed
-    int sceneIndex = -1;               // Current scene queue index
-    int sceneCount = 0;                // Number of queued scene entries
-    int frame = 0;                     // Current per-load frame
-    int targetFrameCount = -1;         // Completion frame target (-1 = unlimited)
-    int modelCount = 0;                // Current runtime model count
-    float timeScale = 1.0f;            // Active simulation time scale
+    bool sceneMode = false;                // True when an authored scene is active
+    bool scenePhysics = false;             // Active scene physics toggle
+    bool sceneText = false;                // Active scene text overlay toggle
+    bool fixedStep = false;                // Active fixed-step toggle
+    bool screenshotPending = false;        // True when scene capture has not completed
+    int sceneIndex = -1;                   // Current scene queue index
+    int sceneCount = 0;                    // Number of queued scene entries
+    int frame = 0;                         // Current per-load frame
+    int targetFrameCount = -1;             // Completion frame target (-1 = unlimited)
+    int modelCount = 0;                    // Current runtime model count
+    float timeScale = 1.0f;                // Active simulation time scale
+    bool presentationInterpolation = true; // Configured live render policy.
+    bool presentationPinned = false;       // Capture/replay policy forced exact current state this frame.
+    float presentationAlpha = 1.0f;        // Effective previous-to-current pose blend.
     RuntimeContactAudioSnapshot contactAudio;
 };
 
@@ -100,6 +105,9 @@ struct RuntimeViewModelContext
     const SceneController& scene;
     const CaptureController& capture;
     const Physics::PhysicsEngine& physics;
+    bool presentationInterpolation = true;
+    bool presentationPinned = false;
+    float presentationAlpha = 1.0f;
 };
 
 class RuntimeViewModelBuilder

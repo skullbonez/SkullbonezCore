@@ -18,7 +18,7 @@ Invariants:
   - Pointer capture must end whenever the drag exits or the edited target becomes invalid.
   - Edited velocities are clamped before waking or mutating the physics body.
   - Hit testing, drag-start values, and gizmo drawing must read store rows, not
-    the post-step GameModel body mirror.
+    the post-step legacy object record body mirror.
   - Velocity-edit helper functions are file-local to this translation unit.
 
 Related:
@@ -38,7 +38,7 @@ Related:
 #include "ReplayOverlayLayout.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
-#include "../../Physics/PhysicsEngineStoreQueries.h"
+#include "../../Physics/PhysicsEngine.h"
 
 #include <algorithm>
 #include <cfloat>
@@ -275,7 +275,7 @@ static bool TryResolveReplayVelocityBodyView( const ReplayRuntime& replayRuntime
     // Invariant: replay velocity edit resolves identity to a body handle before
     // it reads pose, velocity, or shape rows. modelIndex remains only for UI
     // gesture metadata and collider pairing while replay/editor identity moves
-    // away from transient GameModel order.
+    // away from transient legacy object record order.
     outView.body = bodyHandle;
     outView.modelRow.value = modelIndex;
     outView.position = body->position;
@@ -513,8 +513,8 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
     // Invariant: the frame boundary prepares paired physics rows before replay
     // input. This handler reads those explicit owners and never repairs legacy
     // model topology from inside an interaction hot path.
-    const PhysicsBodyStore& velocityBodies = PhysicsEngineStoreQueries::BodyStore( velocityPhysics );
-    const ColliderStore& velocityColliders = PhysicsEngineStoreQueries::Colliders( velocityPhysics );
+    const PhysicsBodyStore& velocityBodies = PhysicsEngine::ReadBodies( velocityPhysics );
+    const ColliderStore& velocityColliders = PhysicsEngine::ReadColliders( velocityPhysics );
     const bool velocityStoresReady =
         velocityBodies.Count() == velocityColliders.Count() && velocityBodies.Count() == entities.Count();
     const auto tryResolveVelocityBody = [&]( ReplayVelocityBodyView& outBody )
@@ -597,6 +597,9 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
         }
         if ( leftReleased || !leftDown )
         {
+            // Invariant: the final drag sample is applied above while leftDown is
+            // still true, before release ends the gesture. Its dirty request is
+            // therefore the newest live velocity consumed by the coalesced build.
             replayInteraction.EndVelocityEditDrag( m_replayRuntime );
             m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayVelocityDrag );
             m_inputRouter.ReleaseNativeCapture();
@@ -767,11 +770,10 @@ void ReplayRuntime::RenderVelocityEditOverlay( PhysicsEngine& velocityPhysics,
     }
 
     ReplayVelocityBodyView body;
-    if ( !TryResolveReplayVelocityBodyView(
-             *this,
-             SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( velocityPhysics ),
-             SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( velocityPhysics ),
-             body ) ||
+    if ( !TryResolveReplayVelocityBodyView( *this,
+                                            SkullbonezCore::Physics::PhysicsEngine::ReadBodies( velocityPhysics ),
+                                            SkullbonezCore::Physics::PhysicsEngine::ReadColliders( velocityPhysics ),
+                                            body ) ||
          body.fixed || !body.shape )
     {
         return;

@@ -35,7 +35,7 @@ Related:
 #include "../Core/Common.h"
 #include "../Core/Config.h"
 #include "../Core/Log.h"
-#include "../GameObjects/GameModelCollection.h"
+#include "Scene/SceneController.h"
 #include "../Core/Profiler.h"
 #include "Audio/ContactAudioService.h"
 #include "Replay/ReplayRecorder.h"
@@ -461,14 +461,14 @@ void RuntimeDiagnostics::SetPhysicsCollisionTimeLogOverride( RunPerfLogState& pe
 }
 
 void RuntimeDiagnostics::SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& diagnostics,
-                                                    GameObjects::GameModelCollection& models,
+                                                    Basics::SceneController& models,
                                                     const char* path,
                                                     bool fixedStepForcedByDiagnostics )
 {
     strcpy_s( diagnostics.path, sizeof( diagnostics.path ), path );
     diagnostics.isEnabled = diagnostics.path[0] != '\0';
     diagnostics.fixedStepForcedByDiagnostics = fixedStepForcedByDiagnostics;
-    models.SetPhysicsDiagnosticsPath( diagnostics.path );
+    models.Physics().SetPhysicsDiagnosticsPath( diagnostics.path );
 }
 
 void RuntimeDiagnostics::LogSceneFinished( RunSceneState& scene,
@@ -497,7 +497,7 @@ void RuntimeDiagnostics::LogSceneFinished( RunSceneState& scene,
 }
 
 void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
-                                                     GameObjects::GameModelCollection& models,
+                                                     Basics::SceneController& models,
                                                      const RunSceneState& scene,
                                                      const EngineConfig& config,
                                                      const char* scenePath,
@@ -512,7 +512,7 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
     sprintf_s( diagnostics.currentRunId, sizeof( diagnostics.currentRunId ), "run_%04d", diagnostics.runSequence );
     diagnostics.isRunActive = true;
     diagnostics.contactAudioEventSequence = 0;
-    models.SetPhysicsDiagnosticsRunId( diagnostics.currentRunId );
+    models.Physics().SetPhysicsDiagnosticsRunId( diagnostics.currentRunId );
 
     const char* solverName = "solver";
     std::string escapedScene = JsonEscape( scenePath && scenePath[0] != '\0' ? scenePath : "generated" );
@@ -542,25 +542,25 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
                   diagnostics.fixedStepForcedByDiagnostics ? 1 : 0,
                   scene.targetFrameCount,
                   scene.modelCount,
-                  config.gravity,
-                  config.contactEpsilon,
-                  config.contactRestitutionThreshold,
-                  config.frictionCoeff,
-                  config.objectFrictionCoeff,
-                  config.rollingFrictionCoeff,
-                  config.spinFrictionCoeff,
-                  config.broadphaseCell,
-                  config.persistentContactSlop,
-                  config.persistentContactBaumgarteBeta,
-                  config.persistentContactPositionCorrectionPercent,
-                  config.persistentContactSolverIterations,
-                  config.terrainContactThreshold,
-                  config.terrainContactSlop,
-                  config.terrainContactBaumgarteBeta,
-                  config.terrainMaxBaumgarteBias,
-                  config.physicsSleepLinearSpeed,
-                  config.physicsSleepAngularSpeed,
-                  config.physicsSleepFrames );
+                  config.worldForces.gravity,
+                  config.bodySimulation.contactEpsilon,
+                  config.bodySimulation.contactRestitutionThreshold,
+                  config.physicsMaterial.frictionCoeff,
+                  config.physicsMaterial.objectFrictionCoeff,
+                  config.physicsMaterial.rollingFrictionCoeff,
+                  config.physicsMaterial.spinFrictionCoeff,
+                  config.broadphase.cellSize,
+                  config.persistentContactSolver.slop,
+                  config.persistentContactSolver.baumgarteBeta,
+                  config.persistentContactSolver.positionCorrectionPercent,
+                  config.persistentContactSolver.iterations,
+                  config.terrainContact.threshold,
+                  config.terrainContact.slop,
+                  config.terrainContact.baumgarteBeta,
+                  config.terrainContact.maxBaumgarteBias,
+                  config.physicsSleep.linearSpeed,
+                  config.physicsSleep.angularSpeed,
+                  config.physicsSleep.frames );
 }
 
 void RuntimeDiagnostics::LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics,

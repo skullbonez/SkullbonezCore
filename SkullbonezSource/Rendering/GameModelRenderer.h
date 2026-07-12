@@ -26,6 +26,7 @@ Related:
 #pragma once
 
 #include "../Maths/Matrix4.h"
+#include "IRenderDiagnostics.h"
 #include "Shadow.h"
 #include "../Maths/Vector3.h"
 
@@ -71,7 +72,8 @@ class GameModelRenderer
                               const Rendering::ShadowFrameData* shadow,
                               float materialAlpha,
                               const std::vector<uint8_t>* modelMask = nullptr,
-                              bool drawMaskedModels = true );
+                              bool drawMaskedModels = true,
+                              Rendering::RenderVisibilityView visibilityView = Rendering::RenderVisibilityView::Main );
     static void BuildShadowCasterBatches( const Rendering::RenderInstanceStore& renderStore,
                                           const Physics::ColliderStore& colliderStore,
                                           Threading::WorkerPool* workerPool,
@@ -81,7 +83,8 @@ class GameModelRenderer
                                            const Rendering::ShadowCasterBatches& batches,
                                            const Math::Transformation::Matrix4& view,
                                            const Math::Transformation::Matrix4& proj,
-                                           const Basics::CinematicRenderConfig* cinematic );
+                                           const Basics::CinematicRenderConfig* cinematic,
+                                           Rendering::RenderVisibilityView visibilityView );
     static void RenderShadowCasters( const Basics::RenderHelperContext& helperContext,
                                      const Rendering::RenderInstanceStore& renderStore,
                                      const Physics::ColliderStore& colliderStore,
@@ -89,7 +92,8 @@ class GameModelRenderer
                                      bool useShadowParallelPrep,
                                      const Math::Transformation::Matrix4& view,
                                      const Math::Transformation::Matrix4& proj,
-                                     const Basics::CinematicRenderConfig* cinematic );
+                                     const Basics::CinematicRenderConfig* cinematic,
+                                     Rendering::RenderVisibilityView visibilityView );
     static bool GetObjectShadowBounds( const Rendering::RenderInstanceStore& renderStore,
                                        Threading::WorkerPool* workerPool,
                                        bool useShadowParallelPrep,
@@ -98,7 +102,6 @@ class GameModelRenderer
                                        Math::Vector::Vector3& outCenter,
                                        float& outRadius,
                                        float& outHeightRange );
-    static void ResetRenderResources();
 };
 } // namespace GameObjects
 } // namespace SkullbonezCore

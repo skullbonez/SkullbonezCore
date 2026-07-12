@@ -15,7 +15,9 @@ Glossary:
 
 Invariants:
   - CPU-side root signatures, input layouts, and descriptor bindings must
-  match this shader exactly.
+    match this shader exactly.
+  - This is the sole screen-space sun march; tonemap only composites its output.
+  - Depth values at or above 0.9999 represent unobstructed sky for the march.
 
 Related:
   - Agentic/Reference/comment-style-guide.md
@@ -39,7 +41,6 @@ cbuffer Uniforms : register(b0)
     float3 uSunColor;
     float _padding0;
     float4 uVolumetricParams;  // strength, density, decay, fog density
-    float4 uCloudParams;       // coverage, softness, scale, intensity
 };
 
 Texture2D    uSceneTex : register(t0);
@@ -69,96 +70,6 @@ VS_OUT main_vs(VS_IN input)
     return output;
 }
 
-float Hash21(float2 p)
-{
-    // Cheap repeatable pseudo-random value from a 2D point. Used to build soft
-    // cloud breakup without needing a cloud texture.
-    p = frac(p * float2(127.1f, 311.7f));
-    p += dot(p, p + 74.7f);
-    return frac(p.x * p.y);
-}
-
-float ValueNoise(float2 p)
-{
-    // Smooth value noise. Neighboring positions get similar values, so the cloud
-    // gaps feel cloudy instead of speckled.
-    float2 i = floor(p);
-    float2 f = frac(p);
-    float2 u = f * f * (3.0f - 2.0f * f);
-    float a = Hash21(i);
-    float b = Hash21(i + float2(1.0f, 0.0f));
-    float c = Hash21(i + float2(0.0f, 1.0f));
-    float d = Hash21(i + float2(1.0f, 1.0f));
-    return lerp(lerp(a, b, u.x), lerp(c, d, u.x), u.y);
-}
-
-float CloudBreakup(float2 screenUV)
-{
-    // Small holes and unevenness keep the ray mask from looking like
-    // perfectly smooth computer cones.
-    float2 p = screenUV * float2(5.2f, 2.2f) + float2(0.17f, 1.31f);
-    float v = ValueNoise(p) * 0.55f;
-    v += ValueNoise(p * 2.03f + 4.0f) * 0.30f;
-    v += ValueNoise(p * 4.11f + 9.0f) * 0.15f;
-    return smoothstep(0.28f, 0.86f, v);
-}
-
-float CloudLobe(float2 screenUV, float2 center, float2 radius, float seed)
-{
-    float2 q = (screenUV - center) / radius;
-    float broad = length(q * float2(0.88f, 1.12f));
-    float cap = length((screenUV - center + float2(0.04f, -0.025f)) / (radius * float2(0.78f, 0.86f)));
-    float ragged = (sin((screenUV.x + seed) * 31.0f) + sin((screenUV.y - seed) * 37.0f)) * 0.018f;
-    float body = 1.0f - smoothstep(0.72f, 1.24f, broad + ragged);
-    float crown = 1.0f - smoothstep(0.45f, 1.06f, cap + ragged * 0.45f);
-    return saturate(body * 0.72f + crown * 0.28f);
-}
-
-float HeroCloudMask(float2 screenUV)
-{
-    // Hand-placed cloud forms that line up with the cinematic sky composition.
-    // These shapes block parts of the rays like the reference image clouds.
-    float mask = 0.0f;
-    mask = max(mask, CloudLobe(screenUV, float2(0.20f, 0.64f), float2(0.28f, 0.105f), 2.1f) * 0.84f);
-    mask = max(mask, CloudLobe(screenUV, float2(0.40f, 0.68f), float2(0.22f, 0.090f), 5.7f) * 0.62f);
-    mask = max(mask, CloudLobe(screenUV, float2(0.66f, 0.78f), float2(0.26f, 0.090f), 8.6f) * 0.48f);
-    mask = max(mask, CloudLobe(screenUV, float2(0.84f, 0.64f), float2(0.30f, 0.110f), 12.3f) * 0.54f);
-    mask = max(mask, CloudLobe(screenUV, float2(0.55f, 0.55f), float2(0.26f, 0.080f), 17.2f) * 0.36f);
-    mask = max(mask, CloudLobe(screenUV, float2(0.10f, 0.55f), float2(0.24f, 0.080f), 21.4f) * 0.46f);
-    mask = max(mask, CloudLobe(screenUV, float2(0.74f, 0.58f), float2(0.34f, 0.095f), 24.9f) * 0.42f);
-    mask = max(mask, CloudLobe(screenUV, float2(0.96f, 0.54f), float2(0.22f, 0.080f), 28.5f) * 0.38f);
-    return saturate(mask);
-}
-
-float CloudLayerMask(float2 screenUV)
-{
-    // Combines broad noise, fine detail, erosion, and hand-placed cloud shapes
-    // into a single 0..1 "cloud is here" mask.
-    float2 lowerUV = float2(screenUV.x * 1.28f + 0.12f, screenUV.y * 2.55f + 0.18f) * max(uCloudParams.z, 0.001f);
-    lowerUV.x += sin(screenUV.y * 5.0f) * 0.07f;
-    float broad = ValueNoise(lowerUV) * 0.50f;
-    broad += ValueNoise(lowerUV * 2.07f + 3.4f) * 0.25f;
-    broad += ValueNoise(lowerUV * 4.28f + 8.1f) * 0.125f;
-    float detail = ValueNoise(lowerUV * 2.45f + float2(6.8f, 1.7f)) * 0.50f;
-    detail += ValueNoise(lowerUV * 5.04f + float2(9.4f, 4.2f)) * 0.25f;
-    float erosion = ValueNoise(lowerUV * 4.20f + float2(11.4f, 5.7f)) * 0.55f;
-    erosion += ValueNoise(lowerUV * 8.38f + float2(12.9f, 7.1f)) * 0.25f;
-    float cloudShape = broad * 0.80f + detail * 0.20f - (erosion - 0.42f) * 0.12f;
-
-    float threshold = lerp(0.76f, 0.34f, saturate(uCloudParams.x));
-    float lowerMask = smoothstep(threshold, threshold + max(uCloudParams.y * 1.55f, 0.001f), cloudShape);
-    lowerMask *= smoothstep(0.18f, 0.82f, 1.0f - erosion * 0.34f);
-    float lowerBand = smoothstep(0.34f, 0.50f, screenUV.y) * (1.0f - smoothstep(0.76f, 0.92f, screenUV.y));
-    return saturate(lowerMask * lowerBand * clamp(uCloudParams.w, 0.0f, 1.5f));
-}
-
-float CloudRayOpen(float2 screenUV)
-{
-    // Cloud shape is resolved by the world-space sky pass. This post pass only
-    // needs to keep rays open without camera-locked masks.
-    return 1.0f;
-}
-
 float LinearizeDepth(float depth)
 {
     // Convert depth-buffer values back into approximate scene distance so far
@@ -182,6 +93,8 @@ float SampleLightTransmittance(float2 uv)
 
     // Sky pixels have depth near 1. Solid pixels can still contribute a little
     // if they are distant and bright, which makes far haze glow near the horizon.
+    // Ownership: cloud shape is resolved by the world-space sky pass. A
+    // camera-locked mask in this post pass would make cloud occlusion slide.
     float rawDepth = uDepthTex.Sample(sSampler1, uv).r;
     float3 sceneColor = uSceneTex.Sample(sSampler1, ClampScreenUV(uv)).rgb;
     float skyMask = rawDepth >= 0.9999f ? 1.0f : 0.0f;
@@ -189,9 +102,7 @@ float SampleLightTransmittance(float2 uv)
     float distantGeometry = smoothstep(90.0f, 1250.0f, linearDepth) * (1.0f - skyMask);
     float brightness = max(max(sceneColor.r, sceneColor.g), sceneColor.b);
     float brightPath = smoothstep(0.25f, 2.2f, brightness);
-    float2 screenUV = float2(uv.x, 1.0f - uv.y);
-    float cloudOpen = CloudRayOpen(screenUV);
-    return (skyMask * (0.38f + brightPath * 0.62f) + distantGeometry * 0.22f) * cloudOpen;
+    return skyMask * (0.38f + brightPath * 0.62f) + distantGeometry * 0.22f;
 }
 
 float4 main_ps(VS_OUT input) : SV_TARGET

@@ -30,7 +30,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/PhysicsApi.h
-  - Agentic/Plans/TODO/physics-authority-and-identity.md
+  - Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md
 */
 #pragma once
 
@@ -95,6 +95,10 @@ struct PhysicsConstraintHandle
 
 struct PhysicsSceneObjectId
 {
+    // Concept: this is the one stable cross-system identity for a scene object.
+    // Undo, scene save/load, picking, logging, replay correlation, and future
+    // cross-system features carry it; hot subsystem loops use their own typed
+    // handles and dense rows after resolving at the owner boundary.
     uint32_t value = 0;
 
     bool IsValid() const

@@ -1098,6 +1098,7 @@ class TestSceneParser
     void ValidateAssetSphereFields( const Json& asset, const std::string& path, const char* context ) const;
     void ValidateConvexHullAssetFields( const Json& asset, const std::string& path, const char* context ) const;
     void ValidateAssetPrimitiveFields( const Json& asset, const std::string& path, const char* context ) const;
+    void UpgradeAssetLibraryV0ToV1( Json& root, const std::string& path );
     void LoadAssetLibrary( const std::string& assetPath, uint32_t libraryRefIndex );
     void LoadAssetLibraries( const Json& root, const std::string& path );
     void CheckGeneratedSceneName( const std::string& name, const std::string& path, const char* context ) const;

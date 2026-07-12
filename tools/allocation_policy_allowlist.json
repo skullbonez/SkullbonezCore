@@ -4,8 +4,7 @@
     {
       "path": "SkullbonezSource/Runtime/Init.cpp",
       "patterns": [
-        "std::make_unique<SkullbonezCore::Environment::WorldEnvironment>",
-        "std::make_unique<SkullbonezCore::GameObjects::GameModelCollection>",
+        "std::make_unique<SkullbonezCore::Basics::SceneController>",
         "std::make_unique<PhysicsBodyStore>"
       ],
       "owner": "Standalone physics smoke bootstrap",
@@ -262,28 +261,17 @@
       "removal_or_wrapper_plan": "Replace with fixed diagnostic/threading storage if core infrastructure becomes part of strict steady-runtime allocation enforcement."
     },
     {
-      "path": "SkullbonezSource/GameObjects/GameModelCollection.cpp",
+      "path": "SkullbonezSource/Runtime/Scene/SceneController.Objects.cpp",
       "patterns": [
         ".assign(",
         ".push_back(",
         ".reserve("
       ],
-      "owner": "Game model collection preallocation surface",
+      "owner": "SceneController coordinated scene-store preallocation",
       "phase": "scene_load_preallocation",
-      "reason": "Game model and scene group storage is reserved while scene data is loaded or reset, before steady gameplay uses the fixed model capacity.",
+      "reason": "Scene metadata, authored physics helpers, and render presentation rows are reserved while scene data is loaded or reset, before steady gameplay uses the fixed capacity.",
       "cap": "Bounded by configured game model capacity and active scene entity count.",
-      "removal_or_wrapper_plan": "Move model records to fixed-capacity stores and delete these allowlist patterns once the collection no longer grows STL storage."
-    },
-    {
-      "path": "SkullbonezSource/GameObjects/GameModelCollection.h",
-      "patterns": [
-        "std::vector<"
-      ],
-      "owner": "Game model collection preallocation surface",
-      "phase": "scene_load_preallocation",
-      "reason": "Game model and scene group storage is reserved while scene data is loaded or reset, before steady gameplay uses the fixed model capacity.",
-      "cap": "Bounded by configured game model capacity and active scene entity count.",
-      "removal_or_wrapper_plan": "Move model records to fixed-capacity stores and delete these allowlist patterns once the collection no longer grows STL storage."
+      "removal_or_wrapper_plan": "Replace cold descriptor helper vectors with bounded scratch storage when scene loading joins the strict no-STL-growth phase."
     },
     {
       "path": "SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp",

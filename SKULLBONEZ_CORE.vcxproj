@@ -98,7 +98,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;xaudio2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;dxcompiler.lib;xaudio2.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)SKULLBONEZ_CORE.exe</OutputFile>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <IgnoreSpecificDefaultLibraries>LIBC;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
@@ -122,7 +122,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;xaudio2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;dxcompiler.lib;xaudio2.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)SKULLBONEZ_CORE.exe</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
@@ -147,7 +147,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;xaudio2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;dxcompiler.lib;xaudio2.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)SKULLBONEZ_CORE.exe</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
@@ -171,7 +171,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;xaudio2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;dxcompiler.lib;xaudio2.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)SKULLBONEZ_CORE.exe</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
@@ -180,6 +180,12 @@
       <IgnoreSpecificDefaultLibraries>libc.lib</IgnoreSpecificDefaultLibraries>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup>
+    <PostBuildEvent>
+      <Command>copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxcompiler.dll" "$(OutDir)dxcompiler.dll" &gt;nul
+copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp" />
@@ -196,8 +202,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherTools.cpp" />
     <ClCompile Include="SkullbonezSource\Core\AmortizedTask.cpp" />
     <ClCompile Include="SkullbonezSource\Core\FatalError.cpp" />
-    <ClCompile Include="SkullbonezSource\GameObjects\GameModel.cpp" />
-    <ClCompile Include="SkullbonezSource\GameObjects\GameModelCollection.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Objects.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\GameModelRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\SceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.cpp" />
@@ -253,6 +258,8 @@
     <ClCompile Include="SkullbonezSource\Core\Config.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Run.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorTools.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorHistory.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorPlacementAssets.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorGizmoTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunMousePickupTools.cpp" />
@@ -327,6 +334,7 @@
     <ClCompile Include="SkullbonezSource\Rendering\RenderGraph.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderPipeline.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.DXR.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.DynamicGeometry.cpp" />
@@ -336,6 +344,7 @@
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Resources.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Textures.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderDeviceDX12.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\ShaderBytecodeManifest.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\ShaderDX12.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\MeshDX12.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\FramebufferDX12.cpp" />
@@ -359,6 +368,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\CameraCollection.h" />
     <ClInclude Include="SkullbonezSource\Runtime\DemoDirector.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTools.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorPlacementAssets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorOverlayTools.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorHullAssets.h" />
@@ -369,8 +379,7 @@
     <ClInclude Include="SkullbonezSource\Core\MainMemoryStats.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DrawCallTrace.h" />
     <ClInclude Include="SkullbonezSource\Core\Fence.h" />
-    <ClInclude Include="SkullbonezSource\GameObjects\GameModel.h" />
-    <ClInclude Include="SkullbonezSource\GameObjects\GameModelCollection.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.Objects.inl" />
     <ClInclude Include="SkullbonezSource\GameObjects\SceneCapacity.h" />
     <ClInclude Include="SkullbonezSource\Rendering\GameModelRenderer.h" />
     <ClInclude Include="SkullbonezSource\Scene\SceneSnapshotWriter.h" />
@@ -438,6 +447,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayOverlayRenderer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionReserve.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionScheduling.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRetainedMemory.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRestoreService.h" />
@@ -500,6 +510,8 @@
     <ClInclude Include="SkullbonezSource\Rendering\IRenderDeviceLifecycle.h" />
     <ClInclude Include="SkullbonezSource\Rendering\IRenderDiagnostics.h" />
     <ClInclude Include="SkullbonezSource\Rendering\IRenderRayTracing.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\IRenderShaderDevelopment.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h" />
     <ClInclude Include="SkullbonezSource\Rendering\IRenderResourceFactory.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceStore.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderGraph.h" />
@@ -507,13 +519,17 @@
     <ClInclude Include="SkullbonezSource\Rendering\RenderRasterBindingContract.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderSceneSnapshot.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.CommandRecordingState.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.PipelineState.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderMaterial.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderGraphTransientDX12.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderDeviceDX12.h" />
     <ClInclude Include="SkullbonezSource\Rendering\ShaderContracts.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\ShaderReflectionContracts.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\GeneratedShaderReflection.h" />
     <ClInclude Include="SkullbonezSource\Rendering\Shadow.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\ShaderBytecodeManifest.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\ShaderDX12.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\MeshDX12.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\FramebufferDX12.h" />
@@ -648,6 +664,7 @@
     <None Include="SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json" />
     <None Include="SkullbonezData\interaction\inspect_gizmo_click.json" />
     <None Include="SkullbonezData\interaction\memory_overlay_f6_toggle.json" />
+    <None Include="SkullbonezData\interaction\shader_hot_reload_f9.json" />
     <None Include="SkullbonezData\interaction\replay_branch_restore_live_edge.json" />
     <None Include="SkullbonezData\interaction\replay_prediction_click.json" />
     <None Include="SkullbonezData\scenes\material_authoring_contract.scene.json" />
@@ -698,6 +715,49 @@
     <None Include="SkullbonezData\shaders\lit_textured_instanced.hlsl" />
     <None Include="SkullbonezData\shaders\post_volumetric_light.hlsl" />
     <None Include="SkullbonezData\shaders\post_tonemap.hlsl" />
+    <None Include="SkullbonezData\shaders\collision_visualizer.ps.dxil" />
+    <None Include="SkullbonezData\shaders\collision_visualizer.vs.dxil" />
+    <None Include="SkullbonezData\shaders\generate_mips.cs.dxil" />
+    <None Include="SkullbonezData\shaders\grid_line.ps.dxil" />
+    <None Include="SkullbonezData\shaders\grid_line.vs.dxil" />
+    <None Include="SkullbonezData\shaders\launcher_laser.ps.dxil" />
+    <None Include="SkullbonezData\shaders\launcher_laser.vs.dxil" />
+    <None Include="SkullbonezData\shaders\lit_textured.ps.dxil" />
+    <None Include="SkullbonezData\shaders\lit_textured.vs.dxil" />
+    <None Include="SkullbonezData\shaders\lit_textured_instanced.ps.dxil" />
+    <None Include="SkullbonezData\shaders\lit_textured_instanced.vs.dxil" />
+    <None Include="SkullbonezData\shaders\post_tonemap.ps.dxil" />
+    <None Include="SkullbonezData\shaders\post_tonemap.vs.dxil" />
+    <None Include="SkullbonezData\shaders\post_volumetric_light.ps.dxil" />
+    <None Include="SkullbonezData\shaders\post_volumetric_light.vs.dxil" />
+    <None Include="SkullbonezData\shaders\shadow_depth.ps.dxil" />
+    <None Include="SkullbonezData\shaders\shadow_depth.vs.dxil" />
+    <None Include="SkullbonezData\shaders\shadow_depth_instanced.ps.dxil" />
+    <None Include="SkullbonezData\shaders\shadow_depth_instanced.vs.dxil" />
+    <None Include="SkullbonezData\shaders\sky_atmosphere.ps.dxil" />
+    <None Include="SkullbonezData\shaders\sky_atmosphere.vs.dxil" />
+    <None Include="SkullbonezData\shaders\soft_additive_ribbon.ps.dxil" />
+    <None Include="SkullbonezData\shaders\soft_additive_ribbon.vs.dxil" />
+    <None Include="SkullbonezData\shaders\solid_color.ps.dxil" />
+    <None Include="SkullbonezData\shaders\solid_color.vs.dxil" />
+    <None Include="SkullbonezData\shaders\solid_color_batch.ps.dxil" />
+    <None Include="SkullbonezData\shaders\solid_color_batch.vs.dxil" />
+    <None Include="SkullbonezData\shaders\text.ps.dxil" />
+    <None Include="SkullbonezData\shaders\text.vs.dxil" />
+    <None Include="SkullbonezData\shaders\tornado_fx.ps.dxil" />
+    <None Include="SkullbonezData\shaders\tornado_fx.vs.dxil" />
+    <None Include="SkullbonezData\shaders\trajectory_ribbon.ps.dxil" />
+    <None Include="SkullbonezData\shaders\trajectory_ribbon.vs.dxil" />
+    <None Include="SkullbonezData\shaders\ui_render_target_preview.ps.dxil" />
+    <None Include="SkullbonezData\shaders\ui_render_target_preview.vs.dxil" />
+    <None Include="SkullbonezData\shaders\UIBackdropBlur.ps.dxil" />
+    <None Include="SkullbonezData\shaders\UIBackdropBlur.vs.dxil" />
+    <None Include="SkullbonezData\shaders\unlit_textured.ps.dxil" />
+    <None Include="SkullbonezData\shaders\unlit_textured.vs.dxil" />
+    <None Include="SkullbonezData\shaders\water_calm.ps.dxil" />
+    <None Include="SkullbonezData\shaders\water_calm.vs.dxil" />
+    <None Include="SkullbonezData\shaders\water_ocean.ps.dxil" />
+    <None Include="SkullbonezData\shaders\water_ocean.vs.dxil" />
     <None Include="SkullbonezData\shaders\reflect.rt.dxil" />
     <None Include="SkullbonezData\shaders\reflect.rt.hlsl" />
     <None Include="SkullbonezData\shaders\shadow_depth.hlsl" />
@@ -711,6 +771,7 @@
     <None Include="SkullbonezData\shaders\unlit_textured.hlsl" />
     <None Include="SkullbonezData\shaders\water_calm.hlsl" />
     <None Include="SkullbonezData\shaders\water_ocean.hlsl" />
+    <None Include="SkullbonezData\shaders\shader_manifest.json" />
     <None Include="SkullbonezData\styles\abstract_render_showcase.style.json" />
     <None Include="SkullbonezData\styles\alien_planet.style.json" />
     <None Include="SkullbonezData\styles\atmospheric_fog_world.style.json" />

@@ -120,7 +120,8 @@ The deleted runtime-boundary regex checker is not part of repository
 enforcement. Do not recreate frozen-count or spelling-budget checks for
 migration vocabulary, inheritance, `Run` size, throw counts, or similar
 historical debt. These policies are enforced by code review, owning plans,
-focused behavioral tests in `Agentic/Plans/TODO/behavioral-test-depth.md`, and
+focused behavioral tests recorded in
+`Agentic/Reports/behavioral_test_depth_closure_20260711.md`, and
 the targeted validation gates below.
 
 ## God-Object Closure Rule
@@ -207,6 +208,15 @@ polymorphic service objects, callback chains, handle lookups, scattered
 - When deleting a hot-path inheritance or callback artifact, extend the focused
   tests or validation evidence that would catch the regression. Do not replace
   the deleted artifact with a new compatibility spelling.
+
+## Scene Object Identity Policy
+
+`PhysicsSceneObjectId` is the single stable cross-system identity for a scene
+object. Undo, scene serialization, picking, logging, replay correlation, and
+future cross-system features must use it rather than introducing `EntityId` or
+another unified id. Physics, rendering, audio, and other hot subsystem paths
+use their own typed handles or dense rows after resolving the scene id at the
+owner boundary; a dense row is never durable identity.
 
 ## Runtime Static Allocation Policy
 
@@ -300,12 +310,12 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 | `RenderBackendDX12*.cpp/h`, `Rendering/DX12/*` | `validate_dx12_renderer` + `run_graphics_stress.bat 1` |
 | `SkullbonezData/shaders/*` | `validate_dx12_renderer` + `run_graphics_stress.bat 1` |
 | `RigidBody*`, `PhysicsWorld*`, `SimulationSystem*` | `validate_physics` |
-| `GameModelCollection*` physics solver changes | `validate_physics` |
+| `SceneController.Objects*` physics coordination changes | `validate_physics` |
 | `BoundingSphere*`, `BoundingBox*`, `ConvexHullShape*`, `CollisionShape*` | `validate_physics` |
 | `GameModel*` physics body/state changes | `validate_physics` |
 | `WorldEnvironment*` | `validate_physics` |
 | `SpatialGrid*` | `validate_physics` + `validate_perf` |
-| `GameModelCollection*` render stream or hot-loop changes | `validate_dx12_renderer` + `validate_perf` |
+| `SceneController.Objects*` render stream or hot-loop changes | `validate_dx12_renderer` + `validate_perf` |
 | `Config*`, `SkullbonezData/engine.cfg` physics defaults such as gravity, fluid, drag, friction, sleep, solver, or broadphase values | `validate_physics` |
 | `TestOutput/baselines/physics_regression_varied.csv` | `validate_physics` |
 | Other physics CSV baselines or `TestOutput/baselines/physics_query*.json` | `validate_physics_deep` |
@@ -359,6 +369,11 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
   with `source_vertex`/`source_face` data and serialized with
   `tools\bake_hulls.py --write` so runtime metadata, faces, edges, mass, and
   inertia stay current.
+- **Authored schema changes are versioned migrations.** Any schema change to
+  scenes, asset libraries, hulls, or `engine.cfg` must bump that format's owned
+  integer version, add its deterministic migration step, upgrade committed
+  files, and extend the legacy/current/future/writer tests in the same commit;
+  run `tools\migrate_data_formats.py --check` to verify non-scene authored data.
 - **Scene use of reusable assets should go through `assetInstances[]`.** Avoid
   baking fresh copies of every generated part into scenes unless the scene is an
   intentional snapshot or regression fixture.

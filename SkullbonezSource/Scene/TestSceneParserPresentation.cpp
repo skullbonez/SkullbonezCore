@@ -20,7 +20,7 @@ Invariants:
 
 Related:
   - TestSceneParserSchema.h declares shared parser state and helpers.
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md owns this decomposition.
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md owns this decomposition.
 */
 #include "TestSceneParserSchema.h"
 
@@ -298,7 +298,6 @@ void TestSceneParser::ApplyCinematicBool( const Json& cinematic, const std::stri
         { "bloom", &CinematicRenderConfig::bloomEnabled, SCENE_CINE_BLOOM },
         { "fog", &CinematicRenderConfig::fogEnabled, SCENE_CINE_FOG },
         { "terrainReliefEnabled", &CinematicRenderConfig::terrainReliefEnabled, SCENE_CINE_TERRAIN_RELIEF_ENABLED },
-        { "shadows", &CinematicRenderConfig::shadowsEnabled, SCENE_CINE_SHADOWS },
     };
 
     for ( const BoolField& field : kFields )
@@ -315,6 +314,11 @@ void TestSceneParser::ApplyCinematicBool( const Json& cinematic, const std::stri
             }
         }
     }
+    if ( const Json* value = FindMember( cinematic, "shadows" ) )
+    {
+        m_scene.m_sceneOptions.cinematicRender.shadow.enabled = ReadBool( *value, path, "shadows" );
+        m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_SHADOWS;
+    }
 }
 
 void TestSceneParser::ApplyCinematicInt( const Json& cinematic, const std::string& path )
@@ -322,14 +326,14 @@ void TestSceneParser::ApplyCinematicInt( const Json& cinematic, const std::strin
     struct IntField
     {
         const char* key;
-        int CinematicRenderConfig::* field;
+        int ShadowQualityConfig::* field;
         uint64_t bit;
         int minValue;
         int maxValue;
     };
     static constexpr IntField kFields[] = {
-        { "shadowMapSize", &CinematicRenderConfig::shadowMapSize, SCENE_CINE_SHADOW_MAP_SIZE, 256, 8192 },
-        { "shadowPcfRadius", &CinematicRenderConfig::shadowPcfRadius, SCENE_CINE_SHADOW_PCF_RADIUS, 0, 3 },
+        { "shadowMapSize", &ShadowQualityConfig::mapSize, SCENE_CINE_SHADOW_MAP_SIZE, 256, 8192 },
+        { "shadowPcfRadius", &ShadowQualityConfig::pcfRadius, SCENE_CINE_SHADOW_PCF_RADIUS, 0, 3 },
     };
 
     for ( const IntField& field : kFields )
@@ -343,7 +347,7 @@ void TestSceneParser::ApplyCinematicInt( const Json& cinematic, const std::strin
                 message << "cinematic." << field.key << " must be " << field.minValue << ".." << field.maxValue;
                 Fail( path, message.str() );
             }
-            m_scene.m_sceneOptions.cinematicRender.*( field.field ) = parsed;
+            m_scene.m_sceneOptions.cinematicRender.shadow.*( field.field ) = parsed;
             m_scene.m_sceneOptions.cinematicOverrideMask |= field.bit;
         }
     }
@@ -364,8 +368,10 @@ void TestSceneParser::ApplyCinematicFloat( const Json& cinematic, const std::str
     static constexpr FloatField kFields[] = {
         { "exposure", &CinematicRenderConfig::exposure, SCENE_CINE_EXPOSURE, 0.0f, 16.0f },
         { "gamma", &CinematicRenderConfig::gamma, SCENE_CINE_GAMMA, 0.1f, 8.0f },
-        { "sunScreenX", &CinematicRenderConfig::sunScreenX, SCENE_CINE_SUN_SCREEN_X, 0.0f, 1.0f },
-        { "sunScreenY", &CinematicRenderConfig::sunScreenY, SCENE_CINE_SUN_SCREEN_Y, 0.0f, 1.0f },
+        // Compatibility: scene/style JSON retains its original key spellings;
+        // only the in-memory owner vocabulary changed.
+        { "sunScreenX", &CinematicRenderConfig::sunAzimuth, SCENE_CINE_SUN_AZIMUTH, 0.0f, 1.0f },
+        { "sunScreenY", &CinematicRenderConfig::sunElevation, SCENE_CINE_SUN_ELEVATION, 0.0f, 1.0f },
         { "sunColorR", &CinematicRenderConfig::sunColorR, SCENE_CINE_SUN_COLOR_R, 0.0f, 4.0f },
         { "sunColorG", &CinematicRenderConfig::sunColorG, SCENE_CINE_SUN_COLOR_G, 0.0f, 4.0f },
         { "sunColorB", &CinematicRenderConfig::sunColorB, SCENE_CINE_SUN_COLOR_B, 0.0f, 4.0f },
@@ -397,15 +403,6 @@ void TestSceneParser::ApplyCinematicFloat( const Json& cinematic, const std::str
         { "terrainRelief", &CinematicRenderConfig::terrainRelief, SCENE_CINE_TERRAIN_RELIEF, 0.0f, 4.0f },
         { "basinDepth", &CinematicRenderConfig::basinDepth, SCENE_CINE_BASIN_DEPTH, 0.0f, 256.0f },
         { "basinRimLift", &CinematicRenderConfig::basinRimLift, SCENE_CINE_BASIN_RIM_LIFT, 0.0f, 256.0f },
-        { "shadowStrength", &CinematicRenderConfig::shadowStrength, SCENE_CINE_SHADOW_STRENGTH, 0.0f, 1.0f },
-        { "shadowSoftness", &CinematicRenderConfig::shadowSoftness, SCENE_CINE_SHADOW_SOFTNESS, 0.25f, 4.0f },
-        { "shadowDepthBias", &CinematicRenderConfig::shadowDepthBias, SCENE_CINE_SHADOW_DEPTH_BIAS, 0.0f, 0.05f },
-        { "shadowSlopeBias", &CinematicRenderConfig::shadowSlopeBias, SCENE_CINE_SHADOW_SLOPE_BIAS, 0.0f, 0.05f },
-        { "shadowMaxDistance",
-          &CinematicRenderConfig::shadowMaxDistance,
-          SCENE_CINE_SHADOW_MAX_DISTANCE,
-          128.0f,
-          10000.0f },
         { "fogColorR", &CinematicRenderConfig::fogColorR, SCENE_CINE_FOG_COLOR_R, 0.0f, 4.0f },
         { "fogColorG", &CinematicRenderConfig::fogColorG, SCENE_CINE_FOG_COLOR_G, 0.0f, 4.0f },
         { "fogColorB", &CinematicRenderConfig::fogColorB, SCENE_CINE_FOG_COLOR_B, 0.0f, 4.0f },
@@ -438,6 +435,39 @@ void TestSceneParser::ApplyCinematicFloat( const Json& cinematic, const std::str
                 m_scene.m_sceneOptions.hasCinematicGamma = true;
                 m_scene.m_sceneOptions.cinematicGamma = parsed;
             }
+        }
+    }
+
+    // Ownership: shadow scalars target the nested shadow value owner while
+    // keeping the same JSON keys, ranges, and override bits as before.
+    struct ShadowFloatField
+    {
+        const char* key;
+        float ShadowQualityConfig::* field;
+        uint64_t bit;
+        float minValue;
+        float maxValue;
+    };
+    static constexpr ShadowFloatField kShadowFields[] = {
+        { "shadowStrength", &ShadowQualityConfig::strength, SCENE_CINE_SHADOW_STRENGTH, 0.0f, 1.0f },
+        { "shadowSoftness", &ShadowQualityConfig::softness, SCENE_CINE_SHADOW_SOFTNESS, 0.25f, 4.0f },
+        { "shadowDepthBias", &ShadowQualityConfig::depthBias, SCENE_CINE_SHADOW_DEPTH_BIAS, 0.0f, 0.05f },
+        { "shadowSlopeBias", &ShadowQualityConfig::slopeBias, SCENE_CINE_SHADOW_SLOPE_BIAS, 0.0f, 0.05f },
+        { "shadowMaxDistance", &ShadowQualityConfig::maxDistance, SCENE_CINE_SHADOW_MAX_DISTANCE, 128.0f, 10000.0f },
+    };
+    for ( const ShadowFloatField& field : kShadowFields )
+    {
+        if ( const Json* value = FindMember( cinematic, field.key ) )
+        {
+            const float parsed = ReadFloat( *value, path, field.key );
+            if ( parsed < field.minValue || parsed > field.maxValue )
+            {
+                std::ostringstream message;
+                message << "cinematic." << field.key << " must be " << field.minValue << ".." << field.maxValue;
+                Fail( path, message.str() );
+            }
+            m_scene.m_sceneOptions.cinematicRender.shadow.*( field.field ) = parsed;
+            m_scene.m_sceneOptions.cinematicOverrideMask |= field.bit;
         }
     }
 }

@@ -143,6 +143,38 @@ void ReplayTrajectoryStore::PublishPrefix( ReplayTrajectoryRecord& record, std::
     record.publishedPointCount = (std::min)( pointCount, record.points.size() );
 }
 
+std::size_t ReplayTrajectoryStore::TrimPublishedPointsBeforeFrame( ReplayTrajectoryRecord& record,
+                                                                   ReplayFrameIndex firstRetainedFrame ) noexcept
+{
+    const std::size_t publishedCount = (std::min)( record.publishedPointCount, record.points.size() );
+    const auto publishedEnd = record.points.begin() + static_cast<std::ptrdiff_t>( publishedCount );
+    const auto firstKept = std::lower_bound( record.points.begin(),
+                                             publishedEnd,
+                                             firstRetainedFrame,
+                                             []( const ReplayTrajectoryPoint& point, ReplayFrameIndex frame )
+                                             { return point.frameIndex < frame; } );
+    const std::size_t removedCount = static_cast<std::size_t>( firstKept - record.points.begin() );
+    if ( removedCount == 0u )
+    {
+        return 0u;
+    }
+
+    // Invariant: erase preserves vector capacity and record version. The next
+    // capture can append into the freed slot, while draw readers keep a valid
+    // published prefix instead of observing a replacement gap/flicker.
+    record.points.erase( record.points.begin(), firstKept );
+    record.publishedPointCount = publishedCount - removedCount;
+    if ( !record.points.empty() )
+    {
+        record.firstFrame = record.points.front().frameIndex;
+    }
+    else
+    {
+        record.firstFrame = firstRetainedFrame;
+    }
+    return removedCount;
+}
+
 bool ReplayTrajectoryStore::ReserveRecords( std::size_t requestedCapacity, int frameNumber )
 {
     if ( requestedCapacity <= records.capacity() )

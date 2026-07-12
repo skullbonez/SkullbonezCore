@@ -206,6 +206,16 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     }
     hash = HashInt( hash, data.drawCallsBeforeUI );
     hash = HashInt( hash, data.UIDrawCalls );
+    // Invariant: visibility rows are live diagnostics. Hash every field so a
+    // retained UI draw cannot display the preceding frame's culling result.
+    for ( int viewIndex = 0; viewIndex < static_cast<int>( Rendering::RenderVisibilityView::Count ); ++viewIndex )
+    {
+        const Rendering::RenderVisibilityViewStats& visibility = data.visibility.views[viewIndex];
+        hash = HashInt( hash, visibility.candidates );
+        hash = HashInt( hash, visibility.submitted );
+        hash = HashInt( hash, visibility.culled );
+        hash = HashInt( hash, visibility.draws );
+    }
     hash = HashInt( hash, static_cast<int>( data.reserveGrowthEventTotalCount ) );
     hash = HashInt( hash, data.reserveGrowthEventCount );
     for ( int eventIndex = 0;
@@ -312,6 +322,9 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     }
     hash = HashFloat( hash, data.sceneEnergy, 1000.0f );
     hash = HashFloat( hash, data.timeScale, 1000.0f );
+    hash = HashBool( hash, data.presentationInterpolation );
+    hash = HashBool( hash, data.presentationPinned );
+    hash = HashFloat( hash, data.presentationAlpha, 1000.0f );
     hash = HashFloat( hash, data.trackHeight, 1000.0f );
     hash = HashFloat( hash, data.autoCycleInterval, 1000.0f );
     hash = HashFloat( hash, data.worldGravity, 1000.0f );
@@ -359,9 +372,11 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.editorTerrainAlign );
     hash = HashBool( hash, data.editorViewportLookActive );
     hash = HashInt( hash, data.editorObjectType );
+    hash = HashInt( hash, data.editorUndoDepth );
+    hash = HashInt( hash, data.editorRedoDepth );
     hash = HashBool( hash, data.canSaveSceneDefaults );
     hash = HashBool( hash, data.cinematicRendering );
-    hash = HashBool( hash, data.ordinaryRender.shadowsEnabled );
+    hash = HashBool( hash, data.ordinaryRender.shadow.enabled );
     hash = HashFloat( hash, data.ordinaryRender.sunIntensity, 1000.0f );
     hash = HashFloat( hash, data.ordinaryRender.sunColorR, 1000.0f );
     hash = HashFloat( hash, data.ordinaryRender.sunColorG, 1000.0f );
@@ -373,10 +388,10 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashFloat( hash, data.ordinaryRender.groundAmbientR, 1000.0f );
     hash = HashFloat( hash, data.ordinaryRender.groundAmbientG, 1000.0f );
     hash = HashFloat( hash, data.ordinaryRender.groundAmbientB, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.shadowStrength, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.shadowSoftness, 1000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.shadowDepthBias, 100000.0f );
-    hash = HashFloat( hash, data.ordinaryRender.shadowSlopeBias, 100000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.shadow.strength, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.shadow.softness, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.shadow.depthBias, 100000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.shadow.slopeBias, 100000.0f );
     hash = HashFloat( hash, data.ordinaryRender.waterTintR, 1000.0f );
     hash = HashFloat( hash, data.ordinaryRender.waterTintG, 1000.0f );
     hash = HashFloat( hash, data.ordinaryRender.waterTintB, 1000.0f );
@@ -395,11 +410,11 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.cinematic.bloomEnabled );
     hash = HashBool( hash, data.cinematic.fogEnabled );
     hash = HashBool( hash, data.cinematic.terrainReliefEnabled );
-    hash = HashBool( hash, data.cinematic.shadowsEnabled );
+    hash = HashBool( hash, data.cinematic.shadow.enabled );
     hash = HashFloat( hash, data.cinematic.exposure, 1000.0f );
     hash = HashFloat( hash, data.cinematic.gamma, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.sunScreenX, 1000.0f );
-    hash = HashFloat( hash, data.cinematic.sunScreenY, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.sunAzimuth, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.sunElevation, 1000.0f );
     hash = HashFloat( hash, data.cinematic.sunColorR, 1000.0f );
     hash = HashFloat( hash, data.cinematic.sunColorG, 1000.0f );
     hash = HashFloat( hash, data.cinematic.sunColorB, 1000.0f );

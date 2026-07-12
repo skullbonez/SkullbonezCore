@@ -43,6 +43,7 @@ Related:
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -476,7 +477,7 @@ struct ReplayCaptureInput
     Physics::PhysicsEngine* physics = nullptr;
     const SceneEntityStore* entities = nullptr;
     // Replay recorders borrow stores for physics state and the scene entity
-    // owner for names, so capture does not depend on GameModel writeback.
+    // owner for names, so capture does not depend on legacy object record writeback.
     const Physics::PhysicsBodyStore* bodyStore = nullptr;
     const Physics::ColliderStore* colliderStore = nullptr;
     const ReplayLauncherVisualSample* launcherVisual = nullptr;
@@ -609,6 +610,73 @@ class ReplaySolverRecorder
                 visitor( m_resolvedSolverSample );
             }
         }
+    }
+    // Visits one body's compact position stream without reconstructing dense
+    // solver frames or their world snapshots. Returns false when retained
+    // delta data is internally inconsistent.
+    template <typename Visitor> bool ForEachBodyPositionChronological( ReplayBodyId targetId, Visitor visitor ) const
+    {
+        if ( m_sampleCount == 0 || m_samples.empty() )
+        {
+            return true;
+        }
+        if ( m_solverFrames.size() != m_samples.size() )
+        {
+            return false;
+        }
+
+        constexpr uint32_t invalidMetadataIndex = ( std::numeric_limits<uint32_t>::max )();
+        uint32_t activeMetadataIndex = invalidMetadataIndex;
+        ReplaySolverBodyState activeState;
+        bool activeStateValid = false;
+
+        for ( std::size_t offset = 0; offset < m_sampleCount; ++offset )
+        {
+            const std::size_t frameIndex = ( m_sampleHead + offset ) % m_samples.size();
+            const ReplaySolverDeltaFrame& frame = m_solverFrames[frameIndex];
+            uint32_t frameMetadataIndex = invalidMetadataIndex;
+            for ( uint32_t metadataIndex : frame.bodyMetadataIndices )
+            {
+                if ( metadataIndex >= m_solverBodyMetadata.size() )
+                {
+                    return false;
+                }
+                if ( m_solverBodyMetadata[metadataIndex].id.value == targetId.value )
+                {
+                    frameMetadataIndex = metadataIndex;
+                    break;
+                }
+            }
+
+            if ( frameMetadataIndex == invalidMetadataIndex )
+            {
+                activeMetadataIndex = invalidMetadataIndex;
+                activeStateValid = false;
+                continue;
+            }
+
+            bool stateChanged = false;
+            for ( const ReplaySolverBodyDelta& delta : frame.changedBodies )
+            {
+                if ( delta.metadataIndex == frameMetadataIndex )
+                {
+                    activeState = delta.state;
+                    stateChanged = true;
+                    break;
+                }
+            }
+            if ( !stateChanged && ( frame.keyframe || !activeStateValid || activeMetadataIndex != frameMetadataIndex ) )
+            {
+                return false;
+            }
+
+            activeMetadataIndex = frameMetadataIndex;
+            activeStateValid = true;
+            visitor( m_samples[frameIndex].frameIndex,
+                     m_solverBodyMetadata[frameMetadataIndex].modelRow,
+                     activeState.position );
+        }
+        return true;
     }
     const ReplaySolverFrameSample* LatestSample() const;
     const ReplaySolverFrameSample* SampleAtNormalized( float normalized ) const;

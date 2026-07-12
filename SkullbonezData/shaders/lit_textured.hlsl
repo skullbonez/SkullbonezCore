@@ -12,10 +12,17 @@ Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
+  Broad shadow map: Terrain-sized depth projection used as the fallback across
+    the authored world.
+  Detail shadow map: Tighter object-centered depth projection that replaces the
+    broad result only inside its valid receiver footprint.
+  Percentage-closer filtering (PCF): Averages fixed depth-comparison taps to
+    soften a shadow edge while keeping the tap pattern deterministic.
 
 Invariants:
   - CPU-side root signatures, input layouts, and descriptor bindings must
   match this shader exactly.
+  - The detail map occupies t5; t4 remains the instanced material-table ABI.
 
 Related:
   - Agentic/Reference/comment-style-guide.md
@@ -91,12 +98,16 @@ cbuffer Uniforms : register(b0)
     float4x4 uShadowViewProj;
     float4   uShadowParams;     // strength, depth bias, slope bias, texel step
     float4   uShadowFlags;      // enabled, receive, pcf radius, zero-to-one depth
+    float4x4 uDetailShadowViewProj;
+    float4   uDetailShadowParams; // tight-object strength, depth bias, slope bias, texel step
+    float4   uDetailShadowFlags;  // enabled, receive, pcf radius, zero-to-one depth
 };
 
 // Texture and sampler bindings are separate DX12 objects bound to different slots.
 // register(t0) = texture slot 0; register(s0) = sampler slot 0.
 Texture2D    uTexture  : register(t0);
 Texture2D    uShadowMap : register(t3);
+Texture2D    uDetailShadowMap : register(t5);
 SamplerState sSampler0 : register(s0);
 SamplerState sSampler3 : register(s3);
 
@@ -163,14 +174,22 @@ float3 FacetNormalFromDerivatives(float3 viewPos, float3 fallbackNormal)
     return dot(faceN, fallbackNormal) < 0.0f ? -faceN : faceN;
 }
 
-float ShadowVisibility(float3 worldPos, float3 normalView, float3 lightView)
+float ShadowVisibilityFromMap(Texture2D shadowMap,
+                              float4x4 shadowViewProj,
+                              float4 shadowParams,
+                              float4 shadowFlags,
+                              float3 worldPos,
+                              float3 normalView,
+                              float3 lightView,
+                              out bool projectionInside)
 {
-    if (uShadowFlags.x < 0.5f || uShadowFlags.y < 0.5f || uShadowParams.x <= 0.0f)
+    projectionInside = false;
+    if (shadowFlags.x < 0.5f || shadowFlags.y < 0.5f || shadowParams.x <= 0.0f)
     {
         return 1.0f;
     }
 
-    float4 shadowClip = mul(uShadowViewProj, float4(worldPos, 1.0f));
+    float4 shadowClip = mul(shadowViewProj, float4(worldPos, 1.0f));
     if (shadowClip.w <= 0.0f)
     {
         return 1.0f;
@@ -178,43 +197,86 @@ float ShadowVisibility(float3 worldPos, float3 normalView, float3 lightView)
 
     float3 ndc = shadowClip.xyz / shadowClip.w;
     float2 uv = ndc.xy * 0.5f + 0.5f;
-    if (uShadowFlags.w > 0.5f)
+    if (shadowFlags.w > 0.5f)
     {
         uv.y = 1.0f - uv.y;
     }
-    float receiverDepth = uShadowFlags.w > 0.5f ? ndc.z : ndc.z * 0.5f + 0.5f;
+    float receiverDepth = shadowFlags.w > 0.5f ? ndc.z : ndc.z * 0.5f + 0.5f;
 
     if (uv.x <= 0.0f || uv.x >= 1.0f || uv.y <= 0.0f || uv.y >= 1.0f || receiverDepth <= 0.0f || receiverDepth >= 1.0f)
     {
         return 1.0f;
     }
+    projectionInside = true;
 
     float ndotl = max(dot(normalize(normalView), normalize(lightView)), 0.0f);
-    float bias = uShadowParams.y + uShadowParams.z * (1.0f - ndotl);
-    int radius = (int)floor(uShadowFlags.z + 0.5f);
-    float texel = max(uShadowParams.w, 0.00001f);
-    float visible = 0.0f;
-    float samples = 0.0f;
-    for (int y = -3; y <= 3; ++y)
+    float bias = shadowParams.y + shadowParams.z * (1.0f - ndotl);
+    int radius = (int)floor(shadowFlags.z + 0.5f);
+    float texel = max(shadowParams.w, 0.00001f);
+    if (radius <= 0)
     {
-        if (abs(y) > radius)
-        {
-            continue;
-        }
-        for (int x = -3; x <= 3; ++x)
-        {
-            if (abs(x) > radius)
-            {
-                continue;
-            }
-            float shadowDepth = uShadowMap.SampleLevel(sSampler3, uv + float2((float)x, (float)y) * texel, 0.0f).r;
-            visible += receiverDepth - bias <= shadowDepth ? 1.0f : 0.0f;
-            samples += 1.0f;
-        }
+        float shadowDepth = shadowMap.SampleLevel(sSampler3, uv, 0.0f).r;
+        float visibility = receiverDepth - bias <= shadowDepth ? 1.0f : 0.0f;
+        return lerp(1.0f - shadowParams.x, 1.0f, visibility);
     }
 
-    float visibility = samples > 0.0f ? visible / samples : 1.0f;
-    return lerp(1.0f - uShadowParams.x, 1.0f, visibility);
+    // Stable disk taps replace the axis-aligned square kernel. The sequence is
+    // fixed in light texture space: camera motion cannot rotate or reseed it,
+    // so soft edges do not shimmer between otherwise identical frames.
+    static const float2 poisson[16] = {
+        float2(-0.94201624f, -0.39906216f), float2( 0.94558609f, -0.76890725f),
+        float2(-0.09418410f, -0.92938870f), float2( 0.34495938f,  0.29387760f),
+        float2(-0.91588581f,  0.45771432f), float2(-0.81544232f, -0.87912464f),
+        float2(-0.38277543f,  0.27676845f), float2( 0.97484398f,  0.75648379f),
+        float2( 0.44323325f, -0.97511554f), float2( 0.53742981f, -0.47373420f),
+        float2(-0.26496911f, -0.41893023f), float2( 0.79197514f,  0.19090188f),
+        float2(-0.24188840f,  0.99706507f), float2(-0.81409955f,  0.91437590f),
+        float2( 0.19984126f,  0.78641367f), float2( 0.14383161f, -0.14100790f)
+    };
+    const int sampleCount = radius >= 2 ? 16 : 12;
+    const float spread = texel * (float)radius;
+    float visible = 0.0f;
+    [unroll]
+    for (int sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex)
+    {
+        float shadowDepth = shadowMap.SampleLevel(sSampler3, uv + poisson[sampleIndex] * spread, 0.0f).r;
+        visible += receiverDepth - bias <= shadowDepth ? 1.0f : 0.0f;
+    }
+
+    float visibility = visible / (float)sampleCount;
+    return lerp(1.0f - shadowParams.x, 1.0f, visibility);
+}
+
+float ShadowVisibility(float3 worldPos, float3 normalView, float3 lightView)
+{
+    bool detailInside = false;
+    float detailVisibility = ShadowVisibilityFromMap(uDetailShadowMap,
+                                                     uDetailShadowViewProj,
+                                                     uDetailShadowParams,
+                                                     uDetailShadowFlags,
+                                                     worldPos,
+                                                     normalView,
+                                                     lightView,
+                                                     detailInside);
+    // The detail projection is authoritative inside its footprint. Return
+    // before evaluating the broad fallback so terrain pixels never pay for two
+    // fixed PCF kernels when only one result can survive.
+    if (detailInside)
+    {
+        return detailVisibility;
+    }
+
+    bool broadInside = false;
+    float broadVisibility = ShadowVisibilityFromMap(uShadowMap,
+                                                    uShadowViewProj,
+                                                    uShadowParams,
+                                                    uShadowFlags,
+                                                    worldPos,
+                                                    normalView,
+                                                    lightView,
+                                                    broadInside);
+    // The broad map remains the fallback outside the tight projection.
+    return broadVisibility;
 }
 
 float3 TerrainModeColor(int mode, float3 texColor, float3 N, float3 worldPos)

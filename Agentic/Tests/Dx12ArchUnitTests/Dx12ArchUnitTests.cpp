@@ -20,6 +20,8 @@ Glossary:
     successful covering fence is observed complete.
   Dry run: CPU-only render-graph execution mode that records intended barriers
     without calling a real command list.
+  Platform profiler GPU stack: Nested marker depth suspended when one command
+    list is submitted and restored on its replacement list.
 
 Invariants:
   Tests stay CPU-only and must not require a real D3D12 device or renderer launch.
@@ -35,6 +37,7 @@ Related:
 */
 #include "Rendering/DX12/Dx12RenderGraphExecutor.h"
 #include "Rendering/DX12/RenderBackendDX12.CommandRecordingState.h"
+#include "Rendering/DX12/RenderBackendDX12.PipelineState.h"
 #include "Rendering/DX12/RenderGraphTransientDX12.h"
 #include "Rendering/DX12/RenderDeviceDX12.h"
 #include "Rendering/IRenderDeviceLifecycle.h"
@@ -1145,7 +1148,99 @@ bool RunFatalCase( const char* caseName )
     return true;
 }
 
+void TestPipelineDesiredStateResetRestoresReusableDefaults()
+{
+    Dx12PipelineDesiredState state;
+    state.m_activeShader = reinterpret_cast<ShaderDX12*>( 1 );
+    state.m_viewport.Width = 800.0f;
+    state.m_scissorRect.right = 800;
+    state.m_currentRTV.ptr = 11;
+    state.m_currentDSV.ptr = 22;
+    state.m_currentRTVFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    state.m_depthTestEnabled = false;
+    state.m_depthWriteEnabled = false;
+    state.m_blendEnabled = true;
+    state.m_blendSrc = BlendFactor::SrcAlpha;
+    state.m_blendDst = BlendFactor::OneMinusSrcAlpha;
+    state.m_cullEnabled = false;
+    state.m_polyOffsetEnabled = true;
+    state.m_polyOffsetFactor = 3.0f;
+    state.m_polyOffsetUnits = 4.0f;
+    state.m_renderingToFBO = true;
+    state.m_lastPSOHash = 123;
+    state.m_psoDirty = false;
+    state.m_targetsDirty = false;
+
+    state.Reset();
+
+    EXPECT_TRUE( state.m_activeShader == nullptr );
+    EXPECT_EQ( state.m_viewport.Width, 0.0f );
+    EXPECT_EQ( state.m_scissorRect.right, 0L );
+    EXPECT_EQ( state.m_currentRTV.ptr, static_cast<SIZE_T>( 0 ) );
+    EXPECT_EQ( state.m_currentDSV.ptr, static_cast<SIZE_T>( 0 ) );
+    EXPECT_TRUE( state.m_currentRTVFormat == DXGI_FORMAT_R8G8B8A8_UNORM );
+    EXPECT_TRUE( state.m_depthTestEnabled );
+    EXPECT_TRUE( state.m_depthWriteEnabled );
+    EXPECT_TRUE( !state.m_blendEnabled );
+    EXPECT_TRUE( state.m_blendSrc == BlendFactor::One );
+    EXPECT_TRUE( state.m_blendDst == BlendFactor::Zero );
+    EXPECT_TRUE( state.m_cullEnabled );
+    EXPECT_TRUE( !state.m_polyOffsetEnabled );
+    EXPECT_EQ( state.m_polyOffsetFactor, 0.0f );
+    EXPECT_EQ( state.m_polyOffsetUnits, 0.0f );
+    EXPECT_TRUE( !state.m_renderingToFBO );
+    EXPECT_EQ( state.m_lastPSOHash, static_cast<size_t>( 0 ) );
+    EXPECT_TRUE( state.m_psoDirty );
+    EXPECT_TRUE( state.m_targetsDirty );
+}
+
+void TestPlatformProfilerGpuStackRestoresAcrossSubmission()
+{
+    Dx12PlatformProfilerGpuStackState stack;
+    EXPECT_TRUE( stack.CommitBegin( 4 ) );
+    EXPECT_TRUE( stack.CommitBegin( 4 ) );
+    EXPECT_EQ( stack.Depth(), 2 );
+
+    const int suspendedDepth = stack.SuspendForSubmit();
+    EXPECT_EQ( suspendedDepth, 2 );
+    EXPECT_EQ( stack.Depth(), 0 );
+    EXPECT_TRUE( stack.RestoreAfterSubmit( suspendedDepth, 4 ) );
+    EXPECT_EQ( stack.Depth(), 2 );
+    EXPECT_TRUE( stack.CommitEnd() );
+    EXPECT_TRUE( stack.CommitEnd() );
+    EXPECT_EQ( stack.Depth(), 0 );
+}
+
+void TestPlatformProfilerGpuStackRejectsOverflowAndUnderflow()
+{
+    Dx12PlatformProfilerGpuStackState stack;
+    EXPECT_TRUE( stack.CommitBegin( 1 ) );
+    EXPECT_TRUE( !stack.CommitBegin( 1 ) );
+    EXPECT_EQ( stack.Depth(), 1 );
+    EXPECT_TRUE( stack.CommitEnd() );
+    EXPECT_TRUE( !stack.CommitEnd() );
+    EXPECT_TRUE( !stack.RestoreAfterSubmit( 2, 1 ) );
+    EXPECT_EQ( stack.Depth(), 0 );
+}
+
+void TestPlatformProfilerGpuStackResetClearsStaleDeviceEpoch()
+{
+    Dx12PlatformProfilerGpuStackState stack;
+    EXPECT_TRUE( stack.CommitBegin( 4 ) );
+    EXPECT_TRUE( stack.CommitBegin( 4 ) );
+    stack.Reset();
+    EXPECT_EQ( stack.Depth(), 0 );
+    EXPECT_TRUE( !stack.CommitEnd() );
+}
+
 const TestCase kTests[] = {
+    { "Platform profiler GPU stack restores across submission", TestPlatformProfilerGpuStackRestoresAcrossSubmission },
+    { "Platform profiler GPU stack rejects overflow and underflow",
+      TestPlatformProfilerGpuStackRejectsOverflowAndUnderflow },
+    { "Platform profiler GPU stack reset clears stale device epoch",
+      TestPlatformProfilerGpuStackResetClearsStaleDeviceEpoch },
+    { "Pipeline desired-state reset restores reusable defaults",
+      TestPipelineDesiredStateResetRestoresReusableDefaults },
     { "Command close failure does not commit closed state", TestCommandCloseFailureDoesNotCommitClosedState },
     { "Command close success commits closed state", TestCommandCloseSuccessCommitsClosedState },
     { "Allocator reset failure blocks list reset", TestAllocatorResetFailureBlocksListReset },

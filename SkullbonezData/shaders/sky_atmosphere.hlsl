@@ -67,6 +67,9 @@ struct VS_OUT
 
 static const float PI = 3.14159265359f;
 static const float TWO_PI = 6.28318530718f;
+// Keep these values synchronized with CinematicStyleMode::Sky in Config.h.
+static const int SKY_MODE_LOW_POLY_ART = 11;
+static const int SKY_MODE_OPEN_HORIZON = 20;
 
 VS_OUT main_vs(VS_IN input)
 {
@@ -189,7 +192,8 @@ float4 main_ps(VS_OUT input) : SV_TARGET
 
     float height = saturate((dir.y + 0.05f) / 1.05f);
     float bandedHeight = floor(height * 11.0f + 0.5f) / 11.0f;
-    float vertical = lerp(pow(height, 0.72f), pow(bandedHeight, 0.78f), styleMode == 11 ? 0.42f : 0.24f);
+    float vertical =
+        lerp(pow(height, 0.72f), pow(bandedHeight, 0.78f), styleMode == SKY_MODE_LOW_POLY_ART ? 0.42f : 0.24f);
 
     float3 horizon = clamp(uHorizonColor, 0.0f, 2.2f);
     float3 zenith = clamp(uZenithColor, 0.0f, 2.2f);
@@ -210,10 +214,10 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float3 sun = sunColor * (sunDisk * uSunParams.z + innerGlow * uSunParams.w * 0.86f +
                              outerGlow * uSunParams.w * 0.24f + lowHaze * 0.36f);
 
-    if (styleMode != 20)
+    if (styleMode != SKY_MODE_OPEN_HORIZON)
     {
-        // Why: style mode 20 is reserved for open-horizon procedural skies used
-        // by scenes that forbid mountain or ridge silhouettes while keeping the
+        // Why: SKY_MODE_OPEN_HORIZON is reserved for procedural skies used by
+        // scenes that forbid mountain or ridge silhouettes while keeping the
         // existing sky shader and all default styles unchanged.
         float farRidge = RidgeMask(coord, 0.34f, 0.10f, 3.2f, 0.10f);
         float midRidge = RidgeMask(coord, 0.30f, 0.105f, 4.6f, 0.36f);
@@ -241,6 +245,6 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     sun *= 1.0f - saturate(sunOcclusion * 0.70f);
 
     float3 finalSky = skyColor + sun;
-    finalSky = ApplyLowPolyGrade(finalSky, styleMode == 11 ? 0.32f : 0.18f);
+    finalSky = ApplyLowPolyGrade(finalSky, styleMode == SKY_MODE_LOW_POLY_ART ? 0.32f : 0.18f);
     return float4(finalSky, 1.0f);
 }

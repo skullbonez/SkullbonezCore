@@ -83,16 +83,16 @@ SbResult RenderBackendDX12::CaptureBackbuffer( std::vector<uint8_t>& outPixels, 
     // backbuffer is usually still in PRESENT state. Scene-driven captures can
     // happen after render where the backbuffer is in RENDER_TARGET state.
     // Preserve whichever concrete graph-visible state we're currently in.
-    const RenderGraphResourceAccess backBufferAccessBeforeCopy = m_backBufferAccess;
+    const RenderGraphResourceAccess backBufferAccessBeforeCopy = m_frameOwner.BackBufferAccess();
 
     // Transition backbuffer to COPY_SOURCE for readback.
     TransitionBackbuffer( "BackbufferReadbackBegin", RenderGraphResourceAccess::CopySource );
-    if ( m_commandRecording.HasFailure() )
+    if ( m_frameOwner.HasFailure() )
     {
-        return m_commandRecording.CurrentResult();
+        return m_frameOwner.CurrentResult();
     }
 
-    D3D12_RESOURCE_DESC bbDesc = m_renderTargets[m_frameIndex]->GetDesc();
+    D3D12_RESOURCE_DESC bbDesc = m_frameOwner.RenderTarget( m_frameOwner.FrameIndex() )->GetDesc();
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
     UINT numRows = 0;
     UINT64 rowSizeBytes = 0;
@@ -128,22 +128,22 @@ SbResult RenderBackendDX12::CaptureBackbuffer( std::vector<uint8_t>& outPixels, 
     dstLoc.PlacedFootprint = footprint;
 
     D3D12_TEXTURE_COPY_LOCATION srcLoc = {};
-    srcLoc.pResource = m_renderTargets[m_frameIndex];
+    srcLoc.pResource = m_frameOwner.RenderTarget( m_frameOwner.FrameIndex() );
     srcLoc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
 
     CommandList()->CopyTextureRegion( &dstLoc, 0, 0, 0, &srcLoc, nullptr );
 
     // Restore the exact state we found before the capture.
     TransitionBackbuffer( "BackbufferReadbackRestore", backBufferAccessBeforeCopy );
-    if ( m_commandRecording.HasFailure() )
+    if ( m_frameOwner.HasFailure() )
     {
-        return m_commandRecording.CurrentResult();
+        return m_frameOwner.CurrentResult();
     }
 
     // Execute and wait
     AssertPlatformProfilerGpuStackClosed( "CaptureBackbuffer" );
     const SbResult closeResult =
-        m_commandRecording.CommitClose( CommandList()->Close(), "CaptureBackbuffer command list Close" );
+        m_frameOwner.CommitClose( CommandList()->Close(), "CaptureBackbuffer command list Close" );
     if ( !closeResult.ok )
     {
         if ( m_uncertainReadbackResourceCount >= m_uncertainReadbackResources.size() )
@@ -159,7 +159,7 @@ SbResult RenderBackendDX12::CaptureBackbuffer( std::vector<uint8_t>& outPixels, 
     {
         return submitResult;
     }
-    const SbResult waitResult = m_commandRecording.CommitWait( WaitForGpu() );
+    const SbResult waitResult = m_frameOwner.CommitWait( WaitForGpu() );
     if ( !waitResult.ok )
     {
         if ( m_uncertainReadbackResourceCount >= m_uncertainReadbackResources.size() )

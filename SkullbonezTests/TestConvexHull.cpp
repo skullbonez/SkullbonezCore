@@ -24,7 +24,7 @@
 //   - SkullbonezSource/Physics/ConvexHullShape.h
 //   - SkullbonezSource/Physics/ConvexHullShape.cpp
 //   - SkullbonezData/hulls/pyramid.hull
-//   - Agentic/Plans/TODO/behavioral-test-depth.md
+//   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -32,6 +32,9 @@
 #include "../SkullbonezSource/Physics/ConvexHullShape.h"
 
 #include <cmath>
+#include <cstdio>
+#include <fstream>
+#include <sstream>
 #include <string>
 
 using SkullbonezCore::Math::CollisionDetection::ConvexHullEdge;
@@ -43,6 +46,7 @@ using SkullbonezCore::Math::Vector::VectorMagSquared;
 namespace
 {
 constexpr const char* kPyramidHullPath = "SkullbonezData/hulls/pyramid.hull";
+constexpr const char* kVersionFixturePath = "unit_versioned_pyramid.hull";
 constexpr float kEpsilon = 0.00001f;
 
 void CheckNear( float actual, float expected, float epsilon = kEpsilon )
@@ -76,6 +80,32 @@ void CheckEdgeEndpointBelongsToFace( const ConvexHullShape& hull, const ConvexHu
     const ConvexHullFace& face = hull.GetFace( faceIndex );
     CHECK( FaceContainsVertex( hull, face, edge.vertexA ) );
     CHECK( FaceContainsVertex( hull, face, edge.vertexB ) );
+}
+
+struct TemporaryHullFixture
+{
+    ~TemporaryHullFixture()
+    {
+        std::remove( kVersionFixturePath );
+    }
+};
+
+bool WriteHullVersionFixture( unsigned int version )
+{
+    std::ifstream input( kPyramidHullPath );
+    std::ostringstream contents;
+    contents << input.rdbuf();
+    std::string text = contents.str();
+    const std::string current = "hull_version 2";
+    const size_t offset = text.find( current );
+    if ( !input || offset == std::string::npos )
+    {
+        return false;
+    }
+    text.replace( offset, current.size(), "hull_version " + std::to_string( version ) );
+    std::ofstream output( kVersionFixturePath, std::ios::binary );
+    output << text;
+    return output.good();
 }
 } // namespace
 
@@ -146,4 +176,23 @@ TEST_CASE( "ConvexHull: pyramid fixture topology references live vertices and ad
         CheckEdgeEndpointBelongsToFace( hull, edge, edge.faceA );
         CheckEdgeEndpointBelongsToFace( hull, edge, edge.faceB );
     }
+}
+
+
+TEST_CASE( "ConvexHull: previous version upgrades and future version fails recoverably" )
+{
+    TemporaryHullFixture fixture;
+    REQUIRE( WriteHullVersionFixture( 1 ) );
+    ConvexHullShape previous;
+    REQUIRE( ConvexHullShape::TryLoadFromFile( kVersionFixturePath, previous ).ok );
+    CHECK( previous.GetVertexCount() == 5 );
+    CHECK( previous.GetDefaultMass() == doctest::Approx( 300.0f ) );
+
+    REQUIRE( WriteHullVersionFixture( 3 ) );
+    ConvexHullShape future;
+    const auto result = ConvexHullShape::TryLoadFromFile( kVersionFixturePath, future );
+    CHECK_FALSE( result.ok );
+    CHECK( std::string( result.error.owner ) == "Physics/ConvexHullShape" );
+    CHECK( std::string( result.error.message ).find( "version 3" ) != std::string::npos );
+    CHECK( std::string( result.error.message ).find( "current version 2" ) != std::string::npos );
 }

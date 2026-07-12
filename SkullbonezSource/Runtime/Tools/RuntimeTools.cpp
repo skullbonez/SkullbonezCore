@@ -28,7 +28,7 @@ Invariants:
   - Terrain/model hit tests pick the closest valid hit without changing world
     state.
   - Projectile creation must respect the active model capacity before adding to
-    GameModelCollection.
+    SceneController.
   - Launcher physics mutation enters PhysicsEngine through body handles: ray
     hits resolve model indices at the tool boundary, while spawned projectiles
     use the handle returned by creation.
@@ -43,14 +43,12 @@ Related:
 
 #include "../../Core/Common.h"
 #include "../../Core/Log.h"
-#include "../../GameObjects/GameModel.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "../Scene/SceneController.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/CollisionShape.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
-#include "../../Physics/PhysicsEngineStoreQueries.h"
 #include "../../UI/UICommands.h"
 #include "../../UI/UILayout.h"
 #include "../CameraCollection.h"
@@ -72,7 +70,7 @@ Related:
 namespace SkullbonezCore::Basics
 {
 bool RuntimeTools::PrepareSelectionCommand( const RuntimeInteractionCommand& command,
-                                            const GameObjects::GameModelCollection& collection,
+                                            const Basics::SceneController& collection,
                                             RuntimeInteractionSelectionPlan& outPlan )
 {
     outPlan = RuntimeInteractionSelectionPlan{};
@@ -157,7 +155,7 @@ bool RuntimeTools::CommitSelectionCommand( const RuntimeInteractionSelectionPlan
 
 
 bool RuntimeTools::ApplySelectionCommand( const RuntimeInteractionCommand& command,
-                                          const GameObjects::GameModelCollection& collection )
+                                          const Basics::SceneController& collection )
 {
     // Why: owner-claiming commands need composition to apply transition cleanup
     // between prepare and commit. The convenience path is intentionally limited
@@ -189,7 +187,7 @@ bool RuntimeTools::InspectGizmoInteractionActive( RunCameraMode cameraMode, bool
 
 
 void RuntimeTools::ClearEditorInteractionForTransition( bool clearSelection,
-                                                        GameObjects::GameModelCollection& collection,
+                                                        Basics::SceneController& collection,
                                                         Physics::PhysicsEngine& physics,
                                                         RuntimeInteractionController& interaction )
 {
@@ -241,8 +239,8 @@ constexpr float LAUNCHER_PROJECTILE_SPAWN_DOWN_OFFSET = 0.28f;
 // edge, so tool code fails closed instead of rebuilding model-owned descriptors.
 bool LauncherPhysicsStoresReady( const Physics::PhysicsEngine& physics, int modelCount )
 {
-    return SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ).Count() == modelCount &&
-           SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( physics ).Count() == modelCount;
+    return SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ).Count() == modelCount &&
+           SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physics ).Count() == modelCount;
 }
 
 
@@ -614,7 +612,7 @@ bool RuntimeTools::TryBuildLauncherCameraRay( Environment::CameraCollection* cam
     return true;
 }
 
-bool RuntimeTools::FireLauncherRay( GameObjects::GameModelCollection& collection,
+bool RuntimeTools::FireLauncherRay( Basics::SceneController& collection,
                                     Physics::PhysicsEngine& physics,
                                     RunSceneState& scene,
                                     Geometry::Terrain* terrain,
@@ -650,7 +648,7 @@ bool RuntimeTools::FireLauncherRay( GameObjects::GameModelCollection& collection
 LauncherPointerResult RuntimeTools::RouteLauncherPointer( const LauncherPointerInput& input,
                                                           Environment::CameraCollection& cameras,
                                                           ReplayRuntime& replayRuntime,
-                                                          GameObjects::GameModelCollection& collection,
+                                                          Basics::SceneController& collection,
                                                           Physics::PhysicsEngine& physics,
                                                           RunSceneState& scene,
                                                           Geometry::Terrain* terrain )
@@ -704,8 +702,8 @@ void RuntimeTools::FireLauncherLaser( Physics::PhysicsEngine& physics,
 {
     int modelHitIndex = -1;
     float modelHitT = RAY_CAST_TEST_MAX_DISTANCE;
-    const bool modelHit = TryRayCastTestHit( SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ),
-                                             SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( physics ),
+    const bool modelHit = TryRayCastTestHit( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ),
+                                             SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physics ),
                                              rayOrigin,
                                              rayDirection,
                                              RAY_CAST_TEST_MAX_DISTANCE,
@@ -731,9 +729,9 @@ void RuntimeTools::FireLauncherLaser( Physics::PhysicsEngine& physics,
     }
 
     const Physics::PhysicsBodyHandle body =
-        SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ).HandleForModelIndex( modelHitIndex );
+        SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ).HandleForModelIndex( modelHitIndex );
     const Physics::PhysicsBodyRecord* bodyRecord =
-        SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ).RecordForHandle( body );
+        SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ).RecordForHandle( body );
     if ( !bodyRecord )
     {
         return;
@@ -753,7 +751,7 @@ void RuntimeTools::FireLauncherLaser( Physics::PhysicsEngine& physics,
     ApplyLauncherPhysicsImpulse( physics, body, rayDirection * m_rayCastTest.impulseStrength, localApplicationPoint );
 }
 
-bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& collection,
+bool RuntimeTools::FireLauncherProjectile( Basics::SceneController& collection,
                                            Physics::PhysicsEngine& physics,
                                            RunSceneState& scene,
                                            Geometry::Terrain* terrain,
@@ -770,8 +768,8 @@ bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& col
 
     int modelHitIndex = -1;
     float modelHitT = RAY_CAST_TEST_MAX_DISTANCE;
-    const bool modelHit = TryRayCastTestHit( SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ),
-                                             SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( physics ),
+    const bool modelHit = TryRayCastTestHit( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ),
+                                             SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physics ),
                                              rayOrigin,
                                              rayDirection,
                                              RAY_CAST_TEST_MAX_DISTANCE,
@@ -885,7 +883,7 @@ const RunEditorTracer& RuntimeTools::EditorTracer() const
 }
 
 
-void RuntimeTools::PrepareOverlayTrace( GameObjects::GameModelCollection& models,
+void RuntimeTools::PrepareOverlayTrace( Basics::SceneController& models,
                                         const Assets::AssetSystem& assets,
                                         const ToolOverlayBuildInput& input )
 {

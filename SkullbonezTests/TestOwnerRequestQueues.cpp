@@ -10,6 +10,8 @@ Mental model:
 Glossary:
   FIFO (First In, First Out): Requests drain in submission order.
   Wire code: Explicit serialized replay value independent of C++ enum ordinals.
+  Readback result: Recoverable capture owner/message returned by the renderer
+    after it attempts to copy the backbuffer into CPU-visible bytes.
 
 Invariants:
   - Tests stop at the fixed capacity because the next runtime submission is a
@@ -54,6 +56,23 @@ class UnsupportedCaptureBackend final : public SkullbonezCore::Rendering::IRende
         return SbResult::Failure( "Test/UnsupportedCaptureBackend", "unexpected readback" );
     }
 };
+
+class FailingCaptureBackend final : public SkullbonezCore::Rendering::IRenderCaptureBackend
+{
+  public:
+    bool SupportsBackbufferCapture() const override
+    {
+        return true;
+    }
+
+    SbResult CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight ) override
+    {
+        outPixels.assign( 4, 0xff );
+        outWidth = 1;
+        outHeight = 1;
+        return SbResult::Failure( "Test/Readback", "fence wait failed" );
+    }
+};
 } // namespace
 
 TEST_CASE( "Scene lifecycle accepts ordered phases and explicit restart" )
@@ -80,16 +99,14 @@ TEST_CASE( "Scene lifecycle accepts ordered phases and explicit restart" )
     CHECK_FALSE( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::AfterSceneActivated,
                                                        SceneRuntimeLifecycleEvent::None ) );
 
-    const SceneLifecycleConsumerMask beforeUnload =
-        SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
-        SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDevice );
-    const SceneLifecycleConsumerMask afterClear =
-        SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
-        SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation ) |
-        SceneLifecycleConsumerBit( SceneLifecycleConsumer::Audio ) |
-        SceneLifecycleConsumerBit( SceneLifecycleConsumer::Tools ) |
-        SceneLifecycleConsumerBit( SceneLifecycleConsumer::Interaction ) |
-        SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
+    const SceneLifecycleConsumerMask beforeUnload = SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
+                                                    SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDevice );
+    const SceneLifecycleConsumerMask afterClear = SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
+                                                  SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation ) |
+                                                  SceneLifecycleConsumerBit( SceneLifecycleConsumer::Audio ) |
+                                                  SceneLifecycleConsumerBit( SceneLifecycleConsumer::Tools ) |
+                                                  SceneLifecycleConsumerBit( SceneLifecycleConsumer::Interaction ) |
+                                                  SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::BeforeSceneUnload ) == beforeUnload );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneCleared ) == afterClear );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::BeforeScenePopulate ) == 0 );
@@ -141,6 +158,41 @@ TEST_CASE( "CaptureController rejects truncating paths before enqueue" )
     CHECK( capture.PendingScreenshotCount() == 1 );
 }
 
+TEST_CASE( "CaptureController predicts scene captures before rendering" )
+{
+    CaptureController capture;
+    RunScreenshotState& screenshot = capture.Screenshot();
+    strcpy_s( screenshot.screenshotPath, "Profile/capture_pin.bmp" );
+    screenshot.screenshotFrame = 10;
+
+    RuntimeCaptureSceneContext context;
+    context.isSceneMode = true;
+    context.currentFrame = 8;
+    CHECK_FALSE( capture.IsScreenshotDue( context ) );
+    CHECK( capture.RequiresDeterministicPresentation( context ) );
+    context.currentFrame = 9;
+    CHECK( capture.IsScreenshotDue( context ) );
+
+    // A millisecond threshold can cross while the frame is rendering. The
+    // deterministic decision therefore pins the pending one-shot before due.
+    screenshot.screenshotFrame = -1;
+    screenshot.screenshotMs = 100;
+    context.elapsedMs = 99.0;
+    CHECK_FALSE( capture.IsScreenshotDue( context ) );
+    CHECK( capture.RequiresDeterministicPresentation( context ) );
+    context.elapsedMs = 101.0;
+    CHECK( capture.IsScreenshotDue( context ) );
+
+    screenshot.screenshotMs = -1;
+    screenshot.screenshotPath[0] = '\0';
+    screenshot.screenshotInterval = 3;
+    strcpy_s( screenshot.screenshotDir, "TestOutput/capture_pin" );
+    context.currentFrame = 1;
+    CHECK_FALSE( capture.IsScreenshotDue( context ) );
+    context.currentFrame = 2;
+    CHECK( capture.IsScreenshotDue( context ) );
+}
+
 TEST_CASE( "CaptureController owns a fixed request budget" )
 {
     CaptureController capture;
@@ -162,6 +214,20 @@ TEST_CASE( "CaptureController returns only successful requests as accepted event
     CHECK( result.savedCount == 0 );
     CHECK( result.failedCount == 1 );
     CHECK( capture.PendingScreenshotCount() == 0 );
+}
+
+TEST_CASE( "CaptureController preserves backend readback failure ownership" )
+{
+    CaptureController capture;
+    FailingCaptureBackend backend;
+    REQUIRE( capture.QueueScreenshot( "Screenshots\\readback_failure.bmp" ).ok );
+
+    const CaptureRequestBatchResult result = capture.DrainScreenshotRequests( backend );
+    CHECK_FALSE( result.status.ok );
+    CHECK_EQ( std::strcmp( result.status.error.owner, "Test/Readback" ), 0 );
+    CHECK_EQ( std::strcmp( result.status.error.message, "fence wait failed" ), 0 );
+    CHECK( result.savedCount == 0 );
+    CHECK( result.failedCount == 1 );
 }
 
 TEST_CASE( "SceneRequestQueue preserves domain order and rejects unbounded create text" )
@@ -291,6 +357,62 @@ TEST_CASE( "RenderDefaultsStore samples values at the drain checkpoint" )
     CHECK( result.status.ok );
     CHECK( result.savedCount == 1 );
     CHECK( configText.find( "ordinary_sun_intensity = 9.25" ) != std::string::npos );
+    CHECK( configText.find( "format_version = 1" ) != std::string::npos );
+
+    store.SubmitOrdinarySave();
+    fs::current_path( testRoot, filesystemError );
+    REQUIRE_FALSE( filesystemError );
+    const RenderDefaultsSaveBatchResult repeated = store.DrainAtFrameCheckpoint( ordinary, cinematic );
+    fs::current_path( originalPath, filesystemError );
+    REQUIRE_FALSE( filesystemError );
+    std::string repeatedText;
+    {
+        std::ifstream repeatedFile( dataRoot / "engine.cfg" );
+        repeatedText.assign( std::istreambuf_iterator<char>( repeatedFile ), std::istreambuf_iterator<char>() );
+    }
+    CHECK( repeated.status.ok );
+    CHECK( repeatedText == configText );
+
+    fs::remove_all( testRoot, filesystemError );
+    CHECK_FALSE( filesystemError );
+}
+
+TEST_CASE( "RenderDefaultsStore rejects future config without rewriting bytes" )
+{
+    namespace fs = std::filesystem;
+    std::error_code filesystemError;
+    const fs::path originalPath = fs::current_path( filesystemError );
+    REQUIRE_FALSE( filesystemError );
+    const fs::path testRoot = originalPath / "TestOutput" / "owner_request_future_config";
+    const fs::path dataRoot = testRoot / "SkullbonezData";
+    fs::create_directories( dataRoot, filesystemError );
+    REQUIRE_FALSE( filesystemError );
+    const std::string originalText = "format_version = 2\nordinary_sun_intensity = 1.00\n";
+    {
+        std::ofstream configFile( dataRoot / "engine.cfg", std::ios::trunc );
+        REQUIRE( configFile.is_open() );
+        configFile << originalText;
+        REQUIRE( configFile.good() );
+    }
+
+    RenderDefaultsStore store;
+    store.SubmitOrdinarySave();
+    fs::current_path( testRoot, filesystemError );
+    REQUIRE_FALSE( filesystemError );
+    const RenderDefaultsSaveBatchResult result =
+        store.DrainAtFrameCheckpoint( OrdinaryRenderConfig{}, CinematicRenderConfig{} );
+    fs::current_path( originalPath, filesystemError );
+    REQUIRE_FALSE( filesystemError );
+
+    std::string finalText;
+    {
+        std::ifstream configFile( dataRoot / "engine.cfg" );
+        finalText.assign( std::istreambuf_iterator<char>( configFile ), std::istreambuf_iterator<char>() );
+    }
+    CHECK_FALSE( result.status.ok );
+    CHECK( result.savedCount == 0 );
+    CHECK( result.failedCount == 1 );
+    CHECK( finalText == originalText );
 
     fs::remove_all( testRoot, filesystemError );
     CHECK_FALSE( filesystemError );

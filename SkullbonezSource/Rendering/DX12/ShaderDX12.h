@@ -1,13 +1,12 @@
 /*
 File: SkullbonezSource/Rendering/DX12/ShaderDX12.h
 Purpose:
-  Compiles and binds shaders/root signatures for the DX12 renderer.
+  Declares the baked-shader wrapper used by the DX12 renderer.
 
 Mental model:
-  ShaderDX12.h compiles and binds shaders/root signatures for the DX12
-  renderer. As a public header, keep edits anchored on DX12 ownership,
-  descriptors, resources, and command submission and on the
-  glossary/invariants below.
+  A shader owns verified vertex/pixel bytecode plus a reflected constant layout.
+  Draw code writes named values into its CPU byte copy, then flushes that copy
+  through the frame upload owner before binding the pipeline.
 
 Glossary:
   CBV (Constant Buffer View): Descriptor or root binding that lets shaders read
@@ -20,7 +19,9 @@ Glossary:
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
-  must stay explicit.
+    must stay explicit.
+  - Device, pipeline, and upload-owner references are stable for the shader's
+    lifetime; the shader never retains the aggregate backend.
 
 Related:
   - SkullbonezSource/Rendering/DX12/ShaderDX12.cpp
@@ -45,8 +46,18 @@ namespace SkullbonezCore
 namespace Rendering
 {
 
-class RenderBackendDX12;
+class Dx12RenderDevice;
+class Dx12PipelineOwner;
+class Dx12UploadReservations;
 struct ShaderProgramDesc;
+
+struct ShaderDX12ReloadPayload
+{
+    Microsoft::WRL::ComPtr<ID3DBlob> vertexBytecode;
+    Microsoft::WRL::ComPtr<ID3DBlob> pixelBytecode;
+    size_t vertexHash = 0;
+    size_t pixelHash = 0;
+};
 
 
 /* -- ShaderDX12
@@ -55,14 +66,19 @@ struct ShaderProgramDesc;
     DirectX 12 shader wrapper.
 
     A single HLSL file provides the vertex shader (VS) and pixel shader (PS).
-    The wrapper compiles both, reflects the constant-buffer layout, stores a
-    CPU-side copy of uniform bytes, and exposes bytecode for DX12 PSO creation.
+    The wrapper loads both baked stages, reflects the constant-buffer layout,
+    stores a CPU-side copy of uniform bytes, and exposes bytecode for DX12 PSO
+    creation. Manual dev reload adopts another verified baked pair without
+    changing the live object or its constant values until validation succeeds.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class ShaderDX12 : public IShader
 {
+    friend class Dx12PipelineOwner;
 
   private:
-    RenderBackendDX12& m_backend; // Borrowed DX12 owner for shader activation and constant-buffer uploads.
+    Dx12RenderDevice& m_device;
+    Dx12PipelineOwner& m_pipeline;
+    Dx12UploadReservations& m_uploadReservations;
     Microsoft::WRL::ComPtr<ID3DBlob> m_vsBlob;
     Microsoft::WRL::ComPtr<ID3DBlob> m_psBlob;
 
@@ -79,15 +95,18 @@ class ShaderDX12 : public IShader
     mutable bool m_cbDirty;
     size_t m_vsBytecodeHash;
     size_t m_psBytecodeHash;
+    std::string m_sourcePath;
     const ShaderProgramDesc* m_contract;
-#ifdef _DEBUG
+    bool m_registeredWithPipeline = false;
     struct ResourceInfo
     {
         UINT bindPoint;
+        UINT space;
         D3D_SHADER_INPUT_TYPE type;
         D3D_SRV_DIMENSION dimension;
     };
     std::unordered_map<std::string, ResourceInfo> m_resourceMap;
+#ifdef _DEBUG
     mutable std::vector<uint8_t> m_contractUniformsSet;
     mutable std::vector<uint8_t> m_contractMissingRequiredLogged;
     mutable std::vector<std::string> m_missingUniformWarnings;
@@ -95,6 +114,7 @@ class ShaderDX12 : public IShader
 #endif
 
     bool ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* stageName );
+    bool ValidateReflectedContract( std::string& outError ) const;
     const UniformInfo* FindUniformInfo( const char* name ) const;
 #ifdef _DEBUG
     void ResetContractActivation() const;
@@ -105,10 +125,17 @@ class ShaderDX12 : public IShader
 #endif
 
   public:
-    explicit ShaderDX12( RenderBackendDX12& backend );
+    ShaderDX12( Dx12RenderDevice& device,
+                Dx12PipelineOwner& pipeline,
+                Dx12UploadReservations& uploadReservations,
+                bool registerWithPipeline = true );
     ~ShaderDX12() override;
 
     bool Compile( const char* hlslPath );
+    bool CanAdoptReload( const ShaderDX12& candidate ) const;
+    bool PrepareReload( ShaderDX12ReloadPayload& payload ) const;
+    void AdoptReload( ShaderDX12ReloadPayload& payload );
+    const char* SourcePath() const;
 
     void Use() const override;
     void SetInt( const char* name, int value ) const override;
@@ -119,9 +146,13 @@ class ShaderDX12 : public IShader
     void SetMat4( const char* name, const Math::Transformation::Matrix4& m ) const override;
     bool SetConstantBufferBytes( const void* data, size_t size, const char* debugName ) const override;
 
-    // Flush the dirty constant-buffer bytes into the backend upload arena and
+    // Flush the dirty constant-buffer bytes into the current frame upload arena and
     // return the GPU virtual address used by the root CBV binding.
     D3D12_GPU_VIRTUAL_ADDRESS FlushCB() const;
+    UINT ConstantBufferUploadSize() const
+    {
+        return m_cbSize;
+    }
 
     const void* GetVSBytecode() const;
     SIZE_T GetVSBytecodeSize() const;
@@ -129,6 +160,7 @@ class ShaderDX12 : public IShader
     const void* GetPSBytecode() const;
     SIZE_T GetPSBytecodeSize() const;
     size_t GetPSBytecodeHash() const;
+    bool ValidateInputLayout( const D3D12_INPUT_ELEMENT_DESC* elements, UINT count, const char*& outError ) const;
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

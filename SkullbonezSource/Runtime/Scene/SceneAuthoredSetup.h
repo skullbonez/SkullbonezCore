@@ -28,7 +28,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
   - SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once
 
@@ -43,9 +43,9 @@ namespace Environment
 class CameraCollection;
 class WorldEnvironment;
 } // namespace Environment
-namespace GameObjects
+namespace Basics
 {
-class GameModelCollection;
+class SceneController;
 }
 namespace Physics
 {
@@ -96,7 +96,7 @@ struct SceneAuthoredModelContext
     RunSceneState& sceneState;
     Environment::WorldEnvironment& world;
     Geometry::Terrain* terrain;
-    GameObjects::GameModelCollection& models;
+    Basics::SceneController& models;
     SceneEntityStore& entities;
     Physics::PhysicsEngine& physics;
     std::vector<RunRequiredContactState>& requiredContacts;
@@ -108,7 +108,7 @@ struct SceneSimpleRagdollAppendContext
     RunSceneState& sceneState;
     Environment::WorldEnvironment& world;
     Geometry::Terrain* terrain;
-    GameObjects::GameModelCollection& models;
+    Basics::SceneController& models;
     Physics::PhysicsEngine& physics;
 };
 
@@ -122,7 +122,7 @@ class SceneAuthoredSetup
     static void SetUpCameras( SceneAuthoredCameraContext context, const TestScene& scene );
     // Returns failure before required gates are resolved when model population
     // cannot append a requested scene object.
-    static SbResult SetUpGameModels( SceneAuthoredModelContext context, const TestScene& scene );
+    static SbResult SetUpSceneEntities( SceneAuthoredModelContext context, const TestScene& scene );
     static void SetUpRequiredContacts( SceneAuthoredModelContext context, const TestScene& scene );
     static void SetUpRequiredBroadphaseXCells( SceneAuthoredModelContext context, const TestScene& scene );
 };

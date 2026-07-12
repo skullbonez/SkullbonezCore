@@ -1,11 +1,12 @@
 /*
 File: SkullbonezSource/Rendering/ShaderContracts.h
 Purpose:
-  Lists engine-facing contracts for high-risk HLSL shader families.
+  Lists engine-facing contracts for every shipping raster HLSL family.
 
 Mental model:
   Shader contracts name the uniforms, resources, texture slots, and vertex
-  layout each pass expects. They are diagnostics, not a new binding backend.
+  layout each pass expects. Startup verifies required ABI rows against generated
+  DXIL reflection; per-draw setter diagnostics remain development-only.
 
 Glossary:
   Uniform: Named shader constant set by engine code before drawing.
@@ -20,11 +21,12 @@ Glossary:
 Invariants:
   - These contracts must not encode native D3D12 descriptors or root-signature
     implementation details.
-  - Missing contract data should warn in development while release builds stay
-    tolerant.
+  - Missing required startup ABI data is a recoverable shader-load failure in
+    every build; missing per-draw setter calls remain development diagnostics.
 
 Related:
   - SkullbonezSource/Rendering/DX12/ShaderDX12.cpp
+  - SkullbonezSource/Rendering/ShaderReflectionContracts.h
   - Agentic/Reference/shader-inventory.md
 */
 #pragma once
@@ -60,11 +62,11 @@ struct ShaderUniformDecl
 struct ShaderResourceDecl
 {
     const char* name;
-    // Contract: ordinary raster resources use the current DX12 binding ABI.
+    // Contract: raster resources use the named UnifiedRaster binding ABI.
     //
     // Slot N means SRV register tN, bound through BindTexture(handle, N). The
-    // ABI currently exposes t0..t4; t4 is the object material table while the
-    // per-instance stream still carries the draw-local material payload.
+    // UnifiedRaster exposes t0..t5; semantic ownership lives in
+    // RenderRasterBindingContract.h and reflection rejects any other slot.
     int slot;
     ShaderResourceKind kind;
     bool required;
@@ -80,6 +82,54 @@ struct ShaderProgramDesc
     const ShaderResourceDecl* resources;
     size_t resourceCount;
 };
+
+struct ShaderVertexInputContract
+{
+    const char* baseName;
+    const char* signature;
+};
+
+// CPU-owned input-layout vocabulary. Each token is semantic/index, component
+// mask, and system value in the same order used to create the PSO layout.
+inline const ShaderVertexInputContract* ShippingShaderVertexInputContracts()
+{
+    static constexpr ShaderVertexInputContract contracts[] = {
+        { "collision_visualizer",
+          "POSITION0:xyz:NONE,NORMAL0:xyz:NONE,TEXCOORD1:xyzw:NONE,TEXCOORD2:xyzw:NONE,TEXCOORD3:xyzw:NONE,TEXCOORD4:"
+          "xyzw:NONE,TEXCOORD5:xyzw:NONE" },
+        { "grid_line", "POSITION0:xyz:NONE,TEXCOORD0:xyz:NONE" },
+        { "launcher_laser", "POSITION0:xyz:NONE,TEXCOORD0:xyzw:NONE" },
+        { "lit_textured", "POSITION0:xyz:NONE,NORMAL0:xyz:NONE,TEXCOORD0:xy:NONE" },
+        { "lit_textured_instanced",
+          "POSITION0:xyz:NONE,NORMAL0:xyz:NONE,TEXCOORD0:xy:NONE,TEXCOORD1:xyzw:NONE,TEXCOORD2:xyzw:NONE,TEXCOORD3:"
+          "xyzw:NONE,TEXCOORD4:xyzw:NONE,TEXCOORD5:xyzw:NONE,TEXCOORD6:xyzw:NONE,TEXCOORD7:xyzw:NONE,TEXCOORD8:xyzw:"
+          "NONE" },
+        { "post_tonemap", "POSITION0:xy:NONE,TEXCOORD0:xy:NONE" },
+        { "post_volumetric_light", "POSITION0:xy:NONE,TEXCOORD0:xy:NONE" },
+        { "shadow_depth", "POSITION0:xyz:NONE" },
+        { "shadow_depth_instanced",
+          "POSITION0:xyz:NONE,TEXCOORD1:xyzw:NONE,TEXCOORD2:xyzw:NONE,TEXCOORD3:xyzw:NONE,TEXCOORD4:xyzw:NONE" },
+        { "sky_atmosphere", "POSITION0:xy:NONE,TEXCOORD0:xy:NONE" },
+        { "soft_additive_ribbon", "POSITION0:xyz:NONE,TEXCOORD0:xyzw:NONE,TEXCOORD1:xyzw:NONE" },
+        { "solid_color", "POSITION0:xy:NONE" },
+        { "solid_color_batch", "POSITION0:xy:NONE,TEXCOORD0:xyzw:NONE" },
+        { "text", "POSITION0:xy:NONE,TEXCOORD0:xy:NONE,TEXCOORD1:xyz:NONE" },
+        { "tornado_fx", "POSITION0:xyz:NONE,TEXCOORD0:xyzw:NONE,TEXCOORD1:xyzw:NONE" },
+        { "trajectory_ribbon",
+          "POSITION0:xyz:NONE,TEXCOORD0:xyzw:NONE,TEXCOORD1:xyzw:NONE,TEXCOORD2:xy:NONE,SV_VertexID0:x:VERTID" },
+        { "ui_render_target_preview", "POSITION0:xy:NONE,TEXCOORD0:xy:NONE" },
+        { "UIBackdropBlur", "POSITION0:xy:NONE,TEXCOORD0:xy:NONE" },
+        { "unlit_textured", "POSITION0:xyz:NONE,TEXCOORD0:xy:NONE" },
+        { "water_calm", "POSITION0:xyz:NONE" },
+        { "water_ocean", "POSITION0:xyz:NONE" },
+    };
+    return contracts;
+}
+
+inline constexpr size_t ShippingShaderVertexInputContractCount()
+{
+    return 21;
+}
 
 inline const char* ShaderValueTypeName( ShaderValueType type )
 {
@@ -144,6 +194,18 @@ FindShaderUniformDecl( const ShaderProgramDesc& desc, const char* name, size_t* 
     return nullptr;
 }
 
+inline const ShaderResourceDecl* FindShaderResourceDecl( const ShaderProgramDesc& desc, const char* name )
+{
+    for ( size_t i = 0; name && i < desc.resourceCount; ++i )
+    {
+        if ( ShaderContractNameEquals( desc.resources[i].name, name ) )
+        {
+            return &desc.resources[i];
+        }
+    }
+    return nullptr;
+}
+
 // Normalizes either "foo.hlsl" or ".../foo.hlsl" to the base shader family name.
 // Contract tables use base names because asset manifests and debug output may
 // pass either a path or a logical shader id.
@@ -176,12 +238,66 @@ inline bool ShaderContractMatchesBaseName( const char* baseName, const char* pat
            std::strncmp( baseName, candidate, candidateLength ) == 0;
 }
 
-// High-risk shader families that get runtime contract diagnostics.
-// This is intentionally a curated table, not a full reflection cache; the goal
-// is to catch stale hand-written setters around passes that are expensive to
-// debug visually.
-inline const ShaderProgramDesc* HighRiskShaderContracts()
+// Every shipping raster family has an independent CPU declaration. Generated
+// DXIL reflection is evidence about the artifact, not the source of this table;
+// keeping all 21 rows here catches semantic name/type/slot drift even when a
+// moved resource would still fit the shared root signature.
+inline const ShaderProgramDesc* ShippingRasterShaderContracts()
 {
+    static constexpr ShaderUniformDecl collisionVisualizerUniforms[] = {
+        { "uView", ShaderValueType::Mat4, true },
+        { "uProjection", ShaderValueType::Mat4, true },
+        { "uClipPlane", ShaderValueType::Vec4, true },
+        { "uLightPosition", ShaderValueType::Vec4, true },
+    };
+    static constexpr ShaderUniformDecl viewProjectionUniforms[] = {
+        { "uViewProj", ShaderValueType::Mat4, true },
+    };
+    static constexpr ShaderUniformDecl shadowDepthUniforms[] = {
+        { "uModel", ShaderValueType::Mat4, true },
+        { "uView", ShaderValueType::Mat4, true },
+        { "uProjection", ShaderValueType::Mat4, true },
+        { "uClipPlane", ShaderValueType::Vec4, true },
+        { "uCinematicTerrain", ShaderValueType::Vec4, true },
+        { "uCinematicBasin", ShaderValueType::Vec4, true },
+    };
+    static constexpr ShaderUniformDecl shadowDepthInstancedUniforms[] = {
+        { "uView", ShaderValueType::Mat4, true },
+        { "uProjection", ShaderValueType::Mat4, true },
+        { "uClipPlane", ShaderValueType::Vec4, true },
+    };
+    static constexpr ShaderUniformDecl solidColorUniforms[] = {
+        { "uProjection", ShaderValueType::Mat4, true },
+        { "uColor", ShaderValueType::Vec4, true },
+    };
+    static constexpr ShaderUniformDecl projectionUniforms[] = {
+        { "uProjection", ShaderValueType::Mat4, true },
+    };
+    static constexpr ShaderUniformDecl trajectoryRibbonUniforms[] = {
+        { "uViewProj", ShaderValueType::Mat4, true },
+        { "uViewportPixels", ShaderValueType::Vec4, true },
+        { "uRibbonStyle", ShaderValueType::Vec4, true },
+    };
+    static constexpr ShaderUniformDecl previewUniforms[] = {
+        { "uProjection", ShaderValueType::Mat4, true },
+        { "uPreviewParams", ShaderValueType::Vec4, true },
+    };
+    static constexpr ShaderUniformDecl backdropBlurUniforms[] = {
+        { "uProjection", ShaderValueType::Mat4, true },
+        { "uTexelSize", ShaderValueType::Vec4, true },
+    };
+    static constexpr ShaderUniformDecl unlitTexturedUniforms[] = {
+        { "uModel", ShaderValueType::Mat4, true },
+        { "uView", ShaderValueType::Mat4, true },
+        { "uProjection", ShaderValueType::Mat4, true },
+        { "uColorTint", ShaderValueType::Vec4, true },
+    };
+    static constexpr ShaderResourceDecl textureAtT0[] = {
+        { "uTexture", 0, ShaderResourceKind::Texture2D, true },
+    };
+    static constexpr ShaderResourceDecl fontAtT0[] = {
+        { "uFontTexture", 0, ShaderResourceKind::Texture2D, true },
+    };
     static constexpr ShaderUniformDecl litTexturedInstancedUniforms[] = {
         { "uView", ShaderValueType::Mat4, true },
         { "uProjection", ShaderValueType::Mat4, true },
@@ -199,7 +315,9 @@ inline const ShaderProgramDesc* HighRiskShaderContracts()
         { "uShadowFlags", ShaderValueType::Vec4, true },
     };
     static constexpr ShaderResourceDecl litTexturedInstancedResources[] = {
-        { "uTexture", 0, ShaderResourceKind::Texture2D, true },
+        // Instanced materials are sourced from uMaterialTable; the legacy t0
+        // declaration is optimized out of the shipping pixel stage.
+        { "uTexture", 0, ShaderResourceKind::Texture2D, false },
         { "uShadowMap", 3, ShaderResourceKind::Texture2D, false },
         { "uMaterialTable", 4, ShaderResourceKind::Texture2D, true },
     };
@@ -223,10 +341,14 @@ inline const ShaderProgramDesc* HighRiskShaderContracts()
         { "uShadowViewProj", ShaderValueType::Mat4, true },
         { "uShadowParams", ShaderValueType::Vec4, true },
         { "uShadowFlags", ShaderValueType::Vec4, true },
+        { "uDetailShadowViewProj", ShaderValueType::Mat4, false },
+        { "uDetailShadowParams", ShaderValueType::Vec4, false },
+        { "uDetailShadowFlags", ShaderValueType::Vec4, false },
     };
     static constexpr ShaderResourceDecl litTexturedResources[] = {
         { "uTexture", 0, ShaderResourceKind::Texture2D, true },
         { "uShadowMap", 3, ShaderResourceKind::Texture2D, false },
+        { "uDetailShadowMap", 5, ShaderResourceKind::Texture2D, false },
     };
 
     static constexpr ShaderUniformDecl waterCalmUniforms[] = {
@@ -287,10 +409,8 @@ inline const ShaderProgramDesc* HighRiskShaderContracts()
         { "uDepthParams", ShaderValueType::Vec4, true },
         { "uFogParams", ShaderValueType::Vec4, true },
         { "uFogColor", ShaderValueType::Vec3, true },
-        { "uSunShaftParams", ShaderValueType::Vec4, true },
-        { "uSunColor", ShaderValueType::Vec3, true },
+        { "uBloomTexelSize", ShaderValueType::Vec4, true },
         { "uBloomParams", ShaderValueType::Vec4, true },
-        { "uCloudParams", ShaderValueType::Vec4, true },
         { "uStyleGrade", ShaderValueType::Vec4, true },
     };
     static constexpr ShaderResourceDecl tonemapResources[] = {
@@ -304,7 +424,6 @@ inline const ShaderProgramDesc* HighRiskShaderContracts()
         { "uSunShaftParams", ShaderValueType::Vec4, true },
         { "uSunColor", ShaderValueType::Vec3, true },
         { "uVolumetricParams", ShaderValueType::Vec4, true },
-        { "uCloudParams", ShaderValueType::Vec4, true },
     };
     static constexpr ShaderResourceDecl volumetricResources[] = {
         { "uSceneTex", 0, ShaderResourceKind::Texture2D, true },
@@ -312,6 +431,27 @@ inline const ShaderProgramDesc* HighRiskShaderContracts()
     };
 
     static constexpr ShaderProgramDesc contracts[] = {
+        { "collision_visualizer",
+          "debug",
+          "P3_N3_I4x4_Color3",
+          collisionVisualizerUniforms,
+          sizeof( collisionVisualizerUniforms ) / sizeof( collisionVisualizerUniforms[0] ),
+          nullptr,
+          0 },
+        { "grid_line",
+          "debug",
+          "P3_Color3",
+          viewProjectionUniforms,
+          sizeof( viewProjectionUniforms ) / sizeof( viewProjectionUniforms[0] ),
+          nullptr,
+          0 },
+        { "launcher_laser",
+          "effects",
+          "P3_Color4",
+          viewProjectionUniforms,
+          sizeof( viewProjectionUniforms ) / sizeof( viewProjectionUniforms[0] ),
+          nullptr,
+          0 },
         { "lit_textured_instanced",
           "objects",
           "P3_N3_UV2_I4x4_Material4x3",
@@ -361,19 +501,96 @@ inline const ShaderProgramDesc* HighRiskShaderContracts()
           sizeof( volumetricUniforms ) / sizeof( volumetricUniforms[0] ),
           volumetricResources,
           sizeof( volumetricResources ) / sizeof( volumetricResources[0] ) },
+        { "shadow_depth",
+          "shadow",
+          "P3",
+          shadowDepthUniforms,
+          sizeof( shadowDepthUniforms ) / sizeof( shadowDepthUniforms[0] ),
+          nullptr,
+          0 },
+        { "shadow_depth_instanced",
+          "shadow",
+          "P3_I4x4",
+          shadowDepthInstancedUniforms,
+          sizeof( shadowDepthInstancedUniforms ) / sizeof( shadowDepthInstancedUniforms[0] ),
+          nullptr,
+          0 },
+        { "soft_additive_ribbon",
+          "effects",
+          "P3_Color4_UV4",
+          viewProjectionUniforms,
+          sizeof( viewProjectionUniforms ) / sizeof( viewProjectionUniforms[0] ),
+          nullptr,
+          0 },
+        { "solid_color",
+          "ui",
+          "P2",
+          solidColorUniforms,
+          sizeof( solidColorUniforms ) / sizeof( solidColorUniforms[0] ),
+          nullptr,
+          0 },
+        { "solid_color_batch",
+          "ui",
+          "P2_Color4",
+          projectionUniforms,
+          sizeof( projectionUniforms ) / sizeof( projectionUniforms[0] ),
+          nullptr,
+          0 },
+        { "text",
+          "ui",
+          "P2_UV2_Color3",
+          projectionUniforms,
+          sizeof( projectionUniforms ) / sizeof( projectionUniforms[0] ),
+          fontAtT0,
+          sizeof( fontAtT0 ) / sizeof( fontAtT0[0] ) },
+        { "tornado_fx",
+          "effects",
+          "P3_Color4_UV4",
+          viewProjectionUniforms,
+          sizeof( viewProjectionUniforms ) / sizeof( viewProjectionUniforms[0] ),
+          nullptr,
+          0 },
+        { "trajectory_ribbon",
+          "effects",
+          "P3_Color4_UV4_Aux2",
+          trajectoryRibbonUniforms,
+          sizeof( trajectoryRibbonUniforms ) / sizeof( trajectoryRibbonUniforms[0] ),
+          nullptr,
+          0 },
+        { "ui_render_target_preview",
+          "ui",
+          "FullscreenP2_UV2",
+          previewUniforms,
+          sizeof( previewUniforms ) / sizeof( previewUniforms[0] ),
+          textureAtT0,
+          sizeof( textureAtT0 ) / sizeof( textureAtT0[0] ) },
+        { "UIBackdropBlur",
+          "ui",
+          "FullscreenP2_UV2",
+          backdropBlurUniforms,
+          sizeof( backdropBlurUniforms ) / sizeof( backdropBlurUniforms[0] ),
+          textureAtT0,
+          sizeof( textureAtT0 ) / sizeof( textureAtT0[0] ) },
+        { "unlit_textured",
+          "objects",
+          "P3_UV2",
+          unlitTexturedUniforms,
+          sizeof( unlitTexturedUniforms ) / sizeof( unlitTexturedUniforms[0] ),
+          textureAtT0,
+          sizeof( textureAtT0 ) / sizeof( textureAtT0[0] ) },
     };
     return contracts;
 }
 
-inline size_t HighRiskShaderContractCount()
+inline constexpr size_t ShippingRasterShaderContractCount()
 {
-    return 7;
+    return 21;
 }
 
 inline const ShaderProgramDesc* FindShaderProgramDesc( const char* pathOrBaseName )
 {
-    const ShaderProgramDesc* contracts = HighRiskShaderContracts();
-    const size_t count = HighRiskShaderContractCount();
+    const ShaderProgramDesc* contracts = ShippingRasterShaderContracts();
+    const size_t count = ShippingRasterShaderContractCount();
     for ( size_t i = 0; i < count; ++i )
     {
         if ( ShaderContractMatchesBaseName( contracts[i].baseName, pathOrBaseName ) )

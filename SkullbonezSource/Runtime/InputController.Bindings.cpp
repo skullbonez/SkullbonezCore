@@ -63,6 +63,9 @@ const RuntimeInputKeyBinding kTakeInputKeyboardBindings[] = {
       kKeyboardUnblockedContext | InputBindingContext::Launcher | InputBindingContext::ReplayRestoreNotConsumed |
           InputBindingContext::DebugOnly },
     { VK_MENU, RuntimeInputAction::ToggleEditorTool, kKeyboardUnblockedContext },
+    { 'Z', RuntimeInputAction::UndoEditor, kKeyboardUnblockedContext | InputBindingContext::Editor },
+    { 'Y', RuntimeInputAction::RedoEditor, kKeyboardUnblockedContext | InputBindingContext::Editor },
+    { VK_DELETE, RuntimeInputAction::DeleteEditorSelection, kKeyboardUnblockedContext | InputBindingContext::Editor },
     { '1', RuntimeInputAction::ToggleWaterFreeze, kKeyboardUnblockedContext },
     { '2', RuntimeInputAction::CycleWaterReflection, kKeyboardUnblockedContext },
     { '3', RuntimeInputAction::ToggleWaterFlat, kKeyboardUnblockedContext },
@@ -75,6 +78,7 @@ const RuntimeInputKeyBinding kTakeInputKeyboardBindings[] = {
     { VK_F8, RuntimeInputAction::StepPhysicsPipelineNext, kKeyboardUnblockedContext },
     { '6', RuntimeInputAction::TogglePhysicsDebugTransparent, kKeyboardUnblockedContext },
     { 'Q', RuntimeInputAction::ReportRendererRuntimeRetired, kKeyboardUnblockedContext },
+    { VK_F9, RuntimeInputAction::ReloadShadersFromSource, kKeyboardUnblockedContext },
     { 'P', RuntimeInputAction::ToggleCrossScenePause, kKeyboardUnblockedContext },
     { 'G', RuntimeInputAction::ToggleBroadphaseOverlay, kKeyboardUnblockedContext },
     { '0', RuntimeInputAction::ToggleUIVisibility, kKeyboardUnblockedContext },

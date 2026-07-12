@@ -2,7 +2,8 @@
 @rem File: tools/validate_perf.bat
 @rem Purpose:
 @rem   Runs the bounded performance regression gate and compares current runtime
-@rem   artifacts against committed baselines.
+@rem   artifacts against committed baselines. The selected-ball path scenario
+@rem   also guards against full compact-history rebuilds on live ring eviction.
 @rem
 @rem Mental model:
 @rem   Tools are command-line guardrails around builds, validation, screenshots,
@@ -14,6 +15,8 @@
 @rem   commit or PR.
 @rem   Headless perf args: Launch flags used to remove unrelated interactive or
 @rem     audio-side work from perf comparisons.
+@rem   Structural perf proof: Counter-based assertion that rejects an expensive
+@rem     algorithmic path without relying on machine-specific frame timings.
 @rem
 @rem Invariants:
 @rem   - Tool output should be bounded and readable because agents and humans use
@@ -93,6 +96,21 @@ if errorlevel 1 (
 ) else (
     echo WARN: allocation guard evidence is warning-bearing; steady gameplay allocations remain to be converted.
 )
+echo.
+echo Running selected-ball live-path structural perf regression...
+set "SELECTED_PATH_REPORT=%REPO%\TestOutput\interaction\selected_ball_path_perf_report.json"
+if not exist "%REPO%\TestOutput\interaction" mkdir "%REPO%\TestOutput\interaction"
+del /q "%SELECTED_PATH_REPORT%" 2>nul
+"%REPO%\Profile\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step %PERF_HEADLESS_ARGS% --replay on --replay-seconds 1 --frames 330 --scene SkullbonezData/scenes/interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData/interaction/selected_ball_path_perf.json --interaction-report "%SELECTED_PATH_REPORT%"
+if errorlevel 1 (
+    echo FAIL: selected-ball live-path structural perf regression failed.
+    exit /b 9
+)
+if not exist "%SELECTED_PATH_REPORT%" (
+    echo FAIL: selected-ball live-path report was not produced.
+    exit /b 9
+)
+echo PASS: selected-ball path used one initial build, incremental ring trims, and a continuously published prefix.
 echo.
 echo Running dx12 perf test...
 del /q "%REPO%\Profile\perf_log.csv" 2>nul

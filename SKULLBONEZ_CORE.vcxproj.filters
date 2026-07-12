@@ -169,11 +169,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\GameObjects\GameModel.cpp">
-      <Filter>Source Files\GameObjects</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\GameObjects\GameModelCollection.cpp">
-      <Filter>Source Files\GameObjects</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Objects.cpp">
+      <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\GameModelRenderer.cpp">
       <Filter>Source Files\Rendering</Filter>
@@ -299,6 +296,12 @@
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorTools.cpp">
+      <Filter>Source Files\Runtime\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp">
+      <Filter>Source Files\Runtime\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorHistory.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorPlacementAssets.cpp">
@@ -481,6 +484,9 @@
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.cpp">
+      <Filter>Source Files\Rendering\DX12</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.DXR.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
@@ -500,6 +506,9 @@
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Textures.cpp">
+      <Filter>Source Files\Rendering\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\ShaderBytecodeManifest.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderDeviceDX12.cpp">
@@ -648,6 +657,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h">
+      <Filter>Header Files\Rendering\DX12</Filter>
+    </ClInclude>
     <ClInclude Include="ThirdPtySource\nlohmann\json.hpp">
       <Filter>External</Filter>
     </ClInclude>
@@ -683,11 +695,8 @@
     <ClInclude Include="SkullbonezSource\Core\Fence.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\GameObjects\GameModel.h">
-      <Filter>Header Files\GameObjects</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\GameObjects\GameModelCollection.h">
-      <Filter>Header Files\GameObjects</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.Objects.inl">
+      <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\GameObjects\SceneCapacity.h">
       <Filter>Header Files\GameObjects</Filter>
@@ -735,6 +744,9 @@
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTools.h">
+      <Filter>Header Files\Runtime\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.h">
       <Filter>Header Files\Runtime\Editor</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorPlacementAssets.h">
@@ -902,6 +914,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionReserve.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionScheduling.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRetainedMemory.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
@@ -998,6 +1013,9 @@
     <ClInclude Include="SkullbonezSource\Rendering\IRenderRayTracing.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\IRenderShaderDevelopment.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\IRenderResourceFactory.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
@@ -1019,6 +1037,9 @@
     <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.CommandRecordingState.h">
       <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.PipelineState.h">
+      <Filter>Header Files\Rendering\DX12</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.h">
       <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
@@ -1037,10 +1058,19 @@
     <ClInclude Include="SkullbonezSource\Rendering\ShaderContracts.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\ShaderReflectionContracts.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\GeneratedShaderReflection.h">
+      <Filter>Header Files\Rendering\DX12</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\Shadow.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\DX12\ShaderDX12.h">
+      <Filter>Header Files\Rendering\DX12</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\ShaderBytecodeManifest.h">
       <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\DX12\MeshDX12.h">
@@ -1213,6 +1243,135 @@
     <None Include="SkullbonezData\shaders\post_volumetric_light.hlsl">
       <Filter>Resource Files\HLSL</Filter>
     </None>
+    <None Include="SkullbonezData\shaders\collision_visualizer.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\collision_visualizer.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\generate_mips.cs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\grid_line.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\grid_line.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\launcher_laser.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\launcher_laser.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\lit_textured.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\lit_textured.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\lit_textured_instanced.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\lit_textured_instanced.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\post_tonemap.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\post_tonemap.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\post_volumetric_light.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\post_volumetric_light.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\shadow_depth.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\shadow_depth.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\shadow_depth_instanced.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\shadow_depth_instanced.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\sky_atmosphere.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\sky_atmosphere.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\soft_additive_ribbon.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\soft_additive_ribbon.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\solid_color.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\solid_color.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\solid_color_batch.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\solid_color_batch.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\text.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\text.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\tornado_fx.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\tornado_fx.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\trajectory_ribbon.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\trajectory_ribbon.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\ui_render_target_preview.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\ui_render_target_preview.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\UIBackdropBlur.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\UIBackdropBlur.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\unlit_textured.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\unlit_textured.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\water_calm.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\water_calm.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\water_ocean.ps.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\water_ocean.vs.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
     <None Include="SkullbonezData\shaders\reflect.rt.dxil">
       <Filter>Resource Files\HLSL</Filter>
     </None>
@@ -1250,6 +1409,9 @@
       <Filter>Resource Files\HLSL</Filter>
     </None>
     <None Include="SkullbonezData\shaders\water_ocean.hlsl">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\shader_manifest.json">
       <Filter>Resource Files\HLSL</Filter>
     </None>
     <None Include="SkullbonezData\scenes\at_rest.scene.json">
@@ -1469,6 +1631,9 @@
       <Filter>Scene Files</Filter>
     </None>
     <None Include="SkullbonezData\interaction\memory_overlay_f6_toggle.json">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\interaction\shader_hot_reload_f9.json">
       <Filter>Scene Files</Filter>
     </None>
     <None Include="SkullbonezData\interaction\replay_branch_restore_live_edge.json">

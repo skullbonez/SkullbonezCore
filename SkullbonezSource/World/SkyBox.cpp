@@ -59,37 +59,42 @@ Basics::SbResult SkyBox::LoadTextures( const SkullbonezCore::Basics::EngineConfi
 {
     assert( m_textures );
     const Basics::SbResult leftResult =
-        m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyLeft ).c_str(), TEXTURE_SKY_LEFT );
+        m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyLeft ).c_str(),
+                                       TEXTURE_SKY_LEFT );
     if ( !leftResult.ok )
     {
         return leftResult;
     }
     const Basics::SbResult rightResult =
-        m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyRight ).c_str(), TEXTURE_SKY_RIGHT );
+        m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyRight ).c_str(),
+                                       TEXTURE_SKY_RIGHT );
     if ( !rightResult.ok )
     {
         return rightResult;
     }
     const Basics::SbResult frontResult =
-        m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyFront ).c_str(), TEXTURE_SKY_FRONT );
+        m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyFront ).c_str(),
+                                       TEXTURE_SKY_FRONT );
     if ( !frontResult.ok )
     {
         return frontResult;
     }
     const Basics::SbResult backResult =
-        m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyBack ).c_str(), TEXTURE_SKY_BACK );
+        m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyBack ).c_str(),
+                                       TEXTURE_SKY_BACK );
     if ( !backResult.ok )
     {
         return backResult;
     }
     const Basics::SbResult upResult =
-        m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyUp ).c_str(), TEXTURE_SKY_UP );
+        m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyUp ).c_str(), TEXTURE_SKY_UP );
     if ( !upResult.ok )
     {
         return upResult;
     }
     const Basics::SbResult downResult =
-        m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyDown ).c_str(), TEXTURE_SKY_DOWN );
+        m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyDown ).c_str(),
+                                       TEXTURE_SKY_DOWN );
     if ( !downResult.ok )
     {
         return downResult;
@@ -103,7 +108,7 @@ void SkyBox::BuildMeshes( const SkullbonezCore::Basics::EngineConfig& cfg,
                           IRenderResourceFactory& resources )
 {
     // Shorthand for boundary values with overflow
-    const int overflow = cfg.skyboxOverflow;
+    const int overflow = cfg.skybox.overflow;
     float xn = static_cast<float>( m_boundaries.m_xMin - overflow );
     float xp = static_cast<float>( m_boundaries.m_xMax + overflow );
     float yn = static_cast<float>( m_boundaries.yMin - overflow );

@@ -26,7 +26,6 @@ Related:
 #include "CaptureController.h"
 #include "Scene/SceneController.h"
 #include "../Physics/PhysicsEngine.h"
-#include "../Physics/PhysicsEngineStoreQueries.h"
 
 #include <algorithm>
 
@@ -115,10 +114,13 @@ RuntimeViewModel RuntimeViewModelBuilder::Build( const RuntimeViewModelContext& 
     view.frame = scene.currentFrame;
     view.targetFrameCount = scene.targetFrameCount;
     // Why: the UI displays a runtime count, but physics body rows are the
-    // simulation snapshot authority. Do not ask GameModelCollection to report a
+    // simulation snapshot authority. Do not ask SceneController to report a
     // model-order compatibility count for this presentation value.
-    view.modelCount = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( context.physics ).Count();
+    view.modelCount = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( context.physics ).Count();
     view.timeScale = scene.timeScale;
+    view.presentationInterpolation = context.presentationInterpolation;
+    view.presentationPinned = context.presentationPinned;
+    view.presentationAlpha = std::clamp( context.presentationAlpha, 0.0f, 1.0f );
     return view;
 }
 
