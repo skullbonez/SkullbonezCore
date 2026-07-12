@@ -1,11 +1,12 @@
 # DX12 Frame Path Comment-Rot Sweep
 
 Date: 2026-07-12
-Status: Not started — 0/3 phases complete
+Status: WNF — owner-parked 2026-07-12 ("no comment changes yet"); restore to
+TODO/ only by explicit owner decision. 0/3 phases complete.
 Impact area: DX12 backend frame path (Present/Finish/FlushGPU), GPU timer
 readback
 Owner: rendering/DX12
-Priority: Must do (small; 2026-07-12 adversarial review)
+Priority: Parked (was: must do, small; 2026-07-12 adversarial review)
 
 ## Problem And Evidence (measured 2026-07-12)
 

@@ -13,7 +13,7 @@ plan inventory.
 | Branch | `nightrunner-11th-july` |
 | Current pushed baseline | Aggregate engine-cleanup closure is validated at the current branch tip; the prior pushed baseline was `5649a876` |
 | Current objective | Validation-gate V3 is externally blocked; the active local lane is the 2026-07-12 adversarial-review remediation portfolio (four must-do plans, starting with dx12-descriptor-and-handle-lifetime) |
-| Portfolio progress | 275 / 301 tasks = 91% rounded overall |
+| Portfolio progress | 275 / 298 tasks = 92% rounded overall |
 | Last broad local gate | `tools\\validate_full.bat` passed final aggregate source on 2026-07-12: formatting/metadata clean, every CPU lane passed (173 doctest cases, 3,964 assertions), zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
 | Validation for current edits | Independent aggregate and narrow repeat reviews are clear; explicit DX12, one-minute graphics stress, perf, focused broadphase/capacity tests, comment audit, and full gate all pass. |
 
@@ -27,10 +27,10 @@ plan inventory.
 2. 2026-07-12 adversarial-review remediation (MASTER section of the same
    name). Must-do order: dx12-descriptor-and-handle-lifetime (latent
    resize/churn `SB_FATAL`), determinism-contract-hardening (isolated commit
-   window), upload-arena-overflow-policy, dx12-frame-path-comment-rot-sweep
-   (the last two not interleaved — same frame-path file). Nice-to-have after
-   the must-do lane: frame-view-calling-convention, then
-   render-interface-and-workerpool-slimming.
+   window), upload-arena-overflow-policy. Nice-to-have after the must-do
+   lane: frame-view-calling-convention, then
+   render-interface-and-workerpool-slimming. The comment-rot sweep is
+   owner-parked in `WNF/` (no comment changes yet, 2026-07-12 ruling).
 
 ## Current Plan Decisions
 

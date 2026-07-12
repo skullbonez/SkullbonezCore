@@ -104,10 +104,9 @@ concrete plan rows and counting it would duplicate tasks.
 | dx12-descriptor-and-handle-lifetime | 0 | 5 | 0% |
 | determinism-contract-hardening | 0 | 4 | 0% |
 | upload-arena-overflow-policy | 0 | 4 | 0% |
-| dx12-frame-path-comment-rot-sweep | 0 | 3 | 0% |
 | frame-view-calling-convention | 0 | 4 | 0% |
 | render-interface-and-workerpool-slimming | 0 | 5 | 0% |
-| **Portfolio total** | **275** | **301** | **91%** |
+| **Portfolio total** | **275** | **298** | **92%** |
 
 ## Current Execution Priority
 
@@ -122,10 +121,10 @@ For maximum impact with minimal rework, use this binding critical path:
    external administration, the 2026-07-12 must-do plans are the local
    priority, in order: dx12-descriptor-and-handle-lifetime (latent resize/churn
    crash), then determinism-contract-hardening (isolated commit window, no
-   concurrent physics-adjacent work), then upload-arena-overflow-policy and
-   dx12-frame-path-comment-rot-sweep (not interleaved with each other — both
-   edit the same frame-path file). Nice-to-have plans start only after the
-   must-do lane closes.
+   concurrent physics-adjacent work), then upload-arena-overflow-policy.
+   Nice-to-have plans start only after the must-do lane closes. The
+   comment-rot sweep was owner-parked to `WNF/` on 2026-07-12 (no comment
+   changes yet).
 
 ## Engine Cleanup Campaign
 
@@ -164,8 +163,7 @@ Must do:
 |---|---|---:|---|
 | [dx12-descriptor-and-handle-lifetime](TODO/dx12-descriptor-and-handle-lifetime.md) | Not started | 0/5 | Ready; highest severity — static SRV bump allocator plus FBO recreation on resize is a latent `SB_FATAL` crash; run first |
 | [determinism-contract-hardening](TODO/determinism-contract-hardening.md) | Not started | 0/4 | Ready; requires an isolated commit window with no other physics-adjacent change in flight (D4) |
-| [upload-arena-overflow-policy](TODO/upload-arena-overflow-policy.md) | Not started | 0/4 | Ready; independent of the descriptor plan; not interleaved with the comment-rot sweep (same file) |
-| [dx12-frame-path-comment-rot-sweep](TODO/dx12-frame-path-comment-rot-sweep.md) | Not started | 0/3 | Ready; land before or after — not interleaved with — upload-arena-overflow-policy |
+| [upload-arena-overflow-policy](TODO/upload-arena-overflow-policy.md) | Not started | 0/4 | Ready; independent of the descriptor plan |
 
 Nice to have (start only after the must-do lane closes):
 
@@ -174,11 +172,17 @@ Nice to have (start only after the must-do lane closes):
 | [frame-view-calling-convention](TODO/frame-view-calling-convention.md) | Not started | 0/4 | After must-do plans; avoids diff collisions in `RunFrame.cpp` |
 | [render-interface-and-workerpool-slimming](TODO/render-interface-and-workerpool-slimming.md) | Not started | 0/5 | Last of the six; R2 collapse work proceeds only on R1 measurement evidence |
 
+Owner-parked 2026-07-12 (inventory rule 9 applies — not live work, not in the
+ledger): `WNF/dx12-frame-path-comment-rot-sweep.md`. The owner ruled no
+comment changes yet; the Present GPU-timer dead-store finding it carries stays
+recorded there for when the plan is restored.
+
 Deliberately not planned (owner may revisit): AoS `PhysicsBodyRecord` layout
 reshaping and terrain warm-start/clamp heuristic replacement — both working,
 honestly documented, and baseline-entangled; undertake only with a concrete
 perf or stacking-stability motivation. Repeated glossary-header deduplication
-is available as a documentation-only seventh plan if the owner wants it.
+is available as a documentation-only plan if the owner wants it (currently
+excluded by the same no-comment-changes ruling).
 
 ## Features
 
