@@ -368,6 +368,11 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
   with `source_vertex`/`source_face` data and serialized with
   `tools\bake_hulls.py --write` so runtime metadata, faces, edges, mass, and
   inertia stay current.
+- **Authored schema changes are versioned migrations.** Any schema change to
+  scenes, asset libraries, hulls, or `engine.cfg` must bump that format's owned
+  integer version, add its deterministic migration step, upgrade committed
+  files, and extend the legacy/current/future/writer tests in the same commit;
+  run `tools\migrate_data_formats.py --check` to verify non-scene authored data.
 - **Scene use of reusable assets should go through `assetInstances[]`.** Avoid
   baking fresh copies of every generated part into scenes unless the scene is an
   intentional snapshot or regression fixture.

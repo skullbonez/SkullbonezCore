@@ -99,16 +99,14 @@ TEST_CASE( "Scene lifecycle accepts ordered phases and explicit restart" )
     CHECK_FALSE( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::AfterSceneActivated,
                                                        SceneRuntimeLifecycleEvent::None ) );
 
-    const SceneLifecycleConsumerMask beforeUnload =
-        SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
-        SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDevice );
-    const SceneLifecycleConsumerMask afterClear =
-        SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
-        SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation ) |
-        SceneLifecycleConsumerBit( SceneLifecycleConsumer::Audio ) |
-        SceneLifecycleConsumerBit( SceneLifecycleConsumer::Tools ) |
-        SceneLifecycleConsumerBit( SceneLifecycleConsumer::Interaction ) |
-        SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
+    const SceneLifecycleConsumerMask beforeUnload = SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
+                                                    SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDevice );
+    const SceneLifecycleConsumerMask afterClear = SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
+                                                  SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation ) |
+                                                  SceneLifecycleConsumerBit( SceneLifecycleConsumer::Audio ) |
+                                                  SceneLifecycleConsumerBit( SceneLifecycleConsumer::Tools ) |
+                                                  SceneLifecycleConsumerBit( SceneLifecycleConsumer::Interaction ) |
+                                                  SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::BeforeSceneUnload ) == beforeUnload );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneCleared ) == afterClear );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::BeforeScenePopulate ) == 0 );
@@ -359,6 +357,62 @@ TEST_CASE( "RenderDefaultsStore samples values at the drain checkpoint" )
     CHECK( result.status.ok );
     CHECK( result.savedCount == 1 );
     CHECK( configText.find( "ordinary_sun_intensity = 9.25" ) != std::string::npos );
+    CHECK( configText.find( "format_version = 1" ) != std::string::npos );
+
+    store.SubmitOrdinarySave();
+    fs::current_path( testRoot, filesystemError );
+    REQUIRE_FALSE( filesystemError );
+    const RenderDefaultsSaveBatchResult repeated = store.DrainAtFrameCheckpoint( ordinary, cinematic );
+    fs::current_path( originalPath, filesystemError );
+    REQUIRE_FALSE( filesystemError );
+    std::string repeatedText;
+    {
+        std::ifstream repeatedFile( dataRoot / "engine.cfg" );
+        repeatedText.assign( std::istreambuf_iterator<char>( repeatedFile ), std::istreambuf_iterator<char>() );
+    }
+    CHECK( repeated.status.ok );
+    CHECK( repeatedText == configText );
+
+    fs::remove_all( testRoot, filesystemError );
+    CHECK_FALSE( filesystemError );
+}
+
+TEST_CASE( "RenderDefaultsStore rejects future config without rewriting bytes" )
+{
+    namespace fs = std::filesystem;
+    std::error_code filesystemError;
+    const fs::path originalPath = fs::current_path( filesystemError );
+    REQUIRE_FALSE( filesystemError );
+    const fs::path testRoot = originalPath / "TestOutput" / "owner_request_future_config";
+    const fs::path dataRoot = testRoot / "SkullbonezData";
+    fs::create_directories( dataRoot, filesystemError );
+    REQUIRE_FALSE( filesystemError );
+    const std::string originalText = "format_version = 2\nordinary_sun_intensity = 1.00\n";
+    {
+        std::ofstream configFile( dataRoot / "engine.cfg", std::ios::trunc );
+        REQUIRE( configFile.is_open() );
+        configFile << originalText;
+        REQUIRE( configFile.good() );
+    }
+
+    RenderDefaultsStore store;
+    store.SubmitOrdinarySave();
+    fs::current_path( testRoot, filesystemError );
+    REQUIRE_FALSE( filesystemError );
+    const RenderDefaultsSaveBatchResult result =
+        store.DrainAtFrameCheckpoint( OrdinaryRenderConfig{}, CinematicRenderConfig{} );
+    fs::current_path( originalPath, filesystemError );
+    REQUIRE_FALSE( filesystemError );
+
+    std::string finalText;
+    {
+        std::ifstream configFile( dataRoot / "engine.cfg" );
+        finalText.assign( std::istreambuf_iterator<char>( configFile ), std::istreambuf_iterator<char>() );
+    }
+    CHECK_FALSE( result.status.ok );
+    CHECK( result.savedCount == 0 );
+    CHECK( result.failedCount == 1 );
+    CHECK( finalText == originalText );
 
     fs::remove_all( testRoot, filesystemError );
     CHECK_FALSE( filesystemError );

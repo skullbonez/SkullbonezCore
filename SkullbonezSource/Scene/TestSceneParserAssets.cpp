@@ -28,6 +28,11 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+namespace
+{
+constexpr uint32_t ASSET_LIBRARY_FORMAT_VERSION = 1;
+}
+
 const Assets::AssetLibrarySourceAsset* TestSceneParser::FindRegisteredAssetLibrary( const std::string& token ) const
 {
     if ( !m_assets.assets || token.find( '/' ) != std::string::npos || token.find( '\\' ) != std::string::npos ||
@@ -263,9 +268,18 @@ void TestSceneParser::ValidateAssetPrimitiveFields( const Json& asset,
     return;
 }
 
+void TestSceneParser::UpgradeAssetLibraryV0ToV1( Json& root, const std::string& path )
+{
+    // Version 0 is the unversioned asset-library grammar. Its fields already
+    // have v1 meaning, so the deterministic upgrade is an explicit stamp with
+    // no recipe reordering or value changes.
+    (void)path;
+    root["version"] = ASSET_LIBRARY_FORMAT_VERSION;
+}
+
 void TestSceneParser::LoadAssetLibrary( const std::string& assetPath, uint32_t libraryRefIndex )
 {
-    const Json root = ReadJsonFile( assetPath );
+    Json root = ReadJsonFile( assetPath );
     RequireObject( root, assetPath, "asset library root" );
     const std::string actualFormat =
         ReadString( RequireMember( root, assetPath, "asset library root", "format" ), assetPath, "format" );
@@ -275,6 +289,24 @@ void TestSceneParser::LoadAssetLibrary( const std::string& assetPath, uint32_t l
         message << "Expected format 'skullbonez.asset_library.json', got '" << actualFormat << "'";
         Fail( assetPath, message.str() );
         return;
+    }
+
+    const Json* versionMember = FindMember( root, "version" );
+    const uint32_t loadedVersion = versionMember ? ReadUInt( *versionMember, assetPath, "version" ) : 0;
+    if ( ParserFailed() )
+    {
+        return;
+    }
+    if ( loadedVersion > ASSET_LIBRARY_FORMAT_VERSION )
+    {
+        Fail( assetPath,
+              "Asset library format version " + std::to_string( loadedVersion ) + " is newer than current version " +
+                  std::to_string( ASSET_LIBRARY_FORMAT_VERSION ) );
+        return;
+    }
+    if ( loadedVersion == 0 )
+    {
+        UpgradeAssetLibraryV0ToV1( root, assetPath );
     }
 
     const Json& assets = RequireMember( root, assetPath, "asset library root", "assets" );

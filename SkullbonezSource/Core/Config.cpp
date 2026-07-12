@@ -782,18 +782,106 @@ const ConfigSetting* FindConfigSetting( const char* name )
         } );
     return found;
 }
+
+// Invariant: version validation is a separate read pass. A future file must
+// fail before even one otherwise-valid setting mutates the destination object.
+SbResult ReadConfigFormatVersion( const char* path, unsigned int& outVersion )
+{
+    outVersion = 0;
+    FILE* rawFile = nullptr;
+    if ( fopen_s( &rawFile, path, "r" ) != 0 || !rawFile )
+    {
+        return SbResult::Success();
+    }
+    FileHandle file( rawFile );
+
+    bool sawVersion = false;
+    char line[512];
+    int lineNumber = 0;
+    while ( fgets( line, sizeof( line ), file.get() ) )
+    {
+        ++lineNumber;
+        size_t len = strlen( line );
+        while ( len > 0 && ( line[len - 1] == '\r' || line[len - 1] == '\n' ) )
+        {
+            line[--len] = '\0';
+        }
+        char* trimmedLine = TrimInPlace( line );
+        if ( *trimmedLine == '\0' || *trimmedLine == '#' )
+        {
+            continue;
+        }
+        char* eq = strchr( trimmedLine, '=' );
+        if ( !eq )
+        {
+            continue;
+        }
+        *eq = '\0';
+        char* key = TrimInPlace( trimmedLine );
+        if ( strcmp( key, "format_version" ) != 0 )
+        {
+            continue;
+        }
+        if ( sawVersion )
+        {
+            return SbResult::Failure( "Core/EngineConfig",
+                                      "Duplicate engine config format_version at %s:%d.",
+                                      path,
+                                      lineNumber );
+        }
+
+        char* value = TrimInPlace( eq + 1 );
+        char* hash = strchr( value, '#' );
+        if ( hash )
+        {
+            *hash = '\0';
+            value = TrimInPlace( value );
+        }
+        errno = 0;
+        char* end = nullptr;
+        const unsigned long parsed = strtoul( value, &end, 10 );
+        if ( end == value || *TrimInPlace( end ) != '\0' || errno == ERANGE || parsed > UINT_MAX )
+        {
+            return SbResult::Failure( "Core/EngineConfig",
+                                      "Invalid engine config format_version at %s:%d.",
+                                      path,
+                                      lineNumber );
+        }
+        outVersion = static_cast<unsigned int>( parsed );
+        sawVersion = true;
+    }
+
+    if ( outVersion > ENGINE_CONFIG_FORMAT_VERSION )
+    {
+        return SbResult::Failure( "Core/EngineConfig",
+                                  "Engine config format version %u is newer than current version %u: %s.",
+                                  outVersion,
+                                  ENGINE_CONFIG_FORMAT_VERSION,
+                                  path );
+    }
+    // Version 0 is the deterministic legacy step: the original key/value
+    // grammar already has v1 semantics, so upgrading requires no field rewrite.
+    return SbResult::Success();
+}
 } // anonymous namespace
 
 /* ---------------------------------------------------------------------------------*/
-void EngineConfig::Load( const char* path )
+SbResult EngineConfig::Load( const char* path )
 {
     // engine.cfg is an optional developer/runtime defaults file. Unknown or
     // malformed lines are skipped with a warning so older configs do not block
     // startup after a setting is removed.
+    unsigned int formatVersion = 0;
+    const SbResult versionResult = ReadConfigFormatVersion( path, formatVersion );
+    if ( !versionResult.ok )
+    {
+        return versionResult;
+    }
+
     FILE* rawFile = nullptr;
     if ( fopen_s( &rawFile, path, "r" ) != 0 || !rawFile )
     {
-        return;
+        return SbResult::Success();
     }
     FileHandle file( rawFile );
 
@@ -838,6 +926,11 @@ void EngineConfig::Load( const char* path )
             continue;
         }
 
+        if ( strcmp( key, "format_version" ) == 0 )
+        {
+            continue;
+        }
+
         const ConfigSetting* setting = FindConfigSetting( key );
         if ( !setting )
         {
@@ -847,6 +940,7 @@ void EngineConfig::Load( const char* path )
 
         setting->apply( *this, value, *setting, path, lineNumber );
     }
+    return SbResult::Success();
 }
 
 

@@ -33,6 +33,7 @@ Related:
 #pragma once
 
 #include "../GameObjects/SceneCapacity.h"
+#include "SbResult.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -42,6 +43,8 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+
+inline constexpr unsigned int ENGINE_CONFIG_FORMAT_VERSION = 1;
 
 /*
     Process configuration loaded once from SkullbonezData/engine.cfg at startup.
@@ -544,7 +547,9 @@ class EngineConfig
 {
   public:
     EngineConfig() = default;
-    void Load( const char* path );
+    // Lane R: authored configuration is preflighted before any destination is
+    // mutated, so an unsupported format cannot leave a partially loaded config.
+    SbResult Load( const char* path );
     void Dump( FILE* out ) const;
 
     // Composition invariant: parser rows retain historical order and key

@@ -11,20 +11,19 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-11th-july` |
-| Current pushed baseline | Simulation/render interpolation is pushed through `0ebf1432`; editor undo/redo closure is ready to commit and push |
-| Current objective | Execute `data-format-versioning` while the engine-cleanup aggregate review remains a parallel lane |
-| Portfolio progress | 270 / 276 tasks = 98% overall |
-| Last broad local gate | `tools\\validate_full.bat` passed final editor-history source on 2026-07-12 in 98.412s: formatting and 662 project/filter items clean, every CPU lane passed (167 doctest cases, 3,919 assertions), zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with 33/61/0 screenshot maxima, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | The editor interaction probe exactly matched placed and transformed state fingerprints through three undos/redos, terrain rebinding, deletion, and redo-branch truncation. Allocation policy, plan-end review, and final full gate are clear. |
+| Current pushed baseline | Editor undo/redo is pushed through `bd2373c8`; data-format versioning closure is ready to commit and push |
+| Current objective | Complete the engine-cleanup aggregate review and delete its eight retained evidence plans |
+| Portfolio progress | 275 / 276 tasks = 100% rounded overall |
+| Last broad local gate | `tools\\validate_full.bat` passed final data-versioning source on 2026-07-12 in 108.266s: formatting clean, every CPU lane passed (172 doctest cases, 3,963 assertions), zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
+| Validation for current edits | Migration self-test, 39-file authored-data check, 35-hull bake check, writer no-downgrade regression, comment audit, independent review, and final full gate are clear. |
 
 ## Live Queue
 
 1. Prepare the engine-cleanup aggregate review in parallel with the critical path;
    fix findings, pass the closure gate, and delete all eight retained completed
    plans.
-2. Continue the binding path recorded in MASTER with data-format versioning.
-   Phase-level preparation and dependency barriers are
-   authoritative in MASTER and the owning plans.
+2. Delete the eight retained completed engine-cleanup plans only after the
+   aggregate review records no credible ownership finding.
 3. Validation-gate V3 remains an external parallel lane at 5/6. The hosted CPU
    PR lane has a successful real run. Remaining work is a `merge_group` proof,
    required `main` branch protection, and trusted DX12-runner administration.
@@ -87,4 +86,5 @@ plan inventory.
 ## Next Handoff
 
 Use `Agentic/Plans/MASTER-PLAN.md` for selection and the repo-local orchestrator
-skill when implementing a plan. The next binding plan is `data-format-versioning`.
+skill when implementing a plan. The next binding work is the engine-cleanup
+aggregate review and retained-plan deletion.

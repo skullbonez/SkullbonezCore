@@ -48,6 +48,8 @@ namespace Physics = SkullbonezCore::Physics;
 namespace
 {
 constexpr float COMPATIBILITY_HULL_DEFAULT_MASS = 24.0f;
+constexpr uint16_t PREVIOUS_HULL_FORMAT_VERSION = 1;
+constexpr uint16_t CURRENT_HULL_FORMAT_VERSION = 2;
 constexpr const char* HULL_LOAD_OWNER = "Physics/ConvexHullShape";
 
 struct HullFile
@@ -272,6 +274,7 @@ SbResult ConvexHullShape::TryLoadFromFile( const char* path, ConvexHullShape& ou
     char authoredName[64] = {};
     int lineNumber = 0;
     bool sawVersion = false;
+    uint16_t loadedVersion = 0;
     bool sawSourceHash = false;
     bool sawCenterOfMass = false;
     bool sawVolume = false;
@@ -301,12 +304,35 @@ SbResult ConvexHullShape::TryLoadFromFile( const char* path, ConvexHullShape& ou
         if ( strcmp( token, "hull_version" ) == 0 )
         {
             char* version = strtok_s( nullptr, " \t\r\n", &context );
-            if ( !version || strcmp( version, "2" ) != 0 )
+            if ( !version )
             {
-                return HullLoadFailure(
-                    "Convex hull asset must be serialized hull_version 2: %s:%d.  (ConvexHullShape::LoadFromFile)",
-                    path,
-                    lineNumber );
+                return HullLoadFailure( "Invalid hull_version at %s:%d.  (ConvexHullShape::LoadFromFile)",
+                                        path,
+                                        lineNumber );
+            }
+            SbResult versionResult = ParseUint16( version, path, lineNumber, "hull_version", loadedVersion );
+            if ( !versionResult.ok )
+            {
+                return versionResult;
+            }
+            if ( loadedVersion > CURRENT_HULL_FORMAT_VERSION )
+            {
+                return HullLoadFailure( "Convex hull format version %u is newer than current version %u: %s:%d.  "
+                                        "(ConvexHullShape::LoadFromFile)",
+                                        loadedVersion,
+                                        CURRENT_HULL_FORMAT_VERSION,
+                                        path,
+                                        lineNumber );
+            }
+            if ( loadedVersion < PREVIOUS_HULL_FORMAT_VERSION )
+            {
+                return HullLoadFailure( "Convex hull format version %u is older than supported version %u: %s:%d. "
+                                        "Run tools\\migrate_data_formats.py --write.  "
+                                        "(ConvexHullShape::LoadFromFile)",
+                                        loadedVersion,
+                                        PREVIOUS_HULL_FORMAT_VERSION,
+                                        path,
+                                        lineNumber );
             }
             sawVersion = true;
             const SbResult extraResult = RequireNoExtraTokens( context, path, lineNumber, "hull_version" );
@@ -720,6 +746,11 @@ SbResult ConvexHullShape::TryLoadFromFile( const char* path, ConvexHullShape& ou
         hull.m_defaultMass = COMPATIBILITY_HULL_DEFAULT_MASS;
         WarnMissingDefaultMassMetadata( path );
     }
+
+    // Hull v1->v2 is a deterministic metadata upgrade. Runtime topology is
+    // already represented by the same baked rows; v2's writer restamps the
+    // document and supplies default_mass when the older file omitted it.
+    (void)loadedVersion;
 
     for ( uint16_t f = 0; f < hull.m_faceCount; ++f )
     {

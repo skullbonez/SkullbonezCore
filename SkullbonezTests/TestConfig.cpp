@@ -15,8 +15,9 @@ Glossary:
     full 218-key registry into this test.
 
 Invariants:
-  - The dump contains one header plus exactly 218 unique setting rows.
+  - The dump contains one header plus exactly 219 unique setting rows.
   - Rejected rows do not block later valid rows in the same file.
+  - Unsupported format versions fail before any setting mutates the config.
   - Temporary fixtures are cold test artifacts and are removed after each run.
 
 Related:
@@ -114,7 +115,7 @@ TEST_CASE( "EngineConfig: valid file produces the stable complete dump order" )
                             "contact_audio_debug_counters = on\n" ) );
 
     EngineConfig config;
-    config.Load( kConfigInputPath );
+    REQUIRE( config.Load( kConfigInputPath ).ok );
     CHECK( config.window.screenX == 2048 );
     CHECK( config.window.fullscreen );
     CHECK( config.worldForces.gravity == doctest::Approx( -9.5f ) );
@@ -151,7 +152,7 @@ TEST_CASE( "EngineConfig: unknown key is ignored and later valid rows still appl
                             "screen_y = 777\n" ) );
 
     EngineConfig config;
-    config.Load( kConfigInputPath );
+    REQUIRE( config.Load( kConfigInputPath ).ok );
     CHECK( config.window.screenX == 2222 );
     CHECK( config.window.screenY == 777 );
     CHECK( config.window.refreshRate == 75 );
@@ -167,9 +168,28 @@ TEST_CASE( "EngineConfig: malformed and out-of-range values preserve defaults" )
                             "screen_y = 720\n" ) );
 
     EngineConfig config;
-    config.Load( kConfigInputPath );
+    REQUIRE( config.Load( kConfigInputPath ).ok );
     CHECK( config.window.screenX == 1800 );
     CHECK( config.worldForces.gravity == doctest::Approx( -30.0f ) );
     CHECK( config.physicsSleep.frames == 30 );
     CHECK( config.window.screenY == 720 );
+}
+
+TEST_CASE( "EngineConfig: current version loads and future version fails before mutation" )
+{
+    TemporaryConfigFiles files;
+    REQUIRE( WriteTextFile( kConfigInputPath, "format_version = 1\nscreen_x = 2048\n" ) );
+
+    EngineConfig current;
+    REQUIRE( current.Load( kConfigInputPath ).ok );
+    CHECK( current.window.screenX == 2048 );
+
+    REQUIRE( WriteTextFile( kConfigInputPath, "screen_x = 1234\nformat_version = 2\n" ) );
+    EngineConfig future;
+    const auto result = future.Load( kConfigInputPath );
+    CHECK_FALSE( result.ok );
+    CHECK( std::string( result.error.owner ) == "Core/EngineConfig" );
+    CHECK( std::string( result.error.message ).find( "version 2" ) != std::string::npos );
+    CHECK( std::string( result.error.message ).find( "current version 1" ) != std::string::npos );
+    CHECK( future.window.screenX == 1800 );
 }

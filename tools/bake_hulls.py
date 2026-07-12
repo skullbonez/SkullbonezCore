@@ -37,6 +37,8 @@ MAX_FACE_VERTICES = 16
 MAX_FACE_INDICES = MAX_FACES * MAX_FACE_VERTICES
 TOLERANCE = 0.00005
 DEFAULT_HULL_DENSITY = 0.90
+PREVIOUS_HULL_VERSION = 1
+CURRENT_HULL_VERSION = 2
 
 
 @dataclass
@@ -139,7 +141,7 @@ def parse_index(value: str, path: Path, line_number: int, field: str) -> int:
     return parsed
 
 
-def read_source_hull(path: Path) -> SourceHull:
+def read_source_hull(path: Path, allow_unversioned: bool = False) -> SourceHull:
     version = None
     name = path.stem
     vertices: list[tuple[float, float, float]] = []
@@ -155,9 +157,18 @@ def read_source_hull(path: Path) -> SourceHull:
         if token == "hull_version":
             if len(parts) != 2:
                 raise HullError(f"{path}:{line_number}: invalid hull_version")
-            version = parts[1]
-            if version != "2":
-                raise HullError(f"{path}:{line_number}: convex hull assets must use hull_version 2")
+            try:
+                version = int(parts[1], 10)
+            except ValueError as exc:
+                raise HullError(f"{path}:{line_number}: invalid hull_version") from exc
+            if version > CURRENT_HULL_VERSION:
+                raise HullError(
+                    f"{path}:{line_number}: hull version {version} is newer than current version {CURRENT_HULL_VERSION}"
+                )
+            if version < PREVIOUS_HULL_VERSION:
+                raise HullError(
+                    f"{path}:{line_number}: hull version {version} is older than supported version {PREVIOUS_HULL_VERSION}"
+                )
             continue
 
         if token == "name":
@@ -166,8 +177,8 @@ def read_source_hull(path: Path) -> SourceHull:
             name = parts[1]
             continue
 
-        if version is None:
-            raise HullError(f"{path}:{line_number}: hull_version 2 must appear before hull data")
+        if version is None and not allow_unversioned:
+            raise HullError(f"{path}:{line_number}: hull_version {CURRENT_HULL_VERSION} must appear before hull data")
 
         if token == "source_vertex":
             if len(parts) != 4:
@@ -186,7 +197,7 @@ def read_source_hull(path: Path) -> SourceHull:
             faces.append([parse_index(value, path, line_number, "source_face.index") for value in parts[1:]])
             continue
 
-    if version is None:
+    if version is None and not allow_unversioned:
         raise HullError(f"{path}: missing hull_version")
     if len(vertices) < 4 or len(vertices) > MAX_VERTICES:
         raise HullError(f"{path}: hull must have between 4 and {MAX_VERTICES} source vertices")
@@ -364,7 +375,7 @@ def serialize_hull(baked: BakedHull) -> str:
     lines: list[str] = [
         "# Convex hull asset.",
         "# source_* directives preserve editable geometry; runtime reads baked directives.",
-        "hull_version 2",
+        f"hull_version {CURRENT_HULL_VERSION}",
         f"name {baked.source.name}",
         f"source_hash 0x{baked.source_hash:016x}",
         "",
@@ -420,7 +431,11 @@ def discover_hulls(repo: Path, explicit_paths: list[Path]) -> list[Path]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Bake or check serialized convex hull runtime data.")
     parser.add_argument("--repo", type=Path, default=Path.cwd())
-    parser.add_argument("--write", action="store_true", help="Rewrite hull files with baked hull_version 2 data.")
+    parser.add_argument(
+        "--write",
+        action="store_true",
+        help=f"Rewrite hull files with baked hull_version {CURRENT_HULL_VERSION} data.",
+    )
     parser.add_argument("--check", action="store_true", help="Fail if any hull file is not current serialized output.")
     parser.add_argument("--default-density", type=float, default=DEFAULT_HULL_DENSITY, help="Density used to bake default_mass for hulls.")
     parser.add_argument("paths", nargs="*", type=Path)
@@ -436,7 +451,9 @@ def main() -> int:
     stale: list[Path] = []
 
     for path in paths:
-        source = read_source_hull(path)
+        # The writer is the explicit migration boundary for pre-versioned v0
+        # source hulls; runtime itself keeps only the v1/v2 reader window.
+        source = read_source_hull(path, allow_unversioned=args.write)
         expected = serialize_hull(bake_source_hull(source, args.default_density))
         current = path.read_text(encoding="utf-8")
         if args.write:

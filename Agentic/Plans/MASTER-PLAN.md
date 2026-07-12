@@ -96,28 +96,24 @@ concrete plan rows and counting it would duplicate tasks.
 | render-visibility-architecture | 7 | 7 | 100% |
 | sim-render-interpolation | 5 | 5 | 100% |
 | editor-undo-redo | 5 | 5 | 100% |
-| data-format-versioning | 0 | 5 | 0% |
+| data-format-versioning | 5 | 5 | 100% |
 | engine-config-decomposition | 5 | 5 | 100% |
 | entity-model-endgame | 4 | 4 | 100% |
 | instant-prediction-velocity-chaos | 52 | 52 | 100% |
 | shadow-edge-quality | 5 | 5 | 100% |
-| **Portfolio total** | **270** | **276** | **98%** |
+| **Portfolio total** | **275** | **276** | **100%** |
 
 ## Current Execution Priority
 
 For maximum impact with minimal rework, use this binding critical path:
 
-`data versioning`
+`engine-cleanup aggregate review and retained-plan deletion`
 
 1. **Engine-cleanup aggregate review and plan deletion — parallel lane.** Run
    review preparation alongside the critical path rather than as another serial
    implementation campaign. Fix every credible ownership finding, pass the
    closure gate, and delete the eight retained completed plans to remove stale
    control-plane noise.
-2. **`data-format-versioning`.** Asset/hull preparation is independent, but
-    schedule delivery here. The `engine.cfg` portion waits for config
-    decomposition so version plumbing targets the surviving parser/domain
-    structure once.
 
 Validation V3 administration remains an external parallel lane: prove
 `merge_group`, require the hosted CPU check, and activate a trusted-main/manual
@@ -157,7 +153,7 @@ Reconciliation notes live inside each plan.
 |---|---|---:|---|
 | [sim-render-interpolation](../Reports/2026-07-12/sim-render-interpolation-closure.md) | Complete | 5/5 | Allocation-free live interpolation, deterministic capture pinning, coherent cameras/listener, review, and final gates complete |
 | [editor-undo-redo](../Reports/2026-07-12/editor-undo-redo-closure.md) | Complete | 5/5 | Fixed command history, stable-id recreation, exact state-fingerprint proof, lifecycle clearing, review, and final gates complete |
-| [data-format-versioning](TODO/data-format-versioning.md) | Planned | 0/5 | Deliver after editor; asset/hull preparation is independent and config decomposition is complete; scene v1→v2 remains the precedent |
+| [data-format-versioning](../Reports/2026-07-12/data-format-versioning-closure.md) | Complete | 5/5 | Asset/config v0 upgrades, hull v1 window, no-downgrade writers, migration tool, review, and final gates complete |
 
 ## Features
 

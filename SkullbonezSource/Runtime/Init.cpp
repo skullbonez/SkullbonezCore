@@ -2860,7 +2860,12 @@ bool ParseCommandLine( const CommandLineView& commandLine, EngineConfig& config,
         return false;
     }
 
-    config.Load( ( std::string( DATA_ROOT ) + "engine.cfg" ).c_str() );
+    const SbResult configLoad = config.Load( ( std::string( DATA_ROOT ) + "engine.cfg" ).c_str() );
+    if ( !configLoad.ok )
+    {
+        fprintf( stderr, "[%s] %s\n", configLoad.error.owner, configLoad.error.message );
+        return false;
+    }
     if ( !ApplyVsyncOverride( commandLine, config ) )
     {
         return false;
