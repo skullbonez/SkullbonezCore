@@ -21,6 +21,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{92972446-7D18-4AD1-AE43-15671C767306}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
+    <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -186,6 +187,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup>
+    <PreBuildEvent>
+      <Command>call "$(ProjectDir)tools\bake_shaders.bat"
+if errorlevel 1 exit /b %errorlevel%</Command>
+      <Message>Baking shipping shaders and refreshing generated metadata...</Message>
+    </PreBuildEvent>
     <PostBuildEvent>
       <Command>copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxcompiler.dll" "$(OutDir)dxcompiler.dll" &gt;nul
 copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</Command>

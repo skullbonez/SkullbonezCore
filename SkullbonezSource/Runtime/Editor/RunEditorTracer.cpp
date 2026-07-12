@@ -128,6 +128,10 @@ void AppendReplayRibbonVertex( std::vector<float>& vertexData,
 
 RunEditorTracer::RunEditorTracer()
 {
+    m_replayRibbonAuthoringLook.path = { 1.15f, 0.86f, 0.36f, 2.65f };
+    m_replayRibbonAuthoringLook.causal = { 1.55f, 0.92f, 0.34f, 3.25f };
+    m_replayRibbonAuthoringLook.baseline = { 1.05f, 0.62f, 0.42f, 2.20f };
+    m_replayRibbonAuthoringLook.marker = { 2.10f, 1.0f, 0.72f, 3.75f };
     // Runtime allocation policy: overlay line storage is paid once during tool
     // construction. EmitLine refuses overflow so replay prediction, gizmos, and
     // target markers cannot grow this vector while render builds the frame.
@@ -137,6 +141,68 @@ RunEditorTracer::RunEditorTracer()
     m_replayRibbonSegments.reserve( RUN_EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_FLOAT_CAPACITY );
     m_priorityReplayRibbonSegments.reserve( RUN_EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_FLOAT_CAPACITY );
     m_replayRibbonVertexData.reserve( RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTEX_FLOAT_CAPACITY );
+}
+
+void RunEditorTracer::CycleReplayRibbonAuthoringLook()
+{
+    // TEMPORARY DEBUG AUTHORING. Owner: RunEditorTracer. Reason: rapidly search
+    // the glow/desaturation design space in the real scene. Deletion condition:
+    // remove this method, action, and binding when the chosen preset is baked in.
+    // Review evidence is the single copy/paste-ready log record below.
+    uint32_t state = m_replayRibbonAuthoringLook.seed + 0x9e3779b9u;
+    if ( state == 0u )
+    {
+        state = 0x6d2b79f5u;
+    }
+    auto random01 = [&state]()
+    {
+        state ^= state << 13u;
+        state ^= state >> 17u;
+        state ^= state << 5u;
+        return static_cast<float>( state & 0x00ffffffu ) / 16777215.0f;
+    };
+    auto range = [&random01]( float lo, float hi ) { return lo + ( hi - lo ) * random01(); };
+    auto style = [&range]( float widthLo, float widthHi )
+    {
+        return ReplayRibbonStyle{ range( widthLo, widthHi ),
+                                  range( 0.42f, 1.0f ),
+                                  range( 0.10f, 1.05f ),
+                                  range( 0.75f, 4.8f ) };
+    };
+    m_replayRibbonAuthoringLook.path = style( 0.22f, 2.4f );
+    m_replayRibbonAuthoringLook.causal = style( 0.28f, 2.8f );
+    m_replayRibbonAuthoringLook.baseline = style( 0.18f, 2.0f );
+    m_replayRibbonAuthoringLook.marker = style( 0.65f, 3.2f );
+    m_replayRibbonAuthoringLook.opacity = range( 0.38f, 1.0f );
+    m_replayRibbonAuthoringLook.saturation = range( 0.35f, 1.8f );
+    m_replayRibbonAuthoringLook.colorGain = range( 0.65f, 1.8f );
+    m_replayRibbonAuthoringLook.seed = state;
+
+    fprintf( stderr,
+             "TEMP_REPLAY_LOOK seed=%u opacity=%.3f saturation=%.3f colorGain=%.3f path={width=%.3f alpha=%.3f "
+             "feather=%.3f hdr=%.3f} causal={width=%.3f alpha=%.3f feather=%.3f hdr=%.3f} baseline={width=%.3f "
+             "alpha=%.3f feather=%.3f hdr=%.3f} marker={width=%.3f alpha=%.3f feather=%.3f hdr=%.3f}\n",
+             m_replayRibbonAuthoringLook.seed,
+             m_replayRibbonAuthoringLook.opacity,
+             m_replayRibbonAuthoringLook.saturation,
+             m_replayRibbonAuthoringLook.colorGain,
+             m_replayRibbonAuthoringLook.path.width,
+             m_replayRibbonAuthoringLook.path.alpha,
+             m_replayRibbonAuthoringLook.path.edgeFeather,
+             m_replayRibbonAuthoringLook.path.hdrScale,
+             m_replayRibbonAuthoringLook.causal.width,
+             m_replayRibbonAuthoringLook.causal.alpha,
+             m_replayRibbonAuthoringLook.causal.edgeFeather,
+             m_replayRibbonAuthoringLook.causal.hdrScale,
+             m_replayRibbonAuthoringLook.baseline.width,
+             m_replayRibbonAuthoringLook.baseline.alpha,
+             m_replayRibbonAuthoringLook.baseline.edgeFeather,
+             m_replayRibbonAuthoringLook.baseline.hdrScale,
+             m_replayRibbonAuthoringLook.marker.width,
+             m_replayRibbonAuthoringLook.marker.alpha,
+             m_replayRibbonAuthoringLook.marker.edgeFeather,
+             m_replayRibbonAuthoringLook.marker.hdrScale );
+    fflush( stderr );
 }
 
 
@@ -447,6 +513,22 @@ void RunEditorTracer::EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData,
     {
         ++m_replayTrajectoryStats.emittedSegments[laneIndex];
     }
+
+    // TEMPORARY DEBUG AUTHORING: saturation and gain are deliberately applied
+    // at the final ribbon boundary so every replay lane shares the logged view.
+    const float luminance = r * 0.2126f + g * 0.7152f + bl * 0.0722f;
+    r = std::clamp( ( luminance + ( r - luminance ) * m_replayRibbonAuthoringLook.saturation ) *
+                        m_replayRibbonAuthoringLook.colorGain,
+                    0.0f,
+                    8.0f );
+    g = std::clamp( ( luminance + ( g - luminance ) * m_replayRibbonAuthoringLook.saturation ) *
+                        m_replayRibbonAuthoringLook.colorGain,
+                    0.0f,
+                    8.0f );
+    bl = std::clamp( ( luminance + ( bl - luminance ) * m_replayRibbonAuthoringLook.saturation ) *
+                         m_replayRibbonAuthoringLook.colorGain,
+                     0.0f,
+                     8.0f );
 
     // Invariant: replay ribbon storage is reserved during tracer construction.
     // Explicit appends keep the steady-gameplay path inside that fixed budget.
@@ -856,14 +938,14 @@ void RunEditorTracer::AddReplayPathSegment( const Vector3& start,
                                             float b,
                                             MainMemoryReplayTrajectoryLane lane )
 {
-    const ReplayRibbonStyle glow = { 1.15f, 0.20f, 0.74f, 2.65f };
-    const ReplayRibbonStyle core = { 0.28f, 0.86f, 0.36f, 1.55f };
+    const ReplayRibbonStyle glow = m_replayRibbonAuthoringLook.path;
+    const ReplayRibbonStyle core = m_replayRibbonAuthoringLook.path;
     EmitReplayRibbonGlowPairTo( m_replayRibbonSegments,
                                 start,
                                 end,
-                                r * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
-                                g * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
-                                b * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
+                                r * m_replayRibbonAuthoringLook.opacity,
+                                g * m_replayRibbonAuthoringLook.opacity,
+                                b * m_replayRibbonAuthoringLook.opacity,
                                 glow,
                                 core,
                                 lane );
@@ -875,14 +957,14 @@ void RunEditorTracer::AddReplayCausalTrailSegment( const Vector3& start, const V
     // Why: retained causal trails are the evidence attached to yellow/grey/ghost
     // boxes. They live with the priority ribbons so overflow in ordinary root
     // path rendering cannot leave a marker without its sampled route.
-    const ReplayRibbonStyle glow = { 1.55f, 0.28f, 0.78f, 3.25f };
-    const ReplayRibbonStyle core = { 0.34f, 0.92f, 0.34f, 1.90f };
+    const ReplayRibbonStyle glow = m_replayRibbonAuthoringLook.causal;
+    const ReplayRibbonStyle core = m_replayRibbonAuthoringLook.causal;
     EmitReplayRibbonGlowPairTo( m_priorityReplayRibbonSegments,
                                 start,
                                 end,
-                                r * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
-                                g * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
-                                b * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
+                                r * m_replayRibbonAuthoringLook.opacity,
+                                g * m_replayRibbonAuthoringLook.opacity,
+                                b * m_replayRibbonAuthoringLook.opacity,
                                 glow,
                                 core,
                                 MainMemoryReplayTrajectoryLane::RetainedTrail );
@@ -891,8 +973,8 @@ void RunEditorTracer::AddReplayCausalTrailSegment( const Vector3& start, const V
 
 void RunEditorTracer::AddReplayBaselinePathSegment( const Vector3& start, const Vector3& end )
 {
-    const ReplayRibbonStyle glow = { 1.05f, 0.15f, 0.82f, 2.20f };
-    const ReplayRibbonStyle core = { 0.24f, 0.62f, 0.42f, 1.22f };
+    const ReplayRibbonStyle glow = m_replayRibbonAuthoringLook.baseline;
+    const ReplayRibbonStyle core = m_replayRibbonAuthoringLook.baseline;
     EmitReplayRibbonGlowPairTo( m_replayRibbonSegments,
                                 start,
                                 end,
@@ -954,7 +1036,7 @@ void RunEditorTracer::AddReplayCausalEntryMarker( const Vector3& position,
     // Why: yellow always means "joined the causal tree here". Keep it as the
     // only marker on the ribbon shader, but emit one logical segment style so
     // marker outlines do not double the retained ribbon budget.
-    const ReplayRibbonStyle singlePass = { 2.10f, 1.0f, 0.72f, 3.75f };
+    const ReplayRibbonStyle singlePass = m_replayRibbonAuthoringLook.marker;
     EmitReplayRibbonShapeOutlineTo( m_priorityReplayRibbonSegments,
                                     position,
                                     orientation,

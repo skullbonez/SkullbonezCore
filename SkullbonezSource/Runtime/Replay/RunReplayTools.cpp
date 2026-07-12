@@ -4368,23 +4368,23 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                                                    replayRuntime.PathVisualizer().targetId,
                                                    buildBudgetStart,
                                                    budgetMilliseconds );
-            if ( !usingBuildFrames )
-            {
-                UpdateReplayPredictionTrajectoryStore( replayRuntime.Prediction(),
-                                                       activePredictionFrames,
-                                                       activePredictionFrameCount,
-                                                       usingBuildFrames,
-                                                       replayRuntime.PathVisualizer().targetId );
-            }
+            // Invariant: child trajectory publication follows the exact same
+            // populated build prefix as the root. Waiting for the complete
+            // buffer makes the striker cross an obstacle alone, then reveals
+            // every impacted body's future in one visually false batch.
+            UpdateReplayPredictionTrajectoryStore( replayRuntime.Prediction(),
+                                                   activePredictionFrames,
+                                                   activePredictionFrameCount,
+                                                   usingBuildFrames,
+                                                   replayRuntime.PathVisualizer().targetId );
             (void)ReplayPredictionBudgetExpiredForPass( replayRuntime,
                                                         MainMemoryReplayBudgetPass::PredictionBuildTree,
                                                         buildBudgetStart,
                                                         budgetMilliseconds );
-            drawFutureTree =
-                !usingBuildFrames && ReplayPredictionFutureTreeReadyForDraw( replayRuntime.Prediction(),
-                                                                             replayRuntime.PathVisualizer().targetId,
-                                                                             usingBuildFrames,
-                                                                             activePredictionFrameCount );
+            drawFutureTree = ReplayPredictionFutureTreeReadyForDraw( replayRuntime.Prediction(),
+                                                                     replayRuntime.PathVisualizer().targetId,
+                                                                     usingBuildFrames,
+                                                                     activePredictionFrameCount );
         }
         else
         {

@@ -164,6 +164,11 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `archive_validation_artifacts.bat` | Archive current Profile artifacts under `TestOutput\NNN_<commit>` |
 | `bake_shaders.bat` | Bake all shipping raster/compute shaders with pinned DXC and generate fixed reflection POD metadata; `--check` verifies bytecode, hashes, and metadata freshness |
 
+`SKULLBONEZ_CORE.vcxproj` runs `bake_shaders.bat` before every Visual Studio
+build in Debug, Profile, Profile-WPO, and Release. Visual Studio fast up-to-date
+skipping is disabled for that project so an HLSL-only edit still reaches the
+bake; shader compiler diagnostics and a nonzero bake exit fail the build.
+
 `validate_perf.bat` is a hard gate: baseline regressions and
 `check_perf_budgets.py` absolute-budget failures return nonzero. Do not treat
 perf output as a warning-only review note unless the script itself exits 0.

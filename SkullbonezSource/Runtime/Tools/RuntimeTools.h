@@ -448,6 +448,23 @@ class RunEditorTracer
         float hdrScale = 1.0f;                                              // HDR emphasis hint consumed by ribbon pixel shaders.
     };
 
+    // TEMPORARY DEBUG AUTHORING: owned by RunEditorTracer so the period-key
+    // look explorer can be deleted as one self-contained presentation feature
+    // after a legible replay-ribbon preset has been selected and committed.
+    struct ReplayRibbonAuthoringLook
+    {
+        ReplayRibbonStyle path;
+        ReplayRibbonStyle causal;
+        ReplayRibbonStyle baseline;
+        ReplayRibbonStyle marker;
+        float opacity = 0.50f;
+        float saturation = 1.0f;
+        float colorGain = 1.0f;
+        uint32_t seed = 0u;
+    };
+
+    ReplayRibbonAuthoringLook m_replayRibbonAuthoringLook = {};
+
     std::vector<float> m_lineData;
     std::vector<float> m_priorityLineData;
     std::vector<float> m_renderLineData;
@@ -533,6 +550,9 @@ class RunEditorTracer
 
   public:
     RunEditorTracer();
+    // TEMPORARY DEBUG AUTHORING: press '.' to replace the complete trajectory
+    // presentation look and print every reproducible value to the runtime log.
+    void CycleReplayRibbonAuthoringLook();
     void Clear();
     // Resets only the replay trajectory counters; callers use this before the
     // replay pass so editor tool ribbons do not count as replay trajectory work.

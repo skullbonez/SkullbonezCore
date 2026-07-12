@@ -79,6 +79,8 @@ const RuntimeInputKeyBinding kTakeInputKeyboardBindings[] = {
     { '6', RuntimeInputAction::TogglePhysicsDebugTransparent, kKeyboardUnblockedContext },
     { 'Q', RuntimeInputAction::ReportRendererRuntimeRetired, kKeyboardUnblockedContext },
     { VK_F9, RuntimeInputAction::ReloadShadersFromSource, kKeyboardUnblockedContext },
+    // TEMPORARY DEBUG AUTHORING: delete with RunEditorTracer's replay look explorer.
+    { VK_OEM_PERIOD, RuntimeInputAction::CycleReplayRibbonAuthoringLook, kKeyboardUnblockedContext },
     { 'P', RuntimeInputAction::ToggleCrossScenePause, kKeyboardUnblockedContext },
     { 'G', RuntimeInputAction::ToggleBroadphaseOverlay, kKeyboardUnblockedContext },
     { '0', RuntimeInputAction::ToggleUIVisibility, kKeyboardUnblockedContext },
