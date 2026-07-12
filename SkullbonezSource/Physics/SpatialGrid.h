@@ -22,7 +22,9 @@ Glossary:
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+    are the validation contract.
+  - Inserted bounds stay finite and within MAX_WORLD_COORDINATE before any
+    float-to-cell conversion.
 
 Related:
   - SkullbonezSource/Physics/SpatialGrid.cpp
@@ -122,6 +124,14 @@ class SpatialGrid
 
   public:
     static constexpr int MAX_BUCKETS = TABLE_SIZE;
+    // PhysicsWorld already clamps authored settings to this lower bound. Keep
+    // the grid's own constructor/setter equally strict so direct users cannot
+    // create cell coordinates outside the integer representation envelope.
+    static constexpr float MIN_CELL_SIZE = 0.5f;
+    // Broadphase owner limit: authored/runtime physics state outside this cube
+    // is corrupt. The generous bound also keeps ordinary cell conversion far
+    // from integer limits for supported broadphase cell sizes.
+    static constexpr float MAX_WORLD_COORDINATE = 100000.0f;
 
     struct ActiveCell
     {

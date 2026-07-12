@@ -43,25 +43,86 @@ Related:
 #include "../Core/FatalError.h"
 #include <algorithm>
 #include <cfloat>
+#include <climits>
 
 
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Vector;
 
+namespace
+{
+void ValidateBroadphaseBounds( int index, const Vector3& minBounds, const Vector3& maxBounds, float inverseCellSize )
+{
+    const bool finite = std::isfinite( minBounds.x ) && std::isfinite( minBounds.y ) && std::isfinite( minBounds.z ) &&
+                        std::isfinite( maxBounds.x ) && std::isfinite( maxBounds.y ) && std::isfinite( maxBounds.z );
+    const float extent = SpatialGrid::MAX_WORLD_COORDINATE;
+    const bool insideExtent = finite && fabsf( minBounds.x ) <= extent && fabsf( minBounds.y ) <= extent &&
+                              fabsf( minBounds.z ) <= extent && fabsf( maxBounds.x ) <= extent &&
+                              fabsf( maxBounds.y ) <= extent && fabsf( maxBounds.z ) <= extent;
+    const bool ordered =
+        finite && minBounds.x <= maxBounds.x && minBounds.y <= maxBounds.y && minBounds.z <= maxBounds.z;
+    constexpr double MAX_CONVERTIBLE_CELL_COORDINATE = static_cast<double>( INT_MAX ) - 1024.0;
+    const auto cellCoordinateIsRepresentable = [&]( float value )
+    {
+        // Why: perform the guard in double. Converting INT_MAX-1 to float rounds
+        // up to 2^31 on MSVC, which would bless the very value the later int
+        // conversion cannot represent.
+        return std::fabs( static_cast<double>( value ) * static_cast<double>( inverseCellSize ) ) <=
+               MAX_CONVERTIBLE_CELL_COORDINATE;
+    };
+    const bool convertible =
+        insideExtent && cellCoordinateIsRepresentable( minBounds.x ) && cellCoordinateIsRepresentable( minBounds.y ) &&
+        cellCoordinateIsRepresentable( minBounds.z ) && cellCoordinateIsRepresentable( maxBounds.x ) &&
+        cellCoordinateIsRepresentable( maxBounds.y ) && cellCoordinateIsRepresentable( maxBounds.z );
+    if ( !insideExtent || !ordered || !convertible )
+    {
+        // Lane F: non-finite, inverted, or unrepresentable physics bounds are
+        // corrupt engine state. Continuing would either hide the body from
+        // broadphase or invoke undefined float-to-int conversion behavior.
+        SB_FATAL( "Physics/SpatialGrid",
+                  "SpatialGrid bounds invalid: body=%d min=(%.9g,%.9g,%.9g) max=(%.9g,%.9g,%.9g) "
+                  "max_world_coordinate=%.9g.",
+                  index,
+                  minBounds.x,
+                  minBounds.y,
+                  minBounds.z,
+                  maxBounds.x,
+                  maxBounds.y,
+                  maxBounds.z,
+                  extent );
+    }
+}
+
+int16_t ClampVisualizationCell( int cell )
+{
+    // The hash key retains the full cell coordinate. Only the debug
+    // visualization payload is narrowed, so clamp instead of wrapping it.
+    return static_cast<int16_t>(
+        (std::max)( static_cast<int>( INT16_MIN ), (std::min)( static_cast<int>( INT16_MAX ), cell ) ) );
+}
+} // namespace
+
 
 SpatialGrid::SpatialGrid( float fCellSize )
-    : cellSize( fCellSize ), inverseCellSize( 1.0f / fCellSize ), generation( 0 ), entryPoolUsed( 0 ), objectCount( 0 ),
+    : cellSize( 1.0f ), inverseCellSize( 1.0f ), generation( 0 ), entryPoolUsed( 0 ), objectCount( 0 ),
       activeBucketCount( 0 )
 {
     memset( buckets, 0, sizeof( buckets ) );
+    SetCellSize( fCellSize );
 }
 
 
 void SpatialGrid::SetCellSize( float fCellSize )
 {
-    if ( fCellSize <= TOLERANCE || !std::isfinite( fCellSize ) )
+    if ( fCellSize < MIN_CELL_SIZE || !std::isfinite( fCellSize ) )
     {
-        SB_FATAL( "Physics/SpatialGrid", "SpatialGrid cell size must be finite and positive" );
+        // Lane F: an invalid cell size makes every subsequent float-to-cell
+        // conversion unsafe; construction and runtime reconfiguration share
+        // this owner boundary.
+        SB_FATAL( "Physics/SpatialGrid",
+                  "SpatialGrid cell size invalid: value=%.9g minimum=%.9g.",
+                  fCellSize,
+                  MIN_CELL_SIZE );
     }
 
     cellSize = fCellSize;
@@ -128,7 +189,8 @@ void SpatialGrid::InsertCell( int index, int ix, int iy, int iz )
     // a swept insert. Before appending, scan this bucket's linked list so one
     // object contributes at most once to a cell's candidate-pair list.
     const int64_t key = ( int64_t( ix ) * 73856093 ) ^ ( int64_t( iy ) * 19349663 ) ^ ( int64_t( iz ) * 83492791 );
-    const int bi = FindOrCreate( key, (int16_t)ix, (int16_t)iy, (int16_t)iz );
+    const int bi =
+        FindOrCreate( key, ClampVisualizationCell( ix ), ClampVisualizationCell( iy ), ClampVisualizationCell( iz ) );
     if ( bi < 0 || bi >= TABLE_SIZE )
     {
         return;
@@ -172,6 +234,8 @@ void SpatialGrid::InsertBounds( int index, const Vector3& minBounds, const Vecto
         SB_FATAL( "Physics/SpatialGrid", "SpatialGrid object index out of bounds" );
     }
 
+    ValidateBroadphaseBounds( index, minBounds, maxBounds, inverseCellSize );
+
     if ( index >= objectCount )
     {
         objectCount = index + 1;
@@ -183,6 +247,24 @@ void SpatialGrid::InsertBounds( int index, const Vector3& minBounds, const Vecto
     int maxX = static_cast<int>( floorf( maxBounds.x * inverseCellSize ) );
     int maxY = static_cast<int>( floorf( maxBounds.y * inverseCellSize ) );
     int maxZ = static_cast<int>( floorf( maxBounds.z * inverseCellSize ) );
+
+    const int64_t cellCountX = int64_t( maxX ) - int64_t( minX ) + 1;
+    const int64_t cellCountY = int64_t( maxY ) - int64_t( minY ) + 1;
+    const int64_t cellCountZ = int64_t( maxZ ) - int64_t( minZ ) + 1;
+    if ( cellCountX > MAX_CELL_ENTRIES || cellCountY > MAX_CELL_ENTRIES || cellCountZ > MAX_CELL_ENTRIES ||
+         cellCountX * cellCountY > MAX_CELL_ENTRIES || cellCountX * cellCountY * cellCountZ > MAX_CELL_ENTRIES )
+    {
+        // Lane F: InsertBounds is the exact-AABB path. A span larger than the
+        // fixed entry pool cannot succeed, so reject it before entering a
+        // potentially enormous cell loop.
+        SB_FATAL( "Physics/SpatialGrid",
+                  "SpatialGrid bounds exceed cell-entry capacity: body=%d cells=(%lld,%lld,%lld) capacity=%d.",
+                  index,
+                  static_cast<long long>( cellCountX ),
+                  static_cast<long long>( cellCountY ),
+                  static_cast<long long>( cellCountZ ),
+                  MAX_CELL_ENTRIES );
+    }
 
     for ( int ix = minX; ix <= maxX; ++ix )
     {
@@ -221,15 +303,24 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
                              (std::max)( position.y, endPosition.y ) + radius,
                              (std::max)( position.z, endPosition.z ) + radius );
 
+    // InsertSwept performs its own cell-count conversion before delegating to
+    // InsertBounds, so it must enforce the same Lane F boundary first.
+    ValidateBroadphaseBounds( index, minBounds, maxBounds, inverseCellSize );
+
     const int minX = static_cast<int>( floorf( minBounds.x * inverseCellSize ) );
     const int minY = static_cast<int>( floorf( minBounds.y * inverseCellSize ) );
     const int minZ = static_cast<int>( floorf( minBounds.z * inverseCellSize ) );
     const int maxX = static_cast<int>( floorf( maxBounds.x * inverseCellSize ) );
     const int maxY = static_cast<int>( floorf( maxBounds.y * inverseCellSize ) );
     const int maxZ = static_cast<int>( floorf( maxBounds.z * inverseCellSize ) );
-    const int64_t cellCount = int64_t( maxX - minX + 1 ) * int64_t( maxY - minY + 1 ) * int64_t( maxZ - minZ + 1 );
+    const int64_t cellCountX = int64_t( maxX ) - int64_t( minX ) + 1;
+    const int64_t cellCountY = int64_t( maxY ) - int64_t( minY ) + 1;
+    const int64_t cellCountZ = int64_t( maxZ ) - int64_t( minZ ) + 1;
+    const bool exactAabbFits = cellCountX <= MAX_SWEPT_AABB_CELLS && cellCountY <= MAX_SWEPT_AABB_CELLS &&
+                               cellCountZ <= MAX_SWEPT_AABB_CELLS &&
+                               cellCountX * cellCountY * cellCountZ <= MAX_SWEPT_AABB_CELLS;
 
-    if ( cellCount <= MAX_SWEPT_AABB_CELLS )
+    if ( exactAabbFits )
     {
         // For normal fast movers, the swept bounding box is still small enough
         // to insert exactly. That covers every cell touched between start and end.

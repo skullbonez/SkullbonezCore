@@ -16,6 +16,9 @@
     <Filter Include="Source Files\Tests">
       <UniqueIdentifier>{7FE9CC7D-498C-4297-85D1-2E1344653D29}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Tests">
+      <UniqueIdentifier>{D18C74D9-F462-46C4-AD77-9C06D790B334}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Core">
       <UniqueIdentifier>{6D78E017-7C94-4395-8805-7D563854A025}</UniqueIdentifier>
     </Filter>
@@ -136,6 +139,9 @@
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestRuntimeInputBindings.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestRuntimeContracts.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestReplayPredictionScheduling.cpp">
@@ -274,6 +280,9 @@
     </ClInclude>
     <ClInclude Include="ThirdPtySource\doctest\doctest.h">
       <Filter>External</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezTests\TestFatalCases.h">
+      <Filter>Header Files\Tests</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

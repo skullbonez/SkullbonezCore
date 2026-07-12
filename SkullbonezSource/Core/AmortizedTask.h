@@ -13,12 +13,15 @@ Glossary:
   Worker pool: Persistent thread group that runs bounded jobs outside the main
   thread.
   In-flight chunk: Submitted worker slice that has not yet marked completion.
+  Lane F: Fatal invariant path for state that cannot safely continue.
 
 Invariants:
   - WorkFunction receives half-open ranges [begin, end) and must tolerate
     smaller final chunks.
-  - Reset restarts the cursor but preserves the configured work callback and
-    current per-tick budget.
+  - Reset restarts the cursor only while idle, reports refusal while a worker
+    owns the task, and preserves the configured callback and per-tick budget.
+  - Destruction while a chunk is in flight is Lane F because the worker ring
+    stores a raw pointer to this object.
 
 Related:
   - SkullbonezSource/Core/WorkerPool.h
@@ -27,6 +30,7 @@ Related:
 #pragma once
 
 #include "WorkerPool.h"
+#include "FatalError.h"
 
 #include <algorithm>
 #include <atomic>
@@ -44,6 +48,17 @@ template <typename WorkFunctionT> class AmortizedTask
         : m_totalItems( (std::max)( 0, totalItems ) ), m_itemsPerTick( (std::max)( 1, itemsPerTick ) ), m_cursor( 0 ),
           m_complete( totalItems <= 0 ), m_inFlight( false ), m_work( std::move( work ) )
     {
+    }
+
+    ~AmortizedTask()
+    {
+        if ( IsInFlight() )
+        {
+            // Hazard: SubmitNoAlloc stores this object's address in the fixed
+            // worker ring. Returning from destruction would turn the queued
+            // callback into a use-after-free.
+            SB_FATAL( "Core/AmortizedTask", "Destroying AmortizedTask while worker chunk is in flight." );
+        }
     }
 
     void SubmitTick( WorkerPool& pool )
@@ -74,14 +89,15 @@ template <typename WorkFunctionT> class AmortizedTask
         return m_inFlight.load( std::memory_order_acquire );
     }
 
-    void Reset()
+    bool Reset()
     {
         if ( IsInFlight() )
         {
-            return;
+            return false;
         }
         m_cursor.store( 0, std::memory_order_release );
         m_complete.store( m_totalItems <= 0, std::memory_order_release );
+        return true;
     }
 
     float GetProgress() const

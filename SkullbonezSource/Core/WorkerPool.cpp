@@ -13,12 +13,14 @@ Glossary:
   Fork-join: Pattern where the main thread splits work, workers run chunks, and
   the main thread waits before merging results.
   Fence: Synchronization primitive used to wait for all queued chunks.
+  Lane F: Fatal invariant path used when bounded worker contracts cannot be
+  preserved.
 
 Invariants:
   - Worker-disabled mode runs work inline through the same public helpers so
     validation can compare threaded and non-threaded behavior.
-  - Fork-join helpers capture the first worker exception and rethrow it on the
-    calling thread after every queued chunk has signaled its fence.
+  - Worker callbacks obey the engine-wide no-exceptions policy; a returned
+    callback completed normally, while invariant failures terminate in Lane F.
 
 Related:
   - SkullbonezSource/Core/WorkerPool.h
@@ -342,30 +344,19 @@ void WorkerPool::WorkerLoop( int workerIndex )
             }
         }
 
-        try
+        if ( hasParallelTask )
         {
-            if ( hasParallelTask )
+            if ( parallelTask.dispatch )
             {
-                if ( parallelTask.dispatch )
-                {
-                    parallelTask.dispatch( parallelTask.dispatchState, parallelTask.chunk );
-                }
-            }
-            else
-            {
-                if ( task.dispatch )
-                {
-                    task.dispatch( task.state );
-                }
+                parallelTask.dispatch( parallelTask.dispatchState, parallelTask.chunk );
             }
         }
-        catch ( const std::exception& e )
+        else
         {
-            fprintf( stderr, "[workers] Unhandled worker task exception: %s\n", e.what() );
-        }
-        catch ( ... )
-        {
-            fprintf( stderr, "[workers] Unhandled worker task exception.\n" );
+            if ( task.dispatch )
+            {
+                task.dispatch( task.state );
+            }
         }
     }
 

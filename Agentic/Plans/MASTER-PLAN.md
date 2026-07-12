@@ -106,8 +106,8 @@ concrete plan rows and counting it would duplicate tasks.
 | upload-arena-overflow-policy | 4 | 4 | 100% |
 | frame-view-calling-convention | 4 | 4 | 100% |
 | render-interface-and-workerpool-slimming | 5 | 5 | 100% |
-| runtime-contract-enforcement | 0 | 5 | 0% |
-| **Portfolio total** | **297** | **303** | **98%** |
+| runtime-contract-enforcement | 5 | 5 | 100% |
+| **Portfolio total** | **302** | **303** | **100%** |
 
 ## Current Execution Priority
 
@@ -122,13 +122,9 @@ For maximum impact with minimal rework, use this binding critical path:
    active 2026-07-12 remediation plans are closed. The comment-rot sweep
    remains owner-parked in `WNF/` (no comment changes yet), so it is not live
    work or part of the portfolio ledger.
-3. **Adversarial-review round 2 — active local lane.** The 2026-07-12 second
-   review pass produced one must-do plan,
-   [runtime-contract-enforcement](TODO/runtime-contract-enforcement.md):
-   EngineLog fatal-path thread safety, SpatialGrid non-finite input
-   validation, AmortizedTask lifetime guards, and worker-pool
-   exception-plumbing removal. It is independent of every other plan and is
-   the current local priority while V3 stays externally blocked.
+3. **Adversarial-review round 2 — locally complete.** EngineLog fatal-path
+   thread safety, SpatialGrid input validation, AmortizedTask lifetime guards,
+   and worker-pool exception-plumbing removal are complete and validated.
 
 ## Engine Cleanup Campaign
 
@@ -186,7 +182,7 @@ separate validation cycle.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [runtime-contract-enforcement](TODO/runtime-contract-enforcement.md) | Not started | 0/5 | Ready; independent of all other plans; E1 mutex-vs-affinity decision defaults to mutex |
+| [runtime-contract-enforcement](../Reports/2026-07-12/runtime-contract-enforcement-closure.md) | Complete | 5/5 | Mutex-owned logger, bounded fatal probes, broadphase input guards, task lifetime enforcement, and final gates complete |
 
 Recorded clean in the same pass (no plan needed): `Fence` signal/wait
 ordering, upload-reservation saturating arithmetic, replay `make_unique`

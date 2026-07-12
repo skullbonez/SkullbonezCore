@@ -211,6 +211,7 @@
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp" />
     <ClCompile Include="SkullbonezTests\TestReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeInputBindings.cpp" />
+    <ClCompile Include="SkullbonezTests\TestRuntimeContracts.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayPredictionScheduling.cpp" />
     <ClCompile Include="SkullbonezTests\TestInputRouter.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayRecorder.cpp" />
@@ -258,6 +259,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ThirdPtySource\doctest\doctest.h" />
+    <ClInclude Include="SkullbonezTests\TestFatalCases.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h" />
   </ItemGroup>
   <ItemGroup>

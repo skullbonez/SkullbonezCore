@@ -243,6 +243,10 @@ def write_asan_props(path: Path) -> None:
       <EnableASAN>true</EnableASAN>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <!-- Why: production Profile logging is a no-op. The test-only define is
+           imported by the test project and every referenced library so the
+           ASan lane exercises one ODR-consistent thread-safe EngineLog type. -->
+      <PreprocessorDefinitions>SKULLBONEZ_TEST_ENGINE_LOG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>/fsanitize=address %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>

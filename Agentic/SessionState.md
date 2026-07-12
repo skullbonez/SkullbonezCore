@@ -11,11 +11,11 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-12th-july` |
-| Current baseline | Render-interface-and-workerpool-slimming is complete and validated on top of pushed frame-view commit `04bdb4b5` |
-| Current objective | Adversarial-review round 2: implement `runtime-contract-enforcement` (log fatal-path thread safety, broadphase input validation, task lifetime guards, worker exception-plumbing removal); validation-gate V3 remains externally blocked |
-| Portfolio progress | 297 / 303 tasks = 98% rounded overall |
-| Last broad local gate | `tools\\validate_full.bat` passed final render-interface/WorkerPool source on 2026-07-12 in 85.47s: formatting/CPU lanes clean, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | Independent review passed after the typed WorkerPool redesign; worker self-test, allocation checks, perf, full, and one-minute DX12 stress gates all passed. |
+| Current baseline | Runtime-contract enforcement is complete: thread-safe fatal logging, guarded SpatialGrid conversion, enforced AmortizedTask lifetime, and no WorkerPool exception plumbing |
+| Current objective | All local MASTER work is complete; validation-gate V3 remains externally blocked |
+| Portfolio progress | 302 / 303 tasks = 100% rounded overall |
+| Last broad local gate | `tools\\validate_full.bat` passed final runtime-contract source on 2026-07-12 in 84.41s: CPU lanes clean, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
+| Validation for current edits | Independent review and follow-up passed; fast, all-CPU, physics, healthy ASan, and full gates passed from final source. |
 
 ## Live Queue
 
@@ -27,12 +27,8 @@ plan inventory.
 2. Round-1 adversarial-review remediation is locally complete. The
    comment-rot sweep is owner-parked in `WNF/` (no comment changes yet,
    2026-07-12 ruling) and is not live portfolio work.
-3. Round-2 remediation: `Plans/TODO/runtime-contract-enforcement.md` (0/5) is
-   the active local lane — EngineLog fatal-path thread safety (E1),
-   SpatialGrid non-finite input fatals with byte-exact baseline proof (E2),
-   AmortizedTask destructor/Reset contract (E3), worker-pool exception
-   plumbing removal (E4), review and gates (E5). Independent of every other
-   plan; no DX12 source in scope.
+3. Round-2 runtime-contract remediation is locally complete and recorded in
+   `Reports/2026-07-12/runtime-contract-enforcement-closure.md`.
 
 ## Current Plan Decisions
 
@@ -89,9 +85,5 @@ plan inventory.
 
 ## Next Handoff
 
-Implement `Plans/TODO/runtime-contract-enforcement.md` through the
-orchestrator skill. Required progress header for its first commit:
-`runtime-contract-enforcement, TASK <N> / 5, <ledger>% OVERALL COMPLETE — ...`
-resolved from the MASTER ledger (297 done / 303 total before this plan's
-first completed task). V3 resumes when the required GitHub and runner
-authority exists.
+No local implementation remains. V3 resumes when the required GitHub and
+runner authority exists.

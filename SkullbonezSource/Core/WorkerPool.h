@@ -23,6 +23,8 @@ Invariants:
     on the caller thread in chunk order.
   - General and parallel task rings are fixed-capacity; submission never grows
     a type-erased queue in steady runtime.
+  - Worker operations obey the engine-wide no-exceptions policy; fork-join
+    completion is represented only by the fence.
 
 Related:
   - SkullbonezSource/Core/Fence.h
@@ -37,7 +39,6 @@ Related:
 #include <cstdio>
 #include <condition_variable>
 #include <cstdint>
-#include <exception>
 #include <mutex>
 #include <thread>
 #include <type_traits>
@@ -153,19 +154,8 @@ class WorkerPool
         {
         }
 
-        void CaptureCurrentException()
-        {
-            std::lock_guard<std::mutex> lock( exceptionMutex );
-            if ( !firstException )
-            {
-                firstException = std::current_exception();
-            }
-        }
-
         Fence fence;
         Function* fn;
-        std::mutex exceptionMutex;
-        std::exception_ptr firstException;
     };
 
     template <typename ChunkFunctionT>
@@ -276,22 +266,10 @@ void WorkerPool::ParallelForChunksNoAlloc( const WorkerChunkRange* chunks, int c
     for ( int index = 0; index < chunkCount; ++index )
     {
         const WorkerChunkRange& chunk = chunks[index];
-        try
-        {
-            SubmitParallelChunk( &state, &WorkerPool::ExecuteParallelChunkTask<ChunkFunctionT>, chunk );
-        }
-        catch ( ... )
-        {
-            state.CaptureCurrentException();
-            state.fence.Signal();
-        }
+        SubmitParallelChunk( &state, &WorkerPool::ExecuteParallelChunkTask<ChunkFunctionT>, chunk );
     }
 
     state.fence.Wait();
-    if ( state.firstException )
-    {
-        std::rethrow_exception( state.firstException );
-    }
 }
 
 
@@ -304,14 +282,7 @@ void WorkerPool::ExecuteParallelChunkTask( void* dispatchState, const WorkerChun
         return;
     }
 
-    try
-    {
-        ( *state->fn )( chunk.chunkIndex, chunk.begin, chunk.end );
-    }
-    catch ( ... )
-    {
-        state->CaptureCurrentException();
-    }
+    ( *state->fn )( chunk.chunkIndex, chunk.begin, chunk.end );
     state->fence.Signal();
 }
 
