@@ -30,7 +30,7 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/PhysicsScene.cpp
   - SkullbonezSource/Physics/PhysicsWorld.h
-  - Agentic/Plans/TODO/physics-authority-and-identity.md
+  - Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md
 */
 #pragma once
 
@@ -62,7 +62,6 @@ struct PhysicsAuthoredBodyRefreshView;
 struct PhysicsAuthoredBodyRegistration;
 struct PhysicsBodyUpdateDesc;
 struct PhysicsColliderCreateDesc;
-class PhysicsEngineStoreQueries;
 struct PhysicsMaterial;
 
 class PhysicsScene
@@ -180,7 +179,10 @@ class PhysicsScene
 #endif
 
   private:
-    friend class PhysicsEngineStoreQueries;
+    // Why: PhysicsEngine is the sole public owner facade for this implementation
+    // object. The friendship does not escape store mutation authority to runtime
+    // consumers; it only lets that facade publish immutable query views.
+    friend class PhysicsEngine;
 
     void LoadBodyDescriptors( const std::vector<PhysicsBodyCreateDesc>& bodyDescs );
     const std::vector<int>& GetFixedContactHighlightBodies() const;

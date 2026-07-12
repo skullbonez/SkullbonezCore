@@ -22,7 +22,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Editor/RunEditorHistory.cpp
   - SkullbonezTests/TestEditorCommandHistory.cpp
-  - Agentic/Plans/TODO/editor-undo-redo.md
+  - Agentic/Reports/2026-07-12/editor-undo-redo-closure.md
 */
 #pragma once
 

@@ -30,7 +30,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
   - SkullbonezSource/Runtime/RunRender.cpp
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once
 
@@ -112,6 +112,7 @@ class RuntimeRenderer
     void SetVsyncEnabled( bool enabled );
     bool PipelineSyncEnabled() const;
     void SetPipelineSyncEnabled( bool enabled );
+    void ResetSceneRuntimePolicyFromConfig();
     // Returns a read-only visual-style snapshot. Callers edit a copy and commit
     // it through SetTornadoVisualSettings so unrelated presentation fields stay hidden.
     const TornadoVisualSettings& TornadoVisualSettingsSnapshot() const;
@@ -133,6 +134,10 @@ class RuntimeRenderer
                                          Rendering::IRenderCommandContext& renderCommands,
                                          const EngineConfig& config,
                                          bool dumpTextureAssets );
+    // Scene activation asks the renderer to warm its optional ray-tracing
+    // geometry. Scene code supplies only the backend facets and capacity value;
+    // mesh selection, capability checks, and DXR initialization stay here.
+    SbResult InitialiseSceneRayTracing( const RuntimeRenderBackendView& backend, int modelCapacity );
     // Projects framebuffer metadata into values safe for the UI to retain for
     // the current draw; no framebuffer or pass-resource ownership escapes.
     RuntimeRenderTargetPreviewSnapshot BuildRenderTargetPreviewSnapshot( bool shadowsAvailable,

@@ -29,7 +29,6 @@ Related:
 #include "../../Core/Log.h"
 #include "../../Core/WorkerPool.h"
 #include "../../Physics/PhysicsEngine.h"
-#include "../../Physics/PhysicsEngineStoreQueries.h"
 #include "../../Physics/PhysicsDiagnosticsSink.h"
 #include "../../Physics/PhysicsWorldForces.h"
 
@@ -47,14 +46,6 @@ namespace
 {
 constexpr double SCENE_PERF_PASS_SECONDS = 2.0;
 constexpr float WATER_HEIGHT_CONTROL_SPEED = 20.0f; // World meters per second.
-#ifdef _DEBUG
-void WriteScenePhysicsDiagnosticsCsv( void*, const char* fileName, const char* fmt, va_list args )
-{
-    // Why: Physics receives only a value writer; the scene owner keeps the
-    // process logging dependency outside the solver and its hot store loops.
-    Log().WriteVf( fileName, fmt, args );
-}
-#endif
 } // namespace
 
 SceneController::SceneController()
@@ -79,13 +70,12 @@ void SceneController::StepPhysics( float fixedDt,
     int diagnosticNameCount = 0;
     Physics::PhysicsDiagnosticsCsvWriter diagnosticsCsvWriter;
 #ifdef _DEBUG
-    diagnosticsCsvWriter.writeVf = WriteScenePhysicsDiagnosticsCsv;
     std::vector<const char*> physicsDiagnosticsModelNames;
     if ( m_physics.ShouldEmitStepDiagnostics() || m_physics.ShouldEmitCollisionTimeDiagnostics() )
     {
         // Lifetime: Debug diagnostics borrow name pointers only until Step
         // returns; physics never retains this presentation table.
-        FillPhysicsDiagnosticsNames( Physics::PhysicsEngineStoreQueries::BodyStore( m_physics ).Count(),
+        FillPhysicsDiagnosticsNames( Physics::PhysicsEngine::ReadBodies( m_physics ).Count(),
                                      physicsDiagnosticsModelNames );
         diagnosticNames = physicsDiagnosticsModelNames.empty() ? nullptr : physicsDiagnosticsModelNames.data();
         diagnosticNameCount = static_cast<int>( physicsDiagnosticsModelNames.size() );
@@ -96,7 +86,7 @@ void SceneController::StepPhysics( float fixedDt,
 
     // Why: fixed-contact highlights are presentation feedback, not solver
     // state. Keeping this edge beside the scene stores makes that split visible.
-    for ( int index : Physics::PhysicsEngineStoreQueries::FixedContactHighlightBodies( m_physics ) )
+    for ( int index : Physics::PhysicsEngine::ReadFixedContactHighlightBodies( m_physics ) )
     {
         NotifyFixedContact( index, 0.5f );
     }
@@ -154,8 +144,8 @@ SceneController::SceneController( std::vector<std::string> queue ) : m_runtime( 
 
 bool SceneController::TrimForReplayRestore( int bodyCount )
 {
-    const int liveBodyCount = Physics::PhysicsEngineStoreQueries::BodyStore( m_physics ).Count();
-    const int liveColliderCount = Physics::PhysicsEngineStoreQueries::Colliders( m_physics ).Count();
+    const int liveBodyCount = Physics::PhysicsEngine::ReadBodies( m_physics ).Count();
+    const int liveColliderCount = Physics::PhysicsEngine::ReadColliders( m_physics ).Count();
     const uint32_t authoredBodyCount = m_physics.AuthoredBodyDescriptorCount().value;
     if ( bodyCount < 0 || bodyCount > liveBodyCount || static_cast<uint32_t>( bodyCount ) > authoredBodyCount ||
          !CanTrimPresentationRowsForSceneRestore( bodyCount ) || bodyCount > m_entities.Count() )
@@ -342,8 +332,8 @@ void SceneController::BeginLoad( int index )
 void SceneController::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, SceneLifecycleConsumerMask consumers )
 {
     const int entityCount = m_entities.Count();
-    const int bodyCount = Physics::PhysicsEngineStoreQueries::BodyStore( m_physics ).Count();
-    const int colliderCount = Physics::PhysicsEngineStoreQueries::Colliders( m_physics ).Count();
+    const int bodyCount = Physics::PhysicsEngine::ReadBodies( m_physics ).Count();
+    const int colliderCount = Physics::PhysicsEngine::ReadColliders( m_physics ).Count();
     const bool requiresEmptyTopology = event == SceneRuntimeLifecycleEvent::AfterSceneCleared ||
                                        event == SceneRuntimeLifecycleEvent::BeforeScenePopulate;
     const bool requiresMatchedTopology = event == SceneRuntimeLifecycleEvent::AfterScenePopulate ||

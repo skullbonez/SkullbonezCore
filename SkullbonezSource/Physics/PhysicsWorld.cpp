@@ -1481,10 +1481,7 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
                                float fChangeInTime,
                                const Basics::EngineConfig& config,
                                const PhysicsWorldForces& worldForces,
-                               Threading::WorkerPool& workerPool,
-                               const char* const* diagnosticNames,
-                               int diagnosticNameCount,
-                               const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
+                               Threading::WorkerPool& workerPool )
 {
     // Concept: one fixed physics tick has a predictable data flow.
     //
@@ -1512,6 +1509,7 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
     m_physicsPipelineTrace.clear();
     m_terrainContactManifolds.clear();
     m_sleepSupportEdges.clear();
+    m_diagnostics.BeginCollisionTimeFrame();
 
     if ( static_cast<int>( m_sleepState.size() ) != modelCount )
     {
@@ -1545,15 +1543,7 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
         }
     }
 
-    RunSolverPhysics( bodyStore,
-                      colliderStore,
-                      fChangeInTime,
-                      config,
-                      worldForces,
-                      workerPool,
-                      diagnosticNames,
-                      diagnosticNameCount,
-                      diagnosticsCsvWriter );
+    RunSolverPhysics( bodyStore, colliderStore, fChangeInTime, config, worldForces, workerPool );
     bodyStore.CopySleepStatesFrom( m_sleepState );
 }
 
@@ -1609,6 +1599,7 @@ void PhysicsWorld::EmitStepDiagnostics( const PhysicsBodyStore& bodyStore,
                 m_diagnostics.EmitFrame( frame );
             }
         }
+        m_diagnostics.FlushCollisionTimes( diagnosticNames, diagnosticNameCount, diagnosticsCsvWriter );
         m_diagnostics.IncrementCollisionTimeFrameIfEnabled();
     }
 #else
@@ -1893,10 +1884,7 @@ bool PhysicsWorld::SetDiagnosticsSuppressed( bool suppressed )
 #endif
 
 
-void PhysicsWorld::EmitPhysicsCollisionTime( const char* const* diagnosticNames,
-                                             int diagnosticNameCount,
-                                             const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter,
-                                             const char* type,
+void PhysicsWorld::EmitPhysicsCollisionTime( const char* type,
                                              int bodyA,
                                              int bodyB,
                                              float collisionTime,
@@ -1908,14 +1896,7 @@ void PhysicsWorld::EmitPhysicsCollisionTime( const char* const* diagnosticNames,
         return;
     }
 #endif
-    m_diagnostics.EmitCollisionTime( diagnosticNames,
-                                     diagnosticNameCount,
-                                     diagnosticsCsvWriter,
-                                     type,
-                                     bodyA,
-                                     bodyB,
-                                     collisionTime,
-                                     availableTime );
+    m_diagnostics.QueueCollisionTime( type, bodyA, bodyB, collisionTime, availableTime );
 }
 
 
@@ -2380,10 +2361,7 @@ void PhysicsWorld::WriteObjectCollisionCellEvent( ObjectNarrowphaseEvent& event,
 }
 
 
-void PhysicsWorld::CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& event,
-                                                 const char* const* diagnosticNames,
-                                                 int diagnosticNameCount,
-                                                 const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
+void PhysicsWorld::CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& event )
 {
     if ( event.hasPipelineRecord )
     {
@@ -2391,10 +2369,7 @@ void PhysicsWorld::CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& e
     }
     if ( event.emitCollisionTime )
     {
-        EmitPhysicsCollisionTime( diagnosticNames,
-                                  diagnosticNameCount,
-                                  diagnosticsCsvWriter,
-                                  "object",
+        EmitPhysicsCollisionTime( "object",
                                   event.collisionTimeBodyA,
                                   event.collisionTimeBodyB,
                                   event.collisionTime,
@@ -2733,17 +2708,14 @@ void PhysicsWorld::ObjectNarrowphaseIslandStage::operator()( int islandIndex ) c
 
 
 void PhysicsWorld::ProcessObjectNarrowphasePairsSerial( const ObjectNarrowphasePairStageContext& context,
-                                                        int candidatePairCount,
-                                                        const char* const* diagnosticNames,
-                                                        int diagnosticNameCount,
-                                                        const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
+                                                        int candidatePairCount )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/SerialPairs" );
     for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
     {
         ObjectNarrowphaseEvent event;
         ProcessObjectNarrowphasePair( context, pairIndex, event );
-        CommitObjectNarrowphaseEvent( event, diagnosticNames, diagnosticNameCount, diagnosticsCsvWriter );
+        CommitObjectNarrowphaseEvent( event );
     }
 }
 
@@ -2925,14 +2897,7 @@ void PhysicsWorld::CommitTerrainCandidate( const TerrainCandidateCommitContext& 
         record.scalarB = hasManifold && manifold.supportsRestingPolicy ? 1.0f : 0.0f;
         record.scalarC = hasManifold ? static_cast<float>( manifold.pointCount ) : 0.0f;
         RecordPhysicsPipelineStage( record );
-        EmitPhysicsCollisionTime( context.diagnosticNames,
-                                  context.diagnosticNameCount,
-                                  context.diagnosticsCsvWriter,
-                                  "terrain",
-                                  bodyIndex,
-                                  -1,
-                                  colTime,
-                                  availableTime );
+        EmitPhysicsCollisionTime( "terrain", bodyIndex, -1, colTime, availableTime );
 
         if ( hasManifold )
         {
@@ -3011,9 +2976,7 @@ void PhysicsWorld::BuildSolverBroadphaseCandidatePairs( const PhysicsBodyStore& 
                 m_spatialGrid.Insert( i, SolverBodyPosition( bodyRecords, i ), radius );
             }
         }
-        m_spatialGrid.GetCandidatePairs( candidatePairs,
-                                         BroadphaseCandidateCanTouch,
-                                         &broadphaseCandidateFilterContext );
+        m_spatialGrid.GetCandidatePairs( candidatePairs, &broadphaseCandidateFilterContext );
     }
 
     // Tiny high-speed projectiles should not depend solely on cell overlap.
@@ -3582,10 +3545,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      float dt,
                                      const Basics::EngineConfig& config,
                                      const PhysicsWorldForces& worldForces,
-                                     Threading::WorkerPool& workerPool,
-                                     const char* const* diagnosticNames,
-                                     int diagnosticNameCount,
-                                     const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
+                                     Threading::WorkerPool& workerPool )
 {
     auto& bodyRecords = bodyStore.MutableRecords();
     const auto& colliderRecords = colliderStore.Records();
@@ -3726,10 +3686,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                 PROFILE_SCOPED( "Frame/Physics/Narrowphase/CommitEvents" );
                 for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
                 {
-                    CommitObjectNarrowphaseEvent( m_objectNarrowphaseEvents[static_cast<size_t>( pairIndex )],
-                                                  diagnosticNames,
-                                                  diagnosticNameCount,
-                                                  diagnosticsCsvWriter );
+                    CommitObjectNarrowphaseEvent( m_objectNarrowphaseEvents[static_cast<size_t>( pairIndex )] );
                 }
             }
             ranParallelNarrowphase = true;
@@ -3738,11 +3695,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     if ( !ranParallelNarrowphase )
     {
-        ProcessObjectNarrowphasePairsSerial( objectNarrowphasePairContext,
-                                             candidatePairCount,
-                                             diagnosticNames,
-                                             diagnosticNameCount,
-                                             diagnosticsCsvWriter );
+        ProcessObjectNarrowphasePairsSerial( objectNarrowphasePairContext, candidatePairCount );
     }
     PROFILE_END( "Frame/Physics/Narrowphase" );
 
@@ -3771,10 +3724,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                                  m_terrainContactManifolds,
                                                                  m_sleepSupportedThisFrame,
                                                                  m_sleepInhibitedThisFrame,
-                                                                 m_timeRemaining,
-                                                                 diagnosticNames,
-                                                                 diagnosticNameCount,
-                                                                 diagnosticsCsvWriter };
+                                                                 m_timeRemaining };
     if ( config.physicsExecution.parallel && config.physicsExecution.parallelTerrainDetect )
     {
         workerPool.ParallelForNoAlloc( 0,

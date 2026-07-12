@@ -20,7 +20,7 @@
 @rem     the same working directory as the engine validation scripts.
 @rem
 @rem Related:
-@rem   - Agentic/Plans/TODO/behavioral-test-depth.md
+@rem   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 @rem   - Agentic/Reference/comment-style-guide.md
 @rem
 @echo off

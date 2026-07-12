@@ -11,20 +11,15 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-11th-july` |
-| Current pushed baseline | Editor undo/redo is pushed through `bd2373c8`; data-format versioning closure is ready to commit and push |
-| Current objective | Complete the engine-cleanup aggregate review and delete its eight retained evidence plans |
+| Current pushed baseline | Aggregate engine-cleanup closure is validated at the current branch tip; the prior pushed baseline was `5649a876` |
+| Current objective | Validation-gate V3 is blocked on external GitHub administration and trusted/ephemeral DX12 runner infrastructure |
 | Portfolio progress | 275 / 276 tasks = 100% rounded overall |
-| Last broad local gate | `tools\\validate_full.bat` passed final data-versioning source on 2026-07-12 in 108.266s: formatting clean, every CPU lane passed (172 doctest cases, 3,963 assertions), zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | Migration self-test, 39-file authored-data check, 35-hull bake check, writer no-downgrade regression, comment audit, independent review, and final full gate are clear. |
+| Last broad local gate | `tools\\validate_full.bat` passed final aggregate source on 2026-07-12: formatting/metadata clean, every CPU lane passed (173 doctest cases, 3,964 assertions), zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
+| Validation for current edits | Independent aggregate and narrow repeat reviews are clear; explicit DX12, one-minute graphics stress, perf, focused broadphase/capacity tests, comment audit, and full gate all pass. |
 
 ## Live Queue
 
-1. Prepare the engine-cleanup aggregate review in parallel with the critical path;
-   fix findings, pass the closure gate, and delete all eight retained completed
-   plans.
-2. Delete the eight retained completed engine-cleanup plans only after the
-   aggregate review records no credible ownership finding.
-3. Validation-gate V3 remains an external parallel lane at 5/6. The hosted CPU
+1. Validation-gate V3 is externally blocked at 5/6. The hosted CPU
    PR lane has a successful real run. Remaining work is a `merge_group` proof,
    required `main` branch protection, and trusted DX12-runner administration.
    Persistent self-hosted DX12 stays trusted-main/manual only; public-PR GPU
@@ -85,6 +80,5 @@ plan inventory.
 
 ## Next Handoff
 
-Use `Agentic/Plans/MASTER-PLAN.md` for selection and the repo-local orchestrator
-skill when implementing a plan. The next binding work is the engine-cleanup
-aggregate review and retained-plan deletion.
+Use `Agentic/Plans/MASTER-PLAN.md` for selection. No viable local implementation
+work remains; V3 resumes when the required GitHub and runner authority exists.

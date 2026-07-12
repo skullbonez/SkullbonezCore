@@ -49,7 +49,6 @@ Related:
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
-#include "../../Physics/PhysicsEngineStoreQueries.h"
 #include "../../UI/UICommands.h"
 #include "../../UI/UILayout.h"
 #include "../CameraCollection.h"
@@ -240,8 +239,8 @@ constexpr float LAUNCHER_PROJECTILE_SPAWN_DOWN_OFFSET = 0.28f;
 // edge, so tool code fails closed instead of rebuilding model-owned descriptors.
 bool LauncherPhysicsStoresReady( const Physics::PhysicsEngine& physics, int modelCount )
 {
-    return SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ).Count() == modelCount &&
-           SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( physics ).Count() == modelCount;
+    return SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ).Count() == modelCount &&
+           SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physics ).Count() == modelCount;
 }
 
 
@@ -703,8 +702,8 @@ void RuntimeTools::FireLauncherLaser( Physics::PhysicsEngine& physics,
 {
     int modelHitIndex = -1;
     float modelHitT = RAY_CAST_TEST_MAX_DISTANCE;
-    const bool modelHit = TryRayCastTestHit( SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ),
-                                             SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( physics ),
+    const bool modelHit = TryRayCastTestHit( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ),
+                                             SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physics ),
                                              rayOrigin,
                                              rayDirection,
                                              RAY_CAST_TEST_MAX_DISTANCE,
@@ -730,9 +729,9 @@ void RuntimeTools::FireLauncherLaser( Physics::PhysicsEngine& physics,
     }
 
     const Physics::PhysicsBodyHandle body =
-        SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ).HandleForModelIndex( modelHitIndex );
+        SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ).HandleForModelIndex( modelHitIndex );
     const Physics::PhysicsBodyRecord* bodyRecord =
-        SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ).RecordForHandle( body );
+        SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ).RecordForHandle( body );
     if ( !bodyRecord )
     {
         return;
@@ -769,8 +768,8 @@ bool RuntimeTools::FireLauncherProjectile( Basics::SceneController& collection,
 
     int modelHitIndex = -1;
     float modelHitT = RAY_CAST_TEST_MAX_DISTANCE;
-    const bool modelHit = TryRayCastTestHit( SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ),
-                                             SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( physics ),
+    const bool modelHit = TryRayCastTestHit( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ),
+                                             SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physics ),
                                              rayOrigin,
                                              rayDirection,
                                              RAY_CAST_TEST_MAX_DISTANCE,

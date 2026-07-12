@@ -21,7 +21,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp
   - SkullbonezSource/Runtime/Render/RuntimeRenderHost.h
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "Run.h"
 #include "../Core/Profiler.h"

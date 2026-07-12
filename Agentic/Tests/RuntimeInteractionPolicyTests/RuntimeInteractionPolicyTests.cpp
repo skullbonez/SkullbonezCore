@@ -26,7 +26,7 @@ Invariants:
 
 Related:
   - AGENTS.md
-  - Agentic/Plans/TODO/interaction-state-machine.md
+  - Agentic/Reports/2026-07-11/interaction-state-machine-closure-review.md
   - SkullbonezSource/Runtime/RuntimeInteractionController.h
   - SkullbonezSource/Runtime/RuntimePickGeometry.h
   - SkullbonezSource/Runtime/UI/RuntimeUiSurface.h

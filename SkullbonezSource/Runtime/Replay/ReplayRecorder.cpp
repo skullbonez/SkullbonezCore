@@ -40,7 +40,6 @@ Related:
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
-#include "../../Physics/PhysicsEngineStoreQueries.h"
 #include "../../World/WorldEnvironment.h"
 
 #include <algorithm>
@@ -1615,7 +1614,7 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
     m_maxPenetrationScratch.assign( modelCountSize, 0.0f );
     m_normalImpulseSumScratch.assign( modelCountSize, 0.0f );
 
-    const std::vector<PhysicsDebugContact>& contacts = Physics::PhysicsEngineStoreQueries::DebugContacts( physics );
+    const std::vector<PhysicsDebugContact>& contacts = Physics::PhysicsEngine::ReadDebugContacts( physics );
     sample.contactCount = SaturatingUint16( contacts.size() );
     for ( const PhysicsDebugContact& contact : contacts )
     {
@@ -1633,17 +1632,13 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
                                      m_normalImpulseSumScratch );
     }
 
-    sample.pipelineRecordCount =
-        SaturatingUint16( Physics::PhysicsEngineStoreQueries::PipelineTrace( physics ).size() );
+    sample.pipelineRecordCount = SaturatingUint16( Physics::PhysicsEngine::ReadPipelineTrace( physics ).size() );
 
-    const std::vector<uint8_t>& sleepStates = Physics::PhysicsEngineStoreQueries::SleepStates( physics );
-    const std::vector<uint8_t>& sleepSupportedStates =
-        Physics::PhysicsEngineStoreQueries::SleepSupportedStates( physics );
-    const std::vector<uint8_t>& sleepInhibitedStates =
-        Physics::PhysicsEngineStoreQueries::SleepInhibitedStates( physics );
-    const std::vector<uint8_t>& collisionContacts =
-        Physics::PhysicsEngineStoreQueries::CollisionVisualContacts( physics );
-    const std::vector<int>& sleepIslandIds = Physics::PhysicsEngineStoreQueries::SleepIslandVisualIds( physics );
+    const std::vector<uint8_t>& sleepStates = Physics::PhysicsEngine::ReadSleepStates( physics );
+    const std::vector<uint8_t>& sleepSupportedStates = Physics::PhysicsEngine::ReadSleepSupportedStates( physics );
+    const std::vector<uint8_t>& sleepInhibitedStates = Physics::PhysicsEngine::ReadSleepInhibitedStates( physics );
+    const std::vector<uint8_t>& collisionContacts = Physics::PhysicsEngine::ReadCollisionVisualContacts( physics );
+    const std::vector<int>& sleepIslandIds = Physics::PhysicsEngine::ReadSleepIslandVisualIds( physics );
 
     uint64_t hash = FNV64_OFFSET;
     // Concept: presentation hashes summarize what the viewer would need to see
@@ -2380,7 +2375,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     m_maxPenetrationScratch.assign( modelCountSize, 0.0f );
     m_normalImpulseSumScratch.assign( modelCountSize, 0.0f );
 
-    const std::vector<PhysicsDebugContact>& contacts = Physics::PhysicsEngineStoreQueries::DebugContacts( physics );
+    const std::vector<PhysicsDebugContact>& contacts = Physics::PhysicsEngine::ReadDebugContacts( physics );
     sample.contactCount = SaturatingUint16( contacts.size() );
     for ( const PhysicsDebugContact& contact : contacts )
     {
@@ -2398,20 +2393,16 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
                                      m_normalImpulseSumScratch );
     }
 
-    sample.pipelineRecordCount =
-        SaturatingUint16( Physics::PhysicsEngineStoreQueries::PipelineTrace( physics ).size() );
+    sample.pipelineRecordCount = SaturatingUint16( Physics::PhysicsEngine::ReadPipelineTrace( physics ).size() );
     physics.CaptureReplaySolverSnapshot(
         m_solverCaptureWorldSnapshot,
         Physics::MakePhysicsBodyCountFromNonNegativeInt( static_cast<int>( modelCount ) ) );
 
-    const std::vector<uint8_t>& sleepStates = Physics::PhysicsEngineStoreQueries::SleepStates( physics );
-    const std::vector<uint8_t>& sleepSupportedStates =
-        Physics::PhysicsEngineStoreQueries::SleepSupportedStates( physics );
-    const std::vector<uint8_t>& sleepInhibitedStates =
-        Physics::PhysicsEngineStoreQueries::SleepInhibitedStates( physics );
-    const std::vector<uint8_t>& collisionContacts =
-        Physics::PhysicsEngineStoreQueries::CollisionVisualContacts( physics );
-    const std::vector<int>& sleepIslandIds = Physics::PhysicsEngineStoreQueries::SleepIslandVisualIds( physics );
+    const std::vector<uint8_t>& sleepStates = Physics::PhysicsEngine::ReadSleepStates( physics );
+    const std::vector<uint8_t>& sleepSupportedStates = Physics::PhysicsEngine::ReadSleepSupportedStates( physics );
+    const std::vector<uint8_t>& sleepInhibitedStates = Physics::PhysicsEngine::ReadSleepInhibitedStates( physics );
+    const std::vector<uint8_t>& collisionContacts = Physics::PhysicsEngine::ReadCollisionVisualContacts( physics );
+    const std::vector<int>& sleepIslandIds = Physics::PhysicsEngine::ReadSleepIslandVisualIds( physics );
 
     uint64_t presentationHash = FNV64_OFFSET;
     presentationHash = HashWorld( presentationHash, sample.world );

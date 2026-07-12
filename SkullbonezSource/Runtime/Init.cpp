@@ -724,7 +724,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     const ColliderStore& colliderStore = collection->Colliders();
     const RenderInstanceStore& renderStore = collection->GetRenderInstanceStore();
     const std::vector<PointJointConstraint>& pointJoints =
-        PhysicsEngineStoreQueries::PointJointConstraints( collection->Physics() );
+        PhysicsEngine::ReadPointJointConstraints( collection->Physics() );
     const size_t initialColliderCount = colliderStore.Count();
     const ColliderRecord initialCollider = colliderStore.Records()[0];
 
@@ -843,7 +843,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                   collection->GetRenderInstanceStore().Count() == 1 &&
                                   collection->GetRenderInstanceStore().PresentationCount() == 1 &&
                                   physics.AuthoredBodyDescriptorCount().value == 1u &&
-                                  PhysicsEngineStoreQueries::PointJointConstraints( collection->Physics() ).empty() &&
+                                  PhysicsEngine::ReadPointJointConstraints( collection->Physics() ).empty() &&
                                   fabsf( survivingBody->position.x - liveOnlyPosition.x ) < 0.0001f &&
                                   fabsf( survivingBody->position.y - liveOnlyPosition.y ) < 0.0001f &&
                                   fabsf( survivingBody->position.z - liveOnlyPosition.z ) < 0.0001f;

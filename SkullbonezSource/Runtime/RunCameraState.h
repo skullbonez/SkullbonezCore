@@ -29,7 +29,7 @@ Related:
   - SkullbonezSource/Runtime/Run.h
   - SkullbonezSource/Runtime/InputController.h
   - SkullbonezSource/Runtime/RunDemoDirector.h
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once
 
@@ -82,6 +82,21 @@ struct RunCameraState
     {
         autoCycleInterval = -1.0f;
         autoCycleAccum = 0.0f;
+    }
+
+    void ResetForSceneLoad( bool authoredScene )
+    {
+        // Scene activation chooses only the initial workspace. Camera-local
+        // tracking, automation, and frame input memory are reset here.
+        mode = authoredScene ? RunCameraMode::Scene : RunCameraMode::Demo;
+        trackBallRow.value = -1;
+        trackHeight = 300.0f;
+        autoCycleInterval = -1.0f;
+        autoCycleAccum = 0.0f;
+        autoCycleShotsTaken = 0;
+        input = {};
+        selectedCamera = 0;
+        cameraTime = 0.0f;
     }
 
     void UpdateViewingOrientation( RunTimerState& timers,

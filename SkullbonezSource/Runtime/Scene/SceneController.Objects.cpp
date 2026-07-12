@@ -93,7 +93,6 @@ using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderCount;
 using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
-using SkullbonezCore::Physics::PhysicsEngineStoreQueries;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
 
 namespace
@@ -176,7 +175,7 @@ std::vector<const char*> SceneController::BuildDiagnosticNamesForReload() const
 bool SceneController::RefreshPhysicsBodyStoreFromAuthoredDescriptors()
 {
     const std::vector<uint32_t> replayBodyIds =
-        PhysicsEngineStoreQueries::BodyStore( m_physics ).BuildReplayBodyIdsForReload( SceneEntityCount() );
+        Physics::PhysicsEngine::ReadBodies( m_physics ).BuildReplayBodyIdsForReload( SceneEntityCount() );
     const std::vector<ModelRowHint> fixedTreeReleaseRoots = BuildFixedTreeReleaseRootsForReload();
     const std::vector<const char*> diagnosticNames = BuildDiagnosticNamesForReload();
     PhysicsAuthoredBodyRefreshView refreshView;
@@ -728,13 +727,13 @@ bool SceneController::RepairPhysicsBodyAndColliderTopology()
 
 const SkullbonezCore::Physics::PhysicsBodyStore& SceneController::BodyStore() const
 {
-    return PhysicsEngineStoreQueries::BodyStore( m_physics );
+    return Physics::PhysicsEngine::ReadBodies( m_physics );
 }
 
 
 const SkullbonezCore::Physics::ColliderStore& SceneController::Colliders() const
 {
-    return PhysicsEngineStoreQueries::Colliders( m_physics );
+    return Physics::PhysicsEngine::ReadColliders( m_physics );
 }
 
 

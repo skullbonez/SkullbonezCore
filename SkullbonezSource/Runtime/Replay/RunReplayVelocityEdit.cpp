@@ -38,7 +38,7 @@ Related:
 #include "ReplayOverlayLayout.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
-#include "../../Physics/PhysicsEngineStoreQueries.h"
+#include "../../Physics/PhysicsEngine.h"
 
 #include <algorithm>
 #include <cfloat>
@@ -513,8 +513,8 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
     // Invariant: the frame boundary prepares paired physics rows before replay
     // input. This handler reads those explicit owners and never repairs legacy
     // model topology from inside an interaction hot path.
-    const PhysicsBodyStore& velocityBodies = PhysicsEngineStoreQueries::BodyStore( velocityPhysics );
-    const ColliderStore& velocityColliders = PhysicsEngineStoreQueries::Colliders( velocityPhysics );
+    const PhysicsBodyStore& velocityBodies = PhysicsEngine::ReadBodies( velocityPhysics );
+    const ColliderStore& velocityColliders = PhysicsEngine::ReadColliders( velocityPhysics );
     const bool velocityStoresReady =
         velocityBodies.Count() == velocityColliders.Count() && velocityBodies.Count() == entities.Count();
     const auto tryResolveVelocityBody = [&]( ReplayVelocityBodyView& outBody )
@@ -770,11 +770,10 @@ void ReplayRuntime::RenderVelocityEditOverlay( PhysicsEngine& velocityPhysics,
     }
 
     ReplayVelocityBodyView body;
-    if ( !TryResolveReplayVelocityBodyView(
-             *this,
-             SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( velocityPhysics ),
-             SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( velocityPhysics ),
-             body ) ||
+    if ( !TryResolveReplayVelocityBodyView( *this,
+                                            SkullbonezCore::Physics::PhysicsEngine::ReadBodies( velocityPhysics ),
+                                            SkullbonezCore::Physics::PhysicsEngine::ReadColliders( velocityPhysics ),
+                                            body ) ||
          body.fixed || !body.shape )
     {
         return;

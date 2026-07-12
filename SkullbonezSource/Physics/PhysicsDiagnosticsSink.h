@@ -29,6 +29,8 @@ Related:
 */
 #pragma once
 
+#include "../GameObjects/SceneCapacity.h"
+#include <array>
 #include <cstdarg>
 
 #include "../Core/SkullScope.h"
@@ -45,19 +47,25 @@ class ColliderStore;
 class PhysicsBodyStore;
 struct PhysicsDiagnosticsView;
 
-// Debug CSV output boundary. The runtime composition edge supplies this writer
-// when a launch enables byte-exact physics CSVs; physics formats rows but does
-// not reach through the ambient Log() accessor.
+inline constexpr int PHYSICS_COLLISION_TIME_EVENT_CAPACITY = MAX_GAME_MODELS * 5;
+
+// Debug CSV output boundary. Physics formats rows after the solver pass and the
+// concrete writer delegates to the process log sink; no callback, user pointer,
+// or file-I/O dependency enters collision detection or solver loops.
 struct PhysicsDiagnosticsCsvWriter
 {
-    using WriteVfFn = void ( * )( void* userData, const char* fileName, const char* fmt, va_list args );
-
-    WriteVfFn writeVf = nullptr;
-    void* userData = nullptr;
-
-    // Caller contract: an empty writer is a no-op; validation launches bind a
-    // writer before enabling the byte-exact CSV paths.
+    // Cold concrete writer: no callback or retained user pointer can enter the
+    // solver. Calls occur only after bounded physics events are committed.
     void Writef( const char* fileName, const char* fmt, ... ) const;
+};
+
+struct PhysicsCollisionTimeEvent
+{
+    const char* type = nullptr; // Static "object"/"terrain" token.
+    int bodyA = -1;
+    int bodyB = -1;
+    float collisionTime = 0.0f;
+    float availableTime = 0.0f;
 };
 
 #ifdef _DEBUG
@@ -77,6 +85,13 @@ struct PhysicsDiagnosticsFrameInput
 class PhysicsDiagnosticsSink
 {
   public:
+    // One object event per bounded candidate pair plus one terrain event per
+    // body. PhysicsWorld reserves four candidate pairs per model, so five rows
+    // per model is the exact upstream maximum for one fixed step.
+    static constexpr int CollisionTimeEventCapacity()
+    {
+        return PHYSICS_COLLISION_TIME_EVENT_CAPACITY;
+    }
 #ifdef _DEBUG
     void SetPhysicsRegressionLogPath( const char* path );
     void SetPhysicsCollisionTimeLogPath( const char* path );
@@ -89,22 +104,23 @@ class PhysicsDiagnosticsSink
     bool IsFrameLogEnabled() const;
     void EmitFrame( const PhysicsDiagnosticsFrameInput& frame );
 #endif
-    void EmitCollisionTime( const char* const* diagnosticNames,
-                            int diagnosticNameCount,
-                            const PhysicsDiagnosticsCsvWriter& csvWriter,
-                            const char* type,
-                            int bodyA,
-                            int bodyB,
-                            float collisionTime,
-                            float availableTime );
+    void BeginCollisionTimeFrame();
+    void QueueCollisionTime( const char* type, int bodyA, int bodyB, float collisionTime, float availableTime );
+    void FlushCollisionTimes( const char* const* diagnosticNames,
+                              int diagnosticNameCount,
+                              const PhysicsDiagnosticsCsvWriter& csvWriter );
 
   private:
 #ifdef _DEBUG
+    static constexpr int COLLISION_TIME_EVENT_CAPACITY = PHYSICS_COLLISION_TIME_EVENT_CAPACITY;
     char m_physicsRegressionLogPath[256] = {};
     int m_physicsRegressionLogFrame = 0;
     char m_physicsCollisionTimeLogPath[256] = {};
     int m_physicsCollisionTimeLogFrame = 0;
     bool m_physicsCollisionTimeHeaderWritten = false;
+    std::array<PhysicsCollisionTimeEvent, COLLISION_TIME_EVENT_CAPACITY> m_collisionTimeEvents = {};
+    int m_collisionTimeEventCount = 0;
+    int m_collisionTimeEventHighWater = 0;
     GameObjects::SkullScope m_skullScope;
 #endif
 };

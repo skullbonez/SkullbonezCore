@@ -120,7 +120,8 @@ The deleted runtime-boundary regex checker is not part of repository
 enforcement. Do not recreate frozen-count or spelling-budget checks for
 migration vocabulary, inheritance, `Run` size, throw counts, or similar
 historical debt. These policies are enforced by code review, owning plans,
-focused behavioral tests in `Agentic/Plans/TODO/behavioral-test-depth.md`, and
+focused behavioral tests recorded in
+`Agentic/Reports/behavioral_test_depth_closure_20260711.md`, and
 the targeted validation gates below.
 
 ## God-Object Closure Rule

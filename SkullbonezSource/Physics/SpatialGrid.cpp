@@ -39,6 +39,7 @@ Related:
 
 
 #include "SpatialGrid.h"
+#include "SolverBroadphaseStage.h"
 #include "../Core/FatalError.h"
 #include <algorithm>
 #include <cfloat>
@@ -334,10 +335,10 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
 //
 // Output: vector of (indexA, indexB) pairs where A < B.
 // These pairs still need NARROW-PHASE testing (actual sphere overlap check).
-// The optional filter is only a deterministic broadphase reject before vector append.
+// The optional typed filter is deterministic broadphase value logic applied
+// before vector append; no callback or erased owner state enters the hot loop.
 void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
-                                     CandidatePairFilter filter,
-                                     const void* filterUserData )
+                                     const SkullbonezCore::Physics::BroadphaseCandidateFilterContext* filter )
 {
     outPairs.clear();
 
@@ -437,7 +438,7 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
                 if ( !( pairSeen[word] & bit ) )
                 {
                     pairSeen[word] |= bit;
-                    if ( filter && !filter( filterUserData, a, bIdx ) )
+                    if ( filter && !SkullbonezCore::Physics::BroadphaseCandidateCanTouch( filter, a, bIdx ) )
                     {
                         continue;
                     }

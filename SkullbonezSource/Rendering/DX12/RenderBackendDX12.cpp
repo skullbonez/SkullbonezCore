@@ -2054,7 +2054,8 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/
     {
         return rootSignatureResult;
     }
-    const SkullbonezCore::Basics::SbResult genMipsResult = m_textureOwner.Initialize( *this );
+    Dx12TextureCommands textureCommands( m_renderDevice, m_frameOwner );
+    const SkullbonezCore::Basics::SbResult genMipsResult = m_textureOwner.Initialize( textureCommands );
     if ( !genMipsResult.ok )
     {
         return genMipsResult;

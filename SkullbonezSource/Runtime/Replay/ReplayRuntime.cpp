@@ -50,7 +50,6 @@ Related:
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"
-#include "../../Physics/PhysicsEngineStoreQueries.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsTimestep.h"
 
@@ -308,12 +307,12 @@ uint64_t PredictionEngineMemoryBytes( const PhysicsEngine& engine )
     uint64_t bytes = static_cast<uint64_t>( sizeof( engine ) );
     bytes += engine.CollectPhysicsWorldMemoryBytes();
     bytes += engine.CollectDebugAndBroadphaseMemoryBytes();
-    bytes += static_cast<uint64_t>(
-                 SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( engine ).Records().capacity() ) *
-             sizeof( PhysicsBodyRecord );
-    bytes += static_cast<uint64_t>(
-                 SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( engine ).Records().capacity() ) *
-             sizeof( ColliderRecord );
+    bytes +=
+        static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Records().capacity() ) *
+        sizeof( PhysicsBodyRecord );
+    bytes +=
+        static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadColliders( engine ).Records().capacity() ) *
+        sizeof( ColliderRecord );
     return bytes;
 }
 
@@ -857,8 +856,8 @@ void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics,
                           input.sceneFrame,
                           input.frameSeconds,
                           input.totalSeconds );
-    const PhysicsBodyStore& bodyStore = Physics::PhysicsEngineStoreQueries::BodyStore( physics );
-    const ColliderStore& colliderStore = Physics::PhysicsEngineStoreQueries::Colliders( physics );
+    const PhysicsBodyStore& bodyStore = Physics::PhysicsEngine::ReadBodies( physics );
+    const ColliderStore& colliderStore = Physics::PhysicsEngine::ReadColliders( physics );
     RenderCauseFocusOverlay( bodyStore, colliderStore, entities, tracer );
     RenderVelocityEditOverlay( physics, input.editorModeEnabled, input.gesture, tracer );
 }
@@ -1192,6 +1191,33 @@ bool ReplayRuntime::HasActiveInteractionState() const
            m_scrubber.historicalSamplePaused || m_scrubber.liveAdvanceHeld || m_pathVisualizer.hasTarget ||
            !m_pathVisualizer.targets.empty() || m_prediction.enabled || m_prediction.build.building ||
            m_velocityEdit.enabled || m_causeTree.selectedRow >= 0 || !m_causeTree.rows.empty();
+}
+
+
+void ReplayRuntime::ClearInteractionForSceneLoad( const SceneTimelineResetOwners& owners )
+{
+    const RuntimeInteractionTransition transition =
+        owners.interaction.ResetForScene( InteractionExitReason::LoadScene );
+    const bool previousOwnerWasReplay = transition.previousOwner == WorldInteractionOwner::ReplayScrub ||
+                                        transition.previousOwner == WorldInteractionOwner::ReplayVelocityEdit ||
+                                        transition.previousOwner == WorldInteractionOwner::ReplayPrediction ||
+                                        transition.previousOwner == WorldInteractionOwner::ReplayBranchTarget ||
+                                        transition.previousOwner == WorldInteractionOwner::ReplayCauseTree;
+    if ( !HasActiveInteractionState() && !previousOwnerWasReplay )
+    {
+        return;
+    }
+    if ( ClearInteractionForRuntimeTransition( owners.interaction, owners.inputRouter ) )
+    {
+        ExitInspectionCamera( owners.cameras,
+                              owners.terrain,
+                              owners.camera,
+                              owners.normalizedRestoreMode,
+                              owners.attachedFollow,
+                              owners.directorGrabbed,
+                              owners.interaction,
+                              owners.inputRouter );
+    }
 }
 
 bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionController& interaction,

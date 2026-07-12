@@ -36,7 +36,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntime.h
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once
 
@@ -51,7 +51,6 @@ Related:
 #include "../../Maths/Vector3.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"
-#include "../../Physics/PhysicsEngineStoreQueries.h"
 #include "../../Rendering/RenderInstanceStore.h"
 #include "../CameraCollection.h"
 #include "../../World/WorldEnvironment.h"

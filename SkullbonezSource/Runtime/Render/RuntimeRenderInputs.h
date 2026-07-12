@@ -26,7 +26,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Run.h
   - SkullbonezSource/Runtime/RunRender.cpp
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once
 

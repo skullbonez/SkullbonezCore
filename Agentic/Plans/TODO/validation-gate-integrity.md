@@ -1,7 +1,7 @@
 # Validation Gate Integrity And Continuous Integration
 
 Date: 2026-07-10
-Status: In progress — 5/6 phases complete
+Status: Blocked — 5/6 phases complete; V3 requires external GitHub administration and runner infrastructure
 Impact area: validation tooling, unit-test projects, GitHub pull-request gates,
 sanitizer/static-analysis coverage
 Owner: repository validation
@@ -72,7 +72,8 @@ Separate validation by capability rather than by historical script:
   where existing scripts support it. Acceptance: inject a deterministic child
   failure at each target and prove the umbrella fails at the named target while
   later targets remain unrun. Executable-level mutation evidence belongs to
-  `behavioral-test-depth.md` P6.
+  the behavioral-test-depth P6 evidence in
+  `Agentic/Reports/behavioral_test_depth_closure_20260711.md`.
   Evidence (2026-07-10): the hermetic failure harness returned child codes 11,
   22, 33, and 44 unchanged at the named targets and marked later targets `NOT
   RUN`; the final production umbrella passed all four targets in 27.796s.
@@ -81,7 +82,7 @@ Separate validation by capability rather than by historical script:
   entry point. Reconcile `validate_fast` so tests are not duplicated when a
   caller already ran the umbrella. Acceptance: an injected CPU-umbrella failure
   makes `validate_full` and `agent_validate` return that failure before building
-  Debug or launching the engine; `behavioral-test-depth.md` P6 supplies the
+  Debug or launching the engine; the behavioral-test-depth closure report supplies the
   later real-test mutation drill.
   Evidence (2026-07-10): byte-identical broad-gate harness copies both returned
   injected code 11 before Debug, DX12, physics, or engine execution. Production
@@ -90,7 +91,7 @@ Separate validation by capability rather than by historical script:
   subsequently passed end-to-end: 78/78 doctest cases and 1,883 assertions,
   every standalone CPU target, zero DX12 validation errors and matching visual
   baselines, then a byte-exact 20,001-line physics baseline.
-- [ ] **V3 — Pull-request CI.** Add a `windows-latest` GitHub Actions workflow
+- [ ] **V3 — BLOCKED: Pull-request CI.** Add a `windows-latest` GitHub Actions workflow
   for CPU preflight, every CPU test target, and a Profile engine build, with
   artifact upload on failure and merge-queue coverage. Add a separate
   self-hosted label (`Windows`, `x64`, `dx12`) for trusted `main`/manual runtime
@@ -142,8 +143,10 @@ Separate validation by capability rather than by historical script:
   and a persistent self-hosted runner must never execute public-PR code.
 - V1/V2 should land before plans add more tests, otherwise new suites can remain
   orphaned.
-- `behavioral-test-depth.md` P6 closes only after V2 and V5 complete.
-- `dx12-failure-propagation.md` fault-injection tests register through V1.
+- Behavioral-test-depth P6 closed after V2 and V5; durable evidence is in
+  `Agentic/Reports/behavioral_test_depth_closure_20260711.md`.
+- DX12 failure-propagation fault-injection tests register through V1; durable
+  evidence is in `Agentic/Reports/dx12_failure_inventory_20260710.md`.
 
 ## Validation
 

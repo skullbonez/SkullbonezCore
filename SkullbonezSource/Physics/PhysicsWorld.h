@@ -253,9 +253,6 @@ class PhysicsWorld
         std::vector<uint8_t>& sleepSupportedThisFrame;
         std::vector<uint8_t>& sleepInhibitedThisFrame;
         std::vector<float>& timeRemaining;
-        const char* const* diagnosticNames;
-        int diagnosticNameCount;
-        const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter;
     };
     void CommitTerrainCandidate( const TerrainCandidateCommitContext& context,
                                  int bodyIndex,
@@ -324,10 +321,7 @@ class PhysicsWorld
                                                int bodyA,
                                                int bodyB,
                                                float invCellSize );
-    void CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& event,
-                                       const char* const* diagnosticNames,
-                                       int diagnosticNameCount,
-                                       const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
+    void CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& event );
 
     struct ObjectNarrowphasePairStageContext
     {
@@ -359,10 +353,7 @@ class PhysicsWorld
                                        ObjectNarrowphaseEvent& event );
     void ProcessObjectNarrowphaseIsland( const ObjectNarrowphasePairStageContext& context, int islandIndex );
     void ProcessObjectNarrowphasePairsSerial( const ObjectNarrowphasePairStageContext& context,
-                                              int candidatePairCount,
-                                              const char* const* diagnosticNames,
-                                              int diagnosticNameCount,
-                                              const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
+                                              int candidatePairCount );
     void BuildObjectNarrowphaseIslands( const std::vector<std::pair<int, int>>& candidatePairs,
                                         int candidatePairCount,
                                         int modelCount );
@@ -422,21 +413,11 @@ class PhysicsWorld
                            float dt,
                            const Basics::EngineConfig& config,
                            const PhysicsWorldForces& worldForces,
-                           Threading::WorkerPool& workerPool,
-                           const char* const* diagnosticNames,
-                           int diagnosticNameCount,
-                           const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
+                           Threading::WorkerPool& workerPool );
     const Math::Vector::Vector3* PrepareMutualGravityForces( const PhysicsBodyRecordList& bodyRecords,
                                                              int modelCount,
                                                              const PhysicsWorldForces& worldForces );
-    void EmitPhysicsCollisionTime( const char* const* diagnosticNames,
-                                   int diagnosticNameCount,
-                                   const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter,
-                                   const char* type,
-                                   int bodyA,
-                                   int bodyB,
-                                   float collisionTime,
-                                   float availableTime );
+    void EmitPhysicsCollisionTime( const char* type, int bodyA, int bodyB, float collisionTime, float availableTime );
     PersistentContactSolverContext CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,
                                                                          const ColliderStore& colliderStore,
                                                                          const Basics::EngineConfig& config,
@@ -516,18 +497,14 @@ class PhysicsWorld
     void ApplyRuntimeConfig( const Basics::EngineConfig& config );
     void Clear();
     void ReserveBodyScratchCapacity( std::size_t capacity );
-    // Runs one fixed world step over the stores. diagnosticNames is a cold
-    // Debug presentation overlay for collision-time rows; diagnosticsCsvWriter
-    // is the cold CSV output edge supplied by runtime, not a solver service.
+    // Runs one fixed world step over the stores. Collision diagnostics append
+    // fixed events only; name lookup and file output occur after the hot pass.
     void RunPhysics( PhysicsBodyStore& bodyStore,
                      const ColliderStore& colliderStore,
                      float fChangeInTime,
                      const Basics::EngineConfig& config,
                      const PhysicsWorldForces& worldForces,
-                     Threading::WorkerPool& workerPool,
-                     const char* const* diagnosticNames,
-                     int diagnosticNameCount,
-                     const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
+                     Threading::WorkerPool& workerPool );
     // Emits Debug-only regression and SkullScope records from the stores the
     // caller passes in. PhysicsScene owns the cold presentation-name overlay and
     // runtime owns the CSV writer, so diagnostics do not borrow model or logging

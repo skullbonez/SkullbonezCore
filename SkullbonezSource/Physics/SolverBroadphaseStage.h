@@ -67,14 +67,14 @@ inline float BroadphaseCandidateBodyRadius( const ColliderRecordList& colliderRe
 // Invariant: this remains a broadphase test. It may keep false positives, but
 // it must not reject a pair whose exact shapes could touch during this fixed
 // tick; the relative-motion segment covers CCD and wakeup cases.
-inline bool BroadphaseCandidateCanTouch( const void* userData, int a, int b )
+inline bool BroadphaseCandidateCanTouch( const BroadphaseCandidateFilterContext* contextValue, int a, int b )
 {
-    if ( userData == nullptr )
+    if ( contextValue == nullptr )
     {
         return true;
     }
 
-    const BroadphaseCandidateFilterContext& context = *static_cast<const BroadphaseCandidateFilterContext*>( userData );
+    const BroadphaseCandidateFilterContext& context = *contextValue;
     if ( a < 0 || b < 0 || a >= context.modelCount || b >= context.modelCount )
     {
         return false;

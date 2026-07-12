@@ -44,7 +44,7 @@ Related:
 #include "../../Physics/SimulationSystem.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
-#include "../../Physics/PhysicsEngineStoreQueries.h"
+#include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsTimestep.h"
 
 #include <cmath>
@@ -1027,7 +1027,7 @@ bool ApplyReplayRestoreEditorTransformEvent( SkullbonezCore::Basics::SceneContro
     // Why: the edited-state commit has already refreshed the edited body row.
     // The wake decision should read the committed PhysicsBodyStore record, not
     // presentation/authored pose data.
-    const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics );
+    const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics );
     const PhysicsBodyHandle body =
         bodyStore.HandleForReplayBodyId( static_cast<uint32_t>( event.value1 ), event.value0 );
     const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );

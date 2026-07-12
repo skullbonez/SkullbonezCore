@@ -121,7 +121,6 @@ PHYSICS_PREFIXES = (
     "PhysicsDebugData",
     "PhysicsDiagnosticsSink",
     "PhysicsEngine",
-    "PhysicsEngineStoreQueries",
     "PhysicsFixedList",
     "PhysicsHandles",
     "PhysicsMass",

@@ -527,15 +527,7 @@ void PhysicsScene::RunPhysics( float fChangeInTime,
     m_lastWorldForces = worldForces;
     m_hasLastWorldForces = true;
 
-    m_world.RunPhysics( m_bodyStore,
-                        m_colliderStore,
-                        fChangeInTime,
-                        config,
-                        worldForces,
-                        workerPool,
-                        diagnosticNames,
-                        diagnosticNameCount,
-                        diagnosticsCsvWriter );
+    m_world.RunPhysics( m_bodyStore, m_colliderStore, fChangeInTime, config, worldForces, workerPool );
 
     ApplyFixedTreeReleaseEvents( worldForces );
 

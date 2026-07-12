@@ -107,41 +107,23 @@ concrete plan rows and counting it would duplicate tasks.
 
 For maximum impact with minimal rework, use this binding critical path:
 
-`engine-cleanup aggregate review and retained-plan deletion`
+`validation-gate V3 external administration`
 
-1. **Engine-cleanup aggregate review and plan deletion — parallel lane.** Run
-   review preparation alongside the critical path rather than as another serial
-   implementation campaign. Fix every credible ownership finding, pass the
-   closure gate, and delete the eight retained completed plans to remove stale
-   control-plane noise.
-
-Validation V3 administration remains an external parallel lane: prove
-`merge_group`, require the hosted CPU check, and activate a trusted-main/manual
-DX12 runner without exposing persistent infrastructure to public-PR code.
+1. **Validation-gate V3 — blocked external lane.** Repository implementation is
+   complete. Remaining work requires a real `merge_group` proof, required CPU
+   branch protection, and trusted/ephemeral DX12 runner administration.
 
 ## Engine Cleanup Campaign
 
 | Plan | State | Verified basis | Next work |
 |---|---|---|---|
-| [15 review gaps](../../engine-cleanup-plans/15-review-gaps.md) | In progress | 15.4 and 15.5 complete; 15.1-15.3 delegated | Execute the 15.6 inventory checklist; owning TODO plans close the other findings |
+| [aggregate closure](../Reports/2026-07-12/engine-cleanup-aggregate-closure.md) | Complete | Independent full-module and narrow repeat reviews are clear | Campaign closed; eight retained evidence plans deleted |
 
 ## Active Architecture, Safety, And Test Plans
 
-Every Complete row retained in this table is temporary engine-cleanup campaign
-closure evidence under inventory rule 4. Delete those files together when the
-aggregate closure gate passes; do not treat retention as a permanent archive.
-
 | Plan | State | Verified phase count | Next blocking action |
 |---|---|---:|---|
-| [validation-gate-integrity](TODO/validation-gate-integrity.md) | Externally blocked | 5/6 | Hosted CPU PR proof now passes; V3 still needs merge-group proof, required branch protection, and trusted DX12 runner administration |
-| [dx12-failure-propagation](TODO/dx12-failure-propagation.md) | Complete | 6/6 | Retain as closure evidence; failure propagation, transactional recreation, device-loss teardown, and fault injection are proven |
-| [behavioral-test-depth](TODO/behavioral-test-depth.md) | Complete | 6/6 | Retain as closure evidence; named tests, four mutation drills, stop proofs, and final gates pass |
-| [runtime-shell-decomposition](TODO/runtime-shell-decomposition.md) | Complete | 27/27 completed items | Retain as closure evidence; final inventory, deletion proofs, adversarial review, and required gates pass |
-| [runtime-ui-control-architecture-cleanup](TODO/runtime-ui-control-architecture-cleanup.md) | Complete | 7/7 | Retain as closure evidence; 96-file inventory, shared surfaces, deletion proofs, review fixes, and final gates pass |
-| [interaction-state-machine](TODO/interaction-state-machine.md) | Complete | 6/6 remaining phases | Retain as closure evidence; typed gesture payload, native capture, focus/UI crossing, deletion proofs, and repeat adversarial review pass |
-| [replay-architecture-and-right-sizing](TODO/replay-architecture-and-right-sizing.md) | Complete | 6/6 | Retain as closure evidence; stable identity, bounded memory, named gates, rollback proof, and source-size justifications are complete |
-| [physics-authority-and-identity](TODO/physics-authority-and-identity.md) | Complete | 16/16 current items | Retain as closure evidence; handle-owned mutation, coordinated lifecycle, stable runtime identity, full gate, and repeat adversarial review complete |
-| [stale-plan-reference-cleanup-15.6-checklist](TODO/stale-plan-reference-cleanup-15.6-checklist.md) | Complete | 86/86 files | Retain as reconciled evidence; no source rows remain |
+| [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs merge-group proof, required branch protection, and trusted/ephemeral DX12 runner administration |
 
 ## Planned Architecture Work (2026-07-11 gap review)
 
@@ -209,11 +191,11 @@ Open and blocking:
 Before deleting `runtime-shell-decomposition.md` or closing the engine-cleanup
 campaign:
 
-- [ ] One final independent ownership review covers the complete logical `Run`
+- [x] One final independent ownership review covers the complete logical `Run`
   surface, every extracted owner, and the current high-fan-in/mega-module
   inventory. It records zero credible god-object, shared-state-hub, callback-bag,
   forwarding-facade, or renamed-compatibility findings.
-- [ ] The review's method/field ownership inventory, inspected hotspot list,
+- [x] The review's method/field ownership inventory, inspected hotspot list,
   concrete evidence, and zero-finding verdict are committed under
   `Agentic/Reports/<date>/`. Any credible finding reopens its owning plan and
   blocks campaign closure.
@@ -222,12 +204,12 @@ campaign:
 
 Before deleting any plan:
 
-- [ ] Every phase checkbox is complete with evidence.
-- [ ] All hard decisions are resolved in the plan or a binding owner record.
-- [ ] Required focused and broad gates passed from final source/data state.
-- [ ] New/changed test targets are registered in the CPU umbrella.
-- [ ] Source comment audit requirements are satisfied.
-- [ ] Current measurements and deletion proofs are rerun.
-- [ ] Session state and this inventory are updated in the same commit.
-- [ ] The plan and completed execution checklist are deleted; commit history is
+- [x] Every phase checkbox is complete with evidence.
+- [x] All hard decisions are resolved in the plan or a binding owner record.
+- [x] Required focused and broad gates passed from final source/data state.
+- [x] New/changed test targets are registered in the CPU umbrella.
+- [x] Source comment audit requirements are satisfied.
+- [x] Current measurements and deletion proofs are rerun.
+- [x] Session state and this inventory are updated in the same commit.
+- [x] The plan and completed execution checklist are deleted; commit history is
   the archive.

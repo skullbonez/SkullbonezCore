@@ -133,6 +133,7 @@ class DiagnosticsRuntime
     void ClosePerfLogWithMemoryCheckpoint( int pass, const char* checkpoint );
     void LogPerfMemory( int pass, const char* checkpoint );
     void ResetPerfLogForSceneLoad();
+    void ResetForSceneLoad( int completedPerfPass );
     void ConfigurePerfLogFlush( bool enabled, int interval );
     void OpenScenePerfLog( const char* path, int pass );
     void ApplySceneAutomationOptions( const TestScene& scene, bool suppressAutomationExit, int perfPass );

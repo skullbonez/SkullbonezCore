@@ -52,7 +52,7 @@ Related:
 #include "RuntimeFileWriter.h"
 #include "RuntimePickService.h"
 
-#include "../Physics/PhysicsEngineStoreQueries.h"
+#include "../Physics/PhysicsEngine.h"
 #include "../Physics/PhysicsTimestep.h"
 #include "../Core/Config.h"
 #include "../Rendering/IRenderCaptureBackend.h"
@@ -1128,8 +1128,7 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
     }
     case RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity:
     {
-        const Physics::PhysicsBodyStore& bodyStore =
-            SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics );
+        const Physics::PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics );
         const Physics::PhysicsBodyHandle body = replayRuntime.ResolveVelocityEditBodyHandle( bodyStore );
         const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
         const bool hasTarget =

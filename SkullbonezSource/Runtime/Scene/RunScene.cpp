@@ -469,8 +469,7 @@ SbResult SaveCurrentEditableSceneSnapshot( const std::string& scenePath,
 {
     // Lifetime: editable persistence borrows the active scene's owner arrays
     // only for the synchronous write; scene reload may replace them afterward.
-    const auto& joints =
-        SkullbonezCore::Physics::PhysicsEngineStoreQueries::PointJointConstraints( modelCollection.Physics() );
+    const auto& joints = SkullbonezCore::Physics::PhysicsEngine::ReadPointJointConstraints( modelCollection.Physics() );
     const SceneSaveView saveView{ entities,
                                   modelCollection.BodyStore(),
                                   modelCollection.Colliders(),
@@ -625,19 +624,14 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
     const std::string& scenePath = *loadBegin.scenePath;
     SceneLifecycleConsumerMask afterClearConsumers = 0;
 
-    m_diagnosticsRuntime.ClosePerfLogWithMemoryCheckpoint( m_perfPass + 1, "end" );
-
     // Reset scene-local state; operator HUD preferences are restored below.
     SceneState().ResetForLoad( m_config.cinematicRender );
-    m_diagnosticsRuntime.ResetPerfLogForSceneLoad();
+    m_diagnosticsRuntime.ResetForSceneLoad( m_perfPass + 1 );
     m_simulation.Reset();
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation );
-    m_diagnosticsRuntime.Capture().ResetScreenshot();
     m_contactAudio.ResetSimpleLinearHistory();
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Audio );
-    m_renderer.SetVsyncEnabled( m_config.runtimeRender.vsyncEnabled );
-    m_renderer.SetPipelineSyncEnabled( m_config.runtimeRender.forcePipelineSync );
-    m_diagnosticsRuntime.UIStress() = DiagnosticsRuntime::UIStressState{};
+    m_renderer.ResetSceneRuntimePolicyFromConfig();
     m_sceneController.ClearRequiredAutomationGates();
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
 
@@ -647,82 +641,31 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
     m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
     AttachedCameraController::Reset( m_attachedCamera );
     {
-        const RuntimeInteractionTransition transition = m_interaction.ResetForScene( InteractionExitReason::LoadScene );
-        const bool previousOwnerWasReplay = transition.previousOwner == WorldInteractionOwner::ReplayScrub ||
-                                            transition.previousOwner == WorldInteractionOwner::ReplayVelocityEdit ||
-                                            transition.previousOwner == WorldInteractionOwner::ReplayPrediction ||
-                                            transition.previousOwner == WorldInteractionOwner::ReplayBranchTarget ||
-                                            transition.previousOwner == WorldInteractionOwner::ReplayCauseTree;
-        if ( m_replayRuntime.HasActiveInteractionState() || previousOwnerWasReplay )
-        {
-            if ( m_replayRuntime.ClearInteractionForRuntimeTransition( m_interaction, m_inputRouter ) )
-            {
-                m_replayRuntime.ExitInspectionCamera(
-                    &m_sceneController.Cameras(),
-                    m_sceneController.Terrain().Get(),
-                    m_camera,
-                    NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
-                    m_attachedCamera.activeFollow,
-                    m_camera.director.grabbed,
-                    m_interaction,
-                    m_inputRouter );
-            }
-        }
+        m_replayRuntime.ClearInteractionForSceneLoad( ReplayRuntime::SceneTimelineResetOwners{
+            m_inputRouter,
+            m_interaction,
+            &m_sceneController.Cameras(),
+            m_sceneController.Terrain().Get(),
+            m_camera,
+            NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+            m_attachedCamera.activeFollow,
+            m_camera.director.grabbed } );
         afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
-        RunInternal::ClearEditorManipulationState(
-            { m_runtimeTools.Editor(), m_sceneController, m_sceneController.Physics(), m_interaction } );
+        m_runtimeTools.ClearEditorInteractionForTransition( false,
+                                                            m_sceneController,
+                                                            m_sceneController.Physics(),
+                                                            m_interaction );
         m_runtimeTools.ClearEditorHistory();
-        m_runtimeTools.Editor().viewportLookActive = false;
-        m_runtimeTools.Editor().placementModeEnabled = false;
-        m_runtimeTools.Editor().hotGizmoAxis = -1;
-        m_runtimeTools.Editor().hotRotationAxis = -1;
         m_interaction.ResetForScene( InteractionExitReason::LoadScene );
         afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Interaction );
     }
-    m_camera.mode = scenePath.empty() ? RunCameraMode::Demo : RunCameraMode::Scene;
+    m_camera.ResetForSceneLoad( !scenePath.empty() );
     m_runtimeTools.ClearRayCastTestLines();
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Tools );
-    m_debug.isWaterFreezeDebug = false;
-    m_debug.isWaterNoReflect = false;
-    m_debug.isWaterRTReflect = false;
-    m_debug.isWaterFlatDebug = false;
-    m_debug.isTerrainHidden = false;
-    m_debug.isWaterHidden = false;
-    m_debug.isTextOnly = false;
-    m_debug.isUITestPattern = false;
-    m_debug.physicsDebugFlags = PHYSICS_DEBUG_NONE;
-    m_debug.isPhysicsDebugTransparent = false;
-    m_debug.physicsDebugAlpha = 0.28f;
-    m_debug.physicsDebugContactLinger = 0.45f;
-    m_debug.physicsDebugPipelineStageCursor = 0;
+    m_debug.ResetForSceneLoad();
     m_physicsDebugVisualizer.SetFlags( PHYSICS_DEBUG_NONE );
-#ifdef _DEBUG
-    m_debug.reproSnapshotMessage[0] = '\0';
-    m_debug.reproSnapshotMessageUntil = 0.0;
-#endif
-    m_debug.frozenWaterTime = 0.0f;
-    m_camera.trackBallRow.value = -1;
-    m_camera.trackHeight = 300.0f;
-    m_camera.autoCycleInterval = -1.0f;
-    m_camera.autoCycleAccum = 0.0f;
-    m_camera.autoCycleShotsTaken = 0;
-    m_camera.input = {};
     // overlayMode intentionally preserved — the user's HUD state persists across scene reloads.
-    m_camera.selectedCamera = 0;
-
-    m_timers.timeSinceLastRender = 0.0f;
-    m_timers.renderTime = 0.0f;
-    m_camera.cameraTime = 0.0f;
-    m_timers.rollingRenderTime = 0.0f;
-    m_timers.physicsTime = 0.0f;
-    m_timers.rollingPhysicsTime = 0.0f;
-    m_timers.rollingFpsTime = 0.0f;
-    m_timers.rollingSceneEnergy = 0.0f;
-    m_timers.cpuFrameWorkMs = 0.0f;
-    m_timers.gpuFrameWorkMs = 0.0f;
-    m_timers.sceneEnergyAccumulator = 0.0;
-    m_timers.sceneEnergySampleCount = 0;
-    m_timers.lastUIDrawCalls = 0;
+    m_timers.ResetSceneMeasurements();
 
     // Reseed RNG. Unseeded reruns mix in the load/reset counters so quick repeated
     // Q resets do not collapse to the same time(nullptr) seed. Scene files and CLI
@@ -1257,11 +1200,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
     }
 
     // Restart timers
-    m_timers.frameTimer.StartTimer();
-    m_timers.workTimer.StartTimer();
-    m_timers.updateTimer.StartTimer();
-    m_timers.cameraTimer.StartTimer();
-    m_timers.simulationTimer.StartTimer();
+    m_timers.RestartForSceneActivation();
     const ReplayRuntime::SceneTimelineResetInput replayReset =
         ReplayRuntime::DescribeSceneTimeline( m_sceneController,
                                               SceneState(),
@@ -1280,66 +1219,12 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
             m_camera.director.grabbed } );
     afterActivationConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
 
-    // Initialize DXR raytracing on first scene load (requires terrain + sphere meshes to exist)
-    // Force sphere mesh creation (normally lazy-init on first render)
-    SkullbonezCore::Rendering::IRenderRayTracing* rayTracing = m_renderBackendView.rayTracingBackend;
-    SkullbonezCore::Rendering::IRenderResourceFactory* renderResources = m_renderBackendView.renderResources;
-    SkullbonezCore::Rendering::IRenderCommandContext* renderCommands = m_renderBackendView.renderCommands;
-    SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = m_renderBackendView.renderDiagnostics;
-    const bool hasRayTracingReflection =
-        renderDiagnostics && renderDiagnostics->GetCapabilities().supportsDxrReflection && rayTracing;
-    if ( hasRayTracingReflection && m_renderer.Helper().GetSphereInstMeshHandle() == 0 )
+    const SbResult rayTracingResult =
+        m_renderer.InitialiseSceneRayTracing( m_renderBackendView, m_startup.gameModelCapacity );
+    if ( !rayTracingResult.ok )
     {
-        if ( !renderResources || !renderCommands || !renderDiagnostics )
-        {
-            // Invariant: DXR reflection warm-up builds helper meshes through
-            // the same resource/command/diagnostics facets used by rendering.
-            // A missing facet means runtime backend wiring is inconsistent.
-            SB_FATAL( "RunScene",
-                      "DXR reflection initialization requires render resource, command, and diagnostics facets. "
-                      "resources=%d commands=%d diagnostics=%d",
-                      renderResources ? 1 : 0,
-                      renderCommands ? 1 : 0,
-                      renderDiagnostics ? 1 : 0 );
-        }
-        const RenderHelperContext helperContext{ *renderResources,
-                                                 *renderCommands,
-                                                 *renderDiagnostics,
-                                                 assets,
-                                                 m_config,
-                                                 m_renderer.Helper() };
-        m_renderer.Helper().EnsureSphereMesh( helperContext );
-    }
-    if ( hasRayTracingReflection && m_sceneController.Terrain().Get() && m_sceneController.Terrain().Get()->GetMesh() )
-    {
-        IMesh* terrainMesh = m_sceneController.Terrain().Get()->GetMesh();
-        uint64_t terrainVBVA = terrainMesh->GetVertexBufferGPUVA();
-        int terrainVertCount = terrainMesh->GetVertexCount();
-        int terrainStride = terrainMesh->GetStride();
-
-        uint32_t sphereHandle = m_renderer.Helper().GetSphereInstMeshHandle();
-        uint64_t sphereVBVA = rayTracing->GetInstancedMeshStaticVBVA( sphereHandle );
-        int sphereVertCount = m_renderer.Helper().GetSphereVertexCount();
-        int sphereStride = rayTracing->GetInstancedMeshStaticStride( sphereHandle );
-
-        if ( terrainVBVA != 0 && sphereVBVA != 0 )
-        {
-            const SbResult dxrInitResult = rayTracing->InitDXR( terrainVBVA,
-                                                                terrainVertCount,
-                                                                terrainStride,
-                                                                sphereVBVA,
-                                                                sphereVertCount,
-                                                                sphereStride,
-                                                                m_startup.gameModelCapacity );
-            if ( !dxrInitResult.ok )
-            {
-                // Lane R: DXR setup depends on device resource creation and
-                // checked-in shader bytecode, so scene load reports the owner
-                // message instead of unwinding through renderer startup.
-                m_lastSceneLoadResult = dxrInitResult;
-                return m_lastSceneLoadResult;
-            }
-        }
+        m_lastSceneLoadResult = rayTracingResult;
+        return m_lastSceneLoadResult;
     }
     runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated, afterActivationConsumers );
     m_lastSceneLoadResult = SbResult::Success();

@@ -1416,6 +1416,9 @@ class ReplayRuntime
     void CancelToolGesture( RuntimeInteractionController& interaction );
     void CancelToolDragState( RuntimeInteractionController& interaction, InputRouter& inputRouter );
     bool HasActiveInteractionState() const;
+    // Clears replay gesture/camera state as one replay-owned scene transition.
+    // The owner bundle is borrowed for this synchronous operation only.
+    void ClearInteractionForSceneLoad( const SceneTimelineResetOwners& owners );
     // Clears replay-owned transient state and reports whether the camera owner
     // must execute an inspection-camera exit after the state transition.
     bool ClearInteractionForRuntimeTransition( RuntimeInteractionController& interaction, InputRouter& inputRouter );

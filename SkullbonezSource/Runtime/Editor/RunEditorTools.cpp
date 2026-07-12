@@ -49,7 +49,6 @@ Related:
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"
-#include "../../Physics/PhysicsEngineStoreQueries.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../../Physics/Ragdoll.h"
 #include "../../Core/WorkerPool.h"
@@ -641,7 +640,7 @@ void WakeEditorPhysicsBody( SkullbonezCore::Basics::SceneController& collection,
     }
 
     const PhysicsBodyHandle body =
-        SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ).HandleForModelIndex( modelIndex );
+        SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ).HandleForModelIndex( modelIndex );
     if ( !body.IsValid() )
     {
         return;
@@ -667,7 +666,7 @@ void SeedEditorPhysicsBodyAsleep( SkullbonezCore::Basics::SceneController& colle
     }
 
     const PhysicsBodyHandle body =
-        SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ).HandleForModelIndex( modelIndex );
+        SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ).HandleForModelIndex( modelIndex );
     if ( !body.IsValid() )
     {
         return;

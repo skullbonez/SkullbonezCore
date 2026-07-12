@@ -47,7 +47,7 @@ recreate `Done`, `Failed`, `Rejected`, `To_Eval`, `In_Progress`, or
   learning headers; teach file-specific vocabulary, ownership, invariants,
   lifetime, hazards, and validation-sensitive behavior.
 - The active stale-reference inventory is
-  `Plans/TODO/stale-plan-reference-cleanup-15.6-checklist.md`.
+  `Reports/2026-07-12/engine-cleanup-aggregate-closure.md`.
 - `Skills/comment-style-audit/skill.md` is the touched-file/full-scope audit.
 
 ## Hot Paths

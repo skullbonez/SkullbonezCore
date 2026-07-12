@@ -51,7 +51,6 @@ struct PhysicsAuthoredBodyRefreshView;
 struct PhysicsAuthoredBodyRegistration;
 struct PhysicsBodyUpdateDesc;
 struct PhysicsColliderCreateDesc;
-class PhysicsEngineStoreQueries;
 struct PhysicsMaterial;
 
 class PhysicsEngine
@@ -165,6 +164,23 @@ class PhysicsEngine
     bool ShouldEmitStepDiagnostics() const;
     bool ShouldEmitCollisionTimeDiagnostics() const;
 
+    // Immutable dense views are an explicit PhysicsEngine query contract for
+    // renderer, replay, diagnostics, and cold tools. They expose no mutation
+    // and remove the former transitional friend facade.
+    static const PhysicsBodyStore& ReadBodies( const PhysicsEngine& engine );
+    static const ColliderStore& ReadColliders( const PhysicsEngine& engine );
+    static const Math::CollisionDetection::SpatialGrid& ReadSpatialGrid( const PhysicsEngine& engine );
+    static const std::vector<int>& ReadFixedContactHighlightBodies( const PhysicsEngine& engine );
+    static const std::vector<int64_t>& ReadCollisionCellKeys( const PhysicsEngine& engine );
+    static const std::vector<uint8_t>& ReadCollisionVisualContacts( const PhysicsEngine& engine );
+    static const std::vector<uint8_t>& ReadSleepStates( const PhysicsEngine& engine );
+    static const std::vector<int>& ReadSleepIslandVisualIds( const PhysicsEngine& engine );
+    static const std::vector<uint8_t>& ReadSleepSupportedStates( const PhysicsEngine& engine );
+    static const std::vector<uint8_t>& ReadSleepInhibitedStates( const PhysicsEngine& engine );
+    static const std::vector<PhysicsDebugContact>& ReadDebugContacts( const PhysicsEngine& engine );
+    static const std::vector<PhysicsPipelineRecord>& ReadPipelineTrace( const PhysicsEngine& engine );
+    static const std::vector<PointJointConstraint>& ReadPointJointConstraints( const PhysicsEngine& engine );
+
 #ifdef _DEBUG
     void SetPhysicsRegressionLogPath( const char* path );
     void SetPhysicsCollisionTimeLogPath( const char* path );
@@ -174,8 +190,6 @@ class PhysicsEngine
 #endif
 
   private:
-    friend class PhysicsEngineStoreQueries;
-
     PhysicsScene m_scene;
 };
 } // namespace Physics

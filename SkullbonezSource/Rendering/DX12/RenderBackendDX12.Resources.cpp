@@ -158,8 +158,9 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::ReloadShadersFromSource()
         return drainResult;
     }
     ID3D12PipelineState* generateMipsCandidate = nullptr;
+    Dx12TextureCommands textureCommands( m_renderDevice, m_frameOwner );
     const SkullbonezCore::Basics::SbResult computeReloadResult =
-        m_textureOwner.PrepareGenerateMipsShaderReload( *this, generateMipsCandidate );
+        m_textureOwner.PrepareGenerateMipsShaderReload( textureCommands, generateMipsCandidate );
     if ( !computeReloadResult.ok )
     {
         return computeReloadResult;

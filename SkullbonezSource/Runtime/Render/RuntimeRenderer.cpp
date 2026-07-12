@@ -38,6 +38,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RuntimeRenderer.h"
+#include "../../Rendering/IRenderRayTracing.h"
 #include "../../Assets/AssetKeys.h"
 #include "RuntimeRenderPasses.h"
 #include "../CameraCollection.h"
@@ -58,7 +59,7 @@ Related:
 #include "../../Core/Profiler.h"
 #include "../Scene/SceneController.h"
 #include "../../Physics/ColliderStore.h"
-#include "../../Physics/PhysicsEngineStoreQueries.h"
+#include "../../Physics/PhysicsEngine.h"
 #include "../../Rendering/Helper.h"
 #include "../../Rendering/IRenderDiagnostics.h"
 #include "../../Rendering/IRenderDeviceLifecycle.h"
@@ -1525,6 +1526,70 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend,
 RuntimeRenderer::~RuntimeRenderer() = default;
 
 
+void RuntimeRenderer::ResetSceneRuntimePolicyFromConfig()
+{
+    SetVsyncEnabled( m_config.runtimeRender.vsyncEnabled );
+    SetPipelineSyncEnabled( m_config.runtimeRender.forcePipelineSync );
+}
+
+
+SbResult RuntimeRenderer::InitialiseSceneRayTracing( const RuntimeRenderBackendView& backend, int modelCapacity )
+{
+    Rendering::IRenderRayTracing* rayTracing = backend.rayTracingBackend;
+    Rendering::IRenderDiagnostics* renderDiagnostics = backend.renderDiagnostics;
+    const bool supported =
+        renderDiagnostics && renderDiagnostics->GetCapabilities().supportsDxrReflection && rayTracing;
+    if ( !supported )
+    {
+        return SbResult::Success();
+    }
+
+    if ( Helper().GetSphereInstMeshHandle() == 0 )
+    {
+        if ( !backend.renderResources || !backend.renderCommands )
+        {
+            // Lane F: capability publication without the resource facets needed
+            // to build the renderer-owned helper mesh is invalid backend wiring.
+            SB_FATAL( "RuntimeRenderer",
+                      "DXR reflection initialization requires resource and command facets. resources=%d commands=%d",
+                      backend.renderResources ? 1 : 0,
+                      backend.renderCommands ? 1 : 0 );
+        }
+        const RenderHelperContext helperContext{ *backend.renderResources,
+                                                 *backend.renderCommands,
+                                                 *renderDiagnostics,
+                                                 m_assets,
+                                                 m_config,
+                                                 Helper() };
+        Helper().EnsureSphereMesh( helperContext );
+    }
+
+    if ( !m_terrain.Get() || !m_terrain.Get()->GetMesh() )
+    {
+        return SbResult::Success();
+    }
+
+    Rendering::IMesh* terrainMesh = m_terrain.Get()->GetMesh();
+    const uint64_t terrainVBVA = terrainMesh->GetVertexBufferGPUVA();
+    const uint32_t sphereHandle = Helper().GetSphereInstMeshHandle();
+    const uint64_t sphereVBVA = rayTracing->GetInstancedMeshStaticVBVA( sphereHandle );
+    if ( terrainVBVA == 0 || sphereVBVA == 0 )
+    {
+        return SbResult::Success();
+    }
+
+    // Lane R: device resource creation and shader bytecode failures remain a
+    // recoverable renderer result reported through the scene-load transaction.
+    return rayTracing->InitDXR( terrainVBVA,
+                                terrainMesh->GetVertexCount(),
+                                terrainMesh->GetStride(),
+                                sphereVBVA,
+                                Helper().GetSphereVertexCount(),
+                                rayTracing->GetInstancedMeshStaticStride( sphereHandle ),
+                                modelCapacity );
+}
+
+
 void RuntimeRenderer::RestorePresentationSettings( const RenderPresentationSettings& settings )
 {
     m_presentationSettings = settings;
@@ -2182,26 +2247,25 @@ RuntimeRenderModelFrameView RuntimeRenderer::BuildModelFrameView( SkullbonezCore
                                                                   Threading::WorkerPool& workerPool,
                                                                   const EngineConfig& config ) const
 {
-    return RuntimeRenderModelFrameView{
-        scene.MutableRenderInstances(),
-        SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( physics ),
-        SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physics ),
-        physics,
-        scene.RenderPresentationRecords(),
-        SkullbonezCore::Physics::PhysicsEngineStoreQueries::CollisionVisualContacts( physics ),
-        SkullbonezCore::Physics::PhysicsEngineStoreQueries::SleepStates( physics ),
-        SkullbonezCore::Physics::PhysicsEngineStoreQueries::SleepIslandVisualIds( physics ),
-        SkullbonezCore::Physics::PhysicsEngineStoreQueries::SleepSupportedStates( physics ),
-        SkullbonezCore::Physics::PhysicsEngineStoreQueries::SleepInhibitedStates( physics ),
-        SkullbonezCore::Physics::PhysicsEngineStoreQueries::DebugContacts( physics ),
-        SkullbonezCore::Physics::PhysicsEngineStoreQueries::PipelineTrace( physics ),
-        &workerPool,
-        scene.SceneEntityCount(),
-        config.runtimeRender.renderCollisionVolumes,
-        config.runtimeRender.shadowParallelPrep,
-        scene.GetSceneKineticEnergy(),
-        physics.GetTornadoSystemElapsedSeconds(),
-        scene.CollectMemoryStats() };
+    return RuntimeRenderModelFrameView{ scene.MutableRenderInstances(),
+                                        SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physics ),
+                                        SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ),
+                                        physics,
+                                        scene.RenderPresentationRecords(),
+                                        SkullbonezCore::Physics::PhysicsEngine::ReadCollisionVisualContacts( physics ),
+                                        SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( physics ),
+                                        SkullbonezCore::Physics::PhysicsEngine::ReadSleepIslandVisualIds( physics ),
+                                        SkullbonezCore::Physics::PhysicsEngine::ReadSleepSupportedStates( physics ),
+                                        SkullbonezCore::Physics::PhysicsEngine::ReadSleepInhibitedStates( physics ),
+                                        SkullbonezCore::Physics::PhysicsEngine::ReadDebugContacts( physics ),
+                                        SkullbonezCore::Physics::PhysicsEngine::ReadPipelineTrace( physics ),
+                                        &workerPool,
+                                        scene.SceneEntityCount(),
+                                        config.runtimeRender.renderCollisionVolumes,
+                                        config.runtimeRender.shadowParallelPrep,
+                                        scene.GetSceneKineticEnergy(),
+                                        physics.GetTornadoSystemElapsedSeconds(),
+                                        scene.CollectMemoryStats() };
 }
 
 

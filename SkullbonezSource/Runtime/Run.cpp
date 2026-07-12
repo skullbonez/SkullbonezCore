@@ -624,8 +624,8 @@ bool ReplayRuntime::CaptureCurrentSolverSample( const ReplaySolverSampleRestoreC
     input.world = &owners.sceneController.World();
     input.physics = &owners.physics;
     input.entities = &owners.sceneController.Entities();
-    input.bodyStore = &Physics::PhysicsEngineStoreQueries::BodyStore( owners.physics );
-    input.colliderStore = &Physics::PhysicsEngineStoreQueries::Colliders( owners.physics );
+    input.bodyStore = &Physics::PhysicsEngine::ReadBodies( owners.physics );
+    input.colliderStore = &Physics::PhysicsEngine::ReadColliders( owners.physics );
     input.launcherVisual = &launcherVisual;
     verifier.CaptureFrame( input );
 
@@ -977,7 +977,7 @@ SbResult Run::RunSceneLoadOnly( const char* snapshotOutPath )
     {
         // Lifetime: scene-load-only borrows owner arrays only until the
         // synchronous snapshot write completes.
-        const auto& joints = Physics::PhysicsEngineStoreQueries::PointJointConstraints( m_sceneController.Physics() );
+        const auto& joints = Physics::PhysicsEngine::ReadPointJointConstraints( m_sceneController.Physics() );
         const SceneSaveView saveView{ m_sceneController.Entities(),
                                       m_sceneController.BodyStore(),
                                       m_sceneController.Colliders(),

@@ -32,6 +32,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RenderBackendDX12.h"
+#include "Dx12RenderGraphExecutor.h"
 #include "../../Runtime/WindowConstants.h"
 #include "ShaderDX12.h"
 #include "ShaderBytecodeManifest.h"
@@ -84,7 +85,68 @@ static inline SkullbonezCore::Basics::SbResult Dx12TextureStartupResult( HRESULT
 // --- RenderBackendDX12 Textures methods ---
 
 
-SkullbonezCore::Basics::SbResult Dx12TextureOwner::Initialize( RenderBackendDX12& backend )
+bool Dx12TextureCommands::Transition( const char* passName,
+                                      const char* resourceName,
+                                      ID3D12Resource* resource,
+                                      RenderGraphResourceAccess before,
+                                      RenderGraphResourceAccess after,
+                                      UINT subresource )
+{
+    if ( !resource || before == after )
+    {
+        return true;
+    }
+    if ( !m_frame.CanRecord() && !m_frame.EnsureOpen().ok )
+    {
+        return false;
+    }
+    Dx12RenderGraphSingleTransitionDesc desc;
+    desc.commandList = m_frame.CommandList();
+    desc.resource = resource;
+    desc.before = before;
+    desc.after = after;
+    desc.subresource = subresource;
+    const Dx12RenderGraphBarrierRecord record =
+        ExecuteDx12RenderGraphSingleTransition( "Dx12Texture", passName, resourceName, desc );
+    if ( !record.hasConcreteStates || !record.hasNativeResource || record.missingCommandList ||
+         record.beforeState == record.afterState || !record.emitted )
+    {
+        SB_FATAL( "Dx12TextureOwner",
+                  "Texture transition did not emit one concrete barrier. pass=%s resource=%s",
+                  passName ? passName : "unknown",
+                  resourceName ? resourceName : "unknown" );
+    }
+    return true;
+}
+
+
+bool Dx12TextureCommands::UavBarrier( const char* passName, const char* resourceName, ID3D12Resource* resource )
+{
+    if ( !resource )
+    {
+        return true;
+    }
+    if ( !m_frame.CanRecord() && !m_frame.EnsureOpen().ok )
+    {
+        return false;
+    }
+    Dx12RenderGraphUavBarrierDesc desc;
+    desc.commandList = m_frame.CommandList();
+    desc.resource = resource;
+    const Dx12RenderGraphUavBarrierRecord record =
+        ExecuteDx12RenderGraphUavBarrier( "Dx12Texture", passName, resourceName, desc );
+    if ( !record.hasNativeResource || record.missingCommandList || !record.emitted )
+    {
+        SB_FATAL( "Dx12TextureOwner",
+                  "Texture UAV barrier did not emit one native barrier. pass=%s resource=%s",
+                  passName ? passName : "unknown",
+                  resourceName ? resourceName : "unknown" );
+    }
+    return true;
+}
+
+
+SkullbonezCore::Basics::SbResult Dx12TextureOwner::Initialize( Dx12TextureCommands& commands )
 {
     // Concept: mip generation is a tiny compute pipeline owned with textures.
     //
@@ -175,10 +237,10 @@ SkullbonezCore::Basics::SbResult Dx12TextureOwner::Initialize( RenderBackendDX12
     }
     errors.Reset();
 
-    startupResult = Dx12TextureStartupResult( backend.Device()->CreateRootSignature( 0,
-                                                                                     rsBlob->GetBufferPointer(),
-                                                                                     rsBlob->GetBufferSize(),
-                                                                                     IID_PPV_ARGS( &m_genMipsRS ) ),
+    startupResult = Dx12TextureStartupResult( commands.Device()->CreateRootSignature( 0,
+                                                                                      rsBlob->GetBufferPointer(),
+                                                                                      rsBlob->GetBufferSize(),
+                                                                                      IID_PPV_ARGS( &m_genMipsRS ) ),
                                               "CreateRootSignature (genMips) failed" );
     if ( !startupResult.ok )
     {
@@ -201,7 +263,7 @@ SkullbonezCore::Basics::SbResult Dx12TextureOwner::Initialize( RenderBackendDX12
     psoDesc.CS.pShaderBytecode = csBlob->GetBufferPointer();
     psoDesc.CS.BytecodeLength = csBlob->GetBufferSize();
     startupResult = Dx12TextureStartupResult(
-        backend.Device()->CreateComputePipelineState( &psoDesc, IID_PPV_ARGS( &m_genMipsPSO ) ),
+        commands.Device()->CreateComputePipelineState( &psoDesc, IID_PPV_ARGS( &m_genMipsPSO ) ),
         "CreateComputePipelineState (genMips) failed" );
     if ( !startupResult.ok )
     {
@@ -223,7 +285,7 @@ SkullbonezCore::Basics::SbResult Dx12TextureOwner::Initialize( RenderBackendDX12
     // dispatch batch may generate fewer than four mips. Fill unused rows with a
     // typed null UAV so the debug layer sees a complete descriptor table and
     // the shader never follows an uninitialized descriptor.
-    m_genMipsNullUAV = backend.AllocateStaticSRV();
+    m_genMipsNullUAV = commands.AllocateStaticSrv();
 
     D3D12_UNORDERED_ACCESS_VIEW_DESC nullUAVDesc = {};
     nullUAVDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -232,23 +294,23 @@ SkullbonezCore::Basics::SbResult Dx12TextureOwner::Initialize( RenderBackendDX12
 
     // The null resource means "nothing bound", but the descriptor row itself is
     // valid. Store the template in the CPU-only staging heap first.
-    backend.Device()->CreateUnorderedAccessView( nullptr,
-                                                 nullptr,
-                                                 &nullUAVDesc,
-                                                 backend.GetSRVStagingCpuHandle( m_genMipsNullUAV ) );
+    commands.Device()->CreateUnorderedAccessView( nullptr,
+                                                  nullptr,
+                                                  &nullUAVDesc,
+                                                  commands.StagingCpuHandle( m_genMipsNullUAV ) );
 
     // Copy the null descriptor to a shader-visible row so dispatches can bind it
     // in the same table as real destination mips.
-    D3D12_CPU_DESCRIPTOR_HANDLE svDst = backend.m_frameOwner.Descriptors().ShaderVisibleCpuHandle( m_genMipsNullUAV );
-    backend.Device()->CopyDescriptorsSimple( 1,
-                                             svDst,
-                                             backend.GetSRVStagingCpuHandle( m_genMipsNullUAV ),
-                                             D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+    D3D12_CPU_DESCRIPTOR_HANDLE svDst = commands.ShaderVisibleCpuHandle( m_genMipsNullUAV );
+    commands.Device()->CopyDescriptorsSimple( 1,
+                                              svDst,
+                                              commands.StagingCpuHandle( m_genMipsNullUAV ),
+                                              D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
     return SkullbonezCore::Basics::SbResult::Success();
 }
 
 
-SkullbonezCore::Basics::SbResult Dx12TextureOwner::PrepareGenerateMipsShaderReload( RenderBackendDX12& backend,
+SkullbonezCore::Basics::SbResult Dx12TextureOwner::PrepareGenerateMipsShaderReload( Dx12TextureCommands& commands,
                                                                                     ID3D12PipelineState*& candidate )
 {
     candidate = nullptr;
@@ -269,7 +331,7 @@ SkullbonezCore::Basics::SbResult Dx12TextureOwner::PrepareGenerateMipsShaderRelo
     D3D12_COMPUTE_PIPELINE_STATE_DESC desc = {};
     desc.pRootSignature = m_genMipsRS;
     desc.CS = { csBlob->GetBufferPointer(), csBlob->GetBufferSize() };
-    const HRESULT result = backend.Device()->CreateComputePipelineState( &desc, IID_PPV_ARGS( &candidate ) );
+    const HRESULT result = commands.Device()->CreateComputePipelineState( &desc, IID_PPV_ARGS( &candidate ) );
     if ( FAILED( result ) || !candidate )
     {
         if ( candidate )
@@ -298,7 +360,7 @@ void Dx12TextureOwner::AdoptGenerateMipsShaderReload( ID3D12PipelineState* candi
 }
 
 
-bool Dx12TextureOwner::GenerateMips( RenderBackendDX12& backend,
+bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands,
                                      ID3D12Resource* tex,
                                      DXGI_FORMAT fmt,
                                      UINT w,
@@ -314,12 +376,12 @@ bool Dx12TextureOwner::GenerateMips( RenderBackendDX12& backend,
     // Transition mip 0 from COPY_DEST to SHADER_RESOURCE so compute can sample it
     // now and later pixel passes can sample the same texture without another
     // read-only transition. Stress runs flip those consumers rapidly.
-    if ( !backend.ExecuteGraphTransition( "GenerateMipsMip0",
-                                          "TextureMip0",
-                                          tex,
-                                          RenderGraphResourceAccess::CopyDest,
-                                          RenderGraphResourceAccess::ShaderResource,
-                                          0 ) )
+    if ( !commands.Transition( "GenerateMipsMip0",
+                               "TextureMip0",
+                               tex,
+                               RenderGraphResourceAccess::CopyDest,
+                               RenderGraphResourceAccess::ShaderResource,
+                               0 ) )
     {
         return false;
     }
@@ -344,7 +406,7 @@ bool Dx12TextureOwner::GenerateMips( RenderBackendDX12& backend,
         // This descriptor is transient because it is useful only while this
         // command list records the current mip-generation dispatch.
         // ------------------------------------------------------------------
-        UINT srcSrvIdx = backend.AllocateTransientSRV();
+        UINT srcSrvIdx = commands.AllocateTransientSrv();
         {
             D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
             srvDesc.Format = fmt;
@@ -353,9 +415,8 @@ bool Dx12TextureOwner::GenerateMips( RenderBackendDX12& backend,
             srvDesc.Texture2D.MostDetailedMip = srcMip;
             srvDesc.Texture2D.MipLevels = 1;
 
-            D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle =
-                backend.m_frameOwner.Descriptors().ShaderVisibleCpuHandle( srcSrvIdx );
-            backend.Device()->CreateShaderResourceView( tex, &srvDesc, cpuHandle );
+            D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = commands.ShaderVisibleCpuHandle( srcSrvIdx );
+            commands.Device()->CreateShaderResourceView( tex, &srvDesc, cpuHandle );
         }
 
         // ------------------------------------------------------------------
@@ -368,12 +429,12 @@ bool Dx12TextureOwner::GenerateMips( RenderBackendDX12& backend,
         // time, so unused entries receive a null UAV descriptor rather than a
         // missing table row.
         // ------------------------------------------------------------------
-        UINT uavBase = backend.AllocateTransientSRVRange( 4 ); // u0..u3, checked as one contiguous table range
+        UINT uavBase = commands.AllocateTransientSrvRange( 4 ); // u0..u3, checked as one contiguous table range
 
         for ( UINT i = 0; i < 4; ++i )
         {
             UINT uavIdx = uavBase + i;
-            D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = backend.m_frameOwner.Descriptors().ShaderVisibleCpuHandle( uavIdx );
+            D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = commands.ShaderVisibleCpuHandle( uavIdx );
 
             if ( i < mipsToGenerate )
             {
@@ -381,16 +442,16 @@ bool Dx12TextureOwner::GenerateMips( RenderBackendDX12& backend,
                 uavDesc.Format = fmt;
                 uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
                 uavDesc.Texture2D.MipSlice = srcMip + 1 + i;
-                backend.Device()->CreateUnorderedAccessView( tex, nullptr, &uavDesc, cpuHandle );
+                commands.Device()->CreateUnorderedAccessView( tex, nullptr, &uavDesc, cpuHandle );
             }
             else
             {
                 // Pad with null UAV to keep the debug layer happy
-                D3D12_CPU_DESCRIPTOR_HANDLE nullSrc = backend.GetSRVStagingCpuHandle( m_genMipsNullUAV );
-                backend.Device()->CopyDescriptorsSimple( 1,
-                                                         cpuHandle,
-                                                         nullSrc,
-                                                         D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+                D3D12_CPU_DESCRIPTOR_HANDLE nullSrc = commands.StagingCpuHandle( m_genMipsNullUAV );
+                commands.Device()->CopyDescriptorsSimple( 1,
+                                                          cpuHandle,
+                                                          nullSrc,
+                                                          D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
             }
         }
 
@@ -399,12 +460,12 @@ bool Dx12TextureOwner::GenerateMips( RenderBackendDX12& backend,
         // ------------------------------------------------------------------
         for ( UINT i = 0; i < mipsToGenerate; ++i )
         {
-            if ( !backend.ExecuteGraphTransition( "GenerateMipsCopyToUav",
-                                                  "TextureMip",
-                                                  tex,
-                                                  RenderGraphResourceAccess::CopyDest,
-                                                  RenderGraphResourceAccess::UnorderedAccess,
-                                                  srcMip + 1 + i ) )
+            if ( !commands.Transition( "GenerateMipsCopyToUav",
+                                       "TextureMip",
+                                       tex,
+                                       RenderGraphResourceAccess::CopyDest,
+                                       RenderGraphResourceAccess::UnorderedAccess,
+                                       srcMip + 1 + i ) )
             {
                 return false;
             }
@@ -427,20 +488,20 @@ bool Dx12TextureOwner::GenerateMips( RenderBackendDX12& backend,
         // fact to the coordinator as a value; the texture owner never reaches
         // sideways into its pipeline-owner sibling.
         graphicsStateInvalidated = true;
-        backend.CommandList()->SetComputeRootSignature( m_genMipsRS );
-        backend.CommandList()->SetPipelineState( m_genMipsPSO );
-        backend.CommandList()->SetComputeRoot32BitConstants( 0, 4, &cb, 0 );
-        backend.CommandList()->SetComputeRootDescriptorTable( 1, backend.GetSRVGpuHandle( srcSrvIdx ) );
-        backend.CommandList()->SetComputeRootDescriptorTable( 2, backend.GetSRVGpuHandle( uavBase ) );
+        commands.CommandList()->SetComputeRootSignature( m_genMipsRS );
+        commands.CommandList()->SetPipelineState( m_genMipsPSO );
+        commands.CommandList()->SetComputeRoot32BitConstants( 0, 4, &cb, 0 );
+        commands.CommandList()->SetComputeRootDescriptorTable( 1, commands.ShaderVisibleGpuHandle( srcSrvIdx ) );
+        commands.CommandList()->SetComputeRootDescriptorTable( 2, commands.ShaderVisibleGpuHandle( uavBase ) );
 
         UINT groupsX = ( dstW + 7 ) / 8;
         UINT groupsY = ( dstH + 7 ) / 8;
-        backend.CommandList()->Dispatch( groupsX, groupsY, 1 );
+        commands.CommandList()->Dispatch( groupsX, groupsY, 1 );
 
         // Hazard: mip N may be written as a UAV in this dispatch and sampled as
         // an SRV in the next dispatch. The UAV barrier orders those writes
         // before any later read/write work continues.
-        if ( !backend.ExecuteGraphUavBarrier( "GenerateMipsUavOrder", "TextureMips", tex ) )
+        if ( !commands.UavBarrier( "GenerateMipsUavOrder", "TextureMips", tex ) )
         {
             return false;
         }
@@ -451,12 +512,12 @@ bool Dx12TextureOwner::GenerateMips( RenderBackendDX12& backend,
         // ------------------------------------------------------------------
         for ( UINT i = 0; i < mipsToGenerate; ++i )
         {
-            if ( !backend.ExecuteGraphTransition( "GenerateMipsUavToSrv",
-                                                  "TextureMip",
-                                                  tex,
-                                                  RenderGraphResourceAccess::UnorderedAccess,
-                                                  RenderGraphResourceAccess::ShaderResource,
-                                                  srcMip + 1 + i ) )
+            if ( !commands.Transition( "GenerateMipsUavToSrv",
+                                       "TextureMip",
+                                       tex,
+                                       RenderGraphResourceAccess::UnorderedAccess,
+                                       RenderGraphResourceAccess::ShaderResource,
+                                       srcMip + 1 + i ) )
             {
                 return false;
             }
@@ -478,7 +539,7 @@ bool Dx12TextureOwner::GenerateMips( RenderBackendDX12& backend,
 }
 
 
-uint32_t Dx12TextureOwner::CreateTexture2D( RenderBackendDX12& backend,
+uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands,
                                             const uint8_t* data,
                                             int w,
                                             int h,
@@ -487,7 +548,7 @@ uint32_t Dx12TextureOwner::CreateTexture2D( RenderBackendDX12& backend,
                                             bool /*linearFilter*/,
                                             bool& graphicsStateInvalidated )
 {
-    if ( !backend.EnsureCommandListOpen().ok )
+    if ( !commands.EnsureOpen().ok )
     {
         return 0;
     }
@@ -553,12 +614,12 @@ uint32_t Dx12TextureOwner::CreateTexture2D( RenderBackendDX12& backend,
     texDesc.Flags = ( numMips > 1 ) ? D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS : D3D12_RESOURCE_FLAG_NONE;
 
     ID3D12Resource* texResource = nullptr;
-    const HRESULT textureResult = backend.Device()->CreateCommittedResource( &defaultHeap,
-                                                                             D3D12_HEAP_FLAG_NONE,
-                                                                             &texDesc,
-                                                                             D3D12_RESOURCE_STATE_COPY_DEST,
-                                                                             nullptr,
-                                                                             IID_PPV_ARGS( &texResource ) );
+    const HRESULT textureResult = commands.Device()->CreateCommittedResource( &defaultHeap,
+                                                                              D3D12_HEAP_FLAG_NONE,
+                                                                              &texDesc,
+                                                                              D3D12_RESOURCE_STATE_COPY_DEST,
+                                                                              nullptr,
+                                                                              IID_PPV_ARGS( &texResource ) );
     if ( FAILED( textureResult ) || !texResource )
     {
         // Lane R: texture residency can fail because of the active device or
@@ -581,17 +642,16 @@ uint32_t Dx12TextureOwner::CreateTexture2D( RenderBackendDX12& backend,
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT fp0 = {};
     UINT rowCount0;
     UINT64 rowSize0, mip0Bytes;
-    backend.Device()->GetCopyableFootprints( &texDesc, 0, 1, 0, &fp0, &rowCount0, &rowSize0, &mip0Bytes );
+    commands.Device()->GetCopyableFootprints( &texDesc, 0, 1, 0, &fp0, &rowCount0, &rowSize0, &mip0Bytes );
 
-    D3D12_GPU_VIRTUAL_ADDRESS uploadBase = backend.ReserveUpload( mip0Bytes, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT );
+    D3D12_GPU_VIRTUAL_ADDRESS uploadBase = commands.ReserveUpload( mip0Bytes, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT );
     if ( uploadBase == 0 )
     {
         texResource->Release();
         return 0;
     }
-    const UINT64 baseOffset =
-        backend.m_frameOwner.Uploads().OffsetFromAddress( backend.m_frameOwner.AllocatorIndex(), uploadBase );
-    uint8_t* uploadDst = backend.GetUploadPtr( uploadBase );
+    const UINT64 baseOffset = commands.UploadOffset( uploadBase );
+    uint8_t* uploadDst = commands.UploadPointer( uploadBase );
 
     const UINT srcRowPitch = static_cast<UINT>( w ) * static_cast<UINT>( bytesPerPixel );
     for ( UINT row = 0; row < rowCount0; ++row )
@@ -605,12 +665,12 @@ uint32_t Dx12TextureOwner::CreateTexture2D( RenderBackendDX12& backend,
     dstLoc.SubresourceIndex = 0;
 
     D3D12_TEXTURE_COPY_LOCATION srcLoc = {};
-    srcLoc.pResource = backend.m_frameOwner.Uploads().Resource( backend.m_frameOwner.AllocatorIndex() );
+    srcLoc.pResource = commands.UploadResource();
     srcLoc.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
     srcLoc.PlacedFootprint = fp0;
     srcLoc.PlacedFootprint.Offset = baseOffset + fp0.Offset;
 
-    backend.CommandList()->CopyTextureRegion( &dstLoc, 0, 0, 0, &srcLoc, nullptr );
+    commands.CommandList()->CopyTextureRegion( &dstLoc, 0, 0, 0, &srcLoc, nullptr );
 
     // -------------------------------------------------------------------------
     // Generate remaining mips on the GPU (compute shader), or transition
@@ -618,7 +678,7 @@ uint32_t Dx12TextureOwner::CreateTexture2D( RenderBackendDX12& backend,
     // -------------------------------------------------------------------------
     if ( numMips > 1 )
     {
-        if ( !GenerateMips( backend,
+        if ( !GenerateMips( commands,
                             texResource,
                             fmt,
                             static_cast<UINT>( w ),
@@ -629,20 +689,20 @@ uint32_t Dx12TextureOwner::CreateTexture2D( RenderBackendDX12& backend,
             // Lifetime: mip generation may already have recorded commands that
             // reference this candidate. Quarantine it behind the normal fence
             // path instead of releasing a command-list dependency immediately.
-            backend.RetireResource( texResource );
+            commands.Retire( texResource );
             return 0;
         }
         // GenerateMipsGPU leaves all subresources in combined shader-resource read state.
     }
     else
     {
-        if ( !backend.ExecuteGraphTransition( "TextureUploadFinalPixelSrv",
-                                              "Texture2D",
-                                              texResource,
-                                              RenderGraphResourceAccess::CopyDest,
-                                              RenderGraphResourceAccess::PixelShaderResource ) )
+        if ( !commands.Transition( "TextureUploadFinalPixelSrv",
+                                   "Texture2D",
+                                   texResource,
+                                   RenderGraphResourceAccess::CopyDest,
+                                   RenderGraphResourceAccess::PixelShaderResource ) )
         {
-            backend.RetireResource( texResource );
+            commands.Retire( texResource );
             return 0;
         }
     }
@@ -650,14 +710,14 @@ uint32_t Dx12TextureOwner::CreateTexture2D( RenderBackendDX12& backend,
     // The SRV exposes every generated mip so samplers can choose the right
     // level for minified textures.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createshaderresourceview
-    UINT srvIdx = backend.AllocateStaticSRV();
+    UINT srvIdx = commands.AllocateStaticSrv();
     NameDx12ObjectIndexed( texResource, L"Skullbonez DX12 Texture2D", srvIdx );
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Format = fmt;
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.Texture2D.MipLevels = numMips;
-    backend.Device()->CreateShaderResourceView( texResource, &srvDesc, backend.GetSRVStagingCpuHandle( srvIdx ) );
+    commands.Device()->CreateShaderResourceView( texResource, &srvDesc, commands.StagingCpuHandle( srvIdx ) );
 
     // Register in texture array (1-based handle)
     TextureEntryDX12 entry = {};
@@ -738,7 +798,7 @@ void Dx12TextureOwner::BindTexture( uint32_t handle, int slot )
 }
 
 
-void Dx12TextureOwner::DeleteTexture( RenderBackendDX12& backend, uint32_t handle )
+void Dx12TextureOwner::DeleteTexture( Dx12TextureCommands& commands, uint32_t handle )
 {
     if ( handle == 0 || handle > (uint32_t)m_textures.size() )
     {
@@ -748,7 +808,7 @@ void Dx12TextureOwner::DeleteTexture( RenderBackendDX12& backend, uint32_t handl
     ClearBoundSlotsForSrv( entry.srvIndex );
     if ( entry.owned && entry.resource )
     {
-        backend.RetireResource( entry.resource );
+        commands.Retire( entry.resource );
     }
     entry.resource = nullptr;
     entry.srvIndex = UINT_MAX;
@@ -883,7 +943,8 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data,
                                              bool linearFilter )
 {
     bool graphicsStateInvalidated = false;
-    const uint32_t handle = m_textureOwner.CreateTexture2D( *this,
+    Dx12TextureCommands textureCommands( m_renderDevice, m_frameOwner );
+    const uint32_t handle = m_textureOwner.CreateTexture2D( textureCommands,
                                                             data,
                                                             width,
                                                             height,
@@ -907,7 +968,8 @@ void RenderBackendDX12::BindTexture( uint32_t handle, int slot )
 
 void RenderBackendDX12::DeleteTexture( uint32_t handle )
 {
-    m_textureOwner.DeleteTexture( *this, handle );
+    Dx12TextureCommands textureCommands( m_renderDevice, m_frameOwner );
+    m_textureOwner.DeleteTexture( textureCommands, handle );
 }
 
 

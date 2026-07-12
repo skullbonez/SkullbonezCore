@@ -28,7 +28,7 @@ Invariants:
 Related:
   - SkullbonezSource/Core/SbResult.h defines the Lane R result carrier.
   - SkullbonezSource/Runtime/RunFrame.cpp owns the platform message-loop call site.
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md tracks application command ownership.
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md tracks application command ownership.
 */
 #pragma once
 

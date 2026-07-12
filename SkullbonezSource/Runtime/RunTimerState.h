@@ -65,6 +65,31 @@ struct RunTimerState
         return simulationTimer.Initialise();
     }
 
+    void ResetSceneMeasurements()
+    {
+        timeSinceLastRender = 0.0f;
+        renderTime = 0.0f;
+        rollingRenderTime = 0.0f;
+        physicsTime = 0.0f;
+        rollingPhysicsTime = 0.0f;
+        rollingFpsTime = 0.0f;
+        rollingSceneEnergy = 0.0f;
+        cpuFrameWorkMs = 0.0f;
+        gpuFrameWorkMs = 0.0f;
+        sceneEnergyAccumulator = 0.0;
+        sceneEnergySampleCount = 0;
+        lastUIDrawCalls = 0;
+    }
+
+    void RestartForSceneActivation()
+    {
+        frameTimer.StartTimer();
+        workTimer.StartTimer();
+        updateTimer.StartTimer();
+        cameraTimer.StartTimer();
+        simulationTimer.StartTimer();
+    }
+
     Environment::Timer frameTimer;
     Environment::Timer workTimer;
     Environment::Timer updateTimer;

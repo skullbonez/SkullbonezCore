@@ -27,7 +27,7 @@
 #   - Self-tests run without touching the real git index.
 #
 # Related:
-#   - Agentic/Plans/TODO/runtime-shell-decomposition.md (repo-hygiene origin
+#   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md (repo-hygiene origin
 #     plan retired 2026-07-09; history in git)
 #   - tools/validate_fast.bat
 #   - .github/workflows/mandatory-cpu-validation.yml

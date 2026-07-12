@@ -31,9 +31,12 @@ Related:
 #include "PhysicsDiagnosticsModel.h"
 #endif
 #include "ColliderStore.h"
+#include "../Core/FatalError.h"
+#include "../Core/Log.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsWorld.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <type_traits>
@@ -47,14 +50,14 @@ namespace Math = SkullbonezCore::Math;
 void PhysicsDiagnosticsCsvWriter::Writef( const char* fileName, const char* fmt, ... ) const
 {
 #ifdef _DEBUG
-    if ( writeVf == nullptr || fileName == nullptr || fmt == nullptr )
+    if ( fileName == nullptr || fmt == nullptr )
     {
         return;
     }
 
     va_list args;
     va_start( args, fmt );
-    writeVf( userData, fileName, fmt, args );
+    Log().WriteVf( fileName, fmt, args );
     va_end( args );
 #else
     (void)fileName;
@@ -245,17 +248,50 @@ void PhysicsDiagnosticsSink::EmitFrame( const PhysicsDiagnosticsFrameInput& fram
 #endif
 
 
-void PhysicsDiagnosticsSink::EmitCollisionTime( const char* const* diagnosticNames,
-                                                int diagnosticNameCount,
-                                                const PhysicsDiagnosticsCsvWriter& csvWriter,
-                                                const char* type,
-                                                int bodyA,
-                                                int bodyB,
-                                                float collisionTime,
-                                                float availableTime )
+void PhysicsDiagnosticsSink::BeginCollisionTimeFrame()
+{
+#ifdef _DEBUG
+    m_collisionTimeEventCount = 0;
+#endif
+}
+
+void PhysicsDiagnosticsSink::QueueCollisionTime( const char* type,
+                                                 int bodyA,
+                                                 int bodyB,
+                                                 float collisionTime,
+                                                 float availableTime )
 {
 #ifdef _DEBUG
     if ( m_physicsCollisionTimeLogPath[0] == '\0' )
+    {
+        return;
+    }
+    if ( m_collisionTimeEventCount >= COLLISION_TIME_EVENT_CAPACITY )
+    {
+        SB_FATAL( "PhysicsDiagnosticsSink",
+                  "Collision-time event capacity exhausted. owner=PhysicsDiagnosticsSink capacity=%d high_water=%d "
+                  "phase=fixed_step_collision_commit",
+                  COLLISION_TIME_EVENT_CAPACITY,
+                  m_collisionTimeEventHighWater );
+    }
+    m_collisionTimeEvents[static_cast<std::size_t>( m_collisionTimeEventCount++ )] =
+        PhysicsCollisionTimeEvent{ type, bodyA, bodyB, collisionTime, availableTime };
+    m_collisionTimeEventHighWater = (std::max)( m_collisionTimeEventHighWater, m_collisionTimeEventCount );
+#else
+    (void)type;
+    (void)bodyA;
+    (void)bodyB;
+    (void)collisionTime;
+    (void)availableTime;
+#endif
+}
+
+void PhysicsDiagnosticsSink::FlushCollisionTimes( const char* const* diagnosticNames,
+                                                  int diagnosticNameCount,
+                                                  const PhysicsDiagnosticsCsvWriter& csvWriter )
+{
+#ifdef _DEBUG
+    if ( m_physicsCollisionTimeLogPath[0] == '\0' || m_collisionTimeEventCount == 0 )
     {
         return;
     }
@@ -268,26 +304,23 @@ void PhysicsDiagnosticsSink::EmitCollisionTime( const char* const* diagnosticNam
     const PhysicsDiagnosticsNameView names{ diagnosticNames, diagnosticNameCount };
     const auto collisionNameFor = [&]( int bodyIndex ) -> const char*
     { return ( bodyIndex >= 0 && bodyIndex < names.count ) ? names.NameFor( bodyIndex ) : "terrain"; };
-    const char* nameA = collisionNameFor( bodyA );
-    const char* nameB = collisionNameFor( bodyB );
-    csvWriter.Writef( m_physicsCollisionTimeLogPath,
-                      "%d,%s,%d,%d,%s,%s,%.6f,%.6f\n",
-                      m_physicsCollisionTimeLogFrame,
-                      type,
-                      bodyA,
-                      bodyB,
-                      nameA,
-                      nameB,
-                      collisionTime,
-                      availableTime );
+    for ( int eventIndex = 0; eventIndex < m_collisionTimeEventCount; ++eventIndex )
+    {
+        const PhysicsCollisionTimeEvent& event = m_collisionTimeEvents[static_cast<std::size_t>( eventIndex )];
+        csvWriter.Writef( m_physicsCollisionTimeLogPath,
+                          "%d,%s,%d,%d,%s,%s,%.6f,%.6f\n",
+                          m_physicsCollisionTimeLogFrame,
+                          event.type,
+                          event.bodyA,
+                          event.bodyB,
+                          collisionNameFor( event.bodyA ),
+                          collisionNameFor( event.bodyB ),
+                          event.collisionTime,
+                          event.availableTime );
+    }
 #else
     (void)diagnosticNames;
     (void)diagnosticNameCount;
     (void)csvWriter;
-    (void)type;
-    (void)bodyA;
-    (void)bodyB;
-    (void)collisionTime;
-    (void)availableTime;
 #endif
 }

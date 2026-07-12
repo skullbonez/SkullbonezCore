@@ -55,7 +55,7 @@ Related:
 #include "../Core/Log.h"
 #include "../Core/Profiler.h"
 #include "../Physics/ColliderStore.h"
-#include "../Physics/PhysicsEngineStoreQueries.h"
+#include "../Physics/PhysicsEngine.h"
 #include "../Physics/PhysicsApi.h"
 #include "../Physics/PhysicsDiagnosticsSink.h"
 #include "../Physics/PhysicsTimestep.h"
@@ -253,12 +253,12 @@ void TickExecutePostPhysicsVisualizers( RunDebugState& debug,
     {
         broadphaseVisualizer.SetEnabled( debug.isBroadphaseOverlay );
         PhysicsEngine& physics = models.Physics();
-        const SpatialGrid& grid = PhysicsEngineStoreQueries::SpatialGrid( physics );
+        const SpatialGrid& grid = PhysicsEngine::ReadSpatialGrid( physics );
         broadphaseVisualizer.SetCellSize( grid.GetCellSize() );
         SpatialGrid::ActiveCell activeCellBuf[SpatialGrid::MAX_BUCKETS];
         int activeCellCount = grid.GetActiveCellCount();
         grid.GetActiveCells( activeCellBuf, SpatialGrid::MAX_BUCKETS );
-        const std::vector<int64_t>& collisionKeys = PhysicsEngineStoreQueries::CollisionCellKeys( physics );
+        const std::vector<int64_t>& collisionKeys = PhysicsEngine::ReadCollisionCellKeys( physics );
         broadphaseVisualizer.Update( static_cast<float>( secondsPerFrame ),
                                      activeCellBuf,
                                      activeCellCount,
@@ -274,9 +274,9 @@ void TickExecutePostPhysicsVisualizers( RunDebugState& debug,
         models.BodyStore(),
         models.Colliders(),
         models.RenderInstances(),
-        PhysicsEngineStoreQueries::CollisionVisualContacts( models.Physics() ),
-        PhysicsEngineStoreQueries::SleepStates( models.Physics() ),
-        PhysicsEngineStoreQueries::SleepIslandVisualIds( models.Physics() ),
+        PhysicsEngine::ReadCollisionVisualContacts( models.Physics() ),
+        PhysicsEngine::ReadSleepStates( models.Physics() ),
+        PhysicsEngine::ReadSleepIslandVisualIds( models.Physics() ),
         models.BodyStore().Count(),
     };
     collisionVisualizer.Update( static_cast<float>( secondsPerFrame ), collisionView );
@@ -289,11 +289,11 @@ void TickExecutePostPhysicsVisualizers( RunDebugState& debug,
     const PhysicsDebugFrameView physicsDebugView{
         models.BodyStore(),
         models.Colliders(),
-        PhysicsEngineStoreQueries::SleepStates( models.Physics() ),
-        PhysicsEngineStoreQueries::SleepSupportedStates( models.Physics() ),
-        PhysicsEngineStoreQueries::SleepInhibitedStates( models.Physics() ),
-        PhysicsEngineStoreQueries::DebugContacts( models.Physics() ),
-        PhysicsEngineStoreQueries::PipelineTrace( models.Physics() ),
+        PhysicsEngine::ReadSleepStates( models.Physics() ),
+        PhysicsEngine::ReadSleepSupportedStates( models.Physics() ),
+        PhysicsEngine::ReadSleepInhibitedStates( models.Physics() ),
+        PhysicsEngine::ReadDebugContacts( models.Physics() ),
+        PhysicsEngine::ReadPipelineTrace( models.Physics() ),
         models.BodyStore().Count(),
     };
     physicsDebugVisualizer.Update( static_cast<float>( secondsPerFrame ), physicsDebugView );
@@ -367,7 +367,7 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
         // Why: PhysicsDebugContact rows are emitted after accumulated normal
         // impulses are known. Audio can consume those facts without entering
         // solver math or changing deterministic physics state.
-        const std::vector<PhysicsDebugContact>& contacts = PhysicsEngineStoreQueries::DebugContacts( models.Physics() );
+        const std::vector<PhysicsDebugContact>& contacts = PhysicsEngine::ReadDebugContacts( models.Physics() );
         for ( const PhysicsDebugContact& contact : contacts )
         {
             if ( contact.bodyA < 0 || contact.normalImpulse <= 0.0f )

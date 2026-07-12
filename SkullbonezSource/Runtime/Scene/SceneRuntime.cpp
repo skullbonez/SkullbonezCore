@@ -440,8 +440,7 @@ void SceneRuntime::UpdateRequiredContacts( SkullbonezCore::Basics::SceneControll
         }
     }
 
-    const std::vector<PhysicsDebugContact>& contacts =
-        Physics::PhysicsEngineStoreQueries::DebugContacts( models.Physics() );
+    const std::vector<PhysicsDebugContact>& contacts = Physics::PhysicsEngine::ReadDebugContacts( models.Physics() );
     for ( const PhysicsDebugContact& contact : contacts )
     {
         if ( contact.bodyA < 0 || contact.bodyB < 0 )

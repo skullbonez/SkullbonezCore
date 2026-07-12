@@ -287,27 +287,27 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     int collisionVisualContact = 0;
     int sleepIslandVisualId = 0;
     const Physics::PhysicsEngine& physics = context.collection.Physics();
-    const std::vector<uint8_t>& sleepStates = PhysicsEngineStoreQueries::SleepStates( physics );
+    const std::vector<uint8_t>& sleepStates = PhysicsEngine::ReadSleepStates( physics );
     if ( targetIndex < static_cast<int>( sleepStates.size() ) )
     {
         sleeping = sleepStates[targetIndex] ? 1 : 0;
     }
-    const std::vector<uint8_t>& sleepSupportedStates = PhysicsEngineStoreQueries::SleepSupportedStates( physics );
+    const std::vector<uint8_t>& sleepSupportedStates = PhysicsEngine::ReadSleepSupportedStates( physics );
     if ( targetIndex < static_cast<int>( sleepSupportedStates.size() ) )
     {
         sleepSupported = sleepSupportedStates[targetIndex] ? 1 : 0;
     }
-    const std::vector<uint8_t>& sleepInhibitedStates = PhysicsEngineStoreQueries::SleepInhibitedStates( physics );
+    const std::vector<uint8_t>& sleepInhibitedStates = PhysicsEngine::ReadSleepInhibitedStates( physics );
     if ( targetIndex < static_cast<int>( sleepInhibitedStates.size() ) )
     {
         sleepInhibited = sleepInhibitedStates[targetIndex] ? 1 : 0;
     }
-    const std::vector<uint8_t>& collisionContacts = PhysicsEngineStoreQueries::CollisionVisualContacts( physics );
+    const std::vector<uint8_t>& collisionContacts = PhysicsEngine::ReadCollisionVisualContacts( physics );
     if ( targetIndex < static_cast<int>( collisionContacts.size() ) )
     {
         collisionVisualContact = collisionContacts[targetIndex] ? 1 : 0;
     }
-    const std::vector<int>& islandIds = PhysicsEngineStoreQueries::SleepIslandVisualIds( physics );
+    const std::vector<int>& islandIds = PhysicsEngine::ReadSleepIslandVisualIds( physics );
     if ( targetIndex < static_cast<int>( islandIds.size() ) )
     {
         sleepIslandVisualId = islandIds[targetIndex];

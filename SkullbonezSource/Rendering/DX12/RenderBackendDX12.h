@@ -486,6 +486,85 @@ class Dx12FrameOwner
     Dx12ResourceRelease m_resourceRelease;
 };
 
+// Capability: texture creation and mip generation may record resource work,
+// allocate descriptor rows, reserve upload bytes, and retire textures. The
+// capability contains only the concrete device/frame owners and cannot recover
+// the aggregate backend or any sibling renderer business state.
+class Dx12TextureCommands
+{
+  public:
+    Dx12TextureCommands( Dx12RenderDevice& device, Dx12FrameOwner& frame ) : m_device( device ), m_frame( frame )
+    {
+    }
+    ID3D12Device* Device() const
+    {
+        return m_device.Device();
+    }
+    ID3D12GraphicsCommandList* CommandList() const
+    {
+        return m_frame.CommandList();
+    }
+    Basics::SbResult EnsureOpen()
+    {
+        return m_frame.EnsureOpen();
+    }
+    UINT AllocateStaticSrv()
+    {
+        return m_frame.Descriptors().AllocateStatic();
+    }
+    UINT AllocateTransientSrv()
+    {
+        return m_frame.Descriptors().AllocateTransient();
+    }
+    UINT AllocateTransientSrvRange( UINT count )
+    {
+        return m_frame.Descriptors().AllocateTransientRange( count );
+    }
+    D3D12_CPU_DESCRIPTOR_HANDLE StagingCpuHandle( UINT index ) const
+    {
+        return m_frame.Descriptors().StagingCpuHandle( index );
+    }
+    D3D12_CPU_DESCRIPTOR_HANDLE ShaderVisibleCpuHandle( UINT index ) const
+    {
+        return m_frame.Descriptors().ShaderVisibleCpuHandle( index );
+    }
+    D3D12_GPU_DESCRIPTOR_HANDLE ShaderVisibleGpuHandle( UINT index ) const
+    {
+        return m_frame.Descriptors().ShaderVisibleGpuHandle( index );
+    }
+    D3D12_GPU_VIRTUAL_ADDRESS ReserveUpload( UINT64 size, UINT64 alignment )
+    {
+        return m_frame.UploadReservations().ReserveUpload( size, alignment );
+    }
+    uint8_t* UploadPointer( D3D12_GPU_VIRTUAL_ADDRESS address ) const
+    {
+        return m_frame.UploadReservations().UploadPointer( address );
+    }
+    UINT64 UploadOffset( D3D12_GPU_VIRTUAL_ADDRESS address ) const
+    {
+        return m_frame.Uploads().OffsetFromAddress( m_frame.AllocatorIndex(), address );
+    }
+    ID3D12Resource* UploadResource() const
+    {
+        return m_frame.Uploads().Resource( m_frame.AllocatorIndex() );
+    }
+    void Retire( ID3D12Resource* resource )
+    {
+        m_frame.ResourceRelease().Retire( resource );
+    }
+    bool Transition( const char* passName,
+                     const char* resourceName,
+                     ID3D12Resource* resource,
+                     RenderGraphResourceAccess before,
+                     RenderGraphResourceAccess after,
+                     UINT subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES );
+    bool UavBarrier( const char* passName, const char* resourceName, ID3D12Resource* resource );
+
+  private:
+    Dx12RenderDevice& m_device;
+    Dx12FrameOwner& m_frame;
+};
+
 // Concept: texture lifetime is independent from frame/device orchestration.
 // This owner retains the 1-based handle table, binding rows, and mip pipeline;
 // callers lend command-recording dependencies only for the duration of an
@@ -493,11 +572,11 @@ class Dx12FrameOwner
 class Dx12TextureOwner
 {
   public:
-    Basics::SbResult Initialize( RenderBackendDX12& backend );
-    Basics::SbResult PrepareGenerateMipsShaderReload( RenderBackendDX12& backend, ID3D12PipelineState*& candidate );
+    Basics::SbResult Initialize( Dx12TextureCommands& commands );
+    Basics::SbResult PrepareGenerateMipsShaderReload( Dx12TextureCommands& commands, ID3D12PipelineState*& candidate );
     void AdoptGenerateMipsShaderReload( ID3D12PipelineState* candidate );
     void Shutdown();
-    uint32_t CreateTexture2D( RenderBackendDX12& backend,
+    uint32_t CreateTexture2D( Dx12TextureCommands& commands,
                               const uint8_t* data,
                               int width,
                               int height,
@@ -506,7 +585,7 @@ class Dx12TextureOwner
                               bool linearFilter,
                               bool& graphicsStateInvalidated );
     void BindTexture( uint32_t handle, int slot );
-    void DeleteTexture( RenderBackendDX12& backend, uint32_t handle );
+    void DeleteTexture( Dx12TextureCommands& commands, uint32_t handle );
     UINT RegisterSRV( UINT srvIndex );
     void UnregisterSRV( uint32_t handle );
     void ClearBoundSlotsForSrv( UINT srvIndex );
@@ -521,7 +600,7 @@ class Dx12TextureOwner
     uint32_t FindHandleForSrv( UINT srvIndex ) const;
 
   private:
-    bool GenerateMips( RenderBackendDX12& backend,
+    bool GenerateMips( Dx12TextureCommands& commands,
                        ID3D12Resource* texture,
                        DXGI_FORMAT format,
                        UINT width,
@@ -838,7 +917,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
                           public IRenderRayTracing,
                           public IRenderShaderDevelopment
 {
-    friend class Dx12TextureOwner;
 
   private:
     // Frame management:

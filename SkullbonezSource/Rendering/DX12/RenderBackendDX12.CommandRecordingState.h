@@ -45,7 +45,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp
-  - Agentic/Plans/TODO/dx12-failure-propagation.md
+  - Agentic/Reports/dx12_failure_inventory_20260710.md
 */
 #pragma once
 

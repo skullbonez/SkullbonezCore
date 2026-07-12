@@ -32,18 +32,23 @@ Related:
 #include <utility>
 
 using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
+using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyCount;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyRefreshView;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyRegistration;
 using SkullbonezCore::Physics::PhysicsBodyCount;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
+using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsBodyUpdateDesc;
 using SkullbonezCore::Physics::PhysicsColliderCount;
 using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsConstraintHandle;
+using SkullbonezCore::Physics::PhysicsDebugContact;
 using SkullbonezCore::Physics::PhysicsEngine;
+using SkullbonezCore::Physics::PhysicsPipelineRecord;
+using SkullbonezCore::Physics::PointJointConstraint;
 void PhysicsEngine::ApplyRuntimeConfig( const Basics::EngineConfig& config )
 {
     m_scene.ApplyRuntimeConfig( config );
@@ -345,6 +350,72 @@ bool PhysicsEngine::ShouldEmitStepDiagnostics() const
 bool PhysicsEngine::ShouldEmitCollisionTimeDiagnostics() const
 {
     return m_scene.ShouldEmitCollisionTimeDiagnostics();
+}
+
+const PhysicsBodyStore& PhysicsEngine::ReadBodies( const PhysicsEngine& engine )
+{
+    return engine.m_scene.BodyStore();
+}
+
+const ColliderStore& PhysicsEngine::ReadColliders( const PhysicsEngine& engine )
+{
+    return engine.m_scene.Colliders();
+}
+
+const SkullbonezCore::Math::CollisionDetection::SpatialGrid&
+PhysicsEngine::ReadSpatialGrid( const PhysicsEngine& engine )
+{
+    return engine.m_scene.GetSpatialGrid();
+}
+
+const std::vector<int>& PhysicsEngine::ReadFixedContactHighlightBodies( const PhysicsEngine& engine )
+{
+    return engine.m_scene.GetFixedContactHighlightBodies();
+}
+
+const std::vector<int64_t>& PhysicsEngine::ReadCollisionCellKeys( const PhysicsEngine& engine )
+{
+    return engine.m_scene.GetCollisionCellKeys();
+}
+
+const std::vector<uint8_t>& PhysicsEngine::ReadCollisionVisualContacts( const PhysicsEngine& engine )
+{
+    return engine.m_scene.GetCollisionVisualContacts();
+}
+
+const std::vector<uint8_t>& PhysicsEngine::ReadSleepStates( const PhysicsEngine& engine )
+{
+    return engine.m_scene.GetSleepStates();
+}
+
+const std::vector<int>& PhysicsEngine::ReadSleepIslandVisualIds( const PhysicsEngine& engine )
+{
+    return engine.m_scene.GetSleepIslandVisualIds();
+}
+
+const std::vector<uint8_t>& PhysicsEngine::ReadSleepSupportedStates( const PhysicsEngine& engine )
+{
+    return engine.m_scene.GetSleepSupportedStates();
+}
+
+const std::vector<uint8_t>& PhysicsEngine::ReadSleepInhibitedStates( const PhysicsEngine& engine )
+{
+    return engine.m_scene.GetSleepInhibitedStates();
+}
+
+const std::vector<PhysicsDebugContact>& PhysicsEngine::ReadDebugContacts( const PhysicsEngine& engine )
+{
+    return engine.m_scene.GetPhysicsDebugContacts();
+}
+
+const std::vector<PhysicsPipelineRecord>& PhysicsEngine::ReadPipelineTrace( const PhysicsEngine& engine )
+{
+    return engine.m_scene.GetPhysicsPipelineTrace();
+}
+
+const std::vector<PointJointConstraint>& PhysicsEngine::ReadPointJointConstraints( const PhysicsEngine& engine )
+{
+    return engine.m_scene.GetPointJointConstraints();
 }
 
 

@@ -28,7 +28,7 @@ Invariants:
     existing owners.
 
 Related:
-  - Agentic/Plans/TODO/runtime-ui-control-architecture-cleanup.md
+  - Agentic/Reports/2026-07-11/runtime-ui-control-u6-review.md
   - SkullbonezSource/Runtime/RuntimeInteractionController.h
   - SkullbonezSource/UI/UIDraw.h
 */

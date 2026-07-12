@@ -39,7 +39,7 @@ Related:
 #include "../../Core/FatalError.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
-#include "../../Physics/PhysicsEngineStoreQueries.h"
+#include "../../Physics/PhysicsEngine.h"
 #include "../InputController.h"
 #include "ReplayInteractionController.h"
 #include "ReplayOverlayLayout.h"
@@ -257,8 +257,8 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceInput& input, ReplayWork
                                                       enterInteractive,
                                                       output.restoreRequest );
 
-    const Physics::PhysicsBodyStore& bodyStore = Physics::PhysicsEngineStoreQueries::BodyStore( input.physics );
-    const Physics::ColliderStore& colliderStore = Physics::PhysicsEngineStoreQueries::Colliders( input.physics );
+    const Physics::PhysicsBodyStore& bodyStore = Physics::PhysicsEngine::ReadBodies( input.physics );
+    const Physics::ColliderStore& colliderStore = Physics::PhysicsEngine::ReadColliders( input.physics );
     const bool causeTreeOwnsMouse = TickCauseTreeInput( input.uiBlocksMouse || scrubberOwnsMouse,
                                                         input.wheelDelta,
                                                         input.inputRouter,

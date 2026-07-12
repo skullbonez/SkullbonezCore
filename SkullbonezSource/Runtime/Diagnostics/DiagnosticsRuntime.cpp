@@ -697,6 +697,15 @@ void DiagnosticsRuntime::ResetPerfLogForSceneLoad()
 }
 
 
+void DiagnosticsRuntime::ResetForSceneLoad( int completedPerfPass )
+{
+    ClosePerfLogWithMemoryCheckpoint( completedPerfPass, "end" );
+    ResetPerfLogForSceneLoad();
+    m_capture.ResetScreenshot();
+    m_uiStress = UIStressState{};
+}
+
+
 void DiagnosticsRuntime::ConfigurePerfLogFlush( bool enabled, int interval )
 {
     m_diagnostics.ConfigurePerfLogFlush( enabled, interval );

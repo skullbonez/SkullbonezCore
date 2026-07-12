@@ -20,7 +20,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneEntityStore.h
-  - Agentic/Plans/TODO/physics-authority-and-identity.md
+  - Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 

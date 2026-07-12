@@ -20,7 +20,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Editor/EditorTools.h
-  - Agentic/Plans/TODO/interaction-state-machine.md
+  - Agentic/Reports/2026-07-11/interaction-state-machine-closure-review.md
 */
 #include "EditorTools.h"
 
@@ -444,7 +444,7 @@ void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction
         {
             // Lifetime: the save view borrows cold owner arrays only for this
             // synchronous file write; editor input retains none of the rows.
-            const auto& joints = Physics::PhysicsEngineStoreQueries::PointJointConstraints( context.models.Physics() );
+            const auto& joints = Physics::PhysicsEngine::ReadPointJointConstraints( context.models.Physics() );
             const SceneSaveView saveView{ context.entities,
                                           context.models.BodyStore(),
                                           context.models.Colliders(),

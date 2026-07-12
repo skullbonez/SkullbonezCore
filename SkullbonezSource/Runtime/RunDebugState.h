@@ -72,6 +72,30 @@ struct RunDebugState
     char reproSnapshotMessage[128] = {};     // Short HUD confirmation after launcher-mode repro dump
     double reproSnapshotMessageUntil = 0.0;  // Simulation timer value after which the HUD message expires
 #endif
+
+    void ResetForSceneLoad()
+    {
+        // Operator HUD selection and top-text preference intentionally survive;
+        // scene-authored presentation/debug values are rebuilt after this reset.
+        isWaterFreezeDebug = false;
+        isWaterNoReflect = false;
+        isWaterRTReflect = false;
+        isWaterFlatDebug = false;
+        isTerrainHidden = false;
+        isWaterHidden = false;
+        isTextOnly = false;
+        isUITestPattern = false;
+        physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE;
+        isPhysicsDebugTransparent = false;
+        physicsDebugAlpha = 0.28f;
+        physicsDebugContactLinger = 0.45f;
+        physicsDebugPipelineStageCursor = 0;
+        frozenWaterTime = 0.0f;
+#ifdef _DEBUG
+        reproSnapshotMessage[0] = '\0';
+        reproSnapshotMessageUntil = 0.0;
+#endif
+    }
 };
 
 } // namespace Basics

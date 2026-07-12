@@ -16,7 +16,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Editor/EditorCommandHistory.h
-  - Agentic/Plans/TODO/editor-undo-redo.md
+  - Agentic/Reports/2026-07-12/editor-undo-redo-closure.md
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 

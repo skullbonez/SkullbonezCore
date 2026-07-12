@@ -18,7 +18,7 @@
 //
 // Related:
 //   - SkullbonezSource/Maths/Vector3.h
-//   - Agentic/Plans/TODO/behavioral-test-depth.md
+//   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"

@@ -29,7 +29,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/InputRouter.h
   - SkullbonezTests/TestRuntimeInputBindings.cpp
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 

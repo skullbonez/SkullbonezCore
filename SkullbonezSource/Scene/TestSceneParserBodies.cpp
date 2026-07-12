@@ -20,7 +20,7 @@ Invariants:
 
 Related:
   - TestSceneParserSchema.h declares shared parser state and helpers.
-  - Agentic/Plans/TODO/runtime-shell-decomposition.md owns this decomposition.
+  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md owns this decomposition.
 */
 #include "TestSceneParserSchema.h"
 

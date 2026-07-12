@@ -63,7 +63,7 @@ Related:
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsApi.h"
-#include "../../Physics/PhysicsEngineStoreQueries.h"
+#include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../../Physics/PhysicsTimestep.h"
 #include "../RuntimeFileWriter.h"
@@ -503,12 +503,12 @@ int ReplayPredictionEngineReserveBytes( const PhysicsEngine& engine )
     uint64_t bytes = static_cast<uint64_t>( sizeof( PhysicsEngine ) );
     bytes += engine.CollectPhysicsWorldMemoryBytes();
     bytes += engine.CollectDebugAndBroadphaseMemoryBytes();
-    bytes += static_cast<uint64_t>(
-                 SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( engine ).Records().capacity() ) *
-             sizeof( PhysicsBodyRecord );
-    bytes += static_cast<uint64_t>(
-                 SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( engine ).Records().capacity() ) *
-             sizeof( ColliderRecord );
+    bytes +=
+        static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Records().capacity() ) *
+        sizeof( PhysicsBodyRecord );
+    bytes +=
+        static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadColliders( engine ).Records().capacity() ) *
+        sizeof( ColliderRecord );
     if ( bytes == 0 || bytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) ||
          bytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
     {
@@ -3605,7 +3605,7 @@ bool ApplyReplayPredictionBodyState( PhysicsEngine& physicsEngine,
                                      const std::vector<RunReplayPredictionBodyBackup>& bodies )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/ApplyBodyState" );
-    const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physicsEngine );
+    const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physicsEngine );
     if ( bodies.size() != static_cast<std::size_t>( bodyStore.Count() ) )
     {
         return false;
@@ -3714,7 +3714,7 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
                                    ReplayFrameIndex frameIndex )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureSample" );
-    const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physicsEngine );
+    const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physicsEngine );
     const auto& bodyRecords = bodyStore.Records();
     if ( static_cast<int>( bodyRecords.size() ) < modelCount )
     {
@@ -3774,7 +3774,7 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
         }
     }
     const std::vector<PhysicsDebugContact>& debugContacts =
-        SkullbonezCore::Physics::PhysicsEngineStoreQueries::DebugContacts( physicsEngine );
+        SkullbonezCore::Physics::PhysicsEngine::ReadDebugContacts( physicsEngine );
     if ( debugContacts.size() > frame.debugContacts.capacity() )
     {
         // Why: debug contacts feed the optional future-impact tree; the root
@@ -3911,7 +3911,7 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayRuntime& replayRuntime, dou
         prediction.simulation.predictionEngine->CaptureReplaySolverSnapshot(
             prediction.simulation.predictionWorld,
             MakePhysicsBodyCountFromNonNegativeInt(
-                SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( *prediction.simulation.predictionEngine )
+                SkullbonezCore::Physics::PhysicsEngine::ReadBodies( *prediction.simulation.predictionEngine )
                     .Count() ) );
     }
 
@@ -4032,7 +4032,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
     }
     prediction.build.lastBuildTime = simulationTotalSeconds;
 
-    const int modelCount = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physicsEngine ).Count();
+    const int modelCount = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physicsEngine ).Count();
     const bool calibrationSourceChanged = previousSourceFrameIndex != sourceFrameIndex ||
                                           previousSourceSolverHash != sourceSolverHash ||
                                           prediction.simulation.calibratedModelCount != modelCount;
@@ -4044,8 +4044,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         prediction.simulation.calibratedModelCount = modelCount;
     }
     prediction.build.buildMode = ReplayPredictionBuildMode::Undecided;
-    const PhysicsBodyStore& liveBodyStore =
-        SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( physicsEngine );
+    const PhysicsBodyStore& liveBodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physicsEngine );
     if ( replayRuntime.PathVisualizer().hasTarget && replayRuntime.PathVisualizer().targetId.value != 0 )
     {
         ModelRowHint targetHint;
@@ -4134,7 +4133,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         return false;
     }
 
-    if ( modelCount != SkullbonezCore::Physics::PhysicsEngineStoreQueries::Colliders( physicsEngine ).Count() ||
+    if ( modelCount != SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physicsEngine ).Count() ||
          modelCount != entities.Count() ||
          !CaptureReplayPredictionBodyState( liveBodyStore, workerPool, prediction.simulation.predictionBodies ) )
     {
@@ -4506,7 +4505,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
         {
             replayRuntime.CancelPredictionJob( false );
         }
-        const ColliderStore& colliderStore = PhysicsEngineStoreQueries::Colliders( physicsEngine );
+        const ColliderStore& colliderStore = PhysicsEngine::ReadColliders( physicsEngine );
         DrawReplayPredictionOverlay( replayRuntime, entities, colliderStore, tracer, ribbonQuota, budgetMilliseconds );
         return;
     }
@@ -4612,7 +4611,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
             return;
         }
     }
-    const ColliderStore& colliderStore = PhysicsEngineStoreQueries::Colliders( physicsEngine );
+    const ColliderStore& colliderStore = PhysicsEngine::ReadColliders( physicsEngine );
     bool predictionCompletedThisPass = false;
     if ( replayRuntime.Prediction().build.building )
     {
@@ -4752,8 +4751,8 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
 
     const ReplayFrameIndex presentFrame = presentSample->frameIndex;
     context.replayRuntime.PathVisualizer().futureNodes.clear();
-    const PhysicsBodyStore& bodyStore = Physics::PhysicsEngineStoreQueries::BodyStore( context.physics );
-    const ColliderStore& colliderStore = Physics::PhysicsEngineStoreQueries::Colliders( context.physics );
+    const PhysicsBodyStore& bodyStore = Physics::PhysicsEngine::ReadBodies( context.physics );
+    const ColliderStore& colliderStore = Physics::PhysicsEngine::ReadColliders( context.physics );
     for ( RunReplayPathTarget& target : context.replayRuntime.PathVisualizer().targets )
     {
         if ( target.id.value == 0 )
