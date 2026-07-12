@@ -53,8 +53,8 @@ plan inventory.
 
 ## Current External Evidence
 
-- Mandatory CPU validation PR run 29148955729 passed on 2026-07-11:
-  `https://github.com/skullbonez/SkullbonezCore/actions/runs/29148955729`.
+- Mandatory CPU validation PR runs 29148955729 and 29179364775 passed on
+  2026-07-11 and 2026-07-12 respectively; no real `merge_group` run exists yet.
 - DX12 runtime runs 29149260881 and 29149344794 were skipped while trusted
   runner activation remains disabled; they are not runtime evidence.
 - `main` is currently unprotected.
