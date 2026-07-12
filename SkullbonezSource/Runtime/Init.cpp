@@ -306,6 +306,24 @@ const char* GetCommandLineError()
     return g_commandLineError[0] != '\0' ? g_commandLineError : "Command line parsing failed.";
 }
 
+void ReportStartupFailure( const SbResult& result, const char* title )
+{
+    const char* safeOwner = result.error.owner && result.error.owner[0] != '\0' ? result.error.owner : "Startup";
+    const char* safeMessage =
+        result.error.message[0] != '\0' ? result.error.message : "Startup failed without details.";
+    char dialogMessage[1024] = {};
+    sprintf_s( dialogMessage, sizeof( dialogMessage ), "%s\n\n%s", safeOwner, safeMessage );
+
+    // Lane R: startup cannot rely on the game window or an attached terminal to
+    // expose failures. Persist the diagnostic and block on a native error dialog
+    // so a normal Explorer/IDE launch can never look like a silent clean exit.
+    Log().WriteEventf( "startup_failure owner=\"%s\" message=\"%s\"", safeOwner, safeMessage );
+    fprintf( stderr, "FATAL[%s]: %s\n", safeOwner, safeMessage );
+    fflush( stderr );
+    Log().FlushAll();
+    MessageBoxA( nullptr, dialogMessage, title, MB_OK | MB_ICONERROR | MB_SETFOREGROUND );
+}
+
 // ---------------------------------------------------------------------------
 // Console
 // ---------------------------------------------------------------------------
@@ -2863,8 +2881,7 @@ bool ParseCommandLine( const CommandLineView& commandLine, EngineConfig& config,
     const SbResult configLoad = config.Load( ( std::string( DATA_ROOT ) + "engine.cfg" ).c_str() );
     if ( !configLoad.ok )
     {
-        fprintf( stderr, "[%s] %s\n", configLoad.error.owner, configLoad.error.message );
-        return false;
+        return FailCommandLineParse( "%s: %s", configLoad.error.owner, configLoad.error.message );
     }
     if ( !ApplyVsyncOverride( commandLine, config ) )
     {
@@ -3435,8 +3452,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     const SbResult windowResult = window->CreateAppWindow( hInstance, cfg.window.fullscreen );
     if ( !windowResult.ok )
     {
-        fprintf( stderr, "%s: %s\n", windowResult.error.owner, windowResult.error.message );
-        fflush( stderr );
+        ReportStartupFailure( windowResult, "SkullbonezCore Startup Failed" );
         workerPool.Shutdown();
         CoUninitialize();
         return 1;
@@ -3448,8 +3464,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     const SbResult renderBackendResult = InitRenderBackend( window, renderBackendView, renderBackend );
     if ( !renderBackendResult.ok )
     {
-        fprintf( stderr, "%s: %s\n", renderBackendResult.error.owner, renderBackendResult.error.message );
-        fflush( stderr );
+        ReportStartupFailure( renderBackendResult, "SkullbonezCore Renderer Startup Failed" );
         workerPool.Shutdown();
         CleanupWindow( window, hInstance, renderBackend );
         CoUninitialize();
@@ -3459,8 +3474,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     const SbResult initialResizeResult = window->HandleScreenResize();
     if ( !initialResizeResult.ok )
     {
-        fprintf( stderr, "%s: %s\n", initialResizeResult.error.owner, initialResizeResult.error.message );
-        fflush( stderr );
+        ReportStartupFailure( initialResizeResult, "SkullbonezCore Renderer Startup Failed" );
         workerPool.Shutdown();
         CleanupWindow( window, hInstance, renderBackend );
         CoUninitialize();
