@@ -5,8 +5,9 @@ Purpose:
 
 Mental model:
   Run owns top-level frame order and calls ProcessInputFrame once. The function
-  borrows concrete owners for that turn, while InputRouter alone retains device,
-  semantic-action, focus, and pointer-presentation state between frames.
+  receives non-copyable frame views for that turn, while InputRouter alone
+  retains device, semantic-action, focus, and pointer-presentation state between
+  frames.
 
 Glossary:
   Input turn: Ordered frame interval that samples hardware, offers actions to
@@ -15,12 +16,13 @@ Glossary:
     without taking ownership of their state or decisions.
 
 Invariants:
-  - No argument is retained after ProcessInputFrame returns.
+  - No frame view or referenced owner is retained after ProcessInputFrame returns.
   - The function is called once per rendered frame, after automation injection.
   - InputRouter remains the only owner of sampled device and semantic edge state.
 
 Related:
   - InputRouter.h owns input state and routing policy.
+  - RuntimeFrameViews.h defines the stack-only borrow convention.
   - RunFrame.cpp owns top-level frame order.
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md owns the extraction.
 */
@@ -28,6 +30,7 @@ Related:
 
 #include "InputRouter.h"
 #include "Replay/ReplayRuntime.h"
+#include "RuntimeFrameViews.h"
 #include "../UI/UICommands.h"
 
 namespace SkullbonezCore
@@ -91,6 +94,17 @@ struct RuntimeUIFrameResult
     int editorUnhandledWheelDelta = 0;
 };
 
+// Value facts shared by UI sampling and command application during one input
+// turn. Owner access remains in the narrow capability views passed separately.
+struct RuntimeInputFrameFacts
+{
+    RunCameraMode replayCurrentCameraMode = RunCameraMode::Inspect;
+    RunCameraMode replayRestoreCameraMode = RunCameraMode::Inspect;
+    uint32_t cameraModeEnabledMask = 0u;
+    bool suppressWorldActionThisFrame = false;
+    int gameModelCapacity = 0;
+};
+
 // Shared value-policy helpers used by the stateless coordinator and the
 // InputRouter methods that commit accepted transitions.
 struct KeyboardContextFacts
@@ -135,84 +149,28 @@ RuntimeWorkspace WorkspaceForWorldInteractionOwner( RuntimeWorkspace fallback, W
 const char* ReplayOwnerEventName( ReplayOwnerEventCode code );
 uint32_t ReplaySceneRequestFlags( const SceneRequest& request );
 void ReportRuntimeInputFailure( const SbResult& result );
-RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeInputContext& runtimeInput,
-                                          InputRouter& inputRouter,
-                                          RunCameraState& camera,
-                                          RuntimeTools& runtimeTools,
-                                          ReplayRuntime& replayRuntime,
+RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
+                                          RuntimeFrameInteractionView& interactionOwners,
+                                          RuntimeFrameSceneView& sceneOwners,
                                           const ReplayRuntime::PathPickInput& replayPointerRay,
-                                          RunCameraMode replayCurrentCameraMode,
-                                          RunCameraMode replayRestoreCameraMode,
-                                          AttachedCameraController& attachedCamera,
-                                          RuntimeInteractionController& interaction,
-                                          RunTimerState& timers,
-                                          SceneController& sceneController,
-                                          Window& window,
-                                          UI::InGameUI& ui,
-                                          uint32_t cameraModeEnabledMask,
-                                          bool suppressWorldActionThisFrame );
+                                          const RuntimeInputFrameFacts& facts );
 RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                   bool keyboardToggleEditorMode,
-                                                  RuntimeInputContext& runtimeInput,
-                                                  InputRouter& inputRouter,
-                                                  RunCameraState& camera,
-                                                  RuntimeTools& runtimeTools,
-                                                  ReplayRuntime& replayRuntime,
-                                                  RunCameraMode replayRestoreCameraMode,
-                                                  uint32_t cameraModeEnabledMask,
-                                                  AttachedCameraController& attachedCamera,
-                                                  RuntimeInteractionController& interaction,
-                                                  RunTimerState& timers,
-                                                  RunDebugState& debug,
-                                                  RunLaunchOptions& launchOptions,
-                                                  EngineConfig& config,
-                                                  SceneController& sceneController,
-                                                  Assets::AssetSystem& assets,
-                                                  Threading::WorkerPool& workerPool,
-                                                  SimulationSystem& simulation,
-                                                  Runtime::Audio::ContactAudioService& contactAudio,
-                                                  RuntimeRenderBackendView& renderBackendView,
-                                                  RenderDefaultsStore& renderDefaults,
-                                                  RuntimeRenderer& renderer,
-                                                  int gameModelCapacity );
+                                                  RuntimeFrameHostView& host,
+                                                  RuntimeFrameInteractionView& interactionOwners,
+                                                  RuntimeFrameSceneView& sceneOwners,
+                                                  RuntimeFramePresentationView& presentationOwners,
+                                                  const RuntimeInputFrameFacts& facts );
 RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
-                                                  RuntimeInputContext& runtimeInput,
-                                                  InputRouter& inputRouter,
-                                                  RunCameraState& camera,
-                                                  RuntimeTools& runtimeTools,
-                                                  ReplayRuntime& replayRuntime,
-                                                  RuntimeInteractionController& interaction,
-                                                  RunCameraMode replayCurrentCameraMode,
-                                                  AttachedCameraController& attachedCamera,
-                                                  SceneController& sceneController,
-                                                  UI::InGameUI& ui );
+                                                  RuntimeFrameInteractionView& interactionOwners,
+                                                  RuntimeFrameSceneView& sceneOwners,
+                                                  RunCameraMode replayCurrentCameraMode );
 
 // Executes one input turn through synchronous concrete-owner borrows. This is
 // composition, not an owner: all durable input state remains in inputRouter.
-void ProcessInputFrame( InputRouter& inputRouter,
-                        EngineConfig& config,
-                        RunLaunchOptions& launchOptions,
-                        ApplicationExitState& applicationExit,
-                        RenderDefaultsStore& renderDefaults,
-                        const RunStartupState& startup,
-                        DiagnosticsRuntime& diagnosticsRuntime,
-                        RunTimerState& timers,
-                        Assets::AssetSystem& assets,
-                        Threading::WorkerPool& workerPool,
-                        Window& window,
-                        RuntimeInteractionController& interaction,
-                        RunCameraState& camera,
-                        AttachedCameraController& attachedCamera,
-                        SimulationSystem& simulation,
-                        ReplayRuntime& replayRuntime,
-                        Runtime::Audio::ContactAudioService& contactAudio,
-                        UI::InGameUI& ui,
-                        RunDebugState& debug,
-                        GraphicsStressController& graphicsStress,
-                        RuntimeTools& runtimeTools,
-                        Physics::PhysicsDebugVisualizer& physicsDebugVisualizer,
-                        RuntimeRenderBackendView& renderBackendView,
-                        RuntimeRenderer& renderer,
-                        SceneController& sceneController );
+void ProcessInputFrame( RuntimeFrameHostView& host,
+                        RuntimeFrameInteractionView& interactionOwners,
+                        RuntimeFrameSceneView& sceneOwners,
+                        RuntimeFramePresentationView& presentationOwners );
 } // namespace Basics
 } // namespace SkullbonezCore

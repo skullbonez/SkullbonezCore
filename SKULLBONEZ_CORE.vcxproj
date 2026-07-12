@@ -391,6 +391,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Rendering\Helper.h" />
     <ClInclude Include="SkullbonezSource\Runtime\GraphicsStressController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeStressController.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\RuntimeFrameViews.h" />
     <ClInclude Include="SkullbonezSource\Runtime\ApplicationExitState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Input.h" />
     <ClInclude Include="SkullbonezSource\Runtime\InputController.Bindings.h" />

@@ -33,6 +33,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Run.cpp
+  - SkullbonezSource/Runtime/RuntimeFrameViews.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderResources.h
   - Agentic/Reference/runtime-reference.md
@@ -156,9 +157,14 @@ class Run
             float presentationAlpha );                                  // Skips 3D in text-only runs, then records passes for the current camera state.
     float PresentationAlphaForFrame() const;                            // Applies config and capture determinism policy to the live fraction.
     void UpdateLogic( float simulationDt, float cameraDt );             // simulationDt drives physics; cameraDt is unscaled wall time.
-    void AfterPhysicsStep();                                            // Post-step hooks that must see committed physics state.
+    void
+    AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners,
+                      RuntimeFrameSceneView& sceneOwners );             // Post-step hooks that must see committed physics state.
     // --- Per-frame tick helpers (called from Execute()) ---
-    void TickPhysics( double dt );                                      // Physics dispatch: fixed-step and variable-step accumulator
+    void
+    TickPhysics( double dt,
+                 RuntimeFrameInteractionView& interactionOwners,
+                 RuntimeFrameSceneView& sceneOwners );                  // Physics dispatch: fixed-step and variable-step accumulator
     bool TickScreenshots();                                             // Screenshot triggers; returns true when frame should restart (continue)
     void TickAutoCycle();                                               // Auto-cycle ball capture; posts WM_QUIT when all balls captured
     bool TickSceneAdvance();                                            // Frame count, exit/hold on completion, restarts; returns true to continue

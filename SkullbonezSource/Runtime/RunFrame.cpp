@@ -25,13 +25,17 @@ Glossary:
     failed side effect from being reported as a successful frame transition.
   Presentation pin: Per-frame alpha override to exact current solver state for
     scheduled and auto-cycle capture automation.
+  Frame view: Non-copyable stack record of references used to name per-call
+    borrows without moving ownership out of the composition root.
 
 Invariants:
   - Frame work updates input, simulation, capture, rendering, and diagnostics
     in a stable order used by validation and replay comparisons.
   - Capture pinning is decided before physics and camera work for that frame.
+  - Frame views are created once per frame turn and never retained by helpers.
 
 Related:
+  - RuntimeFrameViews.h defines the frame-helper calling convention.
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -112,38 +116,34 @@ bool ShouldFlashContactAudioDecision( ContactAudioFlashMode mode,
 }
 
 
-void RenderExecuteUiTextFrame( RuntimeRenderer& renderer,
+void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
+                               RuntimeFrameInteractionView& interactionOwners,
+                               RuntimeFrameSceneView& sceneOwners,
+                               RuntimeFramePresentationView& presentationOwners,
+                               const RuntimeUiTextFrameFacts& facts,
                                SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics,
                                const SkullbonezCore::UI::UIRenderContext& uiRender,
-                               const RuntimeRenderModelFrameView& renderModels,
-                               DiagnosticsRuntime& diagnosticsRuntime,
-                               ReplayRuntime& replayRuntime,
-                               RunTimerState& timers,
-                               RunDebugState& debug,
-                               RunSceneState& scene,
-                               EngineConfig& config,
-                               SkullbonezCore::Environment::WorldEnvironment& worldEnvironment,
-                               RuntimeTools& runtimeTools,
-                               SkullbonezCore::UI::InGameUI& ui,
-                               RuntimeInputContext& runtimeInput,
-                               RunCameraState& camera,
-                               SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio,
-                               SceneController& sceneController,
-                               SkullbonezCore::Threading::WorkerPool& workerPool,
-                               Window& window,
-                               RunLaunchOptions& launchOptions,
-                               uint32_t cameraModeEnabledMask,
-                               const char* cameraModeLabel,
-                               const char* launcherFireModeLabel,
-                               bool isLauncherCameraMode,
-                               const RuntimeInteractionGesture& interactionGesture,
-                               float presentationAlpha,
-                               bool presentationPinned,
-                               double secondsPerFrame )
+                               const RuntimeRenderModelFrameView& renderModels )
 {
-    // Lifetime: these explicit borrows exist only for the late UI pass. Keeping
-    // them visible prevents another multi-domain frame context from becoming a
-    // retained substitute for the application shell.
+    RuntimeRenderer& renderer = presentationOwners.renderer;
+    DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
+    ReplayRuntime& replayRuntime = interactionOwners.replayRuntime;
+    RunTimerState& timers = sceneOwners.timers;
+    RunDebugState& debug = sceneOwners.debug;
+    SceneController& sceneController = sceneOwners.sceneController;
+    RunSceneState& scene = sceneController.State();
+    EngineConfig& config = sceneOwners.config;
+    SkullbonezCore::Environment::WorldEnvironment& worldEnvironment = sceneController.World();
+    RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
+    SkullbonezCore::UI::InGameUI& ui = interactionOwners.ui;
+    RuntimeInputContext& runtimeInput = interactionOwners.inputRouter.RuntimeContext();
+    RunCameraState& camera = interactionOwners.camera;
+    SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio = sceneOwners.contactAudio;
+    SkullbonezCore::Threading::WorkerPool& workerPool = host.workerPool;
+    Window& window = host.window;
+    RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
+    // Lifetime: the two owner views and value-only facts exist only for this
+    // late UI call; no render or UI owner retains them.
     const RunSceneBrowserState& uiSceneBrowser = sceneController.Browser();
     const std::string* uiScenePath = sceneController.CurrentPath();
     RuntimeViewModel runtimeViewModel;
@@ -169,14 +169,14 @@ void RenderExecuteUiTextFrame( RuntimeRenderer& renderer,
                                        sceneController.HasCurrentEntry(),
                                        uiScenePath ? uiScenePath->c_str() : nullptr,
                                        CurrentSceneBrowserIndex( sceneController, uiSceneBrowser ),
-                                       cameraModeEnabledMask,
-                                       cameraModeLabel,
-                                       launcherFireModeLabel,
-                                       isLauncherCameraMode,
+                                       facts.cameraModeEnabledMask,
+                                       facts.cameraModeLabel,
+                                       facts.launcherFireModeLabel,
+                                       facts.isLauncherCameraMode,
                                        replayRuntime.ShouldRenderScrubber( runtimeTools.Editor().editorModeEnabled,
                                                                            ui.IsVisible(),
                                                                            ui.IsMinimized(),
-                                                                           interactionGesture.kind ),
+                                                                           facts.interactionGesture.kind ),
                                        replayRuntime.HasPathVisualizerTarget() };
 
     if ( renderer.ShouldRenderUiText( uiTextState, ui ) )
@@ -186,8 +186,8 @@ void RenderExecuteUiTextFrame( RuntimeRenderer& renderer,
                                                                      diagnosticsRuntime.Capture(),
                                                                      sceneController.Physics(),
                                                                      config.runtimeRender.presentationInterpolation,
-                                                                     presentationPinned,
-                                                                     presentationAlpha },
+                                                                     facts.presentationPinned,
+                                                                     facts.presentationAlpha },
                                             contactAudio );
         const CinematicRenderConfig& uiCinematic = ActiveSceneCinematicConfig( scene, config );
         const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug, true );
@@ -201,7 +201,7 @@ void RenderExecuteUiTextFrame( RuntimeRenderer& renderer,
                                                      ui.IsVisible(),
                                                      ui.IsMinimized(),
                                                      scene.isScenePhysics,
-                                                     interactionGesture.kind,
+                                                     facts.interactionGesture.kind,
                                                      window.ClientWidth(),
                                                      window.ClientHeight(),
                                                      timers.simulationTimer.GetTotalTime() };
@@ -222,7 +222,7 @@ void RenderExecuteUiTextFrame( RuntimeRenderer& renderer,
                                    replayOverlay,
                                    uiCinematic,
                                    uiCinematicRendering,
-                                   secondsPerFrame );
+                                   facts.secondsPerFrame );
         }
         PROFILE_END( "Frame/UI" );
         const int uiDrawCallEnd = renderDiagnostics.GetFrameDrawCallCount();
@@ -455,17 +455,18 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
     }
 }
 
-void CaptureReplayPostStep( ReplayRuntime& replayRuntime,
-                            RuntimeTools& runtimeTools,
-                            const RunSceneState& scene,
-                            RunTimerState& timers,
-                            const RunDebugState& debug,
-                            SkullbonezCore::Environment::CameraCollection& cameras,
-                            SkullbonezCore::Environment::WorldEnvironment& world,
-                            PhysicsEngine& physics,
-                            const SceneEntityStore& entities,
-                            SkullbonezCore::Basics::SceneController& models )
+void CaptureReplayPostStep( RuntimeFrameInteractionView& interactionOwners, RuntimeFrameSceneView& sceneOwners )
 {
+    ReplayRuntime& replayRuntime = interactionOwners.replayRuntime;
+    RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
+    SkullbonezCore::Basics::SceneController& models = sceneOwners.sceneController;
+    const RunSceneState& scene = models.State();
+    RunTimerState& timers = sceneOwners.timers;
+    const RunDebugState& debug = sceneOwners.debug;
+    SkullbonezCore::Environment::CameraCollection& cameras = models.Cameras();
+    SkullbonezCore::Environment::WorldEnvironment& world = models.World();
+    PhysicsEngine& physics = models.Physics();
+    const SceneEntityStore& entities = models.Entities();
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Replay );
     PROFILE_SCOPED( "Frame/Physics/Step/ReplayCapture" );
     ReplayLauncherVisualSample& launcherVisual = replayRuntime.LauncherVisualCaptureScratch();
@@ -553,22 +554,37 @@ SbResult Run::Execute()
                                                                    &frameRenderResources,
                                                                    &frameRenderCommands,
                                                                    &frameRenderDiagnostics };
+            // Lifetime: the frame views are stack-only borrow maps for this
+            // turn. They are never assigned to Run or passed to retained work.
+            RuntimeFrameHostView frameHost{ m_applicationExit, m_diagnosticsRuntime, m_assets, m_workerPool, m_window };
+            RuntimeFrameInteractionView frameInteraction{ m_inputRouter,
+                                                          m_interaction,
+                                                          m_attachedCamera,
+                                                          m_replayRuntime,
+                                                          m_UI,
+                                                          m_runtimeTools,
+                                                          m_camera };
+            RuntimeFrameSceneView frameScene{ m_config,
+                                              m_launchOptions,
+                                              m_startup,
+                                              m_timers,
+                                              m_debug,
+                                              m_simulation,
+                                              m_contactAudio,
+                                              m_sceneController };
+            RuntimeFramePresentationView framePresentation{ m_renderDefaults,
+                                                            m_graphicsStress,
+                                                            m_physicsDebugVisualizer,
+                                                            m_renderBackendView,
+                                                            m_renderer };
             frameRenderDiagnostics.ResetFrameDrawCalls();
 
             PROFILE_BEGIN( "Frame/Input" );
             const InteractionAutomationFrameResult automationBeforeInput =
                 TickInteractionAutomationBeforeInput( m_interactionAutomation,
-                                                      &m_window,
-                                                      m_config,
-                                                      m_sceneController,
-                                                      m_timers,
-                                                      m_replayRuntime,
-                                                      m_camera,
-                                                      m_inputRouter,
-                                                      m_interaction,
-                                                      m_runtimeTools,
-                                                      m_attachedCamera,
-                                                      m_UI );
+                                                      frameHost,
+                                                      frameInteraction,
+                                                      frameScene );
             if ( !automationBeforeInput.status.ok )
             {
                 m_applicationExit.RequestOwnedFailure( automationBeforeInput.status );
@@ -577,31 +593,7 @@ SbResult Run::Execute()
             {
                 PostQuitMessage( 0 );
             }
-            ProcessInputFrame( m_inputRouter,
-                               m_config,
-                               m_launchOptions,
-                               m_applicationExit,
-                               m_renderDefaults,
-                               m_startup,
-                               m_diagnosticsRuntime,
-                               m_timers,
-                               m_assets,
-                               m_workerPool,
-                               m_window,
-                               m_interaction,
-                               m_camera,
-                               m_attachedCamera,
-                               m_simulation,
-                               m_replayRuntime,
-                               m_contactAudio,
-                               m_UI,
-                               m_debug,
-                               m_graphicsStress,
-                               m_runtimeTools,
-                               m_physicsDebugVisualizer,
-                               m_renderBackendView,
-                               m_renderer,
-                               m_sceneController );
+            ProcessInputFrame( frameHost, frameInteraction, frameScene, framePresentation );
             m_liveStyle.Tick(
                 SceneRuntimeStyleContext{ m_launchOptions,
                                           m_sceneController.State(),
@@ -632,7 +624,7 @@ SbResult Run::Execute()
             {
                 RuntimeAllocation::RuntimeAllocationScope allocationScope(
                     RuntimeAllocation::RuntimeAllocationPhase::Physics );
-                TickPhysics( secondsPerFrame );
+                TickPhysics( secondsPerFrame, frameInteraction, frameScene );
             }
 
             TickExecutePostPhysicsVisualizers(
@@ -650,30 +642,10 @@ SbResult Run::Execute()
             // processing. Tick it once per rendered frame so headless and
             // overnight launches keep mutating DX12 state even when the UI
             // command panel is not producing control messages.
-            ExecuteGraphicsStressFrame( m_graphicsStress,
-                                        &m_window,
-                                        m_config,
-                                        m_launchOptions,
-                                        m_renderDefaults.CinematicBaseline(),
-                                        m_startup,
-                                        m_diagnosticsRuntime,
-                                        m_timers,
-                                        m_assets,
-                                        m_workerPool,
-                                        m_inputRouter,
-                                        m_interaction,
-                                        m_camera,
-                                        m_attachedCamera,
-                                        m_simulation,
-                                        m_replayRuntime,
-                                        m_contactAudio,
-                                        m_UI,
-                                        m_debug,
-                                        m_runtimeTools,
-                                        m_physicsDebugVisualizer,
-                                        m_renderBackendView,
-                                        m_renderer,
-                                        m_sceneController,
+            ExecuteGraphicsStressFrame( frameHost,
+                                        frameInteraction,
+                                        frameScene,
+                                        framePresentation,
                                         frameRenderDiagnostics );
 
             if ( m_renderer.PipelineSyncEnabled() )
@@ -709,35 +681,24 @@ SbResult Run::Execute()
             }
             PROFILE_END( "Frame/Render" );
 
-            RenderExecuteUiTextFrame( m_renderer,
+            const RuntimeUiTextFrameFacts uiTextFacts{ RuntimeCameraModeEnabledMask( m_sceneController ),
+                                                       m_camera.mode == RunCameraMode::Attach
+                                                           ? m_attachedCamera.ModeLabel()
+                                                           : RunCameraModeLabel( m_camera.mode ),
+                                                       m_runtimeTools.LauncherFireModeLabel(),
+                                                       RunCameraModeUsesLauncher( m_camera.mode ),
+                                                       m_interaction.Gesture(),
+                                                       PresentationAlphaForFrame(),
+                                                       m_capturePresentationPinned,
+                                                       secondsPerFrame };
+            RenderExecuteUiTextFrame( frameHost,
+                                      frameInteraction,
+                                      frameScene,
+                                      framePresentation,
+                                      uiTextFacts,
                                       frameRenderDiagnostics,
                                       uiRender,
-                                      renderModels,
-                                      m_diagnosticsRuntime,
-                                      m_replayRuntime,
-                                      m_timers,
-                                      m_debug,
-                                      m_sceneController.State(),
-                                      m_config,
-                                      m_sceneController.World(),
-                                      m_runtimeTools,
-                                      m_UI,
-                                      m_inputRouter.RuntimeContext(),
-                                      m_camera,
-                                      m_contactAudio,
-                                      m_sceneController,
-                                      m_workerPool,
-                                      m_window,
-                                      m_launchOptions,
-                                      RuntimeCameraModeEnabledMask( m_sceneController ),
-                                      m_camera.mode == RunCameraMode::Attach ? m_attachedCamera.ModeLabel()
-                                                                             : RunCameraModeLabel( m_camera.mode ),
-                                      m_runtimeTools.LauncherFireModeLabel(),
-                                      RunCameraModeUsesLauncher( m_camera.mode ),
-                                      m_interaction.Gesture(),
-                                      PresentationAlphaForFrame(),
-                                      m_capturePresentationPinned,
-                                      secondsPerFrame );
+                                      renderModels );
 
             PROFILE_BEGIN( "Frame/PostDraw/LiveStyleCapture" );
             {
@@ -751,13 +712,8 @@ SbResult Run::Execute()
             PROFILE_BEGIN( "Frame/PostDraw/InteractionAutomation" );
             const InteractionAutomationFrameResult automationAfterRender =
                 TickInteractionAutomationAfterRender( m_interactionAutomation,
-                                                      m_sceneController,
-                                                      m_runtimeTools,
-                                                      m_replayRuntime,
-                                                      m_interaction,
-                                                      m_inputRouter,
-                                                      m_camera,
-                                                      m_UI,
+                                                      frameInteraction,
+                                                      frameScene,
                                                       m_diagnosticsRuntime.Capture(),
                                                       m_renderBackendView.RequireCaptureBackend() );
             if ( !automationAfterRender.status.ok )
@@ -840,7 +796,9 @@ float Run::PresentationAlphaForFrame() const
 }
 
 
-void Run::TickPhysics( double secondsPerFrame )
+void Run::TickPhysics( double secondsPerFrame,
+                       RuntimeFrameInteractionView& interactionOwners,
+                       RuntimeFrameSceneView& sceneOwners )
 {
     if ( m_replayRuntime.IsScrubPaused() )
     {
@@ -924,7 +882,7 @@ void Run::TickPhysics( double secondsPerFrame )
 
             if ( manipulatorPhysics || replayCapture || contactAudioStep )
             {
-                AfterPhysicsStep();
+                AfterPhysicsStep( interactionOwners, sceneOwners );
             }
         }
         PROFILE_END( "Frame/Physics" );
@@ -957,7 +915,7 @@ void Run::TickPhysics( double secondsPerFrame )
 }
 
 
-void Run::AfterPhysicsStep()
+void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners, RuntimeFrameSceneView& sceneOwners )
 {
     m_runtimeTools.RestoreMousePickupAngularVelocity( m_sceneController,
                                                       m_sceneController.Physics(),
@@ -986,16 +944,7 @@ void Run::AfterPhysicsStep()
     const bool replayCaptured = m_replayRuntime.IsCaptureEnabled();
     if ( replayCaptured )
     {
-        CaptureReplayPostStep( m_replayRuntime,
-                               m_runtimeTools,
-                               m_sceneController.State(),
-                               m_timers,
-                               m_debug,
-                               m_sceneController.Cameras(),
-                               m_sceneController.World(),
-                               m_sceneController.Physics(),
-                               m_sceneController.Entities(),
-                               m_sceneController );
+        CaptureReplayPostStep( interactionOwners, sceneOwners );
     }
 #ifdef _DEBUG
     if ( replayCaptured )

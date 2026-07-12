@@ -27,6 +27,8 @@ Related:
 */
 #pragma once
 
+#include "RuntimeFrameViews.h"
+
 #include "../Core/Common.h"
 #include "../Core/SbResult.h"
 #include "../Maths/Vector3.h"
@@ -215,26 +217,13 @@ SbResult ConfigureInteractionAutomation( InteractionAutomationController& state,
 SbResult InteractionAutomationResult( const InteractionAutomationController& state );
 void ClearInteractionAutomationInput( InteractionAutomationController& state );
 InteractionAutomationFrameResult TickInteractionAutomationBeforeInput( InteractionAutomationController& state,
-                                                                       Window* window,
-                                                                       const EngineConfig& config,
-                                                                       SceneController& scene,
-                                                                       RunTimerState& timers,
-                                                                       ReplayRuntime& replayRuntime,
-                                                                       RunCameraState& camera,
-                                                                       InputRouter& inputRouter,
-                                                                       RuntimeInteractionController& interaction,
-                                                                       RuntimeTools& runtimeTools,
-                                                                       AttachedCameraController& attachedCamera,
-                                                                       UI::InGameUI& ui );
+                                                                       RuntimeFrameHostView& host,
+                                                                       RuntimeFrameInteractionView& interactionOwners,
+                                                                       RuntimeFrameSceneView& sceneOwners );
 InteractionAutomationFrameResult
 TickInteractionAutomationAfterRender( InteractionAutomationController& state,
-                                      SceneController& scene,
-                                      RuntimeTools& runtimeTools,
-                                      ReplayRuntime& replayRuntime,
-                                      RuntimeInteractionController& interaction,
-                                      InputRouter& inputRouter,
-                                      RunCameraState& camera,
-                                      UI::InGameUI& ui,
+                                      RuntimeFrameInteractionView& interactionOwners,
+                                      RuntimeFrameSceneView& sceneOwners,
                                       CaptureController& capture,
                                       Rendering::IRenderCaptureBackend& captureBackend );
 bool InteractionAutomationWillCaptureAfterRender( const InteractionAutomationController& state, int frame );

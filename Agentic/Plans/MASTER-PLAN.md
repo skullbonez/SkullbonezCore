@@ -104,9 +104,9 @@ concrete plan rows and counting it would duplicate tasks.
 | dx12-descriptor-and-handle-lifetime | 5 | 5 | 100% |
 | determinism-contract-hardening | 4 | 4 | 100% |
 | upload-arena-overflow-policy | 4 | 4 | 100% |
-| frame-view-calling-convention | 0 | 4 | 0% |
+| frame-view-calling-convention | 4 | 4 | 100% |
 | render-interface-and-workerpool-slimming | 0 | 5 | 0% |
-| **Portfolio total** | **288** | **298** | **97%** |
+| **Portfolio total** | **292** | **298** | **98%** |
 
 ## Current Execution Priority
 
@@ -119,8 +119,8 @@ For maximum impact with minimal rework, use this binding critical path:
    branch protection, and trusted/ephemeral DX12 runner administration.
 2. **Adversarial-review remediation — active local lane.** While V3 waits on
    external administration, the 2026-07-12 must-do plans are the local
-   priority. Both must-do plans are complete; frame-view-calling-convention is
-   the next nice-to-have plan, followed by render-interface-and-workerpool-slimming. The
+   priority. Both must-do plans and frame-view-calling-convention are complete;
+   render-interface-and-workerpool-slimming is the final local plan. The
    comment-rot sweep was owner-parked to `WNF/` on 2026-07-12 (no comment
    changes yet).
 
@@ -167,7 +167,7 @@ Nice to have (start only after the must-do lane closes):
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [frame-view-calling-convention](TODO/frame-view-calling-convention.md) | Not started | 0/4 | After must-do plans; avoids diff collisions in `RunFrame.cpp` |
+| [frame-view-calling-convention](../Reports/2026-07-12/frame-view-calling-convention-closure.md) | Complete | 4/4 | Four non-copyable capability slices replace high-arity frame calls without recreating a universal context bag |
 | [render-interface-and-workerpool-slimming](TODO/render-interface-and-workerpool-slimming.md) | Not started | 0/5 | Last of the six; R2 collapse work proceeds only on R1 measurement evidence |
 
 Owner-parked 2026-07-12 (inventory rule 9 applies — not live work, not in the

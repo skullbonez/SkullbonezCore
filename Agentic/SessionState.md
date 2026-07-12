@@ -11,11 +11,11 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-12th-july` |
-| Current pushed baseline | Determinism-contract-hardening is pushed at `1a0ad165`; upload-arena-overflow-policy is commit-ready on top |
-| Current objective | Validation-gate V3 is externally blocked; the active local lane advances to frame-view-calling-convention |
-| Portfolio progress | 288 / 298 tasks = 97% rounded overall |
-| Last broad local gate | `tools\\validate_full.bat` passed final aggregate source on 2026-07-12 in 88.84s: formatting/metadata clean, every CPU lane passed (174 doctest cases, 3,966 assertions), zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | Upload-arena closure passed independent review, all CPU tests, three DX12 runs, perf without regressions, one-minute stress at 0 flushes/drops, and the broad gate. |
+| Current pushed baseline | Upload-arena-overflow-policy is pushed at `b8e5a47f`; frame-view-calling-convention is commit-ready on top |
+| Current objective | Validation-gate V3 is externally blocked; the active local lane advances to render-interface-and-workerpool-slimming |
+| Portfolio progress | 292 / 298 tasks = 98% rounded overall |
+| Last broad local gate | `tools\\validate_full.bat` passed final frame-view source on 2026-07-12 in 98.92s: formatting/metadata clean, every CPU lane passed, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
+| Validation for current edits | Frame-view closure passed the final independent ownership review and the broad gate; no DX12 source changed, so no extra graphics-stress lane was required. |
 
 ## Live Queue
 
@@ -26,8 +26,8 @@ plan inventory.
    evidence needs an ephemeral isolated runner.
 2. 2026-07-12 adversarial-review remediation (MASTER section of the same
    name). Descriptor/handle lifetime, determinism-contract-hardening, and
-   upload-arena-overflow-policy are complete. Next: frame-view-calling-convention, then
-   render-interface-and-workerpool-slimming. The comment-rot sweep is
+   upload-arena-overflow-policy and frame-view-calling-convention are complete.
+   Next: render-interface-and-workerpool-slimming. The comment-rot sweep is
    owner-parked in `WNF/` (no comment changes yet, 2026-07-12 ruling).
 
 ## Current Plan Decisions
@@ -85,6 +85,6 @@ plan inventory.
 
 ## Next Handoff
 
-Commit and push upload-arena-overflow-policy, then use
-`Agentic/Plans/MASTER-PLAN.md` to execute frame-view-calling-convention. V3
-resumes when the required GitHub and runner authority exists.
+Commit and push frame-view-calling-convention, then use
+`Agentic/Plans/MASTER-PLAN.md` to execute render-interface-and-workerpool-slimming.
+V3 resumes when the required GitHub and runner authority exists.

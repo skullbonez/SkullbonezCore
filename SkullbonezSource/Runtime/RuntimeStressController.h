@@ -5,8 +5,8 @@ Purpose:
 
 Mental model:
   Stress controllers own their random streams and counters. Each execution call
-  borrows the concrete runtime owners it may deliberately perturb for one frame;
-  no borrow is retained and Run only sequences the harness beside normal frame work.
+  borrows the concrete runtime owners through non-copyable frame views; no borrow
+  is retained and Run only sequences the harness beside normal frame work.
 
 Glossary:
   UI stress: Bounded command churn that exercises control-state transitions.
@@ -26,6 +26,7 @@ Related:
 
 #include "../Core/SbResult.h"
 #include "RuntimeCameraMode.h"
+#include "RuntimeFrameViews.h"
 
 namespace SkullbonezCore
 {
@@ -75,50 +76,16 @@ struct RunStartupState;
 struct RunTimerState;
 struct RuntimeRenderBackendView;
 
-SbResult RunUIStressActions( DiagnosticsRuntime& diagnosticsRuntime,
-                             Window* window,
-                             RunTimerState& timers,
-                             UI::InGameUI& ui,
-                             RuntimeRenderer& renderer,
-                             RuntimeRenderBackendView& renderBackendView,
-                             RunDebugState& debug,
-                             SceneController& sceneController,
-                             RunCameraState& camera,
-                             EngineConfig& config,
-                             SimulationSystem& simulation,
-                             RuntimeTools& runtimeTools,
-                             const RunLaunchOptions& launchOptions,
-                             const RunStartupState& startup,
-                             ReplayRuntime& replayRuntime,
-                             InputRouter& inputRouter,
-                             RuntimeInteractionController& interaction,
-                             AttachedCameraController& attachedCamera,
+SbResult RunUIStressActions( RuntimeFrameHostView& host,
+                             RuntimeFrameInteractionView& interactionOwners,
+                             RuntimeFrameSceneView& sceneOwners,
+                             RuntimeFramePresentationView& presentationOwners,
                              RunCameraMode replayRestoreCameraMode );
 
-void ExecuteGraphicsStressFrame( GraphicsStressController& stress,
-                                 Window* window,
-                                 EngineConfig& config,
-                                 RunLaunchOptions& launchOptions,
-                                 const CinematicRenderConfig& defaultCinematicRender,
-                                 const RunStartupState& startup,
-                                 DiagnosticsRuntime& diagnosticsRuntime,
-                                 RunTimerState& timers,
-                                 Assets::AssetSystem& assets,
-                                 Threading::WorkerPool& workerPool,
-                                 InputRouter& inputRouter,
-                                 RuntimeInteractionController& interaction,
-                                 RunCameraState& camera,
-                                 AttachedCameraController& attachedCamera,
-                                 SimulationSystem& simulation,
-                                 ReplayRuntime& replayRuntime,
-                                 Runtime::Audio::ContactAudioService& contactAudio,
-                                 UI::InGameUI& ui,
-                                 RunDebugState& debug,
-                                 RuntimeTools& runtimeTools,
-                                 Physics::PhysicsDebugVisualizer& physicsDebugVisualizer,
-                                 RuntimeRenderBackendView& renderBackendView,
-                                 RuntimeRenderer& renderer,
-                                 SceneController& sceneController,
+void ExecuteGraphicsStressFrame( RuntimeFrameHostView& host,
+                                 RuntimeFrameInteractionView& interactionOwners,
+                                 RuntimeFrameSceneView& sceneOwners,
+                                 RuntimeFramePresentationView& presentationOwners,
                                  const Rendering::IRenderDiagnostics& renderDiagnostics );
 } // namespace Basics
 } // namespace SkullbonezCore

@@ -90,34 +90,37 @@ using SkullbonezCore::UI::InGameUITab;
 // InputRouter owns sampling, edge memory, semantic order, and pointer policy;
 // scene, replay, tools, diagnostics, UI, and rendering retain their own state
 // and expose only synchronous operations for accepted input actions.
-// Lifetime: every reference below is borrowed for this call and is never stored.
-void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
-                                                EngineConfig& m_config,
-                                                RunLaunchOptions& m_launchOptions,
-                                                ApplicationExitState& m_applicationExit,
-                                                RenderDefaultsStore& m_renderDefaults,
-                                                const RunStartupState& m_startup,
-                                                DiagnosticsRuntime& m_diagnosticsRuntime,
-                                                RunTimerState& m_timers,
-                                                Assets::AssetSystem& m_assets,
-                                                Threading::WorkerPool& m_workerPool,
-                                                Window& m_window,
-                                                RuntimeInteractionController& m_interaction,
-                                                RunCameraState& m_camera,
-                                                AttachedCameraController& m_attachedCamera,
-                                                SimulationSystem& m_simulation,
-                                                ReplayRuntime& m_replayRuntime,
-                                                SkullbonezCore::Runtime::Audio::ContactAudioService& m_contactAudio,
-                                                SkullbonezCore::UI::InGameUI& m_UI,
-                                                RunDebugState& m_debug,
-                                                GraphicsStressController& m_graphicsStress,
-                                                RuntimeTools& m_runtimeTools,
-                                                Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer,
-                                                RuntimeRenderBackendView& m_renderBackendView,
-                                                RuntimeRenderer& m_renderer,
-                                                SceneController& m_sceneController )
+// Lifetime: both views are borrowed for this call and are never stored.
+void SkullbonezCore::Basics::ProcessInputFrame( RuntimeFrameHostView& host,
+                                                RuntimeFrameInteractionView& interactionOwners,
+                                                RuntimeFrameSceneView& sceneOwners,
+                                                RuntimeFramePresentationView& presentationOwners )
 {
-    InputRouter& m_inputRouter = inputRouter;
+    InputRouter& m_inputRouter = interactionOwners.inputRouter;
+    EngineConfig& m_config = sceneOwners.config;
+    RunLaunchOptions& m_launchOptions = sceneOwners.launchOptions;
+    const RunStartupState& m_startup = sceneOwners.startup;
+    RunTimerState& m_timers = sceneOwners.timers;
+    RunCameraState& m_camera = interactionOwners.camera;
+    RunDebugState& m_debug = sceneOwners.debug;
+    ApplicationExitState& m_applicationExit = host.applicationExit;
+    RenderDefaultsStore& m_renderDefaults = presentationOwners.renderDefaults;
+    DiagnosticsRuntime& m_diagnosticsRuntime = host.diagnosticsRuntime;
+    Assets::AssetSystem& m_assets = host.assets;
+    Threading::WorkerPool& m_workerPool = host.workerPool;
+    Window& m_window = host.window;
+    RuntimeInteractionController& m_interaction = interactionOwners.interaction;
+    AttachedCameraController& m_attachedCamera = interactionOwners.attachedCamera;
+    SimulationSystem& m_simulation = sceneOwners.simulation;
+    ReplayRuntime& m_replayRuntime = interactionOwners.replayRuntime;
+    SkullbonezCore::Runtime::Audio::ContactAudioService& m_contactAudio = sceneOwners.contactAudio;
+    SkullbonezCore::UI::InGameUI& m_UI = interactionOwners.ui;
+    GraphicsStressController& m_graphicsStress = presentationOwners.graphicsStress;
+    RuntimeTools& m_runtimeTools = interactionOwners.runtimeTools;
+    Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer = presentationOwners.physicsDebugVisualizer;
+    RuntimeRenderBackendView& m_renderBackendView = presentationOwners.renderBackendView;
+    RuntimeRenderer& m_renderer = presentationOwners.renderer;
+    SceneController& m_sceneController = sceneOwners.sceneController;
     // Lifetime: these aliases expose InputRouter-owned frame state only for
     // this synchronous routing pass; Run retains neither value as member state.
     RuntimeInputContext& m_runtimeInput = m_inputRouter.RuntimeContext();
@@ -138,24 +141,10 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
     const auto RunUIStressActions = [&]()
     {
         return SkullbonezCore::Basics::RunUIStressActions(
-            m_diagnosticsRuntime,
-            &m_window,
-            m_timers,
-            m_UI,
-            m_renderer,
-            m_renderBackendView,
-            m_debug,
-            m_sceneController,
-            m_camera,
-            m_config,
-            m_simulation,
-            m_runtimeTools,
-            m_launchOptions,
-            m_startup,
-            m_replayRuntime,
-            m_inputRouter,
-            m_interaction,
-            m_attachedCamera,
+            host,
+            interactionOwners,
+            sceneOwners,
+            presentationOwners,
             NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ) );
     };
     const auto DrainCaptureRequests = [&]()
@@ -851,23 +840,14 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                                                    m_window,
                                                                    replayPointerRay.rayOrigin,
                                                                    replayPointerRay.rayDirection );
+    const RuntimeInputFrameFacts uiSamplingFacts{
+        NormalizeCameraModeForCurrentScene( m_camera.mode ),
+        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+        CameraModeEnabledMask(),
+        UIBlocksKeyboardBeforeInput,
+        m_startup.gameModelCapacity };
     RuntimeUIFrameResult uiFrameResult =
-        BeginRuntimeUIFrame( m_runtimeInput,
-                             m_inputRouter,
-                             m_camera,
-                             m_runtimeTools,
-                             m_replayRuntime,
-                             replayPointerRay,
-                             NormalizeCameraModeForCurrentScene( m_camera.mode ),
-                             NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
-                             m_attachedCamera,
-                             m_interaction,
-                             m_timers,
-                             m_sceneController,
-                             m_window,
-                             m_UI,
-                             CameraModeEnabledMask(),
-                             UIBlocksKeyboardBeforeInput );
+        BeginRuntimeUIFrame( host, interactionOwners, sceneOwners, replayPointerRay, uiSamplingFacts );
     if ( uiFrameResult.frameActive )
     {
         if ( uiFrameResult.enterInteractiveScene )
@@ -890,46 +870,27 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
             PostQuitMessage( 0 );
         }
     }
-    uiFrameResult =
-        ApplyRuntimeUIFrameCommands( uiFrameResult,
-                                     keyboardToggleEditorMode,
-                                     m_runtimeInput,
-                                     m_inputRouter,
-                                     m_camera,
-                                     m_runtimeTools,
-                                     m_replayRuntime,
-                                     NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
-                                     CameraModeEnabledMask(),
-                                     m_attachedCamera,
-                                     m_interaction,
-                                     m_timers,
-                                     m_debug,
-                                     m_launchOptions,
-                                     m_config,
-                                     m_sceneController,
-                                     m_assets,
-                                     m_workerPool,
-                                     m_simulation,
-                                     m_contactAudio,
-                                     m_renderBackendView,
-                                     m_renderDefaults,
-                                     m_renderer,
-                                     m_startup.gameModelCapacity );
+    const RuntimeInputFrameFacts commandFacts{
+        NormalizeCameraModeForCurrentScene( m_camera.mode ),
+        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+        CameraModeEnabledMask(),
+        uiFrameResult.suppressWorldActionThisFrame,
+        m_startup.gameModelCapacity };
+    uiFrameResult = ApplyRuntimeUIFrameCommands( uiFrameResult,
+                                                 keyboardToggleEditorMode,
+                                                 host,
+                                                 interactionOwners,
+                                                 sceneOwners,
+                                                 presentationOwners,
+                                                 commandFacts );
     if ( uiFrameResult.status.ok && uiFrameResult.frameActive )
     {
         uiFrameResult.status = RunUIStressActions();
     }
     uiFrameResult = FinishRuntimeUIFramePointer( uiFrameResult,
-                                                 m_runtimeInput,
-                                                 m_inputRouter,
-                                                 m_camera,
-                                                 m_runtimeTools,
-                                                 m_replayRuntime,
-                                                 m_interaction,
-                                                 NormalizeCameraModeForCurrentScene( m_camera.mode ),
-                                                 m_attachedCamera,
-                                                 m_sceneController,
-                                                 m_UI );
+                                                 interactionOwners,
+                                                 sceneOwners,
+                                                 NormalizeCameraModeForCurrentScene( m_camera.mode ) );
     if ( uiFrameResult.enterInteractiveScene )
     {
         EnterInteractiveSceneRun();

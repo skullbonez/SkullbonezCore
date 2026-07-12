@@ -1,0 +1,167 @@
+/*
+File: RuntimeFrameViews.h
+Purpose:
+  Defines the reference-only calling convention used by top-level frame helpers.
+
+Mental model:
+  Run constructs these views on the stack for one frame turn. Helpers borrow the
+  concrete owners through named fields, perform synchronous work, and return;
+  the views never become members, owners, callback packs, or durable state.
+
+Glossary:
+  Host view: Process services used for platform work and diagnostics.
+  Interaction view: Input, camera, replay, UI, and tool owners that arbitrate
+    operator intent.
+  Scene view: Scene mutation owners and the shell policy that controls them.
+  Presentation view: Render and validation owners used to submit a frame.
+  UI text facts: Scalar snapshots and synchronous borrows selected after
+    simulation for the late UI pass.
+
+Invariants:
+  - Every capability member is a reference; no view owns subsystem state.
+  - Views are constructed at the Run::Execute call site and are never retained.
+  - No capability slice spans the complete frame surface; helpers receive only
+    the slices required for their operation.
+  - Views hold no cross-domain queues, callbacks, void pointers, or copied owner
+    state.
+
+Related:
+  - RunFrame.cpp constructs the views and owns top-level frame order.
+  - InputFrameExecution.cpp consumes them during the input turn.
+  - RuntimeStressController.cpp consumes them during deterministic stress work.
+  - Agentic/Plans/TODO/frame-view-calling-convention.md owns this convention.
+*/
+#pragma once
+
+#include <cstdint>
+
+namespace SkullbonezCore
+{
+namespace Assets
+{
+class AssetSystem;
+}
+namespace Threading
+{
+class WorkerPool;
+}
+namespace Physics
+{
+class PhysicsDebugVisualizer;
+}
+namespace Runtime::Audio
+{
+class ContactAudioService;
+}
+namespace UI
+{
+class InGameUI;
+}
+namespace Basics
+{
+class ApplicationExitState;
+class AttachedCameraController;
+class DiagnosticsRuntime;
+class EngineConfig;
+class GraphicsStressController;
+class InputRouter;
+class RenderDefaultsStore;
+class ReplayRuntime;
+class RuntimeInteractionController;
+class RuntimeRenderer;
+class RuntimeTools;
+class SceneController;
+class SimulationSystem;
+class Window;
+struct RunCameraState;
+struct RunDebugState;
+struct RunLaunchOptions;
+struct RunStartupState;
+struct RunTimerState;
+struct RuntimeInteractionGesture;
+struct RuntimeRenderBackendView;
+
+// Lifetime: process services are borrowed synchronously for platform and
+// diagnostics work. This slice intentionally excludes input, scene, and render
+// authority so it cannot substitute for the application shell.
+struct RuntimeFrameHostView
+{
+    ApplicationExitState& applicationExit;
+    DiagnosticsRuntime& diagnosticsRuntime;
+    Assets::AssetSystem& assets;
+    Threading::WorkerPool& workerPool;
+    Window& window;
+
+    RuntimeFrameHostView( const RuntimeFrameHostView& ) = delete;
+    RuntimeFrameHostView& operator=( const RuntimeFrameHostView& ) = delete;
+};
+
+// Lifetime: this slice exists only while routing one frame of operator or
+// automation intent. Durable input, replay, camera, UI, and tool state stays in
+// the named owners below.
+struct RuntimeFrameInteractionView
+{
+    InputRouter& inputRouter;
+    RuntimeInteractionController& interaction;
+    AttachedCameraController& attachedCamera;
+    ReplayRuntime& replayRuntime;
+    UI::InGameUI& ui;
+    RuntimeTools& runtimeTools;
+    RunCameraState& camera;
+
+    RuntimeFrameInteractionView( const RuntimeFrameInteractionView& ) = delete;
+    RuntimeFrameInteractionView& operator=( const RuntimeFrameInteractionView& ) = delete;
+};
+
+// Lifetime: scene policy and mutation owners are borrowed only for the current
+// frame operation. Presentation backends and input devices are deliberately
+// absent from this slice.
+struct RuntimeFrameSceneView
+{
+    EngineConfig& config;
+    RunLaunchOptions& launchOptions;
+    const RunStartupState& startup;
+    RunTimerState& timers;
+    RunDebugState& debug;
+    SimulationSystem& simulation;
+    Runtime::Audio::ContactAudioService& contactAudio;
+    SceneController& sceneController;
+
+    RuntimeFrameSceneView( const RuntimeFrameSceneView& ) = delete;
+    RuntimeFrameSceneView& operator=( const RuntimeFrameSceneView& ) = delete;
+};
+
+// Lifetime: render submission and validation controls are exposed only to
+// presentation helpers. Scene and input ownership remains behind their own
+// capability slices.
+struct RuntimeFramePresentationView
+{
+    RenderDefaultsStore& renderDefaults;
+    GraphicsStressController& graphicsStress;
+    Physics::PhysicsDebugVisualizer& physicsDebugVisualizer;
+    RuntimeRenderBackendView& renderBackendView;
+    RuntimeRenderer& renderer;
+
+    RuntimeFramePresentationView( const RuntimeFramePresentationView& ) = delete;
+    RuntimeFramePresentationView& operator=( const RuntimeFramePresentationView& ) = delete;
+};
+
+// Scalar snapshots plus explicitly borrowed label/gesture data selected for one
+// late UI pass. The pointer/reference fields are consumed synchronously and are
+// never described as owned values.
+struct RuntimeUiTextFrameFacts
+{
+    uint32_t cameraModeEnabledMask = 0u;
+    const char* cameraModeLabel = nullptr;
+    const char* launcherFireModeLabel = nullptr;
+    bool isLauncherCameraMode = false;
+    const RuntimeInteractionGesture& interactionGesture;
+    float presentationAlpha = 0.0f;
+    bool presentationPinned = false;
+    double secondsPerFrame = 0.0;
+
+    RuntimeUiTextFrameFacts( const RuntimeUiTextFrameFacts& ) = delete;
+    RuntimeUiTextFrameFacts& operator=( const RuntimeUiTextFrameFacts& ) = delete;
+};
+} // namespace Basics
+} // namespace SkullbonezCore

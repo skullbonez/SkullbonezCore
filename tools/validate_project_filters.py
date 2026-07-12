@@ -251,6 +251,7 @@ RUNTIME_PREFIXES = (
     "RenderDefaultsStore",
     "RuntimeCameraMode",
     "RuntimeDiagnostics",
+    "RuntimeFrameViews",
     "RuntimeFileWriter",
     "RuntimeInteractionCommands",
     "RuntimeInteractionController",

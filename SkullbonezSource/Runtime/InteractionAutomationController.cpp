@@ -2406,18 +2406,21 @@ SbResult SkullbonezCore::Basics::InteractionAutomationResult( const InteractionA
 
 InteractionAutomationFrameResult
 SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomationController& state,
-                                                              Window* window,
-                                                              const EngineConfig& config,
-                                                              SceneController& scene,
-                                                              RunTimerState& timers,
-                                                              ReplayRuntime& replayRuntime,
-                                                              RunCameraState& camera,
-                                                              InputRouter& inputRouter,
-                                                              RuntimeInteractionController& interaction,
-                                                              RuntimeTools& runtimeTools,
-                                                              AttachedCameraController& attachedCamera,
-                                                              UI::InGameUI& ui )
+                                                              RuntimeFrameHostView& host,
+                                                              RuntimeFrameInteractionView& interactionOwners,
+                                                              RuntimeFrameSceneView& sceneOwners )
 {
+    Window* window = &host.window;
+    const EngineConfig& config = sceneOwners.config;
+    SceneController& scene = sceneOwners.sceneController;
+    RunTimerState& timers = sceneOwners.timers;
+    ReplayRuntime& replayRuntime = interactionOwners.replayRuntime;
+    RunCameraState& camera = interactionOwners.camera;
+    InputRouter& inputRouter = interactionOwners.inputRouter;
+    RuntimeInteractionController& interaction = interactionOwners.interaction;
+    RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
+    AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
+    UI::InGameUI& ui = interactionOwners.ui;
     InteractionAutomationFrameResult result;
     if ( !state.enabled || state.finished )
     {
@@ -2685,16 +2688,18 @@ SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomat
 
 InteractionAutomationFrameResult
 SkullbonezCore::Basics::TickInteractionAutomationAfterRender( InteractionAutomationController& state,
-                                                              SceneController& scene,
-                                                              RuntimeTools& runtimeTools,
-                                                              ReplayRuntime& replayRuntime,
-                                                              RuntimeInteractionController& interaction,
-                                                              InputRouter& inputRouter,
-                                                              RunCameraState& camera,
-                                                              UI::InGameUI& ui,
+                                                              RuntimeFrameInteractionView& interactionOwners,
+                                                              RuntimeFrameSceneView& sceneOwners,
                                                               CaptureController& capture,
                                                               Rendering::IRenderCaptureBackend& captureBackend )
 {
+    SceneController& scene = sceneOwners.sceneController;
+    RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
+    ReplayRuntime& replayRuntime = interactionOwners.replayRuntime;
+    RuntimeInteractionController& interaction = interactionOwners.interaction;
+    InputRouter& inputRouter = interactionOwners.inputRouter;
+    RunCameraState& camera = interactionOwners.camera;
+    UI::InGameUI& ui = interactionOwners.ui;
     InteractionAutomationFrameResult result;
     if ( !state.enabled || state.finished )
     {
