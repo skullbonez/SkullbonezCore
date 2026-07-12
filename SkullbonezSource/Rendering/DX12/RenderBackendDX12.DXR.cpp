@@ -384,6 +384,9 @@ SbResult Dx12RaytracingOwner::CreateReflectionTexture( ID3D12Device* device,
 
     // DispatchRays writes through a UAV row while the later water pass reads the
     // same texture through an SRV row.
+    // Lifetime: both reflection rows belong to the optional raytracing owner
+    // for the device epoch. Resize does not rebuild them; owner shutdown occurs
+    // only after the backend drains GPU work and then discards the heaps.
     m_reflectionUavIndex = descriptors.AllocateStatic();
     D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
     uavDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;

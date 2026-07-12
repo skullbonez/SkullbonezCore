@@ -206,7 +206,7 @@ Basics::SbResult Dx12FrameOwner::EnsureOpen()
             return m_recording.CommitWait( wait );
         }
     }
-    m_retirement.ReleaseCompleted( m_device, m_submittedWork, false );
+    m_retirement.ReleaseCompleted( m_device, m_descriptors, m_submittedWork, false );
     Basics::SbResult result = m_recording.CommitAllocatorReset( allocator->Reset(), "Dx12FrameOwner allocator Reset" );
     if ( !result.ok )
     {
@@ -702,7 +702,7 @@ void Dx12FrameOwner::RefreshFrameIndex()
 
 void Dx12FrameOwner::ReleaseCompletedRetirements( bool releaseUnfenced )
 {
-    m_retirement.ReleaseCompleted( m_device, m_submittedWork, releaseUnfenced );
+    m_retirement.ReleaseCompleted( m_device, m_descriptors, m_submittedWork, releaseUnfenced );
 }
 
 
@@ -736,6 +736,104 @@ void Dx12FrameOwner::RetireResource( ID3D12Resource* resource )
     // Lifetime: only this frame owner may quarantine a resource because only
     // it can prove whether recording, submission, and covering fences are done.
     m_retirement.Quarantine( resource );
+}
+
+
+void Dx12FrameOwner::RetireResource( ID3D12Resource* resource, UINT descriptorIndex )
+{
+    if ( !resource )
+    {
+        RetireStaticDescriptor( descriptorIndex );
+        return;
+    }
+    const bool fenceReady = m_device.FrameFence().IsReady();
+    if ( fenceReady )
+    {
+        m_submittedWork.ObserveCompletedFence( m_device.FrameFence().CompletedValue() );
+    }
+    const UINT64 completedFence = fenceReady ? m_device.FrameFence().CompletedValue() : 0;
+    bool hasOutstandingFrameWork = m_recording.IsOpen();
+    for ( const UINT64 frameFence : m_frameFenceValues )
+    {
+        hasOutstandingFrameWork = hasOutstandingFrameWork || frameFence > completedFence;
+    }
+    if ( !hasOutstandingFrameWork && m_submittedWork.CanReleaseWithoutFence() )
+    {
+        resource->Release();
+        m_descriptors.FreeStatic( descriptorIndex );
+        return;
+    }
+    m_retirement.Quarantine( resource, descriptorIndex );
+}
+
+
+void Dx12FrameOwner::RetireResource( ID3D12Resource* resource,
+                                     UINT descriptorIndex,
+                                     Dx12CpuDescriptorAllocator& cpuAllocator,
+                                     UINT cpuDescriptorIndex )
+{
+    if ( !resource )
+    {
+        if ( descriptorIndex != UINT_MAX )
+        {
+            RetireStaticDescriptor( descriptorIndex );
+        }
+        if ( cpuDescriptorIndex != UINT_MAX )
+        {
+            cpuAllocator.Free( cpuDescriptorIndex );
+        }
+        return;
+    }
+    const bool fenceReady = m_device.FrameFence().IsReady();
+    if ( fenceReady )
+    {
+        m_submittedWork.ObserveCompletedFence( m_device.FrameFence().CompletedValue() );
+    }
+    const UINT64 completedFence = fenceReady ? m_device.FrameFence().CompletedValue() : 0;
+    bool hasOutstandingFrameWork = m_recording.IsOpen();
+    for ( const UINT64 frameFence : m_frameFenceValues )
+    {
+        hasOutstandingFrameWork = hasOutstandingFrameWork || frameFence > completedFence;
+    }
+    if ( !hasOutstandingFrameWork && m_submittedWork.CanReleaseWithoutFence() )
+    {
+        resource->Release();
+        if ( descriptorIndex != UINT_MAX )
+        {
+            m_descriptors.FreeStatic( descriptorIndex );
+        }
+        if ( cpuDescriptorIndex != UINT_MAX )
+        {
+            cpuAllocator.Free( cpuDescriptorIndex );
+        }
+        return;
+    }
+    m_retirement.Quarantine( resource, descriptorIndex, &cpuAllocator, cpuDescriptorIndex );
+}
+
+
+void Dx12FrameOwner::RetireStaticDescriptor( UINT descriptorIndex )
+{
+    // Lifetime: descriptor rows use the resource retirement proof because a
+    // transient shader-visible copy may outlive the registry entry that named
+    // its staging row. Reuse is legal only after all covering frame fences.
+    const bool fenceReady = m_device.FrameFence().IsReady();
+    if ( fenceReady )
+    {
+        m_submittedWork.ObserveCompletedFence( m_device.FrameFence().CompletedValue() );
+    }
+    const UINT64 completedFence = fenceReady ? m_device.FrameFence().CompletedValue() : 0;
+    bool hasOutstandingFrameWork = m_recording.IsOpen();
+    for ( const UINT64 frameFence : m_frameFenceValues )
+    {
+        hasOutstandingFrameWork = hasOutstandingFrameWork || frameFence > completedFence;
+    }
+    if ( !hasOutstandingFrameWork && m_submittedWork.CanReleaseWithoutFence() )
+    {
+        m_descriptors.FreeStatic( descriptorIndex );
+        return;
+    }
+    m_retirement.QuarantineStaticDescriptor( descriptorIndex );
 }
 
 
@@ -823,6 +921,27 @@ void Dx12ResourceRelease::Retire( ID3D12Resource* resource )
 }
 
 
+void Dx12ResourceRelease::Retire( ID3D12Resource* resource, UINT descriptorIndex )
+{
+    m_owner.RetireResource( resource, descriptorIndex );
+}
+
+
+void Dx12ResourceRelease::Retire( ID3D12Resource* resource,
+                                  UINT descriptorIndex,
+                                  Dx12CpuDescriptorAllocator& cpuAllocator,
+                                  UINT cpuDescriptorIndex )
+{
+    m_owner.RetireResource( resource, descriptorIndex, cpuAllocator, cpuDescriptorIndex );
+}
+
+
+void Dx12ResourceRelease::RetireStaticDescriptor( UINT descriptorIndex )
+{
+    m_owner.RetireStaticDescriptor( descriptorIndex );
+}
+
+
 // --- Helpers ---
 static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIndex, UINT capacity )
 {
@@ -887,6 +1006,7 @@ RenderMemoryStats RenderBackendDX12::GetRenderMemoryStats() const
     RenderMemoryStats stats;
     strcpy_s( stats.backendName, sizeof( stats.backendName ), "DirectX 12" );
     stats.available = Device() != nullptr;
+    stats.recreationGeneration = m_recreationGeneration;
     if ( !stats.available )
     {
         return stats;
@@ -901,6 +1021,7 @@ RenderMemoryStats RenderBackendDX12::GetRenderMemoryStats() const
     stats.dsvDescriptorsCapacity = dsvStats.capacity;
     stats.srvStaticDescriptorsUsed = srvStats.staticUsed;
     stats.srvStaticDescriptorsCapacity = srvStats.staticCapacity;
+    stats.srvStaticDescriptorsHighWater = srvStats.staticHighWater;
     stats.srvTransientDescriptorsUsedThisFrame = srvStats.transientUsedThisFrame;
     stats.srvTransientDescriptorsCapacityPerFrame = srvStats.transientCapacityPerFrame;
     stats.srvTransientDescriptorsPeakThisRun = srvStats.transientPeakThisRun;
@@ -1019,13 +1140,35 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::SubmitClosedCommandList()
 }
 
 
-void Dx12DeferredReleaseOwner::Quarantine( ID3D12Resource* resource )
+void Dx12DeferredReleaseOwner::Quarantine( ID3D12Resource* resource,
+                                           UINT descriptorIndex,
+                                           Dx12CpuDescriptorAllocator* cpuAllocator,
+                                           UINT cpuDescriptorIndex )
 {
-    if ( resource )
+    if ( resource || descriptorIndex != UINT_MAX )
     {
+        if ( m_pendingCount >= MAX_PENDING_RETIREMENTS )
+        {
+            SB_FATAL( "Dx12DeferredReleaseOwner",
+                      "Retirement capacity exhausted. owner=Rendering/DX12 capacity=%zu high_water=%zu",
+                      MAX_PENDING_RETIREMENTS,
+                      m_pendingCount );
+        }
         DeferredResourceReleaseDX12 retired;
         retired.resource = resource;
-        m_pending.push_back( retired );
+        retired.staticDescriptorIndex = descriptorIndex;
+        retired.cpuDescriptorAllocator = cpuAllocator;
+        retired.cpuDescriptorIndex = cpuDescriptorIndex;
+        m_pending[m_pendingCount++] = retired;
+    }
+}
+
+
+void Dx12DeferredReleaseOwner::QuarantineStaticDescriptor( UINT descriptorIndex )
+{
+    if ( descriptorIndex != UINT_MAX )
+    {
+        Quarantine( nullptr, descriptorIndex );
     }
 }
 
@@ -1037,9 +1180,11 @@ void Dx12DeferredReleaseOwner::AssignFence( UINT64 fenceValue )
         return;
     }
 
-    for ( DeferredResourceReleaseDX12& retired : m_pending )
+    for ( size_t index = 0; index < m_pendingCount; ++index )
     {
-        if ( retired.resource && !retired.fenceAssigned )
+        DeferredResourceReleaseDX12& retired = m_pending[index];
+        if ( ( retired.resource || retired.staticDescriptorIndex != UINT_MAX || retired.cpuDescriptorAllocator ) &&
+             !retired.fenceAssigned )
         {
             retired.fenceValue = fenceValue;
             retired.fenceAssigned = true;
@@ -1049,6 +1194,7 @@ void Dx12DeferredReleaseOwner::AssignFence( UINT64 fenceValue )
 
 
 void Dx12DeferredReleaseOwner::ReleaseCompleted( Dx12RenderDevice& device,
+                                                 Dx12DescriptorAllocator& descriptors,
                                                  Dx12SubmittedWorkState& submittedWork,
                                                  bool releaseUnfenced )
 {
@@ -1058,17 +1204,19 @@ void Dx12DeferredReleaseOwner::ReleaseCompleted( Dx12RenderDevice& device,
     {
         submittedWork.ObserveCompletedFence( completedFence );
     }
-    if ( m_pending.empty() )
+    if ( m_pendingCount == 0 )
     {
         return;
     }
 
     const bool canReleaseUnfenced = releaseUnfenced && submittedWork.CanReleaseWithoutFence();
     size_t writeIndex = 0;
-    for ( size_t readIndex = 0; readIndex < m_pending.size(); ++readIndex )
+    for ( size_t readIndex = 0; readIndex < m_pendingCount; ++readIndex )
     {
         DeferredResourceReleaseDX12& retired = m_pending[readIndex];
-        const bool canRelease = retired.resource == nullptr || canReleaseUnfenced ||
+        const bool empty = retired.resource == nullptr && retired.staticDescriptorIndex == UINT_MAX &&
+                           retired.cpuDescriptorAllocator == nullptr;
+        const bool canRelease = empty || canReleaseUnfenced ||
                                 ( retired.fenceAssigned && fenceReady && retired.fenceValue <= completedFence );
         if ( canRelease )
         {
@@ -1076,6 +1224,17 @@ void Dx12DeferredReleaseOwner::ReleaseCompleted( Dx12RenderDevice& device,
             {
                 retired.resource->Release();
                 retired.resource = nullptr;
+            }
+            if ( retired.staticDescriptorIndex != UINT_MAX )
+            {
+                descriptors.FreeStatic( retired.staticDescriptorIndex );
+                retired.staticDescriptorIndex = UINT_MAX;
+            }
+            if ( retired.cpuDescriptorAllocator && retired.cpuDescriptorIndex != UINT_MAX )
+            {
+                retired.cpuDescriptorAllocator->Free( retired.cpuDescriptorIndex );
+                retired.cpuDescriptorAllocator = nullptr;
+                retired.cpuDescriptorIndex = UINT_MAX;
             }
             continue;
         }
@@ -1087,19 +1246,23 @@ void Dx12DeferredReleaseOwner::ReleaseCompleted( Dx12RenderDevice& device,
         ++writeIndex;
     }
 
-    m_pending.resize( writeIndex );
+    for ( size_t index = writeIndex; index < m_pendingCount; ++index )
+    {
+        m_pending[index] = {};
+    }
+    m_pendingCount = writeIndex;
 }
 
 
 bool Dx12DeferredReleaseOwner::Empty() const
 {
-    return m_pending.empty();
+    return m_pendingCount == 0;
 }
 
 
 size_t Dx12DeferredReleaseOwner::Count() const
 {
-    return m_pending.size();
+    return m_pendingCount;
 }
 
 
@@ -1291,7 +1454,8 @@ void RenderBackendDX12::ReportArchitectureStats( const char* reason ) const
     // staging allocation used by any one in-flight frame.
     Log().WriteEventf( "dx12_render_architecture_stats reason=%s raster_contract=%s root_parameters=%u "
                        "raster_srv_slots=t%u..t%u "
-                       "rtv_descriptors=%u/%u dsv_descriptors=%u/%u static_srvs=%u/%u transient_srv_peak=%u/%u "
+                       "rtv_descriptors=%u/%u dsv_descriptors=%u/%u static_srvs=%u/%u static_srv_high_water=%u "
+                       "transient_srv_peak=%u/%u "
                        "upload_peak_bytes=%llu upload_capacity_bytes=%llu",
                        reason ? reason : "unknown",
                        UnifiedRasterRootSignature::NAME,
@@ -1305,6 +1469,7 @@ void RenderBackendDX12::ReportArchitectureStats( const char* reason ) const
                        dsvStats.capacity,
                        descriptorStats.staticUsed,
                        descriptorStats.staticCapacity,
+                       descriptorStats.staticHighWater,
                        descriptorStats.transientPeakThisRun,
                        descriptorStats.transientCapacityPerFrame,
                        static_cast<unsigned long long>( uploadPeakBytes ),
@@ -1700,6 +1865,11 @@ void RenderBackendDX12::ReleaseGraphTransientResources( const char* reason )
             UnregisterSRV( slot.textureHandle );
             slot.textureHandle = 0;
         }
+        if ( slot.uavIndex != UINT_MAX )
+        {
+            m_frameOwner.ResourceRelease().RetireStaticDescriptor( slot.uavIndex );
+            slot.uavIndex = UINT_MAX;
+        }
         if ( ReleaseGraphTransientPoolSlotResourceDX12( slot ) )
         {
             ++released;
@@ -1988,6 +2158,8 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/
     // BindTexture(0) maps to this typed null SRV so shaders that sample an
     // intentionally empty slot read safe zero/default values instead of whatever
     // descriptor was previously bound to the root parameter.
+    // Lifetime: this typed null row is process/device-epoch state. It is never
+    // recreated by resize or scene churn and is discarded with the heaps.
     const UINT nullTextureSrvIndex = AllocateStaticSRV();
     m_textureOwner.SetNullSrvIndex( nullTextureSrvIndex );
     D3D12_SHADER_RESOURCE_VIEW_DESC nullTextureSrv = {};

@@ -63,6 +63,7 @@ struct RenderMemoryStats
 {
     bool available = false;                       // False when the backend is not initialized enough to answer.
     char backendName[32] = "unknown";             // Short renderer name for CSV/JSON diagnostics.
+    uint64_t recreationGeneration = 0;            // Advances after a complete backend resize publication.
     bool adapterMemoryAvailable = false;          // True when DXGI adapter memory counters were sampled.
     uint64_t localBudgetBytes = 0;                // Adapter-local budget reported by DXGI.
     uint64_t localCurrentUsageBytes = 0;          // Adapter-local bytes currently charged to this process.
@@ -91,6 +92,7 @@ struct RenderMemoryStats
     uint32_t dsvDescriptorsCapacity = 0;
     uint32_t srvStaticDescriptorsUsed = 0;
     uint32_t srvStaticDescriptorsCapacity = 0;
+    uint32_t srvStaticDescriptorsHighWater = 0;
     uint32_t srvTransientDescriptorsUsedThisFrame = 0;
     uint32_t srvTransientDescriptorsCapacityPerFrame = 0;
     uint32_t srvTransientDescriptorsPeakThisRun = 0;

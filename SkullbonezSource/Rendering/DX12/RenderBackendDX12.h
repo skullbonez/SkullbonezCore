@@ -70,6 +70,7 @@ Related:
 #include "Dx12CachedPsoStore.h"
 #include "RenderGraphTransientDX12.h"
 #include "RenderDeviceDX12.h"
+#include "Dx12TextureRegistry.h"
 #include "MeshDX12.h"
 #include "BLASDX12.h"
 #include "TLASDX12.h"
@@ -93,20 +94,6 @@ class Dx12PipelineOwner;
 class Dx12TextureOwner;
 class Dx12FrameOwner;
 class RenderBackendDX12;
-
-
-// Texture entry for the DX12 SRV registry.
-//
-// "SRV" means Shader Resource View. It is the descriptor flavor a shader uses
-// when it wants to read a texture. The ID3D12Resource below is the actual image
-// memory. The srvIndex is only a row number in the descriptor heap table that
-// tells the shader how to read that image.
-struct TextureEntryDX12
-{
-    ID3D12Resource* resource;
-    UINT srvIndex;                                                 // Index in the persistent SRV region
-    bool owned;                                                    // False for FBO-registered SRVs
-};
 
 
 // Dynamic vertex buffer (text, HUD)
@@ -197,6 +184,9 @@ struct GpuTimerStateDX12
 struct DeferredResourceReleaseDX12
 {
     ID3D12Resource* resource = nullptr;
+    UINT staticDescriptorIndex = UINT_MAX;                         // Optional persistent row released by the same covering fence.
+    Dx12CpuDescriptorAllocator* cpuDescriptorAllocator = nullptr;  // Optional RTV/DSV allocator sharing the fence proof.
+    UINT cpuDescriptorIndex = UINT_MAX;
     UINT64 fenceValue = 0;
     bool fenceAssigned = false;
 };
@@ -206,14 +196,26 @@ struct DeferredResourceReleaseDX12
 class Dx12DeferredReleaseOwner
 {
   public:
-    void Quarantine( ID3D12Resource* resource );
+    // Bounded above the 128 static-row heap so every row can retire alongside
+    // a resource while leaving headroom for resource-only readbacks/uploads.
+    // The stress churn is the runtime high-water proof for this fixed queue.
+    static constexpr size_t MAX_PENDING_RETIREMENTS = 512;
+    void Quarantine( ID3D12Resource* resource,
+                     UINT descriptorIndex = UINT_MAX,
+                     Dx12CpuDescriptorAllocator* cpuAllocator = nullptr,
+                     UINT cpuDescriptorIndex = UINT_MAX );
+    void QuarantineStaticDescriptor( UINT descriptorIndex );
     void AssignFence( UINT64 fenceValue );
-    void ReleaseCompleted( Dx12RenderDevice& device, Dx12SubmittedWorkState& submittedWork, bool releaseUnfenced );
+    void ReleaseCompleted( Dx12RenderDevice& device,
+                           Dx12DescriptorAllocator& descriptors,
+                           Dx12SubmittedWorkState& submittedWork,
+                           bool releaseUnfenced );
     bool Empty() const;
     size_t Count() const;
 
   private:
-    std::vector<DeferredResourceReleaseDX12> m_pending;
+    std::array<DeferredResourceReleaseDX12, MAX_PENDING_RETIREMENTS> m_pending = {};
+    size_t m_pendingCount = 0;
 };
 
 struct Dx12PlatformProfilerGpuScopeDX12
@@ -270,6 +272,12 @@ class Dx12ResourceRelease
     {
     }
     void Retire( ID3D12Resource* resource );
+    void Retire( ID3D12Resource* resource, UINT descriptorIndex );
+    void Retire( ID3D12Resource* resource,
+                 UINT descriptorIndex,
+                 Dx12CpuDescriptorAllocator& cpuAllocator,
+                 UINT cpuDescriptorIndex );
+    void RetireStaticDescriptor( UINT descriptorIndex );
 
   private:
     Dx12FrameOwner& m_owner;
@@ -420,6 +428,12 @@ class Dx12FrameOwner
         return m_uploads;
     }
     void RetireResource( ID3D12Resource* resource );
+    void RetireResource( ID3D12Resource* resource, UINT descriptorIndex );
+    void RetireResource( ID3D12Resource* resource,
+                         UINT descriptorIndex,
+                         Dx12CpuDescriptorAllocator& cpuAllocator,
+                         UINT cpuDescriptorIndex );
+    void RetireStaticDescriptor( UINT descriptorIndex );
     void AssignRetirementFence( UINT64 fenceValue )
     {
         m_retirement.AssignFence( fenceValue );
@@ -512,6 +526,10 @@ class Dx12TextureCommands
     {
         return m_frame.Descriptors().AllocateStatic();
     }
+    UINT StaticDescriptorCapacity() const
+    {
+        return m_frame.Descriptors().GetStats().staticCapacity;
+    }
     UINT AllocateTransientSrv()
     {
         return m_frame.Descriptors().AllocateTransient();
@@ -552,6 +570,14 @@ class Dx12TextureCommands
     {
         m_frame.ResourceRelease().Retire( resource );
     }
+    void Retire( ID3D12Resource* resource, UINT descriptorIndex )
+    {
+        m_frame.ResourceRelease().Retire( resource, descriptorIndex );
+    }
+    void RetireStaticDescriptor( UINT descriptorIndex )
+    {
+        m_frame.ResourceRelease().RetireStaticDescriptor( descriptorIndex );
+    }
     bool Transition( const char* passName,
                      const char* resourceName,
                      ID3D12Resource* resource,
@@ -587,7 +613,7 @@ class Dx12TextureOwner
     void BindTexture( uint32_t handle, int slot );
     void DeleteTexture( Dx12TextureCommands& commands, uint32_t handle );
     UINT RegisterSRV( UINT srvIndex );
-    void UnregisterSRV( uint32_t handle );
+    UINT UnregisterSRV( uint32_t handle );
     void ClearBoundSlotsForSrv( UINT srvIndex );
     UINT ResolveBoundSrv( int slot ) const;
     void SetNullSrvIndex( UINT index );
@@ -600,6 +626,10 @@ class Dx12TextureOwner
     uint32_t FindHandleForSrv( UINT srvIndex ) const;
 
   private:
+    TextureEntryDX12* ResolveEntry( uint32_t handle );
+    const TextureEntryDX12* ResolveEntry( uint32_t handle ) const;
+    uint32_t ReuseOrAppend( const TextureEntryDX12& entry );
+    void ReportStaleHandle( uint32_t handle ) const;
     bool GenerateMips( Dx12TextureCommands& commands,
                        ID3D12Resource* texture,
                        DXGI_FORMAT format,
@@ -608,13 +638,14 @@ class Dx12TextureOwner
                        UINT mipCount,
                        bool& graphicsStateInvalidated );
 
-    std::vector<TextureEntryDX12> m_textures;
+    Dx12TextureRegistry m_registry;
     UINT m_boundTexSlot[TEXTURE_SLOT_COUNT] = { UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX };
     UINT m_nullTextureSRVIndex = UINT_MAX;
     ID3D12PipelineState* m_genMipsPSO = nullptr;
     ID3D12RootSignature* m_genMipsRS = nullptr;
     UINT m_genMipsNullUAV = UINT_MAX;
     bool m_texBindingsDirty = true;
+    mutable bool m_staleHandleReported = false;
 };
 
 // Concept: a pipeline is the complete draw recipe, not a collection of backend

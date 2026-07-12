@@ -83,6 +83,8 @@ class FramebufferDX12 : public IFramebuffer
     ID3D12Resource* m_depthTexture;
     D3D12_CPU_DESCRIPTOR_HANDLE m_rtvHandle;
     D3D12_CPU_DESCRIPTOR_HANDLE m_dsvHandle;
+    UINT m_rtvIndex;
+    UINT m_dsvIndex;
     // Static descriptor rows that expose the color/depth resources to shaders
     // after the framebuffer is unbound.
     UINT m_srvIndex;

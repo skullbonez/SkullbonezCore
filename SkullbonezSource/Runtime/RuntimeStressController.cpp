@@ -48,6 +48,7 @@ Related:
 #include "../Physics/SimulationSystem.h"
 #include "../Rendering/IRenderDeviceLifecycle.h"
 #include "../Rendering/IRenderDiagnostics.h"
+#include "../Rendering/IRenderResourceFactory.h"
 #include "../Scene/TestScene.h"
 #include "../Core/WorkerPool.h"
 #include "../UI/UI.h"
@@ -537,6 +538,11 @@ void GraphicsStressController::Configure( unsigned int seed,
     m_actionsPerFrame = actionsPerFrame;
     m_sceneIntervalFrames = sceneIntervalFrames;
     m_memoryLogIntervalFrames = memoryLogIntervalFrames;
+    m_descriptorBaseline = 0;
+    m_descriptorResizeCount = 0;
+    m_lastRecreationGeneration = 0;
+    m_acknowledgedResizeCount = 0;
+    m_textureChurnCount = 0;
 }
 
 
@@ -647,6 +653,92 @@ bool GraphicsStressController::ShouldPrintFrameSummary() const
 bool GraphicsStressController::ShouldLogMemory() const
 {
     return m_memoryLogIntervalFrames > 0 && ( m_framesRun == 1 || m_framesRun % m_memoryLogIntervalFrames == 0 );
+}
+
+
+bool GraphicsStressController::InDescriptorChurnQuietWindow() const
+{
+    return m_framesRun <= DESCRIPTOR_VERIFY_FRAME;
+}
+
+
+bool GraphicsStressController::ShouldCaptureDescriptorBaseline() const
+{
+    return m_framesRun == DESCRIPTOR_BASELINE_FRAME;
+}
+
+
+bool GraphicsStressController::ShouldIssueDescriptorResize() const
+{
+    return m_framesRun >= DESCRIPTOR_RESIZE_FIRST_FRAME && m_framesRun <= DESCRIPTOR_RESIZE_LAST_FRAME;
+}
+
+
+bool GraphicsStressController::ShouldVerifyDescriptorChurn() const
+{
+    return m_framesRun == DESCRIPTOR_VERIFY_FRAME;
+}
+
+
+void GraphicsStressController::CaptureDescriptorBaseline( unsigned int staticUsed, uint64_t recreationGeneration )
+{
+    m_descriptorBaseline = staticUsed;
+    m_descriptorResizeCount = 0;
+    m_lastRecreationGeneration = recreationGeneration;
+    m_acknowledgedResizeCount = 0;
+    m_textureChurnCount = 0;
+}
+
+
+void GraphicsStressController::ObserveRecreationGeneration( uint64_t recreationGeneration )
+{
+    if ( recreationGeneration > m_lastRecreationGeneration )
+    {
+        m_acknowledgedResizeCount += static_cast<int>( recreationGeneration - m_lastRecreationGeneration );
+        m_lastRecreationGeneration = recreationGeneration;
+    }
+}
+
+
+void GraphicsStressController::RecordDescriptorResize()
+{
+    ++m_descriptorResizeCount;
+}
+
+
+void GraphicsStressController::RecordTextureChurn()
+{
+    ++m_textureChurnCount;
+}
+
+
+bool GraphicsStressController::DescriptorChurnMatchesBaseline( unsigned int staticUsed ) const
+{
+    return m_acknowledgedResizeCount > 128 && m_textureChurnCount > 128 && staticUsed == m_descriptorBaseline;
+}
+
+
+unsigned int GraphicsStressController::DescriptorBaseline() const
+{
+    return m_descriptorBaseline;
+}
+
+
+int GraphicsStressController::DescriptorResizeCount() const
+{
+    return m_descriptorResizeCount;
+}
+
+
+int GraphicsStressController::AcknowledgedResizeCount() const
+{
+    return m_acknowledgedResizeCount;
+}
+
+
+int GraphicsStressController::TextureChurnCount() const
+{
+    return m_textureChurnCount;
 }
 
 
@@ -973,7 +1065,71 @@ void SkullbonezCore::Basics::ExecuteGraphicsStressFrame( GraphicsStressControlle
             .ok;
     };
 
-    if ( stress.SceneLoadDue() )
+    const SkullbonezCore::Rendering::RenderMemoryStats preActionRenderStats = renderDiagnostics.GetRenderMemoryStats();
+    if ( stress.ShouldCaptureDescriptorBaseline() )
+    {
+        stress.CaptureDescriptorBaseline( preActionRenderStats.srvStaticDescriptorsUsed,
+                                          preActionRenderStats.recreationGeneration );
+        printf( "[graphics-stress-descriptor-churn] baseline=%u frame=%d\n",
+                stress.DescriptorBaseline(),
+                stress.FramesRun() );
+        fflush( stdout );
+    }
+    if ( stress.ShouldIssueDescriptorResize() )
+    {
+        // A request counts only after diagnostics observes the backend's
+        // publication generation advance on a later frame.
+        stress.ObserveRecreationGeneration( preActionRenderStats.recreationGeneration );
+        const int edge = ( stress.DescriptorResizeCount() & 1 ) == 0 ? 1280 : 1281;
+        if ( !SetWindowPos( window->NativeWindowHandle(), nullptr, 0, 0, edge, 720, SWP_NOMOVE | SWP_NOZORDER ) )
+        {
+            SB_FATAL( "GraphicsStress",
+                      "Descriptor churn SetWindowPos failed. resize=%d",
+                      stress.DescriptorResizeCount() );
+        }
+        stress.RecordDescriptorResize();
+        if ( !renderBackendView.renderResources )
+        {
+            SB_FATAL( "GraphicsStress", "Descriptor churn requires the render-resource factory." );
+        }
+        const uint8_t churnPixel[4] = { 255u, 0u, 255u, 255u };
+        const uint32_t churnTexture =
+            renderBackendView.renderResources->CreateTexture2D( churnPixel, 1, 1, 4, false, false );
+        if ( churnTexture == 0 )
+        {
+            SB_FATAL( "GraphicsStress",
+                      "Descriptor churn texture creation failed. request=%d",
+                      stress.DescriptorResizeCount() );
+        }
+        renderBackendView.renderResources->DeleteTexture( churnTexture );
+        stress.RecordTextureChurn();
+    }
+    if ( stress.ShouldVerifyDescriptorChurn() )
+    {
+        stress.ObserveRecreationGeneration( preActionRenderStats.recreationGeneration );
+        if ( !stress.DescriptorChurnMatchesBaseline( preActionRenderStats.srvStaticDescriptorsUsed ) )
+        {
+            SB_FATAL( "GraphicsStress",
+                      "Static descriptor churn did not return to baseline. baseline=%u current=%u requested=%d "
+                      "acknowledged=%d textures=%d",
+                      stress.DescriptorBaseline(),
+                      preActionRenderStats.srvStaticDescriptorsUsed,
+                      stress.DescriptorResizeCount(),
+                      stress.AcknowledgedResizeCount(),
+                      stress.TextureChurnCount() );
+        }
+        printf( "[graphics-stress-descriptor-churn] PASS baseline=%u current=%u requested=%d acknowledged=%d "
+                "textures=%d high_water=%u\n",
+                stress.DescriptorBaseline(),
+                preActionRenderStats.srvStaticDescriptorsUsed,
+                stress.DescriptorResizeCount(),
+                stress.AcknowledgedResizeCount(),
+                stress.TextureChurnCount(),
+                preActionRenderStats.srvStaticDescriptorsHighWater );
+        fflush( stdout );
+    }
+
+    if ( !stress.InDescriptorChurnQuietWindow() && stress.SceneLoadDue() )
     {
         // Hazard: suite order is the durable test contract. Browser fallback is
         // useful for manual app launches, but automated repros must prefer the
@@ -1019,7 +1175,7 @@ void SkullbonezCore::Basics::ExecuteGraphicsStressFrame( GraphicsStressControlle
     ui.SetMinimized( false, timers.simulationTimer.GetTotalTime() );
     sceneController.EnterInteractiveRun();
 
-    const int actionCount = stress.ActionCount();
+    const int actionCount = stress.InDescriptorChurnQuietWindow() ? 0 : stress.ActionCount();
     // Invariant: random values stay inside the same broad ranges exposed by the
     // runtime UI. The stress test should crash bad DX12 lifetime/state tracking,
     // not manufacture impossible physics or render data.
@@ -1072,6 +1228,7 @@ void SkullbonezCore::Basics::ExecuteGraphicsStressFrame( GraphicsStressControlle
                 "upload_capacity_bytes=%llu upload_used_bytes=%llu upload_peak_bytes=%llu timer_readback_bytes=%llu "
                 "textures=%zu texture_capacity=%zu psos=%zu graph_transients=%zu graph_transient_capacity=%zu "
                 "rtv_used=%u rtv_capacity=%u dsv_used=%u dsv_capacity=%u srv_static_used=%u srv_static_capacity=%u "
+                "srv_static_high_water=%u "
                 "srv_transient_used=%u srv_transient_capacity=%u srv_transient_peak=%u\n",
                 stress.FramesRun(),
                 stress.SceneLoadsRequested(),
@@ -1105,6 +1262,7 @@ void SkullbonezCore::Basics::ExecuteGraphicsStressFrame( GraphicsStressControlle
                 renderStats.dsvDescriptorsCapacity,
                 renderStats.srvStaticDescriptorsUsed,
                 renderStats.srvStaticDescriptorsCapacity,
+                renderStats.srvStaticDescriptorsHighWater,
                 renderStats.srvTransientDescriptorsUsedThisFrame,
                 renderStats.srvTransientDescriptorsCapacityPerFrame,
                 renderStats.srvTransientDescriptorsPeakThisRun );

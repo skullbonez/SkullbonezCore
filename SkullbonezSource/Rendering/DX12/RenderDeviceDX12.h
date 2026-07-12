@@ -201,17 +201,19 @@ struct Dx12CpuDescriptorAllocatorStats
 
     This allocator is intentionally simpler than Dx12DescriptorAllocator below.
     RTV/DSV heaps are CPU-only in this renderer, so there is no GPU-visible
-    handle and no per-frame transient range. Rows are long-lived and are reused
-    only by overwriting the descriptor that already belongs to the same engine
-    object, such as recreating a swap-chain RTV after ResizeBuffers().
+    handle and no per-frame transient range. Stable swap-chain rows are
+    overwritten for the same engine object; framebuffer rows return through the
+    shared retirement fence before the free list may assign them to a new one.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class Dx12CpuDescriptorAllocator
 {
   public:
+    static constexpr UINT MAX_TRACKED_CPU_DESCRIPTORS = 256;
     void Init( ID3D12DescriptorHeap* heap, UINT descriptorSize, UINT capacity, const char* heapName );
     void Reset();
 
     Dx12CpuDescriptorAllocation Allocate();
+    void Free( UINT index );
     D3D12_CPU_DESCRIPTOR_HANDLE CpuHandle( UINT index ) const;
 
     Dx12CpuDescriptorAllocatorStats GetStats() const;
@@ -221,6 +223,10 @@ class Dx12CpuDescriptorAllocator
     UINT m_descriptorSize = 0;
     UINT m_capacity = 0;
     UINT m_next = 0;
+    UINT m_used = 0;
+    UINT m_freeCount = 0;
+    UINT m_free[MAX_TRACKED_CPU_DESCRIPTORS] = {};
+    bool m_allocated[MAX_TRACKED_CPU_DESCRIPTORS] = {};
     const char* m_heapName = "unknown";
 };
 
@@ -248,10 +254,43 @@ struct Dx12DescriptorAllocatorStats
 {
     UINT staticCapacity = 0;
     UINT staticUsed = 0;
+    UINT staticHighWater = 0;                                    // Peak simultaneously live persistent rows for this device epoch.
     UINT transientCapacityPerFrame = 0;
     UINT transientUsedThisFrame = 0;
     UINT transientPeakThisRun = 0;
     UINT currentFrame = 0;
+};
+
+// Generation-tagged opaque id used by the texture registry. The low 24 bits
+// store slot+1 so zero remains the null handle; the high 8 bits change whenever
+// a tombstone slot is reused. Eight bits deliberately bound the handle to the
+// existing uint32_t ABI; after 255 reuses the generation wraps, so callers must
+// still release stale ids rather than treating generation tags as eternal IDs.
+struct Dx12TextureHandleCodec
+{
+    static constexpr uint32_t SLOT_BITS = 24u;
+    static constexpr uint32_t SLOT_MASK = ( 1u << SLOT_BITS ) - 1u;
+
+    static uint32_t Encode( size_t slot, uint8_t generation )
+    {
+        return ( static_cast<uint32_t>( generation ) << SLOT_BITS ) | static_cast<uint32_t>( slot + 1u );
+    }
+    static bool Decode( uint32_t handle, size_t& slot, uint8_t& generation )
+    {
+        const uint32_t encodedSlot = handle & SLOT_MASK;
+        generation = static_cast<uint8_t>( handle >> SLOT_BITS );
+        if ( encodedSlot == 0 || generation == 0 )
+        {
+            return false;
+        }
+        slot = static_cast<size_t>( encodedSlot - 1u );
+        return true;
+    }
+    static uint8_t NextGeneration( uint8_t generation )
+    {
+        const uint8_t next = static_cast<uint8_t>( generation + 1u );
+        return next == 0 ? 1 : next;
+    }
 };
 
 /* -- Dx12DescriptorAllocator
@@ -339,6 +378,7 @@ struct Dx12DescriptorAllocatorStats
 class Dx12DescriptorAllocator
 {
   public:
+    static constexpr UINT MAX_TRACKED_STATIC_DESCRIPTORS = 4096;
     // Bind the allocator to the two descriptor heaps it manages. The allocator
     // does not own the COM objects; the backend/device owns and releases them.
     // The allocator owns the slot accounting policy for those heaps.
@@ -363,6 +403,10 @@ class Dx12DescriptorAllocator
     // Plain-language rule: if another object will remember this descriptor
     // number after the current draw call, it needs a static slot.
     UINT AllocateStatic();
+
+    // Return a persistent row only after the frame owner has proved that no
+    // in-flight command list can still follow a copied descriptor from it.
+    void FreeStatic( UINT index );
 
     // Reserve one temporary descriptor slot from the current frame's range.
     // Use this for descriptor copies needed while recording this frame.
@@ -413,6 +457,11 @@ class Dx12DescriptorAllocator
     UINT m_transientCapacityPerFrame = 0;
     UINT m_frameCount = 0;
     UINT m_nextStatic = 0;
+    UINT m_staticUsed = 0;                                       // Persistent rows currently owned by live or retiring resources.
+    UINT m_staticHighWater = 0;                                  // Peak m_staticUsed; churn must not increase it indefinitely.
+    UINT m_freeStaticCount = 0;
+    UINT m_freeStatic[MAX_TRACKED_STATIC_DESCRIPTORS] = {};      // Fence-proven reusable row stack.
+    bool m_staticAllocated[MAX_TRACKED_STATIC_DESCRIPTORS] = {}; // Double-free/accounting guard.
     UINT m_nextTransientInFrame = 0;
     UINT m_transientPeakThisRun = 0;
     UINT m_currentFrame = 0;

@@ -282,7 +282,7 @@ void Dx12CpuDescriptorAllocator::Init( ID3D12DescriptorHeap* heap,
                                        UINT capacity,
                                        const char* heapName )
 {
-    if ( !heap || descriptorSize == 0 || capacity == 0 )
+    if ( !heap || descriptorSize == 0 || capacity == 0 || capacity > MAX_TRACKED_CPU_DESCRIPTORS )
     {
         SB_FATAL( "RenderDeviceDX12",
                   "DX12 CPU descriptor allocator received invalid heap geometry. descriptorSize=%u capacity=%u",
@@ -301,6 +301,10 @@ void Dx12CpuDescriptorAllocator::Init( ID3D12DescriptorHeap* heap,
     m_descriptorSize = descriptorSize;
     m_capacity = capacity;
     m_next = 0;
+    m_used = 0;
+    m_freeCount = 0;
+    std::fill_n( m_free, MAX_TRACKED_CPU_DESCRIPTORS, 0u );
+    std::fill_n( m_allocated, MAX_TRACKED_CPU_DESCRIPTORS, false );
     m_heapName = ( heapName && heapName[0] != '\0' ) ? heapName : "unknown";
 }
 
@@ -311,6 +315,10 @@ void Dx12CpuDescriptorAllocator::Reset()
     m_descriptorSize = 0;
     m_capacity = 0;
     m_next = 0;
+    m_used = 0;
+    m_freeCount = 0;
+    std::fill_n( m_free, MAX_TRACKED_CPU_DESCRIPTORS, 0u );
+    std::fill_n( m_allocated, MAX_TRACKED_CPU_DESCRIPTORS, false );
     m_heapName = "unknown";
 }
 
@@ -321,12 +329,21 @@ Dx12CpuDescriptorAllocation Dx12CpuDescriptorAllocator::Allocate()
     {
         SB_FATAL( "RenderDeviceDX12", "DX12 CPU descriptor allocator used before Init." );
     }
-    if ( m_next >= m_capacity )
+    UINT index = UINT_MAX;
+    if ( m_freeCount > 0 )
+    {
+        index = m_free[--m_freeCount];
+    }
+    else if ( m_next < m_capacity )
+    {
+        index = m_next++;
+    }
+    if ( index == UINT_MAX )
     {
         SB_FATAL( "RenderDeviceDX12",
                   "DX12 CPU descriptor heap exhausted. heap=%s used=%u capacity=%u",
                   m_heapName,
-                  m_next,
+                  m_used,
                   m_capacity );
     }
 
@@ -334,9 +351,28 @@ Dx12CpuDescriptorAllocation Dx12CpuDescriptorAllocator::Allocate()
     // It does not touch the resource itself. The caller will write the actual
     // view record with CreateRenderTargetView or CreateDepthStencilView.
     Dx12CpuDescriptorAllocation allocation;
-    allocation.index = m_next++;
+    allocation.index = index;
     allocation.cpuHandle = CpuHandle( allocation.index );
+    m_allocated[index] = true;
+    ++m_used;
     return allocation;
+}
+
+
+void Dx12CpuDescriptorAllocator::Free( UINT index )
+{
+    if ( index >= m_capacity || !m_allocated[index] || m_freeCount >= m_capacity || m_used == 0 )
+    {
+        SB_FATAL( "RenderDeviceDX12",
+                  "DX12 CPU descriptor free rejected. heap=%s index=%u used=%u capacity=%u",
+                  m_heapName,
+                  index,
+                  m_used,
+                  m_capacity );
+    }
+    m_allocated[index] = false;
+    --m_used;
+    m_free[m_freeCount++] = index;
 }
 
 
@@ -365,7 +401,7 @@ Dx12CpuDescriptorAllocatorStats Dx12CpuDescriptorAllocator::GetStats() const
     Dx12CpuDescriptorAllocatorStats stats;
     stats.heapName = m_heapName;
     stats.capacity = m_capacity;
-    stats.used = m_next;
+    stats.used = m_used;
     return stats;
 }
 
@@ -391,6 +427,13 @@ void Dx12DescriptorAllocator::Init( ID3D12DescriptorHeap* shaderVisibleHeap,
                   frameCount,
                   static_cast<unsigned long long>( shaderVisibleCapacity ) );
     }
+    if ( staticCapacity > MAX_TRACKED_STATIC_DESCRIPTORS )
+    {
+        SB_FATAL( "RenderDeviceDX12",
+                  "DX12 static descriptor tracking capacity exceeded. requested=%u tracking_capacity=%u",
+                  staticCapacity,
+                  MAX_TRACKED_STATIC_DESCRIPTORS );
+    }
 
     // The allocator only stores borrowed heap pointers and the table geometry.
     // "descriptorSize" is the byte stride between heap rows. Different heap
@@ -403,6 +446,11 @@ void Dx12DescriptorAllocator::Init( ID3D12DescriptorHeap* shaderVisibleHeap,
     m_transientCapacityPerFrame = transientCapacityPerFrame;
     m_frameCount = frameCount;
     m_nextStatic = 0;
+    m_staticUsed = 0;
+    m_staticHighWater = 0;
+    m_freeStaticCount = 0;
+    std::fill_n( m_freeStatic, MAX_TRACKED_STATIC_DESCRIPTORS, 0u );
+    std::fill_n( m_staticAllocated, MAX_TRACKED_STATIC_DESCRIPTORS, false );
     m_nextTransientInFrame = 0;
     m_transientPeakThisRun = 0;
     m_currentFrame = 0;
@@ -418,6 +466,11 @@ void Dx12DescriptorAllocator::Reset()
     m_transientCapacityPerFrame = 0;
     m_frameCount = 0;
     m_nextStatic = 0;
+    m_staticUsed = 0;
+    m_staticHighWater = 0;
+    m_freeStaticCount = 0;
+    std::fill_n( m_freeStatic, MAX_TRACKED_STATIC_DESCRIPTORS, 0u );
+    std::fill_n( m_staticAllocated, MAX_TRACKED_STATIC_DESCRIPTORS, false );
     m_nextTransientInFrame = 0;
     m_transientPeakThisRun = 0;
     m_currentFrame = 0;
@@ -452,20 +505,58 @@ void Dx12DescriptorAllocator::ResetFrame( UINT frameIndex )
 
 UINT Dx12DescriptorAllocator::AllocateStatic()
 {
-    // Static slots are stable descriptor IDs. Texture handles and persistent
-    // render views can keep referring to them because they are never recycled
-    // during the frame loop.
-    //
-    // This is the right allocation path when the slot index becomes part of a
-    // longer-lived engine record, such as TextureEntryDX12::srvIndex.
-    if ( m_nextStatic >= m_staticCapacity )
+    // Lifetime: freed rows enter this list only after the frame retirement
+    // fence completes, so reuse cannot change a descriptor still visible to an
+    // in-flight command list.
+    UINT index = UINT_MAX;
+    if ( m_freeStaticCount > 0 )
+    {
+        index = m_freeStatic[--m_freeStaticCount];
+    }
+    else if ( m_nextStatic < m_staticCapacity )
+    {
+        index = m_nextStatic++;
+    }
+    if ( index == UINT_MAX )
     {
         SB_FATAL( "RenderDeviceDX12",
-                  "DX12 static SRV heap exhausted. used=%u capacity=%u",
-                  m_nextStatic,
+                  "DX12 static SRV heap exhausted. owner=Rendering/DX12 used=%u capacity=%u high_water=%u",
+                  m_staticUsed,
+                  m_staticCapacity,
+                  m_staticHighWater );
+    }
+    if ( m_staticAllocated[index] )
+    {
+        SB_FATAL( "RenderDeviceDX12", "DX12 static SRV free-list returned an allocated row. index=%u", index );
+    }
+    m_staticAllocated[index] = true;
+    ++m_staticUsed;
+    m_staticHighWater = (std::max)( m_staticHighWater, m_staticUsed );
+    return index;
+}
+
+
+void Dx12DescriptorAllocator::FreeStatic( UINT index )
+{
+    if ( index >= m_staticCapacity || !m_staticAllocated[index] )
+    {
+        SB_FATAL( "RenderDeviceDX12",
+                  "DX12 static SRV free rejected. index=%u capacity=%u allocated=%u",
+                  index,
+                  m_staticCapacity,
+                  index < MAX_TRACKED_STATIC_DESCRIPTORS ? static_cast<UINT>( m_staticAllocated[index] ) : 0u );
+    }
+    if ( m_freeStaticCount >= m_staticCapacity || m_staticUsed == 0 )
+    {
+        SB_FATAL( "RenderDeviceDX12",
+                  "DX12 static SRV free-list accounting corrupt. free=%u used=%u capacity=%u",
+                  m_freeStaticCount,
+                  m_staticUsed,
                   m_staticCapacity );
     }
-    return m_nextStatic++;
+    m_staticAllocated[index] = false;
+    --m_staticUsed;
+    m_freeStatic[m_freeStaticCount++] = index;
 }
 
 
@@ -635,7 +726,8 @@ Dx12DescriptorAllocatorStats Dx12DescriptorAllocator::GetStats() const
 {
     Dx12DescriptorAllocatorStats stats;
     stats.staticCapacity = m_staticCapacity;
-    stats.staticUsed = m_nextStatic;
+    stats.staticUsed = m_staticUsed;
+    stats.staticHighWater = m_staticHighWater;
     stats.transientCapacityPerFrame = m_transientCapacityPerFrame;
     stats.transientUsedThisFrame = m_nextTransientInFrame;
     stats.transientPeakThisRun = m_transientPeakThisRun;

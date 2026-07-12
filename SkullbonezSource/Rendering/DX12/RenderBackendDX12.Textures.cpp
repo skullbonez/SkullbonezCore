@@ -148,6 +148,9 @@ bool Dx12TextureCommands::UavBarrier( const char* passName, const char* resource
 
 SkullbonezCore::Basics::SbResult Dx12TextureOwner::Initialize( Dx12TextureCommands& commands )
 {
+    // Runtime allocation policy: size every handle slot before steady gameplay.
+    // Insert reuses tombstones and fails fatally instead of growing this vector.
+    m_registry.Initialize( commands.StaticDescriptorCapacity() );
     // Concept: mip generation is a tiny compute pipeline owned with textures.
     //
     // Runtime texture loading copies only the original image into mip 0. This
@@ -285,6 +288,9 @@ SkullbonezCore::Basics::SbResult Dx12TextureOwner::Initialize( Dx12TextureComman
     // dispatch batch may generate fewer than four mips. Fill unused rows with a
     // typed null UAV so the debug layer sees a complete descriptor table and
     // the shader never follows an uninitialized descriptor.
+    // Lifetime: the mip pipeline is initialized once per device epoch. Its
+    // typed null row is process-lifetime and disappears with the descriptor
+    // heaps rather than entering the runtime retirement queue.
     m_genMipsNullUAV = commands.AllocateStaticSrv();
 
     D3D12_UNORDERED_ACCESS_VIEW_DESC nullUAVDesc = {};
@@ -719,25 +725,13 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands,
     srvDesc.Texture2D.MipLevels = numMips;
     commands.Device()->CreateShaderResourceView( texResource, &srvDesc, commands.StagingCpuHandle( srvIdx ) );
 
-    // Register in texture array (1-based handle)
+    // Register in the generation-tagged texture table. The low 24 bits name
+    // the slot plus one; the high 8 bits reject stale ids after slot reuse.
     TextureEntryDX12 entry = {};
     entry.resource = texResource;
     entry.srvIndex = srvIdx;
     entry.owned = true;
-    // Runtime allocation policy: deleted texture/FBO handles leave tombstones.
-    // Reclaim one before growing the registry so repeated resource rebuilds do
-    // not consume unbounded host memory. Handles remain valid only until their
-    // matching DeleteTexture/UnregisterSRV call, as before.
-    for ( size_t index = 0; index < m_textures.size(); ++index )
-    {
-        if ( !m_textures[index].resource && m_textures[index].srvIndex == UINT_MAX && !m_textures[index].owned )
-        {
-            m_textures[index] = entry;
-            return static_cast<uint32_t>( index + 1 );
-        }
-    }
-    m_textures.push_back( entry );
-    return static_cast<uint32_t>( m_textures.size() );
+    return ReuseOrAppend( entry );
 }
 
 
@@ -781,15 +775,8 @@ void Dx12TextureOwner::BindTexture( uint32_t handle, int slot )
 #endif
         return;
     }
-    UINT newSlot;
-    if ( handle == 0 || handle > (uint32_t)m_textures.size() )
-    {
-        newSlot = m_nullTextureSRVIndex;
-    }
-    else
-    {
-        newSlot = m_textures[handle - 1].srvIndex;
-    }
+    const TextureEntryDX12* entry = ResolveEntry( handle );
+    const UINT newSlot = entry ? entry->srvIndex : m_nullTextureSRVIndex;
     if ( m_boundTexSlot[slot] != newSlot )
     {
         m_boundTexSlot[slot] = newSlot;
@@ -800,19 +787,23 @@ void Dx12TextureOwner::BindTexture( uint32_t handle, int slot )
 
 void Dx12TextureOwner::DeleteTexture( Dx12TextureCommands& commands, uint32_t handle )
 {
-    if ( handle == 0 || handle > (uint32_t)m_textures.size() )
+    TextureEntryDX12* entry = ResolveEntry( handle );
+    if ( !entry )
     {
         return;
     }
-    auto& entry = m_textures[handle - 1];
-    ClearBoundSlotsForSrv( entry.srvIndex );
-    if ( entry.owned && entry.resource )
+    ClearBoundSlotsForSrv( entry->srvIndex );
+    if ( entry->owned && entry->resource )
     {
-        commands.Retire( entry.resource );
+        commands.Retire( entry->resource, entry->srvIndex );
     }
-    entry.resource = nullptr;
-    entry.srvIndex = UINT_MAX;
-    entry.owned = false;
+    else
+    {
+        commands.RetireStaticDescriptor( entry->srvIndex );
+    }
+    entry->resource = nullptr;
+    entry->srvIndex = UINT_MAX;
+    entry->owned = false;
 }
 
 
@@ -822,43 +813,36 @@ UINT Dx12TextureOwner::RegisterSRV( UINT srvIndex )
     entry.resource = nullptr;
     entry.srvIndex = srvIndex;
     entry.owned = false;
-    for ( size_t index = 0; index < m_textures.size(); ++index )
-    {
-        if ( !m_textures[index].resource && m_textures[index].srvIndex == UINT_MAX && !m_textures[index].owned )
-        {
-            m_textures[index] = entry;
-            return static_cast<UINT>( index + 1 );
-        }
-    }
-    m_textures.push_back( entry );
-    return static_cast<UINT>( m_textures.size() ); // 1-based handle
+    return ReuseOrAppend( entry );
 }
 
 
-void Dx12TextureOwner::UnregisterSRV( uint32_t handle )
+UINT Dx12TextureOwner::UnregisterSRV( uint32_t handle )
 {
-    if ( handle == 0 || handle > (uint32_t)m_textures.size() )
+    TextureEntryDX12* entry = ResolveEntry( handle );
+    if ( !entry )
     {
-        return;
+        return UINT_MAX;
     }
-    auto& entry = m_textures[handle - 1];
-    ClearBoundSlotsForSrv( entry.srvIndex );
-    entry.resource = nullptr;
-    entry.srvIndex = UINT_MAX;
-    entry.owned = false;
+    const UINT srvIndex = entry->srvIndex;
+    ClearBoundSlotsForSrv( srvIndex );
+    entry->resource = nullptr;
+    entry->srvIndex = UINT_MAX;
+    entry->owned = false;
+    return srvIndex;
 }
 
 
 void Dx12TextureOwner::Shutdown()
 {
-    for ( TextureEntryDX12& texture : m_textures )
+    for ( TextureEntryDX12& texture : m_registry.Entries() )
     {
         if ( texture.owned && texture.resource )
         {
             texture.resource->Release();
         }
     }
-    m_textures.clear();
+    m_registry.Clear();
     if ( m_genMipsPSO )
     {
         m_genMipsPSO->Release();
@@ -876,6 +860,7 @@ void Dx12TextureOwner::Shutdown()
         slot = UINT_MAX;
     }
     m_texBindingsDirty = true;
+    m_staleHandleReported = false;
 }
 
 
@@ -904,34 +889,80 @@ bool Dx12TextureOwner::BindingsDirty() const
 }
 size_t Dx12TextureOwner::RegistryCount() const
 {
-    return m_textures.size();
+    return m_registry.Count();
 }
 size_t Dx12TextureOwner::RegistryCapacity() const
 {
-    return m_textures.capacity();
+    return m_registry.Capacity();
 }
 
 
 UINT Dx12TextureOwner::ResolveSrv( uint32_t handle ) const
 {
-    if ( handle == 0 || handle > m_textures.size() )
-    {
-        return UINT_MAX;
-    }
-    return m_textures[handle - 1].srvIndex;
+    const TextureEntryDX12* entry = ResolveEntry( handle );
+    return entry ? entry->srvIndex : UINT_MAX;
 }
 
 
 uint32_t Dx12TextureOwner::FindHandleForSrv( UINT srvIndex ) const
 {
-    for ( size_t index = 0; index < m_textures.size(); ++index )
+    const auto& entries = m_registry.Entries();
+    for ( size_t index = 0; index < entries.size(); ++index )
     {
-        if ( m_textures[index].srvIndex == srvIndex )
+        if ( entries[index].srvIndex == srvIndex )
         {
-            return static_cast<uint32_t>( index + 1 );
+            return Dx12TextureHandleCodec::Encode( index, entries[index].generation );
         }
     }
     return 0;
+}
+
+
+const TextureEntryDX12* Dx12TextureOwner::ResolveEntry( uint32_t handle ) const
+{
+    const TextureEntryDX12* entry = m_registry.Resolve( handle );
+    if ( !entry )
+    {
+        if ( handle != 0 )
+        {
+            ReportStaleHandle( handle );
+        }
+        return nullptr;
+    }
+    return entry;
+}
+
+
+TextureEntryDX12* Dx12TextureOwner::ResolveEntry( uint32_t handle )
+{
+    return const_cast<TextureEntryDX12*>( static_cast<const Dx12TextureOwner*>( this )->ResolveEntry( handle ) );
+}
+
+
+uint32_t Dx12TextureOwner::ReuseOrAppend( const TextureEntryDX12& entry )
+{
+    const uint32_t handle = m_registry.Insert( entry );
+    if ( handle == 0 )
+    {
+        SB_FATAL( "Dx12TextureOwner",
+                  "Texture handle slot capacity exhausted. capacity=%u",
+                  Dx12TextureHandleCodec::SLOT_MASK );
+    }
+    return handle;
+}
+
+
+void Dx12TextureOwner::ReportStaleHandle( uint32_t handle ) const
+{
+#ifdef _DEBUG
+    if ( !m_staleHandleReported )
+    {
+        Log().WriteEventf( "dx12_stale_texture_handle handle=%u", handle );
+        m_staleHandleReported = true;
+    }
+#else
+    (void)handle;
+#endif
 }
 
 
@@ -981,7 +1012,11 @@ UINT RenderBackendDX12::RegisterSRV( UINT srvIndex )
 
 void RenderBackendDX12::UnregisterSRV( uint32_t handle )
 {
-    m_textureOwner.UnregisterSRV( handle );
+    const UINT srvIndex = m_textureOwner.UnregisterSRV( handle );
+    if ( srvIndex != UINT_MAX )
+    {
+        m_frameOwner.ResourceRelease().RetireStaticDescriptor( srvIndex );
+    }
 }
 
 

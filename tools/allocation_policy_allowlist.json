@@ -506,7 +506,6 @@
     {
       "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp",
       "patterns": [
-        ".push_back(",
         ".resize("
       ],
       "owner": "Rendering backend/resource static STL surface",
@@ -518,8 +517,7 @@
     {
       "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp",
       "patterns": [
-        ".push_back(",
-        ".resize("
+        ".push_back("
       ],
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
@@ -537,6 +535,18 @@
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
       "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
+    },
+    {
+      "path": "SkullbonezSource/Rendering/DX12/Dx12TextureRegistry.h",
+      "patterns": [
+        "std::vector<",
+        ".resize("
+      ],
+      "owner": "Rendering/DX12 texture registry",
+      "phase": "backend_init_scene_resource_preallocation",
+      "reason": "The extracted generation-tagged registry preserves the existing preallocated texture-slot vector while moving handle validation out of the aggregate backend header.",
+      "cap": "Bounded by the texture registry capacity established before steady gameplay and the 24-bit handle slot field.",
+      "removal_or_wrapper_plan": "Replace the legacy texture vector with a fixed registry when texture loading receives its owned capacity contract."
     },
     {
       "path": "SkullbonezSource/Rendering/DX12/ShaderDX12.cpp",

@@ -156,6 +156,7 @@ DX12_RENDERING_PREFIXES = (
     "BLASDX12",
     "Dx12CachedPsoStore",
     "Dx12RenderGraphExecutor",
+    "Dx12TextureRegistry",
     "FramebufferDX12",
     "GeneratedShaderReflection",
     "MeshDX12",

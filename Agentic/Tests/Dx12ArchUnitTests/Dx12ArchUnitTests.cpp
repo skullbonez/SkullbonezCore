@@ -40,6 +40,7 @@ Related:
 #include "Rendering/DX12/RenderBackendDX12.PipelineState.h"
 #include "Rendering/DX12/RenderGraphTransientDX12.h"
 #include "Rendering/DX12/RenderDeviceDX12.h"
+#include "Rendering/DX12/Dx12TextureRegistry.h"
 #include "Rendering/IRenderDeviceLifecycle.h"
 #include "Rendering/RenderGraph.h"
 
@@ -581,6 +582,41 @@ void TestDescriptorTransientRangeCapacityProbeIsAtomic()
     const Dx12DescriptorAllocatorStats afterZeroRange = allocator.GetStats();
     EXPECT_EQ( afterZeroRange.transientUsedThisFrame, 7u );
     EXPECT_EQ( afterZeroRange.transientPeakThisRun, 7u );
+}
+
+void TestStaticDescriptorRowsReuseWithStableHighWater()
+{
+    Dx12DescriptorAllocator allocator = MakeDescriptorAllocator();
+
+    const UINT first = allocator.AllocateStatic();
+    const UINT second = allocator.AllocateStatic();
+    allocator.FreeStatic( first );
+    const UINT reused = allocator.AllocateStatic();
+
+    EXPECT_EQ( first, 0u );
+    EXPECT_EQ( second, 1u );
+    EXPECT_EQ( reused, first );
+    const Dx12DescriptorAllocatorStats stats = allocator.GetStats();
+    EXPECT_EQ( stats.staticUsed, 2u );
+    EXPECT_EQ( stats.staticHighWater, 2u );
+}
+
+void TestTextureHandleGenerationRejectsReusedSlotAlias()
+{
+    Dx12TextureRegistry registry;
+    registry.Initialize( 2u );
+    TextureEntryDX12 entry;
+    entry.srvIndex = 11u;
+    const uint32_t first = registry.Insert( entry );
+    EXPECT_TRUE( registry.Resolve( first ) != nullptr );
+    registry.Resolve( first )->srvIndex = UINT_MAX;
+
+    entry.srvIndex = 22u;
+    const uint32_t replacement = registry.Insert( entry );
+    EXPECT_TRUE( replacement != first );
+    EXPECT_TRUE( registry.Resolve( first ) == nullptr );
+    EXPECT_TRUE( registry.Resolve( replacement ) != nullptr );
+    EXPECT_EQ( registry.Resolve( replacement )->srvIndex, 22u );
 }
 
 void TestRenderGraphSkipsUnknownInitialTransition()
@@ -1269,6 +1305,8 @@ const TestCase kTests[] = {
     { "Unarmed fault injection allows submission accounting", TestUnarmedFaultInjectionAllowsSubmissionAccounting },
     { "Descriptor transient ranges are contiguous", TestDescriptorTransientRangeIsContiguous },
     { "Descriptor transient range capacity probes are atomic", TestDescriptorTransientRangeCapacityProbeIsAtomic },
+    { "Static descriptor rows reuse with stable high-water", TestStaticDescriptorRowsReuseWithStableHighWater },
+    { "Texture handle generations reject reused-slot aliases", TestTextureHandleGenerationRejectsReusedSlotAlias },
     { "Render graph skips Unknown initial transitions", TestRenderGraphSkipsUnknownInitialTransition },
     { "Render graph emits explicit initial-state transitions", TestRenderGraphExplicitInitialStateTransitions },
     { "Render graph tracks subresource transitions independently",

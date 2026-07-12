@@ -10,12 +10,12 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-11th-july` |
-| Current pushed baseline | Aggregate engine-cleanup closure is validated at the current branch tip; the prior pushed baseline was `5649a876` |
-| Current objective | Validation-gate V3 is externally blocked; the active local lane is the 2026-07-12 adversarial-review remediation portfolio (four must-do plans, starting with dx12-descriptor-and-handle-lifetime) |
-| Portfolio progress | 275 / 298 tasks = 92% rounded overall |
+| Branch | `nightrunner-12th-july` |
+| Current pushed baseline | Descriptor/handle lifetime closure is commit-ready on top of remote baseline `e38b20bf` |
+| Current objective | Validation-gate V3 is externally blocked; the active local lane advances to determinism-contract-hardening in its required isolated commit window |
+| Portfolio progress | 280 / 298 tasks = 94% rounded overall |
 | Last broad local gate | `tools\\validate_full.bat` passed final aggregate source on 2026-07-12: formatting/metadata clean, every CPU lane passed (173 doctest cases, 3,964 assertions), zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | Independent aggregate and narrow repeat reviews are clear; explicit DX12, one-minute graphics stress, perf, focused broadphase/capacity tests, comment audit, and full gate all pass. |
+| Validation for current edits | Descriptor closure passed independent review, fast/all-CPU/allocation checks, zero-error DX12 screenshots, and one-minute stress with 131 acknowledged resizes plus 131 texture turnovers returning static usage 20 to 20. |
 
 ## Live Queue
 
@@ -25,9 +25,9 @@ plan inventory.
    Persistent self-hosted DX12 stays trusted-main/manual only; public-PR GPU
    evidence needs an ephemeral isolated runner.
 2. 2026-07-12 adversarial-review remediation (MASTER section of the same
-   name). Must-do order: dx12-descriptor-and-handle-lifetime (latent
-   resize/churn `SB_FATAL`), determinism-contract-hardening (isolated commit
-   window), upload-arena-overflow-policy. Nice-to-have after the must-do
+   name). Descriptor/handle lifetime is complete. Next: determinism-contract-
+   hardening (isolated commit window), then upload-arena-overflow-policy.
+   Nice-to-have after the must-do
    lane: frame-view-calling-convention, then
    render-interface-and-workerpool-slimming. The comment-rot sweep is
    owner-parked in `WNF/` (no comment changes yet, 2026-07-12 ruling).
@@ -87,5 +87,7 @@ plan inventory.
 
 ## Next Handoff
 
-Use `Agentic/Plans/MASTER-PLAN.md` for selection. No viable local implementation
-work remains; V3 resumes when the required GitHub and runner authority exists.
+Commit and push the descriptor/handle closure, then use
+`Agentic/Plans/MASTER-PLAN.md` to execute determinism-contract-hardening in its
+required isolated window. V3 resumes when the required GitHub and runner
+authority exists.

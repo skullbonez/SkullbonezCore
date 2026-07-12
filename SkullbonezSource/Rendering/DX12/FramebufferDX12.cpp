@@ -63,9 +63,10 @@ FramebufferDX12::FramebufferDX12( Dx12RenderDevice& device,
                                   FramebufferColorFormat colorFormat )
     : m_device( device ), m_pipeline( pipeline ), m_textures( textures ), m_rtvDescriptors( rtvDescriptors ),
       m_dsvDescriptors( dsvDescriptors ), m_srvDescriptors( srvDescriptors ), m_drawGate( drawGate ),
-      m_resourceRelease( resourceRelease ), m_colorTexture( nullptr ), m_depthTexture( nullptr ), m_srvIndex( 0 ),
-      m_depthSrvIndex( 0 ), m_texHandle( 0 ), m_depthTexHandle( 0 ), m_colorFormat( colorFormat ), m_width( 0 ),
-      m_height( 0 ), m_depthState( D3D12_RESOURCE_STATE_DEPTH_WRITE )
+      m_resourceRelease( resourceRelease ), m_colorTexture( nullptr ), m_depthTexture( nullptr ),
+      m_rtvIndex( UINT_MAX ), m_dsvIndex( UINT_MAX ), m_srvIndex( UINT_MAX ), m_depthSrvIndex( UINT_MAX ),
+      m_texHandle( 0 ), m_depthTexHandle( 0 ), m_colorFormat( colorFormat ), m_width( 0 ), m_height( 0 ),
+      m_depthState( D3D12_RESOURCE_STATE_DEPTH_WRITE )
 {
     m_rtvHandle = {};
     m_dsvHandle = {};
@@ -181,14 +182,18 @@ bool FramebufferDX12::Create( int width, int height )
     // Allocate descriptor rows from the backend heaps. The color/depth textures
     // are the resources; RTV/DSV are the binding records that let the output
     // merger write into those resources.
-    m_rtvHandle = m_rtvDescriptors.Allocate().cpuHandle;
+    const Dx12CpuDescriptorAllocation rtvAllocation = m_rtvDescriptors.Allocate();
+    m_rtvIndex = rtvAllocation.index;
+    m_rtvHandle = rtvAllocation.cpuHandle;
     // Create a Render Target View (RTV). This descriptor tells the GPU how to
     // interpret the color texture when writing pixels to it during rendering.
     // Without this view, the GPU cannot use the texture as a render target.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createrendertargetview
     device->CreateRenderTargetView( m_colorTexture, nullptr, m_rtvHandle );
 
-    m_dsvHandle = m_dsvDescriptors.Allocate().cpuHandle;
+    const Dx12CpuDescriptorAllocation dsvAllocation = m_dsvDescriptors.Allocate();
+    m_dsvIndex = dsvAllocation.index;
+    m_dsvHandle = dsvAllocation.cpuHandle;
     D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
     dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
     dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
@@ -343,20 +348,23 @@ void FramebufferDX12::Unbind() const
 void FramebufferDX12::ResetResources()
 {
     const bool backendReady = m_device.Device() != nullptr;
+    UINT colorSrvToRetire = UINT_MAX;
+    UINT depthSrvToRetire = UINT_MAX;
     if ( backendReady && m_texHandle != 0 )
     {
-        m_textures.UnregisterSRV( m_texHandle );
+        colorSrvToRetire = m_textures.UnregisterSRV( m_texHandle );
     }
     if ( backendReady && m_depthTexHandle != 0 )
     {
-        m_textures.UnregisterSRV( m_depthTexHandle );
+        depthSrvToRetire = m_textures.UnregisterSRV( m_depthTexHandle );
     }
 
     if ( m_colorTexture )
     {
         if ( backendReady )
         {
-            m_resourceRelease.Retire( m_colorTexture );
+            m_resourceRelease.Retire( m_colorTexture, colorSrvToRetire, m_rtvDescriptors, m_rtvIndex );
+            colorSrvToRetire = UINT_MAX;
         }
         else
         {
@@ -368,7 +376,8 @@ void FramebufferDX12::ResetResources()
     {
         if ( backendReady )
         {
-            m_resourceRelease.Retire( m_depthTexture );
+            m_resourceRelease.Retire( m_depthTexture, depthSrvToRetire, m_dsvDescriptors, m_dsvIndex );
+            depthSrvToRetire = UINT_MAX;
         }
         else
         {
@@ -376,9 +385,19 @@ void FramebufferDX12::ResetResources()
         }
         m_depthTexture = nullptr;
     }
+    if ( backendReady && colorSrvToRetire != UINT_MAX )
+    {
+        m_resourceRelease.RetireStaticDescriptor( colorSrvToRetire );
+    }
+    if ( backendReady && depthSrvToRetire != UINT_MAX )
+    {
+        m_resourceRelease.RetireStaticDescriptor( depthSrvToRetire );
+    }
     m_texHandle = 0;
     m_depthTexHandle = 0;
-    m_srvIndex = 0;
-    m_depthSrvIndex = 0;
+    m_rtvIndex = UINT_MAX;
+    m_dsvIndex = UINT_MAX;
+    m_srvIndex = UINT_MAX;
+    m_depthSrvIndex = UINT_MAX;
     m_depthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
 }

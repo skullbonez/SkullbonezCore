@@ -101,12 +101,12 @@ concrete plan rows and counting it would duplicate tasks.
 | entity-model-endgame | 4 | 4 | 100% |
 | instant-prediction-velocity-chaos | 52 | 52 | 100% |
 | shadow-edge-quality | 5 | 5 | 100% |
-| dx12-descriptor-and-handle-lifetime | 0 | 5 | 0% |
+| dx12-descriptor-and-handle-lifetime | 5 | 5 | 100% |
 | determinism-contract-hardening | 0 | 4 | 0% |
 | upload-arena-overflow-policy | 0 | 4 | 0% |
 | frame-view-calling-convention | 0 | 4 | 0% |
 | render-interface-and-workerpool-slimming | 0 | 5 | 0% |
-| **Portfolio total** | **275** | **298** | **92%** |
+| **Portfolio total** | **280** | **298** | **94%** |
 
 ## Current Execution Priority
 
@@ -119,8 +119,7 @@ For maximum impact with minimal rework, use this binding critical path:
    branch protection, and trusted/ephemeral DX12 runner administration.
 2. **Adversarial-review remediation — active local lane.** While V3 waits on
    external administration, the 2026-07-12 must-do plans are the local
-   priority, in order: dx12-descriptor-and-handle-lifetime (latent resize/churn
-   crash), then determinism-contract-hardening (isolated commit window, no
+   priority, in order: determinism-contract-hardening (isolated commit window, no
    concurrent physics-adjacent work), then upload-arena-overflow-policy.
    Nice-to-have plans start only after the must-do lane closes. The
    comment-rot sweep was owner-parked to `WNF/` on 2026-07-12 (no comment
@@ -161,7 +160,7 @@ Must do:
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [dx12-descriptor-and-handle-lifetime](TODO/dx12-descriptor-and-handle-lifetime.md) | Not started | 0/5 | Ready; highest severity — static SRV bump allocator plus FBO recreation on resize is a latent `SB_FATAL` crash; run first |
+| [dx12-descriptor-and-handle-lifetime](../Reports/2026-07-12/dx12-descriptor-and-handle-lifetime-closure.md) | Complete | 5/5 | Fence-safe SRV/UAV and framebuffer RTV/DSV reclamation, generation handles, and 131-turnover stress proof complete |
 | [determinism-contract-hardening](TODO/determinism-contract-hardening.md) | Not started | 0/4 | Ready; requires an isolated commit window with no other physics-adjacent change in flight (D4) |
 | [upload-arena-overflow-policy](TODO/upload-arena-overflow-policy.md) | Not started | 0/4 | Ready; independent of the descriptor plan |
 
