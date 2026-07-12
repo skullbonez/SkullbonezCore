@@ -435,14 +435,16 @@ void Dx12GeometryOwner::DrawTransientColoredTriangles( const float* data,
     }
 
     DynamicVBDX12 vertexLayout = {};
-    vertexLayout.numAttribs = IsTrajectoryRibbonStyle( style ) ? 4 : 3;
+    vertexLayout.numAttribs = IsTrajectoryRibbonStyle( style ) ? 6 : 3;
     vertexLayout.attribComponents[0] = 3;
     vertexLayout.attribComponents[1] = 4;
     vertexLayout.attribComponents[2] = 4;
     if ( IsTrajectoryRibbonStyle( style ) )
     {
         vertexLayout.attribComponents[3] = 2;
-        vertexLayout.floatsPerVertex = 13;
+        vertexLayout.attribComponents[4] = 3;
+        vertexLayout.attribComponents[5] = 3;
+        vertexLayout.floatsPerVertex = 19;
     }
     else
     {
@@ -865,7 +867,7 @@ void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
     {
         return;
     }
-    const UINT64 floatsPerVertex = IsTrajectoryRibbonStyle( style ) ? 13u : 11u;
+    const UINT64 floatsPerVertex = IsTrajectoryRibbonStyle( style ) ? 19u : 11u;
     const UINT64 bytes = static_cast<UINT64>( vertexCount ) * floatsPerVertex * sizeof( float );
     const RenderUploadCategory category = IsTrajectoryRibbonStyle( style )
                                               ? RenderUploadCategory::DebugPredictionOverlay

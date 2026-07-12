@@ -116,7 +116,8 @@ inline const ShaderVertexInputContract* ShippingShaderVertexInputContracts()
         { "text", "POSITION0:xy:NONE,TEXCOORD0:xy:NONE,TEXCOORD1:xyz:NONE" },
         { "tornado_fx", "POSITION0:xyz:NONE,TEXCOORD0:xyzw:NONE,TEXCOORD1:xyzw:NONE" },
         { "trajectory_ribbon",
-          "POSITION0:xyz:NONE,TEXCOORD0:xyzw:NONE,TEXCOORD1:xyzw:NONE,TEXCOORD2:xy:NONE,SV_VertexID0:x:VERTID" },
+          "POSITION0:xyz:NONE,TEXCOORD0:xyzw:NONE,TEXCOORD1:xyzw:NONE,TEXCOORD2:xy:NONE,TEXCOORD3:xyz:NONE,"
+          "TEXCOORD4:xyz:NONE,SV_VertexID0:x:VERTID" },
         { "ui_render_target_preview", "POSITION0:xy:NONE,TEXCOORD0:xy:NONE" },
         { "UIBackdropBlur", "POSITION0:xy:NONE,TEXCOORD0:xy:NONE" },
         { "unlit_textured", "POSITION0:xyz:NONE,TEXCOORD0:xy:NONE" },
@@ -552,7 +553,7 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
           0 },
         { "trajectory_ribbon",
           "effects",
-          "P3_Color4_UV4_Aux2",
+          "P3_End4_Color4_Style2_Previous3_Next3",
           trajectoryRibbonUniforms,
           sizeof( trajectoryRibbonUniforms ) / sizeof( trajectoryRibbonUniforms[0] ),
           nullptr,

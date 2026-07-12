@@ -68,7 +68,8 @@ constexpr std::size_t RUN_EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY = 524288;
 constexpr std::size_t RUN_EDITOR_TRACER_FLOATS_PER_LINE = 12;
 // Why: the Stage-9 frozen prediction probe submitted 21,568 replay ribbon
 // segments. The configured 27,000-segment/162,000-vertex ceiling adds 25.2%
-// headroom, yet its two-pass upload is only 16.1 MiB of the 32 MiB frame arena.
+// headroom; the 19-float adjacency payload uses 23.5 MiB across the depth-hint
+// and visible passes, remaining inside the 32 MiB frame arena.
 // Ordinary paths get 24,000 slots and causal priority evidence keeps 3,000.
 constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_BUDGET = 27000;
 constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_SEGMENT_CAPACITY = 24000;
@@ -79,7 +80,7 @@ constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_FLOAT_CAPACITY =
     RUN_EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_SEGMENT_CAPACITY * RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
 constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_FLOAT_CAPACITY =
     RUN_EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_SEGMENT_CAPACITY * RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
-constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX = 13;
+constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX = 19;
 constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT = 6;
 constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTEX_FLOAT_CAPACITY =
     RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_BUDGET * RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT *
@@ -99,8 +100,10 @@ void HashReplaySubmissionBytes( uint64_t& hash, const void* data, std::size_t by
 }
 
 void AppendReplayRibbonVertex( std::vector<float>& vertexData,
+                               const Vector3& previous,
                                const Vector3& start,
                                const Vector3& end,
+                               const Vector3& next,
                                float r,
                                float g,
                                float b,
@@ -122,6 +125,12 @@ void AppendReplayRibbonVertex( std::vector<float>& vertexData,
     vertexData.push_back( alpha );
     vertexData.push_back( edgeFeather );
     vertexData.push_back( hdrScale );
+    vertexData.push_back( previous.x );
+    vertexData.push_back( previous.y );
+    vertexData.push_back( previous.z );
+    vertexData.push_back( next.x );
+    vertexData.push_back( next.y );
+    vertexData.push_back( next.z );
 }
 } // namespace
 
@@ -706,15 +715,63 @@ void RunEditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const
             const float edgeFeather = std::clamp( ribbonData[i + 11], 0.02f, 1.25f );
             const float hdrScale = (std::max)( 0.0f, ribbonData[i + 12] );
 
-            // Concept: each emitted vertex carries the same segment payload. The
-            // trajectory-ribbon vertex shader uses SV_VertexID to choose
-            // endpoint/edge and expand the ribbon at constant screen-space width.
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width, edgeFeather, hdrScale );
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width, edgeFeather, hdrScale );
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width, edgeFeather, hdrScale );
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width, edgeFeather, hdrScale );
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width, edgeFeather, hdrScale );
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width, edgeFeather, hdrScale );
+            Vector3 previous = a;
+            Vector3 next = b;
+            // Concept: adjacent trajectory segments share their outer points so
+            // the shader can compute one screen-space join normal at the common
+            // sample. Matching the complete style prevents unrelated path lanes
+            // that merely touch at a collision point from being welded together;
+            // color is intentionally excluded because it grades along one path.
+            if ( i >= RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT )
+            {
+                const std::size_t previousIndex = i - RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
+                const Vector3 previousEnd( ribbonData[previousIndex + 3],
+                                           ribbonData[previousIndex + 4],
+                                           ribbonData[previousIndex + 5] );
+                const bool samePresentation = ribbonData[previousIndex + 9] == ribbonData[i + 9] &&
+                                              ribbonData[previousIndex + 10] == ribbonData[i + 10] &&
+                                              ribbonData[previousIndex + 11] == ribbonData[i + 11] &&
+                                              ribbonData[previousIndex + 12] == ribbonData[i + 12];
+                if ( samePresentation && VectorMagSquared( previousEnd - a ) <= TOLERANCE * TOLERANCE )
+                {
+                    previous = Vector3( ribbonData[previousIndex + 0],
+                                        ribbonData[previousIndex + 1],
+                                        ribbonData[previousIndex + 2] );
+                }
+            }
+            const std::size_t nextIndex = i + RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
+            if ( nextIndex + RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT <= ribbonData.size() )
+            {
+                const Vector3 nextStart( ribbonData[nextIndex + 0],
+                                         ribbonData[nextIndex + 1],
+                                         ribbonData[nextIndex + 2] );
+                const bool samePresentation = ribbonData[nextIndex + 9] == ribbonData[i + 9] &&
+                                              ribbonData[nextIndex + 10] == ribbonData[i + 10] &&
+                                              ribbonData[nextIndex + 11] == ribbonData[i + 11] &&
+                                              ribbonData[nextIndex + 12] == ribbonData[i + 12];
+                if ( samePresentation && VectorMagSquared( nextStart - b ) <= TOLERANCE * TOLERANCE )
+                {
+                    next = Vector3( ribbonData[nextIndex + 3], ribbonData[nextIndex + 4], ribbonData[nextIndex + 5] );
+                }
+            }
+
+            // Each emitted vertex carries the same adjacency-aware payload.
+            // SV_VertexID still selects the endpoint and side in the shader.
+            for ( int vertex = 0; vertex < 6; ++vertex )
+            {
+                AppendReplayRibbonVertex( m_replayRibbonVertexData,
+                                          previous,
+                                          a,
+                                          b,
+                                          next,
+                                          r,
+                                          g,
+                                          bl,
+                                          alpha,
+                                          width,
+                                          edgeFeather,
+                                          hdrScale );
+            }
         }
     };
 

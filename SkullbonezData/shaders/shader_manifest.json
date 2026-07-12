@@ -2641,10 +2641,10 @@
       "stage": "vs",
       "target": "vs_6_0",
       "bytecode": "SkullbonezData/shaders/trajectory_ribbon.vs.dxil",
-      "source_sha256": "22f8c28733bee9a63d8dfc8572b7ebd0c55b21d396c46d576df21079302667b7",
-      "compile_inputs_sha256": "40de757c831e6debafe1cfc01cb65928a9de79f763088620235ab438ad51b12c",
-      "bytecode_sha256": "09c7a71bbc1194b3af7feb33503a3de46cd3ef9311d5bb6117803d4e7b47972a",
-      "bytecode_size": 5936,
+      "source_sha256": "989417c5798aeb93fc2007315565842bdbc91dfaf24d1cbc1ed6c1ecd9008d0f",
+      "compile_inputs_sha256": "9dd5f028b4233f64e6765ddf83af0cc687be6f4b457b2ec0e985062f80ea8d30",
+      "bytecode_sha256": "8c456c3872046203e69510db2e14fbfd193f418c6412c8d4d256cb84e2df6f9d",
+      "bytecode_size": 7280,
       "reflection": {
         "cbuffers": [
           {
@@ -2722,10 +2722,28 @@
             "used": "xy"
           },
           {
+            "semantic": "TEXCOORD",
+            "index": 3,
+            "mask": "xyz",
+            "register": 4,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 4,
+            "mask": "xyz",
+            "register": 5,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
             "semantic": "SV_VertexID",
             "index": 0,
             "mask": "x",
-            "register": 4,
+            "register": 6,
             "system_value": "VERTID",
             "format": "uint",
             "used": "x"
@@ -2739,10 +2757,10 @@
       "stage": "ps",
       "target": "ps_6_0",
       "bytecode": "SkullbonezData/shaders/trajectory_ribbon.ps.dxil",
-      "source_sha256": "22f8c28733bee9a63d8dfc8572b7ebd0c55b21d396c46d576df21079302667b7",
-      "compile_inputs_sha256": "ae27260bd69be4e75479fdddd2dde4d47b1b0aff8fb10107b05a42a2646cfbb1",
-      "bytecode_sha256": "aadf0089107287eddb0afa3d8abfb292dfea9fd0051e07742dc8c119f88e1ffa",
-      "bytecode_size": 4700,
+      "source_sha256": "989417c5798aeb93fc2007315565842bdbc91dfaf24d1cbc1ed6c1ecd9008d0f",
+      "compile_inputs_sha256": "5cea53dc0f5fe08452b250ec8d3e565d805cf0f429e2ef9dcc90eddf96d3e415",
+      "bytecode_sha256": "ebe333cae438eb183dec1aabb2eb7bc5deca9f4c8927d240e65f4e42ec14700a",
+      "bytecode_size": 4984,
       "reflection": {
         "cbuffers": [
           {
@@ -2809,6 +2827,15 @@
             "system_value": "NONE",
             "format": "float",
             "used": "yz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 2,
+            "mask": "xyz",
+            "register": 3,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
           }
         ]
       }

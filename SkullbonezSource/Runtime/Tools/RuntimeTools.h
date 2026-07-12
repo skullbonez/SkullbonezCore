@@ -471,7 +471,7 @@ class RunEditorTracer
     std::vector<float> m_replayRibbonSegments;                              // Packed 13-float replay segments before shader-side expansion.
     std::vector<float> m_priorityReplayRibbonSegments;                      // Retained yellow entry ribbon segments that survive path overflow.
     std::vector<float>
-        m_replayRibbonVertexData;                                           // Packed 13-float segment vertices consumed by the trajectory ribbon style.
+        m_replayRibbonVertexData;                                           // Packed 19-float adjacency vertices consumed by the trajectory ribbon style.
     MainMemoryReplayTrajectorySubmissionStats
         m_replaySubmissionStats;                                            // Frame-local submitted replay ribbon hash sampled after tracer render.
 
