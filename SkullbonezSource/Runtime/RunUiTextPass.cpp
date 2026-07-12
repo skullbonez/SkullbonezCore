@@ -910,6 +910,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.editorTerrainAlign = state.editor.autoTerrainAlign;
         UIData.editorViewportLookActive = state.editor.viewportLookActive;
         UIData.editorObjectType = state.editor.objectType;
+        UIData.editorUndoDepth = static_cast<int>( state.editor.history.UndoDepth() );
+        UIData.editorRedoDepth = static_cast<int>( state.editor.history.RedoDepth() );
         UIData.canSaveSceneDefaults =
             view.sceneMode && state.sceneHasCurrentEntry && state.currentScenePath && state.currentScenePath[0] != '\0';
         UIData.cinematicRendering = inputs.cinematicRendering;

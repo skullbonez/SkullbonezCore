@@ -344,6 +344,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                                      RunCameraModeIsAttached( m_camera.mode ),
                                                      m_camera.mode == RunCameraMode::Director,
                                                      m_camera.mode == RunCameraMode::Director || flyCamera,
+                                                     m_runtimeTools.Editor().editorModeEnabled,
                                                      !m_replayRuntime.Scrubber().restoreConsumedThisFrame,
                                                      false };
     m_inputRouter.RoutePhase( keyboardBindings,
@@ -418,6 +419,31 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
         case RuntimeInputAction::ToggleEditor:
             // Backtick is captured early but applied after UI command processing.
             keyboardToggleEditorMode = true;
+            break;
+        case RuntimeInputAction::UndoEditor:
+            if ( m_runtimeTools.Editor().editorModeEnabled && deviceFrame.keys.IsDown( VK_CONTROL ) )
+            {
+                if ( deviceFrame.keys.IsDown( VK_SHIFT ) )
+                {
+                    (void)m_runtimeTools.RedoEditorCommand( m_sceneController );
+                }
+                else
+                {
+                    (void)m_runtimeTools.UndoEditorCommand( m_sceneController );
+                }
+            }
+            break;
+        case RuntimeInputAction::RedoEditor:
+            if ( m_runtimeTools.Editor().editorModeEnabled && deviceFrame.keys.IsDown( VK_CONTROL ) )
+            {
+                (void)m_runtimeTools.RedoEditorCommand( m_sceneController );
+            }
+            break;
+        case RuntimeInputAction::DeleteEditorSelection:
+            if ( m_runtimeTools.Editor().editorModeEnabled )
+            {
+                (void)m_runtimeTools.DeleteEditorSelection( m_sceneController );
+            }
             break;
         case RuntimeInputAction::CycleCameraMode:
             m_inputRouter.CycleCameraMode( m_camera,

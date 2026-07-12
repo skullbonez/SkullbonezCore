@@ -72,6 +72,7 @@ enum class RunInteractionAutomationActionType
     LoseFocus,
     MoveMouse,
     ClickObject,
+    ClickPoint,
     ClickReplayControl,
     ScrubReplaySolverTrack,
     SetReplayPredictionEnabled,
@@ -80,6 +81,7 @@ enum class RunInteractionAutomationActionType
     NudgeReplayPathTargetVelocity,
     ShowReplayScrubber,
     PressKey,
+    CaptureEditorSelectionState,
     AssertState,
     Screenshot
 };
@@ -124,7 +126,12 @@ enum class RunInteractionAutomationAssertKind
     LauncherRayActive,
     ReplayActiveTrack,
     ReplayHistoricalSamplePaused,
-    MemoryOverlayEnabled
+    MemoryOverlayEnabled,
+    EditorUndoDepth,
+    EditorRedoDepth,
+    EditorSelectionExists,
+    EditorSelectionHasTerrain,
+    EditorSelectionMatchesCapture
 };
 
 struct RunInteractionAutomationAction
@@ -187,10 +194,13 @@ struct InteractionAutomationController
     bool rightMouseDown = false;
     int keyVirtualKey = 0;
     bool keyDown = false;
+    bool controlDown = false;
     int releaseLeftFrame = -1;
     int releaseRightFrame = -1;
     int releaseKeyFrame = -1;
     int unfocusedInputFrames = 0;
+    uint64_t editorSelectionCaptureFingerprints[2] = {};
+    bool editorSelectionCaptureValid[2] = {};
 };
 
 struct InteractionAutomationFrameResult

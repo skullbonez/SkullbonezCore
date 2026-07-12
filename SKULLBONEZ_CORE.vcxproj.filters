@@ -298,6 +298,12 @@
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorTools.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp">
+      <Filter>Source Files\Runtime\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorHistory.cpp">
+      <Filter>Source Files\Runtime\Editor</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorPlacementAssets.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
@@ -738,6 +744,9 @@
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTools.h">
+      <Filter>Header Files\Runtime\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.h">
       <Filter>Header Files\Runtime\Editor</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorPlacementAssets.h">

@@ -55,6 +55,7 @@ Related:
 #include "../../Core/Common.h"
 #include "../../Core/MainMemoryStats.h"
 #include "../Editor/LauncherLaser.h"
+#include "../Editor/EditorCommandHistory.h"
 #include "../RuntimeCameraMode.h"
 #include "../RuntimeInteractionController.h"
 #include "../../Maths/Matrix4.h"
@@ -390,6 +391,8 @@ struct LauncherPointerResult
 struct RunEditorPlacementState
 {
     static constexpr std::size_t GIZMO_DRAG_GROUP_CAPACITY = 16;
+
+    EditorCommandHistory history;
 
     bool editorModeEnabled = false;
     bool placementModeEnabled = false;
@@ -765,6 +768,14 @@ class RuntimeTools
                                                               Physics::PhysicsEngine& physics,
                                                               RuntimeInteractionController& interaction,
                                                               ReplayRuntime& replayRuntime );
+    void RecordEditorTransformHistory( Basics::SceneController& collection,
+                                       RuntimeGizmoDragKind gizmoKind,
+                                       int selectedModelIndex );
+    void RecordEditorPlacementHistory( Basics::SceneController& collection, int modelCountBefore, int modelCountAfter );
+    bool UndoEditorCommand( Basics::SceneController& collection );
+    bool RedoEditorCommand( Basics::SceneController& collection );
+    bool DeleteEditorSelection( Basics::SceneController& collection );
+    void ClearEditorHistory();
     bool PrepareEditorGizmoGesture( bool inspectGizmoActive,
                                     bool scaleMode,
                                     int selectedModelIndex,

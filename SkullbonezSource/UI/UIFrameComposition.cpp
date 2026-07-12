@@ -372,6 +372,8 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.editorTerrainAlign );
     hash = HashBool( hash, data.editorViewportLookActive );
     hash = HashInt( hash, data.editorObjectType );
+    hash = HashInt( hash, data.editorUndoDepth );
+    hash = HashInt( hash, data.editorRedoDepth );
     hash = HashBool( hash, data.canSaveSceneDefaults );
     hash = HashBool( hash, data.cinematicRendering );
     hash = HashBool( hash, data.ordinaryRender.shadow.enabled );

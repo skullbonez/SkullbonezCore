@@ -326,6 +326,7 @@ RUNTIME_RENDER_PREFIXES = (
 )
 
 RUNTIME_EDITOR_PREFIXES = (
+    "EditorCommandHistory",
     "EditorPlacementAssets",
     "EditorTools",
     "EditorOverlayTools",
@@ -333,6 +334,7 @@ RUNTIME_EDITOR_PREFIXES = (
     "LauncherLaser",
     "LauncherTools",
     "RunEditorGizmoTools",
+    "RunEditorHistory",
     "RunEditorObjectPlacement",
     "RunEditorOverlayTools",
     "RunEditorPlacementAssets",

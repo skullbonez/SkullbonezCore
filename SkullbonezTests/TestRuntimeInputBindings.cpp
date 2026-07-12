@@ -70,7 +70,7 @@ TEST_CASE( "Runtime input bindings: core keyboard shortcuts map to actions" )
     const RuntimeInputKeyBindingView table = TakeInputKeyboardBindings();
 
     REQUIRE( table.bindings != nullptr );
-    CHECK( table.count == 38u );
+    CHECK( table.count == 41u );
     CheckExactBinding( VK_OEM_3, keyboard, RuntimeInputAction::ToggleEditor );
     CheckExactBinding( VK_TAB, keyboard, RuntimeInputAction::CycleCameraMode );
     CheckExactBinding( 'F', keyboard, RuntimeInputAction::ToggleFlyCamera );
@@ -79,6 +79,11 @@ TEST_CASE( "Runtime input bindings: core keyboard shortcuts map to actions" )
     CheckExactBinding( VK_F9, keyboard, RuntimeInputAction::ReloadShadersFromSource );
     CheckExactBinding( VK_LEFT, keyboard, RuntimeInputAction::NavigateScenePrevious );
     CheckExactBinding( VK_RIGHT, keyboard, RuntimeInputAction::NavigateSceneNext );
+    CheckExactBinding( 'Z', keyboard | RuntimeInputBindingContext::Editor, RuntimeInputAction::UndoEditor );
+    CheckExactBinding( 'Y', keyboard | RuntimeInputBindingContext::Editor, RuntimeInputAction::RedoEditor );
+    CheckExactBinding( VK_DELETE,
+                       keyboard | RuntimeInputBindingContext::Editor,
+                       RuntimeInputAction::DeleteEditorSelection );
 }
 
 TEST_CASE( "Runtime input bindings: contextual shortcuts stay on their owning contexts" )

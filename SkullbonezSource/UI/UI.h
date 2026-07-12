@@ -331,6 +331,8 @@ struct InGameUIFrameData
     bool editorTerrainAlign = false;
     bool editorViewportLookActive = false;
     int editorObjectType = 0;
+    int editorUndoDepth = 0;
+    int editorRedoDepth = 0;
     bool canSaveSceneDefaults = false;
     bool cinematicRendering = false;
     Basics::OrdinaryRenderConfig ordinaryRender;

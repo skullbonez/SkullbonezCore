@@ -258,6 +258,8 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Core\Config.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Run.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorTools.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorHistory.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorPlacementAssets.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorGizmoTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunMousePickupTools.cpp" />
@@ -366,6 +368,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\CameraCollection.h" />
     <ClInclude Include="SkullbonezSource\Runtime\DemoDirector.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTools.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorPlacementAssets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorOverlayTools.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorHullAssets.h" />

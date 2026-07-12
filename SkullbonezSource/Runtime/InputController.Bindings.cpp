@@ -63,6 +63,9 @@ const RuntimeInputKeyBinding kTakeInputKeyboardBindings[] = {
       kKeyboardUnblockedContext | InputBindingContext::Launcher | InputBindingContext::ReplayRestoreNotConsumed |
           InputBindingContext::DebugOnly },
     { VK_MENU, RuntimeInputAction::ToggleEditorTool, kKeyboardUnblockedContext },
+    { 'Z', RuntimeInputAction::UndoEditor, kKeyboardUnblockedContext | InputBindingContext::Editor },
+    { 'Y', RuntimeInputAction::RedoEditor, kKeyboardUnblockedContext | InputBindingContext::Editor },
+    { VK_DELETE, RuntimeInputAction::DeleteEditorSelection, kKeyboardUnblockedContext | InputBindingContext::Editor },
     { '1', RuntimeInputAction::ToggleWaterFreeze, kKeyboardUnblockedContext },
     { '2', RuntimeInputAction::CycleWaterReflection, kKeyboardUnblockedContext },
     { '3', RuntimeInputAction::ToggleWaterFlat, kKeyboardUnblockedContext },

@@ -252,6 +252,8 @@ RuntimeInputContextMask BuildKeyboardContextMask( const KeyboardContextFacts& fa
     include( RuntimeInputBindingContext::AttachedCamera, facts.attachedCamera );
     include( RuntimeInputBindingContext::Director, facts.director );
     include( RuntimeInputBindingContext::DirectorAuthoring, facts.directorAuthoring );
+    include( RuntimeInputBindingContext::Editor, facts.editor );
+    include( RuntimeInputBindingContext::EditorInactive, !facts.editor );
     include( RuntimeInputBindingContext::ReplayRestoreNotConsumed, facts.replayRestoreNotConsumed );
     include( RuntimeInputBindingContext::UINotInteracted, facts.uiNotInteracted );
 #ifdef _DEBUG

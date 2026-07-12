@@ -735,6 +735,7 @@ void InputRouter::DispatchCaptureActions( InputActions& actions,
                                              RunCameraModeIsAttached( camera.mode ),
                                              camera.mode == RunCameraMode::Director,
                                              camera.mode == RunCameraMode::Director || flyCamera,
+                                             false,
                                              !replayRuntime.Scrubber().restoreConsumedThisFrame,
                                              false };
     const RuntimeInputKeyBindingView bindings = TakeInputKeyboardBindings();
@@ -806,6 +807,7 @@ bool InputRouter::DispatchAfterUiDismiss( InputActions& actions,
                                              RunCameraModeIsAttached( camera.mode ),
                                              camera.mode == RunCameraMode::Director,
                                              camera.mode == RunCameraMode::Director || flyCamera,
+                                             runtimeTools.Editor().editorModeEnabled,
                                              !replayRuntime.Scrubber().restoreConsumedThisFrame,
                                              !uiUserInteracted };
     const RuntimeInputKeyBindingView bindings = TakeInputKeyboardBindings();

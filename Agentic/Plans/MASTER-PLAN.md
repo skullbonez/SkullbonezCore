@@ -95,29 +95,26 @@ concrete plan rows and counting it would duplicate tasks.
 | shader-pipeline-modernization | 8 | 8 | 100% |
 | render-visibility-architecture | 7 | 7 | 100% |
 | sim-render-interpolation | 5 | 5 | 100% |
-| editor-undo-redo | 0 | 5 | 0% |
+| editor-undo-redo | 5 | 5 | 100% |
 | data-format-versioning | 0 | 5 | 0% |
 | engine-config-decomposition | 5 | 5 | 100% |
 | entity-model-endgame | 4 | 4 | 100% |
 | instant-prediction-velocity-chaos | 52 | 52 | 100% |
 | shadow-edge-quality | 5 | 5 | 100% |
-| **Portfolio total** | **265** | **276** | **96%** |
+| **Portfolio total** | **270** | **276** | **98%** |
 
 ## Current Execution Priority
 
 For maximum impact with minimal rework, use this binding critical path:
 
-`editor` → `data versioning`
+`data versioning`
 
 1. **Engine-cleanup aggregate review and plan deletion — parallel lane.** Run
    review preparation alongside the critical path rather than as another serial
    implementation campaign. Fix every credible ownership finding, pass the
    closure gate, and delete the eight retained completed plans to remove stale
    control-plane noise.
-2. **`editor-undo-redo`.** Interaction ownership is ready, but history must
-    target final `PhysicsSceneObjectId` and post-`GameModelCollection` scene
-    APIs, so entity-model closure is a hard prerequisite.
-3. **`data-format-versioning`.** Asset/hull preparation is independent, but
+2. **`data-format-versioning`.** Asset/hull preparation is independent, but
     schedule delivery here. The `engine.cfg` portion waits for config
     decomposition so version plumbing targets the surviving parser/domain
     structure once.
@@ -159,7 +156,7 @@ Reconciliation notes live inside each plan.
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | [sim-render-interpolation](../Reports/2026-07-12/sim-render-interpolation-closure.md) | Complete | 5/5 | Allocation-free live interpolation, deterministic capture pinning, coherent cameras/listener, review, and final gates complete |
-| [editor-undo-redo](TODO/editor-undo-redo.md) | Planned | 0/5 | After entity-model closure; build history on final `PhysicsSceneObjectId` and post-`GameModelCollection` scene APIs |
+| [editor-undo-redo](../Reports/2026-07-12/editor-undo-redo-closure.md) | Complete | 5/5 | Fixed command history, stable-id recreation, exact state-fingerprint proof, lifecycle clearing, review, and final gates complete |
 | [data-format-versioning](TODO/data-format-versioning.md) | Planned | 0/5 | Deliver after editor; asset/hull preparation is independent and config decomposition is complete; scene v1→v2 remains the precedent |
 
 ## Features

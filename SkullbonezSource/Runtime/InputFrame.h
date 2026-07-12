@@ -102,6 +102,7 @@ struct KeyboardContextFacts
     bool attachedCamera = false;
     bool director = false;
     bool directorAuthoring = false;
+    bool editor = false;
     bool replayRestoreNotConsumed = false;
     bool uiNotInteracted = false;
 };

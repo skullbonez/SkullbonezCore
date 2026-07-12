@@ -315,6 +315,7 @@ void EnterEditorModeState( EditorGizmoContext context, RunCameraMode restoreCame
 
 void ExitEditorModeState( EditorGizmoContext context )
 {
+    context.editor.history.Clear();
     context.editor.editorModeEnabled = false;
     context.editor.viewportLookActive = false;
     context.editor.placementPreviewVisible = false;

@@ -677,7 +677,7 @@ void SeedEditorPhysicsBodyAsleep( SkullbonezCore::Basics::SceneController& colle
 }
 
 
-void ResetEditorModelMotionAndWake( SkullbonezCore::Basics::SceneController& collection,
+bool ResetEditorModelMotionAndWake( SkullbonezCore::Basics::SceneController& collection,
                                     PhysicsEngine& physics,
                                     int index,
                                     PhysicsBodyUpdateDesc update )
@@ -692,7 +692,7 @@ void ResetEditorModelMotionAndWake( SkullbonezCore::Basics::SceneController& col
     update.angularVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     if ( !physics.UpdateAuthoredBody( update ) )
     {
-        return;
+        return false;
     }
     const PhysicsBodyRecord* body = collection.BodyStore().RecordForHandle( bodyHandle );
     // Why: the explicit edit just refreshed the physics row; wake eligibility
@@ -701,10 +701,11 @@ void ResetEditorModelMotionAndWake( SkullbonezCore::Basics::SceneController& col
     {
         WakeEditorPhysicsBody( collection, physics, index );
     }
+    return true;
 }
 
 
-void ResetEditorModelMotionAndWake( SkullbonezCore::Basics::SceneController& collection,
+bool ResetEditorModelMotionAndWake( SkullbonezCore::Basics::SceneController& collection,
                                     PhysicsEngine& physics,
                                     int index,
                                     PhysicsBodyUpdateDesc update,
@@ -720,13 +721,14 @@ void ResetEditorModelMotionAndWake( SkullbonezCore::Basics::SceneController& col
     update.angularVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     if ( !physics.UpdateAuthoredBodyAndCollider( update, std::move( colliderDesc ) ) )
     {
-        return;
+        return false;
     }
     const PhysicsBodyRecord* body = collection.BodyStore().RecordForHandle( bodyHandle );
     if ( body && !body->isFixed )
     {
         WakeEditorPhysicsBody( collection, physics, index );
     }
+    return true;
 }
 
 
@@ -1201,6 +1203,9 @@ RuntimeTools::RouteEditorPlacementScalePointer( bool leftReleased,
             PlaceEditorObjectAtTerrainPoint( placementContext, placementRequest, placementResult );
             if ( placementResult.placed )
             {
+                RecordEditorPlacementHistory( collection,
+                                              placementResult.modelCountBefore,
+                                              placementResult.modelCountAfter );
                 replayRuntime.RecordEditorPlaceEvent( placementResult.objectType,
                                                       placementResult.fixedObject,
                                                       placementResult.autoTerrainAlign,
@@ -1357,6 +1362,10 @@ EditorGizmoDragPointerResult RuntimeTools::RouteEditorGizmoDragPointer( const Ed
         }
     }
 
+    if ( input.leftReleased && !input.suppressWorldAction )
+    {
+        RecordEditorTransformHistory( collection, gesture.gizmoKind, input.selectedModelIndex );
+    }
     CancelEditorGizmoDragState( { m_editor, collection, physics, interaction } );
     result.endedGesture = true;
     return result;

@@ -282,11 +282,11 @@ void WakeEditorPhysicsBody( Basics::SceneController& collection, Physics::Physic
 void SeedEditorPhysicsBodyAsleep( Basics::SceneController& collection,
                                   Physics::PhysicsEngine& physics,
                                   int modelIndex );
-void ResetEditorModelMotionAndWake( Basics::SceneController& collection,
+bool ResetEditorModelMotionAndWake( Basics::SceneController& collection,
                                     Physics::PhysicsEngine& physics,
                                     int index,
                                     Physics::PhysicsBodyUpdateDesc update );
-void ResetEditorModelMotionAndWake( Basics::SceneController& collection,
+bool ResetEditorModelMotionAndWake( Basics::SceneController& collection,
                                     Physics::PhysicsEngine& physics,
                                     int index,
                                     Physics::PhysicsBodyUpdateDesc update,

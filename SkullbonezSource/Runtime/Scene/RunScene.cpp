@@ -671,6 +671,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
         afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
         RunInternal::ClearEditorManipulationState(
             { m_runtimeTools.Editor(), m_sceneController, m_sceneController.Physics(), m_interaction } );
+        m_runtimeTools.ClearEditorHistory();
         m_runtimeTools.Editor().viewportLookActive = false;
         m_runtimeTools.Editor().placementModeEnabled = false;
         m_runtimeTools.Editor().hotGizmoAxis = -1;
