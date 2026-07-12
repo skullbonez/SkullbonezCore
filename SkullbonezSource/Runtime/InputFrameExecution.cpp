@@ -699,10 +699,13 @@ void SkullbonezCore::Basics::ProcessInputFrame( RuntimeFrameHostView& host,
             }
             break;
         }
-        case RuntimeInputAction::CycleReplayRibbonAuthoringLook:
-            // TEMPORARY DEBUG AUTHORING: this cold shortcut deliberately changes
-            // only trajectory presentation; simulation and replay data stay intact.
-            m_runtimeTools.EditorTracer().CycleReplayRibbonAuthoringLook();
+        case RuntimeInputAction::CycleReplayPredictionAuthoringLook:
+            // TEMPORARY DEBUG AUTHORING: this cold shortcut changes the complete
+            // prediction composition; simulation and replay data stay intact.
+#if defined( _DEBUG )
+            m_runtimeTools.EditorTracer().CycleReplayPredictionAuthoringLook(
+                ActiveSceneCinematicConfig( m_sceneController.State(), m_config ) );
+#endif
             break;
         case RuntimeInputAction::ToggleCrossScenePause:
             // P locks scene automation without turning the run interactive;

@@ -296,8 +296,8 @@ const char* InputController::DescribeAction( RuntimeInputAction action )
         return "TogglePhysicsDebugTransparent";
     case RuntimeInputAction::ReportRendererRuntimeRetired:
         return "ReportRendererRuntimeRetired";
-    case RuntimeInputAction::CycleReplayRibbonAuthoringLook:
-        return "CycleReplayRibbonAuthoringLook";
+    case RuntimeInputAction::CycleReplayPredictionAuthoringLook:
+        return "CycleReplayPredictionAuthoringLook";
     case RuntimeInputAction::ToggleBroadphaseOverlay:
         return "ToggleBroadphaseOverlay";
     case RuntimeInputAction::ToggleUIVisibility:

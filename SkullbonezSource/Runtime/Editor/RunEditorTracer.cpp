@@ -44,6 +44,7 @@ Related:
 #include "../Tools/RuntimeTools.h"
 #include "../../Physics/CollisionShape.h"
 #include "../../Physics/Ragdoll.h"
+#include "../../Core/Config.h"
 #include "../../Rendering/IRenderCommandContext.h"
 
 #include <algorithm>
@@ -152,12 +153,14 @@ RunEditorTracer::RunEditorTracer()
     m_replayRibbonVertexData.reserve( RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTEX_FLOAT_CAPACITY );
 }
 
-void RunEditorTracer::CycleReplayRibbonAuthoringLook()
+void RunEditorTracer::CycleReplayPredictionAuthoringLook( CinematicRenderConfig& cinematic )
 {
-    // TEMPORARY DEBUG AUTHORING. Owner: RunEditorTracer. Reason: rapidly search
-    // the glow/desaturation design space in the real scene. Deletion condition:
-    // remove this method, action, and binding when the chosen preset is baked in.
-    // Review evidence is the single copy/paste-ready log record below.
+    // TEMPORARY DEBUG AUTHORING. Owner: RunEditorTracer. Reason: this deliberate
+    // cross-domain authoring boundary searches the complete prediction/cinematic
+    // design space in the real scene. Deletion condition: remove this method,
+    // action, and binding when the chosen preset is baked in. Review evidence is
+    // the copy/paste-ready TEMP_PREDICTION_* and TEMP_REPLAY_LOOK record set below.
+#if defined( _DEBUG )
     uint32_t state = m_replayRibbonAuthoringLook.seed + 0x9e3779b9u;
     if ( state == 0u )
     {
@@ -187,6 +190,257 @@ void RunEditorTracer::CycleReplayRibbonAuthoringLook()
     m_replayRibbonAuthoringLook.colorGain = range( 0.65f, 1.8f );
     m_replayRibbonAuthoringLook.seed = state;
 
+    struct AuthoringPalette
+    {
+        const char* name;
+        int skyMode;
+        int terrainMode;
+        int objectStyle;
+        float sun[3];
+        float horizon[3];
+        float zenith[3];
+        float terrain[3];
+        float accent[3];
+        float fog[3];
+    };
+    // TEMPORARY DEBUG AUTHORING: curated mode/palette families keep the random
+    // search broad without producing unrelated RGB soup. Scalar jitter below
+    // explores exposure, grading, atmosphere, glow, and material response.
+    static constexpr AuthoringPalette palettes[] = {
+        { "neon_noir",
+          CinematicStyleMode::Sky::NeonCyberpunk,
+          CinematicStyleMode::Terrain::NeonGrid,
+          CinematicStyleMode::Object::Emissive,
+          { 1.7f, 0.25f, 1.5f },
+          { 0.22f, 0.03f, 0.38f },
+          { 0.01f, 0.08f, 0.30f },
+          { 0.025f, 0.035f, 0.065f },
+          { 0.05f, 0.75f, 1.35f },
+          { 0.10f, 0.02f, 0.19f } },
+        { "alien_aurora",
+          CinematicStyleMode::Sky::AlienPlanet,
+          CinematicStyleMode::Terrain::AlienVeins,
+          CinematicStyleMode::Object::Fresnel,
+          { 0.38f, 1.65f, 0.72f },
+          { 0.18f, 0.58f, 0.32f },
+          { 0.16f, 0.02f, 0.42f },
+          { 0.06f, 0.16f, 0.09f },
+          { 0.62f, 0.08f, 0.92f },
+          { 0.11f, 0.28f, 0.18f } },
+        { "desert_epic",
+          CinematicStyleMode::Sky::DesertStorm,
+          CinematicStyleMode::Terrain::DesertSlope,
+          CinematicStyleMode::Object::Matte,
+          { 1.75f, 0.88f, 0.28f },
+          { 1.15f, 0.42f, 0.18f },
+          { 0.12f, 0.16f, 0.30f },
+          { 0.42f, 0.18f, 0.07f },
+          { 0.95f, 0.48f, 0.11f },
+          { 0.62f, 0.31f, 0.16f } },
+        { "painted_story",
+          CinematicStyleMode::Sky::Painterly,
+          CinematicStyleMode::Terrain::Posterized,
+          CinematicStyleMode::Object::ToonBands,
+          { 1.25f, 0.68f, 0.50f },
+          { 0.75f, 0.40f, 0.58f },
+          { 0.18f, 0.42f, 0.82f },
+          { 0.20f, 0.34f, 0.16f },
+          { 0.70f, 0.52f, 0.18f },
+          { 0.42f, 0.38f, 0.52f } },
+        { "retro_chrome",
+          CinematicStyleMode::Sky::RetroFuture,
+          CinematicStyleMode::Terrain::ChromaticBands,
+          CinematicStyleMode::Object::Metal,
+          { 1.42f, 0.36f, 0.62f },
+          { 0.54f, 0.18f, 0.48f },
+          { 0.03f, 0.22f, 0.52f },
+          { 0.10f, 0.06f, 0.16f },
+          { 0.15f, 0.72f, 1.15f },
+          { 0.25f, 0.08f, 0.24f } },
+        { "fog_thriller",
+          CinematicStyleMode::Sky::AtmosphericFog,
+          CinematicStyleMode::Terrain::CoolStone,
+          CinematicStyleMode::Object::DarkRim,
+          { 0.72f, 0.82f, 1.12f },
+          { 0.38f, 0.46f, 0.58f },
+          { 0.06f, 0.10f, 0.18f },
+          { 0.12f, 0.15f, 0.18f },
+          { 0.34f, 0.42f, 0.52f },
+          { 0.24f, 0.30f, 0.38f } },
+        { "nordic_clean",
+          CinematicStyleMode::Sky::NordicWinter,
+          CinematicStyleMode::Terrain::NordicSnow,
+          CinematicStyleMode::Object::Matte,
+          { 0.92f, 1.08f, 1.35f },
+          { 0.62f, 0.78f, 0.96f },
+          { 0.12f, 0.24f, 0.48f },
+          { 0.48f, 0.58f, 0.64f },
+          { 0.22f, 0.38f, 0.56f },
+          { 0.50f, 0.62f, 0.74f } },
+        { "abstract_stage",
+          CinematicStyleMode::Sky::AbstractRender,
+          CinematicStyleMode::Terrain::SolidStudio,
+          CinematicStyleMode::Object::Emissive,
+          { 1.30f, 1.30f, 1.30f },
+          { 0.16f, 0.16f, 0.18f },
+          { 0.01f, 0.01f, 0.02f },
+          { 0.035f, 0.035f, 0.04f },
+          { 0.95f, 0.15f, 0.12f },
+          { 0.08f, 0.08f, 0.09f } },
+        { "soft_animation",
+          CinematicStyleMode::Sky::PixarInspired,
+          CinematicStyleMode::Terrain::SoftIllustrated,
+          CinematicStyleMode::Object::ToonBands,
+          { 1.38f, 0.92f, 0.58f },
+          { 0.82f, 0.58f, 0.62f },
+          { 0.24f, 0.52f, 0.92f },
+          { 0.24f, 0.44f, 0.18f },
+          { 0.78f, 0.56f, 0.20f },
+          { 0.52f, 0.48f, 0.62f } },
+        { "tron_precision",
+          CinematicStyleMode::Sky::TronGrid,
+          CinematicStyleMode::Terrain::SciFiGrid,
+          CinematicStyleMode::Object::Emissive,
+          { 0.28f, 1.35f, 1.65f },
+          { 0.02f, 0.14f, 0.22f },
+          { 0.0f, 0.015f, 0.05f },
+          { 0.012f, 0.025f, 0.04f },
+          { 0.08f, 0.85f, 1.25f },
+          { 0.02f, 0.08f, 0.13f } },
+    };
+    constexpr std::size_t paletteCount = sizeof( palettes ) / sizeof( palettes[0] );
+    const std::size_t paletteIndex =
+        static_cast<std::size_t>( random01() * static_cast<float>( paletteCount ) ) % paletteCount;
+    const AuthoringPalette& palette = palettes[paletteIndex];
+    const auto jitterColor = [&range]( const float color[3], float& r, float& g, float& b )
+    {
+        r = color[0] * range( 0.78f, 1.28f );
+        g = color[1] * range( 0.78f, 1.28f );
+        b = color[2] * range( 0.78f, 1.28f );
+    };
+    const auto chance = [&random01]( float probability ) { return random01() < probability; };
+
+    cinematic.enabled = true;
+    cinematic.skyMode = palette.skyMode;
+    cinematic.terrainMode = palette.terrainMode;
+    cinematic.objectStyle = palette.objectStyle;
+    cinematic.skyAtmosphereEnabled = chance( 0.90f );
+    cinematic.cloudsEnabled = chance( 0.65f );
+    cinematic.godRaysEnabled = chance( 0.55f );
+    cinematic.volumetricLightingEnabled = chance( 0.70f );
+    cinematic.bloomEnabled = chance( 0.88f );
+    cinematic.fogEnabled = chance( 0.72f );
+    cinematic.terrainReliefEnabled = chance( 0.42f );
+    cinematic.exposure = range( 0.68f, 1.62f );
+    cinematic.gamma = range( 1.15f, 2.15f );
+    cinematic.sunAzimuth = range( 0.05f, 0.95f );
+    cinematic.sunElevation = range( 0.12f, 0.88f );
+    jitterColor( palette.sun, cinematic.sunColorR, cinematic.sunColorG, cinematic.sunColorB );
+    jitterColor( palette.horizon, cinematic.skyHorizonR, cinematic.skyHorizonG, cinematic.skyHorizonB );
+    jitterColor( palette.zenith, cinematic.skyZenithR, cinematic.skyZenithG, cinematic.skyZenithB );
+    jitterColor( palette.terrain, cinematic.terrainTintR, cinematic.terrainTintG, cinematic.terrainTintB );
+    jitterColor( palette.accent, cinematic.terrainAccentR, cinematic.terrainAccentG, cinematic.terrainAccentB );
+    jitterColor( palette.fog, cinematic.fogColorR, cinematic.fogColorG, cinematic.fogColorB );
+    cinematic.sunIntensity = range( 2.5f, 18.0f );
+    cinematic.skyGlowStrength = range( 0.05f, 1.15f );
+    cinematic.cloudCoverage = range( 0.15f, 0.82f );
+    cinematic.cloudSoftness = range( 0.08f, 0.55f );
+    cinematic.cloudScale = range( 1.5f, 9.0f );
+    cinematic.cloudIntensity = range( 0.25f, 1.45f );
+    cinematic.sunShaftStrength = range( 0.05f, 0.75f );
+    cinematic.sunShaftFalloff = range( 1.1f, 4.2f );
+    cinematic.volumetricStrength = range( 0.03f, 0.48f );
+    cinematic.volumetricDensity = range( 0.25f, 1.15f );
+    cinematic.volumetricDecay = range( 0.91f, 0.985f );
+    cinematic.bloomThreshold = range( 0.45f, 1.75f );
+    cinematic.bloomKnee = range( 0.15f, 0.85f );
+    cinematic.bloomStrength = range( 0.05f, 0.85f );
+    cinematic.bloomRadius = range( 1.0f, 7.5f );
+    cinematic.fogStart = range( 35.0f, 520.0f );
+    cinematic.fogEnd = cinematic.fogStart + range( 320.0f, 1900.0f );
+    cinematic.fogDensity = range( 0.00005f, 0.0018f );
+    cinematic.fogMaxOpacity = range( 0.04f, 0.62f );
+    cinematic.styleSaturation = range( 0.22f, 2.15f );
+    cinematic.styleContrast = range( 0.72f, 1.85f );
+    cinematic.styleVignette = range( 0.0f, 0.68f );
+    cinematic.terrainGridScale = range( 12.0f, 90.0f );
+    cinematic.terrainGridStrength = chance( 0.55f ) ? range( 0.08f, 1.0f ) : 0.0f;
+    cinematic.terrainRelief = chance( 0.42f ) ? range( 0.0f, 0.75f ) : 0.0f;
+
+    fprintf( stderr,
+             "TEMP_PREDICTION_LOOK theme=%s seed=%u modes={sky=%d terrain=%d object=%d} passes={sky=%d clouds=%d "
+             "rays=%d volumetric=%d bloom=%d fog=%d relief=%d}\n",
+             palette.name,
+             state,
+             cinematic.skyMode,
+             cinematic.terrainMode,
+             cinematic.objectStyle,
+             cinematic.skyAtmosphereEnabled,
+             cinematic.cloudsEnabled,
+             cinematic.godRaysEnabled,
+             cinematic.volumetricLightingEnabled,
+             cinematic.bloomEnabled,
+             cinematic.fogEnabled,
+             cinematic.terrainReliefEnabled );
+    fprintf( stderr,
+             "TEMP_PREDICTION_VIEW exposure=%.3f gamma=%.3f saturation=%.3f contrast=%.3f vignette=%.3f "
+             "sun={azimuth=%.3f elevation=%.3f rgb=%.3f,%.3f,%.3f intensity=%.3f} "
+             "sky={horizon=%.3f,%.3f,%.3f zenith=%.3f,%.3f,%.3f glow=%.3f}\n",
+             cinematic.exposure,
+             cinematic.gamma,
+             cinematic.styleSaturation,
+             cinematic.styleContrast,
+             cinematic.styleVignette,
+             cinematic.sunAzimuth,
+             cinematic.sunElevation,
+             cinematic.sunColorR,
+             cinematic.sunColorG,
+             cinematic.sunColorB,
+             cinematic.sunIntensity,
+             cinematic.skyHorizonR,
+             cinematic.skyHorizonG,
+             cinematic.skyHorizonB,
+             cinematic.skyZenithR,
+             cinematic.skyZenithG,
+             cinematic.skyZenithB,
+             cinematic.skyGlowStrength );
+    fprintf( stderr,
+             "TEMP_PREDICTION_FX clouds={coverage=%.3f softness=%.3f scale=%.3f intensity=%.3f} "
+             "shafts={strength=%.3f falloff=%.3f} volumetric={strength=%.3f density=%.3f decay=%.3f} "
+             "bloom={threshold=%.3f knee=%.3f strength=%.3f radius=%.3f} "
+             "fog={rgb=%.3f,%.3f,%.3f start=%.3f end=%.3f density=%.6f maxOpacity=%.3f}\n",
+             cinematic.cloudCoverage,
+             cinematic.cloudSoftness,
+             cinematic.cloudScale,
+             cinematic.cloudIntensity,
+             cinematic.sunShaftStrength,
+             cinematic.sunShaftFalloff,
+             cinematic.volumetricStrength,
+             cinematic.volumetricDensity,
+             cinematic.volumetricDecay,
+             cinematic.bloomThreshold,
+             cinematic.bloomKnee,
+             cinematic.bloomStrength,
+             cinematic.bloomRadius,
+             cinematic.fogColorR,
+             cinematic.fogColorG,
+             cinematic.fogColorB,
+             cinematic.fogStart,
+             cinematic.fogEnd,
+             cinematic.fogDensity,
+             cinematic.fogMaxOpacity );
+    fprintf( stderr,
+             "TEMP_PREDICTION_TERRAIN tint=%.3f,%.3f,%.3f accent=%.3f,%.3f,%.3f gridScale=%.3f "
+             "gridStrength=%.3f relief=%.3f\n",
+             cinematic.terrainTintR,
+             cinematic.terrainTintG,
+             cinematic.terrainTintB,
+             cinematic.terrainAccentR,
+             cinematic.terrainAccentG,
+             cinematic.terrainAccentB,
+             cinematic.terrainGridScale,
+             cinematic.terrainGridStrength,
+             cinematic.terrainRelief );
     fprintf( stderr,
              "TEMP_REPLAY_LOOK seed=%u opacity=%.3f saturation=%.3f colorGain=%.3f path={width=%.3f alpha=%.3f "
              "feather=%.3f hdr=%.3f} causal={width=%.3f alpha=%.3f feather=%.3f hdr=%.3f} baseline={width=%.3f "
@@ -212,6 +466,9 @@ void RunEditorTracer::CycleReplayRibbonAuthoringLook()
              m_replayRibbonAuthoringLook.marker.edgeFeather,
              m_replayRibbonAuthoringLook.marker.hdrScale );
     fflush( stderr );
+#else
+    static_cast<void>( cinematic );
+#endif
 }
 
 

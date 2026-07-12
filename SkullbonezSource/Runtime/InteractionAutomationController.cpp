@@ -677,6 +677,13 @@ bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
         outVirtualKey = VK_OEM_3;
         return true;
     }
+    if ( value == "Period" )
+    {
+        // TEMPORARY DEBUG AUTHORING: lets screenshot automation exercise the
+        // same full-scene look cycler as the physical '.' key.
+        outVirtualKey = VK_OEM_PERIOD;
+        return true;
+    }
     if ( value == "Delete" )
     {
         outVirtualKey = VK_DELETE;

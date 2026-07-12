@@ -77,7 +77,7 @@ TEST_CASE( "Runtime input bindings: core keyboard shortcuts map to actions" )
     CheckExactBinding( 'N', keyboard, RuntimeInputAction::ToggleLauncher );
     CheckExactBinding( '0', keyboard, RuntimeInputAction::ToggleUIVisibility );
     CheckExactBinding( VK_F9, keyboard, RuntimeInputAction::ReloadShadersFromSource );
-    CheckExactBinding( VK_OEM_PERIOD, keyboard, RuntimeInputAction::CycleReplayRibbonAuthoringLook );
+    CheckExactBinding( VK_OEM_PERIOD, keyboard, RuntimeInputAction::CycleReplayPredictionAuthoringLook );
     CheckExactBinding( VK_LEFT, keyboard, RuntimeInputAction::NavigateScenePrevious );
     CheckExactBinding( VK_RIGHT, keyboard, RuntimeInputAction::NavigateSceneNext );
     CheckExactBinding( 'Z', keyboard | RuntimeInputBindingContext::Editor, RuntimeInputAction::UndoEditor );
@@ -100,9 +100,7 @@ TEST_CASE( "Runtime input bindings: contextual shortcuts stay on their owning co
     CheckExactBinding( VK_RETURN,
                        keyboard | RuntimeInputBindingContext::AttachedCamera,
                        RuntimeInputAction::ToggleAttachedCameraPin );
-    CheckExactBinding( 'B',
-                       keyboard | RuntimeInputBindingContext::Director,
-                       RuntimeInputAction::ToggleDirectorGrab );
+    CheckExactBinding( 'B', keyboard | RuntimeInputBindingContext::Director, RuntimeInputAction::ToggleDirectorGrab );
     CheckExactBinding( 'J',
                        keyboard | RuntimeInputBindingContext::DirectorAuthoring,
                        RuntimeInputAction::SetDirectorPhasePose );
@@ -127,7 +125,9 @@ TEST_CASE( "Runtime input bindings: late and capture shortcuts are explicitly gr
                        afterUI | RuntimeInputBindingContext::UINotInteracted,
                        RuntimeInputAction::DismissOrExitUI );
     CheckExactBinding( 'R', afterUI, RuntimeInputAction::ResetScene );
-    CheckExactBinding( VK_BACK, afterUI | RuntimeInputBindingContext::Scene, RuntimeInputAction::ResetSceneFromBackspace );
+    CheckExactBinding( VK_BACK,
+                       afterUI | RuntimeInputBindingContext::Scene,
+                       RuntimeInputAction::ResetSceneFromBackspace );
     CheckExactBinding( VK_F2, capture, RuntimeInputAction::SaveSceneSnapshot );
     CheckExactBinding( VK_F3, capture, RuntimeInputAction::SaveScreenshot );
 }

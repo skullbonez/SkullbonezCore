@@ -73,6 +73,7 @@ Related:
 
 namespace SkullbonezCore::Basics
 {
+struct CinematicRenderConfig;
 class SceneController;
 } // namespace SkullbonezCore::Basics
 
@@ -550,9 +551,9 @@ class RunEditorTracer
 
   public:
     RunEditorTracer();
-    // TEMPORARY DEBUG AUTHORING: press '.' to replace the complete trajectory
-    // presentation look and print every reproducible value to the runtime log.
-    void CycleReplayRibbonAuthoringLook();
+    // TEMPORARY DEBUG AUTHORING: in Debug, press '.' to replace the complete
+    // prediction/cinematic look and print every reproducible value to stderr.
+    void CycleReplayPredictionAuthoringLook( CinematicRenderConfig& cinematic );
     void Clear();
     // Resets only the replay trajectory counters; callers use this before the
     // replay pass so editor tool ribbons do not count as replay trajectory work.

@@ -103,7 +103,7 @@ enum class RuntimeInputAction
     TogglePhysicsDebugTransparent,
     ReportRendererRuntimeRetired,
     ReloadShadersFromSource,
-    CycleReplayRibbonAuthoringLook,
+    CycleReplayPredictionAuthoringLook,
     ToggleBroadphaseOverlay,
     ToggleUIVisibility,
     TogglePerformanceHistogram,
