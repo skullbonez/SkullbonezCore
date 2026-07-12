@@ -67,16 +67,22 @@ constexpr std::size_t RUN_EDITOR_TRACER_LINE_FLOAT_CAPACITY = 262144;
 constexpr std::size_t RUN_EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY = 524288;
 constexpr std::size_t RUN_EDITOR_TRACER_FLOATS_PER_LINE = 12;
 // Why: the Stage-9 frozen prediction probe submitted 21,568 replay ribbon
-// segments. 24,000 keeps roughly 11% headroom while removing several MiB of
-// permanent staging that the old double-emit path no longer needs.
-constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_CAPACITY = 24000;
+// segments. The configured 27,000-segment/162,000-vertex ceiling adds 25.2%
+// headroom, yet its two-pass upload is only 16.1 MiB of the 32 MiB frame arena.
+// Ordinary paths get 24,000 slots and causal priority evidence keeps 3,000.
+constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_BUDGET = 27000;
+constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_SEGMENT_CAPACITY = 24000;
+constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_SEGMENT_CAPACITY =
+    RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_BUDGET - RUN_EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_SEGMENT_CAPACITY;
 constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT = 13;
-constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOAT_CAPACITY =
-    RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_CAPACITY * RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
+constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_FLOAT_CAPACITY =
+    RUN_EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_SEGMENT_CAPACITY * RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
+constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_FLOAT_CAPACITY =
+    RUN_EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_SEGMENT_CAPACITY * RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
 constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX = 13;
 constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT = 6;
 constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTEX_FLOAT_CAPACITY =
-    RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_CAPACITY * 2 * RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT *
+    RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_BUDGET * RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT *
     RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX;
 constexpr float RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY = 0.5f;
 constexpr uint64_t REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET = 1469598103934665603ull;
@@ -128,8 +134,8 @@ RunEditorTracer::RunEditorTracer()
     m_lineData.reserve( RUN_EDITOR_TRACER_LINE_FLOAT_CAPACITY );
     m_priorityLineData.reserve( RUN_EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY );
     m_renderLineData.reserve( RUN_EDITOR_TRACER_LINE_FLOAT_CAPACITY + RUN_EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY );
-    m_replayRibbonSegments.reserve( RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOAT_CAPACITY );
-    m_priorityReplayRibbonSegments.reserve( RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOAT_CAPACITY );
+    m_replayRibbonSegments.reserve( RUN_EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_FLOAT_CAPACITY );
+    m_priorityReplayRibbonSegments.reserve( RUN_EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_FLOAT_CAPACITY );
     m_replayRibbonVertexData.reserve( RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTEX_FLOAT_CAPACITY );
 }
 
@@ -155,6 +161,16 @@ void RunEditorTracer::ClearReplayTrajectoryStats()
 const MainMemoryReplayTrajectoryStats& RunEditorTracer::ReplayTrajectoryStats() const
 {
     return m_replayTrajectoryStats;
+}
+
+
+void RunEditorTracer::RecordReplayRibbonDroppedSegments( MainMemoryReplayTrajectoryLane lane, std::size_t count )
+{
+    const std::size_t laneIndex = static_cast<std::size_t>( lane );
+    if ( laneIndex < MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT )
+    {
+        m_replayTrajectoryStats.droppedSegments[laneIndex] += static_cast<uint64_t>( count );
+    }
 }
 
 const MainMemoryReplayTrajectorySubmissionStats& RunEditorTracer::ReplaySubmissionStats() const
@@ -415,11 +431,14 @@ void RunEditorTracer::EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData,
     }
 
     const std::size_t laneIndex = static_cast<std::size_t>( lane );
-    if ( ribbonData.size() + RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT > ribbonData.capacity() )
+    const std::size_t combinedSegments = ( m_replayRibbonSegments.size() + m_priorityReplayRibbonSegments.size() ) /
+                                         RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
+    if ( combinedSegments >= RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_BUDGET ||
+         ribbonData.size() + RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT > ribbonData.capacity() )
     {
         if ( laneIndex < MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT )
         {
-            ++m_replayTrajectoryStats.droppedSegments[laneIndex];
+            RecordReplayRibbonDroppedSegments( lane );
         }
         return;
     }

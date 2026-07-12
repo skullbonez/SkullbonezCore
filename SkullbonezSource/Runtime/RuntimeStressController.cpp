@@ -1226,6 +1226,8 @@ void SkullbonezCore::Basics::ExecuteGraphicsStressFrame( GraphicsStressControlle
                 "render_available=%d render_adapter_available=%d dxgi_local_usage_bytes=%llu "
                 "dxgi_nonlocal_usage_bytes=%llu dxgi_local_budget_bytes=%llu dxgi_nonlocal_budget_bytes=%llu "
                 "upload_capacity_bytes=%llu upload_used_bytes=%llu upload_peak_bytes=%llu timer_readback_bytes=%llu "
+                "upload_constants_peak_bytes=%llu upload_dynamic_peak_bytes=%llu upload_instances_peak_bytes=%llu "
+                "upload_textures_peak_bytes=%llu upload_overlay_peak_bytes=%llu upload_flushes=%llu upload_drops=%llu "
                 "textures=%zu texture_capacity=%zu psos=%zu graph_transients=%zu graph_transient_capacity=%zu "
                 "rtv_used=%u rtv_capacity=%u dsv_used=%u dsv_capacity=%u srv_static_used=%u srv_static_capacity=%u "
                 "srv_static_high_water=%u "
@@ -1251,6 +1253,18 @@ void SkullbonezCore::Basics::ExecuteGraphicsStressFrame( GraphicsStressControlle
                 static_cast<unsigned long long>( renderStats.uploadUsedBytes ),
                 static_cast<unsigned long long>( renderStats.uploadPeakBytes ),
                 static_cast<unsigned long long>( renderStats.timerReadbackBytes ),
+                static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                    SkullbonezCore::Rendering::RenderUploadCategory::Constants )] ),
+                static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                    SkullbonezCore::Rendering::RenderUploadCategory::DynamicVertex )] ),
+                static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                    SkullbonezCore::Rendering::RenderUploadCategory::InstanceData )] ),
+                static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                    SkullbonezCore::Rendering::RenderUploadCategory::TextureRows )] ),
+                static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                    SkullbonezCore::Rendering::RenderUploadCategory::DebugPredictionOverlay )] ),
+                static_cast<unsigned long long>( renderStats.uploadFlushCount ),
+                static_cast<unsigned long long>( renderStats.uploadDropCount ),
                 renderStats.textureRegistryCount,
                 renderStats.textureRegistryCapacity,
                 renderStats.psoCacheCount,

@@ -18,6 +18,8 @@ Glossary:
 
 Invariants:
   - Tracker storage is fixed and must not allocate while recording or reporting.
+  - Phase scopes remain active when the optional allocation counter is off;
+    renderer and reserve policies consume the same lifecycle label.
   - Worker threads read the same process phase as the main thread so parallel
     physics allocations cannot hide behind a default thread-local phase.
 
@@ -69,7 +71,6 @@ class RuntimeAllocationScope
 
   private:
     RuntimeAllocationPhase m_previous;
-    bool m_active;
 };
 
 void SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode mode ) noexcept;

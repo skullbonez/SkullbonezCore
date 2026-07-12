@@ -19,6 +19,8 @@ Glossary:
     reflection dispatch.
   Render memory snapshot: Coarse counters that separate engine renderer caches
     from platform-reported adapter memory during stress runs.
+  Upload category: Caller-owned reason for consuming frame upload bytes, used
+    only for attribution and never for allocation priority.
   Visibility counters: Per-view candidate, cull, submission, and draw totals
     accumulated between frame-diagnostics resets.
   DXGI adapter memory: Windows graphics-kernel budget/usage counters for the
@@ -59,24 +61,42 @@ struct RenderCapabilities
     bool supportsDebugLines = false;
 };
 
+// Concept: upload attribution follows the owner that generated the bytes. The
+// categories are stable diagnostic rows shared by the Memory tab and stress log.
+enum class RenderUploadCategory : std::size_t
+{
+    Constants = 0,
+    DynamicVertex,
+    InstanceData,
+    TextureRows,
+    DebugPredictionOverlay,
+    Count
+};
+
+constexpr std::size_t RENDER_UPLOAD_CATEGORY_COUNT = static_cast<std::size_t>( RenderUploadCategory::Count );
+
 struct RenderMemoryStats
 {
-    bool available = false;                       // False when the backend is not initialized enough to answer.
-    char backendName[32] = "unknown";             // Short renderer name for CSV/JSON diagnostics.
-    uint64_t recreationGeneration = 0;            // Advances after a complete backend resize publication.
-    bool adapterMemoryAvailable = false;          // True when DXGI adapter memory counters were sampled.
-    uint64_t localBudgetBytes = 0;                // Adapter-local budget reported by DXGI.
-    uint64_t localCurrentUsageBytes = 0;          // Adapter-local bytes currently charged to this process.
-    uint64_t localCurrentReservationBytes = 0;    // Adapter-local reservation bytes currently held by this process.
+    bool available = false;                                              // False when the backend is not initialized enough to answer.
+    char backendName[32] = "unknown";                                    // Short renderer name for CSV/JSON diagnostics.
+    uint64_t recreationGeneration = 0;                                   // Advances after a complete backend resize publication.
+    bool adapterMemoryAvailable = false;                                 // True when DXGI adapter memory counters were sampled.
+    uint64_t localBudgetBytes = 0;                                       // Adapter-local budget reported by DXGI.
+    uint64_t localCurrentUsageBytes = 0;                                 // Adapter-local bytes currently charged to this process.
+    uint64_t localCurrentReservationBytes = 0;                           // Adapter-local reservation bytes currently held by this process.
     uint64_t localAvailableForReservationBytes = 0;
-    uint64_t nonLocalBudgetBytes = 0;             // Shared/system-memory budget reported by DXGI.
-    uint64_t nonLocalCurrentUsageBytes = 0;       // Non-local bytes currently charged to this process.
-    uint64_t nonLocalCurrentReservationBytes = 0; // Non-local reservation bytes currently held by this process.
+    uint64_t nonLocalBudgetBytes = 0;                                    // Shared/system-memory budget reported by DXGI.
+    uint64_t nonLocalCurrentUsageBytes = 0;                              // Non-local bytes currently charged to this process.
+    uint64_t nonLocalCurrentReservationBytes = 0;                        // Non-local reservation bytes currently held by this process.
     uint64_t nonLocalAvailableForReservationBytes = 0;
-    uint64_t uploadCapacityBytes = 0;             // Sum of persistent per-frame upload-buffer resources.
-    uint64_t uploadUsedBytes = 0;                 // Bytes used in the currently sampled upload arenas.
-    uint64_t uploadPeakBytes = 0;                 // Sum of per-arena high-water marks for this run.
-    uint64_t timerReadbackBytes = 0;              // CPU-readable timer readback resource, when allocated.
+    uint64_t uploadCapacityBytes = 0;                                    // Sum of persistent per-frame upload-buffer resources.
+    uint64_t uploadUsedBytes = 0;                                        // Bytes used in the currently sampled upload arenas.
+    uint64_t uploadPeakBytes = 0;                                        // Highest one-frame arena water mark for this run.
+    uint64_t uploadCategoryUsedBytes[RENDER_UPLOAD_CATEGORY_COUNT] = {}; // Current bytes by upload owner.
+    uint64_t uploadCategoryPeakBytes[RENDER_UPLOAD_CATEGORY_COUNT] = {}; // Highest one-frame category totals.
+    uint64_t uploadFlushCount = 0;                                       // Cold-phase mid-frame drains since backend initialization.
+    uint64_t uploadDropCount = 0;                                        // Steady-phase reservations rejected at their draw boundary.
+    uint64_t timerReadbackBytes = 0;                                     // CPU-readable timer readback resource, when allocated.
     std::size_t textureRegistryCount = 0;
     std::size_t textureRegistryCapacity = 0;
     std::size_t dynamicVertexBufferCount = 0;

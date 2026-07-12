@@ -46,7 +46,7 @@ using namespace SkullbonezCore::Basics;
 
 namespace
 {
-constexpr float MEMORY_SUMMARY_BLOCK_H = 246.0f;
+constexpr float MEMORY_SUMMARY_BLOCK_H = 310.0f;
 constexpr float MEMORY_REPLAY_POLICY_BLOCK_H = 154.0f;
 constexpr float MEMORY_PANEL_GAP = 14.0f;
 constexpr float MEMORY_EVENT_HEADER_H = 62.0f;
@@ -993,6 +993,49 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
     FormatMemoryMiB( launcherVisualBytes, d, sizeof( d ) );
     snprintf( text, sizeof( text ), "cat visual path %s  cause %s  ghost %s  launch %s", a, b, c, d );
     draw.Text( x, row0 + 210.0f, 8.0f, 0.50f, 0.64f, 0.66f, text );
+
+    // Concept: upload rows separate the fixed arena waterline from the caller
+    // category that consumed it, so a texture-load spike is not mistaken for a
+    // steady prediction-overlay regression.
+    const SkullbonezCore::Rendering::RenderMemoryStats& render = data.renderMemory;
+    FormatMemoryMiB( render.uploadUsedBytes, a, sizeof( a ) );
+    FormatMemoryMiB( render.uploadPeakBytes, b, sizeof( b ) );
+    FormatMemoryMiB( render.uploadCapacityBytes, c, sizeof( c ) );
+    snprintf( text,
+              sizeof( text ),
+              "upload used %s  peak %s  cap %s  flush/drop %llu/%llu",
+              a,
+              b,
+              c,
+              static_cast<unsigned long long>( render.uploadFlushCount ),
+              static_cast<unsigned long long>( render.uploadDropCount ) );
+    draw.Text( x, row0 + 228.0f, 8.0f, 0.54f, 0.72f, 0.74f, text );
+
+    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                         SkullbonezCore::Rendering::RenderUploadCategory::Constants )],
+                     a,
+                     sizeof( a ) );
+    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                         SkullbonezCore::Rendering::RenderUploadCategory::DynamicVertex )],
+                     b,
+                     sizeof( b ) );
+    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                         SkullbonezCore::Rendering::RenderUploadCategory::InstanceData )],
+                     c,
+                     sizeof( c ) );
+    snprintf( text, sizeof( text ), "upload peak const %s  dynamic %s  instance %s", a, b, c );
+    draw.Text( x, row0 + 242.0f, 8.0f, 0.50f, 0.66f, 0.68f, text );
+
+    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                         SkullbonezCore::Rendering::RenderUploadCategory::TextureRows )],
+                     a,
+                     sizeof( a ) );
+    FormatMemoryMiB( render.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                         SkullbonezCore::Rendering::RenderUploadCategory::DebugPredictionOverlay )],
+                     b,
+                     sizeof( b ) );
+    snprintf( text, sizeof( text ), "upload peak texture %s  debug/prediction %s", a, b );
+    draw.Text( x, row0 + 256.0f, 8.0f, 0.50f, 0.66f, 0.68f, text );
 }
 
 void DrawReserveGrowthEvents( const SkullbonezCore::UI::UIDrawContext& draw,

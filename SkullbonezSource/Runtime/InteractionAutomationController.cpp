@@ -2961,6 +2961,12 @@ SbResult SkullbonezCore::Basics::WriteInteractionAutomationReport( InteractionAu
     }
 
     const std::string* scenePath = scene.CurrentPath();
+    const MainMemoryReplayStats replayMemoryStats = replayRuntime.CollectMemoryStats();
+    uint64_t trajectoryDroppedTotal = 0;
+    for ( std::size_t laneIndex = 0; laneIndex < MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT; ++laneIndex )
+    {
+        trajectoryDroppedTotal += replayMemoryStats.trajectory.droppedSegments[laneIndex];
+    }
     Json report;
     report["ok"] = !state.failed;
     report["scene"] = scenePath ? *scenePath : "";
@@ -3044,6 +3050,33 @@ SbResult SkullbonezCore::Basics::WriteInteractionAutomationReport( InteractionAu
         { "predictionTrajectorySubmissionVertexBytes", predictionSubmissionProbe.vertexBytes },
         { "predictionTrajectorySubmissionVertexCount", static_cast<int>( predictionSubmissionProbe.vertexCount ) },
         { "predictionTrajectorySubmissionSegmentCount", static_cast<int>( predictionSubmissionProbe.segmentCount ) },
+        { "predictionTrajectoryDroppedSegmentCount", trajectoryDroppedTotal },
+        { "predictionTrajectoryDroppedSegments",
+          Json{
+              { "pastRoot",
+                replayMemoryStats.trajectory
+                    .droppedSegments[static_cast<std::size_t>( MainMemoryReplayTrajectoryLane::PastRoot )] },
+              { "futureRoot",
+                replayMemoryStats.trajectory
+                    .droppedSegments[static_cast<std::size_t>( MainMemoryReplayTrajectoryLane::FutureRoot )] },
+              { "futureChildIncoming",
+                replayMemoryStats.trajectory
+                    .droppedSegments[static_cast<std::size_t>( MainMemoryReplayTrajectoryLane::FutureChildIncoming )] },
+              { "futureChildOutgoing",
+                replayMemoryStats.trajectory
+                    .droppedSegments[static_cast<std::size_t>( MainMemoryReplayTrajectoryLane::FutureChildOutgoing )] },
+              { "retainedTrail",
+                replayMemoryStats.trajectory
+                    .droppedSegments[static_cast<std::size_t>( MainMemoryReplayTrajectoryLane::RetainedTrail )] },
+              { "baselineRoot",
+                replayMemoryStats.trajectory
+                    .droppedSegments[static_cast<std::size_t>( MainMemoryReplayTrajectoryLane::BaselineRoot )] },
+              { "causalMarker",
+                replayMemoryStats.trajectory
+                    .droppedSegments[static_cast<std::size_t>( MainMemoryReplayTrajectoryLane::CausalMarker )] },
+              { "auxiliaryTrail",
+                replayMemoryStats.trajectory
+                    .droppedSegments[static_cast<std::size_t>( MainMemoryReplayTrajectoryLane::AuxiliaryTrail )] } } },
         { "predictionTrajectorySubmissionFirstFrame", predictionSubmissionProbe.firstFrame },
         { "predictionTrajectorySubmissionLastFrame", predictionSubmissionProbe.lastFrame },
         { "predictionTrajectorySteadyStateNoReserveGrowth", predictionSubmissionProbe.noReserveGrowth },

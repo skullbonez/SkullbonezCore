@@ -755,6 +755,9 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         }
         if ( memoryTabActive || memoryOverlayEnabled )
         {
+            // The render snapshot is cheap owner-maintained accounting; unlike
+            // process memory sampling, it is safe to refresh for the F6 overlay.
+            UIData.renderMemory = inputs.renderDiagnostics.GetRenderMemoryStats();
             UIData.reserveGrowthEventTotalCount =
                 SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator::GrowthEventCount();
             UIData.reserveGrowthEventDroppedCount =

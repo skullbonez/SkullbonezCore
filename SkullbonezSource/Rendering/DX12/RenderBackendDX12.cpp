@@ -149,6 +149,9 @@ void Dx12FrameOwner::ResetForDevice()
     m_frameIndex = m_device.FrameIndex();
     m_backBufferAccess = RenderGraphResourceAccess::Present;
     CancelPendingConstantUpload();
+    m_uploadFlushCount = 0;
+    m_uploadDropCount = 0;
+    std::fill_n( m_uploadCategoryDropCount, RENDER_UPLOAD_CATEGORY_COUNT, uint64_t{ 0 } );
 }
 
 
@@ -165,6 +168,9 @@ void Dx12FrameOwner::ResetAfterShutdown()
     m_srvHeap = nullptr;
     m_backBufferAccess = RenderGraphResourceAccess::Present;
     CancelPendingConstantUpload();
+    m_uploadFlushCount = 0;
+    m_uploadDropCount = 0;
+    std::fill_n( m_uploadCategoryDropCount, RENDER_UPLOAD_CATEGORY_COUNT, uint64_t{ 0 } );
 }
 
 
@@ -536,24 +542,89 @@ Basics::SbResult Dx12FrameOwner::FlushUploadBuffer()
 }
 
 
-D3D12_GPU_VIRTUAL_ADDRESS Dx12FrameOwner::ReserveUpload( UINT64 size, UINT64 alignment )
+static const char* Dx12UploadCategoryName( RenderUploadCategory category )
 {
-    if ( !EnsureOpen().ok )
+    switch ( category )
     {
-        return 0;
+    case RenderUploadCategory::Constants:
+        return "constants";
+    case RenderUploadCategory::DynamicVertex:
+        return "dynamic_vertex";
+    case RenderUploadCategory::InstanceData:
+        return "instance_data";
+    case RenderUploadCategory::TextureRows:
+        return "texture_rows";
+    case RenderUploadCategory::DebugPredictionOverlay:
+        return "debug_prediction_overlay";
+    default:
+        return "unknown";
     }
-    if ( !m_uploads.CanAllocate( m_allocatorIndex, size, alignment ) )
-    {
-        if ( !FlushUploadBuffer().ok || !m_uploads.CanAllocate( m_allocatorIndex, size, alignment ) )
-        {
-            return 0;
-        }
-    }
-    return m_uploads.Allocate( m_allocatorIndex, size, alignment );
 }
 
 
-D3D12_GPU_VIRTUAL_ADDRESS Dx12FrameOwner::ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes )
+bool Dx12FrameOwner::PrepareUploadReservation( UINT64 size, UINT64 alignment, RenderUploadCategory category )
+{
+    const bool fits = m_uploads.CanAllocate( m_allocatorIndex, size, alignment );
+    const Runtime::Allocation::RuntimeAllocationPhase phase = Runtime::Allocation::GetRuntimeAllocationPhase();
+    const Dx12UploadArenaStats stats = m_uploads.GetStats( m_allocatorIndex );
+    const char* owner = Dx12UploadCategoryName( category );
+    const Dx12UploadReservationResolution resolution = ResolveDx12UploadReservation(
+        fits,
+        phase,
+        [&]()
+        {
+            ++m_uploadFlushCount;
+            Log().WriteEventf( "dx12_upload_cold_flush owner=%s phase=%s requested_bytes=%llu used_bytes=%llu "
+                               "capacity_bytes=%llu flushes=%llu",
+                               owner,
+                               Runtime::Allocation::RuntimeAllocationPhaseName( phase ),
+                               static_cast<unsigned long long>( size ),
+                               static_cast<unsigned long long>( stats.usedBytes ),
+                               static_cast<unsigned long long>( stats.capacityBytes ),
+                               static_cast<unsigned long long>( m_uploadFlushCount ) );
+            return FlushUploadBuffer().ok && m_uploads.CanAllocate( m_allocatorIndex, size, alignment );
+        } );
+    if ( resolution.dropped )
+    {
+        ++m_uploadDropCount;
+        const std::size_t categoryIndex = static_cast<std::size_t>( category );
+        if ( categoryIndex >= RENDER_UPLOAD_CATEGORY_COUNT )
+        {
+            SB_FATAL( "Dx12FrameOwner", "DX12 upload drop used an invalid category. category=%zu", categoryIndex );
+        }
+        const uint64_t categoryDrops = ++m_uploadCategoryDropCount[categoryIndex];
+        // Rate-limit independently per owner so the first texture, constants,
+        // instance, or overlay offender cannot be hidden by another category.
+        if ( ( categoryDrops & ( categoryDrops - 1u ) ) == 0u )
+        {
+            Log().WriteEventf( "dx12_upload_drop owner=%s phase=%s requested_bytes=%llu used_bytes=%llu "
+                               "capacity_bytes=%llu owner_drops=%llu total_drops=%llu",
+                               owner,
+                               Runtime::Allocation::RuntimeAllocationPhaseName( phase ),
+                               static_cast<unsigned long long>( size ),
+                               static_cast<unsigned long long>( stats.usedBytes ),
+                               static_cast<unsigned long long>( stats.capacityBytes ),
+                               static_cast<unsigned long long>( categoryDrops ),
+                               static_cast<unsigned long long>( m_uploadDropCount ) );
+        }
+    }
+    return resolution.allowed;
+}
+
+
+D3D12_GPU_VIRTUAL_ADDRESS
+Dx12FrameOwner::ReserveUpload( UINT64 size, UINT64 alignment, RenderUploadCategory category )
+{
+    if ( !EnsureOpen().ok || !PrepareUploadReservation( size, alignment, category ) )
+    {
+        return 0;
+    }
+    return m_uploads.Allocate( m_allocatorIndex, size, alignment, category );
+}
+
+
+D3D12_GPU_VIRTUAL_ADDRESS
+Dx12FrameOwner::ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes, RenderUploadCategory vertexCategory )
 {
     if ( !EnsureOpen().ok || vertexBytes == 0 )
     {
@@ -564,20 +635,23 @@ D3D12_GPU_VIRTUAL_ADDRESS Dx12FrameOwner::ReserveGeometryUpload( UINT64 vertexBy
     // Hazard: a flush after either address is published invalidates both. Probe
     // the conservative combined aligned budget, flush at most once, then allocate
     // the constant row before the dependent vertex/instance bytes.
-    const UINT64 combinedBudget = constantBytes + vertexBytes + 255u + 3u;
-    if ( !m_uploads.CanAllocate( m_allocatorIndex, combinedBudget, 1 ) )
+    constexpr UINT64 MAX_ALIGNMENT_PADDING = 255u + 3u;
+    const UINT64 maxValue = ( std::numeric_limits<UINT64>::max )();
+    const UINT64 combinedBudget = constantBytes <= maxValue - MAX_ALIGNMENT_PADDING &&
+                                          vertexBytes <= maxValue - MAX_ALIGNMENT_PADDING - constantBytes
+                                      ? constantBytes + vertexBytes + MAX_ALIGNMENT_PADDING
+                                      : maxValue;
+    if ( !PrepareUploadReservation( combinedBudget, 1, vertexCategory ) )
     {
-        if ( !FlushUploadBuffer().ok || !m_uploads.CanAllocate( m_allocatorIndex, combinedBudget, 1 ) )
-        {
-            return 0;
-        }
+        return 0;
     }
     if ( constantBytes > 0 )
     {
-        m_pendingConstantAddress = m_uploads.Allocate( m_allocatorIndex, constantBytes, 256 );
+        m_pendingConstantAddress =
+            m_uploads.Allocate( m_allocatorIndex, constantBytes, 256, RenderUploadCategory::Constants );
         m_pendingConstantBytes = constantBytes;
     }
-    return m_uploads.Allocate( m_allocatorIndex, vertexBytes, 4 );
+    return m_uploads.Allocate( m_allocatorIndex, vertexBytes, 4, vertexCategory );
 }
 
 
@@ -592,7 +666,7 @@ D3D12_GPU_VIRTUAL_ADDRESS Dx12FrameOwner::ReserveConstantUpload( UINT64 size )
     }
     m_pendingConstantAddress = 0;
     m_pendingConstantBytes = 0;
-    return ReserveUpload( size, 256 );
+    return ReserveUpload( size, 256, RenderUploadCategory::Constants );
 }
 
 
@@ -885,15 +959,18 @@ bool Dx12DrawGate::CanRecord() const
 }
 
 
-D3D12_GPU_VIRTUAL_ADDRESS Dx12UploadReservations::ReserveUpload( UINT64 size, UINT64 alignment )
+D3D12_GPU_VIRTUAL_ADDRESS
+Dx12UploadReservations::ReserveUpload( UINT64 size, UINT64 alignment, RenderUploadCategory category )
 {
-    return m_owner.ReserveUpload( size, alignment );
+    return m_owner.ReserveUpload( size, alignment, category );
 }
 
 
-D3D12_GPU_VIRTUAL_ADDRESS Dx12UploadReservations::ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes )
+D3D12_GPU_VIRTUAL_ADDRESS Dx12UploadReservations::ReserveGeometryUpload( UINT64 vertexBytes,
+                                                                         UINT64 constantBytes,
+                                                                         RenderUploadCategory vertexCategory )
 {
-    return m_owner.ReserveGeometryUpload( vertexBytes, constantBytes );
+    return m_owner.ReserveGeometryUpload( vertexBytes, constantBytes, vertexCategory );
 }
 
 
@@ -1031,8 +1108,16 @@ RenderMemoryStats RenderBackendDX12::GetRenderMemoryStats() const
         const Dx12UploadArenaStats uploadStats = m_frameOwner.Uploads().GetStats( static_cast<UINT>( frameIndex ) );
         stats.uploadCapacityBytes += uploadStats.capacityBytes;
         stats.uploadUsedBytes += uploadStats.usedBytes;
-        stats.uploadPeakBytes += uploadStats.peakBytes;
+        stats.uploadPeakBytes = (std::max)( stats.uploadPeakBytes, uploadStats.peakBytes );
+        for ( std::size_t categoryIndex = 0; categoryIndex < RENDER_UPLOAD_CATEGORY_COUNT; ++categoryIndex )
+        {
+            stats.uploadCategoryUsedBytes[categoryIndex] += uploadStats.categoryUsedBytes[categoryIndex];
+            stats.uploadCategoryPeakBytes[categoryIndex] = (std::max)( stats.uploadCategoryPeakBytes[categoryIndex],
+                                                                       uploadStats.categoryPeakBytes[categoryIndex] );
+        }
     }
+    stats.uploadFlushCount = m_frameOwner.UploadFlushCount();
+    stats.uploadDropCount = m_frameOwner.UploadDropCount();
 
     const Dx12ReadbackBufferStats timerReadbackStats = m_gpuTimers.readback.GetStats();
     if ( timerReadbackStats.ready )
@@ -1396,40 +1481,6 @@ bool RenderBackendDX12::ExecuteGraphUavBarrier( const char* passName,
 }
 
 
-SkullbonezCore::Basics::SbResult RenderBackendDX12::FlushUploadBuffer()
-{
-    return m_frameOwner.FlushUploadBuffer();
-}
-
-
-SkullbonezCore::Basics::SbResult RenderBackendDX12::FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment )
-{
-    if ( m_frameOwner.HasFailure() )
-    {
-        return m_frameOwner.CurrentResult();
-    }
-    if ( !m_frameOwner.Uploads().CanAllocate( m_frameOwner.AllocatorIndex(), size, alignment ) )
-    {
-        // This is the expensive fallback path. It means the CPU has filled this
-        // frame's upload arena before the frame was submitted, so we must submit
-        // the current command list and wait before reusing the same bytes. The
-        // event log keeps this visible because frequent mid-frame flushes are a
-        // sign that the future Dx12RenderDevice needs larger upload pages or a
-        // different upload strategy for the current workload.
-        const Dx12UploadArenaStats stats = m_frameOwner.Uploads().GetStats( m_frameOwner.AllocatorIndex() );
-        Log().WriteEventf(
-            "dx12_upload_arena_flush frame=%u used_bytes=%llu capacity_bytes=%llu requested_bytes=%llu alignment=%llu",
-            m_frameOwner.AllocatorIndex(),
-            static_cast<unsigned long long>( stats.usedBytes ),
-            static_cast<unsigned long long>( stats.capacityBytes ),
-            static_cast<unsigned long long>( size ),
-            static_cast<unsigned long long>( alignment ) );
-        return FlushUploadBuffer();
-    }
-    return SkullbonezCore::Basics::SbResult::Success();
-}
-
-
 void RenderBackendDX12::ReportArchitectureStats( const char* reason ) const
 {
     const Dx12CpuDescriptorAllocatorStats rtvStats = m_rtvDescriptors.GetStats();
@@ -1437,11 +1488,17 @@ void RenderBackendDX12::ReportArchitectureStats( const char* reason ) const
     const Dx12DescriptorAllocatorStats descriptorStats = m_frameOwner.Descriptors().GetStats();
     UINT64 uploadPeakBytes = 0;
     UINT64 uploadCapacityBytes = 0;
+    UINT64 uploadCategoryPeakBytes[RENDER_UPLOAD_CATEGORY_COUNT] = {};
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
         const Dx12UploadArenaStats uploadStats = m_frameOwner.Uploads().GetStats( static_cast<UINT>( i ) );
         uploadPeakBytes = (std::max)( uploadPeakBytes, uploadStats.peakBytes );
         uploadCapacityBytes += uploadStats.capacityBytes;
+        for ( std::size_t categoryIndex = 0; categoryIndex < RENDER_UPLOAD_CATEGORY_COUNT; ++categoryIndex )
+        {
+            uploadCategoryPeakBytes[categoryIndex] =
+                (std::max)( uploadCategoryPeakBytes[categoryIndex], uploadStats.categoryPeakBytes[categoryIndex] );
+        }
     }
 
     // This event is intentionally written at the architecture boundary rather
@@ -1452,28 +1509,44 @@ void RenderBackendDX12::ReportArchitectureStats( const char* reason ) const
     // "static SRVs" are persistent texture/view slots, "transient SRVs" are
     // per-frame descriptor copies, and "upload peak" is the largest CPU-written
     // staging allocation used by any one in-flight frame.
-    Log().WriteEventf( "dx12_render_architecture_stats reason=%s raster_contract=%s root_parameters=%u "
-                       "raster_srv_slots=t%u..t%u "
-                       "rtv_descriptors=%u/%u dsv_descriptors=%u/%u static_srvs=%u/%u static_srv_high_water=%u "
-                       "transient_srv_peak=%u/%u "
-                       "upload_peak_bytes=%llu upload_capacity_bytes=%llu",
-                       reason ? reason : "unknown",
-                       UnifiedRasterRootSignature::NAME,
-                       UnifiedRasterRootSignature::ROOT_PARAMETER_COUNT,
-                       UnifiedRasterRootSignature::SHADER_REGISTER_FIRST_TEXTURE,
-                       UnifiedRasterRootSignature::SHADER_REGISTER_FIRST_TEXTURE +
-                           static_cast<UINT>( UnifiedRasterRootSignature::TEXTURE_SLOT_COUNT - 1 ),
-                       rtvStats.used,
-                       rtvStats.capacity,
-                       dsvStats.used,
-                       dsvStats.capacity,
-                       descriptorStats.staticUsed,
-                       descriptorStats.staticCapacity,
-                       descriptorStats.staticHighWater,
-                       descriptorStats.transientPeakThisRun,
-                       descriptorStats.transientCapacityPerFrame,
-                       static_cast<unsigned long long>( uploadPeakBytes ),
-                       static_cast<unsigned long long>( uploadCapacityBytes ) );
+    Log().WriteEventf(
+        "dx12_render_architecture_stats reason=%s raster_contract=%s root_parameters=%u "
+        "raster_srv_slots=t%u..t%u "
+        "rtv_descriptors=%u/%u dsv_descriptors=%u/%u static_srvs=%u/%u static_srv_high_water=%u "
+        "transient_srv_peak=%u/%u "
+        "upload_peak_bytes=%llu upload_capacity_bytes=%llu "
+        "upload_constants_peak_bytes=%llu upload_dynamic_peak_bytes=%llu "
+        "upload_instances_peak_bytes=%llu upload_textures_peak_bytes=%llu "
+        "upload_overlay_peak_bytes=%llu upload_flushes=%llu upload_drops=%llu",
+        reason ? reason : "unknown",
+        UnifiedRasterRootSignature::NAME,
+        UnifiedRasterRootSignature::ROOT_PARAMETER_COUNT,
+        UnifiedRasterRootSignature::SHADER_REGISTER_FIRST_TEXTURE,
+        UnifiedRasterRootSignature::SHADER_REGISTER_FIRST_TEXTURE +
+            static_cast<UINT>( UnifiedRasterRootSignature::TEXTURE_SLOT_COUNT - 1 ),
+        rtvStats.used,
+        rtvStats.capacity,
+        dsvStats.used,
+        dsvStats.capacity,
+        descriptorStats.staticUsed,
+        descriptorStats.staticCapacity,
+        descriptorStats.staticHighWater,
+        descriptorStats.transientPeakThisRun,
+        descriptorStats.transientCapacityPerFrame,
+        static_cast<unsigned long long>( uploadPeakBytes ),
+        static_cast<unsigned long long>( uploadCapacityBytes ),
+        static_cast<unsigned long long>(
+            uploadCategoryPeakBytes[static_cast<std::size_t>( RenderUploadCategory::Constants )] ),
+        static_cast<unsigned long long>(
+            uploadCategoryPeakBytes[static_cast<std::size_t>( RenderUploadCategory::DynamicVertex )] ),
+        static_cast<unsigned long long>(
+            uploadCategoryPeakBytes[static_cast<std::size_t>( RenderUploadCategory::InstanceData )] ),
+        static_cast<unsigned long long>(
+            uploadCategoryPeakBytes[static_cast<std::size_t>( RenderUploadCategory::TextureRows )] ),
+        static_cast<unsigned long long>(
+            uploadCategoryPeakBytes[static_cast<std::size_t>( RenderUploadCategory::DebugPredictionOverlay )] ),
+        static_cast<unsigned long long>( m_frameOwner.UploadFlushCount() ),
+        static_cast<unsigned long long>( m_frameOwner.UploadDropCount() ) );
 }
 
 
@@ -1953,9 +2026,10 @@ void RenderBackendDX12::ReportDeviceLost( const char* context, HRESULT result ) 
 }
 
 
-D3D12_GPU_VIRTUAL_ADDRESS RenderBackendDX12::ReserveUpload( UINT64 size, UINT64 alignment )
+D3D12_GPU_VIRTUAL_ADDRESS
+RenderBackendDX12::ReserveUpload( UINT64 size, UINT64 alignment, RenderUploadCategory category )
 {
-    return m_frameOwner.UploadReservations().ReserveUpload( size, alignment );
+    return m_frameOwner.UploadReservations().ReserveUpload( size, alignment, category );
 }
 
 

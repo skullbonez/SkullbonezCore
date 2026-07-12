@@ -216,7 +216,6 @@ struct ReplayRibbonDrawQuota
     // Counts internal ribbon records, not logical trajectory lines. The
     // trajectory shader folds glow and core into one record per path segment.
     std::size_t remainingRibbonSegments = 0;
-    bool exhausted = false;
 };
 
 ReplayRibbonDrawQuota BeginReplayRibbonDrawQuota( const RunEditorTracer& tracer )
@@ -224,11 +223,6 @@ ReplayRibbonDrawQuota BeginReplayRibbonDrawQuota( const RunEditorTracer& tracer 
     ReplayRibbonDrawQuota quota;
     quota.remainingRibbonSegments = tracer.ReplayPathRibbonSegmentCapacityRemaining();
     return quota;
-}
-
-bool ReplayRibbonDrawQuotaExhausted( const ReplayRibbonDrawQuota* quota )
-{
-    return quota && quota->exhausted;
 }
 
 bool TryReserveReplayPathRibbonSegment( ReplayRibbonDrawQuota* quota )
@@ -239,7 +233,6 @@ bool TryReserveReplayPathRibbonSegment( ReplayRibbonDrawQuota* quota )
     }
     if ( quota->remainingRibbonSegments < REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT )
     {
-        quota->exhausted = true;
         quota->remainingRibbonSegments = 0;
         return false;
     }
@@ -248,54 +241,57 @@ bool TryReserveReplayPathRibbonSegment( ReplayRibbonDrawQuota* quota )
     return true;
 }
 
-bool TryAddReplayPathSegment( RunEditorTracer& tracer,
-                              ReplayRibbonDrawQuota* quota,
-                              const Vector3& start,
-                              const Vector3& end,
-                              float r,
-                              float g,
-                              float b,
-                              MainMemoryReplayTrajectoryLane lane )
+// Invariant: traversal continues after quota exhaustion. Every later logical
+// segment is cheap to inspect and must be counted in its lane even though no
+// vertex payload is emitted.
+void AddOrAccountReplayPathSegment( RunEditorTracer& tracer,
+                                    ReplayRibbonDrawQuota* quota,
+                                    const Vector3& start,
+                                    const Vector3& end,
+                                    float r,
+                                    float g,
+                                    float b,
+                                    MainMemoryReplayTrajectoryLane lane )
 {
     if ( tracer.ReplayPathRibbonSegmentCapacityRemaining() < REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT )
     {
         if ( quota )
         {
-            quota->exhausted = true;
             quota->remainingRibbonSegments = 0;
         }
-        return false;
+        tracer.RecordReplayRibbonDroppedSegments( lane );
+        return;
     }
     if ( !TryReserveReplayPathRibbonSegment( quota ) )
     {
-        return false;
+        tracer.RecordReplayRibbonDroppedSegments( lane );
+        return;
     }
 
     tracer.AddReplayPathSegment( start, end, r, g, b, lane );
-    return true;
 }
 
-bool TryAddReplayBaselinePathSegment( RunEditorTracer& tracer,
-                                      ReplayRibbonDrawQuota* quota,
-                                      const Vector3& start,
-                                      const Vector3& end )
+void AddOrAccountReplayBaselinePathSegment( RunEditorTracer& tracer,
+                                            ReplayRibbonDrawQuota* quota,
+                                            const Vector3& start,
+                                            const Vector3& end )
 {
     if ( tracer.ReplayPathRibbonSegmentCapacityRemaining() < REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT )
     {
         if ( quota )
         {
-            quota->exhausted = true;
             quota->remainingRibbonSegments = 0;
         }
-        return false;
+        tracer.RecordReplayRibbonDroppedSegments( MainMemoryReplayTrajectoryLane::BaselineRoot );
+        return;
     }
     if ( !TryReserveReplayPathRibbonSegment( quota ) )
     {
-        return false;
+        tracer.RecordReplayRibbonDroppedSegments( MainMemoryReplayTrajectoryLane::BaselineRoot );
+        return;
     }
 
     tracer.AddReplayBaselinePathSegment( start, end );
-    return true;
 }
 
 // Concept: the prediction overlay is a play-once causal animation, not a
@@ -1731,10 +1727,7 @@ void DrawReplayPredictionBaselineSnapshot( const RunReplayPredictionState& predi
             const ReplayTrajectoryPoint& point = record->points[i];
             if ( hasPrevious && VectorMagSquared( point.position - previous ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
             {
-                if ( !TryAddReplayBaselinePathSegment( tracer, &ribbonQuota, previous, point.position ) )
-                {
-                    break;
-                }
+                AddOrAccountReplayBaselinePathSegment( tracer, &ribbonQuota, previous, point.position );
             }
             previous = point.position;
             hasPrevious = true;
@@ -2033,10 +2026,6 @@ void DrawReplayTrajectoryRecordSegments( const ReplayTrajectoryRecord& record,
     Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     for ( std::size_t i = 0; i < pointCount; ++i )
     {
-        if ( ReplayRibbonDrawQuotaExhausted( &ribbonQuota ) )
-        {
-            return;
-        }
 
         const ReplayTrajectoryPoint& point = record.points[i];
         if ( point.frameIndex < rangeStart )
@@ -2060,10 +2049,7 @@ void DrawReplayTrajectoryRecordSegments( const ReplayTrajectoryRecord& record,
             float g = 1.0f;
             float b = 1.0f;
             colorForFrame( point.frameIndex, r, g, b );
-            if ( !TryAddReplayPathSegment( tracer, &ribbonQuota, previous, point.position, r, g, b, lane ) )
-            {
-                return;
-            }
+            AddOrAccountReplayPathSegment( tracer, &ribbonQuota, previous, point.position, r, g, b, lane );
         }
         previous = point.position;
         hasPrevious = true;
@@ -2682,10 +2668,6 @@ void DrawReplayPredictionSmallSceneBodyTrajectories( const std::vector<RunReplay
         Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
         for ( std::size_t frameIndex = 0; frameIndex < frameCount; ++frameIndex )
         {
-            if ( ReplayRibbonDrawQuotaExhausted( &ribbonQuota ) )
-            {
-                return;
-            }
             const RunReplayPredictionFrame& frame = frames[frameIndex];
             if ( frame.frameIndex > revealFrame )
             {
@@ -2694,6 +2676,13 @@ void DrawReplayPredictionSmallSceneBodyTrajectories( const std::vector<RunReplay
             const bool endpoint = frameIndex == 0u || frameIndex + 1u == frameCount || frame.frameIndex == revealFrame;
             if ( !endpoint && !ShouldDrawReplayPathFrame( frame.frameIndex, sampleStride ) )
             {
+                if ( sampleStride > requestedStride && ShouldDrawReplayPathFrame( frame.frameIndex, requestedStride ) )
+                {
+                    // The adaptive quota deliberately merges this logical
+                    // segment into a longer ribbon. Count the omission in the
+                    // same lane the all-body preview would have emitted.
+                    tracer.RecordReplayRibbonDroppedSegments( MainMemoryReplayTrajectoryLane::FutureRoot );
+                }
                 continue;
             }
             const RunReplayPredictionBodySample* body =
@@ -2708,17 +2697,14 @@ void DrawReplayPredictionSmallSceneBodyTrajectories( const std::vector<RunReplay
                 float g = 1.0f;
                 float b = 1.0f;
                 ReplayDepthPalette( static_cast<int>( bodyIndex ) + 1, r, g, b );
-                if ( !TryAddReplayPathSegment( tracer,
+                AddOrAccountReplayPathSegment( tracer,
                                                &ribbonQuota,
                                                previous,
                                                body->position,
                                                r,
                                                g,
                                                b,
-                                               MainMemoryReplayTrajectoryLane::FutureRoot ) )
-                {
-                    return;
-                }
+                                               MainMemoryReplayTrajectoryLane::FutureRoot );
             }
             previous = body->position;
             hasPrevious = true;
@@ -2777,10 +2763,6 @@ void DrawReplayPredictionChildTrajectoryRecord( const RunReplayPredictionState& 
     Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     for ( std::size_t i = 0; i < pointCount; ++i )
     {
-        if ( ReplayRibbonDrawQuotaExhausted( &ribbonQuota ) )
-        {
-            return;
-        }
 
         const ReplayTrajectoryPoint& point = record->points[i];
         if ( point.frameIndex < node.firstFrame )
@@ -2810,17 +2792,14 @@ void DrawReplayPredictionChildTrajectoryRecord( const RunReplayPredictionState& 
             float g = 0.5f;
             float b = 0.56f;
             ReplayChildFutureColor( node.depth, t, r, g, b );
-            if ( !TryAddReplayPathSegment( tracer,
+            AddOrAccountReplayPathSegment( tracer,
                                            &ribbonQuota,
                                            previous,
                                            point.position,
                                            r,
                                            g,
                                            b,
-                                           MainMemoryReplayTrajectoryLane::FutureChildOutgoing ) )
-            {
-                return;
-            }
+                                           MainMemoryReplayTrajectoryLane::FutureChildOutgoing );
         }
         previous = point.position;
         hasPrevious = true;
@@ -2939,10 +2918,6 @@ void DrawReplayPredictionRagdollTorsoTrails( const std::vector<RunReplayPredicti
     const std::size_t sampleStride = ReplayPathStrideForSampleCount( frameCount );
     for ( int modelIndex = 0; modelIndex < modelCount; ++modelIndex )
     {
-        if ( ReplayRibbonDrawQuotaExhausted( &ribbonQuota ) )
-        {
-            return;
-        }
         const SceneEntityRecord* entity = collection.TryGet( modelIndex );
         if ( !entity || entity->behaviorGroup.kind != SceneBehaviorGroupKind::SimpleRagdoll ||
              entity->behaviorGroup.partIndex != 0 )
@@ -2977,17 +2952,14 @@ void DrawReplayPredictionRagdollTorsoTrails( const std::vector<RunReplayPredicti
             if ( hasPrevious && VectorMagSquared( body->position - previous ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
             {
                 const float t = ReplayPathFrameT( frame.frameIndex, 0, lastFrame );
-                if ( !TryAddReplayPathSegment( tracer,
+                AddOrAccountReplayPathSegment( tracer,
                                                &ribbonQuota,
                                                previous,
                                                body->position,
                                                0.50f + 0.28f * ( 1.0f - t ),
                                                0.96f,
                                                0.92f,
-                                               MainMemoryReplayTrajectoryLane::AuxiliaryTrail ) )
-                {
-                    return;
-                }
+                                               MainMemoryReplayTrajectoryLane::AuxiliaryTrail );
             }
             previous = body->position;
             hasPrevious = true;
@@ -3121,8 +3093,7 @@ void DrawReplayPredictionAffectedBodyTrails( const std::vector<RunReplayPredicti
 
     const ReplayFrameIndex lastFrame = frames[frameCount - 1].frameIndex;
     const std::size_t sampleStride = ReplayPathStrideForSampleCount( frameCount );
-    for ( std::size_t trailIndex = 0; trailIndex < trailCount && !ReplayRibbonDrawQuotaExhausted( &ribbonQuota );
-          ++trailIndex )
+    for ( std::size_t trailIndex = 0; trailIndex < trailCount; ++trailIndex )
     {
         ReplayPredictionAffectedBodyTrail& trail = trails[trailIndex];
         for ( std::size_t frameSlot = trail.firstFrameSlot + 1; frameSlot < frameCount; ++frameSlot )
@@ -3153,17 +3124,14 @@ void DrawReplayPredictionAffectedBodyTrails( const std::vector<RunReplayPredicti
                 float g = 0.65f;
                 float b = 0.18f;
                 ReplayAffectedBodyTrailColor( trailIndex, t, r, g, b );
-                if ( !TryAddReplayPathSegment( tracer,
+                AddOrAccountReplayPathSegment( tracer,
                                                &ribbonQuota,
                                                trail.previous,
                                                body->position,
                                                r,
                                                g,
                                                b,
-                                               MainMemoryReplayTrajectoryLane::AuxiliaryTrail ) )
-                {
-                    break;
-                }
+                                               MainMemoryReplayTrajectoryLane::AuxiliaryTrail );
             }
 
             if ( ReplayPredictionBodyHasVisibleLinearMotion( *body ) )

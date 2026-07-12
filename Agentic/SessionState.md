@@ -11,11 +11,11 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-12th-july` |
-| Current pushed baseline | Descriptor/handle lifetime closure is pushed at `e22f6519`; determinism-contract-hardening is commit-ready on top |
-| Current objective | Validation-gate V3 is externally blocked; the active local lane advances to upload-arena-overflow-policy |
-| Portfolio progress | 284 / 298 tasks = 95% rounded overall |
-| Last broad local gate | `tools\\validate_full.bat` passed final aggregate source on 2026-07-12: formatting/metadata clean, every CPU lane passed (173 doctest cases, 3,964 assertions), zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | All 16 `/fp:precise` pins passed independent review, 173 tests / 3,964 assertions, and both normal and deep physics gates with every baseline byte-exact. |
+| Current pushed baseline | Determinism-contract-hardening is pushed at `1a0ad165`; upload-arena-overflow-policy is commit-ready on top |
+| Current objective | Validation-gate V3 is externally blocked; the active local lane advances to frame-view-calling-convention |
+| Portfolio progress | 288 / 298 tasks = 97% rounded overall |
+| Last broad local gate | `tools\\validate_full.bat` passed final aggregate source on 2026-07-12 in 88.84s: formatting/metadata clean, every CPU lane passed (174 doctest cases, 3,966 assertions), zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
+| Validation for current edits | Upload-arena closure passed independent review, all CPU tests, three DX12 runs, perf without regressions, one-minute stress at 0 flushes/drops, and the broad gate. |
 
 ## Live Queue
 
@@ -25,10 +25,8 @@ plan inventory.
    Persistent self-hosted DX12 stays trusted-main/manual only; public-PR GPU
    evidence needs an ephemeral isolated runner.
 2. 2026-07-12 adversarial-review remediation (MASTER section of the same
-   name). Descriptor/handle lifetime and determinism-contract-hardening are
-   complete. Next: upload-arena-overflow-policy.
-   Nice-to-have after the must-do
-   lane: frame-view-calling-convention, then
+   name). Descriptor/handle lifetime, determinism-contract-hardening, and
+   upload-arena-overflow-policy are complete. Next: frame-view-calling-convention, then
    render-interface-and-workerpool-slimming. The comment-rot sweep is
    owner-parked in `WNF/` (no comment changes yet, 2026-07-12 ruling).
 
@@ -87,6 +85,6 @@ plan inventory.
 
 ## Next Handoff
 
-Commit and push determinism-contract-hardening, then use
-`Agentic/Plans/MASTER-PLAN.md` to execute upload-arena-overflow-policy. V3
+Commit and push upload-arena-overflow-policy, then use
+`Agentic/Plans/MASTER-PLAN.md` to execute frame-view-calling-convention. V3
 resumes when the required GitHub and runner authority exists.

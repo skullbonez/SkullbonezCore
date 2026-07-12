@@ -253,8 +253,10 @@ class Dx12UploadReservations
     explicit Dx12UploadReservations( Dx12FrameOwner& owner ) : m_owner( owner )
     {
     }
-    D3D12_GPU_VIRTUAL_ADDRESS ReserveUpload( UINT64 size, UINT64 alignment );
-    D3D12_GPU_VIRTUAL_ADDRESS ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes );
+    D3D12_GPU_VIRTUAL_ADDRESS
+    ReserveUpload( UINT64 size, UINT64 alignment, RenderUploadCategory category = RenderUploadCategory::TextureRows );
+    D3D12_GPU_VIRTUAL_ADDRESS
+    ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes, RenderUploadCategory vertexCategory );
     D3D12_GPU_VIRTUAL_ADDRESS ReserveConstantUpload( UINT64 size );
     void CancelPendingConstantUpload();
     uint8_t* UploadPointer( D3D12_GPU_VIRTUAL_ADDRESS address ) const;
@@ -326,11 +328,21 @@ class Dx12FrameOwner
                               bool instanced,
                               const InstancedMeshDX12* instancedMesh,
                               const DynamicVBDX12* dynamicVertexBuffer );
-    D3D12_GPU_VIRTUAL_ADDRESS ReserveUpload( UINT64 size, UINT64 alignment );
-    D3D12_GPU_VIRTUAL_ADDRESS ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes );
+    D3D12_GPU_VIRTUAL_ADDRESS
+    ReserveUpload( UINT64 size, UINT64 alignment, RenderUploadCategory category = RenderUploadCategory::TextureRows );
+    D3D12_GPU_VIRTUAL_ADDRESS
+    ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes, RenderUploadCategory vertexCategory );
     D3D12_GPU_VIRTUAL_ADDRESS ReserveConstantUpload( UINT64 size );
     void CancelPendingConstantUpload();
     uint8_t* UploadPointer( D3D12_GPU_VIRTUAL_ADDRESS address ) const;
+    uint64_t UploadFlushCount() const
+    {
+        return m_uploadFlushCount;
+    }
+    uint64_t UploadDropCount() const
+    {
+        return m_uploadDropCount;
+    }
     const Basics::SbResult& CurrentResult() const
     {
         return m_recording.CurrentResult();
@@ -474,6 +486,7 @@ class Dx12FrameOwner
 
   private:
     void WriteFaultProbe() const;
+    bool PrepareUploadReservation( UINT64 size, UINT64 alignment, RenderUploadCategory category );
 
     Dx12RenderDevice& m_device;
     Dx12PipelineOwner& m_pipeline;
@@ -495,6 +508,9 @@ class Dx12FrameOwner
     RenderGraphResourceAccess m_backBufferAccess = RenderGraphResourceAccess::Present;
     D3D12_GPU_VIRTUAL_ADDRESS m_pendingConstantAddress = 0;
     UINT64 m_pendingConstantBytes = 0;
+    uint64_t m_uploadFlushCount = 0;
+    uint64_t m_uploadDropCount = 0;
+    uint64_t m_uploadCategoryDropCount[RENDER_UPLOAD_CATEGORY_COUNT] = {};
     Dx12DrawGate m_drawGate;
     Dx12UploadReservations m_uploadReservations;
     Dx12ResourceRelease m_resourceRelease;
@@ -552,7 +568,7 @@ class Dx12TextureCommands
     }
     D3D12_GPU_VIRTUAL_ADDRESS ReserveUpload( UINT64 size, UINT64 alignment )
     {
-        return m_frame.UploadReservations().ReserveUpload( size, alignment );
+        return m_frame.UploadReservations().ReserveUpload( size, alignment, RenderUploadCategory::TextureRows );
     }
     uint8_t* UploadPointer( D3D12_GPU_VIRTUAL_ADDRESS address ) const
     {
@@ -960,9 +976,8 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     static const UINT MAX_DSV_DESCRIPTORS = 16;
     static const UINT MAX_STATIC_SRVS = 128;
     static const UINT MAX_TRANSIENT_SRVS = 2048;                   // per frame allocator
-    // Hazard: replay prediction ribbons upload transient line geometry through
-    // this frame arena. Exhaustion is fatal, so keep this cap aligned with the
-    // largest expected debug/prediction overlay until the overlay is bounded.
+    // Replay/debug geometry is owner-bounded before it reaches this arena. A
+    // steady-phase overflow drops that draw; cold lifecycle/capture work may drain.
     static const UINT64 UPLOAD_BUFFER_SIZE = 32 * 1024 * 1024;
     static const int TIMER_HEAP_MARKERS = DX12_TIMER_HEAP_MARKERS; // must be >= Profiler::MAX_MARKERS
     static const int TIMER_HEAP_SIZE = DX12_TIMER_HEAP_SIZE;       // begin + end per marker
@@ -1121,8 +1136,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // Keeps cached texture-slot state from pointing at an SRV descriptor row
     // whose owning resource is being deleted or unregistered.
     void ClearBoundTextureSlotsForSrv( UINT srvIndex );
-    Basics::SbResult FlushUploadBuffer();
-    Basics::SbResult FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment );
     void ReportArchitectureStats( const char* reason ) const;
     GraphTransientResourceDX12* FindGraphTransientSlot( RenderGraphResourceHandle resource );
     const GraphTransientResourceDX12* FindGraphTransientSlot( RenderGraphResourceHandle resource ) const;
@@ -1375,10 +1388,10 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     //
     // This is the safe public upload path. It probes the current frame upload
     // arena with the exact same size/alignment used for the final allocation.
-    // If the arena is full, it submits the current command list, waits for the
-    // GPU, resets the frame upload arena, and then allocates. Callers should not
-    // bypass the frame owner's reservation capability.
-    D3D12_GPU_VIRTUAL_ADDRESS ReserveUpload( UINT64 size, UINT64 alignment );
+    // Steady phases drop the requesting caller when the arena is full. Cold
+    // phases may submit/wait/reset and retry. Callers should not bypass the
+    // frame owner's reservation capability.
+    D3D12_GPU_VIRTUAL_ADDRESS ReserveUpload( UINT64 size, UINT64 alignment, RenderUploadCategory category );
     uint8_t* GetUploadPtr( D3D12_GPU_VIRTUAL_ADDRESS addr );
     ID3D12Resource* GetUploadBuffer() const
     {

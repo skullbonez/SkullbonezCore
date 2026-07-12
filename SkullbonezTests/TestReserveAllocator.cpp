@@ -14,11 +14,14 @@
 //   Replay growth: Bounded capacity increase allowed only while replay tools are
 //     doing replay-phase work.
 //   Growth event: Fixed-ring diagnostic row recording one grant or denial.
+//   Lifecycle phase: Always-on process label used by allocation and upload
+//     policies even when allocation counting is disabled.
 //
 // Invariants:
 //   - Gameplay-phase owners never receive replay growth approval.
 //   - Denied growth increments policy violations and still records an event.
 //   - ResetCounters() clears counters/events without unregistering owners.
+//   - RuntimeAllocationScope publishes/restores phase independently of guard mode.
 //
 // Related:
 //   - SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.h
@@ -29,6 +32,7 @@
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.h"
+#include "../SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.h"
 
 #include <string>
 
@@ -44,6 +48,12 @@ using SkullbonezCore::Runtime::Allocation::RuntimeReserveOwnerHandle;
 using SkullbonezCore::Runtime::Allocation::RuntimeReserveOwnerStatsView;
 using SkullbonezCore::Runtime::Allocation::RuntimeReservePhase;
 using SkullbonezCore::Runtime::Allocation::RuntimeReserveSubsystem;
+using SkullbonezCore::Runtime::Allocation::GetRuntimeAllocationPhase;
+using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardMode;
+using SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase;
+using SkullbonezCore::Runtime::Allocation::RuntimeAllocationScope;
+using SkullbonezCore::Runtime::Allocation::SetRuntimeAllocationGuardMode;
+using SkullbonezCore::Runtime::Allocation::SetRuntimeAllocationPhase;
 
 namespace
 {
@@ -64,6 +74,17 @@ RuntimeReserveOwnerDesc MakeReplayOwnerDesc( const char* ownerName,
     desc.allowReplayGrowth = true;
     desc.capacityReason = "unit test reserve owner";
     return desc;
+}
+
+TEST_CASE( "RuntimeAllocationScope: lifecycle phase remains active when allocation counting is off" )
+{
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
+    SetRuntimeAllocationPhase( RuntimeAllocationPhase::Startup );
+    {
+        RuntimeAllocationScope renderScope( RuntimeAllocationPhase::Render );
+        CHECK( GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Render );
+    }
+    CHECK( GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Startup );
 }
 
 RuntimeReserveGrowthRequest MakeGrowthRequest( const char* ownerName,

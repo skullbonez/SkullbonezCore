@@ -25,7 +25,11 @@ Glossary:
   PIX: Microsoft GPU debugger/profiler that can read engine markers and DX12
   object names.
   COM (Component Object Model): Windows interface lifetime model used by DX12
-  through reference-counted objects.
+    through reference-counted objects.
+  Upload arena: Fixed, persistently mapped per-frame byte range used for
+    constants, vertices, instances, and resource-copy rows.
+  Cold flush: Submit/wait/reset retry allowed outside steady gameplay when an
+    upload reservation does not fit.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -39,8 +43,11 @@ Related:
 #pragma once
 
 #include "../../Core/SbResult.h"
+#include "../IRenderDiagnostics.h"
+#include "../../Runtime/Allocation/RuntimeAllocationTracker.h"
 
 #include <cstdint>
+#include <limits>
 #include <d3d12.h>
 #include <dxgi1_5.h>
 
@@ -48,6 +55,80 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
+
+enum class Dx12UploadOverflowAction
+{
+    Allocate,
+    FlushAndRetry,
+    DropCaller
+};
+
+struct Dx12UploadReservationResolution
+{
+    bool allowed = false;
+    bool dropped = false;
+    bool coldRetryAttempted = false;
+};
+
+// Lane R: steady render reservations fail at the draw boundary. Cold lifecycle
+// phases retain the legacy submit/wait retry because their stalls do not become
+// frame hitches.
+inline Dx12UploadOverflowAction SelectDx12UploadOverflowAction( bool fits,
+                                                                Runtime::Allocation::RuntimeAllocationPhase phase )
+{
+    if ( fits )
+    {
+        return Dx12UploadOverflowAction::Allocate;
+    }
+    switch ( phase )
+    {
+    case Runtime::Allocation::RuntimeAllocationPhase::SteadyGameplay:
+    case Runtime::Allocation::RuntimeAllocationPhase::Physics:
+    case Runtime::Allocation::RuntimeAllocationPhase::Render:
+    case Runtime::Allocation::RuntimeAllocationPhase::Replay:
+        return Dx12UploadOverflowAction::DropCaller;
+    default:
+        return Dx12UploadOverflowAction::FlushAndRetry;
+    }
+}
+
+// Executes the same branch production uses while allowing CPU tests to supply
+// a counted cold-retry callback. Steady phases never invoke that callback.
+template <typename ColdRetry>
+Dx12UploadReservationResolution
+ResolveDx12UploadReservation( bool fits, Runtime::Allocation::RuntimeAllocationPhase phase, ColdRetry coldRetry )
+{
+    const Dx12UploadOverflowAction action = SelectDx12UploadOverflowAction( fits, phase );
+    if ( action == Dx12UploadOverflowAction::Allocate )
+    {
+        return { true, false, false };
+    }
+    if ( action == Dx12UploadOverflowAction::DropCaller )
+    {
+        return { false, true, false };
+    }
+    return { coldRetry(), false, true };
+}
+
+// Hazard: callers may probe a synthetic UINT64-sized request. Saturating the
+// aligned offset prevents wraparound from turning overflow into a false fit.
+inline UINT64 AlignDx12UploadOffset( UINT64 offset, UINT64 alignment )
+{
+    if ( alignment <= 1 )
+    {
+        return offset;
+    }
+    const UINT64 remainder = offset % alignment;
+    const UINT64 padding = remainder == 0 ? 0 : alignment - remainder;
+    return offset <= ( std::numeric_limits<UINT64>::max )() - padding ? offset + padding
+                                                                      : ( std::numeric_limits<UINT64>::max )();
+}
+
+inline bool CanReserveDx12UploadRange( UINT64 offset, UINT64 capacity, UINT64 size, UINT64 alignment )
+{
+    const UINT64 alignedOffset = AlignDx12UploadOffset( offset, alignment );
+    return alignedOffset <= capacity && size <= capacity - alignedOffset;
+}
 
 /* -- DX12 diagnostics helpers
 ----------------------------------------------------------------------------------------------------------------------------------
@@ -486,6 +567,8 @@ struct Dx12UploadArenaStats
     UINT64 capacityBytes = 0;
     UINT64 usedBytes = 0;
     UINT64 peakBytes = 0;
+    UINT64 categoryUsedBytes[RENDER_UPLOAD_CATEGORY_COUNT] = {}; // Current frame totals by owner.
+    UINT64 categoryPeakBytes[RENDER_UPLOAD_CATEGORY_COUNT] = {}; // Run high-water per owner.
 };
 
 /* -- Dx12UploadArena
@@ -554,12 +637,12 @@ class Dx12UploadArena
     // completed. This is not safe at arbitrary times.
     void ResetFrame();
 
-    // Probe whether the next allocation would fit. The backend uses this to
-    // decide whether it must submit/wait before recording more upload-heavy work.
+    // Probe whether the next allocation would fit without arithmetic wrap. The
+    // frame owner uses the current runtime phase to drop or cold-flush.
     bool CanAllocate( UINT64 sizeBytes, UINT64 alignment ) const;
 
     // Reserve bytes and return the GPU address command lists should bind.
-    D3D12_GPU_VIRTUAL_ADDRESS Allocate( UINT64 sizeBytes, UINT64 alignment );
+    D3D12_GPU_VIRTUAL_ADDRESS Allocate( UINT64 sizeBytes, UINT64 alignment, RenderUploadCategory category );
 
     // Translate a GPU address returned by Allocate() back to a CPU pointer so
     // the caller can fill the allocation with memcpy or structured writes.
@@ -580,6 +663,8 @@ class Dx12UploadArena
     UINT64 m_capacityBytes = 0;
     UINT64 m_currentOffset = 0;
     UINT64 m_peakBytes = 0;
+    UINT64 m_categoryUsedBytes[RENDER_UPLOAD_CATEGORY_COUNT] = {};
+    UINT64 m_categoryPeakBytes[RENDER_UPLOAD_CATEGORY_COUNT] = {};
 };
 
 /* -- Dx12FrameUploadSystem
@@ -620,7 +705,8 @@ class Dx12FrameUploadSystem
 
     void ResetFrame( UINT frameIndex );
     bool CanAllocate( UINT frameIndex, UINT64 sizeBytes, UINT64 alignment ) const;
-    D3D12_GPU_VIRTUAL_ADDRESS Allocate( UINT frameIndex, UINT64 sizeBytes, UINT64 alignment );
+    D3D12_GPU_VIRTUAL_ADDRESS
+    Allocate( UINT frameIndex, UINT64 sizeBytes, UINT64 alignment, RenderUploadCategory category );
     uint8_t* GetMappedPtr( UINT frameIndex, D3D12_GPU_VIRTUAL_ADDRESS address ) const;
     UINT64 OffsetFromAddress( UINT frameIndex, D3D12_GPU_VIRTUAL_ADDRESS address ) const;
     ID3D12Resource* Resource( UINT frameIndex ) const;

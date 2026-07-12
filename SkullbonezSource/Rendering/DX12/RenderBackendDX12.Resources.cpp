@@ -211,7 +211,7 @@ RenderBackendDX12::CreateMesh( const float* data, int vertexCount, bool hasNorma
         return nullptr;
     }
     UINT64 dataSize = (UINT64)vertexCount * floatsPerVert * sizeof( float );
-    D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = ReserveUpload( dataSize, 4 );
+    D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = ReserveUpload( dataSize, 4, RenderUploadCategory::DynamicVertex );
     if ( uploadAddr == 0 )
     {
         return nullptr;

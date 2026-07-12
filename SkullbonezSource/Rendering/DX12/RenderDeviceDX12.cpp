@@ -746,6 +746,8 @@ void Dx12UploadArena::Init( ID3D12Resource* resource, uint8_t* mappedPtr, UINT64
     m_capacityBytes = capacityBytes;
     m_currentOffset = 0;
     m_peakBytes = 0;
+    std::fill_n( m_categoryUsedBytes, RENDER_UPLOAD_CATEGORY_COUNT, UINT64{ 0 } );
+    std::fill_n( m_categoryPeakBytes, RENDER_UPLOAD_CATEGORY_COUNT, UINT64{ 0 } );
 }
 
 
@@ -756,6 +758,8 @@ void Dx12UploadArena::Reset()
     m_capacityBytes = 0;
     m_currentOffset = 0;
     m_peakBytes = 0;
+    std::fill_n( m_categoryUsedBytes, RENDER_UPLOAD_CATEGORY_COUNT, UINT64{ 0 } );
+    std::fill_n( m_categoryPeakBytes, RENDER_UPLOAD_CATEGORY_COUNT, UINT64{ 0 } );
 }
 
 
@@ -769,6 +773,7 @@ void Dx12UploadArena::ResetFrame()
     // reuse the bytes from the beginning because the old bytes are no longer in
     // flight on the GPU.
     m_currentOffset = 0;
+    std::fill_n( m_categoryUsedBytes, RENDER_UPLOAD_CATEGORY_COUNT, UINT64{ 0 } );
 }
 
 
@@ -780,12 +785,12 @@ bool Dx12UploadArena::CanAllocate( UINT64 sizeBytes, UINT64 alignment ) const
     //
     // Returning false is not automatically fatal. The backend may submit the
     // current command list, wait for the GPU, reset the arena, and continue.
-    const UINT64 alignedOffset = AlignOffset( m_currentOffset, alignment );
-    return alignedOffset + sizeBytes <= m_capacityBytes;
+    return CanReserveDx12UploadRange( m_currentOffset, m_capacityBytes, sizeBytes, alignment );
 }
 
 
-D3D12_GPU_VIRTUAL_ADDRESS Dx12UploadArena::Allocate( UINT64 sizeBytes, UINT64 alignment )
+D3D12_GPU_VIRTUAL_ADDRESS
+Dx12UploadArena::Allocate( UINT64 sizeBytes, UINT64 alignment, RenderUploadCategory category )
 {
     if ( !m_resource || !m_mappedPtr )
     {
@@ -800,7 +805,7 @@ D3D12_GPU_VIRTUAL_ADDRESS Dx12UploadArena::Allocate( UINT64 sizeBytes, UINT64 al
     // draw/copy commands need. Call GetMappedPtr() with that address when CPU
     // code needs to fill the allocation.
     const UINT64 alignedOffset = AlignOffset( m_currentOffset, alignment );
-    if ( alignedOffset + sizeBytes > m_capacityBytes )
+    if ( !CanReserveDx12UploadRange( m_currentOffset, m_capacityBytes, sizeBytes, alignment ) )
     {
         SB_FATAL( "RenderDeviceDX12",
                   "DX12 upload buffer exhausted. requested=%llu alignedOffset=%llu capacity=%llu",
@@ -811,6 +816,14 @@ D3D12_GPU_VIRTUAL_ADDRESS Dx12UploadArena::Allocate( UINT64 sizeBytes, UINT64 al
 
     m_currentOffset = alignedOffset + sizeBytes;
     m_peakBytes = (std::max)( m_peakBytes, m_currentOffset );
+    const std::size_t categoryIndex = static_cast<std::size_t>( category );
+    if ( categoryIndex >= RENDER_UPLOAD_CATEGORY_COUNT )
+    {
+        SB_FATAL( "RenderDeviceDX12", "DX12 upload allocation used an invalid category. category=%zu", categoryIndex );
+    }
+    m_categoryUsedBytes[categoryIndex] += sizeBytes;
+    m_categoryPeakBytes[categoryIndex] =
+        (std::max)( m_categoryPeakBytes[categoryIndex], m_categoryUsedBytes[categoryIndex] );
     return m_resource->GetGPUVirtualAddress() + alignedOffset;
 }
 
@@ -856,6 +869,8 @@ Dx12UploadArenaStats Dx12UploadArena::GetStats() const
     stats.capacityBytes = m_capacityBytes;
     stats.usedBytes = m_currentOffset;
     stats.peakBytes = m_peakBytes;
+    std::copy_n( m_categoryUsedBytes, RENDER_UPLOAD_CATEGORY_COUNT, stats.categoryUsedBytes );
+    std::copy_n( m_categoryPeakBytes, RENDER_UPLOAD_CATEGORY_COUNT, stats.categoryPeakBytes );
     return stats;
 }
 
@@ -865,11 +880,7 @@ UINT64 Dx12UploadArena::AlignOffset( UINT64 offset, UINT64 alignment ) const
     // Alignment means "start this allocation at an address divisible by N." The
     // formula below rounds up to the next legal byte offset. When alignment is 1
     // or 0, every byte position is legal, so no rounding is needed.
-    if ( alignment <= 1 )
-    {
-        return offset;
-    }
-    return ( ( offset + alignment - 1 ) / alignment ) * alignment;
+    return AlignDx12UploadOffset( offset, alignment );
 }
 
 
@@ -978,10 +989,11 @@ bool Dx12FrameUploadSystem::CanAllocate( UINT frameIndex, UINT64 sizeBytes, UINT
 }
 
 
-D3D12_GPU_VIRTUAL_ADDRESS Dx12FrameUploadSystem::Allocate( UINT frameIndex, UINT64 sizeBytes, UINT64 alignment )
+D3D12_GPU_VIRTUAL_ADDRESS
+Dx12FrameUploadSystem::Allocate( UINT frameIndex, UINT64 sizeBytes, UINT64 alignment, RenderUploadCategory category )
 {
     ValidateFrameIndex( frameIndex );
-    return m_arenas[frameIndex].Allocate( sizeBytes, alignment );
+    return m_arenas[frameIndex].Allocate( sizeBytes, alignment, category );
 }
 
 

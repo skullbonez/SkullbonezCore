@@ -964,9 +964,9 @@ D3D12_GPU_VIRTUAL_ADDRESS ShaderDX12::FlushCB() const
         return 0;
     }
 
-    // Constant buffers are steady-frame data and use the device owner's current
-    // frame arena directly. Capacity exhaustion is a fatal renderer policy
-    // violation; no wrapper may reach through a broad backend host to flush it.
+    // Lane R: constant buffers use the frame owner's phase-aware reservation.
+    // A steady-frame denial returns zero and the pipeline skips that draw;
+    // cold lifecycle/capture work retains the legacy flush-and-retry path.
     D3D12_GPU_VIRTUAL_ADDRESS addr = m_uploadReservations.ReserveConstantUpload( m_cbSize );
     if ( addr == 0 )
     {

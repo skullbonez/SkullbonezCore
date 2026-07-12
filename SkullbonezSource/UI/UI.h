@@ -217,6 +217,7 @@ struct InGameUIFrameData
     const char* soundSamplePaths[UI_SOUND_SAMPLE_MAX] = {};
     int soundSampleCount = 0;
     Basics::MainMemoryStats mainMemory;
+    Rendering::RenderMemoryStats renderMemory;     // Value snapshot for the Memory tab/overlay only.
     Runtime::Allocation::RuntimeReserveGrowthEventView reserveGrowthEvents[UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX];
     int reserveGrowthEventCount = 0;
     uint64_t reserveGrowthEventTotalCount = 0;

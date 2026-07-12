@@ -103,10 +103,10 @@ concrete plan rows and counting it would duplicate tasks.
 | shadow-edge-quality | 5 | 5 | 100% |
 | dx12-descriptor-and-handle-lifetime | 5 | 5 | 100% |
 | determinism-contract-hardening | 4 | 4 | 100% |
-| upload-arena-overflow-policy | 0 | 4 | 0% |
+| upload-arena-overflow-policy | 4 | 4 | 100% |
 | frame-view-calling-convention | 0 | 4 | 0% |
 | render-interface-and-workerpool-slimming | 0 | 5 | 0% |
-| **Portfolio total** | **284** | **298** | **95%** |
+| **Portfolio total** | **288** | **298** | **97%** |
 
 ## Current Execution Priority
 
@@ -119,9 +119,8 @@ For maximum impact with minimal rework, use this binding critical path:
    branch protection, and trusted/ephemeral DX12 runner administration.
 2. **Adversarial-review remediation — active local lane.** While V3 waits on
    external administration, the 2026-07-12 must-do plans are the local
-   priority. Determinism-contract-hardening completed in its isolated commit
-   window; upload-arena-overflow-policy is next.
-   Nice-to-have plans start only after the must-do lane closes. The
+   priority. Both must-do plans are complete; frame-view-calling-convention is
+   the next nice-to-have plan, followed by render-interface-and-workerpool-slimming. The
    comment-rot sweep was owner-parked to `WNF/` on 2026-07-12 (no comment
    changes yet).
 
@@ -162,7 +161,7 @@ Must do:
 |---|---|---:|---|
 | [dx12-descriptor-and-handle-lifetime](../Reports/2026-07-12/dx12-descriptor-and-handle-lifetime-closure.md) | Complete | 5/5 | Fence-safe SRV/UAV and framebuffer RTV/DSV reclamation, generation handles, and 131-turnover stress proof complete |
 | [determinism-contract-hardening](../Reports/2026-07-12/determinism-contract-hardening-closure.md) | Complete | 4/4 | Explicit `/fp:precise` pins, complete chunk-accumulation audit, documented MSVC v143 envelope, and byte-exact isolated physics gates complete |
-| [upload-arena-overflow-policy](TODO/upload-arena-overflow-policy.md) | Not started | 0/4 | Ready; independent of the descriptor plan |
+| [upload-arena-overflow-policy](../Reports/2026-07-12/upload-arena-overflow-policy-closure.md) | Complete | 4/4 | Per-category accounting, bounded replay ribbons, phase-aware caller drops, and flush-free stress/perf/DX12 proof complete |
 
 Nice to have (start only after the must-do lane closes):
 

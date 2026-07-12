@@ -539,6 +539,9 @@ class RunEditorTracer
     void ClearReplayTrajectoryStats();
     // Returns the current replay-pass counters without taking ownership.
     const MainMemoryReplayTrajectoryStats& ReplayTrajectoryStats() const;
+    // Records logical ribbon segments intentionally omitted by a caller-side
+    // quota before vertex emission, preserving lane-specific diagnostics.
+    void RecordReplayRibbonDroppedSegments( MainMemoryReplayTrajectoryLane lane, std::size_t count = 1u );
     // Returns the post-build replay ribbon submission hash for validation probes.
     const MainMemoryReplayTrajectorySubmissionStats& ReplaySubmissionStats() const;
     // Invariant: replay path drawing budgets against ordinary ribbon slots

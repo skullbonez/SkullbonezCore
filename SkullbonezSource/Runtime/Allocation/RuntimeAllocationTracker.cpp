@@ -413,20 +413,17 @@ namespace Runtime
 namespace Allocation
 {
 RuntimeAllocationScope::RuntimeAllocationScope( RuntimeAllocationPhase phase ) noexcept
-    : m_previous( GetRuntimeAllocationPhase() ), m_active( RuntimeAllocationGuardEnabled() )
+    : m_previous( GetRuntimeAllocationPhase() )
 {
-    if ( m_active )
-    {
-        SetRuntimeAllocationPhase( phase );
-    }
+    // Invariant: lifecycle phase is runtime policy input even when allocation
+    // counting is disabled. Upload overflow, replay reserve, and future phase
+    // consumers must not silently observe Startup in ordinary launches.
+    SetRuntimeAllocationPhase( phase );
 }
 
 RuntimeAllocationScope::~RuntimeAllocationScope() noexcept
 {
-    if ( m_active )
-    {
-        SetRuntimeAllocationPhase( m_previous );
-    }
+    SetRuntimeAllocationPhase( m_previous );
 }
 
 void SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode mode ) noexcept

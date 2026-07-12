@@ -472,6 +472,12 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
             {
                 return false;
             }
+            // Hazard: zero means the phase policy rejected this upload. Drawing
+            // would reuse the prior root constant address, so fail the caller.
+            if ( m_activeShader->ConstantBufferUploadSize() > 0 && cbAddr == 0 )
+            {
+                return false;
+            }
             if ( cbAddr )
             {
                 commandList->SetGraphicsRootConstantBufferView(
@@ -561,6 +567,12 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
     {
         D3D12_GPU_VIRTUAL_ADDRESS cbAddr = m_activeShader->FlushCB();
         if ( recording.HasFailure() )
+        {
+            return false;
+        }
+        // Hazard: do not publish a draw after the phase policy rejected its
+        // constants; the command list may still contain an older root address.
+        if ( m_activeShader->ConstantBufferUploadSize() > 0 && cbAddr == 0 )
         {
             return false;
         }
