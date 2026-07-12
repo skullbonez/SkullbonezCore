@@ -11,11 +11,11 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-12th-july` |
-| Current pushed baseline | Descriptor/handle lifetime closure is commit-ready on top of remote baseline `e38b20bf` |
-| Current objective | Validation-gate V3 is externally blocked; the active local lane advances to determinism-contract-hardening in its required isolated commit window |
-| Portfolio progress | 280 / 298 tasks = 94% rounded overall |
+| Current pushed baseline | Descriptor/handle lifetime closure is pushed at `e22f6519`; determinism-contract-hardening is commit-ready on top |
+| Current objective | Validation-gate V3 is externally blocked; the active local lane advances to upload-arena-overflow-policy |
+| Portfolio progress | 284 / 298 tasks = 95% rounded overall |
 | Last broad local gate | `tools\\validate_full.bat` passed final aggregate source on 2026-07-12: formatting/metadata clean, every CPU lane passed (173 doctest cases, 3,964 assertions), zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | Descriptor closure passed independent review, fast/all-CPU/allocation checks, zero-error DX12 screenshots, and one-minute stress with 131 acknowledged resizes plus 131 texture turnovers returning static usage 20 to 20. |
+| Validation for current edits | All 16 `/fp:precise` pins passed independent review, 173 tests / 3,964 assertions, and both normal and deep physics gates with every baseline byte-exact. |
 
 ## Live Queue
 
@@ -25,8 +25,8 @@ plan inventory.
    Persistent self-hosted DX12 stays trusted-main/manual only; public-PR GPU
    evidence needs an ephemeral isolated runner.
 2. 2026-07-12 adversarial-review remediation (MASTER section of the same
-   name). Descriptor/handle lifetime is complete. Next: determinism-contract-
-   hardening (isolated commit window), then upload-arena-overflow-policy.
+   name). Descriptor/handle lifetime and determinism-contract-hardening are
+   complete. Next: upload-arena-overflow-policy.
    Nice-to-have after the must-do
    lane: frame-view-calling-convention, then
    render-interface-and-workerpool-slimming. The comment-rot sweep is
@@ -87,7 +87,6 @@ plan inventory.
 
 ## Next Handoff
 
-Commit and push the descriptor/handle closure, then use
-`Agentic/Plans/MASTER-PLAN.md` to execute determinism-contract-hardening in its
-required isolated window. V3 resumes when the required GitHub and runner
-authority exists.
+Commit and push determinism-contract-hardening, then use
+`Agentic/Plans/MASTER-PLAN.md` to execute upload-arena-overflow-policy. V3
+resumes when the required GitHub and runner authority exists.

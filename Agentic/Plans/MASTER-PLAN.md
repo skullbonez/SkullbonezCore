@@ -102,11 +102,11 @@ concrete plan rows and counting it would duplicate tasks.
 | instant-prediction-velocity-chaos | 52 | 52 | 100% |
 | shadow-edge-quality | 5 | 5 | 100% |
 | dx12-descriptor-and-handle-lifetime | 5 | 5 | 100% |
-| determinism-contract-hardening | 0 | 4 | 0% |
+| determinism-contract-hardening | 4 | 4 | 100% |
 | upload-arena-overflow-policy | 0 | 4 | 0% |
 | frame-view-calling-convention | 0 | 4 | 0% |
 | render-interface-and-workerpool-slimming | 0 | 5 | 0% |
-| **Portfolio total** | **280** | **298** | **94%** |
+| **Portfolio total** | **284** | **298** | **95%** |
 
 ## Current Execution Priority
 
@@ -119,8 +119,8 @@ For maximum impact with minimal rework, use this binding critical path:
    branch protection, and trusted/ephemeral DX12 runner administration.
 2. **Adversarial-review remediation — active local lane.** While V3 waits on
    external administration, the 2026-07-12 must-do plans are the local
-   priority, in order: determinism-contract-hardening (isolated commit window, no
-   concurrent physics-adjacent work), then upload-arena-overflow-policy.
+   priority. Determinism-contract-hardening completed in its isolated commit
+   window; upload-arena-overflow-policy is next.
    Nice-to-have plans start only after the must-do lane closes. The
    comment-rot sweep was owner-parked to `WNF/` on 2026-07-12 (no comment
    changes yet).
@@ -161,7 +161,7 @@ Must do:
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | [dx12-descriptor-and-handle-lifetime](../Reports/2026-07-12/dx12-descriptor-and-handle-lifetime-closure.md) | Complete | 5/5 | Fence-safe SRV/UAV and framebuffer RTV/DSV reclamation, generation handles, and 131-turnover stress proof complete |
-| [determinism-contract-hardening](TODO/determinism-contract-hardening.md) | Not started | 0/4 | Ready; requires an isolated commit window with no other physics-adjacent change in flight (D4) |
+| [determinism-contract-hardening](../Reports/2026-07-12/determinism-contract-hardening-closure.md) | Complete | 4/4 | Explicit `/fp:precise` pins, complete chunk-accumulation audit, documented MSVC v143 envelope, and byte-exact isolated physics gates complete |
 | [upload-arena-overflow-policy](TODO/upload-arena-overflow-policy.md) | Not started | 0/4 | Ready; independent of the descriptor plan |
 
 Nice to have (start only after the must-do lane closes):

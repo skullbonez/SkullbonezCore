@@ -52,6 +52,29 @@ tools\validate_perf.bat
 
 Physics CSV baselines live in `TestOutput/baselines/` and are byte-exact. A single differing byte is a real behavioral change until proven intentional.
 
+## Determinism Envelope
+
+Physics baselines are guaranteed only for the repository's Windows x64 MSVC
+v143 toolset contract. Every production project and every Debug, Profile, Release,
+and Profile-WPO configuration explicitly uses `/fp:precise`; changing the
+floating-point model, compiler/toolset, x64 target, fixed-step ordering, or
+worker reduction order is a physics behavior change.
+
+The 2026-07-12 worker audit found no thread-count-sensitive floating-point
+accumulation: physics/replay/tornado workers write independent indexed slots and
+stable serial stages consume them; rendering's chunk reductions use exact
+integer counts or grouping-independent min/max. Worker count is therefore not
+pinned. New chunked floating-point sums or averages require per-item staging
+and stable serial reduction, or an explicit owner decision to pin the
+validation worker count.
+
+When any determinism input changes, regenerate affected CSV and SkullScope
+baselines from the final Debug executable and committed scene/config state in
+the same commit. Then rerun `tools\validate_physics.bat` for the core varied
+baseline or `tools\validate_physics_deep.bat` for the broader baseline set;
+copied artifacts are not evidence until the matching gate compares them
+byte-exactly.
+
 ## Debugging
 
 The in-game physics overlay supports a pipeline stage mode:

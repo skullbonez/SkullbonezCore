@@ -84,6 +84,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
+      <FloatingPointModel>Precise</FloatingPointModel>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>ThirdPtySource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -109,6 +110,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
+      <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>ThirdPtySource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
@@ -134,6 +136,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">
     <ClCompile>
+      <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>ThirdPtySource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
@@ -158,6 +161,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'">
     <ClCompile>
+      <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>ThirdPtySource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
