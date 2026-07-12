@@ -3,7 +3,7 @@ File: SkullbonezTests/TestSceneSnapshotWriter.cpp
 Purpose:
   Verifies version-2 scene snapshots preserve asset-instance live part state.
 
-Mental model:
+Summary:
   The writer borrows scene/entity, body, collider, group, and joint owner data.
   Asset-backed rows are grouped by stable asset-root id and serialized as
   authoritative part states; the parser then rebuilds shape-specific rows.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Render/RuntimeRenderInputs.h
 Purpose:
   Names the borrowed runtime inputs consumed by frame rendering.
 
-Mental model:
+Summary:
   Runtime render code should receive a small view of the systems and state it
   needs for one frame, not the entire Run object. These structs are references
   only; ownership remains in concrete renderer, scene, UI, and tool owners.

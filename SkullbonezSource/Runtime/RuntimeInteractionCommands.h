@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RuntimeInteractionCommands.h
 Purpose:
   Defines the small command/event vocabulary used by runtime input routing.
 
-Mental model:
+Summary:
   Runtime input code converts mouse/editor decisions into narrow selection or
   gesture commands. The owning controller validates and commits the mutation;
   only then does it publish the corresponding event.

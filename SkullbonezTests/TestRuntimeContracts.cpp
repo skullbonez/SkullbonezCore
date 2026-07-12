@@ -3,7 +3,7 @@
 // Purpose:
 //   Exercises logger concurrency, worker-task lifetime, and Lane F probes.
 //
-// Mental model:
+// Summary:
 //   Ordinary contracts run in doctest. Contracts that must abort launch this
 //   executable as a named child case so the parent suite survives.
 //

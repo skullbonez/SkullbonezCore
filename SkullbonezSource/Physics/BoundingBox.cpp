@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/BoundingBox.cpp
 Purpose:
   Defines oriented-box collision geometry and its broadphase/render helper math.
 
-Mental model:
+Summary:
   BoundingBox.cpp defines oriented-box collision geometry and its
   broadphase/render helper math. As an implementation unit, keep edits
   anchored on deterministic physics, diagnostics, or world-state flow and on

@@ -3,7 +3,7 @@
 // Purpose:
 //   Locks asset-library source registration and lookup behavior used by scene parsing.
 //
-// Mental model:
+// Summary:
 //   AssetSystem owns logical asset names and resolves them to data-root paths.
 //   Scene parsing borrows this registry when a scene references reusable
 //   asset-library entries instead of spelling every object inline.

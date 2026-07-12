@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/CaptureSystem.cpp
 Purpose:
   Captures frame output to screenshots for scenes, validation, and look-dev.
 
-Mental model:
+Summary:
   Runtime code decides when a screenshot should happen, then hands a narrow
   capture backend to this file. CaptureSystem validates the readback contract,
   writes BMP bytes, and returns automation decisions without owning renderer

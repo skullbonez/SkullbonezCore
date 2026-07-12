@@ -3,7 +3,7 @@ File: SkullbonezData/shaders/unlit_textured.hlsl
 Purpose:
   Runs the unlit_textured HLSL shader program used by the renderer.
 
-Mental model:
+Summary:
   unlit_textured.hlsl is shader source for the renderer's unlit_textured pass.
   Keep edits anchored on shader inputs, bindings, and render-output contracts
   and on the glossary/invariants below.

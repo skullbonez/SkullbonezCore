@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UIBackdropBlur.h
 Purpose:
   Draws the optional non-readback backdrop panel behind the in-engine controls.
 
-Mental model:
+Summary:
   The backdrop is ordinary UI geometry. It never captures the back buffer; the
   capture/readback renderer capability belongs to screenshot and validation
   paths, not per-frame UI decoration.

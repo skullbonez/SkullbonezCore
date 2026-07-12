@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp
 Purpose:
   Captures bounded replay presentation and solver-state samples.
 
-Mental model:
+Summary:
   These recorders observe committed simulation state. They must not mutate
   bodies, physics caches, renderer resources, or UI state; capture enabled
   should only add bounded CPU memory use and optional hash-log writes.

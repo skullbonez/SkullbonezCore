@@ -3,7 +3,7 @@ File: ShaderBytecodeManifest.cpp
 Purpose:
   Verifies baked shader source/bytecode hashes and opens DXIL reflection data.
 
-Mental model:
+Summary:
   The bake tool owns compilation. This file is only a verifier and loader: it
   hashes the authored source and baked bytes, finds their manifest row, and
   publishes a blob after every identity check succeeds.

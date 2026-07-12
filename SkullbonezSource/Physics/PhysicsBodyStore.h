@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PhysicsBodyStore.h
 Purpose:
   Owns deterministic body-order mutable physics state during simulation.
 
-Mental model:
+Summary:
   Physics-facing body data has an explicit owner. Scene/model authoring code
   submits descriptor values at creation and topology-repair boundaries, while
   standalone creation owns dense body rows directly.

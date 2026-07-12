@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UITabSound.h
 Purpose:
   Declares the in-engine Sound tab state and input helpers.
 
-Mental model:
+Summary:
   The Sound tab is a live tuning surface for presentation-only contact impact
   audio. It reads a per-frame snapshot and emits one-frame parameter requests;
   the run loop applies those requests to ContactAudioService.

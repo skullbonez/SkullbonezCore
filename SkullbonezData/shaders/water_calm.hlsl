@@ -3,7 +3,7 @@ File: SkullbonezData/shaders/water_calm.hlsl
 Purpose:
   Runs the water_calm HLSL shader program used by the renderer.
 
-Mental model:
+Summary:
   water_calm.hlsl is shader source for the renderer's water_calm pass. Keep
   edits anchored on shader inputs, bindings, and render-output contracts and
   on the glossary/invariants below.

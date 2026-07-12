@@ -3,7 +3,7 @@
 // Purpose:
 //   Lock focused RuntimeReserveAllocator policy contracts.
 //
-// Mental model:
+// Summary:
 //   The allocator is a fixed-storage policy ledger. Owners register their
 //   initial and hard capacity, replay owners may request bounded growth during
 //   replay, and every grant or denial becomes a compact diagnostic event.

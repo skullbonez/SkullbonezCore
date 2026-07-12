@@ -3,7 +3,7 @@ File: TestSceneParserBodies.cpp
 Purpose:
   Parses bodies, state rows, joints, materials, requirements, and object-group metadata.
 
-Mental model:
+Summary:
   This translation unit handles one schema domain while mutating the single
   TestSceneParser result. Shared validation and failure policy live in
   TestSceneParserSchema.h; top-level document order stays in TestSceneParser.cpp.

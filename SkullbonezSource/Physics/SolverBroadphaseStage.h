@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/SolverBroadphaseStage.h
 Purpose:
   Exposes the pure broadphase candidate filter used by the solver driver.
 
-Mental model:
+Summary:
   SpatialGrid provides locality candidates; this stage rejects pairs whose
   swept bounding spheres cannot touch during the current fixed tick.
 

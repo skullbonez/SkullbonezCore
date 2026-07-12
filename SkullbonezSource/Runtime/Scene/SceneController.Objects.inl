@@ -3,7 +3,7 @@ Purpose:
   Declares SceneController's coordinated entity, physics, and render-store
   operations separately from navigation and request policy.
 
-Mental model:
+Summary:
   These are operations on concrete SceneController-owned stores, not a
   nested context or replacement object-model façade.
 

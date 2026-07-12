@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.cpp
 Purpose:
   Provides the runtime diagnostics ownership boundary.
 
-Mental model:
+Summary:
   DiagnosticsRuntime sequences capture, performance, memory, and physics
   diagnostic work. Artifact-specific controllers own their formats while this
   owner retains the process memory cache and shutdown memory-dump lifecycle.

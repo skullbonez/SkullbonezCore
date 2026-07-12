@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/ColliderStore.cpp
 Purpose:
   Owns deterministic collider records from explicit create/update descriptors.
 
-Mental model:
+Summary:
   Collider shape/material values live in dense ColliderRecord rows. Runtime
   editor/tooling code can replace a row at cold authoring edges, while config
   changes update material scalars in-place and topology repair only rebases body

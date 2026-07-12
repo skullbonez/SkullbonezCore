@@ -4,7 +4,7 @@ Purpose:
   Records render pass/resource intent, callback execution, and transient texture
   lifetime plans.
 
-Mental model:
+Summary:
   RenderGraph.cpp records render pass/resource intent, callback execution, and
   transient texture lifetime plans. As an implementation unit, keep edits
   anchored on render submission and resource lifetime and on the

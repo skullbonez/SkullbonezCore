@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/Dx12CachedPsoStore.cpp
 Purpose:
   Loads, addresses, and atomically persists bounded driver PSO cache blobs.
 
-Mental model:
+Summary:
   The checked-in shader manifest and serialized root signature select a cache
   file. Each PSO recipe selects one entry inside that file. Drivers may reject
   serialized bytes after an adapter or driver change; rejection is an expected

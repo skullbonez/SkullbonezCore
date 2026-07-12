@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PhysicsApi.h
 Purpose:
   Declares the public physics command, query, and immutable-view contract.
 
-Mental model:
+Summary:
   This header is the migration target for scene setup, runtime tools, replay,
   rendering, and diagnostics. It names the operations and data snapshots those
   callers should use without exposing runtime collection owners, PhysicsWorld,

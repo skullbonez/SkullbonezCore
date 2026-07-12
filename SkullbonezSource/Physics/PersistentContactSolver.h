@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PersistentContactSolver.h
 Purpose:
   Solves object/object and object/terrain persistent contact rows.
 
-Mental model:
+Summary:
   PersistentContactSolver.h solves object/object and object/terrain persistent
   contact rows. As a public header, keep edits anchored on deterministic
   physics, diagnostics, or world-state flow and on the glossary/invariants

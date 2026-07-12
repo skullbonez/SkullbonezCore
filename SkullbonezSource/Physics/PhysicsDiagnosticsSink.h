@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PhysicsDiagnosticsSink.h
 Purpose:
   Streams bounded physics diagnostics to SkullScope trace files.
 
-Mental model:
+Summary:
   PhysicsDiagnosticsSink.h streams bounded physics diagnostics to SkullScope
   trace files. As a public header, keep edits anchored on deterministic
   physics, diagnostics, or world-state flow and on the glossary/invariants

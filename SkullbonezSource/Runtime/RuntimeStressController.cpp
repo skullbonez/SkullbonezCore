@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RuntimeStressController.cpp
 Purpose:
   Runs stress and automation paths for validation-oriented launches.
 
-Mental model:
+Summary:
   Stress controllers execute deterministic validation churn through non-copyable
   per-call frame views of the owners each action may mutate.
 

@@ -3,7 +3,7 @@ File: SkullbonezSource/Scene/TestScene.cpp
 Purpose:
   Stores parsed test-scene JSON and applies it to runtime scene state.
 
-Mental model:
+Summary:
   TestScene.cpp stores parsed test-scene JSON and applies it to runtime scene
   state. As an implementation unit, keep edits anchored on scene-file parsing
   or snapshot contracts and on the glossary/invariants below.

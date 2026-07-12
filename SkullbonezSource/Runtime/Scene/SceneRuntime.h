@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntime.h
 Purpose:
   Owns scene queue and scene-run state for the application runtime.
 
-Mental model:
+Summary:
   Runtime code connects authored scene data, input, simulation, render
   backends, and validation-oriented launch modes. SceneRuntime is the scene
   lifecycle owner; Run coordinates higher-level work around it.

@@ -3,7 +3,7 @@
 // Purpose:
 //   Locks real Terrain flat-slope collision queries used by focused physics tests.
 //
-// Mental model:
+// Summary:
 //   Terrain owns both render resources and collision lookup data. Unit tests use
 //   render-resource doubles so construction follows the production path while
 //   assertions stay on CPU-side height, plane, and bounds behavior.

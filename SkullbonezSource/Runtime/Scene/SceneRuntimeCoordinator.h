@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h
 Purpose:
   Declares scene navigation load decisions and UI request submission helpers.
 
-Mental model:
+Summary:
   SceneController owns queue/browser navigation and returns a value-only load
   request. SceneController consumes that request through its cold load
   transaction; callers only wire the explicit per-call owner borrows.

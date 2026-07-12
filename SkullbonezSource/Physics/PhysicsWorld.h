@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PhysicsWorld.h
 Purpose:
   Owns per-scene physics working state shared by broadphase, solver, and diagnostics.
 
-Mental model:
+Summary:
   PhysicsWorld.h owns per-scene physics working state shared by broadphase,
   solver, and diagnostics. As a public header, keep edits anchored on
   deterministic physics, diagnostics, or world-state flow and on the

@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PhysicsObjectPolicy.h
 Purpose:
   Names the small physics policy values copied onto simulated objects.
 
-Mental model:
+Summary:
   Runtime config is process input. Physics object policy is the stable set of
   scalar values a body or contact path reads after configuration has been
   applied.

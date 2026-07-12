@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RuntimeFileWriter.cpp
 Purpose:
   Implements shared runtime file-output helpers.
 
-Mental model:
+Summary:
   Runtime features ask for safe paths here before they write artifacts. The
   helpers create missing folders, keep numbered saves collision-free, and leave
   serialization to the caller.

@@ -4,7 +4,7 @@ Purpose:
   Shares parser schema primitives, declarations, and parse state across
   owner-specific TestSceneParser translation units.
 
-Mental model:
+Summary:
   JSON validation helpers translate authored values into one TestSceneParser
   instance. Domain translation units mutate that instance synchronously; this
   header owns declarations and value helpers, not a second scene model.

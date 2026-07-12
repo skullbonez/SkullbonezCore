@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UITabOptions.h
 Purpose:
   Implements UI TabOptions widgets, layout, drawing, or UI state for the in-engine controls.
 
-Mental model:
+Summary:
   UITabOptions.h implements UI TabOptions widgets, layout, drawing, or UI
   state for the in-engine controls. As a public header, keep edits anchored on
   UI request, layout, hit-test, and draw-command flow and on the

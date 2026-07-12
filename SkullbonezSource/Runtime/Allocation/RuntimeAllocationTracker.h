@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.h
 Purpose:
   Declares the process-wide runtime allocation phase tracker.
 
-Mental model:
+Summary:
   The tracker is measurement infrastructure, not a gameplay allocator. Runtime
   code labels broad lifecycle phases, and the global allocation hook records
   which phase owned each heap request.

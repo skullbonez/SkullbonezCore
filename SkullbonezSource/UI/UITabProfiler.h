@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UITabProfiler.h
 Purpose:
   Implements UI TabProfiler widgets, layout, drawing, or UI state for the in-engine controls.
 
-Mental model:
+Summary:
   UITabProfiler.h implements UI TabProfiler widgets, layout, drawing, or UI
   state for the in-engine controls. As a public header, keep edits anchored on
   UI request, layout, hit-test, and draw-command flow and on the

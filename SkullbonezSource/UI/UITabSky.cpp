@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UITabSky.cpp
 Purpose:
   Owns the Sky tab widgets, layout, and input handling for in-engine sky tuning.
 
-Mental model:
+Summary:
   UITabSky.cpp owns the Sky tab widgets, layout, and input handling for
   in-engine sky tuning. As an implementation unit, keep edits anchored on UI
   request, layout, hit-test, and draw-command flow and on the

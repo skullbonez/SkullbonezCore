@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Render/RuntimeRenderHost.cpp
 Purpose:
   Keeps the runtime render-host binding translation unit available.
 
-Mental model:
+Summary:
   Runtime render host state was reduced to typed startup bindings. Renderer and
   pass state travel through those bindings owned by RuntimeRenderer.
 

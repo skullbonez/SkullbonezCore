@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/WorkerPool.cpp
 Purpose:
   Implements the fixed worker pool and deterministic fork-join helpers.
 
-Mental model:
+Summary:
   The main thread queues bounded work chunks, wakes persistent workers, then
   waits on a fence. Worker-disabled mode runs the same work inline.
 

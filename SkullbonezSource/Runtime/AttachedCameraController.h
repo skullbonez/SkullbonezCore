@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/AttachedCameraController.h
 Purpose:
   Owns attach-camera target identity, orbit state, and follow-pose solving.
 
-Mental model:
+Summary:
   Attach mode selects and follows a physics body through stable body/collider
   handles, then turns the current body snapshot and camera pose into the next
   camera pose. AttachedCameraController owns that durable state and performs

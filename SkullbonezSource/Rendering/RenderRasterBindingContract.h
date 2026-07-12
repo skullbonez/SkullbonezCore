@@ -4,7 +4,7 @@ Purpose:
   Defines the named UnifiedRaster root-signature contract shared by every
   shipping raster shader family and the active render backend.
 
-Mental model:
+Summary:
   Runtime code binds textures by engine slot, while backend code translates
   those slots into root-signature parameters, shader registers, and sampler
   registers. Keeping the numbers here makes the ABI visible without browsing

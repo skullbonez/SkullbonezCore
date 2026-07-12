@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h
 Purpose:
   Declares generated/demo scene population helpers.
 
-Mental model:
+Summary:
   SceneGeneratedSetup owns deterministic generated scene algorithms: default
   demo cameras, mixed object spawning, and exact-count solver objects.
   SceneController supplies the live world/model/camera owners while Run still

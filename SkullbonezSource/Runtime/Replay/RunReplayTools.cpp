@@ -4,7 +4,7 @@ Purpose:
   Owns replay path visualization, cause-focus overlays, and prediction-preview
   helpers as one real translation unit after deleting the replay text splices.
 
-Mental model:
+Summary:
   Replay tools read two timelines. Retained solver samples describe what already
   happened; prediction samples advance a private replay-owned physics engine.
   The renderer only receives lightweight overlay geometry.

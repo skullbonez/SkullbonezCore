@@ -3,7 +3,7 @@ File: SkullbonezData/shaders/lit_textured_instanced.hlsl
 Purpose:
   Runs the lit_textured_instanced HLSL shader program used by the renderer.
 
-Mental model:
+Summary:
   lit_textured_instanced.hlsl is shader source for the renderer's
   lit_textured_instanced pass. Keep edits anchored on shader inputs, bindings,
   and render-output contracts and on the glossary/invariants below.

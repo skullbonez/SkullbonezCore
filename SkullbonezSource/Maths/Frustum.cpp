@@ -3,7 +3,7 @@ File: SkullbonezSource/Maths/Frustum.cpp
 Purpose:
   Extracts normalized DX12 clip planes and tests conservative world spheres.
 
-Mental model:
+Summary:
   Matrix rows encode clip-space inequalities even though Matrix4 stores values
   column-major. Adding or subtracting the w row yields side/far planes; DX12's
   zero-to-one depth convention makes the z row itself the near plane.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.cpp
 Purpose:
   Applies live scene style and cinematic override state outside Run.
 
-Mental model:
+Summary:
   Live style changes are scene-runtime behavior: they retint/reset existing
   renderable objects, apply material overrides, and merge authored cinematic
   fields over engine defaults without rebuilding the current scene.

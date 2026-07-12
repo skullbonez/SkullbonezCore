@@ -3,7 +3,7 @@ File: SkullbonezSource/Assets/TextureCollection.h
 Purpose:
   Loads texture files and hands renderer-neutral texture ids to draw code.
 
-Mental model:
+Summary:
   TextureCollection.h loads texture files and hands renderer-neutral texture
   ids to draw code. As a public header, keep edits anchored on asset lifetime,
   cache ownership, and load/fallback behavior and on the glossary/invariants

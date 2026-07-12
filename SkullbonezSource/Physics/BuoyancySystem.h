@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/BuoyancySystem.h
 Purpose:
   Owns analytic fluid-submersion queries used by physics gameplay policy.
 
-Mental model:
+Summary:
   PhysicsBodyStore applies continuous fluid forces during force integration.
   This owner provides the targeted sphere-water snapshot used by underwater
   sleep locks so PhysicsWorld does not own shape-specific buoyancy math.

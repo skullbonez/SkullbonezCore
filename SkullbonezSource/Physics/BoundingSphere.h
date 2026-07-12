@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/BoundingSphere.h
 Purpose:
   Defines sphere collision geometry, swept tests, volume facts, and render transforms.
 
-Mental model:
+Summary:
   BoundingSphere.h defines sphere collision geometry, swept tests, volume
   facts, and render transforms. As a public header, keep edits anchored on
   deterministic physics, diagnostics, or world-state flow and on the

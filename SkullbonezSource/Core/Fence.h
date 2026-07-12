@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/Fence.h
 Purpose:
   Provides a reusable CPU fence for worker tasks.
 
-Mental model:
+Summary:
   A fence starts with an expected signal count. Workers call Signal() as chunks
   finish; the caller can Wait() efficiently until the count reaches zero.
 

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.cpp
 Purpose:
   Draws replay scrubber and cause-tree overlays from replay-owned state.
 
-Mental model:
+Summary:
   Replay overlay rendering is a late UI pass. Keep the same screen-space layout
   and pointer eligibility as replay input by rebuilding the same fixed-capacity
   surfaces from ReplayOverlayLayout.

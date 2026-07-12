@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/ShaderContracts.h
 Purpose:
   Lists engine-facing contracts for every shipping raster HLSL family.
 
-Mental model:
+Summary:
   Shader contracts name the uniforms, resources, texture slots, and vertex
   layout each pass expects. Startup verifies required ABI rows against generated
   DXIL reflection; per-draw setter diagnostics remain development-only.

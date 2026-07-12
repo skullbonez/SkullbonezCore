@@ -3,7 +3,7 @@ File: SkullbonezSource/Maths/Quaternion.h
 Purpose:
   Declares quaternion orientation math for rigid bodies and cameras.
 
-Mental model:
+Summary:
   Quaternion.h declares quaternion orientation math for rigid bodies and
   cameras. As a public header, keep edits anchored on units, basis
   conventions, and numerical assumptions and on the glossary/invariants below.

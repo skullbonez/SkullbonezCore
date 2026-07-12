@@ -3,7 +3,7 @@ File: TestOwnerRequestQueues.cpp
 Purpose:
   Verifies fixed scene, capture, and render-default owner request contracts.
 
-Mental model:
+Summary:
   Each owner accepts only its domain intent, keeps FIFO order, and exposes a
   fixed capacity. Invalid bounded text is rejected before it consumes storage.
 

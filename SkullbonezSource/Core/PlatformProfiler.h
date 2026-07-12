@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/PlatformProfiler.h
 Purpose:
   Bridges engine profiler markers to platform tools such as PIX when available.
 
-Mental model:
+Summary:
   PlatformProfiler.h bridges engine profiler markers to platform tools such as
   PIX when available. As a public header, keep edits anchored on process-wide
   contracts, diagnostics, and validation-sensitive state and on the

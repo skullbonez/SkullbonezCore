@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/EditorTools.cpp
 Purpose:
   Owns editor placement scale math for primitive bodies, hulls, trees, and compound assets.
 
-Mental model:
+Summary:
   Placement gestures start as mouse deltas and wheel clicks. This file maps
   that input into safe object scale values before RunInput commits the object.
 

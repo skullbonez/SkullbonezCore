@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/Log.h
 Purpose:
   Writes debug-only runtime, crash, and diagnostics logs.
 
-Mental model:
+Summary:
   Log.h writes debug-only runtime, crash, and diagnostics logs. As a public
   header, keep edits anchored on process-wide contracts, diagnostics, and
   validation-sensitive state and on the glossary/invariants below.

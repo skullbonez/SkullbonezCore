@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/RenderBackendDX12.Pipeline.cpp
 Purpose:
   Implements Dx12PipelineOwner's root signature, fixed-state recipe, and cache.
 
-Mental model:
+Summary:
   Dx12PipelineOwner turns the active shader, vertex layout, raster/depth/blend
   choices, and output format into a bounded cached PSO. It owns the dirty-state
   fast path and receives only the device, command list, recording state,

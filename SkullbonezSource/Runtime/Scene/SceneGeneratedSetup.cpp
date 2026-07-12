@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp
 Purpose:
   Implements deterministic generated/demo scene population.
 
-Mental model:
+Summary:
   Generated setup is scene lifecycle behavior, not app-shell behavior. It
   receives explicit borrowed context from Run and fills the existing camera and
   model subsystems without changing spawn order or RNG consumption.

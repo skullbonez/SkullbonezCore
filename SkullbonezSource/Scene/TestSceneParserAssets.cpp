@@ -3,7 +3,7 @@ File: TestSceneParserAssets.cpp
 Purpose:
   Validates asset libraries and expands authored asset instances with provenance.
 
-Mental model:
+Summary:
   This translation unit handles one schema domain while mutating the single
   TestSceneParser result. Shared validation and failure policy live in
   TestSceneParserSchema.h; top-level document order stays in TestSceneParser.cpp.

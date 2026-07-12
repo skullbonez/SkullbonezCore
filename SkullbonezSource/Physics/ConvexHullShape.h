@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/ConvexHullShape.h
 Purpose:
   Defines immutable authored convex hull collision geometry.
 
-Mental model:
+Summary:
   Physics is deterministic fixed-step state update. Convex hull data is built
   and validated at load time, then read without heap allocation by narrowphase.
 

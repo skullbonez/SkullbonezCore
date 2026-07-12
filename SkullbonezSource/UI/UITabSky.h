@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UITabSky.h
 Purpose:
   Owns the Sky tab widgets, layout, and input handling for in-engine sky tuning.
 
-Mental model:
+Summary:
   The Sky tab is a focused view over the cinematic render config. It emits the
   same cinematic UI commands as the broader Cine tab, but presents only the
   sky, cloud, ray, and palette controls.

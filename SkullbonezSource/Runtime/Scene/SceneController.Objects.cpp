@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneController.Objects.cpp
 Purpose:
   Coordinates transient presentation rows with physics/collider/render stores.
 
-Mental model:
+Summary:
   SceneController directly owns scene metadata, physics, and render presentation
   rows. Creation preflights every concrete store before its first mutation;
   cold repair and deletion preserve their shared dense order.

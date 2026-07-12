@@ -4,7 +4,7 @@ Purpose:
   Owns compile-time scene and presentation capacity constants shared by model,
   camera, texture, physics, replay, and render storage.
 
-Mental model:
+Summary:
   These are fixed storage budgets, not runtime policy decisions. Config and UI
   may choose lower active counts, but dense runtime stores use these constants
   as their hard compile-time ceilings.

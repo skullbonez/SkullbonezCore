@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PersistentContactSolver.cpp
 Purpose:
   Solves object/object and object/terrain persistent contact rows.
 
-Mental model:
+Summary:
   PersistentContactSolver.cpp solves object/object and object/terrain
   persistent contact rows. As an implementation unit, keep edits anchored on
   deterministic physics, diagnostics, or world-state flow and on the

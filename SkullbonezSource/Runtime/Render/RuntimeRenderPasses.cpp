@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp
 Purpose:
   Implements the named world-render pass classes owned by RuntimeRenderer.
 
-Mental model:
+Summary:
   RuntimeRenderer.cpp should read like a frame story: build one frame
   context, run named passes, then hand each pass output to its downstream
   consumer. This file owns the rendering guts and GPU lifetime hooks for those

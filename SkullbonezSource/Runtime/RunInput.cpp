@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RunInput.cpp
 Purpose:
   Implements InputRouter transition, pointer, camera-mode, and focus behavior.
 
-Mental model:
+Summary:
   InputRouter consumes already-sampled semantic and pointer values, sequences
   cleanup through concrete interaction/tool/replay owners, and publishes the
   resulting input-mode and pointer-presentation state.

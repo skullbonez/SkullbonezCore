@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/IMesh.h
 Purpose:
   Declares the renderer-neutral mesh interface.
 
-Mental model:
+Summary:
   IMesh.h declares the renderer-neutral mesh interface. As a public header,
   keep edits anchored on render submission and resource lifetime and on the
   glossary/invariants below.

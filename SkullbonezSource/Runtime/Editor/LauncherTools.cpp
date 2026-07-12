@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/LauncherTools.cpp
 Purpose:
   Owns launcher-mode raycast, projectile, laser, and repro snapshot behavior.
 
-Mental model:
+Summary:
   LauncherTools.cpp owns launcher-mode raycast, projectile, laser, and repro
   snapshot behavior. As an implementation unit, keep edits anchored on local
   owner boundaries and call direction and on the glossary/invariants below.

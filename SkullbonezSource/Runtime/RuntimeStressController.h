@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RuntimeStressController.h
 Purpose:
   Exposes deterministic UI and graphics stress execution at an explicit owner boundary.
 
-Mental model:
+Summary:
   Stress controllers own their random streams and counters. Each execution call
   borrows the concrete runtime owners through non-copyable frame views; no borrow
   is retained and Run only sequences the harness beside normal frame work.

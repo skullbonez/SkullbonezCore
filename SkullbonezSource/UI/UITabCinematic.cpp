@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UITabCinematic.cpp
 Purpose:
   Owns the Cinematic tab widgets, layout, and input handling for the in-engine controls.
 
-Mental model:
+Summary:
   UITabCinematic.cpp owns the Cinematic tab widgets, layout, and input
   handling for the in-engine controls. As an implementation unit, keep edits
   anchored on UI request, layout, hit-test, and draw-command flow and on the

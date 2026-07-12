@@ -3,7 +3,7 @@ File: SkullbonezData/shaders/reflect.rt.hlsl
 Purpose:
   Runs the reflect.rt HLSL shader program used by the renderer.
 
-Mental model:
+Summary:
   reflect.rt.hlsl is shader source for the renderer's reflect.rt pass. Keep
   edits anchored on shader inputs, bindings, and render-output contracts and
   on the glossary/invariants below.

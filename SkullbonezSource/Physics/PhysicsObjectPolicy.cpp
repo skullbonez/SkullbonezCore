@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PhysicsObjectPolicy.cpp
 Purpose:
   Converts runtime config into small per-object physics policy values.
 
-Mental model:
+Summary:
   Runtime config is broad process input. Physics object policy is the narrow
   value vocabulary copied into body and collider descriptors before simulation
   stores consume it.

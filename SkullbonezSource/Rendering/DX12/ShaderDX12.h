@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/ShaderDX12.h
 Purpose:
   Declares the baked-shader wrapper used by the DX12 renderer.
 
-Mental model:
+Summary:
   A shader owns verified vertex/pixel bytecode plus a reflected constant layout.
   Draw code writes named values into its CPU byte copy, then flushes that copy
   through the frame upload owner before binding the pipeline.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Render/RuntimeRenderer.h
 Purpose:
   Declares the runtime renderer owner for ordered render passes.
 
-Mental model:
+Summary:
   RuntimeRenderer owns pass objects, backend-resource lifetime, and the frame
   pass order. Five named owner views supply lifetime-stable dependencies;
   immutable per-frame records carry submission facts and completed overlays.

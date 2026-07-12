@@ -3,7 +3,7 @@
 // Purpose:
 //   Lock the first focused tests for physics body and collider handle semantics.
 //
-// Mental model:
+// Summary:
 //   Physics handles are allocator identities, not dense row indices. The stores
 //   keep simulation rows compact by moving the final row into a deleted slot,
 //   while handle maps preserve live identity and reject stale generations.

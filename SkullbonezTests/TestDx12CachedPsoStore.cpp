@@ -3,7 +3,7 @@ File: SkullbonezTests/TestDx12CachedPsoStore.cpp
 Purpose:
   Proves persistent DX12 PSO recipe names are stable and complete.
 
-Mental model:
+Summary:
   A cached-PSO record name is a content address. Repeating an identical recipe
   must reproduce the name across processes; changing any cache-invalidating
   identity must select a different entry.

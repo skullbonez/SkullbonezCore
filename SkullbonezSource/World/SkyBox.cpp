@@ -3,7 +3,7 @@ File: SkullbonezSource/World/SkyBox.cpp
 Purpose:
   Builds and renders the skybox or sky backdrop for scene rendering.
 
-Mental model:
+Summary:
   SkyBox.cpp builds and renders the skybox or sky backdrop for scene
   rendering. As an implementation unit, keep edits anchored on world-state
   ownership, terrain/environment data, and physics/render handoff and on the

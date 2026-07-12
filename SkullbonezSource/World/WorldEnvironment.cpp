@@ -3,7 +3,7 @@ File: SkullbonezSource/World/WorldEnvironment.cpp
 Purpose:
   Stores world forces, fluid parameters, and water rendering resources.
 
-Mental model:
+Summary:
   WorldEnvironment.cpp stores world forces, fluid parameters, and water
   rendering resources. As an implementation unit, keep edits anchored on
   world-state ownership, terrain/environment data, and physics/render handoff

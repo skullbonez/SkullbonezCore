@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/Ragdoll.cpp
 Purpose:
   Defines simple humanoid ragdoll descriptors and point-joint solving.
 
-Mental model:
+Summary:
   The body layout is prefab value data. Scene owners turn the descriptors into
   authored objects; Physics keeps only handle-keyed point-joint descriptors and
   solver rows. This keeps the ragdoll feature isolated and leaves a clear

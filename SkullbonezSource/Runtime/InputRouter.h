@@ -4,7 +4,7 @@ Purpose:
   Declares the allocation-free device snapshot, semantic action router, shared
   post-UI pointer value, and native pointer-presentation intent owner.
 
-Mental model:
+Summary:
   A device owner captures hardware once into DeviceInputFrame. InputRouter then
   advances key/button memory exactly once and emits ordered semantic action
   events in the same order as the immutable binding table. Context predicates

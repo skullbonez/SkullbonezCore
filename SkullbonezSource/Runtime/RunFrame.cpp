@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RunFrame.cpp
 Purpose:
   Runs one frame of input, simulation, rendering, profiling, and presentation.
 
-Mental model:
+Summary:
   RunFrame.cpp runs one frame of input, simulation, rendering, profiling, and
   presentation. As an implementation unit, keep edits anchored on local owner
   boundaries and call direction and on the glossary/invariants below.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/RunReplayProbes.cpp
 Purpose:
   Owns replay validation probes and transactional v2 target restore work.
 
-Mental model:
+Summary:
   ReplayRuntime drives cold validation and restore workflows using a frame-scoped
   live-owner view. It applies a checkpoint, replays supported events, verifies
   the target hash, and rolls back before returning any recoverable failure.

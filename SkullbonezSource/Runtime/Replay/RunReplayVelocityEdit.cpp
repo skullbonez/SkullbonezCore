@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp
 Purpose:
   Implements replay velocity-edit picking, dragging, mutation, and overlay drawing.
 
-Mental model:
+Summary:
   Velocity edit is a replay-owned interaction mode. It turns mouse rays into linear or angular
   velocity edits, then marks prediction dirty so the path preview reflects the changed live state.
 

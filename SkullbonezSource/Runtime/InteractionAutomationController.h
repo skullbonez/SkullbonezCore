@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/InteractionAutomationController.h
 Purpose:
   Defines the CLI interaction automation script and report state.
 
-Mental model:
+Summary:
   Interaction automation is a validation harness, not gameplay state. Scripts
   describe frame-indexed input/runtime commands, while reports capture the
   bounded evidence that validation scripts read after the run exits.

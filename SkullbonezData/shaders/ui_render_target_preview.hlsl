@@ -3,7 +3,7 @@ File: SkullbonezData/shaders/ui_render_target_preview.hlsl
 Purpose:
   Displays renderer-owned texture resources inside the in-game UI.
 
-Mental model:
+Summary:
   This is a diagnostic UI shader. The CPU supplies an already shader-readable
   texture handle plus a mode flag for color, HDR color, or depth display.
 

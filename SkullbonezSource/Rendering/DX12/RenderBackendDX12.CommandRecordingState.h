@@ -4,7 +4,7 @@ Purpose:
   Defines the allocation-free command-recording epoch and checked Map result
   used by the DX12 backend's recoverable failure paths.
 
-Mental model:
+Summary:
   A command list is either logically open for recording or closed for
   submission. The state changes only after the matching DX12 operation
   succeeds. The first failure is sticky because later successes cannot prove

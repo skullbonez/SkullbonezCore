@@ -3,7 +3,7 @@ File: SkullbonezTests/TestSceneEntityStore.cpp
 Purpose:
   Verifies scene identity storage and the paired render creation row.
 
-Mental model:
+Summary:
   Creation preflights metadata without mutation, then commits the body-linked
   row once downstream owner rows exist.
 

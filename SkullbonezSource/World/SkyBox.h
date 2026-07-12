@@ -3,7 +3,7 @@ File: SkullbonezSource/World/SkyBox.h
 Purpose:
   Builds and renders the skybox or sky backdrop for scene rendering.
 
-Mental model:
+Summary:
   SkyBox.h builds and renders the skybox or sky backdrop for scene rendering.
   As a public header, keep edits anchored on world-state ownership,
   terrain/environment data, and physics/render handoff and on the

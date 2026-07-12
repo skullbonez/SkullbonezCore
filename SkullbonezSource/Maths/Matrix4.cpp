@@ -3,7 +3,7 @@ File: SkullbonezSource/Maths/Matrix4.cpp
 Purpose:
   Implements the engine matrix type and common transform operations.
 
-Mental model:
+Summary:
   Matrix4.cpp implements the engine matrix type and common transform
   operations. As an implementation unit, keep edits anchored on units, basis
   conventions, and numerical assumptions and on the glossary/invariants below.

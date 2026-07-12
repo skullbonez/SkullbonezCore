@@ -3,7 +3,7 @@ File: SkullbonezTests/TestConfig.cpp
 Purpose:
   Locks the public EngineConfig file-load and stable-dump compatibility contract.
 
-Mental model:
+Summary:
   EngineConfig::Load treats engine.cfg as a tolerant cold data boundary: valid
   rows apply, while unknown or malformed rows warn and leave their destinations
   unchanged. Dump walks the same registry in one stable compatibility order.

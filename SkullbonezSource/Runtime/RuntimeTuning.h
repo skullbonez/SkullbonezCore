@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RuntimeTuning.h
 Purpose:
   Declares runtime tuning helpers for UI-driven render, audio, physics, and worker settings.
 
-Mental model:
+Summary:
   UI emits raw parameter changes. Runtime tuning clamps those values or
   delegates them to bounded owner APIs, updates live config, and records scene
   override bits where persistence remains explicit.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/RenderInstanceStore.h
 Purpose:
   Owns a render-facing snapshot of physics transforms and material intent.
 
-Mental model:
+Summary:
   Rendering still consumes model-order draw records through the existing
   renderer, but transform authority is physics-owned. The snapshot keeps model
   index order so future RenderSceneSnapshot work can compare output without

@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/ContactSolverCommon.h
 Purpose:
   Shares contact-row math helpers and data structures across physics solver code.
 
-Mental model:
+Summary:
   ContactSolverCommon.h shares contact-row math helpers and data structures
   across physics solver code. As a public header, keep edits anchored on
   deterministic physics, diagnostics, or world-state flow and on the

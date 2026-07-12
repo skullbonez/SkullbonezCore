@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PhysicsEngine.h
 Purpose:
   Exposes the public physics facade while preserving the existing PhysicsScene implementation.
 
-Mental model:
+Summary:
   PhysicsEngine is the runtime-facing physics boundary. It owns PhysicsScene and
   forwards store/descriptor operations in a fixed order so scene, tool, and
   replay callers use named physics commands without touching solver internals.

@@ -3,7 +3,7 @@ File: ShaderReflectionContracts.h
 Purpose:
   Compares engine shader declarations with the fixed metadata baked from DXIL.
 
-Mental model:
+Summary:
   DXC reflection describes the binary ABI. Engine declarations are an
   independent CPU expectation; startup accepts a program only when required
   fields and resources agree.

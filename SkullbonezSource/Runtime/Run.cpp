@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Run.cpp
 Purpose:
   Coordinates the main game loop and high-level runtime lifecycle.
 
-Mental model:
+Summary:
   Run.cpp coordinates the main game loop and high-level runtime lifecycle. As
   an implementation unit, keep edits anchored on local owner boundaries and
   call direction and on the glossary/invariants below.

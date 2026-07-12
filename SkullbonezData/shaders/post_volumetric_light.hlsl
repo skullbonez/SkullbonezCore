@@ -3,7 +3,7 @@ File: SkullbonezData/shaders/post_volumetric_light.hlsl
 Purpose:
   Runs the post_volumetric_light HLSL shader program used by the renderer.
 
-Mental model:
+Summary:
   post_volumetric_light.hlsl is shader source for the renderer's
   post_volumetric_light pass. Keep edits anchored on shader inputs, bindings,
   and render-output contracts and on the glossary/invariants below.

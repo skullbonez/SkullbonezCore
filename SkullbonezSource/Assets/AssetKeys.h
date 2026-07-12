@@ -4,7 +4,7 @@ Purpose:
   Owns legacy hash keys used to address built-in textures, authored cameras,
   profiler markers, and other string-keyed runtime registries.
 
-Mental model:
+Summary:
   These keys are stable data contracts. The compile-time hash keeps old tables
   compact, but the original strings still define the authored asset or camera
   identity humans edit in scene/config data.

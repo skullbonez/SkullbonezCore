@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/Helper.cpp
 Purpose:
   Collects legacy helper routines that bridge engine subsystems.
 
-Mental model:
+Summary:
   Helper.cpp collects legacy helper routines that bridge engine subsystems. As
   an implementation unit, keep edits anchored on render submission and
   resource lifetime and on the glossary/invariants below.

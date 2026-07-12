@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/Common.h
 Purpose:
   Defines shared constants, enums, and small cross-subsystem engine types.
 
-Mental model:
+Summary:
   Common.h is the platform/standard-library prelude retained by older engine
   headers. Domain constants and configuration policy come from their concrete
   owners rather than arriving transitively through this file.

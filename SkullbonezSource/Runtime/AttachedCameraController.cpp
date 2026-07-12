@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/AttachedCameraController.cpp
 Purpose:
   Implements attach-camera target recovery and pose solving.
 
-Mental model:
+Summary:
   The controller owns Attach target selection, durable follow/orbit state, and
   synchronous camera pose mutation. It borrows model stores and cameras for one
   command at a time; composition code publishes returned selection facts to UI

@@ -3,7 +3,7 @@
 // Purpose:
 //   Lock the first pure-math unit contracts for GeometricMath.
 //
-// Mental model:
+// Summary:
 //   GeometricMath is the legacy plane and ray segment helper. The public ray
 //   APIs use a movement vector rather than an infinite normalized direction, so
 //   a valid collision time lives in the inclusive range [0,1].

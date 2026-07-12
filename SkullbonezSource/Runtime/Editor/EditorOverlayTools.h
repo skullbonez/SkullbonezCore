@@ -4,7 +4,7 @@ Purpose:
   Declares editor preview and tool-overlay trace helpers used by runtime input
   and render callback composition.
 
-Mental model:
+Summary:
   Run still owns runtime side effects. Editor overlay helpers refresh editor
   preview state and append deterministic tool geometry to the shared tracer from
   explicit borrowed state.

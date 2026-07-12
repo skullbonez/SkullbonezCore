@@ -3,7 +3,7 @@
 // Purpose:
 //   Lock the first pure-math unit contracts for Vector3.
 //
-// Mental model:
+// Summary:
 //   These tests describe engine math behavior. Fatal-only preconditions are
 //   source-documented and tested through caller-detectable guard states rather
 //   than in-process fatal assertions.

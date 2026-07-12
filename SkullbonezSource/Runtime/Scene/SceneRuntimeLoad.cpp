@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.cpp
 Purpose:
   Implements scene load-begin orchestration outside Run.
 
-Mental model:
+Summary:
   Preparation decides whether a queue index can load, captures live reset state,
   and flushes GPU work before old scene resources are destroyed. Commit advances
   controller bookkeeping only after preparation and unload consumers succeed.

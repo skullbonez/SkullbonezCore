@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/IShader.h
 Purpose:
   Declares the renderer-neutral shader interface.
 
-Mental model:
+Summary:
   IShader.h declares the renderer-neutral shader interface. As a public
   header, keep edits anchored on render submission and resource lifetime and
   on the glossary/invariants below.

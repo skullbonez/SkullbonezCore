@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneControllerState.h
 Purpose:
   Defines scene-controller-owned browser and UI override state.
 
-Mental model:
+Summary:
   SceneController owns scene discovery and live scene-tab override values. Run
   borrows these shelves through the controller while broader scene loading still
   coordinates through the composition root.

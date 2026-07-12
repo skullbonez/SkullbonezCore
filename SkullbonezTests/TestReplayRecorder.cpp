@@ -4,7 +4,7 @@
 //   Lock focused ReplayRecorder ring-buffer, cursor, and configure-time memory
 //   contracts.
 //
-// Mental model:
+// Summary:
 //   ReplayRecorder is a bounded chronological view over circular storage. The
 //   internal head moves when retention fills, but public reads still return
 //   samples from oldest retained frame to newest retained frame.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Window.cpp
 Purpose:
   Creates and owns the Win32 window and message pump integration.
 
-Mental model:
+Summary:
   CreateAppWindow establishes the native HWND, arms the input callback bridge,
   and then lets WndProc feed resize, focus, cursor, and raw mouse messages back
   into runtime-owned systems.

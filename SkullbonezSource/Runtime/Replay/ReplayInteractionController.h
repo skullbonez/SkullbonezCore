@@ -4,7 +4,7 @@ Purpose:
   Owns replay restore commands and retained drag-start values that mutate
   replay UI state.
 
-Mental model:
+Summary:
   ReplayInteractionController converts operator replay intent into replay-owned
   state changes. It builds a one-frame restore command; ReplayRuntime owns the
   cross-owner transaction and returns the result for UI publication.

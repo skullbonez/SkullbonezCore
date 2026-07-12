@@ -4,7 +4,7 @@ Purpose:
   Declares the narrow render capability for backend startup, shutdown, resize,
   presentation, and GPU drain operations.
 
-Mental model:
+Summary:
   Device-lifecycle callers own process or window lifetime. They may initialize
   the renderer, resize swap-chain-sized resources, present a completed frame,
   and wait for GPU work to finish before resource destruction.

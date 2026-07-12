@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/SbResult.h
 Purpose:
   Declares the minimal Lane R recoverable-result carrier.
 
-Mental model:
+Summary:
   Lane R covers failures caused by external input such as scene files, assets,
   editor commands, automation scripts, or device/environment limits. The
   operation reports an owner and bounded message; the app stays alive.

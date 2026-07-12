@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/MeshDX12.h
 Purpose:
   Declares mesh buffers, upload flow, and draw binding for the DX12 renderer.
 
-Mental model:
+Summary:
   MeshDX12.h declares mesh buffers, upload flow, and draw binding for the DX12
   renderer. As a public header, keep edits anchored on DX12 ownership,
   descriptors, resources, and command submission and on the

@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/SimulationSystem.h
 Purpose:
   Owns runtime simulation stepping policy and physics accumulators.
 
-Mental model:
+Summary:
   SimulationSystem translates scene timing settings and operator pause/step
   state into deterministic physics ticks. Run remains responsible for
   camera/UI logic that consumes the returned simulation/camera deltas.

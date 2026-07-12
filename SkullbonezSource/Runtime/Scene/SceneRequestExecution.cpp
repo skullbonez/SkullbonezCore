@@ -3,7 +3,7 @@ File: SceneRequestExecution.cpp
 Purpose:
   Executes the SceneController-owned fixed request batch at the frame checkpoint.
 
-Mental model:
+Summary:
   SceneController accepts owner-specific requests during input, then drains the
   batch once with explicit cold-load dependencies. Replay records only work
   that the concrete scene operation accepted and completed successfully.

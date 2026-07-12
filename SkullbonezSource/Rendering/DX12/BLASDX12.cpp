@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/BLASDX12.cpp
 Purpose:
   Builds and owns DX12 raytracing bottom-level acceleration structures for mesh geometry.
 
-Mental model:
+Summary:
   BLASDX12.cpp builds and owns DX12 raytracing bottom-level acceleration
   structures for mesh geometry. As an implementation unit, keep edits anchored
   on DX12 ownership, descriptors, resources, and command submission and on the

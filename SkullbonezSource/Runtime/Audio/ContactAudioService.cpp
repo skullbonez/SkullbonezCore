@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Audio/ContactAudioService.cpp
 Purpose:
   Implements material-aware contact impact playback through XAudio2.
 
-Mental model:
+Summary:
   The service is a presentation sink. It filters contact events by material
   thresholds and cooldowns, then reuses bounded XAudio2 source voices. The
   decoded sample buffers remain owned here for as long as any voice can read

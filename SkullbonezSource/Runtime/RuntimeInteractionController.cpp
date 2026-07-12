@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RuntimeInteractionController.cpp
 Purpose:
   Implements authoritative runtime workspace and frame policy transitions.
 
-Mental model:
+Summary:
   The controller is intentionally side-effect free. It records ownership and
   produces transition/policy records; Run performs subsystem-specific cleanup
   from those records.

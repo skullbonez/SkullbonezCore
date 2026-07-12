@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/EditorCommandHistory.cpp
 Purpose:
   Implements fixed editor history cursor, branch, overflow, and clear rules.
 
-Mental model:
+Summary:
   The prefix before the cursor is applied; the suffix after it is redoable.
   Push overwrites the suffix, while full-capacity push shifts the bounded array
   once and keeps the newest 64 commands.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/WorkerPool.h
 Purpose:
   Declares the fixed worker pool and deterministic chunk helpers.
 
-Mental model:
+Summary:
   Worker threads are created once at startup. Frame code submits fixed callback
   records or uses no-allocation fork-join helpers; ordered collection merges
   deterministic local output on the caller thread.

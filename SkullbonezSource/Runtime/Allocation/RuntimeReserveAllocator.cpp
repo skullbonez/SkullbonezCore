@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.cpp
 Purpose:
   Implements fixed-storage runtime reserve-owner registration and diagnostics.
 
-Mental model:
+Summary:
   The allocator starts as the policy ledger: owners register their intended
   capacity, the allocation hook attributes heap traffic to the active owner, and
   replay reserve requests are checked against owner caps. Backing arenas can

@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/Helper.h
 Purpose:
   Collects legacy helper routines that bridge engine subsystems.
 
-Mental model:
+Summary:
   Helper.h collects legacy helper routines that bridge engine subsystems. As a
   public header, keep edits anchored on render submission and resource
   lifetime and on the glossary/invariants below.

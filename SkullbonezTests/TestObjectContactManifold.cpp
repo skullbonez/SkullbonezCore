@@ -3,7 +3,7 @@
 // Purpose:
 //   Locks deterministic box-contact manifold reduction at the narrowphase boundary.
 //
-// Mental model:
+// Summary:
 //   Box clipping may produce more contact candidates than the four rows the
 //   persistent solver can consume. Reduction must keep the deepest candidate,
 //   retain useful face coverage, and produce stable feature ids for warm starting.

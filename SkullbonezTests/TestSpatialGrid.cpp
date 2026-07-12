@@ -3,7 +3,7 @@
 // Purpose:
 //   Lock the first focused tests for SpatialGrid broadphase pairing.
 //
-// Mental model:
+// Summary:
 //   SpatialGrid is a fixed-capacity broadphase index. Objects are inserted into
 //   every cell touched by their bounding sphere or swept bounds, and candidate
 //   pairs are emitted once even when two objects share multiple cells.

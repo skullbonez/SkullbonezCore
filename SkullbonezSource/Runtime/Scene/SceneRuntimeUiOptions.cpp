@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntimeUiOptions.cpp
 Purpose:
   Applies authored scene UI options through a scene-runtime boundary.
 
-Mental model:
+Summary:
   Scene load chooses whether automation scenes hide UI, whether authored window
   state wins, and which deterministic UI stress values should seed diagnostics.
   Keep those decisions here so Run only supplies owners and timing.

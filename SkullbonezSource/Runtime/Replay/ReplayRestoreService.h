@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayRestoreService.h
 Purpose:
   Applies retained replay solver samples back into live runtime owners.
 
-Mental model:
+Summary:
   Replay restore is a controlled rollback boundary. The service validates that
   saved replay body ids still match live physics rows, trims presentation/model
   state to the sampled body count, restores body and solver caches, then applies

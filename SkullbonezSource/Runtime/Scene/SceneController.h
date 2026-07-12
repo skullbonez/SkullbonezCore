@@ -4,7 +4,7 @@ Purpose:
   Owns scene runtime state, cameras, terrain, world settings, durable entity
   metadata, physics, and scene requests.
 
-Mental model:
+Summary:
   SceneController owns scene queue, load transactions, frame completion policy,
   camera slots, replaceable terrain, world settings, physics topology, fixed
   entity records, browser navigation, and the ordered request batch. The process

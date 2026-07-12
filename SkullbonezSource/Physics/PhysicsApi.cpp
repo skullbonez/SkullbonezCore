@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PhysicsApi.cpp
 Purpose:
   Implements the model-free public physics API slice and standalone smoke sample.
 
-Mental model:
+Summary:
   PhysicsStandaloneWorld is the first isolated owner for public physics handles.
   It does not route through Run, renderer setup, scene parsing, or runtime
   collection owners. The world is intentionally small: it proves deterministic

@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/ConvexHullShape.cpp
 Purpose:
   Loads, validates, and exposes immutable convex hull collision geometry.
 
-Mental model:
+Summary:
   Hull assets are serialized collision data. Runtime loading copies baked
   topology and mass properties from disk; authoring-time tools own derivation.
 

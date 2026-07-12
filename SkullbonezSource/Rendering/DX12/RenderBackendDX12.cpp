@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp
 Purpose:
   Implements the production DX12 renderer and its frame, resource, and pipeline state.
 
-Mental model:
+Summary:
   RenderBackendDX12.cpp implements the production DX12 renderer and its frame,
   resource, and pipeline state. As an implementation unit, keep edits anchored
   on DX12 ownership, descriptors, resources, and command submission and on the
@@ -2114,7 +2114,7 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/
     // cannot expose raytracing interfaces.
     CheckDXRSupport();
 
-    // Descriptor heap mental model:
+    // Descriptor heap Summary:
     //
     // The heap is a table. A descriptor is one row in that table. The actual
     // texture, depth buffer, or UAV texture is separate GPU memory.
@@ -2412,7 +2412,7 @@ SkullbonezCore::Basics::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* de
                                                           UnifiedRasterRootSignature::NAME,
                                                           reflectedContractError.c_str() );
     }
-    // Root signature mental model:
+    // Root signature Summary:
     //
     // A shader cannot freely access arbitrary C++ variables or texture objects.
     // The root signature is the contract that says which small set of bindings

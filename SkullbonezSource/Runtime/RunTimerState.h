@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RunTimerState.h
 Purpose:
   Owns Run's frame, simulation, render, and rolling diagnostics timers.
 
-Mental model:
+Summary:
   Run's main loop samples several clocks each frame, then publishes the derived
   values to rendering, HUD text, automation reports, and contact-audio
   diagnostics. This shelf keeps those timing values together while callers are

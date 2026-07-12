@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Tools/RuntimeTools.h
 Purpose:
   Owns transient runtime tool state while tool behavior moves out of Run.
 
-Mental model:
+Summary:
   RuntimeTools owns tool payload and render feedback instead of storing those
   values directly on Run. RuntimeInteractionController alone owns which
   gesture is active; tools retain only the start values needed to apply it.

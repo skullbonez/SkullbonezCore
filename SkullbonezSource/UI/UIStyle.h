@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UIStyle.h
 Purpose:
   Implements UI Style widgets, layout, drawing, or UI state for the in-engine controls.
 
-Mental model:
+Summary:
   UIStyle.h implements UI Style widgets, layout, drawing, or UI state for the
   in-engine controls. As a public header, keep edits anchored on UI request,
   layout, hit-test, and draw-command flow and on the glossary/invariants

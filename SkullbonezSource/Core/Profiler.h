@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/Profiler.h
 Purpose:
   Records hierarchical CPU/GPU timing markers for runtime diagnostics.
 
-Mental model:
+Summary:
   Profiler.h records hierarchical CPU/GPU timing markers for runtime
   diagnostics. As a public header, keep edits anchored on process-wide
   contracts, diagnostics, and validation-sensitive state and on the

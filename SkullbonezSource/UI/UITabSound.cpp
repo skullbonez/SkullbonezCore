@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UITabSound.cpp
 Purpose:
   Implements the in-engine Sound tab for live contact-audio tuning.
 
-Mental model:
+Summary:
   Drawing and hit testing share one layout. Sliders write previews locally while
   dragging and emit a one-frame command for the run loop to apply to the audio
   service. Nothing here persists config files or mutates audio objects directly.

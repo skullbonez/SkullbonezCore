@@ -3,7 +3,7 @@
 // Purpose:
 //   Cover the cold Demo Director shot-list load/save contract.
 //
-// Mental model:
+// Summary:
 //   Demo Director playback will be render-only runtime state, but authoring
 //   starts with a file boundary. These tests pin that boundary before camera
 //   mode and automation code begins consuming it.

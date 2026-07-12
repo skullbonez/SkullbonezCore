@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/GraphicsStressController.h
 Purpose:
   Owns deterministic graphics-stress fuzzer state.
 
-Mental model:
+Summary:
   Graphics stress is a CLI-driven render/runtime churn harness. The controller
   owns the seed, random stream, cadence, and counters; Run remains the executor
   because it owns scene loading, UI, render diagnostics, and live settings.

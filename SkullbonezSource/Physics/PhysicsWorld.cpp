@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PhysicsWorld.cpp
 Purpose:
   Owns per-scene physics working state shared by broadphase, solver, and diagnostics.
 
-Mental model:
+Summary:
   PhysicsWorld.cpp owns per-scene physics working state shared by broadphase,
   solver, and diagnostics. As an implementation unit, keep edits anchored on
   deterministic physics, diagnostics, or world-state flow and on the

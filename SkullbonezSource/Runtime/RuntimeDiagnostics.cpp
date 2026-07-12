@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RuntimeDiagnostics.cpp
 Purpose:
   Writes runtime diagnostic artifacts without making Run own the details.
 
-Mental model:
+Summary:
   Diagnostics borrow current runtime context, emit bounded side-channel logs,
   and avoid changing simulation or rendering behavior.
 

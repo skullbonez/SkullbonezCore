@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp
 Purpose:
   Contains editor object placement preflight and commit logic.
 
-Mental model:
+Summary:
   Placement is the ownership boundary between UI-selected asset recipes and live
   scene model creation. This slice validates the terrain point, computes object
   transforms, and adds the requested body or compound asset to the model store.

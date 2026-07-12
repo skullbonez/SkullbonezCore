@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Render/RuntimeRenderResources.h
 Purpose:
   Names backend resources owned by RuntimeRenderer's ordered render passes.
 
-Mental model:
+Summary:
   These structs are ownership records, not rendering behavior. RuntimeRenderer
   and the individual pass classes create, reset, and consume these resources
   while Run still owns the broader backend teardown order.

@@ -3,7 +3,7 @@ File: SkullbonezData/shaders/tornado_fx.hlsl
 Purpose:
   Draws sparse tornado visual-effect triangles.
 
-Mental model:
+Summary:
   CPU code builds low-alpha world-space ribbons and dust billboards. This shader
   transforms positions, keeps ribbons soft, and breaks dust quads into mottled
   terrain-faded clumps.

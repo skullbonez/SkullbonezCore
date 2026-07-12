@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp
 Purpose:
   Implements Dx12TextureOwner's texture registry, uploads, descriptors, and mips.
 
-Mental model:
+Summary:
   Dx12TextureOwner maps stable engine handles to owned resources and persistent
   SRV rows. It borrows the active backend command stream during upload or mip
   dispatch but stores no backend pointer across calls.

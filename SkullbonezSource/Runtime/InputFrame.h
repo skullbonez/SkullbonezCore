@@ -3,7 +3,7 @@ File: InputFrame.h
 Purpose:
   Declares the stateless once-per-frame input orchestration boundary.
 
-Mental model:
+Summary:
   Run owns top-level frame order and calls ProcessInputFrame once. The function
   receives non-copyable frame views for that turn, while InputRouter alone
   retains device, semantic-action, focus, and pointer-presentation state between

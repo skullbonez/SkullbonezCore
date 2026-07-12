@@ -4,7 +4,7 @@ Purpose:
   Implements the concrete DX12 raytracing owner and the backend's narrow
   device/frame coordination around its setup, dispatch, and teardown.
 
-Mental model:
+Summary:
   Dx12RaytracingOwner retains every resource and capability unique to reflected
   ray dispatch. RenderBackendDX12 lends device/frame dependencies per operation
   and remains the only authority that closes, submits, or fences a command list.

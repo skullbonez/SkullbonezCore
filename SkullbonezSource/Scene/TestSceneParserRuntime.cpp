@@ -3,7 +3,7 @@ File: TestSceneParserRuntime.cpp
 Purpose:
   Parses simulation, tornado, playback, capture, logging, and runtime settings.
 
-Mental model:
+Summary:
   This translation unit handles one schema domain while mutating the single
   TestSceneParser result. Shared validation and failure policy live in
   TestSceneParserSchema.h; top-level document order stays in TestSceneParser.cpp.

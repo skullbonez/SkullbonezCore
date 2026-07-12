@@ -4,7 +4,7 @@ Purpose:
   Declares the narrow render capability for draw tracing, GPU timers, platform
   profiler markers, and backend feature metadata.
 
-Mental model:
+Summary:
   Diagnostics code observes and annotates rendering work. It can reset and read
   draw-call traces, bracket GPU timer regions, write platform profiler markers,
   and ask which optional backend capabilities are available. It should not

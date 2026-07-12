@@ -3,7 +3,7 @@
 // Purpose:
 //   Own the doctest runner entry point for the unit-test executable.
 //
-// Mental model:
+// Summary:
 //   Tests are compiled into SKULLBONEZ_TESTS, separate from the game executable,
 //   so unit checks can exercise small contracts without launching DX12 or the
 //   full runtime.

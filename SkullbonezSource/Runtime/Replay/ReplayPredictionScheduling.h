@@ -3,7 +3,7 @@ File: ReplayPredictionScheduling.h
 Purpose:
   Defines allocation-free scheduling decisions for replay prediction builds.
 
-Mental model:
+Summary:
   The worker measures prediction throughput while the frame thread chooses
   whether to finish the horizon in one submission or keep using small slices.
   Dirty velocity edits are coalesced into one newest-state restart.

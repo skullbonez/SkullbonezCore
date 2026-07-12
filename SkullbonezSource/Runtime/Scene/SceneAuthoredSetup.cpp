@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp
 Purpose:
   Applies parsed authored scenes to runtime camera, model, and validation gate storage.
 
-Mental model:
+Summary:
   Authored scene setup is scene lifecycle behavior. This helper keeps the
   existing model insertion order, material targeting rules, ragdoll constraint
   flags, and required-gate resolution while moving the construction algorithms

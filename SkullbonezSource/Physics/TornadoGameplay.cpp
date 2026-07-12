@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/TornadoGameplay.cpp
 Purpose:
   Implements deterministic tornado capture, ejection, and fixed-tree release.
 
-Mental model:
+Summary:
   Tornado gameplay samples either one configured field or the active procedural
   tornado system, mutates dense physics body rows, and emits plain body-index
   wake work for PhysicsWorld to apply through its existing sleep/contact logic.

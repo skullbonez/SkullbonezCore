@@ -3,7 +3,7 @@ File: TestReplayPredictionScheduling.cpp
 Purpose:
   Locks replay prediction mode selection and latest-wins coalescing behavior.
 
-Mental model:
+Summary:
   These are pure policy tests. Worker timing is supplied as a value, while the
   coalescer receives one frame-thread state snapshot and returns one action.
 

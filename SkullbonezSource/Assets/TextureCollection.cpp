@@ -3,7 +3,7 @@ File: SkullbonezSource/Assets/TextureCollection.cpp
 Purpose:
   Loads texture files and hands renderer-neutral texture ids to draw code.
 
-Mental model:
+Summary:
   TextureCollection.cpp loads texture files and hands renderer-neutral texture
   ids to draw code. As an implementation unit, keep edits anchored on asset
   lifetime, cache ownership, and load/fallback behavior and on the

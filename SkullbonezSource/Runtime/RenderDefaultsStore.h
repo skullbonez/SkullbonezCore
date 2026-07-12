@@ -3,7 +3,7 @@ File: RenderDefaultsStore.h
 Purpose:
   Owns the startup cinematic baseline and deferred render-default persistence requests.
 
-Mental model:
+Summary:
   The process-start cinematic baseline is captured once for later scene resets.
   UI submits only which defaults family to save; at the named end-of-input
   checkpoint, the store samples final live values and rewrites engine.cfg.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/Ragdoll.h
 Purpose:
   Describes simple ragdoll prefab geometry and solves point-joint constraints.
 
-Mental model:
+Summary:
   This is deliberately a small bridge toward a future generic constraint
   system. Ragdoll prefab data is value metadata; scene/authored owners decide
   how those values become renderable objects while physics only keeps handle-

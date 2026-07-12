@@ -4,7 +4,7 @@ Purpose:
   Creates, transitions, and names DX12 resources and owns the opt-in offline-DXC
   hot-reload transaction.
 
-Mental model:
+Summary:
   RenderBackendDX12.Resources.cpp creates, transitions, and names DX12
   resources used by the renderer. As an implementation unit, keep edits
   anchored on DX12 ownership, descriptors, resources, and command submission

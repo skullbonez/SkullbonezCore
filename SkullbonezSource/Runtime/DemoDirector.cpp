@@ -3,7 +3,7 @@ File: DemoDirector.cpp
 Purpose:
   Loads and saves Demo Director `.shot.json` files.
 
-Mental model:
+Summary:
   The director parser is a cold authoring boundary. It converts human-authored
   JSON into fixed-capacity runtime records, logs the first invalid field it
   finds, and leaves playback state untouched on failure.

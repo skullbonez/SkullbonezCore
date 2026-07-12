@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/FramebufferDX12.h
 Purpose:
   Declares off-screen framebuffer resources and descriptor views for the DX12 renderer.
 
-Mental model:
+Summary:
   FramebufferDX12.h declares off-screen framebuffer resources and descriptor
   views for the DX12 renderer. As a public header, keep edits anchored on DX12
   ownership, descriptors, resources, and command submission and on the

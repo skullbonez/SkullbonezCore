@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.h
 Purpose:
   Declares the runtime memory-owner registry and reserve-growth policy gate.
 
-Mental model:
+Summary:
   Runtime allocation policy is enforced by named owners, not by one anonymous
   heap. Gameplay owners register fixed capacity so diagnostics can report their
   budget and high-water use. Replay owners are the only owners allowed to ask

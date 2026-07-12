@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RunCameraState.cpp
 Purpose:
   Applies operator camera-selection intent to the scene-owned camera collection.
 
-Mental model:
+Summary:
   RunCameraState owns mode and generated-demo cycling state, while
   CameraCollection owns camera poses. The update borrows pose/model owners for
   one synchronous selection pass and retains no cross-owner pointers.

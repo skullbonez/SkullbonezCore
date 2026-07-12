@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UITabMemory.h
 Purpose:
   Declares the in-engine memory diagnostics tab.
 
-Mental model:
+Summary:
   The memory tab shows cached runtime diagnostics and emits replay-memory policy
   requests. Runtime owns process sampling and replay reconfiguration; the F6
   overlay reads tracked/cached counters and reserve-growth events without

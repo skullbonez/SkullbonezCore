@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/RenderBackendDX12.Profiler.cpp
 Purpose:
   Implements DX12 GPU timestamp collection and profiler readback.
 
-Mental model:
+Summary:
   RenderBackendDX12.Profiler.cpp implements DX12 GPU timestamp collection and
   profiler readback. As an implementation unit, keep edits anchored on DX12
   ownership, descriptors, resources, and command submission and on the

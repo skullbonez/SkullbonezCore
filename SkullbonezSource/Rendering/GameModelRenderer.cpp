@@ -4,7 +4,7 @@ Purpose:
   Converts model-order render snapshots into backend draw calls for normal and
   shadow rendering.
 
-Mental model:
+Summary:
   Renderer-facing code translates engine concepts into backend resources, draw
   calls, shader bindings, and validation artifacts. Draw transforms come from
   RenderInstanceStore and hull geometry comes from ColliderStore so

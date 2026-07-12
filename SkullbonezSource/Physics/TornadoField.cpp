@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/TornadoField.cpp
 Purpose:
   Computes a procedural tornado force field for generated physics scenes.
 
-Mental model:
+Summary:
   TornadoField.cpp computes a procedural tornado force field for generated
   physics scenes. As an implementation unit, keep edits anchored on
   deterministic physics, diagnostics, or world-state flow and on the

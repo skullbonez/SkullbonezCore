@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/AmortizedTask.cpp
 Purpose:
   Provides the project compilation anchor for the header-only task template.
 
-Mental model:
+Summary:
   AmortizedTask is templated so its worker operation remains a typed value. The
   implementation therefore lives in the header and this translation unit keeps
   the existing project layout stable.

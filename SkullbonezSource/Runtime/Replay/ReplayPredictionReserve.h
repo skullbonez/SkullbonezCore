@@ -5,7 +5,7 @@ Purpose:
   frames, future-node caches, the private prediction engine, and trajectory
   store storage.
 
-Mental model:
+Summary:
   Replay prediction is allowed to grow during replay exploration, but only
   through one registered RuntimeReserveAllocator owner. Helpers in this file
   keep that owner name and hard byte cap from splintering across replay files.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp
 Purpose:
   Implements runtime editor overlay tracer primitives and draw submission.
 
-Mental model:
+Summary:
   The tracer turns editor/replay tool state into transient colored lines and replay
   ribbons. It observes state prepared elsewhere and should not mutate selection,
   physics, or replay ownership.

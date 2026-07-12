@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PhysicsMass.h
 Purpose:
   Defines shared mass, density, and inertia defaults for physics object creation.
 
-Mental model:
+Summary:
   Object mass is an authored physical property. Hull masses come from baked
   assets; only parametric editor primitives still derive defaults at runtime.
 

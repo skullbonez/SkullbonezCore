@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayRuntime.h
 Purpose:
   Owns replay recorders and branch state for the runtime replay subsystem.
 
-Mental model:
+Summary:
   ReplayRuntime owns replay timelines and workspace behavior. The application
   shell supplies frame-scoped live-owner views and sequences the result; it does
   not implement scrub, restore, prediction, camera, overlay, or probe decisions.

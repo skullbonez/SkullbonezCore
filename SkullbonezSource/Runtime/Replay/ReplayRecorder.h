@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayRecorder.h
 Purpose:
   Defines bounded replay capture records for simulation debugging.
 
-Mental model:
+Summary:
   Replay capture has two bounded tracks. Presentation samples feed immediate
   visual scrubbing. Solver samples keep same-tick body constants, inertia,
   sleep/contact summaries, and hashes for the authoritative rollback path.

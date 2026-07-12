@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.cpp
 Purpose:
   Implements replay overlay screen-space geometry shared by input and drawing.
 
-Mental model:
+Summary:
   Replay layout is a replay subsystem concern. Input hit boxes and drawn
   controls should stay mechanically identical by using the same helpers.
 

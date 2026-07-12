@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PhysicsScene.cpp
 Purpose:
   Coordinates PhysicsWorld with deterministic body/collider/render stores.
 
-Mental model:
+Summary:
   PhysicsWorld still owns the solver. PhysicsScene is the coordination boundary
   that refreshes body, collider, and render snapshots around that solver without
   changing the live model order.

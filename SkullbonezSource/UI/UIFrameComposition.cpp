@@ -4,7 +4,7 @@ Purpose:
   Implements stateless UI frame signatures, resource-preview helpers, and
   minimized-window geometry shared by the UI owner and palette units.
 
-Mental model:
+Summary:
   UI.cpp owns retained widget state. These functions derive bounded hashes,
   rectangles, labels, and draw submissions from explicit frame values without
   retaining a host or frame borrow.

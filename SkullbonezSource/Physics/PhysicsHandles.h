@@ -4,7 +4,7 @@ Purpose:
   Defines stable public handles and typed public-boundary counts for physics
   bodies, colliders, constraints, and scene correlation.
 
-Mental model:
+Summary:
   Runtime, scene, tools, replay, rendering, and diagnostics should identify
   physics-owned objects by handles instead of owning solver arrays or collection
   storage. Generations make stale handles explicit once the authoritative

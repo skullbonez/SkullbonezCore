@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/ColliderStore.h
 Purpose:
   Owns deterministic collider records and stable collider-handle identity.
 
-Mental model:
+Summary:
   ColliderStore owns the dense live collider rows. Runtime authoring code
   may replace a row at explicit create/edit boundaries, while topology repair
   only refreshes body identity from PhysicsBodyStore. Handles are allocator

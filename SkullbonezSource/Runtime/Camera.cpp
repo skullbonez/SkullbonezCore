@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Camera.cpp
 Purpose:
   Stores camera pose and builds view/projection transforms for rendering.
 
-Mental model:
+Summary:
   Camera.cpp stores camera pose and builds view/projection transforms for
   rendering. As an implementation unit, keep edits anchored on local owner
   boundaries and call direction and on the glossary/invariants below.

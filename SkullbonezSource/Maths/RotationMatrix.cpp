@@ -3,7 +3,7 @@ File: SkullbonezSource/Maths/RotationMatrix.cpp
 Purpose:
   Implements rotation matrix helpers used by transforms and collision code.
 
-Mental model:
+Summary:
   RotationMatrix.cpp implements rotation matrix helpers used by transforms and
   collision code. As an implementation unit, keep edits anchored on units,
   basis conventions, and numerical assumptions and on the glossary/invariants

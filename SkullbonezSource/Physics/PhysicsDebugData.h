@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PhysicsDebugData.h
 Purpose:
   Names the physics-owned debug records emitted by solver and diagnostics code.
 
-Mental model:
+Summary:
   Solver diagnostics are plain data snapshots. Physics writes these records
   during deterministic fixed-step work, while runtime/rendering code decides
   later whether and how to visualize them.

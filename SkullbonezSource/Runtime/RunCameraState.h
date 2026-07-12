@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RunCameraState.h
 Purpose:
   Owns Run's operator camera mode, input memory, and camera automation state.
 
-Mental model:
+Summary:
   Run still stores the camera shelf, but camera/input/director helpers consume
   this named aggregate instead of reaching through the shared RunState staging
   header. The shelf records operator intent and presentation timers; camera pose

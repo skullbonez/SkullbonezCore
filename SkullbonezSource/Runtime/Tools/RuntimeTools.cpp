@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Tools/RuntimeTools.cpp
 Purpose:
   Provides the runtime tool state ownership boundary.
 
-Mental model:
+Summary:
   Run routes input and passes borrowed world services here. RuntimeTools mutates
   only tool-owned state, launcher-created projectiles, and explicit physics
   targets selected by the current tool action.

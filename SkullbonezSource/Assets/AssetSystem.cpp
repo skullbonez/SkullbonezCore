@@ -3,7 +3,7 @@ File: SkullbonezSource/Assets/AssetSystem.cpp
 Purpose:
   Loads, owns, and resolves reusable runtime assets for scenes and render code.
 
-Mental model:
+Summary:
   AssetSystem.cpp loads, owns, and resolves reusable runtime assets for scenes
   and render code. As an implementation unit, keep edits anchored on asset
   lifetime, cache ownership, and load/fallback behavior and on the

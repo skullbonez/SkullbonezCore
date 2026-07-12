@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UITabEditor.h
 Purpose:
   Implements object placement and selection controls for the in-engine editor tab.
 
-Mental model:
+Summary:
   The tab emits editor commands only. Runtime owns selection, placement, and
   physics mutation so UI widgets never touch scene objects directly.
 

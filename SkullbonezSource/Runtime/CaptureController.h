@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/CaptureController.h
 Purpose:
   Owns screenshot state, input-triggered request storage, and capture automation.
 
-Mental model:
+Summary:
   CaptureController is the mutable runtime boundary for screenshots. The
   lower-level CaptureSystem still writes pixels, while this controller owns
   trigger state, a fixed request ring, and per-frame automation decisions.

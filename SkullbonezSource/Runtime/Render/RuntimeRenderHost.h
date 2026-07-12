@@ -4,7 +4,7 @@ Purpose:
   Defines stable and frame-scoped owner views plus active-backend capabilities
   consumed by RuntimeRenderer.
 
-Mental model:
+Summary:
   Run constructs stable world/scene views once and replay/tool views per frame.
   RuntimeRenderer retains only render-domain owners, then receives immutable
   frame facts plus synchronous domain borrows for submission.

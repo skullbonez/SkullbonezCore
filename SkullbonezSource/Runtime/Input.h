@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Input.h
 Purpose:
   Collects keyboard and mouse state for the run loop and UI.
 
-Mental model:
+Summary:
   Input.h collects keyboard and mouse state for the run loop and UI. As a
   public header, keep edits anchored on local owner boundaries and call
   direction and on the glossary/invariants below.

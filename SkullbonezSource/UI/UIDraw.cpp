@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UIDraw.cpp
 Purpose:
   Implements UI Draw widgets, layout, drawing, or UI state for the in-engine controls.
 
-Mental model:
+Summary:
   UIDraw.cpp implements UI Draw widgets, layout, drawing, or UI state for the
   in-engine controls. As an implementation unit, keep edits anchored on UI
   request, layout, hit-test, and draw-command flow and on the

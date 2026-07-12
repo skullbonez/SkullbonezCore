@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UITabMemory.cpp
 Purpose:
   Draws the in-engine memory diagnostics tab.
 
-Mental model:
+Summary:
   Runtime refreshes memory data for the Memory tab, while the F6 overlay renders
   tracked/cached counters and reserve-growth events without sampling process
   memory. This file formats snapshots and emits replay-memory policy commands;

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayInteractionController.cpp
 Purpose:
   Implements replay interaction commands that update replay-owned UI state.
 
-Mental model:
+Summary:
   This controller handles cold replay commands. It decides which selected
   timeline track should become live, emits a typed restore request for
   ReplayRuntime, then publishes the scrubber status consistently.

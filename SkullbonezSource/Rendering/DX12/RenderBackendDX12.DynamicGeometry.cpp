@@ -4,7 +4,7 @@ Purpose:
   Owns bounded dynamic/instanced geometry registries, warmed overlay pipelines,
   and their DX12 create/upload/draw/destroy lifecycle.
 
-Mental model:
+Summary:
   Dx12GeometryOwner retains geometry handles and warmed overlay resources.
   RenderBackendDX12 establishes a valid command epoch and lends per-operation
   values; the owner records geometry work without retaining the coordinator.

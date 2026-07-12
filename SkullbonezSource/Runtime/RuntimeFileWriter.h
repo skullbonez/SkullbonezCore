@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RuntimeFileWriter.h
 Purpose:
   Shares runtime file-output naming, directory creation, and text-file opening.
 
-Mental model:
+Summary:
   Interactive saves should all follow one path policy: create the target
   repo-root folder if needed, choose the next unused numbered name, then hand
   the selected path to the feature-specific serializer.

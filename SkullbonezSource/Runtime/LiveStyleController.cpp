@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/LiveStyleController.cpp
 Purpose:
   Applies live style-harness updates without restarting physics or scene state.
 
-Mental model:
+Summary:
   LiveStyleController applies live style-harness updates without restarting
   physics or scene state. As an implementation unit, keep edits anchored on
   local owner boundaries and call direction and on the glossary/invariants

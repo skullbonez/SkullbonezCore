@@ -4,7 +4,7 @@ Purpose:
   Owns UI-driven runtime tuning for cinematic rendering, ordinary rendering,
   contact-audio presentation, tornado physics settings, and worker-thread overrides.
 
-Mental model:
+Summary:
   Runtime input decides when a UI command is accepted. This file decides how
   accepted values clamp or delegate to bounded owner APIs, mutate config, and
   persist as scene overrides where relevant.

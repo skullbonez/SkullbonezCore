@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RunReplayProbeState.h
 Purpose:
   Groups debug-only CLI replay probe state owned by ReplayRuntime.
 
-Mental model:
+Summary:
   These probes are launch-requested diagnostics that drive replay scrub,
   restore, and save coverage after the scene has enough captured samples. They
   share ReplayRuntime's lifecycle so configuration, one-shot completion, and

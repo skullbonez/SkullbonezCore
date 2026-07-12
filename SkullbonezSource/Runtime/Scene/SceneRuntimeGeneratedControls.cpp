@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.cpp
 Purpose:
   Implements live generated-scene rebuild helpers outside Run.
 
-Mental model:
+Summary:
   Generated-scene UI rebuilds clear the active generated objects, reset fixed
   step simulation state, reseed the deterministic setup path, and request the
   caller-owned replay/profiler resets that still sit on Run.

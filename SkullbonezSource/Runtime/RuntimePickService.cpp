@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RuntimePickService.cpp
 Purpose:
   Implements centralized runtime picking policies.
 
-Mental model:
+Summary:
   Pick callers supply a world-space ray and a purpose. The service owns common
   closest-hit behavior so future selection, replay, and tool changes have one
   policy surface over physics store records instead of several ad hoc model

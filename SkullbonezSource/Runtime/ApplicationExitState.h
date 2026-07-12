@@ -4,7 +4,7 @@ Purpose:
   Declares the fixed-size application exit request and recoverable-failure
   state used by the process frame loop.
 
-Mental model:
+Summary:
   Normal exit is a request to stop successfully. An owned failure is stronger:
   it supplies the Lane R result that the process boundary must report. The
   first owned failure remains authoritative even if normal or platform exit

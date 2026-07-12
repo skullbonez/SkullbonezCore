@@ -3,7 +3,7 @@ File: InputController.Bindings.cpp
 Purpose:
   Owns the static keyboard binding rows used by the runtime input loop.
 
-Mental model:
+Summary:
   This file is the command table. It does not decide whether the player is in
   editor, launcher, replay, or director mode; it only records the virtual key,
   normalized action, and context bits that later dispatch code interprets.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/CameraCollection.cpp
 Purpose:
   Owns scene cameras and camera cycling state.
 
-Mental model:
+Summary:
   CameraCollection.cpp owns scene cameras and camera cycling state. As an
   implementation unit, keep edits anchored on local owner boundaries and call
   direction and on the glossary/invariants below.

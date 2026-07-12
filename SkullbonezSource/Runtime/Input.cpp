@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Input.cpp
 Purpose:
   Collects keyboard and mouse state for the run loop and UI.
 
-Mental model:
+Summary:
   Win32 callbacks enqueue mouse-only edge data into process-local
   accumulators. CaptureDeviceInputFrame drains those queues and captures
   keyboard, buttons, pointer position, and focus exactly once. Cursor hardware

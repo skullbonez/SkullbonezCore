@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/TornadoField.h
 Purpose:
   Computes a procedural tornado force field for generated physics scenes.
 
-Mental model:
+Summary:
   TornadoField.h computes a procedural tornado force field for generated
   physics scenes. As a public header, keep edits anchored on deterministic
   physics, diagnostics, or world-state flow and on the glossary/invariants

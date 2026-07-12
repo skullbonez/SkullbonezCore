@@ -3,7 +3,7 @@ File: SceneRequestQueue.h
 Purpose:
   Declares the fixed scene-owner request vocabulary used at the input boundary.
 
-Mental model:
+Summary:
   UI, keyboard, and replay probes submit scene intent to SceneController. The
   controller owns this ring and hands Run one value-only batch at the scene
   execution checkpoint until the full load lifecycle moves behind the owner.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntimeDefaults.cpp
 Purpose:
   Persists scene UI render defaults to engine.cfg outside the Run composition root.
 
-Mental model:
+Summary:
   The Render and Sky tabs mutate live config structs. Saving defaults is a
   narrow file-rewrite operation over those structs, so callers pass the payloads
   directly instead of bouncing through private Run methods.

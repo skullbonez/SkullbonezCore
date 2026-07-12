@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UIIconButton.cpp
 Purpose:
   Implements UI IconButton widgets, layout, drawing, or UI state for the in-engine controls.
 
-Mental model:
+Summary:
   UIIconButton.cpp implements UI IconButton widgets, layout, drawing, or UI
   state for the in-engine controls. As an implementation unit, keep edits
   anchored on UI request, layout, hit-test, and draw-command flow and on the

@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/TerrainContactManifold.cpp
 Purpose:
   Builds value-based terrain sweep and manifold reports for physics-owned bodies.
 
-Mental model:
+Summary:
   Terrain contact is geometry preparation only. It finds time of impact, contact
   points, tangents, and support policy; the persistent contact solver owns actual
   velocity response, warm starting, and sleep decisions.

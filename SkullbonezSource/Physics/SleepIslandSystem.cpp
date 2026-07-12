@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/SleepIslandSystem.cpp
 Purpose:
   Groups supported bodies into sleep islands and decides when islands may sleep.
 
-Mental model:
+Summary:
   SleepIslandSystem.cpp groups supported bodies into sleep islands and decides
   when islands may sleep. As an implementation unit, keep edits anchored on
   deterministic physics, diagnostics, or world-state flow and on the

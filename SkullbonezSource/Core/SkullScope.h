@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/SkullScope.h
 Purpose:
   Defines compact physics diagnostics records emitted for SkullScope queries.
 
-Mental model:
+Summary:
   SkullScope.h defines compact physics diagnostics records emitted for
   SkullScope queries. As a public header, keep edits anchored on process-wide
   contracts, diagnostics, and validation-sensitive state and on the

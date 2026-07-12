@@ -3,7 +3,7 @@ File: SkullbonezData/shaders/sky_atmosphere.hlsl
 Purpose:
   Runs the sky_atmosphere HLSL shader program used by the renderer.
 
-Mental model:
+Summary:
   sky_atmosphere.hlsl is shader source for the renderer's sky_atmosphere pass.
   Keep edits anchored on shader inputs, bindings, and render-output contracts
   and on the glossary/invariants below.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp
 Purpose:
   Implements replay recording, workspace, restore, prediction, and probe ownership.
 
-Mental model:
+Summary:
   ReplayRuntime owns the replay timeline and its tools. The application shell
   supplies frame-scoped owner views, then replay sequences workspace input,
   transactional restore, prediction, artifact, and validation behavior.

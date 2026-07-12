@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
 Purpose:
   Declares the named runtime render pass contracts.
 
-Mental model:
+Summary:
   Runtime render passes are small frame-order units with explicit constructor
   owners and frame input structs. The declarations live outside Run so pass
   ownership stays with RuntimeRenderer instead of growing Run.h.

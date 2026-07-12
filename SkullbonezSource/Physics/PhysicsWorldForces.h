@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PhysicsWorldForces.h
 Purpose:
   Names the world-level force scalars consumed by physics integration.
 
-Mental model:
+Summary:
   WorldEnvironment owns live gravity and fluid settings. Physics receives this
   value snapshot for one deterministic tick so body, collider, and solver code
   can avoid borrowing runtime scene services.

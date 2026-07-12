@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/BuoyancySystem.cpp
 Purpose:
   Implements deterministic sphere-cap buoyancy snapshots for sleep policy.
 
-Mental model:
+Summary:
   The main force integrator already computes broad fluid forces for all bodies.
   Underwater sleep locking needs one narrow question: is this ball fully
   submerged now? This file answers that question and writes only the body row's

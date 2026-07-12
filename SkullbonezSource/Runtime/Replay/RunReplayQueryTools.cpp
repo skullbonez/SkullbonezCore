@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/RunReplayQueryTools.cpp
 Purpose:
   Contains replay path-target picking and query helpers.
 
-Mental model:
+Summary:
   Replay path queries translate a mouse pick into a stable ReplayBodyId target.
   The visualizer and prediction layers can then follow retained or future solver
   contacts without depending on transient model indices alone.

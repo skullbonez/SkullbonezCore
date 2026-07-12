@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/Timer.h
 Purpose:
   Measures elapsed time for frame pacing and simulation updates.
 
-Mental model:
+Summary:
   Timer.h measures elapsed time for frame pacing and simulation updates. As a
   public header, keep edits anchored on process-wide contracts, diagnostics,
   and validation-sensitive state and on the glossary/invariants below.

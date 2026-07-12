@@ -3,7 +3,7 @@
 // Purpose:
 //   Lock the first pure-math unit contracts for Quaternion.
 //
-// Mental model:
+// Summary:
 //   Quaternion behavior is a small but engine-specific contract: component
 //   signs, multiplication order, and normalization all feed physics and camera
 //   orientation. These tests describe the current API before later math library

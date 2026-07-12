@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.h
 Purpose:
   Declares live generated-scene rebuild helpers outside Run.
 
-Mental model:
+Summary:
   Scene UI controls can rebuild the generated model pool while keeping the
   active scene selected. This module owns the deterministic rebuild mutation and
   returns the replay/profiler follow-up work the composition root still runs.

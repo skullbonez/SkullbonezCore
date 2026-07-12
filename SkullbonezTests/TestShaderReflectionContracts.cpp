@@ -3,7 +3,7 @@ File: TestShaderReflectionContracts.cpp
 Purpose:
   Proves every shipping stage has baked reflection and CPU declarations agree.
 
-Mental model:
+Summary:
   The generated table is the DXIL-side ABI. These tests exercise the CPU-side
   matcher, including a deliberate bad-slot mutation that must be rejected.
 

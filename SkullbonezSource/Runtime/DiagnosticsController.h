@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/DiagnosticsController.h
 Purpose:
   Owns runtime diagnostics state for performance logs and SkullScope runs.
 
-Mental model:
+Summary:
   DiagnosticsController is the mutable diagnostics owner. RuntimeDiagnostics
   still formats artifacts, but Run no longer directly owns the perf and physics
   diagnostic structs.

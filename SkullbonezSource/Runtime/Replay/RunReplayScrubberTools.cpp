@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.cpp
 Purpose:
   Contains replay scrubber input, inspection-camera, and live-restore glue.
 
-Mental model:
+Summary:
   The scrubber maps mouse/UI intent to retained solver or presentation samples.
   ReplayRuntime receives a frame-scoped workspace view, owns all replay state
   transitions, and returns restore/application commands to the shell.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/SBTDX12.h
 Purpose:
   Builds the DX12 raytracing shader binding table that maps ray records to shaders.
 
-Mental model:
+Summary:
   SBTDX12.h builds the DX12 raytracing shader binding table that maps ray
   records to shaders. As a public header, keep edits anchored on DX12
   ownership, descriptors, resources, and command submission and on the

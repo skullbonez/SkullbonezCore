@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/ShaderDX12.cpp
 Purpose:
   Loads, reflects, and binds baked shaders for the DX12 renderer.
 
-Mental model:
+Summary:
   The offline bake owns compilation. This wrapper accepts manifest-current
   DXIL, reflects its constant layout during cold startup or explicit developer
   reload, and publishes bytecode plus uniform uploads needed by pipeline draws.

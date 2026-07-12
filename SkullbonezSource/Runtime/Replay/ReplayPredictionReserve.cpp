@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayPredictionReserve.cpp
 Purpose:
   Registers and requests growth from the replay prediction working-set owner.
 
-Mental model:
+Summary:
   RuntimeReserveAllocator is the policy gate; this file is the replay-specific
   adapter that supplies the owner metadata and rejects impossible byte counts
   before callers enter allocation scopes.

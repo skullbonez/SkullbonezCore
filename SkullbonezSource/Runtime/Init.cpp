@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Init.cpp
 Purpose:
   Bootstraps the Windows process, parses command-line options, and starts the run loop.
 
-Mental model:
+Summary:
   Init.cpp bootstraps the Windows process, parses command-line options, and
   starts the run loop. As an implementation unit, keep edits anchored on local
   owner boundaries and call direction and on the glossary/invariants below.

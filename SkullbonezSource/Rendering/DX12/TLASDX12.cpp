@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/TLASDX12.cpp
 Purpose:
   Builds and owns the DX12 raytracing top-level scene acceleration structure.
 
-Mental model:
+Summary:
   TLASDX12.cpp builds and owns the DX12 raytracing top-level scene
   acceleration structure. As an implementation unit, keep edits anchored on
   DX12 ownership, descriptors, resources, and command submission and on the

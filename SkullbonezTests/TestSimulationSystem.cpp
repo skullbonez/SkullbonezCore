@@ -4,7 +4,7 @@ Purpose:
   Proves fixed-tick scheduling exposes a bounded presentation fraction without
   changing committed physics tick counts.
 
-Mental model:
+Summary:
   SimulationSystem owns time accumulation. Rendering may read the leftover
   fraction, but solver commits remain the same integer schedule as before.
 

@@ -4,7 +4,7 @@ Purpose:
   Defines the fixed-capacity control and surface values shared by runtime UI
   overlays, editor tools, and in-game panels.
 
-Mental model:
+Summary:
   A domain owner rebuilds a small ordered table of controls each frame. Input
   resolves one hot row from that table, domain code handles the row's semantic
   action, and rendering reads the same row geometry and state. The table owns

@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/Config.h
 Purpose:
   Loads, stores, and exposes engine configuration values from files and command-line overrides.
 
-Mental model:
+Summary:
   Config.h loads, stores, and exposes engine configuration values from files
   and command-line overrides. As a public header, keep edits anchored on
   process-wide contracts, diagnostics, and validation-sensitive state and on

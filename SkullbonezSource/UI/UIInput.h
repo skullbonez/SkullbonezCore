@@ -4,7 +4,7 @@ Purpose:
   Converts the runtime's immutable device/pointer snapshots into UI-local input
   values and applies scene-filter keyboard edges without polling hardware.
 
-Mental model:
+Summary:
   UIInput.h implements UI Input widgets, layout, drawing, or UI state for the
   in-engine controls. As a public header, keep edits anchored on UI request,
   layout, hit-test, and draw-command flow and on the glossary/invariants

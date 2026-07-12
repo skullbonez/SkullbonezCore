@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Window.h
 Purpose:
   Creates and owns the Win32 window and message pump integration.
 
-Mental model:
+Summary:
   Window.h creates and owns the Win32 window and message pump integration. As
   a public header, keep edits anchored on local owner boundaries and call
   direction and on the glossary/invariants below.

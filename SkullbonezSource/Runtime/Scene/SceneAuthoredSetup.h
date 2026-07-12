@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.h
 Purpose:
   Declares authored scene application helpers.
 
-Mental model:
+Summary:
   SceneAuthoredSetup owns the deterministic transformation from parsed scene
   JSON into runtime cameras, model bodies, constraints, materials, and
   validation gates. Run still supplies the live storage while scene ownership is

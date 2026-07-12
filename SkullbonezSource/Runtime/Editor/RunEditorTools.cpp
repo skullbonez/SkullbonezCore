@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
 Purpose:
   Owns runtime editor placement, selection, gizmos, and overlay tracing.
 
-Mental model:
+Summary:
   RunEditorTools.cpp owns runtime editor placement, selection, gizmos, and
   overlay tracing. As an implementation unit, keep edits anchored on local
   owner boundaries and call direction and on the glossary/invariants below.

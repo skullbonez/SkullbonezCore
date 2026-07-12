@@ -3,7 +3,7 @@ File: RenderDefaultsStore.cpp
 Purpose:
   Applies deferred render-default saves at the final input-frame checkpoint.
 
-Mental model:
+Summary:
   The queue records intent, not values. Draining reads the final ordinary and
   cinematic config references supplied by the composition root, then returns
   only successful owner events for replay serialization.

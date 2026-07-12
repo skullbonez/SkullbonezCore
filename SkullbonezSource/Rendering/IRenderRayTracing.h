@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/IRenderRayTracing.h
 Purpose:
   Declares the narrow render raytracing capability used by water reflection setup and dispatch.
 
-Mental model:
+Summary:
   Most runtime rendering needs an ordinary raster device. DXR reflection is a
   separate capability with its own acceleration structures, writeable reflection
   texture, and mesh geometry addresses. Callers that only need reflection rays

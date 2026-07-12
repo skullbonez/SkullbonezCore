@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/Profiler.cpp
 Purpose:
   Records hierarchical CPU/GPU timing markers for runtime diagnostics.
 
-Mental model:
+Summary:
   Profiler.cpp records hierarchical CPU/GPU timing markers for runtime
   diagnostics. As an implementation unit, keep edits anchored on process-wide
   contracts, diagnostics, and validation-sensitive state and on the

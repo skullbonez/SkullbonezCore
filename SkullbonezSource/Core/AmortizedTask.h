@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/AmortizedTask.h
 Purpose:
   Declares a worker-backed multi-frame chunked task helper.
 
-Mental model:
+Summary:
   AmortizedTask is for latency-tolerant work. Each SubmitTick queues one bounded
   chunk on the worker pool and returns immediately; the caller polls progress.
 

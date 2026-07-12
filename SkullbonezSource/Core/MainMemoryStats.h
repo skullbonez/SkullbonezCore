@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/MainMemoryStats.h
 Purpose:
   Defines POD snapshots for main-memory diagnostics.
 
-Mental model:
+Summary:
   These structs are neutral data contracts. Runtime diagnostics fills the
   process-level snapshot, while replay, game-object, and UI code use the same
   PODs without depending on each other's owners.

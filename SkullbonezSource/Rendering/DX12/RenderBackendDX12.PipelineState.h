@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/RenderBackendDX12.PipelineState.h
 Purpose:
   Defines the allocation-free desired-state record owned by Dx12PipelineOwner.
 
-Mental model:
+Summary:
   Pipeline COM objects have explicit release logic, while desired draw state is
   a plain reusable value. Resetting this record restores the exact state a new
   backend publishes before its first ordinary raster draw.

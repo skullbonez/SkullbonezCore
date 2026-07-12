@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/Log.cpp
 Purpose:
   Writes debug-only runtime, crash, and diagnostics logs.
 
-Mental model:
+Summary:
   Log.cpp writes debug-only runtime, crash, and diagnostics logs. As an
   implementation unit, keep edits anchored on process-wide contracts,
   diagnostics, and validation-sensitive state and on the glossary/invariants

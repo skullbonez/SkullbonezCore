@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/Dx12TextureRegistry.h
 Purpose:
   Owns generation-tagged texture slots independently from GPU command work.
 
-Mental model:
+Summary:
   A backend texture handle is a slot plus a generation. Removing a slot leaves
   its generation behind; reusing that slot advances the generation so an old
   handle cannot resolve to the replacement texture.

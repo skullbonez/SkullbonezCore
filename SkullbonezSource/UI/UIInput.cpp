@@ -4,7 +4,7 @@ Purpose:
   Converts immutable runtime input snapshots into UI-local pointer and keyboard
   values without polling hardware or owning native capture.
 
-Mental model:
+Summary:
   UIInput.cpp implements UI Input widgets, layout, drawing, or UI state for
   the in-engine controls. As an implementation unit, keep edits anchored on UI
   request, layout, hit-test, and draw-command flow and on the

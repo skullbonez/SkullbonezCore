@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/RunReplayCauseTreeTools.cpp
 Purpose:
   Contains replay cause-tree window input and focus behavior.
 
-Mental model:
+Summary:
   The cause tree is an explanatory replay UI over retained solver contacts and
   predicted movement. It owns window placement and drag/resize state, derives
   row hover from a disposable shared surface, and asks ReplayRuntime to resolve

@@ -3,7 +3,7 @@ File: UIEditorMiniPalette.cpp
 Purpose:
   Owns editor mini-palette mapping, layout, hit testing, and shared fitted-text policy.
 
-Mental model:
+Summary:
   The palette is a value-driven UI surface. Layout and selection policy produce
   records that both input and drawing consume without reaching into InGameUI
   retained state.

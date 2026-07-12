@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RunUiTextPass.cpp
 Purpose:
   Implements the UI/Text render pass owned by RuntimeRenderer.
 
-Mental model:
+Summary:
   World rendering can be skipped, redirected, or post-processed, but UI/text is
   a late pass over the final window. It owns font lifetime, text-only output,
   HUD overlays, and the in-game UI draw payload.

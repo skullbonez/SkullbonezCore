@@ -3,7 +3,7 @@ File: SkullbonezData/shaders/trajectory_ribbon.hlsl
 Purpose:
   Draws replay trajectory ribbons from compact world-space segment payloads.
 
-Mental model:
+Summary:
   CPU code emits six vertices per segment, but every vertex carries the same
   start/end/style payload. The vertex shader uses SV_VertexID to pick the corner
   and expands the segment in clip space, keeping the ribbon width stable in

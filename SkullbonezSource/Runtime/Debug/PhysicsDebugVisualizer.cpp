@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.cpp
 Purpose:
   Draws physics contacts, axes, sleep state, and pipeline diagnostics.
 
-Mental model:
+Summary:
   PhysicsDebugVisualizer.cpp draws physics contacts, axes, sleep state, and
   pipeline diagnostics. As an implementation unit, keep edits anchored on
   deterministic physics, diagnostics, or world-state flow and on the

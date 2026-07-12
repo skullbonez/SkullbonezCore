@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/RenderInstanceStore.cpp
 Purpose:
   Builds model-order render instance snapshots from physics and presentation state.
 
-Mental model:
+Summary:
   Refresh copies renderer-facing values after gameplay/physics have committed.
   Body pose and shape come from physics stores; material and contact flash alpha
   come from explicit presentation records. It does not allocate GPU resources;

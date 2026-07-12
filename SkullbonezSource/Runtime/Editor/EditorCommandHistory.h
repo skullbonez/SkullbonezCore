@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/EditorCommandHistory.h
 Purpose:
   Defines the editor-owned fixed-capacity inverse-command history.
 
-Mental model:
+Summary:
   Editor mutations publish a complete fixed-size before/after command only when
   they commit. Undo and redo move a cursor over those commands; the scene owner
   applies the selected side and advances the cursor only after success.

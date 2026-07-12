@@ -4,7 +4,7 @@ Purpose:
   Records render pass/resource intent, callback ordering, and transient texture
   lifetime plans for the renderer.
 
-Mental model:
+Summary:
   RenderGraph.h records render pass/resource intent, callback ordering, and
   transient texture lifetime plans for the renderer. As a public header, keep
   edits anchored on render submission and resource lifetime and on the

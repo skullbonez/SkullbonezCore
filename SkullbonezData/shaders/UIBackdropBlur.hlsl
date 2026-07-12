@@ -3,7 +3,7 @@ File: SkullbonezData/shaders/UIBackdropBlur.hlsl
 Purpose:
   Runs the UIBackdropBlur HLSL shader program used by the renderer.
 
-Mental model:
+Summary:
   UIBackdropBlur.hlsl is shader source for the renderer's UIBackdropBlur pass.
   Keep edits anchored on shader inputs, bindings, and render-output contracts
   and on the glossary/invariants below.

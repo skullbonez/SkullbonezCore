@@ -3,7 +3,7 @@ File: SkullbonezTests/TestRuntimeInputBindings.cpp
 Purpose:
   Locks the runtime keyboard shortcut table as observable data.
 
-Mental model:
+Summary:
   These tests do not press keys or construct Run. They inspect the shared
   key/action/context rows that RunInput dispatches, so a shortcut regression
   fails before it reaches an interaction or DX12 launch test.

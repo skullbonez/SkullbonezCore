@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RunDemoDirector.cpp
 Purpose:
   Applies Demo Director shot-list camera poses, phase styles, and reveal pacing.
 
-Mental model:
+Summary:
   The director never invents framing or looks. A loaded shot list owns authored
   camera/style phases, RunCameraState owns playback timers, and this file
   blends the selected phase into runtime camera/style/replay presentation owners

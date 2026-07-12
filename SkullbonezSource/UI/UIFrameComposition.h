@@ -5,7 +5,7 @@ Purpose:
   Shares UI frame layout/value helpers and editor mini-palette contracts across
   the main UI owner and its palette translation units.
 
-Mental model:
+Summary:
   UI.cpp owns the frame and widget state. These inline helpers derive immutable
   geometry/signatures, while palette translation units consume the same layout
   records for input and drawing.

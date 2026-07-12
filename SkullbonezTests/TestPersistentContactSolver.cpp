@@ -3,7 +3,7 @@
 // Purpose:
 //   Lock direct behavioral coverage for persistent contact solver rows.
 //
-// Mental model:
+// Summary:
 //   Terrain manifolds are already narrowphase output. These tests feed one
 //   deterministic manifold into PersistentContactSolver so the row setup,
 //   warm-start cache, friction clamp, restitution, and writeback can be checked

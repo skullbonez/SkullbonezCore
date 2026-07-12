@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/SkullScope.cpp
 Purpose:
   Defines compact physics diagnostics records emitted for SkullScope queries.
 
-Mental model:
+Summary:
   SkullScope.cpp defines compact physics diagnostics records emitted for
   SkullScope queries. As an implementation unit, keep edits anchored on
   process-wide contracts, diagnostics, and validation-sensitive state and on

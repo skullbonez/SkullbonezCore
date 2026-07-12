@@ -3,7 +3,7 @@ File: SkullbonezData/shaders/solid_color.hlsl
 Purpose:
   Runs the solid_color HLSL shader program used by the renderer.
 
-Mental model:
+Summary:
   solid_color.hlsl is shader source for the renderer's solid_color pass. Keep
   edits anchored on shader inputs, bindings, and render-output contracts and
   on the glossary/invariants below.

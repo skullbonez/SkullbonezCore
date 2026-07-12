@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RuntimePickGeometry.cpp
 Purpose:
   Implements exact CPU ray tests for runtime model picking.
 
-Mental model:
+Summary:
   The editor picker used to answer "did the ray pass through this model's broad
   sphere?" That was forgiving, but it let large foliage envelopes hide narrow
   trunks. This file answers the narrower question: "where does the ray first

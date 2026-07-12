@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/RunEditorPlacementAssets.cpp
 Purpose:
   Owns editor placeable asset recipes, authored hull/material lookup, and placement bounds helpers.
 
-Mental model:
+Summary:
   This file compiles the editor recipe tables once and exposes typed helpers
   through EditorPlacementAssets.h. Input routing, tracer ghosts, and placement
   commit all use this same source of recipe truth.

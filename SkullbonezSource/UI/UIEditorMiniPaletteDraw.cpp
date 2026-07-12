@@ -3,7 +3,7 @@ File: UIEditorMiniPaletteDraw.cpp
 Purpose:
   Owns editor mini-palette glyphs, flyouts, tooltips, and minimized-window drawing.
 
-Mental model:
+Summary:
   The palette is a value-driven UI surface. Layout and selection policy produce
   records that both input and drawing consume without reaching into InGameUI
   retained state.

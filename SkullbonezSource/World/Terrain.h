@@ -3,7 +3,7 @@ File: SkullbonezSource/World/Terrain.h
 Purpose:
   Stores terrain mesh, height queries, and terrain rendering resources.
 
-Mental model:
+Summary:
   Terrain.h stores terrain mesh, height queries, and terrain rendering
   resources. As a public header, keep edits anchored on world-state ownership,
   terrain/environment data, and physics/render handoff and on the

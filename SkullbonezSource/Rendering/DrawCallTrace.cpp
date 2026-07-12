@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DrawCallTrace.cpp
 Purpose:
   Implements fixed-capacity draw-call attribution storage for renderer diagnostics.
 
-Mental model:
+Summary:
   The renderer builds a small tree while command lists are recorded. Each draw
   increments the current leaf and every ancestor, then BeginFrame publishes a
   previous-frame snapshot for the profiler UI.

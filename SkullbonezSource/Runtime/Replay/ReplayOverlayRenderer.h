@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.h
 Purpose:
   Declares replay overlay drawing entry points used by the late UI/text pass.
 
-Mental model:
+Summary:
   RuntimeRenderer decides pass order, but replay owns the UI drawing logic for
   replay scrubber and cause-tree overlays.
 

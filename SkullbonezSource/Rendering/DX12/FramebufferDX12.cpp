@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/FramebufferDX12.cpp
 Purpose:
   Implements off-screen framebuffer resources and descriptor views for the DX12 renderer.
 
-Mental model:
+Summary:
   FramebufferDX12.cpp implements off-screen framebuffer resources and
   descriptor views for the DX12 renderer. As an implementation unit, keep
   edits anchored on DX12 ownership, descriptors, resources, and command

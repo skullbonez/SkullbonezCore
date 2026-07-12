@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.h
 Purpose:
   Declares scene load orchestration helpers owned by scene runtime code.
 
-Mental model:
+Summary:
   SceneController owns the complete load transaction. This module separates
   failure-safe preparation from the first bookkeeping mutation: queue
   validation, runtime-state preservation, and GPU drain happen before commit.

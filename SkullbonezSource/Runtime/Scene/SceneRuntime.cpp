@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntime.cpp
 Purpose:
   Owns scene queue and scene-run state for the application runtime.
 
-Mental model:
+Summary:
   SceneRuntime is intentionally narrow. It owns queue/index bookkeeping and
   scene-run state, while Run still performs the current object,
   camera, terrain, UI, and renderer side effects around scene loads.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/RunMousePickupTools.cpp
 Purpose:
   Implements manipulator-mode mouse pickup capture, target tracking, and physics impulse application.
 
-Mental model:
+Summary:
   Mouse pickup is a runtime tool owner distinct from editor placement. It
   borrows camera rays, stores the picked physics body handle for commands,
   captures the pointer while active, and releases cleanly at mode changes.

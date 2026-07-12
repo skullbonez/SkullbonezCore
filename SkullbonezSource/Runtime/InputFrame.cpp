@@ -3,7 +3,7 @@ File: InputFrame.cpp
 Purpose:
   Implements shared input value policy and UI-command application helpers.
 
-Mental model:
+Summary:
   InputFrameExecution owns the frame sequence. This file supplies the pure or
   synchronous helper operations that translate one sampled input/UI turn into
   typed owner calls without retaining the borrowed owners.

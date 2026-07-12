@@ -3,7 +3,7 @@
 // Purpose:
 //   Shares child-process fatal probes between the doctest entry point and tests.
 //
-// Mental model:
+// Summary:
 //   The parent test runner owns its executable path; the fatal-case dispatcher
 //   uses that path to re-enter the binary in one isolated negative scenario.
 //

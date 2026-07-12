@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/SimulationSystem.cpp
 Purpose:
   Owns runtime simulation stepping policy and physics accumulators.
 
-Mental model:
+Summary:
   This system preserves the old Run stepping rules while moving the
   accumulator state and tick decision into one owner.
 

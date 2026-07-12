@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UITabScene.h
 Purpose:
   Implements UI TabScene widgets, layout, drawing, or UI state for the in-engine controls.
 
-Mental model:
+Summary:
   UITabScene.h implements UI TabScene widgets, layout, drawing, or UI state
   for the in-engine controls. As a public header, keep edits anchored on UI
   request, layout, hit-test, and draw-command flow and on the

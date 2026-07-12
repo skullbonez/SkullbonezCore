@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayRuntimeOwnerViews.h
 Purpose:
   Defines frame-scoped owner views used by replay startup and restore.
 
-Mental model:
+Summary:
   ReplayRuntime owns replay decisions while Run owns application composition.
   These values are short-lived borrow packets assembled at that boundary; they
   expose only the owners required by one replay operation and are never stored.

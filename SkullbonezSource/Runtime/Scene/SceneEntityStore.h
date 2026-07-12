@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneEntityStore.h
 Purpose:
   Defines fixed-capacity scene-lifetime identity and durable presentation metadata.
 
-Mental model:
+Summary:
   A scene entity is the durable join row between authored identity, a live
   physics body, render material intent, optional asset provenance, and behavior
   grouping. Dense model indices are temporary row hints; PhysicsSceneObjectId

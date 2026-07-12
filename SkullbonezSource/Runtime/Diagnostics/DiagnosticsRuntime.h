@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h
 Purpose:
   Owns runtime diagnostics and capture controllers behind one diagnostics boundary.
 
-Mental model:
+Summary:
   DiagnosticsRuntime owns the process diagnostics lifecycle. Capture, perf,
   memory, and SkullScope controllers keep their artifact-specific state behind
   this boundary while frame code requests synchronous diagnostics operations.

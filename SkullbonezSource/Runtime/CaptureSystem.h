@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/CaptureSystem.h
 Purpose:
   Captures frame output to screenshots for scenes, validation, and look-dev.
 
-Mental model:
+Summary:
   Runtime code owns screenshot trigger state, while renderer code owns pixel
   readback. This header keeps the trigger, capture owner, and readback capability
   narrow enough to test without a full renderer.

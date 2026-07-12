@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntimeCreate.cpp
 Purpose:
   Creates starter scene files and returns scene-control actions outside Run.
 
-Mental model:
+Summary:
   Creating a scene is scene-runtime policy: sanitize a user-facing name, create
   a deterministic starter scene, refresh browser state, append the path to the
   scene queue, and ask the caller to load it interactively.

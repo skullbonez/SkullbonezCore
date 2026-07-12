@@ -4,7 +4,7 @@ Purpose:
   Declares the production DX12 renderer plus concrete texture, pipeline,
   geometry, deferred-release, and raytracing owners.
 
-Mental model:
+Summary:
   RenderBackendDX12 coordinates device/frame work. Dx12TextureOwner retains
   texture residency and binding state, Dx12PipelineOwner retains the ordinary
   raster recipe, Dx12GeometryOwner retains bounded geometry resources, and

@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UIComboBox.cpp
 Purpose:
   Implements UI ComboBox widgets, layout, drawing, or UI state for the in-engine controls.
 
-Mental model:
+Summary:
   UIComboBox.cpp implements UI ComboBox widgets, layout, drawing, or UI state
   for the in-engine controls. As an implementation unit, keep edits anchored
   on UI request, layout, hit-test, and draw-command flow and on the

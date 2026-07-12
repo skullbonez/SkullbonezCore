@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/BoundingBox.h
 Purpose:
   Defines oriented-box collision geometry and its broadphase/render helper math.
 
-Mental model:
+Summary:
   BoundingBox.h defines oriented-box collision geometry and its
   broadphase/render helper math. As a public header, keep edits anchored on
   deterministic physics, diagnostics, or world-state flow and on the

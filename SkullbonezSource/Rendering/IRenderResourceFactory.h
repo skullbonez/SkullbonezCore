@@ -5,7 +5,7 @@ Purpose:
   resources such as shaders, meshes, textures, framebuffers, and transient
   geometry buffers.
 
-Mental model:
+Summary:
   Resource factory callers are in load, rebuild, or teardown phases. They ask
   the active backend for opaque engine handles or interface objects, then later
   hand those same handles back for deletion. They should not mutate draw state,

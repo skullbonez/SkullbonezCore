@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/RenderBackendDX12.Readback.cpp
 Purpose:
   Reads GPU-rendered image data back to the CPU for screenshots and validation.
 
-Mental model:
+Summary:
   RenderBackendDX12.Readback.cpp reads GPU-rendered image data back to the CPU
   for screenshots and validation. As an implementation unit, keep edits
   anchored on DX12 ownership, descriptors, resources, and command submission

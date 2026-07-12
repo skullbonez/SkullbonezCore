@@ -3,7 +3,7 @@ File: SkullbonezData/shaders/solid_color_batch.hlsl
 Purpose:
   Runs the solid_color_batch HLSL shader program used by the renderer.
 
-Mental model:
+Summary:
   solid_color_batch.hlsl is shader source for the renderer's solid_color_batch
   pass. Keep edits anchored on shader inputs, bindings, and render-output
   contracts and on the glossary/invariants below.

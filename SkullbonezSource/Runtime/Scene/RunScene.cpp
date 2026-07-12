@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/RunScene.cpp
 Purpose:
   Loads, resets, and advances authored and generated scenes.
 
-Mental model:
+Summary:
   SceneController owns the cold load transaction and borrows each concrete
   process owner only for that call. Run wires those owners but has no scene-load
   method or callback into its private state.

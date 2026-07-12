@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp
 Purpose:
   Writes compact chunked binary v2 replay artifacts.
 
-Mental model:
+Summary:
   The v2 file is presentation-first: metadata is deduplicated into a body
   dictionary, dense frames store only pose data for smooth scrub preview, and
   optional solver chunks provide hashes/checkpoint payloads for restore

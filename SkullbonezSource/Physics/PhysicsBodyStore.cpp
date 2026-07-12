@@ -4,7 +4,7 @@ Purpose:
   Owns deterministic body-order mutable physics state for runtime scenes and
   standalone physics worlds.
 
-Mental model:
+Summary:
   Descriptor reload copies construction/runtime state into body rows at cold
   authoring boundaries. Standalone creation appends dense rows directly.
   PhysicsWorld or the standalone step mutates records, then store-backed views

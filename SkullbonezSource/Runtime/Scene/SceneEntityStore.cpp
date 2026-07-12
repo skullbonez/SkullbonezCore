@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp
 Purpose:
   Implements allocation-free scene entity metadata storage.
 
-Mental model:
+Summary:
   Creation first validates identity, behavior-root topology, and capacity,
   commits physics owner rows, then publishes the fully linked entity record.
   Reserved storage prevents steady-runtime growth.

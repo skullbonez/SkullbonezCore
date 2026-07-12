@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/EditorTools.h
 Purpose:
   Declares editor placement helpers shared by input routing and editor tools.
 
-Mental model:
+Summary:
   Input owns gestures. Editor tools own how those gestures translate into
   editable object scale, clamp ranges, placement semantics, and editor command
   side effects that can be described with explicit borrowed context.

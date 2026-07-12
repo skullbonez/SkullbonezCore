@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UIStyle.cpp
 Purpose:
   Implements UI Style widgets, layout, drawing, or UI state for the in-engine controls.
 
-Mental model:
+Summary:
   UIStyle.cpp implements UI Style widgets, layout, drawing, or UI state for
   the in-engine controls. As an implementation unit, keep edits anchored on UI
   request, layout, hit-test, and draw-command flow and on the

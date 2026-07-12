@@ -3,7 +3,7 @@ File: SkullbonezSource/World/Terrain.cpp
 Purpose:
   Stores terrain mesh, height queries, and terrain rendering resources.
 
-Mental model:
+Summary:
   Terrain.cpp stores terrain mesh, height queries, and terrain rendering
   resources. As an implementation unit, keep edits anchored on world-state
   ownership, terrain/environment data, and physics/render handoff and on the

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/CaptureController.cpp
 Purpose:
   Implements screenshot request ownership, capture execution, and automation pass-throughs.
 
-Mental model:
+Summary:
   Run supplies frame context and narrow render capabilities. CaptureController
   owns mutable screenshot automation plus the fixed input-triggered request ring,
   then delegates pixel writing to CaptureSystem.

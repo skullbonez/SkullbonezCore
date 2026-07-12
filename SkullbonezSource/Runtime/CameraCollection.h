@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/CameraCollection.h
 Purpose:
   Owns scene cameras and camera cycling state.
 
-Mental model:
+Summary:
   CameraCollection.h owns scene cameras and camera cycling state. As a public
   header, keep edits anchored on local owner boundaries and call direction and
   on the glossary/invariants below.

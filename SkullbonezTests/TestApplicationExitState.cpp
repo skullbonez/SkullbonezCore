@@ -4,7 +4,7 @@ Purpose:
   Verifies application-exit request, failure precedence, bounded diagnostics,
   and platform-neutral exit-code resolution.
 
-Mental model:
+Summary:
   Tests drive the state in the same orders the frame loop can observe: normal
   shutdown, subsystem failure, then an integer exit message. The final result
   must retain the most useful failure without requiring a real window loop.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/CollisionShape.h
 Purpose:
   Wraps supported collision shapes behind one variant-style interface.
 
-Mental model:
+Summary:
   CollisionShape.h wraps supported collision shapes behind one variant-style
   interface. As a public header, keep edits anchored on deterministic physics,
   diagnostics, or world-state flow and on the glossary/invariants below.

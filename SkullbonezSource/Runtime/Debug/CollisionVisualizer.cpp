@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Debug/CollisionVisualizer.cpp
 Purpose:
   Builds debug drawing for collision shapes and contact diagnostics.
 
-Mental model:
+Summary:
   CollisionVisualizer.cpp builds debug drawing for collision shapes and
   contact diagnostics. As an implementation unit, keep edits anchored on
   deterministic physics, diagnostics, or world-state flow and on the

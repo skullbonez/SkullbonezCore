@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Debug/CollisionVisualizer.h
 Purpose:
   Builds debug drawing for collision shapes and contact diagnostics.
 
-Mental model:
+Summary:
   CollisionVisualizer.h builds debug drawing for collision shapes and contact
   diagnostics. As a public header, keep edits anchored on deterministic
   physics, diagnostics, or world-state flow and on the glossary/invariants

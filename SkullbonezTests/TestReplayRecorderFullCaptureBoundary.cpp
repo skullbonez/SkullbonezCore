@@ -3,7 +3,7 @@
 // Purpose:
 //   Locks the ReplayRecorder unit harness boundary around solver-sample mirroring.
 //
-// Mental model:
+// Summary:
 //   ReplayRecorder contains both a lightweight solver-sample mirror and a full
 //   runtime capture path. The unit harness exercises the mirror path directly;
 //   live camera/world/entity/model owner traversal remains integration behavior.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/TornadoGameplay.h
 Purpose:
   Owns tornado gameplay state and applies tornado-driven body effects.
 
-Mental model:
+Summary:
   Tornado gameplay is a deterministic force/ejection layer that runs before
   broadphase. PhysicsWorld still owns sleep and contact wake propagation, while
   this component owns tornado configs, capture timers, cooldown timers, and the

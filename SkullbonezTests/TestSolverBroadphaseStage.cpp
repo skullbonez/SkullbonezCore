@@ -3,7 +3,7 @@
 // Purpose:
 //   Lock direct coverage for the pure solver broadphase candidate filter.
 //
-// Mental model:
+// Summary:
 //   SpatialGrid emits possible pairs from cell overlap. The solver broadphase
 //   filter is a cheaper geometric pass that keeps only pairs whose swept
 //   bounding spheres can touch this tick.

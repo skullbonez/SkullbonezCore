@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/DiagnosticsController.cpp
 Purpose:
   Implements runtime diagnostics state ownership.
 
-Mental model:
+Summary:
   The controller stores mutable diagnostics state and delegates artifact writes
   to RuntimeDiagnostics so existing output stays byte-for-byte compatible.
 

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/DemoDirector.h
 Purpose:
   Defines the authored shot-list data and playback state used by the Demo Director.
 
-Mental model:
+Summary:
   A shot list is a compact sequence of operator-authored phases. Each phase
   owns a camera pose, optional render style path, and the rule that advances to
   the next phase. Runtime playback keeps a bounded active shot list plus timing

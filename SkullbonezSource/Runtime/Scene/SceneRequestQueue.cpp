@@ -3,7 +3,7 @@ File: SceneRequestQueue.cpp
 Purpose:
   Implements the fixed scene-owner request ring.
 
-Mental model:
+Summary:
   Producers submit already-decoded scene intent. A frame checkpoint takes an
   ordered batch, clearing the owner ring before any scene load can re-enter UI.
 

@@ -4,7 +4,7 @@ Purpose:
   Implements deterministic application-exit precedence without depending on a
   window system or allocating runtime storage.
 
-Mental model:
+Summary:
   The state is a small latch. Normal exit sets the latch, while the first Lane R
   failure also stores bounded diagnostics. Resolution prefers those diagnostics
   over the less informative integer delivered by a platform message loop.

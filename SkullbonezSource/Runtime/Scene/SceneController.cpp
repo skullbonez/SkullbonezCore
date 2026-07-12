@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneController.cpp
 Purpose:
   Implements scene state, physics ownership, navigation, and deferred requests.
 
-Mental model:
+Summary:
   Scene state, physics, navigation, completion gates, and deferred intent live
   behind one controller. Cold load implementation is split into RunScene.cpp,
   but remains a SceneController transaction with explicit synchronous borrows.

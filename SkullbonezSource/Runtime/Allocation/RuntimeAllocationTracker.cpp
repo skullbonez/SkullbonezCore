@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.cpp
 Purpose:
   Implements fixed-storage allocation tracking and the process allocation hook.
 
-Mental model:
+Summary:
   Every C++ heap allocation is wrapped with a tiny header so deletes can update
   active-byte counters. The hot path only touches atomics and CRT malloc/free;
   reporting is a bounded stdout table emitted after the runtime shuts down.

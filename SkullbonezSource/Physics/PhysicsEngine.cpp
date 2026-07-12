@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PhysicsEngine.cpp
 Purpose:
   Forwards the public PhysicsEngine facade to the existing deterministic PhysicsScene.
 
-Mental model:
+Summary:
   This file is intentionally thin facade code. Runtime callers enter one physics
   owner, while PhysicsScene keeps store coordination and PhysicsWorld keeps
   solver execution order.

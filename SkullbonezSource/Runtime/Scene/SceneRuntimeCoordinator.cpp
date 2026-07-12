@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.cpp
 Purpose:
   Implements SceneController navigation and value-only load decisions.
 
-Mental model:
+Summary:
   SceneController chooses which queued or browser scene should load and returns
   an accepted value request without retaining caller behavior.
 

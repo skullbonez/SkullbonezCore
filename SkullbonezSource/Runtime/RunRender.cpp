@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RunRender.cpp
 Purpose:
   Sequences the application shell's camera update and one RuntimeRenderer frame.
 
-Mental model:
+Summary:
   Run prepares immutable scene, replay, tool, and cinematic frame views after
   camera selection. RuntimeRenderer owns every render decision, pass, resource
   lifetime, overlay record, and submission detail behind that boundary.

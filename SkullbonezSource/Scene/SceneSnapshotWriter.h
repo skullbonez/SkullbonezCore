@@ -3,7 +3,7 @@ File: SkullbonezSource/Scene/SceneSnapshotWriter.h
 Purpose:
   Serializes the current scene state back into a scene JSON file.
 
-Mental model:
+Summary:
   Callers assemble a non-owning view from the scene (including behavior
   grouping), physics, joint, and world owners. The writer resolves every row by
   stable identity and emits either a direct state object or an asset part state.

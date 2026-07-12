@@ -3,7 +3,7 @@ File: SkullbonezSource/World/WorldEnvironment.h
 Purpose:
   Stores world forces, fluid parameters, and water rendering resources.
 
-Mental model:
+Summary:
   WorldEnvironment.h stores world forces, fluid parameters, and water
   rendering resources. As a public header, keep edits anchored on world-state
   ownership, terrain/environment data, and physics/render handoff and on the

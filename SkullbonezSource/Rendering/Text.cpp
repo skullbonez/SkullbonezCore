@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/Text.cpp
 Purpose:
   Builds and draws bitmap/SDF text for HUD and diagnostics.
 
-Mental model:
+Summary:
   Text.cpp builds and draws bitmap/SDF text for HUD and diagnostics. As an
   implementation unit, keep edits anchored on render submission and resource
   lifetime and on the glossary/invariants below.

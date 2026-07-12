@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntimeReset.h
 Purpose:
   Defines scene reset preserve/restore policy outside Run.
 
-Mental model:
+Summary:
   A normal Reset button rebuilds simulation instances, but it should preserve
   operator-owned runtime controls for the current scene. Scene changes and
   Reset To Defaults skip this policy so authored scene data becomes authority.

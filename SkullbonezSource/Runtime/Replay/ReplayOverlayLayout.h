@@ -4,7 +4,7 @@ Purpose:
   Names replay overlay rectangles and timing constants shared by replay input
   and replay overlay rendering.
 
-Mental model:
+Summary:
   Replay input and replay drawing must agree on hit boxes. Keep geometry here
   so the runtime composition root does not own screen-space replay layout.
 

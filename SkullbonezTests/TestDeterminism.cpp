@@ -3,7 +3,7 @@
 // Purpose:
 //   Lock fast PhysicsEngine determinism, replay restore, and physics invariant properties.
 //
-// Mental model:
+// Summary:
 //   A minimal authored physics world can be seeded directly through
 //   PhysicsEngine without SceneController or scene-load plumbing. Fixed-step
 //   determinism means two engines with identical body/collider rows produce the

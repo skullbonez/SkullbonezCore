@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/Shadow.h
 Purpose:
   Defines shadow-map frame data shared by renderers and scene objects.
 
-Mental model:
+Summary:
   Shadow.h defines shadow-map frame data shared by renderers and scene
   objects. As a public header, keep edits anchored on render submission and
   resource lifetime and on the glossary/invariants below.

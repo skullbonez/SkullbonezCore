@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/RenderDeviceDX12.cpp
 Purpose:
   Owns low-level DX12 device objects, fences, command allocators, and frame pacing.
 
-Mental model:
+Summary:
   RenderDeviceDX12.cpp owns low-level DX12 device objects, fences, command
   allocators, and frame pacing. As an implementation unit, keep edits anchored
   on DX12 ownership, descriptors, resources, and command submission and on the

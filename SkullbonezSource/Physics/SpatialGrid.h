@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/SpatialGrid.h
 Purpose:
   Partitions space into broadphase cells so physics can test nearby objects cheaply.
 
-Mental model:
+Summary:
   SpatialGrid.h partitions space into broadphase cells so physics can test
   nearby objects cheaply. As a public header, keep edits anchored on
   deterministic physics, diagnostics, or world-state flow and on the

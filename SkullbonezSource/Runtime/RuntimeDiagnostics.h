@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RuntimeDiagnostics.h
 Purpose:
   Owns runtime diagnostic state and logging policy for perf CSVs and SkullScope runs.
 
-Mental model:
+Summary:
   Runtime diagnostics are side-channel artifacts. The run loop supplies scene
   and frame context, while this subsystem owns how that context is written.
 

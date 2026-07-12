@@ -3,7 +3,7 @@ File: SkullbonezSource/Assets/AssetSystem.h
 Purpose:
   Loads, owns, and resolves reusable runtime assets for scenes and render code.
 
-Mental model:
+Summary:
   AssetSystem.h loads, owns, and resolves reusable runtime assets for scenes
   and render code. As a public header, keep edits anchored on asset lifetime,
   cache ownership, and load/fallback behavior and on the glossary/invariants

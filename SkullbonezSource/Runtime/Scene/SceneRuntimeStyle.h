@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.h
 Purpose:
   Declares live scene style and cinematic override helpers outside Run.
 
-Mental model:
+Summary:
   Scene style changes mutate render-facing scene state and object materials
   without rebuilding the active simulation. The caller still owns when a user
   action makes a run interactive; this module owns applying the style payload.

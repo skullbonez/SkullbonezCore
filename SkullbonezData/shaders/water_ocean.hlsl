@@ -3,7 +3,7 @@ File: SkullbonezData/shaders/water_ocean.hlsl
 Purpose:
   Runs the water_ocean HLSL shader program used by the renderer.
 
-Mental model:
+Summary:
   water_ocean.hlsl is shader source for the renderer's water_ocean pass. Keep
   edits anchored on shader inputs, bindings, and render-output contracts and
   on the glossary/invariants below.

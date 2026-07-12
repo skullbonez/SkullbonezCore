@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RuntimePickService.h
 Purpose:
   Defines explicit runtime picking requests for editor, tool, and replay input.
 
-Mental model:
+Summary:
   RuntimePickService.h defines explicit runtime picking requests for editor,
   tool, and replay input. As a public header, keep edits anchored on local
   owner boundaries and call direction and on the glossary/invariants below.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PhysicsScene.h
 Purpose:
   Owns deterministic physics-scene state and store snapshots.
 
-Mental model:
+Summary:
   PhysicsScene is the boundary between cold authoring descriptors and the
   authoritative physics/render stores. PhysicsBodyStore owns mutable body
   records, while PhysicsWorld owns solver scratch and diagnostics.

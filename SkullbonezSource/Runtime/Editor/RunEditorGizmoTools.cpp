@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.cpp
 Purpose:
   Contains editor transform gizmo hit testing and drag mutation helpers.
 
-Mental model:
+Summary:
   The editor gizmo owns selection-frame math and per-axis drag application.
   Run supplies the current interaction context, but this slice owns the local
   rules for translation, rotation, scale, and grouped ragdoll transforms.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/MeshDX12.cpp
 Purpose:
   Implements mesh buffers, upload flow, and draw binding for the DX12 renderer.
 
-Mental model:
+Summary:
   MeshDX12.cpp implements mesh buffers, upload flow, and draw binding for the
   DX12 renderer. As an implementation unit, keep edits anchored on DX12
   ownership, descriptors, resources, and command submission and on the

@@ -3,7 +3,7 @@
 // Purpose:
 //   Lock the first pure-math unit contracts for Matrix4.
 //
-// Mental model:
+// Summary:
 //   Matrix4 is the shared transform format used by rendering-facing and
 //   physics-facing code. The tests use raw column-major values because that is
 //   the public contract consumed by shader uploads and transform composition.

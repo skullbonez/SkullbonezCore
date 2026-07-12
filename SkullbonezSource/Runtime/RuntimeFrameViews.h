@@ -3,7 +3,7 @@ File: RuntimeFrameViews.h
 Purpose:
   Defines the reference-only calling convention used by top-level frame helpers.
 
-Mental model:
+Summary:
   Run constructs these views on the stack for one frame turn. Helpers borrow the
   concrete owners through named fields, perform synchronous work, and return;
   the views never become members, owners, callback packs, or durable state.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/Timer.cpp
 Purpose:
   Measures elapsed time for frame pacing and simulation updates.
 
-Mental model:
+Summary:
   Timer.cpp measures elapsed time for frame pacing and simulation updates. As
   an implementation unit, keep edits anchored on process-wide contracts,
   diagnostics, and validation-sensitive state and on the glossary/invariants

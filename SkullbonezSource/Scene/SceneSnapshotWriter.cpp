@@ -3,7 +3,7 @@ File: SkullbonezSource/Scene/SceneSnapshotWriter.cpp
 Purpose:
   Serializes the current scene state back into a JSON scene file.
 
-Mental model:
+Summary:
   The writer validates borrowed owner topology, resolves each entity through
   its stable body/collider identity, then emits non-asset objects directly and
   groups asset-backed rows by their stable asset root.

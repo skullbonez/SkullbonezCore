@@ -3,7 +3,7 @@ File: SkullbonezSource/Scene/TestScene.h
 Purpose:
   Stores parsed test-scene JSON and applies it to runtime scene state.
 
-Mental model:
+Summary:
   TestScene.h stores parsed test-scene JSON and applies it to runtime scene
   state. As a public header, keep edits anchored on scene-file parsing or
   snapshot contracts and on the glossary/invariants below.

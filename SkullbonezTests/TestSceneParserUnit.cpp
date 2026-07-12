@@ -3,7 +3,7 @@
 // Purpose:
 //   Lock the smallest authored-scene parse path and recoverable load-error contract.
 //
-// Mental model:
+// Summary:
 //   TestScene::LoadFromFile is a data-boundary parser. It turns committed scene
 //   JSON into immutable setup records. Runtime callers use the Lane R TryLoad
 //   path so malformed files return owner/message diagnostics without escaping.

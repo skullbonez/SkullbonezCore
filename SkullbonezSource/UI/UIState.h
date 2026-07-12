@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UIState.h
 Purpose:
   Implements UI State widgets, layout, drawing, or UI state for the in-engine controls.
 
-Mental model:
+Summary:
   UIState.h implements UI State widgets, layout, drawing, or UI state for the
   in-engine controls. As a public header, keep edits anchored on UI request,
   layout, hit-test, and draw-command flow and on the glossary/invariants

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Run.h
 Purpose:
   Coordinates the main game loop and high-level runtime lifecycle.
 
-Mental model:
+Summary:
   Run.h coordinates the main game loop and high-level runtime lifecycle. As a
   public header, keep edits anchored on local owner boundaries and call
   direction and on the glossary/invariants below.
