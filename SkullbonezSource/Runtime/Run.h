@@ -135,6 +135,8 @@ class Run
     RunCameraState m_camera;                                            // Camera/input state and ball-tracking settings
     AttachedCameraController m_attachedCamera;                          // Owns non-serialized Attach target/orbit/follow state.
     SimulationSystem m_simulation;                                      // Simulation timestep policy and physics accumulators
+    float m_presentationAlpha = 1.0f;                                   // Live leftover fixed-tick fraction for render interpolation.
+    bool m_capturePresentationPinned = false;                           // Due captures force exact current solver poses for this frame.
     ReplayRuntime m_replayRuntime;                                      // Owns replay recorders, branch provenance, and replay interaction state.
     Runtime::Audio::ContactAudioService m_contactAudio;                 // Presentation-only material impact playback sink.
     LiveStyleController m_liveStyle;                                    // Owns live style tweak/capture harness file-watching state.
@@ -149,8 +151,10 @@ class Run
     RuntimeRenderBackendView m_renderBackendView;                       // Borrowed active renderer capabilities for renderer users.
     RuntimeRenderer m_renderer;                                         // Owns runtime render passes and frame render ordering.
 
-    void Render( const RuntimeRenderModelFrameView&
-                     renderModels );                                    // Skips 3D in text-only runs, then records passes for the current camera state.
+    void
+    Render( const RuntimeRenderModelFrameView& renderModels,
+            float presentationAlpha );                                  // Skips 3D in text-only runs, then records passes for the current camera state.
+    float PresentationAlphaForFrame() const;                            // Applies config and capture determinism policy to the live fraction.
     void UpdateLogic( float simulationDt, float cameraDt );             // simulationDt drives physics; cameraDt is unscaled wall time.
     void AfterPhysicsStep();                                            // Post-step hooks that must see committed physics state.
     // --- Per-frame tick helpers (called from Execute()) ---

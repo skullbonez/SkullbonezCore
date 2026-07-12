@@ -384,6 +384,7 @@ static const ConfigSetting kRuntimeRenderSettings[] = {
     CONFIG_BOOL( "vsync_enabled", runtimeRender.vsyncEnabled ),
     CONFIG_BOOL( "force_pipeline_sync", runtimeRender.forcePipelineSync ),
     CONFIG_BOOL( "render_collision_volumes", runtimeRender.renderCollisionVolumes ),
+    CONFIG_BOOL( "presentation_interpolation", runtimeRender.presentationInterpolation ),
 };
 
 static const ConfigSetting kReplayPredictionSettings[] = {
@@ -623,7 +624,7 @@ static const ConfigSetting kContactAudioSettings[] = {
     CONFIG_BOOL( "contact_audio_debug_counters", contactAudio.debugCounters ),
 };
 
-constexpr size_t kExpectedConfigSettingCount = 218;
+constexpr size_t kExpectedConfigSettingCount = 219;
 static_assert( ArrayCount( kWindowSettings ) + ArrayCount( kCameraSettings ) + ArrayCount( kTerrainGeometrySettings ) +
                        ArrayCount( kSkyboxSettings ) + ArrayCount( kRuntimeCapacitySettings ) +
                        ArrayCount( kPhysicsExecutionSettings ) + ArrayCount( kRuntimeRenderSettings ) +
@@ -698,7 +699,7 @@ static constexpr ConfigSettingRange kConfigSettingOrder[] = {
     FullConfigRange( ConfigSettingDomain::GeneratedScene, kGeneratedSceneSettings ),
     FullConfigRange( ConfigSettingDomain::AssetPaths, kAssetPathsSettings ),
     FullConfigRange( ConfigSettingDomain::WaterRenderStyle, kWaterRenderStyleSettings ),
-    { ConfigSettingDomain::RuntimeRender, 1, 3 },
+    { ConfigSettingDomain::RuntimeRender, 1, 4 },
     FullConfigRange( ConfigSettingDomain::ContactAudio, kContactAudioSettings ),
 };
 

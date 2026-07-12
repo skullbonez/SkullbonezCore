@@ -270,6 +270,22 @@ void Draw( UIOptionsTabState& state,
                        colW,
                        "Shadows",
                        data.cinematicRendering ? data.cinematic.shadow.enabled : data.ordinaryRender.shadow.enabled );
+    snprintf( buf,
+              sizeof( buf ),
+              "%s alpha %.3f%s",
+              data.presentationInterpolation ? "on" : "off",
+              data.presentationAlpha,
+              data.presentationPinned ? " (capture pin)" : "" );
+    DrawLabelValueAt( draw,
+                      contentY,
+                      contentH,
+                      contentX,
+                      scrolledY + 138.0f,
+                      "Presentation",
+                      buf,
+                      0.62f,
+                      0.86f,
+                      0.78f );
     snprintf( buf, sizeof( buf ), "%.2fx", displayTimeScale );
     state.timeScaleSlider.SetBounds( contentX, scrolledY + 168.0f, contentW, 34.0f );
     if ( IsRowVisible( contentY, contentH, scrolledY + 168.0f, 34.0f ) )

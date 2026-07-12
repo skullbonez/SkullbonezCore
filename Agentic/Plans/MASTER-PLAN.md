@@ -94,33 +94,30 @@ concrete plan rows and counting it would duplicate tasks.
 | dx12-post-final-cleanup | 6 | 6 | 100% |
 | shader-pipeline-modernization | 8 | 8 | 100% |
 | render-visibility-architecture | 7 | 7 | 100% |
-| sim-render-interpolation | 0 | 5 | 0% |
+| sim-render-interpolation | 5 | 5 | 100% |
 | editor-undo-redo | 0 | 5 | 0% |
 | data-format-versioning | 0 | 5 | 0% |
 | engine-config-decomposition | 5 | 5 | 100% |
 | entity-model-endgame | 4 | 4 | 100% |
 | instant-prediction-velocity-chaos | 52 | 52 | 100% |
 | shadow-edge-quality | 5 | 5 | 100% |
-| **Portfolio total** | **260** | **276** | **94%** |
+| **Portfolio total** | **265** | **276** | **96%** |
 
 ## Current Execution Priority
 
 For maximum impact with minimal rework, use this binding critical path:
 
-`interpolation` → `editor` → `data versioning`
+`editor` → `data versioning`
 
 1. **Engine-cleanup aggregate review and plan deletion — parallel lane.** Run
    review preparation alongside the critical path rather than as another serial
    implementation campaign. Fix every credible ownership finding, pass the
    closure gate, and delete the eight retained completed plans to remove stale
    control-plane noise.
-2. **`sim-render-interpolation`.** Begin after entity identity and renderer
-    ownership stabilize; avoid churning presentation transforms, cameras,
-    capture timing, and replay across moving foundations.
-3. **`editor-undo-redo`.** Interaction ownership is ready, but history must
+2. **`editor-undo-redo`.** Interaction ownership is ready, but history must
     target final `PhysicsSceneObjectId` and post-`GameModelCollection` scene
     APIs, so entity-model closure is a hard prerequisite.
-4. **`data-format-versioning`.** Asset/hull preparation is independent, but
+3. **`data-format-versioning`.** Asset/hull preparation is independent, but
     schedule delivery here. The `engine.cfg` portion waits for config
     decomposition so version plumbing targets the surviving parser/domain
     structure once.
@@ -161,7 +158,7 @@ Reconciliation notes live inside each plan.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [sim-render-interpolation](TODO/sim-render-interpolation.md) | Planned | 0/5 | After entity-model closure and stable renderer ownership; P1 capture-determinism guard lands first |
+| [sim-render-interpolation](../Reports/2026-07-12/sim-render-interpolation-closure.md) | Complete | 5/5 | Allocation-free live interpolation, deterministic capture pinning, coherent cameras/listener, review, and final gates complete |
 | [editor-undo-redo](TODO/editor-undo-redo.md) | Planned | 0/5 | After entity-model closure; build history on final `PhysicsSceneObjectId` and post-`GameModelCollection` scene APIs |
 | [data-format-versioning](TODO/data-format-versioning.md) | Planned | 0/5 | Deliver after editor; asset/hull preparation is independent and config decomposition is complete; scene v1→v2 remains the precedent |
 

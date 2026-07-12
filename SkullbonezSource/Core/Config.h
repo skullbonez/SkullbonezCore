@@ -68,7 +68,8 @@ struct RuntimeRenderFlags
     bool vsyncEnabled = true;
     bool forcePipelineSync = false;
     bool renderCollisionVolumes = false;
-    bool shadowParallelPrep = false;   // Render-only worker scheduling; physics parallelism has a separate owner.
+    bool shadowParallelPrep = false;       // Render-only worker scheduling; physics parallelism has a separate owner.
+    bool presentationInterpolation = true; // Live rendering blends fixed-tick poses; captures still pin exact state.
 };
 
 // Cold source paths resolved by AssetSystem or terrain construction before
@@ -116,7 +117,7 @@ struct SkyboxConfig
 struct RuntimeCapacityConfig
 {
     int gameModelCapacity = 4000;
-    int workerThreads = -1;            // -1 = auto, 0 = disabled, positive = explicit worker count.
+    int workerThreads = -1;                // -1 = auto, 0 = disabled, positive = explicit worker count.
 };
 
 // Private replay-prediction scheduling policy. These values never alter the
@@ -258,14 +259,14 @@ struct GeneratedSceneConfig
 // emits material/contact facts and never owns these voice limits or gains.
 struct ContactAudioConfig
 {
-    bool enabled = true;               // Master startup switch; CLI mute can still force the service off.
-    float masterGain = 1.0f;           // Multiplier applied after material/band gain, clamped by the audio service.
-    float maxDistanceScale = 1.0f;     // Multiplier for each sound set's authored maxDistance.
-    float rollingLevelDb = -24.0f;     // dB; separate quiet roll/slide level.
-    float rollingMaxDistance = 24.0f;  // World units; independent of impact distance.
-    float rollingMinSlipSpeed = 0.65f; // Pre-solve tangential speed threshold.
-    int rollingVoicesPerWindow = 4;    // Per 100 ms; zero disables rolling.
-    bool debugCounters = false;        // Prints copied presentation counters once per simulated second.
+    bool enabled = true;                   // Master startup switch; CLI mute can still force the service off.
+    float masterGain = 1.0f;               // Multiplier applied after material/band gain, clamped by the audio service.
+    float maxDistanceScale = 1.0f;         // Multiplier for each sound set's authored maxDistance.
+    float rollingLevelDb = -24.0f;         // dB; separate quiet roll/slide level.
+    float rollingMaxDistance = 24.0f;      // World units; independent of impact distance.
+    float rollingMinSlipSpeed = 0.65f;     // Pre-solve tangential speed threshold.
+    int rollingVoicesPerWindow = 4;        // Per 100 ms; zero disables rolling.
+    bool debugCounters = false;            // Prints copied presentation counters once per simulated second.
 };
 
 // RuntimeRenderer owns this scene-light presentation value and publishes it to

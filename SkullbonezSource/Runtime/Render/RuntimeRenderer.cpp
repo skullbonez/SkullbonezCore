@@ -2283,7 +2283,7 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
     // Missing renderer facets should leave live render state untouched.
     SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing = context.backend.rayTracingBackend;
     PROFILE_BEGIN( "Frame/Render/PrepareModels" );
-    context.renderModelOwner.PrepareRenderInstances();
+    context.renderModelOwner.PrepareRenderInstances( context.presentationAlpha );
     PROFILE_END( "Frame/Render/PrepareModels" );
     applyReplayRenderStateForFrame();
 

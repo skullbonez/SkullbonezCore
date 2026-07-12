@@ -160,6 +160,41 @@ TEST_CASE( "CaptureController rejects truncating paths before enqueue" )
     CHECK( capture.PendingScreenshotCount() == 1 );
 }
 
+TEST_CASE( "CaptureController predicts scene captures before rendering" )
+{
+    CaptureController capture;
+    RunScreenshotState& screenshot = capture.Screenshot();
+    strcpy_s( screenshot.screenshotPath, "Profile/capture_pin.bmp" );
+    screenshot.screenshotFrame = 10;
+
+    RuntimeCaptureSceneContext context;
+    context.isSceneMode = true;
+    context.currentFrame = 8;
+    CHECK_FALSE( capture.IsScreenshotDue( context ) );
+    CHECK( capture.RequiresDeterministicPresentation( context ) );
+    context.currentFrame = 9;
+    CHECK( capture.IsScreenshotDue( context ) );
+
+    // A millisecond threshold can cross while the frame is rendering. The
+    // deterministic decision therefore pins the pending one-shot before due.
+    screenshot.screenshotFrame = -1;
+    screenshot.screenshotMs = 100;
+    context.elapsedMs = 99.0;
+    CHECK_FALSE( capture.IsScreenshotDue( context ) );
+    CHECK( capture.RequiresDeterministicPresentation( context ) );
+    context.elapsedMs = 101.0;
+    CHECK( capture.IsScreenshotDue( context ) );
+
+    screenshot.screenshotMs = -1;
+    screenshot.screenshotPath[0] = '\0';
+    screenshot.screenshotInterval = 3;
+    strcpy_s( screenshot.screenshotDir, "TestOutput/capture_pin" );
+    context.currentFrame = 1;
+    CHECK_FALSE( capture.IsScreenshotDue( context ) );
+    context.currentFrame = 2;
+    CHECK( capture.IsScreenshotDue( context ) );
+}
+
 TEST_CASE( "CaptureController owns a fixed request budget" )
 {
     CaptureController capture;

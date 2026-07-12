@@ -214,6 +214,7 @@
     <ClCompile Include="SkullbonezTests\TestSolverBroadphaseStage.cpp" />
     <ClCompile Include="SkullbonezTests\TestSpatialGrid.cpp" />
     <ClCompile Include="SkullbonezTests\TestSmoke.cpp" />
+    <ClCompile Include="SkullbonezTests\TestSimulationSystem.cpp" />
     <ClCompile Include="SkullbonezTests\TestTerrain.cpp" />
     <ClCompile Include="SkullbonezTests\TestVector3.cpp" />
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp" />
@@ -227,6 +228,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\ApplicationExitState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\InputController.Bindings.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\InputRouter.cpp" />

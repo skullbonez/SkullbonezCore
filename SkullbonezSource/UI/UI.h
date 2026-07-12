@@ -282,6 +282,9 @@ struct InGameUIFrameData
     uint32_t contactAudioRollingSubmittedVoices = 0;
     float sceneEnergy = 0.0f;
     float timeScale = 1.0f;
+    bool presentationInterpolation = true;
+    bool presentationPinned = false;
+    float presentationAlpha = 1.0f;
     float trackHeight = 0.0f;
     float autoCycleInterval = 0.0f;
     float worldGravity = 0.0f;

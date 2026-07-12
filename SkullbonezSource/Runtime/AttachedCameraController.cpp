@@ -15,12 +15,15 @@ Glossary:
   Ragdoll eyes: Attach submode that places the camera near a resolved head body
     and looks along that body's forward axis.
   Orbit wheel: Mouse-wheel zoom applied to attach orbit distance.
+  Presentation pose: Allocation-free interpolated body endpoint used by follow
+    cameras while target identity and selection remain physics-authoritative.
 
 Invariants:
   - Duplicate replay ids invalidate the target instead of selecting an
     arbitrary body.
   - Orbit pitch and distance are clamped before producing a camera pose.
   - Invalid or degenerate pose math fails closed without changing the camera.
+  - Presentation sampling never changes the durable attached target identity.
 
 Related:
   - SkullbonezSource/Runtime/AttachedCameraController.h
@@ -297,7 +300,8 @@ bool AttachedCameraController::ResolveTargetIdentity( const Basics::SceneControl
 bool AttachedCameraController::TickFollow( const Basics::SceneController& collection,
                                            Environment::CameraCollection& cameras,
                                            float orbitYawDelta,
-                                           float orbitPitchDelta )
+                                           float orbitPitchDelta,
+                                           float presentationAlpha )
 {
     if ( !m_state.activeFollow )
     {
@@ -308,6 +312,11 @@ bool AttachedCameraController::TickFollow( const Basics::SceneController& collec
     if ( !TryResolvePhysicsTarget( collection, m_state.target, target, &modelIndex ) )
     {
         return false;
+    }
+    Quaternion presentedOrientation;
+    if ( collection.TryGetPresentationPose( modelIndex, presentationAlpha, target.position, presentedOrientation ) )
+    {
+        target.rotation = BodyRotation( presentedOrientation );
     }
     AttachedCameraPose currentPose;
     currentPose.eye = cameras.GetCameraTranslation();
@@ -321,6 +330,7 @@ bool AttachedCameraController::TickFollow( const Basics::SceneController& collec
                            currentPose,
                            orbitYawDelta,
                            orbitPitchDelta,
+                           presentationAlpha,
                            command ) )
     {
         return false;
@@ -335,6 +345,50 @@ bool AttachedCameraController::TickFollow( const Basics::SceneController& collec
     {
         cameras.SetPrimaryPose( command.pose.eye, command.pose.view, command.pose.up );
     }
+    return true;
+}
+
+
+bool AttachedCameraController::TryGetPresentationListenerPosition( const Basics::SceneController& collection,
+                                                                   const Environment::CameraCollection& cameras,
+                                                                   float presentationAlpha,
+                                                                   Vector3& outPosition ) const
+{
+    if ( !m_state.activeFollow )
+    {
+        return false;
+    }
+    // Lifetime: pose solving updates orbit/entry bookkeeping, so audio uses a
+    // frame-local state copy and cannot consume camera controller transitions.
+    AttachedCameraState state = m_state;
+    int modelIndex = -1;
+    AttachedCameraPhysicsTarget target;
+    if ( !TryResolvePhysicsTarget( collection, state.target, target, &modelIndex ) )
+    {
+        return false;
+    }
+    Quaternion presentedOrientation;
+    if ( collection.TryGetPresentationPose( modelIndex, presentationAlpha, target.position, presentedOrientation ) )
+    {
+        target.rotation = BodyRotation( presentedOrientation );
+    }
+    const AttachedCameraPose currentPose{ cameras.GetRenderCameraTranslation(),
+                                          cameras.GetRenderCameraView(),
+                                          cameras.GetRenderCameraUp() };
+    AttachedCameraPoseCommand command;
+    if ( !BuildFollowPose( collection,
+                           state,
+                           target,
+                           modelIndex,
+                           currentPose,
+                           0.0f,
+                           0.0f,
+                           presentationAlpha,
+                           command ) )
+    {
+        return false;
+    }
+    outPosition = command.pose.eye;
     return true;
 }
 
@@ -801,6 +855,7 @@ bool AttachedCameraController::BuildFollowPose( const SceneController& collectio
                                                 const AttachedCameraPose& currentPose,
                                                 float orbitYawDelta,
                                                 float orbitPitchDelta,
+                                                float presentationAlpha,
                                                 AttachedCameraPoseCommand& outCommand )
 {
     if ( state.submode == AttachedCameraSubmode::RagdollEyes )
@@ -814,6 +869,14 @@ bool AttachedCameraController::BuildFollowPose( const SceneController& collectio
                  !TryResolvePhysicsTarget( collection, headTarget, headState ) )
             {
                 return false;
+            }
+            Quaternion presentedHeadOrientation;
+            if ( collection.TryGetPresentationPose( headIndex,
+                                                    presentationAlpha,
+                                                    headState.position,
+                                                    presentedHeadOrientation ) )
+            {
+                headState.rotation = BodyRotation( presentedHeadOrientation );
             }
 
             const float radius = (std::max)( 0.5f, headState.radius );

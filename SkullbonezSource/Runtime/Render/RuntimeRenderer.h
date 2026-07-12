@@ -93,6 +93,7 @@ class RuntimeRenderer
         const RenderReplayOverlayView& replayOverlay;
         const RenderToolOverlayView& toolOverlay;
         const CinematicRenderConfig& cinematic;
+        float presentationAlpha = 1.0f;         // Exact solver state is 1; live frames may use the accumulator fraction.
         bool cinematicRequested = false;
         bool consequenceGradeRequested = false; // True while replay prediction should fade into the causality look.
     };

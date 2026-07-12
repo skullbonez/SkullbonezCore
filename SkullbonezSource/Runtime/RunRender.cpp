@@ -32,7 +32,7 @@ using namespace SkullbonezCore::Basics::RunInternal;
 using SkullbonezCore::Math::Vector::Vector3;
 
 
-void Run::Render( const RuntimeRenderModelFrameView& renderModels )
+void Run::Render( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha )
 {
     m_renderer.SetUiTextRayTracingCapability( nullptr );
 
@@ -50,7 +50,8 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
                                        m_replayRuntime.Camera().active,
                                        m_sceneController.State().isSceneMode,
                                        m_attachedCamera.State().activeFollow,
-                                       m_interaction.PointerCapture() == RuntimePointerCaptureOwner::CameraLook );
+                                       m_interaction.PointerCapture() == RuntimePointerCaptureOwner::CameraLook,
+                                       presentationAlpha );
 
     // Selected camera state is copied into the camera collection so render code below
     // reads one coherent eye/view/up triple for this frame.
@@ -113,6 +114,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
                                                                      replayOverlay,
                                                                      toolOverlay,
                                                                      activeCinematic,
+                                                                     presentationAlpha,
                                                                      cinematicRequested,
                                                                      m_replayRuntime.Prediction().enabled } );
 }

@@ -13,12 +13,15 @@ Glossary:
     resource.
   Back buffer: Swap-chain image that will be presented to the window.
   Capture backend: Narrow renderer facet that supplies screenshot readback.
+  Due predictor: Side-effect-free trigger query used before simulation so the
+    eventual captured frame can pin presentation to committed solver state.
 
 Invariants:
   - Screenshot state is per-run state; interval counters and one-shot flags are
     consumed by TickScreenshots rather than by render backends.
   - CaptureController owns the write side effect and receives the backend facet
     explicitly, so no callback can recover the application shell.
+  - The due predictor and TickScreenshots use identical frame/time trigger rules.
 
 Related:
   - SkullbonezSource/Runtime/CaptureSystem.cpp
@@ -88,6 +91,9 @@ class CaptureController;
 class CaptureSystem
 {
   public:
+    static bool IsScreenshotDue( const RunScreenshotState& screenshot, const RuntimeCaptureSceneContext& context );
+    static bool RequiresDeterministicPresentation( const RunScreenshotState& screenshot,
+                                                   const RuntimeCaptureSceneContext& context );
     static SbResult SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend, const char* path );
     static RuntimeCaptureResult TickScreenshots( RunScreenshotState& screenshot,
                                                  const RuntimeCaptureSceneContext& context,

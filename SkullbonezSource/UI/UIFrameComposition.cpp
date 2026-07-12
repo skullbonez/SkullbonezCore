@@ -322,6 +322,9 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     }
     hash = HashFloat( hash, data.sceneEnergy, 1000.0f );
     hash = HashFloat( hash, data.timeScale, 1000.0f );
+    hash = HashBool( hash, data.presentationInterpolation );
+    hash = HashBool( hash, data.presentationPinned );
+    hash = HashFloat( hash, data.presentationAlpha, 1000.0f );
     hash = HashFloat( hash, data.trackHeight, 1000.0f );
     hash = HashFloat( hash, data.autoCycleInterval, 1000.0f );
     hash = HashFloat( hash, data.worldGravity, 1000.0f );

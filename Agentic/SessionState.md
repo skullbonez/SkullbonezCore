@@ -11,21 +11,20 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-11th-july` |
-| Current pushed baseline | Visibility P0-P3 is pushed through `69d91e5e`; P4-P6 closure and the review counter fix are ready to commit and push |
-| Current objective | Execute `shadow-edge-quality` S0-S4, then continue interpolation, editor undo/redo, and data-format versioning |
-| Portfolio progress | 255 / 276 tasks = 92% overall |
-| Last broad local gate | Direct `tools\\validate_full.bat` passed final shader source on 2026-07-12 in approximately 85s: formatting and 657 project/filter items clean, every CPU lane passed (150 doctest cases, 3,505 assertions), zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching 33/61/0 screenshot maxima, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | Visibility closure passed three consecutive DX12 gates plus a final post-review-fix gate (zero errors, 33/61/0 maxima), both perf lanes, and byte-exact 44,401-line physics. Final stress ran 59.777330s for 12,853 frames / 358 scene loads with empty stderr. Plan-end review and narrow follow-up are clear. |
+| Current pushed baseline | Shadow quality is pushed through `d0893a74`; simulation/render interpolation closure is ready to commit and push |
+| Current objective | Execute `editor-undo-redo`, then `data-format-versioning`, while the engine-cleanup aggregate review remains a parallel lane |
+| Portfolio progress | 265 / 276 tasks = 96% overall |
+| Last broad local gate | `tools\\validate_full.bat` passed final interpolation source on 2026-07-12 in 145.500s: formatting and 659 project/filter items clean, every CPU lane passed (164 doctest cases, 3,705 assertions), zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with 33/61/0 screenshot maxima, and the 44,401-line varied physics baseline byte-exactly |
+| Validation for current edits | Interpolation perf passed both comparison lanes with zero gameplay allocations; 1,000-body snapshot capture averaged 0.0051ms begin and 0.0024ms complete. Live 75Hz observation, final full gate, 34/34 comment audit, and plan-end review are clear. |
 
 ## Live Queue
 
 1. Prepare the engine-cleanup aggregate review in parallel with the critical path;
    fix findings, pass the closure gate, and delete all eight retained completed
    plans.
-2. Continue the binding path recorded in MASTER: visibility, shadows,
-   interpolation, editor undo/redo, then data-format versioning. Phase-level
-   preparation and dependency barriers are authoritative in MASTER and the
-   owning plans.
+2. Continue the binding path recorded in MASTER with editor undo/redo, then
+   data-format versioning. Phase-level preparation and dependency barriers are
+   authoritative in MASTER and the owning plans.
 3. Validation-gate V3 remains an external parallel lane at 5/6. The hosted CPU
    PR lane has a successful real run. Remaining work is a `merge_group` proof,
    required `main` branch protection, and trusted DX12-runner administration.
@@ -80,9 +79,12 @@ plan inventory.
   `Agentic/Reports/2026-07-12/shader-pipeline-modernization-closure.md`.
 - Render-visibility closure evidence:
   `Agentic/Reports/2026-07-12/render-visibility-architecture-closure.md`.
+- Shadow-quality closure evidence:
+  `Agentic/Reports/2026-07-12/shadow-edge-quality-closure.md`.
+- Simulation/render interpolation closure evidence:
+  `Agentic/Reports/2026-07-12/sim-render-interpolation-closure.md`.
 
 ## Next Handoff
 
 Use `Agentic/Plans/MASTER-PLAN.md` for selection and the repo-local orchestrator
-skill when implementing a plan. The next binding plan is
-`shadow-edge-quality`, beginning with S0 baseline capture.
+skill when implementing a plan. The next binding plan is `editor-undo-redo`.

@@ -156,6 +156,9 @@
     <ClCompile Include="SkullbonezTests\TestSmoke.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestSimulationSystem.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestTerrain.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -191,6 +194,9 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp">
       <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp">
+      <Filter>Source Files\Physics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\ApplicationExitState.cpp">
       <Filter>Source Files\Runtime</Filter>

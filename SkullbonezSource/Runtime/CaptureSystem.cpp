@@ -196,6 +196,50 @@ SbResult CaptureSystem::SaveBackbufferBmp( Rendering::IRenderCaptureBackend& bac
     return SbResult::Success();
 }
 
+bool CaptureSystem::IsScreenshotDue( const RunScreenshotState& screenshot, const RuntimeCaptureSceneContext& context )
+{
+    if ( !context.isSceneMode )
+    {
+        return false;
+    }
+    if ( screenshot.isScreenshotAndExit && context.currentFrame == 0 )
+    {
+        return true;
+    }
+    if ( screenshot.screenshotPath[0] != '\0' && !screenshot.isScreenshotSaved )
+    {
+        if ( screenshot.screenshotFrame > 0 && ( context.currentFrame + 1 ) >= screenshot.screenshotFrame )
+        {
+            return true;
+        }
+        if ( screenshot.screenshotMs > 0 && context.elapsedMs >= screenshot.screenshotMs )
+        {
+            return true;
+        }
+    }
+    return screenshot.screenshotInterval > 0 && screenshot.screenshotDir[0] != '\0' &&
+           ( context.currentFrame + 1 ) % screenshot.screenshotInterval == 0;
+}
+
+
+bool CaptureSystem::RequiresDeterministicPresentation( const RunScreenshotState& screenshot,
+                                                       const RuntimeCaptureSceneContext& context )
+{
+    if ( !context.isSceneMode )
+    {
+        return false;
+    }
+    // Hazard: a millisecond trigger is checked again after rendering and can
+    // cross its threshold during the frame. Pin every pending one-shot scene
+    // capture so trigger timing can never select an interpolated backbuffer.
+    if ( screenshot.screenshotPath[0] != '\0' && !screenshot.isScreenshotSaved )
+    {
+        return true;
+    }
+    return IsScreenshotDue( screenshot, context );
+}
+
+
 RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screenshot,
                                                      const RuntimeCaptureSceneContext& context,
                                                      CaptureController& capture,

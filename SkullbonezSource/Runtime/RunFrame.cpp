@@ -23,10 +23,13 @@ Glossary:
     parameters, and broadphase radius.
   Lane R result: Recoverable scene-control or capture failure that prevents a
     failed side effect from being reported as a successful frame transition.
+  Presentation pin: Per-frame alpha override to exact current solver state for
+    scheduled and auto-cycle capture automation.
 
 Invariants:
   - Frame work updates input, simulation, capture, rendering, and diagnostics
     in a stable order used by validation and replay comparisons.
+  - Capture pinning is decided before physics and camera work for that frame.
 
 Related:
   - Agentic/Reference/runtime-reference.md
@@ -134,6 +137,8 @@ void RenderExecuteUiTextFrame( RuntimeRenderer& renderer,
                                const char* launcherFireModeLabel,
                                bool isLauncherCameraMode,
                                const RuntimeInteractionGesture& interactionGesture,
+                               float presentationAlpha,
+                               bool presentationPinned,
                                double secondsPerFrame )
 {
     // Lifetime: these explicit borrows exist only for the late UI pass. Keeping
@@ -176,9 +181,14 @@ void RenderExecuteUiTextFrame( RuntimeRenderer& renderer,
 
     if ( renderer.ShouldRenderUiText( uiTextState, ui ) )
     {
-        runtimeViewModel = RuntimeViewModelBuilder::Build(
-            RuntimeViewModelContext{ sceneController, diagnosticsRuntime.Capture(), sceneController.Physics() },
-            contactAudio );
+        runtimeViewModel =
+            RuntimeViewModelBuilder::Build( RuntimeViewModelContext{ sceneController,
+                                                                     diagnosticsRuntime.Capture(),
+                                                                     sceneController.Physics(),
+                                                                     config.runtimeRender.presentationInterpolation,
+                                                                     presentationPinned,
+                                                                     presentationAlpha },
+                                            contactAudio );
         const CinematicRenderConfig& uiCinematic = ActiveSceneCinematicConfig( scene, config );
         const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug, true );
         const bool shadowsAvailable =
@@ -307,7 +317,7 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
                                   RunTimerState& timers,
                                   DiagnosticsRuntime& diagnosticsRuntime,
                                   RunSceneState& scene,
-                                  SkullbonezCore::Environment::CameraCollection& cameras,
+                                  const Vector3& listenerPosition,
                                   SkullbonezCore::Basics::SceneController& models )
 {
 #ifndef _DEBUG
@@ -316,7 +326,6 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
 #endif
     PROFILE_SCOPED( "Frame/Physics/Step/ContactAudio" );
 
-    const Vector3 listenerPosition = cameras.GetRenderCameraTranslation();
     contactAudio.BeginPhysicsStep( PHYSICS_FIXED_DT, listenerPosition );
 
     const auto& colliderRecords = models.Colliders().Records();
@@ -605,6 +614,21 @@ SbResult Run::Execute()
             PROFILE_END( "Frame/Input" );
 
             m_sceneController.BeginCollisionVisualFrame();
+            const std::string* captureScenePath = m_sceneController.CurrentPath();
+            const RuntimeCaptureSceneContext captureContext{ m_sceneController.State().isSceneMode,
+                                                             m_sceneController.State().isInteractiveRun,
+                                                             m_sceneController.State().currentFrame,
+                                                             m_timers.simulationTimer.GetTimeSinceLastStart() * 1000.0,
+                                                             captureScenePath ? captureScenePath->c_str() : nullptr };
+            // Invariant: decide capture determinism before physics/camera update.
+            // The frame rendered for a scheduled screenshot must use exact
+            // current solver poses even when live presentation interpolation is on.
+            m_capturePresentationPinned =
+                m_diagnosticsRuntime.Capture().RequiresDeterministicPresentation( captureContext ) ||
+                ( captureContext.isSceneMode && m_camera.autoCycleInterval > 0.0f ) ||
+                m_liveStyle.HasPendingCapture() ||
+                InteractionAutomationWillCaptureAfterRender( m_interactionAutomation,
+                                                             m_sceneController.State().currentFrame );
             {
                 RuntimeAllocation::RuntimeAllocationScope allocationScope(
                     RuntimeAllocation::RuntimeAllocationPhase::Physics );
@@ -681,7 +705,7 @@ SbResult Run::Execute()
                 RuntimeAllocation::RuntimeAllocationScope allocationScope(
                     RuntimeAllocation::RuntimeAllocationPhase::Render );
                 DRAW_CALL_TRACE_SCOPE( frameRenderDiagnostics, "Frame/Render" );
-                Render( renderModels );
+                Render( renderModels, PresentationAlphaForFrame() );
             }
             PROFILE_END( "Frame/Render" );
 
@@ -711,6 +735,8 @@ SbResult Run::Execute()
                                       m_runtimeTools.LauncherFireModeLabel(),
                                       RunCameraModeUsesLauncher( m_camera.mode ),
                                       m_interaction.Gesture(),
+                                      PresentationAlphaForFrame(),
+                                      m_capturePresentationPinned,
                                       secondsPerFrame );
 
             PROFILE_BEGIN( "Frame/PostDraw/LiveStyleCapture" );
@@ -804,10 +830,21 @@ SbResult Run::Execute()
 }
 
 
+float Run::PresentationAlphaForFrame() const
+{
+    if ( !m_config.runtimeRender.presentationInterpolation || m_capturePresentationPinned )
+    {
+        return 1.0f;
+    }
+    return std::clamp( m_presentationAlpha, 0.0f, 1.0f );
+}
+
+
 void Run::TickPhysics( double secondsPerFrame )
 {
     if ( m_replayRuntime.IsScrubPaused() )
     {
+        m_presentationAlpha = 1.0f;
         PROFILE_SCOPED( "Frame/Replay/ScrubCamera" );
         UpdateLogic( 0.0f, static_cast<float>( secondsPerFrame ) );
         return;
@@ -857,6 +894,7 @@ void Run::TickPhysics( double secondsPerFrame )
                                                                               policy.physicsAdvance,
                                                                               stepRequested,
                                                                               canStepPhysics } );
+    m_presentationAlpha = tick.presentationAlpha;
     if ( tick.committedPhysicsTicks > 0 && canStepPhysics )
     {
         PROFILE_BEGIN( "Frame/Physics" );
@@ -866,6 +904,10 @@ void Run::TickPhysics( double secondsPerFrame )
         for ( int tickIndex = 0; tickIndex < tick.committedPhysicsTicks; ++tickIndex )
         {
             PROFILE_SCOPED( "Frame/Physics/Step" );
+            {
+                PROFILE_SCOPED( "Frame/Physics/Step/PresentationCaptureBegin" );
+                m_sceneController.BeginPhysicsStepPresentationCapture();
+            }
             if ( manipulatorPhysics )
             {
                 m_runtimeTools.ApplyMousePickupPhysicsStep( m_sceneController,
@@ -875,6 +917,10 @@ void Run::TickPhysics( double secondsPerFrame )
             }
 
             m_sceneController.StepPhysics( PHYSICS_FIXED_DT, m_config, physicsWorldForces, m_workerPool );
+            {
+                PROFILE_SCOPED( "Frame/Physics/Step/PresentationCaptureComplete" );
+                m_sceneController.CompletePhysicsStepPresentationCapture();
+            }
 
             if ( manipulatorPhysics || replayCapture || contactAudioStep )
             {
@@ -919,11 +965,22 @@ void Run::AfterPhysicsStep()
                                                       m_interaction );
     if ( m_contactAudio.IsEnabled() )
     {
+        Vector3 listenerPosition = m_sceneController.Cameras().GetRenderCameraTranslation();
+        // Why: audio distance/pan decisions for an attached camera must use the
+        // same interpolated target endpoint as the upcoming rendered camera,
+        // not the previous frame's cached render pose.
+        if ( RunCameraModeIsAttached( m_camera.mode ) )
+        {
+            (void)m_attachedCamera.TryGetPresentationListenerPosition( m_sceneController,
+                                                                       m_sceneController.Cameras(),
+                                                                       PresentationAlphaForFrame(),
+                                                                       listenerPosition );
+        }
         ExecuteContactAudioPostStep( m_contactAudio,
                                      m_timers,
                                      m_diagnosticsRuntime,
                                      m_sceneController.State(),
-                                     m_sceneController.Cameras(),
+                                     listenerPosition,
                                      m_sceneController );
     }
     const bool replayCaptured = m_replayRuntime.IsCaptureEnabled();
@@ -1247,7 +1304,8 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
                            m_runtimeTools.Editor().editorModeEnabled,
                            m_runtimeTools.Editor().viewportLookActive,
                            m_sceneController.State().isSceneMode,
-                           cameraDt );
+                           cameraDt,
+                           PresentationAlphaForFrame() );
     DemoDirectorPlayback::Tick(
         m_camera,
         m_sceneController.Cameras(),

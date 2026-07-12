@@ -421,12 +421,35 @@ void SceneController::Clear()
 }
 
 
-void SceneController::PrepareRenderInstances()
+void SceneController::BeginPhysicsStepPresentationCapture()
+{
+    // Invariant: this hook now precedes StepPhysics, whose first action used to
+    // repair supported descriptor/body topology drift. Preserve that repair
+    // boundary before RenderInstanceStore validates paired dense rows.
+    if ( !RepairPhysicsBodyAndColliderTopology() )
+    {
+        SB_FATAL( "GameObjects/SceneController",
+                  "Presentation capture could not repair scene/physics topology. entities=%d bodies=%d colliders=%d",
+                  SceneEntityCount(),
+                  BodyStore().Count(),
+                  Colliders().Count() );
+    }
+    m_renderInstanceStore.BeginPhysicsStepPoseCapture( BodyStore() );
+}
+
+
+void SceneController::CompletePhysicsStepPresentationCapture()
+{
+    m_renderInstanceStore.CompletePhysicsStepPoseCapture( BodyStore() );
+}
+
+
+void SceneController::PrepareRenderInstances( float presentationAlpha )
 {
     // Why: object rendering now reads the render instance store for transforms.
     // Preparing it once here prevents each render pass from re-importing the
     // same physics pose repeatedly.
-    RefreshRenderInstances();
+    RefreshRenderInstances( presentationAlpha );
 }
 
 
@@ -453,6 +476,15 @@ bool SceneController::TryGetModelPosition( int index, Vector3& outPosition ) con
     }
     outPosition = record->position;
     return true;
+}
+
+
+bool SceneController::TryGetPresentationPose( int index,
+                                              float presentationAlpha,
+                                              Vector3& outPosition,
+                                              Quaternion& outOrientation ) const
+{
+    return m_renderInstanceStore.TryGetPresentationPose( index, presentationAlpha, outPosition, outOrientation );
 }
 
 
@@ -781,7 +813,7 @@ double SceneController::GetSceneKineticEnergy()
 }
 
 
-void SceneController::RefreshRenderInstances()
+void SceneController::RefreshRenderInstances( float presentationAlpha )
 {
     const int modelCount = SceneEntityCount();
     if ( !RepairPhysicsBodyTopology() )
@@ -829,7 +861,7 @@ void SceneController::RefreshRenderInstances()
         strncpy_s( presentation->displayName, sizeof( presentation->displayName ), entity.displayName, _TRUNCATE );
         presentation->simpleRagdollPart = IsSimpleRagdollPart( i );
     }
-    m_renderInstanceStore.Refresh( BodyStore(), Colliders() );
+    m_renderInstanceStore.Refresh( BodyStore(), Colliders(), presentationAlpha );
     if ( m_renderInstanceStore.Count() != modelCount )
     {
         m_renderInstanceStore.Clear();

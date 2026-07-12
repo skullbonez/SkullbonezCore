@@ -2535,6 +2535,25 @@ SkullbonezCore::Basics::TickInteractionAutomationAfterRender( InteractionAutomat
     return result;
 }
 
+
+bool SkullbonezCore::Basics::InteractionAutomationWillCaptureAfterRender( const InteractionAutomationController& state,
+                                                                          int frame )
+{
+    if ( !state.enabled || state.finished )
+    {
+        return false;
+    }
+    for ( const RunInteractionAutomationAction& action : state.actions )
+    {
+        if ( !action.processed && action.frame == frame &&
+             action.type == RunInteractionAutomationActionType::Screenshot )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 SbResult SkullbonezCore::Basics::WriteInteractionAutomationReport( InteractionAutomationController& state,
                                                                    const SceneController& scene,
                                                                    const RuntimeTools& runtimeTools,

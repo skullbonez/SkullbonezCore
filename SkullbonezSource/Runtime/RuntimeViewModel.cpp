@@ -119,6 +119,9 @@ RuntimeViewModel RuntimeViewModelBuilder::Build( const RuntimeViewModelContext& 
     // model-order compatibility count for this presentation value.
     view.modelCount = SkullbonezCore::Physics::PhysicsEngineStoreQueries::BodyStore( context.physics ).Count();
     view.timeScale = scene.timeScale;
+    view.presentationInterpolation = context.presentationInterpolation;
+    view.presentationPinned = context.presentationPinned;
+    view.presentationAlpha = std::clamp( context.presentationAlpha, 0.0f, 1.0f );
     return view;
 }
 

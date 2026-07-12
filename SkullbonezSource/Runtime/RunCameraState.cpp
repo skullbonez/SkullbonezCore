@@ -33,6 +33,7 @@ Related:
 #include "../World/Terrain.h"
 #include "../Core/Profiler.h"
 
+using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace SkullbonezCore::Basics
@@ -43,7 +44,8 @@ void RunCameraState::UpdateViewingOrientation( RunTimerState& timers,
                                                bool replayCameraActive,
                                                bool sceneMode,
                                                bool attachedActiveFollow,
-                                               bool cameraLookCaptured )
+                                               bool cameraLookCaptured,
+                                               float presentationAlpha )
 {
     if ( replayCameraActive )
     {
@@ -86,7 +88,8 @@ void RunCameraState::UpdateViewingOrientation( RunTimerState& timers,
             continue;
         }
         Vector3 targetPosition;
-        if ( models.TryGetModelPosition( modelIndex, targetPosition ) )
+        Quaternion targetOrientation;
+        if ( models.TryGetPresentationPose( modelIndex, presentationAlpha, targetPosition, targetOrientation ) )
         {
             cameras.SetViewCoordinates( targetPosition );
         }
@@ -111,7 +114,8 @@ void RunCameraState::TickControls( Environment::CameraCollection& cameras,
                                    bool editorModeEnabled,
                                    bool viewportLookActive,
                                    bool sceneMode,
-                                   float cameraDt )
+                                   float cameraDt,
+                                   float presentationAlpha )
 {
     constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
     const bool attachedOrbitOwnsCamera = RunCameraModeIsAttached( mode ) && attachedCamera.State().activeFollow &&
@@ -137,7 +141,7 @@ void RunCameraState::TickControls( Environment::CameraCollection& cameras,
             static_cast<float>( input.xMove ) * CAMERA_MOUSE_REFERENCE_DT * config.camera.mouseSensitivity;
         const float orbitPitchDelta =
             static_cast<float>( input.yMove ) * CAMERA_MOUSE_REFERENCE_DT * config.camera.mouseSensitivity;
-        (void)attachedCamera.TickFollow( models, cameras, orbitYawDelta, orbitPitchDelta );
+        (void)attachedCamera.TickFollow( models, cameras, orbitYawDelta, orbitPitchDelta, presentationAlpha );
     }
     cameras.SetTweenSpeed( config.camera.cameraTweenRate * cameraDt );
 }

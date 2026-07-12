@@ -43,7 +43,7 @@ namespace
 {
 constexpr const char* kConfigInputPath = "unit_engine_config_input.cfg";
 constexpr const char* kConfigDumpPath = "unit_engine_config_dump.cfg";
-constexpr uint64_t kStableConfigKeyOrderHash = 0x2de8f34ff5b0a129ull;
+constexpr uint64_t kStableConfigKeyOrderHash = 0x53a2288602b7ad76ull;
 
 struct TemporaryConfigFiles
 {
@@ -123,7 +123,7 @@ TEST_CASE( "EngineConfig: valid file produces the stable complete dump order" )
 
     REQUIRE( DumpConfig( config ) );
     const std::vector<std::string> lines = ReadLines( kConfigDumpPath );
-    REQUIRE( lines.size() == 219 );
+    REQUIRE( lines.size() == 220 );
     CHECK( lines.front() == "[config]" );
 
     uint64_t keyOrderHash = 14695981039346656037ull;
@@ -136,7 +136,7 @@ TEST_CASE( "EngineConfig: valid file produces the stable complete dump order" )
         CHECK_MESSAGE( uniqueKeys.insert( key ).second, "Every config key must be dumped exactly once" );
         keyOrderHash = AppendStableHash( keyOrderHash, key );
     }
-    CHECK( uniqueKeys.size() == 218 );
+    CHECK( uniqueKeys.size() == 219 );
     CHECK( keyOrderHash == kStableConfigKeyOrderHash );
     CHECK( lines[1] == "screen_x = 2048" );
     CHECK( lines.back() == "contact_audio_debug_counters = 1" );

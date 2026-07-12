@@ -227,6 +227,7 @@ TickInteractionAutomationAfterRender( InteractionAutomationController& state,
                                       UI::InGameUI& ui,
                                       CaptureController& capture,
                                       Rendering::IRenderCaptureBackend& captureBackend );
+bool InteractionAutomationWillCaptureAfterRender( const InteractionAutomationController& state, int frame );
 SbResult WriteInteractionAutomationReport( InteractionAutomationController& state,
                                            const SceneController& scene,
                                            const RuntimeTools& runtimeTools,

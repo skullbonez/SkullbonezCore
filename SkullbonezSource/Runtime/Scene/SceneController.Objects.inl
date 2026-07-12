@@ -7,6 +7,10 @@ Mental model:
   These are operations on concrete SceneController-owned stores, not a
   nested context or replacement object-model façade.
 
+Glossary:
+  Presentation capture: Allocation-free previous/current solver endpoints
+    maintained in RenderInstanceStore across fixed physics steps.
+
 Invariants:
   - SceneEntityStore, physics body/collider rows, and render rows retain the
     same dense count after every successful creation or deletion.
@@ -14,6 +18,10 @@ Invariants:
     short-lived row hints at cold or presentation boundaries.
   - Hot physics loops consume physics-owned arrays, never this declaration
     surface or callbacks into SceneController.
+
+Related:
+  - SkullbonezSource/Runtime/Scene/SceneController.Objects.cpp
+  - SkullbonezSource/Rendering/RenderInstanceStore.h
 */
 private:
 Rendering::RenderInstanceStore m_renderInstanceStore; // Render snapshot in scene/model order, owned outside physics.
@@ -31,7 +39,7 @@ bool RefreshPhysicsBodyStoreFromAuthoredDescriptors();
 // before borrowing PhysicsEngine store views.
 bool RepairPhysicsBodyTopology();
 int FixedTreeReleaseRootForModelIndex( int modelIndex ) const;
-void RefreshRenderInstances();
+void RefreshRenderInstances( float presentationAlpha = 1.0f );
 Basics::SceneEntityStore& SceneEntities();
 const Basics::SceneEntityStore& SceneEntities() const;
 void AssertSceneCreationTopology( int expectedCount ) const;
@@ -48,11 +56,17 @@ SceneEntityCreateResult TryCreateSceneEntity( Basics::SceneEntityCreateDesc enti
 // presentation, and render rows as one swap-last transaction.
 bool DestroySceneEntity( Physics::PhysicsBodyHandle body );
 void Clear();
-void PrepareRenderInstances();
+void BeginPhysicsStepPresentationCapture();
+void CompletePhysicsStepPresentationCapture();
+void PrepareRenderInstances( float presentationAlpha = 1.0f );
 // Legacy object-follow cameras can outlive the model slots they track.
 // Returns false only for an absent slot; a present model without a body is
 // store-topology drift and still fails through the fatal invariant lane.
 bool TryGetModelPosition( int index, Math::Vector::Vector3& outPosition ) const;
+bool TryGetPresentationPose( int index,
+                             float presentationAlpha,
+                             Math::Vector::Vector3& outPosition,
+                             Math::Orientation::Quaternion& outOrientation ) const;
 // Scene entity count is the stable model-slot count shared by scene files,
 // editor picks, replay streams, and cold owner-repair boundaries.
 int SceneEntityCount() const;

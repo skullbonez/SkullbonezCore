@@ -90,7 +90,8 @@ struct RunCameraState
                                    bool replayCameraActive,
                                    bool sceneMode,
                                    bool attachedActiveFollow,
-                                   bool cameraLookCaptured );
+                                   bool cameraLookCaptured,
+                                   float presentationAlpha );
     void AdvanceAutoCycleClock( bool sceneMode, float simulationDt );
     void TickControls( Environment::CameraCollection& cameras,
                        Geometry::Terrain& terrain,
@@ -100,7 +101,8 @@ struct RunCameraState
                        bool editorModeEnabled,
                        bool viewportLookActive,
                        bool sceneMode,
-                       float cameraDt );
+                       float cameraDt,
+                       float presentationAlpha );
 };
 
 } // namespace Basics

@@ -143,7 +143,12 @@ class AttachedCameraController
     bool TickFollow( const Basics::SceneController& collection,
                      Environment::CameraCollection& cameras,
                      float orbitYawDelta,
-                     float orbitPitchDelta );
+                     float orbitPitchDelta,
+                     float presentationAlpha );
+    bool TryGetPresentationListenerPosition( const Basics::SceneController& collection,
+                                             const Environment::CameraCollection& cameras,
+                                             float presentationAlpha,
+                                             Math::Vector::Vector3& outPosition ) const;
     bool CycleMode( const Basics::SceneController& collection, Environment::CameraCollection& cameras );
     bool TogglePin( const Basics::SceneController& collection, Environment::CameraCollection& cameras );
     bool ApplyOrbitInput( const Basics::SceneController& collection,
@@ -200,6 +205,7 @@ class AttachedCameraController
                                  const AttachedCameraPose& currentPose,
                                  float orbitYawDelta,
                                  float orbitPitchDelta,
+                                 float presentationAlpha,
                                  AttachedCameraPoseCommand& outCommand );
 
   private:

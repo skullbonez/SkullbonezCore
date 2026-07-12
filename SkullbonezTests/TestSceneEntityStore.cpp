@@ -159,6 +159,83 @@ TEST_CASE( "RenderInstanceStore: preflighted creation publishes every render row
     CHECK_FALSE( renderStore.CanAppendCreationRow( 0 ) );
 }
 
+TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuities collapse" )
+{
+    using namespace SkullbonezCore::Math::Orientation;
+    using namespace SkullbonezCore::Math::Vector;
+    using namespace SkullbonezCore::Physics;
+    using namespace SkullbonezCore::Rendering;
+
+    static PhysicsBodyStore bodyStore;
+    bodyStore.Clear();
+    PhysicsBodyRecord body;
+    body.sceneObjectId = PhysicsSceneObjectId{ 901u };
+    body.replayBodyId = 901u;
+    body.position = Vector3( 0.0f, 0.0f, 0.0f );
+    const PhysicsBodyHandle bodyHandle = bodyStore.CreateBodyRecord( body );
+    REQUIRE( bodyHandle.IsValid() );
+
+    static ColliderStore colliderStore;
+    colliderStore.Clear();
+    ColliderRecord collider;
+    collider.body = bodyHandle;
+    collider.sceneObjectId = body.sceneObjectId;
+    collider.replayBodyId = body.replayBodyId;
+    collider.shape = SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, ZERO_VECTOR );
+    collider.shapeKind = ColliderShapeKind::Sphere;
+    collider.boundingRadius = 1.0f;
+    REQUIRE( colliderStore.CreateColliderRecord( collider ).IsValid() );
+
+    RenderInstanceStore renderStore;
+    RenderInstancePresentationRecord presentation;
+    renderStore.CommitCreationRow( presentation, bodyStore.Records()[0], colliderStore.Records()[0], 0 );
+
+    renderStore.BeginPhysicsStepPoseCapture( bodyStore );
+    PhysicsBodyRecord* mutableBody = bodyStore.MutableRecordForModelIndex( 0 );
+    REQUIRE( mutableBody != nullptr );
+    mutableBody->position = Vector3( 8.0f, 0.0f, 0.0f );
+    renderStore.CompletePhysicsStepPoseCapture( bodyStore );
+
+    Vector3 presentedPosition;
+    Quaternion presentedOrientation;
+    REQUIRE( renderStore.TryGetPresentationPose( 0, 0.25f, presentedPosition, presentedOrientation ) );
+    CHECK( presentedPosition.x == doctest::Approx( 2.0f ) );
+
+    // A teleport between ticks is a discontinuity. Refresh must publish it
+    // exactly instead of blending from the previous physics endpoint.
+    mutableBody->position = Vector3( 100.0f, 0.0f, 0.0f );
+    renderStore.Refresh( bodyStore, colliderStore, 0.25f );
+    REQUIRE( renderStore.TryGetPresentationPose( 0, 0.25f, presentedPosition, presentedOrientation ) );
+    CHECK( presentedPosition.x == doctest::Approx( 100.0f ) );
+
+    // Input can teleport a body immediately before a solver tick. The begin
+    // capture detects that endpoint break, so the next legitimate tick blends
+    // from the teleported pose instead of resurrecting the old path.
+    mutableBody->position = Vector3( 200.0f, 0.0f, 0.0f );
+    renderStore.BeginPhysicsStepPoseCapture( bodyStore );
+    mutableBody->position = Vector3( 208.0f, 0.0f, 0.0f );
+    renderStore.CompletePhysicsStepPoseCapture( bodyStore );
+    REQUIRE( renderStore.TryGetPresentationPose( 0, 0.25f, presentedPosition, presentedOrientation ) );
+    CHECK( presentedPosition.x == doctest::Approx( 202.0f ) );
+}
+
+TEST_CASE( "Quaternion shortest nlerp treats antipodal endpoints as one orientation" )
+{
+    using namespace SkullbonezCore::Math::Orientation;
+    const Quaternion identity( 0.0f, 0.0f, 0.0f, 1.0f );
+    const Quaternion antipodalIdentity( 0.0f, 0.0f, 0.0f, -1.0f );
+    const Quaternion blended = NlerpShortest( identity, antipodalIdentity, 0.5f );
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+    float w = 0.0f;
+    blended.GetComponents( x, y, z, w );
+    CHECK( x == doctest::Approx( 0.0f ) );
+    CHECK( y == doctest::Approx( 0.0f ) );
+    CHECK( z == doctest::Approx( 0.0f ) );
+    CHECK( w == doctest::Approx( 1.0f ) );
+}
+
 TEST_CASE( "RenderInstanceStore: contact feedback follows presentation rows and decays" )
 {
     using namespace SkullbonezCore::Rendering;
