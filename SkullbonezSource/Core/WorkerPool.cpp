@@ -44,7 +44,8 @@ thread_local int g_workerThreadIndex = -1;
 } // namespace
 
 WorkerPool::WorkerPool()
-    : m_parallelTaskHead( 0 ), m_parallelTaskCount( 0 ), m_stopping( false ), m_minParallelItems( 32 )
+    : m_taskHead( 0 ), m_taskCount( 0 ), m_taskHighWater( 0 ), m_parallelTaskHead( 0 ), m_parallelTaskCount( 0 ),
+      m_parallelTaskHighWater( 0 ), m_stopping( false ), m_minParallelItems( 32 )
 {
 }
 
@@ -140,24 +141,27 @@ void WorkerPool::Shutdown()
     m_threads.clear();
     {
         std::lock_guard<std::mutex> lock( m_mutex );
-        m_tasks.clear();
+        m_taskHead = 0;
+        m_taskCount = 0;
+        m_taskHighWater = 0;
         m_parallelTaskHead = 0;
         m_parallelTaskCount = 0;
+        m_parallelTaskHighWater = 0;
         m_stopping = false;
     }
 }
 
 
-void WorkerPool::Submit( Task task )
+void WorkerPool::SubmitTaskRecord( void* taskState, TaskDispatcher dispatch )
 {
-    if ( !task )
+    if ( !dispatch )
     {
         return;
     }
 
     if ( GetThreadCount() == 0 )
     {
-        task();
+        dispatch( taskState );
         return;
     }
 
@@ -165,57 +169,24 @@ void WorkerPool::Submit( Task task )
         std::lock_guard<std::mutex> lock( m_mutex );
         if ( m_stopping )
         {
-            SB_FATAL( "WorkerPool", "Submit called while shutting down." );
+            SB_FATAL( "WorkerPool",
+                      "SubmitNoAlloc called while shutting down: owner=Core/WorkerPool phase=runtime_dispatch." );
         }
-        m_tasks.push_back( std::move( task ) );
+        if ( m_taskCount >= WORKER_PARALLEL_TASK_CAPACITY )
+        {
+            SB_FATAL( "WorkerPool",
+                      "Fixed task queue exhausted: owner=Core/WorkerPool phase=runtime_dispatch count=%d capacity=%d "
+                      "high_water=%d.",
+                      m_taskCount,
+                      WORKER_PARALLEL_TASK_CAPACITY,
+                      m_taskHighWater );
+        }
+        const int tail = ( m_taskHead + m_taskCount ) % WORKER_PARALLEL_TASK_CAPACITY;
+        m_tasks[tail] = { taskState, dispatch };
+        ++m_taskCount;
+        m_taskHighWater = (std::max)( m_taskHighWater, m_taskCount );
     }
     m_workAvailable.notify_one();
-}
-
-
-void WorkerPool::ParallelFor( int begin,
-                              int end,
-                              const IndexFunction& fn,
-                              int minParallelItems,
-                              const char* workerMarkerPath,
-                              uint32_t workerMarkerHash )
-{
-    const int itemCount = end - begin;
-    if ( itemCount <= 0 || !fn )
-    {
-        return;
-    }
-
-    ParallelForNoAlloc( begin, end, fn, minParallelItems, workerMarkerPath, workerMarkerHash );
-}
-
-
-void WorkerPool::ParallelForChunks( const std::vector<WorkerChunkRange>& chunks, const ChunkFunction& fn )
-{
-    ParallelForChunks( chunks.data(), static_cast<int>( chunks.size() ), fn );
-}
-
-
-void WorkerPool::ParallelForChunks( const WorkerChunkRange* chunks, int chunkCount, const ChunkFunction& fn )
-{
-    if ( fn )
-    {
-        ParallelForChunksNoAlloc( chunks, chunkCount, fn );
-    }
-}
-
-
-std::vector<WorkerChunkRange> WorkerPool::MakeChunks( int begin, int end, int minParallelItems ) const
-{
-    std::vector<WorkerChunkRange> chunks;
-    WorkerChunkRange fixedChunks[WORKER_PARALLEL_TASK_CAPACITY];
-    const int chunkCount = BuildChunks( begin, end, minParallelItems, fixedChunks, WORKER_PARALLEL_TASK_CAPACITY );
-    chunks.reserve( static_cast<size_t>( chunkCount ) );
-    for ( int index = 0; index < chunkCount; ++index )
-    {
-        chunks.push_back( fixedChunks[index] );
-    }
-    return chunks;
 }
 
 
@@ -296,14 +267,17 @@ void WorkerPool::SubmitParallelChunk( void* dispatchState,
         if ( m_parallelTaskCount >= WORKER_PARALLEL_TASK_CAPACITY )
         {
             SB_FATAL( "WorkerPool",
-                      "Fixed parallel task queue exhausted: count=%d capacity=%d.",
+                      "Fixed parallel task queue exhausted: owner=Core/WorkerPool phase=runtime_parallel_dispatch "
+                      "count=%d capacity=%d high_water=%d.",
                       m_parallelTaskCount,
-                      WORKER_PARALLEL_TASK_CAPACITY );
+                      WORKER_PARALLEL_TASK_CAPACITY,
+                      m_parallelTaskHighWater );
         }
 
         const int tail = ( m_parallelTaskHead + m_parallelTaskCount ) % WORKER_PARALLEL_TASK_CAPACITY;
         m_parallelTasks[tail] = { dispatchState, dispatch, chunk };
         ++m_parallelTaskCount;
+        m_parallelTaskHighWater = (std::max)( m_parallelTaskHighWater, m_parallelTaskCount );
     }
     m_workAvailable.notify_one();
 }
@@ -341,14 +315,14 @@ void WorkerPool::WorkerLoop( int workerIndex )
 
     while ( true )
     {
-        Task task;
+        TaskRecord task = {};
         ParallelTaskRecord parallelTask = {};
         bool hasParallelTask = false;
         {
             std::unique_lock<std::mutex> lock( m_mutex );
-            m_workAvailable.wait( lock, [&]() { return m_stopping || !m_tasks.empty() || m_parallelTaskCount > 0; } );
+            m_workAvailable.wait( lock, [&]() { return m_stopping || m_taskCount > 0 || m_parallelTaskCount > 0; } );
 
-            if ( m_stopping && m_tasks.empty() && m_parallelTaskCount == 0 )
+            if ( m_stopping && m_taskCount == 0 && m_parallelTaskCount == 0 )
             {
                 break;
             }
@@ -362,8 +336,9 @@ void WorkerPool::WorkerLoop( int workerIndex )
             }
             else
             {
-                task = std::move( m_tasks.front() );
-                m_tasks.pop_front();
+                task = m_tasks[m_taskHead];
+                m_taskHead = ( m_taskHead + 1 ) % WORKER_PARALLEL_TASK_CAPACITY;
+                --m_taskCount;
             }
         }
 
@@ -378,7 +353,10 @@ void WorkerPool::WorkerLoop( int workerIndex )
             }
             else
             {
-                task();
+                if ( task.dispatch )
+                {
+                    task.dispatch( task.state );
+                }
             }
         }
         catch ( const std::exception& e )
@@ -398,8 +376,40 @@ void WorkerPool::WorkerLoop( int workerIndex )
 
 bool RunWorkerSystemSelfTest( WorkerPool& pool, FILE* out )
 {
+    struct FixedTaskProbe
+    {
+        explicit FixedTaskProbe( int taskCount ) : fence( taskCount )
+        {
+        }
+
+        std::atomic<int> completed{ 0 };
+        Fence fence;
+
+        void ExecuteWorkerTask()
+        {
+            completed.fetch_add( 1, std::memory_order_relaxed );
+            fence.Signal();
+        }
+    };
+    constexpr int fixedTaskCount = 32;
+    constexpr int fixedTaskRounds = 10;
+    for ( int round = 0; round < fixedTaskRounds; ++round )
+    {
+        FixedTaskProbe fixedTaskProbe( fixedTaskCount );
+        for ( int taskIndex = 0; taskIndex < fixedTaskCount; ++taskIndex )
+        {
+            pool.SubmitNoAlloc( fixedTaskProbe );
+        }
+        fixedTaskProbe.fence.Wait();
+        if ( fixedTaskProbe.completed.load( std::memory_order_relaxed ) != fixedTaskCount )
+        {
+            fprintf( out, "[worker-self-test] Fixed task ring did not execute every submitted task.\n" );
+            return false;
+        }
+    }
+
     std::vector<int> squares( 257, 0 );
-    pool.ParallelFor(
+    pool.ParallelForNoAlloc(
         0,
         static_cast<int>( squares.size() ),
         [&]( int index ) { squares[static_cast<size_t>( index )] = index * index; },

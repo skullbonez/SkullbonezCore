@@ -3857,6 +3857,25 @@ void RunReplayPredictionWorkerRange( ReplayRuntime& replayRuntime,
     }
 }
 
+} // namespace
+
+void ReplayPredictionWorkerOperation::operator()( int beginTickIndex, int endTickIndex ) const
+{
+    // Lifetime: CancelPredictionJob waits for the enclosing AmortizedTask before
+    // any of these replay-owned borrows can be cleared or replaced.
+    if ( replayRuntime && config && workerPool )
+    {
+        RunReplayPredictionWorkerRange( *replayRuntime,
+                                        *config,
+                                        *workerPool,
+                                        modelCount,
+                                        beginTickIndex,
+                                        endTickIndex );
+    }
+}
+
+namespace
+{
 bool CompleteReplayPredictionJobOnFrameThread( ReplayRuntime& replayRuntime, double simulationTotalSeconds )
 {
     RunReplayPredictionState& prediction = replayRuntime.Prediction();
@@ -4134,18 +4153,10 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
             RuntimeAllocation::RuntimeAllocationPhase::Replay );
         RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( ReplayPredictionReserveOwner() );
-        prediction.build.workerTask = std::make_unique<SkullbonezCore::Threading::AmortizedTask>(
+        prediction.build.workerTask = std::make_unique<ReplayPredictionAmortizedTask>(
             prediction.build.targetTickCount,
             REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT,
-            [&replayRuntime, &config, &workerPool, modelCount]( int beginTickIndex, int endTickIndex )
-            {
-                RunReplayPredictionWorkerRange( replayRuntime,
-                                                config,
-                                                workerPool,
-                                                modelCount,
-                                                beginTickIndex,
-                                                endTickIndex );
-            } );
+            ReplayPredictionWorkerOperation{ &replayRuntime, &config, &workerPool, modelCount } );
         prediction.build.workerTask->SetBudget( REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT );
     }
     prediction.build.building = true;

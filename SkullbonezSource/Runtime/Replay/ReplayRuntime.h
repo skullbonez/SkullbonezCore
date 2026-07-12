@@ -61,6 +61,7 @@ Related:
 #include "../RunReplayProbeState.h"
 #include "../../Core/MainMemoryStats.h"
 #include "../../Core/Common.h"
+#include "../../Core/AmortizedTask.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/PhysicsHandles.h"
 #include "../../Physics/PhysicsWorldForces.h"
@@ -100,13 +101,13 @@ class PhysicsBodyStore;
 
 namespace Threading
 {
-class AmortizedTask;
 class WorkerPool;
 } // namespace Threading
 
 namespace Basics
 {
 class EngineConfig;
+class ReplayRuntime;
 class InputRouter;
 class RunEditorTracer;
 class RuntimeTools;
@@ -123,6 +124,21 @@ struct ReplayV2SaveResult;
 struct ReplaySolverSampleRestoreContext;
 #ifdef _DEBUG
 #endif
+
+// Concept: this named value operation keeps prediction slices typed through the
+// WorkerPool boundary. Its borrowed owners remain valid until cancellation
+// waits for the task's in-flight flag to clear.
+struct ReplayPredictionWorkerOperation
+{
+    ReplayRuntime* replayRuntime = nullptr;
+    const EngineConfig* config = nullptr;
+    Threading::WorkerPool* workerPool = nullptr;
+    int modelCount = 0;
+
+    void operator()( int beginTickIndex, int endTickIndex ) const;
+};
+
+using ReplayPredictionAmortizedTask = Threading::AmortizedTask<ReplayPredictionWorkerOperation>;
 
 inline constexpr std::size_t REPLAY_PREDICTION_GHOST_MAX_FRAMES = 24;
 inline constexpr std::size_t REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY =
@@ -635,7 +651,7 @@ struct RunReplayPredictionBuildState
     // the frame loop only submits ticks and consumes the published prefix.
     // Hazard: cancellation must wait for an in-flight slice before clearing
     // buildFrames, trajectory records, or the private prediction engine.
-    std::unique_ptr<Threading::AmortizedTask> workerTask;
+    std::unique_ptr<ReplayPredictionAmortizedTask> workerTask;
     std::atomic<bool> workerFailed{ false };
 };
 

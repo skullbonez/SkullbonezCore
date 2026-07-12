@@ -11,11 +11,11 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-12th-july` |
-| Current pushed baseline | Upload-arena-overflow-policy is pushed at `b8e5a47f`; frame-view-calling-convention is commit-ready on top |
-| Current objective | Validation-gate V3 is externally blocked; the active local lane advances to render-interface-and-workerpool-slimming |
-| Portfolio progress | 292 / 298 tasks = 98% rounded overall |
-| Last broad local gate | `tools\\validate_full.bat` passed final frame-view source on 2026-07-12 in 98.92s: formatting/metadata clean, every CPU lane passed, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | Frame-view closure passed the final independent ownership review and the broad gate; no DX12 source changed, so no extra graphics-stress lane was required. |
+| Current baseline | Render-interface-and-workerpool-slimming is complete and validated on top of pushed frame-view commit `04bdb4b5` |
+| Current objective | All local MASTER work is complete; validation-gate V3 remains externally blocked |
+| Portfolio progress | 297 / 298 tasks = 100% rounded overall |
+| Last broad local gate | `tools\\validate_full.bat` passed final render-interface/WorkerPool source on 2026-07-12 in 85.47s: formatting/CPU lanes clean, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
+| Validation for current edits | Independent review passed after the typed WorkerPool redesign; worker self-test, allocation checks, perf, full, and one-minute DX12 stress gates all passed. |
 
 ## Live Queue
 
@@ -24,11 +24,9 @@ plan inventory.
    required `main` branch protection, and trusted DX12-runner administration.
    Persistent self-hosted DX12 stays trusted-main/manual only; public-PR GPU
    evidence needs an ephemeral isolated runner.
-2. 2026-07-12 adversarial-review remediation (MASTER section of the same
-   name). Descriptor/handle lifetime, determinism-contract-hardening, and
-   upload-arena-overflow-policy and frame-view-calling-convention are complete.
-   Next: render-interface-and-workerpool-slimming. The comment-rot sweep is
-   owner-parked in `WNF/` (no comment changes yet, 2026-07-12 ruling).
+2. 2026-07-12 adversarial-review remediation is locally complete. The
+   comment-rot sweep is owner-parked in `WNF/` (no comment changes yet,
+   2026-07-12 ruling) and is not live portfolio work.
 
 ## Current Plan Decisions
 
@@ -85,6 +83,5 @@ plan inventory.
 
 ## Next Handoff
 
-Commit and push frame-view-calling-convention, then use
-`Agentic/Plans/MASTER-PLAN.md` to execute render-interface-and-workerpool-slimming.
-V3 resumes when the required GitHub and runner authority exists.
+No local implementation remains. V3 resumes when the required GitHub and
+runner authority exists.

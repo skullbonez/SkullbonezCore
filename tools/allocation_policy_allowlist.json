@@ -108,7 +108,7 @@
     {
       "path": "SkullbonezSource/Runtime/Replay/RunReplayTools.cpp",
       "patterns": [
-        "std::make_unique<SkullbonezCore::Threading::AmortizedTask>"
+        "std::make_unique<ReplayPredictionAmortizedTask>"
       ],
       "owner": "Replay prediction working set",
       "phase": "replay",
@@ -251,7 +251,6 @@
       "path": "SkullbonezSource/Core/WorkerPool.h",
       "patterns": [
         ".resize(",
-        "std::deque<",
         "std::vector<"
       ],
       "owner": "Core infrastructure static STL surface",

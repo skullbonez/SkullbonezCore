@@ -1513,7 +1513,7 @@ void RenderBackendDX12::ReportArchitectureStats( const char* reason ) const
         "dx12_render_architecture_stats reason=%s raster_contract=%s root_parameters=%u "
         "raster_srv_slots=t%u..t%u "
         "rtv_descriptors=%u/%u dsv_descriptors=%u/%u static_srvs=%u/%u static_srv_high_water=%u "
-        "transient_srv_peak=%u/%u "
+        "transient_srv_peak=%u/%u draw_call_high_water=%d "
         "upload_peak_bytes=%llu upload_capacity_bytes=%llu "
         "upload_constants_peak_bytes=%llu upload_dynamic_peak_bytes=%llu "
         "upload_instances_peak_bytes=%llu upload_textures_peak_bytes=%llu "
@@ -1533,6 +1533,7 @@ void RenderBackendDX12::ReportArchitectureStats( const char* reason ) const
         descriptorStats.staticHighWater,
         descriptorStats.transientPeakThisRun,
         descriptorStats.transientCapacityPerFrame,
+        (std::max)( m_frameDrawCallHighWater, m_frameDrawCallCount ),
         static_cast<unsigned long long>( uploadPeakBytes ),
         static_cast<unsigned long long>( uploadCapacityBytes ),
         static_cast<unsigned long long>(

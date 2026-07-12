@@ -956,6 +956,12 @@ class Dx12RaytracingOwner
 // resource states, fences, upload memory, and compiled pipeline state. Texture
 // and pipeline lifetime belong to the named owners above; this class sequences
 // their work with the device/frame command stream.
+// Inheritance retention: rendering owns seven role facets so runtime callers
+// receive only lifecycle, resource, command, diagnostics, capture, raytracing,
+// or shader-development authority. Command calls are per-frame/per-draw; other
+// facets are cold or diagnostic. Flattening them would republish the complete
+// backend and violate capability narrowing. Retention is covered by the dated
+// interface measurement plus DX12/perf gates.
 class RenderBackendDX12 : public IRenderDeviceLifecycle,
                           public IRenderResourceFactory,
                           public IRenderCommandContext,
@@ -1090,6 +1096,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     bool m_isVsyncEnabled = true;
     bool m_allowTearing = false;
     int m_frameDrawCallCount = 0;
+    int m_frameDrawCallHighWater = 0;
     RenderVisibilityStats m_frameVisibilityStats;                  // Reset with draw diagnostics; copied read-only into UI frame data.
     DrawCallTrace m_drawCallTrace;
 
@@ -1228,6 +1235,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
 
     void ResetFrameDrawCalls() override
     {
+        m_frameDrawCallHighWater = (std::max)( m_frameDrawCallHighWater, m_frameDrawCallCount );
         m_frameDrawCallCount = 0;
         m_frameVisibilityStats = RenderVisibilityStats();
         m_drawCallTrace.BeginFrame();

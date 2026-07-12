@@ -105,8 +105,8 @@ concrete plan rows and counting it would duplicate tasks.
 | determinism-contract-hardening | 4 | 4 | 100% |
 | upload-arena-overflow-policy | 4 | 4 | 100% |
 | frame-view-calling-convention | 4 | 4 | 100% |
-| render-interface-and-workerpool-slimming | 0 | 5 | 0% |
-| **Portfolio total** | **292** | **298** | **98%** |
+| render-interface-and-workerpool-slimming | 5 | 5 | 100% |
+| **Portfolio total** | **297** | **298** | **100%** |
 
 ## Current Execution Priority
 
@@ -117,12 +117,10 @@ For maximum impact with minimal rework, use this binding critical path:
 1. **Validation-gate V3 — blocked external lane.** Repository implementation is
    complete. Remaining work requires a real `merge_group` proof, required CPU
    branch protection, and trusted/ephemeral DX12 runner administration.
-2. **Adversarial-review remediation — active local lane.** While V3 waits on
-   external administration, the 2026-07-12 must-do plans are the local
-   priority. Both must-do plans and frame-view-calling-convention are complete;
-   render-interface-and-workerpool-slimming is the final local plan. The
-   comment-rot sweep was owner-parked to `WNF/` on 2026-07-12 (no comment
-   changes yet).
+2. **Adversarial-review remediation — locally complete.** All five active
+   2026-07-12 remediation plans are closed. The comment-rot sweep remains
+   owner-parked in `WNF/` (no comment changes yet), so it is not live work or
+   part of the portfolio ledger.
 
 ## Engine Cleanup Campaign
 
@@ -168,7 +166,7 @@ Nice to have (start only after the must-do lane closes):
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | [frame-view-calling-convention](../Reports/2026-07-12/frame-view-calling-convention-closure.md) | Complete | 4/4 | Four non-copyable capability slices replace high-arity frame calls without recreating a universal context bag |
-| [render-interface-and-workerpool-slimming](TODO/render-interface-and-workerpool-slimming.md) | Not started | 0/5 | Last of the six; R2 collapse work proceeds only on R1 measurement evidence |
+| [render-interface-and-workerpool-slimming](../Reports/2026-07-12/render-interface-and-workerpool-slimming-closure.md) | Complete | 5/5 | Typed fixed-ring dispatch, measured interface retention, independent review, and full/perf/DX12 stress gates complete |
 
 Owner-parked 2026-07-12 (inventory rule 9 applies — not live work, not in the
 ledger): `WNF/dx12-frame-path-comment-rot-sweep.md`. The owner ruled no

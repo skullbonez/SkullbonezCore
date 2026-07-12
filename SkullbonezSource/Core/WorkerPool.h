@@ -4,9 +4,9 @@ Purpose:
   Declares the fixed worker pool and deterministic chunk helpers.
 
 Mental model:
-  Worker threads are created once at startup. Frame code can use ParallelFor
-  for fork-join work, or ordered chunk collection for deterministic local
-  output followed by main-thread merge in chunk order.
+  Worker threads are created once at startup. Frame code submits fixed callback
+  records or uses no-allocation fork-join helpers; ordered collection merges
+  deterministic local output on the caller thread.
 
 Glossary:
   Worker pool: Persistent thread group that runs bounded jobs outside the main
@@ -21,6 +21,8 @@ Invariants:
     deterministic merge order.
   - ParallelCollectOrdered lets workers build local output only; mergeChunk runs
     on the caller thread in chunk order.
+  - General and parallel task rings are fixed-capacity; submission never grows
+    a type-erased queue in steady runtime.
 
 Related:
   - SkullbonezSource/Core/Fence.h
@@ -35,9 +37,7 @@ Related:
 #include <cstdio>
 #include <condition_variable>
 #include <cstdint>
-#include <deque>
 #include <exception>
-#include <functional>
 #include <mutex>
 #include <thread>
 #include <type_traits>
@@ -59,9 +59,6 @@ struct WorkerChunkRange
 class WorkerPool
 {
   public:
-    using Task = std::function<void()>;
-    using IndexFunction = std::function<void( int )>;
-    using ChunkFunction = std::function<void( int chunkIndex, int begin, int end )>;
     static constexpr int MAX_PARALLEL_TASKS = 256;
 
     WorkerPool();
@@ -73,13 +70,10 @@ class WorkerPool
     void Initialise( int requestedThreadCount );
     void Shutdown();
 
-    void Submit( Task task );
-    void ParallelFor( int begin,
-                      int end,
-                      const IndexFunction& fn,
-                      int minParallelItems,
-                      const char* workerMarkerPath,
-                      uint32_t workerMarkerHash );
+    // Submits a caller-owned typed task to the fixed ring. TaskT must provide
+    // ExecuteWorkerTask(), and the object must outlive execution. Type erasure
+    // stays private so runtime callers cannot build callback-style interfaces.
+    template <typename TaskT> void SubmitNoAlloc( TaskT& task );
     template <typename IndexFunctionT>
     void ParallelForNoAlloc( int begin,
                              int end,
@@ -87,10 +81,8 @@ class WorkerPool
                              int minParallelItems,
                              const char* workerMarkerPath,
                              uint32_t workerMarkerHash );
-    void ParallelForChunks( const std::vector<WorkerChunkRange>& chunks, const ChunkFunction& fn );
     template <typename ChunkFunctionT>
     void ParallelForChunksNoAlloc( const WorkerChunkRange* chunks, int chunkCount, ChunkFunctionT&& fn );
-    std::vector<WorkerChunkRange> MakeChunks( int begin, int end, int minParallelItems = 0 ) const;
     // Returns deterministic chunk ranges in caller-owned storage. Use this for
     // hot-path two-pass jobs that need prefix sums or fixed scratch before
     // calling ParallelForChunksNoAlloc().
@@ -135,7 +127,14 @@ class WorkerPool
     }
 
   private:
+    using TaskDispatcher = void ( * )( void* taskState );
     using ParallelTaskDispatcher = void ( * )( void* dispatchState, const WorkerChunkRange& chunk );
+
+    struct TaskRecord
+    {
+        void* state;
+        TaskDispatcher dispatch;
+    };
 
     struct ParallelTaskRecord
     {
@@ -171,16 +170,21 @@ class WorkerPool
 
     template <typename ChunkFunctionT>
     static void ExecuteParallelChunkTask( void* dispatchState, const WorkerChunkRange& chunk );
+    template <typename TaskT> static void ExecuteTaskRecord( void* taskState );
 
     void WorkerLoop( int workerIndex );
     bool ShouldRunInline( int itemCount, int minParallelItems ) const;
     int BuildChunks( int begin, int end, int minParallelItems, WorkerChunkRange* outChunks, int outCapacity ) const;
-    void ParallelForChunks( const WorkerChunkRange* chunks, int chunkCount, const ChunkFunction& fn );
+    void SubmitTaskRecord( void* taskState, TaskDispatcher dispatch );
     void SubmitParallelChunk( void* dispatchState, ParallelTaskDispatcher dispatch, const WorkerChunkRange& chunk );
 
     mutable std::mutex m_mutex;
     std::condition_variable m_workAvailable;
-    std::deque<Task> m_tasks;
+    // Fixed callback records keep asynchronous replay slices allocation-free.
+    TaskRecord m_tasks[WORKER_PARALLEL_TASK_CAPACITY];
+    int m_taskHead;
+    int m_taskCount;
+    int m_taskHighWater;
     // Runtime allocation policy:
     //   Preallocated as inline WorkerPool storage for worker-count bounded
     //   parallel dispatch. Steady gameplay must not grow task records; overflow
@@ -189,10 +193,21 @@ class WorkerPool
     ParallelTaskRecord m_parallelTasks[WORKER_PARALLEL_TASK_CAPACITY];
     int m_parallelTaskHead;
     int m_parallelTaskCount;
+    int m_parallelTaskHighWater;
     std::vector<std::thread> m_threads;
     bool m_stopping;
     int m_minParallelItems;
 };
+
+template <typename TaskT> void WorkerPool::SubmitNoAlloc( TaskT& task )
+{
+    SubmitTaskRecord( &task, &WorkerPool::ExecuteTaskRecord<TaskT> );
+}
+
+template <typename TaskT> void WorkerPool::ExecuteTaskRecord( void* taskState )
+{
+    static_cast<TaskT*>( taskState )->ExecuteWorkerTask();
+}
 
 template <typename IndexFunctionT>
 void WorkerPool::ParallelForNoAlloc( int begin,
