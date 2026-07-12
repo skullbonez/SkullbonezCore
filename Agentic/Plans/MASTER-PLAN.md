@@ -106,7 +106,8 @@ concrete plan rows and counting it would duplicate tasks.
 | upload-arena-overflow-policy | 4 | 4 | 100% |
 | frame-view-calling-convention | 4 | 4 | 100% |
 | render-interface-and-workerpool-slimming | 5 | 5 | 100% |
-| **Portfolio total** | **297** | **298** | **100%** |
+| runtime-contract-enforcement | 0 | 5 | 0% |
+| **Portfolio total** | **297** | **303** | **98%** |
 
 ## Current Execution Priority
 
@@ -117,10 +118,17 @@ For maximum impact with minimal rework, use this binding critical path:
 1. **Validation-gate V3 — blocked external lane.** Repository implementation is
    complete. Remaining work requires a real `merge_group` proof, required CPU
    branch protection, and trusted/ephemeral DX12 runner administration.
-2. **Adversarial-review remediation — locally complete.** All five active
-   2026-07-12 remediation plans are closed. The comment-rot sweep remains
-   owner-parked in `WNF/` (no comment changes yet), so it is not live work or
-   part of the portfolio ledger.
+2. **Adversarial-review remediation round 1 — locally complete.** All five
+   active 2026-07-12 remediation plans are closed. The comment-rot sweep
+   remains owner-parked in `WNF/` (no comment changes yet), so it is not live
+   work or part of the portfolio ledger.
+3. **Adversarial-review round 2 — active local lane.** The 2026-07-12 second
+   review pass produced one must-do plan,
+   [runtime-contract-enforcement](TODO/runtime-contract-enforcement.md):
+   EngineLog fatal-path thread safety, SpatialGrid non-finite input
+   validation, AmortizedTask lifetime guards, and worker-pool
+   exception-plumbing removal. It is independent of every other plan and is
+   the current local priority while V3 stays externally blocked.
 
 ## Engine Cleanup Campaign
 
@@ -167,6 +175,23 @@ Nice to have (start only after the must-do lane closes):
 |---|---|---:|---|
 | [frame-view-calling-convention](../Reports/2026-07-12/frame-view-calling-convention-closure.md) | Complete | 4/4 | Four non-copyable capability slices replace high-arity frame calls without recreating a universal context bag |
 | [render-interface-and-workerpool-slimming](../Reports/2026-07-12/render-interface-and-workerpool-slimming-closure.md) | Complete | 5/5 | Typed fixed-ring dispatch, measured interface retention, independent review, and full/perf/DX12 stress gates complete |
+
+## Adversarial Review Remediation Round 2 (2026-07-12)
+
+Source: second 2026-07-12 adversarial pass over post-remediation source
+(worker primitives, logging/fatal path, broadphase input validation). All four
+findings are consolidated into one plan because they share a theme — internal
+contracts enforced by convention instead of code — and none justifies a
+separate validation cycle.
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [runtime-contract-enforcement](TODO/runtime-contract-enforcement.md) | Not started | 0/5 | Ready; independent of all other plans; E1 mutex-vs-affinity decision defaults to mutex |
+
+Recorded clean in the same pass (no plan needed): `Fence` signal/wait
+ordering, upload-reservation saturating arithmetic, replay `make_unique`
+allowlist compliance, descriptor free-list double-alloc/double-free checks,
+and `strtod`-based config parsing.
 
 Owner-parked 2026-07-12 (inventory rule 9 applies — not live work, not in the
 ledger): `WNF/dx12-frame-path-comment-rot-sweep.md`. The owner ruled no
