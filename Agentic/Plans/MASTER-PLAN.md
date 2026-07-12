@@ -1,6 +1,6 @@
 # MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-07-11
+Date: 2026-07-12
 Status: Authoritative inventory of every live repository plan
 
 ## Inventory Rules
@@ -101,7 +101,13 @@ concrete plan rows and counting it would duplicate tasks.
 | entity-model-endgame | 4 | 4 | 100% |
 | instant-prediction-velocity-chaos | 52 | 52 | 100% |
 | shadow-edge-quality | 5 | 5 | 100% |
-| **Portfolio total** | **275** | **276** | **100%** |
+| dx12-descriptor-and-handle-lifetime | 0 | 5 | 0% |
+| determinism-contract-hardening | 0 | 4 | 0% |
+| upload-arena-overflow-policy | 0 | 4 | 0% |
+| dx12-frame-path-comment-rot-sweep | 0 | 3 | 0% |
+| frame-view-calling-convention | 0 | 4 | 0% |
+| render-interface-and-workerpool-slimming | 0 | 5 | 0% |
+| **Portfolio total** | **275** | **301** | **91%** |
 
 ## Current Execution Priority
 
@@ -112,6 +118,14 @@ For maximum impact with minimal rework, use this binding critical path:
 1. **Validation-gate V3 — blocked external lane.** Repository implementation is
    complete. Remaining work requires a real `merge_group` proof, required CPU
    branch protection, and trusted/ephemeral DX12 runner administration.
+2. **Adversarial-review remediation — active local lane.** While V3 waits on
+   external administration, the 2026-07-12 must-do plans are the local
+   priority, in order: dx12-descriptor-and-handle-lifetime (latent resize/churn
+   crash), then determinism-contract-hardening (isolated commit window, no
+   concurrent physics-adjacent work), then upload-arena-overflow-policy and
+   dx12-frame-path-comment-rot-sweep (not interleaved with each other — both
+   edit the same frame-path file). Nice-to-have plans start only after the
+   must-do lane closes.
 
 ## Engine Cleanup Campaign
 
@@ -136,6 +150,35 @@ Reconciliation notes live inside each plan.
 | [sim-render-interpolation](../Reports/2026-07-12/sim-render-interpolation-closure.md) | Complete | 5/5 | Allocation-free live interpolation, deterministic capture pinning, coherent cameras/listener, review, and final gates complete |
 | [editor-undo-redo](../Reports/2026-07-12/editor-undo-redo-closure.md) | Complete | 5/5 | Fixed command history, stable-id recreation, exact state-fingerprint proof, lifecycle clearing, review, and final gates complete |
 | [data-format-versioning](../Reports/2026-07-12/data-format-versioning-closure.md) | Complete | 5/5 | Asset/config v0 upgrades, hull v1 window, no-downgrade writers, migration tool, review, and final gates complete |
+
+## Adversarial Review Remediation (2026-07-12)
+
+Source: 2026-07-12 independent adversarial source review of the DX12 backend,
+physics core, math layer, and frame loop (findings referenced with file:line
+evidence inside each plan). Grouped by owner ruling into must-do and
+nice-to-have lanes.
+
+Must do:
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [dx12-descriptor-and-handle-lifetime](TODO/dx12-descriptor-and-handle-lifetime.md) | Not started | 0/5 | Ready; highest severity — static SRV bump allocator plus FBO recreation on resize is a latent `SB_FATAL` crash; run first |
+| [determinism-contract-hardening](TODO/determinism-contract-hardening.md) | Not started | 0/4 | Ready; requires an isolated commit window with no other physics-adjacent change in flight (D4) |
+| [upload-arena-overflow-policy](TODO/upload-arena-overflow-policy.md) | Not started | 0/4 | Ready; independent of the descriptor plan; not interleaved with the comment-rot sweep (same file) |
+| [dx12-frame-path-comment-rot-sweep](TODO/dx12-frame-path-comment-rot-sweep.md) | Not started | 0/3 | Ready; land before or after — not interleaved with — upload-arena-overflow-policy |
+
+Nice to have (start only after the must-do lane closes):
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [frame-view-calling-convention](TODO/frame-view-calling-convention.md) | Not started | 0/4 | After must-do plans; avoids diff collisions in `RunFrame.cpp` |
+| [render-interface-and-workerpool-slimming](TODO/render-interface-and-workerpool-slimming.md) | Not started | 0/5 | Last of the six; R2 collapse work proceeds only on R1 measurement evidence |
+
+Deliberately not planned (owner may revisit): AoS `PhysicsBodyRecord` layout
+reshaping and terrain warm-start/clamp heuristic replacement — both working,
+honestly documented, and baseline-entangled; undertake only with a concrete
+perf or stacking-stability motivation. Repeated glossary-header deduplication
+is available as a documentation-only seventh plan if the owner wants it.
 
 ## Features
 
