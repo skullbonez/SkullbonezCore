@@ -2400,8 +2400,9 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
     // frame-local request/buffer sets.
     (void)replayRuntime.BuildPredictionGhostDrawRequests( context.renderModelOwner.RenderPresentationRecords(),
                                                           context.renderModelOwner.BodyStore() );
-    ReplayVisualPacket replayVisualPacket = runtimeTools.EditorTracer().BuildReplayVisualPacket(
-        m_cameras.GetRenderCameraTranslation(), m_cameras.GetRenderCameraUp() );
+    ReplayVisualPacket replayVisualPacket =
+        runtimeTools.EditorTracer().BuildReplayVisualPacket( m_cameras.GetRenderCameraTranslation(),
+                                                             m_cameras.GetRenderCameraUp() );
     replayRuntime.PublishReplayVisualPacket( replayVisualPacket, m_toolOverlayGrowthEventCount );
 
     const auto gradeNow = std::chrono::steady_clock::now();

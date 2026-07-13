@@ -4682,17 +4682,17 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
         // data from the advancing live timeline behind that frozen preview.
         return;
     }
-    const bool deterministicFidelityReveal = prediction.revealClock.deterministicFrameEnabled &&
-                                             prediction.build.complete && !prediction.build.building;
+    const bool deterministicFidelityReveal =
+        prediction.revealClock.deterministicFrameEnabled && prediction.build.complete && !prediction.build.building;
     // Invariant: the frame-exact fidelity lane pins presentation scheduling.
     // A wall-clock overrun may defer retained-cache work during interactive
     // play, but it must not delete the striker trail and target marker from an
     // otherwise identical compared ReplayFrameIndex.
     if ( !deterministicFidelityReveal &&
          ReplayPredictionBudgetExpiredForPass( context.replayRuntime,
-                                                SkullbonezCore::Core::MainMemoryReplayBudgetPass::RetainedRefresh,
-                                                visualizerStart,
-                                                REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
+                                               SkullbonezCore::Core::MainMemoryReplayBudgetPass::RetainedRefresh,
+                                               visualizerStart,
+                                               REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
     {
         return;
     }

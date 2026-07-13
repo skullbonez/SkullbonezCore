@@ -1053,6 +1053,7 @@ struct ParsedArgs
     char interactionScriptPath[260] = {};
     char interactionReportPath[260] = {};
     bool suppressExitDialog = false;
+    bool automationWindowHidden = false;
     bool showProfiler = false;
     bool hideTopText = false;
     bool showBroadphaseVisualizer = false;
@@ -1262,6 +1263,14 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
           "--no-top-text",
           []( ParsedArgs& args ) { args.hideTopText = true; },
           "[overlay] Top HUD text hidden." },
+        { "--automation-hidden-window",
+          nullptr,
+          []( ParsedArgs& args )
+          {
+              args.automationWindowHidden = true;
+              args.suppressExitDialog = true;
+          },
+          "[automation] Native window hidden; DX12 rendering and capture remain active." },
         { "--broadphase-visualizer",
           "--broadphase-overlay",
           []( ParsedArgs& args ) { args.showBroadphaseVisualizer = true; },
@@ -3414,7 +3423,8 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     Window* window = &windowOwner;
     window->SetStartupWindowSize( cfg.window.screenX, cfg.window.screenY );
     window->SetProjectionFrustum( cfg.camera.frustumNear, cfg.camera.frustumFar );
-    const SkullbonezCore::Core::SbResult windowResult = window->CreateAppWindow( hInstance, cfg.window.fullscreen );
+    const SkullbonezCore::Core::SbResult windowResult =
+        window->CreateAppWindow( hInstance, cfg.window.fullscreen, !args.automationWindowHidden );
     if ( !windowResult.ok )
     {
         ReportStartupFailure( windowResult, "SkullbonezCore Startup Failed" );

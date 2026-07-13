@@ -17,6 +17,7 @@ freezing a user-approved working base. The validation batch never supplies it.
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import subprocess
@@ -27,6 +28,9 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_REPORT = ROOT / "TestOutput/validation/replay_visual_fidelity/full_reveal_probe_debug.json"
 DEFAULT_BASELINE = ROOT / "TestOutput/baselines/replay_visual_fidelity_200_box.json"
+DEFAULT_CAUSAL_BASELINE = (
+    ROOT / "TestOutput/baselines/replay_visual_fidelity_200_box_causal.json"
+)
 SCENE = ROOT / "SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json"
 SCRIPT = ROOT / "SkullbonezData/interaction/prediction_ragdoll_wall_200_full_reveal.json"
 CONFIG = ROOT / "SkullbonezData/engine.cfg"
@@ -113,6 +117,155 @@ def visual_ticks(ticks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+def validate_causal_shape(report: dict[str, Any]) -> dict[str, Any]:
+    causal = report.get("replayCausalProof", {})
+    if causal.get("schemaVersion") != 1:
+        raise ValueError(
+            f"causal schema mismatch: expected=1 actual={causal.get('schemaVersion')}"
+        )
+    if not causal.get("singleRevealGeneration"):
+        raise ValueError("causal proof did not certify one reveal generation")
+    if not causal.get("liveComparisonComplete"):
+        raise ValueError("predicted-versus-live comparison did not complete")
+
+    ticks = causal.get("ticks", [])
+    topology = causal.get("topology", [])
+    live_ticks = causal.get("predictedLiveTicks", [])
+    if len(ticks) != EXPECTED_TICKS or causal.get("tickCount") != EXPECTED_TICKS:
+        raise ValueError(
+            f"causal horizon incomplete: expected_ticks={EXPECTED_TICKS} actual_ticks={len(ticks)}"
+        )
+    if not topology or causal.get("topologyCount") != len(topology):
+        raise ValueError("causal topology is empty or count-mismatched")
+    if len(live_ticks) != EXPECTED_TICKS or causal.get("predictedLiveTickCount") != EXPECTED_TICKS:
+        raise ValueError(
+            "predicted-versus-live horizon incomplete: "
+            f"expected_ticks={EXPECTED_TICKS} actual_ticks={len(live_ticks)}"
+        )
+
+    target_id = causal.get("targetId", 0)
+    if not isinstance(target_id, int) or target_id <= 0:
+        raise ValueError(f"causal target identity is invalid: {target_id!r}")
+    node_by_id: dict[int, dict[str, Any]] = {}
+    for index, node in enumerate(topology):
+        node_id = node.get("id", 0)
+        if not isinstance(node_id, int) or node_id <= 0 or node_id in node_by_id:
+            raise ValueError(f"topology[{index}].id is invalid or duplicated: {node_id!r}")
+        node_by_id[node_id] = node
+    for index, node in enumerate(topology):
+        parent_id = node.get("parentId", 0)
+        parent_depth = 0 if parent_id == target_id else node_by_id.get(parent_id, {}).get("depth")
+        if parent_depth is None:
+            raise ValueError(f"topology[{index}].parentId does not resolve: {parent_id!r}")
+        if node.get("depth") != parent_depth + 1:
+            raise ValueError(
+                f"topology[{index}].depth breaks parent chain: "
+                f"parent_depth={parent_depth} actual={node.get('depth')}"
+            )
+        first_frame = node.get("firstFrame")
+        if not isinstance(first_frame, int) or first_frame < 0 or first_frame > EXPECTED_LAST_REVEAL:
+            raise ValueError(f"topology[{index}].firstFrame is outside the horizon: {first_frame!r}")
+
+    if ticks[0].get("revealFrame") != 0 or ticks[0].get("activeNodeCount") != 0:
+        raise ValueError("downstream topology activated before the striker path")
+    if ticks[0].get("revealedRecordCount", 0) < 1 or ticks[0].get("revealedSegmentCount", 0) < 1:
+        raise ValueError("striker path was not present on reveal tick zero")
+
+    monotonic_fields = (
+        "activeNodeCount",
+        "revealedRecordCount",
+        "revealedPointCount",
+        "revealedSegmentCount",
+        "entryMarkerCount",
+        "restMarkerCount",
+        "horizonMarkerCount",
+    )
+    for index, tick in enumerate(ticks):
+        if tick.get("revealFrame") != index:
+            raise ValueError(
+                f"causal tick reordered at row={index}: actual={tick.get('revealFrame')}"
+            )
+        if index:
+            for field in monotonic_fields:
+                if tick.get(field, -1) < ticks[index - 1].get(field, -1):
+                    raise ValueError(
+                        f"causal field regressed at ticks[{index}].{field}: "
+                        f"previous={ticks[index - 1].get(field)} actual={tick.get(field)}"
+                    )
+    if ticks[-1].get("activeNodeCount") != len(topology):
+        raise ValueError(
+            "not every downstream causal node activated: "
+            f"expected={len(topology)} actual={ticks[-1].get('activeNodeCount')}"
+        )
+
+    source_frame = causal.get("sourceFrame")
+    for index, tick in enumerate(live_ticks):
+        if tick.get("offset") != index:
+            raise ValueError(
+                f"predicted-versus-live row reordered at index={index}: actual={tick.get('offset')}"
+            )
+        if tick.get("liveFrame") != source_frame + index:
+            raise ValueError(
+                f"live solver frame skipped at index={index}: "
+                f"expected={source_frame + index} actual={tick.get('liveFrame')}"
+            )
+        if tick.get("predictedHash") != tick.get("liveHash"):
+            raise ValueError(
+                f"predicted-versus-live hash diverged at index={index}: "
+                f"predicted={tick.get('predictedHash')} live={tick.get('liveHash')}"
+            )
+        if tick.get("bodyCount", 0) <= 0:
+            raise ValueError(f"predicted-versus-live body packet is empty at index={index}")
+    return causal
+
+
+def causal_comparable(report: dict[str, Any]) -> dict[str, Any]:
+    causal = validate_causal_shape(report)
+    tick_fields = (
+        "revealFrame",
+        "activeTopologyHash",
+        "activeNodeCount",
+        "revealedRecordCount",
+        "revealedPointCount",
+        "revealedSegmentCount",
+        "entryMarkerCount",
+        "restMarkerCount",
+        "horizonMarkerCount",
+        "ghostRequestCount",
+    )
+    return {
+        "targetId": causal["targetId"],
+        "topologyCount": causal["topologyCount"],
+        "topology": causal["topology"],
+        "tickCount": causal["tickCount"],
+        # Production submission hashes remain in the V0 manifest. V2 keeps only
+        # stable causal transitions here; internal trajectory record publication
+        # order is not a renderer-facing contract.
+        "ticks": [
+            {field: tick[field] for field in tick_fields}
+            for tick in causal["ticks"]
+        ],
+    }
+
+
+def causal_baseline_payload(
+    report: dict[str, Any], working_base_commit: str, configuration: str
+) -> dict[str, Any]:
+    comparable = causal_comparable(report)
+    return {
+        "format": "skullbonez.replay-visual-fidelity-causal.json",
+        "schemaVersion": 1,
+        "workingBaseCommit": working_base_commit,
+        "captureCommit": git_head(),
+        "configuration": configuration,
+        "fixedStep": True,
+        "target": "prediction_striker_ball",
+        "horizonSeconds": 20.0,
+        "visualBaselineSha256": sha256(DEFAULT_BASELINE),
+        **comparable,
+    }
+
+
 def baseline_payload(
     report: dict[str, Any], working_base_commit: str, configuration: str
 ) -> dict[str, Any]:
@@ -192,11 +345,16 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--report", type=Path, default=DEFAULT_REPORT)
     parser.add_argument("--baseline", type=Path, default=DEFAULT_BASELINE)
+    parser.add_argument("--causal-baseline", type=Path, default=DEFAULT_CAUSAL_BASELINE)
     parser.add_argument("--approve-baseline", action="store_true")
+    parser.add_argument("--approve-causal-baseline", action="store_true")
     parser.add_argument("--working-base-commit", default="6a6ab4c65")
     parser.add_argument("--configuration", choices=("Debug", "Profile"), default="Debug")
     parser.add_argument("--negative-control", action="store_true")
     parser.add_argument("--incomplete-control", action="store_true")
+    parser.add_argument("--causal-activation-control", action="store_true")
+    parser.add_argument("--causal-topology-control", action="store_true")
+    parser.add_argument("--causal-segment-control", action="store_true")
     args = parser.parse_args()
 
     report = load_json(args.report)
@@ -217,6 +375,39 @@ def main() -> int:
         )
         return 0
 
+    if args.approve_causal_baseline:
+        # Bootstrap only: the diagnostic that proved V2 before the committed
+        # schema field existed still contains the same target as the unique
+        # topology parent outside the node set. Normal validation below requires
+        # the explicit targetId emitted by the runtime report.
+        causal = report.get("replayCausalProof", {})
+        if not causal.get("targetId"):
+            topology = causal.get("topology", [])
+            node_ids = {node.get("id") for node in topology}
+            root_parents = {
+                node.get("parentId")
+                for node in topology
+                if node.get("parentId") not in node_ids
+            }
+            if len(root_parents) == 1:
+                causal["targetId"] = root_parents.pop()
+        try:
+            payload = causal_baseline_payload(
+                report, args.working_base_commit, args.configuration
+            )
+        except ValueError as error:
+            print(f"FAIL replay causal proof report: {error}")
+            return 1
+        args.causal_baseline.parent.mkdir(parents=True, exist_ok=True)
+        with args.causal_baseline.open("w", encoding="utf-8", newline="\n") as stream:
+            json.dump(payload, stream, indent=2)
+            stream.write("\n")
+        print(
+            f"APPROVED replay causal baseline: ticks={payload['tickCount']} "
+            f"topology_nodes={payload['topologyCount']} path={args.causal_baseline}"
+        )
+        return 0
+
     baseline = load_json(args.baseline)
     if args.incomplete_control:
         report["replayVisualFidelity"]["ticks"].pop()
@@ -229,6 +420,64 @@ def main() -> int:
             print(f"FAIL incomplete-horizon control reported the wrong failure: {error}")
             return 1
         print("FAIL incomplete-horizon control was accepted")
+        return 1
+
+
+    causal_control_requested = (
+        args.causal_activation_control
+        or args.causal_topology_control
+        or args.causal_segment_control
+    )
+    causal_baseline = load_json(args.causal_baseline)
+    if causal_baseline.get("visualBaselineSha256") != sha256(args.baseline):
+        print(
+            "FAIL replay causal baseline is not bound to the current visual baseline: "
+            f"expected={sha256(args.baseline)} "
+            f"actual={causal_baseline.get('visualBaselineSha256')}"
+        )
+        return 1
+    try:
+        actual_causal = causal_comparable(report)
+    except ValueError as error:
+        print(f"FAIL replay causal proof report: {error}")
+        return 1
+    expected_causal = {
+        "targetId": causal_baseline["targetId"],
+        "topologyCount": causal_baseline["topologyCount"],
+        "topology": causal_baseline["topology"],
+        "tickCount": causal_baseline["tickCount"],
+        "ticks": causal_baseline["ticks"],
+    }
+    actual_causal = copy.deepcopy(actual_causal)
+    expected_control_path = ""
+    if args.causal_activation_control:
+        topology_index = min(
+            range(len(actual_causal["topology"])),
+            key=lambda index: actual_causal["topology"][index]["firstFrame"],
+        )
+        actual_causal["topology"][topology_index]["firstFrame"] += 1
+        expected_control_path = f"topology[{topology_index}].firstFrame"
+    elif args.causal_topology_control:
+        actual_causal["topology"][0]["parentId"] += 1
+        actual_causal["topology"][0]["depth"] += 1
+        expected_control_path = "topology[0].parentId"
+    elif args.causal_segment_control:
+        first_activation = min(node["firstFrame"] for node in actual_causal["topology"])
+        actual_causal["ticks"][first_activation]["revealedSegmentCount"] -= 1
+        expected_control_path = f"ticks[{first_activation}].revealedSegmentCount"
+
+    causal_difference = first_difference(expected_causal, actual_causal, "causal")
+    if causal_control_requested:
+        if causal_difference and expected_control_path in causal_difference:
+            print(f"PASS causal negative control detected first divergence: {causal_difference}")
+            return 0
+        print(
+            "FAIL causal negative control was not detected at the injected field: "
+            f"expected_path={expected_control_path} difference={causal_difference}"
+        )
+        return 1
+    if causal_difference:
+        print(f"FAIL replay causal proof first divergence: {causal_difference}")
         return 1
 
     current_provenance = {
@@ -272,6 +521,8 @@ def main() -> int:
     print(
         f"PASS replay visual fidelity: ticks={actual['tickCount']} "
         f"moved_wall_bricks={actual['finalState']['predictionMovedWallBrickCount']} "
+        f"causal_nodes={actual_causal['topologyCount']} "
+        f"predicted_live_ticks={report['replayCausalProof']['predictedLiveTickCount']} "
         f"first_reveal={actual['ticks'][0]['revealFrame']} "
         f"last_reveal={actual['ticks'][-1]['revealFrame']}"
     )

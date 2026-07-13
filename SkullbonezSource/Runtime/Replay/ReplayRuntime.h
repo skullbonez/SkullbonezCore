@@ -541,8 +541,8 @@ struct RunReplayPredictionRevealClock
     // restores, so steady_clock here cannot affect deterministic simulation.
     double secondsPerSecond = 1.0;                                    // Runtime-authored causal-unfold speed; 1.0 = real-time.
     std::chrono::steady_clock::time_point anchor = {};
-    ReplayFrameIndex presentedFrame = 0;                               // Last common reveal clamp consumed by replay presentation.
-    ReplayFrameIndex deterministicFrame = 0;                           // Automation-owned cursor; ignored outside fidelity capture.
+    ReplayFrameIndex presentedFrame = 0;                              // Last common reveal clamp consumed by replay presentation.
+    ReplayFrameIndex deterministicFrame = 0;                          // Automation-owned cursor; ignored outside fidelity capture.
     bool deterministicFrameEnabled = false;
     bool anchorValid = false;
 };
@@ -1543,7 +1543,7 @@ class ReplayRuntime
         m_trajectoryVisualStats;                                      // Cumulative replay trajectory diagnostics for the current process.
     ReplayTrajectorySubmissionProbeStats
         m_trajectorySubmissionProbe;                                  // Submitted replay-ribbon stability window for validation reports.
-    ReplayVisualPacket m_publishedVisualPacket;                        // Frame-local immutable seam consumed by renderer and probes.
+    ReplayVisualPacket m_publishedVisualPacket;                       // Frame-local immutable seam consumed by renderer and probes.
     RunReplayCauseTreeState m_causeTree;
     RunReplayVelocityEditState m_velocityEdit;
     std::vector<ReplayPredictionGhostDrawRequest> m_predictionGhostDrawRequests;

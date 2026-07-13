@@ -100,9 +100,7 @@ void HashReplaySubmissionBytes( uint64_t& hash, const void* data, std::size_t by
     }
 }
 
-void HashReplaySubmissionFloatStream( const std::vector<float>& values,
-                                      uint64_t& outHash,
-                                      uint64_t& outBytes )
+void HashReplaySubmissionFloatStream( const std::vector<float>& values, uint64_t& outHash, uint64_t& outBytes )
 {
     outHash = REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET;
     const uint64_t floatCount = static_cast<uint64_t>( values.size() );
@@ -563,8 +561,8 @@ ReplayVisualPacket RunEditorTracer::BuildReplayVisualPacket( const Vector3& came
     ReplayVisualPacket packet;
     packet.header.cameraEye = cameraEye;
     packet.header.cameraUp = cameraUp;
-    packet.combinedLines = m_priorityLineData.empty() ? std::span<const float>( m_lineData )
-                                                       : std::span<const float>( m_renderLineData );
+    packet.combinedLines =
+        m_priorityLineData.empty() ? std::span<const float>( m_lineData ) : std::span<const float>( m_renderLineData );
     packet.ordinaryLines = m_lineData;
     packet.priorityLines = m_priorityLineData;
     packet.ordinaryRibbonSegments = m_replayRibbonSegments;
@@ -1114,20 +1112,19 @@ void RunEditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const
     HashReplaySubmissionFloatStream( m_priorityLineData,
                                      m_replaySubmissionStats.priorityLineHash,
                                      m_replaySubmissionStats.priorityLineBytes );
-    m_replaySubmissionStats.priorityLineCanonicalHash =
-        HashReplaySubmissionCanonicalRecords( m_priorityLineData, 12u );
+    m_replaySubmissionStats.priorityLineCanonicalHash = HashReplaySubmissionCanonicalRecords( m_priorityLineData, 12u );
     m_replaySubmissionStats.priorityLineVertexCount = static_cast<uint32_t>( m_priorityLineData.size() / 6u );
     HashReplaySubmissionFloatStream( m_replayRibbonSegments,
                                      m_replaySubmissionStats.ordinaryRibbonHash,
                                      m_replaySubmissionStats.ordinaryRibbonBytes );
-    m_replaySubmissionStats.ordinaryRibbonSegmentCount = static_cast<uint32_t>(
-        m_replayRibbonSegments.size() / RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT );
+    m_replaySubmissionStats.ordinaryRibbonSegmentCount =
+        static_cast<uint32_t>( m_replayRibbonSegments.size() / RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT );
     HashReplaySubmissionFloatStream( m_priorityReplayRibbonSegments,
                                      m_replaySubmissionStats.priorityRibbonHash,
                                      m_replaySubmissionStats.priorityRibbonBytes );
-    m_replaySubmissionStats.priorityRibbonCanonicalHash = HashReplaySubmissionCanonicalRecords(
-        m_priorityReplayRibbonSegments,
-        RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT );
+    m_replaySubmissionStats.priorityRibbonCanonicalHash =
+        HashReplaySubmissionCanonicalRecords( m_priorityReplayRibbonSegments,
+                                              RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT );
     m_replaySubmissionStats.priorityRibbonSegmentCount = static_cast<uint32_t>(
         m_priorityReplayRibbonSegments.size() / RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT );
     m_replaySubmissionStats.hasGeometry = !m_lineData.empty() || !m_priorityLineData.empty() ||
@@ -1145,8 +1142,8 @@ void RunEditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const
         HashReplaySubmissionBytes( hash, m_replayRibbonVertexData.data(), byteCount );
         m_replaySubmissionStats.vertexHash = hash;
         m_replaySubmissionStats.ordinaryVertexBytes = ordinaryVertexFloatCount * sizeof( float );
-        m_replaySubmissionStats.ordinaryVertexCount = static_cast<uint32_t>(
-            ordinaryVertexFloatCount / RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX );
+        m_replaySubmissionStats.ordinaryVertexCount =
+            static_cast<uint32_t>( ordinaryVertexFloatCount / RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX );
         uint64_t ordinaryHash = REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET;
         const uint64_t ordinaryFloatCount = static_cast<uint64_t>( ordinaryVertexFloatCount );
         HashReplaySubmissionBytes( ordinaryHash, &ordinaryFloatCount, sizeof( ordinaryFloatCount ) );

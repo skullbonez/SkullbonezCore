@@ -109,7 +109,7 @@ and hashes. Hash-only diagnostics are insufficient.
   packet owner and the V0 manifest remains exact. Validation:
   `tools\validate_replay_visual_fidelity.bat`, then the affected CPU test gate.
 
-- [ ] **V2 — Prove the full causal cascade tick by tick.** Retain predicted
+- [x] **V2 — Prove the full causal cascade tick by tick.** Retain predicted
   packets for T+k and compare them with packets reconstructed from later live
   samples for the same frame index. Assert the striker path appears first,
   downstream activation is monotonic through the causal topology, revealed
@@ -234,6 +234,46 @@ and hashes. Hash-only diagnostics are insufficient.
   `SkullbonezTests/TestReplayVisualPacket.cpp`. Existing learning headers were
   retained; packet lifetime, single-publication order, and typed diagnostic
   vocabulary are documented beside the new seam.
+
+## V2 Closure Evidence — 2026-07-14
+
+- The approved reveal remains one generation: its cursor advances exactly from
+  0 through 2400 and any duplicate, rewind, skip, or post-Play prediction build
+  fails automation immediately. The long gate now creates one real DX12 window
+  without showing it, so mandatory per-task reruns no longer replay the scene on
+  the operator desktop.
+- The causal manifest binds target `ReplayBodyId` 1, all 199 downstream nodes,
+  parent/depth relationships, exact first-activation frames, monotonic revealed
+  record/point/segment counts, marker transitions, ghost counts, and the stable
+  active-topology hash to the unchanged V0 visual baseline.
+- After the final reveal screenshot, automation uses the real pause/play UI path
+  to freeze the committed prediction and advance live physics once. All 2,401
+  later solver body packets matched the corresponding predicted packet bit for
+  bit across ordered identity, model row, position, orientation, and linear
+  velocity. The source was solver frame 59 and the final matched frame was 2459.
+- The owner-observed broken second prediction was reproduced while developing
+  the proof: one pause-toggle click left prediction enabled and allowed a new
+  worker generation. The final probe primes the toggle, supplies a release
+  frame, clicks Play, and asserts that prediction is disabled with no worker
+  building before accepting any live comparison row.
+- Negative controls are non-vacuous and name their injected first divergence:
+  activation shift at `topology[108].firstFrame`, parent/depth mutation at
+  `topology[0].parentId`, and segment removal at
+  `ticks[114].revealedSegmentCount`. The V0 exact-float mutation and incomplete
+  horizon controls also still fail at their intended fields.
+- Final `tools\validate_replay_visual_fidelity.bat` passed in about 143 seconds:
+  15.52-second zero-warning Profile build, one hidden engine process through
+  frame 6602, all 200 bricks moved, 2,401 exact visual ticks, 199 causal nodes,
+  and 2,401 predicted/live ticks. The original V0 baseline was not changed; V2
+  adds `replay_visual_fidelity_200_box_causal.json` bound to its SHA-256.
+- `tools\validate_full.bat` also passed after closing inherited V1 formatting
+  and project-filter omissions: CPU tests, zero-warning Profile/Debug builds,
+  zero DX12 validation errors, screenshot comparisons, standalone physics, and
+  the 44,401-line byte-exact varied physics baseline all passed.
+- Touched-source comment audit: 11/11 checked, 0 deferred — `Init.cpp`,
+  `InteractionAutomationController.cpp/.h`, `Window.cpp/.h`, and the
+  mechanically formatted V1 files `RunEditorTracer.cpp`, `RuntimeRenderer.cpp`,
+  `ReplayRuntime.cpp/.h`, `ReplayVisualPacket.h`, and `RunReplayTools.cpp`.
 
 ## Dependencies And Decisions
 

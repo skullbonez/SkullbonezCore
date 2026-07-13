@@ -271,12 +271,24 @@ inline bool FindReplayVisualVectorDifference( const Math::Vector::Vector3& expec
                                               std::size_t firstComponentIndex,
                                               ReplayVisualPacketDifference& outDifference ) noexcept
 {
-    return FindReplayVisualFloatDifference(
-               expected.x, actual.x, field, recordIndex, firstComponentIndex, outDifference ) ||
-           FindReplayVisualFloatDifference(
-               expected.y, actual.y, field, recordIndex, firstComponentIndex + 1u, outDifference ) ||
-           FindReplayVisualFloatDifference(
-               expected.z, actual.z, field, recordIndex, firstComponentIndex + 2u, outDifference );
+    return FindReplayVisualFloatDifference( expected.x,
+                                            actual.x,
+                                            field,
+                                            recordIndex,
+                                            firstComponentIndex,
+                                            outDifference ) ||
+           FindReplayVisualFloatDifference( expected.y,
+                                            actual.y,
+                                            field,
+                                            recordIndex,
+                                            firstComponentIndex + 1u,
+                                            outDifference ) ||
+           FindReplayVisualFloatDifference( expected.z,
+                                            actual.z,
+                                            field,
+                                            recordIndex,
+                                            firstComponentIndex + 2u,
+                                            outDifference );
 }
 
 inline bool FindReplayVisualQuaternionDifference( const Math::Orientation::Quaternion& expected,
@@ -296,14 +308,30 @@ inline bool FindReplayVisualQuaternionDifference( const Math::Orientation::Quate
     float actualW = 1.0f;
     expected.GetComponents( expectedX, expectedY, expectedZ, expectedW );
     actual.GetComponents( actualX, actualY, actualZ, actualW );
-    return FindReplayVisualFloatDifference(
-               expectedX, actualX, field, recordIndex, firstComponentIndex, outDifference ) ||
-           FindReplayVisualFloatDifference(
-               expectedY, actualY, field, recordIndex, firstComponentIndex + 1u, outDifference ) ||
-           FindReplayVisualFloatDifference(
-               expectedZ, actualZ, field, recordIndex, firstComponentIndex + 2u, outDifference ) ||
-           FindReplayVisualFloatDifference(
-               expectedW, actualW, field, recordIndex, firstComponentIndex + 3u, outDifference );
+    return FindReplayVisualFloatDifference( expectedX,
+                                            actualX,
+                                            field,
+                                            recordIndex,
+                                            firstComponentIndex,
+                                            outDifference ) ||
+           FindReplayVisualFloatDifference( expectedY,
+                                            actualY,
+                                            field,
+                                            recordIndex,
+                                            firstComponentIndex + 1u,
+                                            outDifference ) ||
+           FindReplayVisualFloatDifference( expectedZ,
+                                            actualZ,
+                                            field,
+                                            recordIndex,
+                                            firstComponentIndex + 2u,
+                                            outDifference ) ||
+           FindReplayVisualFloatDifference( expectedW,
+                                            actualW,
+                                            field,
+                                            recordIndex,
+                                            firstComponentIndex + 3u,
+                                            outDifference );
 }
 
 inline bool FindReplayTrajectoryDifference( std::span<const ReplayTrajectoryRecord> expected,
@@ -389,8 +417,7 @@ inline bool FindReplayTrajectoryDifference( std::span<const ReplayTrajectoryReco
         }
         const std::size_t expectedPointCount =
             (std::min)( expectedRecord.publishedPointCount, expectedRecord.points.size() );
-        const std::size_t actualPointCount =
-            (std::min)( actualRecord.publishedPointCount, actualRecord.points.size() );
+        const std::size_t actualPointCount = (std::min)( actualRecord.publishedPointCount, actualRecord.points.size() );
         if ( FindReplayVisualValueDifference( expectedPointCount,
                                               actualPointCount,
                                               ReplayVisualPacketField::TrajectoryPointCount,
@@ -672,21 +699,21 @@ inline bool FindReplayGhostRequestDifference( std::span<const ReplayPredictionGh
     return false;
 }
 
-inline bool FindReplayTrajectoryDiagnosticDifference(
-    const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& expected,
-    const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& actual,
-    ReplayVisualPacketDifference& outDifference ) noexcept
+inline bool
+FindReplayTrajectoryDiagnosticDifference( const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& expected,
+                                          const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& actual,
+                                          ReplayVisualPacketDifference& outDifference ) noexcept
 {
     std::size_t fieldIndex = 0u;
-#define SB_REPLAY_VISUAL_COMPARE_DIAGNOSTIC( member )                                                              \
-    if ( FindReplayVisualValueDifference( expected.member,                                                        \
-                                          actual.member,                                                          \
-                                          ReplayVisualPacketField::TrajectoryDiagnostic,                         \
-                                          0u,                                                                     \
-                                          fieldIndex++,                                                           \
-                                          outDifference ) )                                                       \
-    {                                                                                                             \
-        return true;                                                                                              \
+#define SB_REPLAY_VISUAL_COMPARE_DIAGNOSTIC( member )                                                                  \
+    if ( FindReplayVisualValueDifference( expected.member,                                                             \
+                                          actual.member,                                                               \
+                                          ReplayVisualPacketField::TrajectoryDiagnostic,                               \
+                                          0u,                                                                          \
+                                          fieldIndex++,                                                                \
+                                          outDifference ) )                                                            \
+    {                                                                                                                  \
+        return true;                                                                                                   \
     }
     SB_REPLAY_VISUAL_COMPARE_DIAGNOSTIC( storeBytes );
     SB_REPLAY_VISUAL_COMPARE_DIAGNOSTIC( recordCount );
@@ -748,15 +775,15 @@ inline bool FindReplaySubmissionDiagnosticDifference(
     ReplayVisualPacketDifference& outDifference ) noexcept
 {
     std::size_t fieldIndex = 0u;
-#define SB_REPLAY_VISUAL_COMPARE_SUBMISSION( member )                                                              \
-    if ( FindReplayVisualValueDifference( expected.member,                                                        \
-                                          actual.member,                                                          \
-                                          ReplayVisualPacketField::SubmissionDiagnostic,                         \
-                                          0u,                                                                     \
-                                          fieldIndex++,                                                           \
-                                          outDifference ) )                                                       \
-    {                                                                                                             \
-        return true;                                                                                              \
+#define SB_REPLAY_VISUAL_COMPARE_SUBMISSION( member )                                                                  \
+    if ( FindReplayVisualValueDifference( expected.member,                                                             \
+                                          actual.member,                                                               \
+                                          ReplayVisualPacketField::SubmissionDiagnostic,                               \
+                                          0u,                                                                          \
+                                          fieldIndex++,                                                                \
+                                          outDifference ) )                                                            \
+    {                                                                                                                  \
+        return true;                                                                                                   \
     }
     SB_REPLAY_VISUAL_COMPARE_SUBMISSION( hasGeometry );
     SB_REPLAY_VISUAL_COMPARE_SUBMISSION( ordinaryLineHash );
@@ -788,14 +815,14 @@ inline bool FindReplayVisualPacketDifference( const ReplayVisualPacket& expected
                                               const ReplayVisualPacket& actual,
                                               ReplayVisualPacketDifference& outDifference ) noexcept
 {
-#define SB_REPLAY_VISUAL_COMPARE_HEADER( member, differenceField )                                                       \
-    if ( expected.header.member != actual.header.member )                                                               \
-    {                                                                                                                    \
-        outDifference = {};                                                                                              \
-        outDifference.field = differenceField;                                                                           \
-        outDifference.expectedBits = static_cast<uint64_t>( expected.header.member );                                    \
-        outDifference.actualBits = static_cast<uint64_t>( actual.header.member );                                        \
-        return true;                                                                                                     \
+#define SB_REPLAY_VISUAL_COMPARE_HEADER( member, differenceField )                                                     \
+    if ( expected.header.member != actual.header.member )                                                              \
+    {                                                                                                                  \
+        outDifference = {};                                                                                            \
+        outDifference.field = differenceField;                                                                         \
+        outDifference.expectedBits = static_cast<uint64_t>( expected.header.member );                                  \
+        outDifference.actualBits = static_cast<uint64_t>( actual.header.member );                                      \
+        return true;                                                                                                   \
     }
     SB_REPLAY_VISUAL_COMPARE_HEADER( schemaVersion, ReplayVisualPacketField::SchemaVersion );
     SB_REPLAY_VISUAL_COMPARE_HEADER( sourceFrame, ReplayVisualPacketField::SourceFrame );
@@ -836,19 +863,26 @@ inline bool FindReplayVisualPacketDifference( const ReplayVisualPacket& expected
          FindReplayFutureNodeDifference( expected.futureNodes, actual.futureNodes, outDifference ) ||
          FindReplayRetainedMarkerDifference( expected.retainedMarkers, actual.retainedMarkers, outDifference ) ||
          FindReplayGhostRequestDifference( expected.ghostRequests, actual.ghostRequests, outDifference ) ||
-         FindReplayTrajectoryDiagnosticDifference(
-             expected.trajectoryDiagnostics, actual.trajectoryDiagnostics, outDifference ) ||
+         FindReplayTrajectoryDiagnosticDifference( expected.trajectoryDiagnostics,
+                                                   actual.trajectoryDiagnostics,
+                                                   outDifference ) ||
          FindReplaySubmissionDiagnosticDifference( expected.submission, actual.submission, outDifference ) )
     {
         return true;
     }
 
-    return FindReplayVisualBufferDifference(
-               expected.combinedLines, actual.combinedLines, ReplayVisualPacketBuffer::CombinedLines, outDifference ) ||
-           FindReplayVisualBufferDifference(
-               expected.ordinaryLines, actual.ordinaryLines, ReplayVisualPacketBuffer::OrdinaryLines, outDifference ) ||
-           FindReplayVisualBufferDifference(
-               expected.priorityLines, actual.priorityLines, ReplayVisualPacketBuffer::PriorityLines, outDifference ) ||
+    return FindReplayVisualBufferDifference( expected.combinedLines,
+                                             actual.combinedLines,
+                                             ReplayVisualPacketBuffer::CombinedLines,
+                                             outDifference ) ||
+           FindReplayVisualBufferDifference( expected.ordinaryLines,
+                                             actual.ordinaryLines,
+                                             ReplayVisualPacketBuffer::OrdinaryLines,
+                                             outDifference ) ||
+           FindReplayVisualBufferDifference( expected.priorityLines,
+                                             actual.priorityLines,
+                                             ReplayVisualPacketBuffer::PriorityLines,
+                                             outDifference ) ||
            FindReplayVisualBufferDifference( expected.ordinaryRibbonSegments,
                                              actual.ordinaryRibbonSegments,
                                              ReplayVisualPacketBuffer::OrdinaryRibbonSegments,

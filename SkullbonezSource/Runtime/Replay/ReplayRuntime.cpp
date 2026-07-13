@@ -3198,8 +3198,9 @@ void ReplayRuntime::PublishReplayVisualPacket( ReplayVisualPacket packet, uint64
     packet.header.predictionComplete = m_prediction.build.complete;
     packet.trajectoryRecords = m_prediction.trajectoryStore.records;
     packet.futureNodes = m_prediction.futureNodeCache.futureNodes;
-    packet.retainedMarkers = std::span<const ReplayPredictionRetainedMarker>(
-        m_prediction.futureNodeCache.retainedMarkers.data(), m_prediction.futureNodeCache.retainedMarkerCount );
+    packet.retainedMarkers =
+        std::span<const ReplayPredictionRetainedMarker>( m_prediction.futureNodeCache.retainedMarkers.data(),
+                                                         m_prediction.futureNodeCache.retainedMarkerCount );
     packet.ghostRequests = m_predictionGhostDrawRequests;
     packet.trajectoryDiagnostics = m_trajectoryVisualStats;
     // Lifetime: spans point into the tracer's fixed reserves and remain valid

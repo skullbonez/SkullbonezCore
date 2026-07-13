@@ -209,6 +209,46 @@ struct ReplayVisualFidelityReportTick
     uint32_t segmentCount = 0;
 };
 
+struct ReplayCausalProofTick
+{
+    // Concept: this is the stable causal envelope beside V0's exact submitted
+    // geometry. Counts may only grow as the fixed reveal cursor advances.
+    uint64_t revealFrame = 0;
+    uint64_t activeTopologyHash = 0;
+    uint32_t activeNodeCount = 0;
+    uint32_t revealedRecordCount = 0;
+    uint32_t revealedPointCount = 0;
+    uint32_t revealedSegmentCount = 0;
+    uint32_t entryMarkerCount = 0;
+    uint32_t restMarkerCount = 0;
+    uint32_t horizonMarkerCount = 0;
+    uint32_t ghostRequestCount = 0;
+};
+
+struct ReplayCausalTopologyNodeReport
+{
+    // PhysicsSceneObjectId-backed replay ids preserve the parent/depth chain in
+    // report JSON without borrowing mutable runtime topology storage.
+    uint32_t id = 0;
+    uint32_t parentId = 0;
+    uint64_t firstFrame = 0;
+    int depth = 0;
+    bool contactDerived = false;
+};
+
+struct ReplayPredictedLiveReportTick
+{
+    // Invariant: the two hashes summarize the same ordered body presentation
+    // fields, but the runtime also compares each float bit and reports the first
+    // typed field before appending this row.
+    uint64_t offset = 0;
+    uint64_t predictedFrame = 0;
+    uint64_t liveFrame = 0;
+    uint64_t predictedHash = 0;
+    uint64_t liveHash = 0;
+    uint32_t bodyCount = 0;
+};
+
 struct InteractionAutomationController
 {
     bool enabled = false;
@@ -224,8 +264,24 @@ struct InteractionAutomationController
     std::vector<RunInteractionAutomationReportAssertion> assertionReports;
     std::vector<std::string> screenshots;
     std::vector<ReplayVisualFidelityReportTick> replayVisualFidelityTicks;
+    // Validation-only retained evidence. These vectors live only for a bounded
+    // CLI automation process and never become replay/runtime business state.
+    std::vector<ReplayCausalProofTick> replayCausalProofTicks;
+    std::vector<ReplayCausalTopologyNodeReport> replayCausalTopology;
+    std::vector<ReplayPredictedLiveReportTick> replayPredictedLiveTicks;
     int replayVisualFidelityStartFrame = -1;
     bool replayVisualFidelityCaptureEnabled = false;
+    bool replayCausalLiveReadyToPlay = false;
+    bool replayCausalLivePausePrimed = false;
+    bool replayCausalLivePlayInjected = false;
+    bool replayCausalLiveComplete = false;
+    uint64_t replayCausalSourceFrame = 0;
+    uint64_t replayCausalNextOffset = 0;
+    uint64_t replayVisualFidelityTrajectoryHash = 0;
+    uint64_t replayVisualFidelityTrajectoryRecordCount = 0;
+    uint64_t replayVisualFidelityTrajectoryPointCount = 0;
+    bool replayVisualFidelityTrajectoryCaptured = false;
+    int replayCausalControlFrame = -1;
     POINT mouseClientPosition = {};
     bool hasMouseClientPosition = false;
     bool leftMouseDown = false;

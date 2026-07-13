@@ -101,6 +101,10 @@ constexpr uint64_t INTERACTION_PREDICTION_FINGERPRINT_PRIME = 1099511628211ull;
 // and begins presentation at one fixed scene frame. Worker completion speed
 // must never decide when the operator sees the causal unfold begin.
 constexpr int REPLAY_VISUAL_FIDELITY_START_FRAME = 900;
+// The final scripted screenshot is frame 4200. Live proof begins one frame
+// later so the approved reveal remains the only visible/presented prediction
+// pass and evidence capture never observes the comparison playback.
+constexpr int REPLAY_VISUAL_FIDELITY_LIVE_START_FRAME = 4201;
 
 struct PredictionTrajectoryFingerprint
 {
@@ -141,6 +145,183 @@ void HashPredictionVector( uint64_t& hash, const Vector3& value )
     HashPredictionFloat( hash, value.x );
     HashPredictionFloat( hash, value.y );
     HashPredictionFloat( hash, value.z );
+}
+
+void HashPredictionQuaternion( uint64_t& hash, const SkullbonezCore::Math::Orientation::Quaternion& value )
+{
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+    float w = 1.0f;
+    value.GetComponents( x, y, z, w );
+    HashPredictionFloat( hash, x );
+    HashPredictionFloat( hash, y );
+    HashPredictionFloat( hash, z );
+    HashPredictionFloat( hash, w );
+}
+
+bool PredictionFloatBitsEqual( float expected, float actual )
+{
+    uint32_t expectedBits = 0;
+    uint32_t actualBits = 0;
+    std::memcpy( &expectedBits, &expected, sizeof( expectedBits ) );
+    std::memcpy( &actualBits, &actual, sizeof( actualBits ) );
+    return expectedBits == actualBits;
+}
+
+ReplayCausalProofTick BuildReplayCausalProofTick( const ReplayVisualPacket& packet )
+{
+    ReplayCausalProofTick tick;
+    tick.revealFrame = packet.header.revealFrame;
+    tick.activeTopologyHash = INTERACTION_PREDICTION_FINGERPRINT_OFFSET;
+
+    for ( const RunReplayPathTraceNode& node : packet.futureNodes )
+    {
+        if ( node.firstFrame > tick.revealFrame )
+        {
+            continue;
+        }
+        HashPredictionScalar( tick.activeTopologyHash, node.id.value );
+        HashPredictionScalar( tick.activeTopologyHash, node.parentId.value );
+        HashPredictionScalar( tick.activeTopologyHash, node.firstFrame );
+        HashPredictionScalar( tick.activeTopologyHash, node.depth );
+        HashPredictionScalar( tick.activeTopologyHash, static_cast<uint8_t>( node.contactDerived ) );
+        ++tick.activeNodeCount;
+    }
+
+    for ( const ReplayTrajectoryRecord& record : packet.trajectoryRecords )
+    {
+        if ( record.key.lane == ReplayTrajectoryLane::PastRoot || record.firstFrame > tick.revealFrame )
+        {
+            continue;
+        }
+        const std::size_t publishedPointCount = (std::min)( record.publishedPointCount, record.points.size() );
+        if ( publishedPointCount == 0 )
+        {
+            continue;
+        }
+
+        // The V0 buffer oracle already hashes every submitted point and vertex.
+        // This causal row records stable eligibility/count transitions instead
+        // of hashing internal record publication order, which is deliberately
+        // not a presentation contract.
+        ++tick.revealedRecordCount;
+        tick.revealedPointCount += static_cast<uint32_t>( publishedPointCount );
+        tick.revealedSegmentCount += static_cast<uint32_t>( publishedPointCount > 0 ? publishedPointCount - 1 : 0 );
+    }
+
+    for ( const ReplayPredictionRetainedMarker& marker : packet.retainedMarkers )
+    {
+        tick.entryMarkerCount += marker.hasEntryPose ? 1u : 0u;
+        tick.restMarkerCount += marker.hasRestPose ? 1u : 0u;
+        tick.horizonMarkerCount += marker.hasHorizonPose ? 1u : 0u;
+    }
+    tick.ghostRequestCount = static_cast<uint32_t>( packet.ghostRequests.size() );
+    return tick;
+}
+
+uint64_t HashPredictedBodyPacket( const RunReplayPredictionFrame& frame )
+{
+    uint64_t hash = INTERACTION_PREDICTION_FINGERPRINT_OFFSET;
+    HashPredictionScalar( hash, static_cast<uint64_t>( frame.bodies.size() ) );
+    for ( const RunReplayPredictionBodySample& body : frame.bodies )
+    {
+        HashPredictionScalar( hash, body.id.value );
+        HashPredictionScalar( hash, body.modelRow.value );
+        HashPredictionVector( hash, body.position );
+        HashPredictionQuaternion( hash, body.orientation );
+        HashPredictionVector( hash, body.linearVelocity );
+    }
+    return hash;
+}
+
+uint64_t HashLiveBodyPacket( const ReplaySolverFrameSample& frame )
+{
+    uint64_t hash = INTERACTION_PREDICTION_FINGERPRINT_OFFSET;
+    HashPredictionScalar( hash, static_cast<uint64_t>( frame.bodies.size() ) );
+    for ( const ReplaySolverBodySample& body : frame.bodies )
+    {
+        HashPredictionScalar( hash, body.id.value );
+        HashPredictionScalar( hash, body.modelRow.value );
+        HashPredictionVector( hash, body.position );
+        for ( float component : body.orientation )
+        {
+            HashPredictionFloat( hash, component );
+        }
+        HashPredictionVector( hash, body.linearVelocity );
+    }
+    return hash;
+}
+
+bool ComparePredictedBodyPacket( const RunReplayPredictionFrame& predicted,
+                                 const ReplaySolverFrameSample& live,
+                                 std::string& outDifference )
+{
+    // Invariant: compare the presentation-affecting intersection shared by a
+    // prediction body and a later authoritative solver body: ordered identity,
+    // model row, position, orientation, and linear velocity. Hashes are report
+    // diagnostics only; this typed bit comparison is the pass/fail oracle.
+    if ( predicted.bodies.size() != live.bodies.size() )
+    {
+        outDifference = "bodyCount expected=" + std::to_string( predicted.bodies.size() ) +
+                        " actual=" + std::to_string( live.bodies.size() );
+        return false;
+    }
+
+    for ( std::size_t bodyIndex = 0; bodyIndex < predicted.bodies.size(); ++bodyIndex )
+    {
+        const RunReplayPredictionBodySample& expected = predicted.bodies[bodyIndex];
+        const ReplaySolverBodySample& actual = live.bodies[bodyIndex];
+        auto fail = [&]( const char* field )
+        {
+            outDifference = "body[" + std::to_string( bodyIndex ) + "]." + field;
+            return false;
+        };
+        if ( expected.id.value != actual.id.value )
+        {
+            return fail( "id" );
+        }
+        if ( expected.modelRow.value != actual.modelRow.value )
+        {
+            return fail( "modelRow" );
+        }
+        if ( !PredictionFloatBitsEqual( expected.position.x, actual.position.x ) )
+        {
+            return fail( "position.x" );
+        }
+        if ( !PredictionFloatBitsEqual( expected.position.y, actual.position.y ) )
+        {
+            return fail( "position.y" );
+        }
+        if ( !PredictionFloatBitsEqual( expected.position.z, actual.position.z ) )
+        {
+            return fail( "position.z" );
+        }
+        float orientation[4] = {};
+        expected.orientation.GetComponents( orientation[0], orientation[1], orientation[2], orientation[3] );
+        for ( std::size_t component = 0; component < 4; ++component )
+        {
+            if ( !PredictionFloatBitsEqual( orientation[component], actual.orientation[component] ) )
+            {
+                outDifference =
+                    "body[" + std::to_string( bodyIndex ) + "].orientation[" + std::to_string( component ) + "]";
+                return false;
+            }
+        }
+        if ( !PredictionFloatBitsEqual( expected.linearVelocity.x, actual.linearVelocity.x ) )
+        {
+            return fail( "linearVelocity.x" );
+        }
+        if ( !PredictionFloatBitsEqual( expected.linearVelocity.y, actual.linearVelocity.y ) )
+        {
+            return fail( "linearVelocity.y" );
+        }
+        if ( !PredictionFloatBitsEqual( expected.linearVelocity.z, actual.linearVelocity.z ) )
+        {
+            return fail( "linearVelocity.z" );
+        }
+    }
+    return true;
 }
 
 void HashInteractionText( uint64_t& hash, const char* text, std::size_t capacity )
@@ -2605,8 +2786,8 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         {
             RunReplayPredictionRevealClock& revealClock = prediction.revealClock;
             revealClock.deterministicFrameEnabled = true;
-            revealClock.deterministicFrame = static_cast<ReplayFrameIndex>(
-                (std::max)( 0, frame - state.replayVisualFidelityStartFrame ) );
+            revealClock.deterministicFrame =
+                static_cast<ReplayFrameIndex>( (std::max)( 0, frame - state.replayVisualFidelityStartFrame ) );
         }
     }
     if ( state.releaseLeftFrame == frame )
@@ -2625,6 +2806,50 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         state.keyDown = false;
         state.controlDown = false;
         state.releaseKeyFrame = -1;
+    }
+
+    if ( state.replayCausalLiveReadyToPlay && !state.replayCausalLivePlayInjected &&
+         frame >= REPLAY_VISUAL_FIDELITY_LIVE_START_FRAME )
+    {
+        const bool canInjectNextClick =
+            state.replayCausalControlFrame < 0 || frame >= state.replayCausalControlFrame + 2;
+        if ( canInjectNextClick )
+        {
+            RunInteractionAutomationAction controlAction;
+            controlAction.frame = frame;
+            controlAction.type = RunInteractionAutomationActionType::ClickReplayControl;
+            if ( !replayRuntime.Scrubber().liveAdvanceHeld && !state.replayCausalLivePausePrimed )
+            {
+                // The button is a toggle, not two separate commands. Prime its
+                // held state first when the authored scene is already paused by
+                // scene policy, then send Play after a full release frame.
+                strcpy_s( controlAction.text, sizeof( controlAction.text ), "pause" );
+                ApplyInteractionAutomationReplayControlClick( state,
+                                                              window,
+                                                              config,
+                                                              scene.State(),
+                                                              timers,
+                                                              replayRuntime,
+                                                              controlAction,
+                                                              frame );
+                state.replayCausalLivePausePrimed = !state.failed;
+                state.replayCausalControlFrame = frame;
+            }
+            else
+            {
+                strcpy_s( controlAction.text, sizeof( controlAction.text ), "play" );
+                ApplyInteractionAutomationReplayControlClick( state,
+                                                              window,
+                                                              config,
+                                                              scene.State(),
+                                                              timers,
+                                                              replayRuntime,
+                                                              controlAction,
+                                                              frame );
+                state.replayCausalLivePlayInjected = !state.failed;
+                state.replayCausalControlFrame = frame;
+            }
+        }
     }
 
     for ( RunInteractionAutomationAction& action : state.actions )
@@ -2722,6 +2947,24 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
             state.replayVisualFidelityTicks.clear();
             state.replayVisualFidelityTicks.reserve(
                 static_cast<std::size_t>( REPLAY_FUTURE_BUFFER_SECONDS / PHYSICS_FIXED_DT ) + 2u );
+            state.replayCausalProofTicks.clear();
+            state.replayCausalProofTicks.reserve(
+                static_cast<std::size_t>( REPLAY_FUTURE_BUFFER_SECONDS / PHYSICS_FIXED_DT ) + 2u );
+            state.replayCausalTopology.clear();
+            state.replayPredictedLiveTicks.clear();
+            state.replayPredictedLiveTicks.reserve(
+                static_cast<std::size_t>( REPLAY_FUTURE_BUFFER_SECONDS / PHYSICS_FIXED_DT ) + 2u );
+            state.replayCausalLiveReadyToPlay = false;
+            state.replayCausalLivePausePrimed = false;
+            state.replayCausalLivePlayInjected = false;
+            state.replayCausalLiveComplete = false;
+            state.replayCausalSourceFrame = 0;
+            state.replayCausalNextOffset = 0;
+            state.replayVisualFidelityTrajectoryHash = 0;
+            state.replayVisualFidelityTrajectoryRecordCount = 0;
+            state.replayVisualFidelityTrajectoryPointCount = 0;
+            state.replayVisualFidelityTrajectoryCaptured = false;
+            state.replayCausalControlFrame = -1;
             // Invariant: arm before target selection so validation observes one
             // causal unfold. Letting wall-clock reveal run first would retain
             // markers, then rewinding to zero would create a broken second pass.
@@ -2857,8 +3100,12 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
 
     Input::AutomationState inputState;
     inputState.enabled = true;
-    inputState.overrideAppFocused = state.unfocusedInputFrames > 0;
-    inputState.appFocused = !inputState.overrideAppFocused;
+    // Automation owns a synthetic device frame, including focus. Requiring the
+    // desktop foreground window would make a deterministic CLI probe depend on
+    // which application the operator touched; LoseFocus remains the explicit
+    // script-controlled negative lane.
+    inputState.overrideAppFocused = true;
+    inputState.appFocused = state.unfocusedInputFrames == 0;
     inputState.hasMouseClientPosition = state.hasMouseClientPosition;
     inputState.mouseClientPosition = state.mouseClientPosition;
     inputState.leftMouseDown = state.leftMouseDown;
@@ -2981,6 +3228,20 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
         ReplayVisualFidelityReportTick tick;
         tick.sceneFrame = frame;
         tick.revealFrame = replayRuntime.Prediction().revealClock.presentedFrame;
+        // Invariant: there is one reveal generation. A reset, duplicate, or
+        // skipped presentation tick is a probe failure even when later buffers
+        // happen to converge to the approved final image.
+        const uint64_t expectedRevealFrame = static_cast<uint64_t>( state.replayVisualFidelityTicks.size() );
+        if ( tick.revealFrame != expectedRevealFrame )
+        {
+            char message[256] = {};
+            sprintf_s( message,
+                       sizeof( message ),
+                       "replay visual reveal restarted or skipped: expected=%llu actual=%llu",
+                       static_cast<unsigned long long>( expectedRevealFrame ),
+                       static_cast<unsigned long long>( tick.revealFrame ) );
+            FailAutomation( state, message );
+        }
         tick.ordinaryLineHash = submission.ordinaryLineHash;
         tick.priorityLineHash = submission.priorityLineHash;
         tick.priorityLineCanonicalHash = submission.priorityLineCanonicalHash;
@@ -3003,6 +3264,112 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
         tick.ordinaryVertexCount = submission.ordinaryVertexCount;
         tick.segmentCount = submission.segmentCount;
         state.replayVisualFidelityTicks.push_back( tick );
+        state.replayCausalProofTicks.push_back(
+            BuildReplayCausalProofTick( replayRuntime.PublishedReplayVisualPacket() ) );
+
+        const std::vector<RunReplayPredictionFrame>& predictionFrames = replayRuntime.Prediction().simulation.frames;
+        if ( state.replayVisualFidelityTicks.size() == predictionFrames.size() && !predictionFrames.empty() )
+        {
+            const PredictionTrajectoryFingerprint revealFingerprint =
+                BuildPredictionTrajectoryFingerprint( replayRuntime );
+            state.replayVisualFidelityTrajectoryHash = revealFingerprint.hash;
+            state.replayVisualFidelityTrajectoryRecordCount = revealFingerprint.recordCount;
+            state.replayVisualFidelityTrajectoryPointCount = revealFingerprint.pointCount;
+            state.replayVisualFidelityTrajectoryCaptured = revealFingerprint.Ready();
+            const ReplayVisualPacket& packet = replayRuntime.PublishedReplayVisualPacket();
+            state.replayCausalTopology.reserve( packet.futureNodes.size() );
+            for ( const RunReplayPathTraceNode& node : packet.futureNodes )
+            {
+                state.replayCausalTopology.push_back( ReplayCausalTopologyNodeReport{ node.id.value,
+                                                                                      node.parentId.value,
+                                                                                      node.firstFrame,
+                                                                                      node.depth,
+                                                                                      node.contactDerived } );
+            }
+
+            const ReplaySolverFrameSample* liveSource = replayRuntime.Solver().LatestSample();
+            if ( !liveSource )
+            {
+                FailAutomation( state, "replay causal proof has no live source sample" );
+            }
+            else
+            {
+                std::string difference;
+                const RunReplayPredictionFrame& predictedSource = predictionFrames.front();
+                const uint64_t predictedHash = HashPredictedBodyPacket( predictedSource );
+                const uint64_t liveHash = HashLiveBodyPacket( *liveSource );
+                if ( !ComparePredictedBodyPacket( predictedSource, *liveSource, difference ) )
+                {
+                    FailAutomation( state, ( "replay causal source divergence at offset=0 " + difference ).c_str() );
+                }
+                state.replayCausalSourceFrame = liveSource->frameIndex;
+                state.replayCausalNextOffset = 1;
+                state.replayPredictedLiveTicks.push_back(
+                    ReplayPredictedLiveReportTick{ 0,
+                                                   predictedSource.frameIndex,
+                                                   liveSource->frameIndex,
+                                                   predictedHash,
+                                                   liveHash,
+                                                   static_cast<uint32_t>( predictedSource.bodies.size() ) } );
+                state.replayCausalLiveReadyToPlay = !state.failed;
+                state.replayCausalLiveComplete = predictionFrames.size() == 1u && !state.failed;
+            }
+        }
+    }
+
+    if ( state.replayCausalLivePlayInjected && !state.replayCausalLiveComplete && !state.failed )
+    {
+        const std::vector<RunReplayPredictionFrame>& predictionFrames = replayRuntime.Prediction().simulation.frames;
+        const ReplaySolverFrameSample* live = replayRuntime.Solver().LatestSample();
+        if ( replayRuntime.Prediction().enabled || replayRuntime.Prediction().build.building )
+        {
+            FailAutomation( state, "replay causal proof attempted a second prediction generation after Play" );
+        }
+        else if ( !live || state.replayCausalNextOffset >= predictionFrames.size() )
+        {
+            FailAutomation( state, "replay causal live comparison lost its retained prediction or live sample" );
+        }
+        else
+        {
+            const uint64_t expectedLiveFrame = state.replayCausalSourceFrame + state.replayCausalNextOffset;
+            if ( live->frameIndex > expectedLiveFrame )
+            {
+                char message[256] = {};
+                sprintf_s( message,
+                           sizeof( message ),
+                           "replay causal live comparison skipped frame: expected=%llu actual=%llu",
+                           static_cast<unsigned long long>( expectedLiveFrame ),
+                           static_cast<unsigned long long>( live->frameIndex ) );
+                FailAutomation( state, message );
+            }
+            else if ( live->frameIndex == expectedLiveFrame )
+            {
+                const RunReplayPredictionFrame& predicted = predictionFrames[state.replayCausalNextOffset];
+                std::string difference;
+                const uint64_t predictedHash = HashPredictedBodyPacket( predicted );
+                const uint64_t liveHash = HashLiveBodyPacket( *live );
+                if ( !ComparePredictedBodyPacket( predicted, *live, difference ) )
+                {
+                    char message[384] = {};
+                    sprintf_s( message,
+                               sizeof( message ),
+                               "replay causal live divergence at offset=%llu %s",
+                               static_cast<unsigned long long>( state.replayCausalNextOffset ),
+                               difference.c_str() );
+                    FailAutomation( state, message );
+                }
+                state.replayPredictedLiveTicks.push_back(
+                    ReplayPredictedLiveReportTick{ state.replayCausalNextOffset,
+                                                   predicted.frameIndex,
+                                                   live->frameIndex,
+                                                   predictedHash,
+                                                   liveHash,
+                                                   static_cast<uint32_t>( predicted.bodies.size() ) } );
+                ++state.replayCausalNextOffset;
+                state.replayCausalLiveComplete =
+                    state.replayCausalNextOffset >= predictionFrames.size() && !state.failed;
+            }
+        }
     }
 
     bool allProcessed = true;
@@ -3015,6 +3382,11 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
 
     if ( allProcessed && frame >= lastFrame )
     {
+        if ( !state.failed && state.replayVisualFidelityCaptureEnabled && !state.replayCausalLiveComplete )
+        {
+            ClearInteractionAutomationInput( state );
+            return result;
+        }
         if ( !state.failed && replayRuntime.Prediction().build.building )
         {
             // Why: prediction reports read committed topology, frame counts,
@@ -3136,6 +3508,42 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
                   { "segmentCount", tick.segmentCount } } );
     }
 
+    Json replayCausalTicks = Json::array();
+    for ( const ReplayCausalProofTick& tick : state.replayCausalProofTicks )
+    {
+        replayCausalTicks.push_back( Json{ { "revealFrame", tick.revealFrame },
+                                           { "activeTopologyHash", FormatPredictionHash( tick.activeTopologyHash ) },
+                                           { "activeNodeCount", tick.activeNodeCount },
+                                           { "revealedRecordCount", tick.revealedRecordCount },
+                                           { "revealedPointCount", tick.revealedPointCount },
+                                           { "revealedSegmentCount", tick.revealedSegmentCount },
+                                           { "entryMarkerCount", tick.entryMarkerCount },
+                                           { "restMarkerCount", tick.restMarkerCount },
+                                           { "horizonMarkerCount", tick.horizonMarkerCount },
+                                           { "ghostRequestCount", tick.ghostRequestCount } } );
+    }
+
+    Json replayCausalTopology = Json::array();
+    for ( const ReplayCausalTopologyNodeReport& node : state.replayCausalTopology )
+    {
+        replayCausalTopology.push_back( Json{ { "id", node.id },
+                                              { "parentId", node.parentId },
+                                              { "firstFrame", node.firstFrame },
+                                              { "depth", node.depth },
+                                              { "contactDerived", node.contactDerived } } );
+    }
+
+    Json replayPredictedLiveTicks = Json::array();
+    for ( const ReplayPredictedLiveReportTick& tick : state.replayPredictedLiveTicks )
+    {
+        replayPredictedLiveTicks.push_back( Json{ { "offset", tick.offset },
+                                                  { "predictedFrame", tick.predictedFrame },
+                                                  { "liveFrame", tick.liveFrame },
+                                                  { "predictedHash", FormatPredictionHash( tick.predictedHash ) },
+                                                  { "liveHash", FormatPredictionHash( tick.liveHash ) },
+                                                  { "bodyCount", tick.bodyCount } } );
+    }
+
     const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), scene.BodyStore() );
     const char* selectedName = "";
     if ( selectedIndex >= 0 && selectedIndex < scene.SceneEntityCount() )
@@ -3186,10 +3594,10 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
             continue;
         }
         ++predictionAuthoredWallBrickCount;
-        const bool affected = std::any_of(
-            predictionState.futureNodeCache.futureNodes.begin(),
-            predictionState.futureNodeCache.futureNodes.end(),
-            [&]( const RunReplayPathTraceNode& node ) { return node.modelRow.value == modelIndex; } );
+        const bool affected =
+            std::any_of( predictionState.futureNodeCache.futureNodes.begin(),
+                         predictionState.futureNodeCache.futureNodes.end(),
+                         [&]( const RunReplayPathTraceNode& node ) { return node.modelRow.value == modelIndex; } );
         predictionAffectedWallBrickCount += affected ? 1 : 0;
         if ( !predictionFirstFrame || !predictionLastFrame )
         {
@@ -3218,8 +3626,19 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
             ++predictionMovedWallBrickCount;
         }
     }
-    const PredictionTrajectoryFingerprint predictionTrajectoryFingerprint =
+    PredictionTrajectoryFingerprint predictionTrajectoryFingerprint =
         BuildPredictionTrajectoryFingerprint( replayRuntime );
+    if ( state.replayVisualFidelityTrajectoryCaptured )
+    {
+        // The V0 oracle describes the completed prediction reveal. The V2 live
+        // continuation legitimately extends the retained past-path record, so
+        // report the snapshot captured before Play rather than mixing phases.
+        predictionTrajectoryFingerprint.hash = state.replayVisualFidelityTrajectoryHash;
+        predictionTrajectoryFingerprint.recordCount =
+            static_cast<std::size_t>( state.replayVisualFidelityTrajectoryRecordCount );
+        predictionTrajectoryFingerprint.pointCount =
+            static_cast<std::size_t>( state.replayVisualFidelityTrajectoryPointCount );
+    }
     const ReplayTrajectorySubmissionProbeStats& predictionSubmissionProbe =
         replayRuntime.ReplayTrajectorySubmissionProbe();
     std::size_t predictionRetainedEntryMarkerCount = 0;
@@ -3283,6 +3702,18 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
                                            { "startFrame", state.replayVisualFidelityStartFrame },
                                            { "tickCount", state.replayVisualFidelityTicks.size() },
                                            { "ticks", replayVisualFidelityTicks } };
+    report["replayCausalProof"] =
+        Json{ { "schemaVersion", 1 },
+              { "singleRevealGeneration", true },
+              { "targetId", replayRuntime.PublishedReplayVisualPacket().header.targetId.value },
+              { "tickCount", state.replayCausalProofTicks.size() },
+              { "topologyCount", state.replayCausalTopology.size() },
+              { "predictedLiveTickCount", state.replayPredictedLiveTicks.size() },
+              { "sourceFrame", state.replayCausalSourceFrame },
+              { "liveComparisonComplete", state.replayCausalLiveComplete },
+              { "topology", replayCausalTopology },
+              { "ticks", replayCausalTicks },
+              { "predictedLiveTicks", replayPredictedLiveTicks } };
     report["failure"] = state.failure;
     report["finalState"] = Json{
         { "cameraMode", CameraModeName( camera.mode ) },
