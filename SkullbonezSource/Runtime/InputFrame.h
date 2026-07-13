@@ -35,6 +35,11 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+class EngineConfig;
+struct CinematicRenderConfig;
+} // namespace Core
 namespace Assets
 {
 class AssetSystem;
@@ -58,12 +63,11 @@ namespace UI
 {
 class InGameUI;
 }
-namespace Basics
+namespace Runtime
 {
 class ApplicationExitState;
 class AttachedCameraController;
 class DiagnosticsRuntime;
-class EngineConfig;
 class GraphicsStressController;
 class RenderDefaultsStore;
 class ReplayRuntime;
@@ -74,7 +78,6 @@ class SceneController;
 class SimulationSystem;
 struct RunEditorPlacementState;
 struct SceneRequest;
-struct CinematicRenderConfig;
 struct RunCameraState;
 struct RunDebugState;
 struct RunLaunchOptions;
@@ -85,7 +88,7 @@ struct RuntimeViewModel;
 
 struct RuntimeUIFrameResult
 {
-    SbResult status = SbResult::Success();
+    SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
     ReplayRuntime::ReplayWorkspaceOutput replayWorkspace;
     UI::InGameUICommands commands;
     bool suppressWorldActionThisFrame = false;
@@ -148,7 +151,7 @@ bool IsEditorWorldOwner( WorldInteractionOwner owner );
 RuntimeWorkspace WorkspaceForWorldInteractionOwner( RuntimeWorkspace fallback, WorldInteractionOwner owner );
 const char* ReplayOwnerEventName( ReplayOwnerEventCode code );
 uint32_t ReplaySceneRequestFlags( const SceneRequest& request );
-void ReportRuntimeInputFailure( const SbResult& result );
+void ReportRuntimeInputFailure( const SkullbonezCore::Core::SbResult& result );
 RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
                                           RuntimeFrameInteractionView& interactionOwners,
                                           RuntimeFrameSceneView& sceneOwners,
@@ -172,5 +175,5 @@ void ProcessInputFrame( RuntimeFrameHostView& host,
                         RuntimeFrameInteractionView& interactionOwners,
                         RuntimeFrameSceneView& sceneOwners,
                         RuntimeFramePresentationView& presentationOwners );
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

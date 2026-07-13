@@ -39,13 +39,13 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 class ApplicationExitState
 {
   public:
     static constexpr std::size_t FAILURE_OWNER_CAPACITY = 96;
-    static constexpr std::size_t FAILURE_MESSAGE_CAPACITY = sizeof( SbError::message );
+    static constexpr std::size_t FAILURE_MESSAGE_CAPACITY = sizeof( SkullbonezCore::Core::SbError::message );
 
     // Requests a successful process exit without changing any previously owned
     // failure.
@@ -53,7 +53,7 @@ class ApplicationExitState
 
     // Records a subsystem-attributed Lane R failure and requests exit. Success
     // values are ignored, and only the first failure is retained.
-    void RequestOwnedFailure( const SbResult& failure ) noexcept;
+    void RequestOwnedFailure( const SkullbonezCore::Core::SbResult& failure ) noexcept;
 
     [[nodiscard]] bool ExitRequested() const noexcept;
     [[nodiscard]] bool HasOwnedFailure() const noexcept;
@@ -63,8 +63,8 @@ class ApplicationExitState
     // has already supplied a more useful Lane R result.
     //
     // Lifetime: a returned owned-failure result borrows its owner string from
-    // this state. The state must outlive the caller's use of that SbResult.
-    [[nodiscard]] SbResult Resolve( int messageExitCode ) const noexcept;
+    // this state. The state must outlive the caller's use of that SkullbonezCore::Core::SbResult.
+    [[nodiscard]] SkullbonezCore::Core::SbResult Resolve( int messageExitCode ) const noexcept;
 
   private:
     std::array<char, FAILURE_OWNER_CAPACITY> m_failureOwner = {};
@@ -72,5 +72,5 @@ class ApplicationExitState
     bool m_exitRequested = false;
     bool m_hasOwnedFailure = false;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

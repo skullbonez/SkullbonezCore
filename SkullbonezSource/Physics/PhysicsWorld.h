@@ -54,10 +54,13 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
 {
 class EngineConfig;
-} // namespace Basics
+} // namespace Core
+namespace Runtime
+{
+} // namespace Runtime
 
 namespace Threading
 {
@@ -227,7 +230,7 @@ class PhysicsWorld
         // per body index.
         const PhysicsBodyRecordList& bodyRecords;
         const ColliderRecordList& colliderRecords;
-        const Basics::EngineConfig& config;
+        const SkullbonezCore::Core::EngineConfig& config;
         const std::vector<uint8_t>& sleepState;
         const std::vector<float>& timeRemaining;
         std::vector<TerrainDetectionCandidate>& candidates;
@@ -248,7 +251,7 @@ class PhysicsWorld
         const ColliderStore& colliderStore;
         const PhysicsBodyRecordList& bodyRecords;
         const ColliderRecordList& colliderRecords;
-        const Basics::EngineConfig& config;
+        const SkullbonezCore::Core::EngineConfig& config;
         std::vector<TerrainContactManifold>& terrainContactManifolds;
         std::vector<uint8_t>& sleepSupportedThisFrame;
         std::vector<uint8_t>& sleepInhibitedThisFrame;
@@ -261,7 +264,7 @@ class PhysicsWorld
     void BuildSolverBroadphaseCandidatePairs( const PhysicsBodyStore& bodyStore,
                                               const PhysicsBodyRecordList& bodyRecords,
                                               const ColliderRecordList& colliderRecords,
-                                              const Basics::EngineConfig& config,
+                                              const SkullbonezCore::Core::EngineConfig& config,
                                               int modelCount,
                                               float dt,
                                               float contactSkin,
@@ -411,17 +414,18 @@ class PhysicsWorld
     void RunSolverPhysics( PhysicsBodyStore& bodyStore,
                            const ColliderStore& colliderStore,
                            float dt,
-                           const Basics::EngineConfig& config,
+                           const SkullbonezCore::Core::EngineConfig& config,
                            const PhysicsWorldForces& worldForces,
                            Threading::WorkerPool& workerPool );
     const Math::Vector::Vector3* PrepareMutualGravityForces( const PhysicsBodyRecordList& bodyRecords,
                                                              int modelCount,
                                                              const PhysicsWorldForces& worldForces );
     void EmitPhysicsCollisionTime( const char* type, int bodyA, int bodyB, float collisionTime, float availableTime );
-    PersistentContactSolverContext CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,
-                                                                         const ColliderStore& colliderStore,
-                                                                         const Basics::EngineConfig& config,
-                                                                         const PhysicsWorldForces& worldForces );
+    PersistentContactSolverContext
+    CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,
+                                          const ColliderStore& colliderStore,
+                                          const SkullbonezCore::Core::EngineConfig& config,
+                                          const PhysicsWorldForces& worldForces );
     void PreparePersistentContactSideEffects( int modelCount );
     void ApplyPersistentContactSideEffects( PhysicsBodyStore& bodyStore,
                                             const ColliderStore& colliderStore,
@@ -441,7 +445,7 @@ class PhysicsWorld
                                const ColliderStore& colliderStore,
                                const PhysicsWorldForces& worldForces,
                                float dt,
-                               const Basics::EngineConfig& runtimeConfig,
+                               const SkullbonezCore::Core::EngineConfig& runtimeConfig,
                                Threading::WorkerPool& workerPool );
     void PropagateSleepSupport( const PhysicsBodyRecordList& bodyRecords );
     void AppendPointJointSupportEdges( const PhysicsBodyStore& bodyStore, int modelCount );
@@ -494,7 +498,7 @@ class PhysicsWorld
   public:
     PhysicsWorld();
 
-    void ApplyRuntimeConfig( const Basics::EngineConfig& config );
+    void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
     void Clear();
     void ReserveBodyScratchCapacity( std::size_t capacity );
     // Runs one fixed world step over the stores. Collision diagnostics append
@@ -502,7 +506,7 @@ class PhysicsWorld
     void RunPhysics( PhysicsBodyStore& bodyStore,
                      const ColliderStore& colliderStore,
                      float fChangeInTime,
-                     const Basics::EngineConfig& config,
+                     const SkullbonezCore::Core::EngineConfig& config,
                      const PhysicsWorldForces& worldForces,
                      Threading::WorkerPool& workerPool );
     // Emits Debug-only regression and SkullScope records from the stores the
@@ -539,8 +543,8 @@ class PhysicsWorld
     void SetTornadoSystemConfig( const TornadoSystemConfig& config );
     const TornadoSystemConfig& GetTornadoSystemConfig() const;
     float GetTornadoSystemElapsedSeconds() const;
-    void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const;
-    bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, int modelCount );
+    void CaptureReplaySolverSnapshot( Runtime::ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const;
+    bool RestoreReplaySolverSnapshot( const Runtime::ReplaySolverWorldSnapshot& snapshot, int modelCount );
     PhysicsDiagnosticsView GetDiagnosticsView() const;
     uint64_t CollectMemoryBytes() const;
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;
@@ -609,7 +613,7 @@ struct PersistentContactSolverContext
     int bodyStoreCount = 0;
     int pipelineRecordCapacity = 0;
     bool elasticCollisions = false;
-    const Basics::EngineConfig& config;
+    const SkullbonezCore::Core::EngineConfig& config;
 };
 
 struct SleepSupportPropagationContext

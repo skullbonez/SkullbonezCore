@@ -26,7 +26,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 using TestSceneParserDetail::CopyOptionalContactMaterial;
 using TestSceneParserDetail::Fail;
@@ -727,5 +727,5 @@ void TestSceneParser::ApplyRequirements( const Json& requirements, const std::st
 }
 
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

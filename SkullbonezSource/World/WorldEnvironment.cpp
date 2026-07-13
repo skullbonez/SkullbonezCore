@@ -94,13 +94,13 @@ WorldEnvironment::~WorldEnvironment()
 }
 
 
-void WorldEnvironment::BindRuntimeConfig( const SkullbonezCore::Basics::EngineConfig& config )
+void WorldEnvironment::BindRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
     ApplyWaterAndFluidSettings( config );
 }
 
 
-void WorldEnvironment::BindRenderContexts( const SkullbonezCore::Basics::EngineConfig& config,
+void WorldEnvironment::BindRenderContexts( const SkullbonezCore::Core::EngineConfig& config,
                                            SkullbonezCore::Assets::AssetSystem& assets,
                                            IRenderResourceFactory& resources )
 {
@@ -112,7 +112,7 @@ void WorldEnvironment::BindRenderContexts( const SkullbonezCore::Basics::EngineC
 }
 
 
-void WorldEnvironment::ApplyWaterAndFluidSettings( const SkullbonezCore::Basics::EngineConfig& config )
+void WorldEnvironment::ApplyWaterAndFluidSettings( const SkullbonezCore::Core::EngineConfig& config )
 {
     m_waterStyle.ordinary = config.ordinaryRender;
     m_waterStyle.cinematicFallback = config.cinematicRender;
@@ -134,7 +134,7 @@ void WorldEnvironment::SetTerrainBounds( float xMin, float xMax, float zMin, flo
 
 WaterStyleParams
 WorldEnvironment::BuildCalmWaterStyle( bool cinematic,
-                                       const SkullbonezCore::Basics::CinematicRenderConfig& cinematicStyle ) const
+                                       const SkullbonezCore::Core::CinematicRenderConfig& cinematicStyle ) const
 {
     WaterStyleParams style;
     style.cinematic = cinematic;
@@ -161,7 +161,7 @@ WorldEnvironment::BuildCalmWaterStyle( bool cinematic,
     }
     else
     {
-        const SkullbonezCore::Basics::OrdinaryRenderConfig& ordinary = m_waterStyle.ordinary;
+        const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary = m_waterStyle.ordinary;
         style.tintR = ordinary.waterTintR;
         style.tintG = ordinary.waterTintG;
         style.tintB = ordinary.waterTintB;
@@ -179,7 +179,7 @@ WorldEnvironment::BuildCalmWaterStyle( bool cinematic,
 
 WaterStyleParams
 WorldEnvironment::BuildOceanWaterStyle( bool cinematic,
-                                        const SkullbonezCore::Basics::CinematicRenderConfig& cinematicStyle ) const
+                                        const SkullbonezCore::Core::CinematicRenderConfig& cinematicStyle ) const
 {
     WaterStyleParams style;
     style.cinematic = cinematic;
@@ -201,7 +201,7 @@ WorldEnvironment::BuildOceanWaterStyle( bool cinematic,
     }
     else
     {
-        const SkullbonezCore::Basics::OrdinaryRenderConfig& ordinary = m_waterStyle.ordinary;
+        const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary = m_waterStyle.ordinary;
         style.tintR = ordinary.waterTintR;
         style.tintG = ordinary.waterTintG;
         style.tintB = ordinary.waterTintB;
@@ -263,7 +263,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
                                     float time,
                                     bool flatWater,
                                     bool cinematic,
-                                    const SkullbonezCore::Basics::CinematicRenderConfig* cinematicConfig )
+                                    const SkullbonezCore::Core::CinematicRenderConfig* cinematicConfig )
 {
     if ( !m_calmMesh || !m_oceanMesh || !m_calmShader || !m_oceanShader )
     {
@@ -273,7 +273,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
     {
         return;
     }
-    const SkullbonezCore::Basics::CinematicRenderConfig& cinematicStyle =
+    const SkullbonezCore::Core::CinematicRenderConfig& cinematicStyle =
         cinematicConfig ? *cinematicConfig : m_waterStyle.cinematicFallback;
     const WaterMode waterMode = cinematic ? WaterModeFromConfigValue( cinematicStyle.waterMode ) : WaterMode::Ocean;
     if ( cinematic && waterMode == WaterMode::Off )
@@ -467,7 +467,7 @@ void WorldEnvironment::ResetRenderResources()
 }
 
 
-void WorldEnvironment::EnsureRenderResources( const SkullbonezCore::Basics::EngineConfig& config,
+void WorldEnvironment::EnsureRenderResources( const SkullbonezCore::Core::EngineConfig& config,
                                               SkullbonezCore::Assets::AssetSystem& assets,
                                               IRenderResourceFactory& resources )
 {

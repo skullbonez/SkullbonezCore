@@ -77,7 +77,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct ReplaySolverWorldSnapshot;
 }
@@ -498,7 +498,7 @@ struct PhysicsDiagnosticsSnapshot
 
 struct PhysicsReplaySolverSnapshotView
 {
-    const Basics::ReplaySolverWorldSnapshot* snapshot = nullptr;
+    const Runtime::ReplaySolverWorldSnapshot* snapshot = nullptr;
     PhysicsBodyCount bodyCount;
 };
 

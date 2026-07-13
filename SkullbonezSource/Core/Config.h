@@ -41,7 +41,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
 {
 
 inline constexpr unsigned int ENGINE_CONFIG_FORMAT_VERSION = 1;
@@ -584,5 +584,5 @@ inline int ActiveGameModelCapacity( const EngineConfig& config )
     return std::clamp( config.runtimeCapacity.gameModelCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
 }
 
-} // namespace Basics
+} // namespace Core
 } // namespace SkullbonezCore

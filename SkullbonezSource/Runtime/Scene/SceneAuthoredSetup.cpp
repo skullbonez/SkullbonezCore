@@ -63,12 +63,11 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
 using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
-using SkullbonezCore::Basics::SceneController;
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
@@ -90,6 +89,7 @@ using SkullbonezCore::Physics::Ragdoll;
 using SkullbonezCore::Physics::RagdollBuildOptions;
 using SkullbonezCore::Physics::RagdollJointDesc;
 using SkullbonezCore::Physics::RagdollPartDesc;
+using SkullbonezCore::Runtime::SceneController;
 
 constexpr float SCENE_EDITOR_TEXTURE_MODE_INVERTED = -2.0f;
 
@@ -177,7 +177,8 @@ Vector3 ScaleSceneVector( const Vector3& value, float scale )
     return Vector3( value.x * scale, value.y * scale, value.z * scale );
 }
 
-SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context, const RagdollBuildOptions& options )
+SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context,
+                                                            const RagdollBuildOptions& options )
 {
     const int firstBody = context.models.SceneEntityCount();
     const uint32_t groupId = static_cast<uint32_t>( firstBody + 1 );
@@ -191,7 +192,8 @@ SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context, c
     // ragdoll parts append with deterministic, gap-free scene identity.
     if ( !options.firstSceneObjectId.IsValid() )
     {
-        return SbResult::Failure( "Runtime/SceneAuthoredSetup", "Ragdoll build requires a scene object id range." );
+        return SkullbonezCore::Core::SbResult::Failure( "Runtime/SceneAuthoredSetup",
+                                                        "Ragdoll build requires a scene object id range." );
     }
 
     char partNames[Ragdoll::SIMPLE_PART_COUNT][64] = {};
@@ -201,8 +203,9 @@ SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context, c
         {
             // Lane R: preflight the longest generated names before the first
             // append so one bad prefix cannot publish a partial ragdoll.
-            return SbResult::Failure( "Runtime/SceneAuthoredSetup",
-                                      "Ragdoll part name exceeds the 63-character display-name limit." );
+            return SkullbonezCore::Core::SbResult::Failure(
+                "Runtime/SceneAuthoredSetup",
+                "Ragdoll part name exceeds the 63-character display-name limit." );
         }
     }
 
@@ -274,28 +277,30 @@ SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context, c
             context.physics.SeedBodyAsleep( bodyStore.HandleForModelIndex( firstBody + i ) );
         }
     }
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
-SbResult ApplySceneBehaviorGroup( const SceneObjectGroupMetadata& group, SceneEntityCreateDesc& entity )
+SkullbonezCore::Core::SbResult ApplySceneBehaviorGroup( const SceneObjectGroupMetadata& group,
+                                                        SceneEntityCreateDesc& entity )
 {
     if ( group.kind == SceneObjectGroupKind::None )
     {
-        return SbResult::Success();
+        return SkullbonezCore::Core::SbResult::Success();
     }
     if ( group.kind != SceneObjectGroupKind::ReleasableTree || !group.rootObjectId.IsValid() || group.partIndex < 0 )
     {
         // Lane R: authored scene metadata can become invalid when an include or
         // editor save names a group root that cannot be resolved for this hull section.
-        return SbResult::Failure( "Runtime/SceneAuthoredSetup",
-                                  "Invalid authored scene object group metadata: kind=%u root_id=%u part=%d.",
-                                  static_cast<unsigned int>( group.kind ),
-                                  group.rootObjectId.value,
-                                  group.partIndex );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Runtime/SceneAuthoredSetup",
+            "Invalid authored scene object group metadata: kind=%u root_id=%u part=%d.",
+            static_cast<unsigned int>( group.kind ),
+            group.rootObjectId.value,
+            group.partIndex );
     }
 
     entity.SetBehaviorGroup( SceneBehaviorGroupKind::ReleasableTree, group.rootObjectId, group.partIndex );
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 bool SceneNameEndsWithPartSuffix( const char* name, const char* suffix )
@@ -438,8 +443,8 @@ void ApplyAssetAffiliation( SceneEntityCreateDesc& entity,
 } // namespace
 
 
-SbResult SceneAuthoredSetup::AppendSimpleRagdoll( SceneSimpleRagdollAppendContext context,
-                                                  const RagdollBuildOptions& options )
+SkullbonezCore::Core::SbResult SceneAuthoredSetup::AppendSimpleRagdoll( SceneSimpleRagdollAppendContext context,
+                                                                        const RagdollBuildOptions& options )
 {
     return AppendAuthoredSimpleRagdoll( context, options );
 }
@@ -475,7 +480,8 @@ void SceneAuthoredSetup::SetUpCameras( SceneAuthoredCameraContext context, const
 }
 
 
-SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuthoredModelContext context, const TestScene& scene )
+SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuthoredModelContext context,
+                                                                       const TestScene& scene )
 {
     // Invariant: Model insertion order follows scene schema sections. Runtime
     // validation, saved editable scenes, and point-joint name resolution all
@@ -653,7 +659,8 @@ SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuthoredModelContext conte
     {
         const SceneConvexHull& hullScene = scene.GetConvexHull( i );
         ConvexHullShape hull;
-        SbResult hullLoad = ConvexHullShape::TryLoadFromFile( ResolveEditorHullAssetPath( hullScene.hullPath ), hull );
+        SkullbonezCore::Core::SbResult hullLoad =
+            ConvexHullShape::TryLoadFromFile( ResolveEditorHullAssetPath( hullScene.hullPath ), hull );
         if ( !hullLoad.ok )
         {
             return hullLoad;
@@ -684,7 +691,7 @@ SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuthoredModelContext conte
 
         // Invariant: parsed scene grouping crosses the construction edge as a
         // stable root id and stays separate from asset affiliation.
-        const SbResult groupResult = ApplySceneBehaviorGroup( hullScene.group, entity );
+        const SkullbonezCore::Core::SbResult groupResult = ApplySceneBehaviorGroup( hullScene.group, entity );
         if ( !groupResult.ok )
         {
             return groupResult;
@@ -730,7 +737,8 @@ SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuthoredModelContext conte
     {
         const SceneConvexHullState& hullScene = scene.GetConvexHullState( i );
         ConvexHullShape hull;
-        SbResult hullLoad = ConvexHullShape::TryLoadFromFile( ResolveEditorHullAssetPath( hullScene.hullPath ), hull );
+        SkullbonezCore::Core::SbResult hullLoad =
+            ConvexHullShape::TryLoadFromFile( ResolveEditorHullAssetPath( hullScene.hullPath ), hull );
         if ( !hullLoad.ok )
         {
             return hullLoad;
@@ -740,7 +748,7 @@ SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuthoredModelContext conte
 
         entity.SetName( hullScene.name );
         ApplyAssetAffiliation( entity, scene, SceneAssetPartSource::ConvexHullState, static_cast<uint32_t>( i ) );
-        const SbResult groupResult = ApplySceneBehaviorGroup( hullScene.group, entity );
+        const SkullbonezCore::Core::SbResult groupResult = ApplySceneBehaviorGroup( hullScene.group, entity );
         if ( !groupResult.ok )
         {
             return groupResult;
@@ -799,7 +807,7 @@ SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuthoredModelContext conte
             context.models,
             context.physics,
         };
-        const SbResult ragdollResult = AppendSimpleRagdoll( ragdollContext, options );
+        const SkullbonezCore::Core::SbResult ragdollResult = AppendSimpleRagdoll( ragdollContext, options );
         if ( !ragdollResult.ok )
         {
             return ragdollResult;
@@ -864,7 +872,7 @@ SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuthoredModelContext conte
     context.sceneState.ResetSceneObjectIdCursor( context.models.BodyStore() );
     SetUpRequiredContacts( context, scene );
     SetUpRequiredBroadphaseXCells( context, scene );
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
@@ -907,5 +915,5 @@ void SceneAuthoredSetup::SetUpRequiredBroadphaseXCells( SceneAuthoredModelContex
     }
 }
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

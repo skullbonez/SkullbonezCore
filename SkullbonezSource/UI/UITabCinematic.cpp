@@ -35,7 +35,7 @@ Related:
 #include <cstdio>
 #include <cstring>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::UI::Layout;
 using namespace SkullbonezCore::UI::Widgets;
 
@@ -269,7 +269,8 @@ float CinematicSliderY( int index, float baseY )
     return y;
 }
 
-float CinematicValueForParam( const CinematicRenderConfig& cinematic, SkullbonezCore::UI::UICinematicParam param )
+float CinematicValueForParam( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                              SkullbonezCore::UI::UICinematicParam param )
 {
     // Read the live value for a Cine slider. This is the inverse of the command
     // application in RunInput.cpp.
@@ -427,7 +428,8 @@ float CinematicFeatureX( int index, float contentX, float colW )
     return ( index % 2 == 0 ) ? contentX : contentX + colW + 18.0f;
 }
 
-bool CinematicFeatureEnabled( const CinematicRenderConfig& cinematic, SkullbonezCore::UI::UICinematicFeature feature )
+bool CinematicFeatureEnabled( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                              SkullbonezCore::UI::UICinematicFeature feature )
 {
     switch ( feature )
     {

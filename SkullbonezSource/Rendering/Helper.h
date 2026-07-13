@@ -44,6 +44,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+struct CinematicRenderConfig;
+} // namespace Core
 namespace Assets
 {
 class AssetSystem;
@@ -61,9 +65,8 @@ namespace CollisionDetection
 class ConvexHullShape;
 }
 } // namespace Math
-namespace Basics
+namespace Runtime
 {
-struct CinematicRenderConfig;
 class RenderHelper;
 
 struct RenderHelperContext
@@ -75,7 +78,7 @@ struct RenderHelperContext
     Rendering::IRenderCommandContext& renderCommands;
     Rendering::IRenderDiagnostics& renderDiagnostics;
     const Assets::AssetSystem& assets;
-    const EngineConfig& config;
+    const SkullbonezCore::Core::EngineConfig& config;
     RenderHelper& helper;
 };
 
@@ -195,7 +198,7 @@ class RenderHelper
                                           const Math::Transformation::Matrix4& proj,
                                           const float lightPos[4],
                                           bool isTransparent = false,
-                                          const CinematicRenderConfig* cinematic = nullptr,
+                                          const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
                                           const Rendering::ShadowFrameData* shadow = nullptr,
                                           float materialAlpha = 1.0f );
     PrimitiveBatchScope BeginBoxBatch( const RenderHelperContext& context,
@@ -203,7 +206,7 @@ class RenderHelper
                                        const Math::Transformation::Matrix4& proj,
                                        const float lightPos[4],
                                        bool isTransparent = false,
-                                       const CinematicRenderConfig* cinematic = nullptr,
+                                       const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
                                        const Rendering::ShadowFrameData* shadow = nullptr,
                                        float materialAlpha = 1.0f );
     PrimitiveBatchScope BeginPineBatch( const RenderHelperContext& context,
@@ -211,13 +214,14 @@ class RenderHelper
                                         const Math::Transformation::Matrix4& proj,
                                         const float lightPos[4],
                                         bool isTransparent = false,
-                                        const CinematicRenderConfig* cinematic = nullptr,
+                                        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
                                         const Rendering::ShadowFrameData* shadow = nullptr,
                                         float materialAlpha = 1.0f );
-    PrimitiveBatchScope BeginShadowDepthSphereBatch( const RenderHelperContext& context,
-                                                     const Math::Transformation::Matrix4& view,
-                                                     const Math::Transformation::Matrix4& proj,
-                                                     const CinematicRenderConfig* cinematic = nullptr );
+    PrimitiveBatchScope
+    BeginShadowDepthSphereBatch( const RenderHelperContext& context,
+                                 const Math::Transformation::Matrix4& view,
+                                 const Math::Transformation::Matrix4& proj,
+                                 const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr );
     PrimitiveBatchScope BeginShadowDepthBoxBatch( const RenderHelperContext& context,
                                                   const Math::Transformation::Matrix4& view,
                                                   const Math::Transformation::Matrix4& proj );
@@ -232,7 +236,7 @@ class RenderHelper
                               const Math::Transformation::Matrix4& proj,
                               const float lightPos[4],
                               bool isTransparent = false,
-                              const CinematicRenderConfig* cinematic = nullptr,
+                              const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
                               const Rendering::ShadowFrameData* shadow = nullptr,
                               float materialAlpha = 1.0f );
     void DrawShadowDepthConvexHullModel( const RenderHelperContext& context,
@@ -254,7 +258,7 @@ class RenderHelper
                                const Math::Transformation::Matrix4& proj,
                                const float lightPos[4],
                                bool isTransparent = false,
-                               const CinematicRenderConfig* cinematic = nullptr,
+                               const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
                                const Rendering::ShadowFrameData* shadow = nullptr,
                                float materialAlpha = 1.0f );
     void DrawSphereBatchModel(
@@ -271,7 +275,7 @@ class RenderHelper
                             const Math::Transformation::Matrix4& proj,
                             const float lightPos[4],
                             bool isTransparent = false,
-                            const CinematicRenderConfig* cinematic = nullptr,
+                            const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
                             const Rendering::ShadowFrameData* shadow = nullptr,
                             float materialAlpha = 1.0f );
     void DrawBoxBatchModel(
@@ -288,7 +292,7 @@ class RenderHelper
                              const Math::Transformation::Matrix4& proj,
                              const float lightPos[4],
                              bool isTransparent = false,
-                             const CinematicRenderConfig* cinematic = nullptr,
+                             const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
                              const Rendering::ShadowFrameData* shadow = nullptr,
                              float materialAlpha = 1.0f );
     void DrawPineBatchModel(
@@ -303,7 +307,7 @@ class RenderHelper
     void DrawShadowDepthSphereBatchBegin( const RenderHelperContext& context,
                                           const Math::Transformation::Matrix4& view,
                                           const Math::Transformation::Matrix4& proj,
-                                          const CinematicRenderConfig* cinematic = nullptr );
+                                          const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr );
     void DrawShadowDepthSphereBatchModel( const Math::Transformation::Matrix4& model );
     void DrawShadowDepthSphereBatchEnd( const RenderHelperContext& context );
     void DrawShadowDepthBoxBatchBegin( const RenderHelperContext& context,
@@ -333,5 +337,5 @@ class RenderHelper
         return m_state.sphereVertexCount;
     }
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

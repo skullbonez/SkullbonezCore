@@ -85,26 +85,26 @@ class Terrain
   public:
     static constexpr float FLAT_SLOPE_EXTENT = 1000.0f;                    // XZ extent of the analytic flat slope play area
 
-    static Basics::SbResult
+    static SkullbonezCore::Core::SbResult
     TryCreateFromHeightMap( const char* sFileName,
                             int iMapSize,
                             int iStepSize,
                             int iTextureWrap,
-                            const Basics::EngineConfig& config,
+                            const SkullbonezCore::Core::EngineConfig& config,
                             Assets::AssetSystem& assets,
                             Rendering::IRenderResourceFactory& resources,
                             std::unique_ptr<Terrain>& outTerrain );        // Lane R factory for external RAW height-map input.
     Terrain( int iMapSize,
              int iStepSize,
              int iTextureWrap,
-             const Basics::EngineConfig& config,
+             const SkullbonezCore::Core::EngineConfig& config,
              Assets::AssetSystem& assets,
              Rendering::IRenderResourceFactory& resources );               // Construction shell used by TryCreateFromHeightMap; step
                                                              // size feeds both pixels and physics posts.
     Terrain( float slopeBaseY,
              float slopeX,
              float slopeZ,
-             const Basics::EngineConfig& config,
+             const SkullbonezCore::Core::EngineConfig& config,
              Assets::AssetSystem& assets,
              Rendering::IRenderResourceFactory&
                  resources );                                              // Flat analytic slope constructor: y = slopeBaseY + slopeX*x + slopeZ*z
@@ -115,20 +115,20 @@ class Terrain
                  Rendering::IRenderCommandContext& commands,
                  const float* lightPosition,
                  const float* clipPlane,
-                 const Basics::CinematicRenderConfig* cinematic = nullptr,
+                 const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
                  const Rendering::ShadowFrameData* shadow = nullptr,
                  const Rendering::ShadowFrameData* detailShadow =
                      nullptr );                                            // Terrain color pass with optional broad and tight shadow inputs.
     void RenderShadowDepth( const Math::Transformation::Matrix4& lightView,
                             const Math::Transformation::Matrix4& lightProjection,
-                            const Basics::CinematicRenderConfig* cinematic =
+                            const SkullbonezCore::Core::CinematicRenderConfig* cinematic =
                                 nullptr );                                 // Depth-only terrain caster pass for directional shadows.
     void BindRenderContexts(
-        const Basics::EngineConfig& config,
+        const SkullbonezCore::Core::EngineConfig& config,
         Assets::AssetSystem& assets,
         Rendering::IRenderResourceFactory& resources );                    // Borrow rebuild-only services for terrain resources.
     void
-    EnsureRenderResources( const Basics::EngineConfig& config,
+    EnsureRenderResources( const SkullbonezCore::Core::EngineConfig& config,
                            Assets::AssetSystem& assets,
                            Rendering::IRenderResourceFactory& resources ); // Lazily rebuilds missing backend resources.
     void EnsureShadowDepthResources();                                     // Prewarms the terrain shadow caster shader.
@@ -199,7 +199,7 @@ class Terrain
     int m_terrainSizeWorldCoords;                                          // size per side of m_terrain in world coordinates
     float m_maxTerrainHeight;                                              // Maximum Y height across all posts (computed once at build time)
     float m_minTerrainHeight;                                              // Minimum Y height across all posts (computed once at build time)
-    const Basics::EngineConfig* m_config;                                  // Borrowed runtime config for terrain scale/render settings.
+    const SkullbonezCore::Core::EngineConfig* m_config;                    // Borrowed runtime config for terrain scale/render settings.
     Assets::AssetSystem* m_assets;                                         // Borrowed asset registry for terrain shaders.
     Rendering::IRenderResourceFactory* m_resources;                        // Borrowed active backend resource factory for terrain mesh/shaders.
 
@@ -211,8 +211,10 @@ class Terrain
     Plane m_flatSlopePlane;
     Math::Vector::Vector3 m_flatSlopeNormal;
 
-    Basics::SbResult LoadTerrainData( const char* sFileName );             // RAW byte load retained for render mesh rebuilds.
-    const Basics::EngineConfig& Config() const;                            // Runtime config must be bound before terrain queries or rebuilds.
+    SkullbonezCore::Core::SbResult
+    LoadTerrainData( const char* sFileName );                              // RAW byte load retained for render mesh rebuilds.
+    const SkullbonezCore::Core::EngineConfig&
+    Config() const;                                                        // Runtime config must be bound before terrain queries or rebuilds.
     void InitialiseTerrainShader();                                        // Lit terrain shader setup for the active backend.
     void ConfigureRenderStepSize();                                        // Chooses a safe render-only terrain step size
     void BuildTerrain();                                                   // Physics-authoritative terrain posts are rebuilt from raw height data.

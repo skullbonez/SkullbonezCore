@@ -24,9 +24,9 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
-void DiagnosticsController::BindProfiler( Profiler* profiler )
+void DiagnosticsController::BindProfiler( SkullbonezCore::Core::Profiler* profiler )
 {
     m_profiler = profiler;
 }
@@ -116,5 +116,5 @@ bool DiagnosticsController::PhysicsDiagnosticsEnabled() const
     return m_physicsDiagnostics.isEnabled;
 }
 #endif
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

@@ -34,6 +34,6 @@ class IRenderShaderDevelopment
   public:
     virtual ~IRenderShaderDevelopment() = default;
     virtual bool ShaderHotReloadEnabled() const = 0;
-    virtual Basics::SbResult ReloadShadersFromSource() = 0;
+    virtual SkullbonezCore::Core::SbResult ReloadShadersFromSource() = 0;
 };
 } // namespace SkullbonezCore::Rendering

@@ -3,6 +3,10 @@ File: Agentic/Tests/Dx12ArchUnitTests/Dx12ArchUnitTests.cpp
 Purpose:
   Contains DX12 architecture checks that guard renderer ownership and dependency boundaries.
 
+Summary:
+  Exercises CPU-only renderer state machines and ownership contracts without
+  creating a D3D12 device or submitting GPU work.
+
 Mental model:
   Dx12ArchUnitTests.cpp contains DX12 architecture checks that guard renderer
   ownership and dependency boundaries. As an implementation unit, keep edits
@@ -57,13 +61,13 @@ Related:
 #include <vector>
 
 using namespace SkullbonezCore::Rendering;
-using SkullbonezCore::Basics::SbResult;
+using SkullbonezCore::Core::SbResult;
 using SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase;
 
-static_assert( std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().FlushGPU() ), SbResult>::value,
+static_assert( std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().FlushGPU() ), SkullbonezCore::Core::SbResult>::value,
                "FlushGPU must return a recoverable result to every resource-mutation caller." );
 static_assert(
-    std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().DrainForResourceRelease() ), SbResult>::value,
+    std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().DrainForResourceRelease() ), SkullbonezCore::Core::SbResult>::value,
     "Terminal resource release must use its own checked drain boundary." );
 static_assert( std::is_trivially_copyable<Dx12SubmittedWorkState>::value,
                "Submitted-work tracking must remain an allocation-free value record." );
@@ -230,7 +234,7 @@ void TestSuccessfulListResetCommitsOpenState()
 
 void TestWaitFailurePreservesRecordingEpoch()
 {
-    const auto waitFailure = SbResult::Failure( "TestWait", "fence did not complete" );
+    const auto waitFailure = SkullbonezCore::Core::SbResult::Failure( "TestWait", "fence did not complete" );
 
     Dx12CommandRecordingState closedState;
     closedState.ResetForDevice();
@@ -255,7 +259,7 @@ void TestFirstCommandFailureRemainsAuthoritative()
     Dx12CommandRecordingState state = MakeOpenCommandState();
 
     const auto first = state.CommitClose( E_FAIL, "first Close" );
-    const auto second = state.RetainFailure( SbResult::Failure( "SecondOwner", "second failure" ) );
+    const auto second = state.RetainFailure( SkullbonezCore::Core::SbResult::Failure( "SecondOwner", "second failure" ) );
 
     EXPECT_TRUE( !first.ok );
     EXPECT_TRUE( !second.ok );
@@ -308,7 +312,7 @@ void TestGpuDrainCloseFailureBlocksSubmission()
     Dx12CommandRecordingState commandState = MakeOpenCommandState();
     Dx12GpuDrainProgress drainProgress( commandState.IsOpen() );
 
-    const SbResult closeResult = commandState.CommitClose( E_FAIL, "test FlushGPU Close" );
+    const SkullbonezCore::Core::SbResult closeResult = commandState.CommitClose( E_FAIL, "test FlushGPU Close" );
     if ( closeResult.ok )
     {
         drainProgress.CommitClose();
@@ -326,13 +330,13 @@ void TestGpuDrainWaitFailureBlocksReopenAndMutation()
     Dx12CommandRecordingState commandState = MakeOpenCommandState();
     Dx12GpuDrainProgress drainProgress( commandState.IsOpen() );
 
-    const SbResult closeResult = commandState.CommitClose( S_OK, "test FlushGPU Close" );
+    const SkullbonezCore::Core::SbResult closeResult = commandState.CommitClose( S_OK, "test FlushGPU Close" );
     EXPECT_TRUE( closeResult.ok );
     EXPECT_TRUE( drainProgress.CommitClose() );
     EXPECT_TRUE( drainProgress.CommitSubmission() );
 
-    const SbResult waitResult =
-        commandState.CommitWait( SbResult::Failure( "TestWait", "submitted work did not drain" ) );
+    const SkullbonezCore::Core::SbResult waitResult =
+        commandState.CommitWait( SkullbonezCore::Core::SbResult::Failure( "TestWait", "submitted work did not drain" ) );
     if ( waitResult.ok )
     {
         drainProgress.CommitWait();
@@ -352,7 +356,7 @@ void TestGpuDrainSuccessAllowsMutationOnlyAfterReopen()
     EXPECT_TRUE( commandState.CommitClose( S_OK, "test FlushGPU Close" ).ok );
     EXPECT_TRUE( drainProgress.CommitClose() );
     EXPECT_TRUE( drainProgress.CommitSubmission() );
-    EXPECT_TRUE( commandState.CommitWait( SbResult::Success() ).ok );
+    EXPECT_TRUE( commandState.CommitWait( SkullbonezCore::Core::SbResult::Success() ).ok );
     EXPECT_TRUE( drainProgress.CommitWait() );
     EXPECT_TRUE( !drainProgress.IsMutationSafe() );
 
@@ -370,7 +374,7 @@ void TestSubmittedWorkSignalFailureBlocksReuseAndRelease()
     submittedWork.ResetForDevice();
     submittedWork.MarkSubmitted();
 
-    submittedWork.CommitSignal( SbResult::Failure( "TestSignal", "queue signal failed" ), 0 );
+    submittedWork.CommitSignal( SkullbonezCore::Core::SbResult::Failure( "TestSignal", "queue signal failed" ), 0 );
 
     EXPECT_TRUE( submittedWork.Phase() == Dx12SubmittedWorkPhase::CompletionUncertain );
     EXPECT_TRUE( submittedWork.HasSubmittedWork() );
@@ -388,9 +392,9 @@ void TestSubmittedWorkWaitFailurePreservesCompletionFence()
     Dx12SubmittedWorkState submittedWork;
     submittedWork.ResetForDevice();
     submittedWork.MarkSubmitted();
-    submittedWork.CommitSignal( SbResult::Success(), 42 );
+    submittedWork.CommitSignal( SkullbonezCore::Core::SbResult::Success(), 42 );
 
-    submittedWork.CommitWait( SbResult::Failure( "TestWait", "fence wait failed" ), 42 );
+    submittedWork.CommitWait( SkullbonezCore::Core::SbResult::Failure( "TestWait", "fence wait failed" ), 42 );
 
     EXPECT_TRUE( submittedWork.Phase() == Dx12SubmittedWorkPhase::CompletionUncertain );
     EXPECT_TRUE( submittedWork.HasSubmittedWork() );
@@ -410,12 +414,12 @@ void TestSubmittedWorkSuccessfulSignalAndWaitAllowsReuse()
     Dx12SubmittedWorkState submittedWork;
     submittedWork.ResetForDevice();
     submittedWork.MarkSubmitted();
-    submittedWork.CommitSignal( SbResult::Success(), 7 );
+    submittedWork.CommitSignal( SkullbonezCore::Core::SbResult::Success(), 7 );
 
     EXPECT_TRUE( submittedWork.Phase() == Dx12SubmittedWorkPhase::SubmittedFenced );
     EXPECT_TRUE( !submittedWork.CanReleaseWithoutFence() );
 
-    submittedWork.CommitWait( SbResult::Success(), 7 );
+    submittedWork.CommitWait( SkullbonezCore::Core::SbResult::Success(), 7 );
     EXPECT_TRUE( submittedWork.Phase() == Dx12SubmittedWorkPhase::Idle );
     EXPECT_TRUE( submittedWork.CanReleaseWithoutFence() );
 }
@@ -425,8 +429,8 @@ void TestDeviceLossBlocksWorkAndRetainsFirstFailure()
     Dx12DeviceHealthState health;
     health.ResetForDevice();
 
-    const SbResult first = health.RetainDeviceLoss( "Present", E_FAIL );
-    const SbResult second = health.RetainDeviceLoss( "ResizeBuffers", E_OUTOFMEMORY );
+    const SkullbonezCore::Core::SbResult first = health.RetainDeviceLoss( "Present", E_FAIL );
+    const SkullbonezCore::Core::SbResult second = health.RetainDeviceLoss( "ResizeBuffers", E_OUTOFMEMORY );
 
     EXPECT_TRUE( !first.ok );
     EXPECT_TRUE( health.IsLost() );
@@ -471,7 +475,7 @@ void TestRecreationFailurePreservesPublishedGeneration()
     EXPECT_TRUE( transaction.CommitCandidateReady() );
     EXPECT_TRUE( transaction.CommitOldReferencesReleased() );
 
-    const SbResult failure = transaction.Fail( SbResult::Failure( "TestResize", "ResizeBuffers failed" ) );
+    const SkullbonezCore::Core::SbResult failure = transaction.Fail( SkullbonezCore::Core::SbResult::Failure( "TestResize", "ResizeBuffers failed" ) );
 
     EXPECT_TRUE( !failure.ok );
     EXPECT_TRUE( transaction.HasFailed() );
@@ -501,8 +505,8 @@ void TestFaultInjectionBlocksFirstAndSubsequentSubmissions()
     Dx12FaultInjectionState fault;
     fault.Configure( "before-first-submit" );
 
-    const SbResult first = fault.BeforeSubmission();
-    const SbResult second = fault.BeforeSubmission();
+    const SkullbonezCore::Core::SbResult first = fault.BeforeSubmission();
+    const SkullbonezCore::Core::SbResult second = fault.BeforeSubmission();
 
     EXPECT_TRUE( !first.ok );
     EXPECT_TRUE( !second.ok );

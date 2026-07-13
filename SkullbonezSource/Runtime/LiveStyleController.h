@@ -40,7 +40,7 @@ namespace Rendering
 {
 class IRenderCaptureBackend;
 }
-namespace Basics
+namespace Runtime
 {
 class CaptureController;
 class LiveStyleController
@@ -70,5 +70,5 @@ class LiveStyleController
     int m_captureCount = 0;                 // Successful live screenshots.
     bool m_hasPendingScreenshot = false;    // Capture should run after render/UI this frame.
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

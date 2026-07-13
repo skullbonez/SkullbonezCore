@@ -53,13 +53,13 @@ class IRenderRayTracing
   public:
     virtual ~IRenderRayTracing() = default;
 
-    virtual Basics::SbResult InitDXR( uint64_t terrainVBVA,
-                                      int terrainVertCount,
-                                      int terrainStride,
-                                      uint64_t sphereVBVA,
-                                      int sphereVertCount,
-                                      int sphereStride,
-                                      int maxInstances ) = 0;
+    virtual SkullbonezCore::Core::SbResult InitDXR( uint64_t terrainVBVA,
+                                                    int terrainVertCount,
+                                                    int terrainStride,
+                                                    uint64_t sphereVBVA,
+                                                    int sphereVertCount,
+                                                    int sphereStride,
+                                                    int maxInstances ) = 0;
     virtual void DispatchReflectionRays( const float* invViewProj,
                                          const float* cameraPos,
                                          float waterY,

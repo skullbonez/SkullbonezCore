@@ -44,11 +44,11 @@ Related:
 #include <cfloat>
 #include <cmath>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Basics::ReplayOverlay;
+using namespace SkullbonezCore::Runtime::ReplayOverlay;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace

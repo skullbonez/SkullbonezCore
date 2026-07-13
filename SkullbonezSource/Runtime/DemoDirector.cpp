@@ -43,7 +43,7 @@ using SkullbonezCore::Math::Vector::Vector3;
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -488,5 +488,5 @@ bool SaveDemoShotList( const char* path, const DemoShotList& shotList )
     return output.good();
 }
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

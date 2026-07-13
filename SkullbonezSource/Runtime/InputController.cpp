@@ -34,7 +34,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -638,5 +638,5 @@ void InputController::ApplyCameraMovement( RunCameraState& camera,
         }
     }
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

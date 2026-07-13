@@ -52,7 +52,7 @@ Related:
 
 
 using namespace SkullbonezCore::Rendering;
-using SkullbonezCore::Basics::SbResult;
+using SkullbonezCore::Core::SbResult;
 
 
 // Alignment helpers
@@ -75,16 +75,17 @@ SBT::~SBT()
 }
 
 
-SbResult SBT::Build( ID3D12Device* device,
-                     ID3D12StateObjectProperties* props,
-                     const wchar_t* rayGenName,
-                     const wchar_t* missName,
-                     const wchar_t* hitGroupTerrainName,
-                     const wchar_t* hitGroupSphereName )
+SkullbonezCore::Core::SbResult SBT::Build( ID3D12Device* device,
+                                           ID3D12StateObjectProperties* props,
+                                           const wchar_t* rayGenName,
+                                           const wchar_t* missName,
+                                           const wchar_t* hitGroupTerrainName,
+                                           const wchar_t* hitGroupSphereName )
 {
     if ( !props )
     {
-        return SbResult::Failure( "Rendering/DX12", "SBT: missing RT pipeline shader identifier interface" );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "SBT: missing RT pipeline shader identifier interface" );
     }
 
     // Shader identifier size is always 32 bytes (D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES)
@@ -114,22 +115,25 @@ SbResult SBT::Build( ID3D12Device* device,
     void* rayGenId = props->GetShaderIdentifier( rayGenName );
     if ( !rayGenId )
     {
-        return SbResult::Failure( "Rendering/DX12", "SBT: Missing ray-generation shader identifier" );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "SBT: Missing ray-generation shader identifier" );
     }
     void* missId = props->GetShaderIdentifier( missName );
     if ( !missId )
     {
-        return SbResult::Failure( "Rendering/DX12", "SBT: Missing miss shader identifier" );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "SBT: Missing miss shader identifier" );
     }
     void* terrainHitId = props->GetShaderIdentifier( hitGroupTerrainName );
     if ( !terrainHitId )
     {
-        return SbResult::Failure( "Rendering/DX12", "SBT: Missing terrain hit-group shader identifier" );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "SBT: Missing terrain hit-group shader identifier" );
     }
     void* sphereHitId = props->GetShaderIdentifier( hitGroupSphereName );
     if ( !sphereHitId )
     {
-        return SbResult::Failure( "Rendering/DX12", "SBT: Missing sphere hit-group shader identifier" );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "SBT: Missing sphere hit-group shader identifier" );
     }
 
     // Allocate upload heap buffer
@@ -155,7 +159,7 @@ SbResult SBT::Build( ID3D12Device* device,
                                                   nullptr,
                                                   IID_PPV_ARGS( &m_buffer ) ) ) )
     {
-        return SbResult::Failure( "Rendering/DX12", "SBT: Failed to create buffer" );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "SBT: Failed to create buffer" );
     }
     NameDx12Object( m_buffer, L"Skullbonez DX12 Shader Binding Table" );
 
@@ -187,7 +191,7 @@ SbResult SBT::Build( ID3D12Device* device,
     memcpy( mapped + m_hitGroupOffset + m_hitGroupStride, sphereHitId, (size_t)shaderIdSize );
 
     m_buffer->Unmap( 0, nullptr );
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 

@@ -29,7 +29,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 class RuntimeFileWriter
 {
@@ -45,5 +45,5 @@ class RuntimeFileWriter
                                   int& sequence,
                                   int maxTries = 1000 );
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

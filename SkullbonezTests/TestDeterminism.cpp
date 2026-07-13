@@ -65,12 +65,12 @@
 #include <memory>
 #include <vector>
 
-using SkullbonezCore::Basics::EngineConfig;
-using SkullbonezCore::Basics::ReplayBodyShapeKind;
-using SkullbonezCore::Basics::ReplayFrameIndex;
-using SkullbonezCore::Basics::ReplaySolverBodySample;
-using SkullbonezCore::Basics::ReplaySolverFrameSample;
-using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
+using SkullbonezCore::Core::EngineConfig;
+using SkullbonezCore::Runtime::ReplayBodyShapeKind;
+using SkullbonezCore::Runtime::ReplayFrameIndex;
+using SkullbonezCore::Runtime::ReplaySolverBodySample;
+using SkullbonezCore::Runtime::ReplaySolverFrameSample;
+using SkullbonezCore::Runtime::ReplaySolverWorldSnapshot;
 using SkullbonezCore::Geometry::Terrain;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
@@ -119,9 +119,9 @@ struct MicroWorldSnapshot
     std::array<BodyReplayState, kMicroBodyCount> bodies;
 };
 
-EngineConfig MakeDeterministicConfig()
+SkullbonezCore::Core::EngineConfig MakeDeterministicConfig()
 {
-    EngineConfig config;
+    SkullbonezCore::Core::EngineConfig config;
     config.physicsExecution.parallel = false;
     config.physicsExecution.parallelApplyForces = false;
     config.physicsExecution.parallelTornadoField = false;
@@ -178,7 +178,7 @@ Terrain& FlatTestTerrain()
     // Lifetime: bodies borrow this Terrain pointer for every step. Static
     // storage keeps the borrowed terrain and config valid across repeated
     // engine resets without depending on process-global configuration.
-    static EngineConfig config = MakeDeterministicConfig();
+    static SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     static SkullbonezCore::Assets::AssetSystem assets;
     static SkullbonezTests::NullRenderResourceFactory resources;
     static Terrain terrain( 0.0f, 0.0f, 0.0f, config, assets, resources );
@@ -241,7 +241,7 @@ void AddSupportedSleepBody( PhysicsEngine& engine, uint32_t sceneObjectId, const
     REQUIRE( engine.RegisterAuthoredBody( bodyDesc, colliderDesc ).IsValid() );
 }
 
-void SeedSupportedSleepWorld( PhysicsEngine& engine, const EngineConfig& config )
+void SeedSupportedSleepWorld( PhysicsEngine& engine, const SkullbonezCore::Core::EngineConfig& config )
 {
     // Why: the sleep-threshold test needs real terrain support but no inherited
     // angular motion from SeedMicroWorld. One quiet sphere starts exactly on the
@@ -304,7 +304,7 @@ void AddMutualGravityBody( PhysicsEngine& engine,
 
 void SeedMicroWorld( PhysicsEngine& engine )
 {
-    EngineConfig config = MakeDeterministicConfig();
+    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     engine.Clear();
     engine.ApplyRuntimeConfig( config );
     engine.SetSleepEnabled( false );
@@ -323,7 +323,7 @@ void SeedTwoBodyGravityWorld( PhysicsEngine& engine,
                               float mass,
                               float radius )
 {
-    EngineConfig config = MakeDeterministicConfig();
+    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     config.worldForces.gravity = 0.0f;
     engine.Clear();
     engine.ApplyRuntimeConfig( config );
@@ -337,7 +337,7 @@ void SeedTwoBodyGravityWorld( PhysicsEngine& engine,
 
 void StepMicroWorldWith( PhysicsEngine& engine,
                          int ticks,
-                         const EngineConfig& config,
+                         const SkullbonezCore::Core::EngineConfig& config,
                          const PhysicsWorldForces& forces )
 {
     WorkerPool workerPool;
@@ -355,7 +355,7 @@ void StepMicroWorldWith( PhysicsEngine& engine,
 
 void StepMicroWorld( PhysicsEngine& engine, int ticks )
 {
-    const EngineConfig config = MakeDeterministicConfig();
+    const SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     const PhysicsWorldForces forces = DeterministicForces();
     StepMicroWorldWith( engine, ticks, config, forces );
 }
@@ -404,7 +404,7 @@ bool DiagnosticsSleepStateAt( const PhysicsEngine& engine, int modelIndex )
     return bodyIndex < sleepStates.size() && sleepStates[bodyIndex] != 0;
 }
 
-void CheckTerrainPenetrationWithinTolerance( const PhysicsEngine& engine, const EngineConfig& config )
+void CheckTerrainPenetrationWithinTolerance( const PhysicsEngine& engine, const SkullbonezCore::Core::EngineConfig& config )
 {
     // Concept: this is the fast invariant partner to byte-exact CSV baselines.
     // It does not care about exact impulse history, only that settled body rows
@@ -783,7 +783,7 @@ TEST_CASE( "PhysicsEngine mutual gravity: pair force is antisymmetric" )
                              5.0f,
                              0.5f );
 
-    EngineConfig config = MakeDeterministicConfig();
+    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     config.worldForces.gravity = 0.0f;
     const PhysicsWorldForces forces = MutualGravityForces( 120.0f, 0.25f );
 
@@ -809,7 +809,7 @@ TEST_CASE( "PhysicsEngine mutual gravity: softening keeps near pairs finite" )
                              3.0f,
                              0.01f );
 
-    EngineConfig config = MakeDeterministicConfig();
+    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     config.worldForces.gravity = 0.0f;
     const PhysicsWorldForces forces = MutualGravityForces( 1000.0f, 5.0f );
 
@@ -844,7 +844,7 @@ TEST_CASE( "PhysicsEngine mutual gravity: equal-mass two-body orbit stays bounde
                              mass,
                              0.5f );
 
-    EngineConfig config = MakeDeterministicConfig();
+    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     config.worldForces.gravity = 0.0f;
     const PhysicsWorldForces forces = MutualGravityForces( gravitationalConstant, softeningLength );
 
@@ -864,7 +864,7 @@ TEST_CASE( "PhysicsEngine mutual gravity: chaotic triple is deterministic" )
 {
     static PhysicsEngine first;
     static PhysicsEngine second;
-    EngineConfig config = MakeDeterministicConfig();
+    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     config.worldForces.gravity = 0.0f;
 
     auto seedTriple = [&config]( PhysicsEngine& engine )
@@ -905,7 +905,7 @@ TEST_CASE( "PhysicsEngine mutual gravity: elastic space collision preserves clos
                              mass,
                              radius );
 
-    EngineConfig config = MakeDeterministicConfig();
+    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     config.worldForces.gravity = 0.0f;
     PhysicsWorldForces forces = MutualGravityForces( 0.001f, 1.0f );
     REQUIRE( forces.mutualGravity.elasticCollisions );
@@ -927,7 +927,7 @@ TEST_CASE( "PhysicsEngine invariants: settled bodies stay within terrain penetra
     static PhysicsEngine settled;
     SeedMicroWorld( settled );
 
-    const EngineConfig config = MakeDeterministicConfig();
+    const SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     const PhysicsWorldForces forces = DeterministicForces();
     StepMicroWorldWith( settled, kPenetrationSettleTicks, config, forces );
 
@@ -940,7 +940,7 @@ TEST_CASE( "PhysicsEngine invariants: fluid damping does not add kinetic energy"
     static PhysicsEngine damped;
     SeedMicroWorld( damped );
 
-    EngineConfig config = MakeDeterministicConfig();
+    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     config.worldForces.gravity = 0.0f;
     config.worldForces.fluidDensity = 2.0f;
     config.worldForces.fluidAngularDragMultiplier = 2.0f;
@@ -967,7 +967,7 @@ TEST_CASE( "PhysicsEngine invariants: authored velocity wakes a sleeping body" )
     SeedMicroWorld( sleepWorld );
     sleepWorld.SetSleepEnabled( true );
 
-    EngineConfig config = MakeDeterministicConfig();
+    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     config.worldForces.gravity = 0.0f;
     const PhysicsWorldForces forces = NoGravityForces();
 
@@ -993,7 +993,7 @@ TEST_CASE( "PhysicsEngine sleep policy: quiet supported body sleeps after thresh
 {
     static PhysicsEngine sleepWorld;
 
-    EngineConfig config = MakeDeterministicConfig();
+    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     config.physicsSleep.frames = 3;
     config.physicsSleep.linearSpeed = 0.25f;
     config.physicsSleep.angularSpeed = 0.25f;

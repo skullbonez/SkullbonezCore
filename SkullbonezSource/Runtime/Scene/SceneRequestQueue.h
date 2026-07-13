@@ -30,7 +30,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 constexpr int SCENE_REQUEST_TEXT_CAPACITY = 256;
 constexpr int SCENE_REQUEST_QUEUE_CAPACITY = 64;
@@ -66,7 +66,7 @@ bool SceneRequestIsTransition( SceneRequestType type );
 class SceneRequestQueue
 {
   public:
-    SbResult Submit( const SceneRequest& request );
+    SkullbonezCore::Core::SbResult Submit( const SceneRequest& request );
     SceneRequestBatch TakePending();
     std::size_t Size() const;
 
@@ -75,5 +75,5 @@ class SceneRequestQueue
     int m_head = 0;                                        // Oldest scene request.
     int m_count = 0;                                       // Occupied scene request slots.
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

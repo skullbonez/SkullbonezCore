@@ -206,8 +206,8 @@ class Dx12FenceTimeline
     void Reset();
 
     bool IsReady() const;
-    Basics::SbResult Signal( UINT64& outValue );
-    Basics::SbResult WaitForValue( UINT64 value ) const;
+    SkullbonezCore::Core::SbResult Signal( UINT64& outValue );
+    SkullbonezCore::Core::SbResult WaitForValue( UINT64 value ) const;
 
     UINT64 CompletedValue() const;
     UINT64 LastSignaledValue() const
@@ -838,7 +838,7 @@ class Dx12RenderDevice
     Dx12RenderDevice( const Dx12RenderDevice& ) = delete;
     Dx12RenderDevice& operator=( const Dx12RenderDevice& ) = delete;
 
-    Basics::SbResult Init( const Dx12RenderDeviceInitDesc& desc );
+    SkullbonezCore::Core::SbResult Init( const Dx12RenderDeviceInitDesc& desc );
     void Shutdown();
 
     bool IsReady() const

@@ -36,7 +36,7 @@ Related:
 #include <cstring>
 
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Core;
 using namespace SkullbonezCore::Rendering;
 
 

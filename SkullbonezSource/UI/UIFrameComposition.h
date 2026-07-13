@@ -339,7 +339,7 @@ int RenderSliderIndexFromActiveSlider( int activeSlider );
 float RenderSliderY( int index, float baseY );
 int RenderContentHeight();
 int RenderTargetsContentHeight();
-float RenderValueForParam( const Basics::OrdinaryRenderConfig& ordinary, UIRenderParam param );
+float RenderValueForParam( const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary, UIRenderParam param );
 void SetRenderSliderResult( InGameUIInputResult& result,
                             const UISlider& slider,
                             int mouseX,

@@ -107,8 +107,8 @@ concrete plan rows and counting it would duplicate tasks.
 | frame-view-calling-convention | 4 | 4 | 100% |
 | render-interface-and-workerpool-slimming | 5 | 5 | 100% |
 | runtime-contract-enforcement | 5 | 5 | 100% |
-| adversarial-review-round-3 | 4 | 10 | 40% |
-| **Portfolio total** | **306** | **313** | **98%** |
+| adversarial-review-round-3 | 5 | 10 | 50% |
+| **Portfolio total** | **307** | **313** | **98%** |
 
 ## Current Execution Priority
 
@@ -216,7 +216,7 @@ solver SIMD → DX12 bindless and frame headroom.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [adversarial-review-round-3](TODO/adversarial-review-round-3.md) | Live | 4/10 | Start R5 (`SkullbonezCore::Basics` owner mapping and atomic retirement); companion checklist `TODO/adversarial-review-round-3-progress.md` carries fine-grained steps |
+| [adversarial-review-round-3](TODO/adversarial-review-round-3.md) | Live | 5/10 | Start R6 (`Rendering/Helper.*` routine inventory and owner dissolution); companion checklist `TODO/adversarial-review-round-3-progress.md` carries fine-grained steps |
 
 Owner-ruled out of scope in this round (recorded so they are not re-litigated):
 replay subsystem right-sizing, unit-test depth expansion, sleep parallel-array

@@ -65,11 +65,11 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct DeviceInputFrame;
 struct RuntimeMouseEdges;
-} // namespace Basics
+} // namespace Runtime
 
 namespace Assets
 {
@@ -216,7 +216,7 @@ struct InGameUIFrameData
     int soundSetCount = 0;
     const char* soundSamplePaths[UI_SOUND_SAMPLE_MAX] = {};
     int soundSampleCount = 0;
-    Basics::MainMemoryStats mainMemory;
+    SkullbonezCore::Core::MainMemoryStats mainMemory;
     Rendering::RenderMemoryStats renderMemory;     // Value snapshot for the Memory tab/overlay only.
     Runtime::Allocation::RuntimeReserveGrowthEventView reserveGrowthEvents[UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX];
     int reserveGrowthEventCount = 0;
@@ -336,8 +336,8 @@ struct InGameUIFrameData
     int editorRedoDepth = 0;
     bool canSaveSceneDefaults = false;
     bool cinematicRendering = false;
-    Basics::OrdinaryRenderConfig ordinaryRender;
-    Basics::CinematicRenderConfig cinematic;
+    SkullbonezCore::Core::OrdinaryRenderConfig ordinaryRender;
+    SkullbonezCore::Core::CinematicRenderConfig cinematic;
     UIRenderTargetPreviewResource renderTargetPreviews[UI_RENDER_TARGET_PREVIEW_MAX];
     int renderTargetPreviewCount = 0;
 };
@@ -377,8 +377,8 @@ class InGameUI
     void CancelInputCapture();
     void ResetResources( Rendering::IRenderResourceFactory* resources );
 
-    InGameUIInputResult UpdateInput( const Basics::DeviceInputFrame& deviceFrame,
-                                     const Basics::RuntimeMouseEdges& mouse,
+    InGameUIInputResult UpdateInput( const Runtime::DeviceInputFrame& deviceFrame,
+                                     const Runtime::RuntimeMouseEdges& mouse,
                                      int screenW,
                                      int screenH,
                                      double now,

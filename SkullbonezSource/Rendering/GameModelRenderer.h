@@ -35,11 +35,14 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
 {
 struct CinematicRenderConfig;
+} // namespace Core
+namespace Runtime
+{
 struct RenderHelperContext;
-} // namespace Basics
+} // namespace Runtime
 
 namespace Physics
 {
@@ -61,14 +64,14 @@ namespace GameObjects
 class GameModelRenderer
 {
   public:
-    static void RenderModels( const Basics::RenderHelperContext& helperContext,
+    static void RenderModels( const Runtime::RenderHelperContext& helperContext,
                               const Rendering::RenderInstanceStore& renderStore,
                               const Physics::ColliderStore& colliderStore,
                               bool renderCollisionVolumes,
                               const Math::Transformation::Matrix4& view,
                               const Math::Transformation::Matrix4& proj,
                               const float lightPos[4],
-                              const Basics::CinematicRenderConfig* cinematic,
+                              const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                               const Rendering::ShadowFrameData* shadow,
                               float materialAlpha,
                               const std::vector<uint8_t>* modelMask = nullptr,
@@ -79,20 +82,20 @@ class GameModelRenderer
                                           Threading::WorkerPool* workerPool,
                                           bool useShadowParallelPrep,
                                           Rendering::ShadowCasterBatches& outBatches );
-    static void SubmitShadowCasterBatches( const Basics::RenderHelperContext& helperContext,
+    static void SubmitShadowCasterBatches( const Runtime::RenderHelperContext& helperContext,
                                            const Rendering::ShadowCasterBatches& batches,
                                            const Math::Transformation::Matrix4& view,
                                            const Math::Transformation::Matrix4& proj,
-                                           const Basics::CinematicRenderConfig* cinematic,
+                                           const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                            Rendering::RenderVisibilityView visibilityView );
-    static void RenderShadowCasters( const Basics::RenderHelperContext& helperContext,
+    static void RenderShadowCasters( const Runtime::RenderHelperContext& helperContext,
                                      const Rendering::RenderInstanceStore& renderStore,
                                      const Physics::ColliderStore& colliderStore,
                                      Threading::WorkerPool* workerPool,
                                      bool useShadowParallelPrep,
                                      const Math::Transformation::Matrix4& view,
                                      const Math::Transformation::Matrix4& proj,
-                                     const Basics::CinematicRenderConfig* cinematic,
+                                     const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                      Rendering::RenderVisibilityView visibilityView );
     static bool GetObjectShadowBounds( const Rendering::RenderInstanceStore& renderStore,
                                        Threading::WorkerPool* workerPool,

@@ -35,7 +35,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 // Concept: These records are deliberately tiny so editor/replay/input modules
 // can request a mutation without depending on Run's private state layout.
@@ -120,5 +120,5 @@ struct RuntimeGestureEvent
     RuntimePointerCaptureOwner pointerCapture = RuntimePointerCaptureOwner::None;
 };
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

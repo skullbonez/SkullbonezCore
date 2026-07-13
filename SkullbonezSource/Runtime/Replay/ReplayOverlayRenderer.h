@@ -47,13 +47,17 @@ namespace SkullbonezCore::Threading
 class WorkerPool;
 }
 
-namespace SkullbonezCore::Basics
+namespace SkullbonezCore::Core
 {
 class EngineConfig;
-class RunEditorTracer;
-} // namespace SkullbonezCore::Basics
+} // namespace SkullbonezCore::Core
 
-namespace SkullbonezCore::Basics::ReplayOverlay
+namespace SkullbonezCore::Runtime
+{
+class RunEditorTracer;
+} // namespace SkullbonezCore::Runtime
+
+namespace SkullbonezCore::Runtime::ReplayOverlay
 {
 struct ReplayOverlayRenderContext
 {
@@ -81,7 +85,7 @@ struct ReplayPathVisualizerRenderContext
     ReplayRuntime& replayRuntime;
     SkullbonezCore::Physics::PhysicsEngine& physics;
     const SceneEntityStore& entities;
-    const EngineConfig& config;
+    const SkullbonezCore::Core::EngineConfig& config;
     const SkullbonezCore::Physics::PhysicsWorldForces& worldForces;
     SkullbonezCore::Threading::WorkerPool& workerPool;
     RunEditorTracer& tracer;
@@ -94,4 +98,4 @@ struct ReplayPathVisualizerRenderContext
 void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context );
 void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context );
 void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context );
-} // namespace SkullbonezCore::Basics::ReplayOverlay
+} // namespace SkullbonezCore::Runtime::ReplayOverlay

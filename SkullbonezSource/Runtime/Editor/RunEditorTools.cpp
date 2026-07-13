@@ -77,13 +77,13 @@ namespace GameObjects = SkullbonezCore::GameObjects;
 namespace Geometry = SkullbonezCore::Geometry;
 #include <vector>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
-using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Runtime::RunInternal;
 using SkullbonezCore::Assets::EDITOR_HULL_ASSET_COUNT;
 using SkullbonezCore::Assets::EDITOR_HULL_ASSETS;
 using SkullbonezCore::Assets::EditorHullAsset;
@@ -91,7 +91,7 @@ using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
-using SkullbonezCore::Basics::SceneController;
+using SkullbonezCore::Runtime::SceneController;
 using Json = nlohmann::ordered_json;
 
 namespace
@@ -128,7 +128,7 @@ bool TransformClipPointToWorld( const Matrix4& inverseViewProjection, float x, f
 
 
 bool RecordEditorTransformEventFromBodyStore( ReplayRuntime& replayRuntime,
-                                              SkullbonezCore::Basics::SceneController& collection,
+                                              SkullbonezCore::Runtime::SceneController& collection,
                                               int modelIndex,
                                               uint32_t changedFlags,
                                               int scaleAxis,
@@ -250,7 +250,7 @@ float EditorPlacementAltitudeStepSize( int objectType,
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace RunInternal
 {
@@ -624,7 +624,7 @@ int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, i
 // Why: editor/runtime tools still speak model indices for selection and replay
 // gesture identity, but command mutation can enter PhysicsEngine through the
 // current body-store row once topology drift is repaired at this boundary.
-void WakeEditorPhysicsBody( SkullbonezCore::Basics::SceneController& collection,
+void WakeEditorPhysicsBody( SkullbonezCore::Runtime::SceneController& collection,
                             PhysicsEngine& physics,
                             int modelIndex )
 {
@@ -650,7 +650,7 @@ void WakeEditorPhysicsBody( SkullbonezCore::Basics::SceneController& collection,
 }
 
 
-void SeedEditorPhysicsBodyAsleep( SkullbonezCore::Basics::SceneController& collection,
+void SeedEditorPhysicsBodyAsleep( SkullbonezCore::Runtime::SceneController& collection,
                                   PhysicsEngine& physics,
                                   int modelIndex )
 {
@@ -676,7 +676,7 @@ void SeedEditorPhysicsBodyAsleep( SkullbonezCore::Basics::SceneController& colle
 }
 
 
-bool ResetEditorModelMotionAndWake( SkullbonezCore::Basics::SceneController& collection,
+bool ResetEditorModelMotionAndWake( SkullbonezCore::Runtime::SceneController& collection,
                                     PhysicsEngine& physics,
                                     int index,
                                     PhysicsBodyUpdateDesc update )
@@ -704,7 +704,7 @@ bool ResetEditorModelMotionAndWake( SkullbonezCore::Basics::SceneController& col
 }
 
 
-bool ResetEditorModelMotionAndWake( SkullbonezCore::Basics::SceneController& collection,
+bool ResetEditorModelMotionAndWake( SkullbonezCore::Runtime::SceneController& collection,
                                     PhysicsEngine& physics,
                                     int index,
                                     PhysicsBodyUpdateDesc update,
@@ -917,7 +917,7 @@ float DistanceRayToSegmentSquared( const Vector3& rayOrigin,
 
 
 } // namespace RunInternal
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore
 
 namespace
@@ -931,7 +931,7 @@ constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace RunInternal
 {
@@ -1021,7 +1021,7 @@ int PeekSelectedEditorModelIndex( const RunEditorPlacementState& editor, const P
     return bodyStore.ResolveModelRow( editor.selectedBody, hint );
 }
 } // namespace RunInternal
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore
 
 
@@ -1085,7 +1085,7 @@ EditorViewportPlacementResult RuntimeTools::RouteEditorViewportPlacement( const 
 
 
 int RuntimeTools::RefreshEditorPointerPreview( const EditorPointerPreviewInput& input,
-                                               Basics::SceneController& collection,
+                                               Runtime::SceneController& collection,
                                                PhysicsEngine& physics,
                                                RuntimeInteractionController& interaction,
                                                Geometry::Terrain* terrain,
@@ -1127,7 +1127,7 @@ int RuntimeTools::RefreshEditorPointerPreview( const EditorPointerPreviewInput& 
 
 
 bool RuntimeTools::PrepareEditorPointerSelection( const EditorPointerSelectionInput& input,
-                                                  const Basics::SceneController& collection,
+                                                  const Runtime::SceneController& collection,
                                                   RuntimeInteractionSelectionPlan& outPlan,
                                                   WorldInteractionOwner& outOwner,
                                                   InteractionExitReason& outReason )
@@ -1166,7 +1166,7 @@ bool RuntimeTools::PrepareEditorPointerSelection( const EditorPointerSelectionIn
 EditorPlacementScalePointerResult
 RuntimeTools::RouteEditorPlacementScalePointer( bool leftReleased,
                                                 bool suppressWorldAction,
-                                                Basics::SceneController& collection,
+                                                Runtime::SceneController& collection,
                                                 PhysicsEngine& physics,
                                                 RunSceneState& scene,
                                                 Environment::WorldEnvironment& world,
@@ -1235,7 +1235,7 @@ RuntimeTools::RouteEditorPlacementScalePointer( bool leftReleased,
 
 
 EditorGizmoDragPointerResult RuntimeTools::RouteEditorGizmoDragPointer( const EditorGizmoDragPointerInput& input,
-                                                                        Basics::SceneController& collection,
+                                                                        Runtime::SceneController& collection,
                                                                         PhysicsEngine& physics,
                                                                         RuntimeInteractionController& interaction,
                                                                         ReplayRuntime& replayRuntime )
@@ -1379,7 +1379,7 @@ bool RuntimeTools::PrepareEditorGizmoGesture( bool inspectGizmoActive,
                                               const Vector3& rayDirection,
                                               int clientX,
                                               int clientY,
-                                              Basics::SceneController& collection,
+                                              Runtime::SceneController& collection,
                                               PhysicsEngine& physics,
                                               RuntimeInteractionController& interaction,
                                               EditorGizmoGesturePlan& outPlan )
@@ -1503,7 +1503,7 @@ bool RuntimeTools::PrepareEditorGizmoGesture( bool inspectGizmoActive,
 
 
 EditorGizmoGestureResult RuntimeTools::CommitEditorGizmoGesture( const EditorGizmoGesturePlan& plan,
-                                                                 Basics::SceneController& collection,
+                                                                 Runtime::SceneController& collection,
                                                                  PhysicsEngine& physics,
                                                                  RuntimeInteractionController& interaction )
 {
@@ -1606,7 +1606,7 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const EditorPointerRou
                                                           RuntimeTools& runtimeTools,
                                                           ReplayRuntime& replayRuntime,
                                                           RuntimeInteractionController& interaction,
-                                                          Basics::SceneController& models,
+                                                          Runtime::SceneController& models,
                                                           PhysicsEngine& physics,
                                                           RunSceneState& scene,
                                                           Environment::WorldEnvironment& world,
@@ -1888,7 +1888,7 @@ bool InputRouter::TryBuildWorldRayAt( POINT mouse,
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace RunInternal
 {
@@ -2127,5 +2127,5 @@ bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context,
     return true;
 }
 } // namespace RunInternal
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

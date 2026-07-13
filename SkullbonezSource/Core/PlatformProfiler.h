@@ -48,7 +48,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
 {
 namespace PlatformProfiler
 {
@@ -69,5 +69,5 @@ void CpuEnd();
 void CpuMarker( const char* name, uint32_t hash );
 
 } // namespace PlatformProfiler
-} // namespace Basics
+} // namespace Core
 } // namespace SkullbonezCore

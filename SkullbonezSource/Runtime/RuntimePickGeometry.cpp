@@ -33,7 +33,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -223,5 +223,5 @@ bool TryIntersectRuntimePickShape( const Math::CollisionDetection::CollisionShap
     const Math::Transformation::RotationMatrix rotation = BuildPickRotation( transform.orientation );
     return std::visit( PickShapeVisitor{ transform, rayOrigin, rayDirection, rotation, outT }, shape );
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

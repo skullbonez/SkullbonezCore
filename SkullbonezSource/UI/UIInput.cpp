@@ -36,8 +36,8 @@ namespace UI
 namespace InputControl
 {
 
-UIInputSnapshot CaptureSnapshot( const Basics::DeviceInputFrame& frame,
-                                 const Basics::RuntimeMouseEdges& mouse,
+UIInputSnapshot CaptureSnapshot( const Runtime::DeviceInputFrame& frame,
+                                 const Runtime::RuntimeMouseEdges& mouse,
                                  bool hasMouseOverride,
                                  int overrideX,
                                  int overrideY )
@@ -66,7 +66,7 @@ UIInputSnapshot CaptureSnapshot( const Basics::DeviceInputFrame& frame,
 }
 
 
-void CaptureKeyStates( bool keyWasDown[256], const Basics::InputKeySnapshot& keys )
+void CaptureKeyStates( bool keyWasDown[256], const Runtime::InputKeySnapshot& keys )
 {
     if ( !keyWasDown )
     {
@@ -79,7 +79,7 @@ void CaptureKeyStates( bool keyWasDown[256], const Basics::InputKeySnapshot& key
 }
 
 
-bool ConsumeKeyPress( bool keyWasDown[256], const Basics::InputKeySnapshot& keys, int virtualKey )
+bool ConsumeKeyPress( bool keyWasDown[256], const Runtime::InputKeySnapshot& keys, int virtualKey )
 {
     if ( !keyWasDown || virtualKey < 0 || virtualKey >= 256 )
     {
@@ -92,7 +92,7 @@ bool ConsumeKeyPress( bool keyWasDown[256], const Basics::InputKeySnapshot& keys
 }
 
 
-bool IsVirtualKeyDown( const Basics::InputKeySnapshot& keys, int virtualKey )
+bool IsVirtualKeyDown( const Runtime::InputKeySnapshot& keys, int virtualKey )
 {
     return keys.IsDown( virtualKey );
 }

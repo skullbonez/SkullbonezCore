@@ -34,29 +34,29 @@
 
 #include <vector>
 
-using SkullbonezCore::Basics::FindReplayGrowthOwnerPolicy;
-using SkullbonezCore::Basics::REPLAY_GROWTH_OWNER_POLICIES;
-using SkullbonezCore::Basics::REPLAY_PREDICTION_RESERVE_HARD_BYTES;
-using SkullbonezCore::Basics::REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES;
-using SkullbonezCore::Basics::REPLAY_RETAINED_OWNERSHIP_RULES;
-using SkullbonezCore::Basics::REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES;
-using SkullbonezCore::Basics::ReplayBodyShapeKind;
-using SkullbonezCore::Basics::ReplayFrameIndex;
-using SkullbonezCore::Basics::ReplayGrowthExhaustionRule;
-using SkullbonezCore::Basics::ReplayMemoryPolicy;
-using SkullbonezCore::Basics::ReplayMemoryPolicyRequest;
-using SkullbonezCore::Basics::ReplayMemoryPreset;
-using SkullbonezCore::Basics::ReplayMemoryPresetPolicy;
-using SkullbonezCore::Basics::ReplayPresentationSample;
-using SkullbonezCore::Basics::ReplayRecorder;
-using SkullbonezCore::Basics::ReplayRecorderConfig;
-using SkullbonezCore::Basics::ReplayRecorderStats;
-using SkullbonezCore::Basics::ReplayRetainedDataOwner;
-using SkullbonezCore::Basics::ReplayRuntime;
-using SkullbonezCore::Basics::ReplaySolverBodySample;
-using SkullbonezCore::Basics::ReplaySolverFrameSample;
-using SkullbonezCore::Basics::ReplaySolverRecorder;
-using SkullbonezCore::Basics::ResolveReplayMemoryPolicy;
+using SkullbonezCore::Runtime::FindReplayGrowthOwnerPolicy;
+using SkullbonezCore::Runtime::REPLAY_GROWTH_OWNER_POLICIES;
+using SkullbonezCore::Runtime::REPLAY_PREDICTION_RESERVE_HARD_BYTES;
+using SkullbonezCore::Runtime::REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES;
+using SkullbonezCore::Runtime::REPLAY_RETAINED_OWNERSHIP_RULES;
+using SkullbonezCore::Runtime::REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES;
+using SkullbonezCore::Runtime::ReplayBodyShapeKind;
+using SkullbonezCore::Runtime::ReplayFrameIndex;
+using SkullbonezCore::Runtime::ReplayGrowthExhaustionRule;
+using SkullbonezCore::Runtime::ReplayMemoryPolicy;
+using SkullbonezCore::Runtime::ReplayMemoryPolicyRequest;
+using SkullbonezCore::Runtime::ReplayMemoryPreset;
+using SkullbonezCore::Runtime::ReplayMemoryPresetPolicy;
+using SkullbonezCore::Runtime::ReplayPresentationSample;
+using SkullbonezCore::Runtime::ReplayRecorder;
+using SkullbonezCore::Runtime::ReplayRecorderConfig;
+using SkullbonezCore::Runtime::ReplayRecorderStats;
+using SkullbonezCore::Runtime::ReplayRetainedDataOwner;
+using SkullbonezCore::Runtime::ReplayRuntime;
+using SkullbonezCore::Runtime::ReplaySolverBodySample;
+using SkullbonezCore::Runtime::ReplaySolverFrameSample;
+using SkullbonezCore::Runtime::ReplaySolverRecorder;
+using SkullbonezCore::Runtime::ResolveReplayMemoryPolicy;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace
@@ -262,9 +262,9 @@ TEST_CASE( "ReplayRuntime: scene timeline reset decisions preserve branch and au
     CHECK( ReplayRuntime::SceneTimelineResetClearsBranch( reset ) );
     CHECK( ReplayRuntime::SceneTimelineRecordsGeneratedConfig( reset ) );
     const uint32_t generatedFlags = ReplayRuntime::SceneTimelineGeneratedConfigFlags( reset );
-    CHECK( ( generatedFlags & SkullbonezCore::Basics::REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS ) != 0u );
-    CHECK( ( generatedFlags & SkullbonezCore::Basics::REPLAY_GENERATED_SCENE_UI_MODEL_COUNT ) != 0u );
-    CHECK( ( generatedFlags & SkullbonezCore::Basics::REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS ) != 0u );
+    CHECK( ( generatedFlags & SkullbonezCore::Runtime::REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS ) != 0u );
+    CHECK( ( generatedFlags & SkullbonezCore::Runtime::REPLAY_GENERATED_SCENE_UI_MODEL_COUNT ) != 0u );
+    CHECK( ( generatedFlags & SkullbonezCore::Runtime::REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS ) != 0u );
 
     reset.preserveBranchMetadata = true;
     CHECK_FALSE( ReplayRuntime::SceneTimelineResetClearsBranch( reset ) );

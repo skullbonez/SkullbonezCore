@@ -57,7 +57,7 @@ void PhysicsDiagnosticsCsvWriter::Writef( const char* fileName, const char* fmt,
 
     va_list args;
     va_start( args, fmt );
-    Log().WriteVf( fileName, fmt, args );
+    SkullbonezCore::Core::Log().WriteVf( fileName, fmt, args );
     va_end( args );
 #else
     (void)fileName;

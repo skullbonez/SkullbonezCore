@@ -39,7 +39,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -133,7 +133,8 @@ void RefreshSceneBrowserList( RunSceneBrowserState& sceneBrowser )
     {
         if ( error )
         {
-            Log().WriteEventf( "scene_browser_refresh_failed message=\"%s\"", error.message().c_str() );
+            SkullbonezCore::Core::Log().WriteEventf( "scene_browser_refresh_failed message=\"%s\"",
+                                                     error.message().c_str() );
         }
         return;
     }
@@ -152,7 +153,8 @@ void RefreshSceneBrowserList( RunSceneBrowserState& sceneBrowser )
     }
     if ( error )
     {
-        Log().WriteEventf( "scene_browser_refresh_failed message=\"%s\"", error.message().c_str() );
+        SkullbonezCore::Core::Log().WriteEventf( "scene_browser_refresh_failed message=\"%s\"",
+                                                 error.message().c_str() );
         sceneBrowser.paths.clear();
     }
 
@@ -249,5 +251,5 @@ void CommitSceneRuntimeLoad( SceneController& controller, const SceneRuntimeLoad
     }
 }
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

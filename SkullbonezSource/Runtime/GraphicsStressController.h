@@ -35,7 +35,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 class GraphicsStressController
 {
@@ -93,5 +93,5 @@ class GraphicsStressController
     int m_acknowledgedResizeCount = 0;       // Published backend resizes, not native requests.
     int m_textureChurnCount = 0;             // Successful texture create/delete turnovers.
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

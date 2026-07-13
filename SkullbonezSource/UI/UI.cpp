@@ -55,7 +55,7 @@ Related:
 #include <cstdio>
 #include <cstring>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Rendering;
@@ -636,8 +636,8 @@ void InGameUI::CloseSceneCombo()
 }
 
 
-InGameUIInputResult InGameUI::UpdateInput( const Basics::DeviceInputFrame& deviceFrame,
-                                           const Basics::RuntimeMouseEdges& mouse,
+InGameUIInputResult InGameUI::UpdateInput( const Runtime::DeviceInputFrame& deviceFrame,
+                                           const Runtime::RuntimeMouseEdges& mouse,
                                            int screenW,
                                            int screenH,
                                            double now,

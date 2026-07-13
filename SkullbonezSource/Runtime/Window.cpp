@@ -45,7 +45,7 @@ Related:
 #include <cstdio>
 
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Rendering;
 
@@ -124,7 +124,7 @@ void Window::ReleaseDeviceContext()
 }
 
 
-SbResult Window::HandleScreenResize()
+SkullbonezCore::Core::SbResult Window::HandleScreenResize()
 {
     int w = m_sWindowDimensions.x;
     int h = m_sWindowDimensions.y;
@@ -133,10 +133,10 @@ SbResult Window::HandleScreenResize()
     // to zero dimensions would invalidate swap-chain and projection state.
     if ( w <= 0 || h <= 0 || !m_resizeRenderLifecycle )
     {
-        return SbResult::Success();
+        return SkullbonezCore::Core::SbResult::Success();
     }
 
-    const SbResult resizeResult = m_resizeRenderLifecycle->Resize( w, h );
+    const SkullbonezCore::Core::SbResult resizeResult = m_resizeRenderLifecycle->Resize( w, h );
     if ( !resizeResult.ok )
     {
         return resizeResult;
@@ -155,7 +155,7 @@ SbResult Window::HandleScreenResize()
                                                                             aspect,
                                                                             m_projectionNearPlane,
                                                                             m_projectionFarPlane );
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
@@ -217,16 +217,18 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
         if ( m_cWindow )
         {
             m_cWindow->SetWindowDimensions( LOWORD( lParam ), HIWORD( lParam ) );
-            const SbResult resizeResult = m_cWindow->HandleScreenResize();
+            const SkullbonezCore::Core::SbResult resizeResult = m_cWindow->HandleScreenResize();
             if ( !resizeResult.ok )
             {
                 const char* owner = resizeResult.error.owner[0] != '\0' ? resizeResult.error.owner : "Runtime/Window";
                 const char* message =
                     resizeResult.error.message[0] != '\0' ? resizeResult.error.message : "window resize failed";
-                Log().WriteEventf( "window_resize_failed owner=\"%s\" message=\"%s\"", owner, message );
+                SkullbonezCore::Core::Log().WriteEventf( "window_resize_failed owner=\"%s\" message=\"%s\"",
+                                                         owner,
+                                                         message );
                 std::fprintf( stderr, "[window] Resize failed owner=%s reason=\"%s\"\n", owner, message );
                 std::fflush( stderr );
-                Log().FlushAll();
+                SkullbonezCore::Core::Log().FlushAll();
                 PostQuitMessage( 1 );
             }
         }
@@ -303,7 +305,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 }
 
 
-SbResult Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
+SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
 {
     HWND hWnd = nullptr;       // Handle to our window
     WNDCLASS wndclass = { 0 }; // Window class struct
@@ -368,7 +370,7 @@ SbResult Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
     {
         // Lane R: native window creation can fail because of the host desktop
         // environment, so startup reports the result instead of unwinding.
-        return SbResult::Failure( "Runtime/Window", "Window creation failed." );
+        return SkullbonezCore::Core::SbResult::Failure( "Runtime/Window", "Window creation failed." );
     }
     m_sWindow = hWnd;
     Input::BindWindow( *this );
@@ -380,7 +382,7 @@ SbResult Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
     SetFocus( hWnd );
     Input::SetSystemCursorVisible( false );
     (void)Input::RegisterRawMouseInput( hWnd );
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 

@@ -31,7 +31,7 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
-PhysicsMaterial PhysicsMaterial::FromConfig( const Basics::EngineConfig& config )
+PhysicsMaterial PhysicsMaterial::FromConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
     PhysicsMaterial material;
     material.frictionCoefficient = config.physicsMaterial.frictionCoeff;
@@ -39,14 +39,14 @@ PhysicsMaterial PhysicsMaterial::FromConfig( const Basics::EngineConfig& config 
     return material;
 }
 
-BodySimulationLimits BodySimulationLimits::FromConfig( const Basics::EngineConfig& config )
+BodySimulationLimits BodySimulationLimits::FromConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
     BodySimulationLimits limits;
     limits.angularVelocityLimit = config.bodySimulation.velocityLimit;
     return limits;
 }
 
-ContactPolicy ContactPolicy::FromConfig( const Basics::EngineConfig& config )
+ContactPolicy ContactPolicy::FromConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
     ContactPolicy policy;
     policy.contactEpsilon = config.bodySimulation.contactEpsilon;

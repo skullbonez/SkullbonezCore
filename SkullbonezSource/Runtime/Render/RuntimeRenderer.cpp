@@ -77,12 +77,12 @@ Related:
 #include <variant>
 #include <vector>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Runtime::RunInternal;
 namespace Math = SkullbonezCore::Math;
 namespace Physics = SkullbonezCore::Physics;
 namespace Rendering = SkullbonezCore::Rendering;
@@ -110,7 +110,7 @@ float ApproachFloat( float current, float target, float dtSeconds, float seconds
     return (std::max)( target, current - step );
 }
 
-void ApplyConsequenceGrade( CinematicRenderConfig& cinematic, float strength )
+void ApplyConsequenceGrade( SkullbonezCore::Core::CinematicRenderConfig& cinematic, float strength )
 {
     const float s = std::clamp( strength, 0.0f, 1.0f );
     if ( s <= 0.0f )
@@ -177,7 +177,7 @@ struct ShadowGraphCallbackData
 {
     ShadowPass* shadowPass = nullptr;
     const RenderFrameContext* frame = nullptr;
-    const CinematicRenderConfig* cinematic = nullptr;
+    const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
     bool terrainHidden = false;
     bool collisionVisualizerVisible = false;
     ShadowPassOutput output;
@@ -188,7 +188,7 @@ struct ReflectionGraphCallbackData
     ReflectionPass* reflectionPass = nullptr;
     SkyPass* skyPass = nullptr;
     const RenderFrameContext* frame = nullptr;
-    const CinematicRenderConfig* cinematic = nullptr;
+    const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
     const SkullbonezCore::Rendering::ShadowFrameData* objectShadow = nullptr;
     bool waterRayTracingReflection = false;
     bool waterNoReflection = false;
@@ -205,7 +205,7 @@ struct ObjectGraphCallbackData
     ObjectPass* objectPass = nullptr;
     const RenderFrameContext* frame = nullptr;
     ObjectPassMode mode = ObjectPassMode::Opaque;
-    const CinematicRenderConfig* cinematic = nullptr;
+    const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
     const SkullbonezCore::Rendering::ShadowFrameData* shadow = nullptr;
     bool collisionStateColorsVisible = false;
     float collisionVisualizerAlphaOverride = -1.0f;
@@ -218,7 +218,7 @@ struct TerrainGraphCallbackData
 {
     TerrainPass* terrainPass = nullptr;
     const RenderFrameContext* frame = nullptr;
-    const CinematicRenderConfig* cinematic = nullptr;
+    const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
     const SkullbonezCore::Rendering::ShadowFrameData* shadow = nullptr;
     const SkullbonezCore::Rendering::ShadowFrameData* detailShadow = nullptr;
     bool terrainHidden = false;
@@ -229,7 +229,7 @@ struct WaterGraphCallbackData
     WaterPass* waterPass = nullptr;
     const RenderFrameContext* frame = nullptr;
     const ReflectionPassOutput* reflection = nullptr;
-    const CinematicRenderConfig* cinematic = nullptr;
+    const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
     bool waterHidden = false;
     bool flatWater = false;
     bool noReflection = false;
@@ -266,7 +266,7 @@ struct UiTextGraphCallbackData
 {
     UiTextPass* uiTextPass = nullptr;
     SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
-    Profiler* profiler = nullptr;
+    SkullbonezCore::Core::Profiler* profiler = nullptr;
     const SkullbonezCore::UI::UIRenderContext* uiRender = nullptr;
     const UiTextPassState* state = nullptr;
     RunTimerState* timers = nullptr;
@@ -275,7 +275,7 @@ struct UiTextGraphCallbackData
     DiagnosticsRuntime* diagnosticsRuntime = nullptr;
     ReplayRuntime* replayRuntime = nullptr;
     const ReplayOverlayFrameState* replayOverlay = nullptr;
-    const CinematicRenderConfig* cinematic = nullptr;
+    const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
     bool cinematicRendering = false;
     SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing = nullptr;
     double secondsPerFrame = 0.0;
@@ -293,8 +293,8 @@ struct ReplayGhostGraphCallbackData
 {
     ReplayRuntime* replayRuntime = nullptr;
     const RenderFrameContext* frame = nullptr;
-    const EngineConfig* config = nullptr;
-    const CinematicRenderConfig* cinematic = nullptr;
+    const SkullbonezCore::Core::EngineConfig* config = nullptr;
+    const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
     const SkullbonezCore::Rendering::ShadowFrameData* shadow = nullptr;
 };
 
@@ -408,8 +408,8 @@ void ExecuteDebugOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGr
 
 void RenderReplayPredictionGhosts( ReplayRuntime& replayRuntime,
                                    const RenderFrameContext& frame,
-                                   const EngineConfig& config,
-                                   const CinematicRenderConfig* cinematic,
+                                   const SkullbonezCore::Core::EngineConfig& config,
+                                   const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                    const Rendering::ShadowFrameData* shadow )
 {
     PROFILE_SCOPED( "Frame/Render/ReplayPredictionGhosts" );
@@ -430,7 +430,7 @@ void RenderReplayPredictionGhosts( ReplayRuntime& replayRuntime,
     const std::vector<Rendering::RenderInstanceRecord>& renderInstances = frame.renderInstances->Records();
 
     assert( frame.textures && "RenderFrameContext requires a texture collection" );
-    const SbResult textureResult = frame.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+    const SkullbonezCore::Core::SbResult textureResult = frame.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
     if ( !textureResult.ok )
     {
         std::fprintf( stderr,
@@ -631,7 +631,7 @@ RuntimeRenderInputs BuildRuntimeRenderInputs( SkullbonezCore::Assets::AssetSyste
                                               SkullbonezCore::Rendering::IRenderResourceFactory& renderResources,
                                               SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics,
                                               SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing,
-                                              const CinematicRenderConfig& cinematic,
+                                              const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                               bool cinematicEnabled,
                                               bool renderReady )
 {
@@ -686,7 +686,7 @@ bool TornadoSystemVectorsVisible( const Physics::TornadoSystemConfig& config )
 
 RuntimeRenderer::ShadowGraphResult
 RuntimeRenderer::ExecuteShadowThroughRenderGraph( const RenderFrameContext& frame,
-                                                  const CinematicRenderConfig* activeShadowConfig,
+                                                  const SkullbonezCore::Core::CinematicRenderConfig* activeShadowConfig,
                                                   bool terrainHidden,
                                                   bool collisionVisualizerVisible )
 {
@@ -750,17 +750,17 @@ bool RuntimeRenderer::ExecuteSkyboxThroughRenderGraph( const RenderFrameContext&
 }
 
 
-RuntimeRenderer::ReflectionGraphResult
-RuntimeRenderer::ExecuteReflectionThroughRenderGraph( const RenderFrameContext& frame,
-                                                      const CinematicRenderConfig* activeCinematic,
-                                                      const Rendering::ShadowFrameData* objectShadow,
-                                                      bool collisionStateColorsVisible,
-                                                      bool debugTransparentBodyPass,
-                                                      float collisionVisualizerAlphaOverride,
-                                                      float bodyAlpha,
-                                                      bool waterRayTracingReflection,
-                                                      bool waterNoReflection,
-                                                      float simulationTimeSeconds )
+RuntimeRenderer::ReflectionGraphResult RuntimeRenderer::ExecuteReflectionThroughRenderGraph(
+    const RenderFrameContext& frame,
+    const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic,
+    const Rendering::ShadowFrameData* objectShadow,
+    bool collisionStateColorsVisible,
+    bool debugTransparentBodyPass,
+    float collisionVisualizerAlphaOverride,
+    float bodyAlpha,
+    bool waterRayTracingReflection,
+    bool waterNoReflection,
+    float simulationTimeSeconds )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     const bool useDxrCandidate = frame.renderDiagnostics && frame.renderRayTracing &&
@@ -877,16 +877,17 @@ bool RuntimeRenderer::ExecuteSceneTargetBeginThroughRenderGraph( const RenderFra
 }
 
 
-bool RuntimeRenderer::ExecuteObjectThroughRenderGraph( const RenderFrameContext& frame,
-                                                       ObjectPassMode mode,
-                                                       bool useCinematicTarget,
-                                                       const CinematicRenderConfig* activeCinematic,
-                                                       const Rendering::ShadowFrameData* objectShadow,
-                                                       bool collisionStateColorsVisible,
-                                                       float collisionVisualizerAlphaOverride,
-                                                       float bodyAlpha,
-                                                       const std::vector<uint8_t>* replayFocusModelMask,
-                                                       bool drawMaskedModels )
+bool RuntimeRenderer::ExecuteObjectThroughRenderGraph(
+    const RenderFrameContext& frame,
+    ObjectPassMode mode,
+    bool useCinematicTarget,
+    const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic,
+    const Rendering::ShadowFrameData* objectShadow,
+    bool collisionStateColorsVisible,
+    float collisionVisualizerAlphaOverride,
+    float bodyAlpha,
+    const std::vector<uint8_t>* replayFocusModelMask,
+    bool drawMaskedModels )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     Rendering::RenderGraphResourceHandle objectShadowResource;
@@ -935,12 +936,13 @@ bool RuntimeRenderer::ExecuteObjectThroughRenderGraph( const RenderFrameContext&
 }
 
 
-bool RuntimeRenderer::ExecuteTerrainThroughRenderGraph( const RenderFrameContext& frame,
-                                                        bool useCinematicTarget,
-                                                        const CinematicRenderConfig* activeCinematic,
-                                                        const Rendering::ShadowFrameData* terrainShadow,
-                                                        const Rendering::ShadowFrameData* objectShadow,
-                                                        bool terrainHidden )
+bool RuntimeRenderer::ExecuteTerrainThroughRenderGraph(
+    const RenderFrameContext& frame,
+    bool useCinematicTarget,
+    const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic,
+    const Rendering::ShadowFrameData* terrainShadow,
+    const Rendering::ShadowFrameData* objectShadow,
+    bool terrainHidden )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     Rendering::RenderGraphResourceHandle terrainShadowResource;
@@ -988,16 +990,17 @@ bool RuntimeRenderer::ExecuteTerrainThroughRenderGraph( const RenderFrameContext
 }
 
 
-bool RuntimeRenderer::ExecuteWaterThroughRenderGraph( const RenderFrameContext& frame,
-                                                      const ReflectionPassOutput& reflection,
-                                                      bool useCinematicTarget,
-                                                      const CinematicRenderConfig* activeCinematic,
-                                                      bool waterHidden,
-                                                      bool flatWater,
-                                                      bool noReflection,
-                                                      bool freezeTime,
-                                                      float frozenTime,
-                                                      float liveWaterTime )
+bool RuntimeRenderer::ExecuteWaterThroughRenderGraph(
+    const RenderFrameContext& frame,
+    const ReflectionPassOutput& reflection,
+    bool useCinematicTarget,
+    const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic,
+    bool waterHidden,
+    bool flatWater,
+    bool noReflection,
+    bool freezeTime,
+    float frozenTime,
+    float liveWaterTime )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     if ( reflection.reflectionTextureHandle != 0u && !noReflection )
@@ -1126,11 +1129,12 @@ TornadoVisualSnapshot RuntimeRenderer::BuildTornadoVisualSnapshot( const RenderF
 }
 
 
-bool RuntimeRenderer::ExecuteReplayGhostsThroughRenderGraph( const RenderFrameContext& frame,
-                                                             ReplayRuntime& replayRuntime,
-                                                             bool useCinematicTarget,
-                                                             const CinematicRenderConfig* activeCinematic,
-                                                             const Rendering::ShadowFrameData* objectShadow )
+bool RuntimeRenderer::ExecuteReplayGhostsThroughRenderGraph(
+    const RenderFrameContext& frame,
+    ReplayRuntime& replayRuntime,
+    bool useCinematicTarget,
+    const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic,
+    const Rendering::ShadowFrameData* objectShadow )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     Rendering::RenderGraphResourceHandle objectShadowResource;
@@ -1324,12 +1328,13 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
                 // Lane R: if the graph-managed texture allocation fails, the
                 // volumetric callback can still render through its legacy
                 // framebuffer target. Keep the failure visible in logs/evidence.
-                Log().WriteEventf( "render_graph_volumetric_transient_unavailable materialization_failed=%d "
-                                   "hresult=0x%08X resource=%s",
-                                   transientMaterialization.failed ? 1 : 0,
-                                   transientMaterialization.failureHresult,
-                                   transientMaterialization.failureResource );
-                Log().FlushAll();
+                SkullbonezCore::Core::Log().WriteEventf(
+                    "render_graph_volumetric_transient_unavailable materialization_failed=%d "
+                    "hresult=0x%08X resource=%s",
+                    transientMaterialization.failed ? 1 : 0,
+                    transientMaterialization.failureHresult,
+                    transientMaterialization.failureResource );
+                SkullbonezCore::Core::Log().FlushAll();
             }
         }
     }
@@ -1362,7 +1367,7 @@ bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnos
                                                        DiagnosticsRuntime& diagnosticsRuntime,
                                                        ReplayRuntime& replayRuntime,
                                                        const ReplayOverlayFrameState& replayOverlay,
-                                                       const CinematicRenderConfig& cinematic,
+                                                       const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                                        bool cinematicRendering,
                                                        Rendering::IRenderRayTracing* renderRayTracing,
                                                        double secondsPerFrame )
@@ -1405,9 +1410,10 @@ bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnos
 }
 
 
-RenderFrameContext RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
-                                                             bool cinematicRender,
-                                                             const CinematicRenderConfig& renderConfig )
+RenderFrameContext
+RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
+                                          bool cinematicRender,
+                                          const SkullbonezCore::Core::CinematicRenderConfig& renderConfig )
 {
     const RuntimeRenderServices& services = renderInputs.services;
     RenderFrameContext frame;
@@ -1533,7 +1539,8 @@ void RuntimeRenderer::ResetSceneRuntimePolicyFromConfig()
 }
 
 
-SbResult RuntimeRenderer::InitialiseSceneRayTracing( const RuntimeRenderBackendView& backend, int modelCapacity )
+SkullbonezCore::Core::SbResult RuntimeRenderer::InitialiseSceneRayTracing( const RuntimeRenderBackendView& backend,
+                                                                           int modelCapacity )
 {
     Rendering::IRenderRayTracing* rayTracing = backend.rayTracingBackend;
     Rendering::IRenderDiagnostics* renderDiagnostics = backend.renderDiagnostics;
@@ -1541,7 +1548,7 @@ SbResult RuntimeRenderer::InitialiseSceneRayTracing( const RuntimeRenderBackendV
         renderDiagnostics && renderDiagnostics->GetCapabilities().supportsDxrReflection && rayTracing;
     if ( !supported )
     {
-        return SbResult::Success();
+        return SkullbonezCore::Core::SbResult::Success();
     }
 
     if ( Helper().GetSphereInstMeshHandle() == 0 )
@@ -1566,7 +1573,7 @@ SbResult RuntimeRenderer::InitialiseSceneRayTracing( const RuntimeRenderBackendV
 
     if ( !m_terrain.Get() || !m_terrain.Get()->GetMesh() )
     {
-        return SbResult::Success();
+        return SkullbonezCore::Core::SbResult::Success();
     }
 
     Rendering::IMesh* terrainMesh = m_terrain.Get()->GetMesh();
@@ -1575,7 +1582,7 @@ SbResult RuntimeRenderer::InitialiseSceneRayTracing( const RuntimeRenderBackendV
     const uint64_t sphereVBVA = rayTracing->GetInstancedMeshStaticVBVA( sphereHandle );
     if ( terrainVBVA == 0 || sphereVBVA == 0 )
     {
-        return SbResult::Success();
+        return SkullbonezCore::Core::SbResult::Success();
     }
 
     // Lane R: device resource creation and shader bytecode failures remain a
@@ -1715,11 +1722,12 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     ReplayRuntime& replayRuntime = services.replayRuntime;
     m_uiTextRayTracing = services.renderRayTracing;
     const bool cinematicRender = services.cinematicEnabled;
-    const CinematicRenderConfig& renderConfig = services.cinematic;
-    const OrdinaryRenderConfig& ordinaryRender = m_config.ordinaryRender;
-    CinematicRenderConfig ordinaryShadowConfig = renderConfig;
+    const SkullbonezCore::Core::CinematicRenderConfig& renderConfig = services.cinematic;
+    const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryRender = m_config.ordinaryRender;
+    SkullbonezCore::Core::CinematicRenderConfig ordinaryShadowConfig = renderConfig;
     ordinaryShadowConfig.shadow = ordinaryRender.shadow;
-    const CinematicRenderConfig& activeShadowStyle = cinematicRender ? renderConfig : ordinaryShadowConfig;
+    const SkullbonezCore::Core::CinematicRenderConfig& activeShadowStyle =
+        cinematicRender ? renderConfig : ordinaryShadowConfig;
     const bool shadowMapsEnabled = activeShadowStyle.shadow.enabled && services.renderReady && !policy.textOnly;
 
     const RenderResourceContext resourceContext = BuildRenderResourceContext( renderInputs, cinematicRender );
@@ -1762,8 +1770,9 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
         services.renderCommands.Clear( true, true );
     }
 
-    const CinematicRenderConfig* activeCinematic = frame.cinematic;
-    const CinematicRenderConfig* activeShadowConfig = shadowMapsEnabled ? &activeShadowStyle : nullptr;
+    const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic = frame.cinematic;
+    const SkullbonezCore::Core::CinematicRenderConfig* activeShadowConfig =
+        shadowMapsEnabled ? &activeShadowStyle : nullptr;
     if ( activeShadowConfig )
     {
         RuntimeAllocation::RuntimeAllocationScope allocationScope(
@@ -2022,7 +2031,8 @@ void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::IRenderResourceFa
 }
 
 
-SbResult RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceReleaseContext& context )
+SkullbonezCore::Core::SbResult
+RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceReleaseContext& context )
 {
     enum class BackendResourceStep
     {
@@ -2062,7 +2072,7 @@ SbResult RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendReso
     if ( context.deviceLifecycle )
     {
         logLifecycleStep( "flush_before_resource_release" );
-        const SbResult flushResult = context.deviceLifecycle->DrainForResourceRelease();
+        const SkullbonezCore::Core::SbResult flushResult = context.deviceLifecycle->DrainForResourceRelease();
         if ( !flushResult.ok )
         {
             // Lane R: return before the first release. The destructor caller
@@ -2120,14 +2130,15 @@ SbResult RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendReso
             break;
         }
     }
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
-SbResult RuntimeRenderer::InitialiseProcessResources( Rendering::IRenderResourceFactory& renderResources,
-                                                      Rendering::IRenderCommandContext& renderCommands,
-                                                      const EngineConfig& config,
-                                                      bool dumpTextureAssets )
+SkullbonezCore::Core::SbResult
+RuntimeRenderer::InitialiseProcessResources( Rendering::IRenderResourceFactory& renderResources,
+                                             Rendering::IRenderCommandContext& renderCommands,
+                                             const SkullbonezCore::Core::EngineConfig& config,
+                                             bool dumpTextureAssets )
 {
     m_textures.BindAssetSystem( &m_assets );
     m_textures.BindRenderContexts( &renderResources, &renderCommands );
@@ -2165,7 +2176,7 @@ SbResult RuntimeRenderer::InitialiseProcessResources( Rendering::IRenderResource
         case RebuildStep::RebuildTextures:
             // Recreate backend texture handles from stable source asset records.
             {
-                const SbResult textureResult = m_textures.RebuildTexturesFromSourceAssets();
+                const SkullbonezCore::Core::SbResult textureResult = m_textures.RebuildTexturesFromSourceAssets();
                 if ( !textureResult.ok )
                 {
                     return textureResult;
@@ -2182,19 +2193,20 @@ SbResult RuntimeRenderer::InitialiseProcessResources( Rendering::IRenderResource
     m_skyBox = std::make_unique<Geometry::SkyBox>( -250, 300, -300, 300, -250, 300 );
     m_skyBox->BindTextures( m_textures );
     m_skyBox->BindRenderContexts( config, m_assets, renderResources );
-    const SbResult skyBoxResult = m_skyBox->ResetRenderResources();
+    const SkullbonezCore::Core::SbResult skyBoxResult = m_skyBox->ResetRenderResources();
     if ( !skyBoxResult.ok )
     {
         return skyBoxResult;
     }
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
-SbResult RuntimeRenderer::EnsureUiTextResources( Rendering::IRenderResourceFactory& renderResources,
-                                                 const Assets::AssetSystem& assets,
-                                                 int screenW,
-                                                 int screenH )
+SkullbonezCore::Core::SbResult
+RuntimeRenderer::EnsureUiTextResources( Rendering::IRenderResourceFactory& renderResources,
+                                        const Assets::AssetSystem& assets,
+                                        int screenW,
+                                        int screenH )
 {
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
     return m_uiTextPass.EnsureGpuResources( renderResources, assets, screenW, screenH );
@@ -2222,7 +2234,7 @@ void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnos
                                     DiagnosticsRuntime& diagnosticsRuntime,
                                     ReplayRuntime& replayRuntime,
                                     const ReplayOverlayFrameState& replayOverlay,
-                                    const CinematicRenderConfig& cinematic,
+                                    const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                     bool cinematicRendering,
                                     double dSecondsPerFrame )
 {
@@ -2242,10 +2254,11 @@ void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnos
 }
 
 
-RuntimeRenderModelFrameView RuntimeRenderer::BuildModelFrameView( SkullbonezCore::Basics::SceneController& scene,
-                                                                  PhysicsEngine& physics,
-                                                                  Threading::WorkerPool& workerPool,
-                                                                  const EngineConfig& config ) const
+RuntimeRenderModelFrameView
+RuntimeRenderer::BuildModelFrameView( SkullbonezCore::Runtime::SceneController& scene,
+                                      PhysicsEngine& physics,
+                                      Threading::WorkerPool& workerPool,
+                                      const SkullbonezCore::Core::EngineConfig& config ) const
 {
     return RuntimeRenderModelFrameView{ scene.MutableRenderInstances(),
                                         SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physics ),
@@ -2389,7 +2402,7 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
     m_consequenceGradeStrength =
         ApproachFloat( m_consequenceGradeStrength, consequenceGradeTarget, gradeDtSeconds, 1.0f );
 
-    CinematicRenderConfig frameCinematic = context.cinematic;
+    SkullbonezCore::Core::CinematicRenderConfig frameCinematic = context.cinematic;
     ApplyConsequenceGrade( frameCinematic, m_consequenceGradeStrength );
 
     const bool cinematicRender =

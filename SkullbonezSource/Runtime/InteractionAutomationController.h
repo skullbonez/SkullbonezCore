@@ -42,6 +42,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+class EngineConfig;
+} // namespace Core
 namespace Rendering
 {
 class IRenderCaptureBackend;
@@ -50,7 +54,7 @@ namespace UI
 {
 class InGameUI;
 }
-namespace Basics
+namespace Runtime
 {
 class AttachedCameraController;
 class CaptureController;
@@ -60,7 +64,6 @@ class RuntimeInteractionController;
 class RuntimeTools;
 class SceneController;
 class Window;
-class EngineConfig;
 struct RunCameraState;
 struct RunTimerState;
 enum class RunInteractionAutomationActionType
@@ -210,13 +213,13 @@ struct InteractionAutomationController
 struct InteractionAutomationFrameResult
 {
     bool requestQuit = false;
-    SbResult status = SbResult::Success();
+    SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
 };
 
-SbResult ConfigureInteractionAutomation( InteractionAutomationController& state,
-                                         const char* scriptPath,
-                                         const char* reportPath );
-SbResult InteractionAutomationResult( const InteractionAutomationController& state );
+SkullbonezCore::Core::SbResult ConfigureInteractionAutomation( InteractionAutomationController& state,
+                                                               const char* scriptPath,
+                                                               const char* reportPath );
+SkullbonezCore::Core::SbResult InteractionAutomationResult( const InteractionAutomationController& state );
 void ClearInteractionAutomationInput( InteractionAutomationController& state );
 InteractionAutomationFrameResult TickInteractionAutomationBeforeInput( InteractionAutomationController& state,
                                                                        RuntimeFrameHostView& host,
@@ -229,12 +232,12 @@ TickInteractionAutomationAfterRender( InteractionAutomationController& state,
                                       CaptureController& capture,
                                       Rendering::IRenderCaptureBackend& captureBackend );
 bool InteractionAutomationWillCaptureAfterRender( const InteractionAutomationController& state, int frame );
-SbResult WriteInteractionAutomationReport( InteractionAutomationController& state,
-                                           const SceneController& scene,
-                                           const RuntimeTools& runtimeTools,
-                                           const ReplayRuntime& replayRuntime,
-                                           const RuntimeInteractionController& interaction,
-                                           const RunCameraState& camera,
-                                           const UI::InGameUI& ui );
-} // namespace Basics
+SkullbonezCore::Core::SbResult WriteInteractionAutomationReport( InteractionAutomationController& state,
+                                                                 const SceneController& scene,
+                                                                 const RuntimeTools& runtimeTools,
+                                                                 const ReplayRuntime& replayRuntime,
+                                                                 const RuntimeInteractionController& interaction,
+                                                                 const RunCameraState& camera,
+                                                                 const UI::InGameUI& ui );
+} // namespace Runtime
 } // namespace SkullbonezCore

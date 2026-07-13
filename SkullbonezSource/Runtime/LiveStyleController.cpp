@@ -33,7 +33,7 @@ Related:
 #include <cstring>
 
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 
 namespace
 {
@@ -260,7 +260,8 @@ void LiveStyleController::Tick( SceneRuntimeStyleContext context )
     {
         m_styleStamp = styleStamp;
         TestScene styleScene;
-        const SbResult loadResult = TestScene::TryLoadStyleFromFile( m_stylePath, context.assets, styleScene );
+        const SkullbonezCore::Core::SbResult loadResult =
+            TestScene::TryLoadStyleFromFile( m_stylePath, context.assets, styleScene );
         if ( loadResult.ok )
         {
             ApplyLiveStyleScene( context, styleScene );
@@ -345,7 +346,7 @@ void LiveStyleController::SavePendingCapture( CaptureController& capture, Render
         return;
     }
 
-    const SbResult captureResult = capture.SaveScreenshot( backend, PendingScreenshotPath() );
+    const SkullbonezCore::Core::SbResult captureResult = capture.SaveScreenshot( backend, PendingScreenshotPath() );
     if ( !captureResult.ok )
     {
         MarkCaptureFailed( captureResult.error.message );

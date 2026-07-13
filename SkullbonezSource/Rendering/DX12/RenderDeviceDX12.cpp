@@ -61,32 +61,32 @@ namespace SkullbonezCore
 namespace Rendering
 {
 
-static inline Basics::SbResult Dx12StartupResult( HRESULT hr, const char* msg )
+static inline SkullbonezCore::Core::SbResult Dx12StartupResult( HRESULT hr, const char* msg )
 {
     if ( FAILED( hr ) )
     {
         // Lane R: adapter, driver, swap-chain, and Win32 event creation can fail
         // because of the host environment. Report the failing DX12 startup step
         // to the process bootstrap instead of escaping through an exception.
-        return Basics::SbResult::Failure( "Rendering/DX12",
-                                          "%s (HRESULT 0x%08X)",
-                                          msg ? msg : "DX12 startup call failed",
-                                          static_cast<unsigned int>( hr ) );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "%s (HRESULT 0x%08X)",
+                                                        msg ? msg : "DX12 startup call failed",
+                                                        static_cast<unsigned int>( hr ) );
     }
-    return Basics::SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
-static inline Basics::SbResult Dx12RuntimeResult( HRESULT hr, const char* msg )
+static inline SkullbonezCore::Core::SbResult Dx12RuntimeResult( HRESULT hr, const char* msg )
 {
     if ( FAILED( hr ) )
     {
-        return Basics::SbResult::Failure( "Rendering/DX12",
-                                          "%s (HRESULT 0x%08X)",
-                                          msg ? msg : "DX12 runtime call failed",
-                                          static_cast<unsigned int>( hr ) );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "%s (HRESULT 0x%08X)",
+                                                        msg ? msg : "DX12 runtime call failed",
+                                                        static_cast<unsigned int>( hr ) );
     }
-    return Basics::SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 struct Dx12RenderDeviceInitRollback
@@ -197,7 +197,7 @@ bool Dx12FenceTimeline::IsReady() const
 }
 
 
-Basics::SbResult Dx12FenceTimeline::Signal( UINT64& outValue )
+SkullbonezCore::Core::SbResult Dx12FenceTimeline::Signal( UINT64& outValue )
 {
     outValue = 0;
     if ( !IsReady() )
@@ -211,7 +211,7 @@ Basics::SbResult Dx12FenceTimeline::Signal( UINT64& outValue )
     // Lane R: queue/fence calls can fail because the device or driver is gone.
     // Keep the timeline value unchanged unless the marker was actually queued.
     const UINT64 value = m_lastSignaledValue + 1;
-    const Basics::SbResult signalResult =
+    const SkullbonezCore::Core::SbResult signalResult =
         Dx12RuntimeResult( m_queue->Signal( m_fence, value ), "DX12 command queue Signal failed" );
     if ( !signalResult.ok )
     {
@@ -219,15 +219,15 @@ Basics::SbResult Dx12FenceTimeline::Signal( UINT64& outValue )
     }
     m_lastSignaledValue = value;
     outValue = value;
-    return Basics::SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
-Basics::SbResult Dx12FenceTimeline::WaitForValue( UINT64 value ) const
+SkullbonezCore::Core::SbResult Dx12FenceTimeline::WaitForValue( UINT64 value ) const
 {
     if ( value == 0 )
     {
-        return Basics::SbResult::Success();
+        return SkullbonezCore::Core::SbResult::Success();
     }
     if ( !IsReady() )
     {
@@ -240,8 +240,9 @@ Basics::SbResult Dx12FenceTimeline::WaitForValue( UINT64 value ) const
     // that happens.
     if ( m_fence->GetCompletedValue() < value )
     {
-        const Basics::SbResult eventResult = Dx12RuntimeResult( m_fence->SetEventOnCompletion( value, m_eventHandle ),
-                                                                "DX12 fence SetEventOnCompletion failed" );
+        const SkullbonezCore::Core::SbResult eventResult =
+            Dx12RuntimeResult( m_fence->SetEventOnCompletion( value, m_eventHandle ),
+                               "DX12 fence SetEventOnCompletion failed" );
         if ( !eventResult.ok )
         {
             return eventResult;
@@ -249,12 +250,12 @@ Basics::SbResult Dx12FenceTimeline::WaitForValue( UINT64 value ) const
         const DWORD waitResult = WaitForSingleObject( m_eventHandle, INFINITE );
         if ( waitResult != WAIT_OBJECT_0 )
         {
-            return Basics::SbResult::Failure( "Rendering/DX12",
-                                              "DX12 fence wait failed (wait result 0x%08X)",
-                                              static_cast<unsigned int>( waitResult ) );
+            return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                            "DX12 fence wait failed (wait result 0x%08X)",
+                                                            static_cast<unsigned int>( waitResult ) );
         }
     }
-    return Basics::SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
@@ -1184,7 +1185,7 @@ Dx12RenderDevice::~Dx12RenderDevice()
 }
 
 
-Basics::SbResult Dx12RenderDevice::Init( const Dx12RenderDeviceInitDesc& desc )
+SkullbonezCore::Core::SbResult Dx12RenderDevice::Init( const Dx12RenderDeviceInitDesc& desc )
 {
     Shutdown();
 
@@ -1221,8 +1222,9 @@ Basics::SbResult Dx12RenderDevice::Init( const Dx12RenderDeviceInitDesc& desc )
     // The DXGI factory is the Windows-facing graphics object. It creates the
     // swap chain and answers platform questions such as "can this swap chain
     // present without VSync tearing restrictions?"
-    Basics::SbResult startupResult = Dx12StartupResult( CreateDXGIFactory2( factoryFlags, IID_PPV_ARGS( &m_factory ) ),
-                                                        "CreateDXGIFactory2 failed" );
+    SkullbonezCore::Core::SbResult startupResult =
+        Dx12StartupResult( CreateDXGIFactory2( factoryFlags, IID_PPV_ARGS( &m_factory ) ),
+                           "CreateDXGIFactory2 failed" );
     if ( !startupResult.ok )
     {
         return startupResult;
@@ -1356,12 +1358,12 @@ Basics::SbResult Dx12RenderDevice::Init( const Dx12RenderDeviceInitDesc& desc )
     m_fenceEvent = CreateEvent( nullptr, FALSE, FALSE, nullptr );
     if ( !m_fenceEvent )
     {
-        return Basics::SbResult::Failure( "Rendering/DX12", "CreateEvent (frame fence) failed" );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "CreateEvent (frame fence) failed" );
     }
     m_frameFence.Init( m_commandQueue, m_fence, m_fenceEvent );
 
     rollback.Commit();
-    return Basics::SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 

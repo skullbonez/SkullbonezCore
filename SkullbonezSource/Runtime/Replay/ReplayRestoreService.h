@@ -54,7 +54,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct ReplaySolverSampleRestoreContext
 {
@@ -224,5 +224,5 @@ class ReplayRestoreService
         }
     }
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

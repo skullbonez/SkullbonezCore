@@ -41,7 +41,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct SceneAssetAffiliation
 {
@@ -107,7 +107,7 @@ class SceneEntityStore
     SceneEntityStore();
     void ConfigureCapacity( int capacity );
     void Clear();
-    SbResult PreflightAppend( const SceneEntityCreateDesc& entity ) const;
+    SkullbonezCore::Core::SbResult PreflightAppend( const SceneEntityCreateDesc& entity ) const;
     void CommitAppend( const SceneEntityCreateDesc& entity, Physics::PhysicsBodyHandle body );
     // Called only inside the collection's coordinated cross-store deletion.
     bool DestroyAtSwapLast( int index );
@@ -132,5 +132,5 @@ class SceneEntityStore
     std::vector<SceneEntityRecord> m_records;
     int m_capacity = SkullbonezCore::Scene::Capacity::DEFAULT_GAME_MODEL_CAPACITY;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

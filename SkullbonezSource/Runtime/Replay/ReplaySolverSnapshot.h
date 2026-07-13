@@ -35,7 +35,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct ReplaySolverContactCacheSample
 {
@@ -131,5 +131,5 @@ struct ReplaySolverWorldSnapshot
     std::vector<Physics::PhysicsPipelineRecord> pipelineTrace;
     std::vector<int64_t> collisionCellKeys;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

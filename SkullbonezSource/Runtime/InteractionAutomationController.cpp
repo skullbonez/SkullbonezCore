@@ -68,9 +68,9 @@ Related:
 #include <cstring>
 #include <sstream>
 
-using namespace SkullbonezCore::Basics;
-using namespace SkullbonezCore::Basics::RunInternal;
-using namespace SkullbonezCore::Basics::ReplayOverlay;
+using namespace SkullbonezCore::Runtime;
+using namespace SkullbonezCore::Runtime::RunInternal;
+using namespace SkullbonezCore::Runtime::ReplayOverlay;
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
@@ -1234,7 +1234,7 @@ void InjectInteractionAutomationReplayControlClick( InteractionAutomationControl
 
 void ApplyInteractionAutomationReplayControlClick( InteractionAutomationController& state,
                                                    Window* window,
-                                                   const EngineConfig& config,
+                                                   const SkullbonezCore::Core::EngineConfig& config,
                                                    const RunSceneState& scene,
                                                    RunTimerState& timers,
                                                    ReplayRuntime& replayRuntime,
@@ -1405,7 +1405,7 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
 
 void ApplyInteractionAutomationSolverTrackScrub( InteractionAutomationController& state,
                                                  Window* window,
-                                                 const EngineConfig& config,
+                                                 const SkullbonezCore::Core::EngineConfig& config,
                                                  RunTimerState& timers,
                                                  ReplayRuntime& replayRuntime,
                                                  RunInteractionAutomationAction& action,
@@ -2464,7 +2464,7 @@ bool TryProjectInteractionAutomationModel( const SceneController& scene,
     return false;
 }
 
-void SkullbonezCore::Basics::ClearInteractionAutomationInput( InteractionAutomationController& state )
+void SkullbonezCore::Runtime::ClearInteractionAutomationInput( InteractionAutomationController& state )
 {
     state.leftMouseDown = false;
     state.rightMouseDown = false;
@@ -2484,9 +2484,10 @@ void SkullbonezCore::Basics::ClearInteractionAutomationInput( InteractionAutomat
 }
 
 
-SbResult SkullbonezCore::Basics::ConfigureInteractionAutomation( InteractionAutomationController& state,
-                                                                 const char* scriptPath,
-                                                                 const char* reportPath )
+SkullbonezCore::Core::SbResult
+SkullbonezCore::Runtime::ConfigureInteractionAutomation( InteractionAutomationController& state,
+                                                         const char* scriptPath,
+                                                         const char* reportPath )
 {
     state = InteractionAutomationController{};
     strcpy_s( state.reportPath,
@@ -2497,34 +2498,35 @@ SbResult SkullbonezCore::Basics::ConfigureInteractionAutomation( InteractionAuto
         state.failed = true;
         state.finished = true;
         strcpy_s( state.failure, sizeof( state.failure ), "interaction automation requires a script path" );
-        return SbResult::Failure( "InteractionAutomation", state.failure );
+        return SkullbonezCore::Core::SbResult::Failure( "InteractionAutomation", state.failure );
     }
     strcpy_s( state.scriptPath, sizeof( state.scriptPath ), scriptPath );
     state.enabled = true;
     printf( "[interaction] Script: %s\n", state.scriptPath );
     printf( "[interaction] Report: %s\n", state.reportPath );
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
-SbResult SkullbonezCore::Basics::InteractionAutomationResult( const InteractionAutomationController& state )
+SkullbonezCore::Core::SbResult
+SkullbonezCore::Runtime::InteractionAutomationResult( const InteractionAutomationController& state )
 {
     if ( !state.failed )
     {
-        return SbResult::Success();
+        return SkullbonezCore::Core::SbResult::Success();
     }
     const char* message = state.failure[0] != '\0' ? state.failure : "interaction automation failed";
-    return SbResult::Failure( "InteractionAutomation", message );
+    return SkullbonezCore::Core::SbResult::Failure( "InteractionAutomation", message );
 }
 
 InteractionAutomationFrameResult
-SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomationController& state,
-                                                              RuntimeFrameHostView& host,
-                                                              RuntimeFrameInteractionView& interactionOwners,
-                                                              RuntimeFrameSceneView& sceneOwners )
+SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state,
+                                                               RuntimeFrameHostView& host,
+                                                               RuntimeFrameInteractionView& interactionOwners,
+                                                               RuntimeFrameSceneView& sceneOwners )
 {
     Window* window = &host.window;
-    const EngineConfig& config = sceneOwners.config;
+    const SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
     SceneController& scene = sceneOwners.sceneController;
     RunTimerState& timers = sceneOwners.timers;
     ReplayRuntime& replayRuntime = interactionOwners.replayRuntime;
@@ -2547,7 +2549,7 @@ SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomat
         // report writer is another Lane R boundary, so it also cannot replace
         // the earlier script failure if both operations fail.
         result.status = InteractionAutomationResult( state );
-        const SbResult reportResult =
+        const SkullbonezCore::Core::SbResult reportResult =
             WriteInteractionAutomationReport( state, scene, runtimeTools, replayRuntime, interaction, camera, ui );
         if ( result.status.ok )
         {
@@ -2800,11 +2802,11 @@ SkullbonezCore::Basics::TickInteractionAutomationBeforeInput( InteractionAutomat
 }
 
 InteractionAutomationFrameResult
-SkullbonezCore::Basics::TickInteractionAutomationAfterRender( InteractionAutomationController& state,
-                                                              RuntimeFrameInteractionView& interactionOwners,
-                                                              RuntimeFrameSceneView& sceneOwners,
-                                                              CaptureController& capture,
-                                                              Rendering::IRenderCaptureBackend& captureBackend )
+SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutomationController& state,
+                                                               RuntimeFrameInteractionView& interactionOwners,
+                                                               RuntimeFrameSceneView& sceneOwners,
+                                                               CaptureController& capture,
+                                                               Rendering::IRenderCaptureBackend& captureBackend )
 {
     SceneController& scene = sceneOwners.sceneController;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
@@ -2833,7 +2835,8 @@ SkullbonezCore::Basics::TickInteractionAutomationAfterRender( InteractionAutomat
         {
             if ( RuntimeFileWriter::EnsureParentDirectory( action.path ) )
             {
-                const SbResult captureResult = capture.SaveScreenshot( captureBackend, action.path );
+                const SkullbonezCore::Core::SbResult captureResult =
+                    capture.SaveScreenshot( captureBackend, action.path );
                 if ( captureResult.ok )
                 {
                     state.screenshots.emplace_back( action.path );
@@ -2921,7 +2924,7 @@ SkullbonezCore::Basics::TickInteractionAutomationAfterRender( InteractionAutomat
         ClearInteractionAutomationInput( state );
         // Invariant: assertion failure retains precedence over report IO.
         result.status = InteractionAutomationResult( state );
-        const SbResult reportResult =
+        const SkullbonezCore::Core::SbResult reportResult =
             WriteInteractionAutomationReport( state, scene, runtimeTools, replayRuntime, interaction, camera, ui );
         if ( result.status.ok )
         {
@@ -2933,8 +2936,8 @@ SkullbonezCore::Basics::TickInteractionAutomationAfterRender( InteractionAutomat
 }
 
 
-bool SkullbonezCore::Basics::InteractionAutomationWillCaptureAfterRender( const InteractionAutomationController& state,
-                                                                          int frame )
+bool SkullbonezCore::Runtime::InteractionAutomationWillCaptureAfterRender( const InteractionAutomationController& state,
+                                                                           int frame )
 {
     if ( !state.enabled || state.finished )
     {
@@ -2951,13 +2954,14 @@ bool SkullbonezCore::Basics::InteractionAutomationWillCaptureAfterRender( const 
     return false;
 }
 
-SbResult SkullbonezCore::Basics::WriteInteractionAutomationReport( InteractionAutomationController& state,
-                                                                   const SceneController& scene,
-                                                                   const RuntimeTools& runtimeTools,
-                                                                   const ReplayRuntime& replayRuntime,
-                                                                   const RuntimeInteractionController& interaction,
-                                                                   const RunCameraState& camera,
-                                                                   const UI::InGameUI& ui )
+SkullbonezCore::Core::SbResult
+SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomationController& state,
+                                                           const SceneController& scene,
+                                                           const RuntimeTools& runtimeTools,
+                                                           const ReplayRuntime& replayRuntime,
+                                                           const RuntimeInteractionController& interaction,
+                                                           const RunCameraState& camera,
+                                                           const UI::InGameUI& ui )
 {
     RuntimeAllocation::RuntimeAllocationScope diagnosticsScope(
         RuntimeAllocation::RuntimeAllocationPhase::Diagnostics );
@@ -3079,9 +3083,10 @@ SbResult SkullbonezCore::Basics::WriteInteractionAutomationReport( InteractionAu
     }
 
     const std::string* scenePath = scene.CurrentPath();
-    const MainMemoryReplayStats replayMemoryStats = replayRuntime.CollectMemoryStats();
+    const SkullbonezCore::Core::MainMemoryReplayStats replayMemoryStats = replayRuntime.CollectMemoryStats();
     uint64_t trajectoryDroppedTotal = 0;
-    for ( std::size_t laneIndex = 0; laneIndex < MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT; ++laneIndex )
+    for ( std::size_t laneIndex = 0; laneIndex < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT;
+          ++laneIndex )
     {
         trajectoryDroppedTotal += replayMemoryStats.trajectory.droppedSegments[laneIndex];
     }
@@ -3170,31 +3175,30 @@ SbResult SkullbonezCore::Basics::WriteInteractionAutomationReport( InteractionAu
         { "predictionTrajectorySubmissionSegmentCount", static_cast<int>( predictionSubmissionProbe.segmentCount ) },
         { "predictionTrajectoryDroppedSegmentCount", trajectoryDroppedTotal },
         { "predictionTrajectoryDroppedSegments",
-          Json{
-              { "pastRoot",
-                replayMemoryStats.trajectory
-                    .droppedSegments[static_cast<std::size_t>( MainMemoryReplayTrajectoryLane::PastRoot )] },
-              { "futureRoot",
-                replayMemoryStats.trajectory
-                    .droppedSegments[static_cast<std::size_t>( MainMemoryReplayTrajectoryLane::FutureRoot )] },
-              { "futureChildIncoming",
-                replayMemoryStats.trajectory
-                    .droppedSegments[static_cast<std::size_t>( MainMemoryReplayTrajectoryLane::FutureChildIncoming )] },
-              { "futureChildOutgoing",
-                replayMemoryStats.trajectory
-                    .droppedSegments[static_cast<std::size_t>( MainMemoryReplayTrajectoryLane::FutureChildOutgoing )] },
-              { "retainedTrail",
-                replayMemoryStats.trajectory
-                    .droppedSegments[static_cast<std::size_t>( MainMemoryReplayTrajectoryLane::RetainedTrail )] },
-              { "baselineRoot",
-                replayMemoryStats.trajectory
-                    .droppedSegments[static_cast<std::size_t>( MainMemoryReplayTrajectoryLane::BaselineRoot )] },
-              { "causalMarker",
-                replayMemoryStats.trajectory
-                    .droppedSegments[static_cast<std::size_t>( MainMemoryReplayTrajectoryLane::CausalMarker )] },
-              { "auxiliaryTrail",
-                replayMemoryStats.trajectory
-                    .droppedSegments[static_cast<std::size_t>( MainMemoryReplayTrajectoryLane::AuxiliaryTrail )] } } },
+          Json{ { "pastRoot",
+                  replayMemoryStats.trajectory.droppedSegments[static_cast<std::size_t>(
+                      SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::PastRoot )] },
+                { "futureRoot",
+                  replayMemoryStats.trajectory.droppedSegments[static_cast<std::size_t>(
+                      SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot )] },
+                { "futureChildIncoming",
+                  replayMemoryStats.trajectory.droppedSegments[static_cast<std::size_t>(
+                      SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureChildIncoming )] },
+                { "futureChildOutgoing",
+                  replayMemoryStats.trajectory.droppedSegments[static_cast<std::size_t>(
+                      SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureChildOutgoing )] },
+                { "retainedTrail",
+                  replayMemoryStats.trajectory.droppedSegments[static_cast<std::size_t>(
+                      SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::RetainedTrail )] },
+                { "baselineRoot",
+                  replayMemoryStats.trajectory.droppedSegments[static_cast<std::size_t>(
+                      SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::BaselineRoot )] },
+                { "causalMarker",
+                  replayMemoryStats.trajectory.droppedSegments[static_cast<std::size_t>(
+                      SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::CausalMarker )] },
+                { "auxiliaryTrail",
+                  replayMemoryStats.trajectory.droppedSegments[static_cast<std::size_t>(
+                      SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::AuxiliaryTrail )] } } },
         { "predictionTrajectorySubmissionFirstFrame", predictionSubmissionProbe.firstFrame },
         { "predictionTrajectorySubmissionLastFrame", predictionSubmissionProbe.lastFrame },
         { "predictionTrajectorySteadyStateNoReserveGrowth", predictionSubmissionProbe.noReserveGrowth },
@@ -3220,7 +3224,7 @@ SbResult SkullbonezCore::Basics::WriteInteractionAutomationReport( InteractionAu
         state.reportWritten = true;
         state.failed = true;
         strcpy_s( state.failure, sizeof( state.failure ), "failed to open interaction report path" );
-        return SbResult::Failure( "InteractionAutomation", state.failure );
+        return SkullbonezCore::Core::SbResult::Failure( "InteractionAutomation", state.failure );
     }
     output << report.dump( 2 ) << "\n";
     output.close();

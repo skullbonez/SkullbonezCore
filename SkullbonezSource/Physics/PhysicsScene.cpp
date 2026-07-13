@@ -50,7 +50,6 @@ Related:
 #include <utility>
 #include <variant>
 
-using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
@@ -74,6 +73,7 @@ using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsConstraintHandle;
 using SkullbonezCore::Physics::PhysicsMaterial;
 using SkullbonezCore::Physics::PhysicsScene;
+using SkullbonezCore::Runtime::ReplaySolverWorldSnapshot;
 
 
 namespace
@@ -138,7 +138,7 @@ PhysicsScene::PhysicsScene()
 }
 
 
-void PhysicsScene::ApplyRuntimeConfig( const Basics::EngineConfig& config )
+void PhysicsScene::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
     m_physicsMaterial = PhysicsMaterial::FromConfig( config );
     m_bodySimulationLimits = BodySimulationLimits::FromConfig( config );
@@ -518,7 +518,7 @@ void PhysicsScene::ValidatePhysicsStoreMappings( int modelCount ) const
 
 
 void PhysicsScene::RunPhysics( float fChangeInTime,
-                               const Basics::EngineConfig& config,
+                               const SkullbonezCore::Core::EngineConfig& config,
                                const PhysicsWorldForces& worldForces,
                                Threading::WorkerPool& workerPool,
                                const char* const* diagnosticNames,

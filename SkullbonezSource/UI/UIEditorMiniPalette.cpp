@@ -403,7 +403,7 @@ int RenderTargetsContentHeight()
     return static_cast<int>( UI_TARGETS_CONTENT_H );
 }
 
-float RenderValueForParam( const Basics::OrdinaryRenderConfig& ordinary, UIRenderParam param )
+float RenderValueForParam( const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary, UIRenderParam param )
 {
     switch ( param )
     {

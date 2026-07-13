@@ -32,7 +32,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 constexpr int CAPTURE_REQUEST_PATH_CAPACITY = 260;
 constexpr int CAPTURE_REQUEST_QUEUE_CAPACITY = 16;
@@ -44,7 +44,7 @@ struct CaptureRequest
 
 struct CaptureRequestBatchResult
 {
-    SbResult status = SbResult::Success();
+    SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
     CaptureRequest saved[CAPTURE_REQUEST_QUEUE_CAPACITY];
     std::size_t savedCount = 0;
     std::size_t failedCount = 0;
@@ -73,12 +73,13 @@ class CaptureController
 
     // Accepts one bounded BMP path for the next input-frame capture checkpoint.
     // Invalid or truncating paths return Lane R failure without entering the queue.
-    SbResult QueueScreenshot( const char* path );
+    SkullbonezCore::Core::SbResult QueueScreenshot( const char* path );
     CaptureRequestBatchResult DrainScreenshotRequests( Rendering::IRenderCaptureBackend& backend );
     std::size_t PendingScreenshotCount() const;
 
-    SbResult SaveScreenshot( Rendering::IRenderCaptureBackend& backend, const char* path );
-    static SbResult SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend, const char* path );
+    SkullbonezCore::Core::SbResult SaveScreenshot( Rendering::IRenderCaptureBackend& backend, const char* path );
+    static SkullbonezCore::Core::SbResult SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend,
+                                                             const char* path );
 
   private:
     RunScreenshotState m_screenshot;                           // Scene and CLI screenshot trigger state
@@ -86,5 +87,5 @@ class CaptureController
     int m_requestHead = 0;                                     // Oldest capture request.
     int m_requestCount = 0;                                    // Occupied capture request slots.
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

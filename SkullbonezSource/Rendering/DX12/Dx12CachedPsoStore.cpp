@@ -445,7 +445,8 @@ bool Dx12CachedPsoStore::Initialize( const void* rootSignatureBytes, std::size_t
     if ( !ReadManifestDigest( m_manifestDigest ) ||
          !HashBytes( rootSignatureBytes, rootSignatureSize, m_rootSignatureDigest ) )
     {
-        Log().WriteEventf( "dx12_pso_disk_cache_cold_start owner=Dx12PipelineOwner reason=identity_unavailable" );
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_pso_disk_cache_cold_start owner=Dx12PipelineOwner reason=identity_unavailable" );
         ++m_failures;
         return false;
     }
@@ -458,7 +459,8 @@ bool Dx12CachedPsoStore::Initialize( const void* rootSignatureBytes, std::size_t
     if ( !EnsureCacheDirectory( directory ) ||
          swprintf_s( m_cachePath, L"%s\\%s-%.16s-%.16s.bin", directory, CACHE_SCHEMA, manifestHex, rootHex ) < 0 )
     {
-        Log().WriteEventf( "dx12_pso_disk_cache_cold_start owner=Dx12PipelineOwner reason=cache_directory_unwritable" );
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_pso_disk_cache_cold_start owner=Dx12PipelineOwner reason=cache_directory_unwritable" );
         ++m_failures;
         return false;
     }
@@ -472,9 +474,10 @@ bool Dx12CachedPsoStore::Initialize( const void* rootSignatureBytes, std::size_t
                           nullptr );
     if ( m_file == INVALID_HANDLE_VALUE )
     {
-        Log().WriteEventf( "dx12_pso_disk_cache_open owner=Dx12PipelineOwner mode=cold bytes=0 cap=%llu path=%ls",
-                           static_cast<unsigned long long>( MAX_BLOB_BYTES ),
-                           m_cachePath );
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_pso_disk_cache_open owner=Dx12PipelineOwner mode=cold bytes=0 cap=%llu path=%ls",
+            static_cast<unsigned long long>( MAX_BLOB_BYTES ),
+            m_cachePath );
         return true;
     }
     LARGE_INTEGER fileSize = {};
@@ -483,10 +486,11 @@ bool Dx12CachedPsoStore::Initialize( const void* rootSignatureBytes, std::size_t
          fileSize.QuadPart > static_cast<LONGLONG>( MAX_BLOB_BYTES ) )
     {
         ++m_failures;
-        Log().WriteEventf( "dx12_pso_disk_cache_cold_start owner=Dx12PipelineOwner reason=read_failed_or_oversize "
-                           "cap=%llu error=%lu",
-                           static_cast<unsigned long long>( MAX_BLOB_BYTES ),
-                           GetLastError() );
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_pso_disk_cache_cold_start owner=Dx12PipelineOwner reason=read_failed_or_oversize "
+            "cap=%llu error=%lu",
+            static_cast<unsigned long long>( MAX_BLOB_BYTES ),
+            GetLastError() );
         CloseHandle( m_file );
         m_file = INVALID_HANDLE_VALUE;
         return true;
@@ -530,16 +534,18 @@ bool Dx12CachedPsoStore::Initialize( const void* rootSignatureBytes, std::size_t
     if ( !valid )
     {
         ++m_failures;
-        Log().WriteEventf( "dx12_pso_disk_cache_cold_start owner=Dx12PipelineOwner reason=corrupt_format bytes=%llu",
-                           static_cast<unsigned long long>( m_mappedSize ) );
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_pso_disk_cache_cold_start owner=Dx12PipelineOwner reason=corrupt_format bytes=%llu",
+            static_cast<unsigned long long>( m_mappedSize ) );
         m_mappedEntryCount = 0;
     }
     m_loadedBytes = valid ? m_mappedSize : 0;
-    Log().WriteEventf( "dx12_pso_disk_cache_open owner=Dx12PipelineOwner mode=%s bytes=%llu cap=%llu path=%ls",
-                       valid ? "warm" : "cold",
-                       static_cast<unsigned long long>( m_loadedBytes ),
-                       static_cast<unsigned long long>( MAX_BLOB_BYTES ),
-                       m_cachePath );
+    SkullbonezCore::Core::Log().WriteEventf(
+        "dx12_pso_disk_cache_open owner=Dx12PipelineOwner mode=%s bytes=%llu cap=%llu path=%ls",
+        valid ? "warm" : "cold",
+        static_cast<unsigned long long>( m_loadedBytes ),
+        static_cast<unsigned long long>( MAX_BLOB_BYTES ),
+        m_cachePath );
     return true;
 }
 
@@ -643,9 +649,10 @@ void Dx12CachedPsoStore::Persist()
     if ( blobCount == 0 || totalBytes > MAX_BLOB_BYTES )
     {
         ++m_failures;
-        Log().WriteEventf( "dx12_pso_disk_cache_write_skipped owner=Dx12PipelineOwner bytes=%llu cap=%llu",
-                           static_cast<unsigned long long>( totalBytes ),
-                           static_cast<unsigned long long>( MAX_BLOB_BYTES ) );
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_pso_disk_cache_write_skipped owner=Dx12PipelineOwner bytes=%llu cap=%llu",
+            static_cast<unsigned long long>( totalBytes ),
+            static_cast<unsigned long long>( MAX_BLOB_BYTES ) );
         return;
     }
 
@@ -684,20 +691,22 @@ void Dx12CachedPsoStore::Persist()
     {
         DeleteFileW( temporary );
         ++m_failures;
-        Log().WriteEventf( "dx12_pso_disk_cache_write_failed owner=Dx12PipelineOwner bytes=%llu error=%lu",
-                           static_cast<unsigned long long>( totalBytes ),
-                           GetLastError() );
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_pso_disk_cache_write_failed owner=Dx12PipelineOwner bytes=%llu error=%lu",
+            static_cast<unsigned long long>( totalBytes ),
+            GetLastError() );
         return;
     }
-    Log().WriteEventf( "dx12_pso_disk_cache_summary owner=Dx12PipelineOwner hits=%u misses=%u stores=%u failures=%u "
-                       "loaded_bytes=%llu saved_bytes=%llu capacity=%u",
-                       m_hits,
-                       m_misses,
-                       m_stores,
-                       m_failures,
-                       static_cast<unsigned long long>( m_loadedBytes ),
-                       static_cast<unsigned long long>( totalBytes ),
-                       96u );
+    SkullbonezCore::Core::Log().WriteEventf(
+        "dx12_pso_disk_cache_summary owner=Dx12PipelineOwner hits=%u misses=%u stores=%u failures=%u "
+        "loaded_bytes=%llu saved_bytes=%llu capacity=%u",
+        m_hits,
+        m_misses,
+        m_stores,
+        m_failures,
+        static_cast<unsigned long long>( m_loadedBytes ),
+        static_cast<unsigned long long>( totalBytes ),
+        96u );
 }
 
 void Dx12CachedPsoStore::Shutdown()

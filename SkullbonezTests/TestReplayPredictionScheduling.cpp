@@ -22,10 +22,10 @@ Related:
 
 #include "../SkullbonezSource/Runtime/Replay/ReplayPredictionScheduling.h"
 
-using SkullbonezCore::Basics::ChooseReplayPredictionBuildMode;
-using SkullbonezCore::Basics::ChooseReplayPredictionCoalescerAction;
-using SkullbonezCore::Basics::ReplayPredictionBuildMode;
-using SkullbonezCore::Basics::ReplayPredictionCoalescerAction;
+using SkullbonezCore::Runtime::ChooseReplayPredictionBuildMode;
+using SkullbonezCore::Runtime::ChooseReplayPredictionCoalescerAction;
+using SkullbonezCore::Runtime::ReplayPredictionBuildMode;
+using SkullbonezCore::Runtime::ReplayPredictionCoalescerAction;
 
 TEST_CASE( "Replay prediction scheduling: measured cost selects instant or amortized mode" )
 {

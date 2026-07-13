@@ -36,11 +36,11 @@ Related:
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Vector::Vector3;
 
-namespace SkullbonezCore::Basics
+namespace SkullbonezCore::Runtime
 {
 void RunCameraState::UpdateViewingOrientation( RunTimerState& timers,
                                                Environment::CameraCollection& cameras,
-                                               const Basics::SceneController& models,
+                                               const Runtime::SceneController& models,
                                                bool replayCameraActive,
                                                bool sceneMode,
                                                bool attachedActiveFollow,
@@ -108,9 +108,9 @@ void RunCameraState::AdvanceAutoCycleClock( bool sceneMode, float simulationDt )
 
 void RunCameraState::TickControls( Environment::CameraCollection& cameras,
                                    Geometry::Terrain& terrain,
-                                   Basics::SceneController& models,
+                                   Runtime::SceneController& models,
                                    AttachedCameraController& attachedCamera,
-                                   const EngineConfig& config,
+                                   const SkullbonezCore::Core::EngineConfig& config,
                                    bool editorModeEnabled,
                                    bool viewportLookActive,
                                    bool sceneMode,
@@ -145,4 +145,4 @@ void RunCameraState::TickControls( Environment::CameraCollection& cameras,
     }
     cameras.SetTweenSpeed( config.camera.cameraTweenRate * cameraDt );
 }
-} // namespace SkullbonezCore::Basics
+} // namespace SkullbonezCore::Runtime

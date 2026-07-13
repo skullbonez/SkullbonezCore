@@ -125,10 +125,10 @@ bool ShaderDX12::Compile( const char* hlslPath )
     {
         // Lane R: runtime accepts only the pinned offline-DXC artifact. Manual
         // hot reload reruns that same bake before asking this loader to try again.
-        Log().WriteEventf( "dx12_shader_bytecode_rejected path=%s reason=%s",
-                           hlslPath ? hlslPath : "<null>",
-                           loadError.c_str() );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_bytecode_rejected path=%s reason=%s",
+                                                 hlslPath ? hlslPath : "<null>",
+                                                 loadError.c_str() );
+        SkullbonezCore::Core::Log().FlushAll();
         return false;
     }
 
@@ -137,9 +137,9 @@ bool ShaderDX12::Compile( const char* hlslPath )
 
     if ( !m_contract )
     {
-        Log().WriteEventf( "dx12_shader_cpu_contract_missing owner=ShaderDX12 path=%s",
-                           hlslPath ? hlslPath : "<null>" );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_cpu_contract_missing owner=ShaderDX12 path=%s",
+                                                 hlslPath ? hlslPath : "<null>" );
+        SkullbonezCore::Core::Log().FlushAll();
         return false;
     }
 
@@ -148,10 +148,11 @@ bool ShaderDX12::Compile( const char* hlslPath )
     {
         // Lane R: authored shader assets are external startup inputs. Reject
         // a stale CPU/DXIL ABI with the owning shader and exact mismatch.
-        Log().WriteEventf( "dx12_shader_reflection_contract_rejected owner=ShaderDX12 path=%s reason=%s",
-                           hlslPath ? hlslPath : "<null>",
-                           contractError.c_str() );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_shader_reflection_contract_rejected owner=ShaderDX12 path=%s reason=%s",
+            hlslPath ? hlslPath : "<null>",
+            contractError.c_str() );
+        SkullbonezCore::Core::Log().FlushAll();
         return false;
     }
 
@@ -166,10 +167,11 @@ bool ShaderDX12::Compile( const char* hlslPath )
         // Hazard: hot reload changes the baked files without recompiling this
         // executable's generated metadata. Validate the candidate DXIL itself
         // before it can enter the transaction, including optional-present rows.
-        Log().WriteEventf( "dx12_shader_live_reflection_contract_rejected owner=ShaderDX12 path=%s reason=%s",
-                           hlslPath ? hlslPath : "<null>",
-                           reflectedContractError.c_str() );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_shader_live_reflection_contract_rejected owner=ShaderDX12 path=%s reason=%s",
+            hlslPath ? hlslPath : "<null>",
+            reflectedContractError.c_str() );
+        SkullbonezCore::Core::Log().FlushAll();
         return false;
     }
 #ifdef _DEBUG
@@ -249,11 +251,12 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
     ComPtr<ID3D12ShaderReflection> reflect;
     if ( !blob )
     {
-        Log().WriteEventf( "dx12_shader_reflect_failed stage=%s hresult=0x%08X path=%s reason=missing_bytecode",
-                           stageName ? stageName : "unknown",
-                           static_cast<unsigned int>( E_POINTER ),
-                           hlslPath ? hlslPath : "<null>" );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_shader_reflect_failed stage=%s hresult=0x%08X path=%s reason=missing_bytecode",
+            stageName ? stageName : "unknown",
+            static_cast<unsigned int>( E_POINTER ),
+            hlslPath ? hlslPath : "<null>" );
+        SkullbonezCore::Core::Log().FlushAll();
         return false;
     }
     HRESULT hr = E_FAIL;
@@ -262,11 +265,11 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
         // Lane R: reflection depends on compiler output and device tooling. A
         // failed reflection pass means this shader cannot expose a safe uniform
         // contract, so report failure to Compile() instead of throwing.
-        Log().WriteEventf( "dx12_shader_reflect_failed stage=%s hresult=0x%08X path=%s",
-                           stageName ? stageName : "unknown",
-                           static_cast<unsigned int>( FAILED( hr ) ? hr : E_FAIL ),
-                           hlslPath ? hlslPath : "<null>" );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_reflect_failed stage=%s hresult=0x%08X path=%s",
+                                                 stageName ? stageName : "unknown",
+                                                 static_cast<unsigned int>( FAILED( hr ) ? hr : E_FAIL ),
+                                                 hlslPath ? hlslPath : "<null>" );
+        SkullbonezCore::Core::Log().FlushAll();
         return false;
     }
 
@@ -275,12 +278,13 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
     // or resource slots from zero-initialized placeholder data.
     auto reflectionFailure = [&]( const char* operation, HRESULT result )
     {
-        Log().WriteEventf( "dx12_shader_reflect_failed stage=%s operation=%s hresult=0x%08X path=%s",
-                           stageName ? stageName : "unknown",
-                           operation ? operation : "unknown",
-                           static_cast<unsigned int>( result ),
-                           hlslPath ? hlslPath : "<null>" );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_shader_reflect_failed stage=%s operation=%s hresult=0x%08X path=%s",
+            stageName ? stageName : "unknown",
+            operation ? operation : "unknown",
+            static_cast<unsigned int>( result ),
+            hlslPath ? hlslPath : "<null>" );
+        SkullbonezCore::Core::Log().FlushAll();
         return false;
     };
 
@@ -616,7 +620,7 @@ void ShaderDX12::MarkContractUniformSet( const char* name, const char* setterNam
                 if ( !ContainsWarningKey( m_missingUniformWarnings, key ) )
                 {
                     m_missingUniformWarnings.push_back( key );
-                    Log().WriteEventf(
+                    SkullbonezCore::Core::Log().WriteEventf(
                         "shader_contract_resource_set_with_uniform_api shader=%s resource=%s slot=%d setter=%s",
                         m_contract->baseName,
                         name,
@@ -631,10 +635,11 @@ void ShaderDX12::MarkContractUniformSet( const char* name, const char* setterNam
         if ( !ContainsWarningKey( m_missingUniformWarnings, key ) )
         {
             m_missingUniformWarnings.push_back( key );
-            Log().WriteEventf( "shader_contract_stale_uniform shader=%s uniform=%s setter=%s reason=not_in_contract",
-                               m_contract->baseName,
-                               name,
-                               setterName );
+            SkullbonezCore::Core::Log().WriteEventf(
+                "shader_contract_stale_uniform shader=%s uniform=%s setter=%s reason=not_in_contract",
+                m_contract->baseName,
+                name,
+                setterName );
         }
         return;
     }
@@ -646,11 +651,12 @@ void ShaderDX12::MarkContractUniformSet( const char* name, const char* setterNam
         if ( !ContainsWarningKey( m_typeMismatchWarnings, key ) )
         {
             m_typeMismatchWarnings.push_back( key );
-            Log().WriteEventf( "shader_contract_uniform_type_mismatch shader=%s uniform=%s setter=%s expected=%s",
-                               m_contract->baseName,
-                               name,
-                               setterName,
-                               ShaderValueTypeName( uniform->type ) );
+            SkullbonezCore::Core::Log().WriteEventf(
+                "shader_contract_uniform_type_mismatch shader=%s uniform=%s setter=%s expected=%s",
+                m_contract->baseName,
+                name,
+                setterName,
+                ShaderValueTypeName( uniform->type ) );
         }
     }
 
@@ -680,10 +686,11 @@ void ShaderDX12::ReportMissingRequiredContractUniforms() const
              m_contractMissingRequiredLogged[i] == static_cast<uint8_t>( 0 ) )
         {
             m_contractMissingRequiredLogged[i] = static_cast<uint8_t>( 1 );
-            Log().WriteEventf( "shader_contract_required_uniform_not_set shader=%s uniform=%s pass=%s",
-                               m_contract->baseName,
-                               uniform.name,
-                               m_contract->passCategory ? m_contract->passCategory : "unknown" );
+            SkullbonezCore::Core::Log().WriteEventf(
+                "shader_contract_required_uniform_not_set shader=%s uniform=%s pass=%s",
+                m_contract->baseName,
+                uniform.name,
+                m_contract->passCategory ? m_contract->passCategory : "unknown" );
         }
     }
 }
@@ -701,10 +708,11 @@ void ShaderDX12::ReportContractReflectionMismatch() const
         const ShaderUniformDecl& uniform = m_contract->uniforms[i];
         if ( uniform.required && m_uniformMap.find( uniform.name ) == m_uniformMap.end() )
         {
-            Log().WriteEventf( "shader_contract_required_uniform_not_reflected shader=%s uniform=%s expected=%s",
-                               m_contract->baseName,
-                               uniform.name,
-                               ShaderValueTypeName( uniform.type ) );
+            SkullbonezCore::Core::Log().WriteEventf(
+                "shader_contract_required_uniform_not_reflected shader=%s uniform=%s expected=%s",
+                m_contract->baseName,
+                uniform.name,
+                ShaderValueTypeName( uniform.type ) );
         }
     }
 
@@ -716,7 +724,7 @@ void ShaderDX12::ReportContractReflectionMismatch() const
         {
             if ( resource.required )
             {
-                Log().WriteEventf(
+                SkullbonezCore::Core::Log().WriteEventf(
                     "shader_contract_required_resource_not_reflected shader=%s resource=%s slot=t%d expected_kind=%s",
                     m_contract->baseName,
                     resource.name,
@@ -728,18 +736,19 @@ void ShaderDX12::ReportContractReflectionMismatch() const
 
         if ( !ShaderResourceKindMatches( resource.kind, reflected->second.type, reflected->second.dimension ) )
         {
-            Log().WriteEventf( "shader_contract_resource_kind_mismatch shader=%s resource=%s expected_kind=%s "
-                               "reflected_type=%s reflected_dimension=%s",
-                               m_contract->baseName,
-                               resource.name,
-                               ShaderResourceKindName( resource.kind ),
-                               ShaderInputTypeName( reflected->second.type ),
-                               ShaderInputDimensionName( reflected->second.dimension ) );
+            SkullbonezCore::Core::Log().WriteEventf(
+                "shader_contract_resource_kind_mismatch shader=%s resource=%s expected_kind=%s "
+                "reflected_type=%s reflected_dimension=%s",
+                m_contract->baseName,
+                resource.name,
+                ShaderResourceKindName( resource.kind ),
+                ShaderInputTypeName( reflected->second.type ),
+                ShaderInputDimensionName( reflected->second.dimension ) );
         }
 
         if ( reflected->second.bindPoint != static_cast<UINT>( resource.slot ) )
         {
-            Log().WriteEventf(
+            SkullbonezCore::Core::Log().WriteEventf(
                 "shader_contract_resource_slot_mismatch shader=%s resource=%s expected=t%d reflected=t%u",
                 m_contract->baseName,
                 resource.name,
@@ -769,10 +778,10 @@ void ShaderDX12::ReportUniformNotReflected( const char* name, const char* setter
     }
 
     m_missingUniformWarnings.push_back( key );
-    Log().WriteEventf( "shader_uniform_not_reflected shader=%s uniform=%s setter=%s",
-                       shaderName,
-                       name ? name : "<null>",
-                       setterName );
+    SkullbonezCore::Core::Log().WriteEventf( "shader_uniform_not_reflected shader=%s uniform=%s setter=%s",
+                                             shaderName,
+                                             name ? name : "<null>",
+                                             setterName );
 }
 #endif
 
@@ -912,7 +921,7 @@ bool ShaderDX12::SetConstantBufferBytes( const void* data, size_t size, const ch
     if ( size != m_cbReflectedSize )
     {
 #ifdef _DEBUG
-        Log().WriteEventf(
+        SkullbonezCore::Core::Log().WriteEventf(
             "shader_typed_cbuffer_size_mismatch shader=%s block=%s bytes=%llu reflected_bytes=%u aligned_bytes=%u",
             m_contract ? m_contract->baseName : "<unmanifested>",
             debugName ? debugName : "<unnamed>",

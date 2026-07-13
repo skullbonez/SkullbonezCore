@@ -29,7 +29,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 
 struct SceneRuntimeCreateContext
@@ -40,5 +40,5 @@ struct SceneRuntimeCreateContext
 
 SceneLoadRequest CreateSceneFromUI( SceneRuntimeCreateContext context, const char* requestedName );
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

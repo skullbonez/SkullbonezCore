@@ -34,7 +34,7 @@ Related:
 #include <algorithm>
 #include <cmath>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 
 namespace
 {

@@ -46,7 +46,7 @@ constexpr float MOUSE_PICKUP_MAX_IMPULSE = 260.0f;
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 using Math::Vector::Vector3;
 using Math::Vector::VectorMagSquared;
@@ -54,7 +54,7 @@ using Physics::PhysicsBodyRecord;
 using Physics::PhysicsBodyStore;
 
 MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePickupPointerInput& input,
-                                                                const Basics::SceneController& collection,
+                                                                const Runtime::SceneController& collection,
                                                                 InputRouter& inputRouter,
                                                                 RuntimeInteractionController& interaction )
 {
@@ -199,7 +199,7 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePicku
 }
 
 
-void RuntimeTools::ApplyMousePickupPhysicsStep( Basics::SceneController& models,
+void RuntimeTools::ApplyMousePickupPhysicsStep( Runtime::SceneController& models,
                                                 Physics::PhysicsEngine& physics,
                                                 InputRouter& inputRouter,
                                                 RuntimeInteractionController& interaction )
@@ -255,7 +255,7 @@ void RuntimeTools::ApplyMousePickupPhysicsStep( Basics::SceneController& models,
 }
 
 
-void RuntimeTools::RestoreMousePickupAngularVelocity( Basics::SceneController& models,
+void RuntimeTools::RestoreMousePickupAngularVelocity( Runtime::SceneController& models,
                                                       Physics::PhysicsEngine& physics,
                                                       InputRouter& inputRouter,
                                                       RuntimeInteractionController& interaction )
@@ -285,5 +285,5 @@ void RuntimeTools::RestoreMousePickupAngularVelocity( Basics::SceneController& m
         CancelMousePickup( inputRouter, interaction );
     }
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

@@ -43,7 +43,7 @@ Related:
 #include <vector>
 
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
@@ -74,7 +74,7 @@ static const SkullbonezCore::Assets::AssetSystem& AssetRegistry( const RenderHel
     return context.assets;
 }
 
-static const EngineConfig& Config( const RenderHelperContext& context )
+static const SkullbonezCore::Core::EngineConfig& Config( const RenderHelperContext& context )
 {
     return context.config;
 }
@@ -270,7 +270,7 @@ static int BuildConvexHullDynamicVertices( const ConvexHullShape& hull,
 
 static void ApplySceneLightConstants( const RenderHelperContext& context, PrimitiveBatchShaderConstants& constants )
 {
-    const OrdinaryRenderConfig& ordinary = Config( context ).ordinaryRender;
+    const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary = Config( context ).ordinaryRender;
     constants.lightAmbient[0] = ordinary.skyAmbientR;
     constants.lightAmbient[1] = ordinary.skyAmbientG;
     constants.lightAmbient[2] = ordinary.skyAmbientB;
@@ -292,7 +292,7 @@ static void ApplySceneLightConstants( const RenderHelperContext& context, Primit
 
 static void ApplySceneLightUniforms( const RenderHelperContext& context, IShader& shader )
 {
-    const OrdinaryRenderConfig& ordinary = Config( context ).ordinaryRender;
+    const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary = Config( context ).ordinaryRender;
     shader.SetVec4( "uLightAmbient",
                     ordinary.skyAmbientR,
                     ordinary.skyAmbientG,
@@ -307,11 +307,11 @@ static void ApplySceneLightUniforms( const RenderHelperContext& context, IShader
 
 static void ApplyBatchLightConstants( PrimitiveBatchShaderConstants& constants,
                                       const RenderHelperContext& context,
-                                      const CinematicRenderConfig* cinematicOverride )
+                                      const SkullbonezCore::Core::CinematicRenderConfig* cinematicOverride )
 {
     if ( cinematicOverride )
     {
-        const CinematicRenderConfig& cinematic = *cinematicOverride;
+        const SkullbonezCore::Core::CinematicRenderConfig& cinematic = *cinematicOverride;
         constants.lightAmbient[0] = 0.28f;
         constants.lightAmbient[1] = 0.15f;
         constants.lightAmbient[2] = 0.06f;
@@ -326,7 +326,7 @@ static void ApplyBatchLightConstants( PrimitiveBatchShaderConstants& constants,
     ApplySceneLightConstants( context, constants );
 }
 
-static int ObjectStyleForShader( const CinematicRenderConfig* cinematicOverride )
+static int ObjectStyleForShader( const SkullbonezCore::Core::CinematicRenderConfig* cinematicOverride )
 {
     // Encode render mode separately from the light vector. Negative values mean
     // "cinematic style", while ordinary batches use style 0 and may still use a
@@ -334,7 +334,7 @@ static int ObjectStyleForShader( const CinematicRenderConfig* cinematicOverride 
     return cinematicOverride ? -( cinematicOverride->objectStyle + 1 ) : 0;
 }
 
-static int ObjectStyleForMeshSelection( const CinematicRenderConfig* cinematicOverride )
+static int ObjectStyleForMeshSelection( const SkullbonezCore::Core::CinematicRenderConfig* cinematicOverride )
 {
     return cinematicOverride ? cinematicOverride->objectStyle : 0;
 }
@@ -370,7 +370,7 @@ struct PrimitiveBatchShaderParams
     const Matrix4& projection;
     const float* lightPosition;
     const float* clipPlane;
-    const CinematicRenderConfig* cinematic;
+    const SkullbonezCore::Core::CinematicRenderConfig* cinematic;
     const ShadowFrameData* shadow;
     int primitiveShape;
     bool receiveShadows;
@@ -567,14 +567,15 @@ void RenderHelper::PrimitiveBatchScope::EndIfActive()
 }
 
 
-RenderHelper::PrimitiveBatchScope RenderHelper::BeginSphereBatch( const RenderHelperContext& context,
-                                                                  const Matrix4& view,
-                                                                  const Matrix4& proj,
-                                                                  const float lightPos[4],
-                                                                  bool isTransparent,
-                                                                  const CinematicRenderConfig* cinematic,
-                                                                  const ShadowFrameData* shadow,
-                                                                  float materialAlpha )
+RenderHelper::PrimitiveBatchScope
+RenderHelper::BeginSphereBatch( const RenderHelperContext& context,
+                                const Matrix4& view,
+                                const Matrix4& proj,
+                                const float lightPos[4],
+                                bool isTransparent,
+                                const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                                const ShadowFrameData* shadow,
+                                float materialAlpha )
 {
     BindRenderResourceFactory( context.renderResources );
     DrawSphereBatchBegin( context, view, proj, lightPos, isTransparent, cinematic, shadow, materialAlpha );
@@ -582,14 +583,15 @@ RenderHelper::PrimitiveBatchScope RenderHelper::BeginSphereBatch( const RenderHe
 }
 
 
-RenderHelper::PrimitiveBatchScope RenderHelper::BeginBoxBatch( const RenderHelperContext& context,
-                                                               const Matrix4& view,
-                                                               const Matrix4& proj,
-                                                               const float lightPos[4],
-                                                               bool isTransparent,
-                                                               const CinematicRenderConfig* cinematic,
-                                                               const ShadowFrameData* shadow,
-                                                               float materialAlpha )
+RenderHelper::PrimitiveBatchScope
+RenderHelper::BeginBoxBatch( const RenderHelperContext& context,
+                             const Matrix4& view,
+                             const Matrix4& proj,
+                             const float lightPos[4],
+                             bool isTransparent,
+                             const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                             const ShadowFrameData* shadow,
+                             float materialAlpha )
 {
     BindRenderResourceFactory( context.renderResources );
     DrawBoxBatchBegin( context, view, proj, lightPos, isTransparent, cinematic, shadow, materialAlpha );
@@ -597,14 +599,15 @@ RenderHelper::PrimitiveBatchScope RenderHelper::BeginBoxBatch( const RenderHelpe
 }
 
 
-RenderHelper::PrimitiveBatchScope RenderHelper::BeginPineBatch( const RenderHelperContext& context,
-                                                                const Matrix4& view,
-                                                                const Matrix4& proj,
-                                                                const float lightPos[4],
-                                                                bool isTransparent,
-                                                                const CinematicRenderConfig* cinematic,
-                                                                const ShadowFrameData* shadow,
-                                                                float materialAlpha )
+RenderHelper::PrimitiveBatchScope
+RenderHelper::BeginPineBatch( const RenderHelperContext& context,
+                              const Matrix4& view,
+                              const Matrix4& proj,
+                              const float lightPos[4],
+                              bool isTransparent,
+                              const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                              const ShadowFrameData* shadow,
+                              float materialAlpha )
 {
     BindRenderResourceFactory( context.renderResources );
     DrawPineBatchBegin( context, view, proj, lightPos, isTransparent, cinematic, shadow, materialAlpha );
@@ -612,10 +615,11 @@ RenderHelper::PrimitiveBatchScope RenderHelper::BeginPineBatch( const RenderHelp
 }
 
 
-RenderHelper::PrimitiveBatchScope RenderHelper::BeginShadowDepthSphereBatch( const RenderHelperContext& context,
-                                                                             const Matrix4& view,
-                                                                             const Matrix4& proj,
-                                                                             const CinematicRenderConfig* cinematic )
+RenderHelper::PrimitiveBatchScope
+RenderHelper::BeginShadowDepthSphereBatch( const RenderHelperContext& context,
+                                           const Matrix4& view,
+                                           const Matrix4& proj,
+                                           const SkullbonezCore::Core::CinematicRenderConfig* cinematic )
 {
     BindRenderResourceFactory( context.renderResources );
     DrawShadowDepthSphereBatchBegin( context, view, proj, cinematic );
@@ -851,7 +855,7 @@ void RenderHelper::DrawSphereBatchBegin( const RenderHelperContext& context,
                                          const Matrix4& proj,
                                          const float lightPos[4],
                                          bool isTransparent,
-                                         const CinematicRenderConfig* cinematic,
+                                         const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                          const ShadowFrameData* shadow,
                                          float materialAlpha )
 {
@@ -947,7 +951,7 @@ void RenderHelper::DrawSphereBatchEnd( const RenderHelperContext& context )
 void RenderHelper::DrawShadowDepthSphereBatchBegin( const RenderHelperContext& context,
                                                     const Matrix4& view,
                                                     const Matrix4& proj,
-                                                    const CinematicRenderConfig* cinematic )
+                                                    const SkullbonezCore::Core::CinematicRenderConfig* cinematic )
 {
     m_state.sphereBatchReady = false;
     // Match the visible sphere mesh selection. If a low-poly style is active,
@@ -1065,7 +1069,7 @@ void RenderHelper::DrawBoxBatchBegin( const RenderHelperContext& context,
                                       const Matrix4& proj,
                                       const float lightPos[4],
                                       bool isTransparent,
-                                      const CinematicRenderConfig* cinematic,
+                                      const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                       const ShadowFrameData* shadow,
                                       float materialAlpha )
 {
@@ -1189,7 +1193,7 @@ void RenderHelper::DrawConvexHullModel( const RenderHelperContext& context,
                                         const Matrix4& proj,
                                         const float lightPos[4],
                                         bool isTransparent,
-                                        const CinematicRenderConfig* cinematic,
+                                        const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                         const ShadowFrameData* shadow,
                                         float materialAlpha )
 {
@@ -1300,7 +1304,7 @@ void RenderHelper::DrawPineBatchBegin( const RenderHelperContext& context,
                                        const Matrix4& proj,
                                        const float lightPos[4],
                                        bool isTransparent,
-                                       const CinematicRenderConfig* cinematic,
+                                       const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                        const ShadowFrameData* shadow,
                                        float materialAlpha )
 {

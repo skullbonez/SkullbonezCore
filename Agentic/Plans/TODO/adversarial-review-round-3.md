@@ -138,20 +138,26 @@ upgrades, then the two performance/architecture tasks.
   `JSON_NOEXCEPTION`, guarded JSON reads, and nonthrowing filesystem probes.
   Profile object spot checks found no C++ EH handler/FuncInfo symbols; ordinary
   x64 stack-unwind metadata remains. The malformed-scene owner/message doctest
-  passed. `tools\validate_full.bat` passed in 127.6s with 177 tests/4,059
+  passed. SKULLBONEZ_TESTS keeps `/EHsc` for doctest but defines
+  `_HAS_EXCEPTIONS=0` so its STL ABI matches linked engine libraries; Release
+  and Profile-WPO links prove the boundary. `tools\validate_full.bat` passed in 127.6s with 177 tests/4,059
   assertions, all CPU lanes, zero-warning builds, zero DX12 errors and matching
   screenshots, plus the 44,401-line physics baseline byte-exact.
-- [ ] **R5 — Retire the `SkullbonezCore::Basics` namespace.** Decide the
+- [x] **R5 — Retire the `SkullbonezCore::Basics` namespace.** Decide the
   target mapping first and record it in the companion checklist before any
   edit; the working proposal is: frame loop/shell types
   (`Run`, `RunFrame` state, launch options) → `SkullbonezCore::Runtime`;
   engine services (`Profiler`, `Timer`, `EngineConfig`, `Log`) →
   `SkullbonezCore::Core`; anything already owner-named keeps its owner. One
-  atomic mechanical rename across all 145 files — no compatibility alias
+  atomic mechanical rename across all current consumers — no compatibility alias
   namespace, no transitional `using` shims (migration-noun rule applies).
   Acceptance: `rg -n 'namespace Basics|Basics::' SkullbonezSource` returns
-  zero rows; zero warnings; no behavior change. Validation:
-  `tools\validate_full.bat` (touches `Run*`/`Runtime/*`).
+  zero rows; zero warnings; no behavior change. Completed across 270 files on
+  2026-07-13; the dated 145-file estimate was stale. All four configurations
+  built with zero warnings. A 279-file touched-source comment audit found no
+  deferrals. `tools\validate_full.bat` passed in 162.8s with all CPU lanes,
+  zero DX12 errors and matching screenshots, plus the 44,401-line physics
+  baseline byte-exact.
 - [ ] **R6 — Dissolve `Rendering/Helper.{h,cpp}` into named owners.**
   Inventory every routine and struct in the file, assign each to its real
   owner (candidates: primitive/instance batching → `PrimitiveMeshBuilder` /

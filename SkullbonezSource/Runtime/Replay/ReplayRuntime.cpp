@@ -60,7 +60,7 @@ Related:
 #include <cstring>
 #include <thread>
 
-namespace SkullbonezCore::Basics
+namespace SkullbonezCore::Runtime
 {
 namespace
 {
@@ -289,14 +289,17 @@ uint64_t PresentationSampleMemoryBytes( const ReplayPresentationSample& sample )
     return VectorCapacityBytes( sample.bodies );
 }
 
-void AddPredictionFrameCategoryBytes( MainMemoryReplayCategoryBytes& categories, const RunReplayPredictionFrame& frame )
+void AddPredictionFrameCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories,
+                                      const RunReplayPredictionFrame& frame )
 {
-    MainMemoryAddReplayCategoryBytes( categories,
-                                      MainMemoryReplayByteCategory::PredictionFrameBodies,
-                                      VectorCapacityBytes( frame.bodies ) );
-    MainMemoryAddReplayCategoryBytes( categories,
-                                      MainMemoryReplayByteCategory::PredictionDebugContacts,
-                                      VectorCapacityBytes( frame.debugContacts ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        categories,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFrameBodies,
+        VectorCapacityBytes( frame.bodies ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        categories,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionDebugContacts,
+        VectorCapacityBytes( frame.debugContacts ) );
 }
 
 uint64_t PredictionEngineMemoryBytes( const PhysicsEngine& engine )
@@ -841,7 +844,7 @@ ReplayRuntime::ReplayRuntime()
 
 void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics,
                                         const SceneEntityStore& entities,
-                                        const EngineConfig& config,
+                                        const SkullbonezCore::Core::EngineConfig& config,
                                         const Physics::PhysicsWorldForces& worldForces,
                                         Threading::WorkerPool& workerPool,
                                         RunEditorTracer& tracer,
@@ -3173,12 +3176,13 @@ void ReplayRuntime::ClearLauncherVisualBackup()
     m_launcherVisualBackupActive = false;
 }
 
-void ReplayRuntime::RecordReplayTrajectoryFrameStats( const MainMemoryReplayTrajectoryStats& frameStats )
+void ReplayRuntime::RecordReplayTrajectoryFrameStats(
+    const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& frameStats )
 {
     // Concept: trajectory segment counters are cumulative repro-session
     // evidence. Store bytes remain a current snapshot and are refreshed by
     // CollectMemoryStats once the TrajectoryStore exists.
-    for ( std::size_t i = 0; i < MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT; ++i )
+    for ( std::size_t i = 0; i < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT; ++i )
     {
         m_trajectoryVisualStats.emittedSegments[i] += frameStats.emittedSegments[i];
         m_trajectoryVisualStats.droppedSegments[i] += frameStats.droppedSegments[i];
@@ -3186,7 +3190,7 @@ void ReplayRuntime::RecordReplayTrajectoryFrameStats( const MainMemoryReplayTraj
 }
 
 void ReplayRuntime::RecordReplayTrajectorySubmissionFrame(
-    const MainMemoryReplayTrajectorySubmissionStats& submissionStats,
+    const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& submissionStats,
     int frameNumber,
     uint64_t reserveGrowthEventCount )
 {
@@ -3238,27 +3242,27 @@ const ReplayTrajectorySubmissionProbeStats& ReplayRuntime::ReplayTrajectorySubmi
     return m_trajectorySubmissionProbe;
 }
 
-void ReplayRuntime::RecordReplayTrajectoryBudgetExpiry( MainMemoryReplayBudgetPass pass )
+void ReplayRuntime::RecordReplayTrajectoryBudgetExpiry( SkullbonezCore::Core::MainMemoryReplayBudgetPass pass )
 {
     const std::size_t passIndex = static_cast<std::size_t>( pass );
-    if ( passIndex < MAIN_MEMORY_REPLAY_BUDGET_PASS_COUNT )
+    if ( passIndex < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_BUDGET_PASS_COUNT )
     {
         ++m_trajectoryVisualStats.budgetExpiries[passIndex];
     }
 }
 
-void ReplayRuntime::RecordReplayTrajectoryRebuildCause( MainMemoryReplayRebuildCause cause )
+void ReplayRuntime::RecordReplayTrajectoryRebuildCause( SkullbonezCore::Core::MainMemoryReplayRebuildCause cause )
 {
     const std::size_t causeIndex = static_cast<std::size_t>( cause );
-    if ( causeIndex < MAIN_MEMORY_REPLAY_REBUILD_CAUSE_COUNT )
+    if ( causeIndex < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_REBUILD_CAUSE_COUNT )
     {
         ++m_trajectoryVisualStats.rebuildCauses[causeIndex];
     }
 }
 
-MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
+SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
 {
-    MainMemoryReplayStats stats;
+    SkullbonezCore::Core::MainMemoryReplayStats stats;
     const ReplayRecorderStats presentationStats = m_presentation.GetStats();
     const ReplayRecorderStats solverStats = m_solver.GetStats();
     const ReplayEventRecorderStats eventStats = m_events.GetStats();
@@ -3269,15 +3273,18 @@ MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
     m_presentation.CollectMemoryCategoryBytes( stats.categoryBytes );
     m_solver.CollectMemoryCategoryBytes( stats.categoryBytes );
     m_events.CollectMemoryCategoryBytes( stats.categoryBytes );
-    stats.presentationBytes = MainMemoryReplayCategoryRangeBytes( stats.categoryBytes,
-                                                                  MainMemoryReplayByteCategory::PresentationOwner,
-                                                                  MainMemoryReplayByteCategory::SolverOwner );
-    stats.solverBytes = MainMemoryReplayCategoryRangeBytes( stats.categoryBytes,
-                                                            MainMemoryReplayByteCategory::SolverOwner,
-                                                            MainMemoryReplayByteCategory::EventsOwner );
-    stats.eventsBytes = MainMemoryReplayCategoryRangeBytes( stats.categoryBytes,
-                                                            MainMemoryReplayByteCategory::EventsOwner,
-                                                            MainMemoryReplayByteCategory::LoadedOwner );
+    stats.presentationBytes = SkullbonezCore::Core::MainMemoryReplayCategoryRangeBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationOwner,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverOwner );
+    stats.solverBytes = SkullbonezCore::Core::MainMemoryReplayCategoryRangeBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverOwner,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::EventsOwner );
+    stats.eventsBytes = SkullbonezCore::Core::MainMemoryReplayCategoryRangeBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::EventsOwner,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedOwner );
     stats.presentationSamples = presentationStats.sampleCount;
     stats.solverSamples = solverStats.sampleCount;
     stats.eventSamples = eventStats.eventCount;
@@ -3293,7 +3300,7 @@ MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
     for ( std::size_t index = 0; index < REPLAY_GROWTH_OWNER_POLICIES.size(); ++index )
     {
         const ReplayGrowthOwnerPolicy& policy = REPLAY_GROWTH_OWNER_POLICIES[index];
-        MainMemoryReplayStats::GrowthOwner& growth = stats.growthOwners[index];
+        SkullbonezCore::Core::MainMemoryReplayStats::GrowthOwner& growth = stats.growthOwners[index];
         growth.ownerName = policy.ownerName;
         growth.hardBytes = policy.hardBytes;
         growth.measuredHighWaterBytes = policy.measuredHighWaterBytes;
@@ -3310,46 +3317,55 @@ MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
         }
     }
 
-    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
-                                      MainMemoryReplayByteCategory::LoadedOwner,
-                                      static_cast<uint64_t>( sizeof( m_loadedPresentation ) ) );
-    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
-                                      MainMemoryReplayByteCategory::LoadedSampleRecords,
-                                      VectorCapacityBytes( m_loadedPresentation.samples ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedOwner,
+        static_cast<uint64_t>( sizeof( m_loadedPresentation ) ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedSampleRecords,
+        VectorCapacityBytes( m_loadedPresentation.samples ) );
     for ( const ReplayPresentationSample& sample : m_loadedPresentation.samples )
     {
-        MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
-                                          MainMemoryReplayByteCategory::LoadedBodies,
-                                          PresentationSampleMemoryBytes( sample ) );
+        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+            stats.categoryBytes,
+            SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedBodies,
+            PresentationSampleMemoryBytes( sample ) );
     }
-    stats.loadedReplayBytes = MainMemoryReplayCategoryRangeBytes( stats.categoryBytes,
-                                                                  MainMemoryReplayByteCategory::LoadedOwner,
-                                                                  MainMemoryReplayByteCategory::PredictionOwner );
+    stats.loadedReplayBytes = SkullbonezCore::Core::MainMemoryReplayCategoryRangeBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedOwner,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionOwner );
     stats.loadedReplaySamples = m_loadedPresentation.samples.size();
 
-    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
-                                      MainMemoryReplayByteCategory::PredictionOwner,
-                                      static_cast<uint64_t>( sizeof( m_prediction ) ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionOwner,
+        static_cast<uint64_t>( sizeof( m_prediction ) ) );
     if ( m_prediction.simulation.predictionEngine )
     {
-        MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
-                                          MainMemoryReplayByteCategory::PredictionEngine,
-                                          PredictionEngineMemoryBytes( *m_prediction.simulation.predictionEngine ) );
+        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+            stats.categoryBytes,
+            SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionEngine,
+            PredictionEngineMemoryBytes( *m_prediction.simulation.predictionEngine ) );
     }
-    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
-                                      MainMemoryReplayByteCategory::PredictionWorldState,
-                                      SolverWorldSnapshotMemoryBytes( m_prediction.simulation.predictionWorld ) );
-    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
-                                      MainMemoryReplayByteCategory::PredictionBodyState,
-                                      VectorCapacityBytes( m_prediction.simulation.predictionBodies ) );
-    MainMemoryAddReplayCategoryBytes(
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
-        MainMemoryReplayByteCategory::PredictionFrameRecords,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionWorldState,
+        SolverWorldSnapshotMemoryBytes( m_prediction.simulation.predictionWorld ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionBodyState,
+        VectorCapacityBytes( m_prediction.simulation.predictionBodies ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFrameRecords,
         VectorCapacityBytes( m_prediction.simulation.frames ) + VectorCapacityBytes( m_prediction.build.buildFrames ) );
-    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
-                                      MainMemoryReplayByteCategory::PredictionFutureTree,
-                                      VectorCapacityBytes( m_prediction.futureNodeCache.futureNodes ) +
-                                          VectorCapacityBytes( m_prediction.futureNodeCache.futureNodeBuildScratch ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFutureTree,
+        VectorCapacityBytes( m_prediction.futureNodeCache.futureNodes ) +
+            VectorCapacityBytes( m_prediction.futureNodeCache.futureNodeBuildScratch ) );
     for ( const RunReplayPredictionFrame& frame : m_prediction.simulation.frames )
     {
         AddPredictionFrameCategoryBytes( stats.categoryBytes, frame );
@@ -3358,49 +3374,61 @@ MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
     {
         AddPredictionFrameCategoryBytes( stats.categoryBytes, frame );
     }
-    stats.predictionBytes = MainMemoryReplayCategoryRangeBytes( stats.categoryBytes,
-                                                                MainMemoryReplayByteCategory::PredictionOwner,
-                                                                MainMemoryReplayByteCategory::PathOwner );
+    stats.predictionBytes = SkullbonezCore::Core::MainMemoryReplayCategoryRangeBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionOwner,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PathOwner );
     stats.predictionFrames = m_prediction.simulation.frames.size() + m_prediction.build.buildFrames.size();
 
-    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
-                                      MainMemoryReplayByteCategory::PathOwner,
-                                      static_cast<uint64_t>( sizeof( m_pathVisualizer ) + sizeof( m_causeTree ) ) );
-    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
-                                      MainMemoryReplayByteCategory::PathFutureNodes,
-                                      VectorCapacityBytes( m_pathVisualizer.futureNodes ) );
-    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
-                                      MainMemoryReplayByteCategory::PathTargets,
-                                      VectorCapacityBytes( m_pathVisualizer.targets ) );
-    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
-                                      MainMemoryReplayByteCategory::PathCauseRows,
-                                      VectorCapacityBytes( m_causeTree.rows ) );
-    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
-                                      MainMemoryReplayByteCategory::TrajectoryStore,
-                                      m_prediction.trajectoryStore.CapacityBytes() );
-    stats.pathAndCauseBytes = MainMemoryReplayCategoryRangeBytes( stats.categoryBytes,
-                                                                  MainMemoryReplayByteCategory::PathOwner,
-                                                                  MainMemoryReplayByteCategory::RenderGhostRequests );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PathOwner,
+        static_cast<uint64_t>( sizeof( m_pathVisualizer ) + sizeof( m_causeTree ) ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PathFutureNodes,
+        VectorCapacityBytes( m_pathVisualizer.futureNodes ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PathTargets,
+        VectorCapacityBytes( m_pathVisualizer.targets ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PathCauseRows,
+        VectorCapacityBytes( m_causeTree.rows ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::TrajectoryStore,
+        m_prediction.trajectoryStore.CapacityBytes() );
+    stats.pathAndCauseBytes = SkullbonezCore::Core::MainMemoryReplayCategoryRangeBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PathOwner,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::RenderGhostRequests );
     stats.pathNodes = m_pathVisualizer.futureNodes.size() + m_prediction.futureNodeCache.futureNodes.size();
     stats.causeRows = m_causeTree.rows.size();
 
-    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
-                                      MainMemoryReplayByteCategory::RenderGhostRequests,
-                                      VectorCapacityBytes( m_predictionGhostDrawRequests ) );
-    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
-                                      MainMemoryReplayByteCategory::RenderFocusMask,
-                                      VectorCapacityBytes( m_focusModelMask ) );
-    MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
-                                      MainMemoryReplayByteCategory::RenderLauncherBackup,
-                                      static_cast<uint64_t>( sizeof( m_launcherVisualBackup ) ) +
-                                          LauncherVisualMemoryBytes( m_launcherVisualBackup ) );
-    stats.renderScratchBytes = MainMemoryReplayCategoryRangeBytes( stats.categoryBytes,
-                                                                   MainMemoryReplayByteCategory::RenderGhostRequests,
-                                                                   MainMemoryReplayByteCategory::TrajectoryStore );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::RenderGhostRequests,
+        VectorCapacityBytes( m_predictionGhostDrawRequests ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::RenderFocusMask,
+        VectorCapacityBytes( m_focusModelMask ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::RenderLauncherBackup,
+        static_cast<uint64_t>( sizeof( m_launcherVisualBackup ) ) +
+            LauncherVisualMemoryBytes( m_launcherVisualBackup ) );
+    stats.renderScratchBytes = SkullbonezCore::Core::MainMemoryReplayCategoryRangeBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::RenderGhostRequests,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::TrajectoryStore );
     stats.ghostRequests = m_predictionGhostDrawRequests.size();
     stats.trajectory = m_trajectoryVisualStats;
-    stats.trajectory.storeBytes =
-        MainMemoryReplayCategoryByte( stats.categoryBytes, MainMemoryReplayByteCategory::TrajectoryStore );
+    stats.trajectory.storeBytes = SkullbonezCore::Core::MainMemoryReplayCategoryByte(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::TrajectoryStore );
     stats.trajectory.recordCount = static_cast<uint64_t>( m_prediction.trajectoryStore.RecordCount() );
     stats.trajectory.pointCount = static_cast<uint64_t>( m_prediction.trajectoryStore.PointCount() );
     stats.trajectory.versionChurn = m_prediction.trajectoryStore.nextVersion > 0u
@@ -3783,4 +3811,4 @@ bool ReplayRuntime::LoadPresentationArtifact( const char* path,
             static_cast<unsigned long long>( m_loadedPresentation.fileBytes ) );
     return true;
 }
-} // namespace SkullbonezCore::Basics
+} // namespace SkullbonezCore::Runtime

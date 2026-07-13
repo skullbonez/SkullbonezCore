@@ -35,7 +35,7 @@ Related:
 #include <memory>
 
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Core;
 
 
 namespace

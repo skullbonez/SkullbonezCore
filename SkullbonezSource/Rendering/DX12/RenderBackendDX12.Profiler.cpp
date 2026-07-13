@@ -1,10 +1,10 @@
 /*
-File: SkullbonezSource/Rendering/DX12/RenderBackendDX12.Profiler.cpp
+File: SkullbonezSource/Rendering/DX12/RenderBackendDX12.SkullbonezCore::Core::Profiler.cpp
 Purpose:
   Implements DX12 GPU timestamp collection and profiler readback.
 
 Summary:
-  RenderBackendDX12.Profiler.cpp implements DX12 GPU timestamp collection and
+  RenderBackendDX12.SkullbonezCore::Core::Profiler.cpp implements DX12 GPU timestamp collection and
   profiler readback. As an implementation unit, keep edits anchored on DX12
   ownership, descriptors, resources, and command submission and on the
   glossary/invariants below.
@@ -53,11 +53,11 @@ Related:
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
 using Microsoft::WRL::ComPtr;
-using SkullbonezCore::Basics::SbResult;
+using SkullbonezCore::Core::SbResult;
 
 
 // --- Helpers ---
-// --- RenderBackendDX12 Profiler methods ---
+// --- RenderBackendDX12 SkullbonezCore::Core::Profiler methods ---
 
 
 void RenderBackendDX12::TryConsumeGpuTimerReadback( bool waitForFence )
@@ -72,12 +72,13 @@ void RenderBackendDX12::TryConsumeGpuTimerReadback( bool waitForFence )
     // PipelineSync is disabled. Blocking mode is only used by Finish()/FlushGPU().
     if ( waitForFence )
     {
-        const SbResult waitResult = m_renderDevice.FrameFence().WaitForValue( m_gpuTimers.readFenceValue );
+        const SkullbonezCore::Core::SbResult waitResult =
+            m_renderDevice.FrameFence().WaitForValue( m_gpuTimers.readFenceValue );
         if ( !waitResult.ok )
         {
-            Log().WriteEventf( "dx12_gpu_timer_wait_failed owner=%s message=%s",
-                               waitResult.error.owner,
-                               waitResult.error.message );
+            SkullbonezCore::Core::Log().WriteEventf( "dx12_gpu_timer_wait_failed owner=%s message=%s",
+                                                     waitResult.error.owner,
+                                                     waitResult.error.message );
             m_gpuTimers.readPending = false;
             return;
         }
@@ -107,7 +108,7 @@ void RenderBackendDX12::TryConsumeGpuTimerReadback( bool waitForFence )
     const uint64_t* pData = static_cast<const uint64_t*>( m_gpuTimers.readback.MapRead( readbackBytes ) );
     if ( !pData )
     {
-        Log().WriteEventf( "dx12_gpu_timer_map_failed" );
+        SkullbonezCore::Core::Log().WriteEventf( "dx12_gpu_timer_map_failed" );
         m_gpuTimers.readPending = false;
         return;
     }
@@ -209,7 +210,7 @@ void RenderBackendDX12::RestorePlatformProfilerGpuStackAfterSubmit( int suspende
 
 void RenderBackendDX12::PlatformProfilerGpuBegin( const char* name, uint32_t hash )
 {
-    if ( !SkullbonezCore::Basics::PlatformProfiler::IsEnabled() )
+    if ( !SkullbonezCore::Core::PlatformProfiler::IsEnabled() )
     {
         return;
     }
@@ -226,7 +227,7 @@ void RenderBackendDX12::PlatformProfilerGpuEnd()
 
 void RenderBackendDX12::PlatformProfilerGpuMarker( const char* name, uint32_t hash )
 {
-    if ( !SkullbonezCore::Basics::PlatformProfiler::IsEnabled() )
+    if ( !SkullbonezCore::Core::PlatformProfiler::IsEnabled() )
     {
         return;
     }
@@ -240,16 +241,15 @@ void RenderBackendDX12::PlatformProfilerGpuMarker( const char* name, uint32_t ha
     {
         return;
     }
-    char gpuMarkerName[SkullbonezCore::Basics::PlatformProfiler::MAX_DECORATED_MARKER_NAME_CHARS];
-    const char* markerName =
-        SkullbonezCore::Basics::PlatformProfiler::AreDetailedRangesEnabled()
-            ? SkullbonezCore::Basics::PlatformProfiler::DecorateMarkerName( name,
-                                                                            "_GPU",
-                                                                            gpuMarkerName,
-                                                                            sizeof( gpuMarkerName ) )
-            : name;
+    char gpuMarkerName[SkullbonezCore::Core::PlatformProfiler::MAX_DECORATED_MARKER_NAME_CHARS];
+    const char* markerName = SkullbonezCore::Core::PlatformProfiler::AreDetailedRangesEnabled()
+                                 ? SkullbonezCore::Core::PlatformProfiler::DecorateMarkerName( name,
+                                                                                               "_GPU",
+                                                                                               gpuMarkerName,
+                                                                                               sizeof( gpuMarkerName ) )
+                                 : name;
     PIXSetMarker( CommandList(),
-                  SkullbonezCore::Basics::PlatformProfiler::ColorForMarker( markerName, hash ),
+                  SkullbonezCore::Core::PlatformProfiler::ColorForMarker( markerName, hash ),
                   "%s",
                   markerName );
 #else

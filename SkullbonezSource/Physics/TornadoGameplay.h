@@ -38,10 +38,13 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
 {
 class EngineConfig;
-} // namespace Basics
+} // namespace Core
+namespace Runtime
+{
+} // namespace Runtime
 
 namespace Threading
 {
@@ -74,7 +77,7 @@ struct TornadoBodyForceContext
     std::vector<float>& timeRemaining;
     const std::vector<uint8_t>& underwaterSleepLocked;
     float dt = 0.0f;
-    const Basics::EngineConfig& runtimeConfig;
+    const SkullbonezCore::Core::EngineConfig& runtimeConfig;
     Threading::WorkerPool& workerPool;
     int minParallelBodies = 0;
     const char* workerMarkerPath = nullptr;

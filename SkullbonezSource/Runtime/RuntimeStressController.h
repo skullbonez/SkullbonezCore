@@ -15,7 +15,7 @@ Glossary:
 Invariants:
   - Stress randomness advances only through its owning controller.
   - Execution borrows are synchronous and are never stored after the call.
-  - Recoverable scene-load or renderer failures return through SbResult.
+  - Recoverable scene-load or renderer failures return through SkullbonezCore::Core::SbResult.
 
 Related:
   - SkullbonezSource/Runtime/RuntimeStressController.cpp
@@ -30,6 +30,11 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+class EngineConfig;
+struct CinematicRenderConfig;
+} // namespace Core
 namespace Assets
 {
 class AssetSystem;
@@ -54,11 +59,10 @@ namespace Runtime::Audio
 {
 class ContactAudioService;
 }
-namespace Basics
+namespace Runtime
 {
 class AttachedCameraController;
 class DiagnosticsRuntime;
-class EngineConfig;
 class GraphicsStressController;
 class InputRouter;
 class ReplayRuntime;
@@ -68,7 +72,6 @@ class RuntimeTools;
 class SceneController;
 class SimulationSystem;
 class Window;
-struct CinematicRenderConfig;
 struct RunCameraState;
 struct RunDebugState;
 struct RunLaunchOptions;
@@ -76,16 +79,16 @@ struct RunStartupState;
 struct RunTimerState;
 struct RuntimeRenderBackendView;
 
-SbResult RunUIStressActions( RuntimeFrameHostView& host,
-                             RuntimeFrameInteractionView& interactionOwners,
-                             RuntimeFrameSceneView& sceneOwners,
-                             RuntimeFramePresentationView& presentationOwners,
-                             RunCameraMode replayRestoreCameraMode );
+SkullbonezCore::Core::SbResult RunUIStressActions( RuntimeFrameHostView& host,
+                                                   RuntimeFrameInteractionView& interactionOwners,
+                                                   RuntimeFrameSceneView& sceneOwners,
+                                                   RuntimeFramePresentationView& presentationOwners,
+                                                   RunCameraMode replayRestoreCameraMode );
 
 void ExecuteGraphicsStressFrame( RuntimeFrameHostView& host,
                                  RuntimeFrameInteractionView& interactionOwners,
                                  RuntimeFrameSceneView& sceneOwners,
                                  RuntimeFramePresentationView& presentationOwners,
                                  const Rendering::IRenderDiagnostics& renderDiagnostics );
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

@@ -75,8 +75,8 @@ class TextureCollection
   public:
     struct TextureHandleResult
     {
-        Basics::SbResult result; // Lane R texture residency/load result before the backend handle can be used.
-        uint32_t handle = 0;     // Opaque renderer texture handle; 0 means no usable texture.
+        SkullbonezCore::Core::SbResult result; // Lane R texture residency/load result before the backend handle can be used.
+        uint32_t handle = 0;                   // Opaque renderer texture handle; 0 means no usable texture.
     };
 
   private:
@@ -84,14 +84,14 @@ class TextureCollection
     int FindIndexNoThrow( uint32_t hash ) const;
     int FindFreeSlot() const;
     void ReleaseTexture( GpuTextureRecord& texture );
-    Basics::SbResult LoadJpegTextureIntoSlot( int slot,
-                                              const char* fileName,
-                                              uint32_t hash,
-                                              Assets::AssetId sourceId,
-                                              bool generateMips,
-                                              bool linearFilter,
-                                              int channelsHint );
-    Basics::SbResult CreateTextureFromSourceAsset( const Assets::TextureSourceAsset& source );
+    SkullbonezCore::Core::SbResult LoadJpegTextureIntoSlot( int slot,
+                                                            const char* fileName,
+                                                            uint32_t hash,
+                                                            Assets::AssetId sourceId,
+                                                            bool generateMips,
+                                                            bool linearFilter,
+                                                            int channelsHint );
+    SkullbonezCore::Core::SbResult CreateTextureFromSourceAsset( const Assets::TextureSourceAsset& source );
 
   public:
     TextureCollection() = default;
@@ -103,15 +103,15 @@ class TextureCollection
     void BindRenderContexts( Rendering::IRenderResourceFactory* renderResources,
                              Rendering::IRenderCommandContext* renderCommands );
     bool HasTexture( uint32_t hash ) const;
-    Basics::SbResult EnsureTexture( uint32_t hash );
-    Basics::SbResult SelectTexture( uint32_t hash );
+    SkullbonezCore::Core::SbResult EnsureTexture( uint32_t hash );
+    SkullbonezCore::Core::SbResult SelectTexture( uint32_t hash );
     TextureHandleResult GetTextureHandle( uint32_t hash );
     int NumFreeTextureSpaces() const;
     void DeleteTexture( uint32_t hash );
     void DeleteAllTextures();
-    Basics::SbResult CreateJpegTexture( const char* cFileName, uint32_t hash );
-    Basics::SbResult EnsureJpegTexture( const char* cFileName, uint32_t hash );
-    Basics::SbResult RebuildTexturesFromSourceAssets();
+    SkullbonezCore::Core::SbResult CreateJpegTexture( const char* cFileName, uint32_t hash );
+    SkullbonezCore::Core::SbResult EnsureJpegTexture( const char* cFileName, uint32_t hash );
+    SkullbonezCore::Core::SbResult RebuildTexturesFromSourceAssets();
     void DumpTextureAssets( FILE* out ) const;
 };
 } // namespace Textures

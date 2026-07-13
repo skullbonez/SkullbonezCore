@@ -42,7 +42,7 @@ namespace Geometry
 {
 class Terrain;
 }
-namespace Basics
+namespace Runtime
 {
 struct DeviceInputFrame;
 struct RunCameraState;
@@ -342,5 +342,5 @@ class InputController
                                      Geometry::Terrain& terrain,
                                      const RuntimeCameraMovementInput& input );
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

@@ -31,7 +31,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -304,5 +304,5 @@ SceneRuntimeUICommandResult SubmitSceneUIRequests( SceneController& sceneControl
 }
 
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

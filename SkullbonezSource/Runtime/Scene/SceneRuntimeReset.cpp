@@ -34,7 +34,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneController& controller,
                                                             const RuntimeRenderer& renderer,
@@ -141,5 +141,5 @@ void ClearSceneRuntimeUIOverrides( SceneController& controller )
     controller.UIOverrides().solverBoxCountOverride = -1;
 }
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

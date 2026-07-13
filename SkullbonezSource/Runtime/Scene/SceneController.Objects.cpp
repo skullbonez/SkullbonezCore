@@ -69,7 +69,7 @@ Related:
 #include <utility>
 #include <variant>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::GameObjects;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::Orientation::Quaternion;
@@ -220,9 +220,9 @@ const SceneEntityStore& SceneController::SceneEntities() const
 }
 
 
-void SceneController::ApplyRuntimeConfig( const Basics::EngineConfig& config )
+void SceneController::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
-    m_activeGameModelCapacity = ActiveGameModelCapacity( config );
+    m_activeGameModelCapacity = SkullbonezCore::Core::ActiveGameModelCapacity( config );
     SceneEntities().ConfigureCapacity( m_activeGameModelCapacity );
     ReserveForActiveGameModelCapacity();
     m_physics.ApplyRuntimeConfig( config );
@@ -266,22 +266,22 @@ SceneEntityCreateResult SceneController::TryCreateSceneEntity( SceneEntityCreate
     AssertSceneCreationTopology( modelIndex );
     if ( SceneEntityCount() >= activeCapacity )
     {
-        return {
-            SbResult::Failure( SCENE_ENTITY_CREATION_OWNER,
-                               "Exceeded active game model capacity; raise --model-capacity or game_model_capacity." ),
-            PhysicsBodyHandle{} };
+        return { SkullbonezCore::Core::SbResult::Failure(
+                     SCENE_ENTITY_CREATION_OWNER,
+                     "Exceeded active game model capacity; raise --model-capacity or game_model_capacity." ),
+                 PhysicsBodyHandle{} };
     }
-    const SbResult entityResult = SceneEntities().PreflightAppend( entity );
+    const SkullbonezCore::Core::SbResult entityResult = SceneEntities().PreflightAppend( entity );
     if ( !entityResult.ok )
     {
         return { entityResult, PhysicsBodyHandle{} };
     }
     if ( bodyDesc.sceneObjectId.IsValid() && bodyDesc.sceneObjectId.value != entity.sceneObjectId.value )
     {
-        return { SbResult::Failure( SCENE_ENTITY_CREATION_OWNER,
-                                    "Body scene object id %u does not match entity id %u.",
-                                    bodyDesc.sceneObjectId.value,
-                                    entity.sceneObjectId.value ),
+        return { SkullbonezCore::Core::SbResult::Failure( SCENE_ENTITY_CREATION_OWNER,
+                                                          "Body scene object id %u does not match entity id %u.",
+                                                          bodyDesc.sceneObjectId.value,
+                                                          entity.sceneObjectId.value ),
                  PhysicsBodyHandle{} };
     }
     if ( !m_physics.CanRegisterAuthoredBody( MakePhysicsAuthoredBodyCountFromNonNegativeInt( modelIndex ) ) )
@@ -344,7 +344,7 @@ SceneEntityCreateResult SceneController::TryCreateSceneEntity( SceneEntityCreate
     SceneEntities().CommitAppend( entity, bodyHandle );
     m_renderInstanceStore.CommitCreationRow( renderPresentation, *bodyRecord, *colliderRecord, modelIndex );
     AssertSceneCreationTopology( modelIndex + 1 );
-    return { SbResult::Success(), bodyHandle };
+    return { SkullbonezCore::Core::SbResult::Success(), bodyHandle };
 }
 
 
@@ -636,9 +636,9 @@ void SceneController::FillPhysicsDiagnosticsNames( int bodyCount, std::vector<co
 #endif
 
 
-MainMemoryGameObjectStats SceneController::CollectMemoryStats() const
+SkullbonezCore::Core::MainMemoryGameObjectStats SceneController::CollectMemoryStats() const
 {
-    MainMemoryGameObjectStats stats;
+    SkullbonezCore::Core::MainMemoryGameObjectStats stats;
     const Physics::PhysicsBodyStore& bodyStore = BodyStore();
     const Physics::ColliderStore& colliderStore = Colliders();
     const Rendering::RenderInstanceStore& renderStore = m_renderInstanceStore;

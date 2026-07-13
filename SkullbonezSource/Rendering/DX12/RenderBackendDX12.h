@@ -312,16 +312,16 @@ class Dx12FrameOwner
     {
         return m_resourceRelease;
     }
-    Basics::SbResult EnsureOpen();
-    Basics::SbResult SubmitClosed();
-    Basics::SbResult WaitForGpu();
-    Basics::SbResult FlushUploadBuffer();
-    Basics::SbResult CommitClose( HRESULT result, const char* operation );
-    Basics::SbResult CommitWait( const Basics::SbResult& result );
-    Basics::SbResult RetainFailure( const Basics::SbResult& result );
-    Basics::SbResult RetainDeviceLoss( const char* operation, HRESULT result );
-    Basics::SbResult SignalFrame( UINT64& outFenceValue );
-    Basics::SbResult WaitForFrameFence( UINT64 fenceValue );
+    SkullbonezCore::Core::SbResult EnsureOpen();
+    SkullbonezCore::Core::SbResult SubmitClosed();
+    SkullbonezCore::Core::SbResult WaitForGpu();
+    SkullbonezCore::Core::SbResult FlushUploadBuffer();
+    SkullbonezCore::Core::SbResult CommitClose( HRESULT result, const char* operation );
+    SkullbonezCore::Core::SbResult CommitWait( const SkullbonezCore::Core::SbResult& result );
+    SkullbonezCore::Core::SbResult RetainFailure( const SkullbonezCore::Core::SbResult& result );
+    SkullbonezCore::Core::SbResult RetainDeviceLoss( const char* operation, HRESULT result );
+    SkullbonezCore::Core::SbResult SignalFrame( UINT64& outFenceValue );
+    SkullbonezCore::Core::SbResult WaitForFrameFence( UINT64 fenceValue );
     // Capability targets: these methods implement the operation inside the
     // owner; capability subobjects only forward their restricted surface.
     bool PrepareDraw();
@@ -345,7 +345,7 @@ class Dx12FrameOwner
     {
         return m_uploadDropCount;
     }
-    const Basics::SbResult& CurrentResult() const
+    const SkullbonezCore::Core::SbResult& CurrentResult() const
     {
         return m_recording.CurrentResult();
     }
@@ -536,7 +536,7 @@ class Dx12TextureCommands
     {
         return m_frame.CommandList();
     }
-    Basics::SbResult EnsureOpen()
+    SkullbonezCore::Core::SbResult EnsureOpen()
     {
         return m_frame.EnsureOpen();
     }
@@ -616,8 +616,9 @@ class Dx12TextureCommands
 class Dx12TextureOwner
 {
   public:
-    Basics::SbResult Initialize( Dx12TextureCommands& commands );
-    Basics::SbResult PrepareGenerateMipsShaderReload( Dx12TextureCommands& commands, ID3D12PipelineState*& candidate );
+    SkullbonezCore::Core::SbResult Initialize( Dx12TextureCommands& commands );
+    SkullbonezCore::Core::SbResult PrepareGenerateMipsShaderReload( Dx12TextureCommands& commands,
+                                                                    ID3D12PipelineState*& candidate );
     void AdoptGenerateMipsShaderReload( ID3D12PipelineState* candidate );
     void Shutdown();
     uint32_t CreateTexture2D( Dx12TextureCommands& commands,
@@ -672,7 +673,7 @@ class Dx12TextureOwner
 class Dx12PipelineOwner
 {
   public:
-    Basics::SbResult Initialize( ID3D12Device* device );
+    SkullbonezCore::Core::SbResult Initialize( ID3D12Device* device );
     void Shutdown();
     bool PrepareDraw( ID3D12Device* device,
                       ID3D12GraphicsCommandList* commandList,
@@ -686,7 +687,7 @@ class Dx12PipelineOwner
     void SetActiveShader( ShaderDX12* shader );
     void RegisterShader( ShaderDX12* shader );
     void UnregisterShader( ShaderDX12* shader );
-    Basics::SbResult ReloadShadersFromBakedAssets();
+    SkullbonezCore::Core::SbResult ReloadShadersFromBakedAssets();
     ShaderDX12* ActiveShader() const;
     void SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv );
     void SetRenderingToFBO( bool rendering, DXGI_FORMAT rtvFormat );
@@ -863,13 +864,13 @@ class Dx12GeometryOwner
 
 struct Dx12RaytracingSetupOutcome
 {
-    Basics::SbResult result = Basics::SbResult::Success();
+    SkullbonezCore::Core::SbResult result = SkullbonezCore::Core::SbResult::Success();
     bool recordedBuildWork = false;
 };
 
 struct Dx12RaytracingDispatchOutcome
 {
-    Basics::SbResult result = Basics::SbResult::Success();
+    SkullbonezCore::Core::SbResult result = SkullbonezCore::Core::SbResult::Success();
     bool rasterStateInvalidated = false;
 };
 
@@ -886,7 +887,7 @@ class Dx12RaytracingOwner
     void ProbeCapability( ID3D12Device* device );
     bool Supported() const;
     bool Initialized() const;
-    const Basics::SbResult& FeatureResult() const;
+    const SkullbonezCore::Core::SbResult& FeatureResult() const;
 
     Dx12RaytracingSetupOutcome BeginSetup( ID3D12Device* device,
                                            ID3D12GraphicsCommandList* commandList,
@@ -899,9 +900,9 @@ class Dx12RaytracingOwner
                                            uint64_t sphereVBVA,
                                            int sphereVertCount,
                                            int sphereStride );
-    Basics::SbResult CompleteSetup( ID3D12Device* device, int maxInstances );
-    void AbortSetup( const Basics::SbResult& failure );
-    Basics::SbResult BuildScene( const float* instanceTransforms, int instanceCount );
+    SkullbonezCore::Core::SbResult CompleteSetup( ID3D12Device* device, int maxInstances );
+    void AbortSetup( const SkullbonezCore::Core::SbResult& failure );
+    SkullbonezCore::Core::SbResult BuildScene( const float* instanceTransforms, int instanceCount );
     Dx12RaytracingDispatchOutcome DispatchReflections( ID3D12Device* device,
                                                        ID3D12DescriptorHeap* shaderVisibleHeap,
                                                        Dx12DescriptorAllocator& descriptors,
@@ -918,12 +919,12 @@ class Dx12RaytracingOwner
     void Shutdown();
 
   private:
-    Basics::SbResult CreateRootSignature( ID3D12Device* device );
-    Basics::SbResult CreatePipeline();
-    Basics::SbResult
+    SkullbonezCore::Core::SbResult CreateRootSignature( ID3D12Device* device );
+    SkullbonezCore::Core::SbResult CreatePipeline();
+    SkullbonezCore::Core::SbResult
     CreateReflectionTexture( ID3D12Device* device, Dx12DescriptorAllocator& descriptors, int width, int height );
     bool m_supported = false;
-    Basics::SbResult m_featureResult = Basics::SbResult::Success();
+    SkullbonezCore::Core::SbResult m_featureResult = SkullbonezCore::Core::SbResult::Success();
     ID3D12Device5* m_device5 = nullptr;
     ID3D12GraphicsCommandList4* m_commandList4 = nullptr;
     ID3D12StateObject* m_pipeline = nullptr;
@@ -987,7 +988,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // Replay/debug geometry is owner-bounded before it reaches this arena. A
     // steady-phase overflow drops that draw; cold lifecycle/capture work may drain.
     static const UINT64 UPLOAD_BUFFER_SIZE = 32 * 1024 * 1024;
-    static const int TIMER_HEAP_MARKERS = DX12_TIMER_HEAP_MARKERS; // must be >= Profiler::MAX_MARKERS
+    static const int TIMER_HEAP_MARKERS = DX12_TIMER_HEAP_MARKERS; // must be >= SkullbonezCore::Core::Profiler::MAX_MARKERS
     static const int TIMER_HEAP_SIZE = DX12_TIMER_HEAP_SIZE;       // begin + end per marker
 
     // Ordinary raster binding ABI lives in RenderRasterBindingContract.h so
@@ -1125,16 +1126,16 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
 
 
     // --- Internal helpers ---
-    Basics::SbResult WaitForGpu();
-    Basics::SbResult EnsureCommandListOpen();
-    Basics::SbResult SubmitClosedCommandList();
+    SkullbonezCore::Core::SbResult WaitForGpu();
+    SkullbonezCore::Core::SbResult EnsureCommandListOpen();
+    SkullbonezCore::Core::SbResult SubmitClosedCommandList();
     void ConfigureFaultInjection();
     void WriteFaultInjectionProbeReport() const;
     void AssignDeferredResourceReleaseFence( UINT64 fenceValue );
     void ReleaseCompletedDeferredResources( bool releaseUnfenced );
     void TryConsumeGpuTimerReadback( bool waitForFence );
-    Basics::SbResult CreateDepthStencil( int w, int h );
-    Basics::SbResult CreateDepthStencilResource( int w, int h, ID3D12Resource*& outResource );
+    SkullbonezCore::Core::SbResult CreateDepthStencil( int w, int h );
+    SkullbonezCore::Core::SbResult CreateDepthStencilResource( int w, int h, ID3D12Resource*& outResource );
     void PublishDepthStencilView( ID3D12Resource* resource );
     UINT AllocateTransientSRV();
     UINT AllocateTransientSRVRange( UINT count );
@@ -1163,17 +1164,17 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
         Shutdown();
     }
 
-    Basics::SbResult Init( HWND hwnd, HDC hdc, int width, int height ) override;
+    SkullbonezCore::Core::SbResult Init( HWND hwnd, HDC hdc, int width, int height ) override;
     void Shutdown() override;
-    Basics::SbResult Present() override;
+    SkullbonezCore::Core::SbResult Present() override;
     void SetVsyncEnabled( bool enabled ) override;
     bool IsVsyncEnabled() const override;
-    Basics::SbResult Finish() override;
-    Basics::SbResult FlushGPU() override;
-    Basics::SbResult DrainForResourceRelease() override;
-    Basics::SbResult Resize( int width, int height ) override;
+    SkullbonezCore::Core::SbResult Finish() override;
+    SkullbonezCore::Core::SbResult FlushGPU() override;
+    SkullbonezCore::Core::SbResult DrainForResourceRelease() override;
+    SkullbonezCore::Core::SbResult Resize( int width, int height ) override;
     bool ShaderHotReloadEnabled() const override;
-    Basics::SbResult ReloadShadersFromSource() override;
+    SkullbonezCore::Core::SbResult ReloadShadersFromSource() override;
 
     void SetViewport( int x, int y, int w, int h ) override;
     void Clear( bool color, bool depth ) override;
@@ -1206,7 +1207,8 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void BeginGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName ) override;
     void EndGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName ) override;
 
-    Basics::SbResult CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight ) override;
+    SkullbonezCore::Core::SbResult
+    CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight ) override;
     bool SupportsBackbufferCapture() const override
     {
         return true;
@@ -1285,13 +1287,13 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
         m_drawCallTrace.PopScope( hash );
     }
 
-    Basics::SbResult InitDXR( uint64_t terrainVBVA,
-                              int terrainVertCount,
-                              int terrainStride,
-                              uint64_t sphereVBVA,
-                              int sphereVertCount,
-                              int sphereStride,
-                              int maxInstances ) override;
+    SkullbonezCore::Core::SbResult InitDXR( uint64_t terrainVBVA,
+                                            int terrainVertCount,
+                                            int terrainStride,
+                                            uint64_t sphereVBVA,
+                                            int sphereVertCount,
+                                            int sphereStride,
+                                            int maxInstances ) override;
     void DispatchReflectionRays( const float* invViewProj,
                                  const float* cameraPos,
                                  float waterY,

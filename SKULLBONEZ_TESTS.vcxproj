@@ -87,7 +87,7 @@
       <FloatingPointModel>Precise</FloatingPointModel>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>ThirdPtySource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;_DEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Sync</ExceptionHandling>
       <MinimalRebuild>false</MinimalRebuild>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
@@ -113,7 +113,7 @@
     <ClCompile>
       <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>ThirdPtySource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;NDEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Sync</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -140,7 +140,7 @@
     <ClCompile>
       <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>ThirdPtySource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;NDEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Sync</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -166,7 +166,7 @@
     <ClCompile>
       <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>ThirdPtySource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;NDEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Sync</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>

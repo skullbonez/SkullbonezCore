@@ -55,11 +55,11 @@ using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
 using SkullbonezCore::Math::Vector::Vector3;
-using Json = SkullbonezCore::Basics::RunInternal::EditorPlacementJson;
+using Json = SkullbonezCore::Runtime::RunInternal::EditorPlacementJson;
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace RunInternal
 {
@@ -476,7 +476,7 @@ const ConvexHullShape* CachedEditorBuildingHull( const std::string& hullPath )
         }
     }
     ConvexHullShape hull;
-    const SkullbonezCore::Basics::SbResult hullLoad =
+    const SkullbonezCore::Core::SbResult hullLoad =
         ConvexHullShape::TryLoadFromFile( ResolveEditorHullAssetPath( hullPath.c_str() ), hull );
     if ( !hullLoad.ok )
     {
@@ -1776,7 +1776,7 @@ const ConvexHullShape* CachedEditorHullForAsset( EditorHullAsset asset )
         if ( !loaded[i] )
         {
             ConvexHullShape hull;
-            const SkullbonezCore::Basics::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( path, hull );
+            const SkullbonezCore::Core::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( path, hull );
             if ( !hullLoad.ok )
             {
                 fprintf( stderr,
@@ -2071,5 +2071,5 @@ bool TryBuildScaledEditorHullForType( int objectType, const Vector3& placementSc
     return true;
 }
 } // namespace RunInternal
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

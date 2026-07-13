@@ -47,7 +47,7 @@ namespace Rendering
 {
 class IRenderDeviceLifecycle;
 }
-namespace Basics
+namespace Runtime
 {
 /* -- Skullbonez Window
 ------------------------------------------------------------------------------------------------------------------------------------------
@@ -99,7 +99,8 @@ class Window
     } // True when CreateAppWindow selected fullscreen mode.
     HDC AcquireDeviceContext();                                           // Caches GetDC() for startup render initialization.
     void ReleaseDeviceContext();                                          // Releases the cached HDC before native window teardown.
-    SbResult HandleScreenResize();                                        // Resizes the renderer/projection or reports a Lane R resize failure.
+    SkullbonezCore::Core::SbResult
+    HandleScreenResize();                                                 // Resizes the renderer/projection or reports a Lane R resize failure.
     void SetTitleText( const char* cText );                               // Updates the native title bar without touching renderer text.
     void SetProjectionFrustum( float nearPlane,
                                float farPlane );                          // Stores projection depth planes used by later resize messages.
@@ -112,12 +113,13 @@ class Window
     } // Projection matrix currently used by render passes.
     void SetWindowDimensions( const RECT dimensions );                    // Caches dimensions from a Win32 RECT.
     void SetWindowDimensions( int width, int height );                    // Caches dimensions from explicit client width/height.
-    SbResult CreateAppWindow( HINSTANCE hInstance,
-                              bool isFullScreenMode );                    // Creates the native window or reports Lane R startup failure.
+    SkullbonezCore::Core::SbResult
+    CreateAppWindow( HINSTANCE hInstance,
+                     bool isFullScreenMode );                             // Creates the native window or reports Lane R startup failure.
     void ChangeToFullScreen( int xResolution, int yResolution );          // Applies fullscreen display mode dimensions.
     int MsgBox( const char* cMsgBoxText,
                 const char* cMsgBoxTitle,
                 const UINT iMsgBoxType );                                 // Native modal message box for startup/validation failures.
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

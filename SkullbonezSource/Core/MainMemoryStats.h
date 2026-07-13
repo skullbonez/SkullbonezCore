@@ -29,7 +29,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
 {
 // Concept: replay diagnostics use enum-indexed POD arrays so memory dumps and UI
 // frames can copy counters and byte categories without allocating or depending
@@ -260,5 +260,5 @@ struct MainMemoryStats
     uint64_t reconciliationDeltaBytes = 0;
     double sampleTimeSeconds = 0.0;
 };
-} // namespace Basics
+} // namespace Core
 } // namespace SkullbonezCore

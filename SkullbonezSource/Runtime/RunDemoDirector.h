@@ -36,7 +36,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct SceneRuntimeStyleContext;
 struct RunReplayPredictionState;
@@ -58,5 +58,5 @@ void Tick( RunCameraState& camera,
            SceneRuntimeStyleContext styleContext,
            float cameraDt );
 } // namespace DemoDirectorPlayback
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

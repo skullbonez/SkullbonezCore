@@ -77,7 +77,7 @@ namespace Geometry
 {
 class Terrain;
 }
-namespace Basics
+namespace Runtime
 {
 class SceneController;
 }
@@ -89,7 +89,7 @@ namespace UI
 {
 class InGameUI;
 }
-namespace Basics
+namespace Runtime
 {
 struct RunCameraState;
 struct RunSceneState;
@@ -359,7 +359,7 @@ class InputRouter
                                             RuntimeInteractionController& interaction,
                                             Environment::CameraCollection& cameras,
                                             Geometry::Terrain* terrain,
-                                            Basics::SceneController& models,
+                                            Runtime::SceneController& models,
                                             Physics::PhysicsEngine& physics,
                                             RunCameraState& camera,
                                             RunCameraMode replayRestoreCameraMode,
@@ -371,7 +371,7 @@ class InputRouter
                                      RuntimeInteractionController& interaction,
                                      Environment::CameraCollection& cameras,
                                      Geometry::Terrain* terrain,
-                                     Basics::SceneController& models,
+                                     Runtime::SceneController& models,
                                      Physics::PhysicsEngine& physics,
                                      RunCameraState& camera,
                                      RunCameraMode replayRestoreCameraMode,
@@ -384,7 +384,7 @@ class InputRouter
                                                            RuntimeInteractionController& interaction,
                                                            Environment::CameraCollection& cameras,
                                                            Geometry::Terrain* terrain,
-                                                           Basics::SceneController& models,
+                                                           Runtime::SceneController& models,
                                                            Physics::PhysicsEngine& physics,
                                                            RunCameraState& camera,
                                                            RunCameraMode replayRestoreCameraMode,
@@ -446,7 +446,7 @@ class InputRouter
                                                  RuntimeTools& runtimeTools,
                                                  ReplayRuntime& replayRuntime,
                                                  RuntimeInteractionController& interaction,
-                                                 Basics::SceneController& models,
+                                                 Runtime::SceneController& models,
                                                  Physics::PhysicsEngine& physics,
                                                  RunSceneState& scene,
                                                  Environment::WorldEnvironment& world,
@@ -463,7 +463,7 @@ class InputRouter
                                                    AttachedCameraController& attachedCamera,
                                                    RuntimeInteractionController& interaction,
                                                    SceneEntityStore& entities,
-                                                   Basics::SceneController& models,
+                                                   Runtime::SceneController& models,
                                                    Physics::PhysicsEngine& physics,
                                                    RunSceneState& scene,
                                                    Environment::WorldEnvironment& world,
@@ -543,5 +543,5 @@ class InputRouter
     bool m_leftWasDown = false;
     bool m_rightWasDown = false;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

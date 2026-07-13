@@ -28,7 +28,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct TornadoVisualSettings
 {
@@ -49,5 +49,5 @@ struct RenderPresentationSettings
     bool pipelineSyncEnabled = false;
     TornadoVisualSettings tornadoVisual;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

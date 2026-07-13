@@ -47,7 +47,7 @@ namespace Assets
 {
 class AssetSystem;
 }
-namespace Basics
+namespace Runtime
 {
 namespace RunInternal
 {
@@ -218,5 +218,5 @@ template <typename Fn> bool ForEachEditorBuildingPart( int objectType, const Ass
     return true;
 }
 } // namespace RunInternal
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

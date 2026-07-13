@@ -45,14 +45,14 @@ Related:
 #include <memory>
 #include <time.h>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
-using SkullbonezCore::Basics::SceneController;
 using SkullbonezCore::Environment::CameraCollection;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Runtime::SceneController;
 
 #ifdef _DEBUG
 namespace

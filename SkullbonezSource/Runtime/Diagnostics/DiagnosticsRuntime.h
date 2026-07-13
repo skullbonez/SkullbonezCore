@@ -32,7 +32,11 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
+{
+class Profiler;
+} // namespace Core
+namespace Runtime
 {
 class SceneController;
 }
@@ -45,9 +49,8 @@ namespace UI
 class InGameUI;
 struct UIPhysicsCommands;
 } // namespace UI
-namespace Basics
+namespace Runtime
 {
-class Profiler;
 class ReplayRuntime;
 class SceneController;
 class TestScene;
@@ -60,7 +63,7 @@ struct DiagnosticsKeyboardShortcutContext
     // the edge and diagnostics mutates only debug presentation state.
     RunDebugState& debug;
     int& cameraTrackBallIndex;
-    const Basics::SceneController& sceneEntities;
+    const Runtime::SceneController& sceneEntities;
     const Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
     bool sceneMode = false;
     double simulationSeconds = 0.0;
@@ -124,7 +127,7 @@ class DiagnosticsRuntime
     const DiagnosticsController& Diagnostics() const;
     // Startup binding that keeps perf CSV and frame-time diagnostics off the
     // global profiler accessor after initialization.
-    void BindProfiler( Profiler* profiler );
+    void BindProfiler( SkullbonezCore::Core::Profiler* profiler );
 
     RunPerfLogState& PerfLog();
     const RunPerfLogState& PerfLog() const;
@@ -140,22 +143,23 @@ class DiagnosticsRuntime
     bool PerfTestActive() const;
     void TickPerfLog( const RuntimePerfTickContext& context );
     RuntimeProfilerFrameTimes SampleProfilerFrameTimes() const;
-    const MainMemoryStats& RefreshMainMemoryStats( const ReplayRuntime& replay,
-                                                   const Basics::SceneController& models,
-                                                   double nowSeconds,
-                                                   bool force,
-                                                   bool includePrivateWorkingSet = true );
-    const MainMemoryStats& RefreshMainMemoryStats( const ReplayRuntime& replay,
-                                                   const MainMemoryGameObjectStats& gameObjects,
-                                                   double nowSeconds,
-                                                   bool force,
-                                                   bool includePrivateWorkingSet = true );
-    const MainMemoryStats& MainMemoryStatsSnapshot() const;
+    const SkullbonezCore::Core::MainMemoryStats& RefreshMainMemoryStats( const ReplayRuntime& replay,
+                                                                         const Runtime::SceneController& models,
+                                                                         double nowSeconds,
+                                                                         bool force,
+                                                                         bool includePrivateWorkingSet = true );
+    const SkullbonezCore::Core::MainMemoryStats&
+    RefreshMainMemoryStats( const ReplayRuntime& replay,
+                            const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
+                            double nowSeconds,
+                            bool force,
+                            bool includePrivateWorkingSet = true );
+    const SkullbonezCore::Core::MainMemoryStats& MainMemoryStatsSnapshot() const;
     void SetMainMemoryDumpPath( const char* path );
     const char* MainMemoryDumpPath() const;
     bool MainMemoryDumpRequested() const;
     bool WriteMainMemoryDump( const ReplayRuntime& replay,
-                              const Basics::SceneController& models,
+                              const Runtime::SceneController& models,
                               const RunSceneState& scene,
                               const char* checkpoint,
                               double nowSeconds );
@@ -168,13 +172,13 @@ class DiagnosticsRuntime
     void SetPhysicsRegressionLogOverride( const char* path );
     void SetPhysicsCollisionTimeLogOverride( const char* path );
     void
-    SetPhysicsDiagnosticsPath( Basics::SceneController& models, const char* path, bool fixedStepForcedByDiagnostics );
+    SetPhysicsDiagnosticsPath( Runtime::SceneController& models, const char* path, bool fixedStepForcedByDiagnostics );
     void LogSceneFinished( SceneController& scene,
                            const Rendering::IRenderDiagnostics* renderDiagnostics,
                            const char* reason );
-    void BeginPhysicsDiagnosticsRun( Basics::SceneController& models,
+    void BeginPhysicsDiagnosticsRun( Runtime::SceneController& models,
                                      const RunSceneState& scene,
-                                     const EngineConfig& config,
+                                     const SkullbonezCore::Core::EngineConfig& config,
                                      const char* scenePath,
                                      const char* rendererName );
     void LogReplayScrubProbe( const RunSceneState& scene,
@@ -240,12 +244,13 @@ class DiagnosticsRuntime
   private:
     CaptureController m_capture;                    // Screenshot trigger and capture automation
     DiagnosticsController m_diagnostics;            // Perf/test logs and queryable physics diagnostic trace
-    MainMemoryStats m_mainMemoryStats;              // Cached process/replay/model memory snapshot for UI and dumps.
+    SkullbonezCore::Core::MainMemoryStats
+        m_mainMemoryStats;                          // Cached process/replay/model memory snapshot for UI and dumps.
     double m_lastMainMemorySampleSeconds = -1000.0; // Coarse sampling guard so UI draw does not rescan every frame.
     // Cache-mode guard: a deep diagnostics caller cannot reuse a recent fast UI sample.
     bool m_lastMainMemorySampleUsedPrivateWorkingSetQuery = false;
     char m_mainMemoryDumpPath[260] = {};            // CLI --memory-dump output path; empty disables shutdown dump.
     UIStressState m_uiStress;                       // Deterministic UI stress run state
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

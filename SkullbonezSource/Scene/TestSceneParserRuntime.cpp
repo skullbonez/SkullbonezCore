@@ -26,7 +26,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 using TestSceneParserDetail::CopyStringField;
 using TestSceneParserDetail::Fail;
@@ -433,5 +433,5 @@ void TestSceneParser::ApplyLogging( const Json& logging, const std::string& path
 }
 
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

@@ -27,7 +27,7 @@ Related:
 #include "../../Rendering/IRenderCaptureBackend.h"
 
 SkullbonezCore::Rendering::IRenderCaptureBackend&
-SkullbonezCore::Basics::RuntimeRenderBackendView::RequireCaptureBackend() const
+SkullbonezCore::Runtime::RuntimeRenderBackendView::RequireCaptureBackend() const
 {
     if ( !captureBackend )
     {

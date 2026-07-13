@@ -32,11 +32,11 @@
 #include <stdexcept>
 #include <string>
 
-using SkullbonezCore::Basics::DemoPhase;
-using SkullbonezCore::Basics::DemoShotList;
-using SkullbonezCore::Basics::LoadDemoShotList;
-using SkullbonezCore::Basics::PhaseAdvance;
-using SkullbonezCore::Basics::SaveDemoShotList;
+using SkullbonezCore::Runtime::DemoPhase;
+using SkullbonezCore::Runtime::DemoShotList;
+using SkullbonezCore::Runtime::LoadDemoShotList;
+using SkullbonezCore::Runtime::PhaseAdvance;
+using SkullbonezCore::Runtime::SaveDemoShotList;
 
 namespace
 {

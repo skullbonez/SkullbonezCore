@@ -44,7 +44,7 @@ Related:
 #include <cstdio>
 #include <cstring>
 
-namespace SkullbonezCore::Basics::ReplayOverlay
+namespace SkullbonezCore::Runtime::ReplayOverlay
 {
 using Text::Text2d;
 
@@ -1148,4 +1148,4 @@ void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context )
     Text2d::FlushQuads( renderCommands );
     Text2d::FlushText( renderCommands );
 }
-} // namespace SkullbonezCore::Basics::ReplayOverlay
+} // namespace SkullbonezCore::Runtime::ReplayOverlay

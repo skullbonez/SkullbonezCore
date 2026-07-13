@@ -35,7 +35,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 void ApplySceneRuntimeUiOptions( SceneRuntimeUiOptionsContext context, const SceneUIOptions& options )
 {
@@ -144,5 +144,5 @@ void ApplySceneRuntimeUiOptions( SceneRuntimeUiOptionsContext context, const Sce
     }
 }
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

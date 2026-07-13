@@ -26,7 +26,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 using TestSceneParserDetail::CopyCheckedStringField;
 using TestSceneParserDetail::EndsWith;
@@ -1136,5 +1136,5 @@ void TestSceneParser::ApplyAssetInstances( const Json& root, const std::string& 
 }
 
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

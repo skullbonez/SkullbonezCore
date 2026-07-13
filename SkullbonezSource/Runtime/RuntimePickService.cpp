@@ -39,7 +39,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -91,5 +91,5 @@ bool RuntimePickService::TryPickModel( const RuntimePickRequest& request, Runtim
 
     return outResult.modelRow.IsValid() && outResult.body.IsValid();
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

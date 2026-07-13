@@ -31,7 +31,6 @@ Related:
 
 #include <utility>
 
-using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyCount;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyRefreshView;
@@ -49,7 +48,8 @@ using SkullbonezCore::Physics::PhysicsDebugContact;
 using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsPipelineRecord;
 using SkullbonezCore::Physics::PointJointConstraint;
-void PhysicsEngine::ApplyRuntimeConfig( const Basics::EngineConfig& config )
+using SkullbonezCore::Runtime::ReplaySolverWorldSnapshot;
+void PhysicsEngine::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
     m_scene.ApplyRuntimeConfig( config );
 }
@@ -179,7 +179,7 @@ bool PhysicsEngine::RefreshColliderSnapshot()
 
 
 void PhysicsEngine::Step( float deltaSeconds,
-                          const Basics::EngineConfig& config,
+                          const SkullbonezCore::Core::EngineConfig& config,
                           const PhysicsWorldForces& worldForces,
                           Threading::WorkerPool& workerPool,
                           const char* const* diagnosticNames,

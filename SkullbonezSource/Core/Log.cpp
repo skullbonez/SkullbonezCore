@@ -36,7 +36,7 @@ Related:
 #include "PlatformWin32.h"
 #endif
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Core;
 
 
 EngineLog& EngineLog::Get()

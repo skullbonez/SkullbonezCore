@@ -49,7 +49,7 @@
 #include <cmath>
 #include <vector>
 
-using SkullbonezCore::Basics::EngineConfig;
+using SkullbonezCore::Core::EngineConfig;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::Vector::Vector3;
@@ -107,7 +107,7 @@ struct SolverFixture
     std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> terrainRestApplied = {};
     std::vector<uint8_t> sleepSupportedThisFrame;
     PersistentContactSolverSideEffects sideEffects;
-    EngineConfig config;
+    SkullbonezCore::Core::EngineConfig config;
     PersistentContactSolver solver;
 
     SolverFixture()

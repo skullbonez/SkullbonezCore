@@ -37,6 +37,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+struct CinematicRenderConfig;
+} // namespace Core
 namespace Textures
 {
 class TextureCollection;
@@ -88,12 +92,11 @@ namespace UI
 class InGameUI;
 }
 
-namespace Basics
+namespace Runtime
 {
 class Window;
 class ReplayRuntime;
 class RuntimeTools;
-struct CinematicRenderConfig;
 struct RenderToolOverlayView;
 
 struct RuntimeRenderFramePolicy
@@ -140,7 +143,7 @@ struct RuntimeRenderModelFrameView
     bool shadowParallelPrep = false;
     double sceneKineticEnergy = 0.0;
     float tornadoElapsedSeconds = 0.0f;
-    MainMemoryGameObjectStats gameObjectMemory;
+    SkullbonezCore::Core::MainMemoryGameObjectStats gameObjectMemory;
 };
 
 struct RuntimeRenderServices
@@ -160,7 +163,7 @@ struct RuntimeRenderServices
     Geometry::SkyBox* skyBox;
     // Lifetime: selected once by Run for this render call. Passes use this
     // snapshot instead of asking Run to reopen scene/config state.
-    const CinematicRenderConfig& cinematic;
+    const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
     bool cinematicEnabled = false;
     // Lifetime: this command facet is borrowed from the process-bound backend
     // for exactly this render call; pass code must not store it.
@@ -183,5 +186,5 @@ struct RuntimeRenderInputs
 {
     RuntimeRenderServices services;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

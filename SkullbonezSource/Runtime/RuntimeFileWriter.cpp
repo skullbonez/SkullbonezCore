@@ -29,7 +29,7 @@ Related:
 
 #include "../Core/PlatformWin32.h"
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 
 namespace
 {

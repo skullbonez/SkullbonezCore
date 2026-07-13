@@ -11,11 +11,11 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-12th-july` |
-| Current baseline | Round-3 R1-R4 are complete: header/platform ownership is explicit and engine projects compile without C++ exceptions |
+| Current baseline | Round-3 R1-R5 are complete: header/platform ownership is explicit, engine projects compile without C++ exceptions, and the fossil `Basics` namespace is retired |
 | Current objective | Execute adversarial-review round 3 (`Plans/TODO/adversarial-review-round-3.md`, R1→R10); validation-gate V3 remains externally blocked |
-| Portfolio progress | 306 / 313 tasks = 98% rounded overall |
-| Last broad local gate | `tools\\validate_full.bat` passed R4 on 2026-07-13 in 127.6s: CPU lanes clean, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | R4 Profile build and full gate passed; malformed scene JSON remained a named recoverable failure and Profile objects had no C++ EH handler/FuncInfo symbols. |
+| Portfolio progress | 307 / 313 tasks = 98% rounded overall |
+| Last broad local gate | `tools\\validate_full.bat` passed R5 on 2026-07-13 in 162.8s: CPU lanes clean, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
+| Validation for current edits | R5 built Profile/Debug/Release/Profile-WPO with zero warnings; the full gate passed and the `Basics` acceptance grep is empty. |
 
 ## Live Queue
 
@@ -29,11 +29,11 @@ plan inventory.
    2026-07-12 ruling) and is not live portfolio work.
 3. Round-2 runtime-contract remediation is locally complete and recorded in
    `Reports/2026-07-12/runtime-contract-enforcement-closure.md`.
-4. Round-3 adversarial-review remediation is live at 4/10: R1-R4 header,
-   scene-capacity, platform-prelude, and exception-free engine work are complete.
-   Six tasks remain (`Basics` retirement, `Helper` dissolution, C++20,
+4. Round-3 adversarial-review remediation is live at 5/10: R1-R5 header,
+   scene-capacity, platform-prelude, exception-free engine, and namespace-owner
+   work are complete. Five tasks remain (`Helper` dissolution, C++20,
    `std::span`, solver SIMD, and DX12 bindless + three frames). Plan and
-   fine-grained progress checklist live in `Plans/TODO/`; continue with R5→R10. Out-of-scope
+   fine-grained progress checklist live in `Plans/TODO/`; continue with R6→R10. Out-of-scope
    rulings are recorded in MASTER to avoid re-litigation.
 
 ## Current Plan Decisions

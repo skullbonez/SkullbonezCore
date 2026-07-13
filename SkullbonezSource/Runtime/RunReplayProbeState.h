@@ -37,7 +37,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 #ifdef _DEBUG
 struct RunReplayScrubProbeState
@@ -76,7 +76,7 @@ struct RunReplayProbeFailureState
 
 struct RunReplayProbeState
 {
-    void RecordFailure( const SbResult& result )
+    void RecordFailure( const SkullbonezCore::Core::SbResult& result )
     {
         if ( result.ok || failure.failed )
         {
@@ -113,5 +113,5 @@ struct RunReplayProbeState
     RunReplayProbeFailureState failure;
 };
 #endif
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

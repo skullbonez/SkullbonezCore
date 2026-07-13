@@ -40,7 +40,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 // Concept: pass resource structs name ownership before the frame graph exists.
 //
@@ -131,5 +131,5 @@ struct RuntimeRenderPassResources
     FullscreenPassResources fullscreen;
     ShadowPassResources shadows;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

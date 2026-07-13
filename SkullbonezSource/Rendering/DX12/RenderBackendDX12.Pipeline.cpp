@@ -312,9 +312,10 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device,
     {
         // Lane R: mesh/layout selection is startup-owned pipeline input. A
         // reflected mismatch skips PSO publication and names the owning path.
-        Log().WriteEventf( "dx12_shader_input_contract_rejected owner=Dx12PipelineOwner reason=%s",
-                           inputContractError );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_shader_input_contract_rejected owner=Dx12PipelineOwner reason=%s",
+            inputContractError );
+        SkullbonezCore::Core::Log().FlushAll();
         return nullptr;
     }
 
@@ -374,9 +375,10 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device,
     {
         // Lane R: cached bytes are external driver-specific cold-start input.
         // Retry the exact recipe once without them and evict the rejected row.
-        Log().WriteEventf( "dx12_pso_disk_cache_rejected owner=Dx12PipelineOwner hresult=0x%08X bytes=%llu",
-                           static_cast<unsigned int>( hr ),
-                           static_cast<unsigned long long>( psoDesc.CachedPSO.CachedBlobSizeInBytes ) );
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_pso_disk_cache_rejected owner=Dx12PipelineOwner hresult=0x%08X bytes=%llu",
+            static_cast<unsigned int>( hr ),
+            static_cast<unsigned long long>( psoDesc.CachedPSO.CachedBlobSizeInBytes ) );
         m_persistentPsoCache.RejectAttached( psoDesc );
         hr = device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &pso ) );
     }
@@ -385,12 +387,13 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device,
         // Lane R: a graphics PSO can fail because the active shader/input layout
         // or device state is invalid. The draw path can skip this submission and
         // keep the renderer alive; fixed cache-cap exhaustion above remains fatal.
-        Log().WriteEventf( "dx12_graphics_pso_create_failed hresult=0x%08X format=%u instanced=%d rtv_format=%u",
-                           static_cast<unsigned int>( FAILED( hr ) ? hr : E_FAIL ),
-                           static_cast<unsigned int>( format ),
-                           instanced ? 1 : 0,
-                           static_cast<unsigned int>( m_currentRTVFormat ) );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_graphics_pso_create_failed hresult=0x%08X format=%u instanced=%d rtv_format=%u",
+            static_cast<unsigned int>( FAILED( hr ) ? hr : E_FAIL ),
+            static_cast<unsigned int>( format ),
+            instanced ? 1 : 0,
+            static_cast<unsigned int>( m_currentRTVFormat ) );
+        SkullbonezCore::Core::Log().FlushAll();
         if ( pso )
         {
             pso->Release();
@@ -509,21 +512,22 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
             // misses in validation/perf runs can reveal root-signature churn,
             // render-target format drift, or state toggles happening in hot
             // loops.
-            Log().WriteEventf( "dx12_pso_cache_miss hash=%llu cache_size=%llu root_signature=%p vs_hash=%llu "
-                               "ps_hash=%llu format=%u instanced=%d blend=%d depth=%d depth_write=%d cull=%d "
-                               "rtv_format=%u",
-                               static_cast<unsigned long long>( psoHash ),
-                               static_cast<unsigned long long>( m_psoCacheCount ),
-                               key.rootSignature,
-                               static_cast<unsigned long long>( key.shaderVSHash ),
-                               static_cast<unsigned long long>( key.shaderPSHash ),
-                               static_cast<unsigned int>( key.format ),
-                               key.isInstanced ? 1 : 0,
-                               key.blendEnabled ? 1 : 0,
-                               key.depthEnabled ? 1 : 0,
-                               key.depthWriteEnabled ? 1 : 0,
-                               key.cullEnabled ? 1 : 0,
-                               static_cast<unsigned int>( key.rtvFormat ) );
+            SkullbonezCore::Core::Log().WriteEventf(
+                "dx12_pso_cache_miss hash=%llu cache_size=%llu root_signature=%p vs_hash=%llu "
+                "ps_hash=%llu format=%u instanced=%d blend=%d depth=%d depth_write=%d cull=%d "
+                "rtv_format=%u",
+                static_cast<unsigned long long>( psoHash ),
+                static_cast<unsigned long long>( m_psoCacheCount ),
+                key.rootSignature,
+                static_cast<unsigned long long>( key.shaderVSHash ),
+                static_cast<unsigned long long>( key.shaderPSHash ),
+                static_cast<unsigned int>( key.format ),
+                key.isInstanced ? 1 : 0,
+                key.blendEnabled ? 1 : 0,
+                key.depthEnabled ? 1 : 0,
+                key.depthWriteEnabled ? 1 : 0,
+                key.cullEnabled ? 1 : 0,
+                static_cast<unsigned int>( key.rtvFormat ) );
             if ( m_psoCacheCount >= m_psoCache.size() )
             {
                 // Invariant: PSO variants are bounded by the fixed cache in the
@@ -695,7 +699,7 @@ void Dx12PipelineOwner::UnregisterShader( ShaderDX12* shader )
 }
 
 
-SkullbonezCore::Basics::SbResult Dx12PipelineOwner::ReloadShadersFromBakedAssets()
+SkullbonezCore::Core::SbResult Dx12PipelineOwner::ReloadShadersFromBakedAssets()
 {
     // Allocation policy: optional candidates are fixed-capacity cold utility
     // storage. Their internal reflection containers may allocate only while the
@@ -712,7 +716,7 @@ SkullbonezCore::Basics::SbResult Dx12PipelineOwner::ReloadShadersFromBakedAssets
         {
             // Lane R: a changed shader interface needs a rebuilt executable with
             // matching generated reflection; keep every current shader/PSO live.
-            return SkullbonezCore::Basics::SbResult::Failure(
+            return SkullbonezCore::Core::SbResult::Failure(
                 "Rendering/DX12",
                 "Shader hot reload rejected changed or invalid bytecode contract" );
         }
@@ -742,9 +746,9 @@ SkullbonezCore::Basics::SbResult Dx12PipelineOwner::ReloadShadersFromBakedAssets
     m_psoDirty = true;
     m_targetsDirty = true;
     m_persistentPsoCache.Initialize( m_rootSignatureSerialized.data(), m_rootSignatureSerializedSize );
-    Log().WriteEventf( "dx12_shader_hot_reload_committed owner=Dx12PipelineOwner shaders=%llu",
-                       static_cast<unsigned long long>( m_liveShaderCount ) );
-    return SkullbonezCore::Basics::SbResult::Success();
+    SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_hot_reload_committed owner=Dx12PipelineOwner shaders=%llu",
+                                             static_cast<unsigned long long>( m_liveShaderCount ) );
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 

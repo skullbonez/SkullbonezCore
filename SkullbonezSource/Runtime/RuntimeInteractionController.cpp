@@ -30,7 +30,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -538,5 +538,5 @@ void RuntimeInteractionController::ValidateState() const
     }
 #endif
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

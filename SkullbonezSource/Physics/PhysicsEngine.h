@@ -35,10 +35,13 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
 {
 class EngineConfig;
-} // namespace Basics
+} // namespace Core
+namespace Runtime
+{
+} // namespace Runtime
 
 namespace Threading
 {
@@ -58,7 +61,7 @@ class PhysicsEngine
   public:
     PhysicsEngine() = default;
 
-    void ApplyRuntimeConfig( const Basics::EngineConfig& config );
+    void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
     // Stamps the PhysicsScene-owned runtime policy onto cold authoring
     // descriptors before they become store rows.
     void ApplyAuthoredBodyPolicy( PhysicsBodyCreateDesc& desc ) const;
@@ -108,7 +111,7 @@ class PhysicsEngine
     // collection owner, and diagnosticsCsvWriter carries cold Debug CSV output
     // authority instead of letting physics reach through global logging.
     void Step( float deltaSeconds,
-               const Basics::EngineConfig& config,
+               const SkullbonezCore::Core::EngineConfig& config,
                const PhysicsWorldForces& worldForces,
                Threading::WorkerPool& workerPool,
                const char* const* diagnosticNames,
@@ -155,9 +158,9 @@ class PhysicsEngine
     void SetTornadoSystemConfig( const TornadoSystemConfig& config );
     const TornadoSystemConfig& GetTornadoSystemConfig() const;
     float GetTornadoSystemElapsedSeconds() const;
-    void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot,
+    void CaptureReplaySolverSnapshot( Runtime::ReplaySolverWorldSnapshot& outSnapshot,
                                       PhysicsBodyCount bodyCount ) const;
-    bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, PhysicsBodyCount bodyCount );
+    bool RestoreReplaySolverSnapshot( const Runtime::ReplaySolverWorldSnapshot& snapshot, PhysicsBodyCount bodyCount );
     PhysicsDiagnosticsView GetDiagnosticsView() const;
     uint64_t CollectPhysicsWorldMemoryBytes() const;
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;

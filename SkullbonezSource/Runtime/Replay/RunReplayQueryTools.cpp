@@ -31,7 +31,7 @@ Related:
 #include <cmath>
 #include <cstring>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Physics;

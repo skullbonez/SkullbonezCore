@@ -34,9 +34,9 @@ using namespace SkullbonezCore::Environment;
 
 namespace
 {
-SkullbonezCore::Basics::SbResult NoPerformanceCounterSupport( const char* failedCall )
+SkullbonezCore::Core::SbResult NoPerformanceCounterSupport( const char* failedCall )
 {
-    return SkullbonezCore::Basics::SbResult::Failure(
+    return SkullbonezCore::Core::SbResult::Failure(
         "Core/Timer",
         "This system does not support high resolution counters (%s failed).",
         failedCall && failedCall[0] != '\0' ? failedCall : "counter query" );
@@ -44,7 +44,7 @@ SkullbonezCore::Basics::SbResult NoPerformanceCounterSupport( const char* failed
 } // namespace
 
 
-SkullbonezCore::Basics::SbResult Timer::Initialise()
+SkullbonezCore::Core::SbResult Timer::Initialise()
 {
     LARGE_INTEGER tmpPerformanceFreq;
 
@@ -79,7 +79,7 @@ SkullbonezCore::Basics::SbResult Timer::Initialise()
     m_frameTimer = 0;
     m_startTime = 0;
     m_endTime = 0;
-    return SkullbonezCore::Basics::SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 

@@ -37,16 +37,16 @@ Related:
 #include <cstdio>
 #include <cstring>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 
 
-bool SceneController::ExecutePending( EngineConfig& m_config,
+bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_config,
                                       RunLaunchOptions& m_launchOptions,
-                                      const CinematicRenderConfig& m_defaultCinematicRender,
+                                      const SkullbonezCore::Core::CinematicRenderConfig& m_defaultCinematicRender,
                                       const RunStartupState& m_startup,
                                       DiagnosticsRuntime& m_diagnosticsRuntime,
                                       RunTimerState& m_timers,
@@ -144,7 +144,7 @@ bool SceneController::ExecutePending( EngineConfig& m_config,
         case SceneRequestType::SaveCurrentDefaults:
             eventCode = ReplayOwnerEventCode::SceneSaveDefaults;
             {
-                const SbResult saveResult =
+                const SkullbonezCore::Core::SbResult saveResult =
                     m_sceneController.SaveCurrentDefaults( SceneDefaultsSaveView{ m_debug, m_renderer, m_camera } );
                 if ( !saveResult.ok )
                 {

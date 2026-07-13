@@ -42,7 +42,7 @@ Related:
 #include <vector>
 
 using namespace SkullbonezCore;
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;

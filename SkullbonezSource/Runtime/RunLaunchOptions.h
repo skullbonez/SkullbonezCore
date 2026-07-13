@@ -40,7 +40,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct RunLaunchOptions
 {
@@ -125,5 +125,5 @@ struct RunStartupOverrides
 #endif
 };
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

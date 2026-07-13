@@ -31,7 +31,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -133,5 +133,5 @@ RuntimeViewModel RuntimeViewModelBuilder::Build( const RuntimeViewModelContext& 
     FillContactAudioSnapshot( view.contactAudio, contactAudio );
     return view;
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

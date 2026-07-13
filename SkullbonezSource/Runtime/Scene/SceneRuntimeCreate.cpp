@@ -43,7 +43,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -194,16 +194,17 @@ SceneLoadRequest CreateSceneFromUI( SceneRuntimeCreateContext context, const cha
     std::filesystem::create_directories( sceneDir, ec );
     if ( ec )
     {
-        Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"mkdir\" message=\"%s\"",
-                           cleanName.c_str(),
-                           ec.message().c_str() );
+        SkullbonezCore::Core::Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"mkdir\" message=\"%s\"",
+                                                 cleanName.c_str(),
+                                                 ec.message().c_str() );
         return SceneLoadRequest::None();
     }
 
     const std::filesystem::path scenePath = UniqueScenePath( sceneDir, cleanName, ec );
     if ( scenePath.empty() || !WriteStarterSceneFile( scenePath, cleanName ) )
     {
-        Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"write\"", cleanName.c_str() );
+        SkullbonezCore::Core::Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"write\"",
+                                                 cleanName.c_str() );
         return SceneLoadRequest::None();
     }
 
@@ -212,5 +213,5 @@ SceneLoadRequest CreateSceneFromUI( SceneRuntimeCreateContext context, const cha
     return SceneLoadRequest::Load( context.controller.Append( normalizedPath ), true, true, false, true );
 }
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

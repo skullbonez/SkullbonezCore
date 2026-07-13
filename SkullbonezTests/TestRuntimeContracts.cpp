@@ -43,7 +43,7 @@
 #include <thread>
 #include <vector>
 
-using SkullbonezCore::Basics::EngineLog;
+using SkullbonezCore::Core::EngineLog;
 using SkullbonezCore::Math::CollisionDetection::SpatialGrid;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Threading::AmortizedTask;
@@ -267,7 +267,7 @@ bool RunRuntimeFatalCase( const char* caseName )
     return false;
 }
 
-TEST_CASE( "EngineLog: concurrent file and event writes share one safe owner boundary" )
+TEST_CASE( "SkullbonezCore::Core::EngineLog: concurrent file and event writes share one safe owner boundary" )
 {
 #if defined( SKULLBONEZ_TEST_ENGINE_LOG )
     constexpr const char* path = "Debug/runtime_contract_log_test.log";
@@ -284,10 +284,10 @@ TEST_CASE( "EngineLog: concurrent file and event writes share one safe owner bou
             {
                 for ( int writeIndex = 0; writeIndex < writesPerThread; ++writeIndex )
                 {
-                    EngineLog::Get().Writef( path, "%d,%d\n", threadIndex, writeIndex );
+                    SkullbonezCore::Core::EngineLog::Get().Writef( path, "%d,%d\n", threadIndex, writeIndex );
                     if ( writeIndex % 16 == 0 )
                     {
-                        EngineLog::Get().WriteEventf(
+                        SkullbonezCore::Core::EngineLog::Get().WriteEventf(
                             "runtime_contract_log_test thread=%d write=%d", threadIndex, writeIndex );
                     }
                 }
@@ -297,8 +297,8 @@ TEST_CASE( "EngineLog: concurrent file and event writes share one safe owner bou
     {
         thread.join();
     }
-    EngineLog::Get().FlushAll();
-    EngineLog::Get().CloseAllForTests();
+    SkullbonezCore::Core::EngineLog::Get().FlushAll();
+    SkullbonezCore::Core::EngineLog::Get().CloseAllForTests();
 
     const std::string contents = ReadSharedFileText( path );
     CHECK( static_cast<int>( std::count( contents.begin(), contents.end(), '\n' ) ) ==

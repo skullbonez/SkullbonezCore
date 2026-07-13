@@ -27,13 +27,13 @@ Related:
 
 #include "../SkullbonezSource/Runtime/InputController.Bindings.h"
 
-using SkullbonezCore::Basics::RuntimeInputAction;
-using SkullbonezCore::Basics::RuntimeInputBindingContext;
-using SkullbonezCore::Basics::RuntimeInputContextBit;
-using SkullbonezCore::Basics::RuntimeInputContextMask;
-using SkullbonezCore::Basics::RuntimeInputKeyBinding;
-using SkullbonezCore::Basics::RuntimeInputKeyBindingView;
-using SkullbonezCore::Basics::TakeInputKeyboardBindings;
+using SkullbonezCore::Runtime::RuntimeInputAction;
+using SkullbonezCore::Runtime::RuntimeInputBindingContext;
+using SkullbonezCore::Runtime::RuntimeInputContextBit;
+using SkullbonezCore::Runtime::RuntimeInputContextMask;
+using SkullbonezCore::Runtime::RuntimeInputKeyBinding;
+using SkullbonezCore::Runtime::RuntimeInputKeyBindingView;
+using SkullbonezCore::Runtime::TakeInputKeyboardBindings;
 
 namespace
 {

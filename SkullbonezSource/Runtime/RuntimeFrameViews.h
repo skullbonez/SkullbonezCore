@@ -37,6 +37,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+class EngineConfig;
+} // namespace Core
 namespace Assets
 {
 class AssetSystem;
@@ -57,12 +61,11 @@ namespace UI
 {
 class InGameUI;
 }
-namespace Basics
+namespace Runtime
 {
 class ApplicationExitState;
 class AttachedCameraController;
 class DiagnosticsRuntime;
-class EngineConfig;
 class GraphicsStressController;
 class InputRouter;
 class RenderDefaultsStore;
@@ -118,7 +121,7 @@ struct RuntimeFrameInteractionView
 // absent from this slice.
 struct RuntimeFrameSceneView
 {
-    EngineConfig& config;
+    SkullbonezCore::Core::EngineConfig& config;
     RunLaunchOptions& launchOptions;
     const RunStartupState& startup;
     RunTimerState& timers;
@@ -163,5 +166,5 @@ struct RuntimeUiTextFrameFacts
     RuntimeUiTextFrameFacts( const RuntimeUiTextFrameFacts& ) = delete;
     RuntimeUiTextFrameFacts& operator=( const RuntimeUiTextFrameFacts& ) = delete;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

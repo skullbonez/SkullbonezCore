@@ -68,11 +68,11 @@ Related:
 
 #include <cstdio>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Runtime::RunInternal;
 namespace Textures = SkullbonezCore::Textures;
 using SkullbonezCore::Geometry::XZBounds;
 using SkullbonezCore::Math::Vector::Vector3;
@@ -202,7 +202,7 @@ SkullbonezCore::Textures::TextureCollection& RenderTextures( const RenderFrameCo
     return *frame.textures;
 }
 
-bool ReportRenderTextureResult( const char* passName, const SbResult& result )
+bool ReportRenderTextureResult( const char* passName, const SkullbonezCore::Core::SbResult& result )
 {
     if ( result.ok )
     {
@@ -244,7 +244,8 @@ SkullbonezCore::Rendering::IRenderResourceFactory& RenderResources( const Render
     return *frame.renderResources;
 }
 
-RenderHelperContext RenderHelperServices( const RenderFrameContext& frame, const EngineConfig& config )
+RenderHelperContext RenderHelperServices( const RenderFrameContext& frame,
+                                          const SkullbonezCore::Core::EngineConfig& config )
 {
     assert( frame.renderDiagnostics && "RenderFrameContext requires a render diagnostics context" );
     assert( frame.renderHelper && "RenderFrameContext requires a primitive render helper" );
@@ -366,8 +367,9 @@ struct ScreenSunPosition
 };
 
 
-ScreenSunPosition
-ProjectCinematicSunToScreen( const Vector3& eye, const Matrix4& viewProjection, const CinematicRenderConfig& cinematic )
+ScreenSunPosition ProjectCinematicSunToScreen( const Vector3& eye,
+                                               const Matrix4& viewProjection,
+                                               const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     const Vector3 sunPoint = eye + CinematicSkySunDirection( cinematic ) * 1000.0f;
     const Matrix4& vp = viewProjection;
@@ -399,7 +401,7 @@ void DrawFullscreenQuad( SkullbonezCore::Rendering::IRenderCommandContext& rende
 void BindSkyPassParams( SkullbonezCore::Rendering::IShader& shader,
                         const Matrix4& view,
                         const Matrix4& projection,
-                        const CinematicRenderConfig& cinematic )
+                        const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     shader.SetVec4( "uSunParams",
                     cinematic.sunAzimuth,
@@ -422,7 +424,7 @@ void BindSkyPassParams( SkullbonezCore::Rendering::IShader& shader,
 void BindVolumetricPassParams( SkullbonezCore::Rendering::IShader& shader,
                                const Vector3& eye,
                                const Matrix4& viewProjection,
-                               const CinematicRenderConfig& cinematic,
+                               const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                float frustumNear,
                                float frustumFar )
 {
@@ -444,7 +446,7 @@ void BindVolumetricPassParams( SkullbonezCore::Rendering::IShader& shader,
 }
 
 void BindTonemapPassParams( SkullbonezCore::Rendering::IShader& shader,
-                            const CinematicRenderConfig& cinematic,
+                            const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                             float frustumNear,
                             float frustumFar,
                             int sceneWidth,
@@ -490,15 +492,16 @@ void RenderResourceLifecycleLog::Write( const char* phase, const char* step ) co
     const bool backendReady = m_deviceLifecycle != nullptr;
     const int backendWidth = m_deviceLifecycle ? m_deviceLifecycle->GetWidth() : 0;
     const int backendHeight = m_deviceLifecycle ? m_deviceLifecycle->GetHeight() : 0;
-    Log().WriteEventf( "render_resource_lifecycle phase=%s step=%s gfx_ready=%d backend_width=%d backend_height=%d "
-                       "scene_index=%d load=%d",
-                       phase ? phase : "unknown",
-                       step ? step : "unknown",
-                       backendReady ? 1 : 0,
-                       backendWidth,
-                       backendHeight,
-                       m_scene.currentSceneIndex,
-                       m_scene.loadCount );
+    SkullbonezCore::Core::Log().WriteEventf(
+        "render_resource_lifecycle phase=%s step=%s gfx_ready=%d backend_width=%d backend_height=%d "
+        "scene_index=%d load=%d",
+        phase ? phase : "unknown",
+        step ? step : "unknown",
+        backendReady ? 1 : 0,
+        backendWidth,
+        backendHeight,
+        m_scene.currentSceneIndex,
+        m_scene.loadCount );
 }
 
 
@@ -645,7 +648,8 @@ void ReflectionPass::LogResourceLifecycleStep( const char* phase, const char* st
 }
 
 
-void ShadowPass::EnsureGpuResources( const RenderResourceContext& resources, const CinematicRenderConfig& cinematic )
+void ShadowPass::EnsureGpuResources( const RenderResourceContext& resources,
+                                     const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     if ( !cinematic.shadow.enabled )
     {
@@ -737,7 +741,7 @@ void ShadowPass::ReleaseGpuResources()
 
 
 SkullbonezCore::Rendering::ShadowFrameData
-ShadowPass::BuildTerrainFrameData( const CinematicRenderConfig& cinematic,
+ShadowPass::BuildTerrainFrameData( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                    const Math::Vector::Vector3& lightDirectionWorld ) const
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildTerrainFrame" );
@@ -805,7 +809,7 @@ ShadowPass::BuildTerrainFrameData( const CinematicRenderConfig& cinematic,
 
 
 SkullbonezCore::Rendering::ShadowFrameData
-ShadowPass::BuildObjectFrameData( const CinematicRenderConfig& cinematic,
+ShadowPass::BuildObjectFrameData( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                   const Math::Vector::Vector3& lightDirectionWorld,
                                   const Math::Vector::Vector3& focusHint,
                                   const Rendering::RenderInstanceStore& renderInstances,
@@ -870,7 +874,7 @@ ShadowPass::BuildObjectFrameData( const CinematicRenderConfig& cinematic,
 void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
                                   const RenderHelperContext& helperContext,
                                   const Rendering::ShadowFrameData& shadowFrame,
-                                  const CinematicRenderConfig& cinematic,
+                                  const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                   Rendering::IRenderCommandContext& renderCommands,
                                   bool renderTerrain,
                                   bool renderObjects,
@@ -1074,7 +1078,7 @@ void SkyPass::RenderCinematicSky( const RenderFrameContext& frame, const Math::T
     // Invariant: the active cinematic choice is a frame snapshot, while the
     // generated-sky shader and fullscreen vertex buffer are pass resources.
     // This path should not reach back through Run state for either.
-    const CinematicRenderConfig& cinematic = *frame.cinematic;
+    const SkullbonezCore::Core::CinematicRenderConfig& cinematic = *frame.cinematic;
     if ( !cinematic.skyAtmosphereEnabled || !m_skyResources.atmosphereShader || m_fullscreenResources.quadVB == 0 )
     {
         return;
@@ -1349,7 +1353,7 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
     const uint32_t passHash =
         transparentPass ? HashStr( "Frame/Render/TransparentBalls" ) : HashStr( "Frame/Render/Balls" );
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-    GpuProfilerScope profileScope( passName, passHash );
+    SkullbonezCore::Core::GpuProfilerScope profileScope( passName, passHash );
 #endif
     Rendering::DrawCallTraceScope drawTraceScope( RenderDiagnostics( inputs.frame ), passName, passHash );
     Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
@@ -1868,7 +1872,7 @@ void DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
         return;
     }
 
-    const bool detailMarkers = PlatformProfiler::AreDetailedRangesEnabled();
+    const bool detailMarkers = SkullbonezCore::Core::PlatformProfiler::AreDetailedRangesEnabled();
     if ( detailMarkers )
     {
         PROFILE_GPU_BEGIN( "Frame/Render/DebugOverlay" );
@@ -2169,7 +2173,7 @@ void VolumetricPass::ReleaseGpuResources()
 
 bool VolumetricPass::CanRender( const RenderFrameContext& frame ) const
 {
-    const CinematicRenderConfig* cinematic = frame.cinematic;
+    const SkullbonezCore::Core::CinematicRenderConfig* cinematic = frame.cinematic;
     return frame.cinematicEnabled && cinematic && cinematic->volumetricLightingEnabled && m_sceneResources.hdrTarget &&
            m_volumetricResources.target && m_volumetricResources.shader && m_fullscreenResources.quadVB != 0;
 }
@@ -2183,9 +2187,9 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
     }
 
     assert( frame.cinematic && "Volumetric pass requires a frame cinematic snapshot" );
-    const CinematicRenderConfig& cinematic = *frame.cinematic;
+    const SkullbonezCore::Core::CinematicRenderConfig& cinematic = *frame.cinematic;
 
-    const bool detailMarkers = PlatformProfiler::AreDetailedRangesEnabled();
+    const bool detailMarkers = SkullbonezCore::Core::PlatformProfiler::AreDetailedRangesEnabled();
     if ( detailMarkers )
     {
         PROFILE_GPU_BEGIN( "Frame/Render/VolumetricLight" );
@@ -2302,7 +2306,7 @@ void TonemapPass::Render( const RenderFrameContext& frame,
         return;
     }
 
-    const bool detailMarkers = PlatformProfiler::AreDetailedRangesEnabled();
+    const bool detailMarkers = SkullbonezCore::Core::PlatformProfiler::AreDetailedRangesEnabled();
     if ( detailMarkers )
     {
         PROFILE_GPU_BEGIN( "Frame/Render/Tonemap" );
@@ -2332,7 +2336,7 @@ void TonemapPass::Render( const RenderFrameContext& frame,
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( frame ), "Draw" );
         m_tonemapResources.shader->Use();
         assert( frame.cinematic && "Tonemap pass requires a frame cinematic snapshot" );
-        const CinematicRenderConfig& cinematic = *frame.cinematic;
+        const SkullbonezCore::Core::CinematicRenderConfig& cinematic = *frame.cinematic;
         BindTonemapPassParams( *m_tonemapResources.shader,
                                cinematic,
                                m_config.camera.frustumNear,

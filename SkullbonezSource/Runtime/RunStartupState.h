@@ -33,14 +33,15 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct RunStartupState
 {
     int gameModelCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_GAME_MODEL_CAPACITY;
     int workerThreads = -1;
 
-    void ApplyStartupConfig( const EngineConfig& config ); // Captures startup-only capacity/thread policy from config.
+    void ApplyStartupConfig(
+        const SkullbonezCore::Core::EngineConfig& config ); // Captures startup-only capacity/thread policy from config.
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

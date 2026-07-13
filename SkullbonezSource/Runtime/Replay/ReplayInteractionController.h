@@ -40,7 +40,7 @@ namespace Physics
 {
 class PhysicsEngine;
 }
-namespace Basics
+namespace Runtime
 {
 // Invariant: replay input clamping and editor visualization share this exact
 // scale so gizmo affordances cannot advertise velocity the command rejects.
@@ -106,5 +106,5 @@ class ReplayInteractionController
                                               bool restored,
                                               RunReplayTrack messageTrack );
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

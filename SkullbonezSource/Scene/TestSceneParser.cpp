@@ -26,7 +26,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 using TestSceneParserDetail::ApplyRootedTreeCompatibilityClearanceToHulls;
 using TestSceneParserDetail::AssignReleasableTreeGroupsToHulls;
@@ -555,12 +555,12 @@ TestSceneParser::TestSceneParser( Assets::AssetContext assets ) : m_assets( asse
 {
 }
 
-SbResult TestSceneParser::TryLoadScene( const char* path, TestScene& outScene )
+SkullbonezCore::Core::SbResult TestSceneParser::TryLoadScene( const char* path, TestScene& outScene )
 {
     return TryLoadDocument( path, false, outScene );
 }
 
-SbResult TestSceneParser::TryLoadStyle( const char* path, TestScene& outScene )
+SkullbonezCore::Core::SbResult TestSceneParser::TryLoadStyle( const char* path, TestScene& outScene )
 {
     return TryLoadDocument( path, true, outScene );
 }
@@ -568,7 +568,7 @@ SbResult TestSceneParser::TryLoadStyle( const char* path, TestScene& outScene )
 TestScene TestSceneParser::LoadScene( const char* path )
 {
     TestScene scene;
-    const SbResult result = TryLoadScene( path, scene );
+    const SkullbonezCore::Core::SbResult result = TryLoadScene( path, scene );
     if ( !result.ok )
     {
         SB_FATAL( "Scene/TestSceneParser", "%s", result.error.message );
@@ -579,7 +579,7 @@ TestScene TestSceneParser::LoadScene( const char* path )
 TestScene TestSceneParser::LoadStyle( const char* path )
 {
     TestScene scene;
-    const SbResult result = TryLoadStyle( path, scene );
+    const SkullbonezCore::Core::SbResult result = TryLoadStyle( path, scene );
     if ( !result.ok )
     {
         SB_FATAL( "Scene/TestSceneParser", "%s", result.error.message );
@@ -587,7 +587,7 @@ TestScene TestSceneParser::LoadStyle( const char* path )
     return scene;
 }
 
-SbResult TestSceneParser::TryLoadDocument( const char* path, bool styleOnly, TestScene& outScene )
+SkullbonezCore::Core::SbResult TestSceneParser::TryLoadDocument( const char* path, bool styleOnly, TestScene& outScene )
 {
     m_scene = TestScene();
     m_assetDefinitions.clear();
@@ -622,7 +622,7 @@ SbResult TestSceneParser::TryLoadDocument( const char* path, bool styleOnly, Tes
     }
 
     outScene = m_scene;
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
@@ -636,14 +636,16 @@ TestScene LoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext ass
     return TestSceneParser( assets ).LoadStyle( path );
 }
 
-SbResult TryLoadTestSceneFromFileImpl( const char* path, Assets::AssetContext assets, TestScene& outScene )
+SkullbonezCore::Core::SbResult
+TryLoadTestSceneFromFileImpl( const char* path, Assets::AssetContext assets, TestScene& outScene )
 {
     return TestSceneParser( assets ).TryLoadScene( path, outScene );
 }
 
-SbResult TryLoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets, TestScene& outScene )
+SkullbonezCore::Core::SbResult
+TryLoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets, TestScene& outScene )
 {
     return TestSceneParser( assets ).TryLoadStyle( path, outScene );
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

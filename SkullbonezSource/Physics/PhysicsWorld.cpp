@@ -71,14 +71,14 @@ Related:
 #include <cstring>
 
 using namespace SkullbonezCore::Physics;
-using SkullbonezCore::Basics::REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES;
-using SkullbonezCore::Basics::REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER;
-using SkullbonezCore::Basics::ReplaySolverContactCacheSample;
-using SkullbonezCore::Basics::ReplaySolverPersistentContactSample;
-using SkullbonezCore::Basics::ReplaySolverStatsSample;
-using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::ZERO_VECTOR;
+using SkullbonezCore::Runtime::REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES;
+using SkullbonezCore::Runtime::REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER;
+using SkullbonezCore::Runtime::ReplaySolverContactCacheSample;
+using SkullbonezCore::Runtime::ReplaySolverPersistentContactSample;
+using SkullbonezCore::Runtime::ReplaySolverStatsSample;
+using SkullbonezCore::Runtime::ReplaySolverWorldSnapshot;
 namespace Math = SkullbonezCore::Math;
 namespace Physics = SkullbonezCore::Physics;
 namespace Vector = SkullbonezCore::Math::Vector;
@@ -423,7 +423,7 @@ ObjectContactBodyView ObjectContactBodyViewAtTime( const PhysicsBodyRecordList& 
 }
 
 TerrainContactBodyView TerrainContactBodyViewForIndex( const PhysicsBodyRecordList& bodyRecords,
-                                                       const SkullbonezCore::Basics::EngineConfig& config,
+                                                       const SkullbonezCore::Core::EngineConfig& config,
                                                        int index )
 {
     const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( index )];
@@ -967,7 +967,7 @@ PhysicsWorld::PhysicsWorld()
 }
 
 
-void PhysicsWorld::ApplyRuntimeConfig( const Basics::EngineConfig& config )
+void PhysicsWorld::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
     const float configuredCell = (std::max)( BROADPHASE_MIN_CELL_SIZE, config.broadphase.cellSize );
     m_spatialGrid.SetCellSize( configuredCell );
@@ -1310,7 +1310,7 @@ bool PhysicsWorld::CanRecordPhysicsPipelineStage() const
 PersistentContactSolverContext
 PhysicsWorld::CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,
                                                     const ColliderStore& colliderStore,
-                                                    const Basics::EngineConfig& config,
+                                                    const SkullbonezCore::Core::EngineConfig& config,
                                                     const PhysicsWorldForces& worldForces )
 {
     const bool elasticCollisions = worldForces.mutualGravity.enabled && worldForces.mutualGravity.elasticCollisions;
@@ -1479,7 +1479,7 @@ const std::vector<PointJointConstraint>& PhysicsWorld::GetPointJointConstraints(
 void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                float fChangeInTime,
-                               const Basics::EngineConfig& config,
+                               const SkullbonezCore::Core::EngineConfig& config,
                                const PhysicsWorldForces& worldForces,
                                Threading::WorkerPool& workerPool )
 {
@@ -1784,7 +1784,7 @@ void PhysicsWorld::ApplyTornadoGameplay( PhysicsBodyStore& bodyStore,
                                          const ColliderStore& colliderStore,
                                          const PhysicsWorldForces& worldForces,
                                          float dt,
-                                         const Basics::EngineConfig& runtimeConfig,
+                                         const SkullbonezCore::Core::EngineConfig& runtimeConfig,
                                          Threading::WorkerPool& workerPool )
 {
     const TornadoGameplayStepState stepState = m_tornadoGameplay.BeginStep( dt );
@@ -2924,7 +2924,7 @@ void PhysicsWorld::CommitTerrainCandidate( const TerrainCandidateCommitContext& 
 void PhysicsWorld::BuildSolverBroadphaseCandidatePairs( const PhysicsBodyStore& bodyStore,
                                                         const PhysicsBodyRecordList& bodyRecords,
                                                         const ColliderRecordList& colliderRecords,
-                                                        const Basics::EngineConfig& config,
+                                                        const SkullbonezCore::Core::EngineConfig& config,
                                                         int modelCount,
                                                         float dt,
                                                         float contactSkin,
@@ -3543,7 +3543,7 @@ const Vector3* PhysicsWorld::PrepareMutualGravityForces( const PhysicsBodyRecord
 void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      const ColliderStore& colliderStore,
                                      float dt,
-                                     const Basics::EngineConfig& config,
+                                     const SkullbonezCore::Core::EngineConfig& config,
                                      const PhysicsWorldForces& worldForces,
                                      Threading::WorkerPool& workerPool )
 {

@@ -49,7 +49,7 @@ Related:
 #include <cmath>
 #include <vector>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::GameObjects;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
 using SkullbonezCore::Math::Transformation::Matrix4;
@@ -345,7 +345,7 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
                                       const Matrix4& view,
                                       const Matrix4& proj,
                                       const float lightPos[4],
-                                      const CinematicRenderConfig* cinematic,
+                                      const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                       const ShadowFrameData* shadow,
                                       float materialAlpha,
                                       const std::vector<uint8_t>* modelMask,
@@ -624,7 +624,7 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
                                                    const ShadowCasterBatches& batches,
                                                    const Matrix4& view,
                                                    const Matrix4& proj,
-                                                   const CinematicRenderConfig* cinematic,
+                                                   const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                                    Rendering::RenderVisibilityView visibilityView )
 {
     if ( batches.Empty() )
@@ -726,7 +726,7 @@ void GameModelRenderer::RenderShadowCasters( const RenderHelperContext& helperCo
                                              bool useShadowParallelPrep,
                                              const Matrix4& view,
                                              const Matrix4& proj,
-                                             const CinematicRenderConfig* cinematic,
+                                             const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                              Rendering::RenderVisibilityView visibilityView )
 {
     ShadowCasterBatches batches;

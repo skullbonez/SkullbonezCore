@@ -127,7 +127,7 @@ class Text2d
                                float a );                                // Queues a colored triangle in the shared HUD batch.
     static void FlushQuads(
         Rendering::IRenderCommandContext& renderCommands );              // Uploads queued quads/triangles once for the frame.
-    static Basics::SbResult
+    static SkullbonezCore::Core::SbResult
     BuildFont( Rendering::IRenderResourceFactory& renderResources,
                const Assets::AssetSystem& assets,
                int screenW,

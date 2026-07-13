@@ -46,10 +46,13 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
 {
 class EngineConfig;
-} // namespace Basics
+} // namespace Core
+namespace Runtime
+{
+} // namespace Runtime
 
 namespace Threading
 {
@@ -69,7 +72,7 @@ class PhysicsScene
   public:
     PhysicsScene();
 
-    void ApplyRuntimeConfig( const Basics::EngineConfig& config );
+    void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
     // Stamps current runtime policy onto cold authoring descriptors. Descriptor
     // storage may still live outside PhysicsScene, but policy values do not.
     void ApplyAuthoredBodyPolicy( PhysicsBodyCreateDesc& desc ) const;
@@ -117,7 +120,7 @@ class PhysicsScene
     // Count drift must be fixed by the creator/editor path that owns shape data.
     bool RefreshColliderSnapshot();
     void RunPhysics( float fChangeInTime,
-                     const Basics::EngineConfig& config,
+                     const SkullbonezCore::Core::EngineConfig& config,
                      const PhysicsWorldForces& worldForces,
                      Threading::WorkerPool& workerPool,
                      const char* const* diagnosticNames,
@@ -161,9 +164,9 @@ class PhysicsScene
     void SetTornadoSystemConfig( const TornadoSystemConfig& config );
     const TornadoSystemConfig& GetTornadoSystemConfig() const;
     float GetTornadoSystemElapsedSeconds() const;
-    void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot,
+    void CaptureReplaySolverSnapshot( Runtime::ReplaySolverWorldSnapshot& outSnapshot,
                                       PhysicsBodyCount bodyCount ) const;
-    bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, PhysicsBodyCount bodyCount );
+    bool RestoreReplaySolverSnapshot( const Runtime::ReplaySolverWorldSnapshot& snapshot, PhysicsBodyCount bodyCount );
     PhysicsDiagnosticsView GetDiagnosticsView() const;
     uint64_t CollectPhysicsWorldMemoryBytes() const;
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;

@@ -22,7 +22,7 @@ Related:
 
 #include "../SkullbonezSource/Runtime/Editor/EditorCommandHistory.h"
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 
 namespace
 {

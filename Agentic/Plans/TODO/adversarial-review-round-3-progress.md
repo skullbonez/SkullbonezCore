@@ -130,9 +130,13 @@ alive, PID 46576 was stopped after the 34s probe window.
 
 Decision and evidence (2026-07-13): engine projects use `/EHs-c-`,
 `_HAS_EXCEPTIONS=0`, and Core uses `JSON_NOEXCEPTION`; doctest keeps `/EHsc`.
-Engine sources compiled into SKULLBONEZ_TESTS inherit that test project's flags,
-and no STL object whose layout or lifetime depends on the exception setting may
-cross a binary ABI boundary. All JSON conversions were inspected and now have
+SKULLBONEZ_TESTS retains `/EHsc` for doctest language exceptions but also defines
+`_HAS_EXCEPTIONS=0`, keeping the STL ABI identical to linked engine libraries;
+engine sources compiled into that project inherit the same test flags. This was
+proved by clean Release and Profile-WPO links after those configurations exposed
+and closed an initial `std::bad_variant_access` C4743 mismatch. No STL object
+whose layout or lifetime depends on the exception setting crosses a binary ABI
+boundary. All JSON conversions were inspected and now have
 an `is_*()`/checked-helper guard; filesystem directory probes use
 `std::error_code`. `dumpbin /symbols` spot checks on the Profile
 `InteractionAutomationController.obj`, `SceneRuntimeCreate.obj`, and
@@ -147,23 +151,48 @@ screenshots, and the 44,401-line physics baseline byte-exact.
 
 ## R5 — Retire `SkullbonezCore::Basics`
 
-- [ ] Record the binding target map BEFORE editing (working proposal):
+- [x] Record the binding target map BEFORE editing (resolved 2026-07-13):
       - `Run`, `RunFrame`/timer/camera/debug state, launch options, frame
         loop shell → `SkullbonezCore::Runtime`
-      - `Profiler`, `Timer`, `EngineConfig`, `Log`, `WorkerPool`-adjacent
+      - `Profiler`, `EngineConfig`, `Log`, result/fatal, and memory-stat
         service types currently in `Basics` → `SkullbonezCore::Core`
       - Types that already have a domain owner namespace stay put.
       Resolve collisions with the existing `Runtime::Audio` nesting and any
       `Core` name clashes; adjust the map here if needed.
-- [ ] Mechanical rename across all 145 files (namespace blocks, `Basics::`
+      Resolved detail: all types defined under `SkullbonezSource/Runtime/`
+      move to the existing top-level `SkullbonezCore::Runtime` namespace;
+      its existing `Runtime::Audio` child remains unchanged and has no symbol
+      collisions. `EngineConfig` and its value records, `SbError`/`SbResult`,
+      `SbFatal`, `EngineLog`/`Log`, profiler types/macros, platform-profiler
+      functions, and main-memory statistics move to
+      `SkullbonezCore::Core`. `Environment::Timer`,
+      `Threading::WorkerPool`, and all existing `Assets`, `Physics`,
+      `Rendering`, `GameObjects`, `Scene`, `UI`, and `World` owners remain in
+      their current namespaces; their former `Basics` blocks contain only
+      forward declarations and are rebound to `Core` or `Runtime` by the
+      declared type's owner. No compatibility namespace or alias will remain.
+- [x] Mechanical rename across all 270 current files (the plan's 145-file
+      evidence was stale after later runtime work): namespace blocks, `Basics::`
       qualifications, `using` declarations, forward declarations, friend
       decls, `.filters` untouched).
-- [ ] No compatibility alias namespace, no `namespace Basics = ...;` shim —
+- [x] No compatibility alias namespace, no `namespace Basics = ...;` shim —
       atomic cutover only (migration-noun rule).
-- [ ] Prove: `rg -n 'namespace Basics|Basics::' SkullbonezSource` returns
+- [x] Prove: `rg -n 'namespace Basics|Basics::' SkullbonezSource` returns
       zero rows.
-- [ ] Zero warnings all configurations; no behavior change claimed anywhere.
-- [ ] `tools\validate_full.bat` pass recorded.
+- [x] Zero warnings all configurations; no behavior change claimed anywhere.
+- [x] `tools\validate_full.bat` pass recorded.
+
+Evidence (2026-07-13): all 270 files carrying the old spelling moved atomically
+to `Runtime`, `Core`, or their existing domain owner; no compatibility alias was
+added and the acceptance grep returned zero rows. The comment-style touched-file
+audit covered 279 source/test files: 276 existing learning headers were complete,
+and the three standalone CPU test runners received their missing `Summary`
+sections; no files were deferred. Profile (13.7s), Debug (31.6s), Release
+(33.5s), and Profile-WPO (33.7s) built with zero warnings. The Release/WPO runs
+also closed the R4 test/engine STL ABI flag gap described above.
+`tools\validate_full.bat` passed in 162.8s: 177 doctests/4,059 assertions and all
+standalone CPU tests passed, DX12 reported zero validation errors with matching
+screenshots, and physics matched the 44,401-line baseline byte-exactly.
 
 ## R6 — Dissolve `Rendering/Helper.{h,cpp}`
 

@@ -25,7 +25,7 @@ Related:
 */
 #include "ReplayPredictionReserve.h"
 
-namespace SkullbonezCore::Basics
+namespace SkullbonezCore::Runtime
 {
 namespace
 {
@@ -77,4 +77,4 @@ bool RequestReplayPredictionReserveGrowth( const char* targetName,
     outResult = Runtime::Allocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
     return outResult.granted;
 }
-} // namespace SkullbonezCore::Basics
+} // namespace SkullbonezCore::Runtime

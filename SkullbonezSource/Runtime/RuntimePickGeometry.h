@@ -33,7 +33,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct RuntimePickShapeTransform
 {
@@ -46,5 +46,5 @@ bool TryIntersectRuntimePickShape( const Math::CollisionDetection::CollisionShap
                                    const Math::Vector::Vector3& rayOrigin,
                                    const Math::Vector::Vector3& rayDirection,
                                    float& outT );
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

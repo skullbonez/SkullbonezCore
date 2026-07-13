@@ -42,11 +42,11 @@ Related:
 #include <limits>
 #include <utility>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Physics;
 
-const char* SkullbonezCore::Basics::SceneFileNameFromPath( const char* path )
+const char* SkullbonezCore::Runtime::SceneFileNameFromPath( const char* path )
 {
     if ( !path )
     {
@@ -64,7 +64,7 @@ const char* SkullbonezCore::Basics::SceneFileNameFromPath( const char* path )
 }
 
 
-std::string SkullbonezCore::Basics::NormalizeSceneQueuePath( const std::string& path )
+std::string SkullbonezCore::Runtime::NormalizeSceneQueuePath( const std::string& path )
 {
     std::string normalized = path;
     std::replace( normalized.begin(), normalized.end(), '\\', '/' );
@@ -92,7 +92,7 @@ bool IsCineScenePath( const std::string& path )
 } // namespace
 
 
-const char* SkullbonezCore::Basics::SceneRuntimeLifecycleEventName( SceneRuntimeLifecycleEvent event )
+const char* SkullbonezCore::Runtime::SceneRuntimeLifecycleEventName( SceneRuntimeLifecycleEvent event )
 {
     switch ( event )
     {
@@ -113,7 +113,7 @@ const char* SkullbonezCore::Basics::SceneRuntimeLifecycleEventName( SceneRuntime
 }
 
 
-void RunSceneState::ResetForLoad( const CinematicRenderConfig& cinematicDefaults )
+void RunSceneState::ResetForLoad( const SkullbonezCore::Core::CinematicRenderConfig& cinematicDefaults )
 {
     // Lifetime: This clears per-load runtime state only. Queue position, scene
     // paths, and manual reset counts stay with SceneRuntime/SceneController.
@@ -401,7 +401,7 @@ void SceneRuntime::ClearRequiredAutomationGates()
 }
 
 
-void SceneRuntime::UpdateRequiredContacts( SkullbonezCore::Basics::SceneController& models, float contactEpsilon )
+void SceneRuntime::UpdateRequiredContacts( SkullbonezCore::Runtime::SceneController& models, float contactEpsilon )
 {
     if ( m_requiredContacts.empty() )
     {

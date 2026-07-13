@@ -41,7 +41,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 enum class RuntimeUiControlKind
 {
@@ -221,5 +221,5 @@ template <std::size_t Capacity> struct RuntimeUiSurface
                pointerY <= bounds.y + bounds.h;
     }
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

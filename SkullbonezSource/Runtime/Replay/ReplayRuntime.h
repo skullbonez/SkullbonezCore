@@ -78,7 +78,11 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
+{
+class EngineConfig;
+} // namespace Core
+namespace Runtime
 {
 class SceneController;
 }
@@ -106,9 +110,8 @@ namespace Threading
 class WorkerPool;
 } // namespace Threading
 
-namespace Basics
+namespace Runtime
 {
-class EngineConfig;
 class ReplayRuntime;
 class InputRouter;
 class RunEditorTracer;
@@ -133,7 +136,7 @@ struct ReplaySolverSampleRestoreContext;
 struct ReplayPredictionWorkerOperation
 {
     ReplayRuntime* replayRuntime = nullptr;
-    const EngineConfig* config = nullptr;
+    const SkullbonezCore::Core::EngineConfig* config = nullptr;
     Threading::WorkerPool* workerPool = nullptr;
     int modelCount = 0;
 
@@ -967,7 +970,7 @@ class ReplayRuntime
 
     struct ReplayStartupResult
     {
-        SbResult status = SbResult::Success();
+        SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
         bool skipExecute = false;
     };
     struct RecordingConfigResult
@@ -1218,7 +1221,7 @@ class ReplayRuntime
 #ifdef _DEBUG
     struct ReplayProbeTickResult
     {
-        SbResult status = SbResult::Success();
+        SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
         bool enterInteractive = false;
     };
     RunReplayProbeState& Probes();
@@ -1229,29 +1232,30 @@ class ReplayRuntime
                                       const ReplayArtifactTopologyOwners& topology );
 
   private:
-    SbResult TickScrubProbe( const ReplayRestoreTransaction& transaction );
-    SbResult TickRestoreProbe( const ReplayRestoreTransaction& transaction );
-    SbResult TickSaveProbe( const ReplayRestoreTransaction& transaction,
-                            const ReplayArtifactTopologyOwners& topology,
-                            bool& outEnterInteractive );
-    SbResult VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& transaction,
-                                            RunMousePickupState& mousePickup,
-                                            RunCameraMode normalizedCurrentMode,
-                                            double now,
-                                            float normalized );
-    SbResult VerifySolverCheckpointFileProbe( const ReplayRestoreTransaction& transaction, const char* path );
-    SbResult VerifySolverTargetFileProbe( const ReplayRestoreTransaction& transaction,
-                                          const ReplayArtifactTopologyOwners& topology,
-                                          const char* path );
-    SbResult VerifySolverBranchFileProbe( const ReplayRestoreTransaction& transaction,
-                                          const ReplayArtifactTopologyOwners& topology,
-                                          RunMousePickupState& mousePickup,
-                                          RunCameraMode normalizedCurrentMode,
-                                          double now,
-                                          const char* path );
-    SbResult VerifySolverFailureFileProbe( const ReplayRestoreTransaction& transaction,
-                                           const ReplayArtifactTopologyOwners& topology,
-                                           const char* path );
+    SkullbonezCore::Core::SbResult TickScrubProbe( const ReplayRestoreTransaction& transaction );
+    SkullbonezCore::Core::SbResult TickRestoreProbe( const ReplayRestoreTransaction& transaction );
+    SkullbonezCore::Core::SbResult TickSaveProbe( const ReplayRestoreTransaction& transaction,
+                                                  const ReplayArtifactTopologyOwners& topology,
+                                                  bool& outEnterInteractive );
+    SkullbonezCore::Core::SbResult VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& transaction,
+                                                                  RunMousePickupState& mousePickup,
+                                                                  RunCameraMode normalizedCurrentMode,
+                                                                  double now,
+                                                                  float normalized );
+    SkullbonezCore::Core::SbResult VerifySolverCheckpointFileProbe( const ReplayRestoreTransaction& transaction,
+                                                                    const char* path );
+    SkullbonezCore::Core::SbResult VerifySolverTargetFileProbe( const ReplayRestoreTransaction& transaction,
+                                                                const ReplayArtifactTopologyOwners& topology,
+                                                                const char* path );
+    SkullbonezCore::Core::SbResult VerifySolverBranchFileProbe( const ReplayRestoreTransaction& transaction,
+                                                                const ReplayArtifactTopologyOwners& topology,
+                                                                RunMousePickupState& mousePickup,
+                                                                RunCameraMode normalizedCurrentMode,
+                                                                double now,
+                                                                const char* path );
+    SkullbonezCore::Core::SbResult VerifySolverFailureFileProbe( const ReplayRestoreTransaction& transaction,
+                                                                 const ReplayArtifactTopologyOwners& topology,
+                                                                 const char* path );
 
   public:
 #endif
@@ -1310,14 +1314,15 @@ class ReplayRuntime
     void ClearLauncherVisualBackup();
     // Accumulates one rendered replay overlay pass into the repro-session
     // trajectory counters exposed through memory diagnostics.
-    void RecordReplayTrajectoryFrameStats( const MainMemoryReplayTrajectoryStats& frameStats );
-    void RecordReplayTrajectorySubmissionFrame( const MainMemoryReplayTrajectorySubmissionStats& submissionStats,
-                                                int frameNumber,
-                                                uint64_t reserveGrowthEventCount );
+    void RecordReplayTrajectoryFrameStats( const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& frameStats );
+    void RecordReplayTrajectorySubmissionFrame(
+        const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& submissionStats,
+        int frameNumber,
+        uint64_t reserveGrowthEventCount );
     const ReplayTrajectorySubmissionProbeStats& ReplayTrajectorySubmissionProbe() const;
-    void RecordReplayTrajectoryBudgetExpiry( MainMemoryReplayBudgetPass pass );
-    void RecordReplayTrajectoryRebuildCause( MainMemoryReplayRebuildCause cause );
-    MainMemoryReplayStats CollectMemoryStats() const;
+    void RecordReplayTrajectoryBudgetExpiry( SkullbonezCore::Core::MainMemoryReplayBudgetPass pass );
+    void RecordReplayTrajectoryRebuildCause( SkullbonezCore::Core::MainMemoryReplayRebuildCause cause );
+    SkullbonezCore::Core::MainMemoryReplayStats CollectMemoryStats() const;
     void RecordEvent( ReplayEventKind kind,
                       ReplayFrameIndex frameIndex,
                       uint32_t flags,
@@ -1393,7 +1398,7 @@ class ReplayRuntime
     // fixed-capacity tracer. RuntimeRenderer only submits the completed buffer.
     void AppendOverlayTrace( Physics::PhysicsEngine& physics,
                              const SceneEntityStore& entities,
-                             const EngineConfig& config,
+                             const SkullbonezCore::Core::EngineConfig& config,
                              const Physics::PhysicsWorldForces& worldForces,
                              Threading::WorkerPool& workerPool,
                              RunEditorTracer& tracer,
@@ -1402,7 +1407,7 @@ class ReplayRuntime
     // only sequence the completed record buffer into render submission.
     void RenderPathVisualizer( Physics::PhysicsEngine& physics,
                                const SceneEntityStore& entities,
-                               const EngineConfig& config,
+                               const SkullbonezCore::Core::EngineConfig& config,
                                const Physics::PhysicsWorldForces& worldForces,
                                Threading::WorkerPool& workerPool,
                                RunEditorTracer& tracer,
@@ -1564,7 +1569,7 @@ class ReplayRuntime
     RunReplayCameraState m_camera;
     RunReplayPathVisualizerState m_pathVisualizer;
     RunReplayPredictionState m_prediction;
-    MainMemoryReplayTrajectoryStats
+    SkullbonezCore::Core::MainMemoryReplayTrajectoryStats
         m_trajectoryVisualStats;                                      // Cumulative replay trajectory diagnostics for the current process.
     ReplayTrajectorySubmissionProbeStats
         m_trajectorySubmissionProbe;                                  // Submitted replay-ribbon stability window for validation reports.
@@ -1589,5 +1594,5 @@ class ReplayRuntime
     bool m_recordingConfigured = false;
     bool m_recordingEnabled = false;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore
