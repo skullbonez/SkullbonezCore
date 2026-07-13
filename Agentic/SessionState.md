@@ -13,9 +13,9 @@ plan inventory.
 | Branch | `nightrunner-13th-july` |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
 | Current objective | Execute replay monolith decomposition with the unchanged frame-exact 200-box gate after every task |
-| Portfolio progress | 320 / 329 tasks = 97% rounded overall |
+| Portfolio progress | 321 / 329 tasks = 98% rounded overall |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-14: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | M0 mega gate passed from starting commit `1dff40e1d`: one generation, one presented cascade, 2,401 ticks, 199 causal nodes, 200 moved/settled bricks, 187 grounded sleepers, and all semantic, byte, artifact, causal, and ten determinism false-pass controls. |
+| Validation for current edits | M1 mega gate passed: one generation/presentation, 2,401 ticks, 199 causal nodes, 200 moved/settled bricks, 187 grounded sleepers, and all semantic, byte, artifact, causal, and ten determinism false-pass controls; no baseline changed. |
 
 ## Live Queue
 
@@ -25,8 +25,9 @@ plan inventory.
    `Toppled` now means more than half the wall is directly grounded and sleeping;
    the approved base has 187/200 through the final second. Independent V6 review
    found no blocking issue.
-2. `replay-monolith-decomposition` is active at 1/9. M0 certified the exact
-   starting commit, provenance hashes, and one-presentation 2,401-tick result.
+2. `replay-monolith-decomposition` is active at 2/9. M0 certified the exact
+   starting tree; M1 bound all 55 current header type definitions/aliases and
+   212 free functions to named owners and recorded the six-TU include baseline.
    Every M0-M8 task,
    including inventory documentation, must run the
    unchanged 200-box gate before it can be checked or committed.
@@ -105,6 +106,6 @@ plan inventory.
 ## Next Handoff
 
 Run the repository-local orchestrator against
-`Plans/TODO/replay-monolith-decomposition.md` M1. M0 certified the starting
-tree; the permanent one-presentation 200-box gate is the unchanged per-task
-oracle.
+`Plans/TODO/replay-monolith-decomposition.md` M2. The binding M1 owner and
+include maps are complete; the permanent one-presentation 200-box gate remains
+the unchanged per-task oracle.
