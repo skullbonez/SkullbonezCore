@@ -1,6 +1,6 @@
 # MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-07-12
+Date: 2026-07-13
 Status: Authoritative inventory of every live repository plan
 
 ## Inventory Rules
@@ -30,6 +30,10 @@ Status: Authoritative inventory of every live repository plan
     at least 10 seconds before commit/PR handoff. The standard bounded proof is
     `tools\run_graphics_stress.bat 1`; record the command, measured runtime,
     and successful exit evidence alongside the normal DX12 renderer gate.
+11. Replay decomposition is guarded by the permanent frame-exact 200-box
+    visual-fidelity command. Every task in both live replay plans runs
+    `tools\validate_replay_visual_fidelity.bat`; decomposition may not refresh
+    its golden manifest, and any refresh requires explicit owner approval.
 
 ## Commit Progress Contract
 
@@ -108,25 +112,36 @@ concrete plan rows and counting it would duplicate tasks.
 | render-interface-and-workerpool-slimming | 5 | 5 | 100% |
 | runtime-contract-enforcement | 5 | 5 | 100% |
 | adversarial-review-round-3 | 10 | 10 | 100% |
-| **Portfolio total** | **312** | **313** | **100%** |
+| replay-visual-fidelity-mega-probe | 0 | 7 | 0% |
+| replay-monolith-decomposition | 0 | 9 | 0% |
+| **Portfolio total** | **312** | **329** | **95%** |
 
 ## Current Execution Priority
 
 For maximum impact with minimal rework, use this binding critical path:
 
-`validation-gate V3 external administration`
+`replay visual-fidelity mega probe → replay monolith decomposition`, while
+validation-gate V3 remains externally blocked.
 
 0. **Validation-gate V3 — blocked external lane.** Repository implementation is
    complete. Remaining work requires a real `merge_group` proof, required CPU
    branch protection, and trusted/ephemeral DX12 runner administration.
-1. **Adversarial-review round 3 — locally complete.** All ten tasks and the
+1. **Replay visual-fidelity mega probe — active on
+   `nightrunner-13th-july`.** Build the permanent frame-indexed 200-box golden,
+   predicted/live, and save/load/scrub equality gate before moving replay
+   ownership. Every V0-V6 task ends with that command passing.
+2. **Replay monolith decomposition — blocked on the mega probe.** Execute M0-M8
+   on `nightrunner-13th-july` only after the visual plan closes. Every task,
+   including documentation inventory, reruns the unchanged 200-box gate before
+   it may be checked or committed.
+3. **Adversarial-review round 3 — locally complete.** All ten tasks and the
    final independent review are closed; evidence lives in
    `../Reports/2026-07-13/adversarial-review-round-3-closure.md`.
-2. **Adversarial-review remediation round 1 — locally complete.** All five
+4. **Adversarial-review remediation round 1 — locally complete.** All five
    active 2026-07-12 remediation plans are closed. The comment-rot sweep
    remains owner-parked in `WNF/` (no comment changes yet), so it is not live
    work or part of the portfolio ledger.
-3. **Adversarial-review round 2 — locally complete.** EngineLog fatal-path
+5. **Adversarial-review round 2 — locally complete.** EngineLog fatal-path
    thread safety, SpatialGrid input validation, AmortizedTask lifetime guards,
    and worker-pool exception-plumbing removal are complete and validated.
 
@@ -141,6 +156,8 @@ For maximum impact with minimal rework, use this binding critical path:
 | Plan | State | Verified phase count | Next blocking action |
 |---|---|---:|---|
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs merge-group proof, required branch protection, and trusted/ephemeral DX12 runner administration |
+| [replay-visual-fidelity-mega-probe](TODO/replay-visual-fidelity-mega-probe.md) | Active | 0/7 | V0 freezes the working `nightrunner-13th-july` base and lands the first complete 200-box gate |
+| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Blocked | 0/9 | Wait for V0-V6 closure; then every M0-M8 task runs the unchanged 200-box gate |
 
 ## Planned Architecture Work (2026-07-11 gap review)
 
@@ -218,11 +235,13 @@ solver SIMD → DX12 bindless and frame headroom.
 |---|---|---:|---|
 | [adversarial-review-round-3](../Reports/2026-07-13/adversarial-review-round-3-closure.md) | Complete | 10/10 | Three-frame SM6.6 bindless raster path, measured perf budget, independent review, and final gates complete |
 
-Owner-ruled out of scope in this round (recorded so they are not re-litigated):
-replay subsystem right-sizing, unit-test depth expansion, sleep parallel-array
-consolidation, `Init.cpp` decomposition, and any `RenderBackendDX12`
-re-partitioning beyond the bindless/frame-headroom task. The unpinned-`/fp`
-finding was already closed by `determinism-contract-hardening`.
+The owner restored replay subsystem right-sizing to live work on 2026-07-13 as
+the two ordered replay plans above, guarded by the frame-exact 200-box visual
+fidelity gate. Remaining owner-ruled exclusions from this round are unit-test
+depth expansion, sleep parallel-array consolidation, `Init.cpp` decomposition,
+and any `RenderBackendDX12` re-partitioning beyond the bindless/frame-headroom
+task. The unpinned-`/fp` finding was already closed by
+`determinism-contract-hardening`.
 
 ## Features
 
@@ -262,6 +281,12 @@ Binding:
 - The Current Execution Priority critical path is binding. Plan-local work may
   run early only where that section explicitly names a preparation or parallel
   lane; it must not cross a listed dependency barrier.
+- Replay visual fidelity is frozen before replay ownership moves: V0-V6 builds
+  and closes `tools\validate_replay_visual_fidelity.bat`, then every M0-M8
+  decomposition task reruns it against the unchanged approved 200-box manifest.
+  Refactors cannot authorize a baseline refresh.
+- Both replay plans execute on `nightrunner-13th-july`; moving them requires an
+  explicit owner decision and fresh passing baseline provenance evidence.
 - 2026-07-11 owner ruling (definitive): no `SimulationController` — the
   implemented `SimulationSystem` pacing / `SceneController` ownership / `Run`
   frame-order split stands. No unified `EntityId` registry —

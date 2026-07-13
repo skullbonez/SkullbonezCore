@@ -10,26 +10,32 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-12th-july` |
+| Branch | `nightrunner-13th-july` |
 | Current baseline | Adversarial-review round 3 is complete at 10/10; R10 runs three frames in flight with SM6.6 bindless raster texture access |
-| Current objective | Validation-gate V3 remains externally blocked; no local implementation task is live |
-| Portfolio progress | 312 / 313 tasks = 100% rounded overall |
+| Current objective | Build the permanent frame-exact 200-box replay visual fidelity mega probe, then execute replay monolith decomposition with that gate after every task |
+| Portfolio progress | 312 / 329 tasks = 95% rounded overall |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-13 in 114.5s: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots/InfoQueue, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | R10 final: three consecutive DX12 passes 53.5/53.8/53.6s plus post-review passes, final perf 66.1s, final stress 61.6s with +0.70 MiB warmed working-set delta, and 179/179 unit tests. |
+| Validation for current edits | Documentation-only replay plan/ledger registration; no repository validation required |
 
 ## Live Queue
 
-1. Validation-gate V3 is externally blocked at 5/6. The hosted CPU
+1. `replay-visual-fidelity-mega-probe` is active at 0/7 on
+   `nightrunner-13th-july`. V0 freezes the known-good 200-box cascade and lands
+   `tools\validate_replay_visual_fidelity.bat`; every V0-V6 task runs it.
+2. `replay-monolith-decomposition` is blocked at 0/9 until the mega probe
+   closes. Every M0-M8 task, including inventory documentation, must run the
+   unchanged 200-box gate before it can be checked or committed.
+3. Validation-gate V3 is externally blocked at 5/6. The hosted CPU
    PR lane has a successful real run. Remaining work is a `merge_group` proof,
    required `main` branch protection, and trusted DX12-runner administration.
    Persistent self-hosted DX12 stays trusted-main/manual only; public-PR GPU
    evidence needs an ephemeral isolated runner.
-2. Round-1 adversarial-review remediation is locally complete. The
+4. Round-1 adversarial-review remediation is locally complete. The
    comment-rot sweep is owner-parked in `WNF/` (no comment changes yet,
    2026-07-12 ruling) and is not live portfolio work.
-3. Round-2 runtime-contract remediation is locally complete and recorded in
+5. Round-2 runtime-contract remediation is locally complete and recorded in
    `Reports/2026-07-12/runtime-contract-enforcement-closure.md`.
-4. Round-3 adversarial-review remediation is complete at 10/10. R10 added
+6. Round-3 adversarial-review remediation is complete at 10/10. R10 added
    three-frame headroom and a backend-owned b1 bindless texture-index payload;
    closure evidence and the 29/29 touched-file comment audit live in
    `Reports/2026-07-13/adversarial-review-round-3-closure.md`. Out-of-scope
@@ -42,6 +48,9 @@ plan inventory.
   unless the owner explicitly restores a plan to `TODO/`.
 - The MASTER critical path is binding; preparation may run early only where it
   is explicitly named, and no work crosses a recorded dependency barrier.
+- Both replay plans execute on `nightrunner-13th-july`. The visual mega probe
+  closes first; every decomposition task then reruns its unchanged golden
+  200-box manifest. Refactors do not authorize baseline refresh.
 - Every plan-runner commit and plan-implementation prompt starts with the
   resolved MASTER progress header: plan name, completed plan tasks, and rounded
   overall portfolio completion. Ordinary commits do not claim plan progress.
@@ -90,5 +99,6 @@ plan inventory.
 
 ## Next Handoff
 
-V3 resumes when the required GitHub merge-group/branch-protection authority and
-trusted or ephemeral DX12 runner administration exist.
+Run the repository-local orchestrator against
+`Plans/TODO/replay-visual-fidelity-mega-probe.md` V0. Replay decomposition does
+not begin until V0-V6 close with the permanent 200-box gate passing.
