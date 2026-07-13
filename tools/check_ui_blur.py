@@ -214,6 +214,26 @@ def yellow_pixels_in_box(path: Path, box: tuple[int, int, int, int]) -> int:
         return yellow
 
 
+def neutral_bright_pixels_in_box(path: Path, box: tuple[int, int, int, int]) -> int:
+    """Count light, low-saturation glyph pixels in a label-only UI region."""
+    with Image.open(path) as image:
+        rgb = image.convert("RGB")
+        x0, y0, x1, y1 = box
+        width, height = rgb.size
+        x0 = max(0, min(width, x0))
+        y0 = max(0, min(height, y0))
+        x1 = max(x0, min(width, x1))
+        y1 = max(y0, min(height, y1))
+        pixels = rgb.load()
+        count = 0
+        for y in range(y0, y1):
+            for x in range(x0, x1):
+                red, green, blue = pixels[x, y]
+                if red + green + blue >= 450 and max(red, green, blue) - min(red, green, blue) < 55:
+                    count += 1
+        return count
+
+
 
 def average_marker_ms(path: Path) -> tuple[dict[str, float], list[str]]:
     header: list[str] | None = None
@@ -379,6 +399,31 @@ def main() -> int:
             print(f"{renderer}/{scene}: brightness span={span:.1f}")
             if span < 35.0:
                 print(f"ERROR: {path.name} looks too flat or blank.")
+                failures += 1
+
+    # Regression: a failed text shader used to return startup success and turn
+    # every glyph draw into a no-op while colorful panels kept the generic
+    # brightness checks green. These boxes contain title/body labels but no
+    # slider knobs or window buttons, so both must retain visible glyph ink.
+    text_presence_boxes = (
+        ("window title", (35, 12, 330, 52), 200),
+        ("controls labels", (35, 105, 150, 450), 300),
+    )
+    for renderer in RENDERERS:
+        controls_path = profile / f"ui_{renderer}_controls.bmp"
+        for label, box, minimum in text_presence_boxes:
+            try:
+                pixels = neutral_bright_pixels_in_box(controls_path, box)
+            except (OSError, ValueError) as exc:
+                print(f"ERROR: {renderer} UI text-presence check failed: {exc}")
+                failures += 1
+                continue
+            print(f"{renderer}/controls: {label} glyph pixels={pixels}")
+            if pixels < minimum:
+                print(
+                    f"ERROR: {renderer}/controls has no visible {label} text "
+                    f"(pixels={pixels}, required={minimum})."
+                )
                 failures += 1
 
     for renderer in RENDERERS:

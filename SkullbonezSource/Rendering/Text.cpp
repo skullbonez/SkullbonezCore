@@ -545,17 +545,37 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( IRenderResourceFactory& render
 
     // Compile the text shader and bind the atlas sampler slot once.
     Text2d::pTextShader = assets.CreateShader( renderResources, "shader.text" );
-    if ( Text2d::pTextShader )
-    {
-        Text2d::pTextShader->Use();
-        Text2d::pTextShader->SetInt( "uFontTexture", 0 );
-    }
 
     // Compile the solid-colour HUD quad shader (used by Render2dQuad — immediate, one draw per call)
     Text2d::pSolidShader = assets.CreateShader( renderResources, "shader.solid_color" );
 
     // Compile the batched per-vertex-RGBA quad shader (used by FlushQuads — one draw for all quads)
     Text2d::pSolidBatchShader = assets.CreateShader( renderResources, "shader.solid_color_batch" );
+
+    // Lane R: text is required UI, not an optional effect. Returning success
+    // with a missing shader makes every glyph draw quietly disappear while
+    // panels still render, so startup must reject any incomplete resource set.
+    if ( !Text2d::fontTexture || !Text2d::textBatchVB || !Text2d::dynamicVB || !Text2d::quadBatchVB ||
+         !Text2d::pTextShader || !Text2d::pSolidShader || !Text2d::pSolidBatchShader )
+    {
+        const SkullbonezCore::Core::SbResult failure = SkullbonezCore::Core::SbResult::Failure(
+            "Rendering/Text",
+            "Required UI text resources failed to initialize "
+            "(font_texture=%u text_vb=%u quad_vb=%u quad_batch_vb=%u text_shader=%d solid_shader=%d "
+            "solid_batch_shader=%d).",
+            Text2d::fontTexture,
+            Text2d::textBatchVB,
+            Text2d::dynamicVB,
+            Text2d::quadBatchVB,
+            Text2d::pTextShader ? 1 : 0,
+            Text2d::pSolidShader ? 1 : 0,
+            Text2d::pSolidBatchShader ? 1 : 0 );
+        Text2d::DeleteFont( &renderResources );
+        return failure;
+    }
+
+    Text2d::pTextShader->Use();
+    Text2d::pTextShader->SetInt( "uFontTexture", 0 );
 
     // RebuildProjection() must be called whenever the window is resized so the
     // ortho extents stay matched to the actual viewport aspect ratio.
