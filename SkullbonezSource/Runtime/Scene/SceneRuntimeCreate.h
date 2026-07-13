@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntimeCreate.h
 Purpose:
   Declares scene-runtime helpers for creating starter scene files from UI input.
 
-Mental model:
+Summary:
   Runtime input owns when the Create Scene command fires. Scene runtime owns the
   filename cleanup, starter file authoring, browser refresh, and queue action
   needed to load the new scene.
@@ -29,7 +29,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 
 struct SceneRuntimeCreateContext
@@ -40,5 +40,5 @@ struct SceneRuntimeCreateContext
 
 SceneLoadRequest CreateSceneFromUI( SceneRuntimeCreateContext context, const char* requestedName );
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

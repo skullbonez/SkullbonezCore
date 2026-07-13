@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
 Purpose:
   Declares the chunked binary v2 replay artifact writer.
 
-Mental model:
+Summary:
   V2 artifacts are saved replay buffers, not yet complete branchable timelines.
   The first track is presentation data for smooth scrub, with optional solver
   hash/checkpoint chunks and branch provenance layered in for saved restore
@@ -40,7 +40,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct ReplayV2SaveResult
 {
@@ -133,5 +133,5 @@ class ReplayV2Artifact
                                   std::vector<ReplayV2SolverHashSample>& outHashes,
                                   ReplayV2SolverHashLoadResult* result = nullptr );
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/FramebufferDX12.h
 Purpose:
   Declares off-screen framebuffer resources and descriptor views for the DX12 renderer.
 
-Mental model:
+Summary:
   FramebufferDX12.h declares off-screen framebuffer resources and descriptor
   views for the DX12 renderer. As a public header, keep edits anchored on DX12
   ownership, descriptors, resources, and command submission and on the
@@ -83,6 +83,8 @@ class FramebufferDX12 : public IFramebuffer
     ID3D12Resource* m_depthTexture;
     D3D12_CPU_DESCRIPTOR_HANDLE m_rtvHandle;
     D3D12_CPU_DESCRIPTOR_HANDLE m_dsvHandle;
+    UINT m_rtvIndex;
+    UINT m_dsvIndex;
     // Static descriptor rows that expose the color/depth resources to shaders
     // after the framebuffer is unbound.
     UINT m_srvIndex;

@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/ConvexHullShape.h
 Purpose:
   Defines immutable authored convex hull collision geometry.
 
-Mental model:
+Summary:
   Physics is deterministic fixed-step state update. Convex hull data is built
   and validated at load time, then read without heap allocation by narrowphase.
 
@@ -93,7 +93,7 @@ class ConvexHullShape
     // Lane R: hull assets are external input. Callers that load scene/editor
     // data should use this overload so malformed files report recoverable
     // diagnostics instead of escaping through runtime code.
-    static SkullbonezCore::Basics::SbResult TryLoadFromFile( const char* path, ConvexHullShape& outHull );
+    static SkullbonezCore::Core::SbResult TryLoadFromFile( const char* path, ConvexHullShape& outHull );
     static ConvexHullShape LoadFromFile( const char* path );
 
     Transformation::Matrix4 GetModelMatrix( const Vector::Vector3& worldPos,

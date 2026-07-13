@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp
 Purpose:
   Streams bounded physics diagnostics to SkullScope trace files.
 
-Mental model:
+Summary:
   PhysicsDiagnosticsSink.cpp streams bounded physics diagnostics to SkullScope
   trace files. As an implementation unit, keep edits anchored on deterministic
   physics, diagnostics, or world-state flow and on the glossary/invariants
@@ -57,7 +57,7 @@ void PhysicsDiagnosticsCsvWriter::Writef( const char* fileName, const char* fmt,
 
     va_list args;
     va_start( args, fmt );
-    Log().WriteVf( fileName, fmt, args );
+    SkullbonezCore::Core::Log().WriteVf( fileName, fmt, args );
     va_end( args );
 #else
     (void)fileName;

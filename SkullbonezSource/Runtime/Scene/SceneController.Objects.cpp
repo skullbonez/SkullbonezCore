@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneController.Objects.cpp
 Purpose:
   Coordinates transient presentation rows with physics/collider/render stores.
 
-Mental model:
+Summary:
   SceneController directly owns scene metadata, physics, and render presentation
   rows. Creation preflights every concrete store before its first mutation;
   cold repair and deletion preserve their shared dense order.
@@ -69,7 +69,7 @@ Related:
 #include <utility>
 #include <variant>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::GameObjects;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::Orientation::Quaternion;
@@ -220,9 +220,9 @@ const SceneEntityStore& SceneController::SceneEntities() const
 }
 
 
-void SceneController::ApplyRuntimeConfig( const Basics::EngineConfig& config )
+void SceneController::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
-    m_activeGameModelCapacity = ActiveGameModelCapacity( config );
+    m_activeGameModelCapacity = SkullbonezCore::Core::ActiveGameModelCapacity( config );
     SceneEntities().ConfigureCapacity( m_activeGameModelCapacity );
     ReserveForActiveGameModelCapacity();
     m_physics.ApplyRuntimeConfig( config );
@@ -266,22 +266,22 @@ SceneEntityCreateResult SceneController::TryCreateSceneEntity( SceneEntityCreate
     AssertSceneCreationTopology( modelIndex );
     if ( SceneEntityCount() >= activeCapacity )
     {
-        return {
-            SbResult::Failure( SCENE_ENTITY_CREATION_OWNER,
-                               "Exceeded active game model capacity; raise --model-capacity or game_model_capacity." ),
-            PhysicsBodyHandle{} };
+        return { SkullbonezCore::Core::SbResult::Failure(
+                     SCENE_ENTITY_CREATION_OWNER,
+                     "Exceeded active game model capacity; raise --model-capacity or game_model_capacity." ),
+                 PhysicsBodyHandle{} };
     }
-    const SbResult entityResult = SceneEntities().PreflightAppend( entity );
+    const SkullbonezCore::Core::SbResult entityResult = SceneEntities().PreflightAppend( entity );
     if ( !entityResult.ok )
     {
         return { entityResult, PhysicsBodyHandle{} };
     }
     if ( bodyDesc.sceneObjectId.IsValid() && bodyDesc.sceneObjectId.value != entity.sceneObjectId.value )
     {
-        return { SbResult::Failure( SCENE_ENTITY_CREATION_OWNER,
-                                    "Body scene object id %u does not match entity id %u.",
-                                    bodyDesc.sceneObjectId.value,
-                                    entity.sceneObjectId.value ),
+        return { SkullbonezCore::Core::SbResult::Failure( SCENE_ENTITY_CREATION_OWNER,
+                                                          "Body scene object id %u does not match entity id %u.",
+                                                          bodyDesc.sceneObjectId.value,
+                                                          entity.sceneObjectId.value ),
                  PhysicsBodyHandle{} };
     }
     if ( !m_physics.CanRegisterAuthoredBody( MakePhysicsAuthoredBodyCountFromNonNegativeInt( modelIndex ) ) )
@@ -344,7 +344,7 @@ SceneEntityCreateResult SceneController::TryCreateSceneEntity( SceneEntityCreate
     SceneEntities().CommitAppend( entity, bodyHandle );
     m_renderInstanceStore.CommitCreationRow( renderPresentation, *bodyRecord, *colliderRecord, modelIndex );
     AssertSceneCreationTopology( modelIndex + 1 );
-    return { SbResult::Success(), bodyHandle };
+    return { SkullbonezCore::Core::SbResult::Success(), bodyHandle };
 }
 
 
@@ -636,22 +636,24 @@ void SceneController::FillPhysicsDiagnosticsNames( int bodyCount, std::vector<co
 #endif
 
 
-MainMemoryGameObjectStats SceneController::CollectMemoryStats() const
+SkullbonezCore::Core::MainMemoryGameObjectStats SceneController::CollectMemoryStats() const
 {
-    MainMemoryGameObjectStats stats;
+    SkullbonezCore::Core::MainMemoryGameObjectStats stats;
     const Physics::PhysicsBodyStore& bodyStore = BodyStore();
     const Physics::ColliderStore& colliderStore = Colliders();
     const Rendering::RenderInstanceStore& renderStore = m_renderInstanceStore;
 
     stats.modelCount = static_cast<std::size_t>( m_renderInstanceStore.PresentationCount() );
     stats.modelCapacity = m_renderInstanceStore.PresentationCapacity();
-    stats.bodyStoreCapacity = bodyStore.Records().capacity();
-    stats.colliderStoreCapacity = colliderStore.Records().capacity();
-    stats.renderStoreCapacity = renderStore.Records().capacity();
+    stats.bodyStoreCapacity = bodyStore.RecordCapacity();
+    stats.colliderStoreCapacity = colliderStore.RecordCapacity();
+    stats.renderStoreCapacity = renderStore.RecordCapacity();
     stats.modelVectorBytes = m_renderInstanceStore.PresentationCapacityBytes() + SceneEntities().CapacityBytes();
-    stats.physicsStoreBytes = VectorCapacityBytes( bodyStore.Records() );
-    stats.colliderStoreBytes = VectorCapacityBytes( colliderStore.Records() );
-    stats.renderStoreBytes = VectorCapacityBytes( renderStore.Records() );
+    stats.physicsStoreBytes = static_cast<uint64_t>( bodyStore.RecordCapacity() ) * sizeof( PhysicsBodyRecord );
+    stats.colliderStoreBytes =
+        static_cast<uint64_t>( colliderStore.RecordCapacity() ) * sizeof( Physics::ColliderRecord );
+    stats.renderStoreBytes =
+        static_cast<uint64_t>( renderStore.RecordCapacity() ) * sizeof( Rendering::RenderInstanceRecord );
     stats.physicsWorldBytes = m_physics.CollectPhysicsWorldMemoryBytes();
     stats.debugAndBroadphaseBytes = m_physics.CollectDebugAndBroadphaseMemoryBytes();
     stats.totalBytes = stats.modelVectorBytes + stats.physicsStoreBytes + stats.colliderStoreBytes +
@@ -783,7 +785,7 @@ double SceneController::GetSceneKineticEnergy()
     constexpr double REST_ANGULAR_SPEED_SQ = 0.3 * 0.3;
     double totalEnergy = 0.0;
     const PhysicsBodyStore& bodyStore = BodyStore();
-    const auto& bodies = bodyStore.Records();
+    const auto bodies = bodyStore.Records();
     for ( const PhysicsBodyRecord& body : bodies )
     {
         if ( body.isFixed )
@@ -867,7 +869,7 @@ void SceneController::RefreshRenderInstances( float presentationAlpha )
         return;
     }
 #ifdef _DEBUG
-    const std::vector<Rendering::RenderInstanceRecord>& instances = m_renderInstanceStore.Records();
+    const auto instances = m_renderInstanceStore.Records();
     for ( int i = 0; i < modelCount; ++i )
     {
         const std::size_t index = static_cast<std::size_t>( i );

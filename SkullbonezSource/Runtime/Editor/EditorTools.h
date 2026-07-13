@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/EditorTools.h
 Purpose:
   Declares editor placement helpers shared by input routing and editor tools.
 
-Mental model:
+Summary:
   Input owns gestures. Editor tools own how those gestures translate into
   editable object scale, clamp ranges, placement semantics, and editor command
   side effects that can be described with explicit borrowed context.
@@ -51,7 +51,7 @@ namespace Environment
 class CameraCollection;
 class WorldEnvironment;
 } // namespace Environment
-namespace Basics
+namespace Runtime
 {
 class SceneController;
 }
@@ -73,7 +73,7 @@ namespace UI
 {
 struct UIEditorCommands;
 }
-namespace Basics
+namespace Runtime
 {
 class RunEditorTracer;
 class RuntimeInteractionController;
@@ -86,7 +86,7 @@ namespace RunInternal
 {
 struct EditorSaveHotkeyContext
 {
-    Basics::SceneController& models;
+    Runtime::SceneController& models;
     const SceneEntityStore& entities;
     const RunSceneState& scene;
     Environment::WorldEnvironment& world;
@@ -112,7 +112,7 @@ struct EditorPlacementPreviewContext
 struct EditorObjectPlacementContext
 {
     RunEditorPlacementState& editor;
-    Basics::SceneController& models;
+    Runtime::SceneController& models;
     Physics::PhysicsEngine& physics;
     RunSceneState& scene;
     Environment::WorldEnvironment& world;
@@ -147,7 +147,7 @@ struct EditorObjectPlacementResult
 struct EditorGizmoContext
 {
     RunEditorPlacementState& editor;
-    Basics::SceneController& models;
+    Runtime::SceneController& models;
     Physics::PhysicsEngine& physics;
     RuntimeInteractionController& interaction;
 };
@@ -256,7 +256,7 @@ bool TryResolveEditorBodyCollider( const Physics::PhysicsBodyStore& bodyStore,
                                    int modelIndex,
                                    const Physics::PhysicsBodyRecord*& outBody,
                                    const Physics::ColliderRecord*& outCollider );
-bool TryGetEditorSelectionFrame( const Basics::SceneController& collection,
+bool TryGetEditorSelectionFrame( const Runtime::SceneController& collection,
                                  const Physics::PhysicsBodyStore& bodyStore,
                                  const Physics::ColliderStore& colliderStore,
                                  Physics::PhysicsBodyHandle selectedBodyHandle,
@@ -264,7 +264,7 @@ bool TryGetEditorSelectionFrame( const Basics::SceneController& collection,
                                  int selectedIndex,
                                  Math::Vector::Vector3& outOrigin,
                                  float& outRadius );
-bool TryTraceEditorSelectionOverlayFromStores( const Basics::SceneController& collection,
+bool TryTraceEditorSelectionOverlayFromStores( const Runtime::SceneController& collection,
                                                const Physics::PhysicsBodyStore& bodyStore,
                                                const Physics::ColliderStore& colliderStore,
                                                Physics::PhysicsBodyHandle selectedBodyHandle,
@@ -274,19 +274,19 @@ bool TryTraceEditorSelectionOverlayFromStores( const Basics::SceneController& co
                                                Math::Vector::Vector3& outOrigin,
                                                float& outRadius );
 void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
-                                       const Basics::SceneController& collection,
+                                       const Runtime::SceneController& collection,
                                        const Physics::PhysicsBodyStore& bodyStore,
                                        bool allowRagdollGroup );
 int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, int modelCount );
-void WakeEditorPhysicsBody( Basics::SceneController& collection, Physics::PhysicsEngine& physics, int modelIndex );
-void SeedEditorPhysicsBodyAsleep( Basics::SceneController& collection,
+void WakeEditorPhysicsBody( Runtime::SceneController& collection, Physics::PhysicsEngine& physics, int modelIndex );
+void SeedEditorPhysicsBodyAsleep( Runtime::SceneController& collection,
                                   Physics::PhysicsEngine& physics,
                                   int modelIndex );
-bool ResetEditorModelMotionAndWake( Basics::SceneController& collection,
+bool ResetEditorModelMotionAndWake( Runtime::SceneController& collection,
                                     Physics::PhysicsEngine& physics,
                                     int index,
                                     Physics::PhysicsBodyUpdateDesc update );
-bool ResetEditorModelMotionAndWake( Basics::SceneController& collection,
+bool ResetEditorModelMotionAndWake( Runtime::SceneController& collection,
                                     Physics::PhysicsEngine& physics,
                                     int index,
                                     Physics::PhysicsBodyUpdateDesc update,
@@ -363,5 +363,5 @@ void UpdateEditorGizmoHotAxes( EditorGizmoContext context,
 // save and screenshot side effects behind this action boundary.
 void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction action, bool wasPressed );
 } // namespace RunInternal
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

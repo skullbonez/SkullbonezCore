@@ -3,7 +3,7 @@ File: InputFrameExecution.cpp
 Purpose:
   Executes the stateless once-per-frame input turn across concrete owners.
 
-Mental model:
+Summary:
   This file composes device capture, semantic routing, UI application, pointer
   ownership, and the final owner-specific request checkpoint in one fixed order.
   Scene requests are submitted and executed by SceneController; this file only
@@ -74,13 +74,13 @@ Related:
 #include <cstdio>
 #include <cstring>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
-using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Runtime::RunInternal;
 using SkullbonezCore::Hardware::Input;
 using SkullbonezCore::Hardware::InputState;
 using SkullbonezCore::UI::InGameUITab;
@@ -90,34 +90,37 @@ using SkullbonezCore::UI::InGameUITab;
 // InputRouter owns sampling, edge memory, semantic order, and pointer policy;
 // scene, replay, tools, diagnostics, UI, and rendering retain their own state
 // and expose only synchronous operations for accepted input actions.
-// Lifetime: every reference below is borrowed for this call and is never stored.
-void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
-                                                EngineConfig& m_config,
-                                                RunLaunchOptions& m_launchOptions,
-                                                ApplicationExitState& m_applicationExit,
-                                                RenderDefaultsStore& m_renderDefaults,
-                                                const RunStartupState& m_startup,
-                                                DiagnosticsRuntime& m_diagnosticsRuntime,
-                                                RunTimerState& m_timers,
-                                                Assets::AssetSystem& m_assets,
-                                                Threading::WorkerPool& m_workerPool,
-                                                Window& m_window,
-                                                RuntimeInteractionController& m_interaction,
-                                                RunCameraState& m_camera,
-                                                AttachedCameraController& m_attachedCamera,
-                                                SimulationSystem& m_simulation,
-                                                ReplayRuntime& m_replayRuntime,
-                                                SkullbonezCore::Runtime::Audio::ContactAudioService& m_contactAudio,
-                                                SkullbonezCore::UI::InGameUI& m_UI,
-                                                RunDebugState& m_debug,
-                                                GraphicsStressController& m_graphicsStress,
-                                                RuntimeTools& m_runtimeTools,
-                                                Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer,
-                                                RuntimeRenderBackendView& m_renderBackendView,
-                                                RuntimeRenderer& m_renderer,
-                                                SceneController& m_sceneController )
+// Lifetime: both views are borrowed for this call and are never stored.
+void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
+                                                 RuntimeFrameInteractionView& interactionOwners,
+                                                 RuntimeFrameSceneView& sceneOwners,
+                                                 RuntimeFramePresentationView& presentationOwners )
 {
-    InputRouter& m_inputRouter = inputRouter;
+    InputRouter& m_inputRouter = interactionOwners.inputRouter;
+    SkullbonezCore::Core::EngineConfig& m_config = sceneOwners.config;
+    RunLaunchOptions& m_launchOptions = sceneOwners.launchOptions;
+    const RunStartupState& m_startup = sceneOwners.startup;
+    RunTimerState& m_timers = sceneOwners.timers;
+    RunCameraState& m_camera = interactionOwners.camera;
+    RunDebugState& m_debug = sceneOwners.debug;
+    ApplicationExitState& m_applicationExit = host.applicationExit;
+    RenderDefaultsStore& m_renderDefaults = presentationOwners.renderDefaults;
+    DiagnosticsRuntime& m_diagnosticsRuntime = host.diagnosticsRuntime;
+    Assets::AssetSystem& m_assets = host.assets;
+    Threading::WorkerPool& m_workerPool = host.workerPool;
+    Window& m_window = host.window;
+    RuntimeInteractionController& m_interaction = interactionOwners.interaction;
+    AttachedCameraController& m_attachedCamera = interactionOwners.attachedCamera;
+    SimulationSystem& m_simulation = sceneOwners.simulation;
+    ReplayRuntime& m_replayRuntime = interactionOwners.replayRuntime;
+    SkullbonezCore::Runtime::Audio::ContactAudioService& m_contactAudio = sceneOwners.contactAudio;
+    SkullbonezCore::UI::InGameUI& m_UI = interactionOwners.ui;
+    GraphicsStressController& m_graphicsStress = presentationOwners.graphicsStress;
+    RuntimeTools& m_runtimeTools = interactionOwners.runtimeTools;
+    Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer = presentationOwners.physicsDebugVisualizer;
+    RuntimeRenderBackendView& m_renderBackendView = presentationOwners.renderBackendView;
+    RuntimeRenderer& m_renderer = presentationOwners.renderer;
+    SceneController& m_sceneController = sceneOwners.sceneController;
     // Lifetime: these aliases expose InputRouter-owned frame state only for
     // this synchronous routing pass; Run retains neither value as member state.
     RuntimeInputContext& m_runtimeInput = m_inputRouter.RuntimeContext();
@@ -137,25 +140,11 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
     };
     const auto RunUIStressActions = [&]()
     {
-        return SkullbonezCore::Basics::RunUIStressActions(
-            m_diagnosticsRuntime,
-            &m_window,
-            m_timers,
-            m_UI,
-            m_renderer,
-            m_renderBackendView,
-            m_debug,
-            m_sceneController,
-            m_camera,
-            m_config,
-            m_simulation,
-            m_runtimeTools,
-            m_launchOptions,
-            m_startup,
-            m_replayRuntime,
-            m_inputRouter,
-            m_interaction,
-            m_attachedCamera,
+        return SkullbonezCore::Runtime::RunUIStressActions(
+            host,
+            interactionOwners,
+            sceneOwners,
+            presentationOwners,
             NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ) );
     };
     const auto DrainCaptureRequests = [&]()
@@ -223,7 +212,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
         return true;
     };
     DeviceInputFrame deviceFrame;
-    const SbResult deviceCaptureResult = Input::CaptureDeviceInputFrame( deviceFrame );
+    const SkullbonezCore::Core::SbResult deviceCaptureResult = Input::CaptureDeviceInputFrame( deviceFrame );
     if ( !deviceCaptureResult.ok )
     {
         ReportRuntimeInputFailure( deviceCaptureResult );
@@ -248,7 +237,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
         {
             return;
         }
-        SbResult pointerResult = Input::SetNativeMouseCapture( presentation.nativeCapture );
+        SkullbonezCore::Core::SbResult pointerResult = Input::SetNativeMouseCapture( presentation.nativeCapture );
         if ( pointerResult.ok )
         {
             Input::SetSystemCursorVisible( presentation.cursorVisible );
@@ -269,7 +258,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                              m_sceneController,
                                              m_UI ) )
     {
-        const SbResult stressResult = RunUIStressActions();
+        const SkullbonezCore::Core::SbResult stressResult = RunUIStressActions();
         if ( !stressResult.ok )
         {
             // Lane R: focus loss still routes stress churn through the same guarded
@@ -697,19 +686,28 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
             // to BackendInit rather than steady input/render accounting.
             SkullbonezCore::Runtime::Allocation::RuntimeAllocationScope allocationScope(
                 SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase::BackendInit );
-            const SbResult reloadResult = m_renderBackendView.shaderDevelopment->ReloadShadersFromSource();
+            const SkullbonezCore::Core::SbResult reloadResult =
+                m_renderBackendView.shaderDevelopment->ReloadShadersFromSource();
             if ( !reloadResult.ok )
             {
                 fprintf( stderr,
                          "Shader hot reload failed: owner=%s reason=%s\n",
                          reloadResult.error.owner,
                          reloadResult.error.message );
-                Log().WriteEventf( "shader_hot_reload_failed owner=%s reason=%s",
-                                   reloadResult.error.owner,
-                                   reloadResult.error.message );
+                SkullbonezCore::Core::Log().WriteEventf( "shader_hot_reload_failed owner=%s reason=%s",
+                                                         reloadResult.error.owner,
+                                                         reloadResult.error.message );
             }
             break;
         }
+        case RuntimeInputAction::CycleReplayPredictionAuthoringLook:
+            // TEMPORARY DEBUG AUTHORING: this cold shortcut changes the complete
+            // prediction composition; simulation and replay data stay intact.
+#if defined( _DEBUG )
+            m_runtimeTools.EditorTracer().CycleReplayPredictionAuthoringLook(
+                ActiveSceneCinematicConfig( m_sceneController.State(), m_config ) );
+#endif
+            break;
         case RuntimeInputAction::ToggleCrossScenePause:
             // P locks scene automation without turning the run interactive;
             // SceneController preserves the policy across load transactions.
@@ -851,23 +849,14 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
                                                                    m_window,
                                                                    replayPointerRay.rayOrigin,
                                                                    replayPointerRay.rayDirection );
+    const RuntimeInputFrameFacts uiSamplingFacts{
+        NormalizeCameraModeForCurrentScene( m_camera.mode ),
+        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+        CameraModeEnabledMask(),
+        UIBlocksKeyboardBeforeInput,
+        m_startup.gameModelCapacity };
     RuntimeUIFrameResult uiFrameResult =
-        BeginRuntimeUIFrame( m_runtimeInput,
-                             m_inputRouter,
-                             m_camera,
-                             m_runtimeTools,
-                             m_replayRuntime,
-                             replayPointerRay,
-                             NormalizeCameraModeForCurrentScene( m_camera.mode ),
-                             NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
-                             m_attachedCamera,
-                             m_interaction,
-                             m_timers,
-                             m_sceneController,
-                             m_window,
-                             m_UI,
-                             CameraModeEnabledMask(),
-                             UIBlocksKeyboardBeforeInput );
+        BeginRuntimeUIFrame( host, interactionOwners, sceneOwners, replayPointerRay, uiSamplingFacts );
     if ( uiFrameResult.frameActive )
     {
         if ( uiFrameResult.enterInteractiveScene )
@@ -890,46 +879,27 @@ void SkullbonezCore::Basics::ProcessInputFrame( InputRouter& inputRouter,
             PostQuitMessage( 0 );
         }
     }
-    uiFrameResult =
-        ApplyRuntimeUIFrameCommands( uiFrameResult,
-                                     keyboardToggleEditorMode,
-                                     m_runtimeInput,
-                                     m_inputRouter,
-                                     m_camera,
-                                     m_runtimeTools,
-                                     m_replayRuntime,
-                                     NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
-                                     CameraModeEnabledMask(),
-                                     m_attachedCamera,
-                                     m_interaction,
-                                     m_timers,
-                                     m_debug,
-                                     m_launchOptions,
-                                     m_config,
-                                     m_sceneController,
-                                     m_assets,
-                                     m_workerPool,
-                                     m_simulation,
-                                     m_contactAudio,
-                                     m_renderBackendView,
-                                     m_renderDefaults,
-                                     m_renderer,
-                                     m_startup.gameModelCapacity );
+    const RuntimeInputFrameFacts commandFacts{
+        NormalizeCameraModeForCurrentScene( m_camera.mode ),
+        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+        CameraModeEnabledMask(),
+        uiFrameResult.suppressWorldActionThisFrame,
+        m_startup.gameModelCapacity };
+    uiFrameResult = ApplyRuntimeUIFrameCommands( uiFrameResult,
+                                                 keyboardToggleEditorMode,
+                                                 host,
+                                                 interactionOwners,
+                                                 sceneOwners,
+                                                 presentationOwners,
+                                                 commandFacts );
     if ( uiFrameResult.status.ok && uiFrameResult.frameActive )
     {
         uiFrameResult.status = RunUIStressActions();
     }
     uiFrameResult = FinishRuntimeUIFramePointer( uiFrameResult,
-                                                 m_runtimeInput,
-                                                 m_inputRouter,
-                                                 m_camera,
-                                                 m_runtimeTools,
-                                                 m_replayRuntime,
-                                                 m_interaction,
-                                                 NormalizeCameraModeForCurrentScene( m_camera.mode ),
-                                                 m_attachedCamera,
-                                                 m_sceneController,
-                                                 m_UI );
+                                                 interactionOwners,
+                                                 sceneOwners,
+                                                 NormalizeCameraModeForCurrentScene( m_camera.mode ) );
     if ( uiFrameResult.enterInteractiveScene )
     {
         EnterInteractiveSceneRun();

@@ -4,7 +4,7 @@ Purpose:
   Implements fixed-capacity key/button edge routing from immutable device
   snapshots to ordered semantic action events.
 
-Mental model:
+Summary:
   BeginFrame samples every binding before any context is evaluated. RoutePhase
   later decides which already-observed edges are eligible for delivery. This
   separation is what prevents held keys from firing when UI or tool contexts
@@ -34,7 +34,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -730,5 +730,5 @@ void InputRouter::SampleKeyboard( const DeviceInputFrame& frame, RuntimeInputKey
         }
     }
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

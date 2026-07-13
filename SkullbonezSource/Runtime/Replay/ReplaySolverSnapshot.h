@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplaySolverSnapshot.h
 Purpose:
   Defines retained solver-state snapshots used by replay rollback.
 
-Mental model:
+Summary:
   Solver replay samples are not just render poses. A restorable replay tick also
   needs the persistent contact cache and sleep/tornado state that affect the
   next fixed physics step.
@@ -35,7 +35,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct ReplaySolverContactCacheSample
 {
@@ -131,5 +131,5 @@ struct ReplaySolverWorldSnapshot
     std::vector<Physics::PhysicsPipelineRecord> pipelineTrace;
     std::vector<int64_t> collisionCellKeys;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

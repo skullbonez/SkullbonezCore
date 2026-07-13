@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UITabPhysics.h
 Purpose:
   Implements UI TabPhysics widgets, layout, drawing, or UI state for the in-engine controls.
 
-Mental model:
+Summary:
   UITabPhysics.h implements UI TabPhysics widgets, layout, drawing, or UI
   state for the in-engine controls. As a public header, keep edits anchored on
   UI request, layout, hit-test, and draw-command flow and on the

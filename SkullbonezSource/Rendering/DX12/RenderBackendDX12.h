@@ -4,7 +4,7 @@ Purpose:
   Declares the production DX12 renderer plus concrete texture, pipeline,
   geometry, deferred-release, and raytracing owners.
 
-Mental model:
+Summary:
   RenderBackendDX12 coordinates device/frame work. Dx12TextureOwner retains
   texture residency and binding state, Dx12PipelineOwner retains the ordinary
   raster recipe, Dx12GeometryOwner retains bounded geometry resources, and
@@ -55,9 +55,11 @@ Related:
 */
 #pragma once
 
+#include "../../Core/PlatformWin32.h"
+
 
 #include "../IRenderCaptureBackend.h"
-#include "../../GameObjects/SceneCapacity.h"
+#include "../../Runtime/Scene/SceneCapacity.h"
 #include "../IRenderCommandContext.h"
 #include "../IRenderDeviceLifecycle.h"
 #include "../IRenderDiagnostics.h"
@@ -70,6 +72,7 @@ Related:
 #include "Dx12CachedPsoStore.h"
 #include "RenderGraphTransientDX12.h"
 #include "RenderDeviceDX12.h"
+#include "Dx12TextureRegistry.h"
 #include "MeshDX12.h"
 #include "BLASDX12.h"
 #include "TLASDX12.h"
@@ -93,20 +96,6 @@ class Dx12PipelineOwner;
 class Dx12TextureOwner;
 class Dx12FrameOwner;
 class RenderBackendDX12;
-
-
-// Texture entry for the DX12 SRV registry.
-//
-// "SRV" means Shader Resource View. It is the descriptor flavor a shader uses
-// when it wants to read a texture. The ID3D12Resource below is the actual image
-// memory. The srvIndex is only a row number in the descriptor heap table that
-// tells the shader how to read that image.
-struct TextureEntryDX12
-{
-    ID3D12Resource* resource;
-    UINT srvIndex;                                                 // Index in the persistent SRV region
-    bool owned;                                                    // False for FBO-registered SRVs
-};
 
 
 // Dynamic vertex buffer (text, HUD)
@@ -197,6 +186,9 @@ struct GpuTimerStateDX12
 struct DeferredResourceReleaseDX12
 {
     ID3D12Resource* resource = nullptr;
+    UINT staticDescriptorIndex = UINT_MAX;                         // Optional persistent row released by the same covering fence.
+    Dx12CpuDescriptorAllocator* cpuDescriptorAllocator = nullptr;  // Optional RTV/DSV allocator sharing the fence proof.
+    UINT cpuDescriptorIndex = UINT_MAX;
     UINT64 fenceValue = 0;
     bool fenceAssigned = false;
 };
@@ -206,14 +198,26 @@ struct DeferredResourceReleaseDX12
 class Dx12DeferredReleaseOwner
 {
   public:
-    void Quarantine( ID3D12Resource* resource );
+    // Bounded above the 128 static-row heap so every row can retire alongside
+    // a resource while leaving headroom for resource-only readbacks/uploads.
+    // The stress churn is the runtime high-water proof for this fixed queue.
+    static constexpr size_t MAX_PENDING_RETIREMENTS = 512;
+    void Quarantine( ID3D12Resource* resource,
+                     UINT descriptorIndex = UINT_MAX,
+                     Dx12CpuDescriptorAllocator* cpuAllocator = nullptr,
+                     UINT cpuDescriptorIndex = UINT_MAX );
+    void QuarantineStaticDescriptor( UINT descriptorIndex );
     void AssignFence( UINT64 fenceValue );
-    void ReleaseCompleted( Dx12RenderDevice& device, Dx12SubmittedWorkState& submittedWork, bool releaseUnfenced );
+    void ReleaseCompleted( Dx12RenderDevice& device,
+                           Dx12DescriptorAllocator& descriptors,
+                           Dx12SubmittedWorkState& submittedWork,
+                           bool releaseUnfenced );
     bool Empty() const;
     size_t Count() const;
 
   private:
-    std::vector<DeferredResourceReleaseDX12> m_pending;
+    std::array<DeferredResourceReleaseDX12, MAX_PENDING_RETIREMENTS> m_pending = {};
+    size_t m_pendingCount = 0;
 };
 
 struct Dx12PlatformProfilerGpuScopeDX12
@@ -251,8 +255,10 @@ class Dx12UploadReservations
     explicit Dx12UploadReservations( Dx12FrameOwner& owner ) : m_owner( owner )
     {
     }
-    D3D12_GPU_VIRTUAL_ADDRESS ReserveUpload( UINT64 size, UINT64 alignment );
-    D3D12_GPU_VIRTUAL_ADDRESS ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes );
+    D3D12_GPU_VIRTUAL_ADDRESS
+    ReserveUpload( UINT64 size, UINT64 alignment, RenderUploadCategory category = RenderUploadCategory::TextureRows );
+    D3D12_GPU_VIRTUAL_ADDRESS
+    ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes, RenderUploadCategory vertexCategory );
     D3D12_GPU_VIRTUAL_ADDRESS ReserveConstantUpload( UINT64 size );
     void CancelPendingConstantUpload();
     uint8_t* UploadPointer( D3D12_GPU_VIRTUAL_ADDRESS address ) const;
@@ -270,6 +276,12 @@ class Dx12ResourceRelease
     {
     }
     void Retire( ID3D12Resource* resource );
+    void Retire( ID3D12Resource* resource, UINT descriptorIndex );
+    void Retire( ID3D12Resource* resource,
+                 UINT descriptorIndex,
+                 Dx12CpuDescriptorAllocator& cpuAllocator,
+                 UINT cpuDescriptorIndex );
+    void RetireStaticDescriptor( UINT descriptorIndex );
 
   private:
     Dx12FrameOwner& m_owner;
@@ -283,7 +295,7 @@ class Dx12ResourceRelease
 class Dx12FrameOwner
 {
   public:
-    static constexpr int FRAME_COUNT = 2;
+    static constexpr int FRAME_COUNT = 3;
     static constexpr int PROFILER_STACK_CAPACITY = 64;
 
     Dx12FrameOwner( Dx12RenderDevice& device, Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures );
@@ -300,16 +312,16 @@ class Dx12FrameOwner
     {
         return m_resourceRelease;
     }
-    Basics::SbResult EnsureOpen();
-    Basics::SbResult SubmitClosed();
-    Basics::SbResult WaitForGpu();
-    Basics::SbResult FlushUploadBuffer();
-    Basics::SbResult CommitClose( HRESULT result, const char* operation );
-    Basics::SbResult CommitWait( const Basics::SbResult& result );
-    Basics::SbResult RetainFailure( const Basics::SbResult& result );
-    Basics::SbResult RetainDeviceLoss( const char* operation, HRESULT result );
-    Basics::SbResult SignalFrame( UINT64& outFenceValue );
-    Basics::SbResult WaitForFrameFence( UINT64 fenceValue );
+    SkullbonezCore::Core::SbResult EnsureOpen();
+    SkullbonezCore::Core::SbResult SubmitClosed();
+    SkullbonezCore::Core::SbResult WaitForGpu();
+    SkullbonezCore::Core::SbResult FlushUploadBuffer();
+    SkullbonezCore::Core::SbResult CommitClose( HRESULT result, const char* operation );
+    SkullbonezCore::Core::SbResult CommitWait( const SkullbonezCore::Core::SbResult& result );
+    SkullbonezCore::Core::SbResult RetainFailure( const SkullbonezCore::Core::SbResult& result );
+    SkullbonezCore::Core::SbResult RetainDeviceLoss( const char* operation, HRESULT result );
+    SkullbonezCore::Core::SbResult SignalFrame( UINT64& outFenceValue );
+    SkullbonezCore::Core::SbResult WaitForFrameFence( UINT64 fenceValue );
     // Capability targets: these methods implement the operation inside the
     // owner; capability subobjects only forward their restricted surface.
     bool PrepareDraw();
@@ -318,12 +330,22 @@ class Dx12FrameOwner
                               bool instanced,
                               const InstancedMeshDX12* instancedMesh,
                               const DynamicVBDX12* dynamicVertexBuffer );
-    D3D12_GPU_VIRTUAL_ADDRESS ReserveUpload( UINT64 size, UINT64 alignment );
-    D3D12_GPU_VIRTUAL_ADDRESS ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes );
+    D3D12_GPU_VIRTUAL_ADDRESS
+    ReserveUpload( UINT64 size, UINT64 alignment, RenderUploadCategory category = RenderUploadCategory::TextureRows );
+    D3D12_GPU_VIRTUAL_ADDRESS
+    ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes, RenderUploadCategory vertexCategory );
     D3D12_GPU_VIRTUAL_ADDRESS ReserveConstantUpload( UINT64 size );
     void CancelPendingConstantUpload();
     uint8_t* UploadPointer( D3D12_GPU_VIRTUAL_ADDRESS address ) const;
-    const Basics::SbResult& CurrentResult() const
+    uint64_t UploadFlushCount() const
+    {
+        return m_uploadFlushCount;
+    }
+    uint64_t UploadDropCount() const
+    {
+        return m_uploadDropCount;
+    }
+    const SkullbonezCore::Core::SbResult& CurrentResult() const
     {
         return m_recording.CurrentResult();
     }
@@ -420,6 +442,12 @@ class Dx12FrameOwner
         return m_uploads;
     }
     void RetireResource( ID3D12Resource* resource );
+    void RetireResource( ID3D12Resource* resource, UINT descriptorIndex );
+    void RetireResource( ID3D12Resource* resource,
+                         UINT descriptorIndex,
+                         Dx12CpuDescriptorAllocator& cpuAllocator,
+                         UINT cpuDescriptorIndex );
+    void RetireStaticDescriptor( UINT descriptorIndex );
     void AssignRetirementFence( UINT64 fenceValue )
     {
         m_retirement.AssignFence( fenceValue );
@@ -460,6 +488,7 @@ class Dx12FrameOwner
 
   private:
     void WriteFaultProbe() const;
+    bool PrepareUploadReservation( UINT64 size, UINT64 alignment, RenderUploadCategory category );
 
     Dx12RenderDevice& m_device;
     Dx12PipelineOwner& m_pipeline;
@@ -481,6 +510,9 @@ class Dx12FrameOwner
     RenderGraphResourceAccess m_backBufferAccess = RenderGraphResourceAccess::Present;
     D3D12_GPU_VIRTUAL_ADDRESS m_pendingConstantAddress = 0;
     UINT64 m_pendingConstantBytes = 0;
+    uint64_t m_uploadFlushCount = 0;
+    uint64_t m_uploadDropCount = 0;
+    uint64_t m_uploadCategoryDropCount[RENDER_UPLOAD_CATEGORY_COUNT] = {};
     Dx12DrawGate m_drawGate;
     Dx12UploadReservations m_uploadReservations;
     Dx12ResourceRelease m_resourceRelease;
@@ -504,13 +536,17 @@ class Dx12TextureCommands
     {
         return m_frame.CommandList();
     }
-    Basics::SbResult EnsureOpen()
+    SkullbonezCore::Core::SbResult EnsureOpen()
     {
         return m_frame.EnsureOpen();
     }
     UINT AllocateStaticSrv()
     {
         return m_frame.Descriptors().AllocateStatic();
+    }
+    UINT StaticDescriptorCapacity() const
+    {
+        return m_frame.Descriptors().GetStats().staticCapacity;
     }
     UINT AllocateTransientSrv()
     {
@@ -528,13 +564,17 @@ class Dx12TextureCommands
     {
         return m_frame.Descriptors().ShaderVisibleCpuHandle( index );
     }
+    void PublishStaticDescriptor( UINT index ) const
+    {
+        m_frame.Descriptors().PublishStaticDescriptor( m_device.Device(), index );
+    }
     D3D12_GPU_DESCRIPTOR_HANDLE ShaderVisibleGpuHandle( UINT index ) const
     {
         return m_frame.Descriptors().ShaderVisibleGpuHandle( index );
     }
     D3D12_GPU_VIRTUAL_ADDRESS ReserveUpload( UINT64 size, UINT64 alignment )
     {
-        return m_frame.UploadReservations().ReserveUpload( size, alignment );
+        return m_frame.UploadReservations().ReserveUpload( size, alignment, RenderUploadCategory::TextureRows );
     }
     uint8_t* UploadPointer( D3D12_GPU_VIRTUAL_ADDRESS address ) const
     {
@@ -551,6 +591,14 @@ class Dx12TextureCommands
     void Retire( ID3D12Resource* resource )
     {
         m_frame.ResourceRelease().Retire( resource );
+    }
+    void Retire( ID3D12Resource* resource, UINT descriptorIndex )
+    {
+        m_frame.ResourceRelease().Retire( resource, descriptorIndex );
+    }
+    void RetireStaticDescriptor( UINT descriptorIndex )
+    {
+        m_frame.ResourceRelease().RetireStaticDescriptor( descriptorIndex );
     }
     bool Transition( const char* passName,
                      const char* resourceName,
@@ -572,8 +620,9 @@ class Dx12TextureCommands
 class Dx12TextureOwner
 {
   public:
-    Basics::SbResult Initialize( Dx12TextureCommands& commands );
-    Basics::SbResult PrepareGenerateMipsShaderReload( Dx12TextureCommands& commands, ID3D12PipelineState*& candidate );
+    SkullbonezCore::Core::SbResult Initialize( Dx12TextureCommands& commands );
+    SkullbonezCore::Core::SbResult PrepareGenerateMipsShaderReload( Dx12TextureCommands& commands,
+                                                                    ID3D12PipelineState*& candidate );
     void AdoptGenerateMipsShaderReload( ID3D12PipelineState* candidate );
     void Shutdown();
     uint32_t CreateTexture2D( Dx12TextureCommands& commands,
@@ -587,7 +636,7 @@ class Dx12TextureOwner
     void BindTexture( uint32_t handle, int slot );
     void DeleteTexture( Dx12TextureCommands& commands, uint32_t handle );
     UINT RegisterSRV( UINT srvIndex );
-    void UnregisterSRV( uint32_t handle );
+    UINT UnregisterSRV( uint32_t handle );
     void ClearBoundSlotsForSrv( UINT srvIndex );
     UINT ResolveBoundSrv( int slot ) const;
     void SetNullSrvIndex( UINT index );
@@ -600,6 +649,10 @@ class Dx12TextureOwner
     uint32_t FindHandleForSrv( UINT srvIndex ) const;
 
   private:
+    TextureEntryDX12* ResolveEntry( uint32_t handle );
+    const TextureEntryDX12* ResolveEntry( uint32_t handle ) const;
+    uint32_t ReuseOrAppend( const TextureEntryDX12& entry );
+    void ReportStaleHandle( uint32_t handle ) const;
     bool GenerateMips( Dx12TextureCommands& commands,
                        ID3D12Resource* texture,
                        DXGI_FORMAT format,
@@ -608,13 +661,14 @@ class Dx12TextureOwner
                        UINT mipCount,
                        bool& graphicsStateInvalidated );
 
-    std::vector<TextureEntryDX12> m_textures;
+    Dx12TextureRegistry m_registry;
     UINT m_boundTexSlot[TEXTURE_SLOT_COUNT] = { UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX };
     UINT m_nullTextureSRVIndex = UINT_MAX;
     ID3D12PipelineState* m_genMipsPSO = nullptr;
     ID3D12RootSignature* m_genMipsRS = nullptr;
     UINT m_genMipsNullUAV = UINT_MAX;
     bool m_texBindingsDirty = true;
+    mutable bool m_staleHandleReported = false;
 };
 
 // Concept: a pipeline is the complete draw recipe, not a collection of backend
@@ -623,13 +677,12 @@ class Dx12TextureOwner
 class Dx12PipelineOwner
 {
   public:
-    Basics::SbResult Initialize( ID3D12Device* device );
+    SkullbonezCore::Core::SbResult Initialize( ID3D12Device* device );
     void Shutdown();
     bool PrepareDraw( ID3D12Device* device,
                       ID3D12GraphicsCommandList* commandList,
                       Dx12CommandRecordingState& recording,
                       Dx12TextureOwner& textures,
-                      Dx12DescriptorAllocator& descriptors,
                       VertexFormat12 format,
                       bool instanced,
                       const InstancedMeshDX12* instancedMesh,
@@ -637,7 +690,7 @@ class Dx12PipelineOwner
     void SetActiveShader( ShaderDX12* shader );
     void RegisterShader( ShaderDX12* shader );
     void UnregisterShader( ShaderDX12* shader );
-    Basics::SbResult ReloadShadersFromBakedAssets();
+    SkullbonezCore::Core::SbResult ReloadShadersFromBakedAssets();
     ShaderDX12* ActiveShader() const;
     void SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv );
     void SetRenderingToFBO( bool rendering, DXGI_FORMAT rtvFormat );
@@ -814,13 +867,13 @@ class Dx12GeometryOwner
 
 struct Dx12RaytracingSetupOutcome
 {
-    Basics::SbResult result = Basics::SbResult::Success();
+    SkullbonezCore::Core::SbResult result = SkullbonezCore::Core::SbResult::Success();
     bool recordedBuildWork = false;
 };
 
 struct Dx12RaytracingDispatchOutcome
 {
-    Basics::SbResult result = Basics::SbResult::Success();
+    SkullbonezCore::Core::SbResult result = SkullbonezCore::Core::SbResult::Success();
     bool rasterStateInvalidated = false;
 };
 
@@ -837,7 +890,7 @@ class Dx12RaytracingOwner
     void ProbeCapability( ID3D12Device* device );
     bool Supported() const;
     bool Initialized() const;
-    const Basics::SbResult& FeatureResult() const;
+    const SkullbonezCore::Core::SbResult& FeatureResult() const;
 
     Dx12RaytracingSetupOutcome BeginSetup( ID3D12Device* device,
                                            ID3D12GraphicsCommandList* commandList,
@@ -850,9 +903,9 @@ class Dx12RaytracingOwner
                                            uint64_t sphereVBVA,
                                            int sphereVertCount,
                                            int sphereStride );
-    Basics::SbResult CompleteSetup( ID3D12Device* device, int maxInstances );
-    void AbortSetup( const Basics::SbResult& failure );
-    Basics::SbResult BuildScene( const float* instanceTransforms, int instanceCount );
+    SkullbonezCore::Core::SbResult CompleteSetup( ID3D12Device* device, int maxInstances );
+    void AbortSetup( const SkullbonezCore::Core::SbResult& failure );
+    SkullbonezCore::Core::SbResult BuildScene( const float* instanceTransforms, int instanceCount );
     Dx12RaytracingDispatchOutcome DispatchReflections( ID3D12Device* device,
                                                        ID3D12DescriptorHeap* shaderVisibleHeap,
                                                        Dx12DescriptorAllocator& descriptors,
@@ -869,12 +922,12 @@ class Dx12RaytracingOwner
     void Shutdown();
 
   private:
-    Basics::SbResult CreateRootSignature( ID3D12Device* device );
-    Basics::SbResult CreatePipeline();
-    Basics::SbResult
+    SkullbonezCore::Core::SbResult CreateRootSignature( ID3D12Device* device );
+    SkullbonezCore::Core::SbResult CreatePipeline();
+    SkullbonezCore::Core::SbResult
     CreateReflectionTexture( ID3D12Device* device, Dx12DescriptorAllocator& descriptors, int width, int height );
     bool m_supported = false;
-    Basics::SbResult m_featureResult = Basics::SbResult::Success();
+    SkullbonezCore::Core::SbResult m_featureResult = SkullbonezCore::Core::SbResult::Success();
     ID3D12Device5* m_device5 = nullptr;
     ID3D12GraphicsCommandList4* m_commandList4 = nullptr;
     ID3D12StateObject* m_pipeline = nullptr;
@@ -889,7 +942,7 @@ class Dx12RaytracingOwner
     ID3D12Resource* m_constantBuffer = nullptr;
     uint8_t* m_constantBufferMapped = nullptr;
     int m_maxInstances = 0;
-    std::array<D3D12_RAYTRACING_INSTANCE_DESC, MAX_GAME_MODELS + 1> m_instances = {};
+    std::array<D3D12_RAYTRACING_INSTANCE_DESC, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS + 1> m_instances = {};
     BLAS m_terrainBlas;
     BLAS m_sphereBlas;
     TLAS m_tlas;
@@ -909,6 +962,12 @@ class Dx12RaytracingOwner
 // resource states, fences, upload memory, and compiled pipeline state. Texture
 // and pipeline lifetime belong to the named owners above; this class sequences
 // their work with the device/frame command stream.
+// Inheritance retention: rendering owns seven role facets so runtime callers
+// receive only lifecycle, resource, command, diagnostics, capture, raytracing,
+// or shader-development authority. Command calls are per-frame/per-draw; other
+// facets are cold or diagnostic. Flattening them would republish the complete
+// backend and violate capability narrowing. Retention is covered by the dated
+// interface measurement plus DX12/perf gates.
 class RenderBackendDX12 : public IRenderDeviceLifecycle,
                           public IRenderResourceFactory,
                           public IRenderCommandContext,
@@ -921,19 +980,21 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
   private:
     // Frame management:
     //
-    // Two frames can be in flight. Each frame owns its own command allocator,
+    // Three frames can be in flight. Each frame owns its own command allocator,
     // upload arena, transient descriptors, and fence value so the CPU never
     // overwrites memory or descriptor rows still being read by the GPU.
-    static const int FRAME_COUNT = 2;
+    static constexpr int FRAME_COUNT = Dx12FrameOwner::FRAME_COUNT;
     static const UINT MAX_RTV_DESCRIPTORS = 32;
     static const UINT MAX_DSV_DESCRIPTORS = 16;
     static const UINT MAX_STATIC_SRVS = 128;
     static const UINT MAX_TRANSIENT_SRVS = 2048;                   // per frame allocator
-    // Hazard: replay prediction ribbons upload transient line geometry through
-    // this frame arena. Exhaustion is fatal, so keep this cap aligned with the
-    // largest expected debug/prediction overlay until the overlay is bounded.
+    // Replay/debug geometry is owner-bounded before it reaches this arena. A
+    // steady-phase overflow drops that draw; cold lifecycle/capture work may drain.
+    // Capacity: 32 MiB per frame means three arenas reserve 96 MiB total. The
+    // third arena buys CPU/GPU overlap without changing the no-growth overflow
+    // policy: steady runtime still drops the bounded draw instead of growing.
     static const UINT64 UPLOAD_BUFFER_SIZE = 32 * 1024 * 1024;
-    static const int TIMER_HEAP_MARKERS = DX12_TIMER_HEAP_MARKERS; // must be >= Profiler::MAX_MARKERS
+    static const int TIMER_HEAP_MARKERS = DX12_TIMER_HEAP_MARKERS; // must be >= SkullbonezCore::Core::Profiler::MAX_MARKERS
     static const int TIMER_HEAP_SIZE = DX12_TIMER_HEAP_SIZE;       // begin + end per marker
 
     // Ordinary raster binding ABI lives in RenderRasterBindingContract.h so
@@ -986,8 +1047,10 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // - SRV: Shader Resource View. Shaders can read textures/buffers through it.
     // - UAV: Unordered Access View. Compute/raytracing shaders can write through it.
     //
-    // RTV and DSV heaps are CPU-only descriptor tables. They do not need the
-    // per-frame shader-visible lifetime rules that SRVs need, but they still
+    // RTV and DSV heaps are CPU-only descriptor tables. Static SRV/UAV rows are
+    // mirrored at identical shader-visible indices for bindless raster access;
+    // the separate transient range still obeys per-frame fence lifetime for
+    // compute and raytracing descriptor tables. Output rows still
     // need named row allocation so the renderer can report usage and fail with
     // useful heap/capacity diagnostics instead of silently walking past the end
     // of a descriptor table.
@@ -1044,6 +1107,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     bool m_isVsyncEnabled = true;
     bool m_allowTearing = false;
     int m_frameDrawCallCount = 0;
+    int m_frameDrawCallHighWater = 0;
     RenderVisibilityStats m_frameVisibilityStats;                  // Reset with draw diagnostics; copied read-only into UI frame data.
     DrawCallTrace m_drawCallTrace;
 
@@ -1070,16 +1134,16 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
 
 
     // --- Internal helpers ---
-    Basics::SbResult WaitForGpu();
-    Basics::SbResult EnsureCommandListOpen();
-    Basics::SbResult SubmitClosedCommandList();
+    SkullbonezCore::Core::SbResult WaitForGpu();
+    SkullbonezCore::Core::SbResult EnsureCommandListOpen();
+    SkullbonezCore::Core::SbResult SubmitClosedCommandList();
     void ConfigureFaultInjection();
     void WriteFaultInjectionProbeReport() const;
     void AssignDeferredResourceReleaseFence( UINT64 fenceValue );
     void ReleaseCompletedDeferredResources( bool releaseUnfenced );
     void TryConsumeGpuTimerReadback( bool waitForFence );
-    Basics::SbResult CreateDepthStencil( int w, int h );
-    Basics::SbResult CreateDepthStencilResource( int w, int h, ID3D12Resource*& outResource );
+    SkullbonezCore::Core::SbResult CreateDepthStencil( int w, int h );
+    SkullbonezCore::Core::SbResult CreateDepthStencilResource( int w, int h, ID3D12Resource*& outResource );
     void PublishDepthStencilView( ID3D12Resource* resource );
     UINT AllocateTransientSRV();
     UINT AllocateTransientSRVRange( UINT count );
@@ -1090,8 +1154,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // Keeps cached texture-slot state from pointing at an SRV descriptor row
     // whose owning resource is being deleted or unregistered.
     void ClearBoundTextureSlotsForSrv( UINT srvIndex );
-    Basics::SbResult FlushUploadBuffer();
-    Basics::SbResult FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment );
     void ReportArchitectureStats( const char* reason ) const;
     GraphTransientResourceDX12* FindGraphTransientSlot( RenderGraphResourceHandle resource );
     const GraphTransientResourceDX12* FindGraphTransientSlot( RenderGraphResourceHandle resource ) const;
@@ -1110,17 +1172,17 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
         Shutdown();
     }
 
-    Basics::SbResult Init( HWND hwnd, HDC hdc, int width, int height ) override;
+    SkullbonezCore::Core::SbResult Init( HWND hwnd, HDC hdc, int width, int height ) override;
     void Shutdown() override;
-    Basics::SbResult Present() override;
+    SkullbonezCore::Core::SbResult Present() override;
     void SetVsyncEnabled( bool enabled ) override;
     bool IsVsyncEnabled() const override;
-    Basics::SbResult Finish() override;
-    Basics::SbResult FlushGPU() override;
-    Basics::SbResult DrainForResourceRelease() override;
-    Basics::SbResult Resize( int width, int height ) override;
+    SkullbonezCore::Core::SbResult Finish() override;
+    SkullbonezCore::Core::SbResult FlushGPU() override;
+    SkullbonezCore::Core::SbResult DrainForResourceRelease() override;
+    SkullbonezCore::Core::SbResult Resize( int width, int height ) override;
     bool ShaderHotReloadEnabled() const override;
-    Basics::SbResult ReloadShadersFromSource() override;
+    SkullbonezCore::Core::SbResult ReloadShadersFromSource() override;
 
     void SetViewport( int x, int y, int w, int h ) override;
     void Clear( bool color, bool depth ) override;
@@ -1153,7 +1215,8 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void BeginGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName ) override;
     void EndGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName ) override;
 
-    Basics::SbResult CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight ) override;
+    SkullbonezCore::Core::SbResult
+    CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight ) override;
     bool SupportsBackbufferCapture() const override
     {
         return true;
@@ -1184,6 +1247,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
 
     void ResetFrameDrawCalls() override
     {
+        m_frameDrawCallHighWater = (std::max)( m_frameDrawCallHighWater, m_frameDrawCallCount );
         m_frameDrawCallCount = 0;
         m_frameVisibilityStats = RenderVisibilityStats();
         m_drawCallTrace.BeginFrame();
@@ -1231,13 +1295,13 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
         m_drawCallTrace.PopScope( hash );
     }
 
-    Basics::SbResult InitDXR( uint64_t terrainVBVA,
-                              int terrainVertCount,
-                              int terrainStride,
-                              uint64_t sphereVBVA,
-                              int sphereVertCount,
-                              int sphereStride,
-                              int maxInstances ) override;
+    SkullbonezCore::Core::SbResult InitDXR( uint64_t terrainVBVA,
+                                            int terrainVertCount,
+                                            int terrainStride,
+                                            uint64_t sphereVBVA,
+                                            int sphereVertCount,
+                                            int sphereStride,
+                                            int maxInstances ) override;
     void DispatchReflectionRays( const float* invViewProj,
                                  const float* cameraPos,
                                  float waterY,
@@ -1344,10 +1408,10 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     //
     // This is the safe public upload path. It probes the current frame upload
     // arena with the exact same size/alignment used for the final allocation.
-    // If the arena is full, it submits the current command list, waits for the
-    // GPU, resets the frame upload arena, and then allocates. Callers should not
-    // bypass the frame owner's reservation capability.
-    D3D12_GPU_VIRTUAL_ADDRESS ReserveUpload( UINT64 size, UINT64 alignment );
+    // Steady phases drop the requesting caller when the arena is full. Cold
+    // phases may submit/wait/reset and retry. Callers should not bypass the
+    // frame owner's reservation capability.
+    D3D12_GPU_VIRTUAL_ADDRESS ReserveUpload( UINT64 size, UINT64 alignment, RenderUploadCategory category );
     uint8_t* GetUploadPtr( D3D12_GPU_VIRTUAL_ADDRESS addr );
     ID3D12Resource* GetUploadBuffer() const
     {

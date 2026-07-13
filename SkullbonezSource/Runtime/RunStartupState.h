@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RunStartupState.h
 Purpose:
   Defines startup-only runtime capacity and thread defaults.
 
-Mental model:
+Summary:
   Startup state is a cold snapshot of engine.cfg values that must survive later
   scene reloads. Generated demo rebuilds use it to restore model capacity and
   worker-thread policy after scene files or UI controls temporarily override
@@ -33,14 +33,15 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct RunStartupState
 {
-    int gameModelCapacity = DEFAULT_GAME_MODEL_CAPACITY;
+    int gameModelCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_GAME_MODEL_CAPACITY;
     int workerThreads = -1;
 
-    void ApplyStartupConfig( const EngineConfig& config ); // Captures startup-only capacity/thread policy from config.
+    void ApplyStartupConfig(
+        const SkullbonezCore::Core::EngineConfig& config ); // Captures startup-only capacity/thread policy from config.
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

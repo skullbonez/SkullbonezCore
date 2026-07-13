@@ -4,7 +4,7 @@ Purpose:
   Declares the runtime renderer option table consumed by command-line parsing
   and unit tests.
 
-Mental model:
+Summary:
   Runtime startup accepts renderer names before any window or backend exists.
   Keeping the accepted options in one tiny data table lets tests prove the
   DX12-only launch contract without booting the renderer.

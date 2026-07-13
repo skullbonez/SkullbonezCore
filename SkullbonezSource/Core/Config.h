@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/Config.h
 Purpose:
   Loads, stores, and exposes engine configuration values from files and command-line overrides.
 
-Mental model:
+Summary:
   Config.h loads, stores, and exposes engine configuration values from files
   and command-line overrides. As a public header, keep edits anchored on
   process-wide contracts, diagnostics, and validation-sensitive state and on
@@ -32,7 +32,7 @@ Related:
 */
 #pragma once
 
-#include "../GameObjects/SceneCapacity.h"
+#include "../Runtime/Scene/SceneCapacity.h"
 #include "SbResult.h"
 
 #include <algorithm>
@@ -41,7 +41,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
 {
 
 inline constexpr unsigned int ENGINE_CONFIG_FORMAT_VERSION = 1;
@@ -581,8 +581,8 @@ class EngineConfig
 
 inline int ActiveGameModelCapacity( const EngineConfig& config )
 {
-    return std::clamp( config.runtimeCapacity.gameModelCapacity, 1, MAX_GAME_MODELS );
+    return std::clamp( config.runtimeCapacity.gameModelCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
 }
 
-} // namespace Basics
+} // namespace Core
 } // namespace SkullbonezCore

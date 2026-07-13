@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/RunEditorHistory.cpp
 Purpose:
   Captures and applies editor transform, primitive placement, and deletion history.
 
-Mental model:
+Summary:
   Gesture and placement code publishes fixed command facts here. This owner
   resolves stable scene ids at apply time, calls scene/physics command APIs, and
   advances history only after the complete inverse or forward command succeeds.
@@ -41,7 +41,7 @@ using namespace SkullbonezCore::Physics;
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -490,5 +490,5 @@ void RuntimeTools::ClearEditorHistory()
 {
     m_editor.history.Clear();
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

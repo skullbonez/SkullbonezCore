@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/RenderInstanceStore.h
 Purpose:
   Owns a render-facing snapshot of physics transforms and material intent.
 
-Mental model:
+Summary:
   Rendering still consumes model-order draw records through the existing
   renderer, but transform authority is physics-owned. The snapshot keeps model
   index order so future RenderSceneSnapshot work can compare output without
@@ -43,6 +43,7 @@ Related:
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 #include "../Maths/Matrix4.h"
@@ -155,7 +156,7 @@ class RenderInstanceStore
     bool DestroyCreationRowAtSwapLast( int modelIndex );
     bool ResizePresentationRecords( int presentationCount );
     RenderInstancePresentationRecord* MutablePresentationRecordForModelIndex( int modelIndex );
-    const std::vector<RenderInstancePresentationRecord>& PresentationRecords() const;
+    std::span<const RenderInstancePresentationRecord> PresentationRecords() const;
     int PresentationCount() const;
     std::size_t PresentationCapacity() const;
     uint64_t PresentationCapacityBytes() const;
@@ -195,7 +196,10 @@ class RenderInstanceStore
     RenderInstanceHandle HandleForModelIndex( int modelIndex ) const;
     int ModelIndexForHandle( RenderInstanceHandle handle ) const;
     bool Contains( RenderInstanceHandle handle ) const;
-    const std::vector<RenderInstanceRecord>& Records() const;
+    // Lifetime: read spans borrow scene-order rows and expire on scene mutation
+    // or store destruction; callers must not retain them across frames.
+    std::span<const RenderInstanceRecord> Records() const;
+    std::size_t RecordCapacity() const;
 
   private:
     std::vector<RenderInstancePresentationRecord>

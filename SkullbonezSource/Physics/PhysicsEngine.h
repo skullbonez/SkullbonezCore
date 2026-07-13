@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PhysicsEngine.h
 Purpose:
   Exposes the public physics facade while preserving the existing PhysicsScene implementation.
 
-Mental model:
+Summary:
   PhysicsEngine is the runtime-facing physics boundary. It owns PhysicsScene and
   forwards store/descriptor operations in a fixed order so scene, tool, and
   replay callers use named physics commands without touching solver internals.
@@ -31,14 +31,18 @@ Related:
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include "PhysicsScene.h"
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
 {
 class EngineConfig;
-} // namespace Basics
+} // namespace Core
+namespace Runtime
+{
+} // namespace Runtime
 
 namespace Threading
 {
@@ -58,7 +62,7 @@ class PhysicsEngine
   public:
     PhysicsEngine() = default;
 
-    void ApplyRuntimeConfig( const Basics::EngineConfig& config );
+    void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
     // Stamps the PhysicsScene-owned runtime policy onto cold authoring
     // descriptors before they become store rows.
     void ApplyAuthoredBodyPolicy( PhysicsBodyCreateDesc& desc ) const;
@@ -108,7 +112,7 @@ class PhysicsEngine
     // collection owner, and diagnosticsCsvWriter carries cold Debug CSV output
     // authority instead of letting physics reach through global logging.
     void Step( float deltaSeconds,
-               const Basics::EngineConfig& config,
+               const SkullbonezCore::Core::EngineConfig& config,
                const PhysicsWorldForces& worldForces,
                Threading::WorkerPool& workerPool,
                const char* const* diagnosticNames,
@@ -155,9 +159,9 @@ class PhysicsEngine
     void SetTornadoSystemConfig( const TornadoSystemConfig& config );
     const TornadoSystemConfig& GetTornadoSystemConfig() const;
     float GetTornadoSystemElapsedSeconds() const;
-    void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot,
+    void CaptureReplaySolverSnapshot( Runtime::ReplaySolverWorldSnapshot& outSnapshot,
                                       PhysicsBodyCount bodyCount ) const;
-    bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, PhysicsBodyCount bodyCount );
+    bool RestoreReplaySolverSnapshot( const Runtime::ReplaySolverWorldSnapshot& snapshot, PhysicsBodyCount bodyCount );
     PhysicsDiagnosticsView GetDiagnosticsView() const;
     uint64_t CollectPhysicsWorldMemoryBytes() const;
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;
@@ -170,13 +174,13 @@ class PhysicsEngine
     static const PhysicsBodyStore& ReadBodies( const PhysicsEngine& engine );
     static const ColliderStore& ReadColliders( const PhysicsEngine& engine );
     static const Math::CollisionDetection::SpatialGrid& ReadSpatialGrid( const PhysicsEngine& engine );
-    static const std::vector<int>& ReadFixedContactHighlightBodies( const PhysicsEngine& engine );
+    static std::span<const int> ReadFixedContactHighlightBodies( const PhysicsEngine& engine );
     static const std::vector<int64_t>& ReadCollisionCellKeys( const PhysicsEngine& engine );
     static const std::vector<uint8_t>& ReadCollisionVisualContacts( const PhysicsEngine& engine );
-    static const std::vector<uint8_t>& ReadSleepStates( const PhysicsEngine& engine );
-    static const std::vector<int>& ReadSleepIslandVisualIds( const PhysicsEngine& engine );
-    static const std::vector<uint8_t>& ReadSleepSupportedStates( const PhysicsEngine& engine );
-    static const std::vector<uint8_t>& ReadSleepInhibitedStates( const PhysicsEngine& engine );
+    static std::span<const uint8_t> ReadSleepStates( const PhysicsEngine& engine );
+    static std::span<const int> ReadSleepIslandVisualIds( const PhysicsEngine& engine );
+    static std::span<const uint8_t> ReadSleepSupportedStates( const PhysicsEngine& engine );
+    static std::span<const uint8_t> ReadSleepInhibitedStates( const PhysicsEngine& engine );
     static const std::vector<PhysicsDebugContact>& ReadDebugContacts( const PhysicsEngine& engine );
     static const std::vector<PhysicsPipelineRecord>& ReadPipelineTrace( const PhysicsEngine& engine );
     static const std::vector<PointJointConstraint>& ReadPointJointConstraints( const PhysicsEngine& engine );

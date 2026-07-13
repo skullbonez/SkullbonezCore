@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/CaptureController.cpp
 Purpose:
   Implements screenshot request ownership, capture execution, and automation pass-throughs.
 
-Mental model:
+Summary:
   Run supplies frame context and narrow render capabilities. CaptureController
   owns mutable screenshot automation plus the fixed input-triggered request ring,
   then delegates pixel writing to CaptureSystem.
@@ -34,7 +34,7 @@ namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 RunScreenshotState& CaptureController::Screenshot()
 {
@@ -100,7 +100,7 @@ RuntimeCaptureResult CaptureController::TickAutoCycle( bool isSceneMode,
 }
 
 
-SbResult CaptureController::QueueScreenshot( const char* path )
+SkullbonezCore::Core::SbResult CaptureController::QueueScreenshot( const char* path )
 {
     const std::size_t pathLength = path ? strnlen_s( path, CAPTURE_REQUEST_PATH_CAPACITY ) : 0;
     if ( pathLength == 0 || pathLength >= CAPTURE_REQUEST_PATH_CAPACITY )
@@ -108,15 +108,17 @@ SbResult CaptureController::QueueScreenshot( const char* path )
         // Lane R: file paths originate at tool/input boundaries. Rejecting the
         // request before enqueue prevents the fixed record from truncating to a
         // different destination than the operator selected.
-        return SbResult::Failure( "Runtime/CaptureController",
-                                  "Screenshot path must contain 1-%d bytes without truncation",
-                                  CAPTURE_REQUEST_PATH_CAPACITY - 1 );
+        return SkullbonezCore::Core::SbResult::Failure( "Runtime/CaptureController",
+                                                        "Screenshot path must contain 1-%d bytes without truncation",
+                                                        CAPTURE_REQUEST_PATH_CAPACITY - 1 );
     }
 
     const char* extension = strrchr( path, '.' );
     if ( !extension || _stricmp( extension, ".bmp" ) != 0 )
     {
-        return SbResult::Failure( "Runtime/CaptureController", "Screenshot path must end in .bmp: %s", path );
+        return SkullbonezCore::Core::SbResult::Failure( "Runtime/CaptureController",
+                                                        "Screenshot path must end in .bmp: %s",
+                                                        path );
     }
 
     if ( m_requestCount >= CAPTURE_REQUEST_QUEUE_CAPACITY )
@@ -132,7 +134,7 @@ SbResult CaptureController::QueueScreenshot( const char* path )
     const int tail = ( m_requestHead + m_requestCount ) % CAPTURE_REQUEST_QUEUE_CAPACITY;
     strcpy_s( m_requests[tail].path, path );
     ++m_requestCount;
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
@@ -146,7 +148,7 @@ CaptureRequestBatchResult CaptureController::DrainScreenshotRequests( Rendering:
         m_requestHead = ( m_requestHead + 1 ) % CAPTURE_REQUEST_QUEUE_CAPACITY;
         --m_requestCount;
 
-        const SbResult saveResult = SaveScreenshot( backend, request.path );
+        const SkullbonezCore::Core::SbResult saveResult = SaveScreenshot( backend, request.path );
         if ( saveResult.ok )
         {
             result.saved[result.savedCount++] = request;
@@ -171,23 +173,25 @@ std::size_t CaptureController::PendingScreenshotCount() const
 }
 
 
-SbResult CaptureController::SaveScreenshot( Rendering::IRenderCaptureBackend& backend, const char* path )
+SkullbonezCore::Core::SbResult CaptureController::SaveScreenshot( Rendering::IRenderCaptureBackend& backend,
+                                                                  const char* path )
 {
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Capture );
-    const SbResult captureResult = CaptureSystem::SaveBackbufferBmp( backend, path );
+    const SkullbonezCore::Core::SbResult captureResult = CaptureSystem::SaveBackbufferBmp( backend, path );
     if ( !captureResult.ok )
     {
         return captureResult;
     }
     printf( "[capture] Screenshot taken: %s\n", path );
     fflush( stdout );
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
-SbResult CaptureController::SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend, const char* path )
+SkullbonezCore::Core::SbResult CaptureController::SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend,
+                                                                     const char* path )
 {
     return CaptureSystem::SaveBackbufferBmp( backend, path );
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

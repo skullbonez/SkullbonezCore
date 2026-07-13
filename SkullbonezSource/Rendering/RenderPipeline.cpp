@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/RenderPipeline.cpp
 Purpose:
   Builds and writes render pipeline diagnostics from scene snapshots.
 
-Mental model:
+Summary:
   Runtime reports what actually executed. This file turns those frame facts into
   a renderer-owned graph declaration without depending on Run internals.
 

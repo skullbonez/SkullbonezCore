@@ -3,7 +3,7 @@ File: SkullbonezSource/Maths/RotationMatrix.h
 Purpose:
   Declares rotation matrix helpers used by transforms and collision code.
 
-Mental model:
+Summary:
   RotationMatrix.h declares rotation matrix helpers used by transforms and
   collision code. As a public header, keep edits anchored on units, basis
   conventions, and numerical assumptions and on the glossary/invariants below.

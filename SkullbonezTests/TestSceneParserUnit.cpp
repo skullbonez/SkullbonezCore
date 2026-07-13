@@ -3,7 +3,7 @@
 // Purpose:
 //   Lock the smallest authored-scene parse path and recoverable load-error contract.
 //
-// Mental model:
+// Summary:
 //   TestScene::LoadFromFile is a data-boundary parser. It turns committed scene
 //   JSON into immutable setup records. Runtime callers use the Lane R TryLoad
 //   path so malformed files return owner/message diagnostics without escaping.
@@ -33,10 +33,10 @@
 #include <stdexcept>
 #include <string>
 
-using SkullbonezCore::Basics::SbResult;
-using SkullbonezCore::Basics::SceneCamera;
-using SkullbonezCore::Basics::SceneObjectGroupKind;
-using SkullbonezCore::Basics::TestScene;
+using SkullbonezCore::Core::SbResult;
+using SkullbonezCore::Runtime::SceneCamera;
+using SkullbonezCore::Runtime::SceneObjectGroupKind;
+using SkullbonezCore::Runtime::TestScene;
 
 namespace
 {
@@ -64,7 +64,7 @@ struct TemporaryMalformedSceneFile
     }
 };
 
-void CheckLoadFailure( const SbResult& result, const char* path, const char* expectedMessage )
+void CheckLoadFailure( const SkullbonezCore::Core::SbResult& result, const char* path, const char* expectedMessage )
 {
     CHECK_FALSE( result.ok );
     CHECK( std::string( result.error.owner ) == "Scene/TestSceneParser" );
@@ -80,7 +80,7 @@ TEST_CASE( "TestSceneParser: smallest committed scene parses expected records" )
 {
     const TestScene scene = TestScene::LoadFromFile( kSmallestCommittedScenePath );
     TestScene tryScene;
-    const SbResult tryLoad = TestScene::TryLoadFromFile( kSmallestCommittedScenePath, tryScene );
+    const SkullbonezCore::Core::SbResult tryLoad = TestScene::TryLoadFromFile( kSmallestCommittedScenePath, tryScene );
     CHECK( tryLoad.ok );
     CHECK( tryScene.GetCameraCount() == 1 );
 

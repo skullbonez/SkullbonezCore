@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Render/RuntimeRenderResources.h
 Purpose:
   Names backend resources owned by RuntimeRenderer's ordered render passes.
 
-Mental model:
+Summary:
   These structs are ownership records, not rendering behavior. RuntimeRenderer
   and the individual pass classes create, reset, and consume these resources
   while Run still owns the broader backend teardown order.
@@ -30,7 +30,7 @@ Related:
 #pragma once
 
 #include "../../Core/Common.h"
-#include "../../GameObjects/SceneCapacity.h"
+#include "../Scene/SceneCapacity.h"
 #include "../../Rendering/IFramebuffer.h"
 #include "../../Rendering/IShader.h"
 #include "../../Rendering/Shadow.h"
@@ -40,7 +40,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 // Concept: pass resource structs name ownership before the frame graph exists.
 //
@@ -102,7 +102,7 @@ struct ShadowPassResources
         // capacity is a startup/runtime-resource contract sized to the maximum
         // scene model pool. Exhaustion means the scene capacity budget changed,
         // not that render should grow during the shadow pass.
-        objectCasterBatches.ReserveForModelCapacity( MAX_GAME_MODELS );
+        objectCasterBatches.ReserveForModelCapacity( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     }
 
     // Terrain target: broad map centered on terrain bounds. Object target:
@@ -131,5 +131,5 @@ struct RuntimeRenderPassResources
     FullscreenPassResources fullscreen;
     ShadowPassResources shadows;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

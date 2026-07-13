@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Input.h
 Purpose:
   Collects keyboard and mouse state for the run loop and UI.
 
-Mental model:
+Summary:
   Input.h collects keyboard and mouse state for the run loop and UI. As a
   public header, keep edits anchored on local owner boundaries and call
   direction and on the glossary/invariants below.
@@ -38,17 +38,19 @@ Related:
 */
 #pragma once
 
+#include "../Core/PlatformWin32.h"
+
 
 #include "../Core/Common.h"
 #include "../Core/SbResult.h"
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct DeviceInputFrame;
 class Window;
-} // namespace Basics
+} // namespace Runtime
 
 namespace Hardware
 {
@@ -94,7 +96,7 @@ struct InputState
         KEY_COUNT
     };
 
-    uint32_t keys = 0;                                              // One bit per Key enum entry; copied into frame-local camera/UI state.
+    uint32_t keys = 0;                                   // One bit per Key enum entry; copied into frame-local camera/UI state.
     long xMove = 0, yMove = 0;
 
     bool Get( Key k ) const
@@ -125,49 +127,50 @@ class Input
     struct AutomationState
     {
         bool enabled = false;
-        bool overrideAppFocused = false;                            // Automation-only focus-loss probe for one captured frame.
+        bool overrideAppFocused = false;                 // Automation-only focus-loss probe for one captured frame.
         bool appFocused = true;
         bool hasMouseClientPosition = false;
         POINT mouseClientPosition = {};
         bool leftMouseDown = false;
         bool rightMouseDown = false;
-        int keyVirtualKey = 0;                                      // Optional one-key automation override.
+        int keyVirtualKey = 0;                           // Optional one-key automation override.
         bool keyDown = false;
-        bool controlDown = false;                                   // Optional modifier paired with the injected key.
+        bool controlDown = false;                        // Optional modifier paired with the injected key.
     };
 
     struct InputEventBuffer
     {
-        HWND window = nullptr;                                      // Bound HWND that may write callback-fed accumulators.
-        int mouseWheelDelta = 0;                                    // Queued WM_MOUSEWHEEL clicks waiting for UI/frame consumption.
-        long rawMouseDeltaX = 0, rawMouseDeltaY = 0;                // Queued WM_INPUT movement waiting for mouse-look consumption.
-        bool rawMouseHasAbsolutePosition = false;                   // True after the first absolute raw-input packet seeds tracking.
+        HWND window = nullptr;                           // Bound HWND that may write callback-fed accumulators.
+        int mouseWheelDelta = 0;                         // Queued WM_MOUSEWHEEL clicks waiting for UI/frame consumption.
+        long rawMouseDeltaX = 0, rawMouseDeltaY = 0;     // Queued WM_INPUT movement waiting for mouse-look consumption.
+        bool rawMouseHasAbsolutePosition = false;        // True after the first absolute raw-input packet seeds tracking.
         long rawMouseLastAbsoluteX = 0, rawMouseLastAbsoluteY = 0;
     };
 
     struct MouseCoordinatesResult
     {
-        Basics::SbResult result;                                    // Lane R result for Win32 cursor/client-coordinate failures.
+        SkullbonezCore::Core::SbResult result;           // Lane R result for Win32 cursor/client-coordinate failures.
         POINT coordinates = {};
     };
 
-    static void BindWindow( Basics::Window& window );               // Binds the runtime-owned window used by frame capture.
-    static void UnbindWindow( Basics::Window& window );             // Clears the polling window before HWND teardown.
-    static void SetSystemCursorVisible( bool visible );             // Shows or hides the Win32 cursor display counter
-    static bool IsSystemCursorVisibleRequested();                   // Last requested native cursor ownership state
-    static Basics::SbResult CaptureDeviceInputFrame(
-        Basics::DeviceInputFrame& frame );                          // Captures the complete immutable keyboard/pointer frame once.
-    static Basics::SbResult SetNativeMouseCapture( bool captured ); // Applies InputRouter's single native-capture decision.
-    static void BindCallbackBridge( HWND window );                  // Arms callback-fed input queues for the active HWND.
-    static void UnbindCallbackBridge( HWND window );                // Disarms callback-fed queues and clears stale queued input.
-    static void ClearCallbackEventBuffer( HWND window );            // Clears queued callback data for the bound HWND.
-    static bool RegisterRawMouseInput( HWND window );               // Registers the window for relative mouse movement messages
+    static void BindWindow( Runtime::Window& window );   // Binds the runtime-owned window used by frame capture.
+    static void UnbindWindow( Runtime::Window& window ); // Clears the polling window before HWND teardown.
+    static void SetSystemCursorVisible( bool visible );  // Shows or hides the Win32 cursor display counter
+    static bool IsSystemCursorVisibleRequested();        // Last requested native cursor ownership state
+    static SkullbonezCore::Core::SbResult CaptureDeviceInputFrame(
+        Runtime::DeviceInputFrame& frame );              // Captures the complete immutable keyboard/pointer frame once.
+    static SkullbonezCore::Core::SbResult
+    SetNativeMouseCapture( bool captured );              // Applies InputRouter's single native-capture decision.
+    static void BindCallbackBridge( HWND window );       // Arms callback-fed input queues for the active HWND.
+    static void UnbindCallbackBridge( HWND window );     // Disarms callback-fed queues and clears stale queued input.
+    static void ClearCallbackEventBuffer( HWND window ); // Clears queued callback data for the bound HWND.
+    static bool RegisterRawMouseInput( HWND window );    // Registers the window for relative mouse movement messages
     static void
     AccumulateRawMouseDelta( HWND window,
-                             HRAWINPUT rawInput );                  // Adds WM_INPUT movement when the callback bridge is bound.
-    static void ResetMouseLookDeltas();                             // Clears queued raw mouse movement and absolute tracking state
+                             HRAWINPUT rawInput );       // Adds WM_INPUT movement when the callback bridge is bound.
+    static void ResetMouseLookDeltas();                  // Clears queued raw mouse movement and absolute tracking state
     static void AccumulateMouseWheelDelta( HWND window,
-                                           int delta );             // Adds a Win32 wheel delta when the callback bridge is bound.
+                                           int delta );  // Adds a Win32 wheel delta when the callback bridge is bound.
     static void SetAutomationState( const AutomationState& state );
     static void ClearAutomationState();
 

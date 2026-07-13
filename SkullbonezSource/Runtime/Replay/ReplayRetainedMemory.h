@@ -4,7 +4,7 @@ Purpose:
   Defines durable replay sample ownership and the registered runtime-growth
   contracts shared by recording, solver snapshots, and prediction.
 
-Mental model:
+Summary:
   Replay retains three live data families and writes one cold artifact family.
   Each live growth owner has one name, replay-only phase, hard byte cap,
   measured high-water reference, counter source, and exhaustion rule.
@@ -43,7 +43,7 @@ Related:
 #include <cstddef>
 #include <cstdint>
 
-namespace SkullbonezCore::Basics
+namespace SkullbonezCore::Runtime
 {
 enum class ReplayRetainedDataOwner : uint8_t
 {
@@ -149,4 +149,4 @@ inline const ReplayGrowthOwnerPolicy* FindReplayGrowthOwnerPolicy( const char* o
     }
     return nullptr;
 }
-} // namespace SkullbonezCore::Basics
+} // namespace SkullbonezCore::Runtime

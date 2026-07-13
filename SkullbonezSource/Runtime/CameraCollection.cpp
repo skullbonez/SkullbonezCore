@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/CameraCollection.cpp
 Purpose:
   Owns scene cameras and camera cycling state.
 
-Mental model:
+Summary:
   CameraCollection.cpp owns scene cameras and camera cycling state. As an
   implementation unit, keep edits anchored on local owner boundaries and call
   direction and on the glossary/invariants below.
@@ -45,7 +45,7 @@ CameraCollection::CameraCollection()
     m_tweenSpeed = 0;
     m_terrain = 0;
 
-    for ( int count = 0; count < TOTAL_CAMERA_COUNT; ++count )
+    for ( int count = 0; count < SkullbonezCore::Scene::Capacity::TOTAL_CAMERA_COUNT; ++count )
     {
         m_cameraHashes[count] = 0;
     }
@@ -69,7 +69,7 @@ void CameraCollection::Reset()
     m_tweenProgress = 0.0f;
     m_tweenSpeed = 0.0f;
 
-    for ( int i = 0; i < TOTAL_CAMERA_COUNT; ++i )
+    for ( int i = 0; i < SkullbonezCore::Scene::Capacity::TOTAL_CAMERA_COUNT; ++i )
     {
         m_cameraHashes[i] = 0;
         m_cameraArray[i].ZeroCamera();
@@ -92,12 +92,12 @@ void CameraCollection::SetLockedMode( const bool fIsLocked )
 
 void CameraCollection::AddCamera( const Vector3& vPosition, const Vector3& vView, const Vector3& vUp, uint32_t hash )
 {
-    if ( m_arrayPosition == TOTAL_CAMERA_COUNT )
+    if ( m_arrayPosition == SkullbonezCore::Scene::Capacity::TOTAL_CAMERA_COUNT )
     {
         SB_FATAL( "CameraCollection",
                   "Camera slot capacity exhausted in AddCamera. count=%d capacity=%d hash=0x%08X",
                   m_arrayPosition,
-                  TOTAL_CAMERA_COUNT,
+                  SkullbonezCore::Scene::Capacity::TOTAL_CAMERA_COUNT,
                   static_cast<unsigned int>( hash ) );
     }
 

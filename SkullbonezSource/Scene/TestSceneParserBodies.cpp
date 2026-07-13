@@ -3,7 +3,7 @@ File: TestSceneParserBodies.cpp
 Purpose:
   Parses bodies, state rows, joints, materials, requirements, and object-group metadata.
 
-Mental model:
+Summary:
   This translation unit handles one schema domain while mutating the single
   TestSceneParser result. Shared validation and failure policy live in
   TestSceneParserSchema.h; top-level document order stays in TestSceneParser.cpp.
@@ -26,8 +26,28 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
+using TestSceneParserDetail::CopyOptionalContactMaterial;
+using TestSceneParserDetail::Fail;
+using TestSceneParserDetail::FindMember;
+using TestSceneParserDetail::LoadConvexHullDefaultMass;
+using TestSceneParserDetail::ParseMaterialModeValue;
+using TestSceneParserDetail::ParserFailed;
+using TestSceneParserDetail::ReadBool;
+using TestSceneParserDetail::ReadFloat;
+using TestSceneParserDetail::ReadInt;
+using TestSceneParserDetail::ReadOptionalSceneObjectGroup;
+using TestSceneParserDetail::ReadRequiredStringField;
+using TestSceneParserDetail::ReadString;
+using TestSceneParserDetail::ReadUnitFloat;
+using TestSceneParserDetail::ReadVec3;
+using TestSceneParserDetail::ReadVec4;
+using TestSceneParserDetail::RequireArray;
+using TestSceneParserDetail::RequireMember;
+using TestSceneParserDetail::RequireObject;
+using TestSceneParserDetail::SetObjectMaterialBaseColor;
+
 void TestSceneParser::ApplyBall( const Json& object, const std::string& path, bool isFixed )
 {
     SceneBall ball = {};
@@ -707,5 +727,5 @@ void TestSceneParser::ApplyRequirements( const Json& requirements, const std::st
 }
 
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

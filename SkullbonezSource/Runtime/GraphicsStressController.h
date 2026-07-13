@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/GraphicsStressController.h
 Purpose:
   Owns deterministic graphics-stress fuzzer state.
 
-Mental model:
+Summary:
   Graphics stress is a CLI-driven render/runtime churn harness. The controller
   owns the seed, random stream, cadence, and counters; Run remains the executor
   because it owns scene loading, UI, render diagnostics, and live settings.
@@ -31,9 +31,11 @@ Related:
 
 #include "../UI/UICommands.h"
 
+#include <cstdint>
+
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 class GraphicsStressController
 {
@@ -56,16 +58,40 @@ class GraphicsStressController
     bool ShouldPrintFrameSummary() const;
     bool ShouldLogMemory() const;
     float RandomCinematicParamValue( UI::UICinematicParam param );
+    bool InDescriptorChurnQuietWindow() const;
+    bool ShouldCaptureDescriptorBaseline() const;
+    bool ShouldIssueDescriptorResize() const;
+    bool ShouldVerifyDescriptorChurn() const;
+    void CaptureDescriptorBaseline( unsigned int staticUsed, uint64_t recreationGeneration );
+    void ObserveRecreationGeneration( uint64_t recreationGeneration );
+    void RecordDescriptorResize();
+    void RecordTextureChurn();
+    bool DescriptorChurnMatchesBaseline( unsigned int staticUsed ) const;
+    unsigned int DescriptorBaseline() const;
+    int DescriptorResizeCount() const;
+    int AcknowledgedResizeCount() const;
+    int TextureChurnCount() const;
 
   private:
-    bool m_enabled = false;               // Active after --graphics-stress is applied.
-    unsigned int m_randomState = 0;       // LCG state; 0 means uninitialized.
-    int m_actionsPerFrame = 12;           // Render/state mutations per rendered frame.
-    int m_sceneIntervalFrames = 45;       // Minimum frames between forced scene reloads.
-    int m_memoryLogIntervalFrames = 1800; // Coarse memory-attribution log cadence; 0 disables it.
-    int m_framesRun = 0;                  // Persistent across scene reloads.
-    int m_sceneLoadsRequested = 0;        // Count of stress-driven LoadScene calls.
-    int m_lastSceneLoadFrame = -1000000;  // Frame index of the last stress scene load.
+    // Ten warmup frames establish stable process-lifetime rows; 131 requested
+    // resizes exceed the old 128-row heap, then 30 drain frames precede proof.
+    static constexpr int DESCRIPTOR_BASELINE_FRAME = 9;
+    static constexpr int DESCRIPTOR_RESIZE_FIRST_FRAME = 10;
+    static constexpr int DESCRIPTOR_RESIZE_LAST_FRAME = 140;
+    static constexpr int DESCRIPTOR_VERIFY_FRAME = 170;
+    bool m_enabled = false;                  // Active after --graphics-stress is applied.
+    unsigned int m_randomState = 0;          // LCG state; 0 means uninitialized.
+    int m_actionsPerFrame = 12;              // Render/state mutations per rendered frame.
+    int m_sceneIntervalFrames = 45;          // Minimum frames between forced scene reloads.
+    int m_memoryLogIntervalFrames = 1800;    // Coarse memory-attribution log cadence; 0 disables it.
+    int m_framesRun = 0;                     // Persistent across scene reloads.
+    int m_sceneLoadsRequested = 0;           // Count of stress-driven LoadScene calls.
+    int m_lastSceneLoadFrame = -1000000;     // Frame index of the last stress scene load.
+    unsigned int m_descriptorBaseline = 0;   // Live static rows before the bounded resize proof.
+    int m_descriptorResizeCount = 0;         // Native resizes issued; acceptance requires more than 128.
+    uint64_t m_lastRecreationGeneration = 0; // Last complete backend resize publication observed.
+    int m_acknowledgedResizeCount = 0;       // Published backend resizes, not native requests.
+    int m_textureChurnCount = 0;             // Successful texture create/delete turnovers.
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

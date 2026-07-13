@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RuntimePickGeometry.cpp
 Purpose:
   Implements exact CPU ray tests for runtime model picking.
 
-Mental model:
+Summary:
   The editor picker used to answer "did the ray pass through this model's broad
   sphere?" That was forgiving, but it let large foliage envelopes hide narrow
   trunks. This file answers the narrower question: "where does the ray first
@@ -33,7 +33,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -223,5 +223,5 @@ bool TryIntersectRuntimePickShape( const Math::CollisionDetection::CollisionShap
     const Math::Transformation::RotationMatrix rotation = BuildPickRotation( transform.orientation );
     return std::visit( PickShapeVisitor{ transform, rayOrigin, rayDirection, rotation, outT }, shape );
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

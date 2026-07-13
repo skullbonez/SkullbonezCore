@@ -3,7 +3,7 @@ File: ShaderReflectionContracts.h
 Purpose:
   Compares engine shader declarations with the fixed metadata baked from DXIL.
 
-Mental model:
+Summary:
   DXC reflection describes the binary ABI. Engine declarations are an
   independent CPU expectation; startup accepts a program only when required
   fields and resources agree.
@@ -27,6 +27,7 @@ Related:
 #include "RenderRasterBindingContract.h"
 #include "DX12/GeneratedShaderReflection.h"
 
+#include <algorithm>
 #include <cstring>
 #include <string>
 
@@ -114,6 +115,22 @@ inline std::uint32_t ShaderValueByteSize( ShaderValueType type )
     default:
         return 0;
     }
+}
+
+inline std::uint32_t GeneratedCbufferSize( const GeneratedShaderReflection::Stage& stage, const char* cbufferName )
+{
+    std::uint32_t size = 0;
+    for ( std::uint32_t fieldIndex = 0; cbufferName && fieldIndex < stage.fieldCount; ++fieldIndex )
+    {
+        const auto& field = GeneratedShaderReflection::Fields[stage.fieldStart + fieldIndex];
+        if ( std::strcmp( field.cbuffer, cbufferName ) == 0 )
+        {
+            size = (std::max)( size, field.offset + field.size );
+        }
+    }
+    // Invariant: constant-buffer storage is rounded to 16-byte register rows,
+    // independently for b0 draw data and b1 bindless indices.
+    return ( size + 15u ) & ~15u;
 }
 
 inline bool
@@ -214,8 +231,7 @@ inline bool ValidateUnifiedRasterResource( const GeneratedShaderReflection::Stag
                                            const GeneratedShaderReflection::Resource& resource,
                                            std::string& outError )
 {
-    using namespace UnifiedRasterRootSignature;
-    if ( resource.space != REGISTER_SPACE )
+    if ( resource.space != UnifiedRasterRootSignature::REGISTER_SPACE )
     {
         outError =
             std::string( stage.source ) + ":" + stage.stage + " uses non-zero register space for " + resource.name;
@@ -224,22 +240,18 @@ inline bool ValidateUnifiedRasterResource( const GeneratedShaderReflection::Stag
 
     if ( resource.registerClass == 'b' )
     {
-        if ( resource.slot == SHADER_REGISTER_DRAW_CONSTANTS && std::strcmp( resource.type, "cbuffer" ) == 0 )
-        {
-            return true;
-        }
-    }
-    else if ( resource.registerClass == 't' )
-    {
-        if ( std::strcmp( stage.stage, "ps" ) == 0 && AcceptsTextureRegister( resource.slot ) &&
-             std::strcmp( resource.type, "texture" ) == 0 && std::strcmp( resource.dimension, "2d" ) == 0 )
+        const bool drawConstants = resource.slot == UnifiedRasterRootSignature::SHADER_REGISTER_DRAW_CONSTANTS;
+        const bool pixelTextureIndices = resource.slot == UnifiedRasterRootSignature::SHADER_REGISTER_TEXTURE_INDICES &&
+                                         std::strcmp( stage.stage, "ps" ) == 0;
+        if ( ( drawConstants || pixelTextureIndices ) && std::strcmp( resource.type, "cbuffer" ) == 0 )
         {
             return true;
         }
     }
     else if ( resource.registerClass == 's' )
     {
-        if ( std::strcmp( stage.stage, "ps" ) == 0 && AcceptsSamplerRegister( resource.slot ) &&
+        if ( std::strcmp( stage.stage, "ps" ) == 0 &&
+             UnifiedRasterRootSignature::AcceptsSamplerRegister( resource.slot ) &&
              std::strcmp( resource.type, "sampler" ) == 0 )
         {
             return true;

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp
 Purpose:
   Contains editor object placement preflight and commit logic.
 
-Mental model:
+Summary:
   Placement is the ownership boundary between UI-selected asset recipes and live
   scene model creation. This slice validates the terrain point, computes object
   transforms, and adds the requested body or compound asset to the model store.
@@ -59,11 +59,11 @@ using SkullbonezCore::Assets::EditorHullAsset;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Math::Vector::Vector3;
-using Json = SkullbonezCore::Basics::RunInternal::EditorPlacementJson;
+using Json = SkullbonezCore::Runtime::RunInternal::EditorPlacementJson;
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace RunInternal
 {
@@ -327,7 +327,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
             return;
         }
         ConvexHullShape hull;
-        const SkullbonezCore::Basics::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( path, hull );
+        const SkullbonezCore::Core::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( path, hull );
         if ( !hullLoad.ok )
         {
             fprintf( stderr, "[editor] Cannot place hull asset %s: %s\n", label, hullLoad.error.message );
@@ -654,7 +654,8 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
             context.models,
             context.physics,
         };
-        const SbResult appendResult = SceneAuthoredSetup::AppendSimpleRagdoll( ragdollContext, options );
+        const SkullbonezCore::Core::SbResult appendResult =
+            SceneAuthoredSetup::AppendSimpleRagdoll( ragdollContext, options );
         if ( !appendResult.ok )
         {
             appendFailed = true;
@@ -777,5 +778,5 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
     return placed;
 }
 } // namespace RunInternal
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

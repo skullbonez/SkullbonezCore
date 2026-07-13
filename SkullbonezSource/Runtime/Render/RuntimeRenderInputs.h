@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Render/RuntimeRenderInputs.h
 Purpose:
   Names the borrowed runtime inputs consumed by frame rendering.
 
-Mental model:
+Summary:
   Runtime render code should receive a small view of the systems and state it
   needs for one frame, not the entire Run object. These structs are references
   only; ownership remains in concrete renderer, scene, UI, and tool owners.
@@ -31,12 +31,17 @@ Related:
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <vector>
 
 #include "../../Core/MainMemoryStats.h"
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+struct CinematicRenderConfig;
+} // namespace Core
 namespace Textures
 {
 class TextureCollection;
@@ -88,12 +93,11 @@ namespace UI
 class InGameUI;
 }
 
-namespace Basics
+namespace Runtime
 {
 class Window;
 class ReplayRuntime;
 class RuntimeTools;
-struct CinematicRenderConfig;
 struct RenderToolOverlayView;
 
 struct RuntimeRenderFramePolicy
@@ -126,12 +130,12 @@ struct RuntimeRenderModelFrameView
     const Physics::ColliderStore& colliders;
     const Physics::PhysicsBodyStore& bodyStore;
     Physics::PhysicsEngine& physicsEngine;
-    const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords;
+    std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords;
     const std::vector<uint8_t>& collisionVisualContacts;
-    const std::vector<uint8_t>& sleepStates;
-    const std::vector<int>& sleepIslandVisualIds;
-    const std::vector<uint8_t>& sleepSupportedStates;
-    const std::vector<uint8_t>& sleepInhibitedStates;
+    std::span<const uint8_t> sleepStates;
+    std::span<const int> sleepIslandVisualIds;
+    std::span<const uint8_t> sleepSupportedStates;
+    std::span<const uint8_t> sleepInhibitedStates;
     const std::vector<Physics::PhysicsDebugContact>& physicsDebugContacts;
     const std::vector<Physics::PhysicsPipelineRecord>& physicsPipelineTrace;
     Threading::WorkerPool* renderWorkerPool;
@@ -140,7 +144,7 @@ struct RuntimeRenderModelFrameView
     bool shadowParallelPrep = false;
     double sceneKineticEnergy = 0.0;
     float tornadoElapsedSeconds = 0.0f;
-    MainMemoryGameObjectStats gameObjectMemory;
+    SkullbonezCore::Core::MainMemoryGameObjectStats gameObjectMemory;
 };
 
 struct RuntimeRenderServices
@@ -160,7 +164,7 @@ struct RuntimeRenderServices
     Geometry::SkyBox* skyBox;
     // Lifetime: selected once by Run for this render call. Passes use this
     // snapshot instead of asking Run to reopen scene/config state.
-    const CinematicRenderConfig& cinematic;
+    const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
     bool cinematicEnabled = false;
     // Lifetime: this command facet is borrowed from the process-bound backend
     // for exactly this render call; pass code must not store it.
@@ -183,5 +187,5 @@ struct RuntimeRenderInputs
 {
     RuntimeRenderServices services;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

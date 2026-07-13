@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/LockOrderValidator.h
 Purpose:
   Declares debug-only lock-order validation helpers.
 
-Mental model:
+Summary:
   TrackedMutex behaves like std::mutex, while Debug builds record observed lock
   acquisition order in a directed graph and assert if a new edge creates a
   cycle. Profile/Release keep only the mutex wrapper.

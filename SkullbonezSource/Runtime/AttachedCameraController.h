@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/AttachedCameraController.h
 Purpose:
   Owns attach-camera target identity, orbit state, and follow-pose solving.
 
-Mental model:
+Summary:
   Attach mode selects and follows a physics body through stable body/collider
   handles, then turns the current body snapshot and camera pose into the next
   camera pose. AttachedCameraController owns that durable state and performs
@@ -40,7 +40,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 class SceneController;
 }
@@ -49,7 +49,7 @@ namespace Environment
 class CameraCollection;
 }
 
-namespace Basics
+namespace Runtime
 {
 enum class AttachedCameraSubmode
 {
@@ -139,32 +139,32 @@ class AttachedCameraController
     const char* ModeLabel() const;
     void CaptureReturnState( RunCameraMode previousMode, Environment::CameraCollection& cameras );
     void RestoreReturnState( Environment::CameraCollection& cameras );
-    bool ResolveTargetIdentity( const Basics::SceneController& collection, int& outModelIndex );
-    bool TickFollow( const Basics::SceneController& collection,
+    bool ResolveTargetIdentity( const Runtime::SceneController& collection, int& outModelIndex );
+    bool TickFollow( const Runtime::SceneController& collection,
                      Environment::CameraCollection& cameras,
                      float orbitYawDelta,
                      float orbitPitchDelta,
                      float presentationAlpha );
-    bool TryGetPresentationListenerPosition( const Basics::SceneController& collection,
+    bool TryGetPresentationListenerPosition( const Runtime::SceneController& collection,
                                              const Environment::CameraCollection& cameras,
                                              float presentationAlpha,
                                              Math::Vector::Vector3& outPosition ) const;
-    bool CycleMode( const Basics::SceneController& collection, Environment::CameraCollection& cameras );
-    bool TogglePin( const Basics::SceneController& collection, Environment::CameraCollection& cameras );
-    bool ApplyOrbitInput( const Basics::SceneController& collection,
+    bool CycleMode( const Runtime::SceneController& collection, Environment::CameraCollection& cameras );
+    bool TogglePin( const Runtime::SceneController& collection, Environment::CameraCollection& cameras );
+    bool ApplyOrbitInput( const Runtime::SceneController& collection,
                           Environment::CameraCollection& cameras,
                           bool attachModeActive,
                           int unhandledWheelDelta,
                           bool uiBlocksCameraMouse );
-    bool SetTarget( const Basics::SceneController& collection,
+    bool SetTarget( const Runtime::SceneController& collection,
                     Environment::CameraCollection& cameras,
                     int modelIndex,
                     AttachedCameraTargetSelection& outSelection );
-    AttachedCameraSeedResult SeedTarget( const Basics::SceneController& collection,
+    AttachedCameraSeedResult SeedTarget( const Runtime::SceneController& collection,
                                          Environment::CameraCollection& cameras,
                                          int seedModelIndex,
                                          AttachedCameraTargetSelection& outSelection );
-    bool PickTarget( const Basics::SceneController& collection,
+    bool PickTarget( const Runtime::SceneController& collection,
                      Environment::CameraCollection& cameras,
                      bool hasWorldRay,
                      const Math::Vector::Vector3& rayOrigin,
@@ -173,19 +173,19 @@ class AttachedCameraController
 
     static void Reset( AttachedCameraState& state );
     static void ClearTarget( AttachedCameraState& state );
-    static bool TryAttachTargetHandlesFromModelIndex( const Basics::SceneController& collection,
+    static bool TryAttachTargetHandlesFromModelIndex( const Runtime::SceneController& collection,
                                                       int modelIndex,
                                                       AttachedCameraTarget& target );
-    static bool TryResolveTargetIdentity( const Basics::SceneController& collection,
+    static bool TryResolveTargetIdentity( const Runtime::SceneController& collection,
                                           AttachedCameraTarget& target,
                                           int& outModelIndex );
-    static bool TryResolvePhysicsTarget( const Basics::SceneController& collection,
+    static bool TryResolvePhysicsTarget( const Runtime::SceneController& collection,
                                          AttachedCameraTarget& target,
                                          AttachedCameraPhysicsTarget& outTarget,
                                          int* outModelIndex = nullptr );
     static bool
-    TryResolveRagdollHead( const Basics::SceneController& collection, int selectedModelIndex, int& outHeadModelIndex );
-    static bool CycleSubmode( const Basics::SceneController& collection,
+    TryResolveRagdollHead( const Runtime::SceneController& collection, int selectedModelIndex, int& outHeadModelIndex );
+    static bool CycleSubmode( const Runtime::SceneController& collection,
                               AttachedCameraState& state,
                               AttachedCameraPhysicsTarget& outTarget,
                               bool& outShouldCaptureFixedOffset );
@@ -198,7 +198,7 @@ class AttachedCameraController
                               const AttachedCameraPhysicsTarget& target );
     static bool
     ApplyOrbitWheel( AttachedCameraState& state, const AttachedCameraPhysicsTarget& target, int unhandledWheelDelta );
-    static bool BuildFollowPose( const Basics::SceneController& collection,
+    static bool BuildFollowPose( const Runtime::SceneController& collection,
                                  AttachedCameraState& state,
                                  const AttachedCameraPhysicsTarget& target,
                                  int modelIndex,
@@ -209,11 +209,11 @@ class AttachedCameraController
                                  AttachedCameraPoseCommand& outCommand );
 
   private:
-    static bool SelectTarget( const Basics::SceneController& collection,
+    static bool SelectTarget( const Runtime::SceneController& collection,
                               AttachedCameraState& state,
                               int modelIndex,
                               AttachedCameraTargetSelection& outSelection );
     AttachedCameraState m_state;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

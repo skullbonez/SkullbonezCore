@@ -4,7 +4,7 @@ Purpose:
   Owns renderer-facing frame pipeline diagnostics from immutable scene
   snapshots.
 
-Mental model:
+Summary:
   The runtime still executes the live pass bodies in order, but the render
   pipeline owns the frame graph description that proves the executed order and
   resource intent.

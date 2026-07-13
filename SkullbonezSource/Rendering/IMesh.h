@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/IMesh.h
 Purpose:
   Declares the renderer-neutral mesh interface.
 
-Mental model:
+Summary:
   IMesh.h declares the renderer-neutral mesh interface. As a public header,
   keep edits anchored on render submission and resource lifetime and on the
   glossary/invariants below.
@@ -41,6 +41,12 @@ namespace Rendering
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class IMesh
 {
+
+    // Inheritance retention: rendering owns this test seam. Production draw and
+    // metadata calls occur once per mesh submission or setup query; unit tests
+    // use NullMesh without native resources. A value wrapper would add another
+    // forwarding allocation. Retention depends on the 2026-07-12 measured
+    // dispatch/perf evidence remaining neutral.
 
   public:
     virtual ~IMesh() = default;

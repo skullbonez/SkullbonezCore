@@ -4,7 +4,7 @@ Purpose:
   Provides a small union-find helper for physics island construction over
   caller-owned scratch buffers.
 
-Mental model:
+Summary:
   A disjoint set tracks which rows belong to the same connected component. The
   physics solver uses that component identity for sleep and narrowphase islands
   without allocating another owner-side container.

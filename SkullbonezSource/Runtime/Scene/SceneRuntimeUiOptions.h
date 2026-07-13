@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntimeUiOptions.h
 Purpose:
   Declares authored scene UI-option application outside Run.
 
-Mental model:
+Summary:
   Scene JSON may author the initial UI window, tab, stress, and test-pattern
   state for automation scenes. Scene runtime owns the decision tree, while Run
   still passes borrowed UI and diagnostics owners until those stores move.
@@ -33,7 +33,7 @@ namespace UI
 {
 class InGameUI;
 }
-namespace Basics
+namespace Runtime
 {
 class DiagnosticsRuntime;
 struct RunDebugState;
@@ -53,5 +53,5 @@ struct SceneRuntimeUiOptionsContext
 
 void ApplySceneRuntimeUiOptions( SceneRuntimeUiOptionsContext context, const SceneUIOptions& options );
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

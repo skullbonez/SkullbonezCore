@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/RunReplayCauseTreeTools.cpp
 Purpose:
   Contains replay cause-tree window input and focus behavior.
 
-Mental model:
+Summary:
   The cause tree is an explanatory replay UI over retained solver contacts and
   predicted movement. It owns window placement and drag/resize state, derives
   row hover from a disposable shared surface, and asks ReplayRuntime to resolve
@@ -37,10 +37,10 @@ Related:
 #include <algorithm>
 #include <cmath>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Basics::ReplayOverlay;
+using namespace SkullbonezCore::Runtime::ReplayOverlay;
 
 namespace
 {
@@ -71,7 +71,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
                                         RuntimeInteractionController& interaction,
                                         const PhysicsBodyStore& bodyStore,
                                         const ColliderStore& colliderStore,
-                                        const std::vector<Rendering::RenderInstancePresentationRecord>& presentation,
+                                        std::span<const Rendering::RenderInstancePresentationRecord> presentation,
                                         Environment::CameraCollection* cameras,
                                         Geometry::Terrain* terrain,
                                         RunCameraState& camera,

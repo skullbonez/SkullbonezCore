@@ -4,7 +4,7 @@ Purpose:
   Declares the allocation-free device snapshot, semantic action router, shared
   post-UI pointer value, and native pointer-presentation intent owner.
 
-Mental model:
+Summary:
   A device owner captures hardware once into DeviceInputFrame. InputRouter then
   advances key/button memory exactly once and emits ordered semantic action
   events in the same order as the immutable binding table. Context predicates
@@ -52,6 +52,8 @@ Related:
 */
 #pragma once
 
+#include "../Core/PlatformWin32.h"
+
 #include "InputController.Bindings.h"
 #include "RuntimeInteractionController.h"
 #include "../Maths/Vector3.h"
@@ -75,7 +77,7 @@ namespace Geometry
 {
 class Terrain;
 }
-namespace Basics
+namespace Runtime
 {
 class SceneController;
 }
@@ -87,7 +89,7 @@ namespace UI
 {
 class InGameUI;
 }
-namespace Basics
+namespace Runtime
 {
 struct RunCameraState;
 struct RunSceneState;
@@ -357,7 +359,7 @@ class InputRouter
                                             RuntimeInteractionController& interaction,
                                             Environment::CameraCollection& cameras,
                                             Geometry::Terrain* terrain,
-                                            Basics::SceneController& models,
+                                            Runtime::SceneController& models,
                                             Physics::PhysicsEngine& physics,
                                             RunCameraState& camera,
                                             RunCameraMode replayRestoreCameraMode,
@@ -369,7 +371,7 @@ class InputRouter
                                      RuntimeInteractionController& interaction,
                                      Environment::CameraCollection& cameras,
                                      Geometry::Terrain* terrain,
-                                     Basics::SceneController& models,
+                                     Runtime::SceneController& models,
                                      Physics::PhysicsEngine& physics,
                                      RunCameraState& camera,
                                      RunCameraMode replayRestoreCameraMode,
@@ -382,7 +384,7 @@ class InputRouter
                                                            RuntimeInteractionController& interaction,
                                                            Environment::CameraCollection& cameras,
                                                            Geometry::Terrain* terrain,
-                                                           Basics::SceneController& models,
+                                                           Runtime::SceneController& models,
                                                            Physics::PhysicsEngine& physics,
                                                            RunCameraState& camera,
                                                            RunCameraMode replayRestoreCameraMode,
@@ -444,7 +446,7 @@ class InputRouter
                                                  RuntimeTools& runtimeTools,
                                                  ReplayRuntime& replayRuntime,
                                                  RuntimeInteractionController& interaction,
-                                                 Basics::SceneController& models,
+                                                 Runtime::SceneController& models,
                                                  Physics::PhysicsEngine& physics,
                                                  RunSceneState& scene,
                                                  Environment::WorldEnvironment& world,
@@ -461,7 +463,7 @@ class InputRouter
                                                    AttachedCameraController& attachedCamera,
                                                    RuntimeInteractionController& interaction,
                                                    SceneEntityStore& entities,
-                                                   Basics::SceneController& models,
+                                                   Runtime::SceneController& models,
                                                    Physics::PhysicsEngine& physics,
                                                    RunSceneState& scene,
                                                    Environment::WorldEnvironment& world,
@@ -541,5 +543,5 @@ class InputRouter
     bool m_leftWasDown = false;
     bool m_rightWasDown = false;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

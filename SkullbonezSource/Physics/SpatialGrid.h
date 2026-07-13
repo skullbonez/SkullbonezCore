@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/SpatialGrid.h
 Purpose:
   Partitions space into broadphase cells so physics can test nearby objects cheaply.
 
-Mental model:
+Summary:
   SpatialGrid.h partitions space into broadphase cells so physics can test
   nearby objects cheaply. As a public header, keep edits anchored on
   deterministic physics, diagnostics, or world-state flow and on the
@@ -22,7 +22,9 @@ Glossary:
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+    are the validation contract.
+  - Inserted bounds stay finite and within MAX_WORLD_COORDINATE before any
+    float-to-cell conversion.
 
 Related:
   - SkullbonezSource/Physics/SpatialGrid.cpp
@@ -39,7 +41,7 @@ Related:
 #include <cmath>
 #include <cassert>
 #include "../Core/Common.h"
-#include "../GameObjects/SceneCapacity.h"
+#include "../Runtime/Scene/SceneCapacity.h"
 #include "../Maths/Vector3.h"
 
 namespace SkullbonezCore
@@ -82,12 +84,15 @@ class SpatialGrid
     // one tick. Large projectile clouds should use a dedicated ray/query path.
     static constexpr int TABLE_SIZE = 4096;
     static constexpr int TABLE_MASK = TABLE_SIZE - 1;
-    static constexpr int MAX_STATIC_CELL_ENTRIES = MAX_GAME_MODELS * 8;
+    static constexpr int MAX_STATIC_CELL_ENTRIES = SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 8;
     static constexpr int MAX_SWEPT_CELL_ENTRIES = 4096;
     static constexpr int MAX_CELL_ENTRIES = MAX_STATIC_CELL_ENTRIES + MAX_SWEPT_CELL_ENTRIES + 4;
     static constexpr int MAX_SWEPT_AABB_CELLS = MAX_SWEPT_CELL_ENTRIES / 2;
     static constexpr int MAX_SWEPT_TRAVERSED_CELLS = MAX_SWEPT_CELL_ENTRIES;
-    static constexpr int PAIR_WORDS = ( MAX_GAME_MODELS * ( MAX_GAME_MODELS - 1 ) / 2 + 63 ) / 64;
+    static constexpr int PAIR_WORDS = ( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS *
+                                            ( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS - 1 ) / 2 +
+                                        63 ) /
+                                      64;
 
     struct Entry
     {
@@ -122,6 +127,14 @@ class SpatialGrid
 
   public:
     static constexpr int MAX_BUCKETS = TABLE_SIZE;
+    // PhysicsWorld already clamps authored settings to this lower bound. Keep
+    // the grid's own constructor/setter equally strict so direct users cannot
+    // create cell coordinates outside the integer representation envelope.
+    static constexpr float MIN_CELL_SIZE = 0.5f;
+    // Broadphase owner limit: authored/runtime physics state outside this cube
+    // is corrupt. The generous bound also keeps ordinary cell conversion far
+    // from integer limits for supported broadphase cell sizes.
+    static constexpr float MAX_WORLD_COORDINATE = 100000.0f;
 
     struct ActiveCell
     {

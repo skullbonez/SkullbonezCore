@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.cpp
 Purpose:
   Implements fixed-storage allocation tracking and the process allocation hook.
 
-Mental model:
+Summary:
   Every C++ heap allocation is wrapped with a tiny header so deletes can update
   active-byte counters. The hot path only touches atomics and CRT malloc/free;
   reporting is a bounded stdout table emitted after the runtime shuts down.
@@ -41,8 +41,7 @@ Related:
 #include <intrin.h>
 #endif
 #if defined( _WIN32 )
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
+#include "../../Core/PlatformWin32.h"
 #endif
 
 namespace
@@ -401,7 +400,7 @@ void* AllocateOrFatal( std::size_t size, std::size_t alignment, void* callsite )
     }
 
     // Lane F / Hazard: malloc has already failed inside the global allocation
-    // hook, so this path must not call SB_FATAL or any EngineLog-backed helper.
+    // hook, so this path must not call SB_FATAL or any SkullbonezCore::Core::EngineLog-backed helper.
     FatalAllocationFailure( size, normalizedAlignment );
 }
 } // namespace
@@ -413,20 +412,17 @@ namespace Runtime
 namespace Allocation
 {
 RuntimeAllocationScope::RuntimeAllocationScope( RuntimeAllocationPhase phase ) noexcept
-    : m_previous( GetRuntimeAllocationPhase() ), m_active( RuntimeAllocationGuardEnabled() )
+    : m_previous( GetRuntimeAllocationPhase() )
 {
-    if ( m_active )
-    {
-        SetRuntimeAllocationPhase( phase );
-    }
+    // Invariant: lifecycle phase is runtime policy input even when allocation
+    // counting is disabled. Upload overflow, replay reserve, and future phase
+    // consumers must not silently observe Startup in ordinary launches.
+    SetRuntimeAllocationPhase( phase );
 }
 
 RuntimeAllocationScope::~RuntimeAllocationScope() noexcept
 {
-    if ( m_active )
-    {
-        SetRuntimeAllocationPhase( m_previous );
-    }
+    SetRuntimeAllocationPhase( m_previous );
 }
 
 void SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode mode ) noexcept

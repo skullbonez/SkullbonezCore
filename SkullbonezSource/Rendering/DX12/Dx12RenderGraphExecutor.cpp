@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/Dx12RenderGraphExecutor.cpp
 Purpose:
   Translates render graph resource access records into DX12 barrier candidates.
 
-Mental model:
+Summary:
   The graph compiler decides that a resource use changes from access A to
   access B. This file translates A and B into DX12 states and optionally emits
   the concrete transition barrier.

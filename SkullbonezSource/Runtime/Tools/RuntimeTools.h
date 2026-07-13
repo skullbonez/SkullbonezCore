@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Tools/RuntimeTools.h
 Purpose:
   Owns transient runtime tool state while tool behavior moves out of Run.
 
-Mental model:
+Summary:
   RuntimeTools owns tool payload and render feedback instead of storing those
   values directly on Run. RuntimeInteractionController alone owns which
   gesture is active; tools retain only the start values needed to apply it.
@@ -52,6 +52,8 @@ Related:
 */
 #pragma once
 
+#include "../../Core/PlatformWin32.h"
+
 #include "../../Core/Common.h"
 #include "../../Core/MainMemoryStats.h"
 #include "../Editor/LauncherLaser.h"
@@ -71,10 +73,15 @@ Related:
 #include <string>
 #include <vector>
 
-namespace SkullbonezCore::Basics
+namespace SkullbonezCore::Core
+{
+struct CinematicRenderConfig;
+} // namespace SkullbonezCore::Core
+
+namespace SkullbonezCore::Runtime
 {
 class SceneController;
-} // namespace SkullbonezCore::Basics
+} // namespace SkullbonezCore::Runtime
 
 namespace SkullbonezCore::Physics
 {
@@ -109,7 +116,7 @@ namespace SkullbonezCore::UI
 struct UIPhysicsCommands;
 } // namespace SkullbonezCore::UI
 
-namespace SkullbonezCore::Basics
+namespace SkullbonezCore::Runtime
 {
 struct RunDebugState;
 struct RunLaunchOptions;
@@ -182,7 +189,7 @@ struct ToolOverlayBuildInput
 #ifdef _DEBUG
 struct LauncherReproSnapshotContext
 {
-    Basics::SceneController& collection;
+    Runtime::SceneController& collection;
     const SceneEntityStore& entities;
     Environment::CameraCollection* cameras;
     Geometry::Terrain* terrain;
@@ -448,14 +455,31 @@ class RunEditorTracer
         float hdrScale = 1.0f;                                              // HDR emphasis hint consumed by ribbon pixel shaders.
     };
 
+    // TEMPORARY DEBUG AUTHORING: owned by RunEditorTracer so the period-key
+    // look explorer can be deleted as one self-contained presentation feature
+    // after a legible replay-ribbon preset has been selected and committed.
+    struct ReplayRibbonAuthoringLook
+    {
+        ReplayRibbonStyle path;
+        ReplayRibbonStyle causal;
+        ReplayRibbonStyle baseline;
+        ReplayRibbonStyle marker;
+        float opacity = 0.50f;
+        float saturation = 1.0f;
+        float colorGain = 1.0f;
+        uint32_t seed = 0u;
+    };
+
+    ReplayRibbonAuthoringLook m_replayRibbonAuthoringLook = {};
+
     std::vector<float> m_lineData;
     std::vector<float> m_priorityLineData;
     std::vector<float> m_renderLineData;
     std::vector<float> m_replayRibbonSegments;                              // Packed 13-float replay segments before shader-side expansion.
     std::vector<float> m_priorityReplayRibbonSegments;                      // Retained yellow entry ribbon segments that survive path overflow.
     std::vector<float>
-        m_replayRibbonVertexData;                                           // Packed 13-float segment vertices consumed by the trajectory ribbon style.
-    MainMemoryReplayTrajectorySubmissionStats
+        m_replayRibbonVertexData;                                           // Packed 19-float adjacency vertices consumed by the trajectory ribbon style.
+    SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats
         m_replaySubmissionStats;                                            // Frame-local submitted replay ribbon hash sampled after tracer render.
 
     void EmitLineTo( std::vector<float>& lineData,
@@ -509,7 +533,7 @@ class RunEditorTracer
                                     float g,
                                     float bl,
                                     const ReplayRibbonStyle& style,
-                                    MainMemoryReplayTrajectoryLane lane );
+                                    SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
     void EmitReplayRibbonGlowPairTo( std::vector<float>& ribbonData,
                                      const Math::Vector::Vector3& a,
                                      const Math::Vector::Vector3& b,
@@ -518,7 +542,7 @@ class RunEditorTracer
                                      float bl,
                                      const ReplayRibbonStyle& glow,
                                      const ReplayRibbonStyle& core,
-                                     MainMemoryReplayTrajectoryLane lane );
+                                     SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
     void EmitReplayRibbonShapeOutlineTo( std::vector<float>& ribbonData,
                                          const Math::Vector::Vector3& position,
                                          const Math::Orientation::Quaternion& orientation,
@@ -527,20 +551,28 @@ class RunEditorTracer
                                          float g,
                                          float b,
                                          const ReplayRibbonStyle& style,
-                                         MainMemoryReplayTrajectoryLane lane );
+                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
     void BuildReplayRibbonVertices( const Math::Vector::Vector3& cameraEye, const Math::Vector::Vector3& cameraUp );
-    MainMemoryReplayTrajectoryStats m_replayTrajectoryStats;                // Frame-local replay ribbon counters sampled by ReplayRuntime.
+    SkullbonezCore::Core::MainMemoryReplayTrajectoryStats
+        m_replayTrajectoryStats;                                            // Frame-local replay ribbon counters sampled by ReplayRuntime.
 
   public:
     RunEditorTracer();
+    // TEMPORARY DEBUG AUTHORING: in Debug, press '.' to replace the complete
+    // prediction/cinematic look and print every reproducible value to stderr.
+    void CycleReplayPredictionAuthoringLook( SkullbonezCore::Core::CinematicRenderConfig& cinematic );
     void Clear();
     // Resets only the replay trajectory counters; callers use this before the
     // replay pass so editor tool ribbons do not count as replay trajectory work.
     void ClearReplayTrajectoryStats();
     // Returns the current replay-pass counters without taking ownership.
-    const MainMemoryReplayTrajectoryStats& ReplayTrajectoryStats() const;
+    const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& ReplayTrajectoryStats() const;
+    // Records logical ribbon segments intentionally omitted by a caller-side
+    // quota before vertex emission, preserving lane-specific diagnostics.
+    void RecordReplayRibbonDroppedSegments( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
+                                            std::size_t count = 1u );
     // Returns the post-build replay ribbon submission hash for validation probes.
-    const MainMemoryReplayTrajectorySubmissionStats& ReplaySubmissionStats() const;
+    const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& ReplaySubmissionStats() const;
     // Invariant: replay path drawing budgets against ordinary ribbon slots
     // before emitting segments, so the tracer's fixed reserve remains the
     // single source of capacity truth.
@@ -559,7 +591,8 @@ class RunEditorTracer
                                float r,
                                float g,
                                float b,
-                               MainMemoryReplayTrajectoryLane lane = MainMemoryReplayTrajectoryLane::FutureRoot );
+                               SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane =
+                                   SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot );
     void AddReplayCausalTrailSegment( const Math::Vector::Vector3& start,
                                       const Math::Vector::Vector3& end,
                                       float r,
@@ -683,7 +716,7 @@ class RuntimeTools
                                     Math::Vector::Vector3& outOrigin,
                                     Math::Vector::Vector3& outDirection,
                                     Math::Vector::Vector3& outCameraUp ) const;
-    bool FireLauncherRay( Basics::SceneController& collection,
+    bool FireLauncherRay( Runtime::SceneController& collection,
                           Physics::PhysicsEngine& physics,
                           RunSceneState& scene,
                           Geometry::Terrain* terrain,
@@ -694,7 +727,7 @@ class RuntimeTools
     LauncherPointerResult RouteLauncherPointer( const LauncherPointerInput& input,
                                                 Environment::CameraCollection& cameras,
                                                 ReplayRuntime& replayRuntime,
-                                                Basics::SceneController& collection,
+                                                Runtime::SceneController& collection,
                                                 Physics::PhysicsEngine& physics,
                                                 RunSceneState& scene,
                                                 Geometry::Terrain* terrain );
@@ -704,7 +737,7 @@ class RuntimeTools
                             const Math::Vector::Vector3& rayOrigin,
                             const Math::Vector::Vector3& rayDirection,
                             const Math::Vector::Vector3& cameraUp );
-    bool FireLauncherProjectile( Basics::SceneController& collection,
+    bool FireLauncherProjectile( Runtime::SceneController& collection,
                                  Physics::PhysicsEngine& physics,
                                  RunSceneState& scene,
                                  Geometry::Terrain* terrain,
@@ -714,7 +747,7 @@ class RuntimeTools
                                  const Math::Vector::Vector3& rayDirection,
                                  const Math::Vector::Vector3& cameraUp );
 #ifdef _DEBUG
-    bool PickLauncherReproTarget( Basics::SceneController& collection,
+    bool PickLauncherReproTarget( Runtime::SceneController& collection,
                                   Environment::CameraCollection* cameras,
                                   int& outIndex,
                                   float& outRayT,
@@ -731,30 +764,30 @@ class RuntimeTools
     RunMousePickupState& MousePickup();
     const RunMousePickupState& MousePickup() const;
     MousePickupPointerResult RouteMousePickupPointer( const MousePickupPointerInput& input,
-                                                      const Basics::SceneController& collection,
+                                                      const Runtime::SceneController& collection,
                                                       InputRouter& inputRouter,
                                                       RuntimeInteractionController& interaction );
     // Applies the manipulator spring at the fixed-step boundary. Tool state is
     // owned here; scene physics and input/interaction owners are synchronous borrows.
-    void ApplyMousePickupPhysicsStep( Basics::SceneController& models,
+    void ApplyMousePickupPhysicsStep( Runtime::SceneController& models,
                                       Physics::PhysicsEngine& physics,
                                       InputRouter& inputRouter,
                                       RuntimeInteractionController& interaction );
-    void RestoreMousePickupAngularVelocity( Basics::SceneController& models,
+    void RestoreMousePickupAngularVelocity( Runtime::SceneController& models,
                                             Physics::PhysicsEngine& physics,
                                             InputRouter& inputRouter,
                                             RuntimeInteractionController& interaction );
     bool PrepareSelectionCommand( const RuntimeInteractionCommand& command,
-                                  const Basics::SceneController& collection,
+                                  const Runtime::SceneController& collection,
                                   RuntimeInteractionSelectionPlan& outPlan );
     bool PrepareEditorPointerSelection( const EditorPointerSelectionInput& input,
-                                        const Basics::SceneController& collection,
+                                        const Runtime::SceneController& collection,
                                         RuntimeInteractionSelectionPlan& outPlan,
                                         WorldInteractionOwner& outOwner,
                                         InteractionExitReason& outReason );
     EditorPlacementScalePointerResult RouteEditorPlacementScalePointer( bool leftReleased,
                                                                         bool suppressWorldAction,
-                                                                        Basics::SceneController& collection,
+                                                                        Runtime::SceneController& collection,
                                                                         Physics::PhysicsEngine& physics,
                                                                         RunSceneState& scene,
                                                                         Environment::WorldEnvironment& world,
@@ -764,17 +797,18 @@ class RuntimeTools
                                                                         RuntimeInteractionController& interaction,
                                                                         ReplayRuntime& replayRuntime );
     EditorGizmoDragPointerResult RouteEditorGizmoDragPointer( const EditorGizmoDragPointerInput& input,
-                                                              Basics::SceneController& collection,
+                                                              Runtime::SceneController& collection,
                                                               Physics::PhysicsEngine& physics,
                                                               RuntimeInteractionController& interaction,
                                                               ReplayRuntime& replayRuntime );
-    void RecordEditorTransformHistory( Basics::SceneController& collection,
+    void RecordEditorTransformHistory( Runtime::SceneController& collection,
                                        RuntimeGizmoDragKind gizmoKind,
                                        int selectedModelIndex );
-    void RecordEditorPlacementHistory( Basics::SceneController& collection, int modelCountBefore, int modelCountAfter );
-    bool UndoEditorCommand( Basics::SceneController& collection );
-    bool RedoEditorCommand( Basics::SceneController& collection );
-    bool DeleteEditorSelection( Basics::SceneController& collection );
+    void
+    RecordEditorPlacementHistory( Runtime::SceneController& collection, int modelCountBefore, int modelCountAfter );
+    bool UndoEditorCommand( Runtime::SceneController& collection );
+    bool RedoEditorCommand( Runtime::SceneController& collection );
+    bool DeleteEditorSelection( Runtime::SceneController& collection );
     void ClearEditorHistory();
     bool PrepareEditorGizmoGesture( bool inspectGizmoActive,
                                     bool scaleMode,
@@ -784,12 +818,12 @@ class RuntimeTools
                                     const Math::Vector::Vector3& rayDirection,
                                     int clientX,
                                     int clientY,
-                                    Basics::SceneController& collection,
+                                    Runtime::SceneController& collection,
                                     Physics::PhysicsEngine& physics,
                                     RuntimeInteractionController& interaction,
                                     EditorGizmoGesturePlan& outPlan );
     EditorGizmoGestureResult CommitEditorGizmoGesture( const EditorGizmoGesturePlan& plan,
-                                                       Basics::SceneController& collection,
+                                                       Runtime::SceneController& collection,
                                                        Physics::PhysicsEngine& physics,
                                                        RuntimeInteractionController& interaction );
     EditorPlacementScaleStartResult BeginEditorPlacementScalePointer( bool inspectGizmoActive,
@@ -799,7 +833,7 @@ class RuntimeTools
                                                                       RuntimeInteractionController& interaction );
     EditorViewportPlacementResult RouteEditorViewportPlacement( const EditorViewportPlacementInput& input );
     bool CommitSelectionCommand( const RuntimeInteractionSelectionPlan& plan, RuntimeInteractionEvent& outEvent );
-    bool ApplySelectionCommand( const RuntimeInteractionCommand& command, const Basics::SceneController& collection );
+    bool ApplySelectionCommand( const RuntimeInteractionCommand& command, const Runtime::SceneController& collection );
     void CancelMousePickup( InputRouter& inputRouter, RuntimeInteractionController& interaction );
 
     RunEditorPlacementState& Editor();
@@ -807,13 +841,13 @@ class RuntimeTools
     bool HasActiveEditorInteractionState( const RuntimeInteractionController& interaction ) const;
     bool InspectGizmoInteractionActive( RunCameraMode cameraMode, bool replayInspectionActive ) const;
     int RefreshEditorPointerPreview( const EditorPointerPreviewInput& input,
-                                     Basics::SceneController& collection,
+                                     Runtime::SceneController& collection,
                                      Physics::PhysicsEngine& physics,
                                      RuntimeInteractionController& interaction,
                                      Geometry::Terrain* terrain,
                                      const Assets::AssetSystem& assets );
     void ClearEditorInteractionForTransition( bool clearSelection,
-                                              Basics::SceneController& collection,
+                                              Runtime::SceneController& collection,
                                               Physics::PhysicsEngine& physics,
                                               RuntimeInteractionController& interaction );
 
@@ -821,7 +855,7 @@ class RuntimeTools
     const RunEditorTracer& EditorTracer() const;
     // Rebuilds the fixed-capacity tool draw records before RuntimeRenderer
     // submits them. World/model/asset owners remain borrowed for this call.
-    void PrepareOverlayTrace( Basics::SceneController& models,
+    void PrepareOverlayTrace( Runtime::SceneController& models,
                               const Assets::AssetSystem& assets,
                               const ToolOverlayBuildInput& input );
 
@@ -832,4 +866,4 @@ class RuntimeTools
     RunEditorPlacementState m_editor;
     RunEditorTracer m_editorTracer;
 };
-} // namespace SkullbonezCore::Basics
+} // namespace SkullbonezCore::Runtime

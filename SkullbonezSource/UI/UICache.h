@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UICache.h
 Purpose:
   Implements UI Cache widgets, layout, drawing, or UI state for the in-engine controls.
 
-Mental model:
+Summary:
   UICache.h implements UI Cache widgets, layout, drawing, or UI state for the
   in-engine controls. As a public header, keep edits anchored on UI request,
   layout, hit-test, and draw-command flow and on the glossary/invariants

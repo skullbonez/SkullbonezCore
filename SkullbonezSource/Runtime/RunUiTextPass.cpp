@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RunUiTextPass.cpp
 Purpose:
   Implements the UI/Text render pass owned by RuntimeRenderer.
 
-Mental model:
+Summary:
   World rendering can be skipped, redirected, or post-processed, but UI/text is
   a late pass over the final window. It owns font lifetime, text-only output,
   HUD overlays, and the in-game UI draw payload.
@@ -43,7 +43,7 @@ Related:
 #include "../UI/UIDraw.h"
 #include "../UI/UIStyle.h"
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using SkullbonezCore::Physics::PhysicsPipelineStage;
 using SkullbonezCore::Physics::PhysicsPipelineStageName;
 using SkullbonezCore::Text::Text2d;
@@ -83,14 +83,15 @@ void DrawUiTestPattern( SkullbonezCore::Rendering::IRenderCommandContext& render
 }
 
 
-MainMemoryStats BuildMainMemoryOverlayStats( const DiagnosticsRuntime& diagnosticsRuntime,
-                                             const MainMemoryGameObjectStats& gameObjects )
+SkullbonezCore::Core::MainMemoryStats
+BuildMainMemoryOverlayStats( const DiagnosticsRuntime& diagnosticsRuntime,
+                             const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects )
 {
     // Concept: F6 is an allocator-growth overlay, not a memory profiler sample.
     // It can show the last cached replay totals and current model-store capacity,
     // but process reconciliation belongs to explicit diagnostics refreshes.
-    MainMemoryStats stats = diagnosticsRuntime.MainMemoryStatsSnapshot();
-    stats.process = MainMemoryProcessStats{};
+    SkullbonezCore::Core::MainMemoryStats stats = diagnosticsRuntime.MainMemoryStatsSnapshot();
+    stats.process = SkullbonezCore::Core::MainMemoryProcessStats{};
     stats.gameObjects = gameObjects;
     stats.trackedEngineBytes = stats.replay.totalBytes + stats.gameObjects.totalBytes + stats.otherTrackedBytes;
     stats.unattributedProcessBytes = 0;
@@ -155,10 +156,10 @@ void RenderReplayDivergenceCounter( const UiTextPassInputs& inputs )
 }
 } // namespace
 
-SbResult UiTextPass::EnsureGpuResources( Rendering::IRenderResourceFactory& renderResources,
-                                         const Assets::AssetSystem& assets,
-                                         int screenW,
-                                         int screenH )
+SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources( Rendering::IRenderResourceFactory& renderResources,
+                                                               const Assets::AssetSystem& assets,
+                                                               int screenW,
+                                                               int screenH )
 {
     return Text2d::BuildFont( renderResources, assets, screenW, screenH, "Verdana" );
 }
@@ -190,7 +191,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     Rendering::IRenderCommandContext& renderCommands = *inputs.uiRender.commands;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     assert( inputs.profiler && "UiTextPass requires a startup-bound profiler in profile builds." );
-    const Profiler& profiler = *inputs.profiler;
+    const SkullbonezCore::Core::Profiler& profiler = *inputs.profiler;
 #endif
 
     // Invariant: rolling diagnostics update before any overlay early return so
@@ -541,18 +542,21 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         }
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
         {
-            static_assert( SkullbonezCore::UI::ProfilerTab::MAX_MARKERS == Profiler::MAX_MARKERS,
-                           "UI profiler snapshot capacity must match Profiler markers" );
-            static_assert( SkullbonezCore::UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES == Profiler::MAX_WORKER_CORES,
-                           "UI worker sample snapshot capacity must match Profiler samples" );
+            static_assert( SkullbonezCore::UI::ProfilerTab::MAX_MARKERS == SkullbonezCore::Core::Profiler::MAX_MARKERS,
+                           "UI profiler snapshot capacity must match SkullbonezCore::Core::Profiler markers" );
+            static_assert( SkullbonezCore::UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES ==
+                               SkullbonezCore::Core::Profiler::MAX_WORKER_CORES,
+                           "UI worker sample snapshot capacity must match SkullbonezCore::Core::Profiler samples" );
             SkullbonezCore::UI::ProfilerTab::FrameSnapshot& profilerFrame = UIData.profiler;
             profilerFrame.markerCount =
                 (std::min)( profiler.MarkerCount(), SkullbonezCore::UI::ProfilerTab::MAX_MARKERS );
             for ( int markerIndex = 0; markerIndex < profilerFrame.markerCount; ++markerIndex )
             {
-                const Profiler::Marker& source = profiler.GetMarker( markerIndex );
-                const int paletteIndex = source.colorIndex >= 0 ? source.colorIndex % Profiler::BAR_PALETTE_SIZE : 0;
-                const Profiler::BarColor& color = Profiler::BAR_PALETTE[paletteIndex];
+                const SkullbonezCore::Core::Profiler::Marker& source = profiler.GetMarker( markerIndex );
+                const int paletteIndex =
+                    source.colorIndex >= 0 ? source.colorIndex % SkullbonezCore::Core::Profiler::BAR_PALETTE_SIZE : 0;
+                const SkullbonezCore::Core::Profiler::BarColor& color =
+                    SkullbonezCore::Core::Profiler::BAR_PALETTE[paletteIndex];
                 SkullbonezCore::UI::ProfilerTab::MarkerSnapshot& target = profilerFrame.markers[markerIndex];
                 target.name = source.name ? source.name : "";
                 target.leafName = source.leafName ? source.leafName : target.name;
@@ -575,7 +579,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                             SkullbonezCore::UI::ProfilerTab::MAX_WORKER_CORE_SAMPLES );
             for ( int sampleIndex = 0; sampleIndex < profilerFrame.workerCoreSampleCount; ++sampleIndex )
             {
-                const Profiler::WorkerCoreSample& source = profiler.GetWorkerCoreSample( sampleIndex );
+                const SkullbonezCore::Core::Profiler::WorkerCoreSample& source =
+                    profiler.GetWorkerCoreSample( sampleIndex );
                 SkullbonezCore::UI::ProfilerTab::WorkerCoreSampleSnapshot& target =
                     profilerFrame.workerCoreSamples[sampleIndex];
                 target.workerIndex = source.workerIndex;
@@ -646,7 +651,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                 static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
                 for ( int markerIndex = 0; markerIndex < profiler.MarkerCount(); ++markerIndex )
                 {
-                    const Profiler::Marker& marker = profiler.GetMarker( markerIndex );
+                    const SkullbonezCore::Core::Profiler::Marker& marker = profiler.GetMarker( markerIndex );
                     if ( marker.hash == kFrameHash )
                     {
                         frameAverageMs = marker.avgMs > 0.0f ? marker.avgMs : marker.lastFrameMs;
@@ -670,9 +675,11 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                              true );
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-            auto addProfilerMarker = [&]( const Profiler::Marker& marker )
+            auto addProfilerMarker = [&]( const SkullbonezCore::Core::Profiler::Marker& marker )
             {
-                const Profiler::BarColor& color = Profiler::BAR_PALETTE[marker.colorIndex % Profiler::BAR_PALETTE_SIZE];
+                const SkullbonezCore::Core::Profiler::BarColor& color =
+                    SkullbonezCore::Core::Profiler::BAR_PALETTE[marker.colorIndex %
+                                                                SkullbonezCore::Core::Profiler::BAR_PALETTE_SIZE];
                 addMarkerOption( marker.name,
                                  marker.leafName,
                                  marker.hash,
@@ -698,7 +705,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             {
                 for ( int markerIndex = 0; markerIndex < profiler.MarkerCount(); ++markerIndex )
                 {
-                    const Profiler::Marker& marker = profiler.GetMarker( markerIndex );
+                    const SkullbonezCore::Core::Profiler::Marker& marker = profiler.GetMarker( markerIndex );
                     if ( marker.hash == pinnedHash )
                     {
                         addProfilerMarker( marker );
@@ -714,7 +721,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 #endif
         }
         UIData.modelCount = view.modelCount;
-        UIData.modelCapacity = ActiveGameModelCapacity( state.config );
+        UIData.modelCapacity = SkullbonezCore::Core::ActiveGameModelCapacity( state.config );
         UIData.workerThreadCount = state.workerPool ? state.workerPool->GetThreadCount() : 0;
         UIData.maxWorkerThreadCount = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
         UIData.currentFrame = view.frame;
@@ -755,6 +762,9 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         }
         if ( memoryTabActive || memoryOverlayEnabled )
         {
+            // The render snapshot is cheap owner-maintained accounting; unlike
+            // process memory sampling, it is safe to refresh for the F6 overlay.
+            UIData.renderMemory = inputs.renderDiagnostics.GetRenderMemoryStats();
             UIData.reserveGrowthEventTotalCount =
                 SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator::GrowthEventCount();
             UIData.reserveGrowthEventDroppedCount =
@@ -882,7 +892,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.tornadoInwardAcceleration = tornadoField.inwardAcceleration;
         UIData.tornadoSwirlAcceleration = tornadoField.swirlAcceleration;
         UIData.tornadoLiftAcceleration = tornadoField.liftAcceleration;
-        const EngineConfig& liveConfig = state.config;
+        const SkullbonezCore::Core::EngineConfig& liveConfig = state.config;
         UIData.rayCastVisualization = state.rayCastTest.visualizeRays;
         UIData.rayCastImpulseStrength = state.rayCastTest.impulseStrength;
         UIData.launcherProjectileSpeed = state.rayCastTest.projectileSpeed;
@@ -1160,7 +1170,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
     // --- Overlay: Timers / HUD (OverlayMode::Timers) ---
 
-    // Profiler overlay - bottom-left anchored.
+    // SkullbonezCore::Core::Profiler overlay - bottom-left anchored.
     // Compiled out in Release; always shown when overlay is Timers in Debug/Profile.
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     {

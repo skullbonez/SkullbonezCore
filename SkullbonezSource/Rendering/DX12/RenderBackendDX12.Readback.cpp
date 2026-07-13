@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/RenderBackendDX12.Readback.cpp
 Purpose:
   Reads GPU-rendered image data back to the CPU for screenshots and validation.
 
-Mental model:
+Summary:
   RenderBackendDX12.Readback.cpp reads GPU-rendered image data back to the CPU
   for screenshots and validation. As an implementation unit, keep edits
   anchored on DX12 ownership, descriptors, resources, and command submission
@@ -50,7 +50,7 @@ Related:
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
 using Microsoft::WRL::ComPtr;
-using SkullbonezCore::Basics::SbResult;
+using SkullbonezCore::Core::SbResult;
 
 
 // --- Helpers ---
@@ -61,17 +61,21 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
     fprintf( stdout, "FATAL: DX12 %s heap exhausted (next=%u capacity=%u)\n", name, nextIndex, capacity );
     fflush( stderr );
     fflush( stdout );
-    Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u", name, nextIndex, capacity );
-    Log().FlushAll();
+    SkullbonezCore::Core::Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u",
+                                             name,
+                                             nextIndex,
+                                             capacity );
+    SkullbonezCore::Core::Log().FlushAll();
 }
 
 // --- RenderBackendDX12 Readback methods ---
 
 
-SbResult RenderBackendDX12::CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight )
+SkullbonezCore::Core::SbResult
+RenderBackendDX12::CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight )
 {
     outPixels.clear();
-    const SbResult openResult = EnsureCommandListOpen();
+    const SkullbonezCore::Core::SbResult openResult = EnsureCommandListOpen();
     if ( !openResult.ok )
     {
         return openResult;
@@ -117,9 +121,9 @@ SbResult RenderBackendDX12::CaptureBackbuffer( std::vector<uint8_t>& outPixels, 
         TransitionBackbuffer( "BackbufferReadbackRestoreAfterFailure", backBufferAccessBeforeCopy );
         outWidth = 0;
         outHeight = 0;
-        return SbResult::Failure( "Rendering/DX12",
-                                  "CreateCommittedResource (screenshot readback) failed  "
-                                  "(RenderBackendDX12::CaptureBackbuffer)" );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "CreateCommittedResource (screenshot readback) failed  "
+                                                        "(RenderBackendDX12::CaptureBackbuffer)" );
     }
 
     D3D12_TEXTURE_COPY_LOCATION dstLoc = {};
@@ -142,7 +146,7 @@ SbResult RenderBackendDX12::CaptureBackbuffer( std::vector<uint8_t>& outPixels, 
 
     // Execute and wait
     AssertPlatformProfilerGpuStackClosed( "CaptureBackbuffer" );
-    const SbResult closeResult =
+    const SkullbonezCore::Core::SbResult closeResult =
         m_frameOwner.CommitClose( CommandList()->Close(), "CaptureBackbuffer command list Close" );
     if ( !closeResult.ok )
     {
@@ -154,12 +158,12 @@ SbResult RenderBackendDX12::CaptureBackbuffer( std::vector<uint8_t>& outPixels, 
             readbackBuffer.DetachAfterUncertainSubmission();
         return closeResult;
     }
-    const SbResult submitResult = SubmitClosedCommandList();
+    const SkullbonezCore::Core::SbResult submitResult = SubmitClosedCommandList();
     if ( !submitResult.ok )
     {
         return submitResult;
     }
-    const SbResult waitResult = m_frameOwner.CommitWait( WaitForGpu() );
+    const SkullbonezCore::Core::SbResult waitResult = m_frameOwner.CommitWait( WaitForGpu() );
     if ( !waitResult.ok )
     {
         if ( m_uncertainReadbackResourceCount >= m_uncertainReadbackResources.size() )
@@ -175,7 +179,7 @@ SbResult RenderBackendDX12::CaptureBackbuffer( std::vector<uint8_t>& outPixels, 
     const void* mappedData = readbackBuffer.MapRead( totalBytes );
     if ( !mappedData )
     {
-        return SbResult::Failure( "Rendering/DX12", "Map readback buffer failed" );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "Map readback buffer failed" );
     }
 
     // Convert RGBA top-down → BGR bottom-up (BMP format)
@@ -199,5 +203,5 @@ SbResult RenderBackendDX12::CaptureBackbuffer( std::vector<uint8_t>& outPixels, 
     readbackBuffer.UnmapNoWrite();
 
     outPixels = std::move( result );
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }

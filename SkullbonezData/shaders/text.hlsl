@@ -3,7 +3,7 @@ File: SkullbonezData/shaders/text.hlsl
 Purpose:
   Runs the text HLSL shader program used by the renderer.
 
-Mental model:
+Summary:
   text.hlsl is shader source for the renderer's text pass. Keep edits anchored
   on shader inputs, bindings, and render-output contracts and on the
   glossary/invariants below.
@@ -23,7 +23,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 // =============================================================================
-// TEXT RENDERING SHADER — HLSL 5.0 (Combined VS+PS)
+// TEXT RENDERING SHADER — Shader Model 6.6 (Combined VS+PS)
 // =============================================================================
 //
 // PURPOSE: Render 2D text quads with a font atlas texture.
@@ -57,7 +57,19 @@ cbuffer Uniforms : register(b0)
     float4x4 uProjection;  // Orthographic projection (pixel coords → clip space)
 };
 
-Texture2D    uFontTexture : register(t0);  // Font atlas (single-channel RED = glyph alpha)
+// Invariant: b1 carries stable indices into the directly indexed shader-visible
+// heap; the pipeline owner writes all six root constants before every draw.
+cbuffer BindlessTextureIndices : register(b1)
+{
+    uint4 _textureDescriptorIndices0;
+    uint2 _textureDescriptorIndices1;
+};
+
+uint BindlessTextureIndex(uint slot)
+{
+    return slot < 4u ? _textureDescriptorIndices0[slot] : _textureDescriptorIndices1[slot - 4u];
+}
+
 SamplerState sSampler0    : register(s0);  // Linear filtering for smooth text edges
 
 struct VS_IN
@@ -94,7 +106,8 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     //
     // Docs: https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-ddx
     //       https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-ddy
-    float sdf   = uFontTexture.Sample(sSampler0, input.texCoord).r;
+    Texture2D<float4> fontTexture = ResourceDescriptorHeap[BindlessTextureIndex(0u)];
+    float sdf   = fontTexture.Sample(sSampler0, input.texCoord).r;
     float fw    = (abs(ddx(sdf)) + abs(ddy(sdf))) * 0.7;
     float alpha = smoothstep(0.5 - fw, 0.5 + fw, sdf);
     return float4(input.color, alpha);

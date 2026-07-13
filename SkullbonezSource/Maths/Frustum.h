@@ -3,7 +3,7 @@ File: SkullbonezSource/Maths/Frustum.h
 Purpose:
   Declares the allocation-free camera frustum used by render visibility tests.
 
-Mental model:
+Summary:
   A view-projection matrix maps world points into clip space. Its six clip
   inequalities become normalized world-space planes; a bounding sphere is
   visible unless it lies wholly behind any plane.

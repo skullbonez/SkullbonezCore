@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/SBTDX12.h
 Purpose:
   Builds the DX12 raytracing shader binding table that maps ray records to shaders.
 
-Mental model:
+Summary:
   SBTDX12.h builds the DX12 raytracing shader binding table that maps ray
   records to shaders. As a public header, keep edits anchored on DX12
   ownership, descriptors, resources, and command submission and on the
@@ -62,12 +62,12 @@ class SBT
     SBT();
     ~SBT();
 
-    Basics::SbResult Build( ID3D12Device* device,
-                            ID3D12StateObjectProperties* props,
-                            const wchar_t* rayGenName,
-                            const wchar_t* missName,
-                            const wchar_t* hitGroupTerrainName,
-                            const wchar_t* hitGroupSphereName );
+    SkullbonezCore::Core::SbResult Build( ID3D12Device* device,
+                                          ID3D12StateObjectProperties* props,
+                                          const wchar_t* rayGenName,
+                                          const wchar_t* missName,
+                                          const wchar_t* hitGroupTerrainName,
+                                          const wchar_t* hitGroupSphereName );
 
     D3D12_GPU_VIRTUAL_ADDRESS_RANGE RayGenRange() const;
     D3D12_GPU_VIRTUAL_ADDRESS_RANGE_AND_STRIDE MissRange() const;

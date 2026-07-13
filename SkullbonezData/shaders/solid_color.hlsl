@@ -3,7 +3,7 @@ File: SkullbonezData/shaders/solid_color.hlsl
 Purpose:
   Runs the solid_color HLSL shader program used by the renderer.
 
-Mental model:
+Summary:
   solid_color.hlsl is shader source for the renderer's solid_color pass. Keep
   edits anchored on shader inputs, bindings, and render-output contracts and
   on the glossary/invariants below.
@@ -22,7 +22,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 // =============================================================================
-// SOLID COLOR SHADER — HLSL 5.0 (Combined VS+PS)
+// SOLID COLOR SHADER — Shader Model 6.6 (Combined VS+PS)
 // =============================================================================
 //
 // PURPOSE: Render flat-colored 2D quads for HUD backgrounds.

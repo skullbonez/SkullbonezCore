@@ -3,7 +3,7 @@ File: SkullbonezSource/Maths/MathsCommon.h
 Purpose:
   Owns the minimal math prelude shared by the Maths layer.
 
-Mental model:
+Summary:
   Maths is the bottom library candidate. It can depend on CRT math facilities
   and compile-time numeric contracts, but not on platform, runtime, config, or
   logging ownership from Core/Common.h.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/SolverBroadphaseStage.h
 Purpose:
   Exposes the pure broadphase candidate filter used by the solver driver.
 
-Mental model:
+Summary:
   SpatialGrid provides locality candidates; this stage rejects pairs whose
   swept bounding spheres cannot touch during the current fixed tick.
 
@@ -35,6 +35,7 @@ Related:
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <span>
 
 namespace SkullbonezCore
 {
@@ -42,20 +43,20 @@ namespace Physics
 {
 struct BroadphaseCandidateFilterContext
 {
-    const PhysicsBodyRecordList& bodyRecords;
-    const ColliderRecordList& colliderRecords;
+    std::span<const PhysicsBodyRecord> bodyRecords;
+    std::span<const ColliderRecord> colliderRecords;
     int modelCount = 0;
     float dt = 0.0f;
     float contactSkin = 0.0f;
 };
 
-inline const Math::Vector::Vector3& BroadphaseCandidateBodyPosition( const PhysicsBodyRecordList& bodyRecords,
+inline const Math::Vector::Vector3& BroadphaseCandidateBodyPosition( std::span<const PhysicsBodyRecord> bodyRecords,
                                                                      int bodyIndex )
 {
     return bodyRecords[static_cast<std::size_t>( bodyIndex )].position;
 }
 
-inline float BroadphaseCandidateBodyRadius( const ColliderRecordList& colliderRecords, int bodyIndex )
+inline float BroadphaseCandidateBodyRadius( std::span<const ColliderRecord> colliderRecords, int bodyIndex )
 {
     return colliderRecords[static_cast<std::size_t>( bodyIndex )].boundingRadius;
 }

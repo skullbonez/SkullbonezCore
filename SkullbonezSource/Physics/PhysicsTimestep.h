@@ -4,7 +4,7 @@ Purpose:
   Owns the fixed-step timing constants used by physics simulation and replay
   frame-to-seconds conversion.
 
-Mental model:
+Summary:
   Physics advances in deterministic 120 Hz ticks. Runtime code may choose how
   many ticks to run for a rendered frame, but each physics tick uses the same
   fixed duration so validation baselines and replay samples stay comparable.

@@ -3,7 +3,7 @@
 // Purpose:
 //   Locks asset-library source registration and lookup behavior used by scene parsing.
 //
-// Mental model:
+// Summary:
 //   AssetSystem owns logical asset names and resolves them to data-root paths.
 //   Scene parsing borrows this registry when a scene references reusable
 //   asset-library entries instead of spelling every object inline.
@@ -33,7 +33,7 @@
 
 using SkullbonezCore::Assets::AssetLibrarySourceAsset;
 using SkullbonezCore::Assets::AssetSystem;
-using SkullbonezCore::Basics::EngineConfig;
+using SkullbonezCore::Core::EngineConfig;
 
 TEST_CASE( "AssetSystem: asset-library source lookup preserves logical names and ids" )
 {
@@ -54,7 +54,7 @@ TEST_CASE( "AssetSystem: asset-library source lookup preserves logical names and
 TEST_CASE( "AssetSystem: built-in asset libraries are registered for scene reuse" )
 {
     AssetSystem assets;
-    EngineConfig config;
+    SkullbonezCore::Core::EngineConfig config;
     assets.RegisterBuiltInSourceAssets( config );
 
     const AssetLibrarySourceAsset* nature = assets.FindAssetLibrarySourceAsset( "assetlib.low_poly_nature" );

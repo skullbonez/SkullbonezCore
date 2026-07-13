@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RunDebugState.h
 Purpose:
   Owns presentation-only debug overlay, water/terrain visibility, and physics visualization toggles.
 
-Mental model:
+Summary:
   Debug state is presentation state. It tells HUD, diagnostics, render passes,
   and scene reset/restore code which overlays to show, but it must not become
   simulation authority or change deterministic physics behavior.
@@ -33,7 +33,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 enum class OverlayMode
 {
@@ -98,5 +98,5 @@ struct RunDebugState
     }
 };
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/TornadoGameplay.cpp
 Purpose:
   Implements deterministic tornado capture, ejection, and fixed-tree release.
 
-Mental model:
+Summary:
   Tornado gameplay samples either one configured field or the active procedural
   tornado system, mutates dense physics body rows, and emits plain body-index
   wake work for PhysicsWorld to apply through its existing sleep/contact logic.
@@ -85,7 +85,7 @@ bool IsUnderwaterSleepLocked( const std::vector<uint8_t>& underwaterSleepLocked,
 
 TornadoGameplay::TornadoGameplay()
 {
-    ReserveBodyCapacity( MAX_GAME_MODELS );
+    ReserveBodyCapacity( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
 }
 
 
@@ -203,7 +203,7 @@ const std::vector<int>& TornadoGameplay::ReleaseFixedBodies( const TornadoGamepl
         return m_releaseWakeBodies;
     }
 
-    PhysicsBodyRecordList& bodyRecords = bodyStore.MutableRecords();
+    const auto bodyRecords = bodyStore.MutableRecords();
     for ( int i = 0; i < bodyStore.Count(); ++i )
     {
         PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( i )];
@@ -251,7 +251,7 @@ void TornadoGameplay::ApplyBodyForces( const TornadoGameplayStepState& stepState
         return;
     }
 
-    PhysicsBodyRecordList& bodyRecords = context.bodyStore.MutableRecords();
+    const auto bodyRecords = context.bodyStore.MutableRecords();
     const int modelCount = (std::min)( { context.bodyStore.Count(),
                                          static_cast<int>( bodyRecords.size() ),
                                          context.colliderStore.Count() } );

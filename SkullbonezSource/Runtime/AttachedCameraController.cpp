@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/AttachedCameraController.cpp
 Purpose:
   Implements attach-camera target recovery and pose solving.
 
-Mental model:
+Summary:
   The controller owns Attach target selection, durable follow/orbit state, and
   synchronous camera pose mutation. It borrows model stores and cameras for one
   command at a time; composition code publishes returned selection facts to UI
@@ -50,7 +50,7 @@ using namespace SkullbonezCore::Physics;
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -128,7 +128,7 @@ float AttachedCameraTargetRadius( const PhysicsBodyRecord& body, const ColliderR
 
 const char* PresentationNameForModelIndex( const SceneController& collection, int modelIndex )
 {
-    const auto& presentationRecords = collection.RenderPresentationRecords();
+    const auto presentationRecords = collection.RenderPresentationRecords();
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( presentationRecords.size() ) )
     {
         return "";
@@ -286,7 +286,7 @@ void AttachedCameraController::RestoreReturnState( Environment::CameraCollection
 }
 
 
-bool AttachedCameraController::ResolveTargetIdentity( const Basics::SceneController& collection, int& outModelIndex )
+bool AttachedCameraController::ResolveTargetIdentity( const Runtime::SceneController& collection, int& outModelIndex )
 {
     if ( TryResolveTargetIdentity( collection, m_state.target, outModelIndex ) )
     {
@@ -297,7 +297,7 @@ bool AttachedCameraController::ResolveTargetIdentity( const Basics::SceneControl
 }
 
 
-bool AttachedCameraController::TickFollow( const Basics::SceneController& collection,
+bool AttachedCameraController::TickFollow( const Runtime::SceneController& collection,
                                            Environment::CameraCollection& cameras,
                                            float orbitYawDelta,
                                            float orbitPitchDelta,
@@ -349,7 +349,7 @@ bool AttachedCameraController::TickFollow( const Basics::SceneController& collec
 }
 
 
-bool AttachedCameraController::TryGetPresentationListenerPosition( const Basics::SceneController& collection,
+bool AttachedCameraController::TryGetPresentationListenerPosition( const Runtime::SceneController& collection,
                                                                    const Environment::CameraCollection& cameras,
                                                                    float presentationAlpha,
                                                                    Vector3& outPosition ) const
@@ -393,7 +393,7 @@ bool AttachedCameraController::TryGetPresentationListenerPosition( const Basics:
 }
 
 
-bool AttachedCameraController::CycleMode( const Basics::SceneController& collection,
+bool AttachedCameraController::CycleMode( const Runtime::SceneController& collection,
                                           Environment::CameraCollection& cameras )
 {
     AttachedCameraPhysicsTarget target;
@@ -411,7 +411,7 @@ bool AttachedCameraController::CycleMode( const Basics::SceneController& collect
 }
 
 
-bool AttachedCameraController::TogglePin( const Basics::SceneController& collection,
+bool AttachedCameraController::TogglePin( const Runtime::SceneController& collection,
                                           Environment::CameraCollection& cameras )
 {
     m_state.activeFollow = !m_state.activeFollow;
@@ -429,7 +429,7 @@ bool AttachedCameraController::TogglePin( const Basics::SceneController& collect
 }
 
 
-bool AttachedCameraController::ApplyOrbitInput( const Basics::SceneController& collection,
+bool AttachedCameraController::ApplyOrbitInput( const Runtime::SceneController& collection,
                                                 Environment::CameraCollection& cameras,
                                                 bool attachModeActive,
                                                 int unhandledWheelDelta,
@@ -454,7 +454,7 @@ bool AttachedCameraController::ApplyOrbitInput( const Basics::SceneController& c
 }
 
 
-bool AttachedCameraController::SetTarget( const Basics::SceneController& collection,
+bool AttachedCameraController::SetTarget( const Runtime::SceneController& collection,
                                           Environment::CameraCollection& cameras,
                                           int modelIndex,
                                           AttachedCameraTargetSelection& outSelection )
@@ -469,7 +469,7 @@ bool AttachedCameraController::SetTarget( const Basics::SceneController& collect
 }
 
 
-AttachedCameraSeedResult AttachedCameraController::SeedTarget( const Basics::SceneController& collection,
+AttachedCameraSeedResult AttachedCameraController::SeedTarget( const Runtime::SceneController& collection,
                                                                Environment::CameraCollection& cameras,
                                                                int seedModelIndex,
                                                                AttachedCameraTargetSelection& outSelection )
@@ -493,7 +493,7 @@ AttachedCameraSeedResult AttachedCameraController::SeedTarget( const Basics::Sce
 }
 
 
-bool AttachedCameraController::PickTarget( const Basics::SceneController& collection,
+bool AttachedCameraController::PickTarget( const Runtime::SceneController& collection,
                                            Environment::CameraCollection& cameras,
                                            bool hasWorldRay,
                                            const Vector3& rayOrigin,
@@ -614,7 +614,7 @@ bool AttachedCameraController::TryResolveTargetIdentity( const SceneController& 
     if ( target.replayBodyId != 0 )
     {
         int match = -1;
-        const auto& bodyRecords = bodyStore.Records();
+        const auto bodyRecords = bodyStore.Records();
         // Invariant: duplicate replay ids are corruption, not an arbitrary
         // first match. Scan the dense body rows so stale camera targets fail
         // closed without touching authoring/presentation data.
@@ -949,5 +949,5 @@ bool AttachedCameraController::BuildFollowPose( const SceneController& collectio
     state.needsEntryTween = false;
     return true;
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

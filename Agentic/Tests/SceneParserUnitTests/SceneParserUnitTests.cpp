@@ -3,6 +3,10 @@ File: Agentic/Tests/SceneParserUnitTests/SceneParserUnitTests.cpp
 Purpose:
   Checks scene/style parser contracts that do not need a renderer launch.
 
+Summary:
+  Loads compact authored-data fixtures and verifies parsed values plus named
+  recoverable failures without depending on renderer output.
+
 Mental model:
   These tests protect user-facing scene authoring JSON. They load checked-in
   fixtures and small TestOutput-generated fault cases through the same TestScene
@@ -41,7 +45,7 @@ Related:
 #include <string>
 #include <vector>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Rendering;
 
 namespace
@@ -193,7 +197,7 @@ void ExpectStyleLoadFails( const char* path, const char* contents, const char* e
 {
     WriteTextFile( path, contents );
     TestScene scene;
-    const SbResult result = TestScene::TryLoadStyleFromFile( path, scene );
+    const SkullbonezCore::Core::SbResult result = TestScene::TryLoadStyleFromFile( path, scene );
     if ( !result.ok )
     {
         EXPECT_STREQ( result.error.owner, "Scene/TestSceneParser" );
@@ -212,7 +216,7 @@ void ExpectSceneLoadFails( const char* path, const char* expectedMessage )
     const int originalBallCount = scene.GetBallCount();
     const int originalMaterialCount = scene.GetObjectMaterialOverrideCount();
 
-    const SbResult result = TestScene::TryLoadFromFile( path, scene );
+    const SkullbonezCore::Core::SbResult result = TestScene::TryLoadFromFile( path, scene );
     EXPECT_TRUE( !result.ok );
     EXPECT_STREQ( result.error.owner, "Scene/TestSceneParser" );
     EXPECT_CONTAINS( std::string( result.error.message ), expectedMessage );

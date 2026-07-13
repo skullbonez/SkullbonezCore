@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/RenderMaterial.h
 Purpose:
   Defines backend-neutral render material data for object rendering.
 
-Mental model:
+Summary:
   Render materials describe visual intent before a backend packs that intent
   into shader constants, instance streams, or the current object material table.
 

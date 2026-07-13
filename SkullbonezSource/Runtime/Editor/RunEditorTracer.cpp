@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp
 Purpose:
   Implements runtime editor overlay tracer primitives and draw submission.
 
-Mental model:
+Summary:
   The tracer turns editor/replay tool state into transient colored lines and replay
   ribbons. It observes state prepared elsewhere and should not mutate selection,
   physics, or replay ownership.
@@ -44,6 +44,7 @@ Related:
 #include "../Tools/RuntimeTools.h"
 #include "../../Physics/CollisionShape.h"
 #include "../../Physics/Ragdoll.h"
+#include "../../Core/Config.h"
 #include "../../Rendering/IRenderCommandContext.h"
 
 #include <algorithm>
@@ -52,14 +53,14 @@ Related:
 #include <cstdint>
 #include <vector>
 
-using namespace SkullbonezCore::Basics;
-using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Runtime;
+using namespace SkullbonezCore::Runtime::RunInternal;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::Ragdoll;
-using Json = SkullbonezCore::Basics::RunInternal::EditorPlacementJson;
+using Json = SkullbonezCore::Runtime::RunInternal::EditorPlacementJson;
 
 namespace
 {
@@ -67,16 +68,23 @@ constexpr std::size_t RUN_EDITOR_TRACER_LINE_FLOAT_CAPACITY = 262144;
 constexpr std::size_t RUN_EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY = 524288;
 constexpr std::size_t RUN_EDITOR_TRACER_FLOATS_PER_LINE = 12;
 // Why: the Stage-9 frozen prediction probe submitted 21,568 replay ribbon
-// segments. 24,000 keeps roughly 11% headroom while removing several MiB of
-// permanent staging that the old double-emit path no longer needs.
-constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_CAPACITY = 24000;
+// segments. The configured 27,000-segment/162,000-vertex ceiling adds 25.2%
+// headroom; the 19-float adjacency payload uses 23.5 MiB across the depth-hint
+// and visible passes, remaining inside the 32 MiB frame arena.
+// Ordinary paths get 24,000 slots and causal priority evidence keeps 3,000.
+constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_BUDGET = 27000;
+constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_SEGMENT_CAPACITY = 24000;
+constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_SEGMENT_CAPACITY =
+    RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_BUDGET - RUN_EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_SEGMENT_CAPACITY;
 constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT = 13;
-constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOAT_CAPACITY =
-    RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_CAPACITY * RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
-constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX = 13;
+constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_FLOAT_CAPACITY =
+    RUN_EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_SEGMENT_CAPACITY * RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
+constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_FLOAT_CAPACITY =
+    RUN_EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_SEGMENT_CAPACITY * RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
+constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX = 19;
 constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT = 6;
 constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTEX_FLOAT_CAPACITY =
-    RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_CAPACITY * 2 * RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT *
+    RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_BUDGET * RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT *
     RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX;
 constexpr float RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY = 0.5f;
 constexpr uint64_t REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET = 1469598103934665603ull;
@@ -93,8 +101,10 @@ void HashReplaySubmissionBytes( uint64_t& hash, const void* data, std::size_t by
 }
 
 void AppendReplayRibbonVertex( std::vector<float>& vertexData,
+                               const Vector3& previous,
                                const Vector3& start,
                                const Vector3& end,
+                               const Vector3& next,
                                float r,
                                float g,
                                float b,
@@ -116,21 +126,349 @@ void AppendReplayRibbonVertex( std::vector<float>& vertexData,
     vertexData.push_back( alpha );
     vertexData.push_back( edgeFeather );
     vertexData.push_back( hdrScale );
+    vertexData.push_back( previous.x );
+    vertexData.push_back( previous.y );
+    vertexData.push_back( previous.z );
+    vertexData.push_back( next.x );
+    vertexData.push_back( next.y );
+    vertexData.push_back( next.z );
 }
 } // namespace
 
 
 RunEditorTracer::RunEditorTracer()
 {
+    m_replayRibbonAuthoringLook.path = { 1.15f, 0.86f, 0.36f, 2.65f };
+    m_replayRibbonAuthoringLook.causal = { 1.55f, 0.92f, 0.34f, 3.25f };
+    m_replayRibbonAuthoringLook.baseline = { 1.05f, 0.62f, 0.42f, 2.20f };
+    m_replayRibbonAuthoringLook.marker = { 2.10f, 1.0f, 0.72f, 3.75f };
     // Runtime allocation policy: overlay line storage is paid once during tool
     // construction. EmitLine refuses overflow so replay prediction, gizmos, and
     // target markers cannot grow this vector while render builds the frame.
     m_lineData.reserve( RUN_EDITOR_TRACER_LINE_FLOAT_CAPACITY );
     m_priorityLineData.reserve( RUN_EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY );
     m_renderLineData.reserve( RUN_EDITOR_TRACER_LINE_FLOAT_CAPACITY + RUN_EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY );
-    m_replayRibbonSegments.reserve( RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOAT_CAPACITY );
-    m_priorityReplayRibbonSegments.reserve( RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOAT_CAPACITY );
+    m_replayRibbonSegments.reserve( RUN_EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_FLOAT_CAPACITY );
+    m_priorityReplayRibbonSegments.reserve( RUN_EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_FLOAT_CAPACITY );
     m_replayRibbonVertexData.reserve( RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTEX_FLOAT_CAPACITY );
+}
+
+void RunEditorTracer::CycleReplayPredictionAuthoringLook( SkullbonezCore::Core::CinematicRenderConfig& cinematic )
+{
+    // TEMPORARY DEBUG AUTHORING. Owner: RunEditorTracer. Reason: this deliberate
+    // cross-domain authoring boundary searches the complete prediction/cinematic
+    // design space in the real scene. Deletion condition: remove this method,
+    // action, and binding when the chosen preset is baked in. Review evidence is
+    // the copy/paste-ready TEMP_PREDICTION_* and TEMP_REPLAY_LOOK record set below.
+#if defined( _DEBUG )
+    uint32_t state = m_replayRibbonAuthoringLook.seed + 0x9e3779b9u;
+    if ( state == 0u )
+    {
+        state = 0x6d2b79f5u;
+    }
+    auto random01 = [&state]()
+    {
+        state ^= state << 13u;
+        state ^= state >> 17u;
+        state ^= state << 5u;
+        return static_cast<float>( state & 0x00ffffffu ) / 16777215.0f;
+    };
+    auto range = [&random01]( float lo, float hi ) { return lo + ( hi - lo ) * random01(); };
+    auto style = [&range]( float widthLo, float widthHi )
+    {
+        return ReplayRibbonStyle{ range( widthLo, widthHi ),
+                                  range( 0.42f, 1.0f ),
+                                  range( 0.10f, 1.05f ),
+                                  range( 0.75f, 4.8f ) };
+    };
+    m_replayRibbonAuthoringLook.path = style( 0.22f, 2.4f );
+    m_replayRibbonAuthoringLook.causal = style( 0.28f, 2.8f );
+    m_replayRibbonAuthoringLook.baseline = style( 0.18f, 2.0f );
+    m_replayRibbonAuthoringLook.marker = style( 0.65f, 3.2f );
+    m_replayRibbonAuthoringLook.opacity = range( 0.38f, 1.0f );
+    m_replayRibbonAuthoringLook.saturation = range( 0.35f, 1.8f );
+    m_replayRibbonAuthoringLook.colorGain = range( 0.65f, 1.8f );
+    m_replayRibbonAuthoringLook.seed = state;
+
+    struct AuthoringPalette
+    {
+        const char* name;
+        int skyMode;
+        int terrainMode;
+        int objectStyle;
+        float sun[3];
+        float horizon[3];
+        float zenith[3];
+        float terrain[3];
+        float accent[3];
+        float fog[3];
+    };
+    // TEMPORARY DEBUG AUTHORING: curated mode/palette families keep the random
+    // search broad without producing unrelated RGB soup. Scalar jitter below
+    // explores exposure, grading, atmosphere, glow, and material response.
+    static constexpr AuthoringPalette palettes[] = {
+        { "neon_noir",
+          SkullbonezCore::Core::CinematicStyleMode::Sky::NeonCyberpunk,
+          SkullbonezCore::Core::CinematicStyleMode::Terrain::NeonGrid,
+          SkullbonezCore::Core::CinematicStyleMode::Object::Emissive,
+          { 1.7f, 0.25f, 1.5f },
+          { 0.22f, 0.03f, 0.38f },
+          { 0.01f, 0.08f, 0.30f },
+          { 0.025f, 0.035f, 0.065f },
+          { 0.05f, 0.75f, 1.35f },
+          { 0.10f, 0.02f, 0.19f } },
+        { "alien_aurora",
+          SkullbonezCore::Core::CinematicStyleMode::Sky::AlienPlanet,
+          SkullbonezCore::Core::CinematicStyleMode::Terrain::AlienVeins,
+          SkullbonezCore::Core::CinematicStyleMode::Object::Fresnel,
+          { 0.38f, 1.65f, 0.72f },
+          { 0.18f, 0.58f, 0.32f },
+          { 0.16f, 0.02f, 0.42f },
+          { 0.06f, 0.16f, 0.09f },
+          { 0.62f, 0.08f, 0.92f },
+          { 0.11f, 0.28f, 0.18f } },
+        { "desert_epic",
+          SkullbonezCore::Core::CinematicStyleMode::Sky::DesertStorm,
+          SkullbonezCore::Core::CinematicStyleMode::Terrain::DesertSlope,
+          SkullbonezCore::Core::CinematicStyleMode::Object::Matte,
+          { 1.75f, 0.88f, 0.28f },
+          { 1.15f, 0.42f, 0.18f },
+          { 0.12f, 0.16f, 0.30f },
+          { 0.42f, 0.18f, 0.07f },
+          { 0.95f, 0.48f, 0.11f },
+          { 0.62f, 0.31f, 0.16f } },
+        { "painted_story",
+          SkullbonezCore::Core::CinematicStyleMode::Sky::Painterly,
+          SkullbonezCore::Core::CinematicStyleMode::Terrain::Posterized,
+          SkullbonezCore::Core::CinematicStyleMode::Object::ToonBands,
+          { 1.25f, 0.68f, 0.50f },
+          { 0.75f, 0.40f, 0.58f },
+          { 0.18f, 0.42f, 0.82f },
+          { 0.20f, 0.34f, 0.16f },
+          { 0.70f, 0.52f, 0.18f },
+          { 0.42f, 0.38f, 0.52f } },
+        { "retro_chrome",
+          SkullbonezCore::Core::CinematicStyleMode::Sky::RetroFuture,
+          SkullbonezCore::Core::CinematicStyleMode::Terrain::ChromaticBands,
+          SkullbonezCore::Core::CinematicStyleMode::Object::Metal,
+          { 1.42f, 0.36f, 0.62f },
+          { 0.54f, 0.18f, 0.48f },
+          { 0.03f, 0.22f, 0.52f },
+          { 0.10f, 0.06f, 0.16f },
+          { 0.15f, 0.72f, 1.15f },
+          { 0.25f, 0.08f, 0.24f } },
+        { "fog_thriller",
+          SkullbonezCore::Core::CinematicStyleMode::Sky::AtmosphericFog,
+          SkullbonezCore::Core::CinematicStyleMode::Terrain::CoolStone,
+          SkullbonezCore::Core::CinematicStyleMode::Object::DarkRim,
+          { 0.72f, 0.82f, 1.12f },
+          { 0.38f, 0.46f, 0.58f },
+          { 0.06f, 0.10f, 0.18f },
+          { 0.12f, 0.15f, 0.18f },
+          { 0.34f, 0.42f, 0.52f },
+          { 0.24f, 0.30f, 0.38f } },
+        { "nordic_clean",
+          SkullbonezCore::Core::CinematicStyleMode::Sky::NordicWinter,
+          SkullbonezCore::Core::CinematicStyleMode::Terrain::NordicSnow,
+          SkullbonezCore::Core::CinematicStyleMode::Object::Matte,
+          { 0.92f, 1.08f, 1.35f },
+          { 0.62f, 0.78f, 0.96f },
+          { 0.12f, 0.24f, 0.48f },
+          { 0.48f, 0.58f, 0.64f },
+          { 0.22f, 0.38f, 0.56f },
+          { 0.50f, 0.62f, 0.74f } },
+        { "abstract_stage",
+          SkullbonezCore::Core::CinematicStyleMode::Sky::AbstractRender,
+          SkullbonezCore::Core::CinematicStyleMode::Terrain::SolidStudio,
+          SkullbonezCore::Core::CinematicStyleMode::Object::Emissive,
+          { 1.30f, 1.30f, 1.30f },
+          { 0.16f, 0.16f, 0.18f },
+          { 0.01f, 0.01f, 0.02f },
+          { 0.035f, 0.035f, 0.04f },
+          { 0.95f, 0.15f, 0.12f },
+          { 0.08f, 0.08f, 0.09f } },
+        { "soft_animation",
+          SkullbonezCore::Core::CinematicStyleMode::Sky::PixarInspired,
+          SkullbonezCore::Core::CinematicStyleMode::Terrain::SoftIllustrated,
+          SkullbonezCore::Core::CinematicStyleMode::Object::ToonBands,
+          { 1.38f, 0.92f, 0.58f },
+          { 0.82f, 0.58f, 0.62f },
+          { 0.24f, 0.52f, 0.92f },
+          { 0.24f, 0.44f, 0.18f },
+          { 0.78f, 0.56f, 0.20f },
+          { 0.52f, 0.48f, 0.62f } },
+        { "tron_precision",
+          SkullbonezCore::Core::CinematicStyleMode::Sky::TronGrid,
+          SkullbonezCore::Core::CinematicStyleMode::Terrain::SciFiGrid,
+          SkullbonezCore::Core::CinematicStyleMode::Object::Emissive,
+          { 0.28f, 1.35f, 1.65f },
+          { 0.02f, 0.14f, 0.22f },
+          { 0.0f, 0.015f, 0.05f },
+          { 0.012f, 0.025f, 0.04f },
+          { 0.08f, 0.85f, 1.25f },
+          { 0.02f, 0.08f, 0.13f } },
+    };
+    constexpr std::size_t paletteCount = sizeof( palettes ) / sizeof( palettes[0] );
+    const std::size_t paletteIndex =
+        static_cast<std::size_t>( random01() * static_cast<float>( paletteCount ) ) % paletteCount;
+    const AuthoringPalette& palette = palettes[paletteIndex];
+    const auto jitterColor = [&range]( const float color[3], float& r, float& g, float& b )
+    {
+        r = color[0] * range( 0.78f, 1.28f );
+        g = color[1] * range( 0.78f, 1.28f );
+        b = color[2] * range( 0.78f, 1.28f );
+    };
+    const auto chance = [&random01]( float probability ) { return random01() < probability; };
+
+    cinematic.enabled = true;
+    cinematic.skyMode = palette.skyMode;
+    cinematic.terrainMode = palette.terrainMode;
+    cinematic.objectStyle = palette.objectStyle;
+    cinematic.skyAtmosphereEnabled = chance( 0.90f );
+    cinematic.cloudsEnabled = chance( 0.65f );
+    cinematic.godRaysEnabled = chance( 0.55f );
+    cinematic.volumetricLightingEnabled = chance( 0.70f );
+    cinematic.bloomEnabled = chance( 0.88f );
+    cinematic.fogEnabled = chance( 0.72f );
+    cinematic.terrainReliefEnabled = chance( 0.42f );
+    cinematic.exposure = range( 0.68f, 1.62f );
+    cinematic.gamma = range( 1.15f, 2.15f );
+    cinematic.sunAzimuth = range( 0.05f, 0.95f );
+    cinematic.sunElevation = range( 0.12f, 0.88f );
+    jitterColor( palette.sun, cinematic.sunColorR, cinematic.sunColorG, cinematic.sunColorB );
+    jitterColor( palette.horizon, cinematic.skyHorizonR, cinematic.skyHorizonG, cinematic.skyHorizonB );
+    jitterColor( palette.zenith, cinematic.skyZenithR, cinematic.skyZenithG, cinematic.skyZenithB );
+    jitterColor( palette.terrain, cinematic.terrainTintR, cinematic.terrainTintG, cinematic.terrainTintB );
+    jitterColor( palette.accent, cinematic.terrainAccentR, cinematic.terrainAccentG, cinematic.terrainAccentB );
+    jitterColor( palette.fog, cinematic.fogColorR, cinematic.fogColorG, cinematic.fogColorB );
+    cinematic.sunIntensity = range( 2.5f, 18.0f );
+    cinematic.skyGlowStrength = range( 0.05f, 1.15f );
+    cinematic.cloudCoverage = range( 0.15f, 0.82f );
+    cinematic.cloudSoftness = range( 0.08f, 0.55f );
+    cinematic.cloudScale = range( 1.5f, 9.0f );
+    cinematic.cloudIntensity = range( 0.25f, 1.45f );
+    cinematic.sunShaftStrength = range( 0.05f, 0.75f );
+    cinematic.sunShaftFalloff = range( 1.1f, 4.2f );
+    cinematic.volumetricStrength = range( 0.03f, 0.48f );
+    cinematic.volumetricDensity = range( 0.25f, 1.15f );
+    cinematic.volumetricDecay = range( 0.91f, 0.985f );
+    cinematic.bloomThreshold = range( 0.45f, 1.75f );
+    cinematic.bloomKnee = range( 0.15f, 0.85f );
+    cinematic.bloomStrength = range( 0.05f, 0.85f );
+    cinematic.bloomRadius = range( 1.0f, 7.5f );
+    cinematic.fogStart = range( 35.0f, 520.0f );
+    cinematic.fogEnd = cinematic.fogStart + range( 320.0f, 1900.0f );
+    cinematic.fogDensity = range( 0.00005f, 0.0018f );
+    cinematic.fogMaxOpacity = range( 0.04f, 0.62f );
+    cinematic.styleSaturation = range( 0.22f, 2.15f );
+    cinematic.styleContrast = range( 0.72f, 1.85f );
+    cinematic.styleVignette = range( 0.0f, 0.68f );
+    cinematic.terrainGridScale = range( 12.0f, 90.0f );
+    cinematic.terrainGridStrength = chance( 0.55f ) ? range( 0.08f, 1.0f ) : 0.0f;
+    cinematic.terrainRelief = chance( 0.42f ) ? range( 0.0f, 0.75f ) : 0.0f;
+
+    fprintf( stderr,
+             "TEMP_PREDICTION_LOOK theme=%s seed=%u modes={sky=%d terrain=%d object=%d} passes={sky=%d clouds=%d "
+             "rays=%d volumetric=%d bloom=%d fog=%d relief=%d}\n",
+             palette.name,
+             state,
+             cinematic.skyMode,
+             cinematic.terrainMode,
+             cinematic.objectStyle,
+             cinematic.skyAtmosphereEnabled,
+             cinematic.cloudsEnabled,
+             cinematic.godRaysEnabled,
+             cinematic.volumetricLightingEnabled,
+             cinematic.bloomEnabled,
+             cinematic.fogEnabled,
+             cinematic.terrainReliefEnabled );
+    fprintf( stderr,
+             "TEMP_PREDICTION_VIEW exposure=%.3f gamma=%.3f saturation=%.3f contrast=%.3f vignette=%.3f "
+             "sun={azimuth=%.3f elevation=%.3f rgb=%.3f,%.3f,%.3f intensity=%.3f} "
+             "sky={horizon=%.3f,%.3f,%.3f zenith=%.3f,%.3f,%.3f glow=%.3f}\n",
+             cinematic.exposure,
+             cinematic.gamma,
+             cinematic.styleSaturation,
+             cinematic.styleContrast,
+             cinematic.styleVignette,
+             cinematic.sunAzimuth,
+             cinematic.sunElevation,
+             cinematic.sunColorR,
+             cinematic.sunColorG,
+             cinematic.sunColorB,
+             cinematic.sunIntensity,
+             cinematic.skyHorizonR,
+             cinematic.skyHorizonG,
+             cinematic.skyHorizonB,
+             cinematic.skyZenithR,
+             cinematic.skyZenithG,
+             cinematic.skyZenithB,
+             cinematic.skyGlowStrength );
+    fprintf( stderr,
+             "TEMP_PREDICTION_FX clouds={coverage=%.3f softness=%.3f scale=%.3f intensity=%.3f} "
+             "shafts={strength=%.3f falloff=%.3f} volumetric={strength=%.3f density=%.3f decay=%.3f} "
+             "bloom={threshold=%.3f knee=%.3f strength=%.3f radius=%.3f} "
+             "fog={rgb=%.3f,%.3f,%.3f start=%.3f end=%.3f density=%.6f maxOpacity=%.3f}\n",
+             cinematic.cloudCoverage,
+             cinematic.cloudSoftness,
+             cinematic.cloudScale,
+             cinematic.cloudIntensity,
+             cinematic.sunShaftStrength,
+             cinematic.sunShaftFalloff,
+             cinematic.volumetricStrength,
+             cinematic.volumetricDensity,
+             cinematic.volumetricDecay,
+             cinematic.bloomThreshold,
+             cinematic.bloomKnee,
+             cinematic.bloomStrength,
+             cinematic.bloomRadius,
+             cinematic.fogColorR,
+             cinematic.fogColorG,
+             cinematic.fogColorB,
+             cinematic.fogStart,
+             cinematic.fogEnd,
+             cinematic.fogDensity,
+             cinematic.fogMaxOpacity );
+    fprintf( stderr,
+             "TEMP_PREDICTION_TERRAIN tint=%.3f,%.3f,%.3f accent=%.3f,%.3f,%.3f gridScale=%.3f "
+             "gridStrength=%.3f relief=%.3f\n",
+             cinematic.terrainTintR,
+             cinematic.terrainTintG,
+             cinematic.terrainTintB,
+             cinematic.terrainAccentR,
+             cinematic.terrainAccentG,
+             cinematic.terrainAccentB,
+             cinematic.terrainGridScale,
+             cinematic.terrainGridStrength,
+             cinematic.terrainRelief );
+    fprintf( stderr,
+             "TEMP_REPLAY_LOOK seed=%u opacity=%.3f saturation=%.3f colorGain=%.3f path={width=%.3f alpha=%.3f "
+             "feather=%.3f hdr=%.3f} causal={width=%.3f alpha=%.3f feather=%.3f hdr=%.3f} baseline={width=%.3f "
+             "alpha=%.3f feather=%.3f hdr=%.3f} marker={width=%.3f alpha=%.3f feather=%.3f hdr=%.3f}\n",
+             m_replayRibbonAuthoringLook.seed,
+             m_replayRibbonAuthoringLook.opacity,
+             m_replayRibbonAuthoringLook.saturation,
+             m_replayRibbonAuthoringLook.colorGain,
+             m_replayRibbonAuthoringLook.path.width,
+             m_replayRibbonAuthoringLook.path.alpha,
+             m_replayRibbonAuthoringLook.path.edgeFeather,
+             m_replayRibbonAuthoringLook.path.hdrScale,
+             m_replayRibbonAuthoringLook.causal.width,
+             m_replayRibbonAuthoringLook.causal.alpha,
+             m_replayRibbonAuthoringLook.causal.edgeFeather,
+             m_replayRibbonAuthoringLook.causal.hdrScale,
+             m_replayRibbonAuthoringLook.baseline.width,
+             m_replayRibbonAuthoringLook.baseline.alpha,
+             m_replayRibbonAuthoringLook.baseline.edgeFeather,
+             m_replayRibbonAuthoringLook.baseline.hdrScale,
+             m_replayRibbonAuthoringLook.marker.width,
+             m_replayRibbonAuthoringLook.marker.alpha,
+             m_replayRibbonAuthoringLook.marker.edgeFeather,
+             m_replayRibbonAuthoringLook.marker.hdrScale );
+    fflush( stderr );
+#else
+    static_cast<void>( cinematic );
+#endif
 }
 
 
@@ -143,21 +481,32 @@ void RunEditorTracer::Clear()
     m_priorityReplayRibbonSegments.clear();
     m_replayRibbonVertexData.clear();
     ClearReplayTrajectoryStats();
-    m_replaySubmissionStats = MainMemoryReplayTrajectorySubmissionStats{};
+    m_replaySubmissionStats = SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats{};
 }
 
 void RunEditorTracer::ClearReplayTrajectoryStats()
 {
-    m_replayTrajectoryStats = MainMemoryReplayTrajectoryStats{};
+    m_replayTrajectoryStats = SkullbonezCore::Core::MainMemoryReplayTrajectoryStats{};
 }
 
 
-const MainMemoryReplayTrajectoryStats& RunEditorTracer::ReplayTrajectoryStats() const
+const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& RunEditorTracer::ReplayTrajectoryStats() const
 {
     return m_replayTrajectoryStats;
 }
 
-const MainMemoryReplayTrajectorySubmissionStats& RunEditorTracer::ReplaySubmissionStats() const
+
+void RunEditorTracer::RecordReplayRibbonDroppedSegments( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
+                                                         std::size_t count )
+{
+    const std::size_t laneIndex = static_cast<std::size_t>( lane );
+    if ( laneIndex < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT )
+    {
+        m_replayTrajectoryStats.droppedSegments[laneIndex] += static_cast<uint64_t>( count );
+    }
+}
+
+const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& RunEditorTracer::ReplaySubmissionStats() const
 {
     return m_replaySubmissionStats;
 }
@@ -407,7 +756,7 @@ void RunEditorTracer::EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData,
                                                  float g,
                                                  float bl,
                                                  const ReplayRibbonStyle& style,
-                                                 MainMemoryReplayTrajectoryLane lane )
+                                                 SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
 {
     if ( VectorMagSquared( b - a ) <= TOLERANCE * TOLERANCE )
     {
@@ -415,19 +764,38 @@ void RunEditorTracer::EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData,
     }
 
     const std::size_t laneIndex = static_cast<std::size_t>( lane );
-    if ( ribbonData.size() + RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT > ribbonData.capacity() )
+    const std::size_t combinedSegments = ( m_replayRibbonSegments.size() + m_priorityReplayRibbonSegments.size() ) /
+                                         RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
+    if ( combinedSegments >= RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_BUDGET ||
+         ribbonData.size() + RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT > ribbonData.capacity() )
     {
-        if ( laneIndex < MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT )
+        if ( laneIndex < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT )
         {
-            ++m_replayTrajectoryStats.droppedSegments[laneIndex];
+            RecordReplayRibbonDroppedSegments( lane );
         }
         return;
     }
 
-    if ( laneIndex < MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT )
+    if ( laneIndex < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT )
     {
         ++m_replayTrajectoryStats.emittedSegments[laneIndex];
     }
+
+    // TEMPORARY DEBUG AUTHORING: saturation and gain are deliberately applied
+    // at the final ribbon boundary so every replay lane shares the logged view.
+    const float luminance = r * 0.2126f + g * 0.7152f + bl * 0.0722f;
+    r = std::clamp( ( luminance + ( r - luminance ) * m_replayRibbonAuthoringLook.saturation ) *
+                        m_replayRibbonAuthoringLook.colorGain,
+                    0.0f,
+                    8.0f );
+    g = std::clamp( ( luminance + ( g - luminance ) * m_replayRibbonAuthoringLook.saturation ) *
+                        m_replayRibbonAuthoringLook.colorGain,
+                    0.0f,
+                    8.0f );
+    bl = std::clamp( ( luminance + ( bl - luminance ) * m_replayRibbonAuthoringLook.saturation ) *
+                         m_replayRibbonAuthoringLook.colorGain,
+                     0.0f,
+                     8.0f );
 
     // Invariant: replay ribbon storage is reserved during tracer construction.
     // Explicit appends keep the steady-gameplay path inside that fixed budget.
@@ -455,7 +823,7 @@ void RunEditorTracer::EmitReplayRibbonGlowPairTo( std::vector<float>& ribbonData
                                                   float bl,
                                                   const ReplayRibbonStyle& glow,
                                                   const ReplayRibbonStyle& core,
-                                                  MainMemoryReplayTrajectoryLane lane )
+                                                  SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
 {
     // Why: trajectory ribbons own their glow in one pixel shader pass. Keep the
     // wider glow width, but carry the stronger core alpha so each logical path
@@ -476,7 +844,7 @@ void RunEditorTracer::EmitReplayRibbonShapeOutlineTo( std::vector<float>& ribbon
                                                       float g,
                                                       float b,
                                                       const ReplayRibbonStyle& style,
-                                                      MainMemoryReplayTrajectoryLane lane )
+                                                      SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
 {
     Quaternion outlineOrientation = orientation;
     const RotationMatrix rot = outlineOrientation.GetOrientationMatrix();
@@ -605,15 +973,63 @@ void RunEditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const
             const float edgeFeather = std::clamp( ribbonData[i + 11], 0.02f, 1.25f );
             const float hdrScale = (std::max)( 0.0f, ribbonData[i + 12] );
 
-            // Concept: each emitted vertex carries the same segment payload. The
-            // trajectory-ribbon vertex shader uses SV_VertexID to choose
-            // endpoint/edge and expand the ribbon at constant screen-space width.
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width, edgeFeather, hdrScale );
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width, edgeFeather, hdrScale );
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width, edgeFeather, hdrScale );
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width, edgeFeather, hdrScale );
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width, edgeFeather, hdrScale );
-            AppendReplayRibbonVertex( m_replayRibbonVertexData, a, b, r, g, bl, alpha, width, edgeFeather, hdrScale );
+            Vector3 previous = a;
+            Vector3 next = b;
+            // Concept: adjacent trajectory segments share their outer points so
+            // the shader can compute one screen-space join normal at the common
+            // sample. Matching the complete style prevents unrelated path lanes
+            // that merely touch at a collision point from being welded together;
+            // color is intentionally excluded because it grades along one path.
+            if ( i >= RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT )
+            {
+                const std::size_t previousIndex = i - RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
+                const Vector3 previousEnd( ribbonData[previousIndex + 3],
+                                           ribbonData[previousIndex + 4],
+                                           ribbonData[previousIndex + 5] );
+                const bool samePresentation = ribbonData[previousIndex + 9] == ribbonData[i + 9] &&
+                                              ribbonData[previousIndex + 10] == ribbonData[i + 10] &&
+                                              ribbonData[previousIndex + 11] == ribbonData[i + 11] &&
+                                              ribbonData[previousIndex + 12] == ribbonData[i + 12];
+                if ( samePresentation && VectorMagSquared( previousEnd - a ) <= TOLERANCE * TOLERANCE )
+                {
+                    previous = Vector3( ribbonData[previousIndex + 0],
+                                        ribbonData[previousIndex + 1],
+                                        ribbonData[previousIndex + 2] );
+                }
+            }
+            const std::size_t nextIndex = i + RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
+            if ( nextIndex + RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT <= ribbonData.size() )
+            {
+                const Vector3 nextStart( ribbonData[nextIndex + 0],
+                                         ribbonData[nextIndex + 1],
+                                         ribbonData[nextIndex + 2] );
+                const bool samePresentation = ribbonData[nextIndex + 9] == ribbonData[i + 9] &&
+                                              ribbonData[nextIndex + 10] == ribbonData[i + 10] &&
+                                              ribbonData[nextIndex + 11] == ribbonData[i + 11] &&
+                                              ribbonData[nextIndex + 12] == ribbonData[i + 12];
+                if ( samePresentation && VectorMagSquared( nextStart - b ) <= TOLERANCE * TOLERANCE )
+                {
+                    next = Vector3( ribbonData[nextIndex + 3], ribbonData[nextIndex + 4], ribbonData[nextIndex + 5] );
+                }
+            }
+
+            // Each emitted vertex carries the same adjacency-aware payload.
+            // SV_VertexID still selects the endpoint and side in the shader.
+            for ( int vertex = 0; vertex < 6; ++vertex )
+            {
+                AppendReplayRibbonVertex( m_replayRibbonVertexData,
+                                          previous,
+                                          a,
+                                          b,
+                                          next,
+                                          r,
+                                          g,
+                                          bl,
+                                          alpha,
+                                          width,
+                                          edgeFeather,
+                                          hdrScale );
+            }
         }
     };
 
@@ -623,7 +1039,7 @@ void RunEditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const
     appendRibbonData( m_replayRibbonSegments );
     appendRibbonData( m_priorityReplayRibbonSegments );
 
-    m_replaySubmissionStats = MainMemoryReplayTrajectorySubmissionStats{};
+    m_replaySubmissionStats = SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats{};
     if ( !m_replayRibbonVertexData.empty() )
     {
         // Invariant: Stage-9 flicker validation hashes the exact float payload
@@ -835,16 +1251,16 @@ void RunEditorTracer::AddReplayPathSegment( const Vector3& start,
                                             float r,
                                             float g,
                                             float b,
-                                            MainMemoryReplayTrajectoryLane lane )
+                                            SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
 {
-    const ReplayRibbonStyle glow = { 1.15f, 0.20f, 0.74f, 2.65f };
-    const ReplayRibbonStyle core = { 0.28f, 0.86f, 0.36f, 1.55f };
+    const ReplayRibbonStyle glow = m_replayRibbonAuthoringLook.path;
+    const ReplayRibbonStyle core = m_replayRibbonAuthoringLook.path;
     EmitReplayRibbonGlowPairTo( m_replayRibbonSegments,
                                 start,
                                 end,
-                                r * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
-                                g * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
-                                b * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
+                                r * m_replayRibbonAuthoringLook.opacity,
+                                g * m_replayRibbonAuthoringLook.opacity,
+                                b * m_replayRibbonAuthoringLook.opacity,
                                 glow,
                                 core,
                                 lane );
@@ -856,24 +1272,24 @@ void RunEditorTracer::AddReplayCausalTrailSegment( const Vector3& start, const V
     // Why: retained causal trails are the evidence attached to yellow/grey/ghost
     // boxes. They live with the priority ribbons so overflow in ordinary root
     // path rendering cannot leave a marker without its sampled route.
-    const ReplayRibbonStyle glow = { 1.55f, 0.28f, 0.78f, 3.25f };
-    const ReplayRibbonStyle core = { 0.34f, 0.92f, 0.34f, 1.90f };
+    const ReplayRibbonStyle glow = m_replayRibbonAuthoringLook.causal;
+    const ReplayRibbonStyle core = m_replayRibbonAuthoringLook.causal;
     EmitReplayRibbonGlowPairTo( m_priorityReplayRibbonSegments,
                                 start,
                                 end,
-                                r * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
-                                g * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
-                                b * RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY,
+                                r * m_replayRibbonAuthoringLook.opacity,
+                                g * m_replayRibbonAuthoringLook.opacity,
+                                b * m_replayRibbonAuthoringLook.opacity,
                                 glow,
                                 core,
-                                MainMemoryReplayTrajectoryLane::RetainedTrail );
+                                SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::RetainedTrail );
 }
 
 
 void RunEditorTracer::AddReplayBaselinePathSegment( const Vector3& start, const Vector3& end )
 {
-    const ReplayRibbonStyle glow = { 1.05f, 0.15f, 0.82f, 2.20f };
-    const ReplayRibbonStyle core = { 0.24f, 0.62f, 0.42f, 1.22f };
+    const ReplayRibbonStyle glow = m_replayRibbonAuthoringLook.baseline;
+    const ReplayRibbonStyle core = m_replayRibbonAuthoringLook.baseline;
     EmitReplayRibbonGlowPairTo( m_replayRibbonSegments,
                                 start,
                                 end,
@@ -882,7 +1298,7 @@ void RunEditorTracer::AddReplayBaselinePathSegment( const Vector3& start, const 
                                 0.95f,
                                 glow,
                                 core,
-                                MainMemoryReplayTrajectoryLane::BaselineRoot );
+                                SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::BaselineRoot );
 }
 
 
@@ -935,7 +1351,7 @@ void RunEditorTracer::AddReplayCausalEntryMarker( const Vector3& position,
     // Why: yellow always means "joined the causal tree here". Keep it as the
     // only marker on the ribbon shader, but emit one logical segment style so
     // marker outlines do not double the retained ribbon budget.
-    const ReplayRibbonStyle singlePass = { 2.10f, 1.0f, 0.72f, 3.75f };
+    const ReplayRibbonStyle singlePass = m_replayRibbonAuthoringLook.marker;
     EmitReplayRibbonShapeOutlineTo( m_priorityReplayRibbonSegments,
                                     position,
                                     orientation,
@@ -944,7 +1360,7 @@ void RunEditorTracer::AddReplayCausalEntryMarker( const Vector3& position,
                                     0.85f,
                                     0.25f,
                                     singlePass,
-                                    MainMemoryReplayTrajectoryLane::CausalMarker );
+                                    SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::CausalMarker );
 }
 
 

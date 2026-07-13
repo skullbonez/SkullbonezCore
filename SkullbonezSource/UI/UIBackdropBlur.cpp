@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UIBackdropBlur.cpp
 Purpose:
   Draws the optional non-readback backdrop panel behind the in-engine controls.
 
-Mental model:
+Summary:
   The backdrop is ordinary UI geometry. Earlier versions captured the active
   back buffer and uploaded a downsampled texture; the Carmack backend-capability
   pass moves capture/readback back to screenshots and validation paths only.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/EditorHullAssets.h
 Purpose:
   Names built-in convex hull assets used by the editor and scene snapshots.
 
-Mental model:
+Summary:
   Scene files should prefer stable logical hull ids such as diamond or hex_prism.
   The asset boundary resolves those ids to the current hull files.
 

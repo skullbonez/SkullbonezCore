@@ -3,7 +3,7 @@ File: SkullbonezSource/Assets/AssetSystem.h
 Purpose:
   Loads, owns, and resolves reusable runtime assets for scenes and render code.
 
-Mental model:
+Summary:
   AssetSystem.h loads, owns, and resolves reusable runtime assets for scenes
   and render code. As a public header, keep edits anchored on asset lifetime,
   cache ownership, and load/fallback behavior and on the glossary/invariants
@@ -36,9 +36,12 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
 {
 class EngineConfig;
+} // namespace Core
+namespace Runtime
+{
 }
 namespace Rendering
 {
@@ -138,7 +141,7 @@ class AssetSystem
   public:
     explicit AssetSystem( std::string dataRoot = DATA_ROOT );
 
-    void RegisterBuiltInSourceAssets( const Basics::EngineConfig& config );
+    void RegisterBuiltInSourceAssets( const SkullbonezCore::Core::EngineConfig& config );
     const std::string& GetDataRoot() const;
     std::string ResolvePath( const char* relativePath ) const;
 

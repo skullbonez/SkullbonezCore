@@ -3,7 +3,7 @@ File: SceneRequestQueue.h
 Purpose:
   Declares the fixed scene-owner request vocabulary used at the input boundary.
 
-Mental model:
+Summary:
   UI, keyboard, and replay probes submit scene intent to SceneController. The
   controller owns this ring and hands Run one value-only batch at the scene
   execution checkpoint until the full load lifecycle moves behind the owner.
@@ -30,7 +30,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 constexpr int SCENE_REQUEST_TEXT_CAPACITY = 256;
 constexpr int SCENE_REQUEST_QUEUE_CAPACITY = 64;
@@ -66,7 +66,7 @@ bool SceneRequestIsTransition( SceneRequestType type );
 class SceneRequestQueue
 {
   public:
-    SbResult Submit( const SceneRequest& request );
+    SkullbonezCore::Core::SbResult Submit( const SceneRequest& request );
     SceneRequestBatch TakePending();
     std::size_t Size() const;
 
@@ -75,5 +75,5 @@ class SceneRequestQueue
     int m_head = 0;                                        // Oldest scene request.
     int m_count = 0;                                       // Occupied scene request slots.
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

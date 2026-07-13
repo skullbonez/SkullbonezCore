@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RuntimePickGeometry.h
 Purpose:
   Declares exact CPU ray tests for runtime model picking.
 
-Mental model:
+Summary:
   Runtime pick policy decides which models are eligible, then this helper tests
   the actual collision geometry for each eligible model. It is deliberately
   CPU-only so editor, replay, and manipulator input can share one deterministic
@@ -33,7 +33,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct RuntimePickShapeTransform
 {
@@ -46,5 +46,5 @@ bool TryIntersectRuntimePickShape( const Math::CollisionDetection::CollisionShap
                                    const Math::Vector::Vector3& rayOrigin,
                                    const Math::Vector::Vector3& rayDirection,
                                    float& outT );
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

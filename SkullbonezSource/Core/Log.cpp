@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/Log.cpp
 Purpose:
   Writes debug-only runtime, crash, and diagnostics logs.
 
-Mental model:
+Summary:
   Log.cpp writes debug-only runtime, crash, and diagnostics logs. As an
   implementation unit, keep edits anchored on process-wide contracts,
   diagnostics, and validation-sensitive state and on the glossary/invariants
@@ -32,12 +32,11 @@ Related:
 #include <cstdarg>
 #include <cstring>
 
-#ifdef _DEBUG
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#if defined( _DEBUG ) || defined( SKULLBONEZ_TEST_ENGINE_LOG )
+#include "PlatformWin32.h"
 #endif
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Core;
 
 
 EngineLog& EngineLog::Get()
@@ -47,7 +46,7 @@ EngineLog& EngineLog::Get()
 }
 
 
-#ifdef _DEBUG
+#if defined( _DEBUG ) || defined( SKULLBONEZ_TEST_ENGINE_LOG )
 
 namespace
 {
@@ -131,6 +130,9 @@ void EngineLog::Writef( const char* fileName, const char* fmt, ... )
 
 void EngineLog::WriteVf( const char* fileName, const char* fmt, va_list args )
 {
+    // Why: the lock covers both lazy handle lookup and the CRT write. FILE
+    // streams do not become safe merely because their owning map is guarded.
+    std::lock_guard<std::mutex> lock( m_logMutex );
     FILE* f = OpenLog( fileName );
 
     if ( f )
@@ -170,6 +172,7 @@ void EngineLog::WriteEventf( const char* fmt, ... )
 
     OutputDebugStringA( line );
 
+    std::lock_guard<std::mutex> lock( m_logMutex );
     FILE* f = OpenLog( EventLogPath() );
     if ( f )
     {
@@ -181,6 +184,7 @@ void EngineLog::WriteEventf( const char* fmt, ... )
 
 void EngineLog::FlushAll()
 {
+    std::lock_guard<std::mutex> lock( m_logMutex );
     for ( auto& [name, file] : m_logs )
     {
         if ( file )
@@ -190,9 +194,25 @@ void EngineLog::FlushAll()
     }
 }
 
+#if defined( SKULLBONEZ_TEST_ENGINE_LOG )
+void EngineLog::CloseAllForTests()
+{
+    std::lock_guard<std::mutex> lock( m_logMutex );
+    for ( auto& [name, file] : m_logs )
+    {
+        if ( file )
+        {
+            fclose( file );
+        }
+    }
+    m_logs.clear();
+}
+#endif
+
 
 EngineLog::~EngineLog()
 {
+    std::lock_guard<std::mutex> lock( m_logMutex );
     for ( auto& [name, file] : m_logs )
     {
         if ( file )

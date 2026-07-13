@@ -3,7 +3,7 @@ File: TestOwnerRequestQueues.cpp
 Purpose:
   Verifies fixed scene, capture, and render-default owner request contracts.
 
-Mental model:
+Summary:
   Each owner accepts only its domain intent, keeps FIFO order, and exposes a
   fixed capacity. Invalid bounded text is rejected before it consumes storage.
 
@@ -39,7 +39,7 @@ Related:
 #include <iterator>
 #include <string>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 
 namespace
 {
@@ -51,9 +51,9 @@ class UnsupportedCaptureBackend final : public SkullbonezCore::Rendering::IRende
         return false;
     }
 
-    SbResult CaptureBackbuffer( std::vector<uint8_t>&, int&, int& ) override
+    SkullbonezCore::Core::SbResult CaptureBackbuffer( std::vector<uint8_t>&, int&, int& ) override
     {
-        return SbResult::Failure( "Test/UnsupportedCaptureBackend", "unexpected readback" );
+        return SkullbonezCore::Core::SbResult::Failure( "Test/UnsupportedCaptureBackend", "unexpected readback" );
     }
 };
 
@@ -65,12 +65,12 @@ class FailingCaptureBackend final : public SkullbonezCore::Rendering::IRenderCap
         return true;
     }
 
-    SbResult CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight ) override
+    SkullbonezCore::Core::SbResult CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight ) override
     {
         outPixels.assign( 4, 0xff );
         outWidth = 1;
         outHeight = 1;
-        return SbResult::Failure( "Test/Readback", "fence wait failed" );
+        return SkullbonezCore::Core::SbResult::Failure( "Test/Readback", "fence wait failed" );
     }
 };
 } // namespace
@@ -146,14 +146,14 @@ TEST_CASE( "CaptureController rejects truncating paths before enqueue" )
     CHECK( capture.QueueScreenshot( "Screenshots\\owner_request.bmp" ).ok );
     CHECK( capture.PendingScreenshotCount() == 1 );
 
-    const SbResult empty = capture.QueueScreenshot( "" );
+    const SkullbonezCore::Core::SbResult empty = capture.QueueScreenshot( "" );
     CHECK_FALSE( empty.ok );
     CHECK( capture.PendingScreenshotCount() == 1 );
 
     char oversized[CAPTURE_REQUEST_PATH_CAPACITY + 1] = {};
     std::memset( oversized, 'a', sizeof( oversized ) - 1 );
     oversized[sizeof( oversized ) - 1] = '\0';
-    const SbResult tooLong = capture.QueueScreenshot( oversized );
+    const SkullbonezCore::Core::SbResult tooLong = capture.QueueScreenshot( oversized );
     CHECK_FALSE( tooLong.ok );
     CHECK( capture.PendingScreenshotCount() == 1 );
 }
@@ -309,7 +309,7 @@ TEST_CASE( "RenderDefaultsStore excludes failed writes from accepted events" )
     RenderDefaultsStore store;
     store.SubmitOrdinarySave();
     const RenderDefaultsSaveBatchResult result =
-        store.DrainAtFrameCheckpoint( OrdinaryRenderConfig{}, CinematicRenderConfig{} );
+        store.DrainAtFrameCheckpoint( SkullbonezCore::Core::OrdinaryRenderConfig{}, SkullbonezCore::Core::CinematicRenderConfig{} );
 
     fs::current_path( originalPath, filesystemError );
     CHECK_FALSE( filesystemError );
@@ -338,8 +338,8 @@ TEST_CASE( "RenderDefaultsStore samples values at the drain checkpoint" )
     }
 
     RenderDefaultsStore store;
-    OrdinaryRenderConfig ordinary;
-    CinematicRenderConfig cinematic;
+    SkullbonezCore::Core::OrdinaryRenderConfig ordinary;
+    SkullbonezCore::Core::CinematicRenderConfig cinematic;
     store.SubmitOrdinarySave();
     ordinary.sunIntensity = 9.25f; // Final UI mutation after submission, before checkpoint.
 
@@ -400,7 +400,7 @@ TEST_CASE( "RenderDefaultsStore rejects future config without rewriting bytes" )
     fs::current_path( testRoot, filesystemError );
     REQUIRE_FALSE( filesystemError );
     const RenderDefaultsSaveBatchResult result =
-        store.DrainAtFrameCheckpoint( OrdinaryRenderConfig{}, CinematicRenderConfig{} );
+        store.DrainAtFrameCheckpoint( SkullbonezCore::Core::OrdinaryRenderConfig{}, SkullbonezCore::Core::CinematicRenderConfig{} );
     fs::current_path( originalPath, filesystemError );
     REQUIRE_FALSE( filesystemError );
 

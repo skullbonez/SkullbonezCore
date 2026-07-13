@@ -4,7 +4,7 @@ Purpose:
   Owns bounded dynamic/instanced geometry registries, warmed overlay pipelines,
   and their DX12 create/upload/draw/destroy lifecycle.
 
-Mental model:
+Summary:
   Dx12GeometryOwner retains geometry handles and warmed overlay resources.
   RenderBackendDX12 establishes a valid command epoch and lends per-operation
   values; the owner records geometry work without retaining the coordinator.
@@ -65,8 +65,11 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
     fprintf( stdout, "FATAL: DX12 %s heap exhausted (next=%u capacity=%u)\n", name, nextIndex, capacity );
     fflush( stderr );
     fflush( stdout );
-    Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u", name, nextIndex, capacity );
-    Log().FlushAll();
+    SkullbonezCore::Core::Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u",
+                                             name,
+                                             nextIndex,
+                                             capacity );
+    SkullbonezCore::Core::Log().FlushAll();
 }
 
 namespace
@@ -168,9 +171,10 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device,
     const char* inputContractError = nullptr;
     if ( !shader->ValidateInputLayout( elements, 2, inputContractError ) )
     {
-        Log().WriteEventf( "dx12_shader_input_contract_rejected owner=Dx12GeometryOwner reason=%s",
-                           inputContractError );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_shader_input_contract_rejected owner=Dx12GeometryOwner reason=%s",
+            inputContractError );
+        SkullbonezCore::Core::Log().FlushAll();
         return false;
     }
 
@@ -202,10 +206,10 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device,
         // Lane R: debug-line rendering is diagnostic overlay work. A failed
         // line PSO should drop this overlay draw and report the device result,
         // not unwind the frame; cache capacity failures below remain fatal.
-        Log().WriteEventf( "dx12_debug_line_pso_create_failed hresult=0x%08X rtv_format=%u",
-                           static_cast<unsigned int>( FAILED( hr ) ? hr : E_FAIL ),
-                           static_cast<unsigned int>( rtvFormat ) );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf( "dx12_debug_line_pso_create_failed hresult=0x%08X rtv_format=%u",
+                                                 static_cast<unsigned int>( FAILED( hr ) ? hr : E_FAIL ),
+                                                 static_cast<unsigned int>( rtvFormat ) );
+        SkullbonezCore::Core::Log().FlushAll();
         if ( gridLinePSO )
         {
             gridLinePSO->Release();
@@ -264,10 +268,9 @@ void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle,
     }
     DynamicVBDX12& dvb = m_dynamicVBs[handle - 1];
 
-    // ReserveUpload is intentionally used instead of raw SubAllocateUpload().
-    // It probes and flushes with the same alignment used for allocation, so a
-    // burst of dynamic UI/debug vertices can recover by submitting current work
-    // instead of throwing "DX12 upload buffer exhausted."
+    // The phase-aware reservation is intentionally used instead of raw arena
+    // allocation. A steady UI/debug burst rejects this draw without submitting
+    // and waiting in the middle of the frame.
     UINT64 dataSize = (UINT64)vertexCount * dvb.stride;
     if ( vbAddr == 0 || !uploadPointer )
     {
@@ -367,6 +370,10 @@ void Dx12GeometryOwner::DrawLinesColored( const float* data,
     {
         return;
     }
+    if ( shader->ConstantBufferUploadSize() > 0 && cbAddr == 0 )
+    {
+        return;
+    }
     if ( cbAddr )
     {
         commandList->SetGraphicsRootConstantBufferView( UnifiedRasterRootSignature::ROOT_PARAMETER_DRAW_CONSTANTS,
@@ -401,7 +408,7 @@ void Dx12GeometryOwner::DrawTransientColoredTriangles( const float* data,
                                                        DrawCallTrace& drawTrace,
                                                        int& drawCount )
 {
-    if ( vertexCount <= 0 || !data || !viewProjMatrix16 )
+    if ( vertexCount <= 0 || !data || !viewProjMatrix16 || vbAddress == 0 || !uploadPointer )
     {
         return;
     }
@@ -432,14 +439,16 @@ void Dx12GeometryOwner::DrawTransientColoredTriangles( const float* data,
     }
 
     DynamicVBDX12 vertexLayout = {};
-    vertexLayout.numAttribs = IsTrajectoryRibbonStyle( style ) ? 4 : 3;
+    vertexLayout.numAttribs = IsTrajectoryRibbonStyle( style ) ? 6 : 3;
     vertexLayout.attribComponents[0] = 3;
     vertexLayout.attribComponents[1] = 4;
     vertexLayout.attribComponents[2] = 4;
     if ( IsTrajectoryRibbonStyle( style ) )
     {
         vertexLayout.attribComponents[3] = 2;
-        vertexLayout.floatsPerVertex = 13;
+        vertexLayout.attribComponents[4] = 3;
+        vertexLayout.attribComponents[5] = 3;
+        vertexLayout.floatsPerVertex = 19;
     }
     else
     {
@@ -448,10 +457,6 @@ void Dx12GeometryOwner::DrawTransientColoredTriangles( const float* data,
     vertexLayout.stride = vertexLayout.floatsPerVertex * static_cast<int>( sizeof( float ) );
 
     const UINT64 dataSize = static_cast<UINT64>( vertexCount ) * static_cast<UINT64>( vertexLayout.stride );
-    if ( vbAddress == 0 || !uploadPointer )
-    {
-        return;
-    }
     memcpy( uploadPointer, data, static_cast<size_t>( dataSize ) );
 
     if ( !drawGate.PreparePipelineDraw( VertexFormat12::Pos3, false, nullptr, &vertexLayout ) )
@@ -576,11 +581,12 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticData,
         // Lane R: instanced mesh handles already use 0 as "no backend mesh".
         // Callers route uploads and draws through that handle, so creation can
         // fail as a logged result without leaving a partially registered mesh.
-        Log().WriteEventf( "dx12_instanced_static_vertex_buffer_create_failed hresult=0x%08X vertices=%d stride=%d",
-                           static_cast<unsigned int>( FAILED( staticBufferResult ) ? staticBufferResult : E_FAIL ),
-                           staticVertCount,
-                           im.staticStride );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_instanced_static_vertex_buffer_create_failed hresult=0x%08X vertices=%d stride=%d",
+            static_cast<unsigned int>( FAILED( staticBufferResult ) ? staticBufferResult : E_FAIL ),
+            staticVertCount,
+            im.staticStride );
+        SkullbonezCore::Core::Log().FlushAll();
         if ( im.staticVB )
         {
             im.staticVB->Release();
@@ -632,6 +638,10 @@ void Dx12GeometryOwner::UploadInstanceData( uint32_t handle,
         return;
     }
     InstancedMeshDX12& im = m_instancedMeshes[handle - 1];
+    // Hazard: a rejected steady-frame reservation must invalidate the prior
+    // frame's upload address before DrawInstancedMesh can observe it.
+    im.instanceDataAddr = 0;
+    im.instanceDataSize = 0;
 
     UINT64 dataSize = (UINT64)floatCount * sizeof( float );
     if ( addr == 0 || !uploadPointer )
@@ -803,7 +813,10 @@ void RenderBackendDX12::UploadAndDrawDynamicVB( uint32_t handle, const float* da
     const ShaderDX12* shader = m_pipelineOwner.ActiveShader();
     const UINT64 constantBytes = shader ? shader->ConstantBufferUploadSize() : 0;
     const D3D12_GPU_VIRTUAL_ADDRESS address =
-        bytes > 0 ? m_frameOwner.UploadReservations().ReserveGeometryUpload( bytes, constantBytes ) : 0;
+        bytes > 0 ? m_frameOwner.UploadReservations().ReserveGeometryUpload( bytes,
+                                                                             constantBytes,
+                                                                             RenderUploadCategory::DynamicVertex )
+                  : 0;
     m_geometryOwner.UploadAndDrawDynamicVB( handle,
                                             data,
                                             vertexCount,
@@ -832,7 +845,9 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
     }
     const UINT64 bytes = static_cast<UINT64>( vertCount ) * 6u * sizeof( float );
     const D3D12_GPU_VIRTUAL_ADDRESS address =
-        m_frameOwner.UploadReservations().ReserveGeometryUpload( bytes, m_geometryOwner.GridLineConstantBytes() );
+        m_frameOwner.UploadReservations().ReserveGeometryUpload( bytes,
+                                                                 m_geometryOwner.GridLineConstantBytes(),
+                                                                 RenderUploadCategory::DebugPredictionOverlay );
     m_geometryOwner.DrawLinesColored( data,
                                       vertCount,
                                       viewProjMatrix16,
@@ -857,11 +872,15 @@ void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
     {
         return;
     }
-    const UINT64 floatsPerVertex = IsTrajectoryRibbonStyle( style ) ? 13u : 11u;
+    const UINT64 floatsPerVertex = IsTrajectoryRibbonStyle( style ) ? 19u : 11u;
     const UINT64 bytes = static_cast<UINT64>( vertexCount ) * floatsPerVertex * sizeof( float );
+    const RenderUploadCategory category = IsTrajectoryRibbonStyle( style )
+                                              ? RenderUploadCategory::DebugPredictionOverlay
+                                              : RenderUploadCategory::DynamicVertex;
     const D3D12_GPU_VIRTUAL_ADDRESS address =
         m_frameOwner.UploadReservations().ReserveGeometryUpload( bytes,
-                                                                 m_geometryOwner.TransientConstantBytes( style ) );
+                                                                 m_geometryOwner.TransientConstantBytes( style ),
+                                                                 category );
     m_geometryOwner.DrawTransientColoredTriangles( data,
                                                    vertexCount,
                                                    viewProjMatrix16,
@@ -894,7 +913,8 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData,
         return 0;
     }
     const UINT64 bytes = static_cast<UINT64>( staticVertCount ) * staticFloatsPerVert * sizeof( float );
-    const D3D12_GPU_VIRTUAL_ADDRESS address = ReserveUpload( bytes, 4 );
+    const D3D12_GPU_VIRTUAL_ADDRESS address =
+        m_frameOwner.UploadReservations().ReserveUpload( bytes, 4, RenderUploadCategory::DynamicVertex );
     return m_geometryOwner.CreateInstancedMesh( staticData,
                                                 staticVertCount,
                                                 staticFloatsPerVert,
@@ -928,7 +948,9 @@ void RenderBackendDX12::UploadInstanceData( uint32_t handle, const float* data, 
     const ShaderDX12* shader = m_pipelineOwner.ActiveShader();
     const UINT64 constantBytes = shader ? shader->ConstantBufferUploadSize() : 0;
     const D3D12_GPU_VIRTUAL_ADDRESS address =
-        m_frameOwner.UploadReservations().ReserveGeometryUpload( bytes, constantBytes );
+        m_frameOwner.UploadReservations().ReserveGeometryUpload( bytes,
+                                                                 constantBytes,
+                                                                 RenderUploadCategory::InstanceData );
     m_geometryOwner.UploadInstanceData( handle,
                                         data,
                                         floatCount,

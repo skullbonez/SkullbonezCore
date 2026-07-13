@@ -3,7 +3,7 @@ File: ShaderBytecodeManifest.cpp
 Purpose:
   Verifies baked shader source/bytecode hashes and opens DXIL reflection data.
 
-Mental model:
+Summary:
   The bake tool owns compilation. This file is only a verifier and loader: it
   hashes the authored source and baked bytes, finds their manifest row, and
   publishes a blob after every identity check succeeds.
@@ -28,7 +28,7 @@ Related:
 
 #include "../../../ThirdPtySource/nlohmann/json.hpp"
 
-#include <Windows.h>
+#include "../../Core/PlatformWin32.h"
 #include <bcrypt.h>
 #include <d3dcompiler.h>
 #include <dxcapi.h>
@@ -210,13 +210,14 @@ bool ValidateLoadedReflection( const char* hlslPath, const char* stage, ID3DBlob
     for ( std::uint32_t expectedIndex = 0; expectedIndex < expectedStage->fieldCount; ++expectedIndex )
     {
         const auto& expected = GeneratedShaderReflection::Fields[expectedStage->fieldStart + expectedIndex];
+        const std::uint32_t expectedBufferSize = GeneratedCbufferSize( *expectedStage, expected.cbuffer );
         bool matched = false;
         for ( UINT cbIndex = 0; cbIndex < shader.ConstantBuffers && !matched; ++cbIndex )
         {
             ID3D12ShaderReflectionConstantBuffer* cb = reflection->GetConstantBufferByIndex( cbIndex );
             D3D12_SHADER_BUFFER_DESC cbDesc = {};
             if ( !cb || FAILED( cb->GetDesc( &cbDesc ) ) || !cbDesc.Name ||
-                 std::strcmp( cbDesc.Name, expected.cbuffer ) != 0 || cbDesc.Size != expectedStage->cbufferSize )
+                 std::strcmp( cbDesc.Name, expected.cbuffer ) != 0 || cbDesc.Size != expectedBufferSize )
             {
                 continue;
             }

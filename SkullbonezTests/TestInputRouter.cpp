@@ -4,7 +4,7 @@ Purpose:
   Verifies allocation-free input snapshots, action edges, binding predicates,
   phase order, and focus cancellation without constructing Run or polling Win32.
 
-Mental model:
+Summary:
   Each test supplies immutable device frames and a tiny static binding table.
   BeginFrame advances all physical edge memory; RoutePhase then proves which
   semantic events are eligible under current context facts.
@@ -38,7 +38,7 @@ Related:
 
 #include <initializer_list>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 
 namespace
 {

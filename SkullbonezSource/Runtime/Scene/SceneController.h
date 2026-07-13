@@ -4,7 +4,7 @@ Purpose:
   Owns scene runtime state, cameras, terrain, world settings, durable entity
   metadata, physics, and scene requests.
 
-Mental model:
+Summary:
   SceneController owns scene queue, load transactions, frame completion policy,
   camera slots, replaceable terrain, world settings, physics topology, fixed
   entity records, browser navigation, and the ordered request batch. The process
@@ -60,6 +60,11 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+class EngineConfig;
+struct CinematicRenderConfig;
+} // namespace Core
 namespace Assets
 {
 class AssetSystem;
@@ -90,7 +95,7 @@ namespace UI
 {
 class InGameUI;
 }
-namespace Basics
+namespace Runtime
 {
 class DiagnosticsRuntime;
 class GraphicsStressController;
@@ -102,8 +107,6 @@ class RuntimeTools;
 class SimulationSystem;
 class Window;
 struct AttachedCameraState;
-struct CinematicRenderConfig;
-class EngineConfig;
 struct RunCameraState;
 struct RunDebugState;
 struct RunLaunchOptions;
@@ -133,7 +136,7 @@ struct SceneDefaultsSaveView
 // with the physics handle published by the successful cross-store commit.
 struct SceneEntityCreateResult
 {
-    SbResult status;
+    SkullbonezCore::Core::SbResult status;
     Physics::PhysicsBodyHandle body;
 };
 
@@ -167,7 +170,7 @@ class SceneController
     // controller-owned model and physics stores. Replay restore may call this
     // same boundary so its hash proof cannot drift from ordinary frame steps.
     void StepPhysics( float fixedDt,
-                      const EngineConfig& config,
+                      const SkullbonezCore::Core::EngineConfig& config,
                       const Physics::PhysicsWorldForces& worldForces,
                       Threading::WorkerPool& workerPool );
     void ApplyWaterHeightControl( bool pageDown, bool pageUp, float dt );
@@ -214,35 +217,35 @@ class SceneController
     // Lifetime: cold load orchestration borrows each concrete owner only for
     // this call. The explicit list is intentional: no Run backpointer or broad
     // mutable context is retained behind the scene boundary.
-    SbResult Load( const SceneLoadRequest& request,
-                   EngineConfig& m_config,
-                   RunLaunchOptions& m_launchOptions,
-                   const CinematicRenderConfig& m_defaultCinematicRender,
-                   const RunStartupState& m_startup,
-                   DiagnosticsRuntime& m_diagnosticsRuntime,
-                   RunTimerState& m_timers,
-                   Assets::AssetSystem& assets,
-                   Threading::WorkerPool& workerPool,
-                   Window& window,
-                   InputRouter& m_inputRouter,
-                   RuntimeInteractionController& m_interaction,
-                   RunCameraState& m_camera,
-                   AttachedCameraState& m_attachedCamera,
-                   SimulationSystem& m_simulation,
-                   ReplayRuntime& m_replayRuntime,
-                   Runtime::Audio::ContactAudioService& m_contactAudio,
-                   UI::InGameUI& m_UI,
-                   RunDebugState& m_debug,
-                   GraphicsStressController& m_graphicsStress,
-                   RuntimeTools& m_runtimeTools,
-                   Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer,
-                   const RuntimeRenderBackendView& m_renderBackendView,
-                   RuntimeRenderer& m_renderer );
+    SkullbonezCore::Core::SbResult Load( const SceneLoadRequest& request,
+                                         SkullbonezCore::Core::EngineConfig& m_config,
+                                         RunLaunchOptions& m_launchOptions,
+                                         const SkullbonezCore::Core::CinematicRenderConfig& m_defaultCinematicRender,
+                                         const RunStartupState& m_startup,
+                                         DiagnosticsRuntime& m_diagnosticsRuntime,
+                                         RunTimerState& m_timers,
+                                         Assets::AssetSystem& assets,
+                                         Threading::WorkerPool& workerPool,
+                                         Window& window,
+                                         InputRouter& m_inputRouter,
+                                         RuntimeInteractionController& m_interaction,
+                                         RunCameraState& m_camera,
+                                         AttachedCameraState& m_attachedCamera,
+                                         SimulationSystem& m_simulation,
+                                         ReplayRuntime& m_replayRuntime,
+                                         Runtime::Audio::ContactAudioService& m_contactAudio,
+                                         UI::InGameUI& m_UI,
+                                         RunDebugState& m_debug,
+                                         GraphicsStressController& m_graphicsStress,
+                                         RuntimeTools& m_runtimeTools,
+                                         Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer,
+                                         const RuntimeRenderBackendView& m_renderBackendView,
+                                         RuntimeRenderer& m_renderer );
     // Executes the fixed pending batch inside the scene owner. Replay records
     // only requests whose load/create/save operation completes successfully.
-    bool ExecutePending( EngineConfig& m_config,
+    bool ExecutePending( SkullbonezCore::Core::EngineConfig& m_config,
                          RunLaunchOptions& m_launchOptions,
-                         const CinematicRenderConfig& m_defaultCinematicRender,
+                         const SkullbonezCore::Core::CinematicRenderConfig& m_defaultCinematicRender,
                          const RunStartupState& m_startup,
                          DiagnosticsRuntime& m_diagnosticsRuntime,
                          RunTimerState& m_timers,
@@ -263,7 +266,7 @@ class SceneController
                          Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer,
                          const RuntimeRenderBackendView& m_renderBackendView,
                          RuntimeRenderer& m_renderer );
-    SbResult SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const;
+    SkullbonezCore::Core::SbResult SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const;
 
     // Scene request submission stays owner-specific even while Run temporarily
     // executes the returned batch during lifecycle extraction C1.
@@ -272,7 +275,7 @@ class SceneController
     void SubmitResetCurrentScene( bool preserveUIState = true,
                                   bool suppressExitOnComplete = true,
                                   bool preserveRuntimeState = true );
-    SbResult SubmitCreateScene( const char* requestedName );
+    SkullbonezCore::Core::SbResult SubmitCreateScene( const char* requestedName );
     void SubmitSaveCurrentDefaults();
     SceneRequestBatch TakePendingRequests();
     std::size_t PendingRequestCount() const;
@@ -309,5 +312,5 @@ class SceneController
     // Presentation owners borrow this engine; they never own or replace it.
     Physics::PhysicsEngine m_physics;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

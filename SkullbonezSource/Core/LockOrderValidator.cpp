@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/LockOrderValidator.cpp
 Purpose:
   Implements debug lock-order cycle detection.
 
-Mental model:
+Summary:
   Every successful lock acquisition records edges from locks currently held by
   the thread to the new lock. A DFS detects ABBA-style cycles immediately in
   Debug builds.

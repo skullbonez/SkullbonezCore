@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UITabProfiler.h
 Purpose:
   Implements UI TabProfiler widgets, layout, drawing, or UI state for the in-engine controls.
 
-Mental model:
+Summary:
   UITabProfiler.h implements UI TabProfiler widgets, layout, drawing, or UI
   state for the in-engine controls. As a public header, keep edits anchored on
   UI request, layout, hit-test, and draw-command flow and on the
@@ -48,7 +48,7 @@ constexpr int HISTOGRAM_SAMPLE_COUNT = 120;
 constexpr int SLIDER_WORKER_THREADS = 19;
 
 // Concept: FrameSnapshot is the profiler tab's runtime boundary. RunUiTextPass
-// owns the live Profiler/renderer reads, copies fixed-capacity values here, and
+// owns the live SkullbonezCore::Core::Profiler/renderer reads, copies fixed-capacity values here, and
 // the UI keeps this copy for drawing plus next-frame input hit tests.
 // Lifetime: name pointers are borrowed from profiler/render diagnostics storage
 // for immediate rendering; input paths only depend on counts, hashes, and depth.

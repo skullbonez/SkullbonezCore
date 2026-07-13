@@ -4,7 +4,7 @@ Purpose:
   Stores one camera pose and the scratch state used to stage bounded camera
   movement.
 
-Mental model:
+Summary:
   CameraCollection is the public facade. Camera keeps eye, view, and up
   vectors private, stages movement in a buffer, then lets FinishTranslation
   clamp or repair the pose before render code reads it.

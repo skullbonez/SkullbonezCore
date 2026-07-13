@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntimeReset.cpp
 Purpose:
   Implements scene reset preserve/restore policy outside Run.
 
-Mental model:
+Summary:
   Reset preservation belongs to scene loading. SceneController supplies its
   owned state directly while the remaining value owners are explicit function
   arguments; no mutable multi-domain context is retained or stored.
@@ -34,7 +34,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneController& controller,
                                                             const RuntimeRenderer& renderer,
@@ -141,5 +141,5 @@ void ClearSceneRuntimeUIOverrides( SceneController& controller )
     controller.UIOverrides().solverBoxCountOverride = -1;
 }
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PhysicsDiagnosticsSink.h
 Purpose:
   Streams bounded physics diagnostics to SkullScope trace files.
 
-Mental model:
+Summary:
   PhysicsDiagnosticsSink.h streams bounded physics diagnostics to SkullScope
   trace files. As a public header, keep edits anchored on deterministic
   physics, diagnostics, or world-state flow and on the glossary/invariants
@@ -29,7 +29,7 @@ Related:
 */
 #pragma once
 
-#include "../GameObjects/SceneCapacity.h"
+#include "../Runtime/Scene/SceneCapacity.h"
 #include <array>
 #include <cstdarg>
 
@@ -47,7 +47,7 @@ class ColliderStore;
 class PhysicsBodyStore;
 struct PhysicsDiagnosticsView;
 
-inline constexpr int PHYSICS_COLLISION_TIME_EVENT_CAPACITY = MAX_GAME_MODELS * 5;
+inline constexpr int PHYSICS_COLLISION_TIME_EVENT_CAPACITY = SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 5;
 
 // Debug CSV output boundary. Physics formats rows after the solver pass and the
 // concrete writer delegates to the process log sink; no callback, user pointer,

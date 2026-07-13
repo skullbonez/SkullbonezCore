@@ -4,7 +4,7 @@ Purpose:
   Implements replay trajectory record replacement, prefix publication, and
   bounded reserve helpers.
 
-Mental model:
+Summary:
   A trajectory record is immutable to readers up to its published prefix.
   Builders may reserve storage, replace records, append unpublished points, then
   publish a larger prefix once those points are coherent.
@@ -31,7 +31,7 @@ Related:
 #include <algorithm>
 #include <limits>
 
-namespace SkullbonezCore::Basics
+namespace SkullbonezCore::Runtime
 {
 namespace
 {
@@ -322,4 +322,4 @@ uint32_t ReplayTrajectoryStore::AllocateVersion() noexcept
     }
     return version == 0 ? AllocateVersion() : version;
 }
-} // namespace SkullbonezCore::Basics
+} // namespace SkullbonezCore::Runtime

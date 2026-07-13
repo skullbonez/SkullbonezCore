@@ -3,7 +3,7 @@ File: UIEditorMiniPaletteDraw.cpp
 Purpose:
   Owns editor mini-palette glyphs, flyouts, tooltips, and minimized-window drawing.
 
-Mental model:
+Summary:
   The palette is a value-driven UI surface. Layout and selection policy produce
   records that both input and drawing consume without reaching into InGameUI
   retained state.
@@ -752,7 +752,7 @@ void DrawEditorMiniTooltip( const UIDrawContext& draw,
     snprintf( tooltip, sizeof( tooltip ), "%s", label );
     Chrome::FitTitleText( tooltip, sizeof( tooltip ), textSize, maxTextW );
 
-    const float textW = Text2d::MeasureText( textSize, tooltip );
+    const float textW = Text::Text2d::MeasureText( textSize, tooltip );
     const float w = std::ceil( textW + padX * 2.0f );
     const float h = std::ceil( textSize + padY * 2.0f + 2.0f );
 

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RunInput.cpp
 Purpose:
   Implements InputRouter transition, pointer, camera-mode, and focus behavior.
 
-Mental model:
+Summary:
   InputRouter consumes already-sampled semantic and pointer values, sequences
   cleanup through concrete interaction/tool/replay owners, and publishes the
   resulting input-mode and pointer-presentation state.
@@ -56,13 +56,13 @@ Related:
 #include <cstdio>
 #include <cstring>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
-using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Runtime::RunInternal;
 
 
 void InputRouter::ApplyInteractionTransitionCleanup( const RuntimeInteractionTransition& transition,
@@ -71,7 +71,7 @@ void InputRouter::ApplyInteractionTransitionCleanup( const RuntimeInteractionTra
                                                      RuntimeInteractionController& interaction,
                                                      SkullbonezCore::Environment::CameraCollection& cameras,
                                                      SkullbonezCore::Geometry::Terrain* terrain,
-                                                     SkullbonezCore::Basics::SceneController& models,
+                                                     SkullbonezCore::Runtime::SceneController& models,
                                                      PhysicsEngine& physics,
                                                      RunCameraState& camera,
                                                      RunCameraMode replayRestoreCameraMode,
@@ -144,7 +144,7 @@ void InputRouter::ApplyInteractionTransition( const RuntimeInteractionTransition
                                               RuntimeInteractionController& interaction,
                                               SkullbonezCore::Environment::CameraCollection& cameras,
                                               SkullbonezCore::Geometry::Terrain* terrain,
-                                              SkullbonezCore::Basics::SceneController& models,
+                                              SkullbonezCore::Runtime::SceneController& models,
                                               PhysicsEngine& physics,
                                               RunCameraState& camera,
                                               RunCameraMode replayRestoreCameraMode,
@@ -201,7 +201,7 @@ InputRouter::SetWorldInteractionOwner( WorldInteractionOwner owner,
                                        RuntimeInteractionController& interaction,
                                        SkullbonezCore::Environment::CameraCollection& cameras,
                                        SkullbonezCore::Geometry::Terrain* terrain,
-                                       SkullbonezCore::Basics::SceneController& models,
+                                       SkullbonezCore::Runtime::SceneController& models,
                                        PhysicsEngine& physics,
                                        RunCameraState& camera,
                                        RunCameraMode replayRestoreCameraMode,
@@ -256,7 +256,7 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
                                                             AttachedCameraController& attachedCamera,
                                                             RuntimeInteractionController& interaction,
                                                             SceneEntityStore& entities,
-                                                            Basics::SceneController& models,
+                                                            Runtime::SceneController& models,
                                                             PhysicsEngine& physics,
                                                             RunSceneState& scene,
                                                             Environment::WorldEnvironment& world,

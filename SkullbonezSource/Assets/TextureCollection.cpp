@@ -3,7 +3,7 @@ File: SkullbonezSource/Assets/TextureCollection.cpp
 Purpose:
   Loads texture files and hands renderer-neutral texture ids to draw code.
 
-Mental model:
+Summary:
   TextureCollection.cpp loads texture files and hands renderer-neutral texture
   ids to draw code. As an implementation unit, keep edits anchored on asset
   lifetime, cache ownership, and load/fallback behavior and on the
@@ -47,7 +47,7 @@ Related:
 
 using namespace SkullbonezCore::Textures;
 using namespace SkullbonezCore::Rendering;
-namespace Basics = SkullbonezCore::Basics;
+namespace Runtime = SkullbonezCore::Runtime;
 
 
 int TextureCollection::FindIndex( uint32_t hash ) const
@@ -157,9 +157,9 @@ int TextureCollection::NumFreeTextureSpaces() const
 }
 
 
-Basics::SbResult TextureCollection::SelectTexture( uint32_t hash )
+SkullbonezCore::Core::SbResult TextureCollection::SelectTexture( uint32_t hash )
 {
-    const Basics::SbResult ensureResult = EnsureTexture( hash );
+    const SkullbonezCore::Core::SbResult ensureResult = EnsureTexture( hash );
     if ( !ensureResult.ok )
     {
         return ensureResult;
@@ -171,7 +171,7 @@ Basics::SbResult TextureCollection::SelectTexture( uint32_t hash )
         SB_FATAL( "TextureCollection", "SelectTexture requires a bound render command context. hash=0x%08X", hash );
     }
     m_renderCommands->BindTexture( m_textures[FindIndex( hash )].backendHandle, 0 );
-    return Basics::SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
@@ -211,11 +211,11 @@ bool TextureCollection::HasTexture( uint32_t hash ) const
 }
 
 
-Basics::SbResult TextureCollection::EnsureTexture( uint32_t hash )
+SkullbonezCore::Core::SbResult TextureCollection::EnsureTexture( uint32_t hash )
 {
     if ( HasTexture( hash ) )
     {
-        return Basics::SbResult::Success();
+        return SkullbonezCore::Core::SbResult::Success();
     }
 
     if ( m_assets )
@@ -227,19 +227,20 @@ Basics::SbResult TextureCollection::EnsureTexture( uint32_t hash )
         }
     }
 
-    return Basics::SbResult::Failure( "TextureCollection",
-                                      "Texture 0x%08X is not resident and has no registered source asset.",
-                                      hash );
+    return SkullbonezCore::Core::SbResult::Failure(
+        "TextureCollection",
+        "Texture 0x%08X is not resident and has no registered source asset.",
+        hash );
 }
 
 
-Basics::SbResult TextureCollection::LoadJpegTextureIntoSlot( int slot,
-                                                             const char* fileName,
-                                                             uint32_t hash,
-                                                             Assets::AssetId sourceId,
-                                                             bool generateMips,
-                                                             bool linearFilter,
-                                                             int channelsHint )
+SkullbonezCore::Core::SbResult TextureCollection::LoadJpegTextureIntoSlot( int slot,
+                                                                           const char* fileName,
+                                                                           uint32_t hash,
+                                                                           Assets::AssetId sourceId,
+                                                                           bool generateMips,
+                                                                           bool linearFilter,
+                                                                           int channelsHint )
 {
     if ( slot < 0 || slot >= static_cast<int>( m_textures.size() ) )
     {
@@ -254,7 +255,9 @@ Basics::SbResult TextureCollection::LoadJpegTextureIntoSlot( int slot,
     }
     if ( !fileName || fileName[0] == '\0' )
     {
-        return Basics::SbResult::Failure( "TextureCollection", "Texture file path is empty. hash=0x%08X", hash );
+        return SkullbonezCore::Core::SbResult::Failure( "TextureCollection",
+                                                        "Texture file path is empty. hash=0x%08X",
+                                                        hash );
     }
 
     const int requestedChannels = channelsHint > 0 ? channelsHint : 3;
@@ -278,20 +281,21 @@ Basics::SbResult TextureCollection::LoadJpegTextureIntoSlot( int slot,
 
     if ( !data )
     {
-        return Basics::SbResult::Failure( "TextureCollection",
-                                          "Image load failed. path=\"%s\" hash=0x%08X",
-                                          fileName,
-                                          hash );
+        return SkullbonezCore::Core::SbResult::Failure( "TextureCollection",
+                                                        "Image load failed. path=\"%s\" hash=0x%08X",
+                                                        fileName,
+                                                        hash );
     }
 
     const uint32_t backendHandle =
         m_renderResources->CreateTexture2D( data.get(), width, height, requestedChannels, generateMips, linearFilter );
     if ( backendHandle == 0 )
     {
-        return Basics::SbResult::Failure( "TextureCollection",
-                                          "Backend returned an invalid texture handle. path=\"%s\" hash=0x%08X",
-                                          fileName,
-                                          hash );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "TextureCollection",
+            "Backend returned an invalid texture handle. path=\"%s\" hash=0x%08X",
+            fileName,
+            hash );
     }
 
     GpuTextureRecord& texture = m_textures[slot];
@@ -301,18 +305,20 @@ Basics::SbResult TextureCollection::LoadJpegTextureIntoSlot( int slot,
     texture.width = width;
     texture.height = height;
     texture.channels = requestedChannels;
-    return Basics::SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
-Basics::SbResult TextureCollection::CreateTextureFromSourceAsset( const Assets::TextureSourceAsset& source )
+SkullbonezCore::Core::SbResult
+TextureCollection::CreateTextureFromSourceAsset( const Assets::TextureSourceAsset& source )
 {
     if ( source.legacyHash == 0 )
     {
-        return Basics::SbResult::Failure( "TextureCollection",
-                                          "Texture source asset is missing a legacy hash. source_id=%u logical=\"%s\"",
-                                          source.id,
-                                          source.logicalName.c_str() );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "TextureCollection",
+            "Texture source asset is missing a legacy hash. source_id=%u logical=\"%s\"",
+            source.id,
+            source.logicalName.c_str() );
     }
     const int existingIndex = FindIndexNoThrow( source.legacyHash );
     if ( existingIndex >= 0 )
@@ -330,7 +336,7 @@ Basics::SbResult TextureCollection::CreateTextureFromSourceAsset( const Assets::
 }
 
 
-Basics::SbResult TextureCollection::CreateJpegTexture( const char* cFileName, uint32_t hash )
+SkullbonezCore::Core::SbResult TextureCollection::CreateJpegTexture( const char* cFileName, uint32_t hash )
 {
     if ( hash == 0 )
     {
@@ -358,36 +364,36 @@ Basics::SbResult TextureCollection::CreateJpegTexture( const char* cFileName, ui
 }
 
 
-Basics::SbResult TextureCollection::EnsureJpegTexture( const char* cFileName, uint32_t hash )
+SkullbonezCore::Core::SbResult TextureCollection::EnsureJpegTexture( const char* cFileName, uint32_t hash )
 {
     if ( HasTexture( hash ) )
     {
-        return Basics::SbResult::Success();
+        return SkullbonezCore::Core::SbResult::Success();
     }
     return CreateJpegTexture( cFileName, hash );
 }
 
 
-Basics::SbResult TextureCollection::RebuildTexturesFromSourceAssets()
+SkullbonezCore::Core::SbResult TextureCollection::RebuildTexturesFromSourceAssets()
 {
     DeleteAllTextures();
     if ( !m_assets )
     {
-        return Basics::SbResult::Success();
+        return SkullbonezCore::Core::SbResult::Success();
     }
 
     for ( const Assets::TextureSourceAsset& source : m_assets->GetTextureSourceAssets() )
     {
         if ( source.legacyHash != 0 )
         {
-            const Basics::SbResult result = CreateTextureFromSourceAsset( source );
+            const SkullbonezCore::Core::SbResult result = CreateTextureFromSourceAsset( source );
             if ( !result.ok )
             {
                 return result;
             }
         }
     }
-    return Basics::SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 

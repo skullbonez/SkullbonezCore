@@ -3,7 +3,7 @@ File: SkullbonezSource/Scene/TestScene.cpp
 Purpose:
   Stores parsed test-scene JSON and applies it to runtime scene state.
 
-Mental model:
+Summary:
   TestScene.cpp stores parsed test-scene JSON and applies it to runtime scene
   state. As an implementation unit, keep edits anchored on scene-file parsing
   or snapshot contracts and on the glossary/invariants below.
@@ -35,7 +35,7 @@ Related:
 
 #include "../Core/FatalError.h"
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 
 namespace
 {
@@ -57,7 +57,7 @@ FatalSceneIndexOutOfRange( const char* collectionName, const char* functionName,
 }
 
 
-SbResult
+SkullbonezCore::Core::SbResult
 TryLoadSceneFile( const char* path, SkullbonezCore::Assets::AssetContext assets, bool styleOnly, TestScene& outScene )
 {
     return styleOnly ? TryLoadStyleSceneFromFileImpl( path, assets, outScene )
@@ -77,7 +77,7 @@ TestScene TestScene::LoadFromFile( const char* path )
 }
 
 
-SbResult TestScene::TryLoadFromFile( const char* path, TestScene& outScene )
+SkullbonezCore::Core::SbResult TestScene::TryLoadFromFile( const char* path, TestScene& outScene )
 {
     return TryLoadSceneFile( path, Assets::AssetContext{}, false, outScene );
 }
@@ -89,7 +89,8 @@ TestScene TestScene::LoadFromFile( const char* path, const Assets::AssetSystem& 
 }
 
 
-SbResult TestScene::TryLoadFromFile( const char* path, const Assets::AssetSystem& assets, TestScene& outScene )
+SkullbonezCore::Core::SbResult
+TestScene::TryLoadFromFile( const char* path, const Assets::AssetSystem& assets, TestScene& outScene )
 {
     return TryLoadSceneFile( path, Assets::AssetContext{ &assets }, false, outScene );
 }
@@ -101,7 +102,7 @@ TestScene TestScene::LoadStyleFromFile( const char* path )
 }
 
 
-SbResult TestScene::TryLoadStyleFromFile( const char* path, TestScene& outScene )
+SkullbonezCore::Core::SbResult TestScene::TryLoadStyleFromFile( const char* path, TestScene& outScene )
 {
     return TryLoadSceneFile( path, Assets::AssetContext{}, true, outScene );
 }
@@ -113,7 +114,8 @@ TestScene TestScene::LoadStyleFromFile( const char* path, const Assets::AssetSys
 }
 
 
-SbResult TestScene::TryLoadStyleFromFile( const char* path, const Assets::AssetSystem& assets, TestScene& outScene )
+SkullbonezCore::Core::SbResult
+TestScene::TryLoadStyleFromFile( const char* path, const Assets::AssetSystem& assets, TestScene& outScene )
 {
     return TryLoadSceneFile( path, Assets::AssetContext{ &assets }, true, outScene );
 }
@@ -197,7 +199,7 @@ uint64_t TestScene::GetCinematicOverrideMask() const
 }
 
 
-const CinematicRenderConfig& TestScene::GetCinematicRenderConfig() const
+const SkullbonezCore::Core::CinematicRenderConfig& TestScene::GetCinematicRenderConfig() const
 {
     return m_sceneOptions.cinematicRender;
 }

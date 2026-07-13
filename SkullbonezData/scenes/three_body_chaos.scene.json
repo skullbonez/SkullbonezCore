@@ -37,7 +37,7 @@
       "fluidDensity": 0.0,
       "mutualGravity": {
         "enabled": true,
-        "gravitationalConstant": 55.0,
+        "gravitationalConstant": 900.0,
         "softeningLength": 3.0,
         "elasticCollisions": true
       }
@@ -82,7 +82,7 @@
       "type": "ballState",
       "name": "chaos_a",
       "position": [-55.0, 100.0, -8.0],
-      "velocity": [1.1, 0.0, -1.2],
+      "velocity": [11.0, 0.0, -12.0],
       "angularVelocity": [0.0, 0.0, 0.0],
       "orientation": [0.0, 0.0, 0.0, 1.0],
       "radius": 4.0,
@@ -96,7 +96,7 @@
       "type": "ballState",
       "name": "chaos_b",
       "position": [42.0, 100.0, 15.0],
-      "velocity": [-0.6, 0.0, 1.4],
+      "velocity": [-6.0, 0.0, 14.0],
       "angularVelocity": [0.0, 0.0, 0.0],
       "orientation": [0.0, 0.0, 0.0, 1.0],
       "radius": 5.0,
@@ -110,7 +110,7 @@
       "type": "ballState",
       "name": "chaos_c",
       "position": [4.0, 100.0, 58.0],
-      "velocity": [-0.3, 0.0, -0.8],
+      "velocity": [-3.0, 0.0, -8.0],
       "angularVelocity": [0.0, 0.0, 0.0],
       "orientation": [0.0, 0.0, 0.0, 1.0],
       "radius": 3.6,

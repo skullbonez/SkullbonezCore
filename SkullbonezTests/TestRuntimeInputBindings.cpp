@@ -3,7 +3,7 @@ File: SkullbonezTests/TestRuntimeInputBindings.cpp
 Purpose:
   Locks the runtime keyboard shortcut table as observable data.
 
-Mental model:
+Summary:
   These tests do not press keys or construct Run. They inspect the shared
   key/action/context rows that RunInput dispatches, so a shortcut regression
   fails before it reaches an interaction or DX12 launch test.
@@ -27,13 +27,13 @@ Related:
 
 #include "../SkullbonezSource/Runtime/InputController.Bindings.h"
 
-using SkullbonezCore::Basics::RuntimeInputAction;
-using SkullbonezCore::Basics::RuntimeInputBindingContext;
-using SkullbonezCore::Basics::RuntimeInputContextBit;
-using SkullbonezCore::Basics::RuntimeInputContextMask;
-using SkullbonezCore::Basics::RuntimeInputKeyBinding;
-using SkullbonezCore::Basics::RuntimeInputKeyBindingView;
-using SkullbonezCore::Basics::TakeInputKeyboardBindings;
+using SkullbonezCore::Runtime::RuntimeInputAction;
+using SkullbonezCore::Runtime::RuntimeInputBindingContext;
+using SkullbonezCore::Runtime::RuntimeInputContextBit;
+using SkullbonezCore::Runtime::RuntimeInputContextMask;
+using SkullbonezCore::Runtime::RuntimeInputKeyBinding;
+using SkullbonezCore::Runtime::RuntimeInputKeyBindingView;
+using SkullbonezCore::Runtime::TakeInputKeyboardBindings;
 
 namespace
 {
@@ -70,13 +70,14 @@ TEST_CASE( "Runtime input bindings: core keyboard shortcuts map to actions" )
     const RuntimeInputKeyBindingView table = TakeInputKeyboardBindings();
 
     REQUIRE( table.bindings != nullptr );
-    CHECK( table.count == 41u );
+    CHECK( table.count == 42u );
     CheckExactBinding( VK_OEM_3, keyboard, RuntimeInputAction::ToggleEditor );
     CheckExactBinding( VK_TAB, keyboard, RuntimeInputAction::CycleCameraMode );
     CheckExactBinding( 'F', keyboard, RuntimeInputAction::ToggleFlyCamera );
     CheckExactBinding( 'N', keyboard, RuntimeInputAction::ToggleLauncher );
     CheckExactBinding( '0', keyboard, RuntimeInputAction::ToggleUIVisibility );
     CheckExactBinding( VK_F9, keyboard, RuntimeInputAction::ReloadShadersFromSource );
+    CheckExactBinding( VK_OEM_PERIOD, keyboard, RuntimeInputAction::CycleReplayPredictionAuthoringLook );
     CheckExactBinding( VK_LEFT, keyboard, RuntimeInputAction::NavigateScenePrevious );
     CheckExactBinding( VK_RIGHT, keyboard, RuntimeInputAction::NavigateSceneNext );
     CheckExactBinding( 'Z', keyboard | RuntimeInputBindingContext::Editor, RuntimeInputAction::UndoEditor );
@@ -99,9 +100,7 @@ TEST_CASE( "Runtime input bindings: contextual shortcuts stay on their owning co
     CheckExactBinding( VK_RETURN,
                        keyboard | RuntimeInputBindingContext::AttachedCamera,
                        RuntimeInputAction::ToggleAttachedCameraPin );
-    CheckExactBinding( 'B',
-                       keyboard | RuntimeInputBindingContext::Director,
-                       RuntimeInputAction::ToggleDirectorGrab );
+    CheckExactBinding( 'B', keyboard | RuntimeInputBindingContext::Director, RuntimeInputAction::ToggleDirectorGrab );
     CheckExactBinding( 'J',
                        keyboard | RuntimeInputBindingContext::DirectorAuthoring,
                        RuntimeInputAction::SetDirectorPhasePose );
@@ -126,7 +125,9 @@ TEST_CASE( "Runtime input bindings: late and capture shortcuts are explicitly gr
                        afterUI | RuntimeInputBindingContext::UINotInteracted,
                        RuntimeInputAction::DismissOrExitUI );
     CheckExactBinding( 'R', afterUI, RuntimeInputAction::ResetScene );
-    CheckExactBinding( VK_BACK, afterUI | RuntimeInputBindingContext::Scene, RuntimeInputAction::ResetSceneFromBackspace );
+    CheckExactBinding( VK_BACK,
+                       afterUI | RuntimeInputBindingContext::Scene,
+                       RuntimeInputAction::ResetSceneFromBackspace );
     CheckExactBinding( VK_F2, capture, RuntimeInputAction::SaveSceneSnapshot );
     CheckExactBinding( VK_F3, capture, RuntimeInputAction::SaveScreenshot );
 }

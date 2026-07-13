@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneTerrain.h
 Purpose:
   Owns the replaceable terrain and its matching scene-shape classification.
 
-Mental model:
+Summary:
   A scene load constructs a complete Terrain off to the side, then publishes it
   through one SceneTerrain replacement. Render passes borrow this stable owner
   and resolve the current terrain only when they execute, so later scene loads
@@ -36,7 +36,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 class SceneTerrain
 {
@@ -72,5 +72,5 @@ class SceneTerrain
     std::unique_ptr<Geometry::Terrain> m_terrain;
     bool m_isFlatSlope = false;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

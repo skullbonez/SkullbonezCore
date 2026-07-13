@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PhysicsFixedList.h
 Purpose:
   Defines fixed-capacity list storage for physics runtime state.
 
-Mental model:
+Summary:
   Physics hot-path owners need vector-like dense rows without owning dynamic
   standard-library capacity. This type reserves raw fixed storage inside the
   owner, constructs only the live prefix, and treats growth past the compile-time

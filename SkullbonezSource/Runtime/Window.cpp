@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Window.cpp
 Purpose:
   Creates and owns the Win32 window and message pump integration.
 
-Mental model:
+Summary:
   CreateAppWindow establishes the native HWND, arms the input callback bridge,
   and then lets WndProc feed resize, focus, cursor, and raw mouse messages back
   into runtime-owned systems.
@@ -45,7 +45,7 @@ Related:
 #include <cstdio>
 
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Rendering;
 
@@ -124,7 +124,7 @@ void Window::ReleaseDeviceContext()
 }
 
 
-SbResult Window::HandleScreenResize()
+SkullbonezCore::Core::SbResult Window::HandleScreenResize()
 {
     int w = m_sWindowDimensions.x;
     int h = m_sWindowDimensions.y;
@@ -133,10 +133,10 @@ SbResult Window::HandleScreenResize()
     // to zero dimensions would invalidate swap-chain and projection state.
     if ( w <= 0 || h <= 0 || !m_resizeRenderLifecycle )
     {
-        return SbResult::Success();
+        return SkullbonezCore::Core::SbResult::Success();
     }
 
-    const SbResult resizeResult = m_resizeRenderLifecycle->Resize( w, h );
+    const SkullbonezCore::Core::SbResult resizeResult = m_resizeRenderLifecycle->Resize( w, h );
     if ( !resizeResult.ok )
     {
         return resizeResult;
@@ -155,7 +155,7 @@ SbResult Window::HandleScreenResize()
                                                                             aspect,
                                                                             m_projectionNearPlane,
                                                                             m_projectionFarPlane );
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
@@ -197,117 +197,106 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
     PAINTSTRUCT ps = { 0 }; // Assists with repainting the client area
     Window* m_cWindow = reinterpret_cast<Window*>( GetWindowLongPtr( hWnd, GWLP_USERDATA ) );
 
-    try
+    // Window callbacks cannot propagate failures through Win32. Engine-owned
+    // operations invoked here use explicit result/fatal lanes.
+    switch ( iMsg )
     {
-        // Which message do we have to deal with today...?
-        switch ( iMsg )
-        {
-        // WM_CREATE fired on window creation
-        case WM_CREATE:
-        {
-            CREATESTRUCT* create = reinterpret_cast<CREATESTRUCT*>( lParam );
-            m_cWindow = reinterpret_cast<Window*>( create->lpCreateParams );
-            SetWindowLongPtr( hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>( m_cWindow ) );
-            break;
-        }
-
-        // WM_SIZE fired on a resize
-        case WM_SIZE:
-            // LoWord = m_width, HiWord = m_height
-            if ( m_cWindow )
-            {
-                m_cWindow->SetWindowDimensions( LOWORD( lParam ), HIWORD( lParam ) );
-                const SbResult resizeResult = m_cWindow->HandleScreenResize();
-                if ( !resizeResult.ok )
-                {
-                    const char* owner =
-                        resizeResult.error.owner[0] != '\0' ? resizeResult.error.owner : "Runtime/Window";
-                    const char* message =
-                        resizeResult.error.message[0] != '\0' ? resizeResult.error.message : "window resize failed";
-                    Log().WriteEventf( "window_resize_failed owner=\"%s\" message=\"%s\"", owner, message );
-                    std::fprintf( stderr, "[window] Resize failed owner=%s reason=\"%s\"\n", owner, message );
-                    std::fflush( stderr );
-                    Log().FlushAll();
-                    PostQuitMessage( 1 );
-                }
-            }
-            break;
-
-        // WM_PAINT fired when client area is invalidated
-        case WM_PAINT:
-            BeginPaint( hWnd, &ps );
-            EndPaint( hWnd, &ps ); // End painting
-            break;
-
-        case WM_MOUSEWHEEL:
-            if ( GetForegroundWindow() == hWnd )
-            {
-                Input::AccumulateMouseWheelDelta( hWnd, GET_WHEEL_DELTA_WPARAM( wParam ) );
-            }
-            break;
-
-        case WM_INPUT:
-            Input::AccumulateRawMouseDelta( hWnd, reinterpret_cast<HRAWINPUT>( lParam ) );
-            break;
-
-        case WM_SYSKEYDOWN:
-        case WM_SYSKEYUP:
-            if ( wParam == VK_MENU )
-            {
-                return 0;
-            }
-            break;
-
-        case WM_SYSCHAR:
-            return 0;
-
-        case WM_SYSCOMMAND:
-            if ( ( wParam & 0xfff0u ) == SC_KEYMENU )
-            {
-                return 0;
-            }
-            break;
-
-        case WM_SETFOCUS:
-            Input::SetSystemCursorVisible( Input::IsSystemCursorVisibleRequested() );
-            break;
-
-        case WM_KILLFOCUS:
-            Input::SetSystemCursorVisible( true );
-            break;
-
-        case WM_SETCURSOR:
-            if ( LOWORD( lParam ) == HTCLIENT )
-            {
-                if ( GetForegroundWindow() == hWnd )
-                {
-                    Input::SetSystemCursorVisible( Input::IsSystemCursorVisibleRequested() );
-                }
-                else
-                {
-                    Input::SetSystemCursorVisible( true );
-                    SetCursor( LoadCursor( nullptr, IDC_ARROW ) );
-                }
-                return TRUE;
-            }
-            break;
-
-        // WM_DESTROY is fired when the window is closed
-        case WM_DESTROY:
-            PostQuitMessage( 0 );
-            break;
-        }
+    // Which message do we have to deal with today...?
+    // WM_CREATE fired on window creation
+    case WM_CREATE:
+    {
+        CREATESTRUCT* create = reinterpret_cast<CREATESTRUCT*>( lParam );
+        m_cWindow = reinterpret_cast<Window*>( create->lpCreateParams );
+        SetWindowLongPtr( hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>( m_cWindow ) );
+        break;
     }
-    catch ( const std::exception& e ) // Catch all exceptions thrown by the Skullbonez Core
-    {
+
+    // WM_SIZE fired on a resize
+    case WM_SIZE:
+        // LoWord = m_width, HiWord = m_height
         if ( m_cWindow )
         {
-            m_cWindow->MsgBox( e.what(), "FATAL ERROR", MB_OK );
+            m_cWindow->SetWindowDimensions( LOWORD( lParam ), HIWORD( lParam ) );
+            const SkullbonezCore::Core::SbResult resizeResult = m_cWindow->HandleScreenResize();
+            if ( !resizeResult.ok )
+            {
+                const char* owner = resizeResult.error.owner[0] != '\0' ? resizeResult.error.owner : "Runtime/Window";
+                const char* message =
+                    resizeResult.error.message[0] != '\0' ? resizeResult.error.message : "window resize failed";
+                SkullbonezCore::Core::Log().WriteEventf( "window_resize_failed owner=\"%s\" message=\"%s\"",
+                                                         owner,
+                                                         message );
+                std::fprintf( stderr, "[window] Resize failed owner=%s reason=\"%s\"\n", owner, message );
+                std::fflush( stderr );
+                SkullbonezCore::Core::Log().FlushAll();
+                PostQuitMessage( 1 );
+            }
         }
-        else
+        break;
+
+    // WM_PAINT fired when client area is invalidated
+    case WM_PAINT:
+        BeginPaint( hWnd, &ps );
+        EndPaint( hWnd, &ps ); // End painting
+        break;
+
+    case WM_MOUSEWHEEL:
+        if ( GetForegroundWindow() == hWnd )
         {
-            MessageBoxA( hWnd, e.what(), "FATAL ERROR", MB_OK );
+            Input::AccumulateMouseWheelDelta( hWnd, GET_WHEEL_DELTA_WPARAM( wParam ) );
         }
+        break;
+
+    case WM_INPUT:
+        Input::AccumulateRawMouseDelta( hWnd, reinterpret_cast<HRAWINPUT>( lParam ) );
+        break;
+
+    case WM_SYSKEYDOWN:
+    case WM_SYSKEYUP:
+        if ( wParam == VK_MENU )
+        {
+            return 0;
+        }
+        break;
+
+    case WM_SYSCHAR:
+        return 0;
+
+    case WM_SYSCOMMAND:
+        if ( ( wParam & 0xfff0u ) == SC_KEYMENU )
+        {
+            return 0;
+        }
+        break;
+
+    case WM_SETFOCUS:
+        Input::SetSystemCursorVisible( Input::IsSystemCursorVisibleRequested() );
+        break;
+
+    case WM_KILLFOCUS:
+        Input::SetSystemCursorVisible( true );
+        break;
+
+    case WM_SETCURSOR:
+        if ( LOWORD( lParam ) == HTCLIENT )
+        {
+            if ( GetForegroundWindow() == hWnd )
+            {
+                Input::SetSystemCursorVisible( Input::IsSystemCursorVisibleRequested() );
+            }
+            else
+            {
+                Input::SetSystemCursorVisible( true );
+                SetCursor( LoadCursor( nullptr, IDC_ARROW ) );
+            }
+            return TRUE;
+        }
+        break;
+
+    // WM_DESTROY is fired when the window is closed
+    case WM_DESTROY:
+        PostQuitMessage( 0 );
+        break;
     }
 
     // Now we have done whatever we wanted to do, let windows do anything else it
@@ -316,7 +305,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 }
 
 
-SbResult Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
+SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
 {
     HWND hWnd = nullptr;       // Handle to our window
     WNDCLASS wndclass = { 0 }; // Window class struct
@@ -381,7 +370,7 @@ SbResult Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
     {
         // Lane R: native window creation can fail because of the host desktop
         // environment, so startup reports the result instead of unwinding.
-        return SbResult::Failure( "Runtime/Window", "Window creation failed." );
+        return SkullbonezCore::Core::SbResult::Failure( "Runtime/Window", "Window creation failed." );
     }
     m_sWindow = hWnd;
     Input::BindWindow( *this );
@@ -393,7 +382,7 @@ SbResult Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
     SetFocus( hWnd );
     Input::SetSystemCursorVisible( false );
     (void)Input::RegisterRawMouseInput( hWnd );
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 

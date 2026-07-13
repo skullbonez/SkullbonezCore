@@ -4,7 +4,7 @@ Purpose:
   Declares the narrow render capability used to mutate frame draw state and
   submit immediate draw work.
 
-Mental model:
+Summary:
   Command-context callers are inside the frame: they bind textures, set
   viewport/depth/blend/cull state, upload transient geometry, and ask the active
   backend to draw. They should not be able to create long-lived resources,

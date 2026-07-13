@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UITabOptions.cpp
 Purpose:
   Implements UI TabOptions widgets, layout, drawing, or UI state for the in-engine controls.
 
-Mental model:
+Summary:
   UITabOptions.cpp implements UI TabOptions widgets, layout, drawing, or UI
   state for the in-engine controls. As an implementation unit, keep edits
   anchored on UI request, layout, hit-test, and draw-command flow and on the

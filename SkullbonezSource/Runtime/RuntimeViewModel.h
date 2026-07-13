@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RuntimeViewModel.h
 Purpose:
   Defines the lightweight runtime view model consumed by UI and diagnostics.
 
-Mental model:
+Summary:
   RuntimeViewModel is a read-only snapshot of common runtime presentation data.
   It is rebuilt from an explicit presentation context rather than letting UI
   code chase storage owners directly.
@@ -43,7 +43,7 @@ namespace Physics
 class PhysicsEngine;
 }
 
-namespace Basics
+namespace Runtime
 {
 class CaptureController;
 class SceneController;
@@ -117,5 +117,5 @@ class RuntimeViewModelBuilder
     static RuntimeViewModel Build( const RuntimeViewModelContext& context,
                                    const Runtime::Audio::ContactAudioService& contactAudio );
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

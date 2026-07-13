@@ -3,7 +3,7 @@ File: SkullbonezSource/Maths/GeometricStructures.h
 Purpose:
   Defines small geometry structs used by math, collision, and rendering code.
 
-Mental model:
+Summary:
   GeometricStructures.h defines small geometry structs used by math,
   collision, and rendering code. As a public header, keep edits anchored on
   units, basis conventions, and numerical assumptions and on the

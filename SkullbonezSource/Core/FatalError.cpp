@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/FatalError.cpp
 Purpose:
   Implements the Lane F fatal-invariant termination path.
 
-Mental model:
+Summary:
   Fatal invariants are not recoverable input failures. The useful behavior is
   to capture a compact owner/message record, flush it, and stop immediately so
   validation and crash triage see the first broken invariant.
@@ -37,7 +37,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
 {
 namespace
 {
@@ -68,5 +68,5 @@ const char* SafeText( const char* text )
 
     std::abort();
 }
-} // namespace Basics
+} // namespace Core
 } // namespace SkullbonezCore

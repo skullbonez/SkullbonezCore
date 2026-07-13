@@ -4,7 +4,7 @@ Purpose:
   Defines stable and frame-scoped owner views plus active-backend capabilities
   consumed by RuntimeRenderer.
 
-Mental model:
+Summary:
   Run constructs stable world/scene views once and replay/tool views per frame.
   RuntimeRenderer retains only render-domain owners, then receives immutable
   frame facts plus synchronous domain borrows for submission.
@@ -45,6 +45,11 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+class Profiler;
+struct CinematicRenderConfig;
+} // namespace Core
 namespace Assets
 {
 class AssetSystem;
@@ -83,16 +88,14 @@ namespace UI
 {
 class InGameUI;
 }
-namespace Basics
+namespace Runtime
 {
 class Window;
-class Profiler;
 class LauncherLaser;
 class RuntimeInputContext;
 class SceneController;
 class SceneTerrain;
 enum class RunCameraMode;
-struct CinematicRenderConfig;
 struct RenderFrameContext;
 struct ReplayPresentationSample;
 struct ReplaySolverFrameSample;
@@ -120,12 +123,12 @@ struct RenderWorldView
     Environment::CameraCollection& cameras;
     SceneTerrain& terrain;
     Window& window;
-    EngineConfig& config;
+    SkullbonezCore::Core::EngineConfig& config;
     Environment::WorldEnvironment& worldEnvironment;
     Physics::CollisionVisualizer& collisionVisualizer;
     Physics::BroadphaseVisualizer& broadphaseVisualizer;
     Physics::PhysicsDebugVisualizer& physicsDebugVisualizer;
-    Profiler* profiler = nullptr;
+    SkullbonezCore::Core::Profiler* profiler = nullptr;
 };
 
 struct RenderSceneView
@@ -169,5 +172,5 @@ struct RuntimeRenderBackendView
     Rendering::IRenderCaptureBackend& RequireCaptureBackend() const;
 };
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

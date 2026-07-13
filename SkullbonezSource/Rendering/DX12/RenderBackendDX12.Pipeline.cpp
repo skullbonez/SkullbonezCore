@@ -3,11 +3,11 @@ File: SkullbonezSource/Rendering/DX12/RenderBackendDX12.Pipeline.cpp
 Purpose:
   Implements Dx12PipelineOwner's root signature, fixed-state recipe, and cache.
 
-Mental model:
+Summary:
   Dx12PipelineOwner turns the active shader, vertex layout, raster/depth/blend
   choices, and output format into a bounded cached PSO. It owns the dirty-state
   fast path and receives only the device, command list, recording state,
-  descriptor allocator, and texture bindings required for one draw.
+  and texture bindings required for one draw.
 
 Glossary:
   RTV (Render Target View): Descriptor row used when the GPU writes color
@@ -312,9 +312,10 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device,
     {
         // Lane R: mesh/layout selection is startup-owned pipeline input. A
         // reflected mismatch skips PSO publication and names the owning path.
-        Log().WriteEventf( "dx12_shader_input_contract_rejected owner=Dx12PipelineOwner reason=%s",
-                           inputContractError );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_shader_input_contract_rejected owner=Dx12PipelineOwner reason=%s",
+            inputContractError );
+        SkullbonezCore::Core::Log().FlushAll();
         return nullptr;
     }
 
@@ -374,9 +375,10 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device,
     {
         // Lane R: cached bytes are external driver-specific cold-start input.
         // Retry the exact recipe once without them and evict the rejected row.
-        Log().WriteEventf( "dx12_pso_disk_cache_rejected owner=Dx12PipelineOwner hresult=0x%08X bytes=%llu",
-                           static_cast<unsigned int>( hr ),
-                           static_cast<unsigned long long>( psoDesc.CachedPSO.CachedBlobSizeInBytes ) );
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_pso_disk_cache_rejected owner=Dx12PipelineOwner hresult=0x%08X bytes=%llu",
+            static_cast<unsigned int>( hr ),
+            static_cast<unsigned long long>( psoDesc.CachedPSO.CachedBlobSizeInBytes ) );
         m_persistentPsoCache.RejectAttached( psoDesc );
         hr = device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &pso ) );
     }
@@ -385,12 +387,13 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device,
         // Lane R: a graphics PSO can fail because the active shader/input layout
         // or device state is invalid. The draw path can skip this submission and
         // keep the renderer alive; fixed cache-cap exhaustion above remains fatal.
-        Log().WriteEventf( "dx12_graphics_pso_create_failed hresult=0x%08X format=%u instanced=%d rtv_format=%u",
-                           static_cast<unsigned int>( FAILED( hr ) ? hr : E_FAIL ),
-                           static_cast<unsigned int>( format ),
-                           instanced ? 1 : 0,
-                           static_cast<unsigned int>( m_currentRTVFormat ) );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_graphics_pso_create_failed hresult=0x%08X format=%u instanced=%d rtv_format=%u",
+            static_cast<unsigned int>( FAILED( hr ) ? hr : E_FAIL ),
+            static_cast<unsigned int>( format ),
+            instanced ? 1 : 0,
+            static_cast<unsigned int>( m_currentRTVFormat ) );
+        SkullbonezCore::Core::Log().FlushAll();
         if ( pso )
         {
             pso->Release();
@@ -413,7 +416,6 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
                                      ID3D12GraphicsCommandList* commandList,
                                      Dx12CommandRecordingState& recording,
                                      Dx12TextureOwner& textures,
-                                     Dx12DescriptorAllocator& descriptors,
                                      VertexFormat12 format,
                                      bool instanced,
                                      const InstancedMeshDX12* im,
@@ -472,6 +474,12 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
             {
                 return false;
             }
+            // Hazard: zero means the phase policy rejected this upload. Drawing
+            // would reuse the prior root constant address, so fail the caller.
+            if ( m_activeShader->ConstantBufferUploadSize() > 0 && cbAddr == 0 )
+            {
+                return false;
+            }
             if ( cbAddr )
             {
                 commandList->SetGraphicsRootConstantBufferView(
@@ -484,7 +492,7 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
 
     // Full state setup path: at least one expensive binding category changed,
     // so rebuild/reuse the PSO, rebind the root signature, refresh constants,
-    // copy texture descriptors, and update output targets.
+    // publish texture indices, and update output targets.
     if ( psoChanged )
     {
         ID3D12PipelineState* pso = nullptr;
@@ -503,21 +511,22 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
             // misses in validation/perf runs can reveal root-signature churn,
             // render-target format drift, or state toggles happening in hot
             // loops.
-            Log().WriteEventf( "dx12_pso_cache_miss hash=%llu cache_size=%llu root_signature=%p vs_hash=%llu "
-                               "ps_hash=%llu format=%u instanced=%d blend=%d depth=%d depth_write=%d cull=%d "
-                               "rtv_format=%u",
-                               static_cast<unsigned long long>( psoHash ),
-                               static_cast<unsigned long long>( m_psoCacheCount ),
-                               key.rootSignature,
-                               static_cast<unsigned long long>( key.shaderVSHash ),
-                               static_cast<unsigned long long>( key.shaderPSHash ),
-                               static_cast<unsigned int>( key.format ),
-                               key.isInstanced ? 1 : 0,
-                               key.blendEnabled ? 1 : 0,
-                               key.depthEnabled ? 1 : 0,
-                               key.depthWriteEnabled ? 1 : 0,
-                               key.cullEnabled ? 1 : 0,
-                               static_cast<unsigned int>( key.rtvFormat ) );
+            SkullbonezCore::Core::Log().WriteEventf(
+                "dx12_pso_cache_miss hash=%llu cache_size=%llu root_signature=%p vs_hash=%llu "
+                "ps_hash=%llu format=%u instanced=%d blend=%d depth=%d depth_write=%d cull=%d "
+                "rtv_format=%u",
+                static_cast<unsigned long long>( psoHash ),
+                static_cast<unsigned long long>( m_psoCacheCount ),
+                key.rootSignature,
+                static_cast<unsigned long long>( key.shaderVSHash ),
+                static_cast<unsigned long long>( key.shaderPSHash ),
+                static_cast<unsigned int>( key.format ),
+                key.isInstanced ? 1 : 0,
+                key.blendEnabled ? 1 : 0,
+                key.depthEnabled ? 1 : 0,
+                key.depthWriteEnabled ? 1 : 0,
+                key.cullEnabled ? 1 : 0,
+                static_cast<unsigned int>( key.rtvFormat ) );
             if ( m_psoCacheCount >= m_psoCache.size() )
             {
                 // Invariant: PSO variants are bounded by the fixed cache in the
@@ -564,6 +573,12 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
         {
             return false;
         }
+        // Hazard: do not publish a draw after the phase policy rejected its
+        // constants; the command list may still contain an older root address.
+        if ( m_activeShader->ConstantBufferUploadSize() > 0 && cbAddr == 0 )
+        {
+            return false;
+        }
         if ( cbAddr )
         {
             commandList->SetGraphicsRootConstantBufferView( UnifiedRasterRootSignature::ROOT_PARAMETER_DRAW_CONSTANTS,
@@ -571,47 +586,22 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
         }
     }
 
-    // Bind UnifiedRaster textures by copying their SRV descriptors to the
-    // shader-visible heap and pointing the named slot-map parameters at them.
-    //
-    // Plain-language flow:
-    //
-    // 1. Game/render code chooses a texture handle.
-    // 2. The texture registry resolves that to a persistent SRV descriptor row
-    //    in the CPU-only staging heap.
-    // 3. This draw gets a transient row in the shader-visible heap.
-    // 4. The persistent descriptor is copied into the transient row.
-    // 5. The command list binds the transient row's GPU handle.
-    // 6. When the pixel shader samples t0/t1/t2/t3/t4, the GPU follows that handle.
-    //
-    // DX12 does not bind "the C++ texture object" directly. It binds a descriptor
-    // table row that describes how the shader should read that texture.
-    // Docs:
-    // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootdescriptortable
-    if ( textures.BindingsDirty() )
+    // Owner ruling: Dx12PipelineOwner carries six native descriptor indices in
+    // b1 root constants. Engine instance rows retain material-domain values;
+    // putting DX12 heap identity there would leak the backend boundary and
+    // overwrite packed material flags. The matching descriptors already occupy
+    // stable shader-visible rows, so this draw loop allocates or copies nothing.
+    if ( psoChanged || textures.BindingsDirty() )
     {
+        UINT textureIndices[TEXTURE_SLOT_COUNT] = {};
         for ( int slot = 0; slot < TEXTURE_SLOT_COUNT; ++slot )
         {
-            UINT srcIdx = textures.ResolveBoundSrv( slot );
-            if ( srcIdx != UINT_MAX )
-            {
-                // The texture's persistent descriptor lives in the CPU-only
-                // staging heap. For this draw, copy that descriptor into a
-                // per-frame shader-visible row and bind the GPU handle to that
-                // row. This copy looks redundant at first, but it is the safety
-                // mechanism: transient rows are reset only after the frame fence
-                // proves the GPU is done with them.
-                UINT transient = descriptors.AllocateTransient();
-                D3D12_CPU_DESCRIPTOR_HANDLE dstHandle = descriptors.ShaderVisibleCpuHandle( transient );
-                device->CopyDescriptorsSimple( 1,
-                                               dstHandle,
-                                               descriptors.StagingCpuHandle( srcIdx ),
-                                               D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
-                commandList->SetGraphicsRootDescriptorTable(
-                    UnifiedRasterRootSignature::TEXTURE_SLOTS[slot].rootParameter,
-                    descriptors.ShaderVisibleGpuHandle( transient ) );
-            }
+            textureIndices[slot] = textures.ResolveBoundSrv( slot );
         }
+        commandList->SetGraphicsRoot32BitConstants( UnifiedRasterRootSignature::ROOT_PARAMETER_TEXTURE_INDICES,
+                                                    TEXTURE_SLOT_COUNT,
+                                                    textureIndices,
+                                                    0 );
         textures.MarkBindingsClean();
     }
 
@@ -683,7 +673,7 @@ void Dx12PipelineOwner::UnregisterShader( ShaderDX12* shader )
 }
 
 
-SkullbonezCore::Basics::SbResult Dx12PipelineOwner::ReloadShadersFromBakedAssets()
+SkullbonezCore::Core::SbResult Dx12PipelineOwner::ReloadShadersFromBakedAssets()
 {
     // Allocation policy: optional candidates are fixed-capacity cold utility
     // storage. Their internal reflection containers may allocate only while the
@@ -700,7 +690,7 @@ SkullbonezCore::Basics::SbResult Dx12PipelineOwner::ReloadShadersFromBakedAssets
         {
             // Lane R: a changed shader interface needs a rebuilt executable with
             // matching generated reflection; keep every current shader/PSO live.
-            return SkullbonezCore::Basics::SbResult::Failure(
+            return SkullbonezCore::Core::SbResult::Failure(
                 "Rendering/DX12",
                 "Shader hot reload rejected changed or invalid bytecode contract" );
         }
@@ -730,9 +720,9 @@ SkullbonezCore::Basics::SbResult Dx12PipelineOwner::ReloadShadersFromBakedAssets
     m_psoDirty = true;
     m_targetsDirty = true;
     m_persistentPsoCache.Initialize( m_rootSignatureSerialized.data(), m_rootSignatureSerializedSize );
-    Log().WriteEventf( "dx12_shader_hot_reload_committed owner=Dx12PipelineOwner shaders=%llu",
-                       static_cast<unsigned long long>( m_liveShaderCount ) );
-    return SkullbonezCore::Basics::SbResult::Success();
+    SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_hot_reload_committed owner=Dx12PipelineOwner shaders=%llu",
+                                             static_cast<unsigned long long>( m_liveShaderCount ) );
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 

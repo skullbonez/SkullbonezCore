@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.h
 Purpose:
   Declares scene load orchestration helpers owned by scene runtime code.
 
-Mental model:
+Summary:
   SceneController owns the complete load transaction. This module separates
   failure-safe preparation from the first bookkeeping mutation: queue
   validation, runtime-state preservation, and GPU drain happen before commit.
@@ -40,7 +40,7 @@ namespace Rendering
 {
 class IRenderDeviceLifecycle;
 }
-namespace Basics
+namespace Runtime
 {
 class SceneController;
 struct RunCameraState;
@@ -51,7 +51,7 @@ struct SceneRuntimeLoadBeginResult
 {
     // Lane R: a failed GPU drain leaves shouldLoad false so SceneController can
     // report failure before it or any concrete lifecycle consumer mutates.
-    SbResult status = SbResult::Success();
+    SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
     bool shouldLoad = false;
     bool makeInteractive = false;
     bool suppressAutomationExit = false;
@@ -74,5 +74,5 @@ void CommitSceneRuntimeLoad( SceneController& controller, const SceneRuntimeLoad
 void RefreshSceneBrowserList( RunSceneBrowserState& sceneBrowser );
 int CurrentSceneBrowserIndex( const SceneController& controller, const RunSceneBrowserState& sceneBrowser );
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

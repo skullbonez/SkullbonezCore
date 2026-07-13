@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/Dx12CachedPsoStore.h
 Purpose:
   Declares the bounded persistent DX12 cached-PSO blob owner.
 
-Mental model:
+Summary:
   The fixed in-memory PSO array is the per-device fast path. This owner adds a
   cold-start layer underneath it: driver-compatible cached PSO blobs are mapped
   read-only before draws and attached to matching native create descriptions.
@@ -28,7 +28,8 @@ Related:
 */
 #pragma once
 
-#include <Windows.h>
+#include "../../Core/PlatformWin32.h"
+
 #include <d3d12.h>
 #include <wrl/client.h>
 

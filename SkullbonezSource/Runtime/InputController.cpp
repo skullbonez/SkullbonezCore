@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/InputController.cpp
 Purpose:
   Maintains runtime input-mode state and applies camera mouse-look deltas.
 
-Mental model:
+Summary:
   InputRouter normalizes semantic keyboard edges. This layer retains camera and
   pointer compatibility behavior while later input slices move those paths.
 
@@ -34,7 +34,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -296,6 +296,8 @@ const char* InputController::DescribeAction( RuntimeInputAction action )
         return "TogglePhysicsDebugTransparent";
     case RuntimeInputAction::ReportRendererRuntimeRetired:
         return "ReportRendererRuntimeRetired";
+    case RuntimeInputAction::CycleReplayPredictionAuthoringLook:
+        return "CycleReplayPredictionAuthoringLook";
     case RuntimeInputAction::ToggleBroadphaseOverlay:
         return "ToggleBroadphaseOverlay";
     case RuntimeInputAction::ToggleUIVisibility:
@@ -636,5 +638,5 @@ void InputController::ApplyCameraMovement( RunCameraState& camera,
         }
     }
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

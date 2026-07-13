@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/SleepIslandSystem.cpp
 Purpose:
   Groups supported bodies into sleep islands and decides when islands may sleep.
 
-Mental model:
+Summary:
   SleepIslandSystem.cpp groups supported bodies into sleep islands and decides
   when islands may sleep. As an implementation unit, keep edits anchored on
   deterministic physics, diagnostics, or world-state flow and on the
@@ -38,7 +38,7 @@ using namespace SkullbonezCore::Physics;
 
 
 void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& context,
-                                          const PhysicsBodyRecordList& bodyRecords )
+                                          std::span<const PhysicsBodyRecord> bodyRecords )
 {
     // Concept: support propagates upward through a stack.
     //

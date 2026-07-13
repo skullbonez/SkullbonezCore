@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RuntimeDiagnostics.cpp
 Purpose:
   Writes runtime diagnostic artifacts without making Run own the details.
 
-Mental model:
+Summary:
   Diagnostics borrow current runtime context, emit bounded side-channel logs,
   and avoid changing simulation or rendering behavior.
 
@@ -40,6 +40,7 @@ Related:
 #include "Audio/ContactAudioService.h"
 #include "Replay/ReplayRecorder.h"
 #include "Scene/SceneRuntime.h"
+#include "../Core/PlatformWin32.h"
 
 #include <array>
 #include <cstring>
@@ -48,7 +49,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -234,9 +235,9 @@ void RuntimeDiagnostics::ClosePerfLogWithMemoryCheckpoint( RunPerfLogState& perf
     ClosePerfLog( perfLog );
 }
 
-MainMemoryProcessStats RuntimeDiagnostics::SampleProcessMemory( bool includePrivateWorkingSet )
+SkullbonezCore::Core::MainMemoryProcessStats RuntimeDiagnostics::SampleProcessMemory( bool includePrivateWorkingSet )
 {
-    MainMemoryProcessStats stats;
+    SkullbonezCore::Core::MainMemoryProcessStats stats;
 
     PROCESS_MEMORY_COUNTERS_EX pmc;
     std::memset( &pmc, 0, sizeof( pmc ) );
@@ -278,7 +279,7 @@ void RuntimeDiagnostics::LogPerfMemory( RunPerfLogState& perfLog, int pass, cons
         return;
     }
 
-    const MainMemoryProcessStats stats = SampleProcessMemory( true );
+    const SkullbonezCore::Core::MainMemoryProcessStats stats = SampleProcessMemory( true );
     if ( stats.available )
     {
         const double taskManagerMb = static_cast<double>( stats.taskManagerBytes ) / ( 1024.0 * 1024.0 );
@@ -321,7 +322,10 @@ void RuntimeDiagnostics::ConfigurePerfLogFlush( RunPerfLogState& perfLog, bool e
 }
 
 
-void RuntimeDiagnostics::OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass, Profiler* profiler )
+void RuntimeDiagnostics::OpenScenePerfLog( RunPerfLogState& perfLog,
+                                           const char* path,
+                                           int pass,
+                                           SkullbonezCore::Core::Profiler* profiler )
 {
     if ( !path || path[0] == '\0' )
     {
@@ -357,7 +361,7 @@ bool RuntimeDiagnostics::PerfTestActive( const RunPerfLogState& perfLog )
 }
 
 
-void RuntimeDiagnostics::InvalidateProfilerGpuQueries( Profiler* profiler )
+void RuntimeDiagnostics::InvalidateProfilerGpuQueries( SkullbonezCore::Core::Profiler* profiler )
 {
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     if ( profiler )
@@ -370,7 +374,7 @@ void RuntimeDiagnostics::InvalidateProfilerGpuQueries( Profiler* profiler )
 }
 
 
-RuntimeProfilerFrameTimes RuntimeDiagnostics::SampleProfilerFrameTimes( const Profiler* profiler )
+RuntimeProfilerFrameTimes RuntimeDiagnostics::SampleProfilerFrameTimes( const SkullbonezCore::Core::Profiler* profiler )
 {
     RuntimeProfilerFrameTimes times;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
@@ -410,7 +414,7 @@ RuntimeProfilerFrameTimes RuntimeDiagnostics::SampleProfilerFrameTimes( const Pr
 
 void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog,
                                       const RuntimePerfTickContext& context,
-                                      Profiler* profiler )
+                                      SkullbonezCore::Core::Profiler* profiler )
 {
     if ( !perfLog.isPerfTest || !perfLog.perfLogFile )
     {
@@ -461,7 +465,7 @@ void RuntimeDiagnostics::SetPhysicsCollisionTimeLogOverride( RunPerfLogState& pe
 }
 
 void RuntimeDiagnostics::SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& diagnostics,
-                                                    Basics::SceneController& models,
+                                                    Runtime::SceneController& models,
                                                     const char* path,
                                                     bool fixedStepForcedByDiagnostics )
 {
@@ -481,25 +485,26 @@ void RuntimeDiagnostics::LogSceneFinished( RunSceneState& scene,
         return;
     }
 
-    Log().WriteEventf( "scene_finished index=%d load=%d path=\"%s\" reason=%s frame=%d target_frames=%d "
-                       "renderer=\"%s\" models=%d test_complete=%d",
-                       scene.currentSceneIndex,
-                       scene.loadCount,
-                       scenePath && scenePath[0] != '\0' ? scenePath : "generated",
-                       reason && reason[0] != '\0' ? reason : "unknown",
-                       scene.currentFrame,
-                       scene.targetFrameCount,
-                       rendererName && rendererName[0] != '\0' ? rendererName : "unknown",
-                       scene.modelCount,
-                       scene.isTestComplete ? 1 : 0 );
+    SkullbonezCore::Core::Log().WriteEventf(
+        "scene_finished index=%d load=%d path=\"%s\" reason=%s frame=%d target_frames=%d "
+        "renderer=\"%s\" models=%d test_complete=%d",
+        scene.currentSceneIndex,
+        scene.loadCount,
+        scenePath && scenePath[0] != '\0' ? scenePath : "generated",
+        reason && reason[0] != '\0' ? reason : "unknown",
+        scene.currentFrame,
+        scene.targetFrameCount,
+        rendererName && rendererName[0] != '\0' ? rendererName : "unknown",
+        scene.modelCount,
+        scene.isTestComplete ? 1 : 0 );
 
     scene.isFinishLogged = true;
 }
 
 void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
-                                                     Basics::SceneController& models,
+                                                     Runtime::SceneController& models,
                                                      const RunSceneState& scene,
-                                                     const EngineConfig& config,
+                                                     const SkullbonezCore::Core::EngineConfig& config,
                                                      const char* scenePath,
                                                      const char* rendererName )
 {
@@ -519,48 +524,49 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
     std::string escapedRenderer = JsonEscape( rendererName && rendererName[0] != '\0' ? rendererName : "unknown" );
     std::string escapedSolver = JsonEscape( solverName );
 
-    Log().Writef( diagnostics.path,
-                  "{\"kind\":\"run\",\"run\":\"%s\",\"scene\":\"%s\",\"scene_index\":%d,\"load_count\":%d,\"manual_"
-                  "reset_count\":%d,\"renderer\":\"%s\",\"solver\":\"%s\",\"seed\":%u,\"fixed_step\":%d,\"fixed_step_"
-                  "forced_by_diag\":%d,\"target_frames\":%d,\"model_count\":%d,\"config\":{\"gravity\":%.6f,\"contact_"
-                  "epsilon\":%.6f,\"contact_restitution_threshold\":%.6f,\"friction_coeff\":%.6f,\"object_friction_"
-                  "coeff\":%.6f,\"rolling_friction_coeff\":%.6f,\"spin_friction_coeff\":%.6f,\"broadphase_cell\":%.6f,"
-                  "\"persistent_contact_slop\":%.6f,"
-                  "\"persistent_contact_baumgarte_beta\":%.6f,\"persistent_contact_position_correction_percent\":%.6f,"
-                  "\"persistent_contact_solver_iterations\":%d,\"terrain_contact_threshold\":%.6f,\"terrain_contact_"
-                  "slop\":%.6f,\"terrain_contact_baumgarte_beta\":%.6f,\"terrain_max_baumgarte_bias\":%.6f,\"physics_"
-                  "sleep_linear_speed\":%.6f,\"physics_sleep_angular_speed\":%.6f,\"physics_sleep_frames\":%d}}\n",
-                  diagnostics.currentRunId,
-                  escapedScene.c_str(),
-                  scene.currentSceneIndex,
-                  scene.loadCount,
-                  scene.manualResetCount,
-                  escapedRenderer.c_str(),
-                  escapedSolver.c_str(),
-                  scene.rngSeed,
-                  scene.isFixedStep ? 1 : 0,
-                  diagnostics.fixedStepForcedByDiagnostics ? 1 : 0,
-                  scene.targetFrameCount,
-                  scene.modelCount,
-                  config.worldForces.gravity,
-                  config.bodySimulation.contactEpsilon,
-                  config.bodySimulation.contactRestitutionThreshold,
-                  config.physicsMaterial.frictionCoeff,
-                  config.physicsMaterial.objectFrictionCoeff,
-                  config.physicsMaterial.rollingFrictionCoeff,
-                  config.physicsMaterial.spinFrictionCoeff,
-                  config.broadphase.cellSize,
-                  config.persistentContactSolver.slop,
-                  config.persistentContactSolver.baumgarteBeta,
-                  config.persistentContactSolver.positionCorrectionPercent,
-                  config.persistentContactSolver.iterations,
-                  config.terrainContact.threshold,
-                  config.terrainContact.slop,
-                  config.terrainContact.baumgarteBeta,
-                  config.terrainContact.maxBaumgarteBias,
-                  config.physicsSleep.linearSpeed,
-                  config.physicsSleep.angularSpeed,
-                  config.physicsSleep.frames );
+    SkullbonezCore::Core::Log().Writef(
+        diagnostics.path,
+        "{\"kind\":\"run\",\"run\":\"%s\",\"scene\":\"%s\",\"scene_index\":%d,\"load_count\":%d,\"manual_"
+        "reset_count\":%d,\"renderer\":\"%s\",\"solver\":\"%s\",\"seed\":%u,\"fixed_step\":%d,\"fixed_step_"
+        "forced_by_diag\":%d,\"target_frames\":%d,\"model_count\":%d,\"config\":{\"gravity\":%.6f,\"contact_"
+        "epsilon\":%.6f,\"contact_restitution_threshold\":%.6f,\"friction_coeff\":%.6f,\"object_friction_"
+        "coeff\":%.6f,\"rolling_friction_coeff\":%.6f,\"spin_friction_coeff\":%.6f,\"broadphase_cell\":%.6f,"
+        "\"persistent_contact_slop\":%.6f,"
+        "\"persistent_contact_baumgarte_beta\":%.6f,\"persistent_contact_position_correction_percent\":%.6f,"
+        "\"persistent_contact_solver_iterations\":%d,\"terrain_contact_threshold\":%.6f,\"terrain_contact_"
+        "slop\":%.6f,\"terrain_contact_baumgarte_beta\":%.6f,\"terrain_max_baumgarte_bias\":%.6f,\"physics_"
+        "sleep_linear_speed\":%.6f,\"physics_sleep_angular_speed\":%.6f,\"physics_sleep_frames\":%d}}\n",
+        diagnostics.currentRunId,
+        escapedScene.c_str(),
+        scene.currentSceneIndex,
+        scene.loadCount,
+        scene.manualResetCount,
+        escapedRenderer.c_str(),
+        escapedSolver.c_str(),
+        scene.rngSeed,
+        scene.isFixedStep ? 1 : 0,
+        diagnostics.fixedStepForcedByDiagnostics ? 1 : 0,
+        scene.targetFrameCount,
+        scene.modelCount,
+        config.worldForces.gravity,
+        config.bodySimulation.contactEpsilon,
+        config.bodySimulation.contactRestitutionThreshold,
+        config.physicsMaterial.frictionCoeff,
+        config.physicsMaterial.objectFrictionCoeff,
+        config.physicsMaterial.rollingFrictionCoeff,
+        config.physicsMaterial.spinFrictionCoeff,
+        config.broadphase.cellSize,
+        config.persistentContactSolver.slop,
+        config.persistentContactSolver.baumgarteBeta,
+        config.persistentContactSolver.positionCorrectionPercent,
+        config.persistentContactSolver.iterations,
+        config.terrainContact.threshold,
+        config.terrainContact.slop,
+        config.terrainContact.baumgarteBeta,
+        config.terrainContact.maxBaumgarteBias,
+        config.physicsSleep.linearSpeed,
+        config.physicsSleep.angularSpeed,
+        config.physicsSleep.frames );
 }
 
 void RuntimeDiagnostics::LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics,
@@ -583,40 +589,41 @@ void RuntimeDiagnostics::LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagno
     }
 
     std::string escapedName = JsonEscape( selectedBody.name );
-    Log().Writef( diagnostics.path,
-                  "{\"kind\":\"replay_scrub\",\"run\":\"%s\",\"frame\":%d,\"normalized\":%.6f,\"selected_replay_"
-                  "frame\":%llu,\"live_replay_frame\":%llu,\"selected_scene_frame\":%d,\"live_scene_frame\":%d,"
-                  "\"selected_state_hash\":%llu,\"live_state_hash\":%llu,\"body_id\":%u,\"model_index\":%d,\"name\":\"%"
-                  "s\",\"selected_pos\":[%.6f,%.6f,%.6f],\"live_pos\":[%.6f,%.6f,%.6f],\"distance_sq\":%.9f,\"selected_"
-                  "body_count\":%zu,\"live_body_count\":%zu,\"applied\":%d,\"restored\":%d,\"pre_live_delta_sq\":%.9f,"
-                  "\"applied_delta_sq\":%.9f,\"restored_delta_sq\":%.9f}\n",
-                  diagnostics.currentRunId,
-                  scene.currentFrame,
-                  normalized,
-                  static_cast<unsigned long long>( selected.frameIndex ),
-                  static_cast<unsigned long long>( live.frameIndex ),
-                  selected.sceneFrame,
-                  live.sceneFrame,
-                  static_cast<unsigned long long>( selected.stateHash ),
-                  static_cast<unsigned long long>( live.stateHash ),
-                  selectedBody.id.value,
-                  liveBody.modelRow.value,
-                  escapedName.c_str(),
-                  selectedBody.position.x,
-                  selectedBody.position.y,
-                  selectedBody.position.z,
-                  liveBody.position.x,
-                  liveBody.position.y,
-                  liveBody.position.z,
-                  distanceSquared,
-                  selected.bodies.size(),
-                  live.bodies.size(),
-                  applied ? 1 : 0,
-                  restored ? 1 : 0,
-                  preLiveDeltaSquared,
-                  appliedDeltaSquared,
-                  restoredDeltaSquared );
-    Log().FlushAll();
+    SkullbonezCore::Core::Log().Writef(
+        diagnostics.path,
+        "{\"kind\":\"replay_scrub\",\"run\":\"%s\",\"frame\":%d,\"normalized\":%.6f,\"selected_replay_"
+        "frame\":%llu,\"live_replay_frame\":%llu,\"selected_scene_frame\":%d,\"live_scene_frame\":%d,"
+        "\"selected_state_hash\":%llu,\"live_state_hash\":%llu,\"body_id\":%u,\"model_index\":%d,\"name\":\"%"
+        "s\",\"selected_pos\":[%.6f,%.6f,%.6f],\"live_pos\":[%.6f,%.6f,%.6f],\"distance_sq\":%.9f,\"selected_"
+        "body_count\":%zu,\"live_body_count\":%zu,\"applied\":%d,\"restored\":%d,\"pre_live_delta_sq\":%.9f,"
+        "\"applied_delta_sq\":%.9f,\"restored_delta_sq\":%.9f}\n",
+        diagnostics.currentRunId,
+        scene.currentFrame,
+        normalized,
+        static_cast<unsigned long long>( selected.frameIndex ),
+        static_cast<unsigned long long>( live.frameIndex ),
+        selected.sceneFrame,
+        live.sceneFrame,
+        static_cast<unsigned long long>( selected.stateHash ),
+        static_cast<unsigned long long>( live.stateHash ),
+        selectedBody.id.value,
+        liveBody.modelRow.value,
+        escapedName.c_str(),
+        selectedBody.position.x,
+        selectedBody.position.y,
+        selectedBody.position.z,
+        liveBody.position.x,
+        liveBody.position.y,
+        liveBody.position.z,
+        distanceSquared,
+        selected.bodies.size(),
+        live.bodies.size(),
+        applied ? 1 : 0,
+        restored ? 1 : 0,
+        preLiveDeltaSquared,
+        appliedDeltaSquared,
+        restoredDeltaSquared );
+    SkullbonezCore::Core::Log().FlushAll();
 }
 
 void RuntimeDiagnostics::LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics,
@@ -681,35 +688,36 @@ void RuntimeDiagnostics::LogReplayRestoreResult( RunPhysicsDiagnosticsState& dia
     std::string escapedSource = JsonEscape( restoreSource && restoreSource[0] != '\0' ? restoreSource : "unknown" );
     std::string escapedReason = JsonEscape( failureReason ? failureReason : "" );
 
-    Log().Writef( diagnostics.path,
-                  "{\"kind\":\"replay_restore\",\"run\":\"%s\",\"frame\":%d,\"target_replay_frame\":%llu,"
-                  "\"restore_source\":\"%s\",\"checkpoint_replay_frame\":%llu,"
-                  "\"target_scene_frame\":%d,\"target_solver_hash\":%llu,\"target_presentation_hash\":%llu,"
-                  "\"restored_solver_hash\":%llu,\"restored_presentation_hash\":%llu,\"target_body_count\":%zu,"
-                  "\"restored_body_count\":%zu,\"contact_count\":%u,\"pipeline_record_count\":%u,"
-                  "\"checkpoint_boundary\":%d,\"hash_captured\":%d,\"hash_matched\":%d,\"fallback_attempted\":%d,"
-                  "\"fallback_restored\":%d,\"failure_reason\":\"%s\"}\n",
-                  diagnostics.currentRunId,
-                  scene.currentFrame,
-                  static_cast<unsigned long long>( targetReplayFrame ),
-                  escapedSource.c_str(),
-                  static_cast<unsigned long long>( checkpointReplayFrame ),
-                  targetSceneFrame,
-                  static_cast<unsigned long long>( targetSolverHash ),
-                  static_cast<unsigned long long>( targetPresentationHash ),
-                  static_cast<unsigned long long>( restoredSolverHash ),
-                  static_cast<unsigned long long>( restoredPresentationHash ),
-                  targetBodyCount,
-                  restoredBodyCount,
-                  static_cast<unsigned>( contactCount ),
-                  static_cast<unsigned>( pipelineRecordCount ),
-                  checkpointBoundary ? 1 : 0,
-                  hashCaptured ? 1 : 0,
-                  hashMatched ? 1 : 0,
-                  fallbackAttempted ? 1 : 0,
-                  fallbackRestored ? 1 : 0,
-                  escapedReason.c_str() );
-    Log().FlushAll();
+    SkullbonezCore::Core::Log().Writef(
+        diagnostics.path,
+        "{\"kind\":\"replay_restore\",\"run\":\"%s\",\"frame\":%d,\"target_replay_frame\":%llu,"
+        "\"restore_source\":\"%s\",\"checkpoint_replay_frame\":%llu,"
+        "\"target_scene_frame\":%d,\"target_solver_hash\":%llu,\"target_presentation_hash\":%llu,"
+        "\"restored_solver_hash\":%llu,\"restored_presentation_hash\":%llu,\"target_body_count\":%zu,"
+        "\"restored_body_count\":%zu,\"contact_count\":%u,\"pipeline_record_count\":%u,"
+        "\"checkpoint_boundary\":%d,\"hash_captured\":%d,\"hash_matched\":%d,\"fallback_attempted\":%d,"
+        "\"fallback_restored\":%d,\"failure_reason\":\"%s\"}\n",
+        diagnostics.currentRunId,
+        scene.currentFrame,
+        static_cast<unsigned long long>( targetReplayFrame ),
+        escapedSource.c_str(),
+        static_cast<unsigned long long>( checkpointReplayFrame ),
+        targetSceneFrame,
+        static_cast<unsigned long long>( targetSolverHash ),
+        static_cast<unsigned long long>( targetPresentationHash ),
+        static_cast<unsigned long long>( restoredSolverHash ),
+        static_cast<unsigned long long>( restoredPresentationHash ),
+        targetBodyCount,
+        restoredBodyCount,
+        static_cast<unsigned>( contactCount ),
+        static_cast<unsigned>( pipelineRecordCount ),
+        checkpointBoundary ? 1 : 0,
+        hashCaptured ? 1 : 0,
+        hashMatched ? 1 : 0,
+        fallbackAttempted ? 1 : 0,
+        fallbackRestored ? 1 : 0,
+        escapedReason.c_str() );
+    SkullbonezCore::Core::Log().FlushAll();
 }
 
 void RuntimeDiagnostics::LogContactAudioDecision( RunPhysicsDiagnosticsState& diagnostics,
@@ -736,65 +744,66 @@ void RuntimeDiagnostics::LogContactAudioDecision( RunPhysicsDiagnosticsState& di
     // Concept: contact audio is runtime presentation built from deterministic
     // contact facts. Logging the verdict here keeps SkullScope useful without
     // moving audio policy into the physics solver.
-    Log().Writef( diagnostics.path,
-                  "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"%s\",\"frame\":%d,\"type\":\"contact_audio\","
-                  "\"severity\":\"%s\",\"body_a\":%d,\"body_b\":%d,\"island_id\":null,\"summary\":\"contact audio %s\","
-                  "\"data\":{\"decision\":\"%s\",\"kind\":\"%s\",\"pair_key\":%llu,\"feature_id\":%u,\"is_terrain\":%d,"
-                  "\"material_a\":%u,\"material_b\":%u,\"normal_impulse\":%.6f,"
-                  "\"normal_closing_speed\":%.6f,\"tangent_slip_speed\":%.6f,\"has_motion_data\":%d,"
-                  "\"simple_linear\":%d,\"linear_energy\":%.6f,\"linear_delta_speed\":%.6f,"
-                  "\"linear_speed_before\":%.6f,\"linear_speed_after\":%.6f,"
-                  "\"min_impulse\":%.6f,\"impulse_range\":%.6f,\"distance\":%.6f,\"max_distance\":%.6f,"
-                  "\"distance_gain\":%.6f,\"impact_gain\":%.6f,\"motion_gain\":%.6f,\"impact_score\":%.6f,"
-                  "\"gain\":%.6f,\"contact_age_seconds\":%.6f,"
-                  "\"rearm_gap_seconds\":%.6f,\"previous_strongest_impulse\":%.6f,"
-                  "\"ongoing_contact\":%d,\"impulse_spike\":%d,"
-                  "\"submitted\":%d,\"flash_eligible\":%d,\"max_voices\":%u,\"sample_index\":%d,"
-                  "\"sound_set\":\"%s\",\"band\":\"%s\",\"sample\":\"%s\"}}\n",
-                  diagnostics.currentRunId,
-                  eventId,
-                  scene.currentFrame,
-                  severity,
-                  decision.event.bodyA,
-                  decision.event.bodyB,
-                  escapedReason.c_str(),
-                  escapedReason.c_str(),
-                  escapedKind.c_str(),
-                  static_cast<unsigned long long>( decision.pairKey ),
-                  decision.event.featureId,
-                  decision.event.isTerrain ? 1 : 0,
-                  decision.event.materialA,
-                  decision.event.materialB,
-                  decision.event.normalImpulse,
-                  decision.event.normalClosingSpeed,
-                  decision.event.tangentSlipSpeed,
-                  decision.event.hasMotionData ? 1 : 0,
-                  decision.event.simpleLinear ? 1 : 0,
-                  decision.event.linearEnergy,
-                  decision.event.linearDeltaSpeed,
-                  decision.event.linearSpeedBefore,
-                  decision.event.linearSpeedAfter,
-                  decision.minImpulse,
-                  decision.impulseRange,
-                  decision.distance,
-                  decision.maxDistance,
-                  decision.distanceGain,
-                  decision.impactGain,
-                  decision.motionGain,
-                  decision.impactScore,
-                  decision.gain,
-                  decision.contactAgeSeconds,
-                  decision.rearmGapSeconds,
-                  decision.previousStrongestImpulse,
-                  decision.ongoingContact ? 1 : 0,
-                  decision.impulseSpike ? 1 : 0,
-                  decision.submitted ? 1 : 0,
-                  decision.flashEligible ? 1 : 0,
-                  decision.maxVoices,
-                  decision.sampleIndex,
-                  escapedSet.c_str(),
-                  escapedBand.c_str(),
-                  escapedSample.c_str() );
+    SkullbonezCore::Core::Log().Writef(
+        diagnostics.path,
+        "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"%s\",\"frame\":%d,\"type\":\"contact_audio\","
+        "\"severity\":\"%s\",\"body_a\":%d,\"body_b\":%d,\"island_id\":null,\"summary\":\"contact audio %s\","
+        "\"data\":{\"decision\":\"%s\",\"kind\":\"%s\",\"pair_key\":%llu,\"feature_id\":%u,\"is_terrain\":%d,"
+        "\"material_a\":%u,\"material_b\":%u,\"normal_impulse\":%.6f,"
+        "\"normal_closing_speed\":%.6f,\"tangent_slip_speed\":%.6f,\"has_motion_data\":%d,"
+        "\"simple_linear\":%d,\"linear_energy\":%.6f,\"linear_delta_speed\":%.6f,"
+        "\"linear_speed_before\":%.6f,\"linear_speed_after\":%.6f,"
+        "\"min_impulse\":%.6f,\"impulse_range\":%.6f,\"distance\":%.6f,\"max_distance\":%.6f,"
+        "\"distance_gain\":%.6f,\"impact_gain\":%.6f,\"motion_gain\":%.6f,\"impact_score\":%.6f,"
+        "\"gain\":%.6f,\"contact_age_seconds\":%.6f,"
+        "\"rearm_gap_seconds\":%.6f,\"previous_strongest_impulse\":%.6f,"
+        "\"ongoing_contact\":%d,\"impulse_spike\":%d,"
+        "\"submitted\":%d,\"flash_eligible\":%d,\"max_voices\":%u,\"sample_index\":%d,"
+        "\"sound_set\":\"%s\",\"band\":\"%s\",\"sample\":\"%s\"}}\n",
+        diagnostics.currentRunId,
+        eventId,
+        scene.currentFrame,
+        severity,
+        decision.event.bodyA,
+        decision.event.bodyB,
+        escapedReason.c_str(),
+        escapedReason.c_str(),
+        escapedKind.c_str(),
+        static_cast<unsigned long long>( decision.pairKey ),
+        decision.event.featureId,
+        decision.event.isTerrain ? 1 : 0,
+        decision.event.materialA,
+        decision.event.materialB,
+        decision.event.normalImpulse,
+        decision.event.normalClosingSpeed,
+        decision.event.tangentSlipSpeed,
+        decision.event.hasMotionData ? 1 : 0,
+        decision.event.simpleLinear ? 1 : 0,
+        decision.event.linearEnergy,
+        decision.event.linearDeltaSpeed,
+        decision.event.linearSpeedBefore,
+        decision.event.linearSpeedAfter,
+        decision.minImpulse,
+        decision.impulseRange,
+        decision.distance,
+        decision.maxDistance,
+        decision.distanceGain,
+        decision.impactGain,
+        decision.motionGain,
+        decision.impactScore,
+        decision.gain,
+        decision.contactAgeSeconds,
+        decision.rearmGapSeconds,
+        decision.previousStrongestImpulse,
+        decision.ongoingContact ? 1 : 0,
+        decision.impulseSpike ? 1 : 0,
+        decision.submitted ? 1 : 0,
+        decision.flashEligible ? 1 : 0,
+        decision.maxVoices,
+        decision.sampleIndex,
+        escapedSet.c_str(),
+        escapedBand.c_str(),
+        escapedSample.c_str() );
 }
 
 void RuntimeDiagnostics::LogContactAudioStepStats( RunPhysicsDiagnosticsState& diagnostics,
@@ -820,34 +829,35 @@ void RuntimeDiagnostics::LogContactAudioStepStats( RunPhysicsDiagnosticsState& d
     // Concept: this row is the reducer summary for one physics step. Verdict
     // rows explain individual examples; this row preserves the raw fact and
     // patch-merge counts even when per-candidate diagnostics are capped.
-    Log().Writef( diagnostics.path,
-                  "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"%s\",\"frame\":%d,"
-                  "\"type\":\"contact_audio_frame\",\"severity\":\"low\",\"body_a\":-1,\"body_b\":-1,"
-                  "\"island_id\":null,\"summary\":\"contact audio frame facts %u patches %u played %u rolling %u\","
-                  "\"data\":{\"facts_seen\":%u,\"patch_candidates\":%u,\"merged_candidates\":%u,"
-                  "\"candidate_overflows\":%u,\"burst_window_skipped_candidates\":%u,"
-                  "\"budget_rejected_candidates\":%u,\"rejected_by_threshold\":%u,"
-                  "\"rejected_by_cooldown\":%u,\"submitted_voices\":%u,\"dropped_voices\":%u,"
-                  "\"rolling_candidates\":%u,\"rolling_submitted_voices\":%u}}\n",
-                  diagnostics.currentRunId,
-                  eventId,
-                  scene.currentFrame,
-                  stats.eventsSeen,
-                  stats.patchCandidates,
-                  stats.submittedVoices,
-                  stats.rollingSubmittedVoices,
-                  stats.eventsSeen,
-                  stats.patchCandidates,
-                  stats.mergedCandidates,
-                  stats.candidateOverflows,
-                  stats.burstWindowSkippedCandidates,
-                  stats.budgetRejectedCandidates,
-                  stats.rejectedByThreshold,
-                  stats.rejectedByCooldown,
-                  stats.submittedVoices,
-                  stats.droppedVoices,
-                  stats.rollingCandidates,
-                  stats.rollingSubmittedVoices );
+    SkullbonezCore::Core::Log().Writef(
+        diagnostics.path,
+        "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"%s\",\"frame\":%d,"
+        "\"type\":\"contact_audio_frame\",\"severity\":\"low\",\"body_a\":-1,\"body_b\":-1,"
+        "\"island_id\":null,\"summary\":\"contact audio frame facts %u patches %u played %u rolling %u\","
+        "\"data\":{\"facts_seen\":%u,\"patch_candidates\":%u,\"merged_candidates\":%u,"
+        "\"candidate_overflows\":%u,\"burst_window_skipped_candidates\":%u,"
+        "\"budget_rejected_candidates\":%u,\"rejected_by_threshold\":%u,"
+        "\"rejected_by_cooldown\":%u,\"submitted_voices\":%u,\"dropped_voices\":%u,"
+        "\"rolling_candidates\":%u,\"rolling_submitted_voices\":%u}}\n",
+        diagnostics.currentRunId,
+        eventId,
+        scene.currentFrame,
+        stats.eventsSeen,
+        stats.patchCandidates,
+        stats.submittedVoices,
+        stats.rollingSubmittedVoices,
+        stats.eventsSeen,
+        stats.patchCandidates,
+        stats.mergedCandidates,
+        stats.candidateOverflows,
+        stats.burstWindowSkippedCandidates,
+        stats.budgetRejectedCandidates,
+        stats.rejectedByThreshold,
+        stats.rejectedByCooldown,
+        stats.submittedVoices,
+        stats.droppedVoices,
+        stats.rollingCandidates,
+        stats.rollingSubmittedVoices );
 }
 
 void RuntimeDiagnostics::EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
@@ -860,15 +870,15 @@ void RuntimeDiagnostics::EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& d
     }
 
     std::string escapedStatus = JsonEscape( status && status[0] != '\0' ? status : "ended" );
-    Log().Writef( diagnostics.path,
-                  "{\"kind\":\"end\",\"run\":\"%s\",\"frame\":%d,\"status\":\"%s\"}\n",
-                  diagnostics.currentRunId,
-                  scene.currentFrame,
-                  escapedStatus.c_str() );
-    Log().FlushAll();
+    SkullbonezCore::Core::Log().Writef( diagnostics.path,
+                                        "{\"kind\":\"end\",\"run\":\"%s\",\"frame\":%d,\"status\":\"%s\"}\n",
+                                        diagnostics.currentRunId,
+                                        scene.currentFrame,
+                                        escapedStatus.c_str() );
+    SkullbonezCore::Core::Log().FlushAll();
 
     diagnostics.isRunActive = false;
 }
 #endif
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/TLASDX12.cpp
 Purpose:
   Builds and owns the DX12 raytracing top-level scene acceleration structure.
 
-Mental model:
+Summary:
   TLASDX12.cpp builds and owns the DX12 raytracing top-level scene
   acceleration structure. As an implementation unit, keep edits anchored on
   DX12 ownership, descriptors, resources, and command submission and on the
@@ -60,7 +60,7 @@ Related:
 
 
 using namespace SkullbonezCore::Rendering;
-using SkullbonezCore::Basics::SbResult;
+using SkullbonezCore::Core::SbResult;
 
 
 TLAS::TLAS() : m_scratch( nullptr ), m_result( nullptr ), m_instanceDescs( nullptr ), m_maxInstances( 0 )
@@ -74,7 +74,7 @@ TLAS::~TLAS()
 }
 
 
-SbResult TLAS::Init( ID3D12Device5* device, int maxInstances )
+SkullbonezCore::Core::SbResult TLAS::Init( ID3D12Device5* device, int maxInstances )
 {
     m_maxInstances = maxInstances;
 
@@ -104,7 +104,8 @@ SbResult TLAS::Init( ID3D12Device5* device, int maxInstances )
                                                   nullptr,
                                                   IID_PPV_ARGS( &m_instanceDescs ) ) ) )
     {
-        return SbResult::Failure( "Rendering/DX12", "TLAS: Failed to create instance desc buffer" );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "TLAS: Failed to create instance desc buffer" );
     }
     NameDx12Object( m_instanceDescs, L"Skullbonez DX12 TLAS Instance Descriptors" );
 
@@ -126,7 +127,9 @@ SbResult TLAS::Init( ID3D12Device5* device, int maxInstances )
     if ( prebuild.ScratchDataSizeInBytes == 0 || prebuild.ResultDataMaxSizeInBytes == 0 )
     {
         Reset();
-        return SbResult::Failure( "Rendering/DX12", "TLAS: prebuild info returned zero scratch or result capacity" );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Rendering/DX12",
+            "TLAS: prebuild info returned zero scratch or result capacity" );
     }
 
     // Allocate scratch buffer
@@ -146,7 +149,7 @@ SbResult TLAS::Init( ID3D12Device5* device, int maxInstances )
                                                   IID_PPV_ARGS( &m_scratch ) ) ) )
     {
         Reset();
-        return SbResult::Failure( "Rendering/DX12", "TLAS: Failed to create scratch buffer" );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "TLAS: Failed to create scratch buffer" );
     }
     NameDx12Object( m_scratch, L"Skullbonez DX12 TLAS Scratch Buffer" );
 
@@ -163,17 +166,17 @@ SbResult TLAS::Init( ID3D12Device5* device, int maxInstances )
                                                   IID_PPV_ARGS( &m_result ) ) ) )
     {
         Reset();
-        return SbResult::Failure( "Rendering/DX12", "TLAS: Failed to create result buffer" );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "TLAS: Failed to create result buffer" );
     }
     NameDx12Object( m_result, L"Skullbonez DX12 TLAS Result Buffer" );
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
-SbResult TLAS::Build( ID3D12Device5* device,
-                      ID3D12GraphicsCommandList4* cmdList,
-                      const D3D12_RAYTRACING_INSTANCE_DESC* instances,
-                      int instanceCount )
+SkullbonezCore::Core::SbResult TLAS::Build( ID3D12Device5* device,
+                                            ID3D12GraphicsCommandList4* cmdList,
+                                            const D3D12_RAYTRACING_INSTANCE_DESC* instances,
+                                            int instanceCount )
 {
     (void)device;
 
@@ -230,7 +233,7 @@ SbResult TLAS::Build( ID3D12Device5* device,
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
     barrier.UAV.pResource = m_result;
     cmdList->ResourceBarrier( 1, &barrier );
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 

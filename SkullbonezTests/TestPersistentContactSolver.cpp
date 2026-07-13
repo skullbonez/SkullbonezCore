@@ -3,7 +3,7 @@
 // Purpose:
 //   Lock direct behavioral coverage for persistent contact solver rows.
 //
-// Mental model:
+// Summary:
 //   Terrain manifolds are already narrowphase output. These tests feed one
 //   deterministic manifold into PersistentContactSolver so the row setup,
 //   warm-start cache, friction clamp, restitution, and writeback can be checked
@@ -24,7 +24,7 @@
 //   - The fixture bypasses broadphase and object narrowphase; each test owns the
 //     exact manifold row it wants the persistent solver to consume.
 //   - Static fixed lists mirror runtime storage and avoid allocating
-//     MAX_GAME_MODELS records on the doctest stack.
+//     SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS records on the doctest stack.
 //
 // Related:
 //   - SkullbonezSource/Physics/PersistentContactSolver.cpp
@@ -49,7 +49,7 @@
 #include <cmath>
 #include <vector>
 
-using SkullbonezCore::Basics::EngineConfig;
+using SkullbonezCore::Core::EngineConfig;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::Vector::Vector3;
@@ -73,7 +73,7 @@ constexpr float kSolverDt = PHYSICS_FIXED_DT;
 
 PhysicsBodyRecordList& TestBodyRecords()
 {
-    // Why: physics fixed lists own MAX_GAME_MODELS rows. Static storage matches
+    // Why: physics fixed lists own SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS rows. Static storage matches
     // runtime ownership and keeps this focused fixture off the doctest stack.
     static PhysicsBodyRecordList records( "TestPersistentContactSolver.bodyRecords" );
     records.clear();
@@ -104,15 +104,13 @@ struct SolverFixture
     std::vector<SolverBodyState> solverBodies;
     std::vector<PhysicsDebugContact> debugContacts;
     std::vector<TerrainContactManifold> terrainContactManifolds;
-    std::array<uint8_t, MAX_GAME_MODELS> terrainRestApplied = {};
+    std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> terrainRestApplied = {};
     std::vector<uint8_t> sleepSupportedThisFrame;
     PersistentContactSolverSideEffects sideEffects;
-    EngineConfig config;
+    SkullbonezCore::Core::EngineConfig config;
     PersistentContactSolver solver;
 
-    SolverFixture()
-        : bodyRecords( TestBodyRecords() ),
-          colliderRecords( TestColliderRecords() )
+    SolverFixture() : bodyRecords( TestBodyRecords() ), colliderRecords( TestColliderRecords() )
     {
         config.physicsExecution.parallel = false;
         config.worldForces.gravity = -30.0f;
@@ -124,9 +122,7 @@ struct SolverFixture
         config.persistentContactSolver.iterations = 12;
     }
 
-    void AddDynamicSphere( const Vector3& position,
-                           const Vector3& linearVelocity,
-                           float restitution = 0.0f )
+    void AddDynamicSphere( const Vector3& position, const Vector3& linearVelocity, float restitution = 0.0f )
     {
         const float radius = 1.0f;
         const float mass = 2.0f;
@@ -189,8 +185,8 @@ struct SolverFixture
                                                terrainRestApplied,
                                                sleepSupportedThisFrame,
                                                sideEffects,
-                                               bodyRecords,
-                                               colliderRecords,
+                                               { bodyRecords.data(), bodyRecords.size() },
+                                               { colliderRecords.data(), colliderRecords.size() },
                                                static_cast<int>( bodyRecords.size() ),
                                                0,
                                                false,

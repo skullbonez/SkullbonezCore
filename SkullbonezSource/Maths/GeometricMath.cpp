@@ -3,7 +3,7 @@ File: SkullbonezSource/Maths/GeometricMath.cpp
 Purpose:
   Provides geometric helper functions for collision, projection, and intersection tests.
 
-Mental model:
+Summary:
   GeometricMath.cpp provides geometric helper functions for collision,
   projection, and intersection tests. As an implementation unit, keep edits
   anchored on units, basis conventions, and numerical assumptions and on the

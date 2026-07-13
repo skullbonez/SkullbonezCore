@@ -3,7 +3,7 @@ File: SkullbonezTests/TestFrustum.cpp
 Purpose:
   Proves DX12 frustum extraction and conservative sphere classification.
 
-Mental model:
+Summary:
   Named world-space spheres exercise perspective-camera and orthographic-light
   boundaries without involving renderer state or GPU output.
 

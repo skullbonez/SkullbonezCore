@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/RunReplayQueryTools.cpp
 Purpose:
   Contains replay path-target picking and query helpers.
 
-Mental model:
+Summary:
   Replay path queries translate a mouse pick into a stable ReplayBodyId target.
   The visualizer and prediction layers can then follow retained or future solver
   contacts without depending on transient model indices alone.
@@ -31,7 +31,7 @@ Related:
 #include <cmath>
 #include <cstring>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Physics;
@@ -131,7 +131,7 @@ ReplayRuntime::TryPickPathTarget( const PathPickInput& input,
                                   const SceneEntityStore& entities,
                                   const PhysicsBodyStore& bodyStore,
                                   const ColliderStore& colliderStore,
-                                  const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords )
+                                  std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords )
 {
     PathPickResult pickResult;
     // Concept: A path pick converts volatile mouse/model hits into stable

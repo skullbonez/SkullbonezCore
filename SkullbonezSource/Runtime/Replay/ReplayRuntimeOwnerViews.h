@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayRuntimeOwnerViews.h
 Purpose:
   Defines frame-scoped owner views used by replay startup and restore.
 
-Mental model:
+Summary:
   ReplayRuntime owns replay decisions while Run owns application composition.
   These values are short-lived borrow packets assembled at that boundary; they
   expose only the owners required by one replay operation and are never stored.
@@ -35,7 +35,7 @@ namespace Threading
 {
 class WorkerPool;
 }
-namespace Basics
+namespace Runtime
 {
 // Lifetime: startup replay loading borrows only interaction/camera owners.
 // Solver, scene-rebuild, and diagnostic owners are intentionally excluded so
@@ -63,12 +63,12 @@ struct ReplayRuntime::ReplayRestoreTransaction
 struct ReplayRuntime::ReplayArtifactTopologyOwners
 {
     SimulationSystem& simulation;
-    const EngineConfig& config;
+    const SkullbonezCore::Core::EngineConfig& config;
     Assets::AssetSystem& assets;
     Threading::WorkerPool& workerPool;
     GeneratedObjectTypeOverride& generatedObjectTypeOverride;
     int gameModelCapacity = 0;
 };
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

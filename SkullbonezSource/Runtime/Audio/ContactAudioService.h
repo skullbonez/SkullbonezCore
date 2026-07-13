@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Audio/ContactAudioService.h
 Purpose:
   Plays material-aware physics contact impact and rolling sounds.
 
-Mental model:
+Summary:
   Physics produces deterministic contact facts. This service consumes copied
   facts after a physics step, applies presentation-only threshold/cooldown
   policy, and submits sounds to XAudio2. Audio failure must never change

@@ -4,7 +4,7 @@ Purpose:
   Declares the startup/hot-reload boundary that verifies and loads baked shader
   bytecode.
 
-Mental model:
+Summary:
   Authored HLSL and executable DXIL are a matched pair. The bake manifest
   records their hashes; startup and explicit reload accept bytecode only while
   both hashes match.
@@ -23,6 +23,8 @@ Related:
   - ShaderDX12.cpp
 */
 #pragma once
+
+#include "../../Core/PlatformWin32.h"
 
 #include <d3d12shader.h>
 #include <d3dcommon.h>

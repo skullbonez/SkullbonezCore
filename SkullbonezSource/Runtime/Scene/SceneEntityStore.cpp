@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp
 Purpose:
   Implements allocation-free scene entity metadata storage.
 
-Mental model:
+Summary:
   Creation first validates identity, behavior-root topology, and capacity,
   commits physics owner rows, then publishes the fully linked entity record.
   Reserved storage prevents steady-runtime growth.
@@ -29,7 +29,7 @@ Related:
 #include <algorithm>
 #include <cstring>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 namespace Rendering = SkullbonezCore::Rendering;
 
 namespace
@@ -104,13 +104,13 @@ SceneEntityStore::SceneEntityStore()
 
 void SceneEntityStore::ConfigureCapacity( int capacity )
 {
-    if ( capacity < 1 || capacity > MAX_GAME_MODELS || Count() > capacity )
+    if ( capacity < 1 || capacity > SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS || Count() > capacity )
     {
         SB_FATAL( "Scene/SceneEntityStore",
                   "Invalid scene entity capacity. requested=%d count=%d max=%d",
                   capacity,
                   Count(),
-                  MAX_GAME_MODELS );
+                  SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     }
     // Phase: scene-load preallocation. Growth is allowed only before the first
     // entity of the replacement scene is published; Clear deliberately retains
@@ -127,24 +127,25 @@ void SceneEntityStore::Clear()
     m_records.clear();
 }
 
-SbResult SceneEntityStore::PreflightAppend( const SceneEntityCreateDesc& entity ) const
+SkullbonezCore::Core::SbResult SceneEntityStore::PreflightAppend( const SceneEntityCreateDesc& entity ) const
 {
     if ( Count() >= m_capacity )
     {
-        return SbResult::Failure( "Scene/SceneEntityStore",
-                                  "Scene entity capacity exhausted. count=%d capacity=%d",
-                                  Count(),
-                                  m_capacity );
+        return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
+                                                        "Scene entity capacity exhausted. count=%d capacity=%d",
+                                                        Count(),
+                                                        m_capacity );
     }
     if ( !entity.sceneObjectId.IsValid() )
     {
-        return SbResult::Failure( "Scene/SceneEntityStore", "Cannot append a scene entity with id 0." );
+        return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
+                                                        "Cannot append a scene entity with id 0." );
     }
     if ( FindBySceneObjectId( entity.sceneObjectId ) >= 0 )
     {
-        return SbResult::Failure( "Scene/SceneEntityStore",
-                                  "Duplicate scene entity id %u.",
-                                  entity.sceneObjectId.value );
+        return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
+                                                        "Duplicate scene entity id %u.",
+                                                        entity.sceneObjectId.value );
     }
     // Invariant: stable group roots are validated before downstream physics or
     // render rows mutate. A root may name this part-zero entity; later members
@@ -154,21 +155,23 @@ SbResult SceneEntityStore::PreflightAppend( const SceneEntityCreateDesc& entity 
     {
         if ( !group.rootObjectId.IsValid() || group.partIndex < 0 )
         {
-            return SbResult::Failure( "Scene/SceneEntityStore", "Behavior group requires a valid root id and part." );
+            return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
+                                                            "Behavior group requires a valid root id and part." );
         }
         const int rootIndex = FindBySceneObjectId( group.rootObjectId );
         if ( group.rootObjectId.value == entity.sceneObjectId.value )
         {
             if ( group.partIndex != 0 )
             {
-                return SbResult::Failure( "Scene/SceneEntityStore", "Behavior group root must be part zero." );
+                return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
+                                                                "Behavior group root must be part zero." );
             }
         }
         else if ( rootIndex < 0 )
         {
-            return SbResult::Failure( "Scene/SceneEntityStore",
-                                      "Behavior group root id %u has not been created.",
-                                      group.rootObjectId.value );
+            return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
+                                                            "Behavior group root id %u has not been created.",
+                                                            group.rootObjectId.value );
         }
         else
         {
@@ -176,18 +179,18 @@ SbResult SceneEntityStore::PreflightAppend( const SceneEntityCreateDesc& entity 
             if ( rootGroup.kind != group.kind || rootGroup.rootObjectId.value != group.rootObjectId.value ||
                  rootGroup.partIndex != 0 )
             {
-                return SbResult::Failure( "Scene/SceneEntityStore",
-                                          "Behavior group root id %u has incompatible metadata.",
-                                          group.rootObjectId.value );
+                return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
+                                                                "Behavior group root id %u has incompatible metadata.",
+                                                                group.rootObjectId.value );
             }
         }
     }
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 void SceneEntityStore::CommitAppend( const SceneEntityCreateDesc& entity, Physics::PhysicsBodyHandle body )
 {
-    const SbResult preflight = PreflightAppend( entity );
+    const SkullbonezCore::Core::SbResult preflight = PreflightAppend( entity );
     const bool reservationReady = m_records.size() < m_records.capacity();
     if ( !preflight.ok || !body.IsValid() || !reservationReady )
     {

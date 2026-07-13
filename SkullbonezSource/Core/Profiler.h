@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/Profiler.h
 Purpose:
   Records hierarchical CPU/GPU timing markers for runtime diagnostics.
 
-Mental model:
+Summary:
   Profiler.h records hierarchical CPU/GPU timing markers for runtime
   diagnostics. As a public header, keep edits anchored on process-wide
   contracts, diagnostics, and validation-sensitive state and on the
@@ -53,7 +53,7 @@ class IRenderCommandContext;
 class IRenderDiagnostics;
 } // namespace Rendering
 
-namespace Basics
+namespace Core
 {
 /* -- Profiler
 ---------------------------------------------------------------------------------------------------------------------------------------------------
@@ -351,7 +351,7 @@ class WorkerProfilerScope
     bool m_platformProfilerOpen;
 };
 
-} // namespace Basics
+} // namespace Core
 } // namespace SkullbonezCore
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
@@ -363,49 +363,48 @@ class WorkerProfilerScope
     do                                                                                                                 \
     {                                                                                                                  \
         constexpr uint32_t PROFILE_PASTE( _profH_, __LINE__ ) = ::HashStr( name );                                     \
-        ::SkullbonezCore::Basics::Profiler::Instance().Begin( name, PROFILE_PASTE( _profH_, __LINE__ ) );              \
+        ::SkullbonezCore::Core::Profiler::Instance().Begin( name, PROFILE_PASTE( _profH_, __LINE__ ) );                \
     } while ( 0 )
 
 #define PROFILE_END( name )                                                                                            \
     do                                                                                                                 \
     {                                                                                                                  \
         constexpr uint32_t PROFILE_PASTE( _profH_, __LINE__ ) = ::HashStr( name );                                     \
-        ::SkullbonezCore::Basics::Profiler::Instance().End( name, PROFILE_PASTE( _profH_, __LINE__ ) );                \
+        ::SkullbonezCore::Core::Profiler::Instance().End( name, PROFILE_PASTE( _profH_, __LINE__ ) );                  \
     } while ( 0 )
 
 #define PROFILE_SCOPED( name )                                                                                         \
     constexpr uint32_t PROFILE_PASTE( _profSH_, __LINE__ ) = ::HashStr( name );                                        \
-    ::SkullbonezCore::Basics::ProfilerScope PROFILE_PASTE( _profS_, __LINE__ )( name,                                  \
-                                                                                PROFILE_PASTE( _profSH_, __LINE__ ) )
+    ::SkullbonezCore::Core::ProfilerScope PROFILE_PASTE( _profS_, __LINE__ )( name,                                    \
+                                                                              PROFILE_PASTE( _profSH_, __LINE__ ) )
 
 #define PROFILE_GPU_BEGIN( name )                                                                                      \
     do                                                                                                                 \
     {                                                                                                                  \
         constexpr uint32_t PROFILE_PASTE( _profH_, __LINE__ ) = ::HashStr( name );                                     \
-        ::SkullbonezCore::Basics::Profiler::Instance().GpuBegin( name, PROFILE_PASTE( _profH_, __LINE__ ) );           \
+        ::SkullbonezCore::Core::Profiler::Instance().GpuBegin( name, PROFILE_PASTE( _profH_, __LINE__ ) );             \
     } while ( 0 )
 
 #define PROFILE_GPU_END( name )                                                                                        \
     do                                                                                                                 \
     {                                                                                                                  \
         constexpr uint32_t PROFILE_PASTE( _profH_, __LINE__ ) = ::HashStr( name );                                     \
-        ::SkullbonezCore::Basics::Profiler::Instance().GpuEnd( name, PROFILE_PASTE( _profH_, __LINE__ ) );             \
+        ::SkullbonezCore::Core::Profiler::Instance().GpuEnd( name, PROFILE_PASTE( _profH_, __LINE__ ) );               \
     } while ( 0 )
 
 #define PROFILE_GPU_SCOPED( name )                                                                                     \
     constexpr uint32_t PROFILE_PASTE( _profSH_, __LINE__ ) = ::HashStr( name );                                        \
-    ::SkullbonezCore::Basics::GpuProfilerScope PROFILE_PASTE( _profS_,                                                 \
-                                                              __LINE__ )( name, PROFILE_PASTE( _profSH_, __LINE__ ) )
+    ::SkullbonezCore::Core::GpuProfilerScope PROFILE_PASTE( _profS_, __LINE__ )( name,                                 \
+                                                                                 PROFILE_PASTE( _profSH_, __LINE__ ) )
 
 #define PROFILE_WORKER_SCOPED( name )                                                                                  \
     constexpr uint32_t PROFILE_PASTE( _profWH_, __LINE__ ) = ::HashStr( name );                                        \
-    ::SkullbonezCore::Basics::WorkerProfilerScope PROFILE_PASTE( _profW_, __LINE__ )(                                  \
-        name,                                                                                                          \
-        PROFILE_PASTE( _profWH_, __LINE__ ) )
+    ::SkullbonezCore::Core::WorkerProfilerScope PROFILE_PASTE( _profW_,                                                \
+                                                               __LINE__ )( name, PROFILE_PASTE( _profWH_, __LINE__ ) )
 
-#define PROFILE_FRAME_BEGIN() ::SkullbonezCore::Basics::Profiler::Instance().FrameBegin()
-#define PROFILE_FRAME_END() ::SkullbonezCore::Basics::Profiler::Instance().FrameEnd()
-#define PROFILE_SCHEDULE_RESET() ::SkullbonezCore::Basics::Profiler::Instance().ScheduleReset()
+#define PROFILE_FRAME_BEGIN() ::SkullbonezCore::Core::Profiler::Instance().FrameBegin()
+#define PROFILE_FRAME_END() ::SkullbonezCore::Core::Profiler::Instance().FrameEnd()
+#define PROFILE_SCHEDULE_RESET() ::SkullbonezCore::Core::Profiler::Instance().ScheduleReset()
 
 #else // SKULLBONEZ_PROFILE_ENABLED
 

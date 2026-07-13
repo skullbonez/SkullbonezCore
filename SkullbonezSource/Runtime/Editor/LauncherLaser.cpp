@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/LauncherLaser.cpp
 Purpose:
   Draws launcher-mode laser shots as short-lived camera-facing ribbons.
 
-Mental model:
+Summary:
   Each shot is a fixed world-space segment. Rendering billboards a wide outer
   ribbon and a narrow hot core toward the current camera so the feedback stays
   visible even when fired straight out of the crosshair.
@@ -37,7 +37,7 @@ Related:
 #include <algorithm>
 #include <cmath>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Rendering;

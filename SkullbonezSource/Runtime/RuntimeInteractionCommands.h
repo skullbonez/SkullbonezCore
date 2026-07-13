@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RuntimeInteractionCommands.h
 Purpose:
   Defines the small command/event vocabulary used by runtime input routing.
 
-Mental model:
+Summary:
   Runtime input code converts mouse/editor decisions into narrow selection or
   gesture commands. The owning controller validates and commits the mutation;
   only then does it publish the corresponding event.
@@ -35,7 +35,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 // Concept: These records are deliberately tiny so editor/replay/input modules
 // can request a mutation without depending on Run's private state layout.
@@ -120,5 +120,5 @@ struct RuntimeGestureEvent
     RuntimePointerCaptureOwner pointerCapture = RuntimePointerCaptureOwner::None;
 };
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/DemoDirector.h
 Purpose:
   Defines the authored shot-list data and playback state used by the Demo Director.
 
-Mental model:
+Summary:
   A shot list is a compact sequence of operator-authored phases. Each phase
   owns a camera pose, optional render style path, and the rule that advances to
   the next phase. Runtime playback keeps a bounded active shot list plus timing
@@ -39,7 +39,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 enum class PhaseAdvance
 {
@@ -112,5 +112,5 @@ bool LoadDemoShotList( const char* path, DemoShotList& outShotList );
 // Writes the stable `.shot.json` schema and creates the parent folder if needed.
 bool SaveDemoShotList( const char* path, const DemoShotList& shotList );
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

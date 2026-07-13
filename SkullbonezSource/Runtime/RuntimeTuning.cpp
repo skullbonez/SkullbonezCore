@@ -4,7 +4,7 @@ Purpose:
   Owns UI-driven runtime tuning for cinematic rendering, ordinary rendering,
   contact-audio presentation, tornado physics settings, and worker-thread overrides.
 
-Mental model:
+Summary:
   Runtime input decides when a UI command is accepted. This file decides how
   accepted values clamp or delegate to bounded owner APIs, mutate config, and
   persist as scene overrides where relevant.
@@ -48,7 +48,7 @@ using SkullbonezCore::Math::Vector::Vector3;
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace RunInternal
 {
@@ -243,7 +243,7 @@ uint64_t CinematicOverrideMaskForUIFeature( UICinematicFeature feature )
     }
 }
 
-Vector3 CinematicSkySunDirection( const CinematicRenderConfig& cinematic )
+Vector3 CinematicSkySunDirection( const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     constexpr float twoPi = 6.28318530718f;
     const float azimuth = std::clamp( cinematic.sunAzimuth, 0.0f, 1.0f ) * twoPi;
@@ -254,7 +254,7 @@ Vector3 CinematicSkySunDirection( const CinematicRenderConfig& cinematic )
     return direction;
 }
 
-void ApplyWorkerThreadCountOverride( EngineConfig& config,
+void ApplyWorkerThreadCountOverride( SkullbonezCore::Core::EngineConfig& config,
                                      SkullbonezCore::Threading::WorkerPool& workerPool,
                                      int requestedWorkerThreads )
 {
@@ -403,7 +403,7 @@ RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands( RuntimePr
 {
     RuntimePresentationUICommandResult result;
     RunDebugState& debug = context.debug;
-    EngineConfig& config = context.config;
+    SkullbonezCore::Core::EngineConfig& config = context.config;
     if ( sceneOptions.toggleTerrainHidden )
     {
         debug.isTerrainHidden = !debug.isTerrainHidden;
@@ -769,7 +769,7 @@ PhysicsFrictionUICommandResult ApplyPhysicsFrictionUICommands( PhysicsFrictionUI
                                                                const UI::UIPhysicsCommands& commands )
 {
     PhysicsFrictionUICommandResult result;
-    EngineConfig& liveConfig = context.config;
+    SkullbonezCore::Core::EngineConfig& liveConfig = context.config;
     bool runtimePhysicsConfigChanged = false;
     if ( commands.requestTerrainFrictionCoeff )
     {
@@ -923,7 +923,7 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
     return result;
 }
 
-void ApplyCinematicUIParam( CinematicRenderConfig& cinematic,
+void ApplyCinematicUIParam( SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                             RunSceneState& scene,
                             UICinematicParam param,
                             float rawValue )
@@ -1210,7 +1210,9 @@ void ApplyCinematicUIParam( CinematicRenderConfig& cinematic,
     }
 }
 
-void SetCinematicShadowsEnabledFromUI( CinematicRenderConfig& cinematic, RunSceneState& scene, bool enabled )
+void SetCinematicShadowsEnabledFromUI( SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                                       RunSceneState& scene,
+                                       bool enabled )
 {
     // Shadow maps are configured next to the cinematic controls because the
     // original implementation grew from that renderer work, but the depth pass
@@ -1222,7 +1224,9 @@ void SetCinematicShadowsEnabledFromUI( CinematicRenderConfig& cinematic, RunScen
     scene.uiCinematicOverrideMask |= SCENE_CINE_SHADOWS;
 }
 
-void ApplyOrdinaryRenderUIParam( OrdinaryRenderConfig& ordinary, UIRenderParam param, float rawValue )
+void ApplyOrdinaryRenderUIParam( SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
+                                 UIRenderParam param,
+                                 float rawValue )
 {
     switch ( param )
     {
@@ -1306,7 +1310,9 @@ void ApplyOrdinaryRenderUIParam( OrdinaryRenderConfig& ordinary, UIRenderParam p
     }
 }
 
-void ToggleCinematicUIFeature( CinematicRenderConfig& cinematic, RunSceneState& scene, UICinematicFeature feature )
+void ToggleCinematicUIFeature( SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                               RunSceneState& scene,
+                               UICinematicFeature feature )
 {
     // Feature toggles are boolean pass switches: sky on/off, bloom on/off, etc.
     // Each toggle also marks the matching override bit for scene persistence.
@@ -1355,5 +1361,5 @@ void ToggleCinematicUIFeature( CinematicRenderConfig& cinematic, RunSceneState& 
     }
 }
 } // namespace RunInternal
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

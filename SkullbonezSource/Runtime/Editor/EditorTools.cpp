@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/EditorTools.cpp
 Purpose:
   Owns editor placement scale math for primitive bodies, hulls, trees, and compound assets.
 
-Mental model:
+Summary:
   Placement gestures start as mouse deltas and wheel clicks. This file maps
   that input into safe object scale values before RunInput commits the object.
 
@@ -47,7 +47,7 @@ using SkullbonezCore::Math::Vector::Vector3;
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace RunInternal
 {
@@ -460,7 +460,7 @@ void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction
                                             context.cameras.GetCameraUp(),
                                             context.scene.isScenePhysics,
                                             context.scene.isSceneText };
-            const SbResult saveResult = SceneSnapshotWriter::Save( saveView, request );
+            const SkullbonezCore::Core::SbResult saveResult = SceneSnapshotWriter::Save( saveView, request );
             if ( !saveResult.ok )
             {
                 fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );
@@ -486,7 +486,7 @@ void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction
                                                   sScreenshotSeq,
                                                   100 ) )
         {
-            const SbResult queueResult = context.capture.QueueScreenshot( path );
+            const SkullbonezCore::Core::SbResult queueResult = context.capture.QueueScreenshot( path );
             if ( !queueResult.ok )
             {
                 std::fprintf( stderr, "%s: %s\n", queueResult.error.owner, queueResult.error.message );
@@ -503,5 +503,5 @@ void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction
 
 
 } // namespace RunInternal
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

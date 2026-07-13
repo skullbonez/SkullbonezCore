@@ -3,7 +3,7 @@ File: SkullbonezData/shaders/launcher_laser.hlsl
 Purpose:
   Draws launcher-mode laser ribbon triangles.
 
-Mental model:
+Summary:
   CPU code builds short-lived world-space ribbon quads. The shader only
   transforms them and forwards per-vertex color/alpha.
 

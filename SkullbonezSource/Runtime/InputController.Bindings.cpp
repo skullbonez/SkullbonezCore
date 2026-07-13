@@ -3,7 +3,7 @@ File: InputController.Bindings.cpp
 Purpose:
   Owns the static keyboard binding rows used by the runtime input loop.
 
-Mental model:
+Summary:
   This file is the command table. It does not decide whether the player is in
   editor, launcher, replay, or director mode; it only records the virtual key,
   normalized action, and context bits that later dispatch code interprets.
@@ -28,7 +28,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -79,6 +79,8 @@ const RuntimeInputKeyBinding kTakeInputKeyboardBindings[] = {
     { '6', RuntimeInputAction::TogglePhysicsDebugTransparent, kKeyboardUnblockedContext },
     { 'Q', RuntimeInputAction::ReportRendererRuntimeRetired, kKeyboardUnblockedContext },
     { VK_F9, RuntimeInputAction::ReloadShadersFromSource, kKeyboardUnblockedContext },
+    // TEMPORARY DEBUG AUTHORING: delete with RunEditorTracer's replay look explorer.
+    { VK_OEM_PERIOD, RuntimeInputAction::CycleReplayPredictionAuthoringLook, kKeyboardUnblockedContext },
     { 'P', RuntimeInputAction::ToggleCrossScenePause, kKeyboardUnblockedContext },
     { 'G', RuntimeInputAction::ToggleBroadphaseOverlay, kKeyboardUnblockedContext },
     { '0', RuntimeInputAction::ToggleUIVisibility, kKeyboardUnblockedContext },
@@ -99,5 +101,5 @@ RuntimeInputKeyBindingView TakeInputKeyboardBindings()
 {
     return RuntimeInputKeyBindingView{ kTakeInputKeyboardBindings, kTakeInputKeyboardBindingCount };
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

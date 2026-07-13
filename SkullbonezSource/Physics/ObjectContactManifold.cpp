@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/ObjectContactManifold.cpp
 Purpose:
   Builds precise object/object contact manifolds for the persistent solver.
 
-Mental model:
+Summary:
   ObjectContactManifold.cpp builds precise object/object contact manifolds for
   the persistent solver. As an implementation unit, keep edits anchored on
   deterministic physics, diagnostics, or world-state flow and on the

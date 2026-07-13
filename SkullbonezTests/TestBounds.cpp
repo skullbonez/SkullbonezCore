@@ -3,7 +3,7 @@
 // Purpose:
 //   Lock the first focused tests for BoundingSphere and BoundingBox broadphase contracts.
 //
-// Mental model:
+// Summary:
 //   These shape methods are broadphase filters. They answer "could these shapes
 //   touch during this movement segment?" by returning a first contact time in
 //   [0,1] or NO_COLLISION; exact face, edge, and resting contacts are built by

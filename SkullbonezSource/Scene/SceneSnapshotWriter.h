@@ -3,7 +3,7 @@ File: SkullbonezSource/Scene/SceneSnapshotWriter.h
 Purpose:
   Serializes the current scene state back into a scene JSON file.
 
-Mental model:
+Summary:
   Callers assemble a non-owning view from the scene (including behavior
   grouping), physics, joint, and world owners. The writer resolves every row by
   stable identity and emits either a direct state object or an asset part state.
@@ -35,7 +35,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 class SceneEntityStore;
 }
@@ -52,7 +52,7 @@ struct SceneSaveView
 {
     // Lifetime: every member is borrowed for one synchronous Save call. The
     // caller must keep vector storage stable until Save returns.
-    const Basics::SceneEntityStore& entities;
+    const Runtime::SceneEntityStore& entities;
     const Physics::PhysicsBodyStore& bodies;
     const Physics::ColliderStore& colliders;
     const Physics::PointJointConstraint* pointJoints = nullptr;
@@ -86,7 +86,7 @@ class SceneSnapshotWriter
   public:
     // Saves one schema-v2 snapshot. External path/write failures return Lane R;
     // mismatched owner topology fails through the engine fatal-invariant lane.
-    static Basics::SbResult Save( const SceneSaveView& scene, const SceneSaveRequest& request );
+    static SkullbonezCore::Core::SbResult Save( const SceneSaveView& scene, const SceneSaveRequest& request );
 };
 } // namespace GameObjects
 } // namespace SkullbonezCore

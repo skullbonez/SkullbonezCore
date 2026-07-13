@@ -3,7 +3,7 @@ File: SkullbonezData/shaders/generate_mips.hlsl
 Purpose:
   Runs the generate_mips HLSL shader program used by the renderer.
 
-Mental model:
+Summary:
   generate_mips.hlsl is shader source for the renderer's generate_mips pass.
   Keep edits anchored on shader inputs, bindings, and render-output contracts
   and on the glossary/invariants below.
@@ -25,7 +25,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 // =============================================================================
-// GENERATE MIPMAPS COMPUTE SHADER — HLSL 5.0
+// GENERATE MIPMAPS COMPUTE SHADER — Shader Model 6.6
 // =============================================================================
 //
 // One 8x8 thread group can write up to 4 consecutive mip levels.

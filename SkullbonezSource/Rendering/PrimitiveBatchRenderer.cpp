@@ -1,12 +1,11 @@
 /*
-File: SkullbonezSource/Rendering/Helper.cpp
+File: SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp
 Purpose:
-  Collects legacy helper routines that bridge engine subsystems.
+  Implements primitive GPU resource creation and bounded batch submission.
 
-Mental model:
-  Helper.cpp collects legacy helper routines that bridge engine subsystems. As
-  an implementation unit, keep edits anchored on render submission and
-  resource lifetime and on the glossary/invariants below.
+Summary:
+  PrimitiveBatchRenderer.cpp owns visible and shadow-depth submission for the
+  built-in primitive meshes emitted by PrimitiveMeshBuilder.h.
 
 Glossary:
   Cbuffer (Constant Buffer): Shader constant block uploaded once before a draw.
@@ -18,17 +17,17 @@ Glossary:
 Invariants:
   - C++ constant-buffer structs must match reflected HLSL cbuffer size and
     field order, or the draw that depends on them must be skipped.
-  - Helper-owned mesh/shader handles are backend resources and must be released
-    by the helper destructor before backend teardown or recreation.
+  - Builder-owned mesh/shader handles are backend resources and must be released
+    by the renderer destructor before backend teardown or recreation.
 
 Related:
-  - SkullbonezSource/Rendering/Helper.h
+  - SkullbonezSource/Rendering/PrimitiveBatchRenderer.h
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
-#include "Helper.h"
+#include "PrimitiveBatchRenderer.h"
 #include "../Core/Config.h"
-#include "../GameObjects/SceneCapacity.h"
+#include "../Runtime/Scene/SceneCapacity.h"
 #include "../Assets/AssetSystem.h"
 #include "../Physics/ConvexHullShape.h"
 #include "../Core/Profiler.h"
@@ -43,38 +42,38 @@ Related:
 #include <vector>
 
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 
 
-static constexpr int INSTANCE_MATRIX_FLOATS = RenderHelperState::INSTANCE_MATRIX_FLOATS;
-static constexpr int INSTANCE_FLOATS = RenderHelperState::INSTANCE_FLOATS;
-static constexpr int HULL_MAX_TRIANGLE_VERTICES = RenderHelperState::HULL_MAX_TRIANGLE_VERTICES;
-static constexpr int HULL_DYNAMIC_FLOATS_PER_VERTEX = RenderHelperState::HULL_DYNAMIC_FLOATS_PER_VERTEX;
+static constexpr int INSTANCE_MATRIX_FLOATS = PrimitiveBatchRendererState::INSTANCE_MATRIX_FLOATS;
+static constexpr int INSTANCE_FLOATS = PrimitiveBatchRendererState::INSTANCE_FLOATS;
+static constexpr int HULL_MAX_TRIANGLE_VERTICES = PrimitiveBatchRendererState::HULL_MAX_TRIANGLE_VERTICES;
+static constexpr int HULL_DYNAMIC_FLOATS_PER_VERTEX = PrimitiveBatchRendererState::HULL_DYNAMIC_FLOATS_PER_VERTEX;
 static constexpr int PRIMITIVE_SHAPE_MESH = 0;
 static constexpr int PRIMITIVE_SHAPE_SPHERE = 1;
 static constexpr int MATERIAL_TABLE_WIDTH = 16;
 static constexpr int MATERIAL_TABLE_TEXTURE_SLOT = 4;
 
-static IRenderResourceFactory& Resources( const RenderHelperContext& context )
+static IRenderResourceFactory& Resources( const PrimitiveRenderContext& context )
 {
     return context.renderResources;
 }
 
-static IRenderCommandContext& Commands( const RenderHelperContext& context )
+static IRenderCommandContext& Commands( const PrimitiveRenderContext& context )
 {
     return context.renderCommands;
 }
 
-static const SkullbonezCore::Assets::AssetSystem& AssetRegistry( const RenderHelperContext& context )
+static const SkullbonezCore::Assets::AssetSystem& AssetRegistry( const PrimitiveRenderContext& context )
 {
     return context.assets;
 }
 
-static const EngineConfig& Config( const RenderHelperContext& context )
+static const SkullbonezCore::Core::EngineConfig& Config( const PrimitiveRenderContext& context )
 {
     return context.config;
 }
@@ -112,7 +111,7 @@ struct InstancedShadowDepthConstants
     float clipPlane[4];
 };
 
-static void BeginPrimitiveBatchTransparency( const RenderHelperContext& context, bool isTransparent )
+static void BeginPrimitiveBatchTransparency( const PrimitiveRenderContext& context, bool isTransparent )
 {
     if ( isTransparent )
     {
@@ -122,7 +121,7 @@ static void BeginPrimitiveBatchTransparency( const RenderHelperContext& context,
     }
 }
 
-static void EndPrimitiveBatchTransparency( const RenderHelperContext& context, bool wasTransparent )
+static void EndPrimitiveBatchTransparency( const PrimitiveRenderContext& context, bool wasTransparent )
 {
     if ( wasTransparent )
     {
@@ -138,7 +137,7 @@ static uint8_t MaterialByte( float value )
     return static_cast<uint8_t>( std::clamp( value, 0.0f, 1.0f ) * 255.0f + 0.5f );
 }
 
-static void EnsureMaterialTableTexture( const RenderHelperContext& context, RenderHelperState& state )
+static void EnsureMaterialTableTexture( const PrimitiveRenderContext& context, PrimitiveBatchRendererState& state )
 {
     // Concept: the current object material table is a tiny texture, not a
     // structured buffer or bindless descriptor table.
@@ -209,7 +208,7 @@ static std::array<float, INSTANCE_FLOATS> BuildSingleMatrixPayload( const Matrix
     return out;
 }
 
-static void EnsureConvexHullDynamicVB( const RenderHelperContext& context, RenderHelperState& state )
+static void EnsureConvexHullDynamicVB( const PrimitiveRenderContext& context, PrimitiveBatchRendererState& state )
 {
     if ( state.convexHullDynamicVB != 0 )
     {
@@ -222,7 +221,7 @@ static void EnsureConvexHullDynamicVB( const RenderHelperContext& context, Rende
 
 static int BuildConvexHullDynamicVertices( const ConvexHullShape& hull,
                                            const std::array<float, INSTANCE_FLOATS>& instancePayload,
-                                           RenderHelperState& state )
+                                           PrimitiveBatchRendererState& state )
 {
     int vertexCount = 0;
     auto emitVertex = [&]( uint16_t index, const Vector3& normal, float u, float v )
@@ -268,9 +267,9 @@ static int BuildConvexHullDynamicVertices( const ConvexHullShape& hull,
     return vertexCount;
 }
 
-static void ApplySceneLightConstants( const RenderHelperContext& context, PrimitiveBatchShaderConstants& constants )
+static void ApplySceneLightConstants( const PrimitiveRenderContext& context, PrimitiveBatchShaderConstants& constants )
 {
-    const OrdinaryRenderConfig& ordinary = Config( context ).ordinaryRender;
+    const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary = Config( context ).ordinaryRender;
     constants.lightAmbient[0] = ordinary.skyAmbientR;
     constants.lightAmbient[1] = ordinary.skyAmbientG;
     constants.lightAmbient[2] = ordinary.skyAmbientB;
@@ -290,9 +289,9 @@ static void ApplySceneLightConstants( const RenderHelperContext& context, Primit
     constants.objectStylePad = ordinary.boxSpecularScale;
 }
 
-static void ApplySceneLightUniforms( const RenderHelperContext& context, IShader& shader )
+static void ApplySceneLightUniforms( const PrimitiveRenderContext& context, IShader& shader )
 {
-    const OrdinaryRenderConfig& ordinary = Config( context ).ordinaryRender;
+    const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary = Config( context ).ordinaryRender;
     shader.SetVec4( "uLightAmbient",
                     ordinary.skyAmbientR,
                     ordinary.skyAmbientG,
@@ -306,12 +305,12 @@ static void ApplySceneLightUniforms( const RenderHelperContext& context, IShader
 }
 
 static void ApplyBatchLightConstants( PrimitiveBatchShaderConstants& constants,
-                                      const RenderHelperContext& context,
-                                      const CinematicRenderConfig* cinematicOverride )
+                                      const PrimitiveRenderContext& context,
+                                      const SkullbonezCore::Core::CinematicRenderConfig* cinematicOverride )
 {
     if ( cinematicOverride )
     {
-        const CinematicRenderConfig& cinematic = *cinematicOverride;
+        const SkullbonezCore::Core::CinematicRenderConfig& cinematic = *cinematicOverride;
         constants.lightAmbient[0] = 0.28f;
         constants.lightAmbient[1] = 0.15f;
         constants.lightAmbient[2] = 0.06f;
@@ -326,7 +325,7 @@ static void ApplyBatchLightConstants( PrimitiveBatchShaderConstants& constants,
     ApplySceneLightConstants( context, constants );
 }
 
-static int ObjectStyleForShader( const CinematicRenderConfig* cinematicOverride )
+static int ObjectStyleForShader( const SkullbonezCore::Core::CinematicRenderConfig* cinematicOverride )
 {
     // Encode render mode separately from the light vector. Negative values mean
     // "cinematic style", while ordinary batches use style 0 and may still use a
@@ -334,13 +333,13 @@ static int ObjectStyleForShader( const CinematicRenderConfig* cinematicOverride 
     return cinematicOverride ? -( cinematicOverride->objectStyle + 1 ) : 0;
 }
 
-static int ObjectStyleForMeshSelection( const CinematicRenderConfig* cinematicOverride )
+static int ObjectStyleForMeshSelection( const SkullbonezCore::Core::CinematicRenderConfig* cinematicOverride )
 {
     return cinematicOverride ? cinematicOverride->objectStyle : 0;
 }
 
 static void FillShadowReceiverConstants( PrimitiveBatchShaderConstants& constants,
-                                         const RenderHelperContext& context,
+                                         const PrimitiveRenderContext& context,
                                          const ShadowFrameData* shadow,
                                          bool receive,
                                          bool objectReceiver )
@@ -364,13 +363,13 @@ static void FillShadowReceiverConstants( PrimitiveBatchShaderConstants& constant
 
 struct PrimitiveBatchShaderParams
 {
-    const RenderHelperContext& context;
-    RenderHelperState& helperState;
+    const PrimitiveRenderContext& context;
+    PrimitiveBatchRendererState& builderState;
     const Matrix4& view;
     const Matrix4& projection;
     const float* lightPosition;
     const float* clipPlane;
-    const CinematicRenderConfig* cinematic;
+    const SkullbonezCore::Core::CinematicRenderConfig* cinematic;
     const ShadowFrameData* shadow;
     int primitiveShape;
     bool receiveShadows;
@@ -379,7 +378,7 @@ struct PrimitiveBatchShaderParams
 
 static bool BindPrimitiveBatchShader( IShader& shader, const PrimitiveBatchShaderParams& params )
 {
-    EnsureMaterialTableTexture( params.context, params.helperState );
+    EnsureMaterialTableTexture( params.context, params.builderState );
 
     float viewLightPos[4];
     for ( int i = 0; i < 3; ++i )
@@ -419,7 +418,7 @@ static bool BindPrimitiveBatchShader( IShader& shader, const PrimitiveBatchShade
     return shader.SetConstantBufferBytes( &constants, sizeof( constants ), "PrimitiveBatchShaderConstants" );
 }
 
-void RenderHelper::SetClipPlane( float x, float y, float z, float w )
+void PrimitiveBatchRenderer::SetClipPlane( float x, float y, float z, float w )
 {
     m_state.clipPlane[0] = x;
     m_state.clipPlane[1] = y;
@@ -428,45 +427,46 @@ void RenderHelper::SetClipPlane( float x, float y, float z, float w )
 }
 
 
-const float* RenderHelper::GetClipPlane() const
+const float* PrimitiveBatchRenderer::GetClipPlane() const
 {
     return m_state.clipPlane;
 }
 
 
-RenderHelper::RenderHelper( IRenderResourceFactory* renderResources )
+PrimitiveBatchRenderer::PrimitiveBatchRenderer( IRenderResourceFactory* renderResources )
 {
     m_state.renderResources = renderResources;
 }
 
 
-RenderHelper::~RenderHelper()
+PrimitiveBatchRenderer::~PrimitiveBatchRenderer()
 {
     ReleaseOwnedRenderResources();
 }
 
 
-RenderHelper::PrimitiveBatchScope::PrimitiveBatchScope( RenderHelper& helper,
-                                                        const RenderHelperContext& context,
-                                                        PrimitiveBatchKind kind )
-    : m_helper( &helper ), m_context( &context ), m_kind( kind ), m_active( true )
+PrimitiveBatchRenderer::PrimitiveBatchScope::PrimitiveBatchScope( PrimitiveBatchRenderer& renderer,
+                                                                  const PrimitiveRenderContext& context,
+                                                                  PrimitiveBatchKind kind )
+    : m_renderer( &renderer ), m_context( &context ), m_kind( kind ), m_active( true )
 {
 }
 
 
-RenderHelper::PrimitiveBatchScope::PrimitiveBatchScope( PrimitiveBatchScope&& other ) noexcept
-    : m_helper( other.m_helper ), m_context( other.m_context ), m_kind( other.m_kind ), m_active( other.m_active )
+PrimitiveBatchRenderer::PrimitiveBatchScope::PrimitiveBatchScope( PrimitiveBatchScope&& other ) noexcept
+    : m_renderer( other.m_renderer ), m_context( other.m_context ), m_kind( other.m_kind ), m_active( other.m_active )
 {
     other.m_active = false;
 }
 
 
-RenderHelper::PrimitiveBatchScope& RenderHelper::PrimitiveBatchScope::operator=( PrimitiveBatchScope&& other ) noexcept
+PrimitiveBatchRenderer::PrimitiveBatchScope&
+PrimitiveBatchRenderer::PrimitiveBatchScope::operator=( PrimitiveBatchScope&& other ) noexcept
 {
     if ( this != &other )
     {
         EndIfActive();
-        m_helper = other.m_helper;
+        m_renderer = other.m_renderer;
         m_context = other.m_context;
         m_kind = other.m_kind;
         m_active = other.m_active;
@@ -476,25 +476,25 @@ RenderHelper::PrimitiveBatchScope& RenderHelper::PrimitiveBatchScope::operator=(
 }
 
 
-RenderHelper::PrimitiveBatchScope::~PrimitiveBatchScope()
+PrimitiveBatchRenderer::PrimitiveBatchScope::~PrimitiveBatchScope()
 {
     EndIfActive();
 }
 
 
-void RenderHelper::PrimitiveBatchScope::DrawModel( const Matrix4& model, const RenderMaterial& material )
+void PrimitiveBatchRenderer::PrimitiveBatchScope::DrawModel( const Matrix4& model, const RenderMaterial& material )
 {
-    assert( m_helper && m_active );
+    assert( m_renderer && m_active );
     switch ( m_kind )
     {
     case PrimitiveBatchKind::Sphere:
-        m_helper->DrawSphereBatchModel( model, material );
+        m_renderer->DrawSphereBatchModel( model, material );
         break;
     case PrimitiveBatchKind::Box:
-        m_helper->DrawBoxBatchModel( model, material );
+        m_renderer->DrawBoxBatchModel( model, material );
         break;
     case PrimitiveBatchKind::Pine:
-        m_helper->DrawPineBatchModel( model, material );
+        m_renderer->DrawPineBatchModel( model, material );
         break;
     default:
         assert( false && "DrawModel requires a visible primitive batch scope" );
@@ -503,29 +503,19 @@ void RenderHelper::PrimitiveBatchScope::DrawModel( const Matrix4& model, const R
 }
 
 
-void RenderHelper::PrimitiveBatchScope::DrawModel( const Matrix4& model,
-                                                   float tintR,
-                                                   float tintG,
-                                                   float tintB,
-                                                   float colorOverride )
+void PrimitiveBatchRenderer::PrimitiveBatchScope::DrawShadowModel( const Matrix4& model )
 {
-    DrawModel( model, MakeRenderMaterialFromLegacyTint( tintR, tintG, tintB, colorOverride ) );
-}
-
-
-void RenderHelper::PrimitiveBatchScope::DrawShadowModel( const Matrix4& model )
-{
-    assert( m_helper && m_active );
+    assert( m_renderer && m_active );
     switch ( m_kind )
     {
     case PrimitiveBatchKind::ShadowSphere:
-        m_helper->DrawShadowDepthSphereBatchModel( model );
+        m_renderer->DrawShadowDepthSphereBatchModel( model );
         break;
     case PrimitiveBatchKind::ShadowBox:
-        m_helper->DrawShadowDepthBoxBatchModel( model );
+        m_renderer->DrawShadowDepthBoxBatchModel( model );
         break;
     case PrimitiveBatchKind::ShadowPine:
-        m_helper->DrawShadowDepthPineBatchModel( model );
+        m_renderer->DrawShadowDepthPineBatchModel( model );
         break;
     default:
         assert( false && "DrawShadowModel requires a shadow primitive batch scope" );
@@ -534,9 +524,9 @@ void RenderHelper::PrimitiveBatchScope::DrawShadowModel( const Matrix4& model )
 }
 
 
-void RenderHelper::PrimitiveBatchScope::EndIfActive()
+void PrimitiveBatchRenderer::PrimitiveBatchScope::EndIfActive()
 {
-    if ( !m_active || !m_helper || !m_context )
+    if ( !m_active || !m_renderer || !m_context )
     {
         return;
     }
@@ -544,22 +534,22 @@ void RenderHelper::PrimitiveBatchScope::EndIfActive()
     switch ( m_kind )
     {
     case PrimitiveBatchKind::Sphere:
-        m_helper->DrawSphereBatchEnd( *m_context );
+        m_renderer->DrawSphereBatchEnd( *m_context );
         break;
     case PrimitiveBatchKind::Box:
-        m_helper->DrawBoxBatchEnd( *m_context );
+        m_renderer->DrawBoxBatchEnd( *m_context );
         break;
     case PrimitiveBatchKind::Pine:
-        m_helper->DrawPineBatchEnd( *m_context );
+        m_renderer->DrawPineBatchEnd( *m_context );
         break;
     case PrimitiveBatchKind::ShadowSphere:
-        m_helper->DrawShadowDepthSphereBatchEnd( *m_context );
+        m_renderer->DrawShadowDepthSphereBatchEnd( *m_context );
         break;
     case PrimitiveBatchKind::ShadowBox:
-        m_helper->DrawShadowDepthBoxBatchEnd( *m_context );
+        m_renderer->DrawShadowDepthBoxBatchEnd( *m_context );
         break;
     case PrimitiveBatchKind::ShadowPine:
-        m_helper->DrawShadowDepthPineBatchEnd( *m_context );
+        m_renderer->DrawShadowDepthPineBatchEnd( *m_context );
         break;
     }
 
@@ -567,14 +557,15 @@ void RenderHelper::PrimitiveBatchScope::EndIfActive()
 }
 
 
-RenderHelper::PrimitiveBatchScope RenderHelper::BeginSphereBatch( const RenderHelperContext& context,
-                                                                  const Matrix4& view,
-                                                                  const Matrix4& proj,
-                                                                  const float lightPos[4],
-                                                                  bool isTransparent,
-                                                                  const CinematicRenderConfig* cinematic,
-                                                                  const ShadowFrameData* shadow,
-                                                                  float materialAlpha )
+PrimitiveBatchRenderer::PrimitiveBatchScope
+PrimitiveBatchRenderer::BeginSphereBatch( const PrimitiveRenderContext& context,
+                                          const Matrix4& view,
+                                          const Matrix4& proj,
+                                          const float lightPos[4],
+                                          bool isTransparent,
+                                          const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                                          const ShadowFrameData* shadow,
+                                          float materialAlpha )
 {
     BindRenderResourceFactory( context.renderResources );
     DrawSphereBatchBegin( context, view, proj, lightPos, isTransparent, cinematic, shadow, materialAlpha );
@@ -582,14 +573,15 @@ RenderHelper::PrimitiveBatchScope RenderHelper::BeginSphereBatch( const RenderHe
 }
 
 
-RenderHelper::PrimitiveBatchScope RenderHelper::BeginBoxBatch( const RenderHelperContext& context,
-                                                               const Matrix4& view,
-                                                               const Matrix4& proj,
-                                                               const float lightPos[4],
-                                                               bool isTransparent,
-                                                               const CinematicRenderConfig* cinematic,
-                                                               const ShadowFrameData* shadow,
-                                                               float materialAlpha )
+PrimitiveBatchRenderer::PrimitiveBatchScope
+PrimitiveBatchRenderer::BeginBoxBatch( const PrimitiveRenderContext& context,
+                                       const Matrix4& view,
+                                       const Matrix4& proj,
+                                       const float lightPos[4],
+                                       bool isTransparent,
+                                       const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                                       const ShadowFrameData* shadow,
+                                       float materialAlpha )
 {
     BindRenderResourceFactory( context.renderResources );
     DrawBoxBatchBegin( context, view, proj, lightPos, isTransparent, cinematic, shadow, materialAlpha );
@@ -597,14 +589,15 @@ RenderHelper::PrimitiveBatchScope RenderHelper::BeginBoxBatch( const RenderHelpe
 }
 
 
-RenderHelper::PrimitiveBatchScope RenderHelper::BeginPineBatch( const RenderHelperContext& context,
-                                                                const Matrix4& view,
-                                                                const Matrix4& proj,
-                                                                const float lightPos[4],
-                                                                bool isTransparent,
-                                                                const CinematicRenderConfig* cinematic,
-                                                                const ShadowFrameData* shadow,
-                                                                float materialAlpha )
+PrimitiveBatchRenderer::PrimitiveBatchScope
+PrimitiveBatchRenderer::BeginPineBatch( const PrimitiveRenderContext& context,
+                                        const Matrix4& view,
+                                        const Matrix4& proj,
+                                        const float lightPos[4],
+                                        bool isTransparent,
+                                        const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                                        const ShadowFrameData* shadow,
+                                        float materialAlpha )
 {
     BindRenderResourceFactory( context.renderResources );
     DrawPineBatchBegin( context, view, proj, lightPos, isTransparent, cinematic, shadow, materialAlpha );
@@ -612,10 +605,11 @@ RenderHelper::PrimitiveBatchScope RenderHelper::BeginPineBatch( const RenderHelp
 }
 
 
-RenderHelper::PrimitiveBatchScope RenderHelper::BeginShadowDepthSphereBatch( const RenderHelperContext& context,
-                                                                             const Matrix4& view,
-                                                                             const Matrix4& proj,
-                                                                             const CinematicRenderConfig* cinematic )
+PrimitiveBatchRenderer::PrimitiveBatchScope
+PrimitiveBatchRenderer::BeginShadowDepthSphereBatch( const PrimitiveRenderContext& context,
+                                                     const Matrix4& view,
+                                                     const Matrix4& proj,
+                                                     const SkullbonezCore::Core::CinematicRenderConfig* cinematic )
 {
     BindRenderResourceFactory( context.renderResources );
     DrawShadowDepthSphereBatchBegin( context, view, proj, cinematic );
@@ -623,8 +617,10 @@ RenderHelper::PrimitiveBatchScope RenderHelper::BeginShadowDepthSphereBatch( con
 }
 
 
-RenderHelper::PrimitiveBatchScope
-RenderHelper::BeginShadowDepthBoxBatch( const RenderHelperContext& context, const Matrix4& view, const Matrix4& proj )
+PrimitiveBatchRenderer::PrimitiveBatchScope
+PrimitiveBatchRenderer::BeginShadowDepthBoxBatch( const PrimitiveRenderContext& context,
+                                                  const Matrix4& view,
+                                                  const Matrix4& proj )
 {
     BindRenderResourceFactory( context.renderResources );
     DrawShadowDepthBoxBatchBegin( context, view, proj );
@@ -632,8 +628,10 @@ RenderHelper::BeginShadowDepthBoxBatch( const RenderHelperContext& context, cons
 }
 
 
-RenderHelper::PrimitiveBatchScope
-RenderHelper::BeginShadowDepthPineBatch( const RenderHelperContext& context, const Matrix4& view, const Matrix4& proj )
+PrimitiveBatchRenderer::PrimitiveBatchScope
+PrimitiveBatchRenderer::BeginShadowDepthPineBatch( const PrimitiveRenderContext& context,
+                                                   const Matrix4& view,
+                                                   const Matrix4& proj )
 {
     BindRenderResourceFactory( context.renderResources );
     DrawShadowDepthPineBatchBegin( context, view, proj );
@@ -641,14 +639,14 @@ RenderHelper::BeginShadowDepthPineBatch( const RenderHelperContext& context, con
 }
 
 
-void RenderHelper::BindRenderResourceFactory( IRenderResourceFactory& renderResources )
+void PrimitiveBatchRenderer::BindRenderResourceFactory( IRenderResourceFactory& renderResources )
 {
     assert( !m_state.renderResources || m_state.renderResources == &renderResources );
     m_state.renderResources = &renderResources;
 }
 
 
-void RenderHelper::ReleaseOwnedRenderResources()
+void PrimitiveBatchRenderer::ReleaseOwnedRenderResources()
 {
     IRenderResourceFactory* renderResources = m_state.renderResources;
     m_state.sphereShader.reset();
@@ -707,7 +705,7 @@ void RenderHelper::ReleaseOwnedRenderResources()
 }
 
 
-void RenderHelper::EnsureSphereShader( const RenderHelperContext& context )
+void PrimitiveBatchRenderer::EnsureSphereShader( const PrimitiveRenderContext& context )
 {
     if ( !m_state.sphereShader )
     {
@@ -726,7 +724,7 @@ void RenderHelper::EnsureSphereShader( const RenderHelperContext& context )
 }
 
 
-void RenderHelper::EnsureShadowDepthShader( const RenderHelperContext& context )
+void PrimitiveBatchRenderer::EnsureShadowDepthShader( const PrimitiveRenderContext& context )
 {
     if ( !m_state.shadowDepthShader )
     {
@@ -740,7 +738,7 @@ void RenderHelper::EnsureShadowDepthShader( const RenderHelperContext& context )
 }
 
 
-void RenderHelper::EnsureSphereMesh( const RenderHelperContext& context )
+void PrimitiveBatchRenderer::EnsureSphereMesh( const PrimitiveRenderContext& context )
 {
     BindRenderResourceFactory( context.renderResources );
     if ( m_state.sphereInstMesh == 0 )
@@ -751,7 +749,7 @@ void RenderHelper::EnsureSphereMesh( const RenderHelperContext& context )
 }
 
 
-void RenderHelper::EnsureShadowDepthPrimitiveResources( const RenderHelperContext& context )
+void PrimitiveBatchRenderer::EnsureShadowDepthPrimitiveResources( const PrimitiveRenderContext& context )
 {
     BindRenderResourceFactory( context.renderResources );
     // Runtime allocation policy: the first shadowed frame must not compile the
@@ -777,7 +775,7 @@ void RenderHelper::EnsureShadowDepthPrimitiveResources( const RenderHelperContex
 }
 
 
-void RenderHelper::BuildSphereMesh( const RenderHelperContext& context, int slices, int stacks )
+void PrimitiveBatchRenderer::BuildSphereMesh( const PrimitiveRenderContext& context, int slices, int stacks )
 {
     std::vector<float> verts;
     verts.reserve( PrimitiveMeshes::SphereTriangleVertexCount( slices, stacks ) * 8 );
@@ -800,7 +798,7 @@ void RenderHelper::BuildSphereMesh( const RenderHelperContext& context, int slic
     m_state.sphereInstMesh = Resources( context ).CreateInstancedMesh( verts.data(),
                                                                        m_state.sphereVertexCount,
                                                                        8,
-                                                                       MAX_GAME_MODELS,
+                                                                       SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS,
                                                                        INSTANCE_FLOATS,
                                                                        3,
                                                                        instanceAttribSizes,
@@ -808,11 +806,11 @@ void RenderHelper::BuildSphereMesh( const RenderHelperContext& context, int slic
                                                                        staticAttribSizes,
                                                                        3 );
 
-    m_state.sphereInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
+    m_state.sphereInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
 
 
-void RenderHelper::BuildLowPolySphereMesh( const RenderHelperContext& context, int slices, int stacks )
+void PrimitiveBatchRenderer::BuildLowPolySphereMesh( const PrimitiveRenderContext& context, int slices, int stacks )
 {
     std::vector<float> verts;
     verts.reserve( PrimitiveMeshes::SphereTriangleVertexCount( slices, stacks ) * 8 );
@@ -830,29 +828,30 @@ void RenderHelper::BuildLowPolySphereMesh( const RenderHelperContext& context, i
 
     int staticAttribSizes[] = { 3, 3, 2 };
     int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4, 4 };
-    m_state.lowPolySphereInstMesh = Resources( context ).CreateInstancedMesh( verts.data(),
-                                                                              m_state.lowPolySphereVertexCount,
-                                                                              8,
-                                                                              MAX_GAME_MODELS,
-                                                                              INSTANCE_FLOATS,
-                                                                              3,
-                                                                              instanceAttribSizes,
-                                                                              8,
-                                                                              staticAttribSizes,
-                                                                              3 );
+    m_state.lowPolySphereInstMesh =
+        Resources( context ).CreateInstancedMesh( verts.data(),
+                                                  m_state.lowPolySphereVertexCount,
+                                                  8,
+                                                  SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS,
+                                                  INSTANCE_FLOATS,
+                                                  3,
+                                                  instanceAttribSizes,
+                                                  8,
+                                                  staticAttribSizes,
+                                                  3 );
 
-    m_state.sphereInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
+    m_state.sphereInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
 
 
-void RenderHelper::DrawSphereBatchBegin( const RenderHelperContext& context,
-                                         const Matrix4& view,
-                                         const Matrix4& proj,
-                                         const float lightPos[4],
-                                         bool isTransparent,
-                                         const CinematicRenderConfig* cinematic,
-                                         const ShadowFrameData* shadow,
-                                         float materialAlpha )
+void PrimitiveBatchRenderer::DrawSphereBatchBegin( const PrimitiveRenderContext& context,
+                                                   const Matrix4& view,
+                                                   const Matrix4& proj,
+                                                   const float lightPos[4],
+                                                   bool isTransparent,
+                                                   const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                                                   const ShadowFrameData* shadow,
+                                                   float materialAlpha )
 {
     m_state.sphereBatchTransparent = isTransparent;
     m_state.sphereBatchReady = false;
@@ -906,23 +905,13 @@ void RenderHelper::DrawSphereBatchBegin( const RenderHelperContext& context,
 }
 
 
-void RenderHelper::DrawSphereBatchModel( const Matrix4& model, const RenderMaterial& material )
+void PrimitiveBatchRenderer::DrawSphereBatchModel( const Matrix4& model, const RenderMaterial& material )
 {
     AppendMaterialInstancePayload( m_state.sphereInstanceData, model, material );
 }
 
 
-void RenderHelper::DrawSphereBatchModel( const Matrix4& model,
-                                         float tintR,
-                                         float tintG,
-                                         float tintB,
-                                         float colorOverride )
-{
-    DrawSphereBatchModel( model, MakeRenderMaterialFromLegacyTint( tintR, tintG, tintB, colorOverride ) );
-}
-
-
-void RenderHelper::DrawSphereBatchEnd( const RenderHelperContext& context )
+void PrimitiveBatchRenderer::DrawSphereBatchEnd( const PrimitiveRenderContext& context )
 {
     int instanceCount = static_cast<int>( m_state.sphereInstanceData.size() ) / INSTANCE_FLOATS;
     if ( instanceCount > 0 && m_state.activeSphereInstMesh != 0 )
@@ -943,10 +932,11 @@ void RenderHelper::DrawSphereBatchEnd( const RenderHelperContext& context )
 }
 
 
-void RenderHelper::DrawShadowDepthSphereBatchBegin( const RenderHelperContext& context,
-                                                    const Matrix4& view,
-                                                    const Matrix4& proj,
-                                                    const CinematicRenderConfig* cinematic )
+void PrimitiveBatchRenderer::DrawShadowDepthSphereBatchBegin(
+    const PrimitiveRenderContext& context,
+    const Matrix4& view,
+    const Matrix4& proj,
+    const SkullbonezCore::Core::CinematicRenderConfig* cinematic )
 {
     m_state.sphereBatchReady = false;
     // Match the visible sphere mesh selection. If a low-poly style is active,
@@ -992,13 +982,13 @@ void RenderHelper::DrawShadowDepthSphereBatchBegin( const RenderHelperContext& c
 }
 
 
-void RenderHelper::DrawShadowDepthSphereBatchModel( const Matrix4& model )
+void PrimitiveBatchRenderer::DrawShadowDepthSphereBatchModel( const Matrix4& model )
 {
-    DrawSphereBatchModel( model, 1.0f, 1.0f, 1.0f, 0.0f );
+    DrawSphereBatchModel( model, MakeRenderMaterialFromLegacyTint( 1.0f, 1.0f, 1.0f, 0.0f ) );
 }
 
 
-void RenderHelper::DrawShadowDepthSphereBatchEnd( const RenderHelperContext& context )
+void PrimitiveBatchRenderer::DrawShadowDepthSphereBatchEnd( const PrimitiveRenderContext& context )
 {
     int instanceCount = static_cast<int>( m_state.sphereInstanceData.size() ) / INSTANCE_FLOATS;
     if ( m_state.sphereBatchReady && instanceCount > 0 && m_state.activeSphereInstMesh != 0 )
@@ -1028,7 +1018,7 @@ void RenderHelper::DrawShadowDepthSphereBatchEnd( const RenderHelperContext& con
 // =============================================================================
 
 
-void RenderHelper::BuildBoxMesh( const RenderHelperContext& context )
+void PrimitiveBatchRenderer::BuildBoxMesh( const PrimitiveRenderContext& context )
 {
     std::vector<float> verts;
     verts.reserve( PrimitiveMeshes::BoxTriangleVertexCount() * 8 );
@@ -1047,7 +1037,7 @@ void RenderHelper::BuildBoxMesh( const RenderHelperContext& context )
     m_state.boxInstMesh = Resources( context ).CreateInstancedMesh( verts.data(),
                                                                     m_state.boxVertexCount,
                                                                     8,
-                                                                    MAX_GAME_MODELS,
+                                                                    SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS,
                                                                     INSTANCE_FLOATS,
                                                                     3,
                                                                     instanceAttribSizes,
@@ -1055,18 +1045,18 @@ void RenderHelper::BuildBoxMesh( const RenderHelperContext& context )
                                                                     staticAttribSizes,
                                                                     3 );
 
-    m_state.boxInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
+    m_state.boxInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
 
 
-void RenderHelper::DrawBoxBatchBegin( const RenderHelperContext& context,
-                                      const Matrix4& view,
-                                      const Matrix4& proj,
-                                      const float lightPos[4],
-                                      bool isTransparent,
-                                      const CinematicRenderConfig* cinematic,
-                                      const ShadowFrameData* shadow,
-                                      float materialAlpha )
+void PrimitiveBatchRenderer::DrawBoxBatchBegin( const PrimitiveRenderContext& context,
+                                                const Matrix4& view,
+                                                const Matrix4& proj,
+                                                const float lightPos[4],
+                                                bool isTransparent,
+                                                const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                                                const ShadowFrameData* shadow,
+                                                float materialAlpha )
 {
     m_state.boxBatchTransparent = isTransparent;
     m_state.boxBatchReady = false;
@@ -1101,19 +1091,13 @@ void RenderHelper::DrawBoxBatchBegin( const RenderHelperContext& context,
 }
 
 
-void RenderHelper::DrawBoxBatchModel( const Matrix4& model, const RenderMaterial& material )
+void PrimitiveBatchRenderer::DrawBoxBatchModel( const Matrix4& model, const RenderMaterial& material )
 {
     AppendMaterialInstancePayload( m_state.boxInstanceData, model, material );
 }
 
 
-void RenderHelper::DrawBoxBatchModel( const Matrix4& model, float tintR, float tintG, float tintB, float colorOverride )
-{
-    DrawBoxBatchModel( model, MakeRenderMaterialFromLegacyTint( tintR, tintG, tintB, colorOverride ) );
-}
-
-
-void RenderHelper::DrawBoxBatchEnd( const RenderHelperContext& context )
+void PrimitiveBatchRenderer::DrawBoxBatchEnd( const PrimitiveRenderContext& context )
 {
     int instanceCount = static_cast<int>( m_state.boxInstanceData.size() ) / INSTANCE_FLOATS;
     if ( m_state.boxBatchReady && instanceCount > 0 )
@@ -1129,9 +1113,9 @@ void RenderHelper::DrawBoxBatchEnd( const RenderHelperContext& context )
 }
 
 
-void RenderHelper::DrawShadowDepthBoxBatchBegin( const RenderHelperContext& context,
-                                                 const Matrix4& view,
-                                                 const Matrix4& proj )
+void PrimitiveBatchRenderer::DrawShadowDepthBoxBatchBegin( const PrimitiveRenderContext& context,
+                                                           const Matrix4& view,
+                                                           const Matrix4& proj )
 {
     m_state.boxBatchReady = false;
     if ( m_state.boxInstMesh == 0 )
@@ -1158,13 +1142,13 @@ void RenderHelper::DrawShadowDepthBoxBatchBegin( const RenderHelperContext& cont
 }
 
 
-void RenderHelper::DrawShadowDepthBoxBatchModel( const Matrix4& model )
+void PrimitiveBatchRenderer::DrawShadowDepthBoxBatchModel( const Matrix4& model )
 {
-    DrawBoxBatchModel( model, 1.0f, 1.0f, 1.0f, 0.0f );
+    DrawBoxBatchModel( model, MakeRenderMaterialFromLegacyTint( 1.0f, 1.0f, 1.0f, 0.0f ) );
 }
 
 
-void RenderHelper::DrawShadowDepthBoxBatchEnd( const RenderHelperContext& context )
+void PrimitiveBatchRenderer::DrawShadowDepthBoxBatchEnd( const PrimitiveRenderContext& context )
 {
     int instanceCount = static_cast<int>( m_state.boxInstanceData.size() ) / INSTANCE_FLOATS;
     if ( m_state.boxBatchReady && instanceCount > 0 && m_state.boxInstMesh != 0 )
@@ -1180,17 +1164,17 @@ void RenderHelper::DrawShadowDepthBoxBatchEnd( const RenderHelperContext& contex
     m_state.boxBatchReady = false;
 }
 
-void RenderHelper::DrawConvexHullModel( const RenderHelperContext& context,
-                                        const ConvexHullShape& hull,
-                                        const Matrix4& model,
-                                        const RenderMaterial& material,
-                                        const Matrix4& view,
-                                        const Matrix4& proj,
-                                        const float lightPos[4],
-                                        bool isTransparent,
-                                        const CinematicRenderConfig* cinematic,
-                                        const ShadowFrameData* shadow,
-                                        float materialAlpha )
+void PrimitiveBatchRenderer::DrawConvexHullModel( const PrimitiveRenderContext& context,
+                                                  const ConvexHullShape& hull,
+                                                  const Matrix4& model,
+                                                  const RenderMaterial& material,
+                                                  const Matrix4& view,
+                                                  const Matrix4& proj,
+                                                  const float lightPos[4],
+                                                  bool isTransparent,
+                                                  const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                                                  const ShadowFrameData* shadow,
+                                                  float materialAlpha )
 {
     BindRenderResourceFactory( context.renderResources );
     EnsureConvexHullDynamicVB( context, m_state );
@@ -1224,11 +1208,11 @@ void RenderHelper::DrawConvexHullModel( const RenderHelperContext& context,
     EndPrimitiveBatchTransparency( context, isTransparent );
 }
 
-void RenderHelper::DrawShadowDepthConvexHullModel( const RenderHelperContext& context,
-                                                   const ConvexHullShape& hull,
-                                                   const Matrix4& model,
-                                                   const Matrix4& view,
-                                                   const Matrix4& proj )
+void PrimitiveBatchRenderer::DrawShadowDepthConvexHullModel( const PrimitiveRenderContext& context,
+                                                             const ConvexHullShape& hull,
+                                                             const Matrix4& model,
+                                                             const Matrix4& view,
+                                                             const Matrix4& proj )
 {
     BindRenderResourceFactory( context.renderResources );
     EnsureConvexHullDynamicVB( context, m_state );
@@ -1263,7 +1247,7 @@ void RenderHelper::DrawShadowDepthConvexHullModel( const RenderHelperContext& co
 }
 
 
-void RenderHelper::BuildPineMesh( const RenderHelperContext& context )
+void PrimitiveBatchRenderer::BuildPineMesh( const PrimitiveRenderContext& context )
 {
     std::vector<float> verts;
     verts.reserve( PrimitiveMeshes::PineTriangleVertexCount() * 8 );
@@ -1282,7 +1266,7 @@ void RenderHelper::BuildPineMesh( const RenderHelperContext& context )
     m_state.pineInstMesh = Resources( context ).CreateInstancedMesh( verts.data(),
                                                                      m_state.pineVertexCount,
                                                                      8,
-                                                                     MAX_GAME_MODELS,
+                                                                     SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS,
                                                                      INSTANCE_FLOATS,
                                                                      3,
                                                                      instanceAttribSizes,
@@ -1290,18 +1274,18 @@ void RenderHelper::BuildPineMesh( const RenderHelperContext& context )
                                                                      staticAttribSizes,
                                                                      3 );
 
-    m_state.pineInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
+    m_state.pineInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
 
 
-void RenderHelper::DrawPineBatchBegin( const RenderHelperContext& context,
-                                       const Matrix4& view,
-                                       const Matrix4& proj,
-                                       const float lightPos[4],
-                                       bool isTransparent,
-                                       const CinematicRenderConfig* cinematic,
-                                       const ShadowFrameData* shadow,
-                                       float materialAlpha )
+void PrimitiveBatchRenderer::DrawPineBatchBegin( const PrimitiveRenderContext& context,
+                                                 const Matrix4& view,
+                                                 const Matrix4& proj,
+                                                 const float lightPos[4],
+                                                 bool isTransparent,
+                                                 const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                                                 const ShadowFrameData* shadow,
+                                                 float materialAlpha )
 {
     m_state.pineBatchTransparent = isTransparent;
     m_state.pineBatchReady = false;
@@ -1335,23 +1319,13 @@ void RenderHelper::DrawPineBatchBegin( const RenderHelperContext& context,
 }
 
 
-void RenderHelper::DrawPineBatchModel( const Matrix4& model, const RenderMaterial& material )
+void PrimitiveBatchRenderer::DrawPineBatchModel( const Matrix4& model, const RenderMaterial& material )
 {
     AppendMaterialInstancePayload( m_state.pineInstanceData, model, material );
 }
 
 
-void RenderHelper::DrawPineBatchModel( const Matrix4& model,
-                                       float tintR,
-                                       float tintG,
-                                       float tintB,
-                                       float colorOverride )
-{
-    DrawPineBatchModel( model, MakeRenderMaterialFromLegacyTint( tintR, tintG, tintB, colorOverride ) );
-}
-
-
-void RenderHelper::DrawPineBatchEnd( const RenderHelperContext& context )
+void PrimitiveBatchRenderer::DrawPineBatchEnd( const PrimitiveRenderContext& context )
 {
     int instanceCount = static_cast<int>( m_state.pineInstanceData.size() ) / INSTANCE_FLOATS;
     if ( m_state.pineBatchReady && instanceCount > 0 )
@@ -1367,9 +1341,9 @@ void RenderHelper::DrawPineBatchEnd( const RenderHelperContext& context )
 }
 
 
-void RenderHelper::DrawShadowDepthPineBatchBegin( const RenderHelperContext& context,
-                                                  const Matrix4& view,
-                                                  const Matrix4& proj )
+void PrimitiveBatchRenderer::DrawShadowDepthPineBatchBegin( const PrimitiveRenderContext& context,
+                                                            const Matrix4& view,
+                                                            const Matrix4& proj )
 {
     m_state.pineBatchReady = false;
     if ( m_state.pineInstMesh == 0 )
@@ -1396,13 +1370,13 @@ void RenderHelper::DrawShadowDepthPineBatchBegin( const RenderHelperContext& con
 }
 
 
-void RenderHelper::DrawShadowDepthPineBatchModel( const Matrix4& model )
+void PrimitiveBatchRenderer::DrawShadowDepthPineBatchModel( const Matrix4& model )
 {
-    DrawPineBatchModel( model, 1.0f, 1.0f, 1.0f, 0.0f );
+    DrawPineBatchModel( model, MakeRenderMaterialFromLegacyTint( 1.0f, 1.0f, 1.0f, 0.0f ) );
 }
 
 
-void RenderHelper::DrawShadowDepthPineBatchEnd( const RenderHelperContext& context )
+void PrimitiveBatchRenderer::DrawShadowDepthPineBatchEnd( const PrimitiveRenderContext& context )
 {
     int instanceCount = static_cast<int>( m_state.pineInstanceData.size() ) / INSTANCE_FLOATS;
     if ( m_state.pineBatchReady && instanceCount > 0 && m_state.pineInstMesh != 0 )
@@ -1413,12 +1387,4 @@ void RenderHelper::DrawShadowDepthPineBatchEnd( const RenderHelperContext& conte
         Commands( context ).DrawInstancedMesh( m_state.pineInstMesh, m_state.pineVertexCount, instanceCount );
     }
     m_state.pineBatchReady = false;
-}
-
-
-void RenderHelper::StateSetup()
-{
-    // Initial render state is owned by the DX12 backend. This hook remains as a
-    // small extension point for any helper-level setup that must happen after
-    // the renderer has initialized.
 }

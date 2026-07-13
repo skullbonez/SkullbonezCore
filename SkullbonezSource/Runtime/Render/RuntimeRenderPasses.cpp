@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp
 Purpose:
   Implements the named world-render pass classes owned by RuntimeRenderer.
 
-Mental model:
+Summary:
   RuntimeRenderer.cpp should read like a frame story: build one frame
   context, run named passes, then hand each pass output to its downstream
   consumer. This file owns the rendering guts and GPU lifetime hooks for those
@@ -58,7 +58,7 @@ Related:
 #include "../../Rendering/IRenderRayTracing.h"
 #include "../../Rendering/IRenderResourceFactory.h"
 #include "../../Rendering/GameModelRenderer.h"
-#include "../../Rendering/Helper.h"
+#include "../../Rendering/PrimitiveBatchRenderer.h"
 #include "../../Rendering/RenderGraph.h"
 #include "../../Rendering/RenderInstanceStore.h"
 #include "../../Rendering/RenderRasterBindingContract.h"
@@ -68,11 +68,13 @@ Related:
 
 #include <cstdio>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
+using SkullbonezCore::Rendering::PrimitiveBatchRenderer;
+using SkullbonezCore::Rendering::PrimitiveRenderContext;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Runtime::RunInternal;
 namespace Textures = SkullbonezCore::Textures;
 using SkullbonezCore::Geometry::XZBounds;
 using SkullbonezCore::Math::Vector::Vector3;
@@ -115,7 +117,7 @@ int CopyDxrRenderInstanceMatrices( const SkullbonezCore::Rendering::RenderInstan
         return 0;
     }
 
-    const std::vector<SkullbonezCore::Rendering::RenderInstanceRecord>& instances = renderStore.Records();
+    const auto instances = renderStore.Records();
     const int modelCount = (std::min)( static_cast<int>( instances.size() ), maxModelCount );
     for ( int i = 0; i < modelCount; ++i )
     {
@@ -127,8 +129,7 @@ int CopyDxrRenderInstanceMatrices( const SkullbonezCore::Rendering::RenderInstan
 
 bool HasCollisionVisualizerFrameView( const RenderFrameContext& frame )
 {
-    return frame.bodyStore && frame.colliders && frame.renderInstances && frame.collisionVisualContacts &&
-           frame.sleepStates && frame.sleepIslandVisualIds;
+    return frame.bodyStore && frame.colliders && frame.renderInstances && frame.collisionVisualContacts;
 }
 
 CollisionVisualizerFrameView BuildCollisionVisualizerFrameView( const RenderFrameContext& frame )
@@ -137,24 +138,23 @@ CollisionVisualizerFrameView BuildCollisionVisualizerFrameView( const RenderFram
                                          *frame.colliders,
                                          *frame.renderInstances,
                                          *frame.collisionVisualContacts,
-                                         *frame.sleepStates,
-                                         *frame.sleepIslandVisualIds,
+                                         frame.sleepStates,
+                                         frame.sleepIslandVisualIds,
                                          frame.modelCount };
 }
 
 bool HasPhysicsDebugFrameView( const RenderFrameContext& frame )
 {
-    return frame.bodyStore && frame.colliders && frame.sleepStates && frame.sleepSupportedStates &&
-           frame.sleepInhibitedStates && frame.physicsDebugContacts && frame.physicsPipelineTrace;
+    return frame.bodyStore && frame.colliders && frame.physicsDebugContacts && frame.physicsPipelineTrace;
 }
 
 PhysicsDebugFrameView BuildPhysicsDebugFrameView( const RenderFrameContext& frame )
 {
     return PhysicsDebugFrameView{ *frame.bodyStore,
                                   *frame.colliders,
-                                  *frame.sleepStates,
-                                  *frame.sleepSupportedStates,
-                                  *frame.sleepInhibitedStates,
+                                  frame.sleepStates,
+                                  frame.sleepSupportedStates,
+                                  frame.sleepInhibitedStates,
                                   *frame.physicsDebugContacts,
                                   *frame.physicsPipelineTrace,
                                   frame.modelCount };
@@ -202,7 +202,7 @@ SkullbonezCore::Textures::TextureCollection& RenderTextures( const RenderFrameCo
     return *frame.textures;
 }
 
-bool ReportRenderTextureResult( const char* passName, const SbResult& result )
+bool ReportRenderTextureResult( const char* passName, const SkullbonezCore::Core::SbResult& result )
 {
     if ( result.ok )
     {
@@ -244,22 +244,23 @@ SkullbonezCore::Rendering::IRenderResourceFactory& RenderResources( const Render
     return *frame.renderResources;
 }
 
-RenderHelperContext RenderHelperServices( const RenderFrameContext& frame, const EngineConfig& config )
+PrimitiveRenderContext PrimitiveRenderContextForFrame( const RenderFrameContext& frame,
+                                                       const SkullbonezCore::Core::EngineConfig& config )
 {
     assert( frame.renderDiagnostics && "RenderFrameContext requires a render diagnostics context" );
-    assert( frame.renderHelper && "RenderFrameContext requires a primitive render helper" );
-    return RenderHelperContext{ RenderResources( frame ),
-                                RenderCommands( frame ),
-                                *frame.renderDiagnostics,
-                                RenderAssets( frame ),
-                                config,
-                                *frame.renderHelper };
+    assert( frame.primitiveBatches && "RenderFrameContext requires a primitive batch renderer" );
+    return PrimitiveRenderContext{ RenderResources( frame ),
+                                   RenderCommands( frame ),
+                                   *frame.renderDiagnostics,
+                                   RenderAssets( frame ),
+                                   config,
+                                   *frame.primitiveBatches };
 }
 
-RenderHelper& RenderHelperOwner( const RenderFrameContext& frame )
+PrimitiveBatchRenderer& PrimitiveBatchRendererForFrame( const RenderFrameContext& frame )
 {
-    assert( frame.renderHelper && "RenderFrameContext requires a primitive render helper" );
-    return *frame.renderHelper;
+    assert( frame.primitiveBatches && "RenderFrameContext requires a primitive batch renderer" );
+    return *frame.primitiveBatches;
 }
 
 SkullbonezCore::Rendering::IRenderDiagnostics& RenderDiagnostics( const RenderFrameContext& frame )
@@ -366,8 +367,9 @@ struct ScreenSunPosition
 };
 
 
-ScreenSunPosition
-ProjectCinematicSunToScreen( const Vector3& eye, const Matrix4& viewProjection, const CinematicRenderConfig& cinematic )
+ScreenSunPosition ProjectCinematicSunToScreen( const Vector3& eye,
+                                               const Matrix4& viewProjection,
+                                               const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     const Vector3 sunPoint = eye + CinematicSkySunDirection( cinematic ) * 1000.0f;
     const Matrix4& vp = viewProjection;
@@ -399,7 +401,7 @@ void DrawFullscreenQuad( SkullbonezCore::Rendering::IRenderCommandContext& rende
 void BindSkyPassParams( SkullbonezCore::Rendering::IShader& shader,
                         const Matrix4& view,
                         const Matrix4& projection,
-                        const CinematicRenderConfig& cinematic )
+                        const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     shader.SetVec4( "uSunParams",
                     cinematic.sunAzimuth,
@@ -422,7 +424,7 @@ void BindSkyPassParams( SkullbonezCore::Rendering::IShader& shader,
 void BindVolumetricPassParams( SkullbonezCore::Rendering::IShader& shader,
                                const Vector3& eye,
                                const Matrix4& viewProjection,
-                               const CinematicRenderConfig& cinematic,
+                               const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                float frustumNear,
                                float frustumFar )
 {
@@ -444,7 +446,7 @@ void BindVolumetricPassParams( SkullbonezCore::Rendering::IShader& shader,
 }
 
 void BindTonemapPassParams( SkullbonezCore::Rendering::IShader& shader,
-                            const CinematicRenderConfig& cinematic,
+                            const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                             float frustumNear,
                             float frustumFar,
                             int sceneWidth,
@@ -490,15 +492,16 @@ void RenderResourceLifecycleLog::Write( const char* phase, const char* step ) co
     const bool backendReady = m_deviceLifecycle != nullptr;
     const int backendWidth = m_deviceLifecycle ? m_deviceLifecycle->GetWidth() : 0;
     const int backendHeight = m_deviceLifecycle ? m_deviceLifecycle->GetHeight() : 0;
-    Log().WriteEventf( "render_resource_lifecycle phase=%s step=%s gfx_ready=%d backend_width=%d backend_height=%d "
-                       "scene_index=%d load=%d",
-                       phase ? phase : "unknown",
-                       step ? step : "unknown",
-                       backendReady ? 1 : 0,
-                       backendWidth,
-                       backendHeight,
-                       m_scene.currentSceneIndex,
-                       m_scene.loadCount );
+    SkullbonezCore::Core::Log().WriteEventf(
+        "render_resource_lifecycle phase=%s step=%s gfx_ready=%d backend_width=%d backend_height=%d "
+        "scene_index=%d load=%d",
+        phase ? phase : "unknown",
+        step ? step : "unknown",
+        backendReady ? 1 : 0,
+        backendWidth,
+        backendHeight,
+        m_scene.currentSceneIndex,
+        m_scene.loadCount );
 }
 
 
@@ -645,7 +648,8 @@ void ReflectionPass::LogResourceLifecycleStep( const char* phase, const char* st
 }
 
 
-void ShadowPass::EnsureGpuResources( const RenderResourceContext& resources, const CinematicRenderConfig& cinematic )
+void ShadowPass::EnsureGpuResources( const RenderResourceContext& resources,
+                                     const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     if ( !cinematic.shadow.enabled )
     {
@@ -737,7 +741,7 @@ void ShadowPass::ReleaseGpuResources()
 
 
 SkullbonezCore::Rendering::ShadowFrameData
-ShadowPass::BuildTerrainFrameData( const CinematicRenderConfig& cinematic,
+ShadowPass::BuildTerrainFrameData( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                    const Math::Vector::Vector3& lightDirectionWorld ) const
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildTerrainFrame" );
@@ -805,7 +809,7 @@ ShadowPass::BuildTerrainFrameData( const CinematicRenderConfig& cinematic,
 
 
 SkullbonezCore::Rendering::ShadowFrameData
-ShadowPass::BuildObjectFrameData( const CinematicRenderConfig& cinematic,
+ShadowPass::BuildObjectFrameData( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                   const Math::Vector::Vector3& lightDirectionWorld,
                                   const Math::Vector::Vector3& focusHint,
                                   const Rendering::RenderInstanceStore& renderInstances,
@@ -868,9 +872,9 @@ ShadowPass::BuildObjectFrameData( const CinematicRenderConfig& cinematic,
 
 
 void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
-                                  const RenderHelperContext& helperContext,
+                                  const PrimitiveRenderContext& primitiveContext,
                                   const Rendering::ShadowFrameData& shadowFrame,
-                                  const CinematicRenderConfig& cinematic,
+                                  const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                   Rendering::IRenderCommandContext& renderCommands,
                                   bool renderTerrain,
                                   bool renderObjects,
@@ -881,7 +885,7 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
                                   const Rendering::ShadowCasterBatches* objectCasters )
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap" );
-    DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap" );
+    DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap" );
 
     if ( !shadowFrame.valid )
     {
@@ -922,7 +926,7 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
     if ( renderTerrain && cinematic.shadow.terrainCasts && !m_activeTerrainHidden && m_terrain.Get() )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
-        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
+        DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
 
         // Terrain must cast with the same optional render-only relief that the
         // visible terrain uses. Otherwise cinematic basin relief would receive
@@ -934,7 +938,7 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
     if ( renderObjects && cinematic.shadow.objectsCast && !m_activeCollisionVisualizerVisible )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
-        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
+        DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
 
         // Balls, boxes, and pine-style box visuals all write depth here. The
         // prepared render store keeps separate instanced batches so each caster
@@ -946,7 +950,7 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
                                                                    : Rendering::RenderVisibilityView::ObjectShadow;
         if ( objectCasters )
         {
-            GameObjects::GameModelRenderer::SubmitShadowCasterBatches( helperContext,
+            GameObjects::GameModelRenderer::SubmitShadowCasterBatches( primitiveContext,
                                                                        *objectCasters,
                                                                        shadowFrame.lightView,
                                                                        shadowFrame.lightProjection,
@@ -955,7 +959,7 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
         }
         else
         {
-            GameObjects::GameModelRenderer::RenderShadowCasters( helperContext,
+            GameObjects::GameModelRenderer::RenderShadowCasters( primitiveContext,
                                                                  renderInstances,
                                                                  colliders,
                                                                  renderWorkerPool,
@@ -1021,7 +1025,7 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
             if ( m_resources.terrainTarget )
             {
                 RenderShadowMap( *m_resources.terrainTarget,
-                                 RenderHelperServices( inputs.frame, m_config ),
+                                 PrimitiveRenderContextForFrame( inputs.frame, m_config ),
                                  m_resources.terrainFrame,
                                  *inputs.cinematic,
                                  RenderCommands( inputs.frame ),
@@ -1045,7 +1049,7 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
             if ( m_resources.objectTarget )
             {
                 RenderShadowMap( *m_resources.objectTarget,
-                                 RenderHelperServices( inputs.frame, m_config ),
+                                 PrimitiveRenderContextForFrame( inputs.frame, m_config ),
                                  m_resources.objectFrame,
                                  *inputs.cinematic,
                                  RenderCommands( inputs.frame ),
@@ -1074,7 +1078,7 @@ void SkyPass::RenderCinematicSky( const RenderFrameContext& frame, const Math::T
     // Invariant: the active cinematic choice is a frame snapshot, while the
     // generated-sky shader and fullscreen vertex buffer are pass resources.
     // This path should not reach back through Run state for either.
-    const CinematicRenderConfig& cinematic = *frame.cinematic;
+    const SkullbonezCore::Core::CinematicRenderConfig& cinematic = *frame.cinematic;
     if ( !cinematic.skyAtmosphereEnabled || !m_skyResources.atmosphereShader || m_fullscreenResources.quadVB == 0 )
     {
         return;
@@ -1279,7 +1283,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
         PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Balls" );
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/Reflection/Balls" );
         renderCommands.SetClipPlane( 0, true );
-        RenderHelperOwner( inputs.frame ).SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
+        PrimitiveBatchRendererForFrame( inputs.frame ).SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
         if ( inputs.collisionStateColorsVisible )
         {
@@ -1312,7 +1316,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
             if ( SelectRenderTexture( inputs.frame, TEXTURE_BOUNDING_SPHERE, "Frame/Render/Reflection/Balls" ) &&
                  inputs.frame.renderInstances && inputs.frame.colliders )
             {
-                GameObjects::GameModelRenderer::RenderModels( RenderHelperServices( inputs.frame, m_config ),
+                GameObjects::GameModelRenderer::RenderModels( PrimitiveRenderContextForFrame( inputs.frame, m_config ),
                                                               *inputs.frame.renderInstances,
                                                               *inputs.frame.colliders,
                                                               inputs.frame.renderCollisionVolumes,
@@ -1328,7 +1332,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
             }
         }
         renderCommands.SetClipPlane( 0, false );
-        RenderHelperOwner( inputs.frame ).SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
+        PrimitiveBatchRendererForFrame( inputs.frame ).SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         PROFILE_GPU_END( "Frame/Render/Reflection/Balls" );
 
@@ -1349,7 +1353,7 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
     const uint32_t passHash =
         transparentPass ? HashStr( "Frame/Render/TransparentBalls" ) : HashStr( "Frame/Render/Balls" );
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-    GpuProfilerScope profileScope( passName, passHash );
+    SkullbonezCore::Core::GpuProfilerScope profileScope( passName, passHash );
 #endif
     Rendering::DrawCallTraceScope drawTraceScope( RenderDiagnostics( inputs.frame ), passName, passHash );
     Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
@@ -1384,7 +1388,7 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
         if ( SelectRenderTexture( inputs.frame, TEXTURE_BOUNDING_SPHERE, passName ) && inputs.frame.renderInstances &&
              inputs.frame.colliders )
         {
-            GameObjects::GameModelRenderer::RenderModels( RenderHelperServices( inputs.frame, m_config ),
+            GameObjects::GameModelRenderer::RenderModels( PrimitiveRenderContextForFrame( inputs.frame, m_config ),
                                                           *inputs.frame.renderInstances,
                                                           *inputs.frame.colliders,
                                                           inputs.frame.renderCollisionVolumes,
@@ -1868,7 +1872,7 @@ void DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
         return;
     }
 
-    const bool detailMarkers = PlatformProfiler::AreDetailedRangesEnabled();
+    const bool detailMarkers = SkullbonezCore::Core::PlatformProfiler::AreDetailedRangesEnabled();
     if ( detailMarkers )
     {
         PROFILE_GPU_BEGIN( "Frame/Render/DebugOverlay" );
@@ -2169,7 +2173,7 @@ void VolumetricPass::ReleaseGpuResources()
 
 bool VolumetricPass::CanRender( const RenderFrameContext& frame ) const
 {
-    const CinematicRenderConfig* cinematic = frame.cinematic;
+    const SkullbonezCore::Core::CinematicRenderConfig* cinematic = frame.cinematic;
     return frame.cinematicEnabled && cinematic && cinematic->volumetricLightingEnabled && m_sceneResources.hdrTarget &&
            m_volumetricResources.target && m_volumetricResources.shader && m_fullscreenResources.quadVB != 0;
 }
@@ -2183,9 +2187,9 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
     }
 
     assert( frame.cinematic && "Volumetric pass requires a frame cinematic snapshot" );
-    const CinematicRenderConfig& cinematic = *frame.cinematic;
+    const SkullbonezCore::Core::CinematicRenderConfig& cinematic = *frame.cinematic;
 
-    const bool detailMarkers = PlatformProfiler::AreDetailedRangesEnabled();
+    const bool detailMarkers = SkullbonezCore::Core::PlatformProfiler::AreDetailedRangesEnabled();
     if ( detailMarkers )
     {
         PROFILE_GPU_BEGIN( "Frame/Render/VolumetricLight" );
@@ -2302,7 +2306,7 @@ void TonemapPass::Render( const RenderFrameContext& frame,
         return;
     }
 
-    const bool detailMarkers = PlatformProfiler::AreDetailedRangesEnabled();
+    const bool detailMarkers = SkullbonezCore::Core::PlatformProfiler::AreDetailedRangesEnabled();
     if ( detailMarkers )
     {
         PROFILE_GPU_BEGIN( "Frame/Render/Tonemap" );
@@ -2332,7 +2336,7 @@ void TonemapPass::Render( const RenderFrameContext& frame,
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( frame ), "Draw" );
         m_tonemapResources.shader->Use();
         assert( frame.cinematic && "Tonemap pass requires a frame cinematic snapshot" );
-        const CinematicRenderConfig& cinematic = *frame.cinematic;
+        const SkullbonezCore::Core::CinematicRenderConfig& cinematic = *frame.cinematic;
         BindTonemapPassParams( *m_tonemapResources.shader,
                                cinematic,
                                m_config.camera.frustumNear,

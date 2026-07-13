@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/RenderSceneSnapshot.h
 Purpose:
   Captures immutable renderer-facing facts about one executed scene frame.
 
-Mental model:
+Summary:
   Runtime decides what happened this frame, then hands the renderer a compact
   snapshot so render graph diagnostics and future pass scheduling do not reach
   back through live runtime state.

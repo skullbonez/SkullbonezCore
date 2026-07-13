@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Audio/ContactAudioService.cpp
 Purpose:
   Implements material-aware contact impact playback through XAudio2.
 
-Mental model:
+Summary:
   The service is a presentation sink. It filters contact events by material
   thresholds and cooldowns, then reuses bounded XAudio2 source voices. The
   decoded sample buffers remain owned here for as long as any voice can read
@@ -44,7 +44,7 @@ Related:
 */
 #include "ContactAudioService.h"
 #include "../../Assets/AssetKeys.h"
-#include "../../GameObjects/SceneCapacity.h"
+#include "../Scene/SceneCapacity.h"
 
 #include "../../Core/Common.h"
 
@@ -59,7 +59,7 @@ Related:
 #include <limits>
 #include <string>
 #include <vector>
-#include <windows.h>
+#include "../../Core/PlatformWin32.h"
 #include <xaudio2.h>
 
 #pragma warning( push, 0 )
@@ -172,16 +172,13 @@ bool ReadFileJson( const char* path, Json& out )
     {
         return false;
     }
-    try
+    out = Json::parse( input, nullptr, false );
+    if ( out.is_discarded() )
     {
-        input >> out;
-        return true;
-    }
-    catch ( const std::exception& e )
-    {
-        fprintf( stdout, "[audio] Contact audio map parse failed: %s (%s)\n", path, e.what() );
+        fprintf( stdout, "[audio] Contact audio map parse failed: %s\n", path );
         return false;
     }
+    return true;
 }
 
 std::string JsonStringOrDefault( const Json& object, const char* key, const char* fallback )
@@ -378,7 +375,7 @@ struct ContactAudioService::Impl
         // Runtime allocation policy: simple linear contact audio runs inside the
         // physics step, so its body-history rows are reserved at startup and
         // capped to the engine model limit instead of growing on first replay use.
-        simpleLinearBodies.reserve( MAX_GAME_MODELS );
+        simpleLinearBodies.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     }
 
     bool InitializeBackend()

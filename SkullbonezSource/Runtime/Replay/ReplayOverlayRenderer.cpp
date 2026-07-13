@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.cpp
 Purpose:
   Draws replay scrubber and cause-tree overlays from replay-owned state.
 
-Mental model:
+Summary:
   Replay overlay rendering is a late UI pass. Keep the same screen-space layout
   and pointer eligibility as replay input by rebuilding the same fixed-capacity
   surfaces from ReplayOverlayLayout.
@@ -44,7 +44,7 @@ Related:
 #include <cstdio>
 #include <cstring>
 
-namespace SkullbonezCore::Basics::ReplayOverlay
+namespace SkullbonezCore::Runtime::ReplayOverlay
 {
 using Text::Text2d;
 
@@ -1148,4 +1148,4 @@ void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context )
     Text2d::FlushQuads( renderCommands );
     Text2d::FlushText( renderCommands );
 }
-} // namespace SkullbonezCore::Basics::ReplayOverlay
+} // namespace SkullbonezCore::Runtime::ReplayOverlay

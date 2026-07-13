@@ -3,7 +3,7 @@ File: SkullbonezSource/Assets/AssetSystem.cpp
 Purpose:
   Loads, owns, and resolves reusable runtime assets for scenes and render code.
 
-Mental model:
+Summary:
   AssetSystem.cpp loads, owns, and resolves reusable runtime assets for scenes
   and render code. As an implementation unit, keep edits anchored on asset
   lifetime, cache ownership, and load/fallback behavior and on the
@@ -122,7 +122,7 @@ AssetSystem::AssetSystem( std::string dataRoot ) : m_dataRoot( std::move( dataRo
 }
 
 
-void AssetSystem::RegisterBuiltInSourceAssets( const Basics::EngineConfig& config )
+void AssetSystem::RegisterBuiltInSourceAssets( const SkullbonezCore::Core::EngineConfig& config )
 {
     // Concept: built-in runtime assets are source records, not GPU resources.
     // Renderer lifecycle code consumes these records later when backend facets

@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp
 Purpose:
   Implements Dx12TextureOwner's texture registry, uploads, descriptors, and mips.
 
-Mental model:
+Summary:
   Dx12TextureOwner maps stable engine handles to owned resources and persistent
   SRV rows. It borrows the active backend command stream during upload or mip
   dispatch but stores no backend pointer across calls.
@@ -63,23 +63,26 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
     fprintf( stdout, "FATAL: DX12 %s heap exhausted (next=%u capacity=%u)\n", name, nextIndex, capacity );
     fflush( stderr );
     fflush( stdout );
-    Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u", name, nextIndex, capacity );
-    Log().FlushAll();
+    SkullbonezCore::Core::Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u",
+                                             name,
+                                             nextIndex,
+                                             capacity );
+    SkullbonezCore::Core::Log().FlushAll();
 }
 
-static inline SkullbonezCore::Basics::SbResult Dx12TextureStartupResult( HRESULT hr, const char* msg )
+static inline SkullbonezCore::Core::SbResult Dx12TextureStartupResult( HRESULT hr, const char* msg )
 {
     if ( FAILED( hr ) )
     {
         // Lane R: generate-mips setup depends on baked shader assets and driver
         // resource creation. Startup reports that environment failure
         // through the render lifecycle result path.
-        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
-                                                          "%s (HRESULT 0x%08X)",
-                                                          msg ? msg : "DX12 texture startup call failed",
-                                                          static_cast<unsigned int>( hr ) );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "%s (HRESULT 0x%08X)",
+                                                        msg ? msg : "DX12 texture startup call failed",
+                                                        static_cast<unsigned int>( hr ) );
     }
-    return SkullbonezCore::Basics::SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 // --- RenderBackendDX12 Textures methods ---
@@ -146,8 +149,11 @@ bool Dx12TextureCommands::UavBarrier( const char* passName, const char* resource
 }
 
 
-SkullbonezCore::Basics::SbResult Dx12TextureOwner::Initialize( Dx12TextureCommands& commands )
+SkullbonezCore::Core::SbResult Dx12TextureOwner::Initialize( Dx12TextureCommands& commands )
 {
+    // Runtime allocation policy: size every handle slot before steady gameplay.
+    // Insert reuses tombstones and fails fatally instead of growing this vector.
+    m_registry.Initialize( commands.StaticDescriptorCapacity() );
     // Concept: mip generation is a tiny compute pipeline owned with textures.
     //
     // Runtime texture loading copies only the original image into mip 0. This
@@ -159,9 +165,9 @@ SkullbonezCore::Basics::SbResult Dx12TextureOwner::Initialize( Dx12TextureComman
     std::string loadError;
     if ( !LoadManifestCurrentShaderBytecode( csPath.c_str(), "cs", csBlob, loadError ) )
     {
-        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
-                                                          "Baked generate-mips shader rejected: %s",
-                                                          loadError.c_str() );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "Baked generate-mips shader rejected: %s",
+                                                        loadError.c_str() );
     }
 
     // Concept: this root signature is the binding contract for generate_mips.hlsl.
@@ -228,7 +234,7 @@ SkullbonezCore::Basics::SbResult Dx12TextureOwner::Initialize( Dx12TextureComman
     rsDesc.Desc_1_1.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 
     ComPtr<ID3DBlob> rsBlob;
-    SkullbonezCore::Basics::SbResult startupResult = Dx12TextureStartupResult(
+    SkullbonezCore::Core::SbResult startupResult = Dx12TextureStartupResult(
         D3D12SerializeVersionedRootSignature( &rsDesc, rsBlob.GetAddressOf(), errors.GetAddressOf() ),
         "GenerateMips root signature serialization failed" );
     if ( !startupResult.ok )
@@ -285,6 +291,9 @@ SkullbonezCore::Basics::SbResult Dx12TextureOwner::Initialize( Dx12TextureComman
     // dispatch batch may generate fewer than four mips. Fill unused rows with a
     // typed null UAV so the debug layer sees a complete descriptor table and
     // the shader never follows an uninitialized descriptor.
+    // Lifetime: the mip pipeline is initialized once per device epoch. Its
+    // typed null row is process-lifetime and disappears with the descriptor
+    // heaps rather than entering the runtime retirement queue.
     m_genMipsNullUAV = commands.AllocateStaticSrv();
 
     D3D12_UNORDERED_ACCESS_VIEW_DESC nullUAVDesc = {};
@@ -306,27 +315,27 @@ SkullbonezCore::Basics::SbResult Dx12TextureOwner::Initialize( Dx12TextureComman
                                               svDst,
                                               commands.StagingCpuHandle( m_genMipsNullUAV ),
                                               D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
-    return SkullbonezCore::Basics::SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
-SkullbonezCore::Basics::SbResult Dx12TextureOwner::PrepareGenerateMipsShaderReload( Dx12TextureCommands& commands,
-                                                                                    ID3D12PipelineState*& candidate )
+SkullbonezCore::Core::SbResult Dx12TextureOwner::PrepareGenerateMipsShaderReload( Dx12TextureCommands& commands,
+                                                                                  ID3D12PipelineState*& candidate )
 {
     candidate = nullptr;
     if ( !m_genMipsRS )
     {
-        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
-                                                          "Generate-mips root signature unavailable for reload" );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "Generate-mips root signature unavailable for reload" );
     }
     const std::string csPath = std::string( DATA_ROOT ) + "shaders/generate_mips.hlsl";
     ComPtr<ID3DBlob> csBlob;
     std::string loadError;
     if ( !LoadManifestCurrentShaderBytecode( csPath.c_str(), "cs", csBlob, loadError ) )
     {
-        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
-                                                          "Reloaded generate-mips shader rejected: %s",
-                                                          loadError.c_str() );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "Reloaded generate-mips shader rejected: %s",
+                                                        loadError.c_str() );
     }
     D3D12_COMPUTE_PIPELINE_STATE_DESC desc = {};
     desc.pRootSignature = m_genMipsRS;
@@ -339,11 +348,11 @@ SkullbonezCore::Basics::SbResult Dx12TextureOwner::PrepareGenerateMipsShaderRelo
             candidate->Release();
             candidate = nullptr;
         }
-        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
-                                                          "Reloaded generate-mips PSO creation failed (HRESULT 0x%08X)",
-                                                          static_cast<unsigned int>( result ) );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "Reloaded generate-mips PSO creation failed (HRESULT 0x%08X)",
+                                                        static_cast<unsigned int>( result ) );
     }
-    return SkullbonezCore::Basics::SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
@@ -625,12 +634,13 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands,
         // Lane R: texture residency can fail because of the active device or
         // memory budget. The renderer texture handle contract already uses 0
         // for "no usable texture", which TextureCollection reports to callers.
-        Log().WriteEventf( "dx12_texture_create_failed width=%d height=%d mips=%u hresult=0x%08X",
-                           w,
-                           h,
-                           numMips,
-                           static_cast<unsigned int>( FAILED( textureResult ) ? textureResult : E_FAIL ) );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_texture_create_failed width=%d height=%d mips=%u hresult=0x%08X",
+            w,
+            h,
+            numMips,
+            static_cast<unsigned int>( FAILED( textureResult ) ? textureResult : E_FAIL ) );
+        SkullbonezCore::Core::Log().FlushAll();
         return 0;
     }
 
@@ -718,26 +728,15 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands,
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.Texture2D.MipLevels = numMips;
     commands.Device()->CreateShaderResourceView( texResource, &srvDesc, commands.StagingCpuHandle( srvIdx ) );
+    commands.PublishStaticDescriptor( srvIdx );
 
-    // Register in texture array (1-based handle)
+    // Register in the generation-tagged texture table. The low 24 bits name
+    // the slot plus one; the high 8 bits reject stale ids after slot reuse.
     TextureEntryDX12 entry = {};
     entry.resource = texResource;
     entry.srvIndex = srvIdx;
     entry.owned = true;
-    // Runtime allocation policy: deleted texture/FBO handles leave tombstones.
-    // Reclaim one before growing the registry so repeated resource rebuilds do
-    // not consume unbounded host memory. Handles remain valid only until their
-    // matching DeleteTexture/UnregisterSRV call, as before.
-    for ( size_t index = 0; index < m_textures.size(); ++index )
-    {
-        if ( !m_textures[index].resource && m_textures[index].srvIndex == UINT_MAX && !m_textures[index].owned )
-        {
-            m_textures[index] = entry;
-            return static_cast<uint32_t>( index + 1 );
-        }
-    }
-    m_textures.push_back( entry );
-    return static_cast<uint32_t>( m_textures.size() );
+    return ReuseOrAppend( entry );
 }
 
 
@@ -745,8 +744,8 @@ void Dx12TextureOwner::ClearBoundSlotsForSrv( UINT srvIndex )
 {
     // Lifetime: m_boundTexSlot stores descriptor row indices, not texture
     // handles. When an FBO or texture unregisters an SRV, clear any cached slot
-    // that still names that row before the backend can copy a dead descriptor
-    // into the shader-visible heap on a later draw.
+    // that still names that row before a later draw can publish the retired
+    // descriptor index to a bindless shader.
     if ( srvIndex == UINT_MAX )
     {
         return;
@@ -774,22 +773,16 @@ void Dx12TextureOwner::BindTexture( uint32_t handle, int slot )
     if ( slot < 0 || slot >= TEXTURE_SLOT_COUNT )
     {
 #ifdef _DEBUG
-        Log().WriteEventf( "dx12_bind_texture_slot_out_of_range handle=%u slot=%d valid_slots=t0..t%d",
-                           handle,
-                           slot,
-                           TEXTURE_SLOT_COUNT - 1 );
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_bind_texture_slot_out_of_range handle=%u slot=%d valid_payload_indices=0..%d",
+            handle,
+            slot,
+            TEXTURE_SLOT_COUNT - 1 );
 #endif
         return;
     }
-    UINT newSlot;
-    if ( handle == 0 || handle > (uint32_t)m_textures.size() )
-    {
-        newSlot = m_nullTextureSRVIndex;
-    }
-    else
-    {
-        newSlot = m_textures[handle - 1].srvIndex;
-    }
+    const TextureEntryDX12* entry = ResolveEntry( handle );
+    const UINT newSlot = entry ? entry->srvIndex : m_nullTextureSRVIndex;
     if ( m_boundTexSlot[slot] != newSlot )
     {
         m_boundTexSlot[slot] = newSlot;
@@ -800,19 +793,23 @@ void Dx12TextureOwner::BindTexture( uint32_t handle, int slot )
 
 void Dx12TextureOwner::DeleteTexture( Dx12TextureCommands& commands, uint32_t handle )
 {
-    if ( handle == 0 || handle > (uint32_t)m_textures.size() )
+    TextureEntryDX12* entry = ResolveEntry( handle );
+    if ( !entry )
     {
         return;
     }
-    auto& entry = m_textures[handle - 1];
-    ClearBoundSlotsForSrv( entry.srvIndex );
-    if ( entry.owned && entry.resource )
+    ClearBoundSlotsForSrv( entry->srvIndex );
+    if ( entry->owned && entry->resource )
     {
-        commands.Retire( entry.resource );
+        commands.Retire( entry->resource, entry->srvIndex );
     }
-    entry.resource = nullptr;
-    entry.srvIndex = UINT_MAX;
-    entry.owned = false;
+    else
+    {
+        commands.RetireStaticDescriptor( entry->srvIndex );
+    }
+    entry->resource = nullptr;
+    entry->srvIndex = UINT_MAX;
+    entry->owned = false;
 }
 
 
@@ -822,43 +819,36 @@ UINT Dx12TextureOwner::RegisterSRV( UINT srvIndex )
     entry.resource = nullptr;
     entry.srvIndex = srvIndex;
     entry.owned = false;
-    for ( size_t index = 0; index < m_textures.size(); ++index )
-    {
-        if ( !m_textures[index].resource && m_textures[index].srvIndex == UINT_MAX && !m_textures[index].owned )
-        {
-            m_textures[index] = entry;
-            return static_cast<UINT>( index + 1 );
-        }
-    }
-    m_textures.push_back( entry );
-    return static_cast<UINT>( m_textures.size() ); // 1-based handle
+    return ReuseOrAppend( entry );
 }
 
 
-void Dx12TextureOwner::UnregisterSRV( uint32_t handle )
+UINT Dx12TextureOwner::UnregisterSRV( uint32_t handle )
 {
-    if ( handle == 0 || handle > (uint32_t)m_textures.size() )
+    TextureEntryDX12* entry = ResolveEntry( handle );
+    if ( !entry )
     {
-        return;
+        return UINT_MAX;
     }
-    auto& entry = m_textures[handle - 1];
-    ClearBoundSlotsForSrv( entry.srvIndex );
-    entry.resource = nullptr;
-    entry.srvIndex = UINT_MAX;
-    entry.owned = false;
+    const UINT srvIndex = entry->srvIndex;
+    ClearBoundSlotsForSrv( srvIndex );
+    entry->resource = nullptr;
+    entry->srvIndex = UINT_MAX;
+    entry->owned = false;
+    return srvIndex;
 }
 
 
 void Dx12TextureOwner::Shutdown()
 {
-    for ( TextureEntryDX12& texture : m_textures )
+    for ( TextureEntryDX12& texture : m_registry.Entries() )
     {
         if ( texture.owned && texture.resource )
         {
             texture.resource->Release();
         }
     }
-    m_textures.clear();
+    m_registry.Clear();
     if ( m_genMipsPSO )
     {
         m_genMipsPSO->Release();
@@ -876,6 +866,7 @@ void Dx12TextureOwner::Shutdown()
         slot = UINT_MAX;
     }
     m_texBindingsDirty = true;
+    m_staleHandleReported = false;
 }
 
 
@@ -904,34 +895,80 @@ bool Dx12TextureOwner::BindingsDirty() const
 }
 size_t Dx12TextureOwner::RegistryCount() const
 {
-    return m_textures.size();
+    return m_registry.Count();
 }
 size_t Dx12TextureOwner::RegistryCapacity() const
 {
-    return m_textures.capacity();
+    return m_registry.Capacity();
 }
 
 
 UINT Dx12TextureOwner::ResolveSrv( uint32_t handle ) const
 {
-    if ( handle == 0 || handle > m_textures.size() )
-    {
-        return UINT_MAX;
-    }
-    return m_textures[handle - 1].srvIndex;
+    const TextureEntryDX12* entry = ResolveEntry( handle );
+    return entry ? entry->srvIndex : UINT_MAX;
 }
 
 
 uint32_t Dx12TextureOwner::FindHandleForSrv( UINT srvIndex ) const
 {
-    for ( size_t index = 0; index < m_textures.size(); ++index )
+    const auto& entries = m_registry.Entries();
+    for ( size_t index = 0; index < entries.size(); ++index )
     {
-        if ( m_textures[index].srvIndex == srvIndex )
+        if ( entries[index].srvIndex == srvIndex )
         {
-            return static_cast<uint32_t>( index + 1 );
+            return Dx12TextureHandleCodec::Encode( index, entries[index].generation );
         }
     }
     return 0;
+}
+
+
+const TextureEntryDX12* Dx12TextureOwner::ResolveEntry( uint32_t handle ) const
+{
+    const TextureEntryDX12* entry = m_registry.Resolve( handle );
+    if ( !entry )
+    {
+        if ( handle != 0 )
+        {
+            ReportStaleHandle( handle );
+        }
+        return nullptr;
+    }
+    return entry;
+}
+
+
+TextureEntryDX12* Dx12TextureOwner::ResolveEntry( uint32_t handle )
+{
+    return const_cast<TextureEntryDX12*>( static_cast<const Dx12TextureOwner*>( this )->ResolveEntry( handle ) );
+}
+
+
+uint32_t Dx12TextureOwner::ReuseOrAppend( const TextureEntryDX12& entry )
+{
+    const uint32_t handle = m_registry.Insert( entry );
+    if ( handle == 0 )
+    {
+        SB_FATAL( "Dx12TextureOwner",
+                  "Texture handle slot capacity exhausted. capacity=%u",
+                  Dx12TextureHandleCodec::SLOT_MASK );
+    }
+    return handle;
+}
+
+
+void Dx12TextureOwner::ReportStaleHandle( uint32_t handle ) const
+{
+#ifdef _DEBUG
+    if ( !m_staleHandleReported )
+    {
+        SkullbonezCore::Core::Log().WriteEventf( "dx12_stale_texture_handle handle=%u", handle );
+        m_staleHandleReported = true;
+    }
+#else
+    (void)handle;
+#endif
 }
 
 
@@ -981,7 +1018,11 @@ UINT RenderBackendDX12::RegisterSRV( UINT srvIndex )
 
 void RenderBackendDX12::UnregisterSRV( uint32_t handle )
 {
-    m_textureOwner.UnregisterSRV( handle );
+    const UINT srvIndex = m_textureOwner.UnregisterSRV( handle );
+    if ( srvIndex != UINT_MAX )
+    {
+        m_frameOwner.ResourceRelease().RetireStaticDescriptor( srvIndex );
+    }
 }
 
 

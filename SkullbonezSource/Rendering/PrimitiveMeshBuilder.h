@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/PrimitiveMeshBuilder.h
 Purpose:
   Builds simple procedural meshes used by debug rendering and generated scenes.
 
-Mental model:
+Summary:
   PrimitiveMeshBuilder.h builds simple procedural meshes used by debug
   rendering and generated scenes. As a public header, keep edits anchored on
   render submission and resource lifetime and on the glossary/invariants

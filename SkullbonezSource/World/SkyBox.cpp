@@ -3,7 +3,7 @@ File: SkullbonezSource/World/SkyBox.cpp
 Purpose:
   Builds and renders the skybox or sky backdrop for scene rendering.
 
-Mental model:
+Summary:
   SkyBox.cpp builds and renders the skybox or sky backdrop for scene
   rendering. As an implementation unit, keep edits anchored on world-state
   ownership, terrain/environment data, and physics/render handoff and on the
@@ -37,7 +37,7 @@ using namespace SkullbonezCore::Geometry;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Textures;
-namespace Basics = SkullbonezCore::Basics;
+namespace Runtime = SkullbonezCore::Runtime;
 
 
 SkyBox::SkyBox( int m_xMin, int m_xMax, int yMin, int yMax, int m_zMin, int m_zMax )
@@ -55,55 +55,55 @@ SkyBox::SkyBox( int m_xMin, int m_xMax, int yMin, int yMax, int m_zMin, int m_zM
 }
 
 
-Basics::SbResult SkyBox::LoadTextures( const SkullbonezCore::Basics::EngineConfig& cfg )
+SkullbonezCore::Core::SbResult SkyBox::LoadTextures( const SkullbonezCore::Core::EngineConfig& cfg )
 {
     assert( m_textures );
-    const Basics::SbResult leftResult =
+    const SkullbonezCore::Core::SbResult leftResult =
         m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyLeft ).c_str(),
                                        TEXTURE_SKY_LEFT );
     if ( !leftResult.ok )
     {
         return leftResult;
     }
-    const Basics::SbResult rightResult =
+    const SkullbonezCore::Core::SbResult rightResult =
         m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyRight ).c_str(),
                                        TEXTURE_SKY_RIGHT );
     if ( !rightResult.ok )
     {
         return rightResult;
     }
-    const Basics::SbResult frontResult =
+    const SkullbonezCore::Core::SbResult frontResult =
         m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyFront ).c_str(),
                                        TEXTURE_SKY_FRONT );
     if ( !frontResult.ok )
     {
         return frontResult;
     }
-    const Basics::SbResult backResult =
+    const SkullbonezCore::Core::SbResult backResult =
         m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyBack ).c_str(),
                                        TEXTURE_SKY_BACK );
     if ( !backResult.ok )
     {
         return backResult;
     }
-    const Basics::SbResult upResult =
+    const SkullbonezCore::Core::SbResult upResult =
         m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyUp ).c_str(), TEXTURE_SKY_UP );
     if ( !upResult.ok )
     {
         return upResult;
     }
-    const Basics::SbResult downResult =
+    const SkullbonezCore::Core::SbResult downResult =
         m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyDown ).c_str(),
                                        TEXTURE_SKY_DOWN );
     if ( !downResult.ok )
     {
         return downResult;
     }
-    return Basics::SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
-void SkyBox::BuildMeshes( const SkullbonezCore::Basics::EngineConfig& cfg,
+void SkyBox::BuildMeshes( const SkullbonezCore::Core::EngineConfig& cfg,
                           SkullbonezCore::Assets::AssetSystem& assets,
                           IRenderResourceFactory& resources )
 {
@@ -189,7 +189,7 @@ void SkyBox::BindTextures( TextureCollection& textures )
 }
 
 
-void SkyBox::BindRenderContexts( const SkullbonezCore::Basics::EngineConfig& config,
+void SkyBox::BindRenderContexts( const SkullbonezCore::Core::EngineConfig& config,
                                  SkullbonezCore::Assets::AssetSystem& assets,
                                  IRenderResourceFactory& resources )
 {
@@ -201,7 +201,7 @@ void SkyBox::BindRenderContexts( const SkullbonezCore::Basics::EngineConfig& con
 }
 
 
-Basics::SbResult SkyBox::ResetRenderResources()
+SkullbonezCore::Core::SbResult SkyBox::ResetRenderResources()
 {
     for ( int i = 0; i < 6; ++i )
     {
@@ -212,13 +212,13 @@ Basics::SbResult SkyBox::ResetRenderResources()
     assert( m_config );
     assert( m_assets );
     assert( m_resources );
-    const Basics::SbResult textureResult = LoadTextures( *m_config );
+    const SkullbonezCore::Core::SbResult textureResult = LoadTextures( *m_config );
     if ( !textureResult.ok )
     {
         return textureResult;
     }
     BuildMeshes( *m_config, *m_assets, *m_resources );
-    return Basics::SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
@@ -236,11 +236,11 @@ void SkyBox::ReleaseRenderResources()
 }
 
 
-Basics::SbResult SkyBox::Render( const Matrix4& view, const Matrix4& proj )
+SkullbonezCore::Core::SbResult SkyBox::Render( const Matrix4& view, const Matrix4& proj )
 {
     if ( !m_shader )
     {
-        return Basics::SbResult::Failure( "Rendering/SkyBox", "Skybox shader is unavailable." );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/SkyBox", "Skybox shader is unavailable." );
     }
     m_shader->Use();
     m_shader->SetMat4( "uView", view );
@@ -250,14 +250,16 @@ Basics::SbResult SkyBox::Render( const Matrix4& view, const Matrix4& proj )
     {
         if ( !m_faceMeshes[i] )
         {
-            return Basics::SbResult::Failure( "Rendering/SkyBox", "Skybox face mesh %d is unavailable.", i );
+            return SkullbonezCore::Core::SbResult::Failure( "Rendering/SkyBox",
+                                                            "Skybox face mesh %d is unavailable.",
+                                                            i );
         }
-        const Basics::SbResult textureResult = m_textures->SelectTexture( m_faceTextures[i] );
+        const SkullbonezCore::Core::SbResult textureResult = m_textures->SelectTexture( m_faceTextures[i] );
         if ( !textureResult.ok )
         {
             return textureResult;
         }
         m_faceMeshes[i]->Draw();
     }
-    return Basics::SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }

@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DrawCallTrace.h
 Purpose:
   Declares fixed-capacity renderer draw-call attribution diagnostics.
 
-Mental model:
+Summary:
   Draw submission code records cheap CPU-side facts about GPU draw calls. Render
   pass code opens stable scopes so the profiler UI can explain the frame total
   without allocating, adding GPU timestamp queries, or creating per-draw markers.

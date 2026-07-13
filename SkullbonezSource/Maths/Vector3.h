@@ -3,7 +3,7 @@ File: SkullbonezSource/Maths/Vector3.h
 Purpose:
   Declares the engine 3D vector type and vector math operations.
 
-Mental model:
+Summary:
   Vector3.h declares the engine 3D vector type and vector math operations. As
   a public header, keep edits anchored on units, basis conventions, and
   numerical assumptions and on the glossary/invariants below.

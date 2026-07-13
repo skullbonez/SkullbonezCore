@@ -3,7 +3,7 @@
 // Purpose:
 //   Cover the cold Demo Director shot-list load/save contract.
 //
-// Mental model:
+// Summary:
 //   Demo Director playback will be render-only runtime state, but authoring
 //   starts with a file boundary. These tests pin that boundary before camera
 //   mode and automation code begins consuming it.
@@ -32,11 +32,11 @@
 #include <stdexcept>
 #include <string>
 
-using SkullbonezCore::Basics::DemoPhase;
-using SkullbonezCore::Basics::DemoShotList;
-using SkullbonezCore::Basics::LoadDemoShotList;
-using SkullbonezCore::Basics::PhaseAdvance;
-using SkullbonezCore::Basics::SaveDemoShotList;
+using SkullbonezCore::Runtime::DemoPhase;
+using SkullbonezCore::Runtime::DemoShotList;
+using SkullbonezCore::Runtime::LoadDemoShotList;
+using SkullbonezCore::Runtime::PhaseAdvance;
+using SkullbonezCore::Runtime::SaveDemoShotList;
 
 namespace
 {

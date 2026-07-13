@@ -3,7 +3,7 @@ File: TestReplayPredictionScheduling.cpp
 Purpose:
   Locks replay prediction mode selection and latest-wins coalescing behavior.
 
-Mental model:
+Summary:
   These are pure policy tests. Worker timing is supplied as a value, while the
   coalescer receives one frame-thread state snapshot and returns one action.
 
@@ -22,10 +22,10 @@ Related:
 
 #include "../SkullbonezSource/Runtime/Replay/ReplayPredictionScheduling.h"
 
-using SkullbonezCore::Basics::ChooseReplayPredictionBuildMode;
-using SkullbonezCore::Basics::ChooseReplayPredictionCoalescerAction;
-using SkullbonezCore::Basics::ReplayPredictionBuildMode;
-using SkullbonezCore::Basics::ReplayPredictionCoalescerAction;
+using SkullbonezCore::Runtime::ChooseReplayPredictionBuildMode;
+using SkullbonezCore::Runtime::ChooseReplayPredictionCoalescerAction;
+using SkullbonezCore::Runtime::ReplayPredictionBuildMode;
+using SkullbonezCore::Runtime::ReplayPredictionCoalescerAction;
 
 TEST_CASE( "Replay prediction scheduling: measured cost selects instant or amortized mode" )
 {

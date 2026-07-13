@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp
 Purpose:
   Implements deterministic generated/demo scene population.
 
-Mental model:
+Summary:
   Generated setup is scene lifecycle behavior, not app-shell behavior. It
   receives explicit borrowed context from Run and fills the existing camera and
   model subsystems without changing spawn order or RNG consumption.
@@ -46,7 +46,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -133,7 +133,7 @@ void SceneGeneratedSetup::SetUpCameras( SceneGeneratedCameraContext context )
 }
 
 
-SbResult SceneGeneratedSetup::SetUpSceneEntities( SceneGeneratedModelContext context, int count )
+SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSceneEntities( SceneGeneratedModelContext context, int count )
 {
     // Concept: Generated demos consume one deterministic RNG stream. Keep object
     // family decisions and per-object random draws in the same order unless
@@ -142,7 +142,7 @@ SbResult SceneGeneratedSetup::SetUpSceneEntities( SceneGeneratedModelContext con
     context.scene.solverBallCount = 0;
     context.scene.solverBoxCount = 0;
 
-    const EngineConfig& cfg = context.config;
+    const SkullbonezCore::Core::EngineConfig& cfg = context.config;
 
     auto randFloat = [&]( float base, int range )
     { return base + static_cast<float>( NextSceneRand( context.scene.rngState ) % range ); };
@@ -249,11 +249,12 @@ SbResult SceneGeneratedSetup::SetUpSceneEntities( SceneGeneratedModelContext con
             context.physics.SetPendingBodyImpulse( body, force, forcePos );
         }
     }
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
-SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context, int balls, int boxes )
+SkullbonezCore::Core::SbResult
+SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context, int balls, int boxes )
 {
     balls = (std::max)( 0, balls );
     boxes = (std::max)( 0, boxes );
@@ -273,7 +274,7 @@ SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext con
     context.scene.solverBallCount = balls;
     context.scene.solverBoxCount = boxes;
 
-    const EngineConfig& cfg = context.config;
+    const SkullbonezCore::Core::EngineConfig& cfg = context.config;
 
     auto randFloat = [&]( float base, int range )
     { return base + static_cast<float>( NextSceneRand( context.scene.rngState ) % range ); };
@@ -377,7 +378,7 @@ SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext con
     }
 
     context.scene.modelCount = balls + boxes;
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
@@ -414,8 +415,8 @@ SceneGeneratedSetupResult SceneGeneratedSetup::TrySetUpRequestedModels( SceneGen
     // Why: authored scene loading asks generated setup first so UI/exact solver
     // overrides can win. A successful "not applied" result hands population
     // back to authored scene sections.
-    return { SbResult::Success(), false };
+    return { SkullbonezCore::Core::SbResult::Success(), false };
 }
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

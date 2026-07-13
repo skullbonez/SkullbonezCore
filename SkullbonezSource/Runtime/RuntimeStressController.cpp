@@ -3,9 +3,9 @@ File: SkullbonezSource/Runtime/RuntimeStressController.cpp
 Purpose:
   Runs stress and automation paths for validation-oriented launches.
 
-Mental model:
-  Stress controllers execute deterministic validation churn through explicit,
-  synchronous borrows of the owners each action may mutate.
+Summary:
+  Stress controllers execute deterministic validation churn through non-copyable
+  per-call frame views of the owners each action may mutate.
 
 Glossary:
   Lane R result: Recoverable scene-load or GPU-drain failure surfaced through
@@ -17,6 +17,7 @@ Invariants:
   - UI stress keeps runtime churn disabled; graphics stress intentionally flips
     render/runtime churn on so DX12 state tracking gets exercised.
   - A generated-scene drain failure ends the stress action before later churn.
+  - Stress helpers never retain a frame view or a referenced runtime owner.
 
 Related:
   - Agentic/Reference/runtime-reference.md
@@ -31,6 +32,7 @@ Related:
 #include "Render/RuntimeRenderHost.h"
 #include "Render/RuntimeRenderer.h"
 #include "Replay/ReplayRuntime.h"
+#include "RenderDefaultsStore.h"
 #include "RunCameraState.h"
 #include "RunDebugState.h"
 #include "RunLaunchOptions.h"
@@ -48,6 +50,7 @@ Related:
 #include "../Physics/SimulationSystem.h"
 #include "../Rendering/IRenderDeviceLifecycle.h"
 #include "../Rendering/IRenderDiagnostics.h"
+#include "../Rendering/IRenderResourceFactory.h"
 #include "../Scene/TestScene.h"
 #include "../Core/WorkerPool.h"
 #include "../UI/UI.h"
@@ -55,12 +58,12 @@ Related:
 
 #include <cstdio>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Runtime::RunInternal;
 using SkullbonezCore::UI::InGameUITab;
 
 namespace
@@ -123,19 +126,22 @@ class StressHarness
 
 // Lifetime: every borrow is consumed by one deterministic action and cannot be
 // retained as a replacement shell context.
-void ApplyUIStressAction( SkullbonezCore::UI::InGameUI& ui,
-                          RuntimeRenderer& renderer,
-                          RuntimeRenderBackendView& renderBackendView,
-                          RunDebugState& debug,
-                          RunSceneState& scene,
-                          RunTimerState& timers,
-                          SimulationSystem& simulation,
-                          SceneController& sceneController,
-                          SkullbonezCore::Environment::WorldEnvironment& world,
-                          ReplayRuntime& replayRuntime,
+void ApplyUIStressAction( RuntimeFrameInteractionView& interactionOwners,
+                          RuntimeFrameSceneView& sceneOwners,
+                          RuntimeFramePresentationView& presentationOwners,
                           UIStressState& stress,
                           bool allowRuntimeChurn )
 {
+    SkullbonezCore::UI::InGameUI& ui = interactionOwners.ui;
+    RuntimeRenderer& renderer = presentationOwners.renderer;
+    RuntimeRenderBackendView& renderBackendView = presentationOwners.renderBackendView;
+    RunDebugState& debug = sceneOwners.debug;
+    SceneController& sceneController = sceneOwners.sceneController;
+    RunSceneState& scene = sceneController.State();
+    RunTimerState& timers = sceneOwners.timers;
+    SimulationSystem& simulation = sceneOwners.simulation;
+    SkullbonezCore::Environment::WorldEnvironment& world = sceneController.World();
+    ReplayRuntime& replayRuntime = interactionOwners.replayRuntime;
     switch ( StressHarness::NextAction( stress ) )
     {
     case 0:
@@ -300,13 +306,14 @@ void ApplyUIStressAction( SkullbonezCore::UI::InGameUI& ui,
 }
 
 
-SceneRuntimeStyleContext BuildGraphicsStressStyleContext( RunLaunchOptions& launchOptions,
-                                                          RunSceneState& scene,
-                                                          SceneController& sceneController,
-                                                          SkullbonezCore::Basics::SceneController& models,
-                                                          const SkullbonezCore::Assets::AssetSystem& assets,
-                                                          EngineConfig& config,
-                                                          const CinematicRenderConfig& defaultCinematicRender )
+SceneRuntimeStyleContext
+BuildGraphicsStressStyleContext( RunLaunchOptions& launchOptions,
+                                 RunSceneState& scene,
+                                 SceneController& sceneController,
+                                 SkullbonezCore::Runtime::SceneController& models,
+                                 const SkullbonezCore::Assets::AssetSystem& assets,
+                                 SkullbonezCore::Core::EngineConfig& config,
+                                 const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender )
 {
     return SceneRuntimeStyleContext{ launchOptions,
                                      scene,
@@ -319,29 +326,34 @@ SceneRuntimeStyleContext BuildGraphicsStressStyleContext( RunLaunchOptions& laun
 }
 
 
-void ApplyGraphicsStressAction( RunLaunchOptions& launchOptions,
-                                EngineConfig& config,
-                                RuntimeRenderer& renderer,
-                                RunDebugState& debug,
-                                RunSceneState& scene,
-                                RunTimerState& timers,
-                                RunCameraState& camera,
-                                SkullbonezCore::UI::InGameUI& ui,
-                                SceneController& sceneController,
-                                const SkullbonezCore::Assets::AssetSystem& assets,
-                                const CinematicRenderConfig& defaultCinematicRender,
-                                SimulationSystem& simulation,
-                                RuntimeTools& runtimeTools,
-                                SkullbonezCore::Environment::WorldEnvironment& world,
-                                ReplayRuntime& replayRuntime,
-                                SkullbonezCore::Basics::SceneController& models,
-                                GraphicsStressController& stress )
+void ApplyGraphicsStressAction( RuntimeFrameHostView& host,
+                                RuntimeFrameInteractionView& interactionOwners,
+                                RuntimeFrameSceneView& sceneOwners,
+                                RuntimeFramePresentationView& presentationOwners )
 {
+    RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
+    SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
+    RuntimeRenderer& renderer = presentationOwners.renderer;
+    RunDebugState& debug = sceneOwners.debug;
+    SceneController& sceneController = sceneOwners.sceneController;
+    RunSceneState& scene = sceneController.State();
+    RunTimerState& timers = sceneOwners.timers;
+    RunCameraState& camera = interactionOwners.camera;
+    SkullbonezCore::UI::InGameUI& ui = interactionOwners.ui;
+    const SkullbonezCore::Assets::AssetSystem& assets = host.assets;
+    const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender =
+        presentationOwners.renderDefaults.CinematicBaseline();
+    SimulationSystem& simulation = sceneOwners.simulation;
+    RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
+    SkullbonezCore::Environment::WorldEnvironment& world = sceneController.World();
+    ReplayRuntime& replayRuntime = interactionOwners.replayRuntime;
+    SkullbonezCore::Runtime::SceneController& models = sceneController;
+    GraphicsStressController& stress = presentationOwners.graphicsStress;
     switch ( stress.NextAction() )
     {
     case 0:
     {
-        CinematicRenderConfig& cinematic = ActiveSceneCinematicConfig( scene, config );
+        SkullbonezCore::Core::CinematicRenderConfig& cinematic = ActiveSceneCinematicConfig( scene, config );
         cinematic.enabled = !cinematic.enabled;
         launchOptions.hasCinematicRenderingOverride = false;
         if ( scene.isSceneMode )
@@ -355,7 +367,7 @@ void ApplyGraphicsStressAction( RunLaunchOptions& launchOptions,
     }
     case 1:
     {
-        CinematicRenderConfig& cinematic = ActiveSceneCinematicConfig( scene, config );
+        SkullbonezCore::Core::CinematicRenderConfig& cinematic = ActiveSceneCinematicConfig( scene, config );
         const UICinematicFeature feature =
             static_cast<UICinematicFeature>( stress.NextInt( static_cast<int>( UICinematicFeature::Count ) ) );
         if ( feature == UICinematicFeature::Shadows )
@@ -367,7 +379,7 @@ void ApplyGraphicsStressAction( RunLaunchOptions& launchOptions,
     }
     case 2:
     {
-        CinematicRenderConfig& cinematic = ActiveSceneCinematicConfig( scene, config );
+        SkullbonezCore::Core::CinematicRenderConfig& cinematic = ActiveSceneCinematicConfig( scene, config );
         const UICinematicParam param =
             static_cast<UICinematicParam>( stress.NextInt( static_cast<int>( UICinematicParam::Count ) ) );
         ApplyCinematicUIParam( cinematic, scene, param, stress.RandomCinematicParamValue( param ) );
@@ -537,6 +549,11 @@ void GraphicsStressController::Configure( unsigned int seed,
     m_actionsPerFrame = actionsPerFrame;
     m_sceneIntervalFrames = sceneIntervalFrames;
     m_memoryLogIntervalFrames = memoryLogIntervalFrames;
+    m_descriptorBaseline = 0;
+    m_descriptorResizeCount = 0;
+    m_lastRecreationGeneration = 0;
+    m_acknowledgedResizeCount = 0;
+    m_textureChurnCount = 0;
 }
 
 
@@ -650,6 +667,92 @@ bool GraphicsStressController::ShouldLogMemory() const
 }
 
 
+bool GraphicsStressController::InDescriptorChurnQuietWindow() const
+{
+    return m_framesRun <= DESCRIPTOR_VERIFY_FRAME;
+}
+
+
+bool GraphicsStressController::ShouldCaptureDescriptorBaseline() const
+{
+    return m_framesRun == DESCRIPTOR_BASELINE_FRAME;
+}
+
+
+bool GraphicsStressController::ShouldIssueDescriptorResize() const
+{
+    return m_framesRun >= DESCRIPTOR_RESIZE_FIRST_FRAME && m_framesRun <= DESCRIPTOR_RESIZE_LAST_FRAME;
+}
+
+
+bool GraphicsStressController::ShouldVerifyDescriptorChurn() const
+{
+    return m_framesRun == DESCRIPTOR_VERIFY_FRAME;
+}
+
+
+void GraphicsStressController::CaptureDescriptorBaseline( unsigned int staticUsed, uint64_t recreationGeneration )
+{
+    m_descriptorBaseline = staticUsed;
+    m_descriptorResizeCount = 0;
+    m_lastRecreationGeneration = recreationGeneration;
+    m_acknowledgedResizeCount = 0;
+    m_textureChurnCount = 0;
+}
+
+
+void GraphicsStressController::ObserveRecreationGeneration( uint64_t recreationGeneration )
+{
+    if ( recreationGeneration > m_lastRecreationGeneration )
+    {
+        m_acknowledgedResizeCount += static_cast<int>( recreationGeneration - m_lastRecreationGeneration );
+        m_lastRecreationGeneration = recreationGeneration;
+    }
+}
+
+
+void GraphicsStressController::RecordDescriptorResize()
+{
+    ++m_descriptorResizeCount;
+}
+
+
+void GraphicsStressController::RecordTextureChurn()
+{
+    ++m_textureChurnCount;
+}
+
+
+bool GraphicsStressController::DescriptorChurnMatchesBaseline( unsigned int staticUsed ) const
+{
+    return m_acknowledgedResizeCount > 128 && m_textureChurnCount > 128 && staticUsed == m_descriptorBaseline;
+}
+
+
+unsigned int GraphicsStressController::DescriptorBaseline() const
+{
+    return m_descriptorBaseline;
+}
+
+
+int GraphicsStressController::DescriptorResizeCount() const
+{
+    return m_descriptorResizeCount;
+}
+
+
+int GraphicsStressController::AcknowledgedResizeCount() const
+{
+    return m_acknowledgedResizeCount;
+}
+
+
+int GraphicsStressController::TextureChurnCount() const
+{
+    return m_textureChurnCount;
+}
+
+
 float GraphicsStressController::RandomCinematicParamValue( UI::UICinematicParam param )
 {
     switch ( param )
@@ -760,30 +863,33 @@ float GraphicsStressController::RandomCinematicParamValue( UI::UICinematicParam 
 // Lifetime: UI stress is a validation harness over synchronous owner borrows.
 // It keeps only deterministic counters in DiagnosticsRuntime and retains no
 // scene, UI, renderer, or input owner after the action batch returns.
-SbResult SkullbonezCore::Basics::RunUIStressActions( DiagnosticsRuntime& m_diagnosticsRuntime,
-                                                     Window* window,
-                                                     RunTimerState& m_timers,
-                                                     SkullbonezCore::UI::InGameUI& m_UI,
-                                                     RuntimeRenderer& m_renderer,
-                                                     RuntimeRenderBackendView& m_renderBackendView,
-                                                     RunDebugState& m_debug,
-                                                     SceneController& m_sceneController,
-                                                     RunCameraState& m_camera,
-                                                     EngineConfig& m_config,
-                                                     SimulationSystem& m_simulation,
-                                                     RuntimeTools& m_runtimeTools,
-                                                     const RunLaunchOptions& m_launchOptions,
-                                                     const RunStartupState& m_startup,
-                                                     ReplayRuntime& m_replayRuntime,
-                                                     InputRouter& m_inputRouter,
-                                                     RuntimeInteractionController& m_interaction,
-                                                     AttachedCameraController& m_attachedCamera,
-                                                     RunCameraMode replayRestoreCameraMode )
+SkullbonezCore::Core::SbResult
+SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
+                                             RuntimeFrameInteractionView& interactionOwners,
+                                             RuntimeFrameSceneView& sceneOwners,
+                                             RuntimeFramePresentationView& presentationOwners,
+                                             RunCameraMode replayRestoreCameraMode )
 {
+    DiagnosticsRuntime& m_diagnosticsRuntime = host.diagnosticsRuntime;
+    Window* window = &host.window;
+    RunTimerState& m_timers = sceneOwners.timers;
+    SkullbonezCore::UI::InGameUI& m_UI = interactionOwners.ui;
+    RuntimeRenderBackendView& m_renderBackendView = presentationOwners.renderBackendView;
+    SceneController& m_sceneController = sceneOwners.sceneController;
+    RunCameraState& m_camera = interactionOwners.camera;
+    SkullbonezCore::Core::EngineConfig& m_config = sceneOwners.config;
+    SimulationSystem& m_simulation = sceneOwners.simulation;
+    RuntimeTools& m_runtimeTools = interactionOwners.runtimeTools;
+    const RunLaunchOptions& m_launchOptions = sceneOwners.launchOptions;
+    const RunStartupState& m_startup = sceneOwners.startup;
+    ReplayRuntime& m_replayRuntime = interactionOwners.replayRuntime;
+    InputRouter& m_inputRouter = interactionOwners.inputRouter;
+    RuntimeInteractionController& m_interaction = interactionOwners.interaction;
+    AttachedCameraController& m_attachedCamera = interactionOwners.attachedCamera;
     UIStressState& stress = m_diagnosticsRuntime.UIStress();
     if ( !stress.enabled || !window )
     {
-        return SbResult::Success();
+        return SkullbonezCore::Core::SbResult::Success();
     }
 
     ++stress.framesRun;
@@ -815,7 +921,8 @@ SbResult SkullbonezCore::Basics::RunUIStressActions( DiagnosticsRuntime& m_diagn
                                                     m_launchOptions.generatedObjectTypeOverride,
                                                     m_startup.gameModelCapacity };
     };
-    const auto executeSceneGeneratedControlAction = [&]( const SceneRuntimeGeneratedControlAction& action ) -> SbResult
+    const auto executeSceneGeneratedControlAction =
+        [&]( const SceneRuntimeGeneratedControlAction& action ) -> SkullbonezCore::Core::SbResult
     {
         if ( !action.status.ok )
         {
@@ -845,14 +952,14 @@ SbResult SkullbonezCore::Basics::RunUIStressActions( DiagnosticsRuntime& m_diagn
         {
             PROFILE_SCHEDULE_RESET();
         }
-        return SbResult::Success();
+        return SkullbonezCore::Core::SbResult::Success();
     };
     if ( stress.framesRun == 18 )
     {
         const int modelCount = 96 + StressHarness::NextInt( stress, 160 );
         if ( allowRuntimeChurn )
         {
-            const SbResult actionResult = executeSceneGeneratedControlAction(
+            const SkullbonezCore::Core::SbResult actionResult = executeSceneGeneratedControlAction(
                 ApplyUIModelCountOverride( makeSceneGeneratedControlContext(), modelCount ) );
             if ( !actionResult.ok )
             {
@@ -866,7 +973,7 @@ SbResult SkullbonezCore::Basics::RunUIStressActions( DiagnosticsRuntime& m_diagn
         const int boxes = StressHarness::NextInt( stress, 1000 - balls + 1 );
         if ( allowRuntimeChurn )
         {
-            const SbResult actionResult = executeSceneGeneratedControlAction(
+            const SkullbonezCore::Core::SbResult actionResult = executeSceneGeneratedControlAction(
                 ApplyUISolverObjectCounts( makeSceneGeneratedControlContext(), balls, boxes ) );
             if ( !actionResult.ok )
             {
@@ -877,49 +984,43 @@ SbResult SkullbonezCore::Basics::RunUIStressActions( DiagnosticsRuntime& m_diagn
     const int actionCount = StressHarness::ActionCount( stress );
     for ( int i = 0; i < actionCount; ++i )
     {
-        ApplyUIStressAction( m_UI,
-                             m_renderer,
-                             m_renderBackendView,
-                             m_debug,
-                             m_sceneController.State(),
-                             m_timers,
-                             m_simulation,
-                             m_sceneController,
-                             m_sceneController.World(),
-                             m_replayRuntime,
-                             stress,
-                             allowRuntimeChurn );
+        ApplyUIStressAction( interactionOwners, sceneOwners, presentationOwners, stress, allowRuntimeChurn );
     }
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
-void SkullbonezCore::Basics::ExecuteGraphicsStressFrame( GraphicsStressController& stress,
-                                                         Window* window,
-                                                         EngineConfig& config,
-                                                         RunLaunchOptions& launchOptions,
-                                                         const CinematicRenderConfig& defaultCinematicRender,
-                                                         const RunStartupState& startup,
-                                                         DiagnosticsRuntime& diagnosticsRuntime,
-                                                         RunTimerState& timers,
-                                                         Assets::AssetSystem& assets,
-                                                         Threading::WorkerPool& workerPool,
-                                                         InputRouter& inputRouter,
-                                                         RuntimeInteractionController& interaction,
-                                                         RunCameraState& camera,
-                                                         AttachedCameraController& attachedCamera,
-                                                         SimulationSystem& simulation,
-                                                         ReplayRuntime& replayRuntime,
-                                                         Runtime::Audio::ContactAudioService& contactAudio,
-                                                         UI::InGameUI& ui,
-                                                         RunDebugState& debug,
-                                                         RuntimeTools& runtimeTools,
-                                                         Physics::PhysicsDebugVisualizer& physicsDebugVisualizer,
-                                                         RuntimeRenderBackendView& renderBackendView,
-                                                         RuntimeRenderer& renderer,
-                                                         SceneController& sceneController,
-                                                         const Rendering::IRenderDiagnostics& renderDiagnostics )
+void SkullbonezCore::Runtime::ExecuteGraphicsStressFrame( RuntimeFrameHostView& host,
+                                                          RuntimeFrameInteractionView& interactionOwners,
+                                                          RuntimeFrameSceneView& sceneOwners,
+                                                          RuntimeFramePresentationView& presentationOwners,
+                                                          const Rendering::IRenderDiagnostics& renderDiagnostics )
 {
+    GraphicsStressController& stress = presentationOwners.graphicsStress;
+    Window* window = &host.window;
+    SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
+    RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
+    const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender =
+        presentationOwners.renderDefaults.CinematicBaseline();
+    const RunStartupState& startup = sceneOwners.startup;
+    DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
+    RunTimerState& timers = sceneOwners.timers;
+    Assets::AssetSystem& assets = host.assets;
+    Threading::WorkerPool& workerPool = host.workerPool;
+    InputRouter& inputRouter = interactionOwners.inputRouter;
+    RuntimeInteractionController& interaction = interactionOwners.interaction;
+    RunCameraState& camera = interactionOwners.camera;
+    AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
+    SimulationSystem& simulation = sceneOwners.simulation;
+    ReplayRuntime& replayRuntime = interactionOwners.replayRuntime;
+    Runtime::Audio::ContactAudioService& contactAudio = sceneOwners.contactAudio;
+    UI::InGameUI& ui = interactionOwners.ui;
+    RunDebugState& debug = sceneOwners.debug;
+    RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
+    Physics::PhysicsDebugVisualizer& physicsDebugVisualizer = presentationOwners.physicsDebugVisualizer;
+    RuntimeRenderBackendView& renderBackendView = presentationOwners.renderBackendView;
+    RuntimeRenderer& renderer = presentationOwners.renderer;
+    SceneController& sceneController = sceneOwners.sceneController;
     // Concept: graphics stress is a deterministic fuzzer over scene loading,
     // cinematic controls, render-path toggles, and heavy generated-scene resets.
     // Keep every mutation reproducible from the launch seed so a crash line in
@@ -973,7 +1074,71 @@ void SkullbonezCore::Basics::ExecuteGraphicsStressFrame( GraphicsStressControlle
             .ok;
     };
 
-    if ( stress.SceneLoadDue() )
+    const SkullbonezCore::Rendering::RenderMemoryStats preActionRenderStats = renderDiagnostics.GetRenderMemoryStats();
+    if ( stress.ShouldCaptureDescriptorBaseline() )
+    {
+        stress.CaptureDescriptorBaseline( preActionRenderStats.srvStaticDescriptorsUsed,
+                                          preActionRenderStats.recreationGeneration );
+        printf( "[graphics-stress-descriptor-churn] baseline=%u frame=%d\n",
+                stress.DescriptorBaseline(),
+                stress.FramesRun() );
+        fflush( stdout );
+    }
+    if ( stress.ShouldIssueDescriptorResize() )
+    {
+        // A request counts only after diagnostics observes the backend's
+        // publication generation advance on a later frame.
+        stress.ObserveRecreationGeneration( preActionRenderStats.recreationGeneration );
+        const int edge = ( stress.DescriptorResizeCount() & 1 ) == 0 ? 1280 : 1281;
+        if ( !SetWindowPos( window->NativeWindowHandle(), nullptr, 0, 0, edge, 720, SWP_NOMOVE | SWP_NOZORDER ) )
+        {
+            SB_FATAL( "GraphicsStress",
+                      "Descriptor churn SetWindowPos failed. resize=%d",
+                      stress.DescriptorResizeCount() );
+        }
+        stress.RecordDescriptorResize();
+        if ( !renderBackendView.renderResources )
+        {
+            SB_FATAL( "GraphicsStress", "Descriptor churn requires the render-resource factory." );
+        }
+        const uint8_t churnPixel[4] = { 255u, 0u, 255u, 255u };
+        const uint32_t churnTexture =
+            renderBackendView.renderResources->CreateTexture2D( churnPixel, 1, 1, 4, false, false );
+        if ( churnTexture == 0 )
+        {
+            SB_FATAL( "GraphicsStress",
+                      "Descriptor churn texture creation failed. request=%d",
+                      stress.DescriptorResizeCount() );
+        }
+        renderBackendView.renderResources->DeleteTexture( churnTexture );
+        stress.RecordTextureChurn();
+    }
+    if ( stress.ShouldVerifyDescriptorChurn() )
+    {
+        stress.ObserveRecreationGeneration( preActionRenderStats.recreationGeneration );
+        if ( !stress.DescriptorChurnMatchesBaseline( preActionRenderStats.srvStaticDescriptorsUsed ) )
+        {
+            SB_FATAL( "GraphicsStress",
+                      "Static descriptor churn did not return to baseline. baseline=%u current=%u requested=%d "
+                      "acknowledged=%d textures=%d",
+                      stress.DescriptorBaseline(),
+                      preActionRenderStats.srvStaticDescriptorsUsed,
+                      stress.DescriptorResizeCount(),
+                      stress.AcknowledgedResizeCount(),
+                      stress.TextureChurnCount() );
+        }
+        printf( "[graphics-stress-descriptor-churn] PASS baseline=%u current=%u requested=%d acknowledged=%d "
+                "textures=%d high_water=%u\n",
+                stress.DescriptorBaseline(),
+                preActionRenderStats.srvStaticDescriptorsUsed,
+                stress.DescriptorResizeCount(),
+                stress.AcknowledgedResizeCount(),
+                stress.TextureChurnCount(),
+                preActionRenderStats.srvStaticDescriptorsHighWater );
+        fflush( stdout );
+    }
+
+    if ( !stress.InDescriptorChurnQuietWindow() && stress.SceneLoadDue() )
     {
         // Hazard: suite order is the durable test contract. Browser fallback is
         // useful for manual app launches, but automated repros must prefer the
@@ -1019,29 +1184,13 @@ void SkullbonezCore::Basics::ExecuteGraphicsStressFrame( GraphicsStressControlle
     ui.SetMinimized( false, timers.simulationTimer.GetTotalTime() );
     sceneController.EnterInteractiveRun();
 
-    const int actionCount = stress.ActionCount();
+    const int actionCount = stress.InDescriptorChurnQuietWindow() ? 0 : stress.ActionCount();
     // Invariant: random values stay inside the same broad ranges exposed by the
     // runtime UI. The stress test should crash bad DX12 lifetime/state tracking,
     // not manufacture impossible physics or render data.
     for ( int i = 0; i < actionCount; ++i )
     {
-        ApplyGraphicsStressAction( launchOptions,
-                                   config,
-                                   renderer,
-                                   debug,
-                                   sceneController.State(),
-                                   timers,
-                                   camera,
-                                   ui,
-                                   sceneController,
-                                   assets,
-                                   defaultCinematicRender,
-                                   simulation,
-                                   runtimeTools,
-                                   sceneController.World(),
-                                   replayRuntime,
-                                   sceneController,
-                                   stress );
+        ApplyGraphicsStressAction( host, interactionOwners, sceneOwners, presentationOwners );
     }
 
     if ( stress.ShouldPrintFrameSummary() )
@@ -1058,7 +1207,7 @@ void SkullbonezCore::Basics::ExecuteGraphicsStressFrame( GraphicsStressControlle
         // Why: long stress runs need memory attribution before shutdown. If the
         // process is killed after a climb, this stdout line survives with the
         // same seed/frame/scene-load position as the repro log.
-        const MainMemoryStats& memoryStats =
+        const SkullbonezCore::Core::MainMemoryStats& memoryStats =
             diagnosticsRuntime.RefreshMainMemoryStats( replayRuntime,
                                                        sceneController,
                                                        timers.simulationTimer.GetTotalTime(),
@@ -1070,8 +1219,11 @@ void SkullbonezCore::Basics::ExecuteGraphicsStressFrame( GraphicsStressControlle
                 "render_available=%d render_adapter_available=%d dxgi_local_usage_bytes=%llu "
                 "dxgi_nonlocal_usage_bytes=%llu dxgi_local_budget_bytes=%llu dxgi_nonlocal_budget_bytes=%llu "
                 "upload_capacity_bytes=%llu upload_used_bytes=%llu upload_peak_bytes=%llu timer_readback_bytes=%llu "
+                "upload_constants_peak_bytes=%llu upload_dynamic_peak_bytes=%llu upload_instances_peak_bytes=%llu "
+                "upload_textures_peak_bytes=%llu upload_overlay_peak_bytes=%llu upload_flushes=%llu upload_drops=%llu "
                 "textures=%zu texture_capacity=%zu psos=%zu graph_transients=%zu graph_transient_capacity=%zu "
                 "rtv_used=%u rtv_capacity=%u dsv_used=%u dsv_capacity=%u srv_static_used=%u srv_static_capacity=%u "
+                "srv_static_high_water=%u "
                 "srv_transient_used=%u srv_transient_capacity=%u srv_transient_peak=%u\n",
                 stress.FramesRun(),
                 stress.SceneLoadsRequested(),
@@ -1094,6 +1246,18 @@ void SkullbonezCore::Basics::ExecuteGraphicsStressFrame( GraphicsStressControlle
                 static_cast<unsigned long long>( renderStats.uploadUsedBytes ),
                 static_cast<unsigned long long>( renderStats.uploadPeakBytes ),
                 static_cast<unsigned long long>( renderStats.timerReadbackBytes ),
+                static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                    SkullbonezCore::Rendering::RenderUploadCategory::Constants )] ),
+                static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                    SkullbonezCore::Rendering::RenderUploadCategory::DynamicVertex )] ),
+                static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                    SkullbonezCore::Rendering::RenderUploadCategory::InstanceData )] ),
+                static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                    SkullbonezCore::Rendering::RenderUploadCategory::TextureRows )] ),
+                static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>(
+                    SkullbonezCore::Rendering::RenderUploadCategory::DebugPredictionOverlay )] ),
+                static_cast<unsigned long long>( renderStats.uploadFlushCount ),
+                static_cast<unsigned long long>( renderStats.uploadDropCount ),
                 renderStats.textureRegistryCount,
                 renderStats.textureRegistryCapacity,
                 renderStats.psoCacheCount,
@@ -1105,6 +1269,7 @@ void SkullbonezCore::Basics::ExecuteGraphicsStressFrame( GraphicsStressControlle
                 renderStats.dsvDescriptorsCapacity,
                 renderStats.srvStaticDescriptorsUsed,
                 renderStats.srvStaticDescriptorsCapacity,
+                renderStats.srvStaticDescriptorsHighWater,
                 renderStats.srvTransientDescriptorsUsedThisFrame,
                 renderStats.srvTransientDescriptorsCapacityPerFrame,
                 renderStats.srvTransientDescriptorsPeakThisRun );

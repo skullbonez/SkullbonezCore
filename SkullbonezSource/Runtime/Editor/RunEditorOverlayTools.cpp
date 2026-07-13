@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.cpp
 Purpose:
   Builds editor hover, placement-preview, and gizmo overlay traces.
 
-Mental model:
+Summary:
   Overlay trace work is presentation of editor state. It computes hover axes and
   preview markers without owning the model collection or committing placement.
 
@@ -38,7 +38,7 @@ using SkullbonezCore::Physics::PhysicsColliderHandle;
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace RunInternal
 {
@@ -238,5 +238,5 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
     }
 }
 } // namespace RunInternal
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

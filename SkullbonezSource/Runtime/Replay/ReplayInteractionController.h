@@ -4,7 +4,7 @@ Purpose:
   Owns replay restore commands and retained drag-start values that mutate
   replay UI state.
 
-Mental model:
+Summary:
   ReplayInteractionController converts operator replay intent into replay-owned
   state changes. It builds a one-frame restore command; ReplayRuntime owns the
   cross-owner transaction and returns the result for UI publication.
@@ -40,7 +40,7 @@ namespace Physics
 {
 class PhysicsEngine;
 }
-namespace Basics
+namespace Runtime
 {
 // Invariant: replay input clamping and editor visualization share this exact
 // scale so gizmo affordances cannot advertise velocity the command rejects.
@@ -106,5 +106,5 @@ class ReplayInteractionController
                                               bool restored,
                                               RunReplayTrack messageTrack );
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.h
 Purpose:
   Declares the process-wide runtime allocation phase tracker.
 
-Mental model:
+Summary:
   The tracker is measurement infrastructure, not a gameplay allocator. Runtime
   code labels broad lifecycle phases, and the global allocation hook records
   which phase owned each heap request.
@@ -18,6 +18,8 @@ Glossary:
 
 Invariants:
   - Tracker storage is fixed and must not allocate while recording or reporting.
+  - Phase scopes remain active when the optional allocation counter is off;
+    renderer and reserve policies consume the same lifecycle label.
   - Worker threads read the same process phase as the main thread so parallel
     physics allocations cannot hide behind a default thread-local phase.
 
@@ -69,7 +71,6 @@ class RuntimeAllocationScope
 
   private:
     RuntimeAllocationPhase m_previous;
-    bool m_active;
 };
 
 void SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode mode ) noexcept;

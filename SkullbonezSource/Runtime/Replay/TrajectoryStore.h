@@ -4,7 +4,7 @@ Purpose:
   Defines the replay trajectory store: versioned path records with explicit
   published point prefixes for past and future overlay lanes.
 
-Mental model:
+Summary:
   Builders own mutation. Renderers read only records whose `publishedPointCount`
   says a complete prefix is available. Replacing a record increments its
   version; appending points under the published prefix does not.
@@ -34,7 +34,7 @@ Related:
 #include <cstdint>
 #include <vector>
 
-namespace SkullbonezCore::Basics
+namespace SkullbonezCore::Runtime
 {
 enum class ReplayTrajectoryLane : uint8_t
 {
@@ -104,4 +104,4 @@ struct ReplayTrajectoryStore
 
 bool operator==( const ReplayTrajectoryRecordKey& lhs, const ReplayTrajectoryRecordKey& rhs ) noexcept;
 bool operator!=( const ReplayTrajectoryRecordKey& lhs, const ReplayTrajectoryRecordKey& rhs ) noexcept;
-} // namespace SkullbonezCore::Basics
+} // namespace SkullbonezCore::Runtime

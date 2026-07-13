@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UILayout.h
 Purpose:
   Implements UI Layout widgets, layout, drawing, or UI state for the in-engine controls.
 
-Mental model:
+Summary:
   UILayout.h implements UI Layout widgets, layout, drawing, or UI state for
   the in-engine controls. As a public header, keep edits anchored on UI
   request, layout, hit-test, and draw-command flow and on the

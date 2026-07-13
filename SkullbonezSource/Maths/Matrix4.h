@@ -3,7 +3,7 @@ File: SkullbonezSource/Maths/Matrix4.h
 Purpose:
   Declares the engine matrix type and common transform operations.
 
-Mental model:
+Summary:
   Matrix4.h declares the engine matrix type and common transform operations.
   As a public header, keep edits anchored on units, basis conventions, and
   numerical assumptions and on the glossary/invariants below.

@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UITabScene.h
 Purpose:
   Implements UI TabScene widgets, layout, drawing, or UI state for the in-engine controls.
 
-Mental model:
+Summary:
   UITabScene.h implements UI TabScene widgets, layout, drawing, or UI state
   for the in-engine controls. As a public header, keep edits anchored on UI
   request, layout, hit-test, and draw-command flow and on the
@@ -32,7 +32,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 class InputKeySnapshot;
 }
@@ -79,7 +79,7 @@ void ResetPreviewState( UISceneTabState& state );
 void UpdateFilterTyping( UISceneTabState& state,
                          UIComboBox& combo,
                          InGameUIInputResult& result,
-                         const Basics::InputKeySnapshot& keys,
+                         const Runtime::InputKeySnapshot& keys,
                          const char* const* sceneOptions,
                          int sceneOptionCount );
 
@@ -114,7 +114,7 @@ bool HandleContentClick( UISceneTabState& state,
                          UIButton& resetDefaultsButton,
                          UIButton& saveDefaultsButton,
                          InGameUIInputResult& result,
-                         const Basics::InputKeySnapshot& keys,
+                         const Runtime::InputKeySnapshot& keys,
                          int& activeSlider,
                          const char* const* sceneOptions,
                          int sceneOptionCount,

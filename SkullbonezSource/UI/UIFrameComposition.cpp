@@ -4,7 +4,7 @@ Purpose:
   Implements stateless UI frame signatures, resource-preview helpers, and
   minimized-window geometry shared by the UI owner and palette units.
 
-Mental model:
+Summary:
   UI.cpp owns retained widget state. These functions derive bounded hashes,
   rectangles, labels, and draw submissions from explicit frame values without
   retaining a host or frame borrow.
@@ -85,7 +85,7 @@ float MinimizedWidthWithCameraModeCombo( const char* title, int screenW )
     constexpr float textSize = 12.5f;
     constexpr float titleLeft = 32.0f;
     const float maxW = (std::max)( 154.0f, static_cast<float>( screenW ) - margin * 2.0f );
-    const float titleW = Text2d::MeasureText( textSize, title ? title : "" );
+    const float titleW = Text::Text2d::MeasureText( textSize, title ? title : "" );
     const float desiredW =
         titleLeft + titleW + MINIMIZED_CAMERA_MODE_GAP + MINIMIZED_CAMERA_MODE_COMBO_W + MINIMIZED_RESTORE_W;
     return std::clamp( desiredW, 154.0f, maxW );
@@ -503,8 +503,8 @@ uint32_t BuildUIInteractionSignature( int mouseX,
 
 
 void FlushUIDrawList( const UIDrawList& drawList,
-                      IRenderCommandContext& renderCommands,
-                      IRenderDiagnostics& renderDiagnostics,
+                      Rendering::IRenderCommandContext& renderCommands,
+                      Rendering::IRenderDiagnostics& renderDiagnostics,
                       int screenW,
                       int screenH,
                       float offsetX,
@@ -515,11 +515,11 @@ void FlushUIDrawList( const UIDrawList& drawList,
     drawList.Flush( immediateDraw, offsetX, offsetY );
     {
         DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Widgets" );
-        Text2d::FlushQuads( renderCommands );
+        Text::Text2d::FlushQuads( renderCommands );
     }
     {
         DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Text" );
-        Text2d::FlushText( renderCommands );
+        Text::Text2d::FlushText( renderCommands );
     }
     PROFILE_GPU_END( "Frame/UI/Draw" );
 }
@@ -676,7 +676,8 @@ void DrawEditorObjectCounter( const UIDrawContext& draw,
     constexpr float height = 30.0f;
     const float availableW = (std::max)( 1.0f, static_cast<float>( screenW ) - margin * 2.0f );
     const float minW = (std::min)( 140.0f, availableW );
-    const float width = std::clamp( Text2d::MeasureText( fontSize, counterText ) + padX * 2.0f, minW, availableW );
+    const float width =
+        std::clamp( Text::Text2d::MeasureText( fontSize, counterText ) + padX * 2.0f, minW, availableW );
     UIRect bounds = { static_cast<float>( screenW ) - margin - width, margin, width, height };
 
     if ( avoidBounds && IntersectRect( bounds, *avoidBounds ).w > 0.0f )
@@ -713,7 +714,7 @@ void DrawEditorObjectCounter( const UIDrawContext& draw,
 }
 
 
-void EnsureRenderTargetPreviewResources( std::unique_ptr<IShader>& shader,
+void EnsureRenderTargetPreviewResources( std::unique_ptr<Rendering::IShader>& shader,
                                          uint32_t& dynamicVB,
                                          const UIRenderContext& render )
 {
@@ -741,9 +742,9 @@ void EnsureRenderTargetPreviewResources( std::unique_ptr<IShader>& shader,
 }
 
 
-void ResetRenderTargetPreviewResources( std::unique_ptr<IShader>& shader,
+void ResetRenderTargetPreviewResources( std::unique_ptr<Rendering::IShader>& shader,
                                         uint32_t& dynamicVB,
-                                        IRenderResourceFactory* resources )
+                                        Rendering::IRenderResourceFactory* resources )
 {
     shader.reset();
     if ( dynamicVB != 0 )
@@ -757,7 +758,7 @@ void ResetRenderTargetPreviewResources( std::unique_ptr<IShader>& shader,
 }
 
 
-void DrawRenderTargetPreviewTexture( std::unique_ptr<IShader>& shader,
+void DrawRenderTargetPreviewTexture( std::unique_ptr<Rendering::IShader>& shader,
                                      uint32_t& dynamicVB,
                                      const UIDrawContext& draw,
                                      const UIRenderTargetPreviewResource& resource,
@@ -797,13 +798,14 @@ void DrawRenderTargetPreviewTexture( std::unique_ptr<IShader>& shader,
         left, bottom, uvLeft, uvBottom, right, top,    uvRight, uvTop,    left,  top, uvLeft,  uvTop,
     };
 
-    const Matrix4 proj = Matrix4::Ortho( -draw.HalfW(), draw.HalfW(), -draw.HalfH(), draw.HalfH(), -1.0f, 1.0f );
-    IRenderCommandContext& commands = *render.commands;
+    const Math::Transformation::Matrix4 proj =
+        Math::Transformation::Matrix4::Ortho( -draw.HalfW(), draw.HalfW(), -draw.HalfH(), draw.HalfH(), -1.0f, 1.0f );
+    Rendering::IRenderCommandContext& commands = *render.commands;
     const bool depthTestWasEnabled = commands.IsDepthTestEnabled();
     const bool depthWriteWasEnabled = commands.IsDepthWriteEnabled();
     const bool blendWasEnabled = commands.IsBlendEnabled();
-    BlendFactor blendSrc = BlendFactor::One;
-    BlendFactor blendDst = BlendFactor::Zero;
+    Rendering::BlendFactor blendSrc = Rendering::BlendFactor::One;
+    Rendering::BlendFactor blendDst = Rendering::BlendFactor::Zero;
     commands.GetBlendFunc( blendSrc, blendDst );
 
     const int mode = resource.depth ? 2 : ( resource.hdr ? 1 : 0 );

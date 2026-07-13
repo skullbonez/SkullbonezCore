@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/BuoyancySystem.cpp
 Purpose:
   Implements deterministic sphere-cap buoyancy snapshots for sleep policy.
 
-Mental model:
+Summary:
   The main force integrator already computes broad fluid forces for all bodies.
   Underwater sleep locking needs one narrow question: is this ball fully
   submerged now? This file answers that question and writes only the body row's
@@ -50,7 +50,7 @@ bool BuoyancySystem::IsFullySubmergedBall( const PhysicsBodyRecord& bodyRecord,
                                            const ColliderStore& colliderStore,
                                            int index )
 {
-    const ColliderRecordList& colliders = colliderStore.Records();
+    const auto colliders = colliderStore.Records();
     if ( index < 0 || index >= static_cast<int>( colliders.size() ) || bodyRecord.isFixed ||
          colliders[static_cast<std::size_t>( index )].shapeKind != ColliderShapeKind::Sphere )
     {
@@ -73,7 +73,7 @@ bool BuoyancySystem::RefreshUnderwaterSubmersionForBall( const PhysicsWorldForce
     }
 
     bodyRecord->submergedVolumePercent = 0.0f;
-    const ColliderRecordList& colliders = colliderStore.Records();
+    const auto colliders = colliderStore.Records();
     if ( index < 0 || index >= static_cast<int>( colliders.size() ) )
     {
         return false;

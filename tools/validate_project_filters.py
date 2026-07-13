@@ -101,7 +101,6 @@ GAME_OBJECT_PREFIXES = (
     "GameModelSoACache",
     "GameModelStreams",
     "GameModel",
-    "SceneCapacity",
 )
 
 PHYSICS_PREFIXES = (
@@ -156,6 +155,7 @@ DX12_RENDERING_PREFIXES = (
     "BLASDX12",
     "Dx12CachedPsoStore",
     "Dx12RenderGraphExecutor",
+    "Dx12TextureRegistry",
     "FramebufferDX12",
     "GeneratedShaderReflection",
     "MeshDX12",
@@ -183,6 +183,7 @@ RENDERING_PREFIXES = (
     "IRenderShaderDevelopment",
     "IRenderResourceFactory",
     "IShader",
+    "PrimitiveBatchRenderer",
     "PrimitiveMeshBuilder",
     "RenderGraph",
     "RenderRasterBindingContract",
@@ -250,6 +251,7 @@ RUNTIME_PREFIXES = (
     "RenderDefaultsStore",
     "RuntimeCameraMode",
     "RuntimeDiagnostics",
+    "RuntimeFrameViews",
     "RuntimeFileWriter",
     "RuntimeInteractionCommands",
     "RuntimeInteractionController",
@@ -264,6 +266,7 @@ RUNTIME_PREFIXES = (
 
 RUNTIME_SCENE_PREFIXES = (
     "RunScene",
+    "SceneCapacity",
     "SceneController",
     "SceneControllerState",
     "SceneTerrain",
@@ -366,6 +369,7 @@ CORE_PREFIXES = (
     "Log",
     "MainMemoryStats",
     "PlatformProfiler",
+    "PlatformWin32",
     "Profiler",
     "SbResult",
     "SkullScope",

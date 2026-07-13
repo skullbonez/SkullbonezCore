@@ -1,15 +1,15 @@
 /*
 File: SkullbonezTests/TestConfig.cpp
 Purpose:
-  Locks the public EngineConfig file-load and stable-dump compatibility contract.
+  Locks the public SkullbonezCore::Core::EngineConfig file-load and stable-dump compatibility contract.
 
-Mental model:
-  EngineConfig::Load treats engine.cfg as a tolerant cold data boundary: valid
+Summary:
+  SkullbonezCore::Core::EngineConfig::Load treats engine.cfg as a tolerant cold data boundary: valid
   rows apply, while unknown or malformed rows warn and leave their destinations
   unchanged. Dump walks the same registry in one stable compatibility order.
 
 Glossary:
-  Registry row: One public key, value type/range, and EngineConfig destination.
+  Registry row: One public key, value type/range, and SkullbonezCore::Core::EngineConfig destination.
   Stable key hash: Compact fingerprint of every dumped key in traversal order;
     it detects an omission, duplicate, rename, or reorder without copying the
     full 218-key registry into this test.
@@ -38,7 +38,7 @@ Related:
 #include <string>
 #include <vector>
 
-using SkullbonezCore::Basics::EngineConfig;
+using SkullbonezCore::Core::EngineConfig;
 
 namespace
 {
@@ -67,7 +67,7 @@ bool WriteTextFile( const char* path, const char* text )
     return fclose( file ) == 0 && wroteAll;
 }
 
-bool DumpConfig( const EngineConfig& config )
+bool DumpConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
     FILE* file = nullptr;
     if ( fopen_s( &file, kConfigDumpPath, "wb" ) != 0 || !file )
@@ -104,7 +104,7 @@ uint64_t AppendStableHash( uint64_t hash, const std::string& text )
 }
 } // namespace
 
-TEST_CASE( "EngineConfig: valid file produces the stable complete dump order" )
+TEST_CASE( "SkullbonezCore::Core::EngineConfig: valid file produces the stable complete dump order" )
 {
     TemporaryConfigFiles files;
     REQUIRE( WriteTextFile( kConfigInputPath,
@@ -114,7 +114,7 @@ TEST_CASE( "EngineConfig: valid file produces the stable complete dump order" )
                             "sky_front = unit_sky_front.jpg\n"
                             "contact_audio_debug_counters = on\n" ) );
 
-    EngineConfig config;
+    SkullbonezCore::Core::EngineConfig config;
     REQUIRE( config.Load( kConfigInputPath ).ok );
     CHECK( config.window.screenX == 2048 );
     CHECK( config.window.fullscreen );
@@ -143,7 +143,7 @@ TEST_CASE( "EngineConfig: valid file produces the stable complete dump order" )
     CHECK( lines.back() == "contact_audio_debug_counters = 1" );
 }
 
-TEST_CASE( "EngineConfig: unknown key is ignored and later valid rows still apply" )
+TEST_CASE( "SkullbonezCore::Core::EngineConfig: unknown key is ignored and later valid rows still apply" )
 {
     TemporaryConfigFiles files;
     REQUIRE( WriteTextFile( kConfigInputPath,
@@ -151,14 +151,14 @@ TEST_CASE( "EngineConfig: unknown key is ignored and later valid rows still appl
                             "unit_unknown_setting = 77\n"
                             "screen_y = 777\n" ) );
 
-    EngineConfig config;
+    SkullbonezCore::Core::EngineConfig config;
     REQUIRE( config.Load( kConfigInputPath ).ok );
     CHECK( config.window.screenX == 2222 );
     CHECK( config.window.screenY == 777 );
     CHECK( config.window.refreshRate == 75 );
 }
 
-TEST_CASE( "EngineConfig: malformed and out-of-range values preserve defaults" )
+TEST_CASE( "SkullbonezCore::Core::EngineConfig: malformed and out-of-range values preserve defaults" )
 {
     TemporaryConfigFiles files;
     REQUIRE( WriteTextFile( kConfigInputPath,
@@ -167,7 +167,7 @@ TEST_CASE( "EngineConfig: malformed and out-of-range values preserve defaults" )
                             "physics_sleep_frames = 1000001\n"
                             "screen_y = 720\n" ) );
 
-    EngineConfig config;
+    SkullbonezCore::Core::EngineConfig config;
     REQUIRE( config.Load( kConfigInputPath ).ok );
     CHECK( config.window.screenX == 1800 );
     CHECK( config.worldForces.gravity == doctest::Approx( -30.0f ) );
@@ -175,17 +175,17 @@ TEST_CASE( "EngineConfig: malformed and out-of-range values preserve defaults" )
     CHECK( config.window.screenY == 720 );
 }
 
-TEST_CASE( "EngineConfig: current version loads and future version fails before mutation" )
+TEST_CASE( "SkullbonezCore::Core::EngineConfig: current version loads and future version fails before mutation" )
 {
     TemporaryConfigFiles files;
     REQUIRE( WriteTextFile( kConfigInputPath, "format_version = 1\nscreen_x = 2048\n" ) );
 
-    EngineConfig current;
+    SkullbonezCore::Core::EngineConfig current;
     REQUIRE( current.Load( kConfigInputPath ).ok );
     CHECK( current.window.screenX == 2048 );
 
     REQUIRE( WriteTextFile( kConfigInputPath, "screen_x = 1234\nformat_version = 2\n" ) );
-    EngineConfig future;
+    SkullbonezCore::Core::EngineConfig future;
     const auto result = future.Load( kConfigInputPath );
     CHECK_FALSE( result.ok );
     CHECK( std::string( result.error.owner ) == "Core/EngineConfig" );

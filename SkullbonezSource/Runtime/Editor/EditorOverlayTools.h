@@ -4,7 +4,7 @@ Purpose:
   Declares editor preview and tool-overlay trace helpers used by runtime input
   and render callback composition.
 
-Mental model:
+Summary:
   Run still owns runtime side effects. Editor overlay helpers refresh editor
   preview state and append deterministic tool geometry to the shared tracer from
   explicit borrowed state.
@@ -43,7 +43,7 @@ namespace Assets
 {
 class AssetSystem;
 }
-namespace Basics
+namespace Runtime
 {
 class SceneController;
 }
@@ -57,7 +57,7 @@ class ColliderStore;
 class PhysicsEngine;
 class PhysicsBodyStore;
 } // namespace Physics
-namespace Basics
+namespace Runtime
 {
 class RuntimeInteractionController;
 class RunEditorTracer;
@@ -70,7 +70,7 @@ namespace RunInternal
 struct EditorInteractionPreviewContext
 {
     RunEditorPlacementState& editor;
-    Basics::SceneController& models;
+    Runtime::SceneController& models;
     Physics::PhysicsEngine& physics;
     // Lifetime: preview validation borrows stores only when a selection exists;
     // null means the frame has no live selection identity to validate.
@@ -102,7 +102,7 @@ struct EditorToolOverlayTraceContext
     const RunEditorPlacementState& editor;
     const RunRayCastTestState& rayCastTest;
     const RunMousePickupState& mousePickup;
-    const Basics::SceneController& models;
+    const Runtime::SceneController& models;
     const Physics::PhysicsBodyStore& bodyStore;
     const Physics::ColliderStore& colliderStore;
     const Assets::AssetSystem& assets;
@@ -123,5 +123,5 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteraction
                                                                const EditorInteractionPreviewInput& input );
 void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input );
 } // namespace RunInternal
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

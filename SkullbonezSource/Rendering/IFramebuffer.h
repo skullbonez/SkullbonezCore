@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/IFramebuffer.h
 Purpose:
   Declares the renderer-neutral off-screen framebuffer interface.
 
-Mental model:
+Summary:
   IFramebuffer.h declares the renderer-neutral off-screen framebuffer
   interface. As a public header, keep edits anchored on render submission and
   resource lifetime and on the glossary/invariants below.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/FramebufferDX12.cpp
 Purpose:
   Implements off-screen framebuffer resources and descriptor views for the DX12 renderer.
 
-Mental model:
+Summary:
   FramebufferDX12.cpp implements off-screen framebuffer resources and
   descriptor views for the DX12 renderer. As an implementation unit, keep
   edits anchored on DX12 ownership, descriptors, resources, and command
@@ -63,9 +63,10 @@ FramebufferDX12::FramebufferDX12( Dx12RenderDevice& device,
                                   FramebufferColorFormat colorFormat )
     : m_device( device ), m_pipeline( pipeline ), m_textures( textures ), m_rtvDescriptors( rtvDescriptors ),
       m_dsvDescriptors( dsvDescriptors ), m_srvDescriptors( srvDescriptors ), m_drawGate( drawGate ),
-      m_resourceRelease( resourceRelease ), m_colorTexture( nullptr ), m_depthTexture( nullptr ), m_srvIndex( 0 ),
-      m_depthSrvIndex( 0 ), m_texHandle( 0 ), m_depthTexHandle( 0 ), m_colorFormat( colorFormat ), m_width( 0 ),
-      m_height( 0 ), m_depthState( D3D12_RESOURCE_STATE_DEPTH_WRITE )
+      m_resourceRelease( resourceRelease ), m_colorTexture( nullptr ), m_depthTexture( nullptr ),
+      m_rtvIndex( UINT_MAX ), m_dsvIndex( UINT_MAX ), m_srvIndex( UINT_MAX ), m_depthSrvIndex( UINT_MAX ),
+      m_texHandle( 0 ), m_depthTexHandle( 0 ), m_colorFormat( colorFormat ), m_width( 0 ), m_height( 0 ),
+      m_depthState( D3D12_RESOURCE_STATE_DEPTH_WRITE )
 {
     m_rtvHandle = {};
     m_dsvHandle = {};
@@ -129,12 +130,13 @@ bool FramebufferDX12::Create( int width, int height )
         // Lane R: off-screen targets are optional render resources for
         // reflection, shadow, and post passes. The factory returns null and the
         // owning pass skips until a later recreate succeeds.
-        Log().WriteEventf( "dx12_framebuffer_color_create_failed hresult=0x%08X width=%d height=%d format=%u",
-                           static_cast<unsigned int>( colorResult ),
-                           width,
-                           height,
-                           static_cast<unsigned int>( colorFormat ) );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_framebuffer_color_create_failed hresult=0x%08X width=%d height=%d format=%u",
+            static_cast<unsigned int>( colorResult ),
+            width,
+            height,
+            static_cast<unsigned int>( colorFormat ) );
+        SkullbonezCore::Core::Log().FlushAll();
         return false;
     }
     NameDx12Object( m_colorTexture, L"Skullbonez DX12 Framebuffer Color Texture" );
@@ -168,11 +170,12 @@ bool FramebufferDX12::Create( int width, int height )
                                                                  IID_PPV_ARGS( &m_depthTexture ) );
     if ( FAILED( depthResult ) )
     {
-        Log().WriteEventf( "dx12_framebuffer_depth_create_failed hresult=0x%08X width=%d height=%d",
-                           static_cast<unsigned int>( depthResult ),
-                           width,
-                           height );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_framebuffer_depth_create_failed hresult=0x%08X width=%d height=%d",
+            static_cast<unsigned int>( depthResult ),
+            width,
+            height );
+        SkullbonezCore::Core::Log().FlushAll();
         ResetResources();
         return false;
     }
@@ -181,14 +184,18 @@ bool FramebufferDX12::Create( int width, int height )
     // Allocate descriptor rows from the backend heaps. The color/depth textures
     // are the resources; RTV/DSV are the binding records that let the output
     // merger write into those resources.
-    m_rtvHandle = m_rtvDescriptors.Allocate().cpuHandle;
+    const Dx12CpuDescriptorAllocation rtvAllocation = m_rtvDescriptors.Allocate();
+    m_rtvIndex = rtvAllocation.index;
+    m_rtvHandle = rtvAllocation.cpuHandle;
     // Create a Render Target View (RTV). This descriptor tells the GPU how to
     // interpret the color texture when writing pixels to it during rendering.
     // Without this view, the GPU cannot use the texture as a render target.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createrendertargetview
     device->CreateRenderTargetView( m_colorTexture, nullptr, m_rtvHandle );
 
-    m_dsvHandle = m_dsvDescriptors.Allocate().cpuHandle;
+    const Dx12CpuDescriptorAllocation dsvAllocation = m_dsvDescriptors.Allocate();
+    m_dsvIndex = dsvAllocation.index;
+    m_dsvHandle = dsvAllocation.cpuHandle;
     D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
     dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
     dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
@@ -211,6 +218,7 @@ bool FramebufferDX12::Create( int width, int height )
     // views: RTV for writing, SRV for reading.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createshaderresourceview
     device->CreateShaderResourceView( m_colorTexture, &srvDesc, m_srvDescriptors.StagingCpuHandle( m_srvIndex ) );
+    m_srvDescriptors.PublishStaticDescriptor( device, m_srvIndex );
 
     // Register the SRV with the normal backend texture registry so renderer code
     // can bind this framebuffer with a texture handle instead of a raw descriptor
@@ -228,6 +236,7 @@ bool FramebufferDX12::Create( int width, int height )
     device->CreateShaderResourceView( m_depthTexture,
                                       &depthSrvDesc,
                                       m_srvDescriptors.StagingCpuHandle( m_depthSrvIndex ) );
+    m_srvDescriptors.PublishStaticDescriptor( device, m_depthSrvIndex );
     m_depthTexHandle = m_textures.RegisterSRV( m_depthSrvIndex );
     m_depthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
     m_width = width;
@@ -343,20 +352,23 @@ void FramebufferDX12::Unbind() const
 void FramebufferDX12::ResetResources()
 {
     const bool backendReady = m_device.Device() != nullptr;
+    UINT colorSrvToRetire = UINT_MAX;
+    UINT depthSrvToRetire = UINT_MAX;
     if ( backendReady && m_texHandle != 0 )
     {
-        m_textures.UnregisterSRV( m_texHandle );
+        colorSrvToRetire = m_textures.UnregisterSRV( m_texHandle );
     }
     if ( backendReady && m_depthTexHandle != 0 )
     {
-        m_textures.UnregisterSRV( m_depthTexHandle );
+        depthSrvToRetire = m_textures.UnregisterSRV( m_depthTexHandle );
     }
 
     if ( m_colorTexture )
     {
         if ( backendReady )
         {
-            m_resourceRelease.Retire( m_colorTexture );
+            m_resourceRelease.Retire( m_colorTexture, colorSrvToRetire, m_rtvDescriptors, m_rtvIndex );
+            colorSrvToRetire = UINT_MAX;
         }
         else
         {
@@ -368,7 +380,8 @@ void FramebufferDX12::ResetResources()
     {
         if ( backendReady )
         {
-            m_resourceRelease.Retire( m_depthTexture );
+            m_resourceRelease.Retire( m_depthTexture, depthSrvToRetire, m_dsvDescriptors, m_dsvIndex );
+            depthSrvToRetire = UINT_MAX;
         }
         else
         {
@@ -376,9 +389,19 @@ void FramebufferDX12::ResetResources()
         }
         m_depthTexture = nullptr;
     }
+    if ( backendReady && colorSrvToRetire != UINT_MAX )
+    {
+        m_resourceRelease.RetireStaticDescriptor( colorSrvToRetire );
+    }
+    if ( backendReady && depthSrvToRetire != UINT_MAX )
+    {
+        m_resourceRelease.RetireStaticDescriptor( depthSrvToRetire );
+    }
     m_texHandle = 0;
     m_depthTexHandle = 0;
-    m_srvIndex = 0;
-    m_depthSrvIndex = 0;
+    m_rtvIndex = UINT_MAX;
+    m_dsvIndex = UINT_MAX;
+    m_srvIndex = UINT_MAX;
+    m_depthSrvIndex = UINT_MAX;
     m_depthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
 }

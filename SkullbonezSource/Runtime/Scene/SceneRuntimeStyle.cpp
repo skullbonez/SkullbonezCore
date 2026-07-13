@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.cpp
 Purpose:
   Applies live scene style and cinematic override state outside Run.
 
-Mental model:
+Summary:
   Live style changes are scene-runtime behavior: they retint/reset existing
   renderable objects, apply material overrides, and merge authored cinematic
   fields over engine defaults without rebuilding the current scene.
@@ -40,22 +40,24 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
-CinematicRenderConfig& ActiveSceneCinematicConfig( RunSceneState& scene, EngineConfig& config )
+SkullbonezCore::Core::CinematicRenderConfig& ActiveSceneCinematicConfig( RunSceneState& scene,
+                                                                         SkullbonezCore::Core::EngineConfig& config )
 {
     return scene.isSceneMode ? scene.cinematicRender : config.cinematicRender;
 }
 
 
-const CinematicRenderConfig& ActiveSceneCinematicConfig( const RunSceneState& scene, const EngineConfig& config )
+const SkullbonezCore::Core::CinematicRenderConfig&
+ActiveSceneCinematicConfig( const RunSceneState& scene, const SkullbonezCore::Core::EngineConfig& config )
 {
     return scene.isSceneMode ? scene.cinematicRender : config.cinematicRender;
 }
 
 
 bool IsSceneCinematicRenderingEnabled( const RunSceneState& scene,
-                                       const EngineConfig& config,
+                                       const SkullbonezCore::Core::EngineConfig& config,
                                        const RunLaunchOptions& launchOptions,
                                        const RunDebugState& debug,
                                        bool graphicsReady )
@@ -69,8 +71,8 @@ bool IsSceneCinematicRenderingEnabled( const RunSceneState& scene,
 
 namespace
 {
-using SkullbonezCore::Basics::SceneController;
 using SkullbonezCore::Physics::ColliderShapeKind;
+using SkullbonezCore::Runtime::SceneController;
 
 const char* FileNameFromPath( const char* path )
 {
@@ -96,7 +98,7 @@ bool IsCineScenePath( const std::string& path )
            strstr( name, "_cine_" ) != nullptr || strstr( name, "cine_" ) == name;
 }
 
-void LogStyleSceneLoadFailure( const SbResult& result, const char* path )
+void LogStyleSceneLoadFailure( const SkullbonezCore::Core::SbResult& result, const char* path )
 {
     const char* owner = result.error.owner && result.error.owner[0] != '\0' ? result.error.owner : "Runtime/SceneStyle";
     const char* message =
@@ -161,7 +163,7 @@ void ResetObjectMaterials( SceneEntityStore& entities, const SceneController& mo
 void ApplyObjectMaterials( SceneEntityStore& entities, SceneController& models, const TestScene& styleScene )
 {
     ResetObjectMaterials( entities, models );
-    const auto& colliders = models.Colliders().Records();
+    const auto colliders = models.Colliders().Records();
     for ( int materialIndex = 0; materialIndex < styleScene.GetObjectMaterialOverrideCount(); ++materialIndex )
     {
         const SceneObjectMaterialOverride& material = styleScene.GetObjectMaterialOverride( materialIndex );
@@ -183,7 +185,9 @@ void ApplyObjectMaterials( SceneEntityStore& entities, SceneController& models, 
 } // namespace
 
 
-void ApplyCinematicSceneOverrides( CinematicRenderConfig& target, uint64_t mask, const CinematicRenderConfig& source )
+void ApplyCinematicSceneOverrides( SkullbonezCore::Core::CinematicRenderConfig& target,
+                                   uint64_t mask,
+                                   const SkullbonezCore::Core::CinematicRenderConfig& source )
 {
     // Concept: The mask is the compatibility boundary for authored cinematic
     // scenes; unset fields continue to inherit engine/default UI state.
@@ -308,7 +312,7 @@ bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int i
     }
 
     TestScene lookScene;
-    const SbResult loadResult =
+    const SkullbonezCore::Core::SbResult loadResult =
         TestScene::TryLoadFromFile( context.sceneBrowser.paths[index].c_str(), context.assets, lookScene );
     if ( !loadResult.ok )
     {
@@ -369,7 +373,8 @@ bool ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext context )
 
     const std::string stylePath = std::string( DATA_ROOT ) + "styles/low_poly_art_style.style.json";
     TestScene styleScene;
-    const SbResult loadResult = TestScene::TryLoadStyleFromFile( stylePath.c_str(), context.assets, styleScene );
+    const SkullbonezCore::Core::SbResult loadResult =
+        TestScene::TryLoadStyleFromFile( stylePath.c_str(), context.assets, styleScene );
     if ( !loadResult.ok )
     {
         LogStyleSceneLoadFailure( loadResult, stylePath.c_str() );
@@ -380,5 +385,5 @@ bool ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext context )
     return true;
 }
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

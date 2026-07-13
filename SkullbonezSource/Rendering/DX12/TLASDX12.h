@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/TLASDX12.h
 Purpose:
   Builds and owns the DX12 raytracing top-level scene acceleration structure.
 
-Mental model:
+Summary:
   TLASDX12.h builds and owns the DX12 raytracing top-level scene acceleration
   structure. As a public header, keep edits anchored on DX12 ownership,
   descriptors, resources, and command submission and on the
@@ -60,11 +60,11 @@ class TLAS
     TLAS();
     ~TLAS();
 
-    Basics::SbResult Init( ID3D12Device5* device, int maxInstances );
-    Basics::SbResult Build( ID3D12Device5* device,
-                            ID3D12GraphicsCommandList4* cmdList,
-                            const D3D12_RAYTRACING_INSTANCE_DESC* instances,
-                            int instanceCount );
+    SkullbonezCore::Core::SbResult Init( ID3D12Device5* device, int maxInstances );
+    SkullbonezCore::Core::SbResult Build( ID3D12Device5* device,
+                                          ID3D12GraphicsCommandList4* cmdList,
+                                          const D3D12_RAYTRACING_INSTANCE_DESC* instances,
+                                          int instanceCount );
     D3D12_GPU_VIRTUAL_ADDRESS GetResultVA() const;
     void Reset();
 };

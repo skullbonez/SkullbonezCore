@@ -3,7 +3,7 @@
 // Purpose:
 //   Lock direct coverage for the pure solver broadphase candidate filter.
 //
-// Mental model:
+// Summary:
 //   SpatialGrid emits possible pairs from cell overlap. The solver broadphase
 //   filter is a cheaper geometric pass that keeps only pairs whose swept
 //   bounding spheres can touch this tick.
@@ -58,7 +58,7 @@ void AddCandidateBody( PhysicsBodyRecordList& bodyRecords,
 
 PhysicsBodyRecordList& TestBodyRecords()
 {
-    // Why: physics fixed lists own MAX_GAME_MODELS slots. Static storage matches
+    // Why: physics fixed lists own SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS slots. Static storage matches
     // runtime ownership and avoids consuming the doctest thread stack.
     static PhysicsBodyRecordList records( "TestSolverBroadphaseStage.bodyRecords" );
     records.clear();
@@ -80,28 +80,16 @@ TEST_CASE( "Solver broadphase stage: candidate filter handles static and swept p
 {
     PhysicsBodyRecordList& bodyRecords = TestBodyRecords();
     ColliderRecordList& colliderRecords = TestColliderRecords();
-    AddCandidateBody( bodyRecords,
-                      colliderRecords,
-                      Vector3( 0.0f, 0.0f, 0.0f ),
-                      Vector3( 0.0f, 0.0f, 0.0f ),
-                      1.0f );
-    AddCandidateBody( bodyRecords,
-                      colliderRecords,
-                      Vector3( 2.0f, 0.0f, 0.0f ),
-                      Vector3( 0.0f, 0.0f, 0.0f ),
-                      1.0f );
-    AddCandidateBody( bodyRecords,
-                      colliderRecords,
-                      Vector3( 8.0f, 0.0f, 0.0f ),
-                      Vector3( 0.0f, 0.0f, 0.0f ),
-                      1.0f );
-    AddCandidateBody( bodyRecords,
-                      colliderRecords,
-                      Vector3( 10.0f, 0.0f, 0.0f ),
-                      Vector3( 0.0f, 0.0f, 0.0f ),
-                      1.0f );
+    AddCandidateBody( bodyRecords, colliderRecords, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    AddCandidateBody( bodyRecords, colliderRecords, Vector3( 2.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    AddCandidateBody( bodyRecords, colliderRecords, Vector3( 8.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    AddCandidateBody( bodyRecords, colliderRecords, Vector3( 10.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
 
-    BroadphaseCandidateFilterContext context{ bodyRecords, colliderRecords, 4, 1.0f, 0.0f };
+    BroadphaseCandidateFilterContext context{ { bodyRecords.data(), bodyRecords.size() },
+                                              { colliderRecords.data(), colliderRecords.size() },
+                                              4,
+                                              1.0f,
+                                              0.0f };
 
     CHECK( BroadphaseCandidateCanTouch( &context, 0, 1 ) );
     CHECK_FALSE( BroadphaseCandidateCanTouch( &context, 0, 2 ) );
@@ -115,18 +103,14 @@ TEST_CASE( "Solver broadphase stage: candidate filter keeps boundary policy cons
 {
     PhysicsBodyRecordList& bodyRecords = TestBodyRecords();
     ColliderRecordList& colliderRecords = TestColliderRecords();
-    AddCandidateBody( bodyRecords,
-                      colliderRecords,
-                      Vector3( 0.0f, 0.0f, 0.0f ),
-                      Vector3( 0.0f, 0.0f, 0.0f ),
-                      1.0f );
-    AddCandidateBody( bodyRecords,
-                      colliderRecords,
-                      Vector3( 100.0f, 0.0f, 0.0f ),
-                      Vector3( 0.0f, 0.0f, 0.0f ),
-                      -1.0f );
+    AddCandidateBody( bodyRecords, colliderRecords, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    AddCandidateBody( bodyRecords, colliderRecords, Vector3( 100.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), -1.0f );
 
-    BroadphaseCandidateFilterContext context{ bodyRecords, colliderRecords, 2, 1.0f, 0.0f };
+    BroadphaseCandidateFilterContext context{ { bodyRecords.data(), bodyRecords.size() },
+                                              { colliderRecords.data(), colliderRecords.size() },
+                                              2,
+                                              1.0f,
+                                              0.0f };
 
     CHECK( BroadphaseCandidateCanTouch( nullptr, 0, 1 ) );
     CHECK_FALSE( BroadphaseCandidateCanTouch( &context, -1, 1 ) );

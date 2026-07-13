@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.h
 Purpose:
   Draws the physics broadphase grid as an explanatory debug overlay.
 
-Mental model:
+Summary:
   The broadphase grid is a visibility/debug view into candidate-pair generation.
   It should explain why objects are considered near each other without changing
   physics state.

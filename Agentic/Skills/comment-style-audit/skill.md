@@ -41,7 +41,7 @@ only after it has been inspected against this skill and the guide.
 4. Ensure each header has:
    - `File`
    - `Purpose`
-   - `Mental model`
+   - `Summary`
    - `Glossary`
    - `Invariants` where behavior, lifetime, determinism, or GPU state matters
    - `Related` links where another file or reference doc helps

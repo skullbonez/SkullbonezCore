@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/EditorCommandHistory.h
 Purpose:
   Defines the editor-owned fixed-capacity inverse-command history.
 
-Mental model:
+Summary:
   Editor mutations publish a complete fixed-size before/after command only when
   they commit. Undo and redo move a cursor over those commands; the scene owner
   applies the selected side and advances the cursor only after success.
@@ -38,7 +38,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 constexpr std::size_t EDITOR_COMMAND_HISTORY_CAPACITY = 64;
 constexpr std::size_t EDITOR_COMMAND_TRANSFORM_CAPACITY = 16;
@@ -145,5 +145,5 @@ class EditorCommandHistory
     std::size_t m_count = 0;
     std::size_t m_cursor = 0;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

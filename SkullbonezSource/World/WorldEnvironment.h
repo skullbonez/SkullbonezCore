@@ -3,7 +3,7 @@ File: SkullbonezSource/World/WorldEnvironment.h
 Purpose:
   Stores world forces, fluid parameters, and water rendering resources.
 
-Mental model:
+Summary:
   WorldEnvironment.h stores world forces, fluid parameters, and water
   rendering resources. As a public header, keep edits anchored on world-state
   ownership, terrain/environment data, and physics/render handoff and on the
@@ -156,16 +156,16 @@ class WorldEnvironment
                       float time,
                       bool flatWater = false,
                       bool cinematic = false,
-                      const Basics::CinematicRenderConfig* cinematicConfig =
+                      const SkullbonezCore::Core::CinematicRenderConfig* cinematicConfig =
                           nullptr );                                                 // Active water mesh render path with current style/reflection inputs.
-    void BindRuntimeConfig(
-        const Basics::EngineConfig& config );                                        // Borrow runtime settings for water physics and style constants.
+    void BindRuntimeConfig( const SkullbonezCore::Core::EngineConfig&
+                                config );                                            // Borrow runtime settings for water physics and style constants.
     void BindRenderContexts(
-        const Basics::EngineConfig& config,
+        const SkullbonezCore::Core::EngineConfig& config,
         Assets::AssetSystem& assets,
         Rendering::IRenderResourceFactory& resources );                              // Borrow rebuild-only services for water resources.
     void
-    EnsureRenderResources( const Basics::EngineConfig& config,
+    EnsureRenderResources( const SkullbonezCore::Core::EngineConfig& config,
                            Assets::AssetSystem& assets,
                            Rendering::IRenderResourceFactory& resources );           // Lazily rebuilds missing backend resources.
     void ResetRenderResources();                                                     // Rebuilds GPU resources after renderer reset/switch
@@ -183,12 +183,12 @@ class WorldEnvironment
 
   private:
     // Snapshot of both render profiles plus the config-owned ocean controls.
-    // The public config value is Basics::WaterRenderStyleSettings; this bound
+    // The public config value is SkullbonezCore::Core::WaterRenderStyleSettings; this bound
     // copy also retains profile state needed across render calls.
     struct BoundWaterRenderStyleSettings
     {
-        Basics::OrdinaryRenderConfig ordinary;                                       // Ordinary water shader style from current runtime config.
-        Basics::CinematicRenderConfig cinematicFallback;                             // Used when cinematic render has no per-frame override.
+        SkullbonezCore::Core::OrdinaryRenderConfig ordinary;                         // Ordinary water shader style from current runtime config.
+        SkullbonezCore::Core::CinematicRenderConfig cinematicFallback;               // Used when cinematic render has no per-frame override.
         float oceanWaveHeight = 4.0f;                                                // Visual wave amplitude, not physics height.
         float oceanPerturbStrength = 0.002f;                                         // Reflection perturbation scale for water shaders.
     };
@@ -223,10 +223,12 @@ class WorldEnvironment
     Rendering::IRenderResourceFactory* m_resources = nullptr;                        // Borrowed active backend resource factory for water meshes.
 
     void BuildFluidMesh();                                                           // Builds calm and ocean meshes from current terrain bounds.
-    void ApplyWaterAndFluidSettings(
-        const Basics::EngineConfig& config );                                        // Copies only the water and fluid fields this type consumes.
-    WaterStyleParams BuildCalmWaterStyle( bool cinematic, const Basics::CinematicRenderConfig& cinematicConfig ) const;
-    WaterStyleParams BuildOceanWaterStyle( bool cinematic, const Basics::CinematicRenderConfig& cinematicConfig ) const;
+    void ApplyWaterAndFluidSettings( const SkullbonezCore::Core::EngineConfig&
+                                         config );                                   // Copies only the water and fluid fields this type consumes.
+    WaterStyleParams BuildCalmWaterStyle( bool cinematic,
+                                          const SkullbonezCore::Core::CinematicRenderConfig& cinematicConfig ) const;
+    WaterStyleParams BuildOceanWaterStyle( bool cinematic,
+                                           const SkullbonezCore::Core::CinematicRenderConfig& cinematicConfig ) const;
     void BindCommonWaterStyle( Rendering::IShader& shader,
                                const WaterStyleParams& style,
                                const Math::Vector::Vector3& cameraWorld,

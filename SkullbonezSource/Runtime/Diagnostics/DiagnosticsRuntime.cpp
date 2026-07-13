@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.cpp
 Purpose:
   Provides the runtime diagnostics ownership boundary.
 
-Mental model:
+Summary:
   DiagnosticsRuntime sequences capture, performance, memory, and physics
   diagnostic work. Artifact-specific controllers own their formats while this
   owner retains the process memory cache and shutdown memory-dump lifecycle.
@@ -54,7 +54,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -95,126 +95,158 @@ void WriteJsonString( FILE* file, const char* value )
     fputc( '"', file );
 }
 
-uint64_t ReplayTrajectoryLaneCounter( const uint64_t* counters, MainMemoryReplayTrajectoryLane lane )
+uint64_t ReplayTrajectoryLaneCounter( const uint64_t* counters,
+                                      SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
 {
     const std::size_t laneIndex = static_cast<std::size_t>( lane );
-    return laneIndex < MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT ? counters[laneIndex] : 0;
+    return laneIndex < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT ? counters[laneIndex] : 0;
 }
 
 // Why: the memory dump writes named JSON fields while replay stores counters in
 // fixed arrays. These helpers are the narrow enum-to-array translation boundary.
-uint64_t ReplayTrajectoryBudgetCounter( const MainMemoryReplayTrajectoryStats& stats, MainMemoryReplayBudgetPass pass )
+uint64_t ReplayTrajectoryBudgetCounter( const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& stats,
+                                        SkullbonezCore::Core::MainMemoryReplayBudgetPass pass )
 {
     const std::size_t passIndex = static_cast<std::size_t>( pass );
-    return passIndex < MAIN_MEMORY_REPLAY_BUDGET_PASS_COUNT ? stats.budgetExpiries[passIndex] : 0;
+    return passIndex < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_BUDGET_PASS_COUNT ? stats.budgetExpiries[passIndex] : 0;
 }
 
-uint64_t ReplayTrajectoryRebuildCounter( const MainMemoryReplayTrajectoryStats& stats,
-                                         MainMemoryReplayRebuildCause cause )
+uint64_t ReplayTrajectoryRebuildCounter( const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& stats,
+                                         SkullbonezCore::Core::MainMemoryReplayRebuildCause cause )
 {
     const std::size_t causeIndex = static_cast<std::size_t>( cause );
-    return causeIndex < MAIN_MEMORY_REPLAY_REBUILD_CAUSE_COUNT ? stats.rebuildCauses[causeIndex] : 0;
+    return causeIndex < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_REBUILD_CAUSE_COUNT ? stats.rebuildCauses[causeIndex]
+                                                                                     : 0;
 }
 
-uint64_t ReplayMemoryCategoryCounter( const MainMemoryReplayStats& replay, MainMemoryReplayByteCategory category )
+uint64_t ReplayMemoryCategoryCounter( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
+                                      SkullbonezCore::Core::MainMemoryReplayByteCategory category )
 {
-    return MainMemoryReplayCategoryByte( replay.categoryBytes, category );
+    return SkullbonezCore::Core::MainMemoryReplayCategoryByte( replay.categoryBytes, category );
 }
 
 // Concept: byte categories are stored as fixed arrays in core stats; the dump
 // owns the stable JSON labels that scripts and manual investigations read.
-void WriteReplayMemoryCategories( FILE* file, const MainMemoryReplayStats& replay )
+void WriteReplayMemoryCategories( FILE* file, const SkullbonezCore::Core::MainMemoryReplayStats& replay )
 {
     fputs( "    \"memory_categories\": {\n", file );
     fprintf( file,
              "      \"presentation\": { \"owner\": %llu, \"sample_records\": %llu, \"checkpoints\": %llu, "
              "\"scratch\": %llu, \"bodies\": %llu },\n",
              static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PresentationOwner ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PresentationSampleRecords ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PresentationCheckpoints ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PresentationScratch ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PresentationBodies ) ) );
-    fprintf( file,
-             "      \"solver\": { \"owner\": %llu, \"sample_records\": %llu, \"checkpoints\": %llu, "
-             "\"scratch\": %llu, \"bodies\": %llu, \"world_state\": %llu, \"launcher_visuals\": %llu },\n",
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::SolverOwner ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::SolverSampleRecords ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::SolverCheckpoints ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::SolverScratch ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::SolverBodies ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::SolverWorldState ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::SolverLauncherVisuals ) ) );
-    fprintf( file,
-             "      \"events\": { \"owner\": %llu, \"events\": %llu },\n",
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::EventsOwner ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::Events ) ) );
-    fprintf( file,
-             "      \"loaded_replay\": { \"owner\": %llu, \"sample_records\": %llu, \"bodies\": %llu },\n",
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::LoadedOwner ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::LoadedSampleRecords ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::LoadedBodies ) ) );
+                 ReplayMemoryCategoryCounter( replay,
+                                              SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationOwner ) ),
+             static_cast<unsigned long long>( ReplayMemoryCategoryCounter(
+                 replay,
+                 SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationSampleRecords ) ),
+             static_cast<unsigned long long>( ReplayMemoryCategoryCounter(
+                 replay,
+                 SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationCheckpoints ) ),
+             static_cast<unsigned long long>( ReplayMemoryCategoryCounter(
+                 replay,
+                 SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationScratch ) ),
+             static_cast<unsigned long long>( ReplayMemoryCategoryCounter(
+                 replay,
+                 SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationBodies ) ) );
+    fprintf(
+        file,
+        "      \"solver\": { \"owner\": %llu, \"sample_records\": %llu, \"checkpoints\": %llu, "
+        "\"scratch\": %llu, \"bodies\": %llu, \"world_state\": %llu, \"launcher_visuals\": %llu },\n",
+        static_cast<unsigned long long>(
+            ReplayMemoryCategoryCounter( replay, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverOwner ) ),
+        static_cast<unsigned long long>(
+            ReplayMemoryCategoryCounter( replay,
+                                         SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverSampleRecords ) ),
+        static_cast<unsigned long long>(
+            ReplayMemoryCategoryCounter( replay,
+                                         SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverCheckpoints ) ),
+        static_cast<unsigned long long>(
+            ReplayMemoryCategoryCounter( replay, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverScratch ) ),
+        static_cast<unsigned long long>(
+            ReplayMemoryCategoryCounter( replay, SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverBodies ) ),
+        static_cast<unsigned long long>(
+            ReplayMemoryCategoryCounter( replay,
+                                         SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverWorldState ) ),
+        static_cast<unsigned long long>( ReplayMemoryCategoryCounter(
+            replay,
+            SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverLauncherVisuals ) ) );
+    fprintf(
+        file,
+        "      \"events\": { \"owner\": %llu, \"events\": %llu },\n",
+        static_cast<unsigned long long>(
+            ReplayMemoryCategoryCounter( replay, SkullbonezCore::Core::MainMemoryReplayByteCategory::EventsOwner ) ),
+        static_cast<unsigned long long>(
+            ReplayMemoryCategoryCounter( replay, SkullbonezCore::Core::MainMemoryReplayByteCategory::Events ) ) );
+    fprintf(
+        file,
+        "      \"loaded_replay\": { \"owner\": %llu, \"sample_records\": %llu, \"bodies\": %llu },\n",
+        static_cast<unsigned long long>(
+            ReplayMemoryCategoryCounter( replay, SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedOwner ) ),
+        static_cast<unsigned long long>(
+            ReplayMemoryCategoryCounter( replay,
+                                         SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedSampleRecords ) ),
+        static_cast<unsigned long long>(
+            ReplayMemoryCategoryCounter( replay, SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedBodies ) ) );
     fprintf( file,
              "      \"prediction\": { \"owner\": %llu, \"engine\": %llu, \"world_state\": %llu, "
              "\"body_state\": %llu, \"frame_records\": %llu, \"frame_bodies\": %llu, "
              "\"debug_contacts\": %llu, \"future_tree\": %llu },\n",
              static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PredictionOwner ) ),
+                 ReplayMemoryCategoryCounter( replay,
+                                              SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionOwner ) ),
              static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PredictionEngine ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PredictionWorldState ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PredictionBodyState ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PredictionFrameRecords ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PredictionFrameBodies ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PredictionDebugContacts ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PredictionFutureTree ) ) );
-    fprintf( file,
-             "      \"path_and_cause\": { \"owner\": %llu, \"targets\": %llu, \"future_nodes\": %llu, "
-             "\"cause_rows\": %llu },\n",
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PathOwner ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PathTargets ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PathFutureNodes ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::PathCauseRows ) ) );
+                 ReplayMemoryCategoryCounter( replay,
+                                              SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionEngine ) ),
+             static_cast<unsigned long long>( ReplayMemoryCategoryCounter(
+                 replay,
+                 SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionWorldState ) ),
+             static_cast<unsigned long long>( ReplayMemoryCategoryCounter(
+                 replay,
+                 SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionBodyState ) ),
+             static_cast<unsigned long long>( ReplayMemoryCategoryCounter(
+                 replay,
+                 SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFrameRecords ) ),
+             static_cast<unsigned long long>( ReplayMemoryCategoryCounter(
+                 replay,
+                 SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFrameBodies ) ),
+             static_cast<unsigned long long>( ReplayMemoryCategoryCounter(
+                 replay,
+                 SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionDebugContacts ) ),
+             static_cast<unsigned long long>( ReplayMemoryCategoryCounter(
+                 replay,
+                 SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFutureTree ) ) );
+    fprintf(
+        file,
+        "      \"path_and_cause\": { \"owner\": %llu, \"targets\": %llu, \"future_nodes\": %llu, "
+        "\"cause_rows\": %llu },\n",
+        static_cast<unsigned long long>(
+            ReplayMemoryCategoryCounter( replay, SkullbonezCore::Core::MainMemoryReplayByteCategory::PathOwner ) ),
+        static_cast<unsigned long long>(
+            ReplayMemoryCategoryCounter( replay, SkullbonezCore::Core::MainMemoryReplayByteCategory::PathTargets ) ),
+        static_cast<unsigned long long>(
+            ReplayMemoryCategoryCounter( replay,
+                                         SkullbonezCore::Core::MainMemoryReplayByteCategory::PathFutureNodes ) ),
+        static_cast<unsigned long long>(
+            ReplayMemoryCategoryCounter( replay,
+                                         SkullbonezCore::Core::MainMemoryReplayByteCategory::PathCauseRows ) ) );
     fprintf( file,
              "      \"render_scratch\": { \"ghost_requests\": %llu, \"focus_mask\": %llu, "
              "\"launcher_backup\": %llu },\n",
+             static_cast<unsigned long long>( ReplayMemoryCategoryCounter(
+                 replay,
+                 SkullbonezCore::Core::MainMemoryReplayByteCategory::RenderGhostRequests ) ),
              static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::RenderGhostRequests ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::RenderFocusMask ) ),
-             static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::RenderLauncherBackup ) ) );
+                 ReplayMemoryCategoryCounter( replay,
+                                              SkullbonezCore::Core::MainMemoryReplayByteCategory::RenderFocusMask ) ),
+             static_cast<unsigned long long>( ReplayMemoryCategoryCounter(
+                 replay,
+                 SkullbonezCore::Core::MainMemoryReplayByteCategory::RenderLauncherBackup ) ) );
     fprintf( file,
              "      \"trajectory\": { \"store\": %llu, \"records\": %llu, \"points\": %llu, "
              "\"published_points\": %llu, \"version_churn\": %llu }\n",
              static_cast<unsigned long long>(
-                 ReplayMemoryCategoryCounter( replay, MainMemoryReplayByteCategory::TrajectoryStore ) ),
+                 ReplayMemoryCategoryCounter( replay,
+                                              SkullbonezCore::Core::MainMemoryReplayByteCategory::TrajectoryStore ) ),
              static_cast<unsigned long long>( replay.trajectory.recordCount ),
              static_cast<unsigned long long>( replay.trajectory.pointCount ),
              static_cast<unsigned long long>( replay.trajectory.publishedPointCount ),
@@ -222,14 +254,14 @@ void WriteReplayMemoryCategories( FILE* file, const MainMemoryReplayStats& repla
     fputs( "    },\n", file );
 }
 
-void WriteReplayGrowthOwners( FILE* file, const MainMemoryReplayStats& replay )
+void WriteReplayGrowthOwners( FILE* file, const SkullbonezCore::Core::MainMemoryReplayStats& replay )
 {
     // Concept: each row pairs the committed sizing evidence with live allocator
     // counters, so dumps distinguish an intentional cap from observed use.
     fputs( "    \"growth_owners\": [\n", file );
     for ( std::size_t index = 0; index < replay.growthOwners.size(); ++index )
     {
-        const MainMemoryReplayStats::GrowthOwner& owner = replay.growthOwners[index];
+        const SkullbonezCore::Core::MainMemoryReplayStats::GrowthOwner& owner = replay.growthOwners[index];
         fprintf( file,
                  "      { \"owner\": \"%s\", \"registered\": %s, \"hard_bytes\": %d, "
                  "\"measured_high_water_bytes\": %llu, \"allocator_high_water_bytes\": %llu, "
@@ -249,7 +281,8 @@ void WriteReplayGrowthOwners( FILE* file, const MainMemoryReplayStats& replay )
     fputs( "    ],\n", file );
 }
 
-void WriteReplayTrajectoryCounters( FILE* file, const MainMemoryReplayTrajectoryStats& trajectory )
+void WriteReplayTrajectoryCounters( FILE* file,
+                                    const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& trajectory )
 {
     fprintf(
         file,
@@ -298,53 +331,70 @@ void WriteReplayTrajectoryCounters( FILE* file, const MainMemoryReplayTrajectory
         static_cast<unsigned long long>( trajectory.versionChurn ),
         trajectory.maxRecordVersion,
         static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.emittedSegments, MainMemoryReplayTrajectoryLane::PastRoot ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.emittedSegments, MainMemoryReplayTrajectoryLane::FutureRoot ) ),
+            ReplayTrajectoryLaneCounter( trajectory.emittedSegments,
+                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::PastRoot ) ),
         static_cast<unsigned long long>(
             ReplayTrajectoryLaneCounter( trajectory.emittedSegments,
-                                         MainMemoryReplayTrajectoryLane::FutureChildIncoming ) ),
+                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot ) ),
         static_cast<unsigned long long>(
             ReplayTrajectoryLaneCounter( trajectory.emittedSegments,
-                                         MainMemoryReplayTrajectoryLane::FutureChildOutgoing ) ),
+                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureChildIncoming ) ),
         static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.emittedSegments, MainMemoryReplayTrajectoryLane::RetainedTrail ) ),
+            ReplayTrajectoryLaneCounter( trajectory.emittedSegments,
+                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureChildOutgoing ) ),
         static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.emittedSegments, MainMemoryReplayTrajectoryLane::BaselineRoot ) ),
+            ReplayTrajectoryLaneCounter( trajectory.emittedSegments,
+                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::RetainedTrail ) ),
         static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.emittedSegments, MainMemoryReplayTrajectoryLane::CausalMarker ) ),
+            ReplayTrajectoryLaneCounter( trajectory.emittedSegments,
+                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::BaselineRoot ) ),
         static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.emittedSegments, MainMemoryReplayTrajectoryLane::AuxiliaryTrail ) ),
+            ReplayTrajectoryLaneCounter( trajectory.emittedSegments,
+                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::CausalMarker ) ),
         static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.droppedSegments, MainMemoryReplayTrajectoryLane::PastRoot ) ),
-        static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.droppedSegments, MainMemoryReplayTrajectoryLane::FutureRoot ) ),
+            ReplayTrajectoryLaneCounter( trajectory.emittedSegments,
+                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::AuxiliaryTrail ) ),
         static_cast<unsigned long long>(
             ReplayTrajectoryLaneCounter( trajectory.droppedSegments,
-                                         MainMemoryReplayTrajectoryLane::FutureChildIncoming ) ),
+                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::PastRoot ) ),
         static_cast<unsigned long long>(
             ReplayTrajectoryLaneCounter( trajectory.droppedSegments,
-                                         MainMemoryReplayTrajectoryLane::FutureChildOutgoing ) ),
+                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot ) ),
         static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.droppedSegments, MainMemoryReplayTrajectoryLane::RetainedTrail ) ),
+            ReplayTrajectoryLaneCounter( trajectory.droppedSegments,
+                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureChildIncoming ) ),
         static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.droppedSegments, MainMemoryReplayTrajectoryLane::BaselineRoot ) ),
+            ReplayTrajectoryLaneCounter( trajectory.droppedSegments,
+                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureChildOutgoing ) ),
         static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.droppedSegments, MainMemoryReplayTrajectoryLane::CausalMarker ) ),
+            ReplayTrajectoryLaneCounter( trajectory.droppedSegments,
+                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::RetainedTrail ) ),
         static_cast<unsigned long long>(
-            ReplayTrajectoryLaneCounter( trajectory.droppedSegments, MainMemoryReplayTrajectoryLane::AuxiliaryTrail ) ),
+            ReplayTrajectoryLaneCounter( trajectory.droppedSegments,
+                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::BaselineRoot ) ),
         static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionBegin ) ),
+            ReplayTrajectoryLaneCounter( trajectory.droppedSegments,
+                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::CausalMarker ) ),
         static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionStep ) ),
+            ReplayTrajectoryLaneCounter( trajectory.droppedSegments,
+                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::AuxiliaryTrail ) ),
         static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::PredictionBuildTree ) ),
+            ReplayTrajectoryBudgetCounter( trajectory,
+                                           SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBegin ) ),
         static_cast<unsigned long long>(
-            ReplayTrajectoryBudgetCounter( trajectory, MainMemoryReplayBudgetPass::RetainedRefresh ) ),
+            ReplayTrajectoryBudgetCounter( trajectory,
+                                           SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionStep ) ),
         static_cast<unsigned long long>(
-            ReplayTrajectoryRebuildCounter( trajectory, MainMemoryReplayRebuildCause::Dirty ) ),
+            ReplayTrajectoryBudgetCounter( trajectory,
+                                           SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBuildTree ) ),
         static_cast<unsigned long long>(
-            ReplayTrajectoryRebuildCounter( trajectory, MainMemoryReplayRebuildCause::AutomaticRefresh ) ) );
+            ReplayTrajectoryBudgetCounter( trajectory,
+                                           SkullbonezCore::Core::MainMemoryReplayBudgetPass::RetainedRefresh ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryRebuildCounter( trajectory, SkullbonezCore::Core::MainMemoryReplayRebuildCause::Dirty ) ),
+        static_cast<unsigned long long>(
+            ReplayTrajectoryRebuildCounter( trajectory,
+                                            SkullbonezCore::Core::MainMemoryReplayRebuildCause::AutomaticRefresh ) ) );
 }
 } // namespace
 
@@ -655,7 +705,7 @@ const DiagnosticsController& DiagnosticsRuntime::Diagnostics() const
 }
 
 
-void DiagnosticsRuntime::BindProfiler( Profiler* profiler )
+void DiagnosticsRuntime::BindProfiler( SkullbonezCore::Core::Profiler* profiler )
 {
     m_diagnostics.BindProfiler( profiler );
 }
@@ -768,11 +818,12 @@ RuntimeProfilerFrameTimes DiagnosticsRuntime::SampleProfilerFrameTimes() const
 }
 
 
-const MainMemoryStats& DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayRuntime& replay,
-                                                                   const Basics::SceneController& models,
-                                                                   double nowSeconds,
-                                                                   bool force,
-                                                                   bool includePrivateWorkingSet )
+const SkullbonezCore::Core::MainMemoryStats&
+DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayRuntime& replay,
+                                            const Runtime::SceneController& models,
+                                            double nowSeconds,
+                                            bool force,
+                                            bool includePrivateWorkingSet )
 {
     SkullbonezCore::Runtime::Allocation::RuntimeAllocationScope allocationScope(
         SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase::Diagnostics );
@@ -780,11 +831,12 @@ const MainMemoryStats& DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayR
 }
 
 
-const MainMemoryStats& DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayRuntime& replay,
-                                                                   const MainMemoryGameObjectStats& gameObjects,
-                                                                   double nowSeconds,
-                                                                   bool force,
-                                                                   bool includePrivateWorkingSet )
+const SkullbonezCore::Core::MainMemoryStats&
+DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayRuntime& replay,
+                                            const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
+                                            double nowSeconds,
+                                            bool force,
+                                            bool includePrivateWorkingSet )
 {
     const bool sampleDue = m_lastMainMemorySampleSeconds < 0.0 ||
                            nowSeconds - m_lastMainMemorySampleSeconds >= MAIN_MEMORY_SAMPLE_INTERVAL_SECONDS;
@@ -800,7 +852,7 @@ const MainMemoryStats& DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayR
     // Concept: The Memory tab wants cheap repeated reads, while shutdown dumps and
     // stress logs need the deep private-working-set query. Build one reconciled
     // snapshot, then cache both the timestamp and the sampling mode.
-    MainMemoryStats stats;
+    SkullbonezCore::Core::MainMemoryStats stats;
     stats.sampleTimeSeconds = nowSeconds;
     stats.process = RuntimeDiagnostics::SampleProcessMemory( includePrivateWorkingSet );
     stats.replay = replay.CollectMemoryStats();
@@ -838,7 +890,7 @@ const MainMemoryStats& DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayR
 }
 
 
-const MainMemoryStats& DiagnosticsRuntime::MainMemoryStatsSnapshot() const
+const SkullbonezCore::Core::MainMemoryStats& DiagnosticsRuntime::MainMemoryStatsSnapshot() const
 {
     return m_mainMemoryStats;
 }
@@ -868,7 +920,7 @@ bool DiagnosticsRuntime::MainMemoryDumpRequested() const
 
 
 bool DiagnosticsRuntime::WriteMainMemoryDump( const ReplayRuntime& replay,
-                                              const Basics::SceneController& models,
+                                              const Runtime::SceneController& models,
                                               const RunSceneState& scene,
                                               const char* checkpoint,
                                               double nowSeconds )
@@ -878,7 +930,8 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const ReplayRuntime& replay,
         return false;
     }
 
-    const MainMemoryStats& stats = RefreshMainMemoryStats( replay, models, nowSeconds, true, true );
+    const SkullbonezCore::Core::MainMemoryStats& stats =
+        RefreshMainMemoryStats( replay, models, nowSeconds, true, true );
     FILE* file = nullptr;
     if ( fopen_s( &file, m_mainMemoryDumpPath, "wb" ) != 0 || !file )
     {
@@ -1052,7 +1105,7 @@ void DiagnosticsRuntime::SetPhysicsCollisionTimeLogOverride( const char* path )
 }
 
 
-void DiagnosticsRuntime::SetPhysicsDiagnosticsPath( Basics::SceneController& models,
+void DiagnosticsRuntime::SetPhysicsDiagnosticsPath( Runtime::SceneController& models,
                                                     const char* path,
                                                     bool fixedStepForcedByDiagnostics )
 {
@@ -1074,9 +1127,9 @@ void DiagnosticsRuntime::LogSceneFinished( SceneController& scene,
 }
 
 
-void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( Basics::SceneController& models,
+void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( Runtime::SceneController& models,
                                                      const RunSceneState& scene,
-                                                     const EngineConfig& config,
+                                                     const SkullbonezCore::Core::EngineConfig& config,
                                                      const char* scenePath,
                                                      const char* rendererName )
 {
@@ -1218,5 +1271,5 @@ const DiagnosticsRuntime::UIStressState& DiagnosticsRuntime::UIStress() const
 {
     return m_uiStress;
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

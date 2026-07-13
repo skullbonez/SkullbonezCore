@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RunDemoDirector.cpp
 Purpose:
   Applies Demo Director shot-list camera poses, phase styles, and reveal pacing.
 
-Mental model:
+Summary:
   The director never invents framing or looks. A loaded shot list owns authored
   camera/style phases, RunCameraState owns playback timers, and this file
   blends the selected phase into runtime camera/style/replay presentation owners
@@ -53,7 +53,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -309,7 +309,8 @@ void ApplyPhaseStyleIfNeeded( DemoDirectorPlaybackState& director, SceneRuntimeS
     }
 
     TestScene styleScene;
-    const SbResult loadResult = TestScene::TryLoadStyleFromFile( phase.stylePath, styleContext.assets, styleScene );
+    const SkullbonezCore::Core::SbResult loadResult =
+        TestScene::TryLoadStyleFromFile( phase.stylePath, styleContext.assets, styleScene );
     if ( loadResult.ok )
     {
         ApplyLiveStyleScene( styleContext, styleScene );
@@ -548,5 +549,5 @@ void Tick( RunCameraState& camera,
     }
 }
 } // namespace DemoDirectorPlayback
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Init.cpp
 Purpose:
   Bootstraps the Windows process, parses command-line options, and starts the run loop.
 
-Mental model:
+Summary:
   Init.cpp bootstraps the Windows process, parses command-line options, and
   starts the run loop. As an implementation unit, keep edits anchored on local
   owner boundaries and call direction and on the glossary/invariants below.
@@ -81,7 +81,7 @@ Related:
 #endif
 
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
@@ -135,7 +135,9 @@ void WriteDebugCrashStack( EXCEPTION_POINTERS* exceptionInfo )
     const BOOL symbolsReady = SymInitialize( process, nullptr, TRUE );
     if ( !symbolsReady )
     {
-        Log().Writef( EngineLog::EventLogPath(), "    stack_symbols=unavailable error=%lu\n", GetLastError() );
+        SkullbonezCore::Core::Log().Writef( SkullbonezCore::Core::EngineLog::EventLogPath(),
+                                            "    stack_symbols=unavailable error=%lu\n",
+                                            GetLastError() );
     }
 
     CONTEXT context = {};
@@ -167,7 +169,7 @@ void WriteDebugCrashStack( EXCEPTION_POINTERS* exceptionInfo )
     frame.AddrStack.Mode = AddrModeFlat;
 #endif
 
-    Log().Writef( EngineLog::EventLogPath(), "    stack_trace:\n" );
+    SkullbonezCore::Core::Log().Writef( SkullbonezCore::Core::EngineLog::EventLogPath(), "    stack_trace:\n" );
     for ( int frameIndex = 0; frameIndex < 64; ++frameIndex )
     {
         BOOL walked = StackWalk64( machineType,
@@ -200,30 +202,30 @@ void WriteDebugCrashStack( EXCEPTION_POINTERS* exceptionInfo )
 
         if ( hasSymbol && hasLine )
         {
-            Log().Writef( EngineLog::EventLogPath(),
-                          "      #%02d 0x%016llX %s+0x%llX (%s:%lu)\n",
-                          frameIndex,
-                          static_cast<unsigned long long>( address ),
-                          symbol->Name,
-                          static_cast<unsigned long long>( symbolDisplacement ),
-                          lineInfo.FileName,
-                          lineInfo.LineNumber );
+            SkullbonezCore::Core::Log().Writef( SkullbonezCore::Core::EngineLog::EventLogPath(),
+                                                "      #%02d 0x%016llX %s+0x%llX (%s:%lu)\n",
+                                                frameIndex,
+                                                static_cast<unsigned long long>( address ),
+                                                symbol->Name,
+                                                static_cast<unsigned long long>( symbolDisplacement ),
+                                                lineInfo.FileName,
+                                                lineInfo.LineNumber );
         }
         else if ( hasSymbol )
         {
-            Log().Writef( EngineLog::EventLogPath(),
-                          "      #%02d 0x%016llX %s+0x%llX\n",
-                          frameIndex,
-                          static_cast<unsigned long long>( address ),
-                          symbol->Name,
-                          static_cast<unsigned long long>( symbolDisplacement ) );
+            SkullbonezCore::Core::Log().Writef( SkullbonezCore::Core::EngineLog::EventLogPath(),
+                                                "      #%02d 0x%016llX %s+0x%llX\n",
+                                                frameIndex,
+                                                static_cast<unsigned long long>( address ),
+                                                symbol->Name,
+                                                static_cast<unsigned long long>( symbolDisplacement ) );
         }
         else
         {
-            Log().Writef( EngineLog::EventLogPath(),
-                          "      #%02d 0x%016llX <unknown>\n",
-                          frameIndex,
-                          static_cast<unsigned long long>( address ) );
+            SkullbonezCore::Core::Log().Writef( SkullbonezCore::Core::EngineLog::EventLogPath(),
+                                                "      #%02d 0x%016llX <unknown>\n",
+                                                frameIndex,
+                                                static_cast<unsigned long long>( address ) );
         }
     }
 
@@ -244,12 +246,12 @@ LONG WINAPI DebugUnhandledExceptionFilter( EXCEPTION_POINTERS* exceptionInfo )
         exceptionAddress = exceptionInfo->ExceptionRecord->ExceptionAddress;
     }
 
-    Log().WriteEventf( "crash exception=0x%08lX name=%s address=%p",
-                       exceptionCode,
-                       ExceptionCodeName( exceptionCode ),
-                       exceptionAddress );
+    SkullbonezCore::Core::Log().WriteEventf( "crash exception=0x%08lX name=%s address=%p",
+                                             exceptionCode,
+                                             ExceptionCodeName( exceptionCode ),
+                                             exceptionAddress );
     WriteDebugCrashStack( exceptionInfo );
-    Log().FlushAll();
+    SkullbonezCore::Core::Log().FlushAll();
 
     return EXCEPTION_EXECUTE_HANDLER;
 }
@@ -258,33 +260,16 @@ LONG WINAPI DebugUnhandledExceptionFilter( EXCEPTION_POINTERS* exceptionInfo )
 void InstallDebugCrashLogger()
 {
     SetUnhandledExceptionFilter( DebugUnhandledExceptionFilter );
-    // Hazard: unhandled C++ failures often become std::terminate -> abort(),
-    // which bypasses the SEH filter above and otherwise leaves only a CRT
-    // dialog. Log the current exception, if any, before preserving termination.
+    // Hazard: an unexpected terminate in the exception-free engine bypasses
+    // the SEH filter above. Persist a fixed diagnostic before aborting.
     std::set_terminate(
         []()
         {
-            char message[512] = "unknown";
-            std::exception_ptr current = std::current_exception();
-            if ( current )
-            {
-                try
-                {
-                    std::rethrow_exception( current );
-                }
-                catch ( const std::exception& e )
-                {
-                    strcpy_s( message, sizeof( message ), e.what() );
-                }
-                catch ( ... )
-                {
-                    strcpy_s( message, sizeof( message ), "non-std exception" );
-                }
-            }
-            Log().WriteEventf( "terminate_abort message=\"%s\"", message );
+            const char* message = "unexpected termination in exception-free engine";
+            SkullbonezCore::Core::Log().WriteEventf( "terminate_abort message=\"%s\"", message );
             fprintf( stderr, "FATAL: terminate_abort %s\n", message );
             fflush( stderr );
-            Log().FlushAll();
+            SkullbonezCore::Core::Log().FlushAll();
             std::abort();
         } );
 }
@@ -304,6 +289,24 @@ bool FailCommandLineParse( const char* fmt, ... )
 const char* GetCommandLineError()
 {
     return g_commandLineError[0] != '\0' ? g_commandLineError : "Command line parsing failed.";
+}
+
+void ReportStartupFailure( const SkullbonezCore::Core::SbResult& result, const char* title )
+{
+    const char* safeOwner = result.error.owner && result.error.owner[0] != '\0' ? result.error.owner : "Startup";
+    const char* safeMessage =
+        result.error.message[0] != '\0' ? result.error.message : "Startup failed without details.";
+    char dialogMessage[1024] = {};
+    sprintf_s( dialogMessage, sizeof( dialogMessage ), "%s\n\n%s", safeOwner, safeMessage );
+
+    // Lane R: startup cannot rely on the game window or an attached terminal to
+    // expose failures. Persist the diagnostic and block on a native error dialog
+    // so a normal Explorer/IDE launch can never look like a silent clean exit.
+    SkullbonezCore::Core::Log().WriteEventf( "startup_failure owner=\"%s\" message=\"%s\"", safeOwner, safeMessage );
+    fprintf( stderr, "FATAL[%s]: %s\n", safeOwner, safeMessage );
+    fflush( stderr );
+    SkullbonezCore::Core::Log().FlushAll();
+    MessageBoxA( nullptr, dialogMessage, title, MB_OK | MB_ICONERROR | MB_SETFOREGROUND );
 }
 
 // ---------------------------------------------------------------------------
@@ -635,15 +638,15 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     // Lifetime: SceneController owns the validation-only physics and entity
     // stores exactly as it does during a normal scene. The cold smoke keeps the
     // owner off the launcher stack and executes once before steady gameplay.
-    auto collection = std::make_unique<SkullbonezCore::Basics::SceneController>();
+    auto collection = std::make_unique<SkullbonezCore::Runtime::SceneController>();
     SkullbonezCore::Physics::PhysicsEngine& physics = collection->Physics();
-    SkullbonezCore::Basics::SceneEntityStore& sceneEntities = collection->Entities();
+    SkullbonezCore::Runtime::SceneEntityStore& sceneEntities = collection->Entities();
     PhysicsRuntimeHandleSmokeResult result;
     PhysicsBodyHandle createdBodies[2];
 
     for ( int i = 0; i < 2; ++i )
     {
-        SkullbonezCore::Basics::SceneEntityCreateDesc model;
+        SkullbonezCore::Runtime::SceneEntityCreateDesc model;
         char name[32] = {};
         sprintf_s( name, sizeof( name ), "runtime_smoke_%d", i );
         model.SetName( name );
@@ -682,7 +685,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     const int colliderCountBeforeFailure = collection->Colliders().Count();
     const int renderCountBeforeFailure = collection->GetRenderInstanceStore().Count();
     const uint32_t descriptorCountBeforeFailure = physics.AuthoredBodyDescriptorCount().value;
-    SkullbonezCore::Basics::SceneEntityCreateDesc duplicateEntity;
+    SkullbonezCore::Runtime::SceneEntityCreateDesc duplicateEntity;
     duplicateEntity.sceneObjectId = PhysicsSceneObjectId{ 1u };
     duplicateEntity.SetName( "runtime_smoke_duplicate" );
     const SkullbonezCore::Math::CollisionDetection::BoundingSphere duplicateShape(
@@ -772,7 +775,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
 
     constexpr uint32_t REORDER_BODY_A_REPLAY_ID = 100u;
     constexpr uint32_t REORDER_BODY_B_REPLAY_ID = 101u;
-    // Why: PhysicsBodyStore owns MAX_GAME_MODELS fixed arrays. Keep this cold
+    // Why: PhysicsBodyStore owns SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS fixed arrays. Keep this cold
     // standalone probe owner off WinMain's bounded thread stack.
     auto reorderBodyStore = std::make_unique<PhysicsBodyStore>();
     std::vector<PhysicsBodyCreateDesc> reorderBodyDescs;
@@ -899,15 +902,7 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
     // setup so it proves the public physics API and runtime handle alignment can
     // be constructed without renderer/window services.
     const PhysicsStandaloneSmokeResult result = RunPhysicsStandaloneSmoke();
-    PhysicsRuntimeHandleSmokeResult runtimeMirror;
-    try
-    {
-        runtimeMirror = RunPhysicsRuntimeHandleSmokeSample();
-    }
-    catch ( const std::exception& e )
-    {
-        runtimeMirror.errorMessage = e.what();
-    }
+    PhysicsRuntimeHandleSmokeResult runtimeMirror = RunPhysicsRuntimeHandleSmokeSample();
     auto writeReport = [&]( FILE* stream )
     {
         if ( !stream )
@@ -1108,12 +1103,12 @@ struct CliValueDirective
 
 struct ConfigCliValueDirective
 {
-    // Why: startup config options mutate the loaded EngineConfig before any
+    // Why: startup config options mutate the loaded SkullbonezCore::Core::EngineConfig before any
     // subsystem borrows it, so these handlers must not reopen the global config
     // singleton.
     const char* name;
     const char* alias;
-    bool ( *apply )( const char* value, ParsedArgs& args, EngineConfig& config );
+    bool ( *apply )( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config );
 };
 
 struct PhysicsDebugComponentDirective
@@ -1186,7 +1181,7 @@ bool ApplyCliValueDirectives( const CommandLineView& commandLine,
 template <size_t N>
 bool ApplyConfigCliValueDirectives( const CommandLineView& commandLine,
                                     ParsedArgs& out,
-                                    EngineConfig& config,
+                                    SkullbonezCore::Core::EngineConfig& config,
                                     const ConfigCliValueDirective ( &directives )[N] )
 {
     for ( const ConfigCliValueDirective& directive : directives )
@@ -1246,7 +1241,7 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
         { "--profiler",
           "--show-profiler",
           []( ParsedArgs& args ) { args.showProfiler = true; },
-          "[overlay] Profiler HUD enabled at startup." },
+          "[overlay] SkullbonezCore::Core::Profiler HUD enabled at startup." },
         { "--platform-profiler-markers",
           "--platform-profiler",
           []( ParsedArgs& args )
@@ -1724,14 +1719,10 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
             return FailCommandLineParse( "--suite could not open '%s'.", suitePath.c_str() );
         }
 
-        Json suite;
-        try
+        Json suite = Json::parse( suiteFile, nullptr, false );
+        if ( suite.is_discarded() )
         {
-            suiteFile >> suite;
-        }
-        catch ( const std::exception& e )
-        {
-            return FailCommandLineParse( "--suite invalid JSON in '%s': %s", suitePath.c_str(), e.what() );
+            return FailCommandLineParse( "--suite invalid JSON in '%s'.", suitePath.c_str() );
         }
 
         if ( !suite.is_object() )
@@ -1810,7 +1801,7 @@ bool ParseRendererArg( const CommandLineView& commandLine )
 }
 
 // --vsync on|off patches the already-loaded startup config.
-bool ApplyVsyncOverride( const CommandLineView& commandLine, EngineConfig& config )
+bool ApplyVsyncOverride( const CommandLineView& commandLine, SkullbonezCore::Core::EngineConfig& config )
 {
     const char* vsyncArg = FindOptionValue( commandLine, "--vsync" );
     if ( !vsyncArg )
@@ -1830,7 +1821,7 @@ bool ApplyVsyncOverride( const CommandLineView& commandLine, EngineConfig& confi
 }
 
 
-bool ApplyCinematicShadowsOverride( const char* value, ParsedArgs& args, EngineConfig& config )
+bool ApplyCinematicShadowsOverride( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config )
 {
     static_cast<void>( config );
     bool enabled = false;
@@ -1846,12 +1837,14 @@ bool ApplyCinematicShadowsOverride( const char* value, ParsedArgs& args, EngineC
 }
 
 
-bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out, EngineConfig& config )
+bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine,
+                                     ParsedArgs& out,
+                                     SkullbonezCore::Core::EngineConfig& config )
 {
     static const ConfigCliValueDirective kValues[] = {
         { "--switch-interval",
           nullptr,
-          []( const char* value, ParsedArgs& args, EngineConfig& config ) -> bool
+          []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
           {
               static_cast<void>( value );
               static_cast<void>( args );
@@ -1860,7 +1853,7 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
           } },
         { "--time-scale",
           nullptr,
-          []( const char* value, ParsedArgs& args, EngineConfig& config ) -> bool
+          []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
           {
               static_cast<void>( config );
               float timeScale = 0.0f;
@@ -1874,7 +1867,7 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
           } },
         { "--tornado",
           nullptr,
-          []( const char* value, ParsedArgs& args, EngineConfig& config ) -> bool
+          []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
           {
               static_cast<void>( config );
               bool enabled = false;
@@ -1889,7 +1882,7 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
           } },
         { "--tornado-vectors",
           "--tornado-vector-field",
-          []( const char* value, ParsedArgs& args, EngineConfig& config ) -> bool
+          []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
           {
               static_cast<void>( config );
               bool enabled = false;
@@ -1905,7 +1898,7 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
           } },
         { "--cinematic",
           "--cinematic-rendering",
-          []( const char* value, ParsedArgs& args, EngineConfig& config ) -> bool
+          []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
           {
               static_cast<void>( config );
               bool enabled = false;
@@ -1922,7 +1915,7 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
         { "--cinematic-shadows", "--cinematic_shadows", ApplyCinematicShadowsOverride },
         { "--workers",
           "--worker-threads",
-          []( const char* value, ParsedArgs& args, EngineConfig& config ) -> bool
+          []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
           {
               static_cast<void>( args );
               int workerThreads = 0;
@@ -1943,24 +1936,26 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
           } },
         { "--model-capacity",
           nullptr,
-          []( const char* value, ParsedArgs& args, EngineConfig& config ) -> bool
+          []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
           {
               static_cast<void>( args );
               int capacity = 0;
-              if ( !ParseIntToken( value, capacity ) || capacity < 1 || capacity > MAX_GAME_MODELS )
+              if ( !ParseIntToken( value, capacity ) || capacity < 1 ||
+                   capacity > SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
               {
-                  return FailCommandLineParse( "--model-capacity expects 1..%d.", MAX_GAME_MODELS );
+                  return FailCommandLineParse( "--model-capacity expects 1..%d.",
+                                               SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
               }
               config.runtimeCapacity.gameModelCapacity = capacity;
               fprintf( stdout,
                        "[models] Active model capacity: %d (compiled max %d)\n",
                        config.runtimeCapacity.gameModelCapacity,
-                       MAX_GAME_MODELS );
+                       SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
               return true;
           } },
         { "--physics-parallel",
           "--parallel-physics",
-          []( const char* value, ParsedArgs& args, EngineConfig& config ) -> bool
+          []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
           {
               static_cast<void>( args );
               bool enabled = false;
@@ -1981,7 +1976,7 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
           } },
         { "--shadow-parallel-prep",
           "--parallel-shadow-prep",
-          []( const char* value, ParsedArgs& args, EngineConfig& config ) -> bool
+          []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
           {
               static_cast<void>( args );
               bool enabled = false;
@@ -1997,7 +1992,7 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
           } },
         { "--interactive",
           "--hold",
-          []( const char* value, ParsedArgs& args, EngineConfig& config ) -> bool
+          []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
           {
               static_cast<void>( config );
               bool enabled = false;
@@ -2540,7 +2535,7 @@ bool ApplyGeneratedObjectOverride( const CommandLineView& commandLine, ParsedArg
 }
 
 
-bool HandleContactAudioSmoke( const ParsedArgs& args, const EngineConfig& cfg, int& outExitCode )
+bool HandleContactAudioSmoke( const ParsedArgs& args, const SkullbonezCore::Core::EngineConfig& cfg, int& outExitCode )
 {
     if ( !args.contactAudioSmoke )
     {
@@ -2849,7 +2844,7 @@ bool ParsePhysicsDiagnosticsPath( const CommandLineView& commandLine, char ( &ou
 // ParsedArgs owns all command-line option state after this pass.
 // Also loads engine.cfg and applies any overrides to the passed startup config.
 // False means startup should abort, such as --physics-regression-log in Release.
-bool ParseCommandLine( const CommandLineView& commandLine, EngineConfig& config, ParsedArgs& out )
+bool ParseCommandLine( const CommandLineView& commandLine, SkullbonezCore::Core::EngineConfig& config, ParsedArgs& out )
 {
     if ( !ParseSceneArgs( commandLine, out.sceneList, out.isSuiteOrSceneMode ) )
     {
@@ -2860,11 +2855,11 @@ bool ParseCommandLine( const CommandLineView& commandLine, EngineConfig& config,
         return false;
     }
 
-    const SbResult configLoad = config.Load( ( std::string( DATA_ROOT ) + "engine.cfg" ).c_str() );
+    const SkullbonezCore::Core::SbResult configLoad =
+        config.Load( ( std::string( DATA_ROOT ) + "engine.cfg" ).c_str() );
     if ( !configLoad.ok )
     {
-        fprintf( stderr, "[%s] %s\n", configLoad.error.owner, configLoad.error.message );
-        return false;
+        return FailCommandLineParse( "%s: %s", configLoad.error.owner, configLoad.error.message );
     }
     if ( !ApplyVsyncOverride( commandLine, config ) )
     {
@@ -3043,12 +3038,13 @@ bool ParseCommandLine( const CommandLineView& commandLine, EngineConfig& config,
         config.Dump( stdout );
     }
 
-    PlatformProfiler::SetEnabled( out.platformProfilerMarkers );
-    PlatformProfiler::SetDetailedRangesEnabled( out.platformProfilerMarkers && out.platformProfilerMarkersExplicit );
+    SkullbonezCore::Core::PlatformProfiler::SetEnabled( out.platformProfilerMarkers );
+    SkullbonezCore::Core::PlatformProfiler::SetDetailedRangesEnabled( out.platformProfilerMarkers &&
+                                                                      out.platformProfilerMarkersExplicit );
     if ( out.platformProfilerMarkers )
     {
         fprintf( stdout,
-                 PlatformProfiler::IsAvailable()
+                 SkullbonezCore::Core::PlatformProfiler::IsAvailable()
                      ? "[platform-profiler] Platform profiler marker emission enabled.\n"
                      : "[platform-profiler] Platform profiler marker emission unavailable in this build; continuing "
                        "with in-engine profiler markers only.\n" );
@@ -3061,17 +3057,17 @@ bool ParseCommandLine( const CommandLineView& commandLine, EngineConfig& config,
 // Render backend
 // ---------------------------------------------------------------------------
 
-SbResult InitRenderBackend( Window* window,
-                            RuntimeRenderBackendView& renderBackendView,
-                            std::unique_ptr<RenderBackendDX12>& outBackend )
+SkullbonezCore::Core::SbResult InitRenderBackend( Window* window,
+                                                  RuntimeRenderBackendView& renderBackendView,
+                                                  std::unique_ptr<RenderBackendDX12>& outBackend )
 {
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
     auto backend = std::make_unique<RenderBackendDX12>();
     RenderBackendDX12* renderBackend = backend.get();
-    const SbResult renderInitResult = renderBackend->Init( window->NativeWindowHandle(),
-                                                           window->NativeDeviceContext(),
-                                                           window->ClientWidth(),
-                                                           window->ClientHeight() );
+    const SkullbonezCore::Core::SbResult renderInitResult = renderBackend->Init( window->NativeWindowHandle(),
+                                                                                 window->NativeDeviceContext(),
+                                                                                 window->ClientWidth(),
+                                                                                 window->ClientHeight() );
     if ( !renderInitResult.ok )
     {
         // Lane R: render backend startup probes the host graphics environment.
@@ -3092,7 +3088,7 @@ SbResult InitRenderBackend( Window* window,
     renderBackendView.rayTracingBackend = renderBackend;
     renderBackendView.shaderDevelopment = renderBackend;
     outBackend = std::move( backend );
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 // ---------------------------------------------------------------------------
@@ -3193,9 +3189,9 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
 
 int RunApp( Window* window,
             ParsedArgs& args,
-            EngineConfig& cfg,
+            SkullbonezCore::Core::EngineConfig& cfg,
             WorkerPool& workerPool,
-            Profiler* profiler,
+            SkullbonezCore::Core::Profiler* profiler,
             RuntimeRenderBackendView renderBackendView )
 {
     {
@@ -3204,7 +3200,7 @@ int RunApp( Window* window,
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
         struct ProfilerRenderDiagnosticsLifetime
         {
-            Profiler* profiler = nullptr;
+            SkullbonezCore::Core::Profiler* profiler = nullptr;
             ~ProfilerRenderDiagnosticsLifetime()
             {
                 if ( profiler )
@@ -3213,36 +3209,38 @@ int RunApp( Window* window,
                 }
             }
         };
-        // Lifetime: this guard is declared after cRun, so it clears Profiler's
+        // Lifetime: this guard is declared after cRun, so it clears SkullbonezCore::Core::Profiler's
         // renderer-diagnostics borrow before Run's destructor releases
         // backend-owned resources through the still-live DX12 backend.
         ProfilerRenderDiagnosticsLifetime profilerRenderDiagnosticsLifetime{ profiler };
 #endif
         const RunStartupOverrides startupOverrides = BuildRunStartupOverrides( args );
-        auto reportRunResult = [&]( const SbResult& result ) -> int
+        auto reportRunResult = [&]( const SkullbonezCore::Core::SbResult& result ) -> int
         {
             const char* safeOwner =
                 result.error.owner && result.error.owner[0] != '\0' ? result.error.owner : "Runtime";
             const char* safeMessage =
                 result.error.message[0] != '\0' ? result.error.message : "recoverable runtime operation failed";
-            Log().WriteEventf( "recoverable_failure owner=\"%s\" message=\"%s\"", safeOwner, safeMessage );
+            SkullbonezCore::Core::Log().WriteEventf( "recoverable_failure owner=\"%s\" message=\"%s\"",
+                                                     safeOwner,
+                                                     safeMessage );
             fprintf( stderr, "[runtime] Recoverable failure owner=%s reason=\"%s\"\n", safeOwner, safeMessage );
             fflush( stderr );
-            Log().FlushAll();
+            SkullbonezCore::Core::Log().FlushAll();
             if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
             {
                 window->MsgBox( safeMessage, "Runtime Failure", MB_OK );
             }
             return 1;
         };
-        auto reportInteractionAutomationResult = [&]( const SbResult& result ) -> int
+        auto reportInteractionAutomationResult = [&]( const SkullbonezCore::Core::SbResult& result ) -> int
         {
             const char* safeMessage =
                 result.error.message[0] != '\0' ? result.error.message : "interaction automation failed";
-            Log().WriteEventf( "interaction_automation_failed message=\"%s\"", safeMessage );
+            SkullbonezCore::Core::Log().WriteEventf( "interaction_automation_failed message=\"%s\"", safeMessage );
             fprintf( stderr, "[interaction] Automation failed: %s\n", safeMessage );
             fflush( stderr );
-            Log().FlushAll();
+            SkullbonezCore::Core::Log().FlushAll();
             if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
             {
                 window->MsgBox( safeMessage, "Interaction Automation Failed", MB_OK );
@@ -3250,63 +3248,47 @@ int RunApp( Window* window,
             return 1;
         };
 
-        const SbResult startupResult = cRun->ApplyStartupOverrides( startupOverrides );
+        const SkullbonezCore::Core::SbResult startupResult = cRun->ApplyStartupOverrides( startupOverrides );
         if ( !startupResult.ok )
         {
             return reportInteractionAutomationResult( startupResult );
         }
 
-        try
+        cRun->Initialise();
+        if ( !cRun->LastSceneLoadResult().ok )
         {
-            cRun->Initialise();
-            if ( !cRun->LastSceneLoadResult().ok )
+            return reportRunResult( cRun->LastSceneLoadResult() );
+        }
+        if ( args.sceneLoadOnly )
+        {
+            const SkullbonezCore::Core::SbResult sceneLoadOnlyResult =
+                cRun->RunSceneLoadOnly( args.sceneSnapshotOutPath[0] != '\0' ? args.sceneSnapshotOutPath : nullptr );
+            if ( !sceneLoadOnlyResult.ok )
             {
-                return reportRunResult( cRun->LastSceneLoadResult() );
-            }
-            if ( args.sceneLoadOnly )
-            {
-                const SbResult sceneLoadOnlyResult = cRun->RunSceneLoadOnly(
-                    args.sceneSnapshotOutPath[0] != '\0' ? args.sceneSnapshotOutPath : nullptr );
-                if ( !sceneLoadOnlyResult.ok )
-                {
-                    return reportRunResult( sceneLoadOnlyResult );
-                }
-            }
-            else
-            {
-                const SbResult executeResult = cRun->Execute();
-                if ( !executeResult.ok )
-                {
-                    if ( executeResult.error.owner &&
-                         strcmp( executeResult.error.owner, "InteractionAutomation" ) == 0 )
-                    {
-                        return reportInteractionAutomationResult( executeResult );
-                    }
-                    return reportRunResult( executeResult );
-                }
-                if ( args.graphicsStress )
-                {
-                    printf( "[graphics-stress] Execute returned.\n" );
-                    fflush( stdout );
-                }
-            }
-
-            if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
-            {
-                window->MsgBox( "Thanks for using the Skullbonez Core!", "Alert!", MB_OK );
+                return reportRunResult( sceneLoadOnlyResult );
             }
         }
-        catch ( const std::exception& e )
+        else
         {
-            Log().WriteEventf( "fatal_exception message=\"%s\"", e.what() );
-            fprintf( stderr, "FATAL: %s\n", e.what() );
-            fflush( stderr );
-            Log().FlushAll();
-            if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
+            const SkullbonezCore::Core::SbResult executeResult = cRun->Execute();
+            if ( !executeResult.ok )
             {
-                window->MsgBox( e.what(), "Alert!", MB_OK );
+                if ( executeResult.error.owner && strcmp( executeResult.error.owner, "InteractionAutomation" ) == 0 )
+                {
+                    return reportInteractionAutomationResult( executeResult );
+                }
+                return reportRunResult( executeResult );
             }
-            return 1;
+            if ( args.graphicsStress )
+            {
+                printf( "[graphics-stress] Execute returned.\n" );
+                fflush( stdout );
+            }
+        }
+
+        if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
+        {
+            window->MsgBox( "Thanks for using the Skullbonez Core!", "Alert!", MB_OK );
         }
     } // cRun destroyed here before backend/window cleanup
     return 0;
@@ -3362,10 +3344,10 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
 
 #ifdef _DEBUG
     InstallDebugCrashLogger();
-    Log().WriteEventf( "process_started command_line=\"%s\"", szCmdLine ? szCmdLine : "" );
+    SkullbonezCore::Core::Log().WriteEventf( "process_started command_line=\"%s\"", szCmdLine ? szCmdLine : "" );
     if ( HasOption( commandLine, "--debug-crash-test" ) )
     {
-        Log().WriteEventf( "debug_crash_test_requested" );
+        SkullbonezCore::Core::Log().WriteEventf( "debug_crash_test_requested" );
         volatile int* crashAddress = nullptr;
         *crashAddress = 1;
     }
@@ -3384,7 +3366,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         return atlasExitCode;
     }
 
-    EngineConfig cfg;
+    SkullbonezCore::Core::EngineConfig cfg;
 
     ParsedArgs args;
     if ( !ParseCommandLine( commandLine, cfg, args ) )
@@ -3432,11 +3414,10 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     Window* window = &windowOwner;
     window->SetStartupWindowSize( cfg.window.screenX, cfg.window.screenY );
     window->SetProjectionFrustum( cfg.camera.frustumNear, cfg.camera.frustumFar );
-    const SbResult windowResult = window->CreateAppWindow( hInstance, cfg.window.fullscreen );
+    const SkullbonezCore::Core::SbResult windowResult = window->CreateAppWindow( hInstance, cfg.window.fullscreen );
     if ( !windowResult.ok )
     {
-        fprintf( stderr, "%s: %s\n", windowResult.error.owner, windowResult.error.message );
-        fflush( stderr );
+        ReportStartupFailure( windowResult, "SkullbonezCore Startup Failed" );
         workerPool.Shutdown();
         CoUninitialize();
         return 1;
@@ -3445,33 +3426,32 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
 
     RuntimeRenderBackendView renderBackendView;
     std::unique_ptr<RenderBackendDX12> renderBackend;
-    const SbResult renderBackendResult = InitRenderBackend( window, renderBackendView, renderBackend );
+    const SkullbonezCore::Core::SbResult renderBackendResult =
+        InitRenderBackend( window, renderBackendView, renderBackend );
     if ( !renderBackendResult.ok )
     {
-        fprintf( stderr, "%s: %s\n", renderBackendResult.error.owner, renderBackendResult.error.message );
-        fflush( stderr );
+        ReportStartupFailure( renderBackendResult, "SkullbonezCore Renderer Startup Failed" );
         workerPool.Shutdown();
         CleanupWindow( window, hInstance, renderBackend );
         CoUninitialize();
         return 1;
     }
     window->SetResizeRenderLifecycle( renderBackendView.deviceLifecycle );
-    const SbResult initialResizeResult = window->HandleScreenResize();
+    const SkullbonezCore::Core::SbResult initialResizeResult = window->HandleScreenResize();
     if ( !initialResizeResult.ok )
     {
-        fprintf( stderr, "%s: %s\n", initialResizeResult.error.owner, initialResizeResult.error.message );
-        fflush( stderr );
+        ReportStartupFailure( initialResizeResult, "SkullbonezCore Renderer Startup Failed" );
         workerPool.Shutdown();
         CleanupWindow( window, hInstance, renderBackend );
         CoUninitialize();
         return 1;
     }
 
-    Profiler* profiler = nullptr;
+    SkullbonezCore::Core::Profiler* profiler = nullptr;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-    // Why: Profiler remains the sanctioned diagnostics singleton, but runtime
+    // Why: SkullbonezCore::Core::Profiler remains the sanctioned diagnostics singleton, but runtime
     // owners receive this startup borrow instead of resolving it mid-frame.
-    profiler = &Profiler::Instance();
+    profiler = &SkullbonezCore::Core::Profiler::Instance();
     profiler->BindRenderDiagnostics( renderBackendView.renderDiagnostics );
 #endif
 

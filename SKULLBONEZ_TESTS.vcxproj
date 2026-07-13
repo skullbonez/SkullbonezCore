@@ -84,9 +84,11 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
+      <FloatingPointModel>Precise</FloatingPointModel>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>ThirdPtySource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;_DEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>Sync</ExceptionHandling>
       <MinimalRebuild>false</MinimalRebuild>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -95,7 +97,7 @@
       <WarningLevel>Level4</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
@@ -109,8 +111,10 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
+      <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>ThirdPtySource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;NDEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>Sync</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -118,7 +122,7 @@
       <WarningLevel>Level4</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
@@ -134,8 +138,10 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">
     <ClCompile>
+      <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>ThirdPtySource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;NDEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>Sync</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -143,7 +149,7 @@
       <WarningLevel>Level4</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
@@ -158,8 +164,10 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'">
     <ClCompile>
+      <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>ThirdPtySource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;NDEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>Sync</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -167,7 +175,7 @@
       <WarningLevel>Level4</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
@@ -207,6 +215,7 @@
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp" />
     <ClCompile Include="SkullbonezTests\TestReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeInputBindings.cpp" />
+    <ClCompile Include="SkullbonezTests\TestRuntimeContracts.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayPredictionScheduling.cpp" />
     <ClCompile Include="SkullbonezTests\TestInputRouter.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayRecorder.cpp" />
@@ -254,6 +263,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ThirdPtySource\doctest\doctest.h" />
+    <ClInclude Include="SkullbonezTests\TestFatalCases.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h" />
   </ItemGroup>
   <ItemGroup>

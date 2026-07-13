@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UIScrollBar.h
 Purpose:
   Implements UI ScrollBar widgets, layout, drawing, or UI state for the in-engine controls.
 
-Mental model:
+Summary:
   UIScrollBar.h implements UI ScrollBar widgets, layout, drawing, or UI state
   for the in-engine controls. As a public header, keep edits anchored on UI
   request, layout, hit-test, and draw-command flow and on the

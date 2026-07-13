@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/GameModelRenderer.h
 Purpose:
   Converts prepared render-instance records into backend draw calls.
 
-Mental model:
+Summary:
   GameModelRenderer.h converts prepared render-instance records into backend
   draw calls. As a public header, keep edits anchored on render submission and
   resource lifetime and on the glossary/invariants below.
@@ -35,12 +35,10 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
 {
 struct CinematicRenderConfig;
-struct RenderHelperContext;
-} // namespace Basics
-
+} // namespace Core
 namespace Physics
 {
 class ColliderStore;
@@ -48,8 +46,9 @@ class ColliderStore;
 
 namespace Rendering
 {
+struct PrimitiveRenderContext;
 class RenderInstanceStore;
-}
+} // namespace Rendering
 
 namespace Threading
 {
@@ -61,14 +60,14 @@ namespace GameObjects
 class GameModelRenderer
 {
   public:
-    static void RenderModels( const Basics::RenderHelperContext& helperContext,
+    static void RenderModels( const Rendering::PrimitiveRenderContext& primitiveContext,
                               const Rendering::RenderInstanceStore& renderStore,
                               const Physics::ColliderStore& colliderStore,
                               bool renderCollisionVolumes,
                               const Math::Transformation::Matrix4& view,
                               const Math::Transformation::Matrix4& proj,
                               const float lightPos[4],
-                              const Basics::CinematicRenderConfig* cinematic,
+                              const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                               const Rendering::ShadowFrameData* shadow,
                               float materialAlpha,
                               const std::vector<uint8_t>* modelMask = nullptr,
@@ -79,20 +78,20 @@ class GameModelRenderer
                                           Threading::WorkerPool* workerPool,
                                           bool useShadowParallelPrep,
                                           Rendering::ShadowCasterBatches& outBatches );
-    static void SubmitShadowCasterBatches( const Basics::RenderHelperContext& helperContext,
+    static void SubmitShadowCasterBatches( const Rendering::PrimitiveRenderContext& primitiveContext,
                                            const Rendering::ShadowCasterBatches& batches,
                                            const Math::Transformation::Matrix4& view,
                                            const Math::Transformation::Matrix4& proj,
-                                           const Basics::CinematicRenderConfig* cinematic,
+                                           const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                            Rendering::RenderVisibilityView visibilityView );
-    static void RenderShadowCasters( const Basics::RenderHelperContext& helperContext,
+    static void RenderShadowCasters( const Rendering::PrimitiveRenderContext& primitiveContext,
                                      const Rendering::RenderInstanceStore& renderStore,
                                      const Physics::ColliderStore& colliderStore,
                                      Threading::WorkerPool* workerPool,
                                      bool useShadowParallelPrep,
                                      const Math::Transformation::Matrix4& view,
                                      const Math::Transformation::Matrix4& proj,
-                                     const Basics::CinematicRenderConfig* cinematic,
+                                     const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                      Rendering::RenderVisibilityView visibilityView );
     static bool GetObjectShadowBounds( const Rendering::RenderInstanceStore& renderStore,
                                        Threading::WorkerPool* workerPool,

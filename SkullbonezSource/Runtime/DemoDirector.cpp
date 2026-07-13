@@ -3,7 +3,7 @@ File: DemoDirector.cpp
 Purpose:
   Loads and saves Demo Director `.shot.json` files.
 
-Mental model:
+Summary:
   The director parser is a cold authoring boundary. It converts human-authored
   JSON into fixed-capacity runtime records, logs the first invalid field it
   finds, and leaves playback state untouched on failure.
@@ -43,7 +43,7 @@ using SkullbonezCore::Math::Vector::Vector3;
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -445,17 +445,13 @@ bool LoadDemoShotList( const char* path, DemoShotList& outShotList )
         return false;
     }
 
-    try
+    Json root = Json::parse( input, nullptr, false );
+    if ( root.is_discarded() )
     {
-        Json root;
-        input >> root;
-        return ReadRoot( root, path, outShotList );
-    }
-    catch ( const std::exception& e )
-    {
-        LogShotListError( path, std::string( "invalid JSON: " ) + e.what() );
+        LogShotListError( path, "invalid JSON" );
         return false;
     }
+    return ReadRoot( root, path, outShotList );
 }
 
 bool SaveDemoShotList( const char* path, const DemoShotList& shotList )
@@ -492,5 +488,5 @@ bool SaveDemoShotList( const char* path, const DemoShotList& shotList )
     return output.good();
 }
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

@@ -3,7 +3,7 @@
 // Purpose:
 //   Lock the first focused tests for baked convex hull asset loading.
 //
-// Mental model:
+// Summary:
 //   Convex hull assets keep editable source geometry plus baked runtime rows.
 //   Runtime loads the baked vertices, faces, edges, and mass properties, then
 //   narrowphase reads those immutable rows without rebaking the hull.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PersistentContactSolver.cpp
 Purpose:
   Solves object/object and object/terrain persistent contact rows.
 
-Mental model:
+Summary:
   PersistentContactSolver.cpp solves object/object and object/terrain
   persistent contact rows. As an implementation unit, keep edits anchored on
   deterministic physics, diagnostics, or world-state flow and on the
@@ -205,7 +205,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     // ENGINE-SPECIFIC:
     //   This key is a compact pair+feature id. Full 32-bit feature IDs are kept
     //   so authored hull face/edge identifiers are not truncated before warm
-    //   starting. MAX_GAME_MODELS is 8192, so 15 bits per body leaves 32 bits
+    //   starting. SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS is 8192, so 15 bits per body leaves 32 bits
     //   for the feature and one high kind bit for terrain rows.
     // Catto's cache needs a stable name for "body A touching body B at this
     // contact feature". Box and hull manifolds assign distinct feature ids per row.

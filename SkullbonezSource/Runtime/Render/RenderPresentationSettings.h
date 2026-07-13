@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Render/RenderPresentationSettings.h
 Purpose:
   Defines renderer-owned live presentation policy that survives backend rebuilds.
 
-Mental model:
+Summary:
   RuntimeRenderer owns these values alongside its render passes. Scene loading,
   UI, and stress tools may edit them at explicit cold/frame boundaries, while
   physics and audio keep their own state in their domain owners.
@@ -28,7 +28,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct TornadoVisualSettings
 {
@@ -49,5 +49,5 @@ struct RenderPresentationSettings
     bool pipelineSyncEnabled = false;
     TornadoVisualSettings tornadoVisual;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

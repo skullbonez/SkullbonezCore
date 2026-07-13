@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntimeReset.h
 Purpose:
   Defines scene reset preserve/restore policy outside Run.
 
-Mental model:
+Summary:
   A normal Reset button rebuilds simulation instances, but it should preserve
   operator-owned runtime controls for the current scene. Scene changes and
   Reset To Defaults skip this policy so authored scene data becomes authority.
@@ -45,7 +45,7 @@ namespace Physics
 {
 class PhysicsDebugVisualizer;
 }
-namespace Basics
+namespace Runtime
 {
 class SceneController;
 class RuntimeRenderer;
@@ -80,7 +80,7 @@ struct SceneRuntimeResetSnapshot
     float cinematicGamma = 2.2f;
     uint64_t cinematicOverrideMask = 0;
     uint64_t uiCinematicOverrideMask = 0;
-    CinematicRenderConfig cinematicRender;
+    SkullbonezCore::Core::CinematicRenderConfig cinematicRender;
     float uiTimeScaleOverride =
         0.0f;                                      // UI overrides feed object setup during reload, so they must survive before the scene rebuilds
     int uiModelCountOverride = -1;
@@ -106,5 +106,5 @@ void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
                                        bool suppressExitOnComplete );
 void ClearSceneRuntimeUIOverrides( SceneController& controller );
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

@@ -3,7 +3,7 @@
 // Purpose:
 //   Prove the unit-test harness discovers and runs at least one test case.
 //
-// Mental model:
+// Summary:
 //   This smoke case is intentionally behavior-free; later files carry real
 //   engine contracts while this one protects the project, runner, and script
 //   plumbing.

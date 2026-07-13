@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/EditorPlacementAssets.h
 Purpose:
   Declares editor placeable asset recipes and shared placement-geometry helpers.
 
-Mental model:
+Summary:
   Placement preview, tracer ghosts, and placement commit all ask this boundary
   for the same recipe data. The large recipe tables live in the matching .cpp;
   this header exposes only the typed recipe surface and the JSON part visitor
@@ -47,7 +47,7 @@ namespace Assets
 {
 class AssetSystem;
 }
-namespace Basics
+namespace Runtime
 {
 namespace RunInternal
 {
@@ -218,5 +218,5 @@ template <typename Fn> bool ForEachEditorBuildingPart( int objectType, const Ass
     return true;
 }
 } // namespace RunInternal
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

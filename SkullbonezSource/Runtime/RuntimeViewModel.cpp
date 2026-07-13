@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RuntimeViewModel.cpp
 Purpose:
   Builds runtime presentation snapshots from explicit presentation inputs.
 
-Mental model:
+Summary:
   The builder reads existing subsystem owners and copies only scalar UI-facing
   state, so no renderer, scene, or physics owner is exposed to presentation.
 
@@ -31,7 +31,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -133,5 +133,5 @@ RuntimeViewModel RuntimeViewModelBuilder::Build( const RuntimeViewModelContext& 
     FillContactAudioSnapshot( view.contactAudio, contactAudio );
     return view;
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/LiveStyleController.h
 Purpose:
   Owns the live style-harness control-folder state.
 
-Mental model:
+Summary:
   The live style controller watches a small opt-in folder for `live.style.json`
   and screenshot requests. It borrows the capture owner after rendering to save
   the requested image and owns the matching harness status transition.
@@ -40,7 +40,7 @@ namespace Rendering
 {
 class IRenderCaptureBackend;
 }
-namespace Basics
+namespace Runtime
 {
 class CaptureController;
 class LiveStyleController
@@ -70,5 +70,5 @@ class LiveStyleController
     int m_captureCount = 0;                 // Successful live screenshots.
     bool m_hasPendingScreenshot = false;    // Capture should run after render/UI this frame.
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

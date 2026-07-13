@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/BLASDX12.cpp
 Purpose:
   Builds and owns DX12 raytracing bottom-level acceleration structures for mesh geometry.
 
-Mental model:
+Summary:
   BLASDX12.cpp builds and owns DX12 raytracing bottom-level acceleration
   structures for mesh geometry. As an implementation unit, keep edits anchored
   on DX12 ownership, descriptors, resources, and command submission and on the
@@ -53,7 +53,7 @@ Related:
 
 
 using namespace SkullbonezCore::Rendering;
-using SkullbonezCore::Basics::SbResult;
+using SkullbonezCore::Core::SbResult;
 
 
 BLAS::BLAS() : m_scratch( nullptr ), m_result( nullptr )
@@ -67,13 +67,13 @@ BLAS::~BLAS()
 }
 
 
-SbResult BLAS::Build( ID3D12Device5* device,
-                      ID3D12GraphicsCommandList4* cmdList,
-                      D3D12_GPU_VIRTUAL_ADDRESS vbVA,
-                      int vertexCount,
-                      int vertexStride,
-                      DXGI_FORMAT vertexPosFormat,
-                      bool preferFastTrace )
+SkullbonezCore::Core::SbResult BLAS::Build( ID3D12Device5* device,
+                                            ID3D12GraphicsCommandList4* cmdList,
+                                            D3D12_GPU_VIRTUAL_ADDRESS vbVA,
+                                            int vertexCount,
+                                            int vertexStride,
+                                            DXGI_FORMAT vertexPosFormat,
+                                            bool preferFastTrace )
 {
     // Geometry description tells DXR where the triangle vertices live. This
     // engine path uses non-indexed triangles, so each consecutive group of
@@ -110,8 +110,9 @@ SbResult BLAS::Build( ID3D12Device5* device,
 
     if ( prebuild.ResultDataMaxSizeInBytes == 0 )
     {
-        return SbResult::Failure( "Rendering/DX12",
-                                  "BLAS: GetRaytracingAccelerationStructurePrebuildInfo returned zero" );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Rendering/DX12",
+            "BLAS: GetRaytracingAccelerationStructurePrebuildInfo returned zero" );
     }
 
     // Scratch and result live in the default heap because the GPU builds and
@@ -141,7 +142,7 @@ SbResult BLAS::Build( ID3D12Device5* device,
                                                   nullptr,
                                                   IID_PPV_ARGS( &m_scratch ) ) ) )
     {
-        return SbResult::Failure( "Rendering/DX12", "BLAS: Failed to create scratch buffer" );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "BLAS: Failed to create scratch buffer" );
     }
     NameDx12Object( m_scratch,
                     preferFastTrace ? L"Skullbonez DX12 Terrain BLAS Scratch Buffer"
@@ -165,7 +166,7 @@ SbResult BLAS::Build( ID3D12Device5* device,
                                                   IID_PPV_ARGS( &m_result ) ) ) )
     {
         ReleaseAfterBuild();
-        return SbResult::Failure( "Rendering/DX12", "BLAS: Failed to create result buffer" );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "BLAS: Failed to create result buffer" );
     }
     NameDx12Object(
         m_result,
@@ -195,7 +196,7 @@ SbResult BLAS::Build( ID3D12Device5* device,
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
     barrier.UAV.pResource = m_result;
     cmdList->ResourceBarrier( 1, &barrier );
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 

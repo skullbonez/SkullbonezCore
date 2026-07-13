@@ -3,7 +3,7 @@ File: InputFrame.cpp
 Purpose:
   Implements shared input value policy and UI-command application helpers.
 
-Mental model:
+Summary:
   InputFrameExecution owns the frame sequence. This file supplies the pure or
   synchronous helper operations that translate one sampled input/UI turn into
   typed owner calls without retaining the borrowed owners.
@@ -68,24 +68,24 @@ Related:
 #include <cstdio>
 #include <cstring>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
-using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Runtime::RunInternal;
 using SkullbonezCore::Geometry::XZBounds;
 using SkullbonezCore::UI::InGameUICommands;
 using SkullbonezCore::UI::InGameUIInputResult;
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
-const char* PresentationNameForModelIndex( const SkullbonezCore::Basics::SceneController& collection, int modelIndex )
+const char* PresentationNameForModelIndex( const SkullbonezCore::Runtime::SceneController& collection, int modelIndex )
 {
-    const auto& presentationRecords = collection.RenderPresentationRecords();
+    const auto presentationRecords = collection.RenderPresentationRecords();
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( presentationRecords.size() ) )
     {
         return "";
@@ -93,7 +93,7 @@ const char* PresentationNameForModelIndex( const SkullbonezCore::Basics::SceneCo
     return presentationRecords[static_cast<std::size_t>( modelIndex )].displayName;
 }
 
-void ReportRuntimeInputFailure( const SbResult& result )
+void ReportRuntimeInputFailure( const SkullbonezCore::Core::SbResult& result )
 {
     if ( result.ok )
     {
@@ -517,25 +517,25 @@ void RecordSceneRuntimeUIActions( const SceneRuntimeUICommandResult& commands, R
 // Concept: UI sampling and replay workspace arbitration publish the post-UI
 // frame before mapped keyboard commands run. The returned commands are fixed
 // value records; no callback retains access to the application shell.
-RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeInputContext& runtimeInput,
-                                          InputRouter& inputRouter,
-                                          RunCameraState& camera,
-                                          RuntimeTools& runtimeTools,
-                                          ReplayRuntime& replayRuntime,
+RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
+                                          RuntimeFrameInteractionView& interactionOwners,
+                                          RuntimeFrameSceneView& sceneOwners,
                                           const ReplayRuntime::PathPickInput& replayPointerRay,
-                                          RunCameraMode replayCurrentCameraMode,
-                                          RunCameraMode replayRestoreCameraMode,
-                                          AttachedCameraController& attachedCamera,
-                                          RuntimeInteractionController& interaction,
-                                          RunTimerState& timers,
-                                          SceneController& sceneController,
-                                          Window& window,
-                                          SkullbonezCore::UI::InGameUI& ui,
-                                          uint32_t cameraModeEnabledMask,
-                                          bool suppressWorldActionThisFrame )
+                                          const RuntimeInputFrameFacts& facts )
 {
+    InputRouter& inputRouter = interactionOwners.inputRouter;
+    RuntimeInputContext& runtimeInput = inputRouter.RuntimeContext();
+    RunCameraState& camera = interactionOwners.camera;
+    RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
+    ReplayRuntime& replayRuntime = interactionOwners.replayRuntime;
+    AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
+    RuntimeInteractionController& interaction = interactionOwners.interaction;
+    RunTimerState& timers = sceneOwners.timers;
+    SceneController& sceneController = sceneOwners.sceneController;
+    Window& window = host.window;
+    SkullbonezCore::UI::InGameUI& ui = interactionOwners.ui;
     RuntimeUIFrameResult result;
-    result.suppressWorldActionThisFrame = suppressWorldActionThisFrame;
+    result.suppressWorldActionThisFrame = facts.suppressWorldActionThisFrame;
     result.frameActive = true;
 
     const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex( sceneController, sceneController.Browser() );
@@ -552,7 +552,7 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeInputContext& runtimeInput,
         runtimeTools.Editor().autoTerrainAlign,
         runtimeTools.Editor().objectType,
         static_cast<int>( camera.mode ),
-        cameraModeEnabledMask,
+        facts.cameraModeEnabledMask,
         sceneController.Browser().namePtrs.empty() ? nullptr : sceneController.Browser().namePtrs.data(),
         static_cast<int>( sceneController.Browser().namePtrs.size() ),
         selectedSceneBrowserIndex );
@@ -601,8 +601,8 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeInputContext& runtimeInput,
                                                                       sceneController.Terrain().Get(),
                                                                       camera,
                                                                       runtimeTools.MousePickup(),
-                                                                      replayCurrentCameraMode,
-                                                                      replayRestoreCameraMode,
+                                                                      facts.replayCurrentCameraMode,
+                                                                      facts.replayRestoreCameraMode,
                                                                       attachedCamera.State().activeFollow,
                                                                       camera.director.grabbed,
                                                                       runtimeTools.Editor().editorModeEnabled,
@@ -621,33 +621,35 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeInputContext& runtimeInput,
     return result;
 }
 
-// Lifetime: command application borrows concrete owners synchronously. The
-// explicit list prevents a retained multi-domain bag from recreating Run.
+// Lifetime: command application borrows the per-call views synchronously. The
+// views are local calling-convention records and are never retained here.
 RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                   bool keyboardToggleEditorMode,
-                                                  RuntimeInputContext& runtimeInput,
-                                                  InputRouter& inputRouter,
-                                                  RunCameraState& camera,
-                                                  RuntimeTools& runtimeTools,
-                                                  ReplayRuntime& replayRuntime,
-                                                  RunCameraMode replayRestoreCameraMode,
-                                                  uint32_t cameraModeEnabledMask,
-                                                  AttachedCameraController& attachedCamera,
-                                                  RuntimeInteractionController& interaction,
-                                                  RunTimerState& timers,
-                                                  RunDebugState& debug,
-                                                  RunLaunchOptions& launchOptions,
-                                                  EngineConfig& config,
-                                                  SceneController& sceneController,
-                                                  Assets::AssetSystem& assets,
-                                                  Threading::WorkerPool& workerPool,
-                                                  SimulationSystem& simulation,
-                                                  SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio,
-                                                  RuntimeRenderBackendView& renderBackendView,
-                                                  RenderDefaultsStore& renderDefaults,
-                                                  RuntimeRenderer& renderer,
-                                                  int gameModelCapacity )
+                                                  RuntimeFrameHostView& host,
+                                                  RuntimeFrameInteractionView& interactionOwners,
+                                                  RuntimeFrameSceneView& sceneOwners,
+                                                  RuntimeFramePresentationView& presentationOwners,
+                                                  const RuntimeInputFrameFacts& facts )
 {
+    InputRouter& inputRouter = interactionOwners.inputRouter;
+    RuntimeInputContext& runtimeInput = inputRouter.RuntimeContext();
+    RunCameraState& camera = interactionOwners.camera;
+    RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
+    ReplayRuntime& replayRuntime = interactionOwners.replayRuntime;
+    AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
+    RuntimeInteractionController& interaction = interactionOwners.interaction;
+    RunTimerState& timers = sceneOwners.timers;
+    RunDebugState& debug = sceneOwners.debug;
+    RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
+    SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
+    SceneController& sceneController = sceneOwners.sceneController;
+    Assets::AssetSystem& assets = host.assets;
+    Threading::WorkerPool& workerPool = host.workerPool;
+    SimulationSystem& simulation = sceneOwners.simulation;
+    SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio = sceneOwners.contactAudio;
+    RuntimeRenderBackendView& renderBackendView = presentationOwners.renderBackendView;
+    RenderDefaultsStore& renderDefaults = presentationOwners.renderDefaults;
+    RuntimeRenderer& renderer = presentationOwners.renderer;
     if ( !result.frameActive )
     {
         return result;
@@ -688,7 +690,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                               sceneController,
                                               sceneController.Physics(),
                                               camera,
-                                              replayRestoreCameraMode,
+                                              facts.replayRestoreCameraMode,
                                               attachedCamera.State().activeFollow,
                                               camera.director.grabbed );
         if ( inputRouter.ReleasePointerToUi(
@@ -716,7 +718,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                     sceneController,
                                                     sceneController.Physics(),
                                                     camera,
-                                                    replayRestoreCameraMode,
+                                                    facts.replayRestoreCameraMode,
                                                     attachedCamera.State().activeFollow,
                                                     camera.director.grabbed );
             const bool wasFlyMode = RunCameraModeUsesFlyControls( camera.mode,
@@ -724,7 +726,9 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                                   camera.director.grabbed );
             RunInternal::EnterEditorModeState(
                 { runtimeTools.Editor(), sceneController, sceneController.Physics(), interaction },
-                NormalizeRuntimeCameraMode( camera.mode, sceneController.State().isSceneMode, cameraModeEnabledMask ) );
+                NormalizeRuntimeCameraMode( camera.mode,
+                                            sceneController.State().isSceneMode,
+                                            facts.cameraModeEnabledMask ) );
             runtimeTools.CancelMousePickup( inputRouter, interaction );
             camera.mode = RunCameraMode::Inspect;
             if ( !wasFlyMode )
@@ -746,7 +750,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
             const RunCameraMode restoreMode =
                 NormalizeRuntimeCameraMode( runtimeTools.Editor().restoreCameraModeAfterEditor,
                                             sceneController.State().isSceneMode,
-                                            cameraModeEnabledMask );
+                                            facts.cameraModeEnabledMask );
             const RuntimeInteractionTransition restoreTransition = interaction.EnterCameraMode( restoreMode );
             inputRouter.ApplyInteractionTransition( restoreTransition,
                                                     replayRuntime,
@@ -757,7 +761,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                     sceneController,
                                                     sceneController.Physics(),
                                                     camera,
-                                                    replayRestoreCameraMode,
+                                                    facts.replayRestoreCameraMode,
                                                     attachedCamera.State().activeFollow,
                                                     camera.director.grabbed );
             const bool wasFlyMode = RunCameraModeUsesFlyControls( camera.mode,
@@ -931,7 +935,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                  rayCastLauncherCommands.projectileConfigProjectileSpeed );
         recordUIAction( RuntimeInputAction::SetLauncherProjectileSpeed );
     }
-    EngineConfig& liveConfig = config;
+    SkullbonezCore::Core::EngineConfig& liveConfig = config;
     const PhysicsFrictionUICommandResult physicsFrictionCommands =
         ApplyPhysicsFrictionUICommands( PhysicsFrictionUICommandContext{ liveConfig, sceneController },
                                         uiCommands.physics );
@@ -950,7 +954,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                     runtimeTools,
                                                     renderBackendView.deviceLifecycle,
                                                     launchOptions.generatedObjectTypeOverride,
-                                                    gameModelCapacity };
+                                                    facts.gameModelCapacity };
     };
     const auto executeSceneGeneratedControlAction = [&]( const SceneRuntimeGeneratedControlAction& action )
     {
@@ -959,7 +963,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
             const ReplayRuntime::SceneTimelineResetInput reset = ReplayRuntime::DescribeSceneTimeline(
                 sceneController,
                 sceneController.State(),
-                gameModelCapacity,
+                facts.gameModelCapacity,
                 static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
             replayRuntime.ResetSceneTimeline(
                 reset,
@@ -968,7 +972,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                          &sceneController.Cameras(),
                                                          sceneController.Terrain().Get(),
                                                          camera,
-                                                         replayRestoreCameraMode,
+                                                         facts.replayRestoreCameraMode,
                                                          attachedCamera.State().activeFollow,
                                                          camera.director.grabbed } );
         }
@@ -1024,7 +1028,8 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     {
         recordUIAction( RuntimeInputAction::ApplyWorldWaterSettings );
     }
-    CinematicRenderConfig& activeCinematic = ActiveSceneCinematicConfig( sceneController.State(), config );
+    SkullbonezCore::Core::CinematicRenderConfig& activeCinematic =
+        ActiveSceneCinematicConfig( sceneController.State(), config );
     const CinematicUICommandContext cinematicUICommandContext{ launchOptions,
                                                                sceneController.State(),
                                                                activeCinematic,
@@ -1066,17 +1071,19 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
 }
 
 RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
-                                                  RuntimeInputContext& runtimeInput,
-                                                  InputRouter& inputRouter,
-                                                  RunCameraState& camera,
-                                                  RuntimeTools& runtimeTools,
-                                                  ReplayRuntime& replayRuntime,
-                                                  RuntimeInteractionController& interaction,
-                                                  RunCameraMode replayCurrentCameraMode,
-                                                  AttachedCameraController& attachedCamera,
-                                                  SceneController& sceneController,
-                                                  SkullbonezCore::UI::InGameUI& ui )
+                                                  RuntimeFrameInteractionView& interactionOwners,
+                                                  RuntimeFrameSceneView& sceneOwners,
+                                                  RunCameraMode replayCurrentCameraMode )
 {
+    InputRouter& inputRouter = interactionOwners.inputRouter;
+    RuntimeInputContext& runtimeInput = inputRouter.RuntimeContext();
+    RunCameraState& camera = interactionOwners.camera;
+    RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
+    ReplayRuntime& replayRuntime = interactionOwners.replayRuntime;
+    RuntimeInteractionController& interaction = interactionOwners.interaction;
+    AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
+    SceneController& sceneController = sceneOwners.sceneController;
+    SkullbonezCore::UI::InGameUI& ui = interactionOwners.ui;
     // Invariant: pointer ownership is finalized only after UI mutations and
     // stress actions succeed; failure leaves later world routing untouched.
     if ( !result.frameActive || !result.status.ok )
@@ -1149,5 +1156,5 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
     return result;
 }
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

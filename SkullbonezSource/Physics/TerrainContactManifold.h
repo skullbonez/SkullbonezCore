@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/TerrainContactManifold.h
 Purpose:
   Builds object/terrain contact sweep results and manifolds for the persistent solver.
 
-Mental model:
+Summary:
   Terrain contact is a value report. The sweep helper finds when a body reaches
   the heightfield, and the manifold helper turns that hit into solver rows from
   body/collider records.

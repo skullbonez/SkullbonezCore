@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RunDemoDirector.h
 Purpose:
   Declares presentation-only Demo Director playback/style/pacing helpers for Run split files.
 
-Mental model:
+Summary:
   SceneController owns the cameras while Run owns style/playback state, but Director playback
   is a narrow helper module. Callers pass the shelves it needs explicitly so
   this feature does not grow the Run class method surface.
@@ -36,7 +36,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct SceneRuntimeStyleContext;
 struct RunReplayPredictionState;
@@ -58,5 +58,5 @@ void Tick( RunCameraState& camera,
            SceneRuntimeStyleContext styleContext,
            float cameraDt );
 } // namespace DemoDirectorPlayback
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

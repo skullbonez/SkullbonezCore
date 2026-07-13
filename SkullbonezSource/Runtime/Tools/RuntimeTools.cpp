@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Tools/RuntimeTools.cpp
 Purpose:
   Provides the runtime tool state ownership boundary.
 
-Mental model:
+Summary:
   Run routes input and passes borrowed world services here. RuntimeTools mutates
   only tool-owned state, launcher-created projectiles, and explicit physics
   targets selected by the current tool action.
@@ -67,10 +67,10 @@ Related:
 #include <cmath>
 #include <utility>
 
-namespace SkullbonezCore::Basics
+namespace SkullbonezCore::Runtime
 {
 bool RuntimeTools::PrepareSelectionCommand( const RuntimeInteractionCommand& command,
-                                            const Basics::SceneController& collection,
+                                            const Runtime::SceneController& collection,
                                             RuntimeInteractionSelectionPlan& outPlan )
 {
     outPlan = RuntimeInteractionSelectionPlan{};
@@ -144,7 +144,7 @@ bool RuntimeTools::CommitSelectionCommand( const RuntimeInteractionSelectionPlan
         outEvent.previousCollider = plan.previousCollider;
         outEvent.collider = plan.collider;
         outEvent.selectionScope = plan.selectionScope;
-        Log().WriteEventf(
+        SkullbonezCore::Core::Log().WriteEventf(
             "runtime_interaction_command_event type=selection_changed scope=%s previous_model=%d model=%d",
             outEvent.selectionScope == RuntimeInteractionSelectionScope::Inspect ? "inspect" : "editor",
             outEvent.previousModelRow.value,
@@ -155,7 +155,7 @@ bool RuntimeTools::CommitSelectionCommand( const RuntimeInteractionSelectionPlan
 
 
 bool RuntimeTools::ApplySelectionCommand( const RuntimeInteractionCommand& command,
-                                          const Basics::SceneController& collection )
+                                          const Runtime::SceneController& collection )
 {
     // Why: owner-claiming commands need composition to apply transition cleanup
     // between prepare and commit. The convenience path is intentionally limited
@@ -187,7 +187,7 @@ bool RuntimeTools::InspectGizmoInteractionActive( RunCameraMode cameraMode, bool
 
 
 void RuntimeTools::ClearEditorInteractionForTransition( bool clearSelection,
-                                                        Basics::SceneController& collection,
+                                                        Runtime::SceneController& collection,
                                                         Physics::PhysicsEngine& physics,
                                                         RuntimeInteractionController& interaction )
 {
@@ -496,8 +496,8 @@ bool RuntimeTools::TryRayCastTestHit( const Physics::PhysicsBodyStore& bodyStore
     // mesh intersections. The broad deterministic hit result is enough for
     // impulse placement and visual feedback, and it stays on store records.
     const int hitCount = (std::min)( bodyStore.Count(), colliderStore.Count() );
-    const auto& bodies = bodyStore.Records();
-    const auto& colliders = colliderStore.Records();
+    const auto bodies = bodyStore.Records();
+    const auto colliders = colliderStore.Records();
     for ( int i = 0; i < hitCount; ++i )
     {
         const std::size_t index = static_cast<std::size_t>( i );
@@ -612,7 +612,7 @@ bool RuntimeTools::TryBuildLauncherCameraRay( Environment::CameraCollection* cam
     return true;
 }
 
-bool RuntimeTools::FireLauncherRay( Basics::SceneController& collection,
+bool RuntimeTools::FireLauncherRay( Runtime::SceneController& collection,
                                     Physics::PhysicsEngine& physics,
                                     RunSceneState& scene,
                                     Geometry::Terrain* terrain,
@@ -648,7 +648,7 @@ bool RuntimeTools::FireLauncherRay( Basics::SceneController& collection,
 LauncherPointerResult RuntimeTools::RouteLauncherPointer( const LauncherPointerInput& input,
                                                           Environment::CameraCollection& cameras,
                                                           ReplayRuntime& replayRuntime,
-                                                          Basics::SceneController& collection,
+                                                          Runtime::SceneController& collection,
                                                           Physics::PhysicsEngine& physics,
                                                           RunSceneState& scene,
                                                           Geometry::Terrain* terrain )
@@ -751,7 +751,7 @@ void RuntimeTools::FireLauncherLaser( Physics::PhysicsEngine& physics,
     ApplyLauncherPhysicsImpulse( physics, body, rayDirection * m_rayCastTest.impulseStrength, localApplicationPoint );
 }
 
-bool RuntimeTools::FireLauncherProjectile( Basics::SceneController& collection,
+bool RuntimeTools::FireLauncherProjectile( Runtime::SceneController& collection,
                                            Physics::PhysicsEngine& physics,
                                            RunSceneState& scene,
                                            Geometry::Terrain* terrain,
@@ -883,7 +883,7 @@ const RunEditorTracer& RuntimeTools::EditorTracer() const
 }
 
 
-void RuntimeTools::PrepareOverlayTrace( Basics::SceneController& models,
+void RuntimeTools::PrepareOverlayTrace( Runtime::SceneController& models,
                                         const Assets::AssetSystem& assets,
                                         const ToolOverlayBuildInput& input )
 {
@@ -905,4 +905,4 @@ void RuntimeTools::PrepareOverlayTrace( Basics::SceneController& models,
                                                 input.attachedCameraTargetIndex,
                                                 input.attachedCameraActiveFollow } );
 }
-} // namespace SkullbonezCore::Basics
+} // namespace SkullbonezCore::Runtime

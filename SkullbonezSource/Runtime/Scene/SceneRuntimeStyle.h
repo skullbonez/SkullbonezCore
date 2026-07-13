@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.h
 Purpose:
   Declares live scene style and cinematic override helpers outside Run.
 
-Mental model:
+Summary:
   Scene style changes mutate render-facing scene state and object materials
   without rebuilding the active simulation. The caller still owns when a user
   action makes a run interactive; this module owns applying the style payload.
@@ -39,11 +39,11 @@ namespace Assets
 {
 class AssetSystem;
 }
-namespace Basics
+namespace Runtime
 {
 class SceneController;
 }
-namespace Basics
+namespace Runtime
 {
 class TestScene;
 struct RunDebugState;
@@ -53,18 +53,22 @@ struct SceneRuntimeStyleContext
     RunLaunchOptions& launchOptions;
     RunSceneState& scene;
     RunSceneBrowserState& sceneBrowser;
-    Basics::SceneController& models;
+    Runtime::SceneController& models;
     SceneEntityStore& entities;
     const Assets::AssetSystem& assets;
-    CinematicRenderConfig& activeCinematic;
-    const CinematicRenderConfig& defaultCinematic;
+    SkullbonezCore::Core::CinematicRenderConfig& activeCinematic;
+    const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic;
 };
 
-void ApplyCinematicSceneOverrides( CinematicRenderConfig& target, uint64_t mask, const CinematicRenderConfig& source );
-CinematicRenderConfig& ActiveSceneCinematicConfig( RunSceneState& scene, EngineConfig& config );
-const CinematicRenderConfig& ActiveSceneCinematicConfig( const RunSceneState& scene, const EngineConfig& config );
+void ApplyCinematicSceneOverrides( SkullbonezCore::Core::CinematicRenderConfig& target,
+                                   uint64_t mask,
+                                   const SkullbonezCore::Core::CinematicRenderConfig& source );
+SkullbonezCore::Core::CinematicRenderConfig& ActiveSceneCinematicConfig( RunSceneState& scene,
+                                                                         SkullbonezCore::Core::EngineConfig& config );
+const SkullbonezCore::Core::CinematicRenderConfig&
+ActiveSceneCinematicConfig( const RunSceneState& scene, const SkullbonezCore::Core::EngineConfig& config );
 bool IsSceneCinematicRenderingEnabled( const RunSceneState& scene,
-                                       const EngineConfig& config,
+                                       const SkullbonezCore::Core::EngineConfig& config,
                                        const RunLaunchOptions& launchOptions,
                                        const RunDebugState& debug,
                                        bool graphicsReady );
@@ -72,5 +76,5 @@ bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int i
 void ApplyLiveStyleScene( SceneRuntimeStyleContext context, const TestScene& styleScene );
 bool ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext context );
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

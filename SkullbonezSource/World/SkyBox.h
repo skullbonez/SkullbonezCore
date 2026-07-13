@@ -3,7 +3,7 @@ File: SkullbonezSource/World/SkyBox.h
 Purpose:
   Builds and renders the skybox or sky backdrop for scene rendering.
 
-Mental model:
+Summary:
   SkyBox.h builds and renders the skybox or sky backdrop for scene rendering.
   As a public header, keep edits anchored on world-state ownership,
   terrain/environment data, and physics/render handoff and on the
@@ -67,15 +67,15 @@ class SkyBox
   private:
     Box m_boundaries;                                              // World-space cube bounds around the scene camera.
     Textures::TextureCollection* m_textures;                       // Borrowed texture registry; scene/runtime owns it.
-    const Basics::EngineConfig* m_config;                          // Borrowed sky texture/scale settings from the runtime config.
+    const SkullbonezCore::Core::EngineConfig* m_config;            // Borrowed sky texture/scale settings from the runtime config.
     Assets::AssetSystem* m_assets;                                 // Borrowed asset registry used to resolve shader logical names.
     Rendering::IRenderResourceFactory* m_resources;                // Borrowed active backend resource factory for sky GPU objects.
     std::unique_ptr<Rendering::IShader> m_shader;                  // Unlit textured shader rebuilt on backend reset.
     std::array<std::unique_ptr<Rendering::IMesh>, 6> m_faceMeshes; // One renderer-owned quad mesh per cube face.
     std::array<uint32_t, 6> m_faceTextures;                        // Texture hash selected for each cube face.
 
-    Basics::SbResult LoadTextures( const Basics::EngineConfig& config );
-    void BuildMeshes( const Basics::EngineConfig& config,
+    SkullbonezCore::Core::SbResult LoadTextures( const SkullbonezCore::Core::EngineConfig& config );
+    void BuildMeshes( const SkullbonezCore::Core::EngineConfig& config,
                       Assets::AssetSystem& assets,
                       Rendering::IRenderResourceFactory& resources );
 
@@ -87,12 +87,13 @@ class SkyBox
 
     void BindTextures( Textures::TextureCollection& textures );    // Borrow Run-owned texture registry for sky faces.
     void BindRenderContexts(
-        const Basics::EngineConfig& config,
+        const SkullbonezCore::Core::EngineConfig& config,
         Assets::AssetSystem& assets,
         Rendering::IRenderResourceFactory& resources );            // Borrow rebuild-only services for sky resources.
     void ReleaseRenderResources();                                 // Releases backend-owned sky meshes/shader and clears service borrows.
-    Basics::SbResult Render( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj );
-    Basics::SbResult ResetRenderResources();                       // Rebuild meshes/shader after renderer reset/switch
+    SkullbonezCore::Core::SbResult Render( const Math::Transformation::Matrix4& view,
+                                           const Math::Transformation::Matrix4& proj );
+    SkullbonezCore::Core::SbResult ResetRenderResources();         // Rebuild meshes/shader after renderer reset/switch
 };
 } // namespace Geometry
 } // namespace SkullbonezCore

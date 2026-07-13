@@ -4,7 +4,7 @@ Purpose:
   Owns process-wide window labels and the runtime data-root prefix used to load
   committed engine assets.
 
-Mental model:
+Summary:
   The executable launches from the repository root in validation and local
   development. These constants are the narrow compatibility surface that keeps
   window creation, title updates, and asset path construction using the same

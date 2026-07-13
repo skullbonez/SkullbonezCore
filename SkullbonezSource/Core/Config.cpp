@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/Config.cpp
 Purpose:
   Loads, stores, and exposes engine configuration values from files and command-line overrides.
 
-Mental model:
+Summary:
   Config.cpp loads, stores, and exposes engine configuration values from files
   and command-line overrides. As an implementation unit, keep edits anchored
   on process-wide contracts, diagnostics, and validation-sensitive state and
@@ -35,7 +35,7 @@ Related:
 #include <memory>
 
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Core;
 
 
 namespace
@@ -366,7 +366,10 @@ static const ConfigSetting kSkyboxSettings[] = {
 };
 
 static const ConfigSetting kRuntimeCapacitySettings[] = {
-    CONFIG_INT( "game_model_capacity", runtimeCapacity.gameModelCapacity, 1, MAX_GAME_MODELS ),
+    CONFIG_INT( "game_model_capacity",
+                runtimeCapacity.gameModelCapacity,
+                1,
+                SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ),
     CONFIG_INT( "worker_threads", runtimeCapacity.workerThreads, -1, 1024 ),
 };
 

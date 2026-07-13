@@ -257,3 +257,26 @@ repository-variable state, and trusted runtime evidence can be recorded below.
 Branch-protection rules, repository variables, and runner registration are
 GitHub administrative state; committing workflow YAML cannot set or prove any
 of them. V3 must not be checked complete merely because these files exist.
+
+## Live Activation Audit — 2026-07-12
+
+The final MASTER execution pass rechecked GitHub after all local plans closed:
+
+- `Mandatory CPU validation` pull-request run 29179364775 succeeded for
+  `nightrunner-11th-july` on 2026-07-12, providing a second healthy hosted PR
+  example.
+- The latest 20 workflow runs contain no `merge_group` event, so merge-queue
+  base-SHA handling still lacks real hosted proof.
+- `GET /repos/skullbonez/SkullbonezCore/branches/main/protection` returns HTTP
+  404 `Branch not protected`; the stable CPU job is therefore not required.
+- DX12 runtime run 29179368932 on `main` is skipped. No dedicated runner with
+  effective labels `self-hosted`, `Windows`, `x64`, and `dx12` is active, and
+  skipped work remains non-evidence.
+- The authenticated CLI token has repository/workflow scopes, but the missing
+  merge-queue event and runner machine cannot be manufactured by a source-tree
+  change. Repository rules also prohibit creating or merging a PR without an
+  explicit user request.
+
+V3 remains blocked at 5/6. Completion requires an administrator to enable and
+exercise the merge queue, protect `main` with `Mandatory CPU lane (Windows
+hosted)`, and provision the trusted or ephemeral DX12 runner described above.

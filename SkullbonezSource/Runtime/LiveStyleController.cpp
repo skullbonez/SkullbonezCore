@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/LiveStyleController.cpp
 Purpose:
   Applies live style-harness updates without restarting physics or scene state.
 
-Mental model:
+Summary:
   LiveStyleController applies live style-harness updates without restarting
   physics or scene state. As an implementation unit, keep edits anchored on
   local owner boundaries and call direction and on the glossary/invariants
@@ -24,6 +24,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "LiveStyleController.h"
+#include "../Core/PlatformWin32.h"
 #include "CaptureController.h"
 #include "../Rendering/IRenderCaptureBackend.h"
 #include "Scene/SceneRuntimeStyle.h"
@@ -32,7 +33,7 @@ Related:
 #include <cstring>
 
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 
 namespace
 {
@@ -259,7 +260,8 @@ void LiveStyleController::Tick( SceneRuntimeStyleContext context )
     {
         m_styleStamp = styleStamp;
         TestScene styleScene;
-        const SbResult loadResult = TestScene::TryLoadStyleFromFile( m_stylePath, context.assets, styleScene );
+        const SkullbonezCore::Core::SbResult loadResult =
+            TestScene::TryLoadStyleFromFile( m_stylePath, context.assets, styleScene );
         if ( loadResult.ok )
         {
             ApplyLiveStyleScene( context, styleScene );
@@ -344,7 +346,7 @@ void LiveStyleController::SavePendingCapture( CaptureController& capture, Render
         return;
     }
 
-    const SbResult captureResult = capture.SaveScreenshot( backend, PendingScreenshotPath() );
+    const SkullbonezCore::Core::SbResult captureResult = capture.SaveScreenshot( backend, PendingScreenshotPath() );
     if ( !captureResult.ok )
     {
         MarkCaptureFailed( captureResult.error.message );

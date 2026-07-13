@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/LauncherLaser.h
 Purpose:
   Owns launcher-mode laser ribbon shots and their transient render resources.
 
-Mental model:
+Summary:
   The laser is display-only feedback for launcher-mode ray shots. It never changes
   physics state; callers provide the already-computed hit/miss segment.
 
@@ -49,7 +49,7 @@ namespace Assets
 class AssetSystem;
 } // namespace Assets
 
-namespace Basics
+namespace Runtime
 {
 struct LauncherLaserShotSnapshot
 {
@@ -140,5 +140,5 @@ class LauncherLaser
                  Rendering::IRenderResourceFactory& renderResources,
                  Rendering::IRenderCommandContext& renderCommands );
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

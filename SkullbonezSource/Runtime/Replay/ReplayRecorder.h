@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayRecorder.h
 Purpose:
   Defines bounded replay capture records for simulation debugging.
 
-Mental model:
+Summary:
   Replay capture has two bounded tracks. Presentation samples feed immediate
   visual scrubbing. Solver samples keep same-tick body constants, inertia,
   sleep/contact summaries, and hashes for the authoritative rollback path.
@@ -68,7 +68,7 @@ class PhysicsEngine;
 class PhysicsBodyStore;
 } // namespace Physics
 
-namespace Basics
+namespace Runtime
 {
 class SceneEntityStore;
 inline constexpr int REPLAY_PAST_BUFFER_SECONDS = 60;
@@ -530,7 +530,7 @@ class ReplayRecorder
     bool IsEnabled() const;
     ReplayRecorderStats GetStats() const;
     // Adds this track's fixed-capacity storage to the shared replay memory categories.
-    void CollectMemoryCategoryBytes( MainMemoryReplayCategoryBytes& categories ) const;
+    void CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const;
     uint64_t CollectMemoryBytes() const;
     void CopySamplesChronological( std::vector<ReplayPresentationSample>& outSamples ) const;
     const ReplayPresentationSample* LatestSample() const;
@@ -591,7 +591,7 @@ class ReplaySolverRecorder
     bool IsEnabled() const;
     ReplayRecorderStats GetStats() const;
     // Adds this track's fixed-capacity storage to the shared replay memory categories.
-    void CollectMemoryCategoryBytes( MainMemoryReplayCategoryBytes& categories ) const;
+    void CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const;
     uint64_t CollectMemoryBytes() const;
     void CopySamplesChronological( std::vector<ReplaySolverFrameSample>& outSamples ) const;
     // Visits resolved samples without allocating a copied artifact vector. The
@@ -744,7 +744,7 @@ class ReplayEventRecorder
     bool IsEnabled() const;
     ReplayEventRecorderStats GetStats() const;
     // Adds this track's fixed-capacity storage to the shared replay memory categories.
-    void CollectMemoryCategoryBytes( MainMemoryReplayCategoryBytes& categories ) const;
+    void CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const;
     uint64_t CollectMemoryBytes() const;
     void CopyEventsChronological( std::vector<ReplayEventSample>& outEvents ) const;
 
@@ -760,5 +760,5 @@ class ReplayEventRecorder
     uint64_t m_totalEventsCaptured = 0;
     uint64_t m_totalEventsEvicted = 0;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

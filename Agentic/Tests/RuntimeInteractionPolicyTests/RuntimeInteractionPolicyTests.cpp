@@ -4,6 +4,10 @@ Purpose:
   Verifies CPU-side runtime interaction, picker, and fixed-capacity UI surface
   rules that should not require a renderer launch.
 
+Summary:
+  Covers interaction ownership, pointer capture, picking, and shared UI bounds
+  through deterministic CPU-only policy tests.
+
 Mental model:
   RuntimeInteractionPolicyTests.cpp verifies CPU-side runtime interaction and
   picker rules that should not require a renderer launch. As an implementation
@@ -44,7 +48,7 @@ Related:
 #include <stdexcept>
 #include <string>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Vector;

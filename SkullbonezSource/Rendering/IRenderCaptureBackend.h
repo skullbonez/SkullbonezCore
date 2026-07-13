@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/IRenderCaptureBackend.h
 Purpose:
   Declares the narrow render capability used for screenshot and readback capture.
 
-Mental model:
+Summary:
   Capture paths need only feature metadata and a backbuffer readback. They should
   not receive the full render backend surface that can create resources, mutate
   frame state, or submit draw calls.
@@ -43,7 +43,8 @@ class IRenderCaptureBackend
     virtual ~IRenderCaptureBackend() = default;
 
     virtual bool SupportsBackbufferCapture() const = 0;
-    virtual Basics::SbResult CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight ) = 0;
+    virtual SkullbonezCore::Core::SbResult
+    CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight ) = 0;
 };
 
 } // namespace Rendering

@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PhysicsDiagnosticsModel.h
 Purpose:
   Defines the debug-only model facts serialized by physics diagnostics streams.
 
-Mental model:
+Summary:
   SkullScope and Debug CSV output need stable per-body names, motion values, and
   shape metadata, but diagnostics must not borrow mutable authoring storage.
   This record is a one-frame serialization DTO, not physics storage authority.

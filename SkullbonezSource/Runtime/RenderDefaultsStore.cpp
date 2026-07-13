@@ -3,7 +3,7 @@ File: RenderDefaultsStore.cpp
 Purpose:
   Applies deferred render-default saves at the final input-frame checkpoint.
 
-Mental model:
+Summary:
   The queue records intent, not values. Draining reads the final ordinary and
   cinematic config references supplied by the composition root, then returns
   only successful owner events for replay serialization.
@@ -27,15 +27,16 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
-void RenderDefaultsStore::CaptureStartupCinematicBaseline( const CinematicRenderConfig& cinematic )
+void RenderDefaultsStore::CaptureStartupCinematicBaseline(
+    const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     m_cinematicBaseline = cinematic;
 }
 
 
-const CinematicRenderConfig& RenderDefaultsStore::CinematicBaseline() const
+const SkullbonezCore::Core::CinematicRenderConfig& RenderDefaultsStore::CinematicBaseline() const
 {
     return m_cinematicBaseline;
 }
@@ -71,8 +72,9 @@ void RenderDefaultsStore::Submit( RenderDefaultsRequestType type )
 }
 
 
-RenderDefaultsSaveBatchResult RenderDefaultsStore::DrainAtFrameCheckpoint( const OrdinaryRenderConfig& ordinary,
-                                                                           const CinematicRenderConfig& cinematic )
+RenderDefaultsSaveBatchResult
+RenderDefaultsStore::DrainAtFrameCheckpoint( const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
+                                             const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     RenderDefaultsSaveBatchResult result;
     while ( m_count > 0 )
@@ -81,8 +83,9 @@ RenderDefaultsSaveBatchResult RenderDefaultsStore::DrainAtFrameCheckpoint( const
         m_head = ( m_head + 1 ) % RENDER_DEFAULTS_REQUEST_CAPACITY;
         --m_count;
 
-        const SbResult saveResult = request == RenderDefaultsRequestType::Ordinary ? SaveRenderDefaults( ordinary )
-                                                                                   : SaveSkyDefaults( cinematic );
+        const SkullbonezCore::Core::SbResult saveResult = request == RenderDefaultsRequestType::Ordinary
+                                                              ? SaveRenderDefaults( ordinary )
+                                                              : SaveSkyDefaults( cinematic );
         if ( saveResult.ok )
         {
             result.saved[result.savedCount++] = request;
@@ -119,5 +122,5 @@ RenderDefaultsRequestType RenderDefaultsStore::PendingTypeAt( std::size_t index 
     }
     return m_requests[( m_head + static_cast<int>( index ) ) % RENDER_DEFAULTS_REQUEST_CAPACITY];
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

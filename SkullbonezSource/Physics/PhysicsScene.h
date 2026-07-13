@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/PhysicsScene.h
 Purpose:
   Owns deterministic physics-scene state and store snapshots.
 
-Mental model:
+Summary:
   PhysicsScene is the boundary between cold authoring descriptors and the
   authoritative physics/render stores. PhysicsBodyStore owns mutable body
   records, while PhysicsWorld owns solver scratch and diagnostics.
@@ -36,6 +36,7 @@ Related:
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 #include "ColliderStore.h"
@@ -46,10 +47,13 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
 {
 class EngineConfig;
-} // namespace Basics
+} // namespace Core
+namespace Runtime
+{
+} // namespace Runtime
 
 namespace Threading
 {
@@ -69,7 +73,7 @@ class PhysicsScene
   public:
     PhysicsScene();
 
-    void ApplyRuntimeConfig( const Basics::EngineConfig& config );
+    void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
     // Stamps current runtime policy onto cold authoring descriptors. Descriptor
     // storage may still live outside PhysicsScene, but policy values do not.
     void ApplyAuthoredBodyPolicy( PhysicsBodyCreateDesc& desc ) const;
@@ -117,7 +121,7 @@ class PhysicsScene
     // Count drift must be fixed by the creator/editor path that owns shape data.
     bool RefreshColliderSnapshot();
     void RunPhysics( float fChangeInTime,
-                     const Basics::EngineConfig& config,
+                     const SkullbonezCore::Core::EngineConfig& config,
                      const PhysicsWorldForces& worldForces,
                      Threading::WorkerPool& workerPool,
                      const char* const* diagnosticNames,
@@ -161,9 +165,9 @@ class PhysicsScene
     void SetTornadoSystemConfig( const TornadoSystemConfig& config );
     const TornadoSystemConfig& GetTornadoSystemConfig() const;
     float GetTornadoSystemElapsedSeconds() const;
-    void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot,
+    void CaptureReplaySolverSnapshot( Runtime::ReplaySolverWorldSnapshot& outSnapshot,
                                       PhysicsBodyCount bodyCount ) const;
-    bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, PhysicsBodyCount bodyCount );
+    bool RestoreReplaySolverSnapshot( const Runtime::ReplaySolverWorldSnapshot& snapshot, PhysicsBodyCount bodyCount );
     PhysicsDiagnosticsView GetDiagnosticsView() const;
     uint64_t CollectPhysicsWorldMemoryBytes() const;
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;
@@ -185,16 +189,16 @@ class PhysicsScene
     friend class PhysicsEngine;
 
     void LoadBodyDescriptors( const std::vector<PhysicsBodyCreateDesc>& bodyDescs );
-    const std::vector<int>& GetFixedContactHighlightBodies() const;
+    std::span<const int> GetFixedContactHighlightBodies() const;
     const PhysicsBodyStore& BodyStore() const;
     const ColliderStore& Colliders() const;
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
     const std::vector<int64_t>& GetCollisionCellKeys() const;
     const std::vector<uint8_t>& GetCollisionVisualContacts() const;
-    const std::vector<uint8_t>& GetSleepStates() const;
-    const std::vector<int>& GetSleepIslandVisualIds() const;
-    const std::vector<uint8_t>& GetSleepSupportedStates() const;
-    const std::vector<uint8_t>& GetSleepInhibitedStates() const;
+    std::span<const uint8_t> GetSleepStates() const;
+    std::span<const int> GetSleepIslandVisualIds() const;
+    std::span<const uint8_t> GetSleepSupportedStates() const;
+    std::span<const uint8_t> GetSleepInhibitedStates() const;
     const std::vector<PhysicsDebugContact>& GetPhysicsDebugContacts() const;
     const std::vector<PhysicsPipelineRecord>& GetPhysicsPipelineTrace() const;
     const std::vector<PointJointConstraint>& GetPointJointConstraints() const;

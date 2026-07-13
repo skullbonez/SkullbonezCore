@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/PlatformProfiler.cpp
 Purpose:
   Bridges engine profiler markers to platform tools such as PIX when available.
 
-Mental model:
+Summary:
   PlatformProfiler.cpp bridges engine profiler markers to platform tools such
   as PIX when available. As an implementation unit, keep edits anchored on
   process-wide contracts, diagnostics, and validation-sensitive state and on
@@ -33,7 +33,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
 {
 namespace PlatformProfiler
 {
@@ -366,5 +366,5 @@ void CpuMarker( const char* name, uint32_t hash )
 }
 
 } // namespace PlatformProfiler
-} // namespace Basics
+} // namespace Core
 } // namespace SkullbonezCore

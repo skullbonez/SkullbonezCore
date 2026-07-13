@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h
 Purpose:
   Declares scene navigation load decisions and UI request submission helpers.
 
-Mental model:
+Summary:
   SceneController owns queue/browser navigation and returns a value-only load
   request. SceneController consumes that request through its cold load
   transaction; callers only wire the explicit per-call owner borrows.
@@ -41,7 +41,7 @@ namespace UI
 {
 struct UISceneCommands;
 }
-namespace Basics
+namespace Runtime
 {
 class SceneController;
 
@@ -100,11 +100,11 @@ struct SceneRuntimeUICommandResult
     bool saveSceneDefaults = false;
     bool createScene = false;
     bool selectScene = false;
-    SbResult status = SbResult::Success();
+    SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
 };
 
 SceneRuntimeUICommandResult SubmitSceneUIRequests( SceneController& sceneController,
                                                    const UI::UISceneCommands& commands );
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

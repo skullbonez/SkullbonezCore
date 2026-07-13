@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.cpp
 Purpose:
   Implements live generated-scene rebuild helpers outside Run.
 
-Mental model:
+Summary:
   Generated-scene UI rebuilds clear the active generated objects, reset fixed
   step simulation state, reseed the deterministic setup path, and request the
   caller-owned replay/profiler resets that still sit on Run.
@@ -36,7 +36,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -48,13 +48,13 @@ SceneRuntimeGeneratedControlAction RequestReplayAndProfileReset()
     return action;
 }
 
-SbResult ResetGeneratedRuntimeState( SceneRuntimeGeneratedControlContext context )
+SkullbonezCore::Core::SbResult ResetGeneratedRuntimeState( SceneRuntimeGeneratedControlContext context )
 {
     // Hazard: Generated rebuilds destroy model/render state. Flush GPU work
     // first, then clear objects and reset simulation/tool state together.
     if ( context.renderLifecycle )
     {
-        const SbResult flushResult = context.renderLifecycle->FlushGPU();
+        const SkullbonezCore::Core::SbResult flushResult = context.renderLifecycle->FlushGPU();
         if ( !flushResult.ok )
         {
             // Lane R: no owner below this point may mutate after an uncertain
@@ -67,7 +67,7 @@ SbResult ResetGeneratedRuntimeState( SceneRuntimeGeneratedControlContext context
     context.simulation.Reset();
     context.scene.currentFrame = 0;
     context.scene.isTestComplete = false;
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 SceneGeneratedModelContext BuildGeneratedModelContext( SceneRuntimeGeneratedControlContext context )
@@ -81,7 +81,7 @@ SceneGeneratedModelContext BuildGeneratedModelContext( SceneRuntimeGeneratedCont
                                        context.objectTypeOverride };
 }
 
-void LogGeneratedControlFailure( const SbResult& result )
+void LogGeneratedControlFailure( const SkullbonezCore::Core::SbResult& result )
 {
     // Why: UI rebuild has already cleared mutable scene/model state. Report the
     // recoverable owner and let the caller reset replay/profiler state around
@@ -107,7 +107,7 @@ SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride( SceneRuntimeGenera
         return SceneRuntimeGeneratedControlAction{};
     }
 
-    const SbResult resetResult = ResetGeneratedRuntimeState( context );
+    const SkullbonezCore::Core::SbResult resetResult = ResetGeneratedRuntimeState( context );
     if ( !resetResult.ok )
     {
         SceneRuntimeGeneratedControlAction action;
@@ -126,8 +126,9 @@ SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride( SceneRuntimeGenera
 
     const unsigned int seed = context.scene.rngSeed > 0 ? context.scene.rngSeed : 1u;
     context.scene.rngState = seed;
-    const SbResult setupResult = SceneGeneratedSetup::SetUpSceneEntities( BuildGeneratedModelContext( context ),
-                                                                          context.uiOverrides.modelCountOverride );
+    const SkullbonezCore::Core::SbResult setupResult =
+        SceneGeneratedSetup::SetUpSceneEntities( BuildGeneratedModelContext( context ),
+                                                 context.uiOverrides.modelCountOverride );
     if ( !setupResult.ok )
     {
         LogGeneratedControlFailure( setupResult );
@@ -161,7 +162,7 @@ ApplyUISolverObjectCounts( SceneRuntimeGeneratedControlContext context, int ball
         return SceneRuntimeGeneratedControlAction{};
     }
 
-    const SbResult resetResult = ResetGeneratedRuntimeState( context );
+    const SkullbonezCore::Core::SbResult resetResult = ResetGeneratedRuntimeState( context );
     if ( !resetResult.ok )
     {
         SceneRuntimeGeneratedControlAction action;
@@ -174,9 +175,10 @@ ApplyUISolverObjectCounts( SceneRuntimeGeneratedControlContext context, int ball
 
     const unsigned int seed = context.scene.rngSeed > 0 ? context.scene.rngSeed : 1u;
     context.scene.rngState = seed;
-    const SbResult setupResult = SceneGeneratedSetup::SetUpSolverObjects( BuildGeneratedModelContext( context ),
-                                                                          context.uiOverrides.solverBallCountOverride,
-                                                                          context.uiOverrides.solverBoxCountOverride );
+    const SkullbonezCore::Core::SbResult setupResult =
+        SceneGeneratedSetup::SetUpSolverObjects( BuildGeneratedModelContext( context ),
+                                                 context.uiOverrides.solverBallCountOverride,
+                                                 context.uiOverrides.solverBoxCountOverride );
     if ( !setupResult.ok )
     {
         LogGeneratedControlFailure( setupResult );
@@ -251,5 +253,5 @@ SceneGeneratedUICommandResult ApplySceneGeneratedSolverBoxCountUICommand( SceneR
     return result;
 }
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

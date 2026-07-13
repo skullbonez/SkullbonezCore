@@ -92,10 +92,23 @@ if not "%RUN_EXIT%"=="0" if not "%RUN_EXIT%"=="124" (
     echo [graphics-stress] Process failed with exit code %RUN_EXIT%.
     powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "if(Test-Path -LiteralPath $env:SKORE_STRESS_STDOUT){ Write-Host '--- stdout tail ---'; Get-Content -LiteralPath $env:SKORE_STRESS_STDOUT -Tail 80 }; if(Test-Path -LiteralPath $env:SKORE_STRESS_STDERR){ Write-Host '--- stderr tail ---'; Get-Content -LiteralPath $env:SKORE_STRESS_STDERR -Tail 80 }"
 )
-if "%RUN_EXIT%"=="124" (
-    echo [graphics-stress] Timed run completed and was stopped by PID timeout.
+if "%RUN_EXIT%"=="0" goto check_descriptor_churn
+if "%RUN_EXIT%"=="124" goto check_descriptor_churn
+goto descriptor_churn_checked
+
+:check_descriptor_churn
+    REM Invariant: any otherwise-successful exit requires more than 128
+    REM acknowledged resize and texture turnovers back at the live baseline.
+    findstr /L /C:"[graphics-stress-descriptor-churn] PASS" "%STDOUT%" >nul
+    if errorlevel 1 (
+        echo [graphics-stress] Descriptor churn proof did not complete.
+        set "RUN_EXIT=3"
+        goto descriptor_churn_checked
+    )
+    if "%RUN_EXIT%"=="124" echo [graphics-stress] Timed run completed and was stopped by PID timeout.
     set "RUN_EXIT=0"
-)
+
+:descriptor_churn_checked
 >"%EXIT_FILE%" echo %RUN_EXIT%
 popd
 exit /b %RUN_EXIT%

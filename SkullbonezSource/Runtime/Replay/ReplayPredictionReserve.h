@@ -5,7 +5,7 @@ Purpose:
   frames, future-node caches, the private prediction engine, and trajectory
   store storage.
 
-Mental model:
+Summary:
   Replay prediction is allowed to grow during replay exploration, but only
   through one registered RuntimeReserveAllocator owner. Helpers in this file
   keep that owner name and hard byte cap from splintering across replay files.
@@ -30,7 +30,7 @@ Related:
 
 #include "ReplayRetainedMemory.h"
 
-namespace SkullbonezCore::Basics
+namespace SkullbonezCore::Runtime
 {
 Runtime::Allocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner() noexcept;
 bool RequestReplayPredictionReserveGrowth( const char* targetName,
@@ -39,4 +39,4 @@ bool RequestReplayPredictionReserveGrowth( const char* targetName,
                                            int requestedCapacityBytes,
                                            int elementSizeBytes,
                                            Runtime::Allocation::RuntimeReserveGrowthResult& outResult ) noexcept;
-} // namespace SkullbonezCore::Basics
+} // namespace SkullbonezCore::Runtime

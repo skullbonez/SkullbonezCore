@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UICommands.h
 Purpose:
   Implements UI Commands widgets, layout, drawing, or UI state for the in-engine controls.
 
-Mental model:
+Summary:
   UICommands.h implements UI Commands widgets, layout, drawing, or UI state
   for the in-engine controls. As a public header, keep edits anchored on UI
   request, layout, hit-test, and draw-command flow and on the
@@ -45,7 +45,7 @@ namespace UI
 
 enum class UICinematicParam
 {
-    // Each enum value maps one Cine-tab slider to one CinematicRenderConfig field.
+    // Each enum value maps one Cine-tab slider to one SkullbonezCore::Core::CinematicRenderConfig field.
     // The run loop receives this id, clamps the value, and applies it live.
     None = -1,
     Exposure,
@@ -132,7 +132,7 @@ enum class UICinematicFeature
 
 enum class UIRenderParam
 {
-    // Each enum value maps one Render-tab slider to one OrdinaryRenderConfig field.
+    // Each enum value maps one Render-tab slider to one SkullbonezCore::Core::OrdinaryRenderConfig field.
     None = -1,
     SunIntensity,
     SunRed,
@@ -318,7 +318,7 @@ struct UIProfilerCommands
 struct UICinematicCommands
 {
     // UI output for one frame. These are requests, not state: the render loop
-    // consumes them and mutates the real CinematicRenderConfig.
+    // consumes them and mutates the real SkullbonezCore::Core::CinematicRenderConfig.
     // requestedModeSceneIndex uses sceneOptions indexing for concept/cine style
     // scenes; -1 = Demo Scene/default style, -2 = no request this frame.
     bool toggleRendering = false;

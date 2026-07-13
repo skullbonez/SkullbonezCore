@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp
 Purpose:
   Implements replay velocity-edit picking, dragging, mutation, and overlay drawing.
 
-Mental model:
+Summary:
   Velocity edit is a replay-owned interaction mode. It turns mouse rays into linear or angular
   velocity edits, then marks prediction dirty so the path preview reflects the changed live state.
 
@@ -44,11 +44,11 @@ Related:
 #include <cfloat>
 #include <cmath>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Basics::ReplayOverlay;
+using namespace SkullbonezCore::Runtime::ReplayOverlay;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace
@@ -441,7 +441,7 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
                                            RuntimeInteractionController& interaction,
                                            PhysicsEngine& velocityPhysics,
                                            const SceneEntityStore& entities,
-                                           const std::vector<Rendering::RenderInstancePresentationRecord>& presentation,
+                                           std::span<const Rendering::RenderInstancePresentationRecord> presentation,
                                            Environment::CameraCollection* cameras,
                                            Geometry::Terrain* terrain,
                                            RunCameraState& camera,

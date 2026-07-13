@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/IShader.h
 Purpose:
   Declares the renderer-neutral shader interface.
 
-Mental model:
+Summary:
   IShader.h declares the renderer-neutral shader interface. As a public
   header, keep edits anchored on render submission and resource lifetime and
   on the glossary/invariants below.
@@ -43,6 +43,12 @@ namespace Rendering
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class IShader
 {
+
+    // Inheritance retention: rendering owns this test seam. Production calls
+    // occur for shader activation/constants around submitted draws; unit tests
+    // use NullShader without a DX12 device. A value wrapper would add another
+    // forwarding object and allocation. Keep only while the dispatch/perf
+    // evidence in the 2026-07-12 interface-slimming report remains neutral.
 
   public:
     virtual ~IShader() = default;

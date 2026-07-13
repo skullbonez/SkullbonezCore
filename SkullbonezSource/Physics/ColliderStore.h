@@ -3,7 +3,7 @@ File: SkullbonezSource/Physics/ColliderStore.h
 Purpose:
   Owns deterministic collider records and stable collider-handle identity.
 
-Mental model:
+Summary:
   ColliderStore owns the dense live collider rows. Runtime authoring code
   may replace a row at explicit create/edit boundaries, while topology repair
   only refreshes body identity from PhysicsBodyStore. Handles are allocator
@@ -31,12 +31,13 @@ Related:
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <vector>
 
 #include "CollisionShape.h"
 #include "PhysicsFixedList.h"
 #include "PhysicsHandles.h"
-#include "../GameObjects/SceneCapacity.h"
+#include "../Runtime/Scene/SceneCapacity.h"
 #include "../Core/Common.h"
 
 namespace SkullbonezCore
@@ -71,14 +72,14 @@ struct ColliderRecord
     float dragCoefficient = 0.0f;                                                            // Shape drag coefficient used by fluid forces.
 };
 
-using ColliderRecordList = PhysicsFixedList<ColliderRecord, MAX_GAME_MODELS>;
-using ColliderHandleList = PhysicsFixedList<PhysicsColliderHandle, MAX_GAME_MODELS>;
-using ColliderHandleGenerationList = PhysicsFixedList<uint32_t, MAX_GAME_MODELS>;
-using ColliderHandleFlagList = PhysicsFixedList<uint8_t, MAX_GAME_MODELS>;
-using ColliderHandleModelIndexList = PhysicsFixedList<int, MAX_GAME_MODELS>;
-using ColliderHandleReplayIdList = PhysicsFixedList<uint32_t, MAX_GAME_MODELS>;
-using ColliderHandleSlotList = PhysicsFixedList<uint32_t, MAX_GAME_MODELS>;
-using ColliderHandleAssignmentMask = PhysicsFixedList<uint8_t, MAX_GAME_MODELS>;
+using ColliderRecordList = PhysicsFixedList<ColliderRecord, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
+using ColliderHandleList = PhysicsFixedList<PhysicsColliderHandle, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
+using ColliderHandleGenerationList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
+using ColliderHandleFlagList = PhysicsFixedList<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
+using ColliderHandleModelIndexList = PhysicsFixedList<int, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
+using ColliderHandleReplayIdList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
+using ColliderHandleSlotList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
+using ColliderHandleAssignmentMask = PhysicsFixedList<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
 
 class ColliderStore
 {
@@ -113,8 +114,11 @@ class ColliderStore
     PhysicsColliderHandle HandleForSceneObjectId( PhysicsSceneObjectId sceneObjectId ) const;
     int ModelIndexForHandle( PhysicsColliderHandle handle ) const;
     bool Contains( PhysicsColliderHandle handle ) const;
-    const ColliderRecordList& Records() const;
-    ColliderRecordList& MutableRecords();
+    // Lifetime: these spans borrow the store's live dense prefix and expire on
+    // scene mutation, compaction, or store destruction.
+    std::span<const ColliderRecord> Records() const;
+    std::span<ColliderRecord> MutableRecords();
+    std::size_t RecordCapacity() const;
     ColliderRecord* MutableRecordForHandle( PhysicsColliderHandle handle );
     const ColliderRecord* RecordForHandle( PhysicsColliderHandle handle ) const;
 

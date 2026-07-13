@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RuntimeFileWriter.cpp
 Purpose:
   Implements shared runtime file-output helpers.
 
-Mental model:
+Summary:
   Runtime features ask for safe paths here before they write artifacts. The
   helpers create missing folders, keep numbered saves collision-free, and leave
   serialization to the caller.
@@ -27,10 +27,9 @@ Related:
 #include <cstdio>
 #include <cstring>
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include "../Core/PlatformWin32.h"
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 
 namespace
 {

@@ -3,7 +3,7 @@ File: SkullbonezSource/Maths/Vector3.cpp
 Purpose:
   Implements the engine 3D vector type and vector math operations.
 
-Mental model:
+Summary:
   Vector3.cpp implements the engine 3D vector type and vector math operations.
   As an implementation unit, keep edits anchored on units, basis conventions,
   and numerical assumptions and on the glossary/invariants below.

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.cpp
 Purpose:
   Draws the physics broadphase grid as an explanatory debug overlay.
 
-Mental model:
+Summary:
   BroadphaseVisualizer.cpp draws the physics broadphase grid as an explanatory
   debug overlay. As an implementation unit, keep edits anchored on
   deterministic physics, diagnostics, or world-state flow and on the

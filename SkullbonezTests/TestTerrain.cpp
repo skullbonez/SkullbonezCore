@@ -3,7 +3,7 @@
 // Purpose:
 //   Locks real Terrain flat-slope collision queries used by focused physics tests.
 //
-// Mental model:
+// Summary:
 //   Terrain owns both render resources and collision lookup data. Unit tests use
 //   render-resource doubles so construction follows the production path while
 //   assertions stay on CPU-side height, plane, and bounds behavior.
@@ -35,13 +35,13 @@
 #include "TestRenderResourceDoubles.h"
 
 using SkullbonezCore::Assets::AssetSystem;
-using SkullbonezCore::Basics::EngineConfig;
+using SkullbonezCore::Core::EngineConfig;
 using SkullbonezCore::Geometry::Plane;
 using SkullbonezCore::Geometry::Terrain;
 
 TEST_CASE( "Terrain: flat slope reports analytic height, plane, and bounds" )
 {
-    EngineConfig config;
+    SkullbonezCore::Core::EngineConfig config;
     config.worldForces.fluidHeight = 25.0f;
     AssetSystem assets;
     SkullbonezTests::NullRenderResourceFactory resources;

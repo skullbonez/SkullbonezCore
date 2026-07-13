@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/BLASDX12.h
 Purpose:
   Builds and owns DX12 raytracing bottom-level acceleration structures for mesh geometry.
 
-Mental model:
+Summary:
   BLASDX12.h builds and owns DX12 raytracing bottom-level acceleration
   structures for mesh geometry. As a public header, keep edits anchored on
   DX12 ownership, descriptors, resources, and command submission and on the
@@ -58,13 +58,13 @@ class BLAS
     BLAS();
     ~BLAS();
 
-    Basics::SbResult Build( ID3D12Device5* device,
-                            ID3D12GraphicsCommandList4* cmdList,
-                            D3D12_GPU_VIRTUAL_ADDRESS vbVA,
-                            int vertexCount,
-                            int vertexStride,
-                            DXGI_FORMAT vertexPosFormat,
-                            bool preferFastTrace );
+    SkullbonezCore::Core::SbResult Build( ID3D12Device5* device,
+                                          ID3D12GraphicsCommandList4* cmdList,
+                                          D3D12_GPU_VIRTUAL_ADDRESS vbVA,
+                                          int vertexCount,
+                                          int vertexStride,
+                                          DXGI_FORMAT vertexPosFormat,
+                                          bool preferFastTrace );
     D3D12_GPU_VIRTUAL_ADDRESS GetResultVA() const;
     // Release the temporary build workspace while keeping the finished BLAS
     // result buffer alive for TLAS instances and ray traversal.

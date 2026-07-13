@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RunLaunchOptions.h
 Purpose:
   Owns CLI/startup launch policy that Run reapplies across scene loads.
 
-Mental model:
+Summary:
   Launch options are process-start requests, not live subsystem authority. Run
   captures them once from CLI/UI startup paths, then scene loading and runtime
   tuning read the values when they need to restore deterministic overrides after
@@ -40,7 +40,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct RunLaunchOptions
 {
@@ -125,5 +125,5 @@ struct RunStartupOverrides
 #endif
 };
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

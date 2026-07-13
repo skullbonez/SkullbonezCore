@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RuntimeCameraMode.h
 Purpose:
   Defines the operator camera/workspace mode shared by runtime subsystems.
 
-Mental model:
+Summary:
   Camera mode is operator intent, not direct camera math. Runtime input,
   launcher, editor, replay, and UI code read this enum to decide which owner may
   consume camera gestures during a frame.
@@ -27,7 +27,7 @@ Related:
 */
 #pragma once
 
-namespace SkullbonezCore::Basics
+namespace SkullbonezCore::Runtime
 {
 enum class RunCameraMode
 {
@@ -94,4 +94,4 @@ inline const char* RunCameraModeLabel( RunCameraMode mode )
         return "Unknown";
     }
 }
-} // namespace SkullbonezCore::Basics
+} // namespace SkullbonezCore::Runtime

@@ -4,7 +4,7 @@ Purpose:
   Proves the command-line renderer option table still exposes DX12 as the only
   runtime renderer choice.
 
-Mental model:
+Summary:
   This is the small boolean product check that survives the deleted regex
   boundary apparatus. It tests the runtime startup contract directly instead of
   counting source spellings across the repository.

@@ -3,7 +3,7 @@
 // Purpose:
 //   Locks the ReplayRecorder unit harness boundary around solver-sample mirroring.
 //
-// Mental model:
+// Summary:
 //   ReplayRecorder contains both a lightweight solver-sample mirror and a full
 //   runtime capture path. The unit harness exercises the mirror path directly;
 //   live camera/world/entity/model owner traversal remains integration behavior.
@@ -36,11 +36,11 @@
 #include <stdexcept>
 #include <string>
 
-using SkullbonezCore::Basics::ReplayFrameIndex;
-using SkullbonezCore::Basics::ReplayRecorder;
-using SkullbonezCore::Basics::ReplayRecorderConfig;
-using SkullbonezCore::Basics::ReplaySolverBodySample;
-using SkullbonezCore::Basics::ReplaySolverFrameSample;
+using SkullbonezCore::Runtime::ReplayFrameIndex;
+using SkullbonezCore::Runtime::ReplayRecorder;
+using SkullbonezCore::Runtime::ReplayRecorderConfig;
+using SkullbonezCore::Runtime::ReplaySolverBodySample;
+using SkullbonezCore::Runtime::ReplaySolverFrameSample;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.h
 Purpose:
   Declares authored scene application helpers.
 
-Mental model:
+Summary:
   SceneAuthoredSetup owns the deterministic transformation from parsed scene
   JSON into runtime cameras, model bodies, constraints, materials, and
   validation gates. Run still supplies the live storage while scene ownership is
@@ -43,7 +43,7 @@ namespace Environment
 class CameraCollection;
 class WorldEnvironment;
 } // namespace Environment
-namespace Basics
+namespace Runtime
 {
 class SceneController;
 }
@@ -56,7 +56,7 @@ namespace Geometry
 {
 class Terrain;
 }
-namespace Basics
+namespace Runtime
 {
 class TestScene;
 struct RunSceneState;
@@ -96,7 +96,7 @@ struct SceneAuthoredModelContext
     RunSceneState& sceneState;
     Environment::WorldEnvironment& world;
     Geometry::Terrain* terrain;
-    Basics::SceneController& models;
+    Runtime::SceneController& models;
     SceneEntityStore& entities;
     Physics::PhysicsEngine& physics;
     std::vector<RunRequiredContactState>& requiredContacts;
@@ -108,7 +108,7 @@ struct SceneSimpleRagdollAppendContext
     RunSceneState& sceneState;
     Environment::WorldEnvironment& world;
     Geometry::Terrain* terrain;
-    Basics::SceneController& models;
+    Runtime::SceneController& models;
     Physics::PhysicsEngine& physics;
 };
 
@@ -117,15 +117,16 @@ class SceneAuthoredSetup
   public:
     // Returns a recoverable result because scene data and editor placement can
     // fail capacity or identity constraints before the runtime loop owns them.
-    static SbResult AppendSimpleRagdoll( SceneSimpleRagdollAppendContext context,
-                                         const Physics::RagdollBuildOptions& options );
+    static SkullbonezCore::Core::SbResult AppendSimpleRagdoll( SceneSimpleRagdollAppendContext context,
+                                                               const Physics::RagdollBuildOptions& options );
     static void SetUpCameras( SceneAuthoredCameraContext context, const TestScene& scene );
     // Returns failure before required gates are resolved when model population
     // cannot append a requested scene object.
-    static SbResult SetUpSceneEntities( SceneAuthoredModelContext context, const TestScene& scene );
+    static SkullbonezCore::Core::SbResult SetUpSceneEntities( SceneAuthoredModelContext context,
+                                                              const TestScene& scene );
     static void SetUpRequiredContacts( SceneAuthoredModelContext context, const TestScene& scene );
     static void SetUpRequiredBroadphaseXCells( SceneAuthoredModelContext context, const TestScene& scene );
 };
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

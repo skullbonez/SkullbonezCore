@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/RunRender.cpp
 Purpose:
   Sequences the application shell's camera update and one RuntimeRenderer frame.
 
-Mental model:
+Summary:
   Run prepares immutable scene, replay, tool, and cinematic frame views after
   camera selection. RuntimeRenderer owns every render decision, pass, resource
   lifetime, overlay record, and submission detail behind that boundary.
@@ -27,8 +27,8 @@ Related:
 #include "../Core/Profiler.h"
 #include "RuntimeTuning.h"
 
-using namespace SkullbonezCore::Basics;
-using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Runtime;
+using namespace SkullbonezCore::Runtime::RunInternal;
 using SkullbonezCore::Math::Vector::Vector3;
 
 
@@ -57,7 +57,8 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     // reads one coherent eye/view/up triple for this frame.
     m_sceneController.Cameras().SetCamera();
 
-    const CinematicRenderConfig& activeCinematic = ActiveSceneCinematicConfig( m_sceneController.State(), m_config );
+    const SkullbonezCore::Core::CinematicRenderConfig& activeCinematic =
+        ActiveSceneCinematicConfig( m_sceneController.State(), m_config );
     const bool cinematicRequested =
         IsSceneCinematicRenderingEnabled( m_sceneController.State(), m_config, m_launchOptions, m_debug, true );
     int attachedTargetIndex = -1;

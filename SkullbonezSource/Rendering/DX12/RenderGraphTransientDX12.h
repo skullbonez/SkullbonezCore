@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/RenderGraphTransientDX12.h
 Purpose:
   Names DX12-side materialized render-graph transient resource records.
 
-Mental model:
+Summary:
   The render graph compiler owns logical lifetimes. The DX12 backend turns each
   compatible pool slot into one physical texture plus the descriptors needed to
   write or sample it.

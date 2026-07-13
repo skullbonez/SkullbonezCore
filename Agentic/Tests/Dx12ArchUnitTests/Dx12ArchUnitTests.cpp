@@ -3,6 +3,10 @@ File: Agentic/Tests/Dx12ArchUnitTests/Dx12ArchUnitTests.cpp
 Purpose:
   Contains DX12 architecture checks that guard renderer ownership and dependency boundaries.
 
+Summary:
+  Exercises CPU-only renderer state machines and ownership contracts without
+  creating a D3D12 device or submitting GPU work.
+
 Mental model:
   Dx12ArchUnitTests.cpp contains DX12 architecture checks that guard renderer
   ownership and dependency boundaries. As an implementation unit, keep edits
@@ -40,6 +44,7 @@ Related:
 #include "Rendering/DX12/RenderBackendDX12.PipelineState.h"
 #include "Rendering/DX12/RenderGraphTransientDX12.h"
 #include "Rendering/DX12/RenderDeviceDX12.h"
+#include "Rendering/DX12/Dx12TextureRegistry.h"
 #include "Rendering/IRenderDeviceLifecycle.h"
 #include "Rendering/RenderGraph.h"
 
@@ -56,12 +61,13 @@ Related:
 #include <vector>
 
 using namespace SkullbonezCore::Rendering;
-using SkullbonezCore::Basics::SbResult;
+using SkullbonezCore::Core::SbResult;
+using SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase;
 
-static_assert( std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().FlushGPU() ), SbResult>::value,
+static_assert( std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().FlushGPU() ), SkullbonezCore::Core::SbResult>::value,
                "FlushGPU must return a recoverable result to every resource-mutation caller." );
 static_assert(
-    std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().DrainForResourceRelease() ), SbResult>::value,
+    std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().DrainForResourceRelease() ), SkullbonezCore::Core::SbResult>::value,
     "Terminal resource release must use its own checked drain boundary." );
 static_assert( std::is_trivially_copyable<Dx12SubmittedWorkState>::value,
                "Submitted-work tracking must remain an allocation-free value record." );
@@ -228,7 +234,7 @@ void TestSuccessfulListResetCommitsOpenState()
 
 void TestWaitFailurePreservesRecordingEpoch()
 {
-    const auto waitFailure = SbResult::Failure( "TestWait", "fence did not complete" );
+    const auto waitFailure = SkullbonezCore::Core::SbResult::Failure( "TestWait", "fence did not complete" );
 
     Dx12CommandRecordingState closedState;
     closedState.ResetForDevice();
@@ -253,7 +259,7 @@ void TestFirstCommandFailureRemainsAuthoritative()
     Dx12CommandRecordingState state = MakeOpenCommandState();
 
     const auto first = state.CommitClose( E_FAIL, "first Close" );
-    const auto second = state.RetainFailure( SbResult::Failure( "SecondOwner", "second failure" ) );
+    const auto second = state.RetainFailure( SkullbonezCore::Core::SbResult::Failure( "SecondOwner", "second failure" ) );
 
     EXPECT_TRUE( !first.ok );
     EXPECT_TRUE( !second.ok );
@@ -306,7 +312,7 @@ void TestGpuDrainCloseFailureBlocksSubmission()
     Dx12CommandRecordingState commandState = MakeOpenCommandState();
     Dx12GpuDrainProgress drainProgress( commandState.IsOpen() );
 
-    const SbResult closeResult = commandState.CommitClose( E_FAIL, "test FlushGPU Close" );
+    const SkullbonezCore::Core::SbResult closeResult = commandState.CommitClose( E_FAIL, "test FlushGPU Close" );
     if ( closeResult.ok )
     {
         drainProgress.CommitClose();
@@ -324,13 +330,13 @@ void TestGpuDrainWaitFailureBlocksReopenAndMutation()
     Dx12CommandRecordingState commandState = MakeOpenCommandState();
     Dx12GpuDrainProgress drainProgress( commandState.IsOpen() );
 
-    const SbResult closeResult = commandState.CommitClose( S_OK, "test FlushGPU Close" );
+    const SkullbonezCore::Core::SbResult closeResult = commandState.CommitClose( S_OK, "test FlushGPU Close" );
     EXPECT_TRUE( closeResult.ok );
     EXPECT_TRUE( drainProgress.CommitClose() );
     EXPECT_TRUE( drainProgress.CommitSubmission() );
 
-    const SbResult waitResult =
-        commandState.CommitWait( SbResult::Failure( "TestWait", "submitted work did not drain" ) );
+    const SkullbonezCore::Core::SbResult waitResult =
+        commandState.CommitWait( SkullbonezCore::Core::SbResult::Failure( "TestWait", "submitted work did not drain" ) );
     if ( waitResult.ok )
     {
         drainProgress.CommitWait();
@@ -350,7 +356,7 @@ void TestGpuDrainSuccessAllowsMutationOnlyAfterReopen()
     EXPECT_TRUE( commandState.CommitClose( S_OK, "test FlushGPU Close" ).ok );
     EXPECT_TRUE( drainProgress.CommitClose() );
     EXPECT_TRUE( drainProgress.CommitSubmission() );
-    EXPECT_TRUE( commandState.CommitWait( SbResult::Success() ).ok );
+    EXPECT_TRUE( commandState.CommitWait( SkullbonezCore::Core::SbResult::Success() ).ok );
     EXPECT_TRUE( drainProgress.CommitWait() );
     EXPECT_TRUE( !drainProgress.IsMutationSafe() );
 
@@ -368,7 +374,7 @@ void TestSubmittedWorkSignalFailureBlocksReuseAndRelease()
     submittedWork.ResetForDevice();
     submittedWork.MarkSubmitted();
 
-    submittedWork.CommitSignal( SbResult::Failure( "TestSignal", "queue signal failed" ), 0 );
+    submittedWork.CommitSignal( SkullbonezCore::Core::SbResult::Failure( "TestSignal", "queue signal failed" ), 0 );
 
     EXPECT_TRUE( submittedWork.Phase() == Dx12SubmittedWorkPhase::CompletionUncertain );
     EXPECT_TRUE( submittedWork.HasSubmittedWork() );
@@ -386,9 +392,9 @@ void TestSubmittedWorkWaitFailurePreservesCompletionFence()
     Dx12SubmittedWorkState submittedWork;
     submittedWork.ResetForDevice();
     submittedWork.MarkSubmitted();
-    submittedWork.CommitSignal( SbResult::Success(), 42 );
+    submittedWork.CommitSignal( SkullbonezCore::Core::SbResult::Success(), 42 );
 
-    submittedWork.CommitWait( SbResult::Failure( "TestWait", "fence wait failed" ), 42 );
+    submittedWork.CommitWait( SkullbonezCore::Core::SbResult::Failure( "TestWait", "fence wait failed" ), 42 );
 
     EXPECT_TRUE( submittedWork.Phase() == Dx12SubmittedWorkPhase::CompletionUncertain );
     EXPECT_TRUE( submittedWork.HasSubmittedWork() );
@@ -408,12 +414,12 @@ void TestSubmittedWorkSuccessfulSignalAndWaitAllowsReuse()
     Dx12SubmittedWorkState submittedWork;
     submittedWork.ResetForDevice();
     submittedWork.MarkSubmitted();
-    submittedWork.CommitSignal( SbResult::Success(), 7 );
+    submittedWork.CommitSignal( SkullbonezCore::Core::SbResult::Success(), 7 );
 
     EXPECT_TRUE( submittedWork.Phase() == Dx12SubmittedWorkPhase::SubmittedFenced );
     EXPECT_TRUE( !submittedWork.CanReleaseWithoutFence() );
 
-    submittedWork.CommitWait( SbResult::Success(), 7 );
+    submittedWork.CommitWait( SkullbonezCore::Core::SbResult::Success(), 7 );
     EXPECT_TRUE( submittedWork.Phase() == Dx12SubmittedWorkPhase::Idle );
     EXPECT_TRUE( submittedWork.CanReleaseWithoutFence() );
 }
@@ -423,8 +429,8 @@ void TestDeviceLossBlocksWorkAndRetainsFirstFailure()
     Dx12DeviceHealthState health;
     health.ResetForDevice();
 
-    const SbResult first = health.RetainDeviceLoss( "Present", E_FAIL );
-    const SbResult second = health.RetainDeviceLoss( "ResizeBuffers", E_OUTOFMEMORY );
+    const SkullbonezCore::Core::SbResult first = health.RetainDeviceLoss( "Present", E_FAIL );
+    const SkullbonezCore::Core::SbResult second = health.RetainDeviceLoss( "ResizeBuffers", E_OUTOFMEMORY );
 
     EXPECT_TRUE( !first.ok );
     EXPECT_TRUE( health.IsLost() );
@@ -469,7 +475,7 @@ void TestRecreationFailurePreservesPublishedGeneration()
     EXPECT_TRUE( transaction.CommitCandidateReady() );
     EXPECT_TRUE( transaction.CommitOldReferencesReleased() );
 
-    const SbResult failure = transaction.Fail( SbResult::Failure( "TestResize", "ResizeBuffers failed" ) );
+    const SkullbonezCore::Core::SbResult failure = transaction.Fail( SkullbonezCore::Core::SbResult::Failure( "TestResize", "ResizeBuffers failed" ) );
 
     EXPECT_TRUE( !failure.ok );
     EXPECT_TRUE( transaction.HasFailed() );
@@ -499,8 +505,8 @@ void TestFaultInjectionBlocksFirstAndSubsequentSubmissions()
     Dx12FaultInjectionState fault;
     fault.Configure( "before-first-submit" );
 
-    const SbResult first = fault.BeforeSubmission();
-    const SbResult second = fault.BeforeSubmission();
+    const SkullbonezCore::Core::SbResult first = fault.BeforeSubmission();
+    const SkullbonezCore::Core::SbResult second = fault.BeforeSubmission();
 
     EXPECT_TRUE( !first.ok );
     EXPECT_TRUE( !second.ok );
@@ -581,6 +587,41 @@ void TestDescriptorTransientRangeCapacityProbeIsAtomic()
     const Dx12DescriptorAllocatorStats afterZeroRange = allocator.GetStats();
     EXPECT_EQ( afterZeroRange.transientUsedThisFrame, 7u );
     EXPECT_EQ( afterZeroRange.transientPeakThisRun, 7u );
+}
+
+void TestStaticDescriptorRowsReuseWithStableHighWater()
+{
+    Dx12DescriptorAllocator allocator = MakeDescriptorAllocator();
+
+    const UINT first = allocator.AllocateStatic();
+    const UINT second = allocator.AllocateStatic();
+    allocator.FreeStatic( first );
+    const UINT reused = allocator.AllocateStatic();
+
+    EXPECT_EQ( first, 0u );
+    EXPECT_EQ( second, 1u );
+    EXPECT_EQ( reused, first );
+    const Dx12DescriptorAllocatorStats stats = allocator.GetStats();
+    EXPECT_EQ( stats.staticUsed, 2u );
+    EXPECT_EQ( stats.staticHighWater, 2u );
+}
+
+void TestTextureHandleGenerationRejectsReusedSlotAlias()
+{
+    Dx12TextureRegistry registry;
+    registry.Initialize( 2u );
+    TextureEntryDX12 entry;
+    entry.srvIndex = 11u;
+    const uint32_t first = registry.Insert( entry );
+    EXPECT_TRUE( registry.Resolve( first ) != nullptr );
+    registry.Resolve( first )->srvIndex = UINT_MAX;
+
+    entry.srvIndex = 22u;
+    const uint32_t replacement = registry.Insert( entry );
+    EXPECT_TRUE( replacement != first );
+    EXPECT_TRUE( registry.Resolve( first ) == nullptr );
+    EXPECT_TRUE( registry.Resolve( replacement ) != nullptr );
+    EXPECT_EQ( registry.Resolve( replacement )->srvIndex, 22u );
 }
 
 void TestRenderGraphSkipsUnknownInitialTransition()
@@ -1233,7 +1274,67 @@ void TestPlatformProfilerGpuStackResetClearsStaleDeviceEpoch()
     EXPECT_TRUE( !stack.CommitEnd() );
 }
 
+void TestUploadOverflowDropsSteadyCallerWithoutDrain()
+{
+    EXPECT_TRUE( SelectDx12UploadOverflowAction( false, RuntimeAllocationPhase::Render ) ==
+                 Dx12UploadOverflowAction::DropCaller );
+    EXPECT_TRUE( SelectDx12UploadOverflowAction( false, RuntimeAllocationPhase::SteadyGameplay ) ==
+                 Dx12UploadOverflowAction::DropCaller );
+    EXPECT_TRUE( SelectDx12UploadOverflowAction( false, RuntimeAllocationPhase::Replay ) ==
+                 Dx12UploadOverflowAction::DropCaller );
+    EXPECT_TRUE( SelectDx12UploadOverflowAction( false, RuntimeAllocationPhase::Physics ) ==
+                 Dx12UploadOverflowAction::DropCaller );
+}
+
+void TestUploadReservationResolverInvokesOnlyColdRetry()
+{
+    int retryCount = 0;
+    const Dx12UploadReservationResolution steady =
+        ResolveDx12UploadReservation( false, RuntimeAllocationPhase::Render, [&]()
+        {
+            ++retryCount;
+            return true;
+        } );
+    EXPECT_TRUE( !steady.allowed );
+    EXPECT_TRUE( steady.dropped );
+    EXPECT_TRUE( !steady.coldRetryAttempted );
+    EXPECT_EQ( retryCount, 0 );
+
+    const Dx12UploadReservationResolution cold =
+        ResolveDx12UploadReservation( false, RuntimeAllocationPhase::SceneLoad, [&]()
+        {
+            ++retryCount;
+            return true;
+        } );
+    EXPECT_TRUE( cold.allowed );
+    EXPECT_TRUE( !cold.dropped );
+    EXPECT_TRUE( cold.coldRetryAttempted );
+    EXPECT_EQ( retryCount, 1 );
+}
+
+void TestUploadOverflowKeepsColdFlushRetry()
+{
+    EXPECT_TRUE( SelectDx12UploadOverflowAction( false, RuntimeAllocationPhase::SceneLoad ) ==
+                 Dx12UploadOverflowAction::FlushAndRetry );
+    EXPECT_TRUE( SelectDx12UploadOverflowAction( false, RuntimeAllocationPhase::BackendInit ) ==
+                 Dx12UploadOverflowAction::FlushAndRetry );
+    EXPECT_TRUE( SelectDx12UploadOverflowAction( true, RuntimeAllocationPhase::Render ) ==
+                 Dx12UploadOverflowAction::Allocate );
+}
+
+void TestUploadRangeProbeRejectsArithmeticOverflow()
+{
+    const UINT64 maxValue = (std::numeric_limits<UINT64>::max)();
+    EXPECT_TRUE( !CanReserveDx12UploadRange( 32u, 1024u, maxValue, 256u ) );
+    EXPECT_TRUE( !CanReserveDx12UploadRange( maxValue - 1u, maxValue, 1u, 256u ) );
+    EXPECT_TRUE( CanReserveDx12UploadRange( 768u, 1024u, 256u, 256u ) );
+}
+
 const TestCase kTests[] = {
+    { "Upload overflow drops steady caller without drain", TestUploadOverflowDropsSteadyCallerWithoutDrain },
+    { "Upload overflow keeps cold flush retry", TestUploadOverflowKeepsColdFlushRetry },
+    { "Upload reservation resolver invokes only cold retry", TestUploadReservationResolverInvokesOnlyColdRetry },
+    { "Upload range probe rejects arithmetic overflow", TestUploadRangeProbeRejectsArithmeticOverflow },
     { "Platform profiler GPU stack restores across submission", TestPlatformProfilerGpuStackRestoresAcrossSubmission },
     { "Platform profiler GPU stack rejects overflow and underflow",
       TestPlatformProfilerGpuStackRejectsOverflowAndUnderflow },
@@ -1269,6 +1370,8 @@ const TestCase kTests[] = {
     { "Unarmed fault injection allows submission accounting", TestUnarmedFaultInjectionAllowsSubmissionAccounting },
     { "Descriptor transient ranges are contiguous", TestDescriptorTransientRangeIsContiguous },
     { "Descriptor transient range capacity probes are atomic", TestDescriptorTransientRangeCapacityProbeIsAtomic },
+    { "Static descriptor rows reuse with stable high-water", TestStaticDescriptorRowsReuseWithStableHighWater },
+    { "Texture handle generations reject reused-slot aliases", TestTextureHandleGenerationRejectsReusedSlotAlias },
     { "Render graph skips Unknown initial transitions", TestRenderGraphSkipsUnknownInitialTransition },
     { "Render graph emits explicit initial-state transitions", TestRenderGraphExplicitInitialStateTransitions },
     { "Render graph tracks subresource transitions independently",

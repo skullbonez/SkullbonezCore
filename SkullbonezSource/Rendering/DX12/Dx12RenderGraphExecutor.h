@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/Dx12RenderGraphExecutor.h
 Purpose:
   Translates render graph resource access records into DX12 barrier candidates.
 
-Mental model:
+Summary:
   The render graph speaks in engine resource access terms. This executor is the
   DX12 edge where those access terms become D3D12_RESOURCE_STATES and, in live
   mode, ResourceBarrier calls.

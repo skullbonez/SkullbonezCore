@@ -3,7 +3,7 @@ File: SkullbonezSource/World/TerrainSupportClassifier.h
 Purpose:
   Classifies terrain contacts as stable support, edge support, or sleep-inhibiting contact.
 
-Mental model:
+Summary:
   TerrainSupportClassifier.h classifies terrain contacts as stable support,
   edge support, or sleep-inhibiting contact. As a public header, keep edits
   anchored on world-state ownership, terrain/environment data, and

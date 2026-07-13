@@ -3,7 +3,7 @@ File: SkullbonezSource/Maths/GeometricMath.h
 Purpose:
   Provides geometric helper functions for collision, projection, and intersection tests.
 
-Mental model:
+Summary:
   GeometricMath.h provides geometric helper functions for collision,
   projection, and intersection tests. As a public header, keep edits anchored
   on units, basis conventions, and numerical assumptions and on the

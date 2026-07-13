@@ -3,7 +3,7 @@ File: SkullbonezSource/UI/UITabEditor.cpp
 Purpose:
   Implements object placement and selection controls for the in-engine editor tab.
 
-Mental model:
+Summary:
   This UI chooses the object and editor toggles. The run loop owns actual
   selection, placement, and physics mutation so mouse raycasts stay out of UI.
 

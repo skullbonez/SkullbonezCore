@@ -1,6 +1,6 @@
 # MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-07-11
+Date: 2026-07-12
 Status: Authoritative inventory of every live repository plan
 
 ## Inventory Rules
@@ -101,17 +101,40 @@ concrete plan rows and counting it would duplicate tasks.
 | entity-model-endgame | 4 | 4 | 100% |
 | instant-prediction-velocity-chaos | 52 | 52 | 100% |
 | shadow-edge-quality | 5 | 5 | 100% |
-| **Portfolio total** | **275** | **276** | **100%** |
+| dx12-descriptor-and-handle-lifetime | 5 | 5 | 100% |
+| determinism-contract-hardening | 4 | 4 | 100% |
+| upload-arena-overflow-policy | 4 | 4 | 100% |
+| frame-view-calling-convention | 4 | 4 | 100% |
+| render-interface-and-workerpool-slimming | 5 | 5 | 100% |
+| runtime-contract-enforcement | 5 | 5 | 100% |
+| adversarial-review-round-3 | 10 | 10 | 100% |
+| replay-prediction-fidelity-probe | 0 | 5 | 0% |
+| replay-monolith-decomposition | 0 | 8 | 0% |
+| **Portfolio total** | **312** | **326** | **96%** |
 
 ## Current Execution Priority
 
 For maximum impact with minimal rework, use this binding critical path:
 
-`validation-gate V3 external administration`
+`replay-prediction-fidelity-probe → replay-monolith-decomposition → validation-gate V3 external administration`
 
+0. **Replay architecture lane — live.** Execute
+   `TODO/replay-prediction-fidelity-probe.md` (F1→F5) first; it is the binding
+   prerequisite and divergence detector for
+   `TODO/replay-monolith-decomposition.md` (M0→M8), which follows it.
 1. **Validation-gate V3 — blocked external lane.** Repository implementation is
    complete. Remaining work requires a real `merge_group` proof, required CPU
    branch protection, and trusted/ephemeral DX12 runner administration.
+2. **Adversarial-review round 3 — locally complete.** All ten tasks and the
+   final independent review are closed; evidence lives in
+   `../Reports/2026-07-13/adversarial-review-round-3-closure.md`.
+3. **Adversarial-review remediation round 1 — locally complete.** All five
+   active 2026-07-12 remediation plans are closed. The comment-rot sweep
+   remains owner-parked in `WNF/` (no comment changes yet), so it is not live
+   work or part of the portfolio ledger.
+4. **Adversarial-review round 2 — locally complete.** EngineLog fatal-path
+   thread safety, SpatialGrid input validation, AmortizedTask lifetime guards,
+   and worker-pool exception-plumbing removal are complete and validated.
 
 ## Engine Cleanup Campaign
 
@@ -124,6 +147,8 @@ For maximum impact with minimal rework, use this binding critical path:
 | Plan | State | Verified phase count | Next blocking action |
 |---|---|---:|---|
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs merge-group proof, required branch protection, and trusted/ephemeral DX12 runner administration |
+| [replay-prediction-fidelity-probe](TODO/replay-prediction-fidelity-probe.md) | Live | 0/5 | Start F1 (engine-level snapshot completeness doctest); F2-F4 add the predicted-vs-actual-future hash gate to `validate_replay_scrub` |
+| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Blocked on fidelity probe | 0/8 | M0 gates on `replay-prediction-fidelity-probe` closing; then M1 type inventory and the five-owner extraction (presentation → timeline/scrubber → authoring → prediction) behind a thin `ReplayRuntime` composition root |
 
 ## Planned Architecture Work (2026-07-11 gap review)
 
@@ -136,6 +161,76 @@ Reconciliation notes live inside each plan.
 | [sim-render-interpolation](../Reports/2026-07-12/sim-render-interpolation-closure.md) | Complete | 5/5 | Allocation-free live interpolation, deterministic capture pinning, coherent cameras/listener, review, and final gates complete |
 | [editor-undo-redo](../Reports/2026-07-12/editor-undo-redo-closure.md) | Complete | 5/5 | Fixed command history, stable-id recreation, exact state-fingerprint proof, lifecycle clearing, review, and final gates complete |
 | [data-format-versioning](../Reports/2026-07-12/data-format-versioning-closure.md) | Complete | 5/5 | Asset/config v0 upgrades, hull v1 window, no-downgrade writers, migration tool, review, and final gates complete |
+
+## Adversarial Review Remediation (2026-07-12)
+
+Source: 2026-07-12 independent adversarial source review of the DX12 backend,
+physics core, math layer, and frame loop (findings referenced with file:line
+evidence inside each plan). Grouped by owner ruling into must-do and
+nice-to-have lanes.
+
+Must do:
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [dx12-descriptor-and-handle-lifetime](../Reports/2026-07-12/dx12-descriptor-and-handle-lifetime-closure.md) | Complete | 5/5 | Fence-safe SRV/UAV and framebuffer RTV/DSV reclamation, generation handles, and 131-turnover stress proof complete |
+| [determinism-contract-hardening](../Reports/2026-07-12/determinism-contract-hardening-closure.md) | Complete | 4/4 | Explicit `/fp:precise` pins, complete chunk-accumulation audit, documented MSVC v143 envelope, and byte-exact isolated physics gates complete |
+| [upload-arena-overflow-policy](../Reports/2026-07-12/upload-arena-overflow-policy-closure.md) | Complete | 4/4 | Per-category accounting, bounded replay ribbons, phase-aware caller drops, and flush-free stress/perf/DX12 proof complete |
+
+Nice to have (start only after the must-do lane closes):
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [frame-view-calling-convention](../Reports/2026-07-12/frame-view-calling-convention-closure.md) | Complete | 4/4 | Four non-copyable capability slices replace high-arity frame calls without recreating a universal context bag |
+| [render-interface-and-workerpool-slimming](../Reports/2026-07-12/render-interface-and-workerpool-slimming-closure.md) | Complete | 5/5 | Typed fixed-ring dispatch, measured interface retention, independent review, and full/perf/DX12 stress gates complete |
+
+## Adversarial Review Remediation Round 2 (2026-07-12)
+
+Source: second 2026-07-12 adversarial pass over post-remediation source
+(worker primitives, logging/fatal path, broadphase input validation). All four
+findings are consolidated into one plan because they share a theme — internal
+contracts enforced by convention instead of code — and none justifies a
+separate validation cycle.
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [runtime-contract-enforcement](../Reports/2026-07-12/runtime-contract-enforcement-closure.md) | Complete | 5/5 | Mutex-owned logger, bounded fatal probes, broadphase input guards, task lifetime enforcement, and final gates complete |
+
+Recorded clean in the same pass (no plan needed): `Fence` signal/wait
+ordering, upload-reservation saturating arithmetic, replay `make_unique`
+allowlist compliance, descriptor free-list double-alloc/double-free checks,
+and `strtod`-based config parsing.
+
+Owner-parked 2026-07-12 (inventory rule 9 applies — not live work, not in the
+ledger): `WNF/dx12-frame-path-comment-rot-sweep.md`. The owner ruled no
+comment changes yet; the Present GPU-timer dead-store finding it carries stays
+recorded there for when the plan is restored.
+
+Deliberately not planned (owner may revisit): AoS `PhysicsBodyRecord` layout
+reshaping and terrain warm-start/clamp heuristic replacement — both working,
+honestly documented, and baseline-entangled; undertake only with a concrete
+perf or stacking-stability motivation. Repeated glossary-header deduplication
+is available as a documentation-only plan if the owner wants it (currently
+excluded by the same no-comment-changes ruling).
+
+## Adversarial Review Remediation Round 3 (2026-07-13)
+
+Source: 2026-07-12 owner-commissioned adversarial architecture review of the
+full source tree at the `nightrunner-11th-july` tip, re-verified against the
+`nightrunner-12th-july` tip on 2026-07-13. Owner ruled findings in or out on
+2026-07-12/13; in-scope work is consolidated into one ten-task plan ordered
+header hygiene → mechanical namespace/ownership passes → C++20/`std::span` →
+solver SIMD → DX12 bindless and frame headroom.
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [adversarial-review-round-3](../Reports/2026-07-13/adversarial-review-round-3-closure.md) | Complete | 10/10 | Three-frame SM6.6 bindless raster path, measured perf budget, independent review, and final gates complete |
+
+Owner-ruled out of scope in this round (recorded so they are not re-litigated):
+replay subsystem right-sizing, unit-test depth expansion, sleep parallel-array
+consolidation, `Init.cpp` decomposition, and any `RenderBackendDX12`
+re-partitioning beyond the bindless/frame-headroom task. The unpinned-`/fp`
+finding was already closed by `determinism-contract-hardening`.
 
 ## Features
 

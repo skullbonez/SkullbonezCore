@@ -3,7 +3,7 @@ File: SkullbonezTests/TestShadow.cpp
 Purpose:
   Proves the shadow projection stability and quality-preset bias helpers.
 
-Mental model:
+Summary:
   Shadow frame helpers are pure value transforms. These tests exercise the
   integer-texel invariant and the High/Ultra bias floors without a GPU.
 

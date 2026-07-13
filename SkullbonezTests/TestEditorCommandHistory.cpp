@@ -3,7 +3,7 @@ File: SkullbonezTests/TestEditorCommandHistory.cpp
 Purpose:
   Proves fixed editor history push, undo, redo, branching, overflow, and clear.
 
-Mental model:
+Summary:
   Tests drive only the cursor owner; scene-command application is covered at
   the editor integration boundary.
 
@@ -22,7 +22,7 @@ Related:
 
 #include "../SkullbonezSource/Runtime/Editor/EditorCommandHistory.h"
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 
 namespace
 {

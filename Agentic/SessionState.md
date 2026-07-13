@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-12
+Date: 2026-07-13
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -10,12 +10,12 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-11th-july` |
-| Current pushed baseline | Aggregate engine-cleanup closure is validated at the current branch tip; the prior pushed baseline was `5649a876` |
-| Current objective | Validation-gate V3 is blocked on external GitHub administration and trusted/ephemeral DX12 runner infrastructure |
-| Portfolio progress | 275 / 276 tasks = 100% rounded overall |
-| Last broad local gate | `tools\\validate_full.bat` passed final aggregate source on 2026-07-12: formatting/metadata clean, every CPU lane passed (173 doctest cases, 3,964 assertions), zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | Independent aggregate and narrow repeat reviews are clear; explicit DX12, one-minute graphics stress, perf, focused broadphase/capacity tests, comment audit, and full gate all pass. |
+| Branch | `nightrunner-12th-july` |
+| Current baseline | Adversarial-review round 3 is complete at 10/10; R10 runs three frames in flight with SM6.6 bindless raster texture access |
+| Current objective | Execute the replay architecture lane: `Plans/TODO/replay-prediction-fidelity-probe.md` (F1→F5), then `Plans/TODO/replay-monolith-decomposition.md` (M0→M8); validation-gate V3 remains externally blocked |
+| Portfolio progress | 312 / 326 tasks = 96% rounded overall |
+| Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-13 in 114.5s: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots/InfoQueue, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
+| Validation for current edits | R10 final: three consecutive DX12 passes 53.5/53.8/53.6s plus post-review passes, final perf 66.1s, final stress 61.6s with +0.70 MiB warmed working-set delta, and 179/179 unit tests. |
 
 ## Live Queue
 
@@ -24,6 +24,22 @@ plan inventory.
    required `main` branch protection, and trusted DX12-runner administration.
    Persistent self-hosted DX12 stays trusted-main/manual only; public-PR GPU
    evidence needs an ephemeral isolated runner.
+2. Round-1 adversarial-review remediation is locally complete. The
+   comment-rot sweep is owner-parked in `WNF/` (no comment changes yet,
+   2026-07-12 ruling) and is not live portfolio work.
+3. Round-2 runtime-contract remediation is locally complete and recorded in
+   `Reports/2026-07-12/runtime-contract-enforcement-closure.md`.
+4. Round-3 adversarial-review remediation is complete at 10/10. R10 added
+   three-frame headroom and a backend-owned b1 bindless texture-index payload;
+   closure evidence and the 29/29 touched-file comment audit live in
+   `Reports/2026-07-13/adversarial-review-round-3-closure.md`. Out-of-scope
+   rulings remain recorded in MASTER to avoid re-litigation.
+5. Replay architecture lane is live (2026-07-13 owner decision): the
+   prediction fidelity probe (5 tasks — predicted future must byte-match the
+   actual future) is the binding prerequisite, then the replay monolith
+   decomposition (8 tasks — five owners behind a thin ReplayRuntime
+   composition root). Both plans live in `Plans/TODO/` and are registered in
+   the MASTER ledger at 312/326.
 
 ## Current Plan Decisions
 
@@ -50,8 +66,8 @@ plan inventory.
 
 ## Current External Evidence
 
-- Mandatory CPU validation PR run 29148955729 passed on 2026-07-11:
-  `https://github.com/skullbonez/SkullbonezCore/actions/runs/29148955729`.
+- Mandatory CPU validation PR runs 29148955729 and 29179364775 passed on
+  2026-07-11 and 2026-07-12 respectively; no real `merge_group` run exists yet.
 - DX12 runtime runs 29149260881 and 29149344794 were skipped while trusted
   runner activation remains disabled; they are not runtime evidence.
 - `main` is currently unprotected.
@@ -80,5 +96,5 @@ plan inventory.
 
 ## Next Handoff
 
-Use `Agentic/Plans/MASTER-PLAN.md` for selection. No viable local implementation
-work remains; V3 resumes when the required GitHub and runner authority exists.
+V3 resumes when the required GitHub merge-group/branch-protection authority and
+trusted or ephemeral DX12 runner administration exist.

@@ -4,7 +4,7 @@ Purpose:
   Owns high-level runtime workspace, tool ownership, camera-look, and physics
   advance policy.
 
-Mental model:
+Summary:
   Runtime workspaces are mutually exclusive. A transition records what owned
   world input before the new mode starts so InputRouter and domain owners can
   clear capture and payload before applying the new mode.
@@ -37,7 +37,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct RuntimeGestureCommand;
 struct RuntimeGestureEvent;
@@ -286,5 +286,5 @@ class RuntimeInteractionController
     RuntimeInteractionGesture m_gesture;
     RuntimePointerCaptureOwner m_pointerCapture = RuntimePointerCaptureOwner::None;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

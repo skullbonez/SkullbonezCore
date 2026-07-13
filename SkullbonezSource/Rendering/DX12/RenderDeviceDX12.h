@@ -3,7 +3,7 @@ File: SkullbonezSource/Rendering/DX12/RenderDeviceDX12.h
 Purpose:
   Owns low-level DX12 device objects, fences, command allocators, and frame pacing.
 
-Mental model:
+Summary:
   RenderDeviceDX12.h owns low-level DX12 device objects, fences, command
   allocators, and frame pacing. As a public header, keep edits anchored on
   DX12 ownership, descriptors, resources, and command submission and on the
@@ -25,7 +25,11 @@ Glossary:
   PIX: Microsoft GPU debugger/profiler that can read engine markers and DX12
   object names.
   COM (Component Object Model): Windows interface lifetime model used by DX12
-  through reference-counted objects.
+    through reference-counted objects.
+  Upload arena: Fixed, persistently mapped per-frame byte range used for
+    constants, vertices, instances, and resource-copy rows.
+  Cold flush: Submit/wait/reset retry allowed outside steady gameplay when an
+    upload reservation does not fit.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -38,9 +42,14 @@ Related:
 */
 #pragma once
 
+#include "../../Core/PlatformWin32.h"
+
 #include "../../Core/SbResult.h"
+#include "../IRenderDiagnostics.h"
+#include "../../Runtime/Allocation/RuntimeAllocationTracker.h"
 
 #include <cstdint>
+#include <limits>
 #include <d3d12.h>
 #include <dxgi1_5.h>
 
@@ -48,6 +57,80 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
+
+enum class Dx12UploadOverflowAction
+{
+    Allocate,
+    FlushAndRetry,
+    DropCaller
+};
+
+struct Dx12UploadReservationResolution
+{
+    bool allowed = false;
+    bool dropped = false;
+    bool coldRetryAttempted = false;
+};
+
+// Lane R: steady render reservations fail at the draw boundary. Cold lifecycle
+// phases retain the legacy submit/wait retry because their stalls do not become
+// frame hitches.
+inline Dx12UploadOverflowAction SelectDx12UploadOverflowAction( bool fits,
+                                                                Runtime::Allocation::RuntimeAllocationPhase phase )
+{
+    if ( fits )
+    {
+        return Dx12UploadOverflowAction::Allocate;
+    }
+    switch ( phase )
+    {
+    case Runtime::Allocation::RuntimeAllocationPhase::SteadyGameplay:
+    case Runtime::Allocation::RuntimeAllocationPhase::Physics:
+    case Runtime::Allocation::RuntimeAllocationPhase::Render:
+    case Runtime::Allocation::RuntimeAllocationPhase::Replay:
+        return Dx12UploadOverflowAction::DropCaller;
+    default:
+        return Dx12UploadOverflowAction::FlushAndRetry;
+    }
+}
+
+// Executes the same branch production uses while allowing CPU tests to supply
+// a counted cold-retry callback. Steady phases never invoke that callback.
+template <typename ColdRetry>
+Dx12UploadReservationResolution
+ResolveDx12UploadReservation( bool fits, Runtime::Allocation::RuntimeAllocationPhase phase, ColdRetry coldRetry )
+{
+    const Dx12UploadOverflowAction action = SelectDx12UploadOverflowAction( fits, phase );
+    if ( action == Dx12UploadOverflowAction::Allocate )
+    {
+        return { true, false, false };
+    }
+    if ( action == Dx12UploadOverflowAction::DropCaller )
+    {
+        return { false, true, false };
+    }
+    return { coldRetry(), false, true };
+}
+
+// Hazard: callers may probe a synthetic UINT64-sized request. Saturating the
+// aligned offset prevents wraparound from turning overflow into a false fit.
+inline UINT64 AlignDx12UploadOffset( UINT64 offset, UINT64 alignment )
+{
+    if ( alignment <= 1 )
+    {
+        return offset;
+    }
+    const UINT64 remainder = offset % alignment;
+    const UINT64 padding = remainder == 0 ? 0 : alignment - remainder;
+    return offset <= ( std::numeric_limits<UINT64>::max )() - padding ? offset + padding
+                                                                      : ( std::numeric_limits<UINT64>::max )();
+}
+
+inline bool CanReserveDx12UploadRange( UINT64 offset, UINT64 capacity, UINT64 size, UINT64 alignment )
+{
+    const UINT64 alignedOffset = AlignDx12UploadOffset( offset, alignment );
+    return alignedOffset <= capacity && size <= capacity - alignedOffset;
+}
 
 /* -- DX12 diagnostics helpers
 ----------------------------------------------------------------------------------------------------------------------------------
@@ -123,8 +206,8 @@ class Dx12FenceTimeline
     void Reset();
 
     bool IsReady() const;
-    Basics::SbResult Signal( UINT64& outValue );
-    Basics::SbResult WaitForValue( UINT64 value ) const;
+    SkullbonezCore::Core::SbResult Signal( UINT64& outValue );
+    SkullbonezCore::Core::SbResult WaitForValue( UINT64 value ) const;
 
     UINT64 CompletedValue() const;
     UINT64 LastSignaledValue() const
@@ -201,17 +284,19 @@ struct Dx12CpuDescriptorAllocatorStats
 
     This allocator is intentionally simpler than Dx12DescriptorAllocator below.
     RTV/DSV heaps are CPU-only in this renderer, so there is no GPU-visible
-    handle and no per-frame transient range. Rows are long-lived and are reused
-    only by overwriting the descriptor that already belongs to the same engine
-    object, such as recreating a swap-chain RTV after ResizeBuffers().
+    handle and no per-frame transient range. Stable swap-chain rows are
+    overwritten for the same engine object; framebuffer rows return through the
+    shared retirement fence before the free list may assign them to a new one.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class Dx12CpuDescriptorAllocator
 {
   public:
+    static constexpr UINT MAX_TRACKED_CPU_DESCRIPTORS = 256;
     void Init( ID3D12DescriptorHeap* heap, UINT descriptorSize, UINT capacity, const char* heapName );
     void Reset();
 
     Dx12CpuDescriptorAllocation Allocate();
+    void Free( UINT index );
     D3D12_CPU_DESCRIPTOR_HANDLE CpuHandle( UINT index ) const;
 
     Dx12CpuDescriptorAllocatorStats GetStats() const;
@@ -221,6 +306,10 @@ class Dx12CpuDescriptorAllocator
     UINT m_descriptorSize = 0;
     UINT m_capacity = 0;
     UINT m_next = 0;
+    UINT m_used = 0;
+    UINT m_freeCount = 0;
+    UINT m_free[MAX_TRACKED_CPU_DESCRIPTORS] = {};
+    bool m_allocated[MAX_TRACKED_CPU_DESCRIPTORS] = {};
     const char* m_heapName = "unknown";
 };
 
@@ -248,10 +337,43 @@ struct Dx12DescriptorAllocatorStats
 {
     UINT staticCapacity = 0;
     UINT staticUsed = 0;
+    UINT staticHighWater = 0;                                    // Peak simultaneously live persistent rows for this device epoch.
     UINT transientCapacityPerFrame = 0;
     UINT transientUsedThisFrame = 0;
     UINT transientPeakThisRun = 0;
     UINT currentFrame = 0;
+};
+
+// Generation-tagged opaque id used by the texture registry. The low 24 bits
+// store slot+1 so zero remains the null handle; the high 8 bits change whenever
+// a tombstone slot is reused. Eight bits deliberately bound the handle to the
+// existing uint32_t ABI; after 255 reuses the generation wraps, so callers must
+// still release stale ids rather than treating generation tags as eternal IDs.
+struct Dx12TextureHandleCodec
+{
+    static constexpr uint32_t SLOT_BITS = 24u;
+    static constexpr uint32_t SLOT_MASK = ( 1u << SLOT_BITS ) - 1u;
+
+    static uint32_t Encode( size_t slot, uint8_t generation )
+    {
+        return ( static_cast<uint32_t>( generation ) << SLOT_BITS ) | static_cast<uint32_t>( slot + 1u );
+    }
+    static bool Decode( uint32_t handle, size_t& slot, uint8_t& generation )
+    {
+        const uint32_t encodedSlot = handle & SLOT_MASK;
+        generation = static_cast<uint8_t>( handle >> SLOT_BITS );
+        if ( encodedSlot == 0 || generation == 0 )
+        {
+            return false;
+        }
+        slot = static_cast<size_t>( encodedSlot - 1u );
+        return true;
+    }
+    static uint8_t NextGeneration( uint8_t generation )
+    {
+        const uint8_t next = static_cast<uint8_t>( generation + 1u );
+        return next == 0 ? 1 : next;
+    }
 };
 
 /* -- Dx12DescriptorAllocator
@@ -311,11 +433,12 @@ struct Dx12DescriptorAllocatorStats
     - Staging heap:
       CPU-only descriptor storage used as the source of truth. Shaders cannot
       read this heap directly. It is useful because persistent descriptors can
-      live here and be copied into the shader-visible heap as needed.
+      live here before publication at the same shader-visible index.
 
     - Shader-visible heap:
-      Descriptor storage the GPU can read through root descriptor tables.
-      Descriptors placed here must obey GPU lifetime rules.
+      Descriptor storage the GPU can index directly from SM6.6 raster shaders.
+      Its transient range also serves compute and raytracing descriptor tables.
+      Every row placed here must obey GPU lifetime rules.
 
     Typical texture binding flow in this renderer:
 
@@ -323,22 +446,19 @@ struct Dx12DescriptorAllocatorStats
     2. AllocateStatic() reserves a stable descriptor row for that texture.
     3. CreateShaderResourceView writes an SRV descriptor for the texture into
        the CPU-only staging heap at that row.
-    4. Before a draw, AllocateTransient() reserves a per-frame shader-visible
-       row.
-    5. CopyDescriptorsSimple copies the staging descriptor into that transient
-       shader-visible row.
-    6. SetGraphicsRootDescriptorTable binds the transient row's GPU handle.
-    7. The pixel shader follows that handle to read the descriptor, then follows
-       the descriptor to sample the texture.
+    4. PublishStaticDescriptor mirrors it at the identical shader-visible row.
+    5. A draw publishes that stable row number through b1 root constants.
+    6. The pixel shader indexes ResourceDescriptorHeap, reads the descriptor,
+       and follows it to sample the texture.
 
-    Step 4 is the reason this class exists. If every draw wrote directly into a
-    single shared shader-visible row, a later CPU draw setup could overwrite the
-    row while an earlier GPU draw is still using it. Splitting temporary rows by
-    frame fence makes that lifetime visible and enforceable.
+    Static rows are not overwritten until fence retirement proves their prior
+    resource use is complete. AllocateTransient() remains for genuinely dynamic
+    compute/raytracing tables and partitions those temporary rows by frame fence.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class Dx12DescriptorAllocator
 {
   public:
+    static constexpr UINT MAX_TRACKED_STATIC_DESCRIPTORS = 4096;
     // Bind the allocator to the two descriptor heaps it manages. The allocator
     // does not own the COM objects; the backend/device owns and releases them.
     // The allocator owns the slot accounting policy for those heaps.
@@ -363,6 +483,10 @@ class Dx12DescriptorAllocator
     // Plain-language rule: if another object will remember this descriptor
     // number after the current draw call, it needs a static slot.
     UINT AllocateStatic();
+
+    // Return a persistent row only after the frame owner has proved that no
+    // in-flight command list can still follow a copied descriptor from it.
+    void FreeStatic( UINT index );
 
     // Reserve one temporary descriptor slot from the current frame's range.
     // Use this for descriptor copies needed while recording this frame.
@@ -399,6 +523,10 @@ class Dx12DescriptorAllocator
     // the persistent source used for descriptor copies.
     D3D12_CPU_DESCRIPTOR_HANDLE StagingCpuHandle( UINT index ) const;
 
+    // Publish one persistent staging row at the identical shader-visible heap
+    // index. SM6.6 raster shaders consume this stable number directly.
+    void PublishStaticDescriptor( ID3D12Device* device, UINT index ) const;
+
     Dx12DescriptorAllocatorStats GetStats() const;
 
   private:
@@ -413,6 +541,11 @@ class Dx12DescriptorAllocator
     UINT m_transientCapacityPerFrame = 0;
     UINT m_frameCount = 0;
     UINT m_nextStatic = 0;
+    UINT m_staticUsed = 0;                                       // Persistent rows currently owned by live or retiring resources.
+    UINT m_staticHighWater = 0;                                  // Peak m_staticUsed; churn must not increase it indefinitely.
+    UINT m_freeStaticCount = 0;
+    UINT m_freeStatic[MAX_TRACKED_STATIC_DESCRIPTORS] = {};      // Fence-proven reusable row stack.
+    bool m_staticAllocated[MAX_TRACKED_STATIC_DESCRIPTORS] = {}; // Double-free/accounting guard.
     UINT m_nextTransientInFrame = 0;
     UINT m_transientPeakThisRun = 0;
     UINT m_currentFrame = 0;
@@ -437,6 +570,8 @@ struct Dx12UploadArenaStats
     UINT64 capacityBytes = 0;
     UINT64 usedBytes = 0;
     UINT64 peakBytes = 0;
+    UINT64 categoryUsedBytes[RENDER_UPLOAD_CATEGORY_COUNT] = {}; // Current frame totals by owner.
+    UINT64 categoryPeakBytes[RENDER_UPLOAD_CATEGORY_COUNT] = {}; // Run high-water per owner.
 };
 
 /* -- Dx12UploadArena
@@ -505,12 +640,12 @@ class Dx12UploadArena
     // completed. This is not safe at arbitrary times.
     void ResetFrame();
 
-    // Probe whether the next allocation would fit. The backend uses this to
-    // decide whether it must submit/wait before recording more upload-heavy work.
+    // Probe whether the next allocation would fit without arithmetic wrap. The
+    // frame owner uses the current runtime phase to drop or cold-flush.
     bool CanAllocate( UINT64 sizeBytes, UINT64 alignment ) const;
 
     // Reserve bytes and return the GPU address command lists should bind.
-    D3D12_GPU_VIRTUAL_ADDRESS Allocate( UINT64 sizeBytes, UINT64 alignment );
+    D3D12_GPU_VIRTUAL_ADDRESS Allocate( UINT64 sizeBytes, UINT64 alignment, RenderUploadCategory category );
 
     // Translate a GPU address returned by Allocate() back to a CPU pointer so
     // the caller can fill the allocation with memcpy or structured writes.
@@ -531,6 +666,8 @@ class Dx12UploadArena
     UINT64 m_capacityBytes = 0;
     UINT64 m_currentOffset = 0;
     UINT64 m_peakBytes = 0;
+    UINT64 m_categoryUsedBytes[RENDER_UPLOAD_CATEGORY_COUNT] = {};
+    UINT64 m_categoryPeakBytes[RENDER_UPLOAD_CATEGORY_COUNT] = {};
 };
 
 /* -- Dx12FrameUploadSystem
@@ -571,7 +708,8 @@ class Dx12FrameUploadSystem
 
     void ResetFrame( UINT frameIndex );
     bool CanAllocate( UINT frameIndex, UINT64 sizeBytes, UINT64 alignment ) const;
-    D3D12_GPU_VIRTUAL_ADDRESS Allocate( UINT frameIndex, UINT64 sizeBytes, UINT64 alignment );
+    D3D12_GPU_VIRTUAL_ADDRESS
+    Allocate( UINT frameIndex, UINT64 sizeBytes, UINT64 alignment, RenderUploadCategory category );
     uint8_t* GetMappedPtr( UINT frameIndex, D3D12_GPU_VIRTUAL_ADDRESS address ) const;
     UINT64 OffsetFromAddress( UINT frameIndex, D3D12_GPU_VIRTUAL_ADDRESS address ) const;
     ID3D12Resource* Resource( UINT frameIndex ) const;
@@ -701,7 +839,7 @@ class Dx12RenderDevice
     Dx12RenderDevice( const Dx12RenderDevice& ) = delete;
     Dx12RenderDevice& operator=( const Dx12RenderDevice& ) = delete;
 
-    Basics::SbResult Init( const Dx12RenderDeviceInitDesc& desc );
+    SkullbonezCore::Core::SbResult Init( const Dx12RenderDeviceInitDesc& desc );
     void Shutdown();
 
     bool IsReady() const
