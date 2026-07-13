@@ -4,10 +4,10 @@
 //   Lock direct behavioral coverage for persistent contact solver rows.
 //
 // Summary:
-//   Terrain manifolds are already narrowphase output. These tests feed one
-//   deterministic manifold into PersistentContactSolver so the row setup,
-//   warm-start cache, friction clamp, restitution, and writeback can be checked
-//   without running a full PhysicsEngine frame.
+//   Most tests feed one deterministic terrain manifold directly into
+//   PersistentContactSolver. The box sleep test additionally exercises exact
+//   object narrowphase so support classification is checked on real manifold
+//   geometry without running a full PhysicsEngine frame.
 //
 // Glossary:
 //   Contact row: Solver constraint row that applies one normal impulse and two
@@ -19,10 +19,12 @@
 //   Restitution: Bounce response from a closing contact velocity.
 //   Determinism: Same fixture inputs produce the same row cache and body
 //     writeback, matching the physics baseline contract.
+//   Sleep support edge: Directed relationship used later to propagate grounded
+//     sleep eligibility through an object stack.
 //
 // Invariants:
-//   - The fixture bypasses broadphase and object narrowphase; each test owns the
-//     exact manifold row it wants the persistent solver to consume.
+//   - The fixture always bypasses broadphase. Terrain cases own their exact row;
+//     object cases deliberately use exact narrowphase before solver ingestion.
 //   - Static fixed lists mirror runtime storage and avoid allocating
 //     SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS records on the doctest stack.
 //
@@ -37,9 +39,11 @@
 
 #include "../SkullbonezSource/Core/Common.h"
 #include "../SkullbonezSource/Core/Config.h"
+#include "../SkullbonezSource/Physics/BoundingBox.h"
 #include "../SkullbonezSource/Physics/BoundingSphere.h"
 #include "../SkullbonezSource/Physics/ColliderStore.h"
 #include "../SkullbonezSource/Physics/ContactSolverCommon.h"
+#include "../SkullbonezSource/Physics/ObjectContactManifold.h"
 #include "../SkullbonezSource/Physics/PersistentContactSolver.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Physics/PhysicsWorld.h"
@@ -50,12 +54,16 @@
 #include <vector>
 
 using SkullbonezCore::Core::EngineConfig;
+using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderRecordList;
 using SkullbonezCore::Physics::ColliderShapeKind;
+using SkullbonezCore::Physics::BuildObjectContactManifold;
+using SkullbonezCore::Physics::ObjectContactBodyView;
+using SkullbonezCore::Physics::ObjectContactManifold;
 using SkullbonezCore::Physics::PersistentContactCacheEntry;
 using SkullbonezCore::Physics::PersistentContactSolver;
 using SkullbonezCore::Physics::PersistentContactSolverContext;
@@ -143,6 +151,37 @@ struct SolverFixture
         collider.shapeKind = ColliderShapeKind::Sphere;
         collider.boundingRadius = radius;
         collider.restitution = restitution;
+        collider.friction = config.physicsMaterial.frictionCoeff;
+        colliderRecords.push_back( collider );
+
+        sleepState.assign( bodyRecords.size(), 0u );
+        sleepSupportedThisFrame.assign( bodyRecords.size(), 0u );
+    }
+
+    void AddBox( const Vector3& position, float xRotationRadians, bool isFixed )
+    {
+        constexpr float halfExtent = 1.0f;
+        constexpr float mass = 2.0f;
+        // Invariant: a two-unit cube with mass two has diagonal inertia 4/3.
+        constexpr float inertia = 4.0f / 3.0f;
+        const Vector3 halfExtents( halfExtent, halfExtent, halfExtent );
+
+        PhysicsBodyRecord body;
+        body.position = position;
+        body.orientation.RotateAboutAxis( Vector3( 1.0f, 0.0f, 0.0f ), xRotationRadians );
+        body.rotationalInertia = Vector3( inertia, inertia, inertia );
+        body.invRotationalInertia = isFixed ? Vector3() : Vector3( 1.0f / inertia, 1.0f / inertia, 1.0f / inertia );
+        body.mass = mass;
+        body.invMass = isFixed ? 0.0f : 1.0f / mass;
+        body.boundingRadius = sqrtf( 3.0f );
+        body.isFixed = isFixed;
+        body.usesWorldInertia = true;
+        bodyRecords.push_back( body );
+
+        ColliderRecord collider;
+        collider.shape = CollisionShape( BoundingBox( halfExtents, Vector3() ) );
+        collider.shapeKind = ColliderShapeKind::Box;
+        collider.boundingRadius = body.boundingRadius;
         collider.friction = config.physicsMaterial.frictionCoeff;
         colliderRecords.push_back( collider );
 
@@ -263,4 +302,52 @@ TEST_CASE( "Persistent contact solver: restitution creates separating terrain ve
     CHECK( fixture.debugContacts[0].preSolveClosingSpeed > fixture.config.bodySimulation.contactRestitutionThreshold );
     CHECK( fixture.debugContacts[0].normalImpulse > 0.0f );
     CHECK( fixture.bodyRecords[0].linearVelocity.y > 0.0f );
+}
+
+
+TEST_CASE( "Persistent contact solver: a box gains sleep support only after toppling from its edge" )
+{
+    constexpr float edgeRotation = 0.70f;
+    constexpr float contactOverlap = 0.02f;
+    constexpr float edgeContactHeight = 1.5f;
+
+    SolverFixture edge;
+    edge.AddBox( Vector3( 0.0f, 0.0f, 0.0f ), 0.0f, true );
+    // Why: a deliberate overlap keeps this regression away from clipped-manifold
+    // floating-point boundaries while retaining the two-row edge footprint.
+    edge.AddBox( Vector3( 0.0f, edgeContactHeight, -0.5f ), edgeRotation, false );
+    ObjectContactBodyView lowerView;
+    lowerView.position = edge.bodyRecords[0].position;
+    lowerView.orientation = edge.bodyRecords[0].orientation;
+    ObjectContactBodyView upperView;
+    upperView.position = edge.bodyRecords[1].position;
+    upperView.orientation = edge.bodyRecords[1].orientation;
+    ObjectContactManifold edgeManifold;
+    REQUIRE( BuildObjectContactManifold( lowerView,
+                                         edge.colliderRecords[0].shape,
+                                         upperView,
+                                         edge.colliderRecords[1].shape,
+                                         0,
+                                         1,
+                                         edge.config.bodySimulation.contactEpsilon,
+                                         edgeManifold ) );
+    REQUIRE( edgeManifold.pointCount <= 2u );
+    CHECK( fabsf( edgeManifold.normal.y ) > 0.25f );
+    edge.candidatePairs.emplace_back( 0, 1 );
+    edge.Solve();
+
+    REQUIRE_FALSE( edge.persistentContacts.empty() );
+    CHECK( edge.contactCounts[1] > 0u );
+    CHECK( edge.restingContactCounts[1] == 0u );
+    CHECK( edge.sleepSupportEdges.empty() );
+
+    SolverFixture face;
+    face.AddBox( Vector3( 0.0f, 0.0f, 0.0f ), 0.0f, true );
+    face.AddBox( Vector3( 0.0f, 2.0f - contactOverlap, 0.0f ), 0.0f, false );
+    face.candidatePairs.emplace_back( 0, 1 );
+    face.Solve();
+
+    REQUIRE_FALSE( face.persistentContacts.empty() );
+    CHECK( face.restingContactCounts[1] > 0u );
+    CHECK( face.sleepSupportEdges.size() == 1u );
 }
