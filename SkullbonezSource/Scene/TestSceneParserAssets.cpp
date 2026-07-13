@@ -28,6 +28,25 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+using TestSceneParserDetail::CopyCheckedStringField;
+using TestSceneParserDetail::EndsWith;
+using TestSceneParserDetail::Fail;
+using TestSceneParserDetail::FindMember;
+using TestSceneParserDetail::MakeSceneEulerQuaternion;
+using TestSceneParserDetail::ParserFailed;
+using TestSceneParserDetail::QuaternionToJson;
+using TestSceneParserDetail::ReadBool;
+using TestSceneParserDetail::ReadFloat;
+using TestSceneParserDetail::ReadInferredContactMaterial;
+using TestSceneParserDetail::ReadJsonFile;
+using TestSceneParserDetail::ReadString;
+using TestSceneParserDetail::ReadUInt;
+using TestSceneParserDetail::ReadVec3;
+using TestSceneParserDetail::RequireArray;
+using TestSceneParserDetail::RequireMember;
+using TestSceneParserDetail::RequireObject;
+using TestSceneParserDetail::Vector3ToJson;
+
 namespace
 {
 constexpr uint32_t ASSET_LIBRARY_FORMAT_VERSION = 1;

@@ -1037,11 +1037,13 @@ inline float ReadUnitFloat( const Json& value, const std::string& path, const ch
 }
 
 } // namespace TestSceneParserDetail
-using namespace TestSceneParserDetail;
 
 class TestSceneParser
 {
   private:
+    using Json = TestSceneParserDetail::Json;
+    using ParserFailureState = TestSceneParserDetail::ParserFailureState;
+
     struct ParsedAssetDefinition
     {
         Json value;

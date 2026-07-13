@@ -1,7 +1,7 @@
 # Adversarial Review Remediation Round 3 — Language, Namespace, And Renderer Modernization
 
 Date: 2026-07-13
-Status: Live — 0/10 tasks complete
+Status: Live — 1/10 tasks complete
 Impact area: build configuration, Core prelude, UI/Scene/Rendering headers,
 namespace layout, math/solver hot path, DX12 backend
 Owner: engine architecture
@@ -82,14 +82,15 @@ Ordered for minimal rework: header hygiene first (cheap, unblocks clean
 renames), then the two broad mechanical passes, then language/feature
 upgrades, then the two performance/architecture tasks.
 
-- [ ] **R1 — Remove header-scope `using namespace` directives.** Delete the
+- [x] **R1 — Remove header-scope `using namespace` directives.** Delete the
   eight directives in `UI/UIFrameComposition.h:63-70`, the detail-namespace
   export in `Scene/TestSceneParserSchema.h:1040`, and the directive in
   `Rendering/ShaderReflectionContracts.h:217`. Qualify names explicitly or use
   targeted `using`-declarations/aliases scoped inside functions or classes.
   Acceptance: `rg -n '^\s*using namespace' --glob '*.h' SkullbonezSource`
   returns zero rows; zero warnings. Validation: `tools\validate_fast.bat`
-  deferred to the PR gate.
+  passed on 2026-07-13 in 53.7s: formatting, project filters, 177 doctest
+  cases/4,059 assertions, and zero-warning Profile/Debug builds were clean.
 - [ ] **R2 — Give scene capacity constants an owner.** Move the
   `SceneCapacity.h` constants into a named namespace (owner decision: they
   must remain `constexpr`, not `extern const`, because they size fixed arrays

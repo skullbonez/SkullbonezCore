@@ -28,6 +28,23 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+using TestSceneParserDetail::ApplyRootedTreeCompatibilityClearanceToHulls;
+using TestSceneParserDetail::AssignReleasableTreeGroupsToHulls;
+using TestSceneParserDetail::EndsWith;
+using TestSceneParserDetail::Fail;
+using TestSceneParserDetail::FindMember;
+using TestSceneParserDetail::kMaxStyleIncludeDepth;
+using TestSceneParserDetail::ParserFailed;
+using TestSceneParserDetail::ParserFailureResult;
+using TestSceneParserDetail::ParserFailureScope;
+using TestSceneParserDetail::ReadJsonFile;
+using TestSceneParserDetail::ReadString;
+using TestSceneParserDetail::ReadUInt;
+using TestSceneParserDetail::RequireArray;
+using TestSceneParserDetail::RequireMember;
+using TestSceneParserDetail::RequireObject;
+using TestSceneParserDetail::ValidateReleasableTreeGroups;
+
 Physics::PhysicsSceneObjectId
 TestSceneParser::RegisterSceneObjectIdRange( uint32_t first, uint32_t count, const std::string& path )
 {
@@ -193,11 +210,11 @@ void TestSceneParser::UpgradeVersion1SceneObjectIds( const std::string& path )
     AssignReleasableTreeGroupsToHulls( m_scene.m_convexHullStates );
 }
 
-const Json* TestSceneParser::ReadAssetPartIdentity( const Json& instance,
-                                                    const std::string& path,
-                                                    uint32_t partIndex,
-                                                    uint32_t expectedPartCount,
-                                                    const std::string& expectedPartName )
+const TestSceneParser::Json* TestSceneParser::ReadAssetPartIdentity( const Json& instance,
+                                                                     const std::string& path,
+                                                                     uint32_t partIndex,
+                                                                     uint32_t expectedPartCount,
+                                                                     const std::string& expectedPartName )
 {
     const Json* parts = FindMember( instance, "parts" );
     if ( m_currentDocumentVersion == 1 )

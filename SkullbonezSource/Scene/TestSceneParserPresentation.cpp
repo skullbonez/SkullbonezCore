@@ -28,6 +28,24 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+using TestSceneParserDetail::CopyStringField;
+using TestSceneParserDetail::Fail;
+using TestSceneParserDetail::FindMember;
+using TestSceneParserDetail::Lowercase;
+using TestSceneParserDetail::ParsePhysicsDebugMode;
+using TestSceneParserDetail::ParseUITab;
+using TestSceneParserDetail::ParseWaterReflectionMode;
+using TestSceneParserDetail::ReadBool;
+using TestSceneParserDetail::ReadFloat;
+using TestSceneParserDetail::ReadInt;
+using TestSceneParserDetail::ReadRequiredStringField;
+using TestSceneParserDetail::ReadString;
+using TestSceneParserDetail::ReadUInt;
+using TestSceneParserDetail::ReadVec3;
+using TestSceneParserDetail::RequireArray;
+using TestSceneParserDetail::RequireMember;
+using TestSceneParserDetail::RequireObject;
+
 void TestSceneParser::ApplyPhysicsDebug( const Json& debug, const std::string& path )
 {
     RequireObject( debug, path, "debug.physics" );

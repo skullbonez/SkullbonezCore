@@ -214,8 +214,7 @@ inline bool ValidateUnifiedRasterResource( const GeneratedShaderReflection::Stag
                                            const GeneratedShaderReflection::Resource& resource,
                                            std::string& outError )
 {
-    using namespace UnifiedRasterRootSignature;
-    if ( resource.space != REGISTER_SPACE )
+    if ( resource.space != UnifiedRasterRootSignature::REGISTER_SPACE )
     {
         outError =
             std::string( stage.source ) + ":" + stage.stage + " uses non-zero register space for " + resource.name;
@@ -224,14 +223,16 @@ inline bool ValidateUnifiedRasterResource( const GeneratedShaderReflection::Stag
 
     if ( resource.registerClass == 'b' )
     {
-        if ( resource.slot == SHADER_REGISTER_DRAW_CONSTANTS && std::strcmp( resource.type, "cbuffer" ) == 0 )
+        if ( resource.slot == UnifiedRasterRootSignature::SHADER_REGISTER_DRAW_CONSTANTS &&
+             std::strcmp( resource.type, "cbuffer" ) == 0 )
         {
             return true;
         }
     }
     else if ( resource.registerClass == 't' )
     {
-        if ( std::strcmp( stage.stage, "ps" ) == 0 && AcceptsTextureRegister( resource.slot ) &&
+        if ( std::strcmp( stage.stage, "ps" ) == 0 &&
+             UnifiedRasterRootSignature::AcceptsTextureRegister( resource.slot ) &&
              std::strcmp( resource.type, "texture" ) == 0 && std::strcmp( resource.dimension, "2d" ) == 0 )
         {
             return true;
@@ -239,7 +240,8 @@ inline bool ValidateUnifiedRasterResource( const GeneratedShaderReflection::Stag
     }
     else if ( resource.registerClass == 's' )
     {
-        if ( std::strcmp( stage.stage, "ps" ) == 0 && AcceptsSamplerRegister( resource.slot ) &&
+        if ( std::strcmp( stage.stage, "ps" ) == 0 &&
+             UnifiedRasterRootSignature::AcceptsSamplerRegister( resource.slot ) &&
              std::strcmp( resource.type, "sampler" ) == 0 )
         {
             return true;

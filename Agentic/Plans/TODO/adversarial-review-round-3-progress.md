@@ -12,20 +12,27 @@ percentage from `Agentic/Plans/MASTER-PLAN.md` after each commit.
 
 ## R1 — Header `using namespace` removal
 
-- [ ] Inventory every name each directive currently resolves in
+- [x] Inventory every name each directive currently resolves in
       `UI/UIFrameComposition.h` (build once with directives commented out and
       collect the error list as the work queue).
-- [ ] `UI/UIFrameComposition.h:63-70`: delete all eight directives; qualify
+- [x] `UI/UIFrameComposition.h:63-70`: delete all eight directives; qualify
       names or add class/function-scoped `using`-declarations only.
-- [ ] `Scene/TestSceneParserSchema.h:1040`: stop exporting
+- [x] `Scene/TestSceneParserSchema.h:1040`: stop exporting
       `TestSceneParserDetail` into includers; qualify call sites inside the
       header instead.
-- [ ] `Rendering/ShaderReflectionContracts.h:217`: replace the directive with
+- [x] `Rendering/ShaderReflectionContracts.h:217`: replace the directive with
       explicit `UnifiedRasterRootSignature::` qualification (or keep it only
       if it is provably function-scoped and bounded — record the decision).
-- [ ] Prove clean: `rg -n '^\s*using namespace' --glob '*.h' SkullbonezSource`
+- [x] Prove clean: `rg -n '^\s*using namespace' --glob '*.h' SkullbonezSource`
       returns zero rows.
-- [ ] Zero-warning Profile build evidence captured for the PR gate.
+- [x] Zero-warning Profile build evidence captured for the PR gate.
+
+Evidence (2026-07-13): the deliberate no-directive inventory build exposed the
+UI composition/palette and five scene-parser translation units that had relied
+on header leakage. Headers now qualify owner types directly; implementation
+files use explicit finite helper imports. The header grep returned zero rows,
+and `tools\validate_fast.bat` passed in 53.7s with 177/177 doctest cases,
+4,059/4,059 assertions, and zero-warning Profile/Debug builds.
 
 ## R2 — Scene capacity constant ownership
 

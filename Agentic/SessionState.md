@@ -11,11 +11,11 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-12th-july` |
-| Current baseline | Runtime-contract enforcement is complete: thread-safe fatal logging, guarded SpatialGrid conversion, enforced AmortizedTask lifetime, and no WorkerPool exception plumbing |
+| Current baseline | Round-3 R1 is complete: engine headers export no `using namespace`; UI, scene-parser, and shader-reflection dependencies are explicit |
 | Current objective | Execute adversarial-review round 3 (`Plans/TODO/adversarial-review-round-3.md`, R1→R10); validation-gate V3 remains externally blocked |
-| Portfolio progress | 302 / 313 tasks = 96% rounded overall |
+| Portfolio progress | 303 / 313 tasks = 97% rounded overall |
 | Last broad local gate | `tools\\validate_full.bat` passed final runtime-contract source on 2026-07-12 in 84.41s: CPU lanes clean, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | Independent review and follow-up passed; fast, all-CPU, physics, healthy ASan, and full gates passed from final source. |
+| Validation for current edits | R1 `tools\validate_fast.bat` passed in 53.7s: format/filter checks, 177 doctest cases and 4,059 assertions, zero-warning Profile/Debug builds. |
 
 ## Live Queue
 
@@ -29,11 +29,12 @@ plan inventory.
    2026-07-12 ruling) and is not live portfolio work.
 3. Round-2 runtime-contract remediation is locally complete and recorded in
    `Reports/2026-07-12/runtime-contract-enforcement-closure.md`.
-4. Round-3 adversarial-review remediation is live: ten owner-approved tasks
+4. Round-3 adversarial-review remediation is live at 1/10: R1 header namespace
+   hygiene is complete. Nine owner-approved tasks remain
    (exceptions off, header/namespace hygiene, `Common.h` platform leak,
    `Basics` retirement, `Helper` dissolution, C++20 + `std::span`, solver
    SIMD, DX12 bindless + three frames). Plan and fine-grained progress
-   checklist live in `Plans/TODO/`; execute in R1→R10 order. Out-of-scope
+   checklist live in `Plans/TODO/`; continue with R2→R10. Out-of-scope
    rulings are recorded in MASTER to avoid re-litigation.
 
 ## Current Plan Decisions
@@ -91,5 +92,5 @@ plan inventory.
 
 ## Next Handoff
 
-No local implementation remains. V3 resumes when the required GitHub and
-runner authority exists.
+Commit and push R1, then execute R2 scene-capacity ownership and relocation.
+V3 resumes separately when the required GitHub and runner authority exists.

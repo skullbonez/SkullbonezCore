@@ -28,6 +28,21 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+using TestSceneParserDetail::CopyStringField;
+using TestSceneParserDetail::Fail;
+using TestSceneParserDetail::FindMember;
+using TestSceneParserDetail::Lowercase;
+using TestSceneParserDetail::MaxConfigurableWorkerThreadCount;
+using TestSceneParserDetail::ReadBool;
+using TestSceneParserDetail::ReadFloat;
+using TestSceneParserDetail::ReadInt;
+using TestSceneParserDetail::ReadString;
+using TestSceneParserDetail::ReadUInt;
+using TestSceneParserDetail::ReadVec3;
+using TestSceneParserDetail::RequireArray;
+using TestSceneParserDetail::RequireMember;
+using TestSceneParserDetail::RequireObject;
+
 void TestSceneParser::ApplyPlayback( const Json& playback, const std::string& path )
 {
     // Concept: playback fields are deterministic-run policy, not presentation

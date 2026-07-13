@@ -107,8 +107,8 @@ concrete plan rows and counting it would duplicate tasks.
 | frame-view-calling-convention | 4 | 4 | 100% |
 | render-interface-and-workerpool-slimming | 5 | 5 | 100% |
 | runtime-contract-enforcement | 5 | 5 | 100% |
-| adversarial-review-round-3 | 0 | 10 | 0% |
-| **Portfolio total** | **302** | **313** | **96%** |
+| adversarial-review-round-3 | 1 | 10 | 10% |
+| **Portfolio total** | **303** | **313** | **97%** |
 
 ## Current Execution Priority
 
@@ -117,8 +117,8 @@ For maximum impact with minimal rework, use this binding critical path:
 `adversarial-review round 3 → validation-gate V3 external administration`
 
 0. **Adversarial-review round 3 — live.** The only live local implementation
-   work. Execute `TODO/adversarial-review-round-3.md` in task order R1→R10;
-   the companion progress checklist carries the fine-grained steps.
+   work. R1 header namespace hygiene is complete; continue R2→R10 in order.
+   The companion progress checklist carries the fine-grained steps.
 1. **Validation-gate V3 — blocked external lane.** Repository implementation is
    complete. Remaining work requires a real `merge_group` proof, required CPU
    branch protection, and trusted/ephemeral DX12 runner administration.
@@ -216,7 +216,7 @@ solver SIMD → DX12 bindless and frame headroom.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [adversarial-review-round-3](TODO/adversarial-review-round-3.md) | Live | 0/10 | Start R1 (header `using namespace` removal); companion checklist `TODO/adversarial-review-round-3-progress.md` carries fine-grained steps |
+| [adversarial-review-round-3](TODO/adversarial-review-round-3.md) | Live | 1/10 | Start R2 (scene-capacity ownership and relocation); companion checklist `TODO/adversarial-review-round-3-progress.md` carries fine-grained steps |
 
 Owner-ruled out of scope in this round (recorded so they are not re-litigated):
 replay subsystem right-sizing, unit-test depth expansion, sleep parallel-array
