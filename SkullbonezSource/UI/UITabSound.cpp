@@ -1,35 +1,32 @@
 /*
 File: SkullbonezSource/UI/UITabSound.cpp
 Purpose:
-  Implements the minimal in-engine Sound tab.
+  Implements the in-engine Sound tab for live contact-audio tuning.
 
 Summary:
-  Drawing and hit testing share one layout. Sliders write previews locally
-  while dragging and emit a one-frame command for the run loop to apply to
-  the audio service. Nothing here persists config files or mutates audio
-  objects directly.
-
-Concept — what the two sliders mean:
-  Volume is a plain multiplier on every thud. Thud threshold is the minimum
-  impact energy (joules — think "how hard the hit was") a collision needs
-  before any sound plays; raising it silences light taps, lowering it lets
-  soft touches through. Distance falloff, pitch spread, cooldowns, and voice
-  limits are fixed policy inside ContactAudioService and are deliberately
-  not exposed here.
+  Drawing and hit testing share one layout. Sliders write previews locally while
+  dragging and emit a one-frame command for the run loop to apply to the audio
+  service. Nothing here persists config files or mutates audio objects directly.
 
 Glossary:
-  Sample library: Decoded candidate thud sounds that can be previewed with
-    the Play button or assigned to the selected material set with Use.
-  Sound set: Material-pair recipe (e.g. stone vs anything) that maps a
-    contact to a sample list; the picker exists so Use knows its target.
-  Fitted picker text: One-line selector label clipped before the
-    right-aligned previous/next buttons.
+  Global parameter: Contact-audio master gain or distance scale applied before
+    material-set tuning.
+  Set parameter: Material-pair threshold, cooldown, gain, pitch, distance, or
+    voice-count control.
+  Band parameter: Impulse-tier override inside a selected set.
+  Sample library: Decoded contact-audio candidate sounds that can be previewed
+    or assigned to the selected material set.
+  Patch candidate: One reduced contact patch kept after duplicate solver facts
+    for the same body/material/feature key have been merged.
+  Flash mode toggle: Sound-tab control that cycles emitted, candidate,
+    rejected, or hidden body flashes for contact-audio decision review.
+  Fitted picker text: One-line selector label clipped before the right-aligned
+    previous/next buttons.
 
 Invariants:
-  - Selected set/sample indices are clamped against the current frame
-    snapshot before hit testing or drawing.
-  - The threshold slider edits joules directly; no unit conversion happens
-    in the UI layer.
+  - Selected set indices are clamped against the current frame snapshot before
+    hit testing or drawing.
+  - Cooldown sliders use milliseconds because that is the authored JSON unit.
 
 Related:
   - SkullbonezSource/UI/UITabSound.h
@@ -48,28 +45,39 @@ Related:
 
 using namespace SkullbonezCore::UI::Layout;
 using namespace SkullbonezCore::UI::Widgets;
+using UISoundBandParam = SkullbonezCore::UI::UISoundBandParam;
 using UISoundParam = SkullbonezCore::UI::UISoundParam;
 
 namespace
 {
 
 constexpr int UI_SOUND_GLOBAL_SLIDER_BASE = 8000;
+constexpr int UI_SOUND_SET_SLIDER_BASE = 8020;
+constexpr int UI_SOUND_BAND_SLIDER_BASE = 8100;
+constexpr int SOUND_SIMPLE_GLOBAL_SLIDER_COUNT = 3;
 constexpr float SOUND_HEADER_Y = 16.0f;
 constexpr float SOUND_TOGGLE_Y = 42.0f;
-constexpr float SOUND_STATS_Y = 78.0f;
-constexpr float SOUND_GLOBAL_TITLE_Y = 118.0f;
-constexpr float SOUND_GLOBAL_SLIDER_Y = 144.0f;
-constexpr float SOUND_SLIDER_H = 34.0f;
-constexpr float SOUND_SLIDER_STEP_Y = 40.0f;
-constexpr float SOUND_SAMPLE_TITLE_Y = 240.0f;
-constexpr float SOUND_SAMPLE_PICKER_Y = 266.0f;
-constexpr float SOUND_SAMPLE_ACTION_Y = 300.0f;
+constexpr float SOUND_TOGGLE_ROW2_Y = 72.0f;
+constexpr float SOUND_STATS_Y = 112.0f;
+constexpr float SOUND_SIMPLE_TITLE_Y = 160.0f;
+constexpr float SOUND_SIMPLE_SLIDER_Y = 186.0f;
+constexpr float SOUND_SIMPLE_EXTRA_Y = 160.0f;
+constexpr float SOUND_GLOBAL_TITLE_Y = 160.0f + SOUND_SIMPLE_EXTRA_Y;
+constexpr float SOUND_GLOBAL_SLIDER_Y = 186.0f + SOUND_SIMPLE_EXTRA_Y;
+constexpr float SOUND_ROLLING_EXTRA_Y = 160.0f;
+constexpr float SOUND_SAMPLE_TITLE_Y = 442.0f + SOUND_ROLLING_EXTRA_Y + SOUND_SIMPLE_EXTRA_Y;
+constexpr float SOUND_SAMPLE_PICKER_Y = 468.0f + SOUND_ROLLING_EXTRA_Y + SOUND_SIMPLE_EXTRA_Y;
+constexpr float SOUND_SAMPLE_ACTION_Y = 502.0f + SOUND_ROLLING_EXTRA_Y + SOUND_SIMPLE_EXTRA_Y;
 constexpr float SOUND_SAMPLE_BUTTON_W = 72.0f;
 constexpr float SOUND_SAMPLE_BUTTON_H = 26.0f;
-constexpr float SOUND_SET_TITLE_Y = 350.0f;
-constexpr float SOUND_SET_PICKER_Y = 376.0f;
-constexpr float SOUND_SET_META_Y = 410.0f;
-constexpr float SOUND_CONTENT_BOTTOM_Y = 440.0f;
+constexpr float SOUND_SET_TITLE_Y = 552.0f + SOUND_ROLLING_EXTRA_Y + SOUND_SIMPLE_EXTRA_Y;
+constexpr float SOUND_SET_PICKER_Y = 578.0f + SOUND_ROLLING_EXTRA_Y + SOUND_SIMPLE_EXTRA_Y;
+constexpr float SOUND_SET_META_Y = 612.0f + SOUND_ROLLING_EXTRA_Y + SOUND_SIMPLE_EXTRA_Y;
+constexpr float SOUND_SET_SLIDER_Y = 654.0f + SOUND_ROLLING_EXTRA_Y + SOUND_SIMPLE_EXTRA_Y;
+constexpr float SOUND_BAND_TITLE_Y = 1044.0f + SOUND_ROLLING_EXTRA_Y + SOUND_SIMPLE_EXTRA_Y;
+constexpr float SOUND_BAND_BLOCK_H = 238.0f;
+constexpr float SOUND_SLIDER_H = 34.0f;
+constexpr float SOUND_SLIDER_STEP_Y = 40.0f;
 
 struct SoundSliderSpec
 {
@@ -81,14 +89,62 @@ struct SoundSliderSpec
     float step;
 };
 
+struct SoundBandSliderSpec
+{
+    UISoundBandParam param;
+    const char* label;
+    const char* format;
+    float minValue;
+    float maxValue;
+    float step;
+};
+
 constexpr SoundSliderSpec kGlobalSliders[] = {
-    { UISoundParam::MasterGain, "Volume", "%.2f", 0.0f, 2.0f, 0.05f },
-    { UISoundParam::MinImpactEnergy, "Thud threshold", "%.0f J", 10.0f, 2000.0f, 5.0f },
+    { UISoundParam::SimpleMinLinearEnergy, "SIMPLE MODE min energy", "%.1f", 0.0f, 1000.0f, 2.5f },
+    { UISoundParam::SimpleMinLinearDeltaSpeed, "SIMPLE MODE delta speed", "%.2f", 0.0f, 20.0f, 0.05f },
+    { UISoundParam::SimpleLinearEnergyRange, "SIMPLE MODE energy range", "%.0f", 1.0f, 5000.0f, 10.0f },
+    { UISoundParam::MasterGain, "Master gain", "%.2f", 0.0f, 4.0f, 0.05f },
+    { UISoundParam::MaxDistanceScale, "Distance scale", "%.2fx", 0.01f, 16.0f, 0.05f },
+    { UISoundParam::MinClosingSpeed, "Min closing speed", "%.2f", 0.0f, 20.0f, 0.05f },
+    { UISoundParam::MinImpactScore, "Min impact score", "%.1f", 0.0f, 5000.0f, 1.0f },
+    { UISoundParam::ImpactScoreRangeSeconds, "Score gain range", "%.2fs", 0.001f, 10.0f, 0.05f },
+    { UISoundParam::BurstVoicesPerWindow, "Voices / 100ms", "%.0f", 1.0f, 40.0f, 1.0f },
+    { UISoundParam::RollingLevelDb, "Rolling level", "%.0f dB", -60.0f, 0.0f, 1.0f },
+    { UISoundParam::RollingMaxDistance, "Rolling distance", "%.0f", 1.0f, 200.0f, 1.0f },
+    { UISoundParam::RollingMinSlipSpeed, "Rolling slip speed", "%.2f", 0.1f, 20.0f, 0.05f },
+    { UISoundParam::RollingVoicesPerWindow, "Rolling voices / 100ms", "%.0f", 0.0f, 12.0f, 1.0f },
+};
+
+constexpr SoundSliderSpec kSetSliders[] = {
+    { UISoundParam::SetMinImpulse, "Min impulse", "%.2f", 0.0f, 100.0f, 0.05f },
+    { UISoundParam::SetImpulseRange, "Impulse range", "%.2f", 0.05f, 100.0f, 0.05f },
+    { UISoundParam::SetCooldownMs, "Pair cooldown", "%.0f ms", 0.0f, 1000.0f, 5.0f },
+    { UISoundParam::SetOverrideCooldownMs, "Spike rearm", "%.0f ms", 0.0f, 1000.0f, 5.0f },
+    { UISoundParam::SetMaxDistance, "Patch distance", "%.0f", 1.0f, 500.0f, 1.0f },
+    { UISoundParam::SetBaseGain, "Set gain", "%.2f", 0.0f, 4.0f, 0.05f },
+    { UISoundParam::SetPitchMin, "Pitch min", "%.2f", 0.25f, 4.0f, 0.01f },
+    { UISoundParam::SetPitchMax, "Pitch max", "%.2f", 0.25f, 4.0f, 0.01f },
+    { UISoundParam::SetMaxVoices, "Voice cap", "%.0f", 1.0f, 32.0f, 1.0f },
+};
+
+constexpr SoundBandSliderSpec kBandSliders[] = {
+    { UISoundBandParam::MinImpulse, "Min impulse", "%.2f", 0.0f, 100.0f, 0.05f },
+    { UISoundBandParam::ImpulseRange, "Impulse range", "%.2f", 0.05f, 100.0f, 0.05f },
+    { UISoundBandParam::BaseGain, "Base gain", "%.2f", 0.0f, 4.0f, 0.05f },
+    { UISoundBandParam::PitchMin, "Pitch min", "%.2f", 0.25f, 4.0f, 0.01f },
+    { UISoundBandParam::PitchMax, "Pitch max", "%.2f", 0.25f, 4.0f, 0.01f },
 };
 
 static_assert( sizeof( kGlobalSliders ) / sizeof( kGlobalSliders[0] ) ==
                    SkullbonezCore::UI::SoundTab::SOUND_GLOBAL_SLIDER_COUNT,
                "Global Sound tab slider specs must match Sound tab state." );
+static_assert( sizeof( kSetSliders ) / sizeof( kSetSliders[0] ) == SkullbonezCore::UI::SoundTab::SOUND_SET_SLIDER_COUNT,
+               "Sound set slider specs must match Sound tab state." );
+static_assert( sizeof( kBandSliders ) / sizeof( kBandSliders[0] ) ==
+                   SkullbonezCore::UI::SoundTab::SOUND_BAND_SLIDER_COUNT,
+               "Sound band slider specs must match Sound tab state." );
+static_assert( SkullbonezCore::UI::SoundTab::SOUND_UI_BAND_MAX == SkullbonezCore::UI::UI_SOUND_BAND_MAX,
+               "Sound tab and frame-data band limits must match." );
 
 void DrawHitboxRect( const SkullbonezCore::UI::UIDrawContext& draw,
                      const SkullbonezCore::UI::UIRect& bounds,
@@ -107,7 +163,95 @@ void DrawHitboxRect( const SkullbonezCore::UI::UIDrawContext& draw,
 int GlobalSliderIndexFromActiveSlider( int activeSlider )
 {
     const int index = activeSlider - UI_SOUND_GLOBAL_SLIDER_BASE;
-    return index >= 0 && index < SkullbonezCore::UI::SoundTab::SOUND_GLOBAL_SLIDER_COUNT ? index : -1;
+    return index >= 0 && index < static_cast<int>( sizeof( kGlobalSliders ) / sizeof( kGlobalSliders[0] ) ) ? index
+                                                                                                            : -1;
+}
+
+int SetSliderIndexFromActiveSlider( int activeSlider )
+{
+    const int index = activeSlider - UI_SOUND_SET_SLIDER_BASE;
+    return index >= 0 && index < SkullbonezCore::UI::SoundTab::SOUND_SET_SLIDER_COUNT ? index : -1;
+}
+
+int BandSliderIndexFromActiveSlider( int activeSlider, int& outBandIndex )
+{
+    const int encoded = activeSlider - UI_SOUND_BAND_SLIDER_BASE;
+    if ( encoded < 0 )
+    {
+        outBandIndex = -1;
+        return -1;
+    }
+    const int bandIndex = encoded / 10;
+    const int sliderIndex = encoded % 10;
+    if ( bandIndex < 0 || bandIndex >= SkullbonezCore::UI::SoundTab::SOUND_UI_BAND_MAX || sliderIndex < 0 ||
+         sliderIndex >= SkullbonezCore::UI::SoundTab::SOUND_BAND_SLIDER_COUNT )
+    {
+        outBandIndex = -1;
+        return -1;
+    }
+    outBandIndex = bandIndex;
+    return sliderIndex;
+}
+
+float GlobalSliderY( int sliderIndex )
+{
+    if ( sliderIndex < SOUND_SIMPLE_GLOBAL_SLIDER_COUNT )
+    {
+        return SOUND_SIMPLE_SLIDER_Y + static_cast<float>( sliderIndex ) * SOUND_SLIDER_STEP_Y;
+    }
+    return SOUND_GLOBAL_SLIDER_Y +
+           static_cast<float>( sliderIndex - SOUND_SIMPLE_GLOBAL_SLIDER_COUNT ) * SOUND_SLIDER_STEP_Y;
+}
+
+float SetSliderValue( const SkullbonezCore::UI::UISoundSetFrameData& set, int sliderIndex )
+{
+    switch ( kSetSliders[sliderIndex].param )
+    {
+    case UISoundParam::SetMinImpulse:
+        return set.minImpulse;
+    case UISoundParam::SetImpulseRange:
+        return set.impulseRange;
+    case UISoundParam::SetCooldownMs:
+        return set.cooldownMs;
+    case UISoundParam::SetOverrideCooldownMs:
+        return set.overrideCooldownMs;
+    case UISoundParam::SetMaxDistance:
+        return set.maxDistance;
+    case UISoundParam::SetBaseGain:
+        return set.baseGain;
+    case UISoundParam::SetPitchMin:
+        return set.pitchMin;
+    case UISoundParam::SetPitchMax:
+        return set.pitchMax;
+    case UISoundParam::SetMaxVoices:
+        return static_cast<float>( set.maxVoices );
+    default:
+        return 0.0f;
+    }
+}
+
+float BandSliderValue( const SkullbonezCore::UI::UISoundBandFrameData& band, int sliderIndex )
+{
+    switch ( kBandSliders[sliderIndex].param )
+    {
+    case UISoundBandParam::MinImpulse:
+        return band.minImpulse;
+    case UISoundBandParam::ImpulseRange:
+        return band.impulseRange;
+    case UISoundBandParam::BaseGain:
+        return band.baseGain;
+    case UISoundBandParam::PitchMin:
+        return band.pitchMin;
+    case UISoundBandParam::PitchMax:
+        return band.pitchMax;
+    default:
+        return 0.0f;
+    }
+}
+
+void FormatSliderValue( char* out, size_t outSize, const char* format, float value )
+{
+    snprintf( out, outSize, format, value );
 }
 
 const SkullbonezCore::UI::UISoundSetFrameData* SelectedSet( const SkullbonezCore::UI::SoundTab::UISoundTabState& state,
@@ -203,13 +347,63 @@ float GlobalDisplayValue( const SkullbonezCore::UI::SoundTab::UISoundTabState& s
     }
     switch ( kGlobalSliders[index].param )
     {
+    case UISoundParam::SimpleMinLinearEnergy:
+        return data.contactAudioSimpleMinLinearEnergy;
+    case UISoundParam::SimpleMinLinearDeltaSpeed:
+        return data.contactAudioSimpleMinLinearDeltaSpeed;
+    case UISoundParam::SimpleLinearEnergyRange:
+        return data.contactAudioSimpleLinearEnergyRange;
     case UISoundParam::MasterGain:
         return data.contactAudioMasterGain;
-    case UISoundParam::MinImpactEnergy:
-        return data.contactAudioMinImpactEnergy;
+    case UISoundParam::MaxDistanceScale:
+        return data.contactAudioMaxDistanceScale;
+    case UISoundParam::MinClosingSpeed:
+        return data.contactAudioMinClosingSpeed;
+    case UISoundParam::MinImpactScore:
+        return data.contactAudioMinImpactScore;
+    case UISoundParam::ImpactScoreRangeSeconds:
+        return data.contactAudioImpactScoreRangeSeconds;
+    case UISoundParam::BurstVoicesPerWindow:
+        return static_cast<float>( data.contactAudioBurstVoicesPerWindow );
+    case UISoundParam::RollingLevelDb:
+        return data.contactAudioRollingLevelDb;
+    case UISoundParam::RollingMaxDistance:
+        return data.contactAudioRollingMaxDistance;
+    case UISoundParam::RollingMinSlipSpeed:
+        return data.contactAudioRollingMinSlipSpeed;
+    case UISoundParam::RollingVoicesPerWindow:
+        return static_cast<float>( data.contactAudioRollingVoicesPerWindow );
     default:
         return 0.0f;
     }
+}
+
+float SetDisplayValue( const SkullbonezCore::UI::SoundTab::UISoundTabState& state,
+                       const SkullbonezCore::UI::UISoundSetFrameData& set,
+                       int activeSlider,
+                       int index )
+{
+    if ( activeSlider == UI_SOUND_SET_SLIDER_BASE + index && state.previewSetValues[index] >= 0.0f )
+    {
+        return state.previewSetValues[index];
+    }
+    return SetSliderValue( set, index );
+}
+
+float BandDisplayValue( const SkullbonezCore::UI::SoundTab::UISoundTabState& state,
+                        const SkullbonezCore::UI::UISoundBandFrameData& band,
+                        int activeSlider,
+                        int bandIndex,
+                        int sliderIndex )
+{
+    int activeBandIndex = -1;
+    const int activeBandSlider = BandSliderIndexFromActiveSlider( activeSlider, activeBandIndex );
+    if ( activeBandIndex == bandIndex && activeBandSlider == sliderIndex &&
+         state.previewBandValues[bandIndex][sliderIndex] >= 0.0f )
+    {
+        return state.previewBandValues[bandIndex][sliderIndex];
+    }
+    return BandSliderValue( band, sliderIndex );
 }
 
 void SetGlobalSliderResult( SkullbonezCore::UI::SoundTab::UISoundTabState& state,
@@ -225,20 +419,49 @@ void SetGlobalSliderResult( SkullbonezCore::UI::SoundTab::UISoundTabState& state
     result.commands.sound.requestedValue = value;
 }
 
+void SetSetSliderResult( SkullbonezCore::UI::SoundTab::UISoundTabState& state,
+                         SkullbonezCore::UI::InGameUIInputResult& result,
+                         int sliderIndex,
+                         int mouseX )
+{
+    const SoundSliderSpec& spec = kSetSliders[sliderIndex];
+    const float value = state.setSliders[sliderIndex].ValueFromMouse( mouseX, spec.minValue, spec.maxValue, spec.step );
+    state.previewSetValues[sliderIndex] = value;
+    result.commands.sound.requestedSetIndex = state.selectedSetIndex;
+    result.commands.sound.requestedParam = spec.param;
+    result.commands.sound.requestedValue = value;
+}
+
+void SetBandSliderResult( SkullbonezCore::UI::SoundTab::UISoundTabState& state,
+                          SkullbonezCore::UI::InGameUIInputResult& result,
+                          int bandIndex,
+                          int sliderIndex,
+                          int mouseX )
+{
+    const SoundBandSliderSpec& spec = kBandSliders[sliderIndex];
+    const float value =
+        state.bandSliders[bandIndex][sliderIndex].ValueFromMouse( mouseX, spec.minValue, spec.maxValue, spec.step );
+    state.previewBandValues[bandIndex][sliderIndex] = value;
+    result.commands.sound.requestedSetIndex = state.selectedSetIndex;
+    result.commands.sound.requestedBandIndex = bandIndex;
+    result.commands.sound.requestedBandParam = spec.param;
+    result.commands.sound.requestedValue = value;
+}
+
 void SetContentBounds( SkullbonezCore::UI::SoundTab::UISoundTabState& state,
                        float contentX,
                        float scrolledY,
-                       float contentW )
+                       float contentW,
+                       int bandCount )
 {
     const float colW = (std::max)( 148.0f, contentW * 0.46f );
     state.enabledToggle.SetBounds( contentX, scrolledY + SOUND_TOGGLE_Y, colW, 24.0f );
+    state.debugCountersToggle.SetBounds( contentX + colW + 18.0f, scrolledY + SOUND_TOGGLE_Y, colW, 24.0f );
+    state.flashModeToggle.SetBounds( contentX, scrolledY + SOUND_TOGGLE_ROW2_Y, colW, 24.0f );
+    state.simpleModeToggle.SetBounds( contentX + colW + 18.0f, scrolledY + SOUND_TOGGLE_ROW2_Y, colW, 24.0f );
     for ( int i = 0; i < SkullbonezCore::UI::SoundTab::SOUND_GLOBAL_SLIDER_COUNT; ++i )
     {
-        state.globalSliders[i].SetBounds( contentX,
-                                          scrolledY + SOUND_GLOBAL_SLIDER_Y +
-                                              static_cast<float>( i ) * SOUND_SLIDER_STEP_Y,
-                                          contentW,
-                                          SOUND_SLIDER_H );
+        state.globalSliders[i].SetBounds( contentX, scrolledY + GlobalSliderY( i ), contentW, SOUND_SLIDER_H );
     }
     SetPipelineStepButtonBounds( state.previousSampleButton,
                                  state.nextSampleButton,
@@ -258,6 +481,26 @@ void SetContentBounds( SkullbonezCore::UI::SoundTab::UISoundTabState& state,
                                  contentX,
                                  contentW,
                                  scrolledY + SOUND_SET_PICKER_Y );
+    for ( int i = 0; i < SkullbonezCore::UI::SoundTab::SOUND_SET_SLIDER_COUNT; ++i )
+    {
+        state.setSliders[i].SetBounds( contentX,
+                                       scrolledY + SOUND_SET_SLIDER_Y + static_cast<float>( i ) * SOUND_SLIDER_STEP_Y,
+                                       contentW,
+                                       SOUND_SLIDER_H );
+    }
+    for ( int bandIndex = 0; bandIndex < bandCount && bandIndex < SkullbonezCore::UI::SoundTab::SOUND_UI_BAND_MAX;
+          ++bandIndex )
+    {
+        const float bandY = scrolledY + SOUND_BAND_TITLE_Y + static_cast<float>( bandIndex ) * SOUND_BAND_BLOCK_H;
+        for ( int sliderIndex = 0; sliderIndex < SkullbonezCore::UI::SoundTab::SOUND_BAND_SLIDER_COUNT; ++sliderIndex )
+        {
+            state.bandSliders[bandIndex][sliderIndex].SetBounds(
+                contentX,
+                bandY + 48.0f + static_cast<float>( sliderIndex ) * SOUND_SLIDER_STEP_Y,
+                contentW,
+                SOUND_SLIDER_H );
+        }
+    }
 }
 
 } // namespace
@@ -271,7 +514,8 @@ namespace SoundTab
 
 int ContentHeight()
 {
-    return static_cast<int>( SOUND_CONTENT_BOTTOM_Y );
+    return static_cast<int>( SOUND_BAND_TITLE_Y + SOUND_BAND_BLOCK_H * static_cast<float>( SOUND_UI_BAND_MAX ) +
+                             18.0f );
 }
 
 
@@ -280,6 +524,17 @@ void ResetPreviewState( UISoundTabState& state )
     for ( float& value : state.previewGlobalValues )
     {
         value = -1.0f;
+    }
+    for ( float& value : state.previewSetValues )
+    {
+        value = -1.0f;
+    }
+    for ( int bandIndex = 0; bandIndex < SOUND_UI_BAND_MAX; ++bandIndex )
+    {
+        for ( int sliderIndex = 0; sliderIndex < SOUND_BAND_SLIDER_COUNT; ++sliderIndex )
+        {
+            state.previewBandValues[bandIndex][sliderIndex] = -1.0f;
+        }
     }
 }
 
@@ -290,11 +545,14 @@ void ClampSelection( UISoundTabState& state, const InGameUIFrameData& data )
     {
         state.selectedSetIndex = 0;
         state.lastSetCount = 0;
+        state.lastBandCount = 0;
     }
     else
     {
         state.selectedSetIndex = std::clamp( state.selectedSetIndex, 0, data.soundSetCount - 1 );
         state.lastSetCount = std::clamp( data.soundSetCount, 0, UI_SOUND_SET_MAX );
+        const UISoundSetFrameData& set = data.soundSets[state.selectedSetIndex];
+        state.lastBandCount = std::clamp( static_cast<int>( set.bandCount ), 0, SOUND_UI_BAND_MAX );
     }
     if ( data.soundSampleCount <= 0 )
     {
@@ -316,8 +574,10 @@ void DrawHitboxes( const UISoundTabState& state,
                    float g,
                    float b )
 {
-    (void)data;
     DrawHitboxRect( draw, state.enabledToggle.Bounds(), r, g, b );
+    DrawHitboxRect( draw, state.debugCountersToggle.Bounds(), r, g, b );
+    DrawHitboxRect( draw, state.flashModeToggle.Bounds(), r, g, b );
+    DrawHitboxRect( draw, state.simpleModeToggle.Bounds(), r, g, b );
     for ( const UISlider& slider : state.globalSliders )
     {
         DrawHitboxRect( draw, slider.Bounds(), r, g, b );
@@ -328,6 +588,23 @@ void DrawHitboxes( const UISoundTabState& state,
     DrawHitboxRect( draw, state.selectSampleButton.Bounds(), r, g, b );
     DrawHitboxRect( draw, state.previousSetButton, 1.0f, 0.62f, 0.18f );
     DrawHitboxRect( draw, state.nextSetButton, 1.0f, 0.62f, 0.18f );
+    const UISoundSetFrameData* set = SelectedSet( state, data );
+    if ( !set )
+    {
+        return;
+    }
+    for ( int i = 0; i < SOUND_SET_SLIDER_COUNT; ++i )
+    {
+        DrawHitboxRect( draw, state.setSliders[i].Bounds(), r, g, b );
+    }
+    const int bandCount = std::clamp( static_cast<int>( set->bandCount ), 0, SOUND_UI_BAND_MAX );
+    for ( int bandIndex = 0; bandIndex < bandCount; ++bandIndex )
+    {
+        for ( int sliderIndex = 0; sliderIndex < SOUND_BAND_SLIDER_COUNT; ++sliderIndex )
+        {
+            DrawHitboxRect( draw, state.bandSliders[bandIndex][sliderIndex].Bounds(), r, g, b );
+        }
+    }
 }
 
 
@@ -356,11 +633,27 @@ bool HandleContentClick( UISoundTabState& state,
     {
         state.selectedSampleIndex = std::clamp( state.selectedSampleIndex, 0, state.lastSampleCount - 1 );
     }
-    SetContentBounds( state, contentX, scrolledY, contentW );
+    const int bandCount = std::clamp( state.lastBandCount, 0, SOUND_UI_BAND_MAX );
+    SetContentBounds( state, contentX, scrolledY, contentW, bandCount );
 
     if ( state.enabledToggle.HitTest( mouseX, mouseY ) )
     {
         result.commands.sound.toggleEnabled = true;
+        return false;
+    }
+    if ( state.debugCountersToggle.HitTest( mouseX, mouseY ) )
+    {
+        result.commands.sound.toggleDebugCounters = true;
+        return false;
+    }
+    if ( state.flashModeToggle.HitTest( mouseX, mouseY ) )
+    {
+        result.commands.sound.cycleFlashMode = true;
+        return false;
+    }
+    if ( state.simpleModeToggle.HitTest( mouseX, mouseY ) )
+    {
+        result.commands.sound.toggleSimpleMode = true;
         return false;
     }
     for ( int i = 0; i < SOUND_GLOBAL_SLIDER_COUNT; ++i )
@@ -396,12 +689,39 @@ bool HandleContentClick( UISoundTabState& state,
     if ( state.previousSetButton.Contains( mouseX, mouseY ) && state.lastSetCount > 0 )
     {
         state.selectedSetIndex = ( state.selectedSetIndex + state.lastSetCount - 1 ) % state.lastSetCount;
+        ResetPreviewState( state );
         return false;
     }
     if ( state.nextSetButton.Contains( mouseX, mouseY ) && state.lastSetCount > 0 )
     {
         state.selectedSetIndex = ( state.selectedSetIndex + 1 ) % state.lastSetCount;
+        ResetPreviewState( state );
         return false;
+    }
+    if ( state.lastSetCount <= 0 )
+    {
+        return false;
+    }
+    for ( int i = 0; i < SOUND_SET_SLIDER_COUNT; ++i )
+    {
+        if ( state.setSliders[i].HitTest( mouseX, mouseY ) )
+        {
+            activeSlider = UI_SOUND_SET_SLIDER_BASE + i;
+            SetSetSliderResult( state, result, i, mouseX );
+            return true;
+        }
+    }
+    for ( int bandIndex = 0; bandIndex < bandCount; ++bandIndex )
+    {
+        for ( int sliderIndex = 0; sliderIndex < SOUND_BAND_SLIDER_COUNT; ++sliderIndex )
+        {
+            if ( state.bandSliders[bandIndex][sliderIndex].HitTest( mouseX, mouseY ) )
+            {
+                activeSlider = UI_SOUND_BAND_SLIDER_BASE + bandIndex * 10 + sliderIndex;
+                SetBandSliderResult( state, result, bandIndex, sliderIndex, mouseX );
+                return true;
+            }
+        }
     }
     return false;
 }
@@ -415,6 +735,19 @@ bool UpdateActiveSlider( UISoundTabState& state, int activeSlider, int mouseX, I
         SetGlobalSliderResult( state, result, globalIndex, mouseX );
         return true;
     }
+    const int setIndex = SetSliderIndexFromActiveSlider( activeSlider );
+    if ( setIndex >= 0 )
+    {
+        SetSetSliderResult( state, result, setIndex, mouseX );
+        return true;
+    }
+    int bandIndex = -1;
+    const int bandSliderIndex = BandSliderIndexFromActiveSlider( activeSlider, bandIndex );
+    if ( bandSliderIndex >= 0 )
+    {
+        SetBandSliderResult( state, result, bandIndex, bandSliderIndex, mouseX );
+        return true;
+    }
     return false;
 }
 
@@ -426,6 +759,24 @@ bool CommitActiveSlider( UISoundTabState& state, int activeSlider, InGameUIInput
     {
         result.commands.sound.requestedParam = kGlobalSliders[globalIndex].param;
         result.commands.sound.requestedValue = state.previewGlobalValues[globalIndex];
+        return true;
+    }
+    const int setIndex = SetSliderIndexFromActiveSlider( activeSlider );
+    if ( setIndex >= 0 && state.previewSetValues[setIndex] >= 0.0f )
+    {
+        result.commands.sound.requestedSetIndex = state.selectedSetIndex;
+        result.commands.sound.requestedParam = kSetSliders[setIndex].param;
+        result.commands.sound.requestedValue = state.previewSetValues[setIndex];
+        return true;
+    }
+    int bandIndex = -1;
+    const int bandSliderIndex = BandSliderIndexFromActiveSlider( activeSlider, bandIndex );
+    if ( bandSliderIndex >= 0 && state.previewBandValues[bandIndex][bandSliderIndex] >= 0.0f )
+    {
+        result.commands.sound.requestedSetIndex = state.selectedSetIndex;
+        result.commands.sound.requestedBandIndex = bandIndex;
+        result.commands.sound.requestedBandParam = kBandSliders[bandSliderIndex].param;
+        result.commands.sound.requestedValue = state.previewBandValues[bandIndex][bandSliderIndex];
         return true;
     }
     return false;
@@ -446,50 +797,109 @@ void Draw( UISoundTabState& state,
 {
     ClampSelection( state, data );
     const UISoundSetFrameData* set = SelectedSet( state, data );
-    SetContentBounds( state, contentX, scrolledY, contentW );
+    const int bandCount = set ? std::clamp( static_cast<int>( set->bandCount ), 0, SOUND_UI_BAND_MAX ) : 0;
+    SetContentBounds( state, contentX, scrolledY, contentW, bandCount );
 
     char buf[160];
     const float colW = (std::max)( 148.0f, contentW * 0.46f );
+    const float col1 = contentX;
+    const float col2 = contentX + colW + 18.0f;
     DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + SOUND_HEADER_Y, 16.0f, "Sound" );
     DrawContentToggle( draw,
                        contentY,
                        contentH,
                        state.enabledToggle,
-                       contentX,
+                       col1,
                        scrolledY + SOUND_TOGGLE_Y,
                        colW,
                        "Contact audio",
                        data.contactAudioEnabled );
+    DrawContentToggle( draw,
+                       contentY,
+                       contentH,
+                       state.debugCountersToggle,
+                       col2,
+                       scrolledY + SOUND_TOGGLE_Y,
+                       colW,
+                       "Debug counters",
+                       data.contactAudioDebugCounters );
+    DrawContentToggle( draw,
+                       contentY,
+                       contentH,
+                       state.flashModeToggle,
+                       col1,
+                       scrolledY + SOUND_TOGGLE_ROW2_Y,
+                       colW,
+                       data.contactAudioFlashModeLabel,
+                       data.contactAudioFlashMode != 0 );
+    DrawContentToggle( draw,
+                       contentY,
+                       contentH,
+                       state.simpleModeToggle,
+                       col2,
+                       scrolledY + SOUND_TOGGLE_ROW2_Y,
+                       colW,
+                       "SIMPLE mode",
+                       data.contactAudioSimpleMode );
 
-    // One read-only line replaces the old counter toggles: how many contact
-    // facts arrived, how many thuds played, and why the rest stayed silent.
-    const uint32_t quietContacts = data.contactAudioRejectedByMotion + data.contactAudioRejectedByEnergy +
-                                   data.contactAudioRejectedByCooldown + data.contactAudioRejectedByDistance;
+    const uint32_t quietContacts = data.contactAudioRejectedByThreshold + data.contactAudioRejectedByCooldown;
+    const uint32_t budgetContacts = data.contactAudioCandidateOverflows +
+                                    data.contactAudioBurstWindowSkippedCandidates +
+                                    data.contactAudioBudgetRejectedCandidates + data.contactAudioDroppedVoices;
     snprintf( buf,
               sizeof( buf ),
-              "%u facts  %u pairs  %u played  %u quiet  %u dropped",
+              "%u facts  %u patches  %u played  roll %u/%u  %u quiet  %u budget",
               data.contactAudioEventsSeen,
-              data.contactAudioPairCandidates,
+              data.contactAudioPatchCandidates,
               data.contactAudioSubmittedVoices,
+              data.contactAudioRollingSubmittedVoices,
+              data.contactAudioRollingCandidates,
               quietContacts,
-              data.contactAudioDroppedVoices );
+              budgetContacts );
     DrawLabelValueAt( draw,
                       contentY,
                       contentH,
                       contentX,
                       scrolledY + SOUND_STATS_Y,
-                      "Stats",
+                      data.contactAudioAvailable ? "Reducer" : "Reducer",
                       data.contactAudioAvailable ? buf : "Not available",
                       data.contactAudioAvailable ? 0.78f : 0.95f,
                       data.contactAudioAvailable ? 0.88f : 0.55f,
                       data.contactAudioAvailable ? 0.91f : 0.32f );
 
-    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + SOUND_GLOBAL_TITLE_Y, 12.0f, "Thud" );
-    for ( int i = 0; i < SOUND_GLOBAL_SLIDER_COUNT; ++i )
+    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + SOUND_SIMPLE_TITLE_Y, 12.0f, "SIMPLE MODE" );
+    for ( int i = 0; i < SOUND_SIMPLE_GLOBAL_SLIDER_COUNT; ++i )
     {
-        const float sliderY = scrolledY + SOUND_GLOBAL_SLIDER_Y + static_cast<float>( i ) * SOUND_SLIDER_STEP_Y;
+        const float sliderY = scrolledY + GlobalSliderY( i );
         const float value = GlobalDisplayValue( state, data, activeSlider, i );
-        snprintf( buf, sizeof( buf ), kGlobalSliders[i].format, value );
+        FormatSliderValue( buf, sizeof( buf ), kGlobalSliders[i].format, value );
+        if ( IsRowVisible( contentY, contentH, sliderY, SOUND_SLIDER_H ) )
+        {
+            state.globalSliders[i].Draw( draw,
+                                         kGlobalSliders[i].label,
+                                         buf,
+                                         value,
+                                         kGlobalSliders[i].minValue,
+                                         kGlobalSliders[i].maxValue );
+        }
+    }
+
+    DrawSectionTitle( draw,
+                      contentX,
+                      contentY,
+                      contentH,
+                      scrolledY + SOUND_GLOBAL_TITLE_Y,
+                      12.0f,
+                      "Contact Classifier" );
+    for ( int i = 0; i < static_cast<int>( sizeof( kGlobalSliders ) / sizeof( kGlobalSliders[0] ) ); ++i )
+    {
+        if ( i < SOUND_SIMPLE_GLOBAL_SLIDER_COUNT )
+        {
+            continue;
+        }
+        const float sliderY = scrolledY + GlobalSliderY( i );
+        const float value = GlobalDisplayValue( state, data, activeSlider, i );
+        FormatSliderValue( buf, sizeof( buf ), kGlobalSliders[i].format, value );
         if ( IsRowVisible( contentY, contentH, sliderY, SOUND_SLIDER_H ) )
         {
             state.globalSliders[i].Draw( draw,
@@ -577,11 +987,11 @@ void Draw( UISoundTabState& state,
 
     snprintf( buf,
               sizeof( buf ),
-              "materials #%08x / #%08x  samples %u  range %.0f",
+              "materials #%08x / #%08x  samples %u  bands %u",
               set->materialA,
               set->materialB,
               set->sampleCount,
-              set->maxDistance );
+              set->bandCount );
     DrawLabelValueAt( draw,
                       contentY,
                       contentH,
@@ -592,6 +1002,49 @@ void Draw( UISoundTabState& state,
                       0.68f,
                       0.78f,
                       0.82f );
+
+    for ( int i = 0; i < SOUND_SET_SLIDER_COUNT; ++i )
+    {
+        const float sliderY = scrolledY + SOUND_SET_SLIDER_Y + static_cast<float>( i ) * SOUND_SLIDER_STEP_Y;
+        const float value = SetDisplayValue( state, *set, activeSlider, i );
+        FormatSliderValue( buf, sizeof( buf ), kSetSliders[i].format, value );
+        if ( IsRowVisible( contentY, contentH, sliderY, SOUND_SLIDER_H ) )
+        {
+            state.setSliders[i]
+                .Draw( draw, kSetSliders[i].label, buf, value, kSetSliders[i].minValue, kSetSliders[i].maxValue );
+        }
+    }
+
+    if ( bandCount > 0 )
+    {
+        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + SOUND_BAND_TITLE_Y, 12.0f, "Impact Bands" );
+    }
+
+    for ( int bandIndex = 0; bandIndex < bandCount; ++bandIndex )
+    {
+        const UISoundBandFrameData& band = set->bands[bandIndex];
+        const float bandY = scrolledY + SOUND_BAND_TITLE_Y + static_cast<float>( bandIndex ) * SOUND_BAND_BLOCK_H;
+        if ( IsRowVisible( contentY, contentH, bandY + 24.0f, 18.0f ) )
+        {
+            snprintf( buf, sizeof( buf ), "%s  samples %u", band.name, band.sampleCount );
+            DrawLabelValueAt( draw, contentY, contentH, contentX, bandY + 24.0f, "Band", buf, 0.84f, 0.92f, 0.94f );
+        }
+        for ( int sliderIndex = 0; sliderIndex < SOUND_BAND_SLIDER_COUNT; ++sliderIndex )
+        {
+            const float sliderY = bandY + 48.0f + static_cast<float>( sliderIndex ) * SOUND_SLIDER_STEP_Y;
+            const float value = BandDisplayValue( state, band, activeSlider, bandIndex, sliderIndex );
+            FormatSliderValue( buf, sizeof( buf ), kBandSliders[sliderIndex].format, value );
+            if ( IsRowVisible( contentY, contentH, sliderY, SOUND_SLIDER_H ) )
+            {
+                state.bandSliders[bandIndex][sliderIndex].Draw( draw,
+                                                                kBandSliders[sliderIndex].label,
+                                                                buf,
+                                                                value,
+                                                                kBandSliders[sliderIndex].minValue,
+                                                                kBandSliders[sliderIndex].maxValue );
+            }
+        }
+    }
 }
 
 } // namespace SoundTab

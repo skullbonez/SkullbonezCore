@@ -66,7 +66,6 @@ Related:
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <limits>
 #include <sstream>
 
 using namespace SkullbonezCore::Runtime;
@@ -839,8 +838,6 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "predictionTargetDisplacementMin";
     case RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction:
         return "liveSolverHashStableAcrossPrediction";
-    case RunInteractionAutomationAssertKind::PredictionMatchesLiveHorizon:
-        return "predictionMatchesLiveHorizon";
     case RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady:
         return "predictionTrajectoryFingerprintReady";
     case RunInteractionAutomationAssertKind::GizmoVisible:
@@ -1100,13 +1097,6 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
     case RunInteractionAutomationActionType::SetReplayPredictionEnabled:
         replayRuntime.Prediction().enabled = action.boolValue;
         replayRuntime.Prediction().build.dirty = true;
-        if ( !action.boolValue )
-        {
-            // Why: the direct harness action mirrors Play's release of the
-            // replay hold while retaining the committed prediction buffer for
-            // a future-vs-live fidelity comparison.
-            replayRuntime.SetLiveAdvanceHeld( false );
-        }
         setWorldInteractionOwner(
             action.boolValue ? WorldInteractionOwner::ReplayPrediction : WorldInteractionOwner::None,
             InteractionExitReason::EnterReplay );
@@ -1766,9 +1756,8 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
                                    name == "directorPhaseName" || name == "directorPhaseStylePath" ||
                                    name == "replayPathTarget" || name == "predictionBuildMode" ||
                                    name == "pointerCapture" || name == "replayActiveTrack";
-        const bool expectsInteger = name == "directorPhaseIndex" || name == "predictionMatchesLiveHorizon" ||
-                                    name == "editorUndoDepth" || name == "editorRedoDepth" ||
-                                    name == "editorSelectionMatchesCapture";
+        const bool expectsInteger = name == "directorPhaseIndex" || name == "editorUndoDepth" ||
+                                    name == "editorRedoDepth" || name == "editorSelectionMatchesCapture";
         const bool expectsNumber = name == "replayPastTrajectoryFullRebuildCountMax" ||
                                    name == "replayPastTrajectoryIncrementalTrimCountMin" ||
                                    name == "replayPastTrajectoryPublishedPointCountMin" ||
@@ -1913,17 +1902,6 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction;
             outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "predictionMatchesLiveHorizon" )
-        {
-            const int tickCount = member.value().get<int>();
-            if ( tickCount <= 0 )
-            {
-                outError = "predictionMatchesLiveHorizon must be a positive tick count";
-                return false;
-            }
-            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionMatchesLiveHorizon;
-            outAction.numberValue = static_cast<float>( tickCount );
         }
         else if ( name == "predictionTrajectoryFingerprintReady" )
         {
@@ -2241,122 +2219,6 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( stable );
         evaluation.passed = stable == action.boolValue;
-        break;
-    }
-    case RunInteractionAutomationAssertKind::PredictionMatchesLiveHorizon:
-    {
-        const RunReplayPredictionState& prediction = replayRuntime.Prediction();
-        const int tickCount = static_cast<int>( action.numberValue );
-        evaluation.expected = "hash equality for " + std::to_string( tickCount ) + " ticks";
-
-        // Concept: this is a future-vs-history probe. Prediction frames are
-        // frozen at seed tick T; once live recording reaches T+k, the retained
-        // solver header supplies the authoritative hash for comparison.
-        const std::span<const RunReplayPredictionFrame> frames = replayRuntime.ActivePredictionFrames();
-        const ReplayFrameIndex seedFrame = prediction.simulation.sourceFrameIndex;
-        const auto failPrecondition = [&]( const std::string& reason )
-        {
-            evaluation.actual = "precondition failed: " + reason;
-            evaluation.passed = false;
-        };
-        if ( tickCount <= 0 )
-        {
-            failPrecondition( "tick count must be positive" );
-            break;
-        }
-        if ( !prediction.simulation.sourceWorld.fixedStep )
-        {
-            failPrecondition( "prediction seed was not captured under fixed-step simulation" );
-            break;
-        }
-        if ( prediction.build.building || !prediction.build.complete ||
-             frames.size() <= static_cast<std::size_t>( tickCount ) )
-        {
-            failPrecondition( "prediction full horizon is incomplete" );
-            break;
-        }
-        if ( frames[0].solverHash == 0 || frames[0].solverHash != prediction.simulation.sourceSolverHash )
-        {
-            std::ostringstream stream;
-            stream << "prediction seed hash mismatch at T=" << seedFrame << " predicted=0x" << std::hex
-                   << frames[0].solverHash << " live=0x" << prediction.simulation.sourceSolverHash;
-            failPrecondition( stream.str() );
-            break;
-        }
-        if ( seedFrame > ( std::numeric_limits<ReplayFrameIndex>::max )() - static_cast<ReplayFrameIndex>( tickCount ) )
-        {
-            failPrecondition( "seed tick plus horizon overflowed" );
-            break;
-        }
-
-        ReplaySolverHashRecord firstLive;
-        if ( !replayRuntime.Solver().TryGetHashRecord( seedFrame + 1u, firstLive ) )
-        {
-            const ReplayRecorderStats stats = replayRuntime.Solver().GetStats();
-            std::ostringstream stream;
-            stream << "retention window does not contain T+1; next=" << stats.nextFrameIndex
-                   << " samples=" << stats.sampleCount << " evicted=" << stats.totalFramesEvicted;
-            failPrecondition( stream.str() );
-            break;
-        }
-        ReplaySolverHashRecord horizonLive;
-        if ( !replayRuntime.Solver().TryGetHashRecord( seedFrame + static_cast<ReplayFrameIndex>( tickCount ),
-                                                       horizonLive ) )
-        {
-            failPrecondition( "live simulation has not advanced through the requested horizon" );
-            break;
-        }
-        if ( firstLive.eventCursor != prediction.simulation.sourceEventCursor ||
-             horizonLive.eventCursor != prediction.simulation.sourceEventCursor )
-        {
-            failPrecondition( "an interaction command changed the replay event cursor inside the comparison window" );
-            break;
-        }
-        if ( !firstLive.fixedStep || !horizonLive.fixedStep )
-        {
-            failPrecondition( "live comparison window was not fixed-step" );
-            break;
-        }
-
-        evaluation.passed = true;
-        evaluation.actual = "all hashes matched";
-        for ( int k = 1; k <= tickCount; ++k )
-        {
-            const std::size_t predictionIndex = static_cast<std::size_t>( k );
-            const ReplayFrameIndex liveFrame = seedFrame + static_cast<ReplayFrameIndex>( k );
-            ReplaySolverHashRecord live;
-            if ( predictionIndex >= frames.size() ||
-                 frames[predictionIndex].frameIndex != static_cast<ReplayFrameIndex>( k ) )
-            {
-                failPrecondition( "prediction frame indices are not a contiguous T+k prefix" );
-                break;
-            }
-            if ( !replayRuntime.Solver().TryGetHashRecord( liveFrame, live ) )
-            {
-                failPrecondition( "a retained live tick disappeared during comparison" );
-                break;
-            }
-            if ( live.eventCursor != prediction.simulation.sourceEventCursor )
-            {
-                failPrecondition(
-                    "an interaction command changed the replay event cursor inside the comparison window" );
-                break;
-            }
-            if ( !live.fixedStep )
-            {
-                failPrecondition( "a retained live tick inside the comparison window was not fixed-step" );
-                break;
-            }
-            if ( frames[predictionIndex].solverHash != live.solverHash )
-            {
-                std::ostringstream stream;
-                stream << "first divergence k=" << k << " seed=" << seedFrame << " predicted=0x" << std::hex
-                       << frames[predictionIndex].solverHash << " live=0x" << live.solverHash;
-                evaluation.actual = stream.str();
-                evaluation.passed = false;
-                break;
-            }
-        }
         break;
     }
     case RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady:
@@ -2785,15 +2647,6 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                 },
                 [&]( WorldInteractionOwner owner, InteractionExitReason reason )
                 {
-                    if ( owner == WorldInteractionOwner::None )
-                    {
-                        // Invariant: a neutral owner after prediction means
-                        // resume the current camera workspace. Routing None
-                        // through the generic owner helper would inherit the
-                        // Replay workspace and keep physics paused.
-                        interaction.EnterCameraMode( camera.mode );
-                        return;
-                    }
                     inputRouter.SetWorldInteractionOwner(
                         owner,
                         reason,

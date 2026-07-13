@@ -4,23 +4,26 @@ Purpose:
   Declares the in-engine Sound tab state and input helpers.
 
 Summary:
-  The Sound tab is a deliberately tiny surface over contact audio: an enable
-  toggle, a Volume slider, a Thud-threshold slider, a sample-library picker
-  for auditioning thud samples, and a material-set picker for assigning the
-  chosen sample. It reads a per-frame snapshot and emits one-frame parameter
-  requests; the run loop applies those requests to ContactAudioService.
+  The Sound tab is a live tuning surface for presentation-only contact impact
+  audio. It reads a per-frame snapshot and emits one-frame parameter requests;
+  the run loop applies those requests to ContactAudioService.
 
 Glossary:
-  Thud threshold: Minimum impact energy (joules) a collision needs before a
-    sound plays. The only gate the user tunes; everything else is fixed
-    policy inside ContactAudioService.
-  Sound set: Material-pair recipe loaded from contact_audio.materials.json.
+  Sound set: Material-pair impact recipe loaded from contact_audio.materials.json.
+  Impact band: Light/medium/heavy impulse tier inside a sound set.
   Sample library: Decoded candidate sounds exposed for preview and assignment.
+  Contact-audio flash mode: Optional white marker selector for submitted,
+    candidate, or rejected contact-audio decisions.
+  Simple mode: Linear-energy contact-audio path that emits from body velocity
+    changes instead of solver contact rows.
+  Burst voices: Cap on submitted impact sounds in each 100 ms audio burst window.
+  Cooldown: Per-body-pair timeout that keeps persistent contacts from replaying
+    every physics tick.
 
 Invariants:
   - UI widgets never mutate the audio service directly.
-  - Slider ids stay in the Sound tab range so shared UI drag handling can
-    route them without colliding with other tabs.
+  - Slider ids stay in the Sound tab range so shared UI drag handling can route
+    them without colliding with other tabs.
 
 Related:
   - SkullbonezSource/UI/UITabSound.cpp
@@ -44,12 +47,17 @@ struct InGameUIFrameData;
 namespace SoundTab
 {
 
-// Exactly the two user-facing knobs: Volume and Thud threshold.
-constexpr int SOUND_GLOBAL_SLIDER_COUNT = 2;
+constexpr int SOUND_UI_BAND_MAX = 4;
+constexpr int SOUND_GLOBAL_SLIDER_COUNT = 13;
+constexpr int SOUND_SET_SLIDER_COUNT = 9;
+constexpr int SOUND_BAND_SLIDER_COUNT = 5;
 
 struct UISoundTabState
 {
     UICheckBox enabledToggle;
+    UICheckBox debugCountersToggle;
+    UICheckBox flashModeToggle;
+    UICheckBox simpleModeToggle;
     UIRect previousSetButton;
     UIRect nextSetButton;
     UIRect previousSampleButton;
@@ -57,11 +65,16 @@ struct UISoundTabState
     UIButton previewSampleButton;
     UIButton selectSampleButton;
     UISlider globalSliders[SOUND_GLOBAL_SLIDER_COUNT];
+    UISlider setSliders[SOUND_SET_SLIDER_COUNT];
+    UISlider bandSliders[SOUND_UI_BAND_MAX][SOUND_BAND_SLIDER_COUNT];
     float previewGlobalValues[SOUND_GLOBAL_SLIDER_COUNT];
+    float previewSetValues[SOUND_SET_SLIDER_COUNT];
+    float previewBandValues[SOUND_UI_BAND_MAX][SOUND_BAND_SLIDER_COUNT];
     int selectedSetIndex = 0;
-    int selectedSampleIndex = 0;
+    int selectedSampleIndex = 1;
     int lastSetCount = 0;
     int lastSampleCount = 0;
+    int lastBandCount = 0;
 };
 
 int ContentHeight();

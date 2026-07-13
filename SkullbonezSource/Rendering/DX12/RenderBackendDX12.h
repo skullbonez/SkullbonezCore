@@ -295,7 +295,7 @@ class Dx12ResourceRelease
 class Dx12FrameOwner
 {
   public:
-    static constexpr int FRAME_COUNT = 3;
+    static constexpr int FRAME_COUNT = 2;
     static constexpr int PROFILER_STACK_CAPACITY = 64;
 
     Dx12FrameOwner( Dx12RenderDevice& device, Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures );
@@ -564,10 +564,6 @@ class Dx12TextureCommands
     {
         return m_frame.Descriptors().ShaderVisibleCpuHandle( index );
     }
-    void PublishStaticDescriptor( UINT index ) const
-    {
-        m_frame.Descriptors().PublishStaticDescriptor( m_device.Device(), index );
-    }
     D3D12_GPU_DESCRIPTOR_HANDLE ShaderVisibleGpuHandle( UINT index ) const
     {
         return m_frame.Descriptors().ShaderVisibleGpuHandle( index );
@@ -683,6 +679,7 @@ class Dx12PipelineOwner
                       ID3D12GraphicsCommandList* commandList,
                       Dx12CommandRecordingState& recording,
                       Dx12TextureOwner& textures,
+                      Dx12DescriptorAllocator& descriptors,
                       VertexFormat12 format,
                       bool instanced,
                       const InstancedMeshDX12* instancedMesh,
@@ -980,19 +977,16 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
   private:
     // Frame management:
     //
-    // Three frames can be in flight. Each frame owns its own command allocator,
+    // Two frames can be in flight. Each frame owns its own command allocator,
     // upload arena, transient descriptors, and fence value so the CPU never
     // overwrites memory or descriptor rows still being read by the GPU.
-    static constexpr int FRAME_COUNT = Dx12FrameOwner::FRAME_COUNT;
+    static const int FRAME_COUNT = 2;
     static const UINT MAX_RTV_DESCRIPTORS = 32;
     static const UINT MAX_DSV_DESCRIPTORS = 16;
     static const UINT MAX_STATIC_SRVS = 128;
     static const UINT MAX_TRANSIENT_SRVS = 2048;                   // per frame allocator
     // Replay/debug geometry is owner-bounded before it reaches this arena. A
     // steady-phase overflow drops that draw; cold lifecycle/capture work may drain.
-    // Capacity: 32 MiB per frame means three arenas reserve 96 MiB total. The
-    // third arena buys CPU/GPU overlap without changing the no-growth overflow
-    // policy: steady runtime still drops the bounded draw instead of growing.
     static const UINT64 UPLOAD_BUFFER_SIZE = 32 * 1024 * 1024;
     static const int TIMER_HEAP_MARKERS = DX12_TIMER_HEAP_MARKERS; // must be >= SkullbonezCore::Core::Profiler::MAX_MARKERS
     static const int TIMER_HEAP_SIZE = DX12_TIMER_HEAP_SIZE;       // begin + end per marker
@@ -1047,10 +1041,8 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // - SRV: Shader Resource View. Shaders can read textures/buffers through it.
     // - UAV: Unordered Access View. Compute/raytracing shaders can write through it.
     //
-    // RTV and DSV heaps are CPU-only descriptor tables. Static SRV/UAV rows are
-    // mirrored at identical shader-visible indices for bindless raster access;
-    // the separate transient range still obeys per-frame fence lifetime for
-    // compute and raytracing descriptor tables. Output rows still
+    // RTV and DSV heaps are CPU-only descriptor tables. They do not need the
+    // per-frame shader-visible lifetime rules that SRVs need, but they still
     // need named row allocation so the renderer can report usage and fail with
     // useful heap/capacity diagnostics instead of silently walking past the end
     // of a descriptor table.

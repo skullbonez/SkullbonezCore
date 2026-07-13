@@ -786,16 +786,35 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const RuntimeContactAudioSnapshot& contactAudio = state.runtimeViewModel.contactAudio;
         UIData.contactAudioEnabled = contactAudio.enabled;
         UIData.contactAudioAvailable = contactAudio.available;
+        UIData.contactAudioDebugCounters = contactAudio.debugCounters;
+        UIData.contactAudioFlashMode = contactAudio.flashMode;
+        UIData.contactAudioFlashModeLabel = contactAudio.flashModeLabel;
         UIData.contactAudioMasterGain = contactAudio.masterGain;
-        UIData.contactAudioMinImpactEnergy = contactAudio.minImpactEnergy;
+        UIData.contactAudioMaxDistanceScale = contactAudio.maxDistanceScale;
+        UIData.contactAudioMinClosingSpeed = contactAudio.minClosingSpeed;
+        UIData.contactAudioMinImpactScore = contactAudio.minImpactScore;
+        UIData.contactAudioImpactScoreRangeSeconds = contactAudio.impactScoreRangeSeconds;
+        UIData.contactAudioSimpleMode = contactAudio.simpleMode;
+        UIData.contactAudioSimpleMinLinearEnergy = contactAudio.simpleMinLinearEnergy;
+        UIData.contactAudioSimpleMinLinearDeltaSpeed = contactAudio.simpleMinLinearDeltaSpeed;
+        UIData.contactAudioSimpleLinearEnergyRange = contactAudio.simpleLinearEnergyRange;
+        UIData.contactAudioBurstVoicesPerWindow = contactAudio.burstVoicesPerWindow;
+        UIData.contactAudioRollingLevelDb = contactAudio.rollingLevelDb;
+        UIData.contactAudioRollingMaxDistance = contactAudio.rollingMaxDistance;
+        UIData.contactAudioRollingMinSlipSpeed = contactAudio.rollingMinSlipSpeed;
+        UIData.contactAudioRollingVoicesPerWindow = contactAudio.rollingVoicesPerWindow;
         UIData.contactAudioEventsSeen = contactAudio.stats.eventsSeen;
-        UIData.contactAudioPairCandidates = contactAudio.stats.pairCandidates;
-        UIData.contactAudioRejectedByMotion = contactAudio.stats.rejectedByMotion;
-        UIData.contactAudioRejectedByEnergy = contactAudio.stats.rejectedByEnergy;
+        UIData.contactAudioPatchCandidates = contactAudio.stats.patchCandidates;
+        UIData.contactAudioMergedCandidates = contactAudio.stats.mergedCandidates;
+        UIData.contactAudioCandidateOverflows = contactAudio.stats.candidateOverflows;
+        UIData.contactAudioBurstWindowSkippedCandidates = contactAudio.stats.burstWindowSkippedCandidates;
+        UIData.contactAudioBudgetRejectedCandidates = contactAudio.stats.budgetRejectedCandidates;
+        UIData.contactAudioRejectedByThreshold = contactAudio.stats.rejectedByThreshold;
         UIData.contactAudioRejectedByCooldown = contactAudio.stats.rejectedByCooldown;
-        UIData.contactAudioRejectedByDistance = contactAudio.stats.rejectedByDistance;
         UIData.contactAudioSubmittedVoices = contactAudio.stats.submittedVoices;
         UIData.contactAudioDroppedVoices = contactAudio.stats.droppedVoices;
+        UIData.contactAudioRollingCandidates = contactAudio.stats.rollingCandidates;
+        UIData.contactAudioRollingSubmittedVoices = contactAudio.stats.rollingSubmittedVoices;
         // Lifetime: names copied into UIData are borrowed from ContactAudioService
         // through the runtime view model for this immediate draw pass.
         UIData.soundSetCount = (std::min)( contactAudio.soundSetCount, SkullbonezCore::UI::UI_SOUND_SET_MAX );
@@ -811,9 +830,29 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             set.name = tuning.name;
             set.materialA = tuning.materialA;
             set.materialB = tuning.materialB;
+            set.minImpulse = tuning.minImpulse;
+            set.impulseRange = tuning.impulseRange;
+            set.cooldownMs = tuning.cooldownMs;
+            set.overrideCooldownMs = tuning.overrideCooldownMs;
             set.maxDistance = tuning.maxDistance;
             set.baseGain = tuning.baseGain;
+            set.pitchMin = tuning.pitchMin;
+            set.pitchMax = tuning.pitchMax;
+            set.maxVoices = tuning.maxVoices;
             set.sampleCount = tuning.sampleCount;
+            set.bandCount =
+                (std::min)( tuning.bandCount, static_cast<uint32_t>( SkullbonezCore::UI::UI_SOUND_BAND_MAX ) );
+            for ( uint32_t bandIndex = 0; bandIndex < set.bandCount; ++bandIndex )
+            {
+                SkullbonezCore::UI::UISoundBandFrameData& band = set.bands[bandIndex];
+                band.name = tuning.bands[bandIndex].name;
+                band.minImpulse = tuning.bands[bandIndex].minImpulse;
+                band.impulseRange = tuning.bands[bandIndex].impulseRange;
+                band.baseGain = tuning.bands[bandIndex].baseGain;
+                band.pitchMin = tuning.bands[bandIndex].pitchMin;
+                band.pitchMax = tuning.bands[bandIndex].pitchMax;
+                band.sampleCount = tuning.bands[bandIndex].sampleCount;
+            }
         }
         UIData.sceneEnergy = sceneEnergyForDisplay;
         UIData.timeScale = view.timeScale;

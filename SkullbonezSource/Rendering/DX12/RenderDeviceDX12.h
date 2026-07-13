@@ -433,12 +433,11 @@ struct Dx12TextureHandleCodec
     - Staging heap:
       CPU-only descriptor storage used as the source of truth. Shaders cannot
       read this heap directly. It is useful because persistent descriptors can
-      live here before publication at the same shader-visible index.
+      live here and be copied into the shader-visible heap as needed.
 
     - Shader-visible heap:
-      Descriptor storage the GPU can index directly from SM6.6 raster shaders.
-      Its transient range also serves compute and raytracing descriptor tables.
-      Every row placed here must obey GPU lifetime rules.
+      Descriptor storage the GPU can read through root descriptor tables.
+      Descriptors placed here must obey GPU lifetime rules.
 
     Typical texture binding flow in this renderer:
 
@@ -446,14 +445,18 @@ struct Dx12TextureHandleCodec
     2. AllocateStatic() reserves a stable descriptor row for that texture.
     3. CreateShaderResourceView writes an SRV descriptor for the texture into
        the CPU-only staging heap at that row.
-    4. PublishStaticDescriptor mirrors it at the identical shader-visible row.
-    5. A draw publishes that stable row number through b1 root constants.
-    6. The pixel shader indexes ResourceDescriptorHeap, reads the descriptor,
-       and follows it to sample the texture.
+    4. Before a draw, AllocateTransient() reserves a per-frame shader-visible
+       row.
+    5. CopyDescriptorsSimple copies the staging descriptor into that transient
+       shader-visible row.
+    6. SetGraphicsRootDescriptorTable binds the transient row's GPU handle.
+    7. The pixel shader follows that handle to read the descriptor, then follows
+       the descriptor to sample the texture.
 
-    Static rows are not overwritten until fence retirement proves their prior
-    resource use is complete. AllocateTransient() remains for genuinely dynamic
-    compute/raytracing tables and partitions those temporary rows by frame fence.
+    Step 4 is the reason this class exists. If every draw wrote directly into a
+    single shared shader-visible row, a later CPU draw setup could overwrite the
+    row while an earlier GPU draw is still using it. Splitting temporary rows by
+    frame fence makes that lifetime visible and enforceable.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class Dx12DescriptorAllocator
 {
@@ -522,10 +525,6 @@ class Dx12DescriptorAllocator
     // CPU handle into the staging heap. This heap is not shader-visible; it is
     // the persistent source used for descriptor copies.
     D3D12_CPU_DESCRIPTOR_HANDLE StagingCpuHandle( UINT index ) const;
-
-    // Publish one persistent staging row at the identical shader-visible heap
-    // index. SM6.6 raster shaders consume this stable number directly.
-    void PublishStaticDescriptor( ID3D12Device* device, UINT index ) const;
 
     Dx12DescriptorAllocatorStats GetStats() const;
 

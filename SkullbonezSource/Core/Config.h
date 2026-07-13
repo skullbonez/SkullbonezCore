@@ -44,9 +44,7 @@ namespace SkullbonezCore
 namespace Core
 {
 
-// Version 2: contact-audio simplification removed the rolling/debug/distance
-// settings; tools/migrate_data_formats.py owns the deterministic v1->v2 step.
-inline constexpr unsigned int ENGINE_CONFIG_FORMAT_VERSION = 2;
+inline constexpr unsigned int ENGINE_CONFIG_FORMAT_VERSION = 1;
 
 /*
     Process configuration loaded once from SkullbonezData/engine.cfg at startup.
@@ -260,14 +258,18 @@ struct GeneratedSceneConfig
     int ballForceRange = 1000;
 };
 
-// ContactAudioService owns impact presentation policy. Physics only emits
-// material/contact facts. Config carries the two user-facing knobs plus the
-// startup switch; everything else is fixed policy in the audio service.
+// ContactAudioService owns impact and rolling presentation policy. Physics only
+// emits material/contact facts and never owns these voice limits or gains.
 struct ContactAudioConfig
 {
-    bool enabled = true;            // Master startup switch; CLI mute can still force the service off.
-    float masterGain = 1.0f;        // Volume multiplier applied after material gain, clamped by the audio service.
-    float minImpactEnergy = 125.0f; // Joules; minimum collision energy before a thud plays.
+    bool enabled = true;                   // Master startup switch; CLI mute can still force the service off.
+    float masterGain = 1.0f;               // Multiplier applied after material/band gain, clamped by the audio service.
+    float maxDistanceScale = 1.0f;         // Multiplier for each sound set's authored maxDistance.
+    float rollingLevelDb = -24.0f;         // dB; separate quiet roll/slide level.
+    float rollingMaxDistance = 24.0f;      // World units; independent of impact distance.
+    float rollingMinSlipSpeed = 0.65f;     // Pre-solve tangential speed threshold.
+    int rollingVoicesPerWindow = 4;        // Per 100 ms; zero disables rolling.
+    bool debugCounters = false;            // Prints copied presentation counters once per simulated second.
 };
 
 // RuntimeRenderer owns this scene-light presentation value and publishes it to

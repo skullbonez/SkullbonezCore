@@ -41,7 +41,7 @@ import tempfile
 
 SDK_VERSION = "10.0.26100.0"
 DXC_VERSION = "1.8.2502.11"
-SHADER_MODEL = "6_6"
+SHADER_MODEL = "6_0"
 COMMON_FLAGS = ("-WX", "-Ges", "-O3", "-Zpc", "-Qstrip_debug")
 RASTER_STAGES = (("vs", "main_vs"), ("ps", "main_ps"))
 REFLECTION_HEADER = "SkullbonezSource/Rendering/DX12/GeneratedShaderReflection.h"

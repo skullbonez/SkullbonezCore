@@ -16,8 +16,12 @@ Glossary:
   widget.
   Sound sample path: Borrowed contact-audio asset path displayed by the Sound
     tab for immediate-frame preview and selection.
-  Contact-audio stats counter: Runtime count showing how raw contact facts were
-    merged per pair, rejected by a gate, or submitted as thuds.
+  Contact-audio flash mode: Frame-data label and value for the Sound tab's
+    render-only decision flash selector.
+  Contact-audio reducer counter: Runtime count showing how raw contact facts
+    were merged, silenced, budgeted, or submitted by the Sound tab model.
+  Simple contact audio: Optional linear-energy path for thuds, exposed as an
+    obvious Sound-tab section so the old contact-row classifier can be bypassed.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
@@ -120,6 +124,7 @@ struct UIRenderContext
         return assets != nullptr && resources != nullptr && commands != nullptr && diagnostics != nullptr;
     }
 };
+constexpr int UI_SOUND_BAND_MAX = 4;
 constexpr int UI_SOUND_SAMPLE_MAX = 64;
 
 struct UIRenderTargetPreviewResource
@@ -149,17 +154,34 @@ struct UIProfilerMarkerOption
     bool isFrameTotal = false;
 };
 
-// Read-only Sound tab snapshot of one material sound set: which material
-// pair it answers for and which sample recipe it plays. Tuning lives in
-// ContactAudioService constants, not in per-set UI state.
+struct UISoundBandFrameData
+{
+    const char* name = "";
+    float minImpulse = 0.0f;
+    float impulseRange = 0.0f;
+    float baseGain = 0.0f;
+    float pitchMin = 1.0f;
+    float pitchMax = 1.0f;
+    uint32_t sampleCount = 0;
+};
+
 struct UISoundSetFrameData
 {
     const char* name = "";
     uint32_t materialA = 0;
     uint32_t materialB = 0;
+    float minImpulse = 0.0f;
+    float impulseRange = 0.0f;
+    float cooldownMs = 0.0f;
+    float overrideCooldownMs = 0.0f;
     float maxDistance = 0.0f;
     float baseGain = 0.0f;
+    float pitchMin = 1.0f;
+    float pitchMax = 1.0f;
+    uint32_t maxVoices = 0;
     uint32_t sampleCount = 0;
+    uint32_t bandCount = 0;
+    UISoundBandFrameData bands[UI_SOUND_BAND_MAX];
 };
 
 // Snapshot of engine state needed to draw the UI for one frame.  The UI reads
@@ -230,16 +252,35 @@ struct InGameUIFrameData
     bool pipelineSyncEnabled = false;
     bool contactAudioEnabled = false;
     bool contactAudioAvailable = false;
+    bool contactAudioDebugCounters = false;
+    int contactAudioFlashMode = 1;
+    const char* contactAudioFlashModeLabel = "Flash: Emitted";
     float contactAudioMasterGain = 0.0f;
-    float contactAudioMinImpactEnergy = 125.0f; // Joules; "big enough to hear" threshold.
+    float contactAudioMaxDistanceScale = 1.0f;
+    float contactAudioMinClosingSpeed = 0.0f;
+    float contactAudioMinImpactScore = 0.0f;
+    float contactAudioImpactScoreRangeSeconds = 1.0f;
+    bool contactAudioSimpleMode = true;
+    float contactAudioSimpleMinLinearEnergy = 270.0f;
+    float contactAudioSimpleMinLinearDeltaSpeed = 2.0f;
+    float contactAudioSimpleLinearEnergyRange = 320.0f;
+    uint32_t contactAudioBurstVoicesPerWindow = 0; // Max submitted sounds per 100 ms burst.
+    float contactAudioRollingLevelDb = -24.0f;
+    float contactAudioRollingMaxDistance = 24.0f;
+    float contactAudioRollingMinSlipSpeed = 0.65f;
+    uint32_t contactAudioRollingVoicesPerWindow = 4;
     uint32_t contactAudioEventsSeen = 0;
-    uint32_t contactAudioPairCandidates = 0;
-    uint32_t contactAudioRejectedByMotion = 0;
-    uint32_t contactAudioRejectedByEnergy = 0;
+    uint32_t contactAudioPatchCandidates = 0;
+    uint32_t contactAudioMergedCandidates = 0;
+    uint32_t contactAudioCandidateOverflows = 0;
+    uint32_t contactAudioBurstWindowSkippedCandidates = 0;
+    uint32_t contactAudioBudgetRejectedCandidates = 0;
+    uint32_t contactAudioRejectedByThreshold = 0;
     uint32_t contactAudioRejectedByCooldown = 0;
-    uint32_t contactAudioRejectedByDistance = 0;
     uint32_t contactAudioSubmittedVoices = 0;
     uint32_t contactAudioDroppedVoices = 0;
+    uint32_t contactAudioRollingCandidates = 0;
+    uint32_t contactAudioRollingSubmittedVoices = 0;
     float sceneEnergy = 0.0f;
     float timeScale = 1.0f;
     bool presentationInterpolation = true;

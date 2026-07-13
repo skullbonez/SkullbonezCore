@@ -25,7 +25,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 // =============================================================================
-// GENERATE MIPMAPS COMPUTE SHADER — Shader Model 6.6
+// GENERATE MIPMAPS COMPUTE SHADER — HLSL 5.0
 // =============================================================================
 //
 // One 8x8 thread group can write up to 4 consecutive mip levels.

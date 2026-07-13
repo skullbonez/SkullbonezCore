@@ -210,14 +210,13 @@ bool ValidateLoadedReflection( const char* hlslPath, const char* stage, ID3DBlob
     for ( std::uint32_t expectedIndex = 0; expectedIndex < expectedStage->fieldCount; ++expectedIndex )
     {
         const auto& expected = GeneratedShaderReflection::Fields[expectedStage->fieldStart + expectedIndex];
-        const std::uint32_t expectedBufferSize = GeneratedCbufferSize( *expectedStage, expected.cbuffer );
         bool matched = false;
         for ( UINT cbIndex = 0; cbIndex < shader.ConstantBuffers && !matched; ++cbIndex )
         {
             ID3D12ShaderReflectionConstantBuffer* cb = reflection->GetConstantBufferByIndex( cbIndex );
             D3D12_SHADER_BUFFER_DESC cbDesc = {};
             if ( !cb || FAILED( cb->GetDesc( &cbDesc ) ) || !cbDesc.Name ||
-                 std::strcmp( cbDesc.Name, expected.cbuffer ) != 0 || cbDesc.Size != expectedBufferSize )
+                 std::strcmp( cbDesc.Name, expected.cbuffer ) != 0 || cbDesc.Size != expectedStage->cbufferSize )
             {
                 continue;
             }

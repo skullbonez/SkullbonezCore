@@ -153,9 +153,6 @@
     <ClCompile Include="SkullbonezTests\TestReplayRecorder.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezTests\TestReplayPredictionFidelity.cpp">
-      <Filter>Source Files\Tests</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestReplayRecorderFullCaptureBoundary.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>

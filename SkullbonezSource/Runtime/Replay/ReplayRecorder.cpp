@@ -30,7 +30,6 @@ Related:
 */
 #include "ReplayRecorder.h"
 #include "ReplayRetainedMemory.h"
-#include "ReplaySolverHash.h"
 
 #include "../CameraCollection.h"
 #include "../Allocation/RuntimeAllocationTracker.h"
@@ -1455,32 +1454,6 @@ uint64_t HashSolverWorldSnapshot( uint64_t hash, const ReplaySolverWorldSnapshot
 }
 } // namespace
 
-uint64_t SkullbonezCore::Runtime::BeginReplaySolverHash( const ReplayWorldPresentationSample& world,
-                                                         int modelCount,
-                                                         std::size_t contactCount,
-                                                         std::size_t pipelineRecordCount,
-                                                         const ReplayLauncherVisualSample& launcherVisual,
-                                                         const ReplaySolverWorldSnapshot& worldSnapshot )
-{
-    uint64_t hash = FNV64_OFFSET;
-    hash = HashWorld( hash, world );
-    hash = HashInt( hash, modelCount );
-    hash = HashInt( hash, static_cast<int>( SaturatingUint16( contactCount ) ) );
-    hash = HashInt( hash, static_cast<int>( SaturatingUint16( pipelineRecordCount ) ) );
-    hash = HashLauncherControlState( hash, launcherVisual );
-    return HashSolverWorldSnapshot( hash, worldSnapshot );
-}
-
-uint64_t SkullbonezCore::Runtime::AppendReplaySolverBodyHash( uint64_t hash, const ReplaySolverBodySample& body )
-{
-    return HashSolverBodySample( hash, body );
-}
-
-ReplayBodyShapeKind SkullbonezCore::Runtime::ReplayShapeKindForCollider( const Physics::ColliderRecord& collider )
-{
-    return ShapeKindForCollider( collider );
-}
-
 bool ReplayRecorder::Configure( const ReplayRecorderConfig& config )
 {
     // Concept: the recorder is a bounded ring buffer plus optional hash log.
@@ -2443,12 +2416,13 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     presentationHash = HashInt( presentationHash, static_cast<int>( sample.contactCount ) );
     presentationHash = HashInt( presentationHash, static_cast<int>( sample.pipelineRecordCount ) );
 
-    uint64_t solverHash = BeginReplaySolverHash( sample.world,
-                                                 modelCount,
-                                                 contacts.size(),
-                                                 Physics::PhysicsEngine::ReadPipelineTrace( physics ).size(),
-                                                 sample.launcherVisual,
-                                                 m_solverCaptureWorldSnapshot );
+    uint64_t solverHash = FNV64_OFFSET;
+    solverHash = HashWorld( solverHash, sample.world );
+    solverHash = HashInt( solverHash, static_cast<int>( modelCount ) );
+    solverHash = HashInt( solverHash, static_cast<int>( sample.contactCount ) );
+    solverHash = HashInt( solverHash, static_cast<int>( sample.pipelineRecordCount ) );
+    solverHash = HashLauncherControlState( solverHash, sample.launcherVisual );
+    solverHash = HashSolverWorldSnapshot( solverHash, m_solverCaptureWorldSnapshot );
 
     for ( int i = 0; i < modelCount; ++i )
     {
@@ -2469,7 +2443,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
             bodyIndex < m_normalImpulseSumScratch.size() ? m_normalImpulseSumScratch[bodyIndex] : 0.0f;
 
         presentationHash = HashSolverBodyPresentationFields( presentationHash, body );
-        solverHash = AppendReplaySolverBodyHash( solverHash, body );
+        solverHash = HashSolverBodySample( solverHash, body );
         m_solverCaptureBodies.push_back( body );
     }
 
@@ -2644,31 +2618,6 @@ const ReplaySolverFrameSample* ReplaySolverRecorder::SampleAtNormalized( float n
     const std::size_t offset = static_cast<std::size_t>( static_cast<float>( maxOffset ) * t + 0.5f );
     const std::size_t resolvedOffset = (std::min)( offset, maxOffset );
     return ResolveSolverSampleAtOffset( resolvedOffset, m_resolvedSolverSample ) ? &m_resolvedSolverSample : nullptr;
-}
-
-bool ReplaySolverRecorder::TryGetHashRecord( ReplayFrameIndex frameIndex, ReplaySolverHashRecord& outRecord ) const
-{
-    if ( m_sampleCount == 0 || m_samples.empty() )
-    {
-        return false;
-    }
-
-    // Why: hash/event/fixed-step values live in the compact ring header, so a
-    // fidelity probe need not reconstruct body deltas or allocate a sample.
-    for ( std::size_t offset = 0; offset < m_sampleCount; ++offset )
-    {
-        const std::size_t slot = ( m_sampleHead + offset ) % m_samples.size();
-        const ReplaySolverFrameSample& sample = m_samples[slot];
-        if ( sample.frameIndex == frameIndex )
-        {
-            outRecord.frameIndex = sample.frameIndex;
-            outRecord.solverHash = sample.solverHash;
-            outRecord.eventCursor = sample.eventCursor;
-            outRecord.fixedStep = sample.world.fixedStep;
-            return true;
-        }
-    }
-    return false;
 }
 
 std::size_t ReplaySolverRecorder::AcquireSampleSlotIndex()

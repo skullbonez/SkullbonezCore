@@ -218,7 +218,6 @@ bool FramebufferDX12::Create( int width, int height )
     // views: RTV for writing, SRV for reading.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createshaderresourceview
     device->CreateShaderResourceView( m_colorTexture, &srvDesc, m_srvDescriptors.StagingCpuHandle( m_srvIndex ) );
-    m_srvDescriptors.PublishStaticDescriptor( device, m_srvIndex );
 
     // Register the SRV with the normal backend texture registry so renderer code
     // can bind this framebuffer with a texture handle instead of a raw descriptor
@@ -236,7 +235,6 @@ bool FramebufferDX12::Create( int width, int height )
     device->CreateShaderResourceView( m_depthTexture,
                                       &depthSrvDesc,
                                       m_srvDescriptors.StagingCpuHandle( m_depthSrvIndex ) );
-    m_srvDescriptors.PublishStaticDescriptor( device, m_depthSrvIndex );
     m_depthTexHandle = m_textures.RegisterSRV( m_depthSrvIndex );
     m_depthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
     m_width = width;

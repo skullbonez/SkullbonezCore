@@ -21,7 +21,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 // =============================================================================
-// OCEAN WATER SHADER — Shader Model 6.6 (Combined VS+PS)
+// OCEAN WATER SHADER — HLSL 5.0 (Combined VS+PS)
 // =============================================================================
 //
 // PURPOSE: Animate the OUTER water zone with sine waves and shimmering reflection.
@@ -71,19 +71,7 @@ cbuffer Uniforms : register(b0)
     float    _pad0;
 };
 
-// Invariant: b1 carries stable indices into the directly indexed shader-visible
-// heap; the pipeline owner writes all six root constants before every draw.
-cbuffer BindlessTextureIndices : register(b1)
-{
-    uint4 _textureDescriptorIndices0;
-    uint2 _textureDescriptorIndices1;
-};
-
-uint BindlessTextureIndex(uint slot)
-{
-    return slot < 4u ? _textureDescriptorIndices0[slot] : _textureDescriptorIndices1[slot - 4u];
-}
-
+Texture2D    uReflectionTex : register(t1);
 SamplerState sSampler1      : register(s1);
 
 struct VS_IN
@@ -132,7 +120,6 @@ float OrdinaryWaterReflectance(float3 worldPos, float3 normal)
 
 float4 main_ps(VS_OUT input) : SV_TARGET
 {
-    Texture2D<float4> reflectionTexture = ResourceDescriptorHeap[BindlessTextureIndex(1u)];
     // During reflection pass, output flat color (prevents infinite recursion).
     if (uNoReflect != 0)
     {
@@ -149,7 +136,7 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     reflUV += float2(wave * uPerturbStrength, wave * uPerturbStrength);
 
     // Sample perturbed reflection and blend with base tint.
-    float4 reflection = reflectionTexture.Sample(sSampler1, reflUV);
+    float4 reflection = uReflectionTex.Sample(sSampler1, reflUV);
     float3 dx = ddx(input.worldPos);
     float3 dy = ddy(input.worldPos);
     float3 waterN = normalize(cross(dy, dx));

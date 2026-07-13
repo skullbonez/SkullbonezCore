@@ -44,7 +44,7 @@ namespace
 {
 constexpr const char* kConfigInputPath = "unit_engine_config_input.cfg";
 constexpr const char* kConfigDumpPath = "unit_engine_config_dump.cfg";
-constexpr uint64_t kStableConfigKeyOrderHash = 0xcc6f19de935a99a4ull;
+constexpr uint64_t kStableConfigKeyOrderHash = 0x53a2288602b7ad76ull;
 
 struct TemporaryConfigFiles
 {
@@ -112,7 +112,7 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: valid file produces the stable c
                             "fullscreen = yes\n"
                             "gravity = -9.5\n"
                             "sky_front = unit_sky_front.jpg\n"
-                            "contact_audio_min_impact_energy = 200\n" ) );
+                            "contact_audio_debug_counters = on\n" ) );
 
     SkullbonezCore::Core::EngineConfig config;
     REQUIRE( config.Load( kConfigInputPath ).ok );
@@ -120,11 +120,11 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: valid file produces the stable c
     CHECK( config.window.fullscreen );
     CHECK( config.worldForces.gravity == doctest::Approx( -9.5f ) );
     CHECK( config.assetPaths.skyFront == "unit_sky_front.jpg" );
-    CHECK( config.contactAudio.minImpactEnergy == doctest::Approx( 200.0f ) );
+    CHECK( config.contactAudio.debugCounters );
 
     REQUIRE( DumpConfig( config ) );
     const std::vector<std::string> lines = ReadLines( kConfigDumpPath );
-    REQUIRE( lines.size() == 215 );
+    REQUIRE( lines.size() == 220 );
     CHECK( lines.front() == "[config]" );
 
     uint64_t keyOrderHash = 14695981039346656037ull;
@@ -137,10 +137,10 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: valid file produces the stable c
         CHECK_MESSAGE( uniqueKeys.insert( key ).second, "Every config key must be dumped exactly once" );
         keyOrderHash = AppendStableHash( keyOrderHash, key );
     }
-    CHECK( uniqueKeys.size() == 214 );
+    CHECK( uniqueKeys.size() == 219 );
     CHECK( keyOrderHash == kStableConfigKeyOrderHash );
     CHECK( lines[1] == "screen_x = 2048" );
-    CHECK( lines.back() == "contact_audio_min_impact_energy = 200" );
+    CHECK( lines.back() == "contact_audio_debug_counters = 1" );
 }
 
 TEST_CASE( "SkullbonezCore::Core::EngineConfig: unknown key is ignored and later valid rows still apply" )
@@ -178,23 +178,18 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: malformed and out-of-range value
 TEST_CASE( "SkullbonezCore::Core::EngineConfig: current version loads and future version fails before mutation" )
 {
     TemporaryConfigFiles files;
-    // Version 1 remains loadable legacy input; version 2 is current.
-    REQUIRE( WriteTextFile( kConfigInputPath, "format_version = 1\nscreen_x = 1900\n" ) );
-    SkullbonezCore::Core::EngineConfig legacy;
-    REQUIRE( legacy.Load( kConfigInputPath ).ok );
-    CHECK( legacy.window.screenX == 1900 );
+    REQUIRE( WriteTextFile( kConfigInputPath, "format_version = 1\nscreen_x = 2048\n" ) );
 
-    REQUIRE( WriteTextFile( kConfigInputPath, "format_version = 2\nscreen_x = 2048\n" ) );
     SkullbonezCore::Core::EngineConfig current;
     REQUIRE( current.Load( kConfigInputPath ).ok );
     CHECK( current.window.screenX == 2048 );
 
-    REQUIRE( WriteTextFile( kConfigInputPath, "screen_x = 1234\nformat_version = 3\n" ) );
+    REQUIRE( WriteTextFile( kConfigInputPath, "screen_x = 1234\nformat_version = 2\n" ) );
     SkullbonezCore::Core::EngineConfig future;
     const auto result = future.Load( kConfigInputPath );
     CHECK_FALSE( result.ok );
     CHECK( std::string( result.error.owner ) == "Core/EngineConfig" );
-    CHECK( std::string( result.error.message ).find( "version 3" ) != std::string::npos );
-    CHECK( std::string( result.error.message ).find( "current version 2" ) != std::string::npos );
+    CHECK( std::string( result.error.message ).find( "version 2" ) != std::string::npos );
+    CHECK( std::string( result.error.message ).find( "current version 1" ) != std::string::npos );
     CHECK( future.window.screenX == 1800 );
 }

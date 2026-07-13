@@ -10,12 +10,12 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-13th-july` |
-| Current baseline | Replay prediction fidelity is complete: engine restore is byte-exact and the scrub gate compares 120 predicted/live solver hashes |
-| Current objective | Execute `Plans/TODO/replay-monolith-decomposition.md` from M2 through M8; validation-gate V3 remains externally blocked |
-| Portfolio progress | 319 / 327 tasks = 98% rounded overall |
-| Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-13 in 114.5s: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots/InfoQueue, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | Fidelity final: `validate_fast` passed; 180/180 unit cases and 4,665 assertions passed; all four replay scrub probes passed including 120 hash-equal ticks; physics matched 44,401 lines byte-exactly. |
+| Branch | `nightrunner-12th-july` |
+| Current baseline | Round-3 R1-R9 are complete: the ownership/language/span work is complete, and the slower deterministic SSE2 solver candidate was measured then reverted |
+| Current objective | Execute adversarial-review round 3 (`Plans/TODO/adversarial-review-round-3.md`, R1→R10); validation-gate V3 remains externally blocked |
+| Portfolio progress | 311 / 313 tasks = 99% rounded overall |
+| Last broad local gate | `tools\\validate_full.bat` passed R7 on 2026-07-13 in 151.1s: all CPU lanes clean under C++20, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
+| Validation for current edits | R9 retained-scalar gates passed: physics 58.2s, deep physics/SkullScope 131.7s, and perf 61.4s. The deep gate now includes the repaired 361-line three-body baseline omitted by `28a1eee0`. |
 
 ## Live Queue
 
@@ -29,16 +29,14 @@ plan inventory.
    2026-07-12 ruling) and is not live portfolio work.
 3. Round-2 runtime-contract remediation is locally complete and recorded in
    `Reports/2026-07-12/runtime-contract-enforcement-closure.md`.
-4. Round-3 adversarial-review remediation is complete at 10/10. R10 added
-   three-frame headroom and a backend-owned b1 bindless texture-index payload;
-   closure evidence and the 29/29 touched-file comment audit live in
-   `Reports/2026-07-13/adversarial-review-round-3-closure.md`. Out-of-scope
-   rulings remain recorded in MASTER to avoid re-litigation.
-5. Replay prediction fidelity is complete at 5/5 with evidence in
-   `Reports/2026-07-13/replay-prediction-fidelity-probe-closure.md`. Replay
-   monolith decomposition is now live at 2/9: M0/M1 record the prerequisite
-   and bind all 84 header declarations plus 213 free functions to owners.
-   M2 next shatters the everything-header. MASTER is at 319/327.
+4. Round-3 adversarial-review remediation is live at 9/10: R1-R9 header,
+   scene-capacity, platform-prelude, exception-free engine, and namespace-owner
+   work plus rendering-helper dissolution, the C++20 upgrade, and dense-store
+   span seams are complete; the slower solver SIMD candidate was measured and
+   reverted per plan. One task remains (DX12 bindless + three frames). Plan and
+   fine-grained progress checklist live in `Plans/TODO/`; continue with R10.
+   Out-of-scope
+   rulings are recorded in MASTER to avoid re-litigation.
 
 ## Current Plan Decisions
 
@@ -92,11 +90,9 @@ plan inventory.
   `Agentic/Reports/2026-07-12/shadow-edge-quality-closure.md`.
 - Simulation/render interpolation closure evidence:
   `Agentic/Reports/2026-07-12/sim-render-interpolation-closure.md`.
-- Replay prediction fidelity closure evidence:
-  `Agentic/Reports/2026-07-13/replay-prediction-fidelity-probe-closure.md`.
 
 ## Next Handoff
 
-Continue `Plans/TODO/replay-monolith-decomposition.md` at M2. V3 resumes when
-the required GitHub merge-group/branch-protection authority and trusted or
-ephemeral DX12 runner administration exist.
+Execute R10 Stage A three-frame headroom, then Stage B SM6.6 bindless textures,
+with the required repeated DX12, stress, and performance evidence.
+V3 resumes separately when the required GitHub and runner authority exists.

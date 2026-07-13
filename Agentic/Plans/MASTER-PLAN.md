@@ -1,6 +1,6 @@
 # MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-07-13
+Date: 2026-07-12
 Status: Authoritative inventory of every live repository plan
 
 ## Inventory Rules
@@ -107,33 +107,26 @@ concrete plan rows and counting it would duplicate tasks.
 | frame-view-calling-convention | 4 | 4 | 100% |
 | render-interface-and-workerpool-slimming | 5 | 5 | 100% |
 | runtime-contract-enforcement | 5 | 5 | 100% |
-| adversarial-review-round-3 | 10 | 10 | 100% |
-| replay-prediction-fidelity-probe | 5 | 5 | 100% |
-| replay-monolith-decomposition | 2 | 9 | 22% |
-| **Portfolio total** | **319** | **327** | **98%** |
+| adversarial-review-round-3 | 9 | 10 | 90% |
+| **Portfolio total** | **311** | **313** | **99%** |
 
 ## Current Execution Priority
 
 For maximum impact with minimal rework, use this binding critical path:
 
-`replay-monolith-decomposition → validation-gate V3 external administration`
+`adversarial-review round 3 → validation-gate V3 external administration`
 
-0. **Replay architecture lane — live.** The prediction fidelity prerequisite
-   is complete with closure evidence in
-   `../Reports/2026-07-13/replay-prediction-fidelity-probe-closure.md`. Execute
-   `TODO/replay-monolith-decomposition.md` (M0→M8); the permanent fourth replay
-   scrub step is its binding divergence detector.
+0. **Adversarial-review round 3 — live.** The only live local implementation
+   work. R1-R3 header/capacity/platform hygiene is complete; continue R4→R10 in order.
+   The companion progress checklist carries the fine-grained steps.
 1. **Validation-gate V3 — blocked external lane.** Repository implementation is
    complete. Remaining work requires a real `merge_group` proof, required CPU
    branch protection, and trusted/ephemeral DX12 runner administration.
-2. **Adversarial-review round 3 — locally complete.** All ten tasks and the
-   final independent review are closed; evidence lives in
-   `../Reports/2026-07-13/adversarial-review-round-3-closure.md`.
-3. **Adversarial-review remediation round 1 — locally complete.** All five
+2. **Adversarial-review remediation round 1 — locally complete.** All five
    active 2026-07-12 remediation plans are closed. The comment-rot sweep
    remains owner-parked in `WNF/` (no comment changes yet), so it is not live
    work or part of the portfolio ledger.
-4. **Adversarial-review round 2 — locally complete.** EngineLog fatal-path
+3. **Adversarial-review round 2 — locally complete.** EngineLog fatal-path
    thread safety, SpatialGrid input validation, AmortizedTask lifetime guards,
    and worker-pool exception-plumbing removal are complete and validated.
 
@@ -148,8 +141,6 @@ For maximum impact with minimal rework, use this binding critical path:
 | Plan | State | Verified phase count | Next blocking action |
 |---|---|---:|---|
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs merge-group proof, required branch protection, and trusted/ephemeral DX12 runner administration |
-| [replay-prediction-fidelity-probe](../Reports/2026-07-13/replay-prediction-fidelity-probe-closure.md) | Complete | 5/5 | Engine snapshot completeness and the permanent 120-tick predicted/live replay gate are closed |
-| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Live | 2/9 | M0/M1 are closed with a complete owner inventory; shatter the everything-header in M2 |
 
 ## Planned Architecture Work (2026-07-11 gap review)
 
@@ -225,7 +216,7 @@ solver SIMD → DX12 bindless and frame headroom.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [adversarial-review-round-3](../Reports/2026-07-13/adversarial-review-round-3-closure.md) | Complete | 10/10 | Three-frame SM6.6 bindless raster path, measured perf budget, independent review, and final gates complete |
+| [adversarial-review-round-3](TODO/adversarial-review-round-3.md) | Live | 9/10 | Start R10 Stage A (inventory and raise DX12 frame resources to three), then Stage B SM6.6 bindless textures; companion checklist `TODO/adversarial-review-round-3-progress.md` carries fine-grained steps |
 
 Owner-ruled out of scope in this round (recorded so they are not re-litigated):
 replay subsystem right-sizing, unit-test depth expansion, sleep parallel-array

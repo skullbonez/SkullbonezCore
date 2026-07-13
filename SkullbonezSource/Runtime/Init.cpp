@@ -2546,7 +2546,11 @@ bool HandleContactAudioSmoke( const ParsedArgs& args, const SkullbonezCore::Core
     // without creating a window, renderer, worker pool, or physics world.
     SkullbonezCore::Runtime::Audio::ContactAudioService audio;
     audio.SetMasterGain( cfg.contactAudio.masterGain );
-    audio.SetMinImpactEnergy( cfg.contactAudio.minImpactEnergy );
+    audio.SetMaxDistanceScale( cfg.contactAudio.maxDistanceScale );
+    audio.SetRollingLevelDb( cfg.contactAudio.rollingLevelDb );
+    audio.SetRollingMaxDistance( cfg.contactAudio.rollingMaxDistance );
+    audio.SetRollingMinSlipSpeed( cfg.contactAudio.rollingMinSlipSpeed );
+    audio.SetRollingVoicesPerWindow( static_cast<uint32_t>( cfg.contactAudio.rollingVoicesPerWindow ) );
     const bool initialized = audio.Initialize();
     const bool loaded = audio.LoadContactAudioMap( "SkullbonezData/audio/contact_audio.materials.json" );
     const bool submitted = initialized && loaded && audio.PlaySmokeImpact( HashStr( "earth" ), 6.0f );
@@ -2562,7 +2566,7 @@ bool HandleContactAudioSmoke( const ParsedArgs& args, const SkullbonezCore::Core
                  "  \"loaded\": %s,\n"
                  "  \"submitted\": %s,\n"
                  "  \"eventsSeen\": %u,\n"
-                 "  \"rejectedByEnergy\": %u,\n"
+                 "  \"rejectedByThreshold\": %u,\n"
                  "  \"rejectedByCooldown\": %u,\n"
                  "  \"submittedVoices\": %u,\n"
                  "  \"droppedVoices\": %u\n"
@@ -2571,20 +2575,20 @@ bool HandleContactAudioSmoke( const ParsedArgs& args, const SkullbonezCore::Core
                  loaded ? "true" : "false",
                  submitted ? "true" : "false",
                  stats.eventsSeen,
-                 stats.rejectedByEnergy,
+                 stats.rejectedByThreshold,
                  stats.rejectedByCooldown,
                  stats.submittedVoices,
                  stats.droppedVoices );
         fclose( report );
     }
     fprintf( stdout,
-             "[audio-smoke] initialized=%d loaded=%d submitted=%d events=%u energy=%u cooldown=%u voices=%u "
+             "[audio-smoke] initialized=%d loaded=%d submitted=%d events=%u threshold=%u cooldown=%u voices=%u "
              "dropped=%u report=TestOutput/contact_audio_smoke.json\n",
              initialized ? 1 : 0,
              loaded ? 1 : 0,
              submitted ? 1 : 0,
              stats.eventsSeen,
-             stats.rejectedByEnergy,
+             stats.rejectedByThreshold,
              stats.rejectedByCooldown,
              stats.submittedVoices,
              stats.droppedVoices );

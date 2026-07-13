@@ -22,8 +22,10 @@ Glossary:
   the run loop.
   Sound sample request: One-frame Sound-tab command to preview a decoded impact
     candidate or assign it to the selected material set.
-  Sound parameter request: One-frame Sound-tab command carrying one of the two
-    live contact-audio values (master gain or minimum impact energy).
+  Flash mode request: One-frame Sound-tab command to cycle emitted, candidate,
+    rejected, or hidden contact-audio body flashes.
+  Simple mode request: One-frame Sound-tab command to use linear velocity energy
+    instead of solver contact rows for impact audio.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
@@ -160,13 +162,42 @@ enum class UIRenderParam
     Count
 };
 
-// The Sound tab exposes exactly two live values: overall volume and the
-// impact-energy threshold that decides which hits are audible.
 enum class UISoundParam
 {
     None = -1,
+    SimpleMinLinearEnergy,
+    SimpleMinLinearDeltaSpeed,
+    SimpleLinearEnergyRange,
     MasterGain,
-    MinImpactEnergy,
+    MaxDistanceScale,
+    MinClosingSpeed,
+    MinImpactScore,
+    ImpactScoreRangeSeconds,
+    BurstVoicesPerWindow,
+    RollingLevelDb,
+    RollingMaxDistance,
+    RollingMinSlipSpeed,
+    RollingVoicesPerWindow,
+    SetMinImpulse,
+    SetImpulseRange,
+    SetCooldownMs,
+    SetOverrideCooldownMs,
+    SetMaxDistance,
+    SetBaseGain,
+    SetPitchMin,
+    SetPitchMax,
+    SetMaxVoices,
+    Count
+};
+
+enum class UISoundBandParam
+{
+    None = -1,
+    MinImpulse,
+    ImpulseRange,
+    BaseGain,
+    PitchMin,
+    PitchMax,
     Count
 };
 
@@ -308,11 +339,16 @@ struct UIRenderCommands
 
 struct UISoundCommands
 {
-    // Sound-tab output is a one-frame request. The set index comes from the
-    // current UI snapshot; Run validates it before touching audio data.
+    // Sound-tab output is a one-frame request. Set and band indices come from
+    // the current UI snapshot; Run validates them before touching audio data.
     bool toggleEnabled = false;
+    bool toggleDebugCounters = false;
+    bool cycleFlashMode = false;
+    bool toggleSimpleMode = false;
     int requestedSetIndex = -1;
+    int requestedBandIndex = -1;
     UISoundParam requestedParam = UISoundParam::None;
+    UISoundBandParam requestedBandParam = UISoundBandParam::None;
     float requestedValue = 0.0f;
     int previewSampleIndex = -1;
     int selectSampleIndex = -1;

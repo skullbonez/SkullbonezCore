@@ -21,7 +21,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 // =============================================================================
-// GRID LINE SHADER — Shader Model 6.6 (Combined VS+PS)
+// GRID LINE SHADER — HLSL 5.0 (Combined VS+PS)
 // =============================================================================
 //
 // PURPOSE: Draw per-vertex colored line segments in 3D world space.

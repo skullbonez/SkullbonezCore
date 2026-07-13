@@ -13,8 +13,8 @@ Glossary:
   buffers.
   TEXCOORD semantic: Named vertex/interpolator channel shared between the input
   layout and shader stages.
-  Material table: Texture selected by bindless payload index 4 that stores
-  default material response values by material kind.
+  Material table: Fixed t4 texture that stores default material response values
+  by material kind.
   Material payload: Four per-instance float4 rows named material0 through
   material3.
   Contact flash alpha: material3.w blend that pushes the final lit color toward
@@ -33,7 +33,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 // =============================================================================
-// INSTANCED LIT TEXTURED SHADER — Shader Model 6.6 (Combined VS+PS)
+// INSTANCED LIT TEXTURED SHADER — HLSL 5.0 (Combined VS+PS)
 // =============================================================================
 //
 // PURPOSE: Same as lit_textured.hlsl but with INSTANCED rendering for spheres.
@@ -79,19 +79,9 @@ cbuffer Uniforms : register(b0)
     float4   uShadowFlags;
 };
 
-// Invariant: b1 carries stable indices into the directly indexed shader-visible
-// heap; the pipeline owner writes all six root constants before every draw.
-cbuffer BindlessTextureIndices : register(b1)
-{
-    uint4 _textureDescriptorIndices0;
-    uint2 _textureDescriptorIndices1;
-};
-
-uint BindlessTextureIndex(uint slot)
-{
-    return slot < 4u ? _textureDescriptorIndices0[slot] : _textureDescriptorIndices1[slot - 4u];
-}
-
+Texture2D    uTexture  : register(t0);
+Texture2D    uShadowMap : register(t3);
+Texture2D    uMaterialTable : register(t4);
 SamplerState sSampler0 : register(s0);
 SamplerState sSampler3 : register(s3);
 
@@ -172,8 +162,7 @@ float4 SampleMaterialTable(float materialRow)
     // clamp out-of-range kinds to keep bad authoring data from reading a
     // neighboring descriptor or wrap-filtered value.
     float row = clamp(floor(materialRow + 0.5f), 0.0f, 15.0f);
-    Texture2D<float4> materialTable = ResourceDescriptorHeap[BindlessTextureIndex(4u)];
-    return materialTable.SampleLevel(sSampler3, float2((row + 0.5f) / 16.0f, 0.5f), 0.0f);
+    return uMaterialTable.SampleLevel(sSampler3, float2((row + 0.5f) / 16.0f, 0.5f), 0.0f);
 }
 
 int DecodeObjectStyle(int objectStyle)
@@ -248,7 +237,6 @@ float LowPolySunBand(float lightAmount)
 
 float ShadowVisibility(float3 worldPos, float3 normalView, float3 lightView)
 {
-    Texture2D<float4> shadowMap = ResourceDescriptorHeap[BindlessTextureIndex(3u)];
     if (uShadowFlags.x < 0.5f || uShadowFlags.y < 0.5f || uShadowParams.x <= 0.0f)
     {
         return 1.0f;
@@ -289,7 +277,7 @@ float ShadowVisibility(float3 worldPos, float3 normalView, float3 lightView)
     float texel = max(uShadowParams.w, 0.00001f);
     if (radius <= 0)
     {
-        float shadowDepth = shadowMap.SampleLevel(sSampler3, uv, 0.0f).r;
+        float shadowDepth = uShadowMap.SampleLevel(sSampler3, uv, 0.0f).r;
         float visibility = receiverDepth - bias <= shadowDepth ? 1.0f : 0.0f;
         return lerp(1.0f - uShadowParams.x, 1.0f, visibility);
     }
@@ -312,7 +300,7 @@ float ShadowVisibility(float3 worldPos, float3 normalView, float3 lightView)
     [unroll]
     for (int sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex)
     {
-        float shadowDepth = shadowMap.SampleLevel(sSampler3, uv + poisson[sampleIndex] * spread, 0.0f).r;
+        float shadowDepth = uShadowMap.SampleLevel(sSampler3, uv + poisson[sampleIndex] * spread, 0.0f).r;
         visible += receiverDepth - bias <= shadowDepth ? 1.0f : 0.0f;
     }
 
