@@ -10,12 +10,12 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-12th-july` |
-| Current baseline | Adversarial-review round 3 is complete at 10/10; R10 runs three frames in flight with SM6.6 bindless raster texture access |
-| Current objective | Execute the replay architecture lane: `Plans/TODO/replay-prediction-fidelity-probe.md` (F1→F5), then `Plans/TODO/replay-monolith-decomposition.md` (M0→M8); validation-gate V3 remains externally blocked |
-| Portfolio progress | 312 / 326 tasks = 96% rounded overall |
+| Branch | `nightrunner-13th-july` |
+| Current baseline | Replay prediction fidelity is complete: engine restore is byte-exact and the scrub gate compares 120 predicted/live solver hashes |
+| Current objective | Execute `Plans/TODO/replay-monolith-decomposition.md` (M0→M8); validation-gate V3 remains externally blocked |
+| Portfolio progress | 317 / 327 tasks = 97% rounded overall |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-13 in 114.5s: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots/InfoQueue, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | R10 final: three consecutive DX12 passes 53.5/53.8/53.6s plus post-review passes, final perf 66.1s, final stress 61.6s with +0.70 MiB warmed working-set delta, and 179/179 unit tests. |
+| Validation for current edits | Fidelity final: `validate_fast` passed; 180/180 unit cases and 4,665 assertions passed; all four replay scrub probes passed including 120 hash-equal ticks; physics matched 44,401 lines byte-exactly. |
 
 ## Live Queue
 
@@ -34,12 +34,10 @@ plan inventory.
    closure evidence and the 29/29 touched-file comment audit live in
    `Reports/2026-07-13/adversarial-review-round-3-closure.md`. Out-of-scope
    rulings remain recorded in MASTER to avoid re-litigation.
-5. Replay architecture lane is live (2026-07-13 owner decision): the
-   prediction fidelity probe (5 tasks — predicted future must byte-match the
-   actual future) is the binding prerequisite, then the replay monolith
-   decomposition (8 tasks — five owners behind a thin ReplayRuntime
-   composition root). Both plans live in `Plans/TODO/` and are registered in
-   the MASTER ledger at 312/326.
+5. Replay prediction fidelity is complete at 5/5 with evidence in
+   `Reports/2026-07-13/replay-prediction-fidelity-probe-closure.md`. Replay
+   monolith decomposition is now live at 0/9: M0-M8 extract five owners behind
+   a thin ReplayRuntime composition root. MASTER is at 317/327.
 
 ## Current Plan Decisions
 
@@ -93,8 +91,11 @@ plan inventory.
   `Agentic/Reports/2026-07-12/shadow-edge-quality-closure.md`.
 - Simulation/render interpolation closure evidence:
   `Agentic/Reports/2026-07-12/sim-render-interpolation-closure.md`.
+- Replay prediction fidelity closure evidence:
+  `Agentic/Reports/2026-07-13/replay-prediction-fidelity-probe-closure.md`.
 
 ## Next Handoff
 
-V3 resumes when the required GitHub merge-group/branch-protection authority and
-trusted or ephemeral DX12 runner administration exist.
+Continue `Plans/TODO/replay-monolith-decomposition.md` at M0. V3 resumes when
+the required GitHub merge-group/branch-protection authority and trusted or
+ephemeral DX12 runner administration exist.

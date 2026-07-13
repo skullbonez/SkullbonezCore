@@ -1,7 +1,7 @@
 # Replay Monolith Decomposition — Owner Boundaries Inside The Replay Subsystem
 
 Date: 2026-07-13
-Status: Live — 0/8 tasks complete; blocked on `replay-prediction-fidelity-probe.md`
+Status: Live — 0/9 tasks complete; fidelity prerequisite closed
 Impact area: `SkullbonezSource/Runtime/Replay/*` (26,060 lines), the two
 external consumers `Runtime/Run.cpp` and `Runtime/RunUiTextPass.cpp`, project
 filters
@@ -75,8 +75,9 @@ consumers of published views (M7).
 
 ## Tasks
 
-- [ ] **M0 — Prerequisite gate (no code).** `replay-prediction-fidelity-probe`
-  is complete and `tools\validate_replay_scrub.bat` (including the fidelity
+- [ ] **M0 — Prerequisite gate (no code).** The fidelity closure report confirms
+  `replay-prediction-fidelity-probe` is complete and
+  `tools\validate_replay_scrub.bat` (including the fidelity
   step) passes on the starting tree. Record the passing run here. Also record
   the sequencing decision against `adversarial-review-round-3` R5 (the
   `Basics` namespace rename touches every replay file): either R5 lands
@@ -181,8 +182,9 @@ consumers of published views (M7).
 
 ## Dependencies And Decisions
 
-- **Binding prerequisite:** `replay-prediction-fidelity-probe.md` complete
-  (M0). The fidelity gate is this plan's divergence detector for M6.
+- **Binding prerequisite:** prediction fidelity is complete; evidence lives in
+  `../../Reports/2026-07-13/replay-prediction-fidelity-probe-closure.md` (M0).
+  The fidelity gate is this plan's divergence detector for M6.
 - **Sequencing vs round 3:** `adversarial-review-round-3` R5 (`Basics`
   rename) touches every replay file; run R5 → this plan, or record the owner's
   acceptance of the rebase cost in M0. R1–R4/R6–R10 of round 3 do not

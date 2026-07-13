@@ -504,6 +504,9 @@ struct RunReplayPredictionFrame
     ReplayFrameIndex frameIndex = 0;
     double simulationSeconds = 0.0;
     float tornadoSystemElapsedSeconds = 0.0f;
+    // Deterministic recorder-owned digest for the private engine at this tick.
+    // The fidelity probe compares it with the later retained live tick.
+    uint64_t solverHash = 0;
     std::vector<RunReplayPredictionBodySample> bodies;
     std::vector<Physics::PhysicsDebugContact> debugContacts;
     bool contactsIncomplete = false;
@@ -672,6 +675,11 @@ struct RunReplayPredictionSimulationState
     ReplayBodyId targetId;
     ReplayFrameIndex sourceFrameIndex = 0;
     uint64_t sourceSolverHash = 0;
+    uint32_t sourceEventCursor = 0;
+    ReplayWorldPresentationSample sourceWorld;
+    // Only control scalars participate in the solver digest. Presentation
+    // vectors stay empty, so prediction never copies launcher trail payloads.
+    ReplayLauncherVisualSample sourceLauncherControl;
     double sourceSimulationSeconds = 0.0;
     // Invariant: the worker is the sole writer of probe accumulators and
     // release-publishes measuredTicksPerMs. The frame thread acquire-loads it
@@ -694,6 +702,11 @@ struct RunReplayPredictionSimulationState
     Physics::PhysicsWorldForces predictionWorldForces;
     bool predictionEngineReady = false;
     ReplaySolverWorldSnapshot predictionWorld;
+    // Fixed-capacity post-step scratch reproduces recorder contact summaries
+    // without allocating inside prediction's solver/capture loop.
+    std::array<uint16_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> solverHashContactCounts = {};
+    std::array<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> solverHashMaxPenetrations = {};
+    std::array<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> solverHashNormalImpulseSums = {};
     std::vector<RunReplayPredictionBodyBackup> predictionBodies;
     std::vector<RunReplayPredictionFrame> frames;
 };

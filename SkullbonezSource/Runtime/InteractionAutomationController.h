@@ -123,6 +123,7 @@ enum class RunInteractionAutomationAssertKind
     PredictionScrubFrameActive,
     PredictionTargetDisplacementMin,
     LiveSolverHashStableAcrossPrediction,
+    PredictionMatchesLiveHorizon,
     PredictionTrajectoryFingerprintReady,
     GizmoVisible,
     MousePickupActive,

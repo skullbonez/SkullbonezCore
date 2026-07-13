@@ -219,6 +219,7 @@
     <ClCompile Include="SkullbonezTests\TestReplayPredictionScheduling.cpp" />
     <ClCompile Include="SkullbonezTests\TestInputRouter.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayRecorder.cpp" />
+    <ClCompile Include="SkullbonezTests\TestReplayPredictionFidelity.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayRecorderFullCaptureBoundary.cpp" />
     <ClCompile Include="SkullbonezTests\TestSceneParserUnit.cpp" />
     <ClCompile Include="SkullbonezTests\TestSolverBroadphaseStage.cpp" />
