@@ -205,7 +205,7 @@ void CollisionVisualizer::BuildSphereMesh( IRenderResourceFactory& renderResourc
 
 void CollisionVisualizer::BuildBoxMesh( IRenderResourceFactory& renderResources )
 {
-    // Same shared unit cube as RenderHelper::BuildBoxMesh(), packed for the
+    // Same shared unit cube as PrimitiveMeshes::EmitUnitBox(), packed for the
     // collision shader's smaller static layout: position plus face normal.
     std::vector<float> verts;
     verts.reserve( PrimitiveMeshes::BoxTriangleVertexCount() * 6 );

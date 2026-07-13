@@ -58,7 +58,7 @@ Related:
 #include "../../Rendering/IRenderRayTracing.h"
 #include "../../Rendering/IRenderResourceFactory.h"
 #include "../../Rendering/GameModelRenderer.h"
-#include "../../Rendering/Helper.h"
+#include "../../Rendering/PrimitiveBatchRenderer.h"
 #include "../../Rendering/RenderGraph.h"
 #include "../../Rendering/RenderInstanceStore.h"
 #include "../../Rendering/RenderRasterBindingContract.h"
@@ -69,6 +69,8 @@ Related:
 #include <cstdio>
 
 using namespace SkullbonezCore::Runtime;
+using SkullbonezCore::Rendering::PrimitiveBatchRenderer;
+using SkullbonezCore::Rendering::PrimitiveRenderContext;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
@@ -244,23 +246,23 @@ SkullbonezCore::Rendering::IRenderResourceFactory& RenderResources( const Render
     return *frame.renderResources;
 }
 
-RenderHelperContext RenderHelperServices( const RenderFrameContext& frame,
-                                          const SkullbonezCore::Core::EngineConfig& config )
+PrimitiveRenderContext PrimitiveRenderContextForFrame( const RenderFrameContext& frame,
+                                                       const SkullbonezCore::Core::EngineConfig& config )
 {
     assert( frame.renderDiagnostics && "RenderFrameContext requires a render diagnostics context" );
-    assert( frame.renderHelper && "RenderFrameContext requires a primitive render helper" );
-    return RenderHelperContext{ RenderResources( frame ),
-                                RenderCommands( frame ),
-                                *frame.renderDiagnostics,
-                                RenderAssets( frame ),
-                                config,
-                                *frame.renderHelper };
+    assert( frame.primitiveBatches && "RenderFrameContext requires a primitive batch renderer" );
+    return PrimitiveRenderContext{ RenderResources( frame ),
+                                   RenderCommands( frame ),
+                                   *frame.renderDiagnostics,
+                                   RenderAssets( frame ),
+                                   config,
+                                   *frame.primitiveBatches };
 }
 
-RenderHelper& RenderHelperOwner( const RenderFrameContext& frame )
+PrimitiveBatchRenderer& PrimitiveBatchRendererForFrame( const RenderFrameContext& frame )
 {
-    assert( frame.renderHelper && "RenderFrameContext requires a primitive render helper" );
-    return *frame.renderHelper;
+    assert( frame.primitiveBatches && "RenderFrameContext requires a primitive batch renderer" );
+    return *frame.primitiveBatches;
 }
 
 SkullbonezCore::Rendering::IRenderDiagnostics& RenderDiagnostics( const RenderFrameContext& frame )
@@ -872,7 +874,7 @@ ShadowPass::BuildObjectFrameData( const SkullbonezCore::Core::CinematicRenderCon
 
 
 void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
-                                  const RenderHelperContext& helperContext,
+                                  const PrimitiveRenderContext& primitiveContext,
                                   const Rendering::ShadowFrameData& shadowFrame,
                                   const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                   Rendering::IRenderCommandContext& renderCommands,
@@ -885,7 +887,7 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
                                   const Rendering::ShadowCasterBatches* objectCasters )
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap" );
-    DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap" );
+    DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap" );
 
     if ( !shadowFrame.valid )
     {
@@ -926,7 +928,7 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
     if ( renderTerrain && cinematic.shadow.terrainCasts && !m_activeTerrainHidden && m_terrain.Get() )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
-        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
+        DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
 
         // Terrain must cast with the same optional render-only relief that the
         // visible terrain uses. Otherwise cinematic basin relief would receive
@@ -938,7 +940,7 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
     if ( renderObjects && cinematic.shadow.objectsCast && !m_activeCollisionVisualizerVisible )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
-        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
+        DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
 
         // Balls, boxes, and pine-style box visuals all write depth here. The
         // prepared render store keeps separate instanced batches so each caster
@@ -950,7 +952,7 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
                                                                    : Rendering::RenderVisibilityView::ObjectShadow;
         if ( objectCasters )
         {
-            GameObjects::GameModelRenderer::SubmitShadowCasterBatches( helperContext,
+            GameObjects::GameModelRenderer::SubmitShadowCasterBatches( primitiveContext,
                                                                        *objectCasters,
                                                                        shadowFrame.lightView,
                                                                        shadowFrame.lightProjection,
@@ -959,7 +961,7 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
         }
         else
         {
-            GameObjects::GameModelRenderer::RenderShadowCasters( helperContext,
+            GameObjects::GameModelRenderer::RenderShadowCasters( primitiveContext,
                                                                  renderInstances,
                                                                  colliders,
                                                                  renderWorkerPool,
@@ -1025,7 +1027,7 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
             if ( m_resources.terrainTarget )
             {
                 RenderShadowMap( *m_resources.terrainTarget,
-                                 RenderHelperServices( inputs.frame, m_config ),
+                                 PrimitiveRenderContextForFrame( inputs.frame, m_config ),
                                  m_resources.terrainFrame,
                                  *inputs.cinematic,
                                  RenderCommands( inputs.frame ),
@@ -1049,7 +1051,7 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
             if ( m_resources.objectTarget )
             {
                 RenderShadowMap( *m_resources.objectTarget,
-                                 RenderHelperServices( inputs.frame, m_config ),
+                                 PrimitiveRenderContextForFrame( inputs.frame, m_config ),
                                  m_resources.objectFrame,
                                  *inputs.cinematic,
                                  RenderCommands( inputs.frame ),
@@ -1283,7 +1285,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
         PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Balls" );
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/Reflection/Balls" );
         renderCommands.SetClipPlane( 0, true );
-        RenderHelperOwner( inputs.frame ).SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
+        PrimitiveBatchRendererForFrame( inputs.frame ).SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
         if ( inputs.collisionStateColorsVisible )
         {
@@ -1316,7 +1318,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
             if ( SelectRenderTexture( inputs.frame, TEXTURE_BOUNDING_SPHERE, "Frame/Render/Reflection/Balls" ) &&
                  inputs.frame.renderInstances && inputs.frame.colliders )
             {
-                GameObjects::GameModelRenderer::RenderModels( RenderHelperServices( inputs.frame, m_config ),
+                GameObjects::GameModelRenderer::RenderModels( PrimitiveRenderContextForFrame( inputs.frame, m_config ),
                                                               *inputs.frame.renderInstances,
                                                               *inputs.frame.colliders,
                                                               inputs.frame.renderCollisionVolumes,
@@ -1332,7 +1334,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
             }
         }
         renderCommands.SetClipPlane( 0, false );
-        RenderHelperOwner( inputs.frame ).SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
+        PrimitiveBatchRendererForFrame( inputs.frame ).SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         PROFILE_GPU_END( "Frame/Render/Reflection/Balls" );
 
@@ -1388,7 +1390,7 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
         if ( SelectRenderTexture( inputs.frame, TEXTURE_BOUNDING_SPHERE, passName ) && inputs.frame.renderInstances &&
              inputs.frame.colliders )
         {
-            GameObjects::GameModelRenderer::RenderModels( RenderHelperServices( inputs.frame, m_config ),
+            GameObjects::GameModelRenderer::RenderModels( PrimitiveRenderContextForFrame( inputs.frame, m_config ),
                                                           *inputs.frame.renderInstances,
                                                           *inputs.frame.colliders,
                                                           inputs.frame.renderCollisionVolumes,

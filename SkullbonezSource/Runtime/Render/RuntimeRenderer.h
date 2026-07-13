@@ -40,7 +40,7 @@ Related:
 #include "RuntimeRenderResources.h"
 #include "RenderPresentationSettings.h"
 #include "../../Assets/TextureCollection.h"
-#include "../../Rendering/Helper.h"
+#include "../../Rendering/PrimitiveBatchRenderer.h"
 #include "../../Rendering/RenderGraph.h"
 
 #include <array>
@@ -144,15 +144,15 @@ class RuntimeRenderer
     RuntimeRenderTargetPreviewSnapshot BuildRenderTargetPreviewSnapshot( bool shadowsAvailable,
                                                                          bool cinematicTargetsAvailable,
                                                                          bool volumetricAvailable ) const;
-    RenderHelper& Helper()
+    Rendering::PrimitiveBatchRenderer& PrimitiveBatches()
     {
-        assert( m_renderHelper.has_value() );
-        return *m_renderHelper;
+        assert( m_primitiveBatches.has_value() );
+        return *m_primitiveBatches;
     }
-    const RenderHelper& Helper() const
+    const Rendering::PrimitiveBatchRenderer& PrimitiveBatches() const
     {
-        assert( m_renderHelper.has_value() );
-        return *m_renderHelper;
+        assert( m_primitiveBatches.has_value() );
+        return *m_primitiveBatches;
     }
 
     SkullbonezCore::Core::SbResult EnsureUiTextResources( Rendering::IRenderResourceFactory& renderResources,
@@ -304,7 +304,8 @@ class RuntimeRenderer
     // and audio state remain in their respective owners.
     RenderPresentationSettings m_presentationSettings;
     Environment::WorldEnvironment& m_world;               // Fluid surface and gravity owner for pass contexts.
-    std::optional<RenderHelper> m_renderHelper;           // Backend-lifetime primitive render cache and batch scratch.
+    std::optional<Rendering::PrimitiveBatchRenderer>
+        m_primitiveBatches;                               // Backend-lifetime primitive render cache and batch scratch.
     Physics::CollisionVisualizer& m_collisionVisualizer;
     Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;

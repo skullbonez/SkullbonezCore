@@ -158,7 +158,7 @@ upgrades, then the two performance/architecture tasks.
   deferrals. `tools\validate_full.bat` passed in 162.8s with all CPU lanes,
   zero DX12 errors and matching screenshots, plus the 44,401-line physics
   baseline byte-exact.
-- [ ] **R6 — Dissolve `Rendering/Helper.{h,cpp}` into named owners.**
+- [x] **R6 — Dissolve `Rendering/Helper.{h,cpp}` into named owners.**
   Inventory every routine and struct in the file, assign each to its real
   owner (candidates: primitive/instance batching → `PrimitiveMeshBuilder` /
   `RenderInstanceStore`; shadow math → `Shadow.h` owner; DXR instance/upload
@@ -169,6 +169,15 @@ upgrades, then the two performance/architecture tasks.
   warnings. Validation: `tools\validate_dx12_renderer.bat` then
   `tools\run_graphics_stress.bat 1` (render source moved), recorded with
   command output.
+  Completed 2026-07-13: the legacy files were deleted and their cohesive
+  primitive visible/shadow resource and batching state became
+  `Rendering::PrimitiveBatchRenderer`; canonical CPU emission stays in
+  `PrimitiveMeshes`, generic shadow math stays in `Shadow.h`/`ShadowPass`, and
+  runtime composition stays under `Runtime/Render`. Raw DXR sphere accessors
+  became a typed `PrimitiveMeshGeometryView`. The 10-file destination comment
+  audit had zero deferrals. `validate_fast` and the allocation checker passed;
+  `validate_dx12_renderer` passed in 48.5s with zero errors and matching
+  screenshots; the bounded graphics stress run completed cleanly in 61.8s.
 - [ ] **R7 — Upgrade the toolchain contract to C++20.** Set
   `<LanguageStandard>stdcpp20</LanguageStandard>` across all projects and
   configurations (engine + tests + standalone CPU test projects). Fix all

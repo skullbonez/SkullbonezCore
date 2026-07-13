@@ -117,10 +117,15 @@ class SkyBox;
 class Terrain;
 } // namespace Geometry
 
+namespace Rendering
+{
+class PrimitiveBatchRenderer;
+struct PrimitiveRenderContext;
+} // namespace Rendering
+
 namespace Runtime
 {
 class DiagnosticsRuntime;
-class RenderHelper;
 class RuntimeTools;
 class RunEditorTracer;
 class LauncherLaser;
@@ -148,7 +153,6 @@ struct RunSceneState;
 struct RunTimerState;
 struct RunReplayPredictionFrame;
 struct TornadoVisualSettings;
-struct RenderHelperContext;
 
 // Concept: these private pass contracts are the extraction boundary.
 //
@@ -252,8 +256,8 @@ struct RenderFrameContext
     // tracing decisions in this frame only.
     Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
     // Lifetime: owned by RuntimeRenderer for the active process. Passes borrow
-    // it for primitive batch scratch and helper-owned backend resource handles.
-    RenderHelper* renderHelper = nullptr;
+    // it for primitive batch scratch and renderer-owned backend resource handles.
+    Rendering::PrimitiveBatchRenderer* primitiveBatches = nullptr;
     // Lifetime: optional DXR capability borrowed for this frame only. It stays
     // nullable so the reflection pass can fall back to planar rendering when
     // raytracing is unavailable.
@@ -299,7 +303,7 @@ struct TerrainPassInputs
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic;
     const Rendering::ShadowFrameData* shadow;
     const Rendering::ShadowFrameData* detailShadow;
-    const float* clipPlane = nullptr;                   // Borrowed from RenderHelper for this terrain draw.
+    const float* clipPlane = nullptr;                   // Borrowed from PrimitiveBatchRenderer for this terrain draw.
     bool terrainHidden;                                 // Frame snapshot of the debug/scene visibility flag.
 };
 
@@ -635,7 +639,7 @@ class ShadowPass
                                                      Threading::WorkerPool* renderWorkerPool,
                                                      bool shadowParallelPrep );
     void RenderShadowMap( Rendering::IFramebuffer& target,
-                          const RenderHelperContext& helperContext,
+                          const Rendering::PrimitiveRenderContext& primitiveContext,
                           const Rendering::ShadowFrameData& shadowFrame,
                           const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                           Rendering::IRenderCommandContext& renderCommands,

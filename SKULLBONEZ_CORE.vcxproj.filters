@@ -274,7 +274,7 @@
     <ClCompile Include="SkullbonezSource\Core\SkullScope.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Rendering\Helper.cpp">
+    <ClCompile Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Init.cpp">
@@ -710,7 +710,7 @@
     <ClInclude Include="SkullbonezSource\Core\SkullScope.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\Helper.h">
+    <ClInclude Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\GraphicsStressController.h">

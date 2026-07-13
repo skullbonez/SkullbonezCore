@@ -4,7 +4,7 @@
     {
       "path": "SkullbonezSource/Runtime/Init.cpp",
       "patterns": [
-        "std::make_unique<SkullbonezCore::Basics::SceneController>",
+        "std::make_unique<SkullbonezCore::Runtime::SceneController>",
         "std::make_unique<PhysicsBodyStore>"
       ],
       "owner": "Standalone physics smoke bootstrap",
@@ -586,7 +586,7 @@
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
-      "path": "SkullbonezSource/Rendering/Helper.cpp",
+      "path": "SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp",
       "patterns": [
         ".insert(",
         ".reserve("
@@ -957,11 +957,11 @@
       "patterns": [
         ".emplace("
       ],
-      "owner": "RuntimeRenderer render-helper lifecycle",
+      "owner": "RuntimeRenderer primitive-batch lifecycle",
       "phase": "startup_and_backend_rebuild",
-      "reason": "The optional RenderHelper reconstructs its single backend-bound value only after a successful device/resource rebuild.",
-      "cap": "Exactly one optional RenderHelper instance.",
-      "removal_or_wrapper_plan": "Route RenderHelper reconstruction through the renderer resource owner when render-backend decomposition assigns its final lifecycle boundary."
+      "reason": "The optional PrimitiveBatchRenderer reconstructs its single backend-bound value only after a successful device/resource rebuild.",
+      "cap": "Exactly one optional PrimitiveBatchRenderer instance.",
+      "removal_or_wrapper_plan": "Replace optional emplacement with an in-place RuntimeRenderer-owned value when backend rebuild can rebind the resource factory without reconstructing the owner."
     },
     {
       "path": "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp",

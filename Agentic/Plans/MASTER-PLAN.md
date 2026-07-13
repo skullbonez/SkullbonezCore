@@ -216,7 +216,7 @@ solver SIMD → DX12 bindless and frame headroom.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [adversarial-review-round-3](TODO/adversarial-review-round-3.md) | Live | 5/10 | Start R6 (`Rendering/Helper.*` routine inventory and owner dissolution); companion checklist `TODO/adversarial-review-round-3-progress.md` carries fine-grained steps |
+| [adversarial-review-round-3](TODO/adversarial-review-round-3.md) | Live | 6/10 | Start R7 (C++20 toolchain-contract upgrade across engine, tests, and standalone CPU projects); companion checklist `TODO/adversarial-review-round-3-progress.md` carries fine-grained steps |
 
 Owner-ruled out of scope in this round (recorded so they are not re-litigated):
 replay subsystem right-sizing, unit-test depth expansion, sleep parallel-array

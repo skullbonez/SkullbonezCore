@@ -66,7 +66,6 @@ Related:
 #include "../../Rendering/IRenderRayTracing.h"
 #include "../../Rendering/IRenderDiagnostics.h"
 #include "../../Rendering/IRenderResourceFactory.h"
-#include "../../Rendering/Helper.h"
 #include "../../Scene/SceneSnapshotWriter.h"
 #include "../../Scene/TestScene.h"
 #include "../../World/Terrain.h"

@@ -24,7 +24,7 @@ Invariants:
   - GameModelRenderer consumes prepared render instances and collider rows; the
     scene owner remains responsible for refreshing those stores before drawing.
   - Shadow caster preparation may run worker-side, but draw submission remains
-    on the render thread through RenderHelper command/resource contexts.
+    on the render thread through PrimitiveBatchRenderer command/resource contexts.
   - ShadowCasterBatches capacity is reserved before steady rendering; a larger
     model count is a fixed-capacity render invariant failure.
 
@@ -40,7 +40,7 @@ Related:
 #include "../Core/WorkerPool.h"
 #include "../Physics/ColliderStore.h"
 #include "../Maths/Frustum.h"
-#include "Helper.h"
+#include "PrimitiveBatchRenderer.h"
 #include "IRenderDiagnostics.h"
 #include "RenderInstanceStore.h"
 
@@ -49,13 +49,14 @@ Related:
 #include <cmath>
 #include <vector>
 
-using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::GameObjects;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderRecordList;
+using SkullbonezCore::Rendering::PrimitiveBatchRenderer;
+using SkullbonezCore::Rendering::PrimitiveRenderContext;
 using SkullbonezCore::Rendering::RenderInstanceRecord;
 using SkullbonezCore::Rendering::RenderInstanceShapeKind;
 using SkullbonezCore::Rendering::RenderInstanceStore;
@@ -338,7 +339,7 @@ RenderMaterial MaterialWithContactHighlights( const RenderInstanceRecord& instan
 } // namespace
 
 
-void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
+void GameModelRenderer::RenderModels( const PrimitiveRenderContext& primitiveContext,
                                       const RenderInstanceStore& renderStore,
                                       const SkullbonezCore::Physics::ColliderStore& colliderStore,
                                       bool renderCollisionVolumes,
@@ -379,7 +380,7 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
     {
         const Math::Visibility::Frustum frustum = Math::Visibility::Frustum::FromViewProjection( view, proj );
         const float* reflectionClipPlane = visibilityView == Rendering::RenderVisibilityView::Reflection
-                                               ? helperContext.helper.GetClipPlane()
+                                               ? primitiveContext.renderer.GetClipPlane()
                                                : nullptr;
         for ( int index = 0; index < modelCount; ++index )
         {
@@ -419,18 +420,18 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
         return drawMaskedModels ? masked : !masked;
     };
     int submittedCount = 0;
-    const int drawCountBefore = helperContext.renderDiagnostics.GetFrameDrawCallCount();
+    const int drawCountBefore = primitiveContext.renderDiagnostics.GetFrameDrawCallCount();
 
     {
-        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Spheres" );
-        auto sphereBatch = helperContext.helper.BeginSphereBatch( helperContext,
-                                                                  view,
-                                                                  proj,
-                                                                  lightPos,
-                                                                  alphaBlendedPass,
-                                                                  cinematic,
-                                                                  shadow,
-                                                                  clampedMaterialAlpha );
+        DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Spheres" );
+        auto sphereBatch = primitiveContext.renderer.BeginSphereBatch( primitiveContext,
+                                                                       view,
+                                                                       proj,
+                                                                       lightPos,
+                                                                       alphaBlendedPass,
+                                                                       cinematic,
+                                                                       shadow,
+                                                                       clampedMaterialAlpha );
         for ( int visibleIndex = 0; visibleIndex < visibleCount; ++visibleIndex )
         {
             const int x = visibleIndices[visibleIndex];
@@ -449,7 +450,7 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
     }
 
     bool hasPineVisualModels = false;
-    auto appendBoxLikeModels = [&]( bool pineVisualPass, RenderHelper::PrimitiveBatchScope& batch )
+    auto appendBoxLikeModels = [&]( bool pineVisualPass, PrimitiveBatchRenderer::PrimitiveBatchScope& batch )
     {
         for ( int visibleIndex = 0; visibleIndex < visibleCount; ++visibleIndex )
         {
@@ -485,34 +486,34 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
     };
 
     {
-        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Boxes" );
-        auto boxBatch = helperContext.helper.BeginBoxBatch( helperContext,
-                                                            view,
-                                                            proj,
-                                                            lightPos,
-                                                            alphaBlendedPass,
-                                                            cinematic,
-                                                            shadow,
-                                                            clampedMaterialAlpha );
+        DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Boxes" );
+        auto boxBatch = primitiveContext.renderer.BeginBoxBatch( primitiveContext,
+                                                                 view,
+                                                                 proj,
+                                                                 lightPos,
+                                                                 alphaBlendedPass,
+                                                                 cinematic,
+                                                                 shadow,
+                                                                 clampedMaterialAlpha );
         appendBoxLikeModels( false, boxBatch );
     }
 
     if ( hasPineVisualModels )
     {
-        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Pines" );
-        auto pineBatch = helperContext.helper.BeginPineBatch( helperContext,
-                                                              view,
-                                                              proj,
-                                                              lightPos,
-                                                              alphaBlendedPass,
-                                                              cinematic,
-                                                              shadow,
-                                                              clampedMaterialAlpha );
+        DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Pines" );
+        auto pineBatch = primitiveContext.renderer.BeginPineBatch( primitiveContext,
+                                                                   view,
+                                                                   proj,
+                                                                   lightPos,
+                                                                   alphaBlendedPass,
+                                                                   cinematic,
+                                                                   shadow,
+                                                                   clampedMaterialAlpha );
         appendBoxLikeModels( true, pineBatch );
     }
 
     {
-        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "ConvexHulls" );
+        DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "ConvexHulls" );
         const ColliderRecordList* colliders = nullptr;
         for ( int visibleIndex = 0; visibleIndex < visibleCount; ++visibleIndex )
         {
@@ -543,26 +544,26 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
             }
 
             const RenderMaterial material = MaterialWithContactHighlights( instance, false );
-            helperContext.helper.DrawConvexHullModel( helperContext,
-                                                      *hull,
-                                                      instance.modelMatrix,
-                                                      material,
-                                                      view,
-                                                      proj,
-                                                      lightPos,
-                                                      alphaBlendedPass,
-                                                      cinematic,
-                                                      shadow,
-                                                      clampedMaterialAlpha );
+            primitiveContext.renderer.DrawConvexHullModel( primitiveContext,
+                                                           *hull,
+                                                           instance.modelMatrix,
+                                                           material,
+                                                           view,
+                                                           proj,
+                                                           lightPos,
+                                                           alphaBlendedPass,
+                                                           cinematic,
+                                                           shadow,
+                                                           clampedMaterialAlpha );
             ++submittedCount;
         }
     }
-    const int drawCountAfter = helperContext.renderDiagnostics.GetFrameDrawCallCount();
-    helperContext.renderDiagnostics.RecordVisibility( visibilityView,
-                                                      modelCount,
-                                                      submittedCount,
-                                                      modelCount - visibleCount,
-                                                      (std::max)( 0, drawCountAfter - drawCountBefore ) );
+    const int drawCountAfter = primitiveContext.renderDiagnostics.GetFrameDrawCallCount();
+    primitiveContext.renderDiagnostics.RecordVisibility( visibilityView,
+                                                         modelCount,
+                                                         submittedCount,
+                                                         modelCount - visibleCount,
+                                                         (std::max)( 0, drawCountAfter - drawCountBefore ) );
 }
 
 
@@ -620,7 +621,7 @@ void GameModelRenderer::BuildShadowCasterBatches( const RenderInstanceStore& ren
 }
 
 
-void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& helperContext,
+void GameModelRenderer::SubmitShadowCasterBatches( const PrimitiveRenderContext& primitiveContext,
                                                    const ShadowCasterBatches& batches,
                                                    const Matrix4& view,
                                                    const Matrix4& proj,
@@ -632,7 +633,7 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
         return;
     }
 
-    const int drawCountBefore = helperContext.renderDiagnostics.GetFrameDrawCallCount();
+    const int drawCountBefore = primitiveContext.renderDiagnostics.GetFrameDrawCallCount();
     const Math::Visibility::Frustum lightFrustum = Math::Visibility::Frustum::FromViewProjection( view, proj );
     const auto isVisible = [&]( const ShadowCasterInstance& caster )
     {
@@ -648,9 +649,10 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
 
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Spheres" );
-        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Spheres" );
+        DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Spheres" );
 
-        auto sphereBatch = helperContext.helper.BeginShadowDepthSphereBatch( helperContext, view, proj, cinematic );
+        auto sphereBatch =
+            primitiveContext.renderer.BeginShadowDepthSphereBatch( primitiveContext, view, proj, cinematic );
         for ( const ShadowCasterInstance& caster : batches.spheres )
         {
             if ( isVisible( caster ) )
@@ -663,9 +665,9 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
 
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Boxes" );
-        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Boxes" );
+        DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Boxes" );
 
-        auto boxBatch = helperContext.helper.BeginShadowDepthBoxBatch( helperContext, view, proj );
+        auto boxBatch = primitiveContext.renderer.BeginShadowDepthBoxBatch( primitiveContext, view, proj );
         for ( const ShadowCasterInstance& caster : batches.boxes )
         {
             if ( isVisible( caster ) )
@@ -679,9 +681,9 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
     if ( !batches.pines.empty() )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Pines" );
-        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "Pines" );
+        DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Pines" );
 
-        auto pineBatch = helperContext.helper.BeginShadowDepthPineBatch( helperContext, view, proj );
+        auto pineBatch = primitiveContext.renderer.BeginShadowDepthPineBatch( primitiveContext, view, proj );
         for ( const ShadowCasterInstance& caster : batches.pines )
         {
             if ( isVisible( caster ) )
@@ -695,31 +697,31 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
     if ( !batches.convexHulls.empty() )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/ConvexHulls" );
-        DRAW_CALL_TRACE_SCOPE( helperContext.renderDiagnostics, "ConvexHulls" );
+        DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "ConvexHulls" );
 
         for ( const auto& caster : batches.convexHulls )
         {
             if ( caster.hull && isVisible( caster.instance ) )
             {
-                helperContext.helper.DrawShadowDepthConvexHullModel( helperContext,
-                                                                     *caster.hull,
-                                                                     caster.instance.model,
-                                                                     view,
-                                                                     proj );
+                primitiveContext.renderer.DrawShadowDepthConvexHullModel( primitiveContext,
+                                                                          *caster.hull,
+                                                                          caster.instance.model,
+                                                                          view,
+                                                                          proj );
                 ++submitted;
             }
         }
     }
-    helperContext.renderDiagnostics.RecordVisibility(
+    primitiveContext.renderDiagnostics.RecordVisibility(
         visibilityView,
         candidates,
         submitted,
         candidates - submitted,
-        (std::max)( 0, helperContext.renderDiagnostics.GetFrameDrawCallCount() - drawCountBefore ) );
+        (std::max)( 0, primitiveContext.renderDiagnostics.GetFrameDrawCallCount() - drawCountBefore ) );
 }
 
 
-void GameModelRenderer::RenderShadowCasters( const RenderHelperContext& helperContext,
+void GameModelRenderer::RenderShadowCasters( const PrimitiveRenderContext& primitiveContext,
                                              const RenderInstanceStore& renderStore,
                                              const SkullbonezCore::Physics::ColliderStore& colliderStore,
                                              SkullbonezCore::Threading::WorkerPool* workerPool,
@@ -731,7 +733,7 @@ void GameModelRenderer::RenderShadowCasters( const RenderHelperContext& helperCo
 {
     ShadowCasterBatches batches;
     BuildShadowCasterBatches( renderStore, colliderStore, workerPool, useShadowParallelPrep, batches );
-    SubmitShadowCasterBatches( helperContext, batches, view, proj, cinematic, visibilityView );
+    SubmitShadowCasterBatches( primitiveContext, batches, view, proj, cinematic, visibilityView );
 }
 
 

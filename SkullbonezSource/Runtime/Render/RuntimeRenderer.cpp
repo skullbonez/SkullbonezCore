@@ -60,7 +60,7 @@ Related:
 #include "../Scene/SceneController.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsEngine.h"
-#include "../../Rendering/Helper.h"
+#include "../../Rendering/PrimitiveBatchRenderer.h"
 #include "../../Rendering/IRenderDiagnostics.h"
 #include "../../Rendering/IRenderDeviceLifecycle.h"
 #include "../../Rendering/RenderInstanceStore.h"
@@ -72,6 +72,9 @@ Related:
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+
+using SkullbonezCore::Rendering::PrimitiveBatchRenderer;
+using SkullbonezCore::Rendering::PrimitiveRenderContext;
 #include <cstddef>
 #include <fstream>
 #include <variant>
@@ -355,7 +358,7 @@ void ExecuteTerrainGraphCallback( const SkullbonezCore::Rendering::RenderGraphPa
     {
         SB_FATAL( "RunRender", "TerrainPass graph callback missing execution data." );
     }
-    const float* clipPlane = data->frame->renderHelper ? data->frame->renderHelper->GetClipPlane() : nullptr;
+    const float* clipPlane = data->frame->primitiveBatches ? data->frame->primitiveBatches->GetClipPlane() : nullptr;
     data->terrainPass->Render(
         { *data->frame, data->cinematic, data->shadow, data->detailShadow, clipPlane, data->terrainHidden } );
 }
@@ -440,21 +443,21 @@ void RenderReplayPredictionGhosts( ReplayRuntime& replayRuntime,
         return;
     }
     assert( frame.renderResources && frame.renderCommands && frame.renderDiagnostics && frame.assets &&
-            frame.renderHelper );
-    const RenderHelperContext helperContext{ *frame.renderResources,
-                                             *frame.renderCommands,
-                                             *frame.renderDiagnostics,
-                                             *frame.assets,
-                                             config,
-                                             *frame.renderHelper };
-    auto boxBatch = helperContext.helper.BeginBoxBatch( helperContext,
-                                                        frame.baseView,
-                                                        frame.projection,
-                                                        frame.lightPosition,
-                                                        true,
-                                                        cinematic,
-                                                        shadow,
-                                                        1.0f );
+            frame.primitiveBatches );
+    const PrimitiveRenderContext primitiveContext{ *frame.renderResources,
+                                                   *frame.renderCommands,
+                                                   *frame.renderDiagnostics,
+                                                   *frame.assets,
+                                                   config,
+                                                   *frame.primitiveBatches };
+    auto boxBatch = primitiveContext.renderer.BeginBoxBatch( primitiveContext,
+                                                             frame.baseView,
+                                                             frame.projection,
+                                                             frame.lightPosition,
+                                                             true,
+                                                             cinematic,
+                                                             shadow,
+                                                             1.0f );
 
     for ( const ReplayPredictionGhostDrawRequest& request : replayRuntime.PredictionGhostDrawRequests() )
     {
@@ -1442,7 +1445,7 @@ RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderInputs& renderInput
     frame.renderResources = &services.renderResources;
     frame.renderCommands = &services.renderCommands;
     frame.renderDiagnostics = &services.renderDiagnostics;
-    frame.renderHelper = &Helper();
+    frame.primitiveBatches = &PrimitiveBatches();
     frame.renderRayTracing = services.renderRayTracing;
     frame.windowWidth = (std::max)( 1, m_window.ClientWidth() );
     frame.windowHeight = (std::max)( 1, m_window.ClientHeight() );
@@ -1497,7 +1500,7 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend,
                                   const RenderSceneView& scene )
     : m_lifecycleLog( backend.deviceLifecycle, scene.sceneController.State() ), m_assets( world.assets ),
       m_cameras( world.cameras ), m_terrain( world.terrain ), m_window( world.window ), m_config( world.config ),
-      m_world( world.worldEnvironment ), m_renderHelper( std::in_place, backend.renderResources ),
+      m_world( world.worldEnvironment ), m_primitiveBatches( std::in_place, backend.renderResources ),
       m_collisionVisualizer( world.collisionVisualizer ), m_broadphaseVisualizer( world.broadphaseVisualizer ),
       m_physicsDebugVisualizer( world.physicsDebugVisualizer ), m_profiler( world.profiler ),
       m_fullscreenQuadPass( m_passResources.fullscreen ),
@@ -1551,24 +1554,26 @@ SkullbonezCore::Core::SbResult RuntimeRenderer::InitialiseSceneRayTracing( const
         return SkullbonezCore::Core::SbResult::Success();
     }
 
-    if ( Helper().GetSphereInstMeshHandle() == 0 )
+    Rendering::PrimitiveMeshGeometryView sphereGeometry = PrimitiveBatches().SphereGeometry();
+    if ( sphereGeometry.instancedMeshHandle == 0 )
     {
         if ( !backend.renderResources || !backend.renderCommands )
         {
             // Lane F: capability publication without the resource facets needed
-            // to build the renderer-owned helper mesh is invalid backend wiring.
+            // to build the renderer-owned primitive mesh is invalid backend wiring.
             SB_FATAL( "RuntimeRenderer",
                       "DXR reflection initialization requires resource and command facets. resources=%d commands=%d",
                       backend.renderResources ? 1 : 0,
                       backend.renderCommands ? 1 : 0 );
         }
-        const RenderHelperContext helperContext{ *backend.renderResources,
-                                                 *backend.renderCommands,
-                                                 *renderDiagnostics,
-                                                 m_assets,
-                                                 m_config,
-                                                 Helper() };
-        Helper().EnsureSphereMesh( helperContext );
+        const PrimitiveRenderContext primitiveContext{ *backend.renderResources,
+                                                       *backend.renderCommands,
+                                                       *renderDiagnostics,
+                                                       m_assets,
+                                                       m_config,
+                                                       PrimitiveBatches() };
+        PrimitiveBatches().EnsureSphereMesh( primitiveContext );
+        sphereGeometry = PrimitiveBatches().SphereGeometry();
     }
 
     if ( !m_terrain.Get() || !m_terrain.Get()->GetMesh() )
@@ -1578,7 +1583,7 @@ SkullbonezCore::Core::SbResult RuntimeRenderer::InitialiseSceneRayTracing( const
 
     Rendering::IMesh* terrainMesh = m_terrain.Get()->GetMesh();
     const uint64_t terrainVBVA = terrainMesh->GetVertexBufferGPUVA();
-    const uint32_t sphereHandle = Helper().GetSphereInstMeshHandle();
+    const uint32_t sphereHandle = sphereGeometry.instancedMeshHandle;
     const uint64_t sphereVBVA = rayTracing->GetInstancedMeshStaticVBVA( sphereHandle );
     if ( terrainVBVA == 0 || sphereVBVA == 0 )
     {
@@ -1591,7 +1596,7 @@ SkullbonezCore::Core::SbResult RuntimeRenderer::InitialiseSceneRayTracing( const
                                 terrainMesh->GetVertexCount(),
                                 terrainMesh->GetStride(),
                                 sphereVBVA,
-                                Helper().GetSphereVertexCount(),
+                                sphereGeometry.vertexCount,
                                 rayTracing->GetInstancedMeshStaticStride( sphereHandle ),
                                 modelCapacity );
 }
@@ -1777,13 +1782,13 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     {
         RuntimeAllocation::RuntimeAllocationScope allocationScope(
             RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
-        RenderHelperContext helperContext{ services.renderResources,
-                                           services.renderCommands,
-                                           services.renderDiagnostics,
-                                           services.assets,
-                                           m_config,
-                                           Helper() };
-        Helper().EnsureShadowDepthPrimitiveResources( helperContext );
+        PrimitiveRenderContext primitiveContext{ services.renderResources,
+                                                 services.renderCommands,
+                                                 services.renderDiagnostics,
+                                                 services.assets,
+                                                 m_config,
+                                                 PrimitiveBatches() };
+        PrimitiveBatches().EnsureShadowDepthPrimitiveResources( primitiveContext );
         if ( services.terrain )
         {
             services.terrain->EnsureShadowDepthResources();
@@ -2093,7 +2098,7 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
             m_world.ReleaseRenderResources();
             break;
         case BackendResourceStep::HelperOwner:
-            m_renderHelper.reset();
+            m_primitiveBatches.reset();
             break;
         case BackendResourceStep::CollisionVisualizer:
             m_collisionVisualizer.ResetResources( context.renderResources );
@@ -2168,7 +2173,7 @@ RuntimeRenderer::InitialiseProcessResources( Rendering::IRenderResourceFactory& 
         switch ( phase.step )
         {
         case RebuildStep::RecreateHelperOwner:
-            m_renderHelper.emplace( &renderResources );
+            m_primitiveBatches.emplace( &renderResources );
             break;
         case RebuildStep::RegisterBuiltInSources:
             m_assets.RegisterBuiltInSourceAssets( config );

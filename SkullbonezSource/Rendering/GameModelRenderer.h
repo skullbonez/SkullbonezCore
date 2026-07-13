@@ -39,11 +39,6 @@ namespace Core
 {
 struct CinematicRenderConfig;
 } // namespace Core
-namespace Runtime
-{
-struct RenderHelperContext;
-} // namespace Runtime
-
 namespace Physics
 {
 class ColliderStore;
@@ -51,8 +46,9 @@ class ColliderStore;
 
 namespace Rendering
 {
+struct PrimitiveRenderContext;
 class RenderInstanceStore;
-}
+} // namespace Rendering
 
 namespace Threading
 {
@@ -64,7 +60,7 @@ namespace GameObjects
 class GameModelRenderer
 {
   public:
-    static void RenderModels( const Runtime::RenderHelperContext& helperContext,
+    static void RenderModels( const Rendering::PrimitiveRenderContext& primitiveContext,
                               const Rendering::RenderInstanceStore& renderStore,
                               const Physics::ColliderStore& colliderStore,
                               bool renderCollisionVolumes,
@@ -82,13 +78,13 @@ class GameModelRenderer
                                           Threading::WorkerPool* workerPool,
                                           bool useShadowParallelPrep,
                                           Rendering::ShadowCasterBatches& outBatches );
-    static void SubmitShadowCasterBatches( const Runtime::RenderHelperContext& helperContext,
+    static void SubmitShadowCasterBatches( const Rendering::PrimitiveRenderContext& primitiveContext,
                                            const Rendering::ShadowCasterBatches& batches,
                                            const Math::Transformation::Matrix4& view,
                                            const Math::Transformation::Matrix4& proj,
                                            const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                            Rendering::RenderVisibilityView visibilityView );
-    static void RenderShadowCasters( const Runtime::RenderHelperContext& helperContext,
+    static void RenderShadowCasters( const Rendering::PrimitiveRenderContext& primitiveContext,
                                      const Rendering::RenderInstanceStore& renderStore,
                                      const Physics::ColliderStore& colliderStore,
                                      Threading::WorkerPool* workerPool,

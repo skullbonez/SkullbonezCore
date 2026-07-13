@@ -183,6 +183,7 @@ RENDERING_PREFIXES = (
     "IRenderShaderDevelopment",
     "IRenderResourceFactory",
     "IShader",
+    "PrimitiveBatchRenderer",
     "PrimitiveMeshBuilder",
     "RenderGraph",
     "RenderRasterBindingContract",

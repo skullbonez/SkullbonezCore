@@ -196,22 +196,82 @@ screenshots, and physics matched the 44,401-line baseline byte-exactly.
 
 ## R6 — Dissolve `Rendering/Helper.{h,cpp}`
 
-- [ ] Produce the routine inventory: every function/struct in `Helper.h` +
+- [x] Produce the routine inventory: every function/struct in `Helper.h` +
       `Helper.cpp` (1,424 lines) with its real state owner named.
-- [ ] Move primitive/instance batch scope machinery → `PrimitiveMeshBuilder`
-      / `RenderInstanceStore` (or the runtime render pass owner that flushes
-      it).
-- [ ] Move shadow-related helpers → the `Shadow.h` owner.
-- [ ] Move DXR instance/upload bridging → `Rendering/DX12/` DXR owners
-      (BLAS/TLAS/SBT files).
-- [ ] Move runtime-facing composition helpers → `Runtime/Render/` owners.
-- [ ] Anything left without a clear owner gets a named decision here — no new
+      Resolved inventory (current files are 341 + 1,429 lines):
+      - `RenderHelperContext` → `Rendering::PrimitiveRenderContext`, the typed
+        per-call render/resource/config borrow passed by runtime render owners.
+      - `RenderHelperState`, `RenderHelper`, `PrimitiveBatchKind`, and
+        `PrimitiveBatchScope` → `Rendering::PrimitiveBatchRenderer`; they own the
+        sphere/box/pine meshes, shaders, material table, convex-hull dynamic
+        vertex scratch, clip plane, instance arrays, and exactly-once batch
+        flush invariant.
+      - Context/resource internals `Resources`, `Commands`, `AssetRegistry`,
+        `Config`; payload records `PrimitiveBatchShaderConstants`,
+        `InstancedShadowDepthConstants`, `PrimitiveBatchShaderParams`; and
+        material/geometry helpers `BeginPrimitiveBatchTransparency`,
+        `EndPrimitiveBatchTransparency`, `MaterialByte`,
+        `EnsureMaterialTableTexture`, `AppendMaterialInstancePayload`,
+        `BuildSingleMaterialInstancePayload`, `BuildSingleMatrixPayload`,
+        `EnsureConvexHullDynamicVB`, `BuildConvexHullDynamicVertices`,
+        `ApplySceneLightConstants`, `ApplySceneLightUniforms`,
+        `ApplyBatchLightConstants`, `ObjectStyleForShader`,
+        `ObjectStyleForMeshSelection`, `BindPrimitiveBatchShader` → private
+        implementation details of `PrimitiveBatchRenderer`. Canonical CPU
+        triangle emission remains in the pre-existing
+        `Rendering::PrimitiveMeshes` owner (`PrimitiveMeshBuilder.h`).
+      - Sphere owner operations: `EnsureSphereShader`, `EnsureSphereMesh`,
+        `BuildSphereMesh`, `BuildLowPolySphereMesh`, sphere batch begin/model/end,
+        and public `BeginSphereBatch` → `PrimitiveBatchRenderer`.
+      - Box owner operations: `BuildBoxMesh`, box batch begin/model/end, public
+        `BeginBoxBatch`, and convex-hull visible draw/upload →
+        `PrimitiveBatchRenderer` because all use the same instance/material ABI.
+      - Pine owner operations: `BuildPineMesh`, pine batch begin/model/end, and
+        public `BeginPineBatch` → `PrimitiveBatchRenderer`.
+      - Shadow-depth shader/resource prewarm, `FillShadowReceiverConstants`,
+        sphere/box/pine shadow batch begin/model/end, convex-hull depth draw,
+        and public shadow batch scopes → `PrimitiveBatchRenderer`; these submit
+        builder-owned primitive geometry. Generic projection, bias, receiver,
+        texel-snap, and frame-data math already remains in `Rendering/Shadow.h`
+        and the `ShadowPass` owner rather than being duplicated here.
+      - Resource lifetime operations (`BindRenderResourceFactory`, destructor,
+        `ReleaseOwnedRenderResources`) → `PrimitiveBatchRenderer`.
+      - DXR sphere handle/count accessors → one typed
+        `PrimitiveMeshGeometryView` value published by `PrimitiveBatchRenderer`;
+        `RuntimeRenderer` passes that value to the existing `IRenderRayTracing`
+        owner, so no DXR backend reaches into builder state.
+      - `SetClipPlane`/`GetClipPlane` remain builder-owned draw policy.
+        Unused `StateSetup` and unused tint-only compatibility overloads are
+        deleted rather than migrated.
+- [x] Keep primitive/instance batch scope machinery with the cohesive
+      `Rendering::PrimitiveBatchRenderer` owner. Canonical CPU mesh emission
+      remains in `PrimitiveMeshes`; `RenderInstanceStore` remains the durable
+      scene-instance store rather than absorbing transient draw batching.
+- [x] Keep primitive shadow submission with `PrimitiveBatchRenderer`, whose
+      meshes, instance scratch, and shader resources it consumes. Generic
+      shadow projection/bias/frame math remains in `Shadow.h`/`ShadowPass`.
+- [x] Replace raw DXR sphere accessors with `PrimitiveMeshGeometryView` and
+      pass that value from `RuntimeRenderer` into the existing ray-tracing
+      owner; no backend-specific bridge or new DX12 owner was needed.
+- [x] Move runtime-facing context and frame lookup composition into
+      `Runtime/Render/RuntimeRenderer.*` and `RuntimeRenderPasses.*`.
+- [x] Anything left without a clear owner gets a named decision here — no new
       `*Util`/`*Common`/`*Misc` file is allowed to absorb it.
-- [ ] Delete `Helper.h`/`Helper.cpp`; update `.vcxproj` + `.filters` +
-      includes; `tools\validate_project_filters` clean.
-- [ ] Learning-header/comment audit on every touched destination file.
-- [ ] `tools\validate_dx12_renderer.bat` pass + `tools\run_graphics_stress.bat 1`
-      command, measured runtime, and exit evidence recorded.
+- [x] Delete `Helper.h`/`Helper.cpp`; update `.vcxproj` + `.filters` +
+      includes; `tools\validate_project_filters` clean (664 project items,
+      664 filter items, zero errors).
+- [x] Learning-header/comment audit on all 10 touched destination source files:
+      10 checked, zero deferred. Each retains the required File/Purpose/
+      Mental-model/Glossary teaching surface and local ownership/lifetime/
+      invariant comments where the renamed boundary is non-obvious.
+- [x] `tools\validate_dx12_renderer.bat` passed in 48.5s: zero DX12 InfoQueue
+      errors and all three screenshots matched committed baselines.
+      `tools\run_graphics_stress.bat 1` completed in 61.8s with exit code 0;
+      PID 24084 ran for the bounded minute and was stopped by the script's
+      PID-scoped timeout without a crash. The final
+      `tools\validate_fast.bat` also passed in 46.6s, and both allocation-policy
+      self-test/repository scans passed
+      after the renamed allowlist paths/patterns were reconciled.
 
 ## R7 — C++20 upgrade
 
