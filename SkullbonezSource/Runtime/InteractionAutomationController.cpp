@@ -97,6 +97,10 @@ Json Vec3Json( const Vector3& value )
 
 constexpr uint64_t INTERACTION_PREDICTION_FINGERPRINT_OFFSET = 1469598103934665603ull;
 constexpr uint64_t INTERACTION_PREDICTION_FINGERPRINT_PRIME = 1099511628211ull;
+// Invariant: the mega probe holds the reveal at zero through prediction build
+// and begins presentation at one fixed scene frame. Worker completion speed
+// must never decide when the operator sees the causal unfold begin.
+constexpr int REPLAY_VISUAL_FIDELITY_START_FRAME = 900;
 
 struct PredictionTrajectoryFingerprint
 {
@@ -772,6 +776,8 @@ const char* ActionTypeName( RunInteractionAutomationActionType type )
         return "setReplayPredictionEnabled";
     case RunInteractionAutomationActionType::SetReplayPredictionHorizonSeconds:
         return "setReplayPredictionHorizonSeconds";
+    case RunInteractionAutomationActionType::BeginReplayVisualFidelityCapture:
+        return "beginReplayVisualFidelityCapture";
     case RunInteractionAutomationActionType::SetReplayPathTarget:
         return "setReplayPathTarget";
     case RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity:
@@ -1650,6 +1656,19 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         }
         outAction.type = RunInteractionAutomationActionType::SetReplayPredictionHorizonSeconds;
         outAction.numberValue = entry["setReplayPredictionHorizonSeconds"].get<float>();
+        return true;
+    }
+
+    if ( entry.contains( "beginReplayVisualFidelityCapture" ) )
+    {
+        if ( !IsBoolValue( entry["beginReplayVisualFidelityCapture"] ) ||
+             !ReadBool( entry["beginReplayVisualFidelityCapture"] ) )
+        {
+            outError = "beginReplayVisualFidelityCapture must be true";
+            return false;
+        }
+        outAction.type = RunInteractionAutomationActionType::BeginReplayVisualFidelityCapture;
+        outAction.boolValue = true;
         return true;
     }
 
@@ -2560,6 +2579,36 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
     }
 
     const int frame = scene.State().currentFrame;
+    if ( state.replayVisualFidelityCaptureEnabled )
+    {
+        RunReplayPredictionState& prediction = replayRuntime.Prediction();
+        if ( state.replayVisualFidelityStartFrame < 0 && frame == REPLAY_VISUAL_FIDELITY_START_FRAME )
+        {
+            if ( prediction.build.building || prediction.simulation.frames.size() < 2u || !prediction.build.complete )
+            {
+                FailAutomation( state,
+                                "replay visual fidelity prediction was not fully published before fixed reveal start" );
+            }
+            else
+            {
+                state.replayVisualFidelityStartFrame = frame;
+                prediction.revealClock.deterministicFrameEnabled = true;
+                prediction.revealClock.deterministicFrame = 0;
+                prediction.revealClock.presentedFrame = 0;
+            }
+        }
+        else if ( state.replayVisualFidelityStartFrame < 0 && frame > REPLAY_VISUAL_FIDELITY_START_FRAME )
+        {
+            FailAutomation( state, "replay visual fidelity missed its fixed reveal start frame" );
+        }
+        if ( state.replayVisualFidelityStartFrame >= 0 )
+        {
+            RunReplayPredictionRevealClock& revealClock = prediction.revealClock;
+            revealClock.deterministicFrameEnabled = true;
+            revealClock.deterministicFrame = static_cast<ReplayFrameIndex>(
+                (std::max)( 0, frame - state.replayVisualFidelityStartFrame ) );
+        }
+    }
     if ( state.releaseLeftFrame == frame )
     {
         state.leftMouseDown = false;
@@ -2666,6 +2715,30 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                 } );
             action.processed = true;
             break;
+        case RunInteractionAutomationActionType::BeginReplayVisualFidelityCapture:
+        {
+            state.replayVisualFidelityCaptureEnabled = true;
+            state.replayVisualFidelityStartFrame = -1;
+            state.replayVisualFidelityTicks.clear();
+            state.replayVisualFidelityTicks.reserve(
+                static_cast<std::size_t>( REPLAY_FUTURE_BUFFER_SECONDS / PHYSICS_FIXED_DT ) + 2u );
+            // Invariant: arm before target selection so validation observes one
+            // causal unfold. Letting wall-clock reveal run first would retain
+            // markers, then rewinding to zero would create a broken second pass.
+            RunReplayPredictionRevealClock& revealClock = replayRuntime.Prediction().revealClock;
+            revealClock.deterministicFrameEnabled = true;
+            revealClock.deterministicFrame = 0;
+            revealClock.presentedFrame = 0;
+            AppendReportAction( state,
+                                frame,
+                                action.type,
+                                "prediction",
+                                nullptr,
+                                true,
+                                "reveal held at zero; frame-exact capture starts after prediction publication" );
+            action.processed = true;
+            break;
+        }
         case RunInteractionAutomationActionType::PressKey:
             // Why: key automation should still enter through Input and
             // RuntimeInputContext edge detection. This only supplies the
@@ -2900,6 +2973,38 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
         action.processed = true;
     }
 
+    if ( state.replayVisualFidelityCaptureEnabled && state.replayVisualFidelityStartFrame >= 0 &&
+         state.replayVisualFidelityTicks.size() < replayRuntime.Prediction().simulation.frames.size() )
+    {
+        const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& submission =
+            runtimeTools.EditorTracer().ReplaySubmissionStats();
+        ReplayVisualFidelityReportTick tick;
+        tick.sceneFrame = frame;
+        tick.revealFrame = replayRuntime.Prediction().revealClock.presentedFrame;
+        tick.ordinaryLineHash = submission.ordinaryLineHash;
+        tick.priorityLineHash = submission.priorityLineHash;
+        tick.priorityLineCanonicalHash = submission.priorityLineCanonicalHash;
+        tick.ordinaryRibbonHash = submission.ordinaryRibbonHash;
+        tick.priorityRibbonHash = submission.priorityRibbonHash;
+        tick.priorityRibbonCanonicalHash = submission.priorityRibbonCanonicalHash;
+        tick.vertexHash = submission.vertexHash;
+        tick.ordinaryVertexHash = submission.ordinaryVertexHash;
+        tick.ordinaryLineBytes = submission.ordinaryLineBytes;
+        tick.priorityLineBytes = submission.priorityLineBytes;
+        tick.ordinaryRibbonBytes = submission.ordinaryRibbonBytes;
+        tick.priorityRibbonBytes = submission.priorityRibbonBytes;
+        tick.vertexBytes = submission.vertexBytes;
+        tick.ordinaryVertexBytes = submission.ordinaryVertexBytes;
+        tick.ordinaryLineVertexCount = submission.ordinaryLineVertexCount;
+        tick.priorityLineVertexCount = submission.priorityLineVertexCount;
+        tick.ordinaryRibbonSegmentCount = submission.ordinaryRibbonSegmentCount;
+        tick.priorityRibbonSegmentCount = submission.priorityRibbonSegmentCount;
+        tick.vertexCount = submission.vertexCount;
+        tick.ordinaryVertexCount = submission.ordinaryVertexCount;
+        tick.segmentCount = submission.segmentCount;
+        state.replayVisualFidelityTicks.push_back( tick );
+    }
+
     bool allProcessed = true;
     int lastFrame = frame;
     for ( const RunInteractionAutomationAction& action : state.actions )
@@ -3002,6 +3107,35 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
         screenshots.push_back( screenshot );
     }
 
+    Json replayVisualFidelityTicks = Json::array();
+    for ( const ReplayVisualFidelityReportTick& tick : state.replayVisualFidelityTicks )
+    {
+        replayVisualFidelityTicks.push_back(
+            Json{ { "sceneFrame", tick.sceneFrame },
+                  { "revealFrame", tick.revealFrame },
+                  { "ordinaryLineHash", FormatPredictionHash( tick.ordinaryLineHash ) },
+                  { "priorityLineHash", FormatPredictionHash( tick.priorityLineHash ) },
+                  { "priorityLineCanonicalHash", FormatPredictionHash( tick.priorityLineCanonicalHash ) },
+                  { "ordinaryRibbonHash", FormatPredictionHash( tick.ordinaryRibbonHash ) },
+                  { "priorityRibbonHash", FormatPredictionHash( tick.priorityRibbonHash ) },
+                  { "priorityRibbonCanonicalHash", FormatPredictionHash( tick.priorityRibbonCanonicalHash ) },
+                  { "vertexHash", FormatPredictionHash( tick.vertexHash ) },
+                  { "ordinaryVertexHash", FormatPredictionHash( tick.ordinaryVertexHash ) },
+                  { "ordinaryLineBytes", tick.ordinaryLineBytes },
+                  { "priorityLineBytes", tick.priorityLineBytes },
+                  { "ordinaryRibbonBytes", tick.ordinaryRibbonBytes },
+                  { "priorityRibbonBytes", tick.priorityRibbonBytes },
+                  { "vertexBytes", tick.vertexBytes },
+                  { "ordinaryVertexBytes", tick.ordinaryVertexBytes },
+                  { "ordinaryLineVertexCount", tick.ordinaryLineVertexCount },
+                  { "priorityLineVertexCount", tick.priorityLineVertexCount },
+                  { "ordinaryRibbonSegmentCount", tick.ordinaryRibbonSegmentCount },
+                  { "priorityRibbonSegmentCount", tick.priorityRibbonSegmentCount },
+                  { "vertexCount", tick.vertexCount },
+                  { "ordinaryVertexCount", tick.ordinaryVertexCount },
+                  { "segmentCount", tick.segmentCount } } );
+    }
+
     const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), scene.BodyStore() );
     const char* selectedName = "";
     if ( selectedIndex >= 0 && selectedIndex < scene.SceneEntityCount() )
@@ -3037,6 +3171,53 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
     const RunReplayPredictionState& predictionState = replayRuntime.Prediction();
     const ReplayPredictionBaselineSnapshot& predictionBaseline = predictionState.baseline;
     const bool predictionBaselineVisible = predictionBaseline.valid && predictionBaseline.comparisonActive;
+    int predictionAuthoredWallBrickCount = 0;
+    int predictionAffectedWallBrickCount = 0;
+    int predictionMovedWallBrickCount = 0;
+    const RunReplayPredictionFrame* predictionFirstFrame =
+        predictionState.simulation.frames.empty() ? nullptr : &predictionState.simulation.frames.front();
+    const RunReplayPredictionFrame* predictionLastFrame =
+        predictionState.simulation.frames.empty() ? nullptr : &predictionState.simulation.frames.back();
+    for ( int modelIndex = 0; modelIndex < scene.SceneEntityCount(); ++modelIndex )
+    {
+        const SceneEntityRecord& entity = scene.Entities().At( modelIndex );
+        if ( strncmp( entity.displayName, "prediction_wall_brick_", 22u ) != 0 )
+        {
+            continue;
+        }
+        ++predictionAuthoredWallBrickCount;
+        const bool affected = std::any_of(
+            predictionState.futureNodeCache.futureNodes.begin(),
+            predictionState.futureNodeCache.futureNodes.end(),
+            [&]( const RunReplayPathTraceNode& node ) { return node.modelRow.value == modelIndex; } );
+        predictionAffectedWallBrickCount += affected ? 1 : 0;
+        if ( !predictionFirstFrame || !predictionLastFrame )
+        {
+            continue;
+        }
+        const RunReplayPredictionBodySample* firstBody = nullptr;
+        const RunReplayPredictionBodySample* lastBody = nullptr;
+        for ( const RunReplayPredictionBodySample& body : predictionFirstFrame->bodies )
+        {
+            if ( body.modelRow.value == modelIndex )
+            {
+                firstBody = &body;
+                break;
+            }
+        }
+        for ( const RunReplayPredictionBodySample& body : predictionLastFrame->bodies )
+        {
+            if ( body.modelRow.value == modelIndex )
+            {
+                lastBody = &body;
+                break;
+            }
+        }
+        if ( firstBody && lastBody && VectorMagSquared( lastBody->position - firstBody->position ) > 0.000001f )
+        {
+            ++predictionMovedWallBrickCount;
+        }
+    }
     const PredictionTrajectoryFingerprint predictionTrajectoryFingerprint =
         BuildPredictionTrajectoryFingerprint( replayRuntime );
     const ReplayTrajectorySubmissionProbeStats& predictionSubmissionProbe =
@@ -3098,6 +3279,10 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
     report["actions"] = actions;
     report["assertions"] = assertions;
     report["screenshots"] = screenshots;
+    report["replayVisualFidelity"] = Json{ { "schemaVersion", 1 },
+                                           { "startFrame", state.replayVisualFidelityStartFrame },
+                                           { "tickCount", state.replayVisualFidelityTicks.size() },
+                                           { "ticks", replayVisualFidelityTicks } };
     report["failure"] = state.failure;
     report["finalState"] = Json{
         { "cameraMode", CameraModeName( camera.mode ) },
@@ -3205,6 +3390,9 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
         { "predictionTrajectoryReserveGrowthEventsAtStart", predictionSubmissionProbe.reserveGrowthEventsAtStart },
         { "predictionTrajectoryReserveGrowthEventsAtEnd", predictionSubmissionProbe.reserveGrowthEventsAtEnd },
         { "predictionFutureNodeCount", static_cast<int>( predictionState.futureNodeCache.futureNodes.size() ) },
+        { "predictionAuthoredWallBrickCount", predictionAuthoredWallBrickCount },
+        { "predictionAffectedWallBrickCount", predictionAffectedWallBrickCount },
+        { "predictionMovedWallBrickCount", predictionMovedWallBrickCount },
         { "predictionFutureNodeBuildFrameCount",
           static_cast<int>( predictionState.futureNodeCache.futureNodesBuiltFrameCount ) },
         { "predictionRetainedEntryMarkerCount", static_cast<int>( predictionRetainedEntryMarkerCount ) },

@@ -84,6 +84,7 @@ enum class RunInteractionAutomationActionType
     ScrubReplaySolverTrack,
     SetReplayPredictionEnabled,
     SetReplayPredictionHorizonSeconds,
+    BeginReplayVisualFidelityCapture,
     SetReplayPathTarget,
     NudgeReplayPathTargetVelocity,
     ShowReplayScrubber,
@@ -181,6 +182,33 @@ struct RunInteractionAutomationReportAssertion
     bool passed = false;
 };
 
+struct ReplayVisualFidelityReportTick
+{
+    int sceneFrame = 0;
+    uint64_t revealFrame = 0;
+    uint64_t ordinaryLineHash = 0;
+    uint64_t priorityLineHash = 0;
+    uint64_t priorityLineCanonicalHash = 0;
+    uint64_t ordinaryRibbonHash = 0;
+    uint64_t priorityRibbonHash = 0;
+    uint64_t priorityRibbonCanonicalHash = 0;
+    uint64_t vertexHash = 0;
+    uint64_t ordinaryVertexHash = 0;
+    uint64_t ordinaryLineBytes = 0;
+    uint64_t priorityLineBytes = 0;
+    uint64_t ordinaryRibbonBytes = 0;
+    uint64_t priorityRibbonBytes = 0;
+    uint64_t vertexBytes = 0;
+    uint64_t ordinaryVertexBytes = 0;
+    uint32_t ordinaryLineVertexCount = 0;
+    uint32_t priorityLineVertexCount = 0;
+    uint32_t ordinaryRibbonSegmentCount = 0;
+    uint32_t priorityRibbonSegmentCount = 0;
+    uint32_t vertexCount = 0;
+    uint32_t ordinaryVertexCount = 0;
+    uint32_t segmentCount = 0;
+};
+
 struct InteractionAutomationController
 {
     bool enabled = false;
@@ -195,6 +223,9 @@ struct InteractionAutomationController
     std::vector<RunInteractionAutomationReportAction> actionReports;
     std::vector<RunInteractionAutomationReportAssertion> assertionReports;
     std::vector<std::string> screenshots;
+    std::vector<ReplayVisualFidelityReportTick> replayVisualFidelityTicks;
+    int replayVisualFidelityStartFrame = -1;
+    bool replayVisualFidelityCaptureEnabled = false;
     POINT mouseClientPosition = {};
     bool hasMouseClientPosition = false;
     bool leftMouseDown = false;

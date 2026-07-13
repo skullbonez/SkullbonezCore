@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 45, "showReplayScrubber": true },
+    { "frame": 60, "clickReplayControl": "predict" },
+    { "frame": 62, "setReplayPredictionHorizonSeconds": 20.0 },
+    { "frame": 63, "beginReplayVisualFidelityCapture": true },
+    { "frame": 78, "clickObject": "prediction_striker_ball", "button": "left" },
+    { "frame": 180, "assert": { "replayPredictionEnabled": true } },
+    { "frame": 180, "assert": { "replayPathTarget": "prediction_striker_ball" } },
+    { "frame": 180, "screenshot": "TestOutput/validation/replay_visual_fidelity/reveal_building.bmp" },
+    { "frame": 1800, "screenshot": "TestOutput/validation/replay_visual_fidelity/reveal_mid.bmp" },
+    { "frame": 3000, "screenshot": "TestOutput/validation/replay_visual_fidelity/reveal_late.bmp" },
+    { "frame": 4200, "assert": { "predictionFullHorizonComplete": true } },
+    { "frame": 4200, "assert": { "predictionTrajectoryFingerprintReady": true } },
+    { "frame": 4200, "screenshot": "TestOutput/validation/replay_visual_fidelity/reveal_complete.bmp" }
+  ]
+}

@@ -1,7 +1,7 @@
 # Replay Visual Fidelity Mega Probe — Frame-Exact 200-Box Prediction Proof
 
 Date: 2026-07-13
-Status: Live — 0/7 tasks complete
+Status: Live — 1/7 tasks complete
 Branch: `nightrunner-13th-july`
 Impact area: replay prediction, replay presentation, trajectory/marker
 submission, artifacts, automation, tests, and validation
@@ -88,9 +88,9 @@ and hashes. Hash-only diagnostics are insufficient.
 
 ## Tasks
 
-- [ ] **V0 — Freeze the working base and land the first complete gate.** Record
+- [x] **V0 — Freeze the working base and land the first complete gate.** Record
   the approved pre-refactor commit and all provenance. Build an end-to-end
-  Debug fixed-step probe that selects `prediction_striker_ball`, freezes seed
+  Profile fixed-step probe that selects `prediction_striker_ball`, freezes seed
   T, completes a bounded prediction horizon, releases live advance with no
   further input, records every compared `ReplayFrameIndex`, and writes a
   bounded report. Commit the first golden per-tick manifest. Inject one point
@@ -162,6 +162,44 @@ and hashes. Hash-only diagnostics are insufficient.
   `tools\validate_replay_visual_fidelity.bat`,
   `tools\validate_replay_scrub.bat`, `tools\validate_full.bat`, and required
   DX12 stress if DX12/tooling changed.
+
+## V0 Closure Evidence — 2026-07-14
+
+- Approved working base: commit `6a6ab4c65`, Profile x64, DX12, fixed step,
+  `prediction_striker_ball`, 20-second horizon, fixed presentation start scene
+  frame 900, and `ReplayFrameIndex` rows 0 through 2400 inclusive. The committed
+  manifest records scene, script, config, and shader-tree SHA-256 provenance.
+- The first draft exposed two false-determinism holes before baseline approval:
+  it allowed the wall-clock reveal to advance before rewinding its cursor, and
+  the shared replay visualizer deadline could omit the retained striker trail
+  and target marker after prediction work consumed the budget. The final probe
+  arms and holds reveal frame zero before target selection, starts once at the
+  fixed presentation frame, records zero restarts, and pins only the completed
+  automation reveal against the retained-refresh wall-clock skip. Production
+  builders and submission buffers remain the compared path.
+- Two clean processes matched all 2,401 rows, including ordered ordinary and
+  priority line hashes, ordered ordinary and priority ribbon hashes, canonical
+  marker diagnostics, expanded vertex hashes, byte/count fields, and the
+  trajectory structure. All 200 authored wall bricks moved within the horizon.
+- Negative control: mutation of `ticks[1200].ordinaryVertexHash` was rejected at
+  that exact field. Incomplete control: a 2,400-row horizon was rejected before
+  comparison. The gate never updates its baseline.
+- V0 gate: `tools\validate_replay_visual_fidelity.bat` passed. The final run
+  started at 00:06:22 and completed at 00:08:11 local time (about 109 seconds
+  total); the Profile build reported 12.51 seconds, zero warnings, and zero
+  errors, with the runtime/capture/comparison portion taking about 96 seconds.
+- Secondary screenshots were inspected at held/building, mid-cascade, late,
+  and full-horizon checkpoints under
+  `TestOutput/validation/replay_visual_fidelity/`. They remain evidence, not the
+  equality oracle.
+- Touched-source comment audit: 6/6 checked, 0 deferred —
+  `Core/MainMemoryStats.h`, `Runtime/Editor/RunEditorTracer.cpp`,
+  `Runtime/InteractionAutomationController.cpp`,
+  `Runtime/InteractionAutomationController.h`,
+  `Runtime/Replay/ReplayRuntime.h`, and
+  `Runtime/Replay/RunReplayTools.cpp`. Learning headers were retained and the
+  new reveal, exact-buffer, scheduling, and test-only ownership invariants are
+  documented beside the affected code.
 
 ## Dependencies And Decisions
 

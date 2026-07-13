@@ -112,9 +112,9 @@ concrete plan rows and counting it would duplicate tasks.
 | render-interface-and-workerpool-slimming | 5 | 5 | 100% |
 | runtime-contract-enforcement | 5 | 5 | 100% |
 | adversarial-review-round-3 | 10 | 10 | 100% |
-| replay-visual-fidelity-mega-probe | 0 | 7 | 0% |
+| replay-visual-fidelity-mega-probe | 1 | 7 | 14% |
 | replay-monolith-decomposition | 0 | 9 | 0% |
-| **Portfolio total** | **312** | **329** | **95%** |
+| **Portfolio total** | **313** | **329** | **95%** |
 
 ## Current Execution Priority
 
@@ -156,7 +156,7 @@ validation-gate V3 remains externally blocked.
 | Plan | State | Verified phase count | Next blocking action |
 |---|---|---:|---|
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs merge-group proof, required branch protection, and trusted/ephemeral DX12 runner administration |
-| [replay-visual-fidelity-mega-probe](TODO/replay-visual-fidelity-mega-probe.md) | Active | 0/7 | V0 freezes the working `nightrunner-13th-july` base and lands the first complete 200-box gate |
+| [replay-visual-fidelity-mega-probe](TODO/replay-visual-fidelity-mega-probe.md) | Active | 1/7 | V1 publishes the canonical replay-owned visual packet at the production presentation-to-render seam |
 | [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Blocked | 0/9 | Wait for V0-V6 closure; then every M0-M8 task runs the unchanged 200-box gate |
 
 ## Planned Architecture Work (2026-07-11 gap review)

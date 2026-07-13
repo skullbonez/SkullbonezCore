@@ -167,7 +167,24 @@ struct MainMemoryReplayTrajectoryStats
 struct MainMemoryReplayTrajectorySubmissionStats
 {
     bool hasGeometry = false;                               // True when the tracer submitted replay ribbon vertices this frame.
+    uint64_t ordinaryLineHash = 0;                          // Exact ordinary xyz/rgb line stream sent to DrawLinesColored.
+    uint64_t ordinaryLineBytes = 0;
+    uint32_t ordinaryLineVertexCount = 0;
+    uint64_t priorityLineHash = 0;                          // Exact priority marker line stream appended after ordinary lines.
+    uint64_t priorityLineCanonicalHash = 0;                 // Order-independent exact-record marker fingerprint.
+    uint64_t priorityLineBytes = 0;
+    uint32_t priorityLineVertexCount = 0;
+    uint64_t ordinaryRibbonHash = 0;                        // Exact packed ordinary replay-ribbon segment stream.
+    uint64_t ordinaryRibbonBytes = 0;
+    uint32_t ordinaryRibbonSegmentCount = 0;
+    uint64_t priorityRibbonHash = 0;                        // Exact packed priority replay-ribbon segment stream.
+    uint64_t priorityRibbonCanonicalHash = 0;               // Order-independent exact-record marker fingerprint.
+    uint64_t priorityRibbonBytes = 0;
+    uint32_t priorityRibbonSegmentCount = 0;
     uint64_t vertexHash = 0;                                // FNV hash of the exact submitted replay ribbon vertex byte stream.
+    uint64_t ordinaryVertexHash = 0;                        // Ordered expanded vertices before priority markers are appended.
+    uint64_t ordinaryVertexBytes = 0;
+    uint32_t ordinaryVertexCount = 0;
     uint64_t vertexBytes = 0;                               // Submitted replay ribbon byte count for the frame.
     uint32_t vertexCount = 0;                               // Submitted replay ribbon vertex count for the frame.
     uint32_t segmentCount = 0;                              // Source replay ribbon segment count expanded into vertices.

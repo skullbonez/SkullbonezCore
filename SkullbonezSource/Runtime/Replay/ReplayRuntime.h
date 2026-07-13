@@ -580,6 +580,9 @@ struct RunReplayPredictionRevealClock
     // restores, so steady_clock here cannot affect deterministic simulation.
     double secondsPerSecond = 1.0;                                    // Runtime-authored causal-unfold speed; 1.0 = real-time.
     std::chrono::steady_clock::time_point anchor = {};
+    ReplayFrameIndex presentedFrame = 0;                               // Last common reveal clamp consumed by replay presentation.
+    ReplayFrameIndex deterministicFrame = 0;                           // Automation-owned cursor; ignored outside fidelity capture.
+    bool deterministicFrameEnabled = false;
     bool anchorValid = false;
 };
 

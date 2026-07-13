@@ -379,18 +379,26 @@ double ReplayPredictionRevealSecondsPerSecond( const RunReplayPredictionState& p
 ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& prediction,
                                                    ReplayFrameIndex lastAvailableFrame )
 {
+    if ( prediction.revealClock.deterministicFrameEnabled )
+    {
+        prediction.revealClock.presentedFrame =
+            (std::min)( lastAvailableFrame, prediction.revealClock.deterministicFrame );
+        return prediction.revealClock.presentedFrame;
+    }
     if ( prediction.build.buildMode == ReplayPredictionBuildMode::Instant )
     {
         // Why: instant mode presents the completed future at once. The causal
         // unfold clock remains an amortized-mode presentation affordance.
-        return lastAvailableFrame;
+        prediction.revealClock.presentedFrame = lastAvailableFrame;
+        return prediction.revealClock.presentedFrame;
     }
     const auto now = std::chrono::steady_clock::now();
     if ( !prediction.revealClock.anchorValid )
     {
         prediction.revealClock.anchor = now;
         prediction.revealClock.anchorValid = true;
-        return 0;
+        prediction.revealClock.presentedFrame = 0;
+        return prediction.revealClock.presentedFrame;
     }
 
     const double availableSeconds = static_cast<double>( lastAvailableFrame ) * PHYSICS_FIXED_DT;
@@ -407,7 +415,9 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
     }
 
     const double revealFrame = revealSeconds / static_cast<double>( PHYSICS_FIXED_DT );
-    return (std::min)( lastAvailableFrame, static_cast<ReplayFrameIndex>( revealFrame ) );
+    prediction.revealClock.presentedFrame =
+        (std::min)( lastAvailableFrame, static_cast<ReplayFrameIndex>( revealFrame ) );
+    return prediction.revealClock.presentedFrame;
 }
 
 std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPredictionState& prediction,
@@ -4672,10 +4682,17 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
         // data from the advancing live timeline behind that frozen preview.
         return;
     }
-    if ( ReplayPredictionBudgetExpiredForPass( context.replayRuntime,
-                                               SkullbonezCore::Core::MainMemoryReplayBudgetPass::RetainedRefresh,
-                                               visualizerStart,
-                                               REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
+    const bool deterministicFidelityReveal = prediction.revealClock.deterministicFrameEnabled &&
+                                             prediction.build.complete && !prediction.build.building;
+    // Invariant: the frame-exact fidelity lane pins presentation scheduling.
+    // A wall-clock overrun may defer retained-cache work during interactive
+    // play, but it must not delete the striker trail and target marker from an
+    // otherwise identical compared ReplayFrameIndex.
+    if ( !deterministicFidelityReveal &&
+         ReplayPredictionBudgetExpiredForPass( context.replayRuntime,
+                                                SkullbonezCore::Core::MainMemoryReplayBudgetPass::RetainedRefresh,
+                                                visualizerStart,
+                                                REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
     {
         return;
     }
