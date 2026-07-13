@@ -126,25 +126,33 @@ void RefreshSceneBrowserList( RunSceneBrowserState& sceneBrowser )
     sceneBrowser.namePtrs.clear();
 
     const std::filesystem::path sceneDir = std::filesystem::path( DATA_ROOT ) / "scenes";
-    try
+    // Lane R: the browser is an editor convenience, so inaccessible paths
+    // clear the listing and report through the log instead of terminating.
+    std::error_code error;
+    if ( !std::filesystem::exists( sceneDir, error ) || error )
     {
-        if ( !std::filesystem::exists( sceneDir ) )
+        if ( error )
         {
-            return;
+            Log().WriteEventf( "scene_browser_refresh_failed message=\"%s\"", error.message().c_str() );
         }
+        return;
+    }
 
-        for ( const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator( sceneDir ) )
+    std::filesystem::directory_iterator iterator( sceneDir, error );
+    const std::filesystem::directory_iterator end;
+    while ( !error && iterator != end )
+    {
+        const std::filesystem::directory_entry& entry = *iterator;
+        std::error_code entryError;
+        if ( entry.is_regular_file( entryError ) && !entryError && IsSceneJsonFile( entry.path() ) )
         {
-            if ( !entry.is_regular_file() || !IsSceneJsonFile( entry.path() ) )
-            {
-                continue;
-            }
             sceneBrowser.paths.push_back( NormalizeScenePath( entry.path().generic_string() ) );
         }
+        iterator.increment( error );
     }
-    catch ( const std::filesystem::filesystem_error& e )
+    if ( error )
     {
-        Log().WriteEventf( "scene_browser_refresh_failed message=\"%s\"", e.what() );
+        Log().WriteEventf( "scene_browser_refresh_failed message=\"%s\"", error.message().c_str() );
         sceneBrowser.paths.clear();
     }
 

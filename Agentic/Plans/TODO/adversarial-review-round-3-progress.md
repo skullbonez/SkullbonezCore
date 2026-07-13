@@ -98,21 +98,21 @@ alive, PID 46576 was stopped after the 34s probe window.
 
 ## R4 — Compile out engine exceptions
 
-- [ ] Set `<ExceptionHandling>false</ExceptionHandling>` and add
+- [x] Set `<ExceptionHandling>false</ExceptionHandling>` and add
       `_HAS_EXCEPTIONS=0` to preprocessor definitions for SKULLBONEZ_CORE,
       SKULLBONEZ_MATHS, SKULLBONEZ_PHYSICS — all x64 configurations.
-- [ ] Keep SKULLBONEZ_TESTS and `Agentic/Tests/*` on `/EHsc` (doctest needs
+- [x] Keep SKULLBONEZ_TESTS and `Agentic/Tests/*` on `/EHsc` (doctest needs
       exceptions); record the boundary rule: engine TUs compiled under the
       test project inherit test flags, and no STL object with EH-dependent
       layout crosses a binary boundary.
-- [ ] Define `JSON_NOEXCEPTION` (or `JSON_THROW_USER=SB_FATAL` routing —
+- [x] Define `JSON_NOEXCEPTION` (or `JSON_THROW_USER=SB_FATAL` routing —
       decide and record; `JSON_NOEXCEPTION` + discard-checked parse is the
       default choice) wherever `ThirdPtySource/nlohmann/json.hpp` is compiled
       under an engine project.
-- [ ] Rework `TestSceneParserSchema.h` `ReadJsonFile`: replace `try/catch`
+- [x] Rework `TestSceneParserSchema.h` `ReadJsonFile`: replace `try/catch`
       with `Json::parse(input, nullptr, false)` and `is_discarded()`;
       malformed JSON stays a Lane R `Fail(path, message)` recoverable result.
-- [ ] Audit every engine-project nlohmann call site
+- [x] Audit every engine-project nlohmann call site
       (`ShaderBytecodeManifest.cpp`, `InteractionAutomationController.cpp`,
       `ContactAudioService.cpp`, `DemoDirector.cpp`, `SceneSnapshotWriter.cpp`,
       `Init.cpp`, `ReplayV2Artifact.cpp`, `RunScene.cpp`,
@@ -120,13 +120,30 @@ alive, PID 46576 was stopped after the 34s probe window.
       `RunEditorTools.cpp`): under `JSON_NOEXCEPTION`, unchecked `.get<T>()`
       on a wrong type aborts — every read must flow through the checked
       `Require*`/`Read*` helpers or an `is_*()` guard first.
-- [ ] Check stdlib fallout under `_HAS_EXCEPTIONS=0` (e.g. `std::stof/stoi`
+- [x] Check stdlib fallout under `_HAS_EXCEPTIONS=0` (e.g. `std::stof/stoi`
       usage, `std::filesystem` throwing overloads → error_code overloads).
-- [ ] Evidence: `dumpbin /headers /unwindinfo` (or equivalent) spot check on
+- [x] Evidence: `dumpbin /headers /unwindinfo` (or equivalent) spot check on
       `Profile\SKULLBONEZ_CORE.exe` objects shows no EH unwind tables for
       engine TUs; a deliberately malformed scene file still loads-fails
       recoverably with owner/message.
-- [ ] `tools\validate_full.bat` pass recorded.
+- [x] `tools\validate_full.bat` pass recorded.
+
+Decision and evidence (2026-07-13): engine projects use `/EHs-c-`,
+`_HAS_EXCEPTIONS=0`, and Core uses `JSON_NOEXCEPTION`; doctest keeps `/EHsc`.
+Engine sources compiled into SKULLBONEZ_TESTS inherit that test project's flags,
+and no STL object whose layout or lifetime depends on the exception setting may
+cross a binary ABI boundary. All JSON conversions were inspected and now have
+an `is_*()`/checked-helper guard; filesystem directory probes use
+`std::error_code`. `dumpbin /symbols` spot checks on the Profile
+`InteractionAutomationController.obj`, `SceneRuntimeCreate.obj`, and
+`TestSceneParser.obj` found no `__CxxFrameHandler`, `__CxxThrowException`,
+handler-map, try-map, or FuncInfo symbols (ordinary x64 stack-unwind
+`.pdata`/`.xdata` remains). The malformed-scene doctest passed with the
+`Scene/TestSceneParser` owner and `Invalid JSON` message, alongside the wrong
+member-type recoverable test. `tools\validate_full.bat` passed in 127.6s:
+177/177 doctest cases and 4,059/4,059 assertions, all standalone CPU tests,
+zero-warning Profile/Debug builds, zero DX12 validation errors with matching
+screenshots, and the 44,401-line physics baseline byte-exact.
 
 ## R5 — Retire `SkullbonezCore::Basics`
 

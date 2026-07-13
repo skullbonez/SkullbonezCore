@@ -796,17 +796,15 @@ inline Json ReadJsonFile( const std::string& path )
         return Json::object();
     }
 
-    try
+    Json root = Json::parse( input, nullptr, false );
+    if ( root.is_discarded() )
     {
-        return Json::parse( input );
-    }
-    catch ( const std::exception& e )
-    {
-        std::ostringstream message;
-        message << "Invalid JSON: " << e.what();
-        Fail( path, message.str() );
+        // Lane R: malformed authored JSON is external input, so the parser
+        // records a recoverable failure without requiring exception support.
+        Fail( path, "Invalid JSON" );
         return Json::object();
     }
+    return root;
 }
 
 inline int MaxConfigurableWorkerThreadCount()

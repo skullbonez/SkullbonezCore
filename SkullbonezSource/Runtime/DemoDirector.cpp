@@ -445,17 +445,13 @@ bool LoadDemoShotList( const char* path, DemoShotList& outShotList )
         return false;
     }
 
-    try
+    Json root = Json::parse( input, nullptr, false );
+    if ( root.is_discarded() )
     {
-        Json root;
-        input >> root;
-        return ReadRoot( root, path, outShotList );
-    }
-    catch ( const std::exception& e )
-    {
-        LogShotListError( path, std::string( "invalid JSON: " ) + e.what() );
+        LogShotListError( path, "invalid JSON" );
         return false;
     }
+    return ReadRoot( root, path, outShotList );
 }
 
 bool SaveDemoShotList( const char* path, const DemoShotList& shotList )

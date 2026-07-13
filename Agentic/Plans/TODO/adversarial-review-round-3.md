@@ -118,7 +118,7 @@ upgrades, then the two performance/architecture tasks.
   (53.7s), `tools\validate_full.bat` (132.7s),
   `tools\validate_dx12_renderer.bat` (48.9s), and
   `tools\run_graphics_stress.bat 1` (62.2s, exit 0) passed.
-- [ ] **R4 — Compile out exceptions in engine projects.** Set
+- [x] **R4 — Compile out exceptions in engine projects.** Set
   `<ExceptionHandling>false</ExceptionHandling>` (`/EHs-c-`) and define
   `_HAS_EXCEPTIONS=0` for SKULLBONEZ_CORE, SKULLBONEZ_MATHS, and
   SKULLBONEZ_PHYSICS in all configurations. Switch nlohmann to
@@ -134,8 +134,13 @@ upgrades, then the two performance/architecture tasks.
   objects must not cross the test boundary by ABI. Acceptance: engine binaries
   contain no EH unwind tables (`dumpbin /unwindinfo` spot check or equivalent
   evidence); malformed scene JSON still fails recoverably with owner/message;
-  zero warnings. Validation: `tools\validate_full.bat` (project files + scene
-  parser are broad scope).
+  zero warnings. Completed 2026-07-13 with `/EHs-c-`, `_HAS_EXCEPTIONS=0`,
+  `JSON_NOEXCEPTION`, guarded JSON reads, and nonthrowing filesystem probes.
+  Profile object spot checks found no C++ EH handler/FuncInfo symbols; ordinary
+  x64 stack-unwind metadata remains. The malformed-scene owner/message doctest
+  passed. `tools\validate_full.bat` passed in 127.6s with 177 tests/4,059
+  assertions, all CPU lanes, zero-warning builds, zero DX12 errors and matching
+  screenshots, plus the 44,401-line physics baseline byte-exact.
 - [ ] **R5 — Retire the `SkullbonezCore::Basics` namespace.** Decide the
   target mapping first and record it in the companion checklist before any
   edit; the working proposal is: frame loop/shell types

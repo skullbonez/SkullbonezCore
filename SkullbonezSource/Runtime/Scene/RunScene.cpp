@@ -1263,12 +1263,8 @@ SbResult SceneController::SaveCurrentDefaults( const SceneDefaultsSaveView& view
                                   scenePath->c_str() );
     }
 
-    Json root;
-    try
-    {
-        input >> root;
-    }
-    catch ( const std::exception& )
+    Json root = Json::parse( input, nullptr, false );
+    if ( root.is_discarded() )
     {
         return SbResult::Failure( "Runtime/SceneController",
                                   "Active scene defaults file is not valid JSON: %s",

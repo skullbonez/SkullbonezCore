@@ -892,6 +892,11 @@ bool ReadBool( const Json& value )
     return false;
 }
 
+bool IsBoolValue( const Json& value )
+{
+    return value.is_boolean() || value.is_number_integer() || value.is_string();
+}
+
 bool TryReadFrame( const Json& entry, int& outFrame )
 {
     if ( !entry.contains( "frame" ) || !entry["frame"].is_number_integer() )
@@ -1447,6 +1452,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "setCameraMode" ) )
     {
+        if ( !entry["setCameraMode"].is_string() )
+        {
+            outError = "setCameraMode must be a string";
+            return false;
+        }
         outAction.type = RunInteractionAutomationActionType::SetCameraMode;
         const std::string modeName = entry["setCameraMode"].get<std::string>();
         if ( !TryParseCameraMode( modeName, outAction.cameraMode ) )
@@ -1460,6 +1470,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "loadShotList" ) )
     {
+        if ( !entry["loadShotList"].is_string() )
+        {
+            outError = "loadShotList must be a string";
+            return false;
+        }
         outAction.type = RunInteractionAutomationActionType::LoadShotList;
         CopyText( outAction.path, sizeof( outAction.path ), entry["loadShotList"].get<std::string>() );
         return true;
@@ -1467,6 +1482,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "directorPlay" ) )
     {
+        if ( !IsBoolValue( entry["directorPlay"] ) )
+        {
+            outError = "directorPlay must be a boolean value";
+            return false;
+        }
         outAction.type = RunInteractionAutomationActionType::DirectorPlay;
         outAction.boolValue = ReadBool( entry["directorPlay"] );
         CopyText( outAction.text, sizeof( outAction.text ), outAction.boolValue ? "Director" : "Inspect" );
@@ -1493,6 +1513,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "setPhaseStyle" ) )
     {
+        if ( !entry["setPhaseStyle"].is_string() )
+        {
+            outError = "setPhaseStyle must be a string";
+            return false;
+        }
         outAction.type = RunInteractionAutomationActionType::SetPhaseStyle;
         CopyText( outAction.path, sizeof( outAction.path ), entry["setPhaseStyle"].get<std::string>() );
         return true;
@@ -1506,6 +1531,12 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "clickObject" ) )
     {
+        if ( !entry["clickObject"].is_string() || ( entry.contains( "button" ) && !entry["button"].is_string() ) ||
+             ( entry.contains( "holdFrames" ) && !entry["holdFrames"].is_number_integer() ) )
+        {
+            outError = "clickObject requires a string target, optional string button, and optional integer holdFrames";
+            return false;
+        }
         outAction.type = RunInteractionAutomationActionType::ClickObject;
         CopyText( outAction.text, sizeof( outAction.text ), entry["clickObject"].get<std::string>() );
         if ( entry.contains( "button" ) )
@@ -1524,7 +1555,9 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
     if ( entry.contains( "clickPoint" ) )
     {
         const Json& point = entry["clickPoint"];
-        if ( !point.is_array() || point.size() != 2 )
+        if ( !point.is_array() || point.size() != 2 || !point[0].is_number_integer() || !point[1].is_number_integer() ||
+             ( entry.contains( "button" ) && !entry["button"].is_string() ) ||
+             ( entry.contains( "holdFrames" ) && !entry["holdFrames"].is_number_integer() ) )
         {
             outError = "clickPoint must be a 2-integer array";
             return false;
@@ -1547,6 +1580,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "loseFocus" ) )
     {
+        if ( !entry["loseFocus"].is_number_integer() )
+        {
+            outError = "loseFocus must be an integer frame count";
+            return false;
+        }
         outAction.type = RunInteractionAutomationActionType::LoseFocus;
         outAction.holdFrames = (std::max)( 1, entry["loseFocus"].get<int>() );
         return true;
@@ -1555,7 +1593,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
     if ( entry.contains( "moveMouse" ) )
     {
         const Json& point = entry["moveMouse"];
-        if ( !point.is_array() || point.size() != 2 )
+        if ( !point.is_array() || point.size() != 2 || !point[0].is_number_integer() || !point[1].is_number_integer() )
         {
             outError = "moveMouse must be a 2-integer array";
             return false;
@@ -1568,6 +1606,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "clickReplayControl" ) )
     {
+        if ( !entry["clickReplayControl"].is_string() )
+        {
+            outError = "clickReplayControl must be a string";
+            return false;
+        }
         outAction.type = RunInteractionAutomationActionType::ClickReplayControl;
         CopyText( outAction.text, sizeof( outAction.text ), entry["clickReplayControl"].get<std::string>() );
         return true;
@@ -1575,6 +1618,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "scrubReplaySolverTrack" ) )
     {
+        if ( !entry["scrubReplaySolverTrack"].is_number() )
+        {
+            outError = "scrubReplaySolverTrack must be a number";
+            return false;
+        }
         outAction.type = RunInteractionAutomationActionType::ScrubReplaySolverTrack;
         outAction.numberValue = std::clamp( entry["scrubReplaySolverTrack"].get<float>(), 0.0f, 1.0f );
         CopyText( outAction.text, sizeof( outAction.text ), "solver" );
@@ -1583,6 +1631,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "setReplayPredictionEnabled" ) )
     {
+        if ( !IsBoolValue( entry["setReplayPredictionEnabled"] ) )
+        {
+            outError = "setReplayPredictionEnabled must be a boolean value";
+            return false;
+        }
         outAction.type = RunInteractionAutomationActionType::SetReplayPredictionEnabled;
         outAction.boolValue = ReadBool( entry["setReplayPredictionEnabled"] );
         return true;
@@ -1590,6 +1643,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "setReplayPredictionHorizonSeconds" ) )
     {
+        if ( !entry["setReplayPredictionHorizonSeconds"].is_number() )
+        {
+            outError = "setReplayPredictionHorizonSeconds must be a number";
+            return false;
+        }
         outAction.type = RunInteractionAutomationActionType::SetReplayPredictionHorizonSeconds;
         outAction.numberValue = entry["setReplayPredictionHorizonSeconds"].get<float>();
         return true;
@@ -1597,6 +1655,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "setReplayPathTarget" ) )
     {
+        if ( !entry["setReplayPathTarget"].is_string() )
+        {
+            outError = "setReplayPathTarget must be a string";
+            return false;
+        }
         outAction.type = RunInteractionAutomationActionType::SetReplayPathTarget;
         CopyText( outAction.text, sizeof( outAction.text ), entry["setReplayPathTarget"].get<std::string>() );
         return true;
@@ -1616,6 +1679,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "showReplayScrubber" ) )
     {
+        if ( !IsBoolValue( entry["showReplayScrubber"] ) )
+        {
+            outError = "showReplayScrubber must be a boolean value";
+            return false;
+        }
         outAction.type = RunInteractionAutomationActionType::ShowReplayScrubber;
         outAction.boolValue = ReadBool( entry["showReplayScrubber"] );
         return true;
@@ -1623,6 +1691,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "pressKey" ) )
     {
+        if ( !entry["pressKey"].is_string() || ( entry.contains( "control" ) && !entry["control"].is_boolean() ) )
+        {
+            outError = "pressKey requires a string key and optional boolean control";
+            return false;
+        }
         outAction.type = RunInteractionAutomationActionType::PressKey;
         const std::string keyName = entry["pressKey"].get<std::string>();
         if ( !TryParseVirtualKey( keyName, outAction.keyVirtualKey ) )
@@ -1637,6 +1710,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "captureEditorSelectionState" ) )
     {
+        if ( !entry["captureEditorSelectionState"].is_number_integer() )
+        {
+            outError = "captureEditorSelectionState must be an integer slot";
+            return false;
+        }
         const int slot = entry["captureEditorSelectionState"].get<int>();
         if ( slot < 0 || slot >= 2 )
         {
@@ -1650,6 +1728,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     if ( entry.contains( "screenshot" ) )
     {
+        if ( !entry["screenshot"].is_string() )
+        {
+            outError = "screenshot must be a string path";
+            return false;
+        }
         outAction.type = RunInteractionAutomationActionType::Screenshot;
         CopyText( outAction.path, sizeof( outAction.path ), entry["screenshot"].get<std::string>() );
         return true;
@@ -1666,6 +1749,35 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         outAction.type = RunInteractionAutomationActionType::AssertState;
         const auto member = assertion.begin();
         const std::string name = member.key();
+        const Json& expected = member.value();
+        // Invariant: JSON_NOEXCEPTION turns a mismatched get<T>() into an
+        // abort, so the assertion vocabulary is classified before dispatch.
+        const bool expectsString = name == "selectedObject" || name == "owner" || name == "cameraMode" ||
+                                   name == "directorPhaseName" || name == "directorPhaseStylePath" ||
+                                   name == "replayPathTarget" || name == "predictionBuildMode" ||
+                                   name == "pointerCapture" || name == "replayActiveTrack";
+        const bool expectsInteger = name == "directorPhaseIndex" || name == "editorUndoDepth" ||
+                                    name == "editorRedoDepth" || name == "editorSelectionMatchesCapture";
+        const bool expectsNumber = name == "replayPastTrajectoryFullRebuildCountMax" ||
+                                   name == "replayPastTrajectoryIncrementalTrimCountMin" ||
+                                   name == "replayPastTrajectoryPublishedPointCountMin" ||
+                                   name == "predictionSupersededRestartCountMin" || name == "predictionDivergenceMin" ||
+                                   name == "predictionTargetDisplacementMin";
+        const bool expectsBool =
+            name == "directorGrabbed" || name == "replayPredictionEnabled" || name == "predictionPathVisible" ||
+            name == "predictionFullHorizonComplete" || name == "predictionBaselineVisible" ||
+            name == "replaySolverTrackAtPresent" || name == "predictionScrubFrameActive" ||
+            name == "liveSolverHashStableAcrossPrediction" || name == "predictionTrajectoryFingerprintReady" ||
+            name == "gizmoVisible" || name == "mousePickupActive" || name == "nativeCaptureRequested" ||
+            name == "cursorVisibleRequested" || name == "uiBlocksMouse" || name == "launcherRayActive" ||
+            name == "replayHistoricalSamplePaused" || name == "memoryOverlayEnabled" ||
+            name == "editorSelectionExists" || name == "editorSelectionHasTerrain";
+        if ( ( expectsString && !expected.is_string() ) || ( expectsInteger && !expected.is_number_integer() ) ||
+             ( expectsNumber && !expected.is_number() ) || ( expectsBool && !IsBoolValue( expected ) ) )
+        {
+            outError = "assertion field has the wrong value type: " + name;
+            return false;
+        }
         if ( name == "selectedObject" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::SelectedObject;
@@ -2253,16 +2365,10 @@ bool LoadScript( InteractionAutomationController& state )
         return false;
     }
 
-    Json root;
-    try
+    Json root = Json::parse( input, nullptr, false );
+    if ( root.is_discarded() )
     {
-        input >> root;
-    }
-    catch ( const std::exception& e )
-    {
-        char message[512] = {};
-        sprintf_s( message, sizeof( message ), "failed to parse interaction script: %s", e.what() );
-        FailAutomation( state, message );
+        FailAutomation( state, "failed to parse interaction script: invalid JSON" );
         return false;
     }
 

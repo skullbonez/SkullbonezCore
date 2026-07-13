@@ -258,29 +258,12 @@ LONG WINAPI DebugUnhandledExceptionFilter( EXCEPTION_POINTERS* exceptionInfo )
 void InstallDebugCrashLogger()
 {
     SetUnhandledExceptionFilter( DebugUnhandledExceptionFilter );
-    // Hazard: unhandled C++ failures often become std::terminate -> abort(),
-    // which bypasses the SEH filter above and otherwise leaves only a CRT
-    // dialog. Log the current exception, if any, before preserving termination.
+    // Hazard: an unexpected terminate in the exception-free engine bypasses
+    // the SEH filter above. Persist a fixed diagnostic before aborting.
     std::set_terminate(
         []()
         {
-            char message[512] = "unknown";
-            std::exception_ptr current = std::current_exception();
-            if ( current )
-            {
-                try
-                {
-                    std::rethrow_exception( current );
-                }
-                catch ( const std::exception& e )
-                {
-                    strcpy_s( message, sizeof( message ), e.what() );
-                }
-                catch ( ... )
-                {
-                    strcpy_s( message, sizeof( message ), "non-std exception" );
-                }
-            }
+            const char* message = "unexpected termination in exception-free engine";
             Log().WriteEventf( "terminate_abort message=\"%s\"", message );
             fprintf( stderr, "FATAL: terminate_abort %s\n", message );
             fflush( stderr );
@@ -917,15 +900,7 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
     // setup so it proves the public physics API and runtime handle alignment can
     // be constructed without renderer/window services.
     const PhysicsStandaloneSmokeResult result = RunPhysicsStandaloneSmoke();
-    PhysicsRuntimeHandleSmokeResult runtimeMirror;
-    try
-    {
-        runtimeMirror = RunPhysicsRuntimeHandleSmokeSample();
-    }
-    catch ( const std::exception& e )
-    {
-        runtimeMirror.errorMessage = e.what();
-    }
+    PhysicsRuntimeHandleSmokeResult runtimeMirror = RunPhysicsRuntimeHandleSmokeSample();
     auto writeReport = [&]( FILE* stream )
     {
         if ( !stream )
@@ -1742,14 +1717,10 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
             return FailCommandLineParse( "--suite could not open '%s'.", suitePath.c_str() );
         }
 
-        Json suite;
-        try
+        Json suite = Json::parse( suiteFile, nullptr, false );
+        if ( suite.is_discarded() )
         {
-            suiteFile >> suite;
-        }
-        catch ( const std::exception& e )
-        {
-            return FailCommandLineParse( "--suite invalid JSON in '%s': %s", suitePath.c_str(), e.what() );
+            return FailCommandLineParse( "--suite invalid JSON in '%s'.", suitePath.c_str() );
         }
 
         if ( !suite.is_object() )
@@ -3275,57 +3246,41 @@ int RunApp( Window* window,
             return reportInteractionAutomationResult( startupResult );
         }
 
-        try
+        cRun->Initialise();
+        if ( !cRun->LastSceneLoadResult().ok )
         {
-            cRun->Initialise();
-            if ( !cRun->LastSceneLoadResult().ok )
+            return reportRunResult( cRun->LastSceneLoadResult() );
+        }
+        if ( args.sceneLoadOnly )
+        {
+            const SbResult sceneLoadOnlyResult =
+                cRun->RunSceneLoadOnly( args.sceneSnapshotOutPath[0] != '\0' ? args.sceneSnapshotOutPath : nullptr );
+            if ( !sceneLoadOnlyResult.ok )
             {
-                return reportRunResult( cRun->LastSceneLoadResult() );
-            }
-            if ( args.sceneLoadOnly )
-            {
-                const SbResult sceneLoadOnlyResult = cRun->RunSceneLoadOnly(
-                    args.sceneSnapshotOutPath[0] != '\0' ? args.sceneSnapshotOutPath : nullptr );
-                if ( !sceneLoadOnlyResult.ok )
-                {
-                    return reportRunResult( sceneLoadOnlyResult );
-                }
-            }
-            else
-            {
-                const SbResult executeResult = cRun->Execute();
-                if ( !executeResult.ok )
-                {
-                    if ( executeResult.error.owner &&
-                         strcmp( executeResult.error.owner, "InteractionAutomation" ) == 0 )
-                    {
-                        return reportInteractionAutomationResult( executeResult );
-                    }
-                    return reportRunResult( executeResult );
-                }
-                if ( args.graphicsStress )
-                {
-                    printf( "[graphics-stress] Execute returned.\n" );
-                    fflush( stdout );
-                }
-            }
-
-            if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
-            {
-                window->MsgBox( "Thanks for using the Skullbonez Core!", "Alert!", MB_OK );
+                return reportRunResult( sceneLoadOnlyResult );
             }
         }
-        catch ( const std::exception& e )
+        else
         {
-            Log().WriteEventf( "fatal_exception message=\"%s\"", e.what() );
-            fprintf( stderr, "FATAL: %s\n", e.what() );
-            fflush( stderr );
-            Log().FlushAll();
-            if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
+            const SbResult executeResult = cRun->Execute();
+            if ( !executeResult.ok )
             {
-                window->MsgBox( e.what(), "Alert!", MB_OK );
+                if ( executeResult.error.owner && strcmp( executeResult.error.owner, "InteractionAutomation" ) == 0 )
+                {
+                    return reportInteractionAutomationResult( executeResult );
+                }
+                return reportRunResult( executeResult );
             }
-            return 1;
+            if ( args.graphicsStress )
+            {
+                printf( "[graphics-stress] Execute returned.\n" );
+                fflush( stdout );
+            }
+        }
+
+        if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
+        {
+            window->MsgBox( "Thanks for using the Skullbonez Core!", "Alert!", MB_OK );
         }
     } // cRun destroyed here before backend/window cleanup
     return 0;

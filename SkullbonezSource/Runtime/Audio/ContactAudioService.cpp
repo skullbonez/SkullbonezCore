@@ -172,16 +172,13 @@ bool ReadFileJson( const char* path, Json& out )
     {
         return false;
     }
-    try
+    out = Json::parse( input, nullptr, false );
+    if ( out.is_discarded() )
     {
-        input >> out;
-        return true;
-    }
-    catch ( const std::exception& e )
-    {
-        fprintf( stdout, "[audio] Contact audio map parse failed: %s (%s)\n", path, e.what() );
+        fprintf( stdout, "[audio] Contact audio map parse failed: %s\n", path );
         return false;
     }
+    return true;
 }
 
 std::string JsonStringOrDefault( const Json& object, const char* key, const char* fallback )
