@@ -23,9 +23,12 @@ Related:
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.h"
 
 #include <array>
 #include <bit>
+#include <string_view>
+#include <vector>
 
 using namespace SkullbonezCore::Runtime;
 
@@ -63,6 +66,66 @@ TEST_CASE( "Replay visual packet preserves ordered lane and exact float diagnost
     CHECK( difference.buffer == ReplayVisualPacketBuffer::PriorityLines );
     CHECK( difference.floatIndex == 1u );
     CHECK_FALSE( difference.countMismatch );
+}
+
+TEST_CASE( "Replay visual packet rejects a one-micron submitted vertex change" )
+{
+    const std::array<float, 4> expectedFloats = { 1.0f, 2.0f, 3.0f, 4.0f };
+    std::array<float, 4> actualFloats = expectedFloats;
+    actualFloats[2] += 0.000001f;
+    ReplayVisualPacket expected;
+    ReplayVisualPacket actual;
+    expected.expandedRibbonVertices = expectedFloats;
+    actual.expandedRibbonVertices = actualFloats;
+
+    ReplayVisualPacketDifference difference;
+    REQUIRE( FindReplayVisualPacketDifference( expected, actual, difference ) );
+    CHECK( difference.field == ReplayVisualPacketField::Buffer );
+    CHECK( difference.buffer == ReplayVisualPacketBuffer::ExpandedRibbonVertices );
+    CHECK( difference.floatIndex == 2u );
+    CHECK( difference.expectedBits != difference.actualBits );
+    CHECK( HashReplayVisualFloatBuffer( expected.expandedRibbonVertices ) !=
+           HashReplayVisualFloatBuffer( actual.expandedRibbonVertices ) );
+}
+
+TEST_CASE( "Replay visual fingerprint hashes renderer spans instead of stale submission telemetry" )
+{
+    const std::array<float, 6> expectedFloats = { 1.0f, 2.0f, 3.0f, 0.2f, 0.3f, 0.4f };
+    std::array<float, 6> miswiredFloats = expectedFloats;
+    miswiredFloats[1] += 0.000001f;
+    ReplayVisualPacket expected;
+    ReplayVisualPacket miswired;
+    expected.combinedLines = expectedFloats;
+    expected.ordinaryLines = expectedFloats;
+    miswired.combinedLines = expectedFloats;
+    miswired.ordinaryLines = miswiredFloats;
+
+    auto& submission = expected.submission;
+    submission.hasGeometry = true;
+    submission.ordinaryLineHash = HashReplayVisualFloatBuffer( expectedFloats );
+    submission.ordinaryLineBytes = expectedFloats.size() * sizeof( float );
+    submission.ordinaryLineVertexCount = 1u;
+    const uint64_t emptyStreamHash = HashReplayVisualFloatBuffer( std::span<const float>{} );
+    submission.priorityLineHash = emptyStreamHash;
+    submission.ordinaryRibbonHash = emptyStreamHash;
+    submission.priorityRibbonHash = emptyStreamHash;
+    miswired.submission = submission; // Models stats still describing the original tracer vector.
+
+    std::vector<ReplayVisualTrajectoryDigestState> expectedDigests;
+    std::vector<ReplayVisualTrajectoryDigestState> miswiredDigests;
+    const ReplayVisualPacketFingerprint expectedHash =
+        BuildReplayVisualPacketFingerprint( expected, expectedDigests );
+    const ReplayVisualPacketFingerprint miswiredHash =
+        BuildReplayVisualPacketFingerprint( miswired, miswiredDigests );
+
+    const char* expectedMismatch = FindReplayVisualPacketSubmissionSpanMismatch( expected );
+    INFO( "unexpected expected-packet mismatch: ",
+          std::string_view( expectedMismatch ? expectedMismatch : "none" ) );
+    CHECK( expectedMismatch == nullptr );
+    REQUIRE( FindReplayVisualPacketSubmissionSpanMismatch( miswired ) != nullptr );
+    CHECK( std::string_view( FindReplayVisualPacketSubmissionSpanMismatch( miswired ) ) ==
+           "submission.ordinaryLineHash" );
+    CHECK( expectedHash.exactHash != miswiredHash.exactHash );
 }
 
 TEST_CASE( "Replay visual packet rejects an equal prefix with a missing float" )
@@ -128,4 +191,197 @@ TEST_CASE( "Replay visual packet reports an exact ghost presentation component" 
     CHECK( difference.floatIndex == 8u );
     CHECK( difference.expectedBits == std::bit_cast<uint32_t>( 0.25f ) );
     CHECK( difference.actualBits == std::bit_cast<uint32_t>( 0.5f ) );
+}
+
+TEST_CASE( "Replay visual packet reports an exact published trajectory point" )
+{
+    ReplayTrajectoryRecord expectedRecord;
+    ReplayTrajectoryRecord actualRecord;
+    expectedRecord.key.bodyId.value = 41u;
+    actualRecord.key.bodyId.value = 41u;
+    expectedRecord.publishedPointCount = 1u;
+    actualRecord.publishedPointCount = 1u;
+    expectedRecord.points.push_back( ReplayTrajectoryPoint{ 17u, { 1.0f, 2.0f, 3.0f } } );
+    actualRecord.points.push_back( ReplayTrajectoryPoint{ 17u, { 1.0f, 2.000001f, 3.0f } } );
+    const std::array<ReplayTrajectoryRecord, 1> expectedRecords = { expectedRecord };
+    const std::array<ReplayTrajectoryRecord, 1> actualRecords = { actualRecord };
+    ReplayVisualPacket expected;
+    ReplayVisualPacket actual;
+    expected.trajectoryRecords = expectedRecords;
+    actual.trajectoryRecords = actualRecords;
+
+    ReplayVisualPacketDifference difference;
+    REQUIRE( FindReplayVisualPacketDifference( expected, actual, difference ) );
+    CHECK( difference.field == ReplayVisualPacketField::TrajectoryPoint );
+    CHECK( difference.recordIndex == 0u );
+    CHECK( difference.floatIndex == 2u );
+    CHECK( difference.expectedBits == std::bit_cast<uint32_t>( 2.0f ) );
+    CHECK( difference.actualBits == std::bit_cast<uint32_t>( 2.000001f ) );
+}
+
+TEST_CASE( "Replay visual packet covers a non-vacuous retained horizon pose" )
+{
+    std::array<ReplayPredictionRetainedMarker, 1> expectedMarkers;
+    std::array<ReplayPredictionRetainedMarker, 1> actualMarkers;
+    expectedMarkers[0].id.value = 77u;
+    actualMarkers[0].id.value = 77u;
+    expectedMarkers[0].hasHorizonPose = true;
+    actualMarkers[0].hasHorizonPose = true;
+    expectedMarkers[0].horizonPosition = { 4.0f, 5.0f, 6.0f };
+    actualMarkers[0].horizonPosition = { 4.0f, 5.0f, 6.000001f };
+    ReplayVisualPacket expected;
+    ReplayVisualPacket actual;
+    expected.retainedMarkers = expectedMarkers;
+    actual.retainedMarkers = actualMarkers;
+
+    ReplayVisualPacketDifference difference;
+    REQUIRE( FindReplayVisualPacketDifference( expected, actual, difference ) );
+    CHECK( difference.field == ReplayVisualPacketField::RetainedMarker );
+    CHECK( difference.recordIndex == 0u );
+    CHECK( difference.floatIndex == 21u );
+    CHECK( difference.expectedBits == std::bit_cast<uint32_t>( 6.0f ) );
+    CHECK( difference.actualBits == std::bit_cast<uint32_t>( 6.000001f ) );
+}
+
+TEST_CASE( "Replay visual packet reports dropped-segment diagnostics" )
+{
+    ReplayVisualPacket expected;
+    ReplayVisualPacket actual;
+    expected.trajectoryDiagnostics.droppedSegments[0] = 12u;
+    actual.trajectoryDiagnostics.droppedSegments[0] = 13u;
+
+    ReplayVisualPacketDifference difference;
+    REQUIRE( FindReplayVisualPacketDifference( expected, actual, difference ) );
+    CHECK( difference.field == ReplayVisualPacketField::TrajectoryDiagnostic );
+    CHECK( difference.expectedBits == 12u );
+    CHECK( difference.actualBits == 13u );
+}
+
+TEST_CASE( "Replay visual fingerprint is stable across an unchanged published prefix" )
+{
+    ReplayTrajectoryRecord record;
+    record.key.bodyId.value = 9u;
+    record.version = 3u;
+    record.publishedPointCount = 2u;
+    record.points.push_back( { 0u, { 1.0f, 2.0f, 3.0f } } );
+    record.points.push_back( { 1u, { 4.0f, 5.0f, 6.0f } } );
+    const std::array<ReplayTrajectoryRecord, 1> records = { record };
+    ReplayVisualPacket packet;
+    packet.header.sourceFrame = 44u;
+    packet.trajectoryRecords = records;
+    packet.submission.ordinaryLineHash = 0x1234u;
+    std::vector<ReplayVisualTrajectoryDigestState> digests;
+
+    const ReplayVisualPacketFingerprint first = BuildReplayVisualPacketFingerprint( packet, digests );
+    const ReplayVisualPacketFingerprint second = BuildReplayVisualPacketFingerprint( packet, digests );
+    CHECK( first.semanticHash == second.semanticHash );
+    CHECK( first.exactHash == second.exactHash );
+}
+
+TEST_CASE( "Replay visual fingerprint catches mutation inside a published prefix" )
+{
+    std::array<ReplayTrajectoryRecord, 1> records;
+    records[0].key.bodyId.value = 9u;
+    records[0].version = 3u;
+    records[0].publishedPointCount = 2u;
+    records[0].points.push_back( { 0u, { 1.0f, 2.0f, 3.0f } } );
+    records[0].points.push_back( { 1u, { 4.0f, 5.0f, 6.0f } } );
+    ReplayVisualPacket packet;
+    packet.trajectoryRecords = records;
+    std::vector<ReplayVisualTrajectoryDigestState> digests;
+
+    const ReplayVisualPacketFingerprint before = BuildReplayVisualPacketFingerprint( packet, digests );
+    records[0].points[0].position.y = 2.000001f;
+    const ReplayVisualPacketFingerprint after = BuildReplayVisualPacketFingerprint( packet, digests );
+
+    CHECK( before.visualStateHash != after.visualStateHash );
+    CHECK( before.semanticHash != after.semanticHash );
+    CHECK( before.exactHash != after.exactHash );
+}
+
+TEST_CASE( "Replay visual fingerprint excludes the completed prediction worker bank" )
+{
+    std::array<ReplayTrajectoryRecord, 2> expectedRecords;
+    expectedRecords[0].key.bodyId.value = 9u;
+    expectedRecords[0].key.lane = ReplayTrajectoryLane::FutureChildOutgoing;
+    expectedRecords[0].key.branchOrdinal = 0u;
+    expectedRecords[0].publishedPointCount = 1u;
+    expectedRecords[0].points.push_back( { 0u, { 1.0f, 2.0f, 3.0f } } );
+    expectedRecords[1] = expectedRecords[0];
+    expectedRecords[1].key.branchOrdinal = REPLAY_VISUAL_FUTURE_NODE_CAPACITY;
+    expectedRecords[1].version = 4u;
+    std::array<ReplayTrajectoryRecord, 2> actualRecords = expectedRecords;
+    actualRecords[1].points[0].position.y = 200.0f;
+
+    ReplayVisualPacket expected;
+    ReplayVisualPacket actual;
+    expected.header.predictionComplete = true;
+    actual.header.predictionComplete = true;
+    expected.header.futureNodeCount = 1u;
+    actual.header.futureNodeCount = 1u;
+    expected.trajectoryRecords = expectedRecords;
+    actual.trajectoryRecords = actualRecords;
+    std::vector<ReplayVisualTrajectoryDigestState> expectedDigests;
+    std::vector<ReplayVisualTrajectoryDigestState> actualDigests;
+
+    const ReplayVisualPacketFingerprint expectedHash =
+        BuildReplayVisualPacketFingerprint( expected, expectedDigests );
+    const ReplayVisualPacketFingerprint inactiveMutationHash =
+        BuildReplayVisualPacketFingerprint( actual, actualDigests );
+    CHECK( expectedHash.visualStateHash == inactiveMutationHash.visualStateHash );
+    CHECK( expectedHash.exactHash == inactiveMutationHash.exactHash );
+    CHECK( expectedHash.semanticHash != inactiveMutationHash.semanticHash );
+
+    actualRecords[0].points[0].position.y = 2.000001f;
+    const ReplayVisualPacketFingerprint activeMutationHash =
+        BuildReplayVisualPacketFingerprint( actual, actualDigests );
+    CHECK( expectedHash.visualStateHash != activeMutationHash.visualStateHash );
+    CHECK( expectedHash.exactHash != activeMutationHash.exactHash );
+}
+
+TEST_CASE( "Replay visual fingerprint covers ghost semantics before submission bytes" )
+{
+    std::array<ReplayPredictionGhostDrawRequest, 1> expectedGhosts;
+    std::array<ReplayPredictionGhostDrawRequest, 1> actualGhosts;
+    expectedGhosts[0].modelRow.value = 12;
+    actualGhosts[0].modelRow.value = 12;
+    expectedGhosts[0].position = { 1.0f, 2.0f, 3.0f };
+    actualGhosts[0].position = expectedGhosts[0].position;
+    expectedGhosts[0].alpha = 0.25f;
+    actualGhosts[0].alpha = 0.250001f;
+    ReplayVisualPacket expected;
+    ReplayVisualPacket actual;
+    expected.ghostRequests = expectedGhosts;
+    actual.ghostRequests = actualGhosts;
+    expected.submission.vertexHash = 0x55u;
+    actual.submission.vertexHash = expected.submission.vertexHash;
+    std::vector<ReplayVisualTrajectoryDigestState> expectedDigests;
+    std::vector<ReplayVisualTrajectoryDigestState> actualDigests;
+
+    const ReplayVisualPacketFingerprint expectedHash =
+        BuildReplayVisualPacketFingerprint( expected, expectedDigests );
+    const ReplayVisualPacketFingerprint actualHash = BuildReplayVisualPacketFingerprint( actual, actualDigests );
+    CHECK( expectedHash.semanticHash != actualHash.semanticHash );
+    CHECK( expectedHash.exactHash != actualHash.exactHash );
+}
+
+TEST_CASE( "Replay visual and exact fingerprints exclude process-local diagnostics" )
+{
+    ReplayVisualPacket expected;
+    ReplayVisualPacket actual;
+    expected.header.sourceFrame = 7u;
+    actual.header.sourceFrame = 7u;
+    expected.trajectoryDiagnostics.droppedSegments[0] = 2u;
+    actual.trajectoryDiagnostics.droppedSegments[0] = 3u;
+    expected.header.replayReserveGrowthEvents = 11u;
+    actual.header.replayReserveGrowthEvents = 12u;
+    std::vector<ReplayVisualTrajectoryDigestState> expectedDigests;
+    std::vector<ReplayVisualTrajectoryDigestState> actualDigests;
+
+    const ReplayVisualPacketFingerprint expectedHash =
+        BuildReplayVisualPacketFingerprint( expected, expectedDigests );
+    const ReplayVisualPacketFingerprint actualHash = BuildReplayVisualPacketFingerprint( actual, actualDigests );
+    CHECK( expectedHash.visualStateHash == actualHash.visualStateHash );
+    CHECK( expectedHash.semanticHash != actualHash.semanticHash );
+    CHECK( expectedHash.exactHash == actualHash.exactHash );
 }

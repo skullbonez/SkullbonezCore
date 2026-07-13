@@ -194,7 +194,7 @@ bool StepPredictionEngineTick( PhysicsEngine& engine,
 
 // Why: the 200-brick prediction scene needs more than the old 100-node cap to
 // show the full contact spread instead of clipping the visual explanation.
-constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = 240;
+constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = REPLAY_VISUAL_FUTURE_NODE_CAPACITY;
 constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
 constexpr std::size_t REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT = 1;
 constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
@@ -3729,6 +3729,7 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
         body.position = source.position;
         body.orientation = source.orientation;
         body.linearVelocity = source.linearVelocity;
+        body.sleeping = source.isSleeping;
         frame.bodies[static_cast<std::size_t>( i )] = body;
     };
 
@@ -3973,6 +3974,14 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
                                double budgetMilliseconds )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/BeginJob" );
+    if ( !replayRuntime.PredictionGenerationPermitted() )
+    {
+        // Invariant: artifact verification is load-only. Returning before any
+        // snapshot, reserve, worker, or trajectory mutation makes a second
+        // visual prediction impossible in that process.
+        replayRuntime.Prediction().build.dirty = false;
+        return false;
+    }
     // Hazard: begin captures the initial prediction snapshot. Budget may stop
     // us before setup starts, but once replay scratch and solver state are
     // reserved we must publish frame 0 so large predictions can draw progress
@@ -4170,6 +4179,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         prediction.build.workerTask->SetBudget( REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT );
     }
     prediction.build.building = true;
+    ++prediction.build.generationBeginCount;
 
     return !prediction.build.buildFrames.empty();
 }
@@ -4499,6 +4509,21 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
         DrawReplayPredictionOverlay( replayRuntime, entities, colliderStore, tracer, ribbonQuota, budgetMilliseconds );
         return;
     }
+    if ( !replayRuntime.PredictionGenerationPermitted() )
+    {
+        // Probe assertion lane: the archive may remain visually enabled, but
+        // this branch draws only restored values and never reaches a snapshot,
+        // reserve, worker, or future-simulation path.
+        replayRuntime.Prediction().build.dirty = false;
+        replayRuntime.Prediction().build.pendingLatestRestart = false;
+        // Invariant: EnterOfflinePredictionVerification already joined and
+        // retired the worker. Cancelling here would invalidate the restored
+        // complete/build and trajectory state before the CPU projection reads
+        // it, producing a different packet without starting new simulation.
+        const ColliderStore& colliderStore = PhysicsEngine::ReadColliders( physicsEngine );
+        DrawReplayPredictionOverlay( replayRuntime, entities, colliderStore, tracer, ribbonQuota, budgetMilliseconds );
+        return;
+    }
 
     const ReplaySolverFrameSample* latest = replayRuntime.Solver().LatestSample();
     const ReplayFrameIndex latestFrame = latest ? latest->frameIndex : 0;
@@ -4715,7 +4740,10 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
     {
         return;
     }
-    context.replayRuntime.RefreshPastTrajectoryStoreFromSolverSamples();
+    if ( context.replayRuntime.PredictionGenerationPermitted() )
+    {
+        context.replayRuntime.RefreshPastTrajectoryStoreFromSolverSamples();
+    }
 
     if ( context.replayRuntime.PathVisualizer().targets.empty() &&
          context.replayRuntime.PathVisualizer().targetId.value != 0 )
@@ -4750,7 +4778,9 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
         return;
     }
 
-    const ReplayFrameIndex presentFrame = presentSample->frameIndex;
+    const ReplayFrameIndex presentFrame = context.replayRuntime.PredictionGenerationPermitted()
+                                              ? presentSample->frameIndex
+                                              : context.replayRuntime.Prediction().simulation.sourceFrameIndex;
     context.replayRuntime.PathVisualizer().futureNodes.clear();
     const PhysicsBodyStore& bodyStore = Physics::PhysicsEngine::ReadBodies( context.physics );
     const ColliderStore& colliderStore = Physics::PhysicsEngine::ReadColliders( context.physics );

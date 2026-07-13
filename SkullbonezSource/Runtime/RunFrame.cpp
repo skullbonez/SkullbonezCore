@@ -712,6 +712,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             PROFILE_BEGIN( "Frame/PostDraw/InteractionAutomation" );
             const InteractionAutomationFrameResult automationAfterRender =
                 TickInteractionAutomationAfterRender( m_interactionAutomation,
+                                                      frameHost,
                                                       frameInteraction,
                                                       frameScene,
                                                       m_diagnosticsRuntime.Capture(),

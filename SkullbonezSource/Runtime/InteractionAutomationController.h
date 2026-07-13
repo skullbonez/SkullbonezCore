@@ -36,6 +36,7 @@ Related:
 #include "../Maths/Vector3.h"
 #include "DemoDirector.h"
 #include "RuntimeCameraMode.h"
+#include "Replay/ReplayVisualPacketFingerprint.h"
 
 #include <string>
 #include <vector>
@@ -186,6 +187,36 @@ struct ReplayVisualFidelityReportTick
 {
     int sceneFrame = 0;
     uint64_t revealFrame = 0;
+    uint64_t sourceFrame = 0;
+    uint64_t semanticHash = 0;
+    uint64_t headerStateHash = 0;
+    uint64_t trajectoryStateHash = 0;
+    uint64_t topologyStateHash = 0;
+    uint64_t markerStateHash = 0;
+    uint64_t ghostStateHash = 0;
+    uint64_t visualStateHash = 0;
+    uint64_t exactPacketHash = 0;
+    uint32_t schemaVersion = 0;
+    uint32_t targetId = 0;
+    uint32_t branchId = 0;
+    uint32_t eventCursor = 0;
+    uint32_t topologyVersion = 0;
+    uint32_t publishedFrameCount = 0;
+    bool predictionEnabled = false;
+    bool predictionBuilding = false;
+    bool predictionComplete = false;
+    Math::Vector::Vector3 cameraEye = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 cameraUp = Math::Vector::ZERO_VECTOR;
+    uint32_t trajectoryRecordCount = 0;
+    uint32_t futureNodeCount = 0;
+    uint32_t retainedMarkerCount = 0;
+    uint32_t ghostRequestCount = 0;
+    uint64_t droppedSegmentCount = 0;
+    uint64_t replayReserveGrowthEvents = 0;
+    bool hasGeometry = false;
+    uint64_t combinedLineHash = 0;
+    uint64_t combinedLineBytes = 0;
+    uint32_t combinedLineVertexCount = 0;
     uint64_t ordinaryLineHash = 0;
     uint64_t priorityLineHash = 0;
     uint64_t priorityLineCanonicalHash = 0;
@@ -236,19 +267,6 @@ struct ReplayCausalTopologyNodeReport
     bool contactDerived = false;
 };
 
-struct ReplayPredictedLiveReportTick
-{
-    // Invariant: the two hashes summarize the same ordered body presentation
-    // fields, but the runtime also compares each float bit and reports the first
-    // typed field before appending this row.
-    uint64_t offset = 0;
-    uint64_t predictedFrame = 0;
-    uint64_t liveFrame = 0;
-    uint64_t predictedHash = 0;
-    uint64_t liveHash = 0;
-    uint32_t bodyCount = 0;
-};
-
 struct InteractionAutomationController
 {
     bool enabled = false;
@@ -268,20 +286,15 @@ struct InteractionAutomationController
     // CLI automation process and never become replay/runtime business state.
     std::vector<ReplayCausalProofTick> replayCausalProofTicks;
     std::vector<ReplayCausalTopologyNodeReport> replayCausalTopology;
-    std::vector<ReplayPredictedLiveReportTick> replayPredictedLiveTicks;
+    std::vector<ReplayVisualTrajectoryDigestState> replayVisualTrajectoryDigests;
+    std::vector<uint8_t> replayVisualPredictionArchive;
     int replayVisualFidelityStartFrame = -1;
     bool replayVisualFidelityCaptureEnabled = false;
-    bool replayCausalLiveReadyToPlay = false;
-    bool replayCausalLivePausePrimed = false;
-    bool replayCausalLivePlayInjected = false;
-    bool replayCausalLiveComplete = false;
-    uint64_t replayCausalSourceFrame = 0;
-    uint64_t replayCausalNextOffset = 0;
     uint64_t replayVisualFidelityTrajectoryHash = 0;
     uint64_t replayVisualFidelityTrajectoryRecordCount = 0;
     uint64_t replayVisualFidelityTrajectoryPointCount = 0;
     bool replayVisualFidelityTrajectoryCaptured = false;
-    int replayCausalControlFrame = -1;
+    bool replayVisualOfflineProjectionComplete = false;
     POINT mouseClientPosition = {};
     bool hasMouseClientPosition = false;
     bool leftMouseDown = false;
@@ -314,6 +327,7 @@ InteractionAutomationFrameResult TickInteractionAutomationBeforeInput( Interacti
                                                                        RuntimeFrameSceneView& sceneOwners );
 InteractionAutomationFrameResult
 TickInteractionAutomationAfterRender( InteractionAutomationController& state,
+                                      RuntimeFrameHostView& host,
                                       RuntimeFrameInteractionView& interactionOwners,
                                       RuntimeFrameSceneView& sceneOwners,
                                       CaptureController& capture,

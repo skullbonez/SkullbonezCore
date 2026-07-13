@@ -33,7 +33,12 @@ Status: Authoritative inventory of every live repository plan
 11. Replay decomposition is guarded by the permanent frame-exact 200-box
     visual-fidelity command. Every task in both live replay plans runs
     `tools\validate_replay_visual_fidelity.bat`; decomposition may not refresh
-    its golden manifest, and any refresh requires explicit owner approval.
+    its golden manifest, and any refresh requires explicit owner approval. One
+    gate invocation starts exactly one engine process and generates prediction
+    exactly once. All later work is non-engine CPU/report/artifact comparison;
+    a second `SKULLBONEZ_CORE.exe` launch or generation is an immediate failure.
+    Aliases do not grant another invocation: every plan task runs one mega
+    command total.
 
 ## Commit Progress Contract
 
@@ -112,9 +117,9 @@ concrete plan rows and counting it would duplicate tasks.
 | render-interface-and-workerpool-slimming | 5 | 5 | 100% |
 | runtime-contract-enforcement | 5 | 5 | 100% |
 | adversarial-review-round-3 | 10 | 10 | 100% |
-| replay-visual-fidelity-mega-probe | 6 | 7 | 86% |
+| replay-visual-fidelity-mega-probe | 7 | 7 | 100% |
 | replay-monolith-decomposition | 0 | 9 | 0% |
-| **Portfolio total** | **318** | **329** | **97%** |
+| **Portfolio total** | **319** | **329** | **97%** |
 
 ## Current Execution Priority
 
@@ -126,12 +131,16 @@ validation-gate V3 remains externally blocked.
 0. **Validation-gate V3 — blocked external lane.** Repository implementation is
    complete. Remaining work requires a real `merge_group` proof, required CPU
    branch protection, and trusted/ephemeral DX12 runner administration.
-1. **Replay visual-fidelity mega probe — active on
-   `nightrunner-13th-july`.** Build the permanent frame-indexed 200-box golden,
-   predicted/live, and save/load/scrub equality gate before moving replay
-   ownership. Every V0-V6 task ends with that command passing.
-2. **Replay monolith decomposition — blocked on the mega probe.** Execute M0-M8
-   on `nightrunner-13th-july` only after the visual plan closes. Every task,
+1. **Replay visual-fidelity mega probe — complete on
+   `nightrunner-13th-july`.** The permanent frame-indexed 200-box golden,
+   single-generation causal, and durable offline equality gate generates and
+   presents exactly once; reconstruction is CPU-only and cannot predict or
+   present.
+   `Toppled` means at least 101 of 200 bricks are directly grounded and
+   engine-sleeping throughout the final second; the approved base records 187.
+   Every V0-V6 task ends with that command passing.
+2. **Replay monolith decomposition — active.** Execute M0-M8 on
+   `nightrunner-13th-july`. Every task,
    including documentation inventory, reruns the unchanged 200-box gate before
    it may be checked or committed.
 3. **Adversarial-review round 3 — locally complete.** All ten tasks and the
@@ -156,8 +165,8 @@ validation-gate V3 remains externally blocked.
 | Plan | State | Verified phase count | Next blocking action |
 |---|---|---:|---|
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs merge-group proof, required branch protection, and trusted/ephemeral DX12 runner administration |
-| [replay-visual-fidelity-mega-probe](TODO/replay-visual-fidelity-mega-probe.md) | Active | 6/7 | V6 performs adversarial closure review and records the decomposition handoff |
-| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Blocked | 0/9 | Wait for V0-V6 closure; then every M0-M8 task runs the unchanged 200-box gate |
+| [replay-visual-fidelity-mega-probe](TODO/replay-visual-fidelity-mega-probe.md) | Complete | 7/7 | One engine, one prediction, 2,401 exact ticks, 187 grounded sleepers, durable CPU-only reconstruction, and adversarial closure approved |
+| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Active | 0/9 | Execute M0-M8; every task runs the unchanged 200-box gate before checkoff or commit |
 
 ## Planned Architecture Work (2026-07-11 gap review)
 

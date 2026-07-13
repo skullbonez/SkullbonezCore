@@ -5,9 +5,10 @@ Purpose:
 
 Summary:
   The format is presentation-first: metadata is deduplicated into a body
-  dictionary, v3 dense frames preserve complete replay-owned visual state for
-  exact scrub preview, and optional solver chunks provide hashes/checkpoint
-  payloads for restore verification. The reader migrates v2 pose-only rows.
+  dictionary, v3 dense frames preserve complete replay-owned body visual state,
+  and v4 adds exact per-tick replay packet rows plus the typed prediction state
+  used by non-presenting round-trip verification. Optional solver chunks
+  provide restore evidence.
 
 Glossary:
   ABI (Application Binary Interface): Byte-level file contract used by saved
@@ -22,15 +23,17 @@ Glossary:
   ECUR: Event cursor records attached to sparse solver checkpoints.
   HASH: Optional per-tick presentation/solver hash records.
   SCHK: Optional sparse solver checkpoint records.
+  RVIS: Exact full-packet identity, count, byte-length, and digest records.
+  RVPD: Typed completed-prediction state with no renderer or worker ownership.
   INDX: Frame seek index into the presentation chunk.
   POD (Plain Old Data): Trivially copyable value written as raw bytes.
 
 Invariants:
   - Numeric payloads are emitted in the host little-endian layout used by the
     Windows runtime. The manifest marks the file as little-endian.
-  - V3 visual rows are 76 bytes and v3 dictionary rows are 80 bytes.
-  - V2 remains readable through a deterministic pose-only migration; versions
-    newer than v3 fail closed.
+  - V3+ visual rows are 76 bytes and v3+ dictionary rows are 80 bytes.
+  - V2 remains readable through a deterministic pose-only migration; v3 remains
+    directly readable; versions newer than v4 fail closed.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
@@ -62,11 +65,11 @@ namespace
 using Json = nlohmann::ordered_json;
 
 // Invariant: these byte counts describe the on-disk ABI for replay artifacts.
-// Version 3 retains the v2 chunk family and adds the presentation state needed
-// to reconstruct a visual packet exactly. The reader keeps one deterministic
-// previous-version migration path; future versions fail closed.
-constexpr uint32_t REPLAY_PREVIOUS_VERSION = 2;
-constexpr uint32_t REPLAY_CURRENT_VERSION = 3;
+// Version 4 retains v2/v3 presentation layouts and adds RVIS packet evidence.
+// Readers accept the full supported migration interval and reject future files.
+constexpr uint32_t REPLAY_MINIMUM_VERSION = 2;
+constexpr uint32_t REPLAY_PRESENTATION_VISUAL_VERSION = 3;
+constexpr uint32_t REPLAY_CURRENT_VERSION = 4;
 constexpr uint32_t REPLAY_V2_HEADER_BYTES = 40;
 constexpr uint32_t REPLAY_V2_CHUNK_ENTRY_BYTES = 28;
 constexpr uint32_t REPLAY_V2_BODY_DICTIONARY_ENTRY_BYTES = 76;
@@ -80,6 +83,7 @@ constexpr uint32_t REPLAY_V2_BRANCH_ENTRY_BYTES = 64;
 constexpr uint32_t REPLAY_V2_EVENT_ENTRY_BYTES = 200;
 constexpr uint32_t REPLAY_V2_EVENT_CURSOR_ENTRY_BYTES = 24;
 constexpr uint32_t REPLAY_V2_SOLVER_BODY_ENTRY_BYTES = 112;
+constexpr uint32_t REPLAY_V4_VISUAL_PACKET_ENTRY_BYTES = 296;
 constexpr char REPLAY_V2_MAGIC[8] = { 'S', 'K', 'R', 'E', 'P', 'V', '2', '\0' };
 
 enum ReplayV2WorldFlags : uint8_t
@@ -790,7 +794,7 @@ bool ReadChunkTable( const std::vector<uint8_t>& fileBytes,
     (void)flags;
 
     if ( std::memcmp( magic, REPLAY_V2_MAGIC, sizeof( magic ) ) != 0 ||
-         ( version != REPLAY_PREVIOUS_VERSION && version != REPLAY_CURRENT_VERSION ) ||
+         ( version < REPLAY_MINIMUM_VERSION || version > REPLAY_CURRENT_VERSION ) ||
          headerBytes != REPLAY_V2_HEADER_BYTES || fileSize != static_cast<uint64_t>( fileBytes.size() ) )
     {
         return false;
@@ -865,7 +869,7 @@ bool ParseBodyDictionary( const std::vector<uint8_t>& fileBytes,
         {
             return false;
         }
-        if ( version >= REPLAY_CURRENT_VERSION )
+        if ( version >= REPLAY_PRESENTATION_VISUAL_VERSION )
         {
             uint8_t fixed = 0;
             if ( !ReadPod( cursor, fixed ) || !SkipBytes( cursor, 2 ) || !ReadPod( cursor, entry.mass ) )
@@ -894,8 +898,8 @@ bool ParseBodyDictionary( const std::vector<uint8_t>& fileBytes,
         outDictionary.push_back( entry );
     }
 
-    const uint32_t entryBytes = version >= REPLAY_CURRENT_VERSION ? REPLAY_V3_BODY_DICTIONARY_ENTRY_BYTES
-                                                                  : REPLAY_V2_BODY_DICTIONARY_ENTRY_BYTES;
+    const uint32_t entryBytes = version >= REPLAY_PRESENTATION_VISUAL_VERSION ? REPLAY_V3_BODY_DICTIONARY_ENTRY_BYTES
+                                                                              : REPLAY_V2_BODY_DICTIONARY_ENTRY_BYTES;
     return cursor.offset == cursor.size &&
            cursor.size == sizeof( uint32_t ) + static_cast<std::size_t>( bodyCount ) * entryBytes;
 }
@@ -1206,7 +1210,7 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes,
                 return false;
             }
 
-            if ( version >= REPLAY_CURRENT_VERSION )
+            if ( version >= REPLAY_PRESENTATION_VISUAL_VERSION )
             {
                 uint8_t flags = 0;
                 int32_t sleepIslandVisualId = 0;
@@ -1237,15 +1241,16 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes,
             sample.bodies.push_back( body );
         }
 
-        const uint32_t bodyBytes =
-            version >= REPLAY_CURRENT_VERSION ? REPLAY_V3_BODY_VISUAL_STATE_BYTES : REPLAY_V2_BODY_POSE_BYTES;
+        const uint32_t bodyBytes = version >= REPLAY_PRESENTATION_VISUAL_VERSION ? REPLAY_V3_BODY_VISUAL_STATE_BYTES
+                                                                                 : REPLAY_V2_BODY_POSE_BYTES;
         const std::size_t expectedFrameBytes =
             REPLAY_V2_FRAME_HEADER_BYTES + static_cast<std::size_t>( bodyCount ) * bodyBytes;
         if ( frameCursor.offset != expectedFrameBytes )
         {
             return false;
         }
-        if ( version >= REPLAY_CURRENT_VERSION && ComputeReplayPresentationStateHash( sample ) != sample.stateHash )
+        if ( version >= REPLAY_PRESENTATION_VISUAL_VERSION &&
+             ComputeReplayPresentationStateHash( sample ) != sample.stateHash )
         {
             // Invariant: v3 is not merely parseable. Every loaded body field
             // must reproduce the writer's presentation hash before scrub can
@@ -1922,19 +1927,169 @@ std::vector<uint8_t> BuildEventCursorChunk( const std::vector<EventCursorRecord>
     return bytes;
 }
 
+std::vector<uint8_t> BuildVisualPacketChunk( std::span<const ReplayVisualArchiveSample> samples )
+{
+    std::vector<uint8_t> bytes;
+    AppendPod( bytes, CheckedU32( samples.size() ) );
+    for ( const ReplayVisualArchiveSample& sample : samples )
+    {
+#define SB_APPEND_REPLAY_VISUAL_FIELD( member ) AppendPod( bytes, sample.member )
+        SB_APPEND_REPLAY_VISUAL_FIELD( sourceFrame );
+        SB_APPEND_REPLAY_VISUAL_FIELD( revealFrame );
+        SB_APPEND_REPLAY_VISUAL_FIELD( semanticHash );
+        SB_APPEND_REPLAY_VISUAL_FIELD( visualStateHash );
+        SB_APPEND_REPLAY_VISUAL_FIELD( exactPacketHash );
+        SB_APPEND_REPLAY_VISUAL_FIELD( schemaVersion );
+        SB_APPEND_REPLAY_VISUAL_FIELD( targetId );
+        SB_APPEND_REPLAY_VISUAL_FIELD( branchId );
+        SB_APPEND_REPLAY_VISUAL_FIELD( eventCursor );
+        SB_APPEND_REPLAY_VISUAL_FIELD( topologyVersion );
+        SB_APPEND_REPLAY_VISUAL_FIELD( publishedFrameCount );
+        SB_APPEND_REPLAY_VISUAL_FIELD( predictionEnabled );
+        SB_APPEND_REPLAY_VISUAL_FIELD( predictionBuilding );
+        SB_APPEND_REPLAY_VISUAL_FIELD( predictionComplete );
+        SB_APPEND_REPLAY_VISUAL_FIELD( cameraEye.x );
+        SB_APPEND_REPLAY_VISUAL_FIELD( cameraEye.y );
+        SB_APPEND_REPLAY_VISUAL_FIELD( cameraEye.z );
+        SB_APPEND_REPLAY_VISUAL_FIELD( cameraUp.x );
+        SB_APPEND_REPLAY_VISUAL_FIELD( cameraUp.y );
+        SB_APPEND_REPLAY_VISUAL_FIELD( cameraUp.z );
+        SB_APPEND_REPLAY_VISUAL_FIELD( combinedLineHash );
+        SB_APPEND_REPLAY_VISUAL_FIELD( ordinaryLineHash );
+        SB_APPEND_REPLAY_VISUAL_FIELD( priorityLineHash );
+        SB_APPEND_REPLAY_VISUAL_FIELD( priorityLineCanonicalHash );
+        SB_APPEND_REPLAY_VISUAL_FIELD( ordinaryRibbonHash );
+        SB_APPEND_REPLAY_VISUAL_FIELD( priorityRibbonHash );
+        SB_APPEND_REPLAY_VISUAL_FIELD( priorityRibbonCanonicalHash );
+        SB_APPEND_REPLAY_VISUAL_FIELD( expandedVertexHash );
+        SB_APPEND_REPLAY_VISUAL_FIELD( ordinaryExpandedVertexHash );
+        SB_APPEND_REPLAY_VISUAL_FIELD( droppedSegmentCount );
+        SB_APPEND_REPLAY_VISUAL_FIELD( replayReserveGrowthEvents );
+        SB_APPEND_REPLAY_VISUAL_FIELD( combinedLineBytes );
+        SB_APPEND_REPLAY_VISUAL_FIELD( ordinaryLineBytes );
+        SB_APPEND_REPLAY_VISUAL_FIELD( priorityLineBytes );
+        SB_APPEND_REPLAY_VISUAL_FIELD( ordinaryRibbonBytes );
+        SB_APPEND_REPLAY_VISUAL_FIELD( priorityRibbonBytes );
+        SB_APPEND_REPLAY_VISUAL_FIELD( expandedVertexBytes );
+        SB_APPEND_REPLAY_VISUAL_FIELD( ordinaryExpandedVertexBytes );
+        SB_APPEND_REPLAY_VISUAL_FIELD( hasGeometry );
+        SB_APPEND_REPLAY_VISUAL_FIELD( trajectoryRecordCount );
+        SB_APPEND_REPLAY_VISUAL_FIELD( futureNodeCount );
+        SB_APPEND_REPLAY_VISUAL_FIELD( retainedMarkerCount );
+        SB_APPEND_REPLAY_VISUAL_FIELD( ghostRequestCount );
+        SB_APPEND_REPLAY_VISUAL_FIELD( combinedLineVertexCount );
+        SB_APPEND_REPLAY_VISUAL_FIELD( ordinaryLineVertexCount );
+        SB_APPEND_REPLAY_VISUAL_FIELD( priorityLineVertexCount );
+        SB_APPEND_REPLAY_VISUAL_FIELD( ordinaryRibbonSegmentCount );
+        SB_APPEND_REPLAY_VISUAL_FIELD( priorityRibbonSegmentCount );
+        SB_APPEND_REPLAY_VISUAL_FIELD( expandedVertexCount );
+        SB_APPEND_REPLAY_VISUAL_FIELD( ordinaryExpandedVertexCount );
+        SB_APPEND_REPLAY_VISUAL_FIELD( segmentCount );
+#undef SB_APPEND_REPLAY_VISUAL_FIELD
+    }
+    return bytes;
+}
+
+bool ParseVisualPacketChunk( const std::vector<uint8_t>& fileBytes,
+                             const ChunkTableEntry& chunk,
+                             std::vector<ReplayVisualArchiveSample>& outSamples )
+{
+    ByteCursor cursor;
+    if ( !MakeCursor( fileBytes, chunk.offset, chunk.size, cursor ) )
+    {
+        return false;
+    }
+    uint32_t sampleCount = 0;
+    if ( !ReadPod( cursor, sampleCount ) || sampleCount != chunk.recordCount ||
+         chunk.size !=
+             sizeof( sampleCount ) + static_cast<uint64_t>( sampleCount ) * REPLAY_V4_VISUAL_PACKET_ENTRY_BYTES )
+    {
+        return false;
+    }
+    outSamples.clear();
+    outSamples.reserve( sampleCount );
+    for ( uint32_t index = 0; index < sampleCount; ++index )
+    {
+        ReplayVisualArchiveSample sample;
+#define SB_READ_REPLAY_VISUAL_FIELD( member ) ReadPod( cursor, sample.member )
+        if ( !SB_READ_REPLAY_VISUAL_FIELD( sourceFrame ) || !SB_READ_REPLAY_VISUAL_FIELD( revealFrame ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( semanticHash ) || !SB_READ_REPLAY_VISUAL_FIELD( visualStateHash ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( exactPacketHash ) || !SB_READ_REPLAY_VISUAL_FIELD( schemaVersion ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( targetId ) || !SB_READ_REPLAY_VISUAL_FIELD( branchId ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( eventCursor ) || !SB_READ_REPLAY_VISUAL_FIELD( topologyVersion ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( publishedFrameCount ) || !SB_READ_REPLAY_VISUAL_FIELD( predictionEnabled ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( predictionBuilding ) || !SB_READ_REPLAY_VISUAL_FIELD( predictionComplete ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( cameraEye.x ) || !SB_READ_REPLAY_VISUAL_FIELD( cameraEye.y ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( cameraEye.z ) || !SB_READ_REPLAY_VISUAL_FIELD( cameraUp.x ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( cameraUp.y ) || !SB_READ_REPLAY_VISUAL_FIELD( cameraUp.z ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( combinedLineHash ) || !SB_READ_REPLAY_VISUAL_FIELD( ordinaryLineHash ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( priorityLineHash ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( priorityLineCanonicalHash ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( ordinaryRibbonHash ) || !SB_READ_REPLAY_VISUAL_FIELD( priorityRibbonHash ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( priorityRibbonCanonicalHash ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( expandedVertexHash ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( ordinaryExpandedVertexHash ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( droppedSegmentCount ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( replayReserveGrowthEvents ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( combinedLineBytes ) || !SB_READ_REPLAY_VISUAL_FIELD( ordinaryLineBytes ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( priorityLineBytes ) || !SB_READ_REPLAY_VISUAL_FIELD( ordinaryRibbonBytes ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( priorityRibbonBytes ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( expandedVertexBytes ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( ordinaryExpandedVertexBytes ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( hasGeometry ) || !SB_READ_REPLAY_VISUAL_FIELD( trajectoryRecordCount ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( futureNodeCount ) || !SB_READ_REPLAY_VISUAL_FIELD( retainedMarkerCount ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( ghostRequestCount ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( combinedLineVertexCount ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( ordinaryLineVertexCount ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( priorityLineVertexCount ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( ordinaryRibbonSegmentCount ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( priorityRibbonSegmentCount ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( expandedVertexCount ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( ordinaryExpandedVertexCount ) ||
+             !SB_READ_REPLAY_VISUAL_FIELD( segmentCount ) )
+        {
+            return false;
+        }
+#undef SB_READ_REPLAY_VISUAL_FIELD
+        if ( sample.semanticHash == 0 || sample.visualStateHash == 0 || sample.exactPacketHash == 0 ||
+             sample.schemaVersion != REPLAY_VISUAL_PACKET_SCHEMA_VERSION || sample.targetId == 0 ||
+             sample.predictionEnabled > 1u || sample.predictionBuilding > 1u || sample.predictionComplete > 1u ||
+             sample.hasGeometry > 1u || sample.revealFrame != index )
+        {
+            return false;
+        }
+        outSamples.push_back( sample );
+    }
+    return cursor.offset == cursor.size;
+}
+
+uint64_t HashVisualPredictionState( std::span<const uint8_t> bytes )
+{
+    uint64_t hash = REPLAY_VISUAL_BUFFER_FNV_OFFSET;
+    for ( const uint8_t byte : bytes )
+    {
+        hash ^= static_cast<uint64_t>( byte );
+        hash *= REPLAY_VISUAL_BUFFER_FNV_PRIME;
+    }
+    return hash;
+}
+
 std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>& samples,
                                     const std::vector<BodyDictionaryEntry>& dictionary,
                                     std::size_t branchCount,
                                     std::size_t eventCount,
                                     std::size_t eventCursorCount,
                                     std::size_t solverHashCount,
-                                    std::size_t solverCheckpointCount )
+                                    std::size_t solverCheckpointCount,
+                                    std::size_t visualPacketCount,
+                                    std::size_t visualPredictionBytes,
+                                    uint64_t visualPredictionHash )
 {
     const ReplayPresentationSample& first = samples.front();
     const ReplayPresentationSample& last = samples.back();
     Json chunks = Json::array( { "MANI", "BODY", "PRES", "BRAN" } );
     Json tracks = Json::array( { "presentation", "branchProvenance" } );
-    std::string schema = "presentation-v3-visual-state+branch-provenance";
+    std::string schema = "presentation-v4-visual-state+branch-provenance";
     if ( eventCount > 0 )
     {
         chunks.push_back( "EVNT" );
@@ -1959,6 +2114,18 @@ std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>&
         tracks.push_back( "solverCheckpoints" );
         schema += "+solver-checkpoints";
     }
+    if ( visualPacketCount > 0 )
+    {
+        chunks.push_back( "RVIS" );
+        tracks.push_back( "replayVisualPackets" );
+        schema += "+replay-visual-packets";
+    }
+    if ( visualPredictionBytes > 0 )
+    {
+        chunks.push_back( "RVPD" );
+        tracks.push_back( "replayVisualPredictionState" );
+        schema += "+replay-visual-prediction-state";
+    }
     chunks.push_back( "INDX" );
 
     Json manifest;
@@ -1975,6 +2142,9 @@ std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>&
     manifest["eventCursorCount"] = eventCursorCount;
     manifest["solverHashCount"] = solverHashCount;
     manifest["solverCheckpointCount"] = solverCheckpointCount;
+    manifest["visualPacketCount"] = visualPacketCount;
+    manifest["visualPredictionBytes"] = visualPredictionBytes;
+    manifest["visualPredictionHash"] = visualPredictionHash;
     manifest["firstFrame"] = first.frameIndex;
     manifest["lastFrame"] = last.frameIndex;
     manifest["firstTimeSeconds"] = first.simulationSeconds;
@@ -1986,11 +2156,12 @@ std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>&
     manifest["eventCursorEntryBytes"] = eventCursorCount > 0 ? REPLAY_V2_EVENT_CURSOR_ENTRY_BYTES : 0u;
     manifest["solverHashBytes"] = solverHashCount > 0 ? REPLAY_V2_HASH_ENTRY_BYTES : 0u;
     manifest["solverBodyBytes"] = solverCheckpointCount > 0 ? REPLAY_V2_SOLVER_BODY_ENTRY_BYTES : 0u;
+    manifest["visualPacketEntryBytes"] = visualPacketCount > 0 ? REPLAY_V4_VISUAL_PACKET_ENTRY_BYTES : 0u;
     manifest["chunks"] = chunks;
     manifest["authoritative"] = false;
     manifest["notes"] =
-        "Presentation v3 stores the complete replay-owned per-body visual state needed for exact saved/load/scrub "
-        "reconstruction. Optional solver, event, cursor, and branch chunks retain their v2-family layouts.";
+        "Presentation v4 retains v3 per-body visual state and adds exact full-packet semantic/render digests for "
+        "prediction-disabled saved/load/scrub verification. Older chunk layouts remain readable.";
 
     const std::string jsonText = manifest.dump();
     return std::vector<uint8_t>( jsonText.begin(), jsonText.end() );
@@ -2093,6 +2264,8 @@ bool BuildSolverCheckpointChunk( const std::vector<ReplaySolverFrameSample>& sol
 bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
                   const std::vector<ReplaySolverFrameSample>* solverSamples,
                   const std::vector<ReplayEventSample>* eventSamples,
+                  std::span<const ReplayVisualArchiveSample> visualPackets,
+                  std::span<const uint8_t> visualPredictionState,
                   std::vector<Chunk>& outChunks )
 {
     if ( samples.size() > static_cast<std::size_t>( ( std::numeric_limits<uint32_t>::max )() ) )
@@ -2104,6 +2277,10 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
         return false;
     }
     if ( eventSamples && eventSamples->size() > static_cast<std::size_t>( ( std::numeric_limits<uint32_t>::max )() ) )
+    {
+        return false;
+    }
+    if ( visualPackets.size() > static_cast<std::size_t>( ( std::numeric_limits<uint32_t>::max )() ) )
     {
         return false;
     }
@@ -2146,6 +2323,7 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
     const std::vector<EventCursorRecord> eventCursorRecords =
         eventCount > 0 ? BuildEventCursorRecords( solverSamples ) : std::vector<EventCursorRecord>();
     const std::size_t eventCursorCount = eventCursorRecords.size();
+    const uint64_t visualPredictionHash = HashVisualPredictionState( visualPredictionState );
     outChunks.push_back( MakeChunk( "MANI",
                                     BuildManifest( samples,
                                                    dictionary,
@@ -2153,7 +2331,10 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
                                                    eventCount,
                                                    eventCursorCount,
                                                    solverHashCount,
-                                                   solverCheckpointCount ),
+                                                   solverCheckpointCount,
+                                                   visualPackets.size(),
+                                                   visualPredictionState.size(),
+                                                   visualPredictionHash ),
                                     1u ) );
     outChunks.push_back( MakeChunk( "BODY", std::move( bodyBytes ), CheckedU32( dictionary.size() ) ) );
     outChunks.push_back( MakeChunk( "PRES", std::move( presentationBytes ), CheckedU32( samples.size() ) ) );
@@ -2176,6 +2357,18 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
     if ( solverCheckpointCount > 0u )
     {
         outChunks.push_back( MakeChunk( "SCHK", std::move( checkpointBytes ), CheckedU32( solverCheckpointCount ) ) );
+    }
+    if ( !visualPackets.empty() )
+    {
+        outChunks.push_back(
+            MakeChunk( "RVIS", BuildVisualPacketChunk( visualPackets ), CheckedU32( visualPackets.size() ) ) );
+    }
+    if ( !visualPredictionState.empty() )
+    {
+        outChunks.push_back(
+            MakeChunk( "RVPD",
+                       std::vector<uint8_t>( visualPredictionState.begin(), visualPredictionState.end() ),
+                       1u ) );
     }
     outChunks.push_back( MakeChunk( "INDX", BuildIndex( index ), CheckedU32( index.size() ) ) );
     return true;
@@ -2247,7 +2440,7 @@ bool ReplayV2Artifact::SavePresentation( const ReplayRecorder& recorder, const c
     }
 
     std::vector<Chunk> chunks;
-    if ( !BuildChunks( samples, nullptr, nullptr, chunks ) )
+    if ( !BuildChunks( samples, nullptr, nullptr, {}, {}, chunks ) )
     {
         return false;
     }
@@ -2294,6 +2487,8 @@ bool ReplayV2Artifact::SavePresentation( const ReplayRecorder& recorder, const c
         result->solverCheckpointCount = 0;
         result->eventCount = 0;
         result->eventCursorCount = 0;
+        result->visualPacketCount = 0;
+        result->visualPredictionHash = 0;
         result->fileBytes = fileBytes.size();
     }
     return true;
@@ -2304,6 +2499,8 @@ namespace
 bool SavePresentationWithTracks( const ReplayRecorder& recorder,
                                  const ReplaySolverRecorder& solverRecorder,
                                  const ReplayEventRecorder* eventRecorder,
+                                 std::span<const ReplayVisualArchiveSample> visualPackets,
+                                 std::span<const uint8_t> visualPredictionState,
                                  const char* path,
                                  ReplayV2SaveResult* result )
 {
@@ -2324,7 +2521,7 @@ bool SavePresentationWithTracks( const ReplayRecorder& recorder,
     }
 
     std::vector<Chunk> chunks;
-    if ( !BuildChunks( samples, &solverSamples, &eventSamples, chunks ) )
+    if ( !BuildChunks( samples, &solverSamples, &eventSamples, visualPackets, visualPredictionState, chunks ) )
     {
         return false;
     }
@@ -2371,6 +2568,8 @@ bool SavePresentationWithTracks( const ReplayRecorder& recorder,
         result->solverCheckpointCount = CountSolverCheckpoints( solverSamples );
         result->eventCount = eventSamples.size();
         result->eventCursorCount = !eventSamples.empty() ? CountSolverCheckpoints( solverSamples ) : 0;
+        result->visualPacketCount = visualPackets.size();
+        result->visualPredictionHash = HashVisualPredictionState( visualPredictionState );
         result->fileBytes = fileBytes.size();
     }
     return true;
@@ -2382,7 +2581,7 @@ bool ReplayV2Artifact::SavePresentationWithSolverHashes( const ReplayRecorder& r
                                                          const char* path,
                                                          ReplayV2SaveResult* result )
 {
-    return SavePresentationWithTracks( recorder, solverRecorder, nullptr, path, result );
+    return SavePresentationWithTracks( recorder, solverRecorder, nullptr, {}, {}, path, result );
 }
 
 bool ReplayV2Artifact::SavePresentationWithSolverHashes( const ReplayRecorder& recorder,
@@ -2391,7 +2590,24 @@ bool ReplayV2Artifact::SavePresentationWithSolverHashes( const ReplayRecorder& r
                                                          const char* path,
                                                          ReplayV2SaveResult* result )
 {
-    return SavePresentationWithTracks( recorder, solverRecorder, &eventRecorder, path, result );
+    return SavePresentationWithTracks( recorder, solverRecorder, &eventRecorder, {}, {}, path, result );
+}
+
+bool ReplayV2Artifact::SavePresentationWithSolverHashes( const ReplayRecorder& recorder,
+                                                         const ReplaySolverRecorder& solverRecorder,
+                                                         const ReplayEventRecorder& eventRecorder,
+                                                         std::span<const ReplayVisualArchiveSample> visualPackets,
+                                                         std::span<const uint8_t> visualPredictionState,
+                                                         const char* path,
+                                                         ReplayV2SaveResult* result )
+{
+    return SavePresentationWithTracks( recorder,
+                                       solverRecorder,
+                                       &eventRecorder,
+                                       visualPackets,
+                                       visualPredictionState,
+                                       path,
+                                       result );
 }
 
 bool ReplayV2Artifact::LoadPresentation( const char* path,
@@ -2619,4 +2835,55 @@ bool ReplayV2Artifact::LoadSolverHashes( const char* path,
         }
     }
     return !outHashes.empty();
+}
+
+bool ReplayV2Artifact::LoadVisualPackets( const char* path, std::vector<ReplayVisualArchiveSample>& outPackets )
+{
+    outPackets.clear();
+    std::vector<uint8_t> fileBytes;
+    if ( !LoadBinaryFile( path, fileBytes ) )
+    {
+        return false;
+    }
+
+    std::vector<ChunkTableEntry> chunkTable;
+    uint32_t version = 0;
+    if ( !ReadChunkTable( fileBytes, chunkTable, version ) || version < 4u )
+    {
+        return false;
+    }
+    const ChunkTableEntry* visualChunk = FindChunk( chunkTable, "RVIS" );
+    if ( !visualChunk || !ParseVisualPacketChunk( fileBytes, *visualChunk, outPackets ) )
+    {
+        outPackets.clear();
+        return false;
+    }
+    return !outPackets.empty();
+}
+
+bool ReplayV2Artifact::LoadVisualPredictionState( const char* path, std::vector<uint8_t>& outBytes )
+{
+    outBytes.clear();
+    std::vector<uint8_t> fileBytes;
+    if ( !LoadBinaryFile( path, fileBytes ) )
+    {
+        return false;
+    }
+    std::vector<ChunkTableEntry> chunkTable;
+    uint32_t version = 0;
+    if ( !ReadChunkTable( fileBytes, chunkTable, version ) || version < 4u )
+    {
+        return false;
+    }
+    const ChunkTableEntry* predictionChunk = FindChunk( chunkTable, "RVPD" );
+    if ( !predictionChunk || predictionChunk->recordCount != 1u || predictionChunk->offset > fileBytes.size() ||
+         predictionChunk->size > fileBytes.size() - static_cast<std::size_t>( predictionChunk->offset ) )
+    {
+        return false;
+    }
+    const std::size_t begin = static_cast<std::size_t>( predictionChunk->offset );
+    const std::size_t end = begin + static_cast<std::size_t>( predictionChunk->size );
+    outBytes.assign( fileBytes.begin() + static_cast<std::ptrdiff_t>( begin ),
+                     fileBytes.begin() + static_cast<std::ptrdiff_t>( end ) );
+    return !outBytes.empty();
 }

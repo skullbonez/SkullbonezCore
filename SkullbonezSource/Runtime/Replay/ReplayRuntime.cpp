@@ -41,6 +41,7 @@ Related:
 #include "ReplayOverlayLayout.h"
 #include "ReplayRetainedMemory.h"
 #include "ReplayV2Artifact.h"
+#include "ReplayPredictionArchive.h"
 #include "../RuntimeFileWriter.h"
 #include "../InputRouter.h"
 #include "../RuntimeInteractionCommands.h"
@@ -1061,10 +1062,35 @@ void ReplayRuntime::ClearPredictionCache()
 
 void ReplayRuntime::MarkPredictionDirty()
 {
+    if ( !m_predictionGenerationPermitted )
+    {
+        // Why: load-only validation is intentionally incapable of requesting a
+        // replacement future. Its sole input is the artifact created by the
+        // gate's one permitted prediction generation.
+        m_prediction.build.dirty = false;
+        return;
+    }
     // Why: the prediction dispatcher owns cancellation. Marking dirty must stay
     // non-blocking during velocity drag so an in-flight instant build can finish
     // and be superseded by one newest-state restart.
     m_prediction.build.dirty = true;
+}
+
+bool ReplayRuntime::PredictionGenerationPermitted() const noexcept
+{
+    return m_predictionGenerationPermitted;
+}
+
+void ReplayRuntime::EnterOfflinePredictionVerification()
+{
+    // Invariant: this is a one-way terminal capability transition for a CLI
+    // validation process. It does not clear the frozen prediction because the
+    // caller immediately replaces it from RVPD, and no render frame follows.
+    WaitForReplayPredictionWorkerIdle( m_prediction );
+    m_predictionGenerationPermitted = false;
+    m_prediction.build.dirty = false;
+    m_prediction.build.pendingLatestRestart = false;
+    m_trajectoryVisualStats = {};
 }
 
 void ReplayRuntime::ClearPathVisualizerState()
@@ -3726,9 +3752,26 @@ void ReplayRuntime::RecordEditorTransformEvent( int modelIndex,
                  payload );
 }
 
-bool ReplayRuntime::SavePresentationWithSolverHashes( const char* path, ReplayV2SaveResult* result ) const
+bool ReplayRuntime::SavePresentationWithSolverHashes( const char* path,
+                                                      ReplayV2SaveResult* result,
+                                                      std::span<const ReplayVisualArchiveSample> visualPackets,
+                                                      std::span<const uint8_t> visualPredictionState ) const
 {
-    return ReplayV2Artifact::SavePresentationWithSolverHashes( m_presentation, m_solver, m_events, path, result );
+    std::vector<uint8_t> fallbackPredictionState;
+    if ( !visualPackets.empty() && visualPredictionState.empty() &&
+         !BuildReplayPredictionArchive( m_pathVisualizer, m_prediction, fallbackPredictionState ) )
+    {
+        return false;
+    }
+    const std::span<const uint8_t> predictionState =
+        !visualPredictionState.empty() ? visualPredictionState : std::span<const uint8_t>( fallbackPredictionState );
+    return ReplayV2Artifact::SavePresentationWithSolverHashes( m_presentation,
+                                                               m_solver,
+                                                               m_events,
+                                                               visualPackets,
+                                                               predictionState,
+                                                               path,
+                                                               result );
 }
 
 bool ReplayRuntime::SavePresentationFromScrubber( double now )

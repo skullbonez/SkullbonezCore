@@ -13,7 +13,7 @@
 # Glossary:
 #   ReplayV2Artifact: Established API/file-family name for chunked .skreplay
 #     artifacts; the current writer version is declared inside the file.
-#   Previous-version fixture: Deterministic v2 artifact derived from a current
+#   Previous-version fixture: Deterministic v3 artifact derived from a current
 #     writer result to prove the one supported migration path.
 #   SkullScope slice: Bounded NDJSON exported from selected replay frames.
 #
@@ -523,66 +523,45 @@ def write_versioned_file(path, chunks, version):
 
 
 def build_previous_version_fixture(current):
-    body_raw = current._chunk_bytes("BODY")
-    body_count = struct.unpack_from("<I", body_raw, 0)[0]
-    body_v2 = bytearray(struct.pack("<I", body_count))
-    cursor = 4
-    for _ in range(body_count):
-        body_id, model_index, shape_kind, _fixed, _reserved, _mass, name = BODY_RECORD_V3.unpack_from(
-            body_raw, cursor
-        )
-        cursor += BODY_RECORD_V3.size
-        body_v2.extend(BODY_RECORD_V2.pack(body_id, model_index, shape_kind, b"\0\0\0", name))
-
-    presentation_raw = current._chunk_bytes("PRES")
-    presentation_v2 = bytearray(struct.pack("<I", len(current.frames)))
-    legacy_index = []
-    for frame in current.frames:
-        legacy_index.append((frame.frame_index, len(presentation_v2), frame.body_count))
-        frame_cursor = frame.presentation_offset
-        presentation_v2.extend(presentation_raw[frame_cursor : frame_cursor + FRAME_HEADER.size])
-        frame_cursor += FRAME_HEADER.size
-        for _ in range(frame.body_count):
-            presentation_v2.extend(presentation_raw[frame_cursor : frame_cursor + 32])
-            frame_cursor += BODY_VISUAL_STATE_V3.size
-
-    index_v2 = bytearray(struct.pack("<I", len(legacy_index)))
-    for frame_index, presentation_offset, frame_body_count in legacy_index:
-        index_v2.extend(struct.pack("<QQII", frame_index, presentation_offset, frame_body_count, 0))
-
     manifest = dict(current.manifest)
-    manifest["version"] = 2
+    manifest["version"] = 3
     manifest["schema"] = str(manifest.get("schema", "")).replace(
-        "presentation-v3-visual-state", "presentation-v2"
+        "presentation-v4-visual-state", "presentation-v3-visual-state"
     )
-    manifest["bodyPoseBytes"] = 32
-    manifest.pop("bodyDictionaryEntryBytes", None)
+    manifest["schema"] = manifest["schema"].replace("+replay-visual-packets", "").replace(
+        "+replay-visual-prediction-state", ""
+    )
+    manifest.pop("visualPacketCount", None)
+    manifest.pop("visualPacketEntryBytes", None)
+    manifest.pop("visualPredictionBytes", None)
+    manifest.pop("visualPredictionHash", None)
+    manifest["chunks"] = [chunk for chunk in manifest.get("chunks", []) if chunk not in ("RVIS", "RVPD")]
+    manifest["tracks"] = [
+        track
+        for track in manifest.get("tracks", [])
+        if track not in ("replayVisualPackets", "replayVisualPredictionState")
+    ]
     manifest_raw = json.dumps(manifest, separators=(",", ":")).encode("utf-8")
 
-    replacements = {
-        "MANI": manifest_raw,
-        "BODY": bytes(body_v2),
-        "PRES": bytes(presentation_v2),
-        "INDX": bytes(index_v2),
-    }
     chunks = []
     for ident, chunk in current.chunks.items():
-        chunks.append((ident, replacements.get(ident, current._chunk_bytes(ident)), chunk.record_count))
-    write_versioned_file(LEGACY_ARTIFACT, chunks, 2)
+        if ident not in ("RVIS", "RVPD"):
+            chunks.append((ident, manifest_raw if ident == "MANI" else current._chunk_bytes(ident), chunk.record_count))
+    write_versioned_file(LEGACY_ARTIFACT, chunks, 3)
 
 
 def validate_version_policy():
     current = ReplayV2(ARTIFACT)
-    if current.version != 3 or current.manifest.get("version") != 3:
-        raise RuntimeError("current writer did not emit replay version 3")
+    if current.version != 4 or current.manifest.get("version") != 4:
+        raise RuntimeError("current writer did not emit replay version 4")
     if current.manifest.get("bodyDictionaryEntryBytes") != 80 or current.manifest.get("bodyPoseBytes") != 76:
-        raise RuntimeError("current writer did not emit the complete v3 visual-state ABI")
+        raise RuntimeError("current writer did not retain the complete v3 visual-state ABI in v4")
     if not current.presentation_packet_hashes():
         raise RuntimeError("current writer produced no exact presentation packet hashes")
 
     build_previous_version_fixture(current)
     legacy = ReplayV2(LEGACY_ARTIFACT)
-    if legacy.version != 2 or len(legacy.frames) != len(current.frames):
+    if legacy.version != 3 or len(legacy.frames) != len(current.frames):
         raise RuntimeError("previous-version fixture did not migrate through replay_query")
     legacy_stdout = run_checked(
         [
@@ -604,12 +583,12 @@ def validate_version_policy():
         raise RuntimeError("runtime did not scrub the deterministic previous-version migration fixture")
 
     future_bytes = bytearray(ARTIFACT.read_bytes())
-    struct.pack_into("<I", future_bytes, 8, 4)
+    struct.pack_into("<I", future_bytes, 8, 5)
     FUTURE_ARTIFACT.write_bytes(future_bytes)
     try:
         ReplayV2(FUTURE_ARTIFACT)
     except ReplayQueryError as error:
-        if "unsupported replay version 4" not in str(error):
+        if "unsupported replay version 5" not in str(error):
             raise RuntimeError(f"future-version tooling failed for the wrong reason: {error}") from error
     else:
         raise RuntimeError("future-version artifact was accepted by replay_query")
@@ -668,9 +647,9 @@ def validate_version_policy():
         text=True,
     )
     if mutation_result.returncode == 0:
-        raise RuntimeError("runtime accepted a v3 artifact with a mutated visual-state float")
+        raise RuntimeError("runtime accepted a v4 artifact with a mutated visual-state float")
     print(
-        "  Version policy passed: writer=3 previous=2 future=4-rejected visual-float=rejected "
+        "  Version policy passed: writer=4 previous=3 future=5-rejected visual-float=rejected "
         f"legacy_frames={len(legacy.frames)}"
     )
 
@@ -681,7 +660,7 @@ def query_artifact():
     print("    tools\\replay_query.bat TestOutput\\validation\\replay_v2\\replay_save_probe.skreplay summary")
     summary_stdout, summary = run_json(summary_command, REPO)
 
-    if summary.get("version") != 3 or summary.get("track") != "presentation":
+    if summary.get("version") != 4 or summary.get("track") != "presentation":
         raise RuntimeError(f"unexpected current replay summary: {summary}")
     if int(summary.get("frameCount") or 0) < 24:
         raise RuntimeError(f"expected at least 24 replay frames, found {summary.get('frameCount')}")

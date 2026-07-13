@@ -155,7 +155,7 @@ known-good golden manifest.
   cancellation waits for in-flight slices before clearing state), serial
   physics steps with post-step fan-out capture. Acceptance: prediction
   determinism fingerprint unchanged; **200-box visual fidelity gate green**
-  for every predicted/live simulation tick and exact presentation byte;
+  for every single-generation prediction tick and exact presentation byte;
   allocation-policy allowlist rows for replay reserve
   updated to name the new owner in the same commit. Validation:
   `tools\validate_replay_visual_fidelity.bat` first,
@@ -197,7 +197,7 @@ known-good golden manifest.
 ## Dependencies And Decisions
 
 - **Binding prerequisite:** `replay-visual-fidelity-mega-probe.md` complete
-  (M0). Its golden-base and predicted/live packet comparisons are binding
+  (M0). Its golden-base, causal, and durable packet comparisons are binding
   divergence detectors for every decomposition task, not only M6.
 - **Branch binding:** both plans execute on `nightrunner-13th-july`. Moving the
   work requires an explicit owner decision and a fresh passing mega-probe

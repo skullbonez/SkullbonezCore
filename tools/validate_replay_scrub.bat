@@ -8,7 +8,7 @@
 @rem   Tools are command-line guardrails around builds, validation, screenshots,
 @rem   diagnostics, and artifact handling. This file is a compatibility entry
 @rem   point, not a second oracle: the complete visual, causal, deterministic,
-@rem   artifact-load, and scrub contract belongs to
+@rem   offline artifact-round-trip contract belongs to
 @rem   validate_replay_visual_fidelity.bat.
 @rem
 @rem Glossary:
@@ -41,7 +41,7 @@ echo ========================================
 echo.
 
 if /I "%~1"=="--prove-failure-propagation" (
-    cmd /d /c exit 37
+    cmd /d /c exit /b 37
 ) else (
     call "%~dp0validate_replay_visual_fidelity.bat"
 )

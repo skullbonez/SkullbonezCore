@@ -37,6 +37,8 @@ Related:
 #include "ReplayInteractionController.h"
 #include "ReplayRestoreService.h"
 #include "ReplayRuntimeOwnerViews.h"
+#include "ReplayPredictionArchive.h"
+#include "ReplayVisualPacketFingerprint.h"
 #include "ReplayV2Artifact.h"
 
 #include "../../Core/FatalError.h"
@@ -47,6 +49,7 @@ Related:
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsTimestep.h"
 
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -1957,6 +1960,10 @@ void ReplayRuntime::ConfigureStartupWorkflows( const ReplayStartupRequest& reque
     };
     copyPath( m_startupWorkflows.loadPath, sizeof( m_startupWorkflows.loadPath ), request.loadPath );
     m_startupWorkflows.loadProbe = request.loadProbe;
+    // Invariant: this is a capability boundary, not merely a scripted promise.
+    // A fresh load-probe process can reconstruct and scrub the supplied artifact
+    // but cannot ask the prediction dispatcher to generate another future.
+    m_predictionGenerationPermitted = !request.loadProbe;
 #ifdef _DEBUG
     copyPath( m_startupWorkflows.checkpointProbePath,
               sizeof( m_startupWorkflows.checkpointProbePath ),
@@ -2034,6 +2041,7 @@ ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadInput& loadInput
             return result;
         }
         if ( !acceptProbe( VerifyLoadedPresentationProbe( probeTransaction,
+                                                          probeTopology,
                                                           probeMousePickup,
                                                           probeNormalizedCurrentMode,
                                                           probeNow,
@@ -2356,11 +2364,16 @@ SkullbonezCore::Core::SbResult ReplayRuntime::TickSaveProbe( const ReplayRestore
 
 SkullbonezCore::Core::SbResult
 ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& transaction,
+                                              const ReplayArtifactTopologyOwners& topology,
                                               RunMousePickupState& mousePickup,
                                               RunCameraMode normalizedCurrentMode,
                                               double now,
                                               float normalized )
 {
+    if ( PredictionGenerationPermitted() )
+    {
+        return ReplayProbeFailure( "replay load probe did not disable prediction generation" );
+    }
     const auto enterInspectionCamera = [&]()
     {
         EnterInspectionCamera( &transaction.sampleOwners.sceneController.Cameras(),
@@ -2390,6 +2403,93 @@ ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& tr
     if ( !HasLoadedPresentation() )
     {
         return ReplayProbeFailure( "replay load probe requires a loaded v2 presentation artifact" );
+    }
+
+    std::vector<ReplayVisualArchiveSample> visualPackets;
+    std::size_t visualPredictionBytes = 0;
+    const bool hasVisualPackets = ReplayV2Artifact::LoadVisualPackets( LoadedPresentation().path, visualPackets );
+    if ( hasVisualPackets )
+    {
+        for ( std::size_t index = 0; index < visualPackets.size(); ++index )
+        {
+            const ReplayVisualArchiveSample& packet = visualPackets[index];
+            if ( packet.revealFrame != index || packet.sourceFrame == 0 || packet.semanticHash == 0 ||
+                 packet.exactPacketHash == 0 )
+            {
+                return ReplayProbeFailure( "replay load probe found an invalid durable visual-packet row" );
+            }
+        }
+
+        std::vector<uint8_t> visualPredictionState;
+        if ( !ReplayV2Artifact::LoadVisualPredictionState( LoadedPresentation().path, visualPredictionState ) )
+        {
+            return ReplayProbeFailure( "replay load probe could not load the durable prediction state" );
+        }
+        visualPredictionBytes = visualPredictionState.size();
+        char archiveReason[192] = {};
+        if ( !LoadReplayPredictionArchive( visualPredictionState,
+                                           m_pathVisualizer,
+                                           m_prediction,
+                                           archiveReason,
+                                           sizeof( archiveReason ) ) )
+        {
+            return SkullbonezCore::Core::SbResult::Failure( REPLAY_PROBE_OWNER,
+                                                            "replay prediction archive rejected: %s",
+                                                            archiveReason );
+        }
+
+        // Invariant: this loop calls only the presentation half of replay. The
+        // loaded state remains presentation-visible, while the capability gate
+        // forbids BeginReplayPredictionJob even if a later edit regresses that bit.
+        RuntimeTools& runtimeTools = transaction.sampleOwners.runtimeTools;
+        SceneController& sceneController = transaction.sampleOwners.sceneController;
+        RunEditorTracer& tracer = runtimeTools.EditorTracer();
+        const Physics::PhysicsWorldForces worldForces = sceneController.World().GetPhysicsWorldForces();
+        m_trajectoryVisualStats = {};
+        // The archive retains the final marker prefix exactly. This optional
+        // presenting Debug probe deliberately replays first appearance from
+        // frame zero, so only the probe resets publication state.
+        m_prediction.futureNodeCache.retainedMarkerCount = 0;
+        std::vector<ReplayVisualTrajectoryDigestState> trajectoryDigests;
+        for ( const ReplayVisualArchiveSample& expected : visualPackets )
+        {
+            m_prediction.revealClock.deterministicFrame = expected.revealFrame;
+            m_prediction.revealClock.presentedFrame = expected.revealFrame;
+            tracer.Clear();
+            RenderPathVisualizer( transaction.sampleOwners.physics,
+                                  sceneController.Entities(),
+                                  topology.config,
+                                  worldForces,
+                                  topology.workerPool,
+                                  tracer,
+                                  transaction.sampleOwners.scene.isScenePhysics,
+                                  transaction.sampleOwners.scene.currentFrame,
+                                  PHYSICS_FIXED_DT,
+                                  static_cast<double>( expected.revealFrame ) * PHYSICS_FIXED_DT );
+            (void)BuildPredictionGhostDrawRequests( sceneController.RenderPresentationRecords(),
+                                                    sceneController.BodyStore() );
+            ReplayVisualPacket rebuilt = tracer.BuildReplayVisualPacket( expected.cameraEye, expected.cameraUp );
+            PublishReplayVisualPacket( rebuilt, expected.replayReserveGrowthEvents );
+            const ReplayVisualPacketFingerprint fingerprint =
+                BuildReplayVisualPacketFingerprint( PublishedReplayVisualPacket(), trajectoryDigests );
+            if ( fingerprint.visualStateHash != expected.visualStateHash )
+            {
+                return SkullbonezCore::Core::SbResult::Failure(
+                    REPLAY_PROBE_OWNER,
+                    "visual packet state mismatch at reveal %llu: expected=0x%016llX actual=0x%016llX",
+                    static_cast<unsigned long long>( expected.revealFrame ),
+                    static_cast<unsigned long long>( expected.visualStateHash ),
+                    static_cast<unsigned long long>( fingerprint.visualStateHash ) );
+            }
+            char difference[192] = {};
+            if ( !ReplayVisualPacketMatchesArchiveSample( PublishedReplayVisualPacket(),
+                                                          expected,
+                                                          difference,
+                                                          sizeof( difference ) ) )
+            {
+                return SkullbonezCore::Core::SbResult::Failure( REPLAY_PROBE_OWNER, "%s", difference );
+            }
+        }
     }
 
     if ( Scrubber().liveAdvanceHeld )
@@ -2515,8 +2615,11 @@ ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& tr
         return ReplayProbeFailure( "replay load probe live body changed after applying the selected loaded v2 sample" );
     }
 
-    printf( "[replay] Load probe passed: path=%s samples=%llu bodies=%llu first_frame=%llu selected_frame=%llu "
+    printf( "[replay] Load probe passed: prediction_generation=disabled visual_packets=%llu prediction_bytes=%llu "
+            "path=%s samples=%llu bodies=%llu first_frame=%llu selected_frame=%llu "
             "latest_frame=%llu body_id=%u distance_sq=%.6f\n",
+            static_cast<unsigned long long>( visualPackets.size() ),
+            static_cast<unsigned long long>( visualPredictionBytes ),
             LoadedPresentation().path,
             static_cast<unsigned long long>( LoadedPresentation().samples.size() ),
             static_cast<unsigned long long>( LoadedPresentation().bodyDictionaryCount ),

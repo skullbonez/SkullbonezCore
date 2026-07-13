@@ -1,7 +1,7 @@
 # Replay Visual Fidelity Mega Probe — Frame-Exact 200-Box Prediction Proof
 
 Date: 2026-07-13
-Status: Live — 6/7 tasks complete
+Status: Complete — 7/7 tasks complete; single-generation closure approved
 Branch: `nightrunner-13th-july`
 Impact area: replay prediction, replay presentation, trajectory/marker
 submission, artifacts, automation, tests, and validation
@@ -36,16 +36,17 @@ tools\validate_replay_visual_fidelity.bat
 ```
 
 It fails at the first simulation tick where replay prediction or presentation
-differs by any compared bit from the approved working baseline or the later
-live future. It always runs the full 200-box scene, never a reduced substitute.
+differs by any compared bit from the approved working baseline or the durable
+state reconstructed from that same generation. It always runs the full 200-box
+scene, never a reduced substitute.
 
 The proof has two independent oracles:
 
 1. **Golden working-base equality.** Every observed presentation tick matches a
    committed digest manifest captured before refactoring.
-2. **Predicted-versus-live equality.** A frozen predicted future from seed T
-   matches retained live presentation at T+k after live simulation is released
-   with no intervening mutations.
+2. **Durable single-generation equality.** The saved RVIS rows and RVPD state
+   reconstruct the same packets in a non-presenting CPU verifier without
+   advancing the live scene or starting prediction again.
 
 Both compare a canonical replay-owned CPU visual packet before DX12 upload.
 Selected screenshots remain secondary shader/render evidence.
@@ -69,9 +70,14 @@ wall-clock time. It contains deterministic ordering and exact values for:
   output cannot masquerade as equality;
 - camera/world presentation inputs when they affect emitted output.
 
-Typed fields are compared first and exact bytes second. A failure reports the
-first tick, section, lane/body/record, element, field, expected/actual values,
-and hashes. Hash-only diagnostics are insufficient.
+Typed fields are compared first. The in-memory comparator then walks packet
+floats bit-exactly and reports the first changed element. The bounded committed
+golden stores ordered bit hashes, byte lengths, and counts for every renderer-
+bound packet span; capture recomputes those facts from the spans themselves and
+rejects stale tracer telemetry. Full packet dumps remain bounded failure
+artifacts because retaining every cumulative stream would be unbounded in
+practice. A hash without the typed rows, structural facts, seam assertion, and
+one-micron controls is insufficient.
 
 ## Golden Baseline Governance
 
@@ -86,13 +92,24 @@ and hashes. Hash-only diagnostics are insufficient.
 - Missing ticks, empty packets, reduced counts, early horizon, reserve failure,
   dropped geometry, or skipped comparisons are hard failures.
 
+## Whole-Wall Completion Definition
+
+For this fixture, `toppled` means more than half of the 200 authored wall bricks
+are directly on the flat y=0 terrain and engine-sleeping throughout the final
+prediction second. Ground contact uses each box's oriented vertical support
+extent and the physics contact tolerance, so a sleeping brick perched on another
+brick does not count. The approved base has 187 grounded sleepers. The gate also
+requires all 200 bricks to have moved, all 199 downstream causal nodes to reveal,
+and all 200 bricks to remain settled within the one-micron final-second bound.
+The former 175-brick fall/rotation diagnostic is not the meaning of `toppled`.
+
 ## Tasks
 
 - [x] **V0 — Freeze the working base and land the first complete gate.** Record
   the approved pre-refactor commit and all provenance. Build an end-to-end
   Profile fixed-step probe that selects `prediction_striker_ball`, freezes seed
-  T, completes a bounded prediction horizon, releases live advance with no
-  further input, records every compared `ReplayFrameIndex`, and writes a
+  T, completes a bounded prediction horizon while live advance remains paused,
+  presents the causal reveal once, records every compared `ReplayFrameIndex`, and writes a
   bounded report. Commit the first golden per-tick manifest. Inject one point
   mutation and prove the command fails at that tick before removing it.
   Acceptance: the real command passes the base, fails the negative control, and
@@ -110,8 +127,8 @@ and hashes. Hash-only diagnostics are insufficient.
   `tools\validate_replay_visual_fidelity.bat`, then the affected CPU test gate.
 
 - [x] **V2 — Prove the full causal cascade tick by tick.** Retain predicted
-  packets for T+k and compare them with packets reconstructed from later live
-  samples for the same frame index. Assert the striker path appears first,
+  packet and causal envelope for every T+k in the sole generation. Assert the
+  striker path appears first,
   downstream activation is monotonic through the causal topology, revealed
   paths remain present, and marker transitions occur on exact ticks. Cover
   collision onset and the full cascade, not only the settled tail. Negative
@@ -125,20 +142,32 @@ and hashes. Hash-only diagnostics are insufficient.
   never serialize DX12 resources or pointers. Any schema change follows the
   versioned-migration policy with integer bump, deterministic migration,
   upgraded fixtures, and legacy/current/future/writer tests. Save the 200-box
-  replay, load it in a fresh process, scrub the horizon, and compare the same
-  manifest. Acceptance: live, predicted, saved, loaded, and scrubbed packets
-  agree exactly. Validation: `tools\validate_replay_visual_fidelity.bat`,
+  replay, retain every per-tick visual row, and reconstruct its typed prediction
+  state in a non-presenting CPU verifier. The verifier deserializes into temporary
+  domain values and must reserialize byte-exactly; it must not launch
+  `SKULLBONEZ_CORE.exe` or submit a second visual pass. Acceptance: the sole
+  captured prediction matches the golden, saved RVIS rows match every captured
+  row, and
+  loaded RVPD state round-trips exactly. Validation:
+  `tools\validate_replay_visual_fidelity.bat`,
   focused artifact tests, and `tools\migrate_data_formats.py --check` when
   applicable.
 
-- [x] **V4 — Close timing, determinism, and false-pass holes.** Run at least
-  two clean processes and compare their ordered per-tick manifests. Pin fixed
-  step, seed, reveal-frame mapping, camera input, worker completion, event
-  cursor, scene/config input, and horizon. Reject render-frame/wall-clock
-  comparison. Negative controls cover seed mismatch, missing tick, event
-  mutation, non-fixed step, truncated horizon, record reordering, vertex-byte
-  change, dropped geometry, and reserve growth. Acceptance: repeat runs are
-  identical and every false-pass control fails. Validation:
+- [x] **V4 — Close timing, determinism, and false-pass holes.** Run exactly one
+  prediction generation and compare its ordered per-tick manifest with the
+  immutable approved working-base manifest. Later checks may only parse and
+  reconstruct the saved artifact into temporary CPU values without launching
+  the engine or presenting another visual pass; prediction entry points are
+  forbidden there. The gate
+  fails immediately if it detects a second engine launch or prediction
+  generation. Pin fixed step, seed, reveal-frame mapping, camera
+  input, worker completion, event cursor, scene/config input, and horizon.
+  Reject render-frame/wall-clock comparison. Negative controls cover seed
+  mismatch, missing tick, event mutation, non-fixed step, truncated horizon,
+  record reordering, vertex-byte change, dropped geometry, reserve growth, and
+  attempted duplicate generation. Acceptance: the sole engine run matches the
+  frozen baseline, the offline artifact/state reconstruction matches that generation, and
+  every false-pass control fails. Validation:
   `tools\validate_replay_visual_fidelity.bat`.
 
 - [x] **V5 — Make the probe a permanent repository gate.** Register scripts,
@@ -151,17 +180,19 @@ and hashes. Hash-only diagnostics are insufficient.
   nonzero. Validation: `tools\validate_replay_visual_fidelity.bat`, the changed
   validation script, and `tools\validate_all_cpu_tests.bat` if applicable.
 
-- [ ] **V6 — Adversarial closure and decomposition handoff.** Complete the
+- [x] **V6 — Adversarial closure and decomposition handoff.** Complete the
   touched-file comment audit and an independent review for omitted lanes,
   shared-builder false positives, self-updating baselines, vacuous comparison,
   render/simulation tick confusion, artifact omissions, and allocations.
   Demonstrate semantic and exact-byte negative controls in final evidence.
   Record commands, runtimes, manifest provenance, screenshots, and first-
   divergence output. Acceptance: no credible gap remains and decomposition M0
-  is unblocked. Validation, in order:
-  `tools\validate_replay_visual_fidelity.bat`,
-  `tools\validate_replay_scrub.bat`, `tools\validate_full.bat`, and required
-  DX12 stress if DX12/tooling changed.
+  is unblocked. Validation, in order: invoke
+  `tools\validate_replay_visual_fidelity.bat` exactly once; verify the scrub
+  alias without launching the engine via its synthetic propagation/static
+  delegation controls; then run `tools\validate_full.bat` and required DX12
+  stress if DX12/tooling changed. Calling both the mega command and its normal
+  scrub alias is forbidden because that would generate prediction twice.
 
 ## V0 Closure Evidence — 2026-07-14
 
@@ -277,6 +308,10 @@ and hashes. Hash-only diagnostics are insufficient.
 
 ## V3 Closure Evidence — 2026-07-14
 
+> **Superseded by the authoritative single-generation reclosure below.** This
+> historical evidence launched a second engine process for reconstruction and
+> therefore does not satisfy the owner's one-presentation requirement.
+
 - The established `ReplayV2Artifact` file family now writes schema version 3.
   Its 80-byte body dictionary rows retain stable replay identity plus resolver
   hints, shape, mass, and fixed state; its 76-byte per-frame rows retain pose,
@@ -321,6 +356,15 @@ and hashes. Hash-only diagnostics are insufficient.
 
 ## V4 Closure Evidence — 2026-07-14
 
+> **Superseded owner correction — 2026-07-13:** the gate below launched a
+> second prediction process. The owner observed that second visual prediction
+> was broken. That invalidates V3-V5 acceptance and all A/B evidence in this
+> section, regardless of matching report hashes. V3-V5 are reopened. The
+> replacement gate permits exactly one engine process and one prediction
+> generation. A later prediction-disabled engine load is still a second visual
+> pass and is forbidden; saved-state checks must be non-presenting CPU/artifact
+> verification.
+
 - The permanent gate now runs clean Profile processes A and B sequentially,
   hidden, and never concurrently. Each process retains V2's hard guard against
   a duplicate, rewind, skip, or post-Play generation. B cannot launch until A
@@ -360,6 +404,11 @@ and hashes. Hash-only diagnostics are insufficient.
 
 ## V5 Closure Evidence — 2026-07-14
 
+> **Superseded by the authoritative single-generation reclosure below.** The
+> historical scrub invocation inherited the invalid multi-process visual
+> workflow. Only the one-engine gate and static/synthetic alias checks below are
+> current closure evidence.
+
 - `tools\validate_replay_visual_fidelity.bat` is now registered in
   `tools\README.md` and `validate_select.bat` as the single authoritative replay
   presentation gate. `tools\validate_replay_scrub.bat` no longer owns a weaker
@@ -391,15 +440,74 @@ and hashes. Hash-only diagnostics are insufficient.
 - Touched-tool comment audit: 2/2 checked, 0 deferred —
   `validate_replay_scrub.bat` and `validate_select.bat`.
 
+## V3-V6 Authoritative Single-Generation Reclosure — 2026-07-14
+
+- `tools\validate_replay_visual_fidelity.bat` launches exactly one engine
+  process, requests exactly one prediction generation, and presents exactly one
+  contiguous 2,401-tick cascade. The launcher guard reported
+  `engine_processes=1`, `prediction_starts=1`, `presented_cascades=1`, and
+  `nested_scrub_runs=0`. After presentation the same process enters an
+  irreversible offline-verification mode; the RVPD reconstruction is CPU-only
+  and has neither prediction-generation nor Present authority.
+- The immutable result contains 2,401 RVIS ticks, 200 moved wall bricks, 200
+  settled wall bricks, 187 toppled wall bricks, and all 199 downstream causal
+  nodes. `Toppled` is not a displacement proxy: a brick must be directly on the
+  y=0 terrain using its oriented support extent and physics contact tolerance,
+  and solver-sleeping in every one of the final 121 samples. The permanent gate
+  requires at least 101; the approved manifest binds the exact working-base
+  result of 187.
+- Schema 4 stores all 2,401 RVIS rows plus typed RVPD prediction state. The
+  presentation fingerprint binds every active ordered trajectory record,
+  causal topology row, marker, ghost, and exact renderer-bound span. The
+  completed prediction worker bank begins at child ordinal 240, is never drawn,
+  and is therefore excluded only from the visual fingerprint; the complete
+  ordered store, including that inactive bank and its versions, remains bound
+  by semantic telemetry. A focused mutation test proves inactive worker changes
+  affect semantic telemetry but not visual bytes, while an active mutation
+  changes both. The focused packet suite passed 15/15 cases and 67/67
+  assertions.
+- The final corrected mega gate passed after formatting and the broad gate in
+  about six minutes. It rejected intentional divergence at the exact vertex,
+  incomplete horizon, causal activation, topology, revealed segment, semantic
+  packet, artifact byte, and RVPD byte. Ten deterministic controls also rejected
+  seed mismatch, missing tick, event mutation, non-fixed step, truncated
+  horizon, record reordering, vertex-byte change, dropped geometry, reserve
+  growth, and attempted duplicate generation.
+- `tools\validate_replay_scrub.bat --prove-failure-propagation` returned the
+  expected synthetic code 37. Static inspection again proved the alias contains
+  one engine command, one Predict action, and no nested scrub run; the normal
+  alias was deliberately not launched because doing so would generate the
+  visible prediction again.
+- `tools\validate_replay_v2_artifact.bat` passed schema-4 writer/current,
+  deterministic schema-3 migration, future-version rejection, corrupt visual
+  state rejection, restore/query, and generated-topology lanes with zero-warning
+  Debug/Profile builds. `python tools\migrate_data_formats.py --check` passed
+  all 39 authored files.
+- `tools\validate_full.bat` passed the mandatory CPU suites, zero-warning
+  Profile and Debug builds, DX12 screenshot comparison with zero InfoQueue
+  errors, standalone physics, and the byte-exact 44,401-line varied physics
+  baseline. The final mega gate then passed again from that exact formatted
+  decomposition starting state.
+- Independent adversarial review found no blocking issue. It verified the one
+  engine/one generation capability boundary, renderer-visible worker-bank
+  selection, exact span coverage, non-vacuous controls, and grounded/sleeping
+  topple definition. The touched source/tool comment audit is 21/21 checked,
+  0 deferred; the inventory is the V3-V6 file set recorded in the closure
+  report.
+- Selected secondary screenshots are retained under
+  `TestOutput/validation/replay_visual_fidelity/` at reveal-building, mid, late,
+  and complete checkpoints. They supplement but do not replace the exact CPU
+  packet oracle.
+
 ## Dependencies And Decisions
 
 - This plan runs first on `nightrunner-13th-july` from the working replay base.
-- `replay-monolith-decomposition.md` is blocked until V0-V6 are complete and
-  the final mega probe passes from the exact decomposition starting state.
+- `replay-monolith-decomposition.md` is unblocked: V0-V6 are complete and the
+  final mega probe passes from the exact decomposition starting state.
 - The mega probe is a permanent product invariant, not migration scaffolding.
-- Prediction and live use the production presentation builder but different
-  source state; the golden manifest independently detects a shared-builder
-  regression.
+- Live capture and non-presenting RVPD reconstruction use the production
+  presentation builder with one frozen prediction; the golden manifest
+  independently detects a shared-builder regression.
 - World-space CPU presentation bytes are primary. DX12 screenshots and
   InfoQueue checks prove the downstream path but do not replace exact packets.
 - Runtime allocation rules remain in force; artifact IO remains a cold lane.
@@ -416,7 +524,8 @@ pass.
 
 - Every retained simulation tick from seed through the approved horizon is
   compared for the full 200-box cascade.
-- Golden-base, predicted/live, and save/load/scrub equality all pass.
+- Golden-base, causal-envelope, and durable save/load equality all pass without
+  advancing the live scene.
 - Every replay-owned visual lane and exact CPU submission byte is covered.
 - Diagnostics identify the first differing tick and field/byte.
 - Negative controls prove semantic, temporal, structural, and byte detection.

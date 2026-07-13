@@ -481,6 +481,7 @@ struct RunReplayPredictionBodySample
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR; // m/s-equivalent simulation units.
+    bool sleeping = false;                                            // Solver sleep state used by whole-cascade outcome validation.
 };
 
 struct RunReplayPredictionFrame
@@ -591,6 +592,7 @@ struct RunReplayPredictionTrajectoryBuildState
 struct RunReplayPredictionBuildState
 {
     bool dirty = true;
+    uint32_t generationBeginCount = 0;                                // Successful future-simulation generations in this process.
     // Concept: velocity edits do not form a queue. While an instant worker job
     // is in flight, this bit remembers only that the newest live state needs one
     // replacement build after completion.
@@ -1099,6 +1101,11 @@ class ReplayRuntime
     void CancelPredictionJob( bool clearSamples );
     void ClearPredictionCache();
     void MarkPredictionDirty();
+    bool PredictionGenerationPermitted() const noexcept;
+    // Validation-only terminal transition: the sole engine process may decode
+    // its frozen RVPD state and rebuild CPU presentation values after the last
+    // rendered frame, but it can never schedule another prediction generation.
+    void EnterOfflinePredictionVerification();
     void ClearPathVisualizerState();
 
     RunReplayCauseTreeState& CauseTree();
@@ -1205,6 +1212,7 @@ class ReplayRuntime
                                                   const ReplayArtifactTopologyOwners& topology,
                                                   bool& outEnterInteractive );
     SkullbonezCore::Core::SbResult VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& transaction,
+                                                                  const ReplayArtifactTopologyOwners& topology,
                                                                   RunMousePickupState& mousePickup,
                                                                   RunCameraMode normalizedCurrentMode,
                                                                   double now,
@@ -1335,7 +1343,10 @@ class ReplayRuntime
                                      float scaleFactor );
     // Writes the current presentation, solver hashes/checkpoints, and event
     // stream to an explicit cold-I/O binary v2 path.
-    bool SavePresentationWithSolverHashes( const char* path, ReplayV2SaveResult* result = nullptr ) const;
+    bool SavePresentationWithSolverHashes( const char* path,
+                                           ReplayV2SaveResult* result = nullptr,
+                                           std::span<const ReplayVisualArchiveSample> visualPackets = {},
+                                           std::span<const uint8_t> visualPredictionState = {} ) const;
     // Owns scrubber save path sequencing and status publication so Run does not
     // retain a behavior-free import/export forwarding module.
     bool SavePresentationFromScrubber( double now );
@@ -1539,6 +1550,9 @@ class ReplayRuntime
     RunReplayCameraState m_camera;
     RunReplayPathVisualizerState m_pathVisualizer;
     RunReplayPredictionState m_prediction;
+    // Invariant: a replay-load probe reconstructs saved presentation only. It
+    // must never enter the future-simulation builder that created the artifact.
+    bool m_predictionGenerationPermitted = true;
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats
         m_trajectoryVisualStats;                                      // Cumulative replay trajectory diagnostics for the current process.
     ReplayTrajectorySubmissionProbeStats

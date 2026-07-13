@@ -66,6 +66,7 @@ TORNADO_SYSTEM_HEADER = struct.Struct("<BB2sI")
 TORNADO_VORTEX_CONFIG_BYTES = TORNADO_CONFIG.size + COUNTED_FLOAT.size * 9
 SOLVER_STATS = struct.Struct("<iiiiiiiff")
 SOLVER_BODY = struct.Struct("<I" + ("f" * 21) + "5s3siHHff")
+VISUAL_PACKET_RECORD = struct.Struct("<" + ("Q" * 5) + ("I" * 9) + ("f" * 6) + ("Q" * 18) + ("I" * 13))
 
 FLAG_WATER_HIDDEN = 1 << 0
 FLAG_TERRAIN_HIDDEN = 1 << 1
@@ -125,6 +126,61 @@ class SolverHashInfo:
     contact_count: int
     pipeline_record_count: int
     checkpoint_boundary: bool
+
+
+@dataclass
+class VisualPacketInfo:
+    source_frame: int
+    reveal_frame: int
+    semantic_hash: int
+    visual_state_hash: int
+    exact_packet_hash: int
+    schema_version: int
+    target_id: int
+    branch_id: int
+    event_cursor: int
+    topology_version: int
+    published_frame_count: int
+    prediction_enabled: int
+    prediction_building: int
+    prediction_complete: int
+    camera_eye_x: float
+    camera_eye_y: float
+    camera_eye_z: float
+    camera_up_x: float
+    camera_up_y: float
+    camera_up_z: float
+    combined_line_hash: int
+    ordinary_line_hash: int
+    priority_line_hash: int
+    priority_line_canonical_hash: int
+    ordinary_ribbon_hash: int
+    priority_ribbon_hash: int
+    priority_ribbon_canonical_hash: int
+    expanded_vertex_hash: int
+    ordinary_expanded_vertex_hash: int
+    dropped_segment_count: int
+    replay_reserve_growth_events: int
+    combined_line_bytes: int
+    ordinary_line_bytes: int
+    priority_line_bytes: int
+    ordinary_ribbon_bytes: int
+    priority_ribbon_bytes: int
+    expanded_vertex_bytes: int
+    ordinary_expanded_vertex_bytes: int
+    has_geometry: int
+    trajectory_record_count: int
+    future_node_count: int
+    retained_marker_count: int
+    ghost_request_count: int
+    combined_line_vertex_count: int
+    ordinary_line_vertex_count: int
+    priority_line_vertex_count: int
+    ordinary_ribbon_segment_count: int
+    priority_ribbon_segment_count: int
+    expanded_vertex_count: int
+    ordinary_expanded_vertex_count: int
+    segment_count: int
 
 
 @dataclass
@@ -433,6 +489,7 @@ class ReplayV2:
         self.event_cursors: list[EventCursorInfo] = []
         self.solver_hashes: list[SolverHashInfo] = []
         self.solver_checkpoints: list[SolverCheckpointInfo] = []
+        self.visual_packets: list[VisualPacketInfo] = []
         self._parse_header()
         self._parse_manifest()
         self._parse_bodies()
@@ -442,6 +499,7 @@ class ReplayV2:
         self._parse_event_cursors()
         self._parse_solver_hashes()
         self._parse_solver_checkpoints()
+        self._parse_visual_packets()
 
     def _parse_header(self) -> None:
         if len(self.data) < HEADER.size:
@@ -451,7 +509,7 @@ class ReplayV2:
             if self.data[:1] == b"{":
                 raise ReplayQueryError("this is a legacy JSON replay artifact, not v2 binary")
             raise ReplayQueryError("unrecognized replay magic")
-        if version not in (2, 3):
+        if version not in (2, 3, 4):
             raise ReplayQueryError(f"unsupported replay version {version}")
         if header_size != HEADER.size:
             raise ReplayQueryError(f"unexpected v2 header size {header_size}")
@@ -889,6 +947,48 @@ class ReplayV2:
             raise ReplayQueryError("SCHK chunk has trailing bytes")
         self.solver_checkpoints = checkpoints
 
+    def _parse_visual_packets(self) -> None:
+        chunk = self.chunks.get("RVIS")
+        if not chunk:
+            self.visual_packets = []
+            return
+        raw = read_exact_range(self.data, chunk.offset, chunk.size, "RVIS")
+        if len(raw) < 4:
+            raise ReplayQueryError("RVIS chunk is truncated")
+        packet_count = U32.unpack_from(raw, 0)[0]
+        if packet_count != chunk.record_count:
+            raise ReplayQueryError("RVIS chunk count does not match chunk table")
+        expected_bytes = 4 + packet_count * VISUAL_PACKET_RECORD.size
+        if len(raw) != expected_bytes:
+            raise ReplayQueryError("RVIS chunk has trailing or version-mismatched bytes")
+        packets: list[VisualPacketInfo] = []
+        cursor = 4
+        for index in range(packet_count):
+            values = VISUAL_PACKET_RECORD.unpack_from(raw, cursor)
+            cursor += VISUAL_PACKET_RECORD.size
+            packet = VisualPacketInfo(*values)
+            if packet.reveal_frame != index or packet.source_frame <= 0:
+                raise ReplayQueryError(f"RVIS row {index} has invalid frame identity")
+            if packet.semantic_hash == 0 or packet.visual_state_hash == 0 or packet.exact_packet_hash == 0:
+                raise ReplayQueryError(f"RVIS row {index} has an empty packet hash")
+            if packet.schema_version != 1:
+                raise ReplayQueryError(
+                    f"ticks[{index}].schemaVersion is invalid: {packet.schema_version}"
+                )
+            if packet.target_id <= 0:
+                raise ReplayQueryError(
+                    f"ticks[{index}].targetId is invalid: {packet.target_id}"
+                )
+            if (
+                packet.prediction_enabled not in (0, 1)
+                or packet.prediction_building not in (0, 1)
+                or packet.prediction_complete not in (0, 1)
+                or packet.has_geometry not in (0, 1)
+            ):
+                raise ReplayQueryError(f"RVIS row {index} has invalid prediction flags")
+            packets.append(packet)
+        self.visual_packets = packets
+
     def summary(self) -> dict[str, object]:
         first = self.frames[0] if self.frames else None
         last = self.frames[-1] if self.frames else None
@@ -918,6 +1018,7 @@ class ReplayV2:
             "eventCursorCount": len(self.event_cursors),
             "solverHashCount": len(self.solver_hashes),
             "solverCheckpointCount": len(self.solver_checkpoints),
+            "visualPacketCount": len(self.visual_packets),
             "firstBranchId": self.branches[0].branch_id if self.branches else None,
             "lastBranchId": self.branches[-1].branch_id if self.branches else None,
             "firstSolverHashFrame": first_hash.frame_index if first_hash else None,
@@ -935,6 +1036,9 @@ class ReplayV2:
             "eventCursorEntryBytes": self.manifest.get("eventCursorEntryBytes", 0),
             "solverHashBytes": self.manifest.get("solverHashBytes", 0),
             "solverBodyBytes": self.manifest.get("solverBodyBytes", 0),
+            "visualPacketEntryBytes": self.manifest.get("visualPacketEntryBytes", 0),
+            "visualPredictionBytes": self.manifest.get("visualPredictionBytes", 0),
+            "visualPredictionHash": self.manifest.get("visualPredictionHash", 0),
             "chunks": chunks,
         }
 
@@ -1119,9 +1223,9 @@ class ReplayV2:
         }
 
     def presentation_packet_hashes(self) -> list[dict[str, object]]:
-        """Hash the exact v3 body fields shared with prediction/live packets."""
+        """Hash the exact v3+ body fields shared with prediction/live packets."""
         if self.version < 3:
-            raise ReplayQueryError("exact presentation packet hashes require replay version 3")
+            raise ReplayQueryError("exact presentation packet hashes require replay version 3 or newer")
 
         def append_bytes(value: int, payload: bytes) -> int:
             for byte in payload:

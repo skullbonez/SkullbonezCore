@@ -4,22 +4,23 @@ Purpose:
   for every deterministic prediction reveal frame.
 
 Mental model:
-  Each hidden engine process records the approved prediction once. This checker
-  compares one report with the golden and can compare two sequential clean-run
-  reports without launching the engine or generating another prediction.
+  One hidden engine process records the approved prediction once. This checker
+  compares that report with the golden and inspects the saved artifact bytes.
+  It never launches a second engine or presents reconstructed visuals.
 
 Glossary:
   Reveal tick: One future-frame packet exposed by the prediction cascade.
   Causal baseline: Approved topology and activation order for the wall cascade.
   Packet hash: Deterministic digest of the exact ordered body data rendered for
-    a predicted or subsequently live frame.
+    a predicted frame.
   Determinism contract: Ordered report/artifact projection that excludes only
     measured wall-clock throughput and retains every simulation/visual input.
 
 Invariants:
   - Validation never updates the baseline.
   - Reveal rows are contiguous ReplayFrameIndex values 0 through 2400.
-  - All 200 authored wall bricks move before the approved horizon ends.
+  - All 200 authored wall bricks participate, every causal path reveals, and
+    more than half the wall is grounded and sleeping throughout the final second.
   - The first differing field is reported, not merely a whole-file hash.
   - This checker is read-only and cannot start a second prediction generation.
 
@@ -37,11 +38,12 @@ import argparse
 import copy
 import hashlib
 import json
+import struct
 import subprocess
 from pathlib import Path
 from typing import Any
 
-from replay_query import ReplayQueryError, ReplayV2
+from replay_query import ReplayQueryError, ReplayV2, VISUAL_PACKET_RECORD
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -54,10 +56,15 @@ SCENE = ROOT / "SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json"
 SCRIPT = ROOT / "SkullbonezData/interaction/prediction_ragdoll_wall_200_full_reveal.json"
 CONFIG = ROOT / "SkullbonezData/engine.cfg"
 SHADER_ROOT = ROOT / "SkullbonezData/shaders"
+EXPECTED_HORIZON_SECONDS = 20.0
 EXPECTED_TICKS = 2401
 EXPECTED_LAST_REVEAL = 2400
 EXPECTED_WALL_BRICKS = 200
+EXPECTED_MIN_TOPPLED_WALL_BRICKS = EXPECTED_WALL_BRICKS // 2 + 1
 EXPECTED_START_FRAME = 900
+NEGATIVE_CONTROL_TICK = 1200
+REPLAY_VISUAL_FNV_OFFSET = 1469598103934665603
+REPLAY_VISUAL_FNV_PRIME = 1099511628211
 
 
 def sha256(path: Path) -> str:
@@ -80,6 +87,14 @@ def git_head() -> str:
     ).strip()
 
 
+def replay_visual_byte_hash(payload: bytes) -> int:
+    value = REPLAY_VISUAL_FNV_OFFSET
+    for byte in payload:
+        value ^= byte
+        value = (value * REPLAY_VISUAL_FNV_PRIME) & 0xFFFFFFFFFFFFFFFF
+    return value
+
+
 def load_json(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as stream:
         return json.load(stream)
@@ -89,8 +104,10 @@ def validate_report_shape(report: dict[str, Any]) -> list[dict[str, Any]]:
     if not report.get("ok"):
         raise ValueError(f"interaction report failed: {report.get('failure', 'unknown failure')}")
     fidelity = report.get("replayVisualFidelity", {})
-    if fidelity.get("schemaVersion") != 1:
-        raise ValueError(f"packet schema mismatch: expected=1 actual={fidelity.get('schemaVersion')}")
+    if fidelity.get("schemaVersion") != 2:
+        raise ValueError(f"packet schema mismatch: expected=2 actual={fidelity.get('schemaVersion')}")
+    if fidelity.get("offlineProjectionComplete") is not True:
+        raise ValueError("RVPD was not projected through the non-presenting production visual path")
     if fidelity.get("startFrame") != EXPECTED_START_FRAME:
         raise ValueError(
             "reveal did not start at its fixed presentation frame: "
@@ -108,7 +125,9 @@ def validate_report_shape(report: dict[str, Any]) -> list[dict[str, Any]]:
                 f"actual_reveal={tick.get('revealFrame')}"
             )
     if ticks[-1].get("revealFrame") != EXPECTED_LAST_REVEAL:
-        raise ValueError("prediction horizon ended before ReplayFrameIndex 2400")
+        raise ValueError(
+            f"prediction horizon ended before ReplayFrameIndex {EXPECTED_LAST_REVEAL}"
+        )
     final = report.get("finalState", {})
     if final.get("predictionAuthoredWallBrickCount") != EXPECTED_WALL_BRICKS:
         raise ValueError(
@@ -117,9 +136,89 @@ def validate_report_shape(report: dict[str, Any]) -> list[dict[str, Any]]:
         )
     if final.get("predictionMovedWallBrickCount") != EXPECTED_WALL_BRICKS:
         raise ValueError(
-            "whole wall did not topple within the prediction horizon: "
+            "not every wall brick participated within the prediction horizon: "
             f"expected_moved={EXPECTED_WALL_BRICKS} actual={final.get('predictionMovedWallBrickCount')}"
         )
+    if final.get("predictionToppledWallBrickCount", 0) < EXPECTED_MIN_TOPPLED_WALL_BRICKS:
+        raise ValueError(
+            "fewer than half the wall bricks finished grounded and sleeping: "
+            f"expected_at_least={EXPECTED_MIN_TOPPLED_WALL_BRICKS} "
+            f"actual={final.get('predictionToppledWallBrickCount')}"
+        )
+    if final.get("predictionSustainedToppledWallBrickCount", 0) < EXPECTED_MIN_TOPPLED_WALL_BRICKS:
+        raise ValueError(
+            "fewer than half the wall bricks stayed grounded and sleeping for the final second: "
+            f"expected_at_least={EXPECTED_MIN_TOPPLED_WALL_BRICKS} "
+            f"actual={final.get('predictionSustainedToppledWallBrickCount')}"
+        )
+    if final.get("predictionSettledWallBrickCount") != EXPECTED_WALL_BRICKS:
+        raise ValueError(
+            "whole wall was not settled throughout the final prediction second: "
+            f"expected_settled={EXPECTED_WALL_BRICKS} "
+            f"actual={final.get('predictionSettledWallBrickCount')}"
+        )
+    if final.get("predictionGenerationCount") != 1:
+        raise ValueError(
+            "visual gate must contain exactly one prediction generation: "
+            f"actual={final.get('predictionGenerationCount')}"
+        )
+    for index, tick in enumerate(ticks):
+        for field in (
+            "sourceFrame",
+            "semanticHash",
+            "headerStateHash",
+            "trajectoryStateHash",
+            "topologyStateHash",
+            "markerStateHash",
+            "ghostStateHash",
+            "visualStateHash",
+            "exactPacketHash",
+            "schemaVersion",
+            "targetId",
+            "branchId",
+            "eventCursor",
+            "topologyVersion",
+            "publishedFrameCount",
+            "predictionEnabled",
+            "predictionBuilding",
+            "predictionComplete",
+            "cameraEye",
+            "cameraUp",
+            "hasGeometry",
+            "combinedLineHash",
+            "combinedLineBytes",
+            "combinedLineVertexCount",
+        ):
+            if field not in tick:
+                raise ValueError(f"ticks[{index}] omitted complete-packet field {field}")
+        if int(tick["sourceFrame"]) <= 0:
+            raise ValueError(f"ticks[{index}].sourceFrame is invalid: {tick['sourceFrame']!r}")
+        if tick["schemaVersion"] != 1 or int(tick["targetId"]) <= 0:
+            raise ValueError(
+                f"ticks[{index}] has invalid packet identity: "
+                f"schema={tick['schemaVersion']!r} target={tick['targetId']!r}"
+            )
+        # `publishedFrameCount` is the worker's immutable completed-frame
+        # publication count, not the reveal cursor. Every row is deliberately
+        # captured after one complete build; revealFrame carries the visible
+        # inclusive prefix independently.
+        if tick["publishedFrameCount"] != EXPECTED_TICKS:
+            raise ValueError(
+                f"ticks[{index}].publishedFrameCount is not the completed horizon: "
+                f"expected={EXPECTED_TICKS} actual={tick['publishedFrameCount']!r}"
+            )
+        if not tick["predictionEnabled"] or tick["predictionBuilding"] or not tick["predictionComplete"]:
+            raise ValueError(
+                f"ticks[{index}] was not captured from one completed prediction: "
+                f"enabled={tick['predictionEnabled']!r} "
+                f"building={tick['predictionBuilding']!r} complete={tick['predictionComplete']!r}"
+            )
+        if (
+            tick["semanticHash"] == "0x0000000000000000"
+            or tick["visualStateHash"] == "0x0000000000000000"
+            or tick["exactPacketHash"] == "0x0000000000000000"
+        ):
+            raise ValueError(f"ticks[{index}] has an empty complete-packet fingerprint")
     if not final.get("predictionTrajectoryFingerprintReady"):
         raise ValueError("trajectory fingerprint is empty")
     return ticks
@@ -127,40 +226,42 @@ def validate_report_shape(report: dict[str, Any]) -> list[dict[str, Any]]:
 
 def visual_ticks(ticks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     # ReplayFrameIndex is the binding key. The fixed presentation start makes
-    # sceneFrame redundant, but every typed count and exact raw/canonical buffer
-    # hash remains part of the golden contract. Reordering submitted geometry is
-    # a visual change even if a canonical diagnostic hash still matches.
+    # sceneFrame redundant. Absolute topology-cache versions, reserve growth,
+    # and the semantic diagnostic hash are process telemetry; exact topology
+    # content, visual-state hash, and every raw/canonical buffer fact remain.
+    # Reordering submitted geometry is a visual change even if a canonical
+    # diagnostic hash still matches.
+    excluded = {
+        "sceneFrame",
+        "semanticHash",
+        "topologyVersion",
+        "replayReserveGrowthEvents",
+    }
     return [
-        {key: value for key, value in tick.items() if key != "sceneFrame"}
+        {key: value for key, value in tick.items() if key not in excluded}
         for tick in ticks
     ]
 
 
 def validate_causal_shape(report: dict[str, Any]) -> dict[str, Any]:
     causal = report.get("replayCausalProof", {})
-    if causal.get("schemaVersion") != 1:
+    if causal.get("schemaVersion") != 2:
         raise ValueError(
-            f"causal schema mismatch: expected=1 actual={causal.get('schemaVersion')}"
+            f"causal schema mismatch: expected=2 actual={causal.get('schemaVersion')}"
         )
     if not causal.get("singleRevealGeneration"):
         raise ValueError("causal proof did not certify one reveal generation")
-    if not causal.get("liveComparisonComplete"):
-        raise ValueError("predicted-versus-live comparison did not complete")
+    if not causal.get("singlePresentedCascade"):
+        raise ValueError("causal proof did not certify one presented cascade")
 
     ticks = causal.get("ticks", [])
     topology = causal.get("topology", [])
-    live_ticks = causal.get("predictedLiveTicks", [])
     if len(ticks) != EXPECTED_TICKS or causal.get("tickCount") != EXPECTED_TICKS:
         raise ValueError(
             f"causal horizon incomplete: expected_ticks={EXPECTED_TICKS} actual_ticks={len(ticks)}"
         )
     if not topology or causal.get("topologyCount") != len(topology):
         raise ValueError("causal topology is empty or count-mismatched")
-    if len(live_ticks) != EXPECTED_TICKS or causal.get("predictedLiveTickCount") != EXPECTED_TICKS:
-        raise ValueError(
-            "predicted-versus-live horizon incomplete: "
-            f"expected_ticks={EXPECTED_TICKS} actual_ticks={len(live_ticks)}"
-        )
 
     target_id = causal.get("targetId", 0)
     if not isinstance(target_id, int) or target_id <= 0:
@@ -217,75 +318,174 @@ def validate_causal_shape(report: dict[str, Any]) -> dict[str, Any]:
             f"expected={len(topology)} actual={ticks[-1].get('activeNodeCount')}"
         )
 
-    source_frame = causal.get("sourceFrame")
-    for index, tick in enumerate(live_ticks):
-        if tick.get("offset") != index:
+    visual_rows = report.get("replayVisualFidelity", {}).get("ticks", [])
+    source_frame = visual_rows[0].get("sourceFrame") if visual_rows else None
+    if not isinstance(source_frame, int) or source_frame <= 0:
+        raise ValueError(f"visual source frame is invalid: {source_frame!r}")
+    for index, visual_row in enumerate(visual_rows):
+        if visual_row.get("sourceFrame") != source_frame or visual_row.get("revealFrame") != index:
             raise ValueError(
-                f"predicted-versus-live row reordered at index={index}: actual={tick.get('offset')}"
+                f"visual source/reveal identity drifted at index={index}: "
+                f"source={visual_row.get('sourceFrame')} reveal={visual_row.get('revealFrame')}"
             )
-        if tick.get("liveFrame") != source_frame + index:
-            raise ValueError(
-                f"live solver frame skipped at index={index}: "
-                f"expected={source_frame + index} actual={tick.get('liveFrame')}"
-            )
-        if tick.get("predictedHash") != tick.get("liveHash"):
-            raise ValueError(
-                f"predicted-versus-live hash diverged at index={index}: "
-                f"predicted={tick.get('predictedHash')} live={tick.get('liveHash')}"
-            )
-        if tick.get("bodyCount", 0) <= 0:
-            raise ValueError(f"predicted-versus-live body packet is empty at index={index}")
     return causal
 
 
 def validate_artifact_roundtrip(report: dict[str, Any]) -> dict[str, Any]:
     artifact_report = report.get("replayArtifact", {})
-    if artifact_report.get("schemaVersion") != 3 or not artifact_report.get("saved"):
-        raise ValueError("v3 durable replay artifact was not saved by the fidelity probe")
+    if artifact_report.get("schemaVersion") != 4 or not artifact_report.get("saved"):
+        raise ValueError("v4 durable replay artifact was not saved by the fidelity probe")
     path = Path(str(artifact_report.get("path", "")))
     if not path.is_absolute():
         path = ROOT / path
     if not path.is_file():
-        raise ValueError(f"v3 durable replay artifact is missing: {path}")
+        raise ValueError(f"v4 durable replay artifact is missing: {path}")
 
     try:
         artifact = ReplayV2(path)
         packet_hashes = artifact.presentation_packet_hashes()
     except ReplayQueryError as error:
-        raise ValueError(f"v3 durable replay artifact is invalid: {error}") from error
-    if artifact.version != 3 or artifact.manifest.get("version") != 3:
+        raise ValueError(f"v4 durable replay artifact is invalid: {error}") from error
+    if artifact.version != 4 or artifact.manifest.get("version") != 4:
         raise ValueError(
             "durable replay artifact version mismatch: "
             f"header={artifact.version} manifest={artifact.manifest.get('version')}"
         )
     if artifact.manifest.get("bodyPoseBytes") != 76:
-        raise ValueError("v3 artifact did not declare the full 76-byte visual body state")
+        raise ValueError("v4 artifact did not retain the full 76-byte visual body state")
     if len(packet_hashes) != artifact_report.get("sampleCount"):
         raise ValueError(
-            "v3 artifact sample count mismatch: "
+            "v4 artifact sample count mismatch: "
             f"report={artifact_report.get('sampleCount')} loaded={len(packet_hashes)}"
         )
 
-    hashes_by_frame = {row["frameIndex"]: row for row in packet_hashes}
-    live_ticks = report.get("replayCausalProof", {}).get("predictedLiveTicks", [])
-    if len(live_ticks) != EXPECTED_TICKS:
-        raise ValueError("artifact comparison requires the complete predicted/live horizon")
-    for index, tick in enumerate(live_ticks):
-        frame = tick.get("liveFrame")
-        saved = hashes_by_frame.get(frame)
-        if not saved:
-            raise ValueError(f"saved artifact omitted live packet frame {frame} at row {index}")
-        if saved["bodyCount"] != tick.get("bodyCount") or saved["hash"] != tick.get("liveHash"):
+    if not packet_hashes:
+        raise ValueError("v4 artifact omitted its retained presentation samples")
+    visual_ticks_report = report.get("replayVisualFidelity", {}).get("ticks", [])
+    if len(artifact.visual_packets) != EXPECTED_TICKS or artifact_report.get("visualPacketCount") != EXPECTED_TICKS:
+        raise ValueError(
+            "v4 artifact visual-packet horizon mismatch: "
+            f"expected={EXPECTED_TICKS} loaded={len(artifact.visual_packets)} "
+            f"reported={artifact_report.get('visualPacketCount')}"
+        )
+    prediction_chunk = artifact.chunks.get("RVPD")
+    if not prediction_chunk or prediction_chunk.record_count != 1 or prediction_chunk.size <= 8:
+        raise ValueError("v4 artifact omitted its durable typed prediction-state chunk")
+    if artifact.manifest.get("visualPredictionBytes") != prediction_chunk.size:
+        raise ValueError(
+            "v4 artifact prediction-state manifest mismatch: "
+            f"manifest={artifact.manifest.get('visualPredictionBytes')} chunk={prediction_chunk.size}"
+        )
+    prediction_hash = replay_visual_byte_hash(artifact._chunk_bytes("RVPD"))
+    manifest_prediction_hash = artifact.manifest.get("visualPredictionHash")
+    report_prediction_hash = artifact_report.get("visualPredictionHash")
+    if manifest_prediction_hash != prediction_hash or report_prediction_hash != f"0x{prediction_hash:016X}":
+        raise ValueError(
+            "v4 artifact prediction-state hash mismatch: "
+            f"manifest={manifest_prediction_hash} report={report_prediction_hash} "
+            f"actual=0x{prediction_hash:016X}"
+        )
+    if artifact.manifest.get("visualPacketEntryBytes") != VISUAL_PACKET_RECORD.size:
+        raise ValueError(
+            "v4 artifact visual-packet row size mismatch: "
+            f"manifest={artifact.manifest.get('visualPacketEntryBytes')} "
+            f"reader={VISUAL_PACKET_RECORD.size}"
+        )
+    visual_fields = (
+        ("source_frame", "sourceFrame"),
+        ("reveal_frame", "revealFrame"),
+        ("semantic_hash", "semanticHash"),
+        ("visual_state_hash", "visualStateHash"),
+        ("exact_packet_hash", "exactPacketHash"),
+        ("schema_version", "schemaVersion"),
+        ("target_id", "targetId"),
+        ("branch_id", "branchId"),
+        ("event_cursor", "eventCursor"),
+        ("topology_version", "topologyVersion"),
+        ("published_frame_count", "publishedFrameCount"),
+        ("prediction_enabled", "predictionEnabled"),
+        ("prediction_building", "predictionBuilding"),
+        ("prediction_complete", "predictionComplete"),
+        ("combined_line_hash", "combinedLineHash"),
+        ("ordinary_line_hash", "ordinaryLineHash"),
+        ("priority_line_hash", "priorityLineHash"),
+        ("priority_line_canonical_hash", "priorityLineCanonicalHash"),
+        ("ordinary_ribbon_hash", "ordinaryRibbonHash"),
+        ("priority_ribbon_hash", "priorityRibbonHash"),
+        ("priority_ribbon_canonical_hash", "priorityRibbonCanonicalHash"),
+        ("expanded_vertex_hash", "vertexHash"),
+        ("ordinary_expanded_vertex_hash", "ordinaryVertexHash"),
+        ("dropped_segment_count", "droppedSegmentCount"),
+        ("replay_reserve_growth_events", "replayReserveGrowthEvents"),
+        ("combined_line_bytes", "combinedLineBytes"),
+        ("ordinary_line_bytes", "ordinaryLineBytes"),
+        ("priority_line_bytes", "priorityLineBytes"),
+        ("ordinary_ribbon_bytes", "ordinaryRibbonBytes"),
+        ("priority_ribbon_bytes", "priorityRibbonBytes"),
+        ("expanded_vertex_bytes", "vertexBytes"),
+        ("ordinary_expanded_vertex_bytes", "ordinaryVertexBytes"),
+        ("has_geometry", "hasGeometry"),
+        ("trajectory_record_count", "trajectoryRecordCount"),
+        ("future_node_count", "futureNodeCount"),
+        ("retained_marker_count", "retainedMarkerCount"),
+        ("ghost_request_count", "ghostRequestCount"),
+        ("combined_line_vertex_count", "combinedLineVertexCount"),
+        ("ordinary_line_vertex_count", "ordinaryLineVertexCount"),
+        ("priority_line_vertex_count", "priorityLineVertexCount"),
+        ("ordinary_ribbon_segment_count", "ordinaryRibbonSegmentCount"),
+        ("priority_ribbon_segment_count", "priorityRibbonSegmentCount"),
+        ("expanded_vertex_count", "vertexCount"),
+        ("ordinary_expanded_vertex_count", "ordinaryVertexCount"),
+        ("segment_count", "segmentCount"),
+    )
+    hash_report_fields = {
+        "semanticHash",
+        "visualStateHash",
+        "exactPacketHash",
+        "combinedLineHash",
+        "ordinaryLineHash",
+        "priorityLineHash",
+        "priorityLineCanonicalHash",
+        "ordinaryRibbonHash",
+        "priorityRibbonHash",
+        "priorityRibbonCanonicalHash",
+        "vertexHash",
+        "ordinaryVertexHash",
+    }
+    for index, (saved_packet, report_tick) in enumerate(zip(artifact.visual_packets, visual_ticks_report)):
+        archived_camera = (
+            saved_packet.camera_eye_x,
+            saved_packet.camera_eye_y,
+            saved_packet.camera_eye_z,
+            saved_packet.camera_up_x,
+            saved_packet.camera_up_y,
+            saved_packet.camera_up_z,
+        )
+        report_camera = tuple(report_tick.get("cameraEye", [])) + tuple(report_tick.get("cameraUp", []))
+        if len(report_camera) != 6 or any(
+            struct.pack("<f", float(saved)) != struct.pack("<f", float(reported))
+            for saved, reported in zip(archived_camera, report_camera)
+        ):
             raise ValueError(
-                f"saved/load packet divergence at row={index} frame={frame}: "
-                f"expected_count={tick.get('bodyCount')} actual_count={saved['bodyCount']} "
-                f"expected_hash={tick.get('liveHash')} actual_hash={saved['hash']}"
+                f"saved/load visual packet divergence at ticks[{index}].camera: "
+                f"expected={report_camera!r} actual={archived_camera!r}"
             )
+        for saved_field, report_field in visual_fields:
+            saved_value = getattr(saved_packet, saved_field)
+            report_value = report_tick.get(report_field)
+            if report_field in hash_report_fields:
+                report_value = int(str(report_value), 16)
+            if saved_value != report_value:
+                raise ValueError(
+                    f"saved/load visual packet divergence at ticks[{index}].{report_field}: "
+                    f"expected={report_value!r} actual={saved_value!r}"
+                )
     return {
         "path": str(path),
         "sampleCount": len(packet_hashes),
         "firstFrame": packet_hashes[0]["frameIndex"],
         "lastFrame": packet_hashes[-1]["frameIndex"],
+        "visualPacketCount": len(artifact.visual_packets),
     }
 
 
@@ -314,6 +514,58 @@ def replay_artifact_determinism_contract(report: dict[str, Any]) -> dict[str, An
         ],
         "frameHeaders": artifact.presentation_frame_headers(),
         "presentationPackets": artifact.presentation_packet_hashes(),
+        "visualPackets": [
+            {
+                "sourceFrame": row.source_frame,
+                "revealFrame": row.reveal_frame,
+                "semanticHash": f"0x{row.semantic_hash:016x}",
+                "visualStateHash": f"0x{row.visual_state_hash:016x}",
+                "exactPacketHash": f"0x{row.exact_packet_hash:016x}",
+                "schemaVersion": row.schema_version,
+                "targetId": row.target_id,
+                "branchId": row.branch_id,
+                "eventCursor": row.event_cursor,
+                "topologyVersion": row.topology_version,
+                "publishedFrameCount": row.published_frame_count,
+                "predictionEnabled": bool(row.prediction_enabled),
+                "predictionBuilding": bool(row.prediction_building),
+                "predictionComplete": bool(row.prediction_complete),
+                "cameraEye": [row.camera_eye_x, row.camera_eye_y, row.camera_eye_z],
+                "cameraUp": [row.camera_up_x, row.camera_up_y, row.camera_up_z],
+                "combinedLineHash": f"0x{row.combined_line_hash:016x}",
+                "ordinaryLineHash": f"0x{row.ordinary_line_hash:016x}",
+                "priorityLineHash": f"0x{row.priority_line_hash:016x}",
+                "priorityLineCanonicalHash": f"0x{row.priority_line_canonical_hash:016x}",
+                "ordinaryRibbonHash": f"0x{row.ordinary_ribbon_hash:016x}",
+                "priorityRibbonHash": f"0x{row.priority_ribbon_hash:016x}",
+                "priorityRibbonCanonicalHash": f"0x{row.priority_ribbon_canonical_hash:016x}",
+                "vertexHash": f"0x{row.expanded_vertex_hash:016x}",
+                "ordinaryVertexHash": f"0x{row.ordinary_expanded_vertex_hash:016x}",
+                "droppedSegmentCount": row.dropped_segment_count,
+                "replayReserveGrowthEvents": row.replay_reserve_growth_events,
+                "hasGeometry": bool(row.has_geometry),
+                "combinedLineBytes": row.combined_line_bytes,
+                "ordinaryLineBytes": row.ordinary_line_bytes,
+                "priorityLineBytes": row.priority_line_bytes,
+                "ordinaryRibbonBytes": row.ordinary_ribbon_bytes,
+                "priorityRibbonBytes": row.priority_ribbon_bytes,
+                "vertexBytes": row.expanded_vertex_bytes,
+                "ordinaryVertexBytes": row.ordinary_expanded_vertex_bytes,
+                "trajectoryRecordCount": row.trajectory_record_count,
+                "futureNodeCount": row.future_node_count,
+                "retainedMarkerCount": row.retained_marker_count,
+                "ghostRequestCount": row.ghost_request_count,
+                "combinedLineVertexCount": row.combined_line_vertex_count,
+                "ordinaryLineVertexCount": row.ordinary_line_vertex_count,
+                "priorityLineVertexCount": row.priority_line_vertex_count,
+                "ordinaryRibbonSegmentCount": row.ordinary_ribbon_segment_count,
+                "priorityRibbonSegmentCount": row.priority_ribbon_segment_count,
+                "vertexCount": row.expanded_vertex_count,
+                "ordinaryVertexCount": row.ordinary_expanded_vertex_count,
+                "segmentCount": row.segment_count,
+            }
+            for row in artifact.visual_packets
+        ],
         "branches": [
             {
                 "branchId": row.branch_id,
@@ -407,13 +659,15 @@ def determinism_contract(report: dict[str, Any]) -> dict[str, Any]:
     reserve_start = int(final["predictionTrajectoryReserveGrowthEventsAtStart"])
     reserve_end = int(final["predictionTrajectoryReserveGrowthEventsAtEnd"])
     worker_complete = (
-        not final["replayPredictionEnabled"]
+        final["replayPredictionEnabled"]
         and not final["predictionPendingLatestRestart"]
         and final["predictionSupersededRestartCount"] == 0
         and final["predictionLatestRestartBeginCount"] == 0
+        and final["predictionGenerationCount"] == 1
         and final["predictionBuildFrameCount"] == 0
         and final["predictionFrameCount"] == EXPECTED_TICKS
         and causal["singleRevealGeneration"]
+        and causal["singlePresentedCascade"]
     )
     if not worker_complete:
         raise ValueError("prediction worker/restart state was not quiescent after one generation")
@@ -421,7 +675,7 @@ def determinism_contract(report: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(
             f"trajectory reserve grew during proof: start={reserve_start} end={reserve_end}"
         )
-    if final["predictionHorizonSeconds"] != 20.0:
+    if final["predictionHorizonSeconds"] != EXPECTED_HORIZON_SECONDS:
         raise ValueError(f"prediction horizon drifted: {final['predictionHorizonSeconds']}")
     if not scene_data.get("playback", {}).get("fixedStep"):
         raise ValueError("200-box scene no longer authors fixed-step playback")
@@ -456,6 +710,10 @@ def determinism_contract(report: dict[str, Any]) -> dict[str, Any]:
         "predictionAuthoredWallBrickCount",
         "predictionAffectedWallBrickCount",
         "predictionMovedWallBrickCount",
+        "predictionToppledWallBrickCount",
+        "predictionSustainedToppledWallBrickCount",
+        "predictionSettledWallBrickCount",
+        "predictionGenerationCount",
         "predictionFutureNodeBuildFrameCount",
         "predictionRetainedEntryMarkerCount",
         "predictionRetainedRestMarkerCount",
@@ -496,21 +754,22 @@ def run_determinism_negative_controls(
 ) -> bool:
     controls = (
         ("seed-mismatch", "inputs.sceneSeed"),
-        ("missing-tick", "revealMapping[1200].revealFrame"),
+        ("missing-tick", f"revealMapping[{NEGATIVE_CONTROL_TICK}].revealFrame"),
         ("event-mutation", "artifact.events[0].kind"),
         ("non-fixed-step", "artifact.frameHeaders[0].fixedStep"),
         ("truncated-horizon", "horizon.tickCount"),
         ("record-reordering", "visualTicks[100].sceneFrame"),
-        ("vertex-byte-change", "visualTicks[1200].ordinaryVertexBytes"),
-        ("dropped-geometry", "visualTicks[1200].segmentCount"),
+        ("vertex-byte-change", f"visualTicks[{NEGATIVE_CONTROL_TICK}].ordinaryVertexBytes"),
+        ("dropped-geometry", f"visualTicks[{NEGATIVE_CONTROL_TICK}].segmentCount"),
         ("reserve-growth", "workerAndReserve.reserveGrowthDelta"),
+        ("duplicate-generation", "runtime.predictionGenerationCount"),
     )
     for name, expected_path in controls:
         mutated = copy.deepcopy(actual)
         if name == "seed-mismatch":
             mutated["inputs"]["sceneSeed"] += 1
         elif name == "missing-tick":
-            mutated["revealMapping"][1200]["revealFrame"] += 1
+            mutated["revealMapping"][NEGATIVE_CONTROL_TICK]["revealFrame"] += 1
         elif name == "event-mutation":
             if not mutated["artifact"]["events"]:
                 print("FAIL determinism event control has no event to mutate")
@@ -527,11 +786,13 @@ def run_determinism_negative_controls(
                 mutated["visualTicks"][100],
             )
         elif name == "vertex-byte-change":
-            mutated["visualTicks"][1200]["ordinaryVertexBytes"] += 4
+            mutated["visualTicks"][NEGATIVE_CONTROL_TICK]["ordinaryVertexBytes"] += 4
         elif name == "dropped-geometry":
-            mutated["visualTicks"][1200]["segmentCount"] -= 1
+            mutated["visualTicks"][NEGATIVE_CONTROL_TICK]["segmentCount"] -= 1
         elif name == "reserve-growth":
             mutated["workerAndReserve"]["reserveGrowthDelta"] += 1
+        elif name == "duplicate-generation":
+            mutated["runtime"]["predictionGenerationCount"] += 1
 
         difference = first_difference(expected, mutated, "determinism")
         if not difference or expected_path not in difference:
@@ -585,7 +846,7 @@ def causal_baseline_payload(
         "configuration": configuration,
         "fixedStep": True,
         "target": "prediction_striker_ball",
-        "horizonSeconds": 20.0,
+        "horizonSeconds": EXPECTED_HORIZON_SECONDS,
         "visualBaselineSha256": sha256(DEFAULT_BASELINE),
         **comparable,
     }
@@ -598,13 +859,13 @@ def baseline_payload(
     final = report["finalState"]
     return {
         "format": "skullbonez.replay-visual-fidelity.json",
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "workingBaseCommit": working_base_commit,
         "captureCommit": git_head(),
         "configuration": configuration,
         "fixedStep": True,
         "target": "prediction_striker_ball",
-        "horizonSeconds": 20.0,
+        "horizonSeconds": EXPECTED_HORIZON_SECONDS,
         "sceneSha256": sha256(SCENE),
         "scriptSha256": sha256(SCRIPT),
         "configSha256": sha256(CONFIG),
@@ -614,6 +875,10 @@ def baseline_payload(
             "predictionAuthoredWallBrickCount": final["predictionAuthoredWallBrickCount"],
             "predictionAffectedWallBrickCount": final["predictionAffectedWallBrickCount"],
             "predictionMovedWallBrickCount": final["predictionMovedWallBrickCount"],
+            "predictionToppledWallBrickCount": final["predictionToppledWallBrickCount"],
+            "predictionSustainedToppledWallBrickCount": final["predictionSustainedToppledWallBrickCount"],
+            "predictionSettledWallBrickCount": final["predictionSettledWallBrickCount"],
+            "predictionGenerationCount": final["predictionGenerationCount"],
             "predictionFutureNodeCount": final["predictionFutureNodeCount"],
             "predictionTrajectoryRecordCount": final["predictionTrajectoryRecordCount"],
             "predictionTrajectoryPointCount": final["predictionTrajectoryPointCount"],
@@ -649,21 +914,150 @@ def first_difference(expected: Any, actual: Any, path: str = "root") -> str | No
     return None
 
 
-def comparable_report(report: dict[str, Any]) -> dict[str, Any]:
+def comparable_report(
+    report: dict[str, Any], approved_tick_keys: set[str] | None = None
+) -> dict[str, Any]:
     validate_report_shape(report)
     final = report["finalState"]
+    ticks = visual_ticks(report["replayVisualFidelity"]["ticks"])
+    if approved_tick_keys is not None:
+        # The immutable V0 manifest cannot be silently refreshed. New V6 packet
+        # evidence is validated above and through the artifact lane, while this
+        # projection keeps the original renderer-byte oracle byte-for-byte.
+        ticks = [
+            {key: value for key, value in tick.items() if key in approved_tick_keys}
+            for tick in ticks
+        ]
     return {
         "tickCount": report["replayVisualFidelity"]["tickCount"],
         "finalState": {
             "predictionAuthoredWallBrickCount": final["predictionAuthoredWallBrickCount"],
             "predictionAffectedWallBrickCount": final["predictionAffectedWallBrickCount"],
             "predictionMovedWallBrickCount": final["predictionMovedWallBrickCount"],
+            "predictionToppledWallBrickCount": final["predictionToppledWallBrickCount"],
+            "predictionSustainedToppledWallBrickCount": final["predictionSustainedToppledWallBrickCount"],
+            "predictionSettledWallBrickCount": final["predictionSettledWallBrickCount"],
+            "predictionGenerationCount": final["predictionGenerationCount"],
             "predictionFutureNodeCount": final["predictionFutureNodeCount"],
             "predictionTrajectoryRecordCount": final["predictionTrajectoryRecordCount"],
             "predictionTrajectoryPointCount": final["predictionTrajectoryPointCount"],
         },
-        "ticks": visual_ticks(report["replayVisualFidelity"]["ticks"]),
+        "ticks": ticks,
     }
+
+
+def validate_launcher_shape() -> bool:
+    """Reject any mega launcher that can start a second visual engine pass."""
+    launcher = ROOT / "tools/validate_replay_visual_fidelity.bat"
+    executable_lines: list[tuple[int, str]] = []
+    nested_scrub_lines: list[tuple[int, str]] = []
+    for line_number, raw_line in enumerate(
+        launcher.read_text(encoding="utf-8").splitlines(), start=1
+    ):
+        line = raw_line.strip()
+        lowered = line.lower()
+        if not line or lowered.startswith("rem ") or lowered.startswith("::"):
+            continue
+        if "skullbonez_core.exe" in lowered:
+            executable_lines.append((line_number, line))
+        if "validate_replay_scrub.bat" in lowered and "--prove-failure-propagation" not in lowered:
+            nested_scrub_lines.append((line_number, line))
+
+    if len(executable_lines) != 1:
+        print(
+            "FAIL replay launcher must contain exactly one engine command: "
+            f"actual={len(executable_lines)} lines={executable_lines}"
+        )
+        return False
+    line_number, command = executable_lines[0]
+    lowered_command = command.lower()
+    if "profile\\skullbonez_core.exe" not in lowered_command or "--replay-load-probe" in lowered_command:
+        print(
+            "FAIL replay launcher engine command is not the sole Profile generation: "
+            f"line={line_number} command={command}"
+        )
+        return False
+    if nested_scrub_lines:
+        print(
+            "FAIL replay launcher delegates to a normal scrub run: "
+            f"lines={nested_scrub_lines}"
+        )
+        return False
+
+    script = load_json(SCRIPT)
+    actions = script.get("actions", [])
+    capture_frames = [
+        int(action["frame"])
+        for action in actions
+        if action.get("beginReplayVisualFidelityCapture") is True
+    ]
+    target_frames = [
+        int(action["frame"])
+        for action in actions
+        if action.get("setReplayPathTarget") == "prediction_striker_ball"
+    ]
+    horizon_actions = [
+        action for action in actions if "setReplayPredictionHorizonSeconds" in action
+    ]
+    prediction_frames = [
+        int(action["frame"])
+        for action in actions
+        if action.get("clickReplayControl") == "predict"
+    ]
+    if not (
+        len(capture_frames) == 1
+        and len(target_frames) == 1
+        and len(horizon_actions) == 1
+        and len(prediction_frames) == 1
+    ):
+        print(
+            "FAIL replay interaction script must arm, target, set horizon, and Predict once: "
+            f"capture={capture_frames} target={target_frames} "
+            f"horizon_count={len(horizon_actions)} predict={prediction_frames}"
+        )
+        return False
+    horizon_frame = int(horizon_actions[0]["frame"])
+    horizon_seconds = float(horizon_actions[0]["setReplayPredictionHorizonSeconds"])
+    if horizon_seconds != EXPECTED_HORIZON_SECONDS:
+        print(
+            "FAIL replay interaction script horizon drifted: "
+            f"expected={EXPECTED_HORIZON_SECONDS} actual={horizon_seconds}"
+        )
+        return False
+    predict_frame = prediction_frames[0]
+    if not capture_frames[0] < target_frames[0] < horizon_frame < predict_frame:
+        print(
+            "FAIL replay interaction setup must precede its sole prediction in order: "
+            f"capture={capture_frames[0]} target={target_frames[0]} "
+            f"horizon={horizon_frame} predict={predict_frame}"
+        )
+        return False
+    dirty_after_predict = [
+        action
+        for action in actions
+        if int(action.get("frame", -1)) > predict_frame
+        and any(
+            key in action
+            for key in (
+                "setReplayPathTarget",
+                "setReplayPredictionHorizonSeconds",
+                "clickReplayControl",
+                "clickObject",
+                "nudgeReplayPathTargetVelocity",
+            )
+        )
+    ]
+    if dirty_after_predict:
+        print(
+            "FAIL replay interaction script changes replay state after its sole Predict action: "
+            f"actions={dirty_after_predict}"
+        )
+        return False
+    print(
+        "PASS replay launcher shape: engine_processes=1 "
+        f"generation_line={line_number} prediction_starts=1 presented_cascades=1 nested_scrub_runs=0"
+    )
+    return True
 
 
 def main() -> int:
@@ -680,17 +1074,45 @@ def main() -> int:
     parser.add_argument("--causal-activation-control", action="store_true")
     parser.add_argument("--causal-topology-control", action="store_true")
     parser.add_argument("--causal-segment-control", action="store_true")
+    parser.add_argument("--semantic-packet-control", action="store_true")
+    parser.add_argument("--artifact-byte-control", action="store_true")
+    parser.add_argument("--prediction-artifact-control", action="store_true")
     parser.add_argument("--compare-report", type=Path)
     parser.add_argument("--run-determinism-controls", action="store_true")
+    parser.add_argument("--launcher-control", action="store_true")
     args = parser.parse_args()
 
-    if args.run_determinism_controls and not args.compare_report:
-        parser.error("--run-determinism-controls requires --compare-report")
+    if args.launcher_control:
+        return 0 if validate_launcher_shape() else 1
 
     report = load_json(args.report)
     if args.approve_baseline:
         try:
             payload = baseline_payload(report, args.working_base_commit, args.configuration)
+            if args.baseline.exists():
+                previous = load_json(args.baseline)
+                if previous.get("schemaVersion") == 1:
+                    # Migration safety: schema 2 adds evidence but may not
+                    # rewrite any field already approved from the working base.
+                    previous_tick_keys = set(previous["ticks"][0]) if previous.get("ticks") else set()
+                    legacy_actual = comparable_report(report, previous_tick_keys)
+                    legacy_actual["finalState"] = {
+                        field: legacy_actual["finalState"][field]
+                        for field in previous["finalState"]
+                    }
+                    legacy_expected = {
+                        "tickCount": previous["tickCount"],
+                        "finalState": previous["finalState"],
+                        "ticks": previous["ticks"],
+                    }
+                    difference = first_difference(
+                        legacy_expected, legacy_actual, "schema-1-working-base"
+                    )
+                    if difference:
+                        raise ValueError(
+                            "schema-2 upgrade diverges from the approved schema-1 working base: "
+                            + difference
+                        )
         except ValueError as error:
             print(f"FAIL replay visual fidelity report: {error}")
             return 1
@@ -725,6 +1147,30 @@ def main() -> int:
             payload = causal_baseline_payload(
                 report, args.working_base_commit, args.configuration
             )
+            if args.causal_baseline.exists():
+                previous = load_json(args.causal_baseline)
+                legacy_expected = {
+                    "targetId": previous["targetId"],
+                    "topologyCount": previous["topologyCount"],
+                    "topology": previous["topology"],
+                    "tickCount": previous["tickCount"],
+                    "ticks": previous["ticks"],
+                }
+                legacy_actual = {
+                    "targetId": payload["targetId"],
+                    "topologyCount": payload["topologyCount"],
+                    "topology": payload["topology"],
+                    "tickCount": payload["tickCount"],
+                    "ticks": payload["ticks"],
+                }
+                difference = first_difference(
+                    legacy_expected, legacy_actual, "causal-working-base"
+                )
+                if difference:
+                    raise ValueError(
+                        "causal approval diverges from the approved working base: "
+                        + difference
+                    )
         except ValueError as error:
             print(f"FAIL replay causal proof report: {error}")
             return 1
@@ -810,10 +1256,114 @@ def main() -> int:
         print(f"FAIL replay causal proof first divergence: {causal_difference}")
         return 1
 
+    if args.semantic_packet_control:
+        original_path = replay_artifact_path(report)
+        mutated_path = original_path.with_name(original_path.stem + "_semantic_control.skreplay")
+        try:
+            artifact_reader = ReplayV2(original_path)
+            visual_chunk = artifact_reader.chunks.get("RVIS")
+            if not visual_chunk:
+                print("FAIL semantic packet control found no RVIS chunk")
+                return 1
+            mutated_bytes = bytearray(original_path.read_bytes())
+            # targetId follows the five leading uint64 values and schemaVersion.
+            mutation_offset = (
+                visual_chunk.offset
+                + 4
+                + NEGATIVE_CONTROL_TICK * VISUAL_PACKET_RECORD.size
+                + 44
+            )
+            mutated_bytes[mutation_offset] ^= 0x01
+            mutated_path.write_bytes(mutated_bytes)
+            mutated_report = copy.deepcopy(report)
+            mutated_report["replayArtifact"]["path"] = str(mutated_path)
+            try:
+                validate_artifact_roundtrip(mutated_report)
+            except ValueError as error:
+                if f"ticks[{NEGATIVE_CONTROL_TICK}].targetId" in str(error):
+                    print(f"PASS semantic packet control detected first divergence: {error}")
+                    return 0
+                print(f"FAIL semantic packet control reported the wrong failure: {error}")
+                return 1
+            print("FAIL semantic packet control was accepted")
+            return 1
+        finally:
+            mutated_path.unlink(missing_ok=True)
+
+    if args.artifact_byte_control:
+        original_path = replay_artifact_path(report)
+        mutated_path = original_path.with_name(original_path.stem + "_byte_control.skreplay")
+        try:
+            artifact_reader = ReplayV2(original_path)
+            visual_chunk = artifact_reader.chunks.get("RVIS")
+            if not visual_chunk:
+                print("FAIL artifact byte control found no RVIS chunk")
+                return 1
+            mutated_bytes = bytearray(original_path.read_bytes())
+            # ordinaryLineHash is the second digest after the camera values.
+            mutation_offset = (
+                visual_chunk.offset
+                + 4
+                + NEGATIVE_CONTROL_TICK * VISUAL_PACKET_RECORD.size
+                + 108
+            )
+            mutated_bytes[mutation_offset] ^= 0x01
+            mutated_path.write_bytes(mutated_bytes)
+            mutated_report = copy.deepcopy(report)
+            mutated_report["replayArtifact"]["path"] = str(mutated_path)
+            try:
+                validate_artifact_roundtrip(mutated_report)
+            except ValueError as error:
+                if f"ticks[{NEGATIVE_CONTROL_TICK}].ordinaryLineHash" in str(error):
+                    print(f"PASS artifact byte control detected first divergence: {error}")
+                    return 0
+                print(f"FAIL artifact byte control reported the wrong failure: {error}")
+                return 1
+            print("FAIL artifact byte control was accepted")
+            return 1
+        finally:
+            mutated_path.unlink(missing_ok=True)
+
+    if args.prediction_artifact_control:
+        original_path = replay_artifact_path(report)
+        mutated_path = original_path.with_name(original_path.stem + "_prediction_control.skreplay")
+        try:
+            artifact_reader = ReplayV2(original_path)
+            prediction_chunk = artifact_reader.chunks.get("RVPD")
+            if not prediction_chunk or prediction_chunk.size <= 16:
+                print("FAIL prediction artifact control found no usable RVPD chunk")
+                return 1
+            mutated_bytes = bytearray(original_path.read_bytes())
+            # Offset 12 is inside the typed archive header/state payload, not
+            # the artifact table. The immutable manifest hash must reject it.
+            mutated_bytes[prediction_chunk.offset + 12] ^= 0x01
+            mutated_path.write_bytes(mutated_bytes)
+            mutated_report = copy.deepcopy(report)
+            mutated_report["replayArtifact"]["path"] = str(mutated_path)
+            try:
+                validate_artifact_roundtrip(mutated_report)
+            except ValueError as error:
+                if "prediction-state hash mismatch" in str(error):
+                    print(f"PASS prediction artifact control detected RVPD divergence: {error}")
+                    return 0
+                print(f"FAIL prediction artifact control reported the wrong failure: {error}")
+                return 1
+            print("FAIL prediction artifact control was accepted")
+            return 1
+        finally:
+            mutated_path.unlink(missing_ok=True)
+
     try:
         artifact = validate_artifact_roundtrip(report)
     except ValueError as error:
         print(f"FAIL replay artifact round-trip: {error}")
+        return 1
+
+    if baseline.get("schemaVersion") != 2:
+        print(
+            "FAIL replay visual baseline schema: schema 2 is required before "
+            f"validation; actual={baseline.get('schemaVersion')}"
+        )
         return 1
 
     current_provenance = {
@@ -830,7 +1380,15 @@ def main() -> int:
             )
             return 1
     try:
-        actual = comparable_report(report)
+        approved_tick_keys = set(baseline["ticks"][0]) if baseline.get("ticks") else set()
+        required_tick_keys = set(visual_ticks(validate_report_shape(report))[0])
+        if approved_tick_keys != required_tick_keys:
+            missing = sorted(required_tick_keys - approved_tick_keys)
+            extra = sorted(approved_tick_keys - required_tick_keys)
+            raise ValueError(
+                f"schema-2 baseline fields mismatch: missing={missing} extra={extra}"
+            )
+        actual = comparable_report(report, approved_tick_keys)
     except ValueError as error:
         print(f"FAIL replay visual fidelity report: {error}")
         return 1
@@ -842,11 +1400,12 @@ def main() -> int:
     if args.negative_control:
         # Negative-control lane: alter one submitted float-stream fingerprint in
         # memory and require the ordinary comparator to name that exact field.
-        actual["ticks"][1200]["ordinaryVertexHash"] = "0x0000000000000001"
+        actual["ticks"][NEGATIVE_CONTROL_TICK]["ordinaryVertexHash"] = "0x0000000000000001"
 
     difference = first_difference(expected, actual)
     if args.negative_control:
-        if difference and "ticks[1200].ordinaryVertexHash" in difference:
+        expected_path = f"ticks[{NEGATIVE_CONTROL_TICK}].ordinaryVertexHash"
+        if difference and expected_path in difference:
             print(f"PASS negative control detected first divergence: {difference}")
             return 0
         print(f"FAIL negative control was not detected at the injected field: {difference}")
@@ -854,6 +1413,19 @@ def main() -> int:
     if difference:
         print(f"FAIL replay visual fidelity first divergence: {difference}")
         return 1
+    if args.run_determinism_controls:
+        try:
+            expected_determinism = determinism_contract(report)
+        except (OSError, ReplayQueryError, ValueError) as error:
+            print(f"FAIL replay determinism-control input: {error}")
+            return 1
+        # Why: controls need an initially equal value, not a second prediction
+        # run. The immutable working-base comparison above is the determinism
+        # oracle; this copy only proves each injected false pass is detected.
+        actual_determinism = copy.deepcopy(expected_determinism)
+        return 0 if run_determinism_negative_controls(
+            expected_determinism, actual_determinism
+        ) else 1
     if args.compare_report:
         try:
             expected_determinism = determinism_contract(report)
@@ -861,10 +1433,6 @@ def main() -> int:
         except (OSError, ReplayQueryError, ValueError) as error:
             print(f"FAIL replay cross-process determinism input: {error}")
             return 1
-        if args.run_determinism_controls:
-            return 0 if run_determinism_negative_controls(
-                expected_determinism, actual_determinism
-            ) else 1
         determinism_difference = first_difference(
             expected_determinism, actual_determinism, "determinism"
         )
@@ -884,8 +1452,9 @@ def main() -> int:
     print(
         f"PASS replay visual fidelity: ticks={actual['tickCount']} "
         f"moved_wall_bricks={actual['finalState']['predictionMovedWallBrickCount']} "
+        f"toppled_wall_bricks={actual['finalState']['predictionSustainedToppledWallBrickCount']} "
         f"causal_nodes={actual_causal['topologyCount']} "
-        f"predicted_live_ticks={report['replayCausalProof']['predictedLiveTickCount']} "
+        f"presented_cascades=1 "
         f"saved_loaded_ticks={artifact['sampleCount']} "
         f"first_reveal={actual['ticks'][0]['revealFrame']} "
         f"last_reveal={actual['ticks'][-1]['revealFrame']}"

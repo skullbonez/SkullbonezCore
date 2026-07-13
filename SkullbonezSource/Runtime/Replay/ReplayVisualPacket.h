@@ -53,6 +53,33 @@ namespace SkullbonezCore::Runtime
 {
 
 inline constexpr uint32_t REPLAY_VISUAL_PACKET_SCHEMA_VERSION = 1u;
+inline constexpr uint64_t REPLAY_VISUAL_BUFFER_FNV_OFFSET = 1469598103934665603ull;
+inline constexpr uint64_t REPLAY_VISUAL_BUFFER_FNV_PRIME = 1099511628211ull;
+// Shared with prediction trajectory branch ordinals. Completed presentation
+// reads the committed [0, futureNodeCount) child bank; the worker-owned bank
+// begins at this capacity and is never renderer-visible after completion.
+inline constexpr uint16_t REPLAY_VISUAL_FUTURE_NODE_CAPACITY = 240u;
+
+inline uint64_t HashReplayVisualFloatBuffer( std::span<const float> values ) noexcept
+{
+    uint64_t hash = REPLAY_VISUAL_BUFFER_FNV_OFFSET;
+    const auto appendBytes = [&hash]( const void* data, std::size_t byteCount )
+    {
+        const uint8_t* bytes = static_cast<const uint8_t*>( data );
+        for ( std::size_t index = 0; index < byteCount; ++index )
+        {
+            hash ^= static_cast<uint64_t>( bytes[index] );
+            hash *= REPLAY_VISUAL_BUFFER_FNV_PRIME;
+        }
+    };
+    const uint64_t floatCount = static_cast<uint64_t>( values.size() );
+    appendBytes( &floatCount, sizeof( floatCount ) );
+    if ( !values.empty() )
+    {
+        appendBytes( values.data(), values.size_bytes() );
+    }
+    return hash;
+}
 
 // These records live here because both ReplayRuntime's mutable presentation
 // caches and the immutable render packet use the same typed vocabulary. Moving
@@ -191,6 +218,61 @@ struct ReplayVisualPacket
     {
         return !combinedLines.empty() || !expandedRibbonVertices.empty();
     }
+};
+
+// Concept: the artifact retains one typed identity/submission row per presented
+// packet beside the complete prediction-state archive. Exact hashes plus per-lane
+// counts and byte lengths make this a bounded oracle without serializing renderer
+// resources, spans, pointers, or vector ownership.
+struct ReplayVisualArchiveSample
+{
+    ReplayFrameIndex sourceFrame = 0;
+    ReplayFrameIndex revealFrame = 0;
+    uint64_t semanticHash = 0;
+    uint64_t visualStateHash = 0;
+    uint64_t exactPacketHash = 0;
+    uint32_t schemaVersion = 0;
+    uint32_t targetId = 0;
+    uint32_t branchId = 0;
+    uint32_t eventCursor = 0;
+    uint32_t topologyVersion = 0;
+    uint32_t publishedFrameCount = 0;
+    uint32_t predictionEnabled = 0;
+    uint32_t predictionBuilding = 0;
+    uint32_t predictionComplete = 0;
+    Math::Vector::Vector3 cameraEye = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 cameraUp = Math::Vector::ZERO_VECTOR;
+    uint64_t combinedLineHash = 0;
+    uint64_t ordinaryLineHash = 0;
+    uint64_t priorityLineHash = 0;
+    uint64_t priorityLineCanonicalHash = 0;
+    uint64_t ordinaryRibbonHash = 0;
+    uint64_t priorityRibbonHash = 0;
+    uint64_t priorityRibbonCanonicalHash = 0;
+    uint64_t expandedVertexHash = 0;
+    uint64_t ordinaryExpandedVertexHash = 0;
+    uint64_t droppedSegmentCount = 0;
+    uint64_t replayReserveGrowthEvents = 0;
+    uint64_t combinedLineBytes = 0;
+    uint64_t ordinaryLineBytes = 0;
+    uint64_t priorityLineBytes = 0;
+    uint64_t ordinaryRibbonBytes = 0;
+    uint64_t priorityRibbonBytes = 0;
+    uint64_t expandedVertexBytes = 0;
+    uint64_t ordinaryExpandedVertexBytes = 0;
+    uint32_t hasGeometry = 0;
+    uint32_t trajectoryRecordCount = 0;
+    uint32_t futureNodeCount = 0;
+    uint32_t retainedMarkerCount = 0;
+    uint32_t ghostRequestCount = 0;
+    uint32_t combinedLineVertexCount = 0;
+    uint32_t ordinaryLineVertexCount = 0;
+    uint32_t priorityLineVertexCount = 0;
+    uint32_t ordinaryRibbonSegmentCount = 0;
+    uint32_t priorityRibbonSegmentCount = 0;
+    uint32_t expandedVertexCount = 0;
+    uint32_t ordinaryExpandedVertexCount = 0;
+    uint32_t segmentCount = 0;
 };
 
 inline bool FindReplayVisualBufferDifference( std::span<const float> expected,

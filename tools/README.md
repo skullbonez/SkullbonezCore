@@ -135,7 +135,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `validate_shaders.bat` | Check shader file contracts from `tools\shader_contracts.json`; incomplete symbol, uniform, or resource coverage is reported as warnings |
 | `validate_project_filters.bat` | Check `.vcxproj` and `.vcxproj.filters` item coverage, exact path casing, source/header category pairing, scene/style/shader filters, and declared filter names |
 | `validate_runtime_interaction_policy.bat` | CPU-only checks for runtime interaction ownership, pointer capture, camera-look, and physics-step policy |
-| `validate_replay_visual_fidelity.bat` | Authoritative frame-exact 200-box replay gate: two sequential hidden one-generation processes, one hidden load-only process, immutable golden/live/artifact comparisons, and false-pass controls |
+| `validate_replay_visual_fidelity.bat` | Authoritative frame-exact 200-box replay gate: one hidden engine process, one prediction generation, immutable golden comparison, offline artifact round-trip, and false-pass controls |
 | `validate_replay_scrub.bat` | Historical replay-scrub entry point; delegates exclusively to `validate_replay_visual_fidelity.bat` and preserves its failure status |
 | `validate_ui.bat` | Optional DX12 UI suite that captures UI screenshots and checks blur strength |
 | `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep over a UI backdrop |
@@ -176,12 +176,14 @@ bake; shader compiler diagnostics and a nonzero bake exit fail the build.
 perf output as a warning-only review note unless the script itself exits 0.
 
 `validate_replay_visual_fidelity.bat` is the single replay presentation oracle.
-Each invocation runs clean prediction processes A and B sequentially and hidden;
-each process is hard-limited to one generation, they never overlap, and the
-later hidden Debug process only loads and scrubs A's saved artifact. The gate
-compares all 2,401 presentation ticks through the complete 200-box wall cascade
-and never updates its committed manifests. `validate_replay_scrub.bat` is only a
-delegating alias and must not grow a parallel replay oracle.
+Each invocation starts exactly one hidden Profile engine process and permits
+exactly one prediction generation. It compares all 2,401 presentation ticks
+through the complete 200-box wall cascade, proves the saved prediction state by
+an in-process CPU projection after the last rendered reveal plus offline
+artifact checks, and never updates its committed manifests. The projection has
+no render-backend access and generation capability is permanently disabled
+before RVPD is decoded. `validate_replay_scrub.bat` is only a delegating alias
+and must not grow a parallel replay oracle or launch the engine again.
 
 ## Physics Baselines
 
