@@ -43,7 +43,7 @@ struct SleepSupportPropagationContext;
 class SleepIslandSystem
 {
   public:
-    void PropagateSupport( SleepSupportPropagationContext& context, const PhysicsBodyRecordList& bodyRecords );
+    void PropagateSupport( SleepSupportPropagationContext& context, std::span<const PhysicsBodyRecord> bodyRecords );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

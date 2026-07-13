@@ -33,7 +33,7 @@ namespace UI
 {
 class InGameUI;
 }
-namespace Basics
+namespace Runtime
 {
 class DiagnosticsRuntime;
 struct RunDebugState;
@@ -53,5 +53,5 @@ struct SceneRuntimeUiOptionsContext
 
 void ApplySceneRuntimeUiOptions( SceneRuntimeUiOptionsContext context, const SceneUIOptions& options );
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

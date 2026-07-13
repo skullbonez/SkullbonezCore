@@ -63,8 +63,11 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
     fprintf( stdout, "FATAL: DX12 %s heap exhausted (next=%u capacity=%u)\n", name, nextIndex, capacity );
     fflush( stderr );
     fflush( stdout );
-    Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u", name, nextIndex, capacity );
-    Log().FlushAll();
+    SkullbonezCore::Core::Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u",
+                                             name,
+                                             nextIndex,
+                                             capacity );
+    SkullbonezCore::Core::Log().FlushAll();
 }
 
 // --- RenderBackendDX12 Resources methods ---
@@ -83,8 +86,8 @@ std::unique_ptr<IShader> RenderBackendDX12::CreateShader( const char* baseName )
         // Lane R: shader files and compiler output are external inputs. Return
         // a null shader so setup/render owners can skip the dependent draw while
         // the DX12 validation log names the missing program.
-        Log().WriteEventf( "dx12_shader_create_failed path=%s", hlslPath.c_str() );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_create_failed path=%s", hlslPath.c_str() );
+        SkullbonezCore::Core::Log().FlushAll();
         return nullptr;
     }
     return shader;
@@ -97,19 +100,18 @@ bool RenderBackendDX12::ShaderHotReloadEnabled() const
 }
 
 
-SkullbonezCore::Basics::SbResult RenderBackendDX12::ReloadShadersFromSource()
+SkullbonezCore::Core::SbResult RenderBackendDX12::ReloadShadersFromSource()
 {
     if ( !ShaderHotReloadEnabled() )
     {
-        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
-                                                          "Shader hot reload requires --dev-shader-hot-reload" );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "Shader hot reload requires --dev-shader-hot-reload" );
     }
     constexpr char BAKE_PATH[] = "tools\\bake_shaders.bat";
     if ( GetFileAttributesA( BAKE_PATH ) == INVALID_FILE_ATTRIBUTES )
     {
-        return SkullbonezCore::Basics::SbResult::Failure(
-            "Rendering/DX12",
-            "Shader bake tool is unavailable from this working directory" );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "Shader bake tool is unavailable from this working directory" );
     }
 
     // Cold utility action: invoke the same pinned DXC bake used by validation.
@@ -132,9 +134,9 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::ReloadShadersFromSource()
                           &startup,
                           &process ) )
     {
-        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
-                                                          "Shader bake process failed to start (error=%lu)",
-                                                          GetLastError() );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "Shader bake process failed to start (error=%lu)",
+                                                        GetLastError() );
     }
     const DWORD waitResult = WaitForSingleObject( process.hProcess, INFINITE );
     DWORD exitCode = ERROR_PROCESS_ABORTED;
@@ -143,29 +145,29 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::ReloadShadersFromSource()
     CloseHandle( process.hProcess );
     if ( !exited || exitCode != 0 )
     {
-        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
-                                                          "Shader bake failed (wait=%lu exit=%lu)",
-                                                          waitResult,
-                                                          exitCode );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "Shader bake failed (wait=%lu exit=%lu)",
+                                                        waitResult,
+                                                        exitCode );
     }
 
     // Lifetime: all current PSOs may still be referenced by submitted command
     // lists. Drain before the transactional owner releases either main-cache or
     // grid-line PSOs and publishes replacement bytecode.
-    const SkullbonezCore::Basics::SbResult drainResult = Finish();
+    const SkullbonezCore::Core::SbResult drainResult = Finish();
     if ( !drainResult.ok )
     {
         return drainResult;
     }
     ID3D12PipelineState* generateMipsCandidate = nullptr;
     Dx12TextureCommands textureCommands( m_renderDevice, m_frameOwner );
-    const SkullbonezCore::Basics::SbResult computeReloadResult =
+    const SkullbonezCore::Core::SbResult computeReloadResult =
         m_textureOwner.PrepareGenerateMipsShaderReload( textureCommands, generateMipsCandidate );
     if ( !computeReloadResult.ok )
     {
         return computeReloadResult;
     }
-    const SkullbonezCore::Basics::SbResult reloadResult = m_pipelineOwner.ReloadShadersFromBakedAssets();
+    const SkullbonezCore::Core::SbResult reloadResult = m_pipelineOwner.ReloadShadersFromBakedAssets();
     if ( !reloadResult.ok )
     {
         generateMipsCandidate->Release();
@@ -176,8 +178,8 @@ SkullbonezCore::Basics::SbResult RenderBackendDX12::ReloadShadersFromSource()
     m_pipelineOwner.InvalidateCommandState();
     fprintf( stdout, "[shader-hot-reload] committed\n" );
     fflush( stdout );
-    Log().WriteEventf( "dx12_shader_hot_reload_complete owner=RenderBackendDX12" );
-    return SkullbonezCore::Basics::SbResult::Success();
+    SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_hot_reload_complete owner=RenderBackendDX12" );
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 

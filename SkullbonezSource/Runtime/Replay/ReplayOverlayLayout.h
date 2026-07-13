@@ -33,7 +33,7 @@ Related:
 #include "../UI/RuntimeUiSurface.h"
 #include "../../UI/UIDraw.h"
 
-namespace SkullbonezCore::Basics::ReplayOverlay
+namespace SkullbonezCore::Runtime::ReplayOverlay
 {
 inline constexpr float REPLAY_SCRUBBER_HOT_ZONE_HEIGHT =
     78.0f; // Bottom-screen hover strip that reveals replay controls.
@@ -178,4 +178,4 @@ float ReplayCauseWindowMaxScroll( const RunReplayCauseTreeState& state );
 void ClampReplayCauseWindow( RunReplayCauseTreeState& state, int screenW, int screenH );
 void EnsureReplayCauseWindowPlacement( RunReplayCauseTreeState& state, int screenW, int screenH );
 float ReplayScrubberPositionFromMouse( int mouseX, int screenW, int screenH, RunReplayTrack trackName );
-} // namespace SkullbonezCore::Basics::ReplayOverlay
+} // namespace SkullbonezCore::Runtime::ReplayOverlay

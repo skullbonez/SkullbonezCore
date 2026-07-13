@@ -42,7 +42,7 @@ namespace Environment
 class CameraCollection;
 class WorldEnvironment;
 } // namespace Environment
-namespace Basics
+namespace Runtime
 {
 class SceneController;
 }
@@ -54,7 +54,7 @@ namespace Geometry
 {
 class Terrain;
 }
-namespace Basics
+namespace Runtime
 {
 struct RunSceneState;
 
@@ -74,10 +74,10 @@ struct SceneGeneratedCameraContext
 struct SceneGeneratedModelContext
 {
     RunSceneState& scene;
-    const EngineConfig& config;
+    const SkullbonezCore::Core::EngineConfig& config;
     Environment::WorldEnvironment& world;
     Geometry::Terrain* terrain;
-    Basics::SceneController& models;
+    Runtime::SceneController& models;
     Physics::PhysicsEngine& physics;
     GeneratedObjectTypeOverride objectTypeOverride = GeneratedObjectTypeOverride::Mixed;
 };
@@ -96,7 +96,7 @@ struct SceneGeneratedPopulationRequest
 
 struct SceneGeneratedSetupResult
 {
-    SbResult status;
+    SkullbonezCore::Core::SbResult status;
     bool applied = false; // False means no generated request matched; authored scene setup should continue.
 };
 
@@ -104,12 +104,13 @@ class SceneGeneratedSetup
 {
   public:
     static void SetUpCameras( SceneGeneratedCameraContext context );
-    static SbResult SetUpSceneEntities( SceneGeneratedModelContext context, int count );
-    static SbResult SetUpSolverObjects( SceneGeneratedModelContext context, int balls, int boxes );
+    static SkullbonezCore::Core::SbResult SetUpSceneEntities( SceneGeneratedModelContext context, int count );
+    static SkullbonezCore::Core::SbResult
+    SetUpSolverObjects( SceneGeneratedModelContext context, int balls, int boxes );
     static SceneGeneratedSetupResult TrySetUpRequestedModels( SceneGeneratedModelContext context,
                                                               const SceneGeneratedPopulationRequest& request,
                                                               bool useDefaultWhenNoRequest );
 };
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

@@ -40,7 +40,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct ReplayV2SaveResult
 {
@@ -133,5 +133,5 @@ class ReplayV2Artifact
                                   std::vector<ReplayV2SolverHashSample>& outHashes,
                                   ReplayV2SolverHashLoadResult* result = nullptr );
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

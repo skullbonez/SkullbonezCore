@@ -752,7 +752,7 @@ void DrawEditorMiniTooltip( const UIDrawContext& draw,
     snprintf( tooltip, sizeof( tooltip ), "%s", label );
     Chrome::FitTitleText( tooltip, sizeof( tooltip ), textSize, maxTextW );
 
-    const float textW = Text2d::MeasureText( textSize, tooltip );
+    const float textW = Text::Text2d::MeasureText( textSize, tooltip );
     const float w = std::ceil( textW + padX * 2.0f );
     const float h = std::ceil( textSize + padY * 2.0f + 2.0f );
 

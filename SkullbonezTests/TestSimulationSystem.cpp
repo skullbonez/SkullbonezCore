@@ -25,7 +25,7 @@ Related:
 #include "../SkullbonezSource/Physics/PhysicsTimestep.h"
 #include "../SkullbonezSource/Physics/SimulationSystem.h"
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 
 TEST_CASE( "SimulationSystem exposes the leftover live fixed-tick fraction" )
 {

@@ -65,8 +65,11 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
     fprintf( stdout, "FATAL: DX12 %s heap exhausted (next=%u capacity=%u)\n", name, nextIndex, capacity );
     fflush( stderr );
     fflush( stdout );
-    Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u", name, nextIndex, capacity );
-    Log().FlushAll();
+    SkullbonezCore::Core::Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u",
+                                             name,
+                                             nextIndex,
+                                             capacity );
+    SkullbonezCore::Core::Log().FlushAll();
 }
 
 namespace
@@ -168,9 +171,10 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device,
     const char* inputContractError = nullptr;
     if ( !shader->ValidateInputLayout( elements, 2, inputContractError ) )
     {
-        Log().WriteEventf( "dx12_shader_input_contract_rejected owner=Dx12GeometryOwner reason=%s",
-                           inputContractError );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_shader_input_contract_rejected owner=Dx12GeometryOwner reason=%s",
+            inputContractError );
+        SkullbonezCore::Core::Log().FlushAll();
         return false;
     }
 
@@ -202,10 +206,10 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device,
         // Lane R: debug-line rendering is diagnostic overlay work. A failed
         // line PSO should drop this overlay draw and report the device result,
         // not unwind the frame; cache capacity failures below remain fatal.
-        Log().WriteEventf( "dx12_debug_line_pso_create_failed hresult=0x%08X rtv_format=%u",
-                           static_cast<unsigned int>( FAILED( hr ) ? hr : E_FAIL ),
-                           static_cast<unsigned int>( rtvFormat ) );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf( "dx12_debug_line_pso_create_failed hresult=0x%08X rtv_format=%u",
+                                                 static_cast<unsigned int>( FAILED( hr ) ? hr : E_FAIL ),
+                                                 static_cast<unsigned int>( rtvFormat ) );
+        SkullbonezCore::Core::Log().FlushAll();
         if ( gridLinePSO )
         {
             gridLinePSO->Release();
@@ -577,11 +581,12 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticData,
         // Lane R: instanced mesh handles already use 0 as "no backend mesh".
         // Callers route uploads and draws through that handle, so creation can
         // fail as a logged result without leaving a partially registered mesh.
-        Log().WriteEventf( "dx12_instanced_static_vertex_buffer_create_failed hresult=0x%08X vertices=%d stride=%d",
-                           static_cast<unsigned int>( FAILED( staticBufferResult ) ? staticBufferResult : E_FAIL ),
-                           staticVertCount,
-                           im.staticStride );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_instanced_static_vertex_buffer_create_failed hresult=0x%08X vertices=%d stride=%d",
+            static_cast<unsigned int>( FAILED( staticBufferResult ) ? staticBufferResult : E_FAIL ),
+            staticVertCount,
+            im.staticStride );
+        SkullbonezCore::Core::Log().FlushAll();
         if ( im.staticVB )
         {
             im.staticVB->Release();

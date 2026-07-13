@@ -47,7 +47,6 @@ SOURCE_ROOTS = (
     "SkullbonezSource/Runtime",
     "SkullbonezSource/Physics",
     "SkullbonezSource/Rendering",
-    "SkullbonezSource/GameObjects",
 )
 SOURCE_SUFFIXES = {".cpp", ".h", ".hpp", ".inl", ".hlsl"}
 REQUIRED_ALLOWLIST_FIELDS = ("owner", "phase", "reason", "cap", "removal_or_wrapper_plan")

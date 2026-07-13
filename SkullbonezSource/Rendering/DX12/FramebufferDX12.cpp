@@ -130,12 +130,13 @@ bool FramebufferDX12::Create( int width, int height )
         // Lane R: off-screen targets are optional render resources for
         // reflection, shadow, and post passes. The factory returns null and the
         // owning pass skips until a later recreate succeeds.
-        Log().WriteEventf( "dx12_framebuffer_color_create_failed hresult=0x%08X width=%d height=%d format=%u",
-                           static_cast<unsigned int>( colorResult ),
-                           width,
-                           height,
-                           static_cast<unsigned int>( colorFormat ) );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_framebuffer_color_create_failed hresult=0x%08X width=%d height=%d format=%u",
+            static_cast<unsigned int>( colorResult ),
+            width,
+            height,
+            static_cast<unsigned int>( colorFormat ) );
+        SkullbonezCore::Core::Log().FlushAll();
         return false;
     }
     NameDx12Object( m_colorTexture, L"Skullbonez DX12 Framebuffer Color Texture" );
@@ -169,11 +170,12 @@ bool FramebufferDX12::Create( int width, int height )
                                                                  IID_PPV_ARGS( &m_depthTexture ) );
     if ( FAILED( depthResult ) )
     {
-        Log().WriteEventf( "dx12_framebuffer_depth_create_failed hresult=0x%08X width=%d height=%d",
-                           static_cast<unsigned int>( depthResult ),
-                           width,
-                           height );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_framebuffer_depth_create_failed hresult=0x%08X width=%d height=%d",
+            static_cast<unsigned int>( depthResult ),
+            width,
+            height );
+        SkullbonezCore::Core::Log().FlushAll();
         ResetResources();
         return false;
     }
@@ -216,6 +218,7 @@ bool FramebufferDX12::Create( int width, int height )
     // views: RTV for writing, SRV for reading.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createshaderresourceview
     device->CreateShaderResourceView( m_colorTexture, &srvDesc, m_srvDescriptors.StagingCpuHandle( m_srvIndex ) );
+    m_srvDescriptors.PublishStaticDescriptor( device, m_srvIndex );
 
     // Register the SRV with the normal backend texture registry so renderer code
     // can bind this framebuffer with a texture handle instead of a raw descriptor
@@ -233,6 +236,7 @@ bool FramebufferDX12::Create( int width, int height )
     device->CreateShaderResourceView( m_depthTexture,
                                       &depthSrvDesc,
                                       m_srvDescriptors.StagingCpuHandle( m_depthSrvIndex ) );
+    m_srvDescriptors.PublishStaticDescriptor( device, m_depthSrvIndex );
     m_depthTexHandle = m_textures.RegisterSRV( m_depthSrvIndex );
     m_depthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
     m_width = width;

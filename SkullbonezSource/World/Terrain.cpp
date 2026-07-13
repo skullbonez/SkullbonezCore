@@ -44,7 +44,7 @@ using namespace SkullbonezCore::Math;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
-using SkullbonezCore::Basics::SbResult;
+using SkullbonezCore::Core::SbResult;
 
 namespace
 {
@@ -66,7 +66,7 @@ using FileHandle = std::unique_ptr<FILE, FileCloser>;
 Terrain::Terrain( int iMapSize,
                   int iStepSize,
                   int iTextureWrap,
-                  const SkullbonezCore::Basics::EngineConfig& config,
+                  const SkullbonezCore::Core::EngineConfig& config,
                   SkullbonezCore::Assets::AssetSystem& assets,
                   IRenderResourceFactory& resources )
 {
@@ -93,14 +93,14 @@ Terrain::Terrain( int iMapSize,
 }
 
 
-SbResult Terrain::TryCreateFromHeightMap( const char* sFileName,
-                                          int iMapSize,
-                                          int iStepSize,
-                                          int iTextureWrap,
-                                          const SkullbonezCore::Basics::EngineConfig& config,
-                                          SkullbonezCore::Assets::AssetSystem& assets,
-                                          IRenderResourceFactory& resources,
-                                          std::unique_ptr<Terrain>& outTerrain )
+SkullbonezCore::Core::SbResult Terrain::TryCreateFromHeightMap( const char* sFileName,
+                                                                int iMapSize,
+                                                                int iStepSize,
+                                                                int iTextureWrap,
+                                                                const SkullbonezCore::Core::EngineConfig& config,
+                                                                SkullbonezCore::Assets::AssetSystem& assets,
+                                                                IRenderResourceFactory& resources,
+                                                                std::unique_ptr<Terrain>& outTerrain )
 {
     // Concept: RAW terrain files are external asset input. The factory keeps
     // a failed load out of the scene owner and reports Lane R instead of
@@ -108,7 +108,7 @@ SbResult Terrain::TryCreateFromHeightMap( const char* sFileName,
     outTerrain.reset();
     std::unique_ptr<Terrain> terrain =
         std::make_unique<Terrain>( iMapSize, iStepSize, iTextureWrap, config, assets, resources );
-    const SbResult loadResult = terrain->LoadTerrainData( sFileName );
+    const SkullbonezCore::Core::SbResult loadResult = terrain->LoadTerrainData( sFileName );
     if ( !loadResult.ok )
     {
         return loadResult;
@@ -118,14 +118,14 @@ SbResult Terrain::TryCreateFromHeightMap( const char* sFileName,
     terrain->BuildMesh();
     terrain->InitialiseTerrainShader();
     outTerrain = std::move( terrain );
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
 Terrain::Terrain( float slopeBaseY,
                   float slopeX,
                   float slopeZ,
-                  const SkullbonezCore::Basics::EngineConfig& config,
+                  const SkullbonezCore::Core::EngineConfig& config,
                   SkullbonezCore::Assets::AssetSystem& assets,
                   IRenderResourceFactory& resources )
 {
@@ -168,7 +168,7 @@ Terrain::~Terrain()
 }
 
 
-void Terrain::BindRenderContexts( const SkullbonezCore::Basics::EngineConfig& config,
+void Terrain::BindRenderContexts( const SkullbonezCore::Core::EngineConfig& config,
                                   SkullbonezCore::Assets::AssetSystem& assets,
                                   IRenderResourceFactory& resources )
 {
@@ -180,7 +180,7 @@ void Terrain::BindRenderContexts( const SkullbonezCore::Basics::EngineConfig& co
 }
 
 
-const SkullbonezCore::Basics::EngineConfig& Terrain::Config() const
+const SkullbonezCore::Core::EngineConfig& Terrain::Config() const
 {
     assert( m_config );
     return *m_config;
@@ -243,7 +243,7 @@ void Terrain::ResetRenderResources()
 }
 
 
-void Terrain::EnsureRenderResources( const SkullbonezCore::Basics::EngineConfig& config,
+void Terrain::EnsureRenderResources( const SkullbonezCore::Core::EngineConfig& config,
                                      SkullbonezCore::Assets::AssetSystem& assets,
                                      IRenderResourceFactory& resources )
 {
@@ -573,13 +573,13 @@ TerrainPost Terrain::BuildRenderPost( float rawX, float rawZ ) const
 }
 
 
-SbResult Terrain::LoadTerrainData( const char* sFileName )
+SkullbonezCore::Core::SbResult Terrain::LoadTerrainData( const char* sFileName )
 {
     // Lane R: height-map files are config/scene-selected assets. Missing or
     // truncated bytes report a recoverable load failure at the scene boundary.
     if ( !sFileName || sFileName[0] == '\0' )
     {
-        return SbResult::Failure( "World/Terrain", "Height map file path is empty." );
+        return SkullbonezCore::Core::SbResult::Failure( "World/Terrain", "Height map file path is empty." );
     }
 
     FILE* rawFile = nullptr;
@@ -587,7 +587,7 @@ SbResult Terrain::LoadTerrainData( const char* sFileName )
 
     if ( !rawFile )
     {
-        return SbResult::Failure( "World/Terrain", "Height map file not found: %s", sFileName );
+        return SkullbonezCore::Core::SbResult::Failure( "World/Terrain", "Height map file not found: %s", sFileName );
     }
     FileHandle file( rawFile );
 
@@ -599,14 +599,14 @@ SbResult Terrain::LoadTerrainData( const char* sFileName )
     if ( bytesRead != expectedBytes || ferror( file.get() ) )
     {
         m_terrainData.clear();
-        return SbResult::Failure( "World/Terrain",
-                                  "Failed to read height map '%s' (%zu/%zu bytes).",
-                                  sFileName,
-                                  bytesRead,
-                                  expectedBytes );
+        return SkullbonezCore::Core::SbResult::Failure( "World/Terrain",
+                                                        "Failed to read height map '%s' (%zu/%zu bytes).",
+                                                        sFileName,
+                                                        bytesRead,
+                                                        expectedBytes );
     }
 
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
@@ -615,7 +615,7 @@ void Terrain::Render( const Matrix4& view,
                       IRenderCommandContext& commands,
                       const float* lightPosition,
                       const float* clipPlane,
-                      const SkullbonezCore::Basics::CinematicRenderConfig* cinematicOverride,
+                      const SkullbonezCore::Core::CinematicRenderConfig* cinematicOverride,
                       const ShadowFrameData* shadow,
                       const ShadowFrameData* detailShadow )
 {
@@ -644,7 +644,7 @@ void Terrain::Render( const Matrix4& view,
     const bool cinematicMode = cinematicOverride != nullptr;
     if ( cinematicMode )
     {
-        const SkullbonezCore::Basics::CinematicRenderConfig& cinematic = *cinematicOverride;
+        const SkullbonezCore::Core::CinematicRenderConfig& cinematic = *cinematicOverride;
         m_terrainShader->SetVec4( "uLightAmbient", 0.20f, 0.11f, 0.055f, 1.0f );
         m_terrainShader->SetVec4( "uLightDiffuse",
                                   cinematic.sunColorR * 1.45f,
@@ -728,7 +728,7 @@ void Terrain::Render( const Matrix4& view,
 
 void Terrain::RenderShadowDepth( const Matrix4& lightView,
                                  const Matrix4& lightProjection,
-                                 const SkullbonezCore::Basics::CinematicRenderConfig* cinematicOverride )
+                                 const SkullbonezCore::Core::CinematicRenderConfig* cinematicOverride )
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters/DepthDraw" );
 
@@ -758,7 +758,7 @@ void Terrain::RenderShadowDepth( const Matrix4& lightView,
         // shadow caster must apply the same vertex offset. Otherwise shadow edges
         // would be produced by the flat CPU terrain while the visible terrain is
         // displaced in the vertex shader.
-        const SkullbonezCore::Basics::CinematicRenderConfig& cinematic = *cinematicOverride;
+        const SkullbonezCore::Core::CinematicRenderConfig& cinematic = *cinematicOverride;
         m_shadowDepthShader->SetVec4( "uCinematicTerrain",
                                       cinematic.terrainReliefEnabled ? 1.0f : 0.0f,
                                       cinematic.terrainRelief,
@@ -937,8 +937,7 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
     }
 
     // triangle structure for the target polygon
-    Triangle targetPolygon;
-    ZeroMemory( &targetPolygon, sizeof( targetPolygon ) );
+    Triangle targetPolygon{};
 
     /*
         The following test checks to see if triangle A or B has been hit

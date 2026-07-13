@@ -229,7 +229,7 @@ void SpatialGrid::InsertCell( int index, int ix, int iy, int iz )
 void SpatialGrid::InsertBounds( int index, const Vector3& minBounds, const Vector3& maxBounds )
 {
     assert( index >= 0 && "Insert: negative object index" );
-    if ( index < 0 || index >= MAX_GAME_MODELS )
+    if ( index < 0 || index >= SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
     {
         SB_FATAL( "Physics/SpatialGrid", "SpatialGrid object index out of bounds" );
     }
@@ -434,8 +434,8 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
     outPairs.clear();
 
     // Dedup bits are frame-local; stale bits would hide candidate pairs.
-    assert( objectCount >= 0 && objectCount <= MAX_GAME_MODELS && "objectCount OOB" );
-    if ( objectCount < 0 || objectCount > MAX_GAME_MODELS )
+    assert( objectCount >= 0 && objectCount <= SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS && "objectCount OOB" );
+    if ( objectCount < 0 || objectCount > SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
     {
         SB_FATAL( "Physics/SpatialGrid", "SpatialGrid object count out of bounds" );
     }
@@ -463,7 +463,7 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
         }
 
         // Collect cell indices into a local buffer for O(c^2) pair generation
-        int cellIndices[MAX_GAME_MODELS];
+        int cellIndices[SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS];
         int cellCount = 0;
         int cur = b.head;
         while ( cur != -1 )
@@ -474,12 +474,13 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
                 SB_FATAL( "Physics/SpatialGrid", "SpatialGrid entry chain index out of bounds" );
             }
             int objIdx = entries[cur].objectIndex;
-            assert( objIdx >= 0 && objIdx < MAX_GAME_MODELS && "objectIndex OOB in entry chain" );
-            if ( objIdx < 0 || objIdx >= MAX_GAME_MODELS )
+            assert( objIdx >= 0 && objIdx < SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS &&
+                    "objectIndex OOB in entry chain" );
+            if ( objIdx < 0 || objIdx >= SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
             {
                 SB_FATAL( "Physics/SpatialGrid", "SpatialGrid object index out of bounds in entry chain" );
             }
-            if ( cellCount < MAX_GAME_MODELS )
+            if ( cellCount < SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
             {
                 cellIndices[cellCount++] = objIdx;
             }

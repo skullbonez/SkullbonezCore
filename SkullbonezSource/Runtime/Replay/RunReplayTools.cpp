@@ -86,14 +86,14 @@ Related:
 
 #include <commdlg.h>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
-using namespace SkullbonezCore::Basics::RunInternal;
-using namespace SkullbonezCore::Basics::ReplayOverlay;
+using namespace SkullbonezCore::Runtime::RunInternal;
+using namespace SkullbonezCore::Runtime::ReplayOverlay;
 using SkullbonezCore::Assets::EDITOR_HULL_ASSET_COUNT;
 using SkullbonezCore::Assets::EDITOR_HULL_ASSETS;
 using SkullbonezCore::Assets::EditorHullAsset;
@@ -181,7 +181,7 @@ bool TryAddReplayTargetMarkerFromStores( RunEditorTracer& tracer,
 // samples read the private engine's body records directly.
 bool StepPredictionEngineTick( PhysicsEngine& engine,
                                float fixedDt,
-                               const EngineConfig& config,
+                               const SkullbonezCore::Core::EngineConfig& config,
                                const PhysicsWorldForces& worldForces,
                                SkullbonezCore::Threading::WorkerPool& workerPool )
 {
@@ -251,7 +251,7 @@ void AddOrAccountReplayPathSegment( RunEditorTracer& tracer,
                                     float r,
                                     float g,
                                     float b,
-                                    MainMemoryReplayTrajectoryLane lane )
+                                    SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
 {
     if ( tracer.ReplayPathRibbonSegmentCapacityRemaining() < REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT )
     {
@@ -282,12 +282,12 @@ void AddOrAccountReplayBaselinePathSegment( RunEditorTracer& tracer,
         {
             quota->remainingRibbonSegments = 0;
         }
-        tracer.RecordReplayRibbonDroppedSegments( MainMemoryReplayTrajectoryLane::BaselineRoot );
+        tracer.RecordReplayRibbonDroppedSegments( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::BaselineRoot );
         return;
     }
     if ( !TryReserveReplayPathRibbonSegment( quota ) )
     {
-        tracer.RecordReplayRibbonDroppedSegments( MainMemoryReplayTrajectoryLane::BaselineRoot );
+        tracer.RecordReplayRibbonDroppedSegments( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::BaselineRoot );
         return;
     }
 
@@ -333,7 +333,7 @@ bool ReplayPredictionBudgetExpired( const std::chrono::steady_clock::time_point&
 // Keep the accounting beside the existing budget checks so later stages can
 // delete the budgets without hunting for a separate telemetry path.
 bool ReplayPredictionBudgetExpiredForPass( ReplayRuntime& replayRuntime,
-                                           MainMemoryReplayBudgetPass pass,
+                                           SkullbonezCore::Core::MainMemoryReplayBudgetPass pass,
                                            const std::chrono::steady_clock::time_point& start,
                                            double budgetMilliseconds )
 {
@@ -499,12 +499,10 @@ int ReplayPredictionEngineReserveBytes( const PhysicsEngine& engine )
     uint64_t bytes = static_cast<uint64_t>( sizeof( PhysicsEngine ) );
     bytes += engine.CollectPhysicsWorldMemoryBytes();
     bytes += engine.CollectDebugAndBroadphaseMemoryBytes();
-    bytes +=
-        static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Records().capacity() ) *
-        sizeof( PhysicsBodyRecord );
-    bytes +=
-        static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadColliders( engine ).Records().capacity() ) *
-        sizeof( ColliderRecord );
+    bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).RecordCapacity() ) *
+             sizeof( PhysicsBodyRecord );
+    bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadColliders( engine ).RecordCapacity() ) *
+             sizeof( ColliderRecord );
     if ( bytes == 0 || bytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) ||
          bytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
     {
@@ -1500,7 +1498,8 @@ bool CaptureReplayPredictionBaselineSnapshot( RunReplayPredictionState& predicti
     const RunReplayPredictionFrame& firstFrame = frames.front();
     const RunReplayPredictionFrame& lastFrame = frames[frameCount - 1];
     const std::size_t bodyCapacity =
-        (std::min)( static_cast<std::size_t>( MAX_GAME_MODELS ), firstFrame.bodies.size() );
+        (std::min)( static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ),
+                    firstFrame.bodies.size() );
     const int reserveFrame = static_cast<int>( lastFrame.frameIndex );
     if ( !ReserveReplayPredictionVector( prediction.baseline.rootPolyline,
                                          REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY,
@@ -2013,7 +2012,7 @@ void DrawReplayTrajectoryRecordSegments( const ReplayTrajectoryRecord& record,
                                          std::size_t sampleStride,
                                          RunEditorTracer& tracer,
                                          ReplayRibbonDrawQuota& ribbonQuota,
-                                         MainMemoryReplayTrajectoryLane lane,
+                                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
                                          ColorForFrame colorForFrame )
 {
     pointCount = (std::min)( pointCount, record.points.size() );
@@ -2292,7 +2291,7 @@ void DrawReplayPredictionRetainedMarkers( const RunReplayPredictionState& predic
                                           const ColliderStore& colliderStore,
                                           RunEditorTracer& tracer )
 {
-    // Invariant: marker emission is bounded by MAX_GAME_MODELS and independent
+    // Invariant: marker emission is bounded by SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS and independent
     // of the visualizer budget. Lines may degrade under load; already-revealed
     // yellow/grey boxes must not.
     for ( std::size_t i = 0; i < prediction.futureNodeCache.retainedMarkerCount; ++i )
@@ -2624,7 +2623,7 @@ void DrawReplayPredictionRootTrajectoryFromStore( const RunReplayPredictionState
                                         sampleStride,
                                         tracer,
                                         ribbonQuota,
-                                        MainMemoryReplayTrajectoryLane::FutureRoot,
+                                        SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot,
                                         [&]( ReplayFrameIndex frameIndex, float& r, float& g, float& b )
                                         {
                                             const float t = ReplayPathFrameT( frameIndex, 0, lastFrame );
@@ -2681,7 +2680,8 @@ void DrawReplayPredictionSmallSceneBodyTrajectories( const std::vector<RunReplay
                     // The adaptive quota deliberately merges this logical
                     // segment into a longer ribbon. Count the omission in the
                     // same lane the all-body preview would have emitted.
-                    tracer.RecordReplayRibbonDroppedSegments( MainMemoryReplayTrajectoryLane::FutureRoot );
+                    tracer.RecordReplayRibbonDroppedSegments(
+                        SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot );
                 }
                 continue;
             }
@@ -2704,7 +2704,7 @@ void DrawReplayPredictionSmallSceneBodyTrajectories( const std::vector<RunReplay
                                                r,
                                                g,
                                                b,
-                                               MainMemoryReplayTrajectoryLane::FutureRoot );
+                                               SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot );
             }
             previous = body->position;
             hasPrevious = true;
@@ -2744,7 +2744,7 @@ void DrawReplayPredictionChildTrajectoryRecord( const RunReplayPredictionState& 
                                             sampleStride,
                                             tracer,
                                             ribbonQuota,
-                                            MainMemoryReplayTrajectoryLane::FutureChildIncoming,
+                                            SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureChildIncoming,
                                             [&]( ReplayFrameIndex frameIndex, float& r, float& g, float& b )
                                             {
                                                 const float t = ReplayPathFrameT( frameIndex, 0, node.firstFrame );
@@ -2799,7 +2799,7 @@ void DrawReplayPredictionChildTrajectoryRecord( const RunReplayPredictionState& 
                                            r,
                                            g,
                                            b,
-                                           MainMemoryReplayTrajectoryLane::FutureChildOutgoing );
+                                           SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureChildOutgoing );
         }
         previous = point.position;
         hasPrevious = true;
@@ -2878,7 +2878,7 @@ void DrawReplayPastRootTrajectoryFromStore( const RunReplayPredictionState& pred
                                         sampleStride,
                                         tracer,
                                         ribbonQuota,
-                                        MainMemoryReplayTrajectoryLane::PastRoot,
+                                        SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::PastRoot,
                                         [&]( ReplayFrameIndex frameIndex, float& r, float& g, float& b )
                                         {
                                             const float t = ReplayPathFrameT( frameIndex, firstFrame, clampedPresent );
@@ -2892,7 +2892,7 @@ void DrawReplayPastRootTrajectoryFromStore( const RunReplayPredictionState& pred
                                         sampleStride,
                                         tracer,
                                         ribbonQuota,
-                                        MainMemoryReplayTrajectoryLane::FutureRoot,
+                                        SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot,
                                         [&]( ReplayFrameIndex frameIndex, float& r, float& g, float& b )
                                         {
                                             const float t = ReplayPathFrameT( frameIndex, clampedPresent, lastFrame );
@@ -2959,7 +2959,7 @@ void DrawReplayPredictionRagdollTorsoTrails( const std::vector<RunReplayPredicti
                                                0.50f + 0.28f * ( 1.0f - t ),
                                                0.96f,
                                                0.92f,
-                                               MainMemoryReplayTrajectoryLane::AuxiliaryTrail );
+                                               SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::AuxiliaryTrail );
             }
             previous = body->position;
             hasPrevious = true;
@@ -3131,7 +3131,7 @@ void DrawReplayPredictionAffectedBodyTrails( const std::vector<RunReplayPredicti
                                                r,
                                                g,
                                                b,
-                                               MainMemoryReplayTrajectoryLane::AuxiliaryTrail );
+                                               SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::AuxiliaryTrail );
             }
 
             if ( ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
@@ -3510,7 +3510,7 @@ bool CaptureReplayPredictionBodyState( const PhysicsBodyStore& bodyStore,
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureBodyState" );
     const int modelCount = bodyStore.Count();
-    const auto& bodyRecords = bodyStore.Records();
+    const auto bodyRecords = bodyStore.Records();
     if ( static_cast<int>( bodyRecords.size() ) < modelCount )
     {
         return false;
@@ -3609,7 +3609,7 @@ bool ApplyReplayPredictionBodyState( PhysicsEngine& physicsEngine,
 
 bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
                                  const PhysicsEngine& liveEngine,
-                                 const EngineConfig& config,
+                                 const SkullbonezCore::Core::EngineConfig& config,
                                  const PhysicsWorldForces& worldForces,
                                  int modelCount )
 {
@@ -3683,7 +3683,7 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureSample" );
     const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physicsEngine );
-    const auto& bodyRecords = bodyStore.Records();
+    const auto bodyRecords = bodyStore.Records();
     if ( static_cast<int>( bodyRecords.size() ) < modelCount )
     {
         return false;
@@ -3794,7 +3794,7 @@ void MarkReplayPredictionWorkerFailed( RunReplayPredictionState& prediction )
 }
 
 void RunReplayPredictionWorkerRange( ReplayRuntime& replayRuntime,
-                                     const EngineConfig& config,
+                                     const SkullbonezCore::Core::EngineConfig& config,
                                      SkullbonezCore::Threading::WorkerPool& workerPool,
                                      int modelCount,
                                      int beginTickIndex,
@@ -3951,7 +3951,7 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayRuntime& replayRuntime, dou
 bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
                                PhysicsEngine& physicsEngine,
                                const SceneEntityStore& entities,
-                               const EngineConfig& config,
+                               const SkullbonezCore::Core::EngineConfig& config,
                                const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
                                SkullbonezCore::Threading::WorkerPool& workerPool,
                                bool scenePhysics,
@@ -3968,7 +3968,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
     // reserved we must publish frame 0 so large predictions can draw progress
     // instead of thrashing a dirty begin job every render frame.
     if ( ReplayPredictionBudgetExpiredForPass( replayRuntime,
-                                               MainMemoryReplayBudgetPass::PredictionBegin,
+                                               SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBegin,
                                                budgetStart,
                                                budgetMilliseconds ) )
     {
@@ -4038,7 +4038,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         targetHint.value = replayRuntime.PathVisualizer().targetModelRow.value;
         int targetIndex = -1;
         if ( ReplayPredictionBudgetExpiredForPass( replayRuntime,
-                                                   MainMemoryReplayBudgetPass::PredictionBegin,
+                                                   SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBegin,
                                                    budgetStart,
                                                    budgetMilliseconds ) )
         {
@@ -4178,7 +4178,7 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
     }
 
     if ( ReplayPredictionBudgetExpiredForPass( replayRuntime,
-                                               MainMemoryReplayBudgetPass::PredictionStep,
+                                               SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionStep,
                                                budgetStart,
                                                budgetMilliseconds ) )
     {
@@ -4377,10 +4377,11 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                                                    activePredictionFrameCount,
                                                    usingBuildFrames,
                                                    replayRuntime.PathVisualizer().targetId );
-            (void)ReplayPredictionBudgetExpiredForPass( replayRuntime,
-                                                        MainMemoryReplayBudgetPass::PredictionBuildTree,
-                                                        buildBudgetStart,
-                                                        budgetMilliseconds );
+            (void)ReplayPredictionBudgetExpiredForPass(
+                replayRuntime,
+                SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBuildTree,
+                buildBudgetStart,
+                budgetMilliseconds );
             drawFutureTree = ReplayPredictionFutureTreeReadyForDraw( replayRuntime.Prediction(),
                                                                      replayRuntime.PathVisualizer().targetId,
                                                                      usingBuildFrames,
@@ -4466,7 +4467,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
 void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
                                        PhysicsEngine& physicsEngine,
                                        const SceneEntityStore& entities,
-                                       const EngineConfig& config,
+                                       const SkullbonezCore::Core::EngineConfig& config,
                                        const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
                                        SkullbonezCore::Threading::WorkerPool& workerPool,
                                        bool scenePhysics,
@@ -4525,7 +4526,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
     if ( beginRequested )
     {
         if ( ReplayPredictionBudgetExpiredForPass( replayRuntime,
-                                                   MainMemoryReplayBudgetPass::PredictionBegin,
+                                                   SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBegin,
                                                    budgetStart,
                                                    budgetMilliseconds ) )
         {
@@ -4533,11 +4534,13 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
         }
         if ( prediction.build.dirty )
         {
-            replayRuntime.RecordReplayTrajectoryRebuildCause( MainMemoryReplayRebuildCause::Dirty );
+            replayRuntime.RecordReplayTrajectoryRebuildCause(
+                SkullbonezCore::Core::MainMemoryReplayRebuildCause::Dirty );
         }
         else
         {
-            replayRuntime.RecordReplayTrajectoryRebuildCause( MainMemoryReplayRebuildCause::AutomaticRefresh );
+            replayRuntime.RecordReplayTrajectoryRebuildCause(
+                SkullbonezCore::Core::MainMemoryReplayRebuildCause::AutomaticRefresh );
         }
         const bool wasDirty = prediction.build.dirty;
         const bool wasPendingLatestRestart = prediction.build.pendingLatestRestart;
@@ -4583,7 +4586,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
             prediction.build.pendingLatestRestart = prediction.build.pendingLatestRestart || wasPendingLatestRestart;
         }
         if ( ReplayPredictionBudgetExpiredForPass( replayRuntime,
-                                                   MainMemoryReplayBudgetPass::PredictionBegin,
+                                                   SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBegin,
                                                    budgetStart,
                                                    budgetMilliseconds ) )
         {
@@ -4605,17 +4608,19 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
                                      budgetMilliseconds );
             predictionCompletedThisPass =
                 wasBuilding && replayRuntime.Prediction().build.complete && !replayRuntime.Prediction().build.building;
-            (void)ReplayPredictionBudgetExpiredForPass( replayRuntime,
-                                                        MainMemoryReplayBudgetPass::PredictionStep,
-                                                        budgetStart,
-                                                        budgetMilliseconds );
+            (void)ReplayPredictionBudgetExpiredForPass(
+                replayRuntime,
+                SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionStep,
+                budgetStart,
+                budgetMilliseconds );
         }
         else
         {
-            (void)ReplayPredictionBudgetExpiredForPass( replayRuntime,
-                                                        MainMemoryReplayBudgetPass::PredictionStep,
-                                                        budgetStart,
-                                                        budgetMilliseconds );
+            (void)ReplayPredictionBudgetExpiredForPass(
+                replayRuntime,
+                SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionStep,
+                budgetStart,
+                budgetMilliseconds );
         }
     }
     if ( predictionCompletedThisPass )
@@ -4632,7 +4637,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
 
 } // namespace
 
-namespace SkullbonezCore::Basics::ReplayOverlay
+namespace SkullbonezCore::Runtime::ReplayOverlay
 {
 void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context )
 {
@@ -4668,7 +4673,7 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
         return;
     }
     if ( ReplayPredictionBudgetExpiredForPass( context.replayRuntime,
-                                               MainMemoryReplayBudgetPass::RetainedRefresh,
+                                               SkullbonezCore::Core::MainMemoryReplayBudgetPass::RetainedRefresh,
                                                visualizerStart,
                                                REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
     {
@@ -4769,11 +4774,11 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
         }
     }
 }
-} // namespace SkullbonezCore::Basics::ReplayOverlay
+} // namespace SkullbonezCore::Runtime::ReplayOverlay
 
 void ReplayRuntime::RenderPathVisualizer( PhysicsEngine& physics,
                                           const SceneEntityStore& entities,
-                                          const EngineConfig& config,
+                                          const SkullbonezCore::Core::EngineConfig& config,
                                           const Physics::PhysicsWorldForces& worldForces,
                                           Threading::WorkerPool& workerPool,
                                           RunEditorTracer& tracer,
@@ -4783,18 +4788,18 @@ void ReplayRuntime::RenderPathVisualizer( PhysicsEngine& physics,
                                           double totalSeconds )
 {
     tracer.ClearReplayTrajectoryStats();
-    const SkullbonezCore::Basics::ReplayOverlay::ReplayPathVisualizerRenderContext context{ *this,
-                                                                                            physics,
-                                                                                            entities,
-                                                                                            config,
-                                                                                            worldForces,
-                                                                                            workerPool,
-                                                                                            tracer,
-                                                                                            scenePhysicsEnabled,
-                                                                                            currentFrame,
-                                                                                            frameSeconds,
-                                                                                            totalSeconds };
-    SkullbonezCore::Basics::ReplayOverlay::RenderReplayPathVisualizer( context );
+    const SkullbonezCore::Runtime::ReplayOverlay::ReplayPathVisualizerRenderContext context{ *this,
+                                                                                             physics,
+                                                                                             entities,
+                                                                                             config,
+                                                                                             worldForces,
+                                                                                             workerPool,
+                                                                                             tracer,
+                                                                                             scenePhysicsEnabled,
+                                                                                             currentFrame,
+                                                                                             frameSeconds,
+                                                                                             totalSeconds };
+    SkullbonezCore::Runtime::ReplayOverlay::RenderReplayPathVisualizer( context );
     RecordReplayTrajectoryFrameStats( tracer.ReplayTrajectoryStats() );
 }
 
@@ -4906,7 +4911,7 @@ void ReplayRuntime::RenderCauseFocusOverlay( const PhysicsBodyStore& bodyStore,
             }
 
             bool drewPredictionManifold = false;
-            const std::vector<RunReplayPredictionFrame>& frames = ActivePredictionFrames();
+            const std::span<const RunReplayPredictionFrame> frames = ActivePredictionFrames();
             for ( const RunReplayPredictionFrame& frame : frames )
             {
                 if ( frame.frameIndex != focusFrame )

@@ -31,7 +31,7 @@ Related:
 
 #include <string>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
 

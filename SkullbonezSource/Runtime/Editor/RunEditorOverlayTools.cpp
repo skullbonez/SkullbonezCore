@@ -38,7 +38,7 @@ using SkullbonezCore::Physics::PhysicsColliderHandle;
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace RunInternal
 {
@@ -238,5 +238,5 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
     }
 }
 } // namespace RunInternal
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

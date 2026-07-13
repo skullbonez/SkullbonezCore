@@ -49,7 +49,7 @@ Related:
 #include <limits>
 #include <utility>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using SkullbonezCore::Environment::CameraCollection;
 using SkullbonezCore::Environment::WorldEnvironment;
 using SkullbonezCore::Math::Vector::Vector3;
@@ -77,7 +77,7 @@ constexpr uint64_t FNV64_PRIME = 1099511628211ull;
 
 int ReplayRuntimeBodyCapacity( const ReplayRecorderConfig& config )
 {
-    return std::clamp( config.runtimeBodyCapacity, 1, MAX_GAME_MODELS );
+    return std::clamp( config.runtimeBodyCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
 }
 
 RuntimeAllocation::RuntimeReserveOwnerHandle ReplayRecorderSampleReserveOwner()
@@ -107,7 +107,7 @@ std::size_t ReplayRecorderReserveCapacity( std::size_t currentCapacity, std::siz
     {
         return currentCapacity;
     }
-    if ( requestedCapacity > static_cast<std::size_t>( MAX_GAME_MODELS ) )
+    if ( requestedCapacity > static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ) )
     {
         return requestedCapacity;
     }
@@ -117,13 +117,13 @@ std::size_t ReplayRecorderReserveCapacity( std::size_t currentCapacity, std::siz
     const std::size_t chunked =
         remainder == 0u ? requestedCapacity : requestedCapacity + ( REPLAY_RECORDER_SAMPLE_GROWTH_CHUNK - remainder );
     const std::size_t reserveCapacity = (std::max)( doubled, chunked );
-    return (std::min)( reserveCapacity, static_cast<std::size_t>( MAX_GAME_MODELS ) );
+    return (std::min)( reserveCapacity, static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ) );
 }
 
 std::size_t ReplayRecorderDeltaReserveCapacity( std::size_t currentCapacity, std::size_t requestedCapacity )
 {
     // Why: solver-world deltas include contact/debug vectors whose natural
-    // capacity is not bounded by MAX_GAME_MODELS, so they use the byte-budget
+    // capacity is not bounded by SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS, so they use the byte-budget
     // reserve gate without the body-vector element-count clamp.
     if ( requestedCapacity <= currentCapacity )
     {
@@ -177,7 +177,7 @@ void ReserveReplayRecorderSampleVector( std::vector<T>& values,
     {
         return;
     }
-    if ( requestedCapacity > static_cast<std::size_t>( MAX_GAME_MODELS ) )
+    if ( requestedCapacity > static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ) )
     {
         ReportReplayRecorderReserveFailure( targetName, requestedCapacity, 0u );
     }
@@ -1634,11 +1634,11 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
 
     sample.pipelineRecordCount = SaturatingUint16( Physics::PhysicsEngine::ReadPipelineTrace( physics ).size() );
 
-    const std::vector<uint8_t>& sleepStates = Physics::PhysicsEngine::ReadSleepStates( physics );
-    const std::vector<uint8_t>& sleepSupportedStates = Physics::PhysicsEngine::ReadSleepSupportedStates( physics );
-    const std::vector<uint8_t>& sleepInhibitedStates = Physics::PhysicsEngine::ReadSleepInhibitedStates( physics );
+    const auto sleepStates = Physics::PhysicsEngine::ReadSleepStates( physics );
+    const auto sleepSupportedStates = Physics::PhysicsEngine::ReadSleepSupportedStates( physics );
+    const auto sleepInhibitedStates = Physics::PhysicsEngine::ReadSleepInhibitedStates( physics );
     const std::vector<uint8_t>& collisionContacts = Physics::PhysicsEngine::ReadCollisionVisualContacts( physics );
-    const std::vector<int>& sleepIslandIds = Physics::PhysicsEngine::ReadSleepIslandVisualIds( physics );
+    const auto sleepIslandIds = Physics::PhysicsEngine::ReadSleepIslandVisualIds( physics );
 
     uint64_t hash = FNV64_OFFSET;
     // Concept: presentation hashes summarize what the viewer would need to see
@@ -1787,50 +1787,56 @@ ReplayRecorderStats ReplayRecorder::GetStats() const
 
 uint64_t ReplayRecorder::CollectMemoryBytes() const
 {
-    MainMemoryReplayCategoryBytes categories;
+    SkullbonezCore::Core::MainMemoryReplayCategoryBytes categories;
     CollectMemoryCategoryBytes( categories );
-    return MainMemoryReplayCategoryRangeBytes( categories,
-                                               MainMemoryReplayByteCategory::PresentationOwner,
-                                               MainMemoryReplayByteCategory::SolverOwner );
+    return SkullbonezCore::Core::MainMemoryReplayCategoryRangeBytes(
+        categories,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationOwner,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverOwner );
 }
 
-void ReplayRecorder::CollectMemoryCategoryBytes( MainMemoryReplayCategoryBytes& categories ) const
+void ReplayRecorder::CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const
 {
-    MainMemoryAddReplayCategoryBytes( categories,
-                                      MainMemoryReplayByteCategory::PresentationOwner,
-                                      static_cast<uint64_t>( sizeof( *this ) ) );
-    MainMemoryAddReplayCategoryBytes(
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         categories,
-        MainMemoryReplayByteCategory::PresentationSampleRecords,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationOwner,
+        static_cast<uint64_t>( sizeof( *this ) ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        categories,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationSampleRecords,
         VectorCapacityBytes( m_samples ) + VectorCapacityBytes( m_resolvedPresentationSamples ) );
-    MainMemoryAddReplayCategoryBytes( categories,
-                                      MainMemoryReplayByteCategory::PresentationCheckpoints,
-                                      VectorCapacityBytes( m_checkpoints ) );
-    MainMemoryAddReplayCategoryBytes(
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         categories,
-        MainMemoryReplayByteCategory::PresentationScratch,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationCheckpoints,
+        VectorCapacityBytes( m_checkpoints ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        categories,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationScratch,
         ReplayRecorderScratchMemoryBytes( m_contactCountScratch, m_maxPenetrationScratch, m_normalImpulseSumScratch ) );
     for ( const ReplayPresentationSample& sample : m_samples )
     {
-        MainMemoryAddReplayCategoryBytes( categories,
-                                          MainMemoryReplayByteCategory::PresentationBodies,
-                                          PresentationSampleMemoryBytes( sample ) );
+        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+            categories,
+            SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationBodies,
+            PresentationSampleMemoryBytes( sample ) );
     }
     for ( const ReplayVisualDeltaFrame& frame : m_visualFrames )
     {
-        MainMemoryAddReplayCategoryBytes( categories,
-                                          MainMemoryReplayByteCategory::PresentationBodies,
-                                          VisualDeltaFrameMemoryBytes( frame ) );
+        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+            categories,
+            SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationBodies,
+            VisualDeltaFrameMemoryBytes( frame ) );
     }
     for ( const ReplayPresentationSample& sample : m_resolvedPresentationSamples )
     {
-        MainMemoryAddReplayCategoryBytes( categories,
-                                          MainMemoryReplayByteCategory::PresentationBodies,
-                                          PresentationSampleMemoryBytes( sample ) );
+        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+            categories,
+            SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationBodies,
+            PresentationSampleMemoryBytes( sample ) );
     }
-    MainMemoryAddReplayCategoryBytes(
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         categories,
-        MainMemoryReplayByteCategory::PresentationBodies,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationBodies,
         VectorCapacityBytes( m_visualBodyMetadata ) + VectorCapacityBytes( m_visualCarryStates ) +
             VectorCapacityBytes( m_visualCarryActive ) + VectorCapacityBytes( m_visualCarrySeenScratch ) +
             VectorCapacityBytes( m_captureBodyScratch ) + VectorCapacityBytes( m_promotedPresentationSample.bodies ) +
@@ -2398,11 +2404,11 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
         m_solverCaptureWorldSnapshot,
         Physics::MakePhysicsBodyCountFromNonNegativeInt( static_cast<int>( modelCount ) ) );
 
-    const std::vector<uint8_t>& sleepStates = Physics::PhysicsEngine::ReadSleepStates( physics );
-    const std::vector<uint8_t>& sleepSupportedStates = Physics::PhysicsEngine::ReadSleepSupportedStates( physics );
-    const std::vector<uint8_t>& sleepInhibitedStates = Physics::PhysicsEngine::ReadSleepInhibitedStates( physics );
+    const auto sleepStates = Physics::PhysicsEngine::ReadSleepStates( physics );
+    const auto sleepSupportedStates = Physics::PhysicsEngine::ReadSleepSupportedStates( physics );
+    const auto sleepInhibitedStates = Physics::PhysicsEngine::ReadSleepInhibitedStates( physics );
     const std::vector<uint8_t>& collisionContacts = Physics::PhysicsEngine::ReadCollisionVisualContacts( physics );
-    const std::vector<int>& sleepIslandIds = Physics::PhysicsEngine::ReadSleepIslandVisualIds( physics );
+    const auto sleepIslandIds = Physics::PhysicsEngine::ReadSleepIslandVisualIds( physics );
 
     uint64_t presentationHash = FNV64_OFFSET;
     presentationHash = HashWorld( presentationHash, sample.world );
@@ -2490,71 +2496,83 @@ ReplayRecorderStats ReplaySolverRecorder::GetStats() const
 
 uint64_t ReplaySolverRecorder::CollectMemoryBytes() const
 {
-    MainMemoryReplayCategoryBytes categories;
+    SkullbonezCore::Core::MainMemoryReplayCategoryBytes categories;
     CollectMemoryCategoryBytes( categories );
-    return MainMemoryReplayCategoryRangeBytes( categories,
-                                               MainMemoryReplayByteCategory::SolverOwner,
-                                               MainMemoryReplayByteCategory::EventsOwner );
+    return SkullbonezCore::Core::MainMemoryReplayCategoryRangeBytes(
+        categories,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverOwner,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::EventsOwner );
 }
 
-void ReplaySolverRecorder::CollectMemoryCategoryBytes( MainMemoryReplayCategoryBytes& categories ) const
+void ReplaySolverRecorder::CollectMemoryCategoryBytes(
+    SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const
 {
-    MainMemoryAddReplayCategoryBytes( categories,
-                                      MainMemoryReplayByteCategory::SolverOwner,
-                                      static_cast<uint64_t>( sizeof( *this ) ) );
-    MainMemoryAddReplayCategoryBytes( categories,
-                                      MainMemoryReplayByteCategory::SolverSampleRecords,
-                                      VectorCapacityBytes( m_samples ) + VectorCapacityBytes( m_solverFrames ) );
-    MainMemoryAddReplayCategoryBytes( categories,
-                                      MainMemoryReplayByteCategory::SolverCheckpoints,
-                                      VectorCapacityBytes( m_checkpoints ) );
-    MainMemoryAddReplayCategoryBytes(
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         categories,
-        MainMemoryReplayByteCategory::SolverScratch,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverOwner,
+        static_cast<uint64_t>( sizeof( *this ) ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        categories,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverSampleRecords,
+        VectorCapacityBytes( m_samples ) + VectorCapacityBytes( m_solverFrames ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        categories,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverCheckpoints,
+        VectorCapacityBytes( m_checkpoints ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        categories,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverScratch,
         ReplayRecorderScratchMemoryBytes( m_contactCountScratch, m_maxPenetrationScratch, m_normalImpulseSumScratch ) );
     for ( const ReplaySolverFrameSample& sample : m_samples )
     {
-        MainMemoryAddReplayCategoryBytes( categories,
-                                          MainMemoryReplayByteCategory::SolverBodies,
-                                          VectorCapacityBytes( sample.bodies ) );
-        MainMemoryAddReplayCategoryBytes( categories,
-                                          MainMemoryReplayByteCategory::SolverWorldState,
-                                          SolverWorldSnapshotMemoryBytes( sample.worldSnapshot ) );
-        MainMemoryAddReplayCategoryBytes( categories,
-                                          MainMemoryReplayByteCategory::SolverLauncherVisuals,
-                                          LauncherVisualMemoryBytes( sample.launcherVisual ) );
+        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+            categories,
+            SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverBodies,
+            VectorCapacityBytes( sample.bodies ) );
+        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+            categories,
+            SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverWorldState,
+            SolverWorldSnapshotMemoryBytes( sample.worldSnapshot ) );
+        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+            categories,
+            SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverLauncherVisuals,
+            LauncherVisualMemoryBytes( sample.launcherVisual ) );
     }
     for ( const ReplaySolverDeltaFrame& frame : m_solverFrames )
     {
-        MainMemoryAddReplayCategoryBytes( categories,
-                                          MainMemoryReplayByteCategory::SolverBodies,
-                                          SolverDeltaFrameMemoryBytes( frame ) );
-        MainMemoryAddReplayCategoryBytes( categories,
-                                          MainMemoryReplayByteCategory::SolverWorldState,
-                                          SolverWorldDeltaFrameMemoryBytes( frame.world ) );
+        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+            categories,
+            SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverBodies,
+            SolverDeltaFrameMemoryBytes( frame ) );
+        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+            categories,
+            SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverWorldState,
+            SolverWorldDeltaFrameMemoryBytes( frame.world ) );
     }
-    MainMemoryAddReplayCategoryBytes(
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         categories,
-        MainMemoryReplayByteCategory::SolverBodies,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverBodies,
         VectorCapacityBytes( m_solverBodyMetadata ) + VectorCapacityBytes( m_solverCarryStates ) +
             VectorCapacityBytes( m_solverCarryActive ) + VectorCapacityBytes( m_solverCarrySeenScratch ) +
             VectorCapacityBytes( m_solverCaptureBodies ) + VectorCapacityBytes( m_resolvedSolverSample.bodies ) +
             VectorCapacityBytes( m_latestResolvedSolverSample.bodies ) +
             VectorCapacityBytes( m_promotedSolverSample.bodies ) + VectorCapacityBytes( m_solverResolveStateScratch ) +
             VectorCapacityBytes( m_solverResolveActiveScratch ) );
-    MainMemoryAddReplayCategoryBytes( categories,
-                                      MainMemoryReplayByteCategory::SolverWorldState,
-                                      SolverWorldSnapshotMemoryBytes( m_solverCaptureWorldSnapshot ) +
-                                          SolverWorldSnapshotMemoryBytes( m_solverWorldCarrySnapshot ) +
-                                          SolverWorldSnapshotMemoryBytes( m_solverResolveWorldScratch ) +
-                                          SolverWorldSnapshotMemoryBytes( m_resolvedSolverSample.worldSnapshot ) +
-                                          SolverWorldSnapshotMemoryBytes( m_latestResolvedSolverSample.worldSnapshot ) +
-                                          SolverWorldSnapshotMemoryBytes( m_promotedSolverSample.worldSnapshot ) );
-    MainMemoryAddReplayCategoryBytes( categories,
-                                      MainMemoryReplayByteCategory::SolverLauncherVisuals,
-                                      LauncherVisualMemoryBytes( m_resolvedSolverSample.launcherVisual ) +
-                                          LauncherVisualMemoryBytes( m_latestResolvedSolverSample.launcherVisual ) +
-                                          LauncherVisualMemoryBytes( m_promotedSolverSample.launcherVisual ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        categories,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverWorldState,
+        SolverWorldSnapshotMemoryBytes( m_solverCaptureWorldSnapshot ) +
+            SolverWorldSnapshotMemoryBytes( m_solverWorldCarrySnapshot ) +
+            SolverWorldSnapshotMemoryBytes( m_solverResolveWorldScratch ) +
+            SolverWorldSnapshotMemoryBytes( m_resolvedSolverSample.worldSnapshot ) +
+            SolverWorldSnapshotMemoryBytes( m_latestResolvedSolverSample.worldSnapshot ) +
+            SolverWorldSnapshotMemoryBytes( m_promotedSolverSample.worldSnapshot ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        categories,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverLauncherVisuals,
+        LauncherVisualMemoryBytes( m_resolvedSolverSample.launcherVisual ) +
+            LauncherVisualMemoryBytes( m_latestResolvedSolverSample.launcherVisual ) +
+            LauncherVisualMemoryBytes( m_promotedSolverSample.launcherVisual ) );
 }
 
 void ReplaySolverRecorder::CopySamplesChronological( std::vector<ReplaySolverFrameSample>& outSamples ) const
@@ -3022,21 +3040,24 @@ ReplayEventRecorderStats ReplayEventRecorder::GetStats() const
 
 uint64_t ReplayEventRecorder::CollectMemoryBytes() const
 {
-    MainMemoryReplayCategoryBytes categories;
+    SkullbonezCore::Core::MainMemoryReplayCategoryBytes categories;
     CollectMemoryCategoryBytes( categories );
-    return MainMemoryReplayCategoryRangeBytes( categories,
-                                               MainMemoryReplayByteCategory::EventsOwner,
-                                               MainMemoryReplayByteCategory::LoadedOwner );
+    return SkullbonezCore::Core::MainMemoryReplayCategoryRangeBytes(
+        categories,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::EventsOwner,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedOwner );
 }
 
-void ReplayEventRecorder::CollectMemoryCategoryBytes( MainMemoryReplayCategoryBytes& categories ) const
+void ReplayEventRecorder::CollectMemoryCategoryBytes(
+    SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const
 {
-    MainMemoryAddReplayCategoryBytes( categories,
-                                      MainMemoryReplayByteCategory::EventsOwner,
-                                      static_cast<uint64_t>( sizeof( *this ) ) );
-    MainMemoryAddReplayCategoryBytes( categories,
-                                      MainMemoryReplayByteCategory::Events,
-                                      VectorCapacityBytes( m_events ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        categories,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::EventsOwner,
+        static_cast<uint64_t>( sizeof( *this ) ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories,
+                                                            SkullbonezCore::Core::MainMemoryReplayByteCategory::Events,
+                                                            VectorCapacityBytes( m_events ) );
 }
 
 void ReplayEventRecorder::CopyEventsChronological( std::vector<ReplayEventSample>& outEvents ) const

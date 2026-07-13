@@ -36,28 +36,28 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct RunTimerState
 {
-    SbResult Initialise()
+    SkullbonezCore::Core::SbResult Initialise()
     {
-        const SbResult frameTimerResult = frameTimer.Initialise();
+        const SkullbonezCore::Core::SbResult frameTimerResult = frameTimer.Initialise();
         if ( !frameTimerResult.ok )
         {
             return frameTimerResult;
         }
-        const SbResult workTimerResult = workTimer.Initialise();
+        const SkullbonezCore::Core::SbResult workTimerResult = workTimer.Initialise();
         if ( !workTimerResult.ok )
         {
             return workTimerResult;
         }
-        const SbResult updateTimerResult = updateTimer.Initialise();
+        const SkullbonezCore::Core::SbResult updateTimerResult = updateTimer.Initialise();
         if ( !updateTimerResult.ok )
         {
             return updateTimerResult;
         }
-        const SbResult cameraTimerResult = cameraTimer.Initialise();
+        const SkullbonezCore::Core::SbResult cameraTimerResult = cameraTimer.Initialise();
         if ( !cameraTimerResult.ok )
         {
             return cameraTimerResult;
@@ -111,5 +111,5 @@ struct RunTimerState
     int lastUIDrawCalls = 0;               // Actual UI draw calls measured around Frame/UI last frame
 };
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

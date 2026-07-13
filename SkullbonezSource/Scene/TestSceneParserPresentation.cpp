@@ -26,8 +26,26 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
+using TestSceneParserDetail::CopyStringField;
+using TestSceneParserDetail::Fail;
+using TestSceneParserDetail::FindMember;
+using TestSceneParserDetail::Lowercase;
+using TestSceneParserDetail::ParsePhysicsDebugMode;
+using TestSceneParserDetail::ParseUITab;
+using TestSceneParserDetail::ParseWaterReflectionMode;
+using TestSceneParserDetail::ReadBool;
+using TestSceneParserDetail::ReadFloat;
+using TestSceneParserDetail::ReadInt;
+using TestSceneParserDetail::ReadRequiredStringField;
+using TestSceneParserDetail::ReadString;
+using TestSceneParserDetail::ReadUInt;
+using TestSceneParserDetail::ReadVec3;
+using TestSceneParserDetail::RequireArray;
+using TestSceneParserDetail::RequireMember;
+using TestSceneParserDetail::RequireObject;
+
 void TestSceneParser::ApplyPhysicsDebug( const Json& debug, const std::string& path )
 {
     RequireObject( debug, path, "debug.physics" );
@@ -286,18 +304,24 @@ void TestSceneParser::ApplyCinematicBool( const Json& cinematic, const std::stri
     struct BoolField
     {
         const char* key;
-        bool CinematicRenderConfig::* field;
+        bool SkullbonezCore::Core::CinematicRenderConfig::* field;
         uint64_t bit;
     };
     static constexpr BoolField kFields[] = {
-        { "rendering", &CinematicRenderConfig::enabled, SCENE_CINE_RENDERING },
-        { "skyAtmosphere", &CinematicRenderConfig::skyAtmosphereEnabled, SCENE_CINE_SKY_ATMOSPHERE },
-        { "clouds", &CinematicRenderConfig::cloudsEnabled, SCENE_CINE_CLOUDS },
-        { "godRays", &CinematicRenderConfig::godRaysEnabled, SCENE_CINE_GOD_RAYS },
-        { "volumetricLighting", &CinematicRenderConfig::volumetricLightingEnabled, SCENE_CINE_VOLUMETRIC_LIGHTING },
-        { "bloom", &CinematicRenderConfig::bloomEnabled, SCENE_CINE_BLOOM },
-        { "fog", &CinematicRenderConfig::fogEnabled, SCENE_CINE_FOG },
-        { "terrainReliefEnabled", &CinematicRenderConfig::terrainReliefEnabled, SCENE_CINE_TERRAIN_RELIEF_ENABLED },
+        { "rendering", &SkullbonezCore::Core::CinematicRenderConfig::enabled, SCENE_CINE_RENDERING },
+        { "skyAtmosphere",
+          &SkullbonezCore::Core::CinematicRenderConfig::skyAtmosphereEnabled,
+          SCENE_CINE_SKY_ATMOSPHERE },
+        { "clouds", &SkullbonezCore::Core::CinematicRenderConfig::cloudsEnabled, SCENE_CINE_CLOUDS },
+        { "godRays", &SkullbonezCore::Core::CinematicRenderConfig::godRaysEnabled, SCENE_CINE_GOD_RAYS },
+        { "volumetricLighting",
+          &SkullbonezCore::Core::CinematicRenderConfig::volumetricLightingEnabled,
+          SCENE_CINE_VOLUMETRIC_LIGHTING },
+        { "bloom", &SkullbonezCore::Core::CinematicRenderConfig::bloomEnabled, SCENE_CINE_BLOOM },
+        { "fog", &SkullbonezCore::Core::CinematicRenderConfig::fogEnabled, SCENE_CINE_FOG },
+        { "terrainReliefEnabled",
+          &SkullbonezCore::Core::CinematicRenderConfig::terrainReliefEnabled,
+          SCENE_CINE_TERRAIN_RELIEF_ENABLED },
     };
 
     for ( const BoolField& field : kFields )
@@ -326,14 +350,18 @@ void TestSceneParser::ApplyCinematicInt( const Json& cinematic, const std::strin
     struct IntField
     {
         const char* key;
-        int ShadowQualityConfig::* field;
+        int SkullbonezCore::Core::ShadowQualityConfig::* field;
         uint64_t bit;
         int minValue;
         int maxValue;
     };
     static constexpr IntField kFields[] = {
-        { "shadowMapSize", &ShadowQualityConfig::mapSize, SCENE_CINE_SHADOW_MAP_SIZE, 256, 8192 },
-        { "shadowPcfRadius", &ShadowQualityConfig::pcfRadius, SCENE_CINE_SHADOW_PCF_RADIUS, 0, 3 },
+        { "shadowMapSize", &SkullbonezCore::Core::ShadowQualityConfig::mapSize, SCENE_CINE_SHADOW_MAP_SIZE, 256, 8192 },
+        { "shadowPcfRadius",
+          &SkullbonezCore::Core::ShadowQualityConfig::pcfRadius,
+          SCENE_CINE_SHADOW_PCF_RADIUS,
+          0,
+          3 },
     };
 
     for ( const IntField& field : kFields )
@@ -360,56 +388,136 @@ void TestSceneParser::ApplyCinematicFloat( const Json& cinematic, const std::str
     struct FloatField
     {
         const char* key;
-        float CinematicRenderConfig::* field;
+        float SkullbonezCore::Core::CinematicRenderConfig::* field;
         uint64_t bit;
         float minValue;
         float maxValue;
     };
     static constexpr FloatField kFields[] = {
-        { "exposure", &CinematicRenderConfig::exposure, SCENE_CINE_EXPOSURE, 0.0f, 16.0f },
-        { "gamma", &CinematicRenderConfig::gamma, SCENE_CINE_GAMMA, 0.1f, 8.0f },
+        { "exposure", &SkullbonezCore::Core::CinematicRenderConfig::exposure, SCENE_CINE_EXPOSURE, 0.0f, 16.0f },
+        { "gamma", &SkullbonezCore::Core::CinematicRenderConfig::gamma, SCENE_CINE_GAMMA, 0.1f, 8.0f },
         // Compatibility: scene/style JSON retains its original key spellings;
         // only the in-memory owner vocabulary changed.
-        { "sunScreenX", &CinematicRenderConfig::sunAzimuth, SCENE_CINE_SUN_AZIMUTH, 0.0f, 1.0f },
-        { "sunScreenY", &CinematicRenderConfig::sunElevation, SCENE_CINE_SUN_ELEVATION, 0.0f, 1.0f },
-        { "sunColorR", &CinematicRenderConfig::sunColorR, SCENE_CINE_SUN_COLOR_R, 0.0f, 4.0f },
-        { "sunColorG", &CinematicRenderConfig::sunColorG, SCENE_CINE_SUN_COLOR_G, 0.0f, 4.0f },
-        { "sunColorB", &CinematicRenderConfig::sunColorB, SCENE_CINE_SUN_COLOR_B, 0.0f, 4.0f },
-        { "sunIntensity", &CinematicRenderConfig::sunIntensity, SCENE_CINE_SUN_INTENSITY, 0.0f, 80.0f },
-        { "skyHorizonR", &CinematicRenderConfig::skyHorizonR, SCENE_CINE_SKY_HORIZON_R, 0.0f, 4.0f },
-        { "skyHorizonG", &CinematicRenderConfig::skyHorizonG, SCENE_CINE_SKY_HORIZON_G, 0.0f, 4.0f },
-        { "skyHorizonB", &CinematicRenderConfig::skyHorizonB, SCENE_CINE_SKY_HORIZON_B, 0.0f, 4.0f },
-        { "skyZenithR", &CinematicRenderConfig::skyZenithR, SCENE_CINE_SKY_ZENITH_R, 0.0f, 4.0f },
-        { "skyZenithG", &CinematicRenderConfig::skyZenithG, SCENE_CINE_SKY_ZENITH_G, 0.0f, 4.0f },
-        { "skyZenithB", &CinematicRenderConfig::skyZenithB, SCENE_CINE_SKY_ZENITH_B, 0.0f, 4.0f },
-        { "skyGlowStrength", &CinematicRenderConfig::skyGlowStrength, SCENE_CINE_SKY_GLOW_STRENGTH, 0.0f, 16.0f },
-        { "cloudCoverage", &CinematicRenderConfig::cloudCoverage, SCENE_CINE_CLOUD_COVERAGE, 0.0f, 1.0f },
-        { "cloudSoftness", &CinematicRenderConfig::cloudSoftness, SCENE_CINE_CLOUD_SOFTNESS, 0.001f, 1.0f },
-        { "cloudScale", &CinematicRenderConfig::cloudScale, SCENE_CINE_CLOUD_SCALE, 0.1f, 64.0f },
-        { "cloudIntensity", &CinematicRenderConfig::cloudIntensity, SCENE_CINE_CLOUD_INTENSITY, 0.0f, 4.0f },
-        { "sunShaftStrength", &CinematicRenderConfig::sunShaftStrength, SCENE_CINE_SUN_SHAFT_STRENGTH, 0.0f, 8.0f },
-        { "sunShaftFalloff", &CinematicRenderConfig::sunShaftFalloff, SCENE_CINE_SUN_SHAFT_FALLOFF, 0.1f, 10.0f },
+        { "sunScreenX", &SkullbonezCore::Core::CinematicRenderConfig::sunAzimuth, SCENE_CINE_SUN_AZIMUTH, 0.0f, 1.0f },
+        { "sunScreenY",
+          &SkullbonezCore::Core::CinematicRenderConfig::sunElevation,
+          SCENE_CINE_SUN_ELEVATION,
+          0.0f,
+          1.0f },
+        { "sunColorR", &SkullbonezCore::Core::CinematicRenderConfig::sunColorR, SCENE_CINE_SUN_COLOR_R, 0.0f, 4.0f },
+        { "sunColorG", &SkullbonezCore::Core::CinematicRenderConfig::sunColorG, SCENE_CINE_SUN_COLOR_G, 0.0f, 4.0f },
+        { "sunColorB", &SkullbonezCore::Core::CinematicRenderConfig::sunColorB, SCENE_CINE_SUN_COLOR_B, 0.0f, 4.0f },
+        { "sunIntensity",
+          &SkullbonezCore::Core::CinematicRenderConfig::sunIntensity,
+          SCENE_CINE_SUN_INTENSITY,
+          0.0f,
+          80.0f },
+        { "skyHorizonR",
+          &SkullbonezCore::Core::CinematicRenderConfig::skyHorizonR,
+          SCENE_CINE_SKY_HORIZON_R,
+          0.0f,
+          4.0f },
+        { "skyHorizonG",
+          &SkullbonezCore::Core::CinematicRenderConfig::skyHorizonG,
+          SCENE_CINE_SKY_HORIZON_G,
+          0.0f,
+          4.0f },
+        { "skyHorizonB",
+          &SkullbonezCore::Core::CinematicRenderConfig::skyHorizonB,
+          SCENE_CINE_SKY_HORIZON_B,
+          0.0f,
+          4.0f },
+        { "skyZenithR", &SkullbonezCore::Core::CinematicRenderConfig::skyZenithR, SCENE_CINE_SKY_ZENITH_R, 0.0f, 4.0f },
+        { "skyZenithG", &SkullbonezCore::Core::CinematicRenderConfig::skyZenithG, SCENE_CINE_SKY_ZENITH_G, 0.0f, 4.0f },
+        { "skyZenithB", &SkullbonezCore::Core::CinematicRenderConfig::skyZenithB, SCENE_CINE_SKY_ZENITH_B, 0.0f, 4.0f },
+        { "skyGlowStrength",
+          &SkullbonezCore::Core::CinematicRenderConfig::skyGlowStrength,
+          SCENE_CINE_SKY_GLOW_STRENGTH,
+          0.0f,
+          16.0f },
+        { "cloudCoverage",
+          &SkullbonezCore::Core::CinematicRenderConfig::cloudCoverage,
+          SCENE_CINE_CLOUD_COVERAGE,
+          0.0f,
+          1.0f },
+        { "cloudSoftness",
+          &SkullbonezCore::Core::CinematicRenderConfig::cloudSoftness,
+          SCENE_CINE_CLOUD_SOFTNESS,
+          0.001f,
+          1.0f },
+        { "cloudScale", &SkullbonezCore::Core::CinematicRenderConfig::cloudScale, SCENE_CINE_CLOUD_SCALE, 0.1f, 64.0f },
+        { "cloudIntensity",
+          &SkullbonezCore::Core::CinematicRenderConfig::cloudIntensity,
+          SCENE_CINE_CLOUD_INTENSITY,
+          0.0f,
+          4.0f },
+        { "sunShaftStrength",
+          &SkullbonezCore::Core::CinematicRenderConfig::sunShaftStrength,
+          SCENE_CINE_SUN_SHAFT_STRENGTH,
+          0.0f,
+          8.0f },
+        { "sunShaftFalloff",
+          &SkullbonezCore::Core::CinematicRenderConfig::sunShaftFalloff,
+          SCENE_CINE_SUN_SHAFT_FALLOFF,
+          0.1f,
+          10.0f },
         { "volumetricStrength",
-          &CinematicRenderConfig::volumetricStrength,
+          &SkullbonezCore::Core::CinematicRenderConfig::volumetricStrength,
           SCENE_CINE_VOLUMETRIC_STRENGTH,
           0.0f,
           8.0f },
-        { "volumetricDensity", &CinematicRenderConfig::volumetricDensity, SCENE_CINE_VOLUMETRIC_DENSITY, 0.0f, 8.0f },
-        { "volumetricDecay", &CinematicRenderConfig::volumetricDecay, SCENE_CINE_VOLUMETRIC_DECAY, 0.0f, 1.0f },
-        { "bloomThreshold", &CinematicRenderConfig::bloomThreshold, SCENE_CINE_BLOOM_THRESHOLD, 0.0f, 16.0f },
-        { "bloomKnee", &CinematicRenderConfig::bloomKnee, SCENE_CINE_BLOOM_KNEE, 0.001f, 8.0f },
-        { "bloomStrength", &CinematicRenderConfig::bloomStrength, SCENE_CINE_BLOOM_STRENGTH, 0.0f, 8.0f },
-        { "bloomRadius", &CinematicRenderConfig::bloomRadius, SCENE_CINE_BLOOM_RADIUS, 0.1f, 32.0f },
-        { "terrainRelief", &CinematicRenderConfig::terrainRelief, SCENE_CINE_TERRAIN_RELIEF, 0.0f, 4.0f },
-        { "basinDepth", &CinematicRenderConfig::basinDepth, SCENE_CINE_BASIN_DEPTH, 0.0f, 256.0f },
-        { "basinRimLift", &CinematicRenderConfig::basinRimLift, SCENE_CINE_BASIN_RIM_LIFT, 0.0f, 256.0f },
-        { "fogColorR", &CinematicRenderConfig::fogColorR, SCENE_CINE_FOG_COLOR_R, 0.0f, 4.0f },
-        { "fogColorG", &CinematicRenderConfig::fogColorG, SCENE_CINE_FOG_COLOR_G, 0.0f, 4.0f },
-        { "fogColorB", &CinematicRenderConfig::fogColorB, SCENE_CINE_FOG_COLOR_B, 0.0f, 4.0f },
-        { "fogStart", &CinematicRenderConfig::fogStart, SCENE_CINE_FOG_START, 0.0f, 10000.0f },
-        { "fogEnd", &CinematicRenderConfig::fogEnd, SCENE_CINE_FOG_END, 0.0f, 20000.0f },
-        { "fogDensity", &CinematicRenderConfig::fogDensity, SCENE_CINE_FOG_DENSITY, 0.0f, 0.1f },
-        { "fogMaxOpacity", &CinematicRenderConfig::fogMaxOpacity, SCENE_CINE_FOG_MAX_OPACITY, 0.0f, 1.0f },
+        { "volumetricDensity",
+          &SkullbonezCore::Core::CinematicRenderConfig::volumetricDensity,
+          SCENE_CINE_VOLUMETRIC_DENSITY,
+          0.0f,
+          8.0f },
+        { "volumetricDecay",
+          &SkullbonezCore::Core::CinematicRenderConfig::volumetricDecay,
+          SCENE_CINE_VOLUMETRIC_DECAY,
+          0.0f,
+          1.0f },
+        { "bloomThreshold",
+          &SkullbonezCore::Core::CinematicRenderConfig::bloomThreshold,
+          SCENE_CINE_BLOOM_THRESHOLD,
+          0.0f,
+          16.0f },
+        { "bloomKnee", &SkullbonezCore::Core::CinematicRenderConfig::bloomKnee, SCENE_CINE_BLOOM_KNEE, 0.001f, 8.0f },
+        { "bloomStrength",
+          &SkullbonezCore::Core::CinematicRenderConfig::bloomStrength,
+          SCENE_CINE_BLOOM_STRENGTH,
+          0.0f,
+          8.0f },
+        { "bloomRadius",
+          &SkullbonezCore::Core::CinematicRenderConfig::bloomRadius,
+          SCENE_CINE_BLOOM_RADIUS,
+          0.1f,
+          32.0f },
+        { "terrainRelief",
+          &SkullbonezCore::Core::CinematicRenderConfig::terrainRelief,
+          SCENE_CINE_TERRAIN_RELIEF,
+          0.0f,
+          4.0f },
+        { "basinDepth",
+          &SkullbonezCore::Core::CinematicRenderConfig::basinDepth,
+          SCENE_CINE_BASIN_DEPTH,
+          0.0f,
+          256.0f },
+        { "basinRimLift",
+          &SkullbonezCore::Core::CinematicRenderConfig::basinRimLift,
+          SCENE_CINE_BASIN_RIM_LIFT,
+          0.0f,
+          256.0f },
+        { "fogColorR", &SkullbonezCore::Core::CinematicRenderConfig::fogColorR, SCENE_CINE_FOG_COLOR_R, 0.0f, 4.0f },
+        { "fogColorG", &SkullbonezCore::Core::CinematicRenderConfig::fogColorG, SCENE_CINE_FOG_COLOR_G, 0.0f, 4.0f },
+        { "fogColorB", &SkullbonezCore::Core::CinematicRenderConfig::fogColorB, SCENE_CINE_FOG_COLOR_B, 0.0f, 4.0f },
+        { "fogStart", &SkullbonezCore::Core::CinematicRenderConfig::fogStart, SCENE_CINE_FOG_START, 0.0f, 10000.0f },
+        { "fogEnd", &SkullbonezCore::Core::CinematicRenderConfig::fogEnd, SCENE_CINE_FOG_END, 0.0f, 20000.0f },
+        { "fogDensity", &SkullbonezCore::Core::CinematicRenderConfig::fogDensity, SCENE_CINE_FOG_DENSITY, 0.0f, 0.1f },
+        { "fogMaxOpacity",
+          &SkullbonezCore::Core::CinematicRenderConfig::fogMaxOpacity,
+          SCENE_CINE_FOG_MAX_OPACITY,
+          0.0f,
+          1.0f },
     };
 
     for ( const FloatField& field : kFields )
@@ -443,17 +551,37 @@ void TestSceneParser::ApplyCinematicFloat( const Json& cinematic, const std::str
     struct ShadowFloatField
     {
         const char* key;
-        float ShadowQualityConfig::* field;
+        float SkullbonezCore::Core::ShadowQualityConfig::* field;
         uint64_t bit;
         float minValue;
         float maxValue;
     };
     static constexpr ShadowFloatField kShadowFields[] = {
-        { "shadowStrength", &ShadowQualityConfig::strength, SCENE_CINE_SHADOW_STRENGTH, 0.0f, 1.0f },
-        { "shadowSoftness", &ShadowQualityConfig::softness, SCENE_CINE_SHADOW_SOFTNESS, 0.25f, 4.0f },
-        { "shadowDepthBias", &ShadowQualityConfig::depthBias, SCENE_CINE_SHADOW_DEPTH_BIAS, 0.0f, 0.05f },
-        { "shadowSlopeBias", &ShadowQualityConfig::slopeBias, SCENE_CINE_SHADOW_SLOPE_BIAS, 0.0f, 0.05f },
-        { "shadowMaxDistance", &ShadowQualityConfig::maxDistance, SCENE_CINE_SHADOW_MAX_DISTANCE, 128.0f, 10000.0f },
+        { "shadowStrength",
+          &SkullbonezCore::Core::ShadowQualityConfig::strength,
+          SCENE_CINE_SHADOW_STRENGTH,
+          0.0f,
+          1.0f },
+        { "shadowSoftness",
+          &SkullbonezCore::Core::ShadowQualityConfig::softness,
+          SCENE_CINE_SHADOW_SOFTNESS,
+          0.25f,
+          4.0f },
+        { "shadowDepthBias",
+          &SkullbonezCore::Core::ShadowQualityConfig::depthBias,
+          SCENE_CINE_SHADOW_DEPTH_BIAS,
+          0.0f,
+          0.05f },
+        { "shadowSlopeBias",
+          &SkullbonezCore::Core::ShadowQualityConfig::slopeBias,
+          SCENE_CINE_SHADOW_SLOPE_BIAS,
+          0.0f,
+          0.05f },
+        { "shadowMaxDistance",
+          &SkullbonezCore::Core::ShadowQualityConfig::maxDistance,
+          SCENE_CINE_SHADOW_MAX_DISTANCE,
+          128.0f,
+          10000.0f },
     };
     for ( const ShadowFloatField& field : kShadowFields )
     {
@@ -474,7 +602,7 @@ void TestSceneParser::ApplyCinematicFloat( const Json& cinematic, const std::str
 
 void TestSceneParser::ApplyCinematicVector( const Json& cinematic, const std::string& path )
 {
-    CinematicRenderConfig& c = m_scene.m_sceneOptions.cinematicRender;
+    SkullbonezCore::Core::CinematicRenderConfig& c = m_scene.m_sceneOptions.cinematicRender;
 
     if ( const Json* styleModes = FindMember( cinematic, "styleModes" ) )
     {
@@ -565,7 +693,7 @@ void TestSceneParser::ApplyCamera( const Json& camera, const std::string& path )
     // Invariant: scene files expose one camera record with normalized direction
     // vectors; invalid cardinality or degenerate vectors fail the whole parse.
     RequireObject( camera, path, "camera" );
-    if ( static_cast<int>( m_scene.m_cameras.size() ) >= TOTAL_CAMERA_COUNT )
+    if ( static_cast<int>( m_scene.m_cameras.size() ) >= SkullbonezCore::Scene::Capacity::TOTAL_CAMERA_COUNT )
     {
         Fail( path, "Too many cameras in scene" );
     }
@@ -589,5 +717,5 @@ void TestSceneParser::ApplyCamera( const Json& camera, const std::string& path )
 }
 
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

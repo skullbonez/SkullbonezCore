@@ -17,7 +17,7 @@ Glossary:
     code when no subsystem supplied a richer result.
 
 Invariants:
-  - RequestOwnedFailure never mutates state for an SbResult success value.
+  - RequestOwnedFailure never mutates state for an SkullbonezCore::Core::SbResult success value.
   - Once m_hasOwnedFailure is true, its owner and message never change.
   - Bounded copies always leave their destination null-terminated.
 
@@ -31,7 +31,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -53,7 +53,7 @@ void ApplicationExitState::RequestNormalExit() noexcept
 }
 
 
-void ApplicationExitState::RequestOwnedFailure( const SbResult& failure ) noexcept
+void ApplicationExitState::RequestOwnedFailure( const SkullbonezCore::Core::SbResult& failure ) noexcept
 {
     if ( failure.ok || m_hasOwnedFailure )
     {
@@ -81,23 +81,23 @@ bool ApplicationExitState::HasOwnedFailure() const noexcept
 }
 
 
-SbResult ApplicationExitState::Resolve( int messageExitCode ) const noexcept
+SkullbonezCore::Core::SbResult ApplicationExitState::Resolve( int messageExitCode ) const noexcept
 {
     if ( m_hasOwnedFailure )
     {
-        return SbResult::Failure( m_failureOwner.data(), "%s", m_failureMessage.data() );
+        return SkullbonezCore::Core::SbResult::Failure( m_failureOwner.data(), "%s", m_failureMessage.data() );
     }
 
     if ( messageExitCode != 0 )
     {
         // Lane R: a platform/environment boundary asked the process to stop with
         // failure but did not provide richer owner diagnostics.
-        return SbResult::Failure( "Runtime/ApplicationExit",
-                                  "application exit message reported nonzero code %d",
-                                  messageExitCode );
+        return SkullbonezCore::Core::SbResult::Failure( "Runtime/ApplicationExit",
+                                                        "application exit message reported nonzero code %d",
+                                                        messageExitCode );
     }
 
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

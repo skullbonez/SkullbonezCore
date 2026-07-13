@@ -30,6 +30,7 @@ Related:
 */
 #pragma once
 
+#include <span>
 #include <vector>
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Vector3.h"
@@ -56,9 +57,9 @@ struct PhysicsDebugFrameView
 {
     const PhysicsBodyStore& bodies;
     const ColliderStore& colliders;
-    const std::vector<uint8_t>& sleepStates;
-    const std::vector<uint8_t>& sleepSupportedStates;
-    const std::vector<uint8_t>& sleepInhibitedStates;
+    std::span<const uint8_t> sleepStates;
+    std::span<const uint8_t> sleepSupportedStates;
+    std::span<const uint8_t> sleepInhibitedStates;
     const std::vector<PhysicsDebugContact>& debugContacts;
     const std::vector<PhysicsPipelineRecord>& pipelineTrace;
     int modelCount = 0;

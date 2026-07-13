@@ -41,7 +41,7 @@ class ColliderStore;
 class PhysicsBodyStore;
 } // namespace Physics
 
-namespace Basics
+namespace Runtime
 {
 enum class RuntimePickPurpose
 {
@@ -73,5 +73,5 @@ class RuntimePickService
   public:
     static bool TryPickModel( const RuntimePickRequest& request, RuntimePickResult& outResult );
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

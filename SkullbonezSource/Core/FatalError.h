@@ -28,10 +28,10 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
 {
 [[noreturn]] void SbFatal( const char* owner, const char* format, ... );
-} // namespace Basics
+} // namespace Core
 } // namespace SkullbonezCore
 
 
@@ -39,4 +39,4 @@ namespace Basics
 //
 // Callers supply an owner plus printf-style diagnostics. The implementation
 // owns logging, debug/profile breaking, flushing, and process termination.
-#define SB_FATAL( owner, ... ) ::SkullbonezCore::Basics::SbFatal( ( owner ), __VA_ARGS__ )
+#define SB_FATAL( owner, ... ) ::SkullbonezCore::Core::SbFatal( ( owner ), __VA_ARGS__ )

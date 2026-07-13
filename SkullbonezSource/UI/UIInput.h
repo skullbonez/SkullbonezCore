@@ -32,12 +32,12 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct DeviceInputFrame;
 class InputKeySnapshot;
 struct RuntimeMouseEdges;
-} // namespace Basics
+} // namespace Runtime
 
 namespace UI
 {
@@ -54,15 +54,15 @@ struct UIInputSnapshot
     bool leftReleased = false;
 };
 
-UIInputSnapshot CaptureSnapshot( const Basics::DeviceInputFrame& frame,
-                                 const Basics::RuntimeMouseEdges& mouse,
+UIInputSnapshot CaptureSnapshot( const Runtime::DeviceInputFrame& frame,
+                                 const Runtime::RuntimeMouseEdges& mouse,
                                  bool hasMouseOverride,
                                  int overrideX,
                                  int overrideY );
 
-void CaptureKeyStates( bool keyWasDown[256], const Basics::InputKeySnapshot& keys );
-bool ConsumeKeyPress( bool keyWasDown[256], const Basics::InputKeySnapshot& keys, int virtualKey );
-bool IsVirtualKeyDown( const Basics::InputKeySnapshot& keys, int virtualKey );
+void CaptureKeyStates( bool keyWasDown[256], const Runtime::InputKeySnapshot& keys );
+bool ConsumeKeyPress( bool keyWasDown[256], const Runtime::InputKeySnapshot& keys, int virtualKey );
+bool IsVirtualKeyDown( const Runtime::InputKeySnapshot& keys, int virtualKey );
 
 } // namespace InputControl
 } // namespace UI

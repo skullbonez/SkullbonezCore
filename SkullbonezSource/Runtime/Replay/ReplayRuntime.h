@@ -51,10 +51,12 @@ Related:
 */
 #pragma once
 
+#include "../../Core/PlatformWin32.h"
+
 #include "ReplayRecorder.h"
 #include "ReplayPredictionScheduling.h"
 #include "../../Assets/AssetKeys.h"
-#include "../../GameObjects/SceneCapacity.h"
+#include "../Scene/SceneCapacity.h"
 #include "TrajectoryStore.h"
 #include "../RuntimeCameraMode.h"
 #include "../RuntimeInteractionController.h"
@@ -72,11 +74,16 @@ Related:
 #include <atomic>
 #include <chrono>
 #include <memory>
+#include <span>
 #include <string>
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
+{
+class EngineConfig;
+} // namespace Core
+namespace Runtime
 {
 class SceneController;
 }
@@ -104,9 +111,8 @@ namespace Threading
 class WorkerPool;
 } // namespace Threading
 
-namespace Basics
+namespace Runtime
 {
-class EngineConfig;
 class ReplayRuntime;
 class InputRouter;
 class RunEditorTracer;
@@ -131,7 +137,7 @@ struct ReplaySolverSampleRestoreContext;
 struct ReplayPredictionWorkerOperation
 {
     ReplayRuntime* replayRuntime = nullptr;
-    const EngineConfig* config = nullptr;
+    const SkullbonezCore::Core::EngineConfig* config = nullptr;
     Threading::WorkerPool* workerPool = nullptr;
     int modelCount = 0;
 
@@ -142,15 +148,19 @@ using ReplayPredictionAmortizedTask = Threading::AmortizedTask<ReplayPredictionW
 
 inline constexpr std::size_t REPLAY_PREDICTION_GHOST_MAX_FRAMES = 24;
 inline constexpr std::size_t REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY =
-    ( REPLAY_PREDICTION_GHOST_MAX_FRAMES + 2u ) * static_cast<std::size_t>( MAX_GAME_MODELS );
-inline constexpr std::size_t REPLAY_PREDICTION_MARKER_CAPACITY = static_cast<std::size_t>( MAX_GAME_MODELS );
+    ( REPLAY_PREDICTION_GHOST_MAX_FRAMES + 2u ) *
+    static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+inline constexpr std::size_t REPLAY_PREDICTION_MARKER_CAPACITY =
+    static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
 inline constexpr std::size_t REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY = 261u;
 // Runtime allocation policy: live replay path-target picks rotate inside this
 // fixed vector budget instead of growing while gameplay is running.
 inline constexpr std::size_t REPLAY_PATH_MAX_ROOT_TARGETS = 100u;
-inline constexpr std::size_t REPLAY_CAUSE_TREE_CONTACT_CAPACITY = static_cast<std::size_t>( MAX_GAME_MODELS ) * 4u;
+inline constexpr std::size_t REPLAY_CAUSE_TREE_CONTACT_CAPACITY =
+    static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ) * 4u;
 inline constexpr std::size_t REPLAY_CAUSE_TREE_ROW_CAPACITY =
-    1u + static_cast<std::size_t>( MAX_GAME_MODELS ) + REPLAY_CAUSE_TREE_CONTACT_CAPACITY * 3u;
+    1u + static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ) +
+    REPLAY_CAUSE_TREE_CONTACT_CAPACITY * 3u;
 inline constexpr uint32_t REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS = 1u;
 inline constexpr uint32_t REPLAY_GENERATED_SCENE_UI_MODEL_COUNT = 2u;
 inline constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
@@ -890,7 +900,7 @@ class ReplayRuntime
         const SceneEntityStore& entities;
         const Physics::PhysicsBodyStore& bodyStore;
         const Physics::ColliderStore& colliderStore;
-        const std::vector<Rendering::RenderInstancePresentationRecord>& presentation;
+        std::span<const Rendering::RenderInstancePresentationRecord> presentation;
         Environment::CameraCollection* cameras = nullptr;
         Geometry::Terrain* terrain = nullptr;
         RunCameraState& camera;
@@ -915,7 +925,7 @@ class ReplayRuntime
         RuntimeInteractionController& interaction;
         Physics::PhysicsEngine& physics;
         const SceneEntityStore& entities;
-        const std::vector<Rendering::RenderInstancePresentationRecord>& presentation;
+        std::span<const Rendering::RenderInstancePresentationRecord> presentation;
         Environment::CameraCollection* cameras = nullptr;
         Geometry::Terrain* terrain = nullptr;
         RunCameraState& camera;
@@ -961,7 +971,7 @@ class ReplayRuntime
 
     struct ReplayStartupResult
     {
-        SbResult status = SbResult::Success();
+        SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
         bool skipExecute = false;
     };
     struct RecordingConfigResult
@@ -1112,7 +1122,9 @@ class ReplayRuntime
 
     RunReplayPredictionState& Prediction();
     const RunReplayPredictionState& Prediction() const;
-    const std::vector<RunReplayPredictionFrame>& ActivePredictionFrames() const;
+    // Lifetime: the view borrows the active retained prediction buffer and is
+    // valid only until replay prediction state mutates.
+    std::span<const RunReplayPredictionFrame> ActivePredictionFrames() const;
     void ClearPredictionFutureNodeCache();
     void WaitForPredictionJobIdle();
     // Promotes the currently visible worker-built prediction prefix into the
@@ -1212,7 +1224,7 @@ class ReplayRuntime
 #ifdef _DEBUG
     struct ReplayProbeTickResult
     {
-        SbResult status = SbResult::Success();
+        SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
         bool enterInteractive = false;
     };
     RunReplayProbeState& Probes();
@@ -1223,29 +1235,30 @@ class ReplayRuntime
                                       const ReplayArtifactTopologyOwners& topology );
 
   private:
-    SbResult TickScrubProbe( const ReplayRestoreTransaction& transaction );
-    SbResult TickRestoreProbe( const ReplayRestoreTransaction& transaction );
-    SbResult TickSaveProbe( const ReplayRestoreTransaction& transaction,
-                            const ReplayArtifactTopologyOwners& topology,
-                            bool& outEnterInteractive );
-    SbResult VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& transaction,
-                                            RunMousePickupState& mousePickup,
-                                            RunCameraMode normalizedCurrentMode,
-                                            double now,
-                                            float normalized );
-    SbResult VerifySolverCheckpointFileProbe( const ReplayRestoreTransaction& transaction, const char* path );
-    SbResult VerifySolverTargetFileProbe( const ReplayRestoreTransaction& transaction,
-                                          const ReplayArtifactTopologyOwners& topology,
-                                          const char* path );
-    SbResult VerifySolverBranchFileProbe( const ReplayRestoreTransaction& transaction,
-                                          const ReplayArtifactTopologyOwners& topology,
-                                          RunMousePickupState& mousePickup,
-                                          RunCameraMode normalizedCurrentMode,
-                                          double now,
-                                          const char* path );
-    SbResult VerifySolverFailureFileProbe( const ReplayRestoreTransaction& transaction,
-                                           const ReplayArtifactTopologyOwners& topology,
-                                           const char* path );
+    SkullbonezCore::Core::SbResult TickScrubProbe( const ReplayRestoreTransaction& transaction );
+    SkullbonezCore::Core::SbResult TickRestoreProbe( const ReplayRestoreTransaction& transaction );
+    SkullbonezCore::Core::SbResult TickSaveProbe( const ReplayRestoreTransaction& transaction,
+                                                  const ReplayArtifactTopologyOwners& topology,
+                                                  bool& outEnterInteractive );
+    SkullbonezCore::Core::SbResult VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& transaction,
+                                                                  RunMousePickupState& mousePickup,
+                                                                  RunCameraMode normalizedCurrentMode,
+                                                                  double now,
+                                                                  float normalized );
+    SkullbonezCore::Core::SbResult VerifySolverCheckpointFileProbe( const ReplayRestoreTransaction& transaction,
+                                                                    const char* path );
+    SkullbonezCore::Core::SbResult VerifySolverTargetFileProbe( const ReplayRestoreTransaction& transaction,
+                                                                const ReplayArtifactTopologyOwners& topology,
+                                                                const char* path );
+    SkullbonezCore::Core::SbResult VerifySolverBranchFileProbe( const ReplayRestoreTransaction& transaction,
+                                                                const ReplayArtifactTopologyOwners& topology,
+                                                                RunMousePickupState& mousePickup,
+                                                                RunCameraMode normalizedCurrentMode,
+                                                                double now,
+                                                                const char* path );
+    SkullbonezCore::Core::SbResult VerifySolverFailureFileProbe( const ReplayRestoreTransaction& transaction,
+                                                                 const ReplayArtifactTopologyOwners& topology,
+                                                                 const char* path );
 
   public:
 #endif
@@ -1288,11 +1301,11 @@ class ReplayRuntime
     // Resolves the current velocity-edit target to live physics authority. The
     // stored model index is a staleable hint, not identity.
     Physics::PhysicsBodyHandle ResolveVelocityEditBodyHandle( const Physics::PhysicsBodyStore& bodyStore ) const;
-    bool BuildCauseTreeRows( const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords,
+    bool BuildCauseTreeRows( std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
                              const Physics::PhysicsBodyStore& bodyStore );
-    bool BuildPredictionGhostDrawRequests(
-        const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords,
-        const Physics::PhysicsBodyStore& bodyStore );
+    bool
+    BuildPredictionGhostDrawRequests( std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
+                                      const Physics::PhysicsBodyStore& bodyStore );
     const std::vector<ReplayPredictionGhostDrawRequest>& PredictionGhostDrawRequests() const;
     bool BuildFocusModelMask( const Physics::PhysicsBodyStore& bodyStore, int modelCount );
     std::vector<uint8_t>& FocusModelMask();
@@ -1304,14 +1317,15 @@ class ReplayRuntime
     void ClearLauncherVisualBackup();
     // Accumulates one rendered replay overlay pass into the repro-session
     // trajectory counters exposed through memory diagnostics.
-    void RecordReplayTrajectoryFrameStats( const MainMemoryReplayTrajectoryStats& frameStats );
-    void RecordReplayTrajectorySubmissionFrame( const MainMemoryReplayTrajectorySubmissionStats& submissionStats,
-                                                int frameNumber,
-                                                uint64_t reserveGrowthEventCount );
+    void RecordReplayTrajectoryFrameStats( const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& frameStats );
+    void RecordReplayTrajectorySubmissionFrame(
+        const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& submissionStats,
+        int frameNumber,
+        uint64_t reserveGrowthEventCount );
     const ReplayTrajectorySubmissionProbeStats& ReplayTrajectorySubmissionProbe() const;
-    void RecordReplayTrajectoryBudgetExpiry( MainMemoryReplayBudgetPass pass );
-    void RecordReplayTrajectoryRebuildCause( MainMemoryReplayRebuildCause cause );
-    MainMemoryReplayStats CollectMemoryStats() const;
+    void RecordReplayTrajectoryBudgetExpiry( SkullbonezCore::Core::MainMemoryReplayBudgetPass pass );
+    void RecordReplayTrajectoryRebuildCause( SkullbonezCore::Core::MainMemoryReplayRebuildCause cause );
+    SkullbonezCore::Core::MainMemoryReplayStats CollectMemoryStats() const;
     void RecordEvent( ReplayEventKind kind,
                       ReplayFrameIndex frameIndex,
                       uint32_t flags,
@@ -1387,7 +1401,7 @@ class ReplayRuntime
     // fixed-capacity tracer. RuntimeRenderer only submits the completed buffer.
     void AppendOverlayTrace( Physics::PhysicsEngine& physics,
                              const SceneEntityStore& entities,
-                             const EngineConfig& config,
+                             const SkullbonezCore::Core::EngineConfig& config,
                              const Physics::PhysicsWorldForces& worldForces,
                              Threading::WorkerPool& workerPool,
                              RunEditorTracer& tracer,
@@ -1396,7 +1410,7 @@ class ReplayRuntime
     // only sequence the completed record buffer into render submission.
     void RenderPathVisualizer( Physics::PhysicsEngine& physics,
                                const SceneEntityStore& entities,
-                               const EngineConfig& config,
+                               const SkullbonezCore::Core::EngineConfig& config,
                                const Physics::PhysicsWorldForces& worldForces,
                                Threading::WorkerPool& workerPool,
                                RunEditorTracer& tracer,
@@ -1416,7 +1430,7 @@ class ReplayRuntime
                                       const SceneEntityStore& entities,
                                       const Physics::PhysicsBodyStore& bodyStore,
                                       const Physics::ColliderStore& colliderStore,
-                                      const std::vector<Rendering::RenderInstancePresentationRecord>& presentation );
+                                      std::span<const Rendering::RenderInstancePresentationRecord> presentation );
     bool RouteWorldPointer( const WorldPointerInput& input );
     bool SetPathTarget( const char* name, int modelIndex, const Physics::PhysicsBodyStore& bodyStore );
     bool BeginToolGesture( RuntimeInteractionController& interaction,
@@ -1446,7 +1460,7 @@ class ReplayRuntime
                              RuntimeInteractionController& interaction,
                              const Physics::PhysicsBodyStore& bodyStore,
                              const Physics::ColliderStore& colliderStore,
-                             const std::vector<Rendering::RenderInstancePresentationRecord>& presentation,
+                             std::span<const Rendering::RenderInstancePresentationRecord> presentation,
                              Environment::CameraCollection* cameras,
                              Geometry::Terrain* terrain,
                              RunCameraState& camera,
@@ -1465,7 +1479,7 @@ class ReplayRuntime
                                 RuntimeInteractionController& interaction,
                                 Physics::PhysicsEngine& physics,
                                 const SceneEntityStore& entities,
-                                const std::vector<Rendering::RenderInstancePresentationRecord>& presentation,
+                                std::span<const Rendering::RenderInstancePresentationRecord> presentation,
                                 Environment::CameraCollection* cameras,
                                 Geometry::Terrain* terrain,
                                 RunCameraState& camera,
@@ -1558,7 +1572,7 @@ class ReplayRuntime
     RunReplayCameraState m_camera;
     RunReplayPathVisualizerState m_pathVisualizer;
     RunReplayPredictionState m_prediction;
-    MainMemoryReplayTrajectoryStats
+    SkullbonezCore::Core::MainMemoryReplayTrajectoryStats
         m_trajectoryVisualStats;                                      // Cumulative replay trajectory diagnostics for the current process.
     ReplayTrajectorySubmissionProbeStats
         m_trajectorySubmissionProbe;                                  // Submitted replay-ribbon stability window for validation reports.
@@ -1573,7 +1587,7 @@ class ReplayRuntime
     // Invariant: replay render pose matching is a per-frame mark table capped by
     // the live model budget. It must not allocate while scrub/prediction views
     // are applied during rendering.
-    std::array<uint8_t, MAX_GAME_MODELS> m_renderPoseBodyMatched = {};
+    std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_renderPoseBodyMatched = {};
     std::string m_recordingHashLogPath;
     int m_presentationSaveSequence = 0;                               // Next numbered binary-v2 scrubber path candidate.
     int m_recordingRuntimeBodyCapacity = 0;
@@ -1583,5 +1597,5 @@ class ReplayRuntime
     bool m_recordingConfigured = false;
     bool m_recordingEnabled = false;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

@@ -58,7 +58,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace TestSceneParserDetail
 {
@@ -68,7 +68,7 @@ constexpr int kMaxStyleIncludeDepth = 8;
 constexpr float kSceneDegreesToRadians = 3.14159265f / 180.0f;
 
 // Concept: parser helpers still use the old "record failure and stop" shape,
-// but the failure now becomes a Lane R SbResult at the TryLoad boundary instead
+// but the failure now becomes a Lane R SkullbonezCore::Core::SbResult at the TryLoad boundary instead
 // of a C++ exception escaping through scene-load code.
 struct ParserFailureState
 {
@@ -103,13 +103,13 @@ inline bool ParserFailed() noexcept
     return s_activeParserFailure && s_activeParserFailure->failed;
 }
 
-inline SbResult ParserFailureResult( const ParserFailureState& state )
+inline SkullbonezCore::Core::SbResult ParserFailureResult( const ParserFailureState& state )
 {
     if ( !state.failed )
     {
-        return SbResult::Success();
+        return SkullbonezCore::Core::SbResult::Success();
     }
-    return SbResult::Failure( "Scene/TestSceneParser", "%s", state.message.c_str() );
+    return SkullbonezCore::Core::SbResult::Failure( "Scene/TestSceneParser", "%s", state.message.c_str() );
 }
 
 inline Math::Orientation::Quaternion MakeSceneEulerQuaternion( float eulerXDeg, float eulerYDeg, float eulerZDeg )
@@ -149,7 +149,8 @@ inline float LoadConvexHullDefaultMass( const char* hullPath )
 {
     const char* resolvedPath = Assets::ResolveEditorHullAssetPath( hullPath );
     Math::CollisionDetection::ConvexHullShape hull;
-    const SbResult loadResult = Math::CollisionDetection::ConvexHullShape::TryLoadFromFile( resolvedPath, hull );
+    const SkullbonezCore::Core::SbResult loadResult =
+        Math::CollisionDetection::ConvexHullShape::TryLoadFromFile( resolvedPath, hull );
     if ( !loadResult.ok )
     {
         Fail( resolvedPath ? resolvedPath : "", loadResult.error.message );
@@ -796,17 +797,15 @@ inline Json ReadJsonFile( const std::string& path )
         return Json::object();
     }
 
-    try
+    Json root = Json::parse( input, nullptr, false );
+    if ( root.is_discarded() )
     {
-        return Json::parse( input );
-    }
-    catch ( const std::exception& e )
-    {
-        std::ostringstream message;
-        message << "Invalid JSON: " << e.what();
-        Fail( path, message.str() );
+        // Lane R: malformed authored JSON is external input, so the parser
+        // records a recoverable failure without requiring exception support.
+        Fail( path, "Invalid JSON" );
         return Json::object();
     }
+    return root;
 }
 
 inline int MaxConfigurableWorkerThreadCount()
@@ -1037,11 +1036,13 @@ inline float ReadUnitFloat( const Json& value, const std::string& path, const ch
 }
 
 } // namespace TestSceneParserDetail
-using namespace TestSceneParserDetail;
 
 class TestSceneParser
 {
   private:
+    using Json = TestSceneParserDetail::Json;
+    using ParserFailureState = TestSceneParserDetail::ParserFailureState;
+
     struct ParsedAssetDefinition
     {
         Json value;
@@ -1164,14 +1165,14 @@ class TestSceneParser
     void ApplyRequirements( const Json& requirements, const std::string& path );
     void ApplySceneBody( const Json& root, const std::string& path );
     void LoadDocumentIntoScene( const std::string& path, bool styleOnly, int depth );
-    SbResult TryLoadDocument( const char* path, bool styleOnly, TestScene& outScene );
+    SkullbonezCore::Core::SbResult TryLoadDocument( const char* path, bool styleOnly, TestScene& outScene );
 
   public:
     explicit TestSceneParser( Assets::AssetContext assets );
-    SbResult TryLoadScene( const char* path, TestScene& outScene );
-    SbResult TryLoadStyle( const char* path, TestScene& outScene );
+    SkullbonezCore::Core::SbResult TryLoadScene( const char* path, TestScene& outScene );
+    SkullbonezCore::Core::SbResult TryLoadStyle( const char* path, TestScene& outScene );
     TestScene LoadScene( const char* path );
     TestScene LoadStyle( const char* path );
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

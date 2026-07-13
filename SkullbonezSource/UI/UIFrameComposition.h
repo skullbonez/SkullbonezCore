@@ -60,15 +60,6 @@ Related:
 
 namespace SkullbonezCore::UI::FrameComposition
 {
-using namespace SkullbonezCore::Basics;
-using namespace SkullbonezCore::Math::Transformation;
-using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Rendering;
-using namespace SkullbonezCore::Text;
-using namespace SkullbonezCore::UI;
-using namespace SkullbonezCore::UI::Widgets;
-using namespace SkullbonezCore::UI::Layout;
-
 uint32_t HashCombine( uint32_t seed, uint32_t value );
 
 
@@ -123,8 +114,8 @@ uint32_t BuildUIInteractionSignature( int mouseX,
 
 
 void FlushUIDrawList( const UIDrawList& drawList,
-                      IRenderCommandContext& renderCommands,
-                      IRenderDiagnostics& renderDiagnostics,
+                      Rendering::IRenderCommandContext& renderCommands,
+                      Rendering::IRenderDiagnostics& renderDiagnostics,
                       int screenW,
                       int screenH,
                       float offsetX = 0.0f,
@@ -158,15 +149,15 @@ void DrawEditorObjectCounter( const UIDrawContext& draw,
                               const UIRect* avoidBounds = nullptr );
 
 
-void EnsureRenderTargetPreviewResources( std::unique_ptr<IShader>& shader,
+void EnsureRenderTargetPreviewResources( std::unique_ptr<Rendering::IShader>& shader,
                                          uint32_t& dynamicVB,
                                          const UIRenderContext& render );
 
-void ResetRenderTargetPreviewResources( std::unique_ptr<IShader>& shader,
+void ResetRenderTargetPreviewResources( std::unique_ptr<Rendering::IShader>& shader,
                                         uint32_t& dynamicVB,
-                                        IRenderResourceFactory* resources );
+                                        Rendering::IRenderResourceFactory* resources );
 
-void DrawRenderTargetPreviewTexture( std::unique_ptr<IShader>& shader,
+void DrawRenderTargetPreviewTexture( std::unique_ptr<Rendering::IShader>& shader,
                                      uint32_t& dynamicVB,
                                      const UIDrawContext& draw,
                                      const UIRenderTargetPreviewResource& resource,
@@ -348,7 +339,7 @@ int RenderSliderIndexFromActiveSlider( int activeSlider );
 float RenderSliderY( int index, float baseY );
 int RenderContentHeight();
 int RenderTargetsContentHeight();
-float RenderValueForParam( const OrdinaryRenderConfig& ordinary, UIRenderParam param );
+float RenderValueForParam( const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary, UIRenderParam param );
 void SetRenderSliderResult( InGameUIInputResult& result,
                             const UISlider& slider,
                             int mouseX,

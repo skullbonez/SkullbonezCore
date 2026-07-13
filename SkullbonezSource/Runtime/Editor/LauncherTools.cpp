@@ -45,14 +45,14 @@ Related:
 #include <memory>
 #include <time.h>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
-using SkullbonezCore::Basics::SceneController;
 using SkullbonezCore::Environment::CameraCollection;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Runtime::SceneController;
 
 #ifdef _DEBUG
 namespace
@@ -133,7 +133,7 @@ bool RuntimeTools::PickLauncherReproTarget( SceneController& collection,
     // table for the eventual snapshot row.
     const ColliderStore& colliderStore = collection.Colliders();
     const PhysicsBodyStore& bodyStore = collection.BodyStore();
-    const auto& colliders = colliderStore.Records();
+    const auto colliders = colliderStore.Records();
     for ( const ColliderRecord& collider : colliders )
     {
         const PhysicsBodyRecord* body = LauncherReproBodyForCollider( bodyStore, collider );
@@ -287,17 +287,17 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     int collisionVisualContact = 0;
     int sleepIslandVisualId = 0;
     const Physics::PhysicsEngine& physics = context.collection.Physics();
-    const std::vector<uint8_t>& sleepStates = PhysicsEngine::ReadSleepStates( physics );
+    const auto sleepStates = PhysicsEngine::ReadSleepStates( physics );
     if ( targetIndex < static_cast<int>( sleepStates.size() ) )
     {
         sleeping = sleepStates[targetIndex] ? 1 : 0;
     }
-    const std::vector<uint8_t>& sleepSupportedStates = PhysicsEngine::ReadSleepSupportedStates( physics );
+    const auto sleepSupportedStates = PhysicsEngine::ReadSleepSupportedStates( physics );
     if ( targetIndex < static_cast<int>( sleepSupportedStates.size() ) )
     {
         sleepSupported = sleepSupportedStates[targetIndex] ? 1 : 0;
     }
-    const std::vector<uint8_t>& sleepInhibitedStates = PhysicsEngine::ReadSleepInhibitedStates( physics );
+    const auto sleepInhibitedStates = PhysicsEngine::ReadSleepInhibitedStates( physics );
     if ( targetIndex < static_cast<int>( sleepInhibitedStates.size() ) )
     {
         sleepInhibited = sleepInhibitedStates[targetIndex] ? 1 : 0;
@@ -307,7 +307,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     {
         collisionVisualContact = collisionContacts[targetIndex] ? 1 : 0;
     }
-    const std::vector<int>& islandIds = PhysicsEngine::ReadSleepIslandVisualIds( physics );
+    const auto islandIds = PhysicsEngine::ReadSleepIslandVisualIds( physics );
     if ( targetIndex < static_cast<int>( islandIds.size() ) )
     {
         sleepIslandVisualId = islandIds[targetIndex];

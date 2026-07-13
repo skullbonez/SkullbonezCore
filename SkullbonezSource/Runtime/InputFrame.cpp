@@ -68,24 +68,24 @@ Related:
 #include <cstdio>
 #include <cstring>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
-using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Runtime::RunInternal;
 using SkullbonezCore::Geometry::XZBounds;
 using SkullbonezCore::UI::InGameUICommands;
 using SkullbonezCore::UI::InGameUIInputResult;
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
-const char* PresentationNameForModelIndex( const SkullbonezCore::Basics::SceneController& collection, int modelIndex )
+const char* PresentationNameForModelIndex( const SkullbonezCore::Runtime::SceneController& collection, int modelIndex )
 {
-    const auto& presentationRecords = collection.RenderPresentationRecords();
+    const auto presentationRecords = collection.RenderPresentationRecords();
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( presentationRecords.size() ) )
     {
         return "";
@@ -93,7 +93,7 @@ const char* PresentationNameForModelIndex( const SkullbonezCore::Basics::SceneCo
     return presentationRecords[static_cast<std::size_t>( modelIndex )].displayName;
 }
 
-void ReportRuntimeInputFailure( const SbResult& result )
+void ReportRuntimeInputFailure( const SkullbonezCore::Core::SbResult& result )
 {
     if ( result.ok )
     {
@@ -641,7 +641,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     RunTimerState& timers = sceneOwners.timers;
     RunDebugState& debug = sceneOwners.debug;
     RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
-    EngineConfig& config = sceneOwners.config;
+    SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
     SceneController& sceneController = sceneOwners.sceneController;
     Assets::AssetSystem& assets = host.assets;
     Threading::WorkerPool& workerPool = host.workerPool;
@@ -935,7 +935,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                  rayCastLauncherCommands.projectileConfigProjectileSpeed );
         recordUIAction( RuntimeInputAction::SetLauncherProjectileSpeed );
     }
-    EngineConfig& liveConfig = config;
+    SkullbonezCore::Core::EngineConfig& liveConfig = config;
     const PhysicsFrictionUICommandResult physicsFrictionCommands =
         ApplyPhysicsFrictionUICommands( PhysicsFrictionUICommandContext{ liveConfig, sceneController },
                                         uiCommands.physics );
@@ -1028,7 +1028,8 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     {
         recordUIAction( RuntimeInputAction::ApplyWorldWaterSettings );
     }
-    CinematicRenderConfig& activeCinematic = ActiveSceneCinematicConfig( sceneController.State(), config );
+    SkullbonezCore::Core::CinematicRenderConfig& activeCinematic =
+        ActiveSceneCinematicConfig( sceneController.State(), config );
     const CinematicUICommandContext cinematicUICommandContext{ launchOptions,
                                                                sceneController.State(),
                                                                activeCinematic,
@@ -1155,5 +1156,5 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
     return result;
 }
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

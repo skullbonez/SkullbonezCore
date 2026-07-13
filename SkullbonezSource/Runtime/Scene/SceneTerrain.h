@@ -36,7 +36,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 class SceneTerrain
 {
@@ -72,5 +72,5 @@ class SceneTerrain
     std::unique_ptr<Geometry::Terrain> m_terrain;
     bool m_isFlatSlope = false;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

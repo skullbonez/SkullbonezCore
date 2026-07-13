@@ -27,7 +27,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 bool SceneRequestIsTransition( SceneRequestType type )
 {
@@ -35,16 +35,16 @@ bool SceneRequestIsTransition( SceneRequestType type )
 }
 
 
-SbResult SceneRequestQueue::Submit( const SceneRequest& request )
+SkullbonezCore::Core::SbResult SceneRequestQueue::Submit( const SceneRequest& request )
 {
     if ( request.type == SceneRequestType::CreateScene )
     {
         const std::size_t textLength = strnlen_s( request.text, SCENE_REQUEST_TEXT_CAPACITY );
         if ( textLength >= SCENE_REQUEST_TEXT_CAPACITY )
         {
-            return SbResult::Failure( "Runtime/SceneRequestQueue",
-                                      "Scene name exceeds the fixed %d-byte request payload",
-                                      SCENE_REQUEST_TEXT_CAPACITY - 1 );
+            return SkullbonezCore::Core::SbResult::Failure( "Runtime/SceneRequestQueue",
+                                                            "Scene name exceeds the fixed %d-byte request payload",
+                                                            SCENE_REQUEST_TEXT_CAPACITY - 1 );
         }
     }
 
@@ -61,7 +61,7 @@ SbResult SceneRequestQueue::Submit( const SceneRequest& request )
     const int tail = ( m_head + m_count ) % SCENE_REQUEST_QUEUE_CAPACITY;
     m_requests[tail] = request;
     ++m_count;
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
@@ -96,5 +96,5 @@ std::size_t SceneRequestQueue::Size() const
 {
     return static_cast<std::size_t>( m_count );
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

@@ -63,23 +63,26 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
     fprintf( stdout, "FATAL: DX12 %s heap exhausted (next=%u capacity=%u)\n", name, nextIndex, capacity );
     fflush( stderr );
     fflush( stdout );
-    Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u", name, nextIndex, capacity );
-    Log().FlushAll();
+    SkullbonezCore::Core::Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u",
+                                             name,
+                                             nextIndex,
+                                             capacity );
+    SkullbonezCore::Core::Log().FlushAll();
 }
 
-static inline SkullbonezCore::Basics::SbResult Dx12TextureStartupResult( HRESULT hr, const char* msg )
+static inline SkullbonezCore::Core::SbResult Dx12TextureStartupResult( HRESULT hr, const char* msg )
 {
     if ( FAILED( hr ) )
     {
         // Lane R: generate-mips setup depends on baked shader assets and driver
         // resource creation. Startup reports that environment failure
         // through the render lifecycle result path.
-        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
-                                                          "%s (HRESULT 0x%08X)",
-                                                          msg ? msg : "DX12 texture startup call failed",
-                                                          static_cast<unsigned int>( hr ) );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "%s (HRESULT 0x%08X)",
+                                                        msg ? msg : "DX12 texture startup call failed",
+                                                        static_cast<unsigned int>( hr ) );
     }
-    return SkullbonezCore::Basics::SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 // --- RenderBackendDX12 Textures methods ---
@@ -146,7 +149,7 @@ bool Dx12TextureCommands::UavBarrier( const char* passName, const char* resource
 }
 
 
-SkullbonezCore::Basics::SbResult Dx12TextureOwner::Initialize( Dx12TextureCommands& commands )
+SkullbonezCore::Core::SbResult Dx12TextureOwner::Initialize( Dx12TextureCommands& commands )
 {
     // Runtime allocation policy: size every handle slot before steady gameplay.
     // Insert reuses tombstones and fails fatally instead of growing this vector.
@@ -162,9 +165,9 @@ SkullbonezCore::Basics::SbResult Dx12TextureOwner::Initialize( Dx12TextureComman
     std::string loadError;
     if ( !LoadManifestCurrentShaderBytecode( csPath.c_str(), "cs", csBlob, loadError ) )
     {
-        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
-                                                          "Baked generate-mips shader rejected: %s",
-                                                          loadError.c_str() );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "Baked generate-mips shader rejected: %s",
+                                                        loadError.c_str() );
     }
 
     // Concept: this root signature is the binding contract for generate_mips.hlsl.
@@ -231,7 +234,7 @@ SkullbonezCore::Basics::SbResult Dx12TextureOwner::Initialize( Dx12TextureComman
     rsDesc.Desc_1_1.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 
     ComPtr<ID3DBlob> rsBlob;
-    SkullbonezCore::Basics::SbResult startupResult = Dx12TextureStartupResult(
+    SkullbonezCore::Core::SbResult startupResult = Dx12TextureStartupResult(
         D3D12SerializeVersionedRootSignature( &rsDesc, rsBlob.GetAddressOf(), errors.GetAddressOf() ),
         "GenerateMips root signature serialization failed" );
     if ( !startupResult.ok )
@@ -312,27 +315,27 @@ SkullbonezCore::Basics::SbResult Dx12TextureOwner::Initialize( Dx12TextureComman
                                               svDst,
                                               commands.StagingCpuHandle( m_genMipsNullUAV ),
                                               D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
-    return SkullbonezCore::Basics::SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
-SkullbonezCore::Basics::SbResult Dx12TextureOwner::PrepareGenerateMipsShaderReload( Dx12TextureCommands& commands,
-                                                                                    ID3D12PipelineState*& candidate )
+SkullbonezCore::Core::SbResult Dx12TextureOwner::PrepareGenerateMipsShaderReload( Dx12TextureCommands& commands,
+                                                                                  ID3D12PipelineState*& candidate )
 {
     candidate = nullptr;
     if ( !m_genMipsRS )
     {
-        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
-                                                          "Generate-mips root signature unavailable for reload" );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "Generate-mips root signature unavailable for reload" );
     }
     const std::string csPath = std::string( DATA_ROOT ) + "shaders/generate_mips.hlsl";
     ComPtr<ID3DBlob> csBlob;
     std::string loadError;
     if ( !LoadManifestCurrentShaderBytecode( csPath.c_str(), "cs", csBlob, loadError ) )
     {
-        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
-                                                          "Reloaded generate-mips shader rejected: %s",
-                                                          loadError.c_str() );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "Reloaded generate-mips shader rejected: %s",
+                                                        loadError.c_str() );
     }
     D3D12_COMPUTE_PIPELINE_STATE_DESC desc = {};
     desc.pRootSignature = m_genMipsRS;
@@ -345,11 +348,11 @@ SkullbonezCore::Basics::SbResult Dx12TextureOwner::PrepareGenerateMipsShaderRelo
             candidate->Release();
             candidate = nullptr;
         }
-        return SkullbonezCore::Basics::SbResult::Failure( "Rendering/DX12",
-                                                          "Reloaded generate-mips PSO creation failed (HRESULT 0x%08X)",
-                                                          static_cast<unsigned int>( result ) );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "Reloaded generate-mips PSO creation failed (HRESULT 0x%08X)",
+                                                        static_cast<unsigned int>( result ) );
     }
-    return SkullbonezCore::Basics::SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
@@ -631,12 +634,13 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands,
         // Lane R: texture residency can fail because of the active device or
         // memory budget. The renderer texture handle contract already uses 0
         // for "no usable texture", which TextureCollection reports to callers.
-        Log().WriteEventf( "dx12_texture_create_failed width=%d height=%d mips=%u hresult=0x%08X",
-                           w,
-                           h,
-                           numMips,
-                           static_cast<unsigned int>( FAILED( textureResult ) ? textureResult : E_FAIL ) );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_texture_create_failed width=%d height=%d mips=%u hresult=0x%08X",
+            w,
+            h,
+            numMips,
+            static_cast<unsigned int>( FAILED( textureResult ) ? textureResult : E_FAIL ) );
+        SkullbonezCore::Core::Log().FlushAll();
         return 0;
     }
 
@@ -724,6 +728,7 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands,
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.Texture2D.MipLevels = numMips;
     commands.Device()->CreateShaderResourceView( texResource, &srvDesc, commands.StagingCpuHandle( srvIdx ) );
+    commands.PublishStaticDescriptor( srvIdx );
 
     // Register in the generation-tagged texture table. The low 24 bits name
     // the slot plus one; the high 8 bits reject stale ids after slot reuse.
@@ -739,8 +744,8 @@ void Dx12TextureOwner::ClearBoundSlotsForSrv( UINT srvIndex )
 {
     // Lifetime: m_boundTexSlot stores descriptor row indices, not texture
     // handles. When an FBO or texture unregisters an SRV, clear any cached slot
-    // that still names that row before the backend can copy a dead descriptor
-    // into the shader-visible heap on a later draw.
+    // that still names that row before a later draw can publish the retired
+    // descriptor index to a bindless shader.
     if ( srvIndex == UINT_MAX )
     {
         return;
@@ -768,10 +773,11 @@ void Dx12TextureOwner::BindTexture( uint32_t handle, int slot )
     if ( slot < 0 || slot >= TEXTURE_SLOT_COUNT )
     {
 #ifdef _DEBUG
-        Log().WriteEventf( "dx12_bind_texture_slot_out_of_range handle=%u slot=%d valid_slots=t0..t%d",
-                           handle,
-                           slot,
-                           TEXTURE_SLOT_COUNT - 1 );
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_bind_texture_slot_out_of_range handle=%u slot=%d valid_payload_indices=0..%d",
+            handle,
+            slot,
+            TEXTURE_SLOT_COUNT - 1 );
 #endif
         return;
     }
@@ -957,7 +963,7 @@ void Dx12TextureOwner::ReportStaleHandle( uint32_t handle ) const
 #ifdef _DEBUG
     if ( !m_staleHandleReported )
     {
-        Log().WriteEventf( "dx12_stale_texture_handle handle=%u", handle );
+        SkullbonezCore::Core::Log().WriteEventf( "dx12_stale_texture_handle handle=%u", handle );
         m_staleHandleReported = true;
     }
 #else

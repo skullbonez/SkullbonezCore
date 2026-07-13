@@ -32,7 +32,7 @@ Related:
 */
 #pragma once
 
-#include "../GameObjects/SceneCapacity.h"
+#include "../Runtime/Scene/SceneCapacity.h"
 #include "SbResult.h"
 
 #include <algorithm>
@@ -41,7 +41,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
 {
 
 inline constexpr unsigned int ENGINE_CONFIG_FORMAT_VERSION = 1;
@@ -581,8 +581,8 @@ class EngineConfig
 
 inline int ActiveGameModelCapacity( const EngineConfig& config )
 {
-    return std::clamp( config.runtimeCapacity.gameModelCapacity, 1, MAX_GAME_MODELS );
+    return std::clamp( config.runtimeCapacity.gameModelCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
 }
 
-} // namespace Basics
+} // namespace Core
 } // namespace SkullbonezCore

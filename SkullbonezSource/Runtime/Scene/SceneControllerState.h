@@ -32,7 +32,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct RunSceneBrowserState
 {
@@ -49,5 +49,5 @@ struct RunSceneUIOverrideState
     int solverBallCountOverride = -1;
     int solverBoxCountOverride = -1;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

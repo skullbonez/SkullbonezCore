@@ -44,7 +44,7 @@ Related:
 #include <cassert>
 
 using namespace SkullbonezCore::Hardware;
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 
 namespace
 {
@@ -154,7 +154,7 @@ bool Input::IsAppFocused()
 }
 
 
-SbResult Input::CaptureDeviceInputFrame( DeviceInputFrame& frame )
+SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( DeviceInputFrame& frame )
 {
     frame = {};
     frame.appFocused = s_automationState.enabled && s_automationState.overrideAppFocused ? s_automationState.appFocused
@@ -163,7 +163,7 @@ SbResult Input::CaptureDeviceInputFrame( DeviceInputFrame& frame )
     {
         ResetMouseLookDeltas();
         (void)ConsumeMouseWheelDelta();
-        return SbResult::Success();
+        return SkullbonezCore::Core::SbResult::Success();
     }
 
     BYTE keyboardState[InputKeySnapshot::VIRTUAL_KEY_COUNT] = {};
@@ -171,9 +171,10 @@ SbResult Input::CaptureDeviceInputFrame( DeviceInputFrame& frame )
     {
         // Lane R: desktop/session state can make Win32 keyboard capture fail.
         // The frame owner must stop rather than route a fabricated all-up frame.
-        return SbResult::Failure( "Runtime/Input",
-                                  "GetKeyboardState failed while capturing the device frame (win32=%lu)",
-                                  static_cast<unsigned long>( GetLastError() ) );
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Runtime/Input",
+            "GetKeyboardState failed while capturing the device frame (win32=%lu)",
+            static_cast<unsigned long>( GetLastError() ) );
     }
 
     std::array<uint64_t, InputKeySnapshot::WORD_COUNT> words = {};
@@ -220,11 +221,11 @@ SbResult Input::CaptureDeviceInputFrame( DeviceInputFrame& frame )
     frame.middleDown = ( keyboardState[VK_MBUTTON] & 0x80u ) != 0u;
     frame.wheelDelta = ConsumeMouseWheelDelta();
     (void)ConsumeRawMouseDelta( frame.rawMouseX, frame.rawMouseY );
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
-SbResult Input::SetNativeMouseCapture( bool captured )
+SkullbonezCore::Core::SbResult Input::SetNativeMouseCapture( bool captured )
 {
     // Lane R: InputRouter owns the decision, while this narrow hardware seam
     // verifies that Win32 accepted the requested capture transition.
@@ -232,7 +233,8 @@ SbResult Input::SetNativeMouseCapture( bool captured )
     const HWND windowHandle = window ? window->NativeWindowHandle() : nullptr;
     if ( !windowHandle )
     {
-        return SbResult::Failure( "Runtime/Input", "Native mouse capture requires the bound runtime window" );
+        return SkullbonezCore::Core::SbResult::Failure( "Runtime/Input",
+                                                        "Native mouse capture requires the bound runtime window" );
     }
 
     if ( captured )
@@ -240,26 +242,26 @@ SbResult Input::SetNativeMouseCapture( bool captured )
         SetCapture( windowHandle );
         if ( GetCapture() != windowHandle )
         {
-            return SbResult::Failure( "Runtime/Input",
-                                      "SetCapture did not assign the runtime window (win32=%lu)",
-                                      static_cast<unsigned long>( GetLastError() ) );
+            return SkullbonezCore::Core::SbResult::Failure( "Runtime/Input",
+                                                            "SetCapture did not assign the runtime window (win32=%lu)",
+                                                            static_cast<unsigned long>( GetLastError() ) );
         }
-        return SbResult::Success();
+        return SkullbonezCore::Core::SbResult::Success();
     }
 
     // Do not release capture acquired by another window on this thread; this
     // seam owns only the bound runtime HWND.
     if ( GetCapture() != windowHandle )
     {
-        return SbResult::Success();
+        return SkullbonezCore::Core::SbResult::Success();
     }
     if ( !ReleaseCapture() )
     {
-        return SbResult::Failure( "Runtime/Input",
-                                  "ReleaseCapture failed (win32=%lu)",
-                                  static_cast<unsigned long>( GetLastError() ) );
+        return SkullbonezCore::Core::SbResult::Failure( "Runtime/Input",
+                                                        "ReleaseCapture failed (win32=%lu)",
+                                                        static_cast<unsigned long>( GetLastError() ) );
     }
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
@@ -453,9 +455,10 @@ Input::MouseCoordinatesResult Input::GetMouseCoordinates()
     POINT mousePos = {};
     if ( !GetCursorPos( &mousePos ) ) // attempt to get the mouse m_position
     {
-        result.result = SbResult::Failure( "Runtime/Input",
-                                           "GetCursorPos failed in Input::GetMouseCoordinates lastError=%lu",
-                                           static_cast<unsigned long>( GetLastError() ) );
+        result.result =
+            SkullbonezCore::Core::SbResult::Failure( "Runtime/Input",
+                                                     "GetCursorPos failed in Input::GetMouseCoordinates lastError=%lu",
+                                                     static_cast<unsigned long>( GetLastError() ) );
         return result;
     }
 
@@ -487,9 +490,10 @@ Input::MouseCoordinatesResult Input::GetClientMouseCoordinates()
     POINT clientCoordinates = mousePos.coordinates;
     if ( !ScreenToClient( m_cWindow->NativeWindowHandle(), &clientCoordinates ) )
     {
-        result.result = SbResult::Failure( "Runtime/Input",
-                                           "ScreenToClient failed in Input::GetClientMouseCoordinates lastError=%lu",
-                                           static_cast<unsigned long>( GetLastError() ) );
+        result.result = SkullbonezCore::Core::SbResult::Failure(
+            "Runtime/Input",
+            "ScreenToClient failed in Input::GetClientMouseCoordinates lastError=%lu",
+            static_cast<unsigned long>( GetLastError() ) );
         return result;
     }
 

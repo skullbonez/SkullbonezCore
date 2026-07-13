@@ -76,12 +76,12 @@ Related:
 #include <utility>
 #include <vector>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Runtime::RunInternal;
 using SkullbonezCore::Math::Vector::Vector3;
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 using SkullbonezCore::Runtime::Audio::ContactAudioFlashMode;
@@ -132,7 +132,7 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
     RunDebugState& debug = sceneOwners.debug;
     SceneController& sceneController = sceneOwners.sceneController;
     RunSceneState& scene = sceneController.State();
-    EngineConfig& config = sceneOwners.config;
+    SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
     SkullbonezCore::Environment::WorldEnvironment& worldEnvironment = sceneController.World();
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     SkullbonezCore::UI::InGameUI& ui = interactionOwners.ui;
@@ -189,7 +189,7 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                                                      facts.presentationPinned,
                                                                      facts.presentationAlpha },
                                             contactAudio );
-        const CinematicRenderConfig& uiCinematic = ActiveSceneCinematicConfig( scene, config );
+        const SkullbonezCore::Core::CinematicRenderConfig& uiCinematic = ActiveSceneCinematicConfig( scene, config );
         const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug, true );
         const bool shadowsAvailable =
             uiCinematicRendering ? uiCinematic.shadow.enabled : config.ordinaryRender.shadow.enabled;
@@ -237,7 +237,7 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
 
 template <typename UpdateRequiredBroadphaseXCells, typename UpdateRequiredContacts>
 void TickExecutePostPhysicsVisualizers( RunDebugState& debug,
-                                        SkullbonezCore::Basics::SceneController& models,
+                                        SkullbonezCore::Runtime::SceneController& models,
                                         BroadphaseVisualizer& broadphaseVisualizer,
                                         CollisionVisualizer& collisionVisualizer,
                                         PhysicsDebugVisualizer& physicsDebugVisualizer,
@@ -318,7 +318,7 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
                                   DiagnosticsRuntime& diagnosticsRuntime,
                                   RunSceneState& scene,
                                   const Vector3& listenerPosition,
-                                  SkullbonezCore::Basics::SceneController& models )
+                                  SkullbonezCore::Runtime::SceneController& models )
 {
 #ifndef _DEBUG
     (void)diagnosticsRuntime;
@@ -328,7 +328,7 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
 
     contactAudio.BeginPhysicsStep( PHYSICS_FIXED_DT, listenerPosition );
 
-    const auto& colliderRecords = models.Colliders().Records();
+    const auto colliderRecords = models.Colliders().Records();
     auto materialForBody = [&]( int bodyIndex ) -> uint32_t
     {
         if ( bodyIndex >= 0 && bodyIndex < static_cast<int>( colliderRecords.size() ) )
@@ -344,7 +344,7 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
         // did a dynamic body experience enough mass-scaled linear velocity
         // change to be heard? Motion comes from PhysicsBodyStore and contact
         // material comes from the paired ColliderStore row.
-        const auto& bodyRecords = models.BodyStore().Records();
+        const auto bodyRecords = models.BodyStore().Records();
         const int simpleBodyCount = static_cast<int>(
             bodyRecords.size() < colliderRecords.size() ? bodyRecords.size() : colliderRecords.size() );
         contactAudio.BeginSimpleLinearStep( simpleBodyCount );
@@ -459,7 +459,7 @@ void CaptureReplayPostStep( RuntimeFrameInteractionView& interactionOwners, Runt
 {
     ReplayRuntime& replayRuntime = interactionOwners.replayRuntime;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    SkullbonezCore::Basics::SceneController& models = sceneOwners.sceneController;
+    SkullbonezCore::Runtime::SceneController& models = sceneOwners.sceneController;
     const RunSceneState& scene = models.State();
     RunTimerState& timers = sceneOwners.timers;
     const RunDebugState& debug = sceneOwners.debug;
@@ -493,11 +493,11 @@ void CaptureReplayPostStep( RuntimeFrameInteractionView& interactionOwners, Runt
 
 } // namespace
 
-SbResult Run::Execute()
+SkullbonezCore::Core::SbResult Run::Execute()
 {
     if ( m_skipExecute )
     {
-        return SbResult::Success();
+        return SkullbonezCore::Core::SbResult::Success();
     }
     MSG msg;
     int messageExitCode = 0;
@@ -651,7 +651,7 @@ SbResult Run::Execute()
             if ( m_renderer.PipelineSyncEnabled() )
             {
                 PROFILE_BEGIN( "Frame/PipelineSync" );
-                SbResult finishResult = SbResult::Success();
+                SkullbonezCore::Core::SbResult finishResult = SkullbonezCore::Core::SbResult::Success();
                 {
                     RuntimeAllocation::RuntimeAllocationScope allocationScope(
                         RuntimeAllocation::RuntimeAllocationPhase::Render );
@@ -744,7 +744,7 @@ SbResult Run::Execute()
                 static_cast<float>( std::clamp( m_timers.workTimer.GetElapsedTime(), 0.0, 0.25 ) * 1000.0 );
 
             PROFILE_BEGIN( "Frame/VsyncWait" );
-            SbResult presentResult = SbResult::Success();
+            SkullbonezCore::Core::SbResult presentResult = SkullbonezCore::Core::SbResult::Success();
             {
                 RuntimeAllocation::RuntimeAllocationScope allocationScope(
                     RuntimeAllocation::RuntimeAllocationPhase::Render );

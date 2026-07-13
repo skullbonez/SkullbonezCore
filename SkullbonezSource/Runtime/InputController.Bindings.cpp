@@ -28,7 +28,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -101,5 +101,5 @@ RuntimeInputKeyBindingView TakeInputKeyboardBindings()
 {
     return RuntimeInputKeyBindingView{ kTakeInputKeyboardBindings, kTakeInputKeyboardBindingCount };
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

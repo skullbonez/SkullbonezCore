@@ -31,7 +31,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
 {
 struct SbError
 {
@@ -66,5 +66,5 @@ struct [[nodiscard]] SbResult
         return result;
     }
 };
-} // namespace Basics
+} // namespace Core
 } // namespace SkullbonezCore

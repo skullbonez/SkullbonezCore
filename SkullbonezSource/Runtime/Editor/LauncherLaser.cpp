@@ -37,7 +37,7 @@ Related:
 #include <algorithm>
 #include <cmath>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Rendering;

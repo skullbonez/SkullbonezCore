@@ -28,7 +28,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 
 enum class ReplayPredictionBuildMode : uint8_t
@@ -84,5 +84,5 @@ inline ReplayPredictionCoalescerAction ChooseReplayPredictionCoalescerAction( bo
     return ReplayPredictionCoalescerAction::CancelAndBegin;
 }
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

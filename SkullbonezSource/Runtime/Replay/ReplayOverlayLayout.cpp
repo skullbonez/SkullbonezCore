@@ -31,7 +31,7 @@ Related:
 #include <algorithm>
 #include <cmath>
 
-namespace SkullbonezCore::Basics::ReplayOverlay
+namespace SkullbonezCore::Runtime::ReplayOverlay
 {
 namespace
 {
@@ -509,4 +509,4 @@ float ReplayScrubberPositionFromMouse( int mouseX, int screenW, int screenH, Run
     const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH, trackName );
     return track.w > 1.0f ? std::clamp( ( static_cast<float>( mouseX ) - track.x ) / track.w, 0.0f, 1.0f ) : 1.0f;
 }
-} // namespace SkullbonezCore::Basics::ReplayOverlay
+} // namespace SkullbonezCore::Runtime::ReplayOverlay

@@ -74,13 +74,13 @@ Related:
 #include <cstdio>
 #include <cstring>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
-using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Runtime::RunInternal;
 using SkullbonezCore::Hardware::Input;
 using SkullbonezCore::Hardware::InputState;
 using SkullbonezCore::UI::InGameUITab;
@@ -91,13 +91,13 @@ using SkullbonezCore::UI::InGameUITab;
 // scene, replay, tools, diagnostics, UI, and rendering retain their own state
 // and expose only synchronous operations for accepted input actions.
 // Lifetime: both views are borrowed for this call and are never stored.
-void SkullbonezCore::Basics::ProcessInputFrame( RuntimeFrameHostView& host,
-                                                RuntimeFrameInteractionView& interactionOwners,
-                                                RuntimeFrameSceneView& sceneOwners,
-                                                RuntimeFramePresentationView& presentationOwners )
+void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
+                                                 RuntimeFrameInteractionView& interactionOwners,
+                                                 RuntimeFrameSceneView& sceneOwners,
+                                                 RuntimeFramePresentationView& presentationOwners )
 {
     InputRouter& m_inputRouter = interactionOwners.inputRouter;
-    EngineConfig& m_config = sceneOwners.config;
+    SkullbonezCore::Core::EngineConfig& m_config = sceneOwners.config;
     RunLaunchOptions& m_launchOptions = sceneOwners.launchOptions;
     const RunStartupState& m_startup = sceneOwners.startup;
     RunTimerState& m_timers = sceneOwners.timers;
@@ -140,7 +140,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( RuntimeFrameHostView& host,
     };
     const auto RunUIStressActions = [&]()
     {
-        return SkullbonezCore::Basics::RunUIStressActions(
+        return SkullbonezCore::Runtime::RunUIStressActions(
             host,
             interactionOwners,
             sceneOwners,
@@ -212,7 +212,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( RuntimeFrameHostView& host,
         return true;
     };
     DeviceInputFrame deviceFrame;
-    const SbResult deviceCaptureResult = Input::CaptureDeviceInputFrame( deviceFrame );
+    const SkullbonezCore::Core::SbResult deviceCaptureResult = Input::CaptureDeviceInputFrame( deviceFrame );
     if ( !deviceCaptureResult.ok )
     {
         ReportRuntimeInputFailure( deviceCaptureResult );
@@ -237,7 +237,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( RuntimeFrameHostView& host,
         {
             return;
         }
-        SbResult pointerResult = Input::SetNativeMouseCapture( presentation.nativeCapture );
+        SkullbonezCore::Core::SbResult pointerResult = Input::SetNativeMouseCapture( presentation.nativeCapture );
         if ( pointerResult.ok )
         {
             Input::SetSystemCursorVisible( presentation.cursorVisible );
@@ -258,7 +258,7 @@ void SkullbonezCore::Basics::ProcessInputFrame( RuntimeFrameHostView& host,
                                              m_sceneController,
                                              m_UI ) )
     {
-        const SbResult stressResult = RunUIStressActions();
+        const SkullbonezCore::Core::SbResult stressResult = RunUIStressActions();
         if ( !stressResult.ok )
         {
             // Lane R: focus loss still routes stress churn through the same guarded
@@ -686,16 +686,17 @@ void SkullbonezCore::Basics::ProcessInputFrame( RuntimeFrameHostView& host,
             // to BackendInit rather than steady input/render accounting.
             SkullbonezCore::Runtime::Allocation::RuntimeAllocationScope allocationScope(
                 SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase::BackendInit );
-            const SbResult reloadResult = m_renderBackendView.shaderDevelopment->ReloadShadersFromSource();
+            const SkullbonezCore::Core::SbResult reloadResult =
+                m_renderBackendView.shaderDevelopment->ReloadShadersFromSource();
             if ( !reloadResult.ok )
             {
                 fprintf( stderr,
                          "Shader hot reload failed: owner=%s reason=%s\n",
                          reloadResult.error.owner,
                          reloadResult.error.message );
-                Log().WriteEventf( "shader_hot_reload_failed owner=%s reason=%s",
-                                   reloadResult.error.owner,
-                                   reloadResult.error.message );
+                SkullbonezCore::Core::Log().WriteEventf( "shader_hot_reload_failed owner=%s reason=%s",
+                                                         reloadResult.error.owner,
+                                                         reloadResult.error.message );
             }
             break;
         }

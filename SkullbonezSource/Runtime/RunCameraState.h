@@ -33,6 +33,8 @@ Related:
 */
 #pragma once
 
+#include "../Core/PlatformWin32.h"
+
 #include "../Core/Common.h"
 #include "DemoDirector.h"
 #include "Input.h"
@@ -41,11 +43,15 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+class EngineConfig;
+} // namespace Core
 namespace Environment
 {
 class CameraCollection;
 }
-namespace Basics
+namespace Runtime
 {
 class SceneController;
 }
@@ -53,10 +59,9 @@ namespace Geometry
 {
 class Terrain;
 }
-namespace Basics
+namespace Runtime
 {
 class AttachedCameraController;
-class EngineConfig;
 struct RunTimerState;
 struct RunCameraState
 {
@@ -101,7 +106,7 @@ struct RunCameraState
 
     void UpdateViewingOrientation( RunTimerState& timers,
                                    Environment::CameraCollection& cameras,
-                                   const Basics::SceneController& models,
+                                   const Runtime::SceneController& models,
                                    bool replayCameraActive,
                                    bool sceneMode,
                                    bool attachedActiveFollow,
@@ -110,9 +115,9 @@ struct RunCameraState
     void AdvanceAutoCycleClock( bool sceneMode, float simulationDt );
     void TickControls( Environment::CameraCollection& cameras,
                        Geometry::Terrain& terrain,
-                       Basics::SceneController& models,
+                       Runtime::SceneController& models,
                        AttachedCameraController& attachedCamera,
-                       const EngineConfig& config,
+                       const SkullbonezCore::Core::EngineConfig& config,
                        bool editorModeEnabled,
                        bool viewportLookActive,
                        bool sceneMode,
@@ -120,5 +125,5 @@ struct RunCameraState
                        float presentationAlpha );
 };
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

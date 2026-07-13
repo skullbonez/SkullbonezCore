@@ -34,7 +34,7 @@ Related:
 #include <cstdint>
 #include <vector>
 
-namespace SkullbonezCore::Basics
+namespace SkullbonezCore::Runtime
 {
 enum class ReplayTrajectoryLane : uint8_t
 {
@@ -104,4 +104,4 @@ struct ReplayTrajectoryStore
 
 bool operator==( const ReplayTrajectoryRecordKey& lhs, const ReplayTrajectoryRecordKey& rhs ) noexcept;
 bool operator!=( const ReplayTrajectoryRecordKey& lhs, const ReplayTrajectoryRecordKey& rhs ) noexcept;
-} // namespace SkullbonezCore::Basics
+} // namespace SkullbonezCore::Runtime

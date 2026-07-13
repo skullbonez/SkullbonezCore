@@ -53,14 +53,14 @@ Related:
 #include <cstdint>
 #include <vector>
 
-using namespace SkullbonezCore::Basics;
-using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Runtime;
+using namespace SkullbonezCore::Runtime::RunInternal;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::Ragdoll;
-using Json = SkullbonezCore::Basics::RunInternal::EditorPlacementJson;
+using Json = SkullbonezCore::Runtime::RunInternal::EditorPlacementJson;
 
 namespace
 {
@@ -153,7 +153,7 @@ RunEditorTracer::RunEditorTracer()
     m_replayRibbonVertexData.reserve( RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTEX_FLOAT_CAPACITY );
 }
 
-void RunEditorTracer::CycleReplayPredictionAuthoringLook( CinematicRenderConfig& cinematic )
+void RunEditorTracer::CycleReplayPredictionAuthoringLook( SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     // TEMPORARY DEBUG AUTHORING. Owner: RunEditorTracer. Reason: this deliberate
     // cross-domain authoring boundary searches the complete prediction/cinematic
@@ -208,9 +208,9 @@ void RunEditorTracer::CycleReplayPredictionAuthoringLook( CinematicRenderConfig&
     // explores exposure, grading, atmosphere, glow, and material response.
     static constexpr AuthoringPalette palettes[] = {
         { "neon_noir",
-          CinematicStyleMode::Sky::NeonCyberpunk,
-          CinematicStyleMode::Terrain::NeonGrid,
-          CinematicStyleMode::Object::Emissive,
+          SkullbonezCore::Core::CinematicStyleMode::Sky::NeonCyberpunk,
+          SkullbonezCore::Core::CinematicStyleMode::Terrain::NeonGrid,
+          SkullbonezCore::Core::CinematicStyleMode::Object::Emissive,
           { 1.7f, 0.25f, 1.5f },
           { 0.22f, 0.03f, 0.38f },
           { 0.01f, 0.08f, 0.30f },
@@ -218,9 +218,9 @@ void RunEditorTracer::CycleReplayPredictionAuthoringLook( CinematicRenderConfig&
           { 0.05f, 0.75f, 1.35f },
           { 0.10f, 0.02f, 0.19f } },
         { "alien_aurora",
-          CinematicStyleMode::Sky::AlienPlanet,
-          CinematicStyleMode::Terrain::AlienVeins,
-          CinematicStyleMode::Object::Fresnel,
+          SkullbonezCore::Core::CinematicStyleMode::Sky::AlienPlanet,
+          SkullbonezCore::Core::CinematicStyleMode::Terrain::AlienVeins,
+          SkullbonezCore::Core::CinematicStyleMode::Object::Fresnel,
           { 0.38f, 1.65f, 0.72f },
           { 0.18f, 0.58f, 0.32f },
           { 0.16f, 0.02f, 0.42f },
@@ -228,9 +228,9 @@ void RunEditorTracer::CycleReplayPredictionAuthoringLook( CinematicRenderConfig&
           { 0.62f, 0.08f, 0.92f },
           { 0.11f, 0.28f, 0.18f } },
         { "desert_epic",
-          CinematicStyleMode::Sky::DesertStorm,
-          CinematicStyleMode::Terrain::DesertSlope,
-          CinematicStyleMode::Object::Matte,
+          SkullbonezCore::Core::CinematicStyleMode::Sky::DesertStorm,
+          SkullbonezCore::Core::CinematicStyleMode::Terrain::DesertSlope,
+          SkullbonezCore::Core::CinematicStyleMode::Object::Matte,
           { 1.75f, 0.88f, 0.28f },
           { 1.15f, 0.42f, 0.18f },
           { 0.12f, 0.16f, 0.30f },
@@ -238,9 +238,9 @@ void RunEditorTracer::CycleReplayPredictionAuthoringLook( CinematicRenderConfig&
           { 0.95f, 0.48f, 0.11f },
           { 0.62f, 0.31f, 0.16f } },
         { "painted_story",
-          CinematicStyleMode::Sky::Painterly,
-          CinematicStyleMode::Terrain::Posterized,
-          CinematicStyleMode::Object::ToonBands,
+          SkullbonezCore::Core::CinematicStyleMode::Sky::Painterly,
+          SkullbonezCore::Core::CinematicStyleMode::Terrain::Posterized,
+          SkullbonezCore::Core::CinematicStyleMode::Object::ToonBands,
           { 1.25f, 0.68f, 0.50f },
           { 0.75f, 0.40f, 0.58f },
           { 0.18f, 0.42f, 0.82f },
@@ -248,9 +248,9 @@ void RunEditorTracer::CycleReplayPredictionAuthoringLook( CinematicRenderConfig&
           { 0.70f, 0.52f, 0.18f },
           { 0.42f, 0.38f, 0.52f } },
         { "retro_chrome",
-          CinematicStyleMode::Sky::RetroFuture,
-          CinematicStyleMode::Terrain::ChromaticBands,
-          CinematicStyleMode::Object::Metal,
+          SkullbonezCore::Core::CinematicStyleMode::Sky::RetroFuture,
+          SkullbonezCore::Core::CinematicStyleMode::Terrain::ChromaticBands,
+          SkullbonezCore::Core::CinematicStyleMode::Object::Metal,
           { 1.42f, 0.36f, 0.62f },
           { 0.54f, 0.18f, 0.48f },
           { 0.03f, 0.22f, 0.52f },
@@ -258,9 +258,9 @@ void RunEditorTracer::CycleReplayPredictionAuthoringLook( CinematicRenderConfig&
           { 0.15f, 0.72f, 1.15f },
           { 0.25f, 0.08f, 0.24f } },
         { "fog_thriller",
-          CinematicStyleMode::Sky::AtmosphericFog,
-          CinematicStyleMode::Terrain::CoolStone,
-          CinematicStyleMode::Object::DarkRim,
+          SkullbonezCore::Core::CinematicStyleMode::Sky::AtmosphericFog,
+          SkullbonezCore::Core::CinematicStyleMode::Terrain::CoolStone,
+          SkullbonezCore::Core::CinematicStyleMode::Object::DarkRim,
           { 0.72f, 0.82f, 1.12f },
           { 0.38f, 0.46f, 0.58f },
           { 0.06f, 0.10f, 0.18f },
@@ -268,9 +268,9 @@ void RunEditorTracer::CycleReplayPredictionAuthoringLook( CinematicRenderConfig&
           { 0.34f, 0.42f, 0.52f },
           { 0.24f, 0.30f, 0.38f } },
         { "nordic_clean",
-          CinematicStyleMode::Sky::NordicWinter,
-          CinematicStyleMode::Terrain::NordicSnow,
-          CinematicStyleMode::Object::Matte,
+          SkullbonezCore::Core::CinematicStyleMode::Sky::NordicWinter,
+          SkullbonezCore::Core::CinematicStyleMode::Terrain::NordicSnow,
+          SkullbonezCore::Core::CinematicStyleMode::Object::Matte,
           { 0.92f, 1.08f, 1.35f },
           { 0.62f, 0.78f, 0.96f },
           { 0.12f, 0.24f, 0.48f },
@@ -278,9 +278,9 @@ void RunEditorTracer::CycleReplayPredictionAuthoringLook( CinematicRenderConfig&
           { 0.22f, 0.38f, 0.56f },
           { 0.50f, 0.62f, 0.74f } },
         { "abstract_stage",
-          CinematicStyleMode::Sky::AbstractRender,
-          CinematicStyleMode::Terrain::SolidStudio,
-          CinematicStyleMode::Object::Emissive,
+          SkullbonezCore::Core::CinematicStyleMode::Sky::AbstractRender,
+          SkullbonezCore::Core::CinematicStyleMode::Terrain::SolidStudio,
+          SkullbonezCore::Core::CinematicStyleMode::Object::Emissive,
           { 1.30f, 1.30f, 1.30f },
           { 0.16f, 0.16f, 0.18f },
           { 0.01f, 0.01f, 0.02f },
@@ -288,9 +288,9 @@ void RunEditorTracer::CycleReplayPredictionAuthoringLook( CinematicRenderConfig&
           { 0.95f, 0.15f, 0.12f },
           { 0.08f, 0.08f, 0.09f } },
         { "soft_animation",
-          CinematicStyleMode::Sky::PixarInspired,
-          CinematicStyleMode::Terrain::SoftIllustrated,
-          CinematicStyleMode::Object::ToonBands,
+          SkullbonezCore::Core::CinematicStyleMode::Sky::PixarInspired,
+          SkullbonezCore::Core::CinematicStyleMode::Terrain::SoftIllustrated,
+          SkullbonezCore::Core::CinematicStyleMode::Object::ToonBands,
           { 1.38f, 0.92f, 0.58f },
           { 0.82f, 0.58f, 0.62f },
           { 0.24f, 0.52f, 0.92f },
@@ -298,9 +298,9 @@ void RunEditorTracer::CycleReplayPredictionAuthoringLook( CinematicRenderConfig&
           { 0.78f, 0.56f, 0.20f },
           { 0.52f, 0.48f, 0.62f } },
         { "tron_precision",
-          CinematicStyleMode::Sky::TronGrid,
-          CinematicStyleMode::Terrain::SciFiGrid,
-          CinematicStyleMode::Object::Emissive,
+          SkullbonezCore::Core::CinematicStyleMode::Sky::TronGrid,
+          SkullbonezCore::Core::CinematicStyleMode::Terrain::SciFiGrid,
+          SkullbonezCore::Core::CinematicStyleMode::Object::Emissive,
           { 0.28f, 1.35f, 1.65f },
           { 0.02f, 0.14f, 0.22f },
           { 0.0f, 0.015f, 0.05f },
@@ -481,31 +481,32 @@ void RunEditorTracer::Clear()
     m_priorityReplayRibbonSegments.clear();
     m_replayRibbonVertexData.clear();
     ClearReplayTrajectoryStats();
-    m_replaySubmissionStats = MainMemoryReplayTrajectorySubmissionStats{};
+    m_replaySubmissionStats = SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats{};
 }
 
 void RunEditorTracer::ClearReplayTrajectoryStats()
 {
-    m_replayTrajectoryStats = MainMemoryReplayTrajectoryStats{};
+    m_replayTrajectoryStats = SkullbonezCore::Core::MainMemoryReplayTrajectoryStats{};
 }
 
 
-const MainMemoryReplayTrajectoryStats& RunEditorTracer::ReplayTrajectoryStats() const
+const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& RunEditorTracer::ReplayTrajectoryStats() const
 {
     return m_replayTrajectoryStats;
 }
 
 
-void RunEditorTracer::RecordReplayRibbonDroppedSegments( MainMemoryReplayTrajectoryLane lane, std::size_t count )
+void RunEditorTracer::RecordReplayRibbonDroppedSegments( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
+                                                         std::size_t count )
 {
     const std::size_t laneIndex = static_cast<std::size_t>( lane );
-    if ( laneIndex < MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT )
+    if ( laneIndex < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT )
     {
         m_replayTrajectoryStats.droppedSegments[laneIndex] += static_cast<uint64_t>( count );
     }
 }
 
-const MainMemoryReplayTrajectorySubmissionStats& RunEditorTracer::ReplaySubmissionStats() const
+const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& RunEditorTracer::ReplaySubmissionStats() const
 {
     return m_replaySubmissionStats;
 }
@@ -755,7 +756,7 @@ void RunEditorTracer::EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData,
                                                  float g,
                                                  float bl,
                                                  const ReplayRibbonStyle& style,
-                                                 MainMemoryReplayTrajectoryLane lane )
+                                                 SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
 {
     if ( VectorMagSquared( b - a ) <= TOLERANCE * TOLERANCE )
     {
@@ -768,14 +769,14 @@ void RunEditorTracer::EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData,
     if ( combinedSegments >= RUN_EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_BUDGET ||
          ribbonData.size() + RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT > ribbonData.capacity() )
     {
-        if ( laneIndex < MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT )
+        if ( laneIndex < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT )
         {
             RecordReplayRibbonDroppedSegments( lane );
         }
         return;
     }
 
-    if ( laneIndex < MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT )
+    if ( laneIndex < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT )
     {
         ++m_replayTrajectoryStats.emittedSegments[laneIndex];
     }
@@ -822,7 +823,7 @@ void RunEditorTracer::EmitReplayRibbonGlowPairTo( std::vector<float>& ribbonData
                                                   float bl,
                                                   const ReplayRibbonStyle& glow,
                                                   const ReplayRibbonStyle& core,
-                                                  MainMemoryReplayTrajectoryLane lane )
+                                                  SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
 {
     // Why: trajectory ribbons own their glow in one pixel shader pass. Keep the
     // wider glow width, but carry the stronger core alpha so each logical path
@@ -843,7 +844,7 @@ void RunEditorTracer::EmitReplayRibbonShapeOutlineTo( std::vector<float>& ribbon
                                                       float g,
                                                       float b,
                                                       const ReplayRibbonStyle& style,
-                                                      MainMemoryReplayTrajectoryLane lane )
+                                                      SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
 {
     Quaternion outlineOrientation = orientation;
     const RotationMatrix rot = outlineOrientation.GetOrientationMatrix();
@@ -1038,7 +1039,7 @@ void RunEditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const
     appendRibbonData( m_replayRibbonSegments );
     appendRibbonData( m_priorityReplayRibbonSegments );
 
-    m_replaySubmissionStats = MainMemoryReplayTrajectorySubmissionStats{};
+    m_replaySubmissionStats = SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats{};
     if ( !m_replayRibbonVertexData.empty() )
     {
         // Invariant: Stage-9 flicker validation hashes the exact float payload
@@ -1250,7 +1251,7 @@ void RunEditorTracer::AddReplayPathSegment( const Vector3& start,
                                             float r,
                                             float g,
                                             float b,
-                                            MainMemoryReplayTrajectoryLane lane )
+                                            SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
 {
     const ReplayRibbonStyle glow = m_replayRibbonAuthoringLook.path;
     const ReplayRibbonStyle core = m_replayRibbonAuthoringLook.path;
@@ -1281,7 +1282,7 @@ void RunEditorTracer::AddReplayCausalTrailSegment( const Vector3& start, const V
                                 b * m_replayRibbonAuthoringLook.opacity,
                                 glow,
                                 core,
-                                MainMemoryReplayTrajectoryLane::RetainedTrail );
+                                SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::RetainedTrail );
 }
 
 
@@ -1297,7 +1298,7 @@ void RunEditorTracer::AddReplayBaselinePathSegment( const Vector3& start, const 
                                 0.95f,
                                 glow,
                                 core,
-                                MainMemoryReplayTrajectoryLane::BaselineRoot );
+                                SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::BaselineRoot );
 }
 
 
@@ -1359,7 +1360,7 @@ void RunEditorTracer::AddReplayCausalEntryMarker( const Vector3& position,
                                     0.85f,
                                     0.25f,
                                     singlePass,
-                                    MainMemoryReplayTrajectoryLane::CausalMarker );
+                                    SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::CausalMarker );
 }
 
 

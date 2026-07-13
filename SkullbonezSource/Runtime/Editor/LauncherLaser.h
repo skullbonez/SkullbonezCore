@@ -49,7 +49,7 @@ namespace Assets
 class AssetSystem;
 } // namespace Assets
 
-namespace Basics
+namespace Runtime
 {
 struct LauncherLaserShotSnapshot
 {
@@ -140,5 +140,5 @@ class LauncherLaser
                  Rendering::IRenderResourceFactory& renderResources,
                  Rendering::IRenderCommandContext& renderCommands );
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

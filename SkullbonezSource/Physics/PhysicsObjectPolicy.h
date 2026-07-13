@@ -17,7 +17,7 @@ Glossary:
     to count as contact and when bounce response may be applied.
 
 Invariants:
-  - Defaults must match EngineConfig defaults until config application replaces
+  - Defaults must match SkullbonezCore::Core::EngineConfig defaults until config application replaces
     them, because models can be constructed before the collection receives
     runtime config.
   - These structs are value policy, not owners; copying them must not allocate or
@@ -33,10 +33,13 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
 {
 class EngineConfig;
-} // namespace Basics
+} // namespace Core
+namespace Runtime
+{
+} // namespace Runtime
 
 namespace Physics
 {
@@ -45,14 +48,14 @@ struct PhysicsMaterial
     float frictionCoefficient = 0.1f;
     float sphereDragCoefficient = 0.4f;
 
-    static PhysicsMaterial FromConfig( const Basics::EngineConfig& config );
+    static PhysicsMaterial FromConfig( const SkullbonezCore::Core::EngineConfig& config );
 };
 
 struct BodySimulationLimits
 {
     float angularVelocityLimit = 5.0f;
 
-    static BodySimulationLimits FromConfig( const Basics::EngineConfig& config );
+    static BodySimulationLimits FromConfig( const SkullbonezCore::Core::EngineConfig& config );
 };
 
 struct ContactPolicy
@@ -61,7 +64,7 @@ struct ContactPolicy
     float terrainContactThreshold = 0.15f;
     float restitutionThreshold = 2.0f;
 
-    static ContactPolicy FromConfig( const Basics::EngineConfig& config );
+    static ContactPolicy FromConfig( const SkullbonezCore::Core::EngineConfig& config );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

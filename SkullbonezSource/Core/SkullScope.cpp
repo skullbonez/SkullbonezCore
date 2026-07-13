@@ -43,7 +43,7 @@ Related:
 #include <vector>
 
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Vector;
@@ -367,48 +367,50 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
     }
 
     const double totalEnergy = totalLinearEnergy + totalAngularEnergy;
-    Log().Writef( m_physicsDiagnosticsPath,
-                  "{\"kind\":\"frame\",\"run\":\"%s\",\"frame\":%d,\"time_seconds\":%.6f,\"dt\":%.6f,\"body_count\":%d,"
-                  "\"awake_count\":%d,\"sleeping_count\":%d,\"supported_count\":%d,\"inhibited_count\":%d,\"contact_"
-                  "count\":%zu,\"island_count\":%zu,\"total_energy\":%.6f,\"linear_energy\":%.6f,\"angular_energy\":%."
-                  "6f,\"max_speed\":%.6f,\"max_speed_body\":%d,\"max_omega\":%.6f,\"max_omega_body\":%d,\"max_"
-                  "penetration\":%.6f,\"max_penetration_contact\":\"%s\"}\n",
-                  m_physicsDiagnosticsRunId,
-                  frame,
-                  m_physicsDiagnosticsTimeSeconds,
-                  dt,
-                  modelCount,
-                  awakeCount,
-                  sleepingCount,
-                  supportedCount,
-                  inhibitedCount,
-                  m_persistentContacts.size(),
-                  islandRoots.size(),
-                  totalEnergy,
-                  totalLinearEnergy,
-                  totalAngularEnergy,
-                  maxSpeed,
-                  maxSpeedBody,
-                  maxOmega,
-                  maxOmegaBody,
-                  maxPenetration,
-                  maxPenetrationContact );
+    SkullbonezCore::Core::Log().Writef(
+        m_physicsDiagnosticsPath,
+        "{\"kind\":\"frame\",\"run\":\"%s\",\"frame\":%d,\"time_seconds\":%.6f,\"dt\":%.6f,\"body_count\":%d,"
+        "\"awake_count\":%d,\"sleeping_count\":%d,\"supported_count\":%d,\"inhibited_count\":%d,\"contact_"
+        "count\":%zu,\"island_count\":%zu,\"total_energy\":%.6f,\"linear_energy\":%.6f,\"angular_energy\":%."
+        "6f,\"max_speed\":%.6f,\"max_speed_body\":%d,\"max_omega\":%.6f,\"max_omega_body\":%d,\"max_"
+        "penetration\":%.6f,\"max_penetration_contact\":\"%s\"}\n",
+        m_physicsDiagnosticsRunId,
+        frame,
+        m_physicsDiagnosticsTimeSeconds,
+        dt,
+        modelCount,
+        awakeCount,
+        sleepingCount,
+        supportedCount,
+        inhibitedCount,
+        m_persistentContacts.size(),
+        islandRoots.size(),
+        totalEnergy,
+        totalLinearEnergy,
+        totalAngularEnergy,
+        maxSpeed,
+        maxSpeedBody,
+        maxOmega,
+        maxOmegaBody,
+        maxPenetration,
+        maxPenetrationContact );
 
-    Log().Writef( m_physicsDiagnosticsPath,
-                  "{\"kind\":\"solver_stats\",\"run\":\"%s\",\"frame\":%d,\"row_count\":%d,\"cache_previous_rows\":%d,"
-                  "\"cache_hits\":%d,\"cache_misses\":%d,\"warm_started_rows\":%d,\"position_correction_rows\":%d,"
-                  "\"position_correction_total\":%.6f,\"position_correction_max\":%.6f,\"solver_iterations\":%d}\n",
-                  m_physicsDiagnosticsRunId,
-                  frame,
-                  m_persistentContactSolverStats.rowCount,
-                  m_persistentContactSolverStats.cachePreviousRows,
-                  m_persistentContactSolverStats.cacheHits,
-                  m_persistentContactSolverStats.cacheMisses,
-                  m_persistentContactSolverStats.warmStartedRows,
-                  m_persistentContactSolverStats.positionCorrectionRows,
-                  m_persistentContactSolverStats.positionCorrectionTotal,
-                  m_persistentContactSolverStats.positionCorrectionMax,
-                  m_persistentContactSolverStats.solverIterations );
+    SkullbonezCore::Core::Log().Writef(
+        m_physicsDiagnosticsPath,
+        "{\"kind\":\"solver_stats\",\"run\":\"%s\",\"frame\":%d,\"row_count\":%d,\"cache_previous_rows\":%d,"
+        "\"cache_hits\":%d,\"cache_misses\":%d,\"warm_started_rows\":%d,\"position_correction_rows\":%d,"
+        "\"position_correction_total\":%.6f,\"position_correction_max\":%.6f,\"solver_iterations\":%d}\n",
+        m_physicsDiagnosticsRunId,
+        frame,
+        m_persistentContactSolverStats.rowCount,
+        m_persistentContactSolverStats.cachePreviousRows,
+        m_persistentContactSolverStats.cacheHits,
+        m_persistentContactSolverStats.cacheMisses,
+        m_persistentContactSolverStats.warmStartedRows,
+        m_persistentContactSolverStats.positionCorrectionRows,
+        m_persistentContactSolverStats.positionCorrectionTotal,
+        m_persistentContactSolverStats.positionCorrectionMax,
+        m_persistentContactSolverStats.solverIterations );
 
     {
         const int stageCount = static_cast<int>( Physics::PhysicsPipelineStage::Count );
@@ -422,19 +424,21 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
             }
         }
 
-        Log().Writef( m_physicsDiagnosticsPath,
-                      "{\"kind\":\"pipeline_stages\",\"run\":\"%s\",\"frame\":%d,\"record_count\":%zu",
-                      m_physicsDiagnosticsRunId,
-                      frame,
-                      m_physicsPipelineTrace.size() );
+        SkullbonezCore::Core::Log().Writef(
+            m_physicsDiagnosticsPath,
+            "{\"kind\":\"pipeline_stages\",\"run\":\"%s\",\"frame\":%d,\"record_count\":%zu",
+            m_physicsDiagnosticsRunId,
+            frame,
+            m_physicsPipelineTrace.size() );
         for ( int i = 0; i < stageCount; ++i )
         {
-            Log().Writef( m_physicsDiagnosticsPath,
-                          ",\"%s\":%d",
-                          Physics::PhysicsPipelineStageName( static_cast<Physics::PhysicsPipelineStage>( i ) ),
-                          stageCounts[i] );
+            SkullbonezCore::Core::Log().Writef(
+                m_physicsDiagnosticsPath,
+                ",\"%s\":%d",
+                Physics::PhysicsPipelineStageName( static_cast<Physics::PhysicsPipelineStage>( i ) ),
+                stageCounts[i] );
         }
-        Log().Writef( m_physicsDiagnosticsPath, "}\n" );
+        SkullbonezCore::Core::Log().Writef( m_physicsDiagnosticsPath, "}\n" );
     }
 
     if ( m_physicsDiagnosticsHasPrevEnergy )
@@ -444,25 +448,26 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
         if ( deltaEnergy > spikeThreshold )
         {
             const int eventId = ++m_physicsDiagnosticsEventCounter;
-            Log().Writef( m_physicsDiagnosticsPath,
-                          "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"E%d\",\"frame\":%d,\"type\":\"energy_"
-                          "spike\",\"severity\":\"medium\",\"body_a\":%d,\"body_b\":-1,\"island_id\":-1,\"summary\":"
-                          "\"Total kinetic energy increased "
-                          "sharply.\",\"data\":{\"previous_total_energy\":%.6f,\"total_energy\":%.6f,\"delta_energy\":%"
-                          ".6f,\"followups\":[\"energy --frames %d:%d\",\"frame %d\",\"body %d --frames %d:%d\"]}}\n",
-                          m_physicsDiagnosticsRunId,
-                          eventId,
-                          frame,
-                          maxSpeedBody,
-                          m_physicsDiagnosticsPrevEnergy,
-                          totalEnergy,
-                          deltaEnergy,
-                          (std::max)( 0, frame - 30 ),
-                          frame + 30,
-                          frame,
-                          maxSpeedBody,
-                          (std::max)( 0, frame - 30 ),
-                          frame + 30 );
+            SkullbonezCore::Core::Log().Writef(
+                m_physicsDiagnosticsPath,
+                "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"E%d\",\"frame\":%d,\"type\":\"energy_"
+                "spike\",\"severity\":\"medium\",\"body_a\":%d,\"body_b\":-1,\"island_id\":-1,\"summary\":"
+                "\"Total kinetic energy increased "
+                "sharply.\",\"data\":{\"previous_total_energy\":%.6f,\"total_energy\":%.6f,\"delta_energy\":%"
+                ".6f,\"followups\":[\"energy --frames %d:%d\",\"frame %d\",\"body %d --frames %d:%d\"]}}\n",
+                m_physicsDiagnosticsRunId,
+                eventId,
+                frame,
+                maxSpeedBody,
+                m_physicsDiagnosticsPrevEnergy,
+                totalEnergy,
+                deltaEnergy,
+                (std::max)( 0, frame - 30 ),
+                frame + 30,
+                frame,
+                maxSpeedBody,
+                (std::max)( 0, frame - 30 ),
+                frame + 30 );
         }
     }
     m_physicsDiagnosticsPrevEnergy = totalEnergy;
@@ -518,36 +523,38 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
     {
         rejectedPairs = 0;
     }
-    Log().Writef( m_physicsDiagnosticsPath,
-                  "{\"kind\":\"broadphase\",\"run\":\"%s\",\"frame\":%d,\"candidate_pairs\":%zu,\"contact_pairs\":%zu,"
-                  "\"rejected_pairs\":%d,\"active_cells\":%d,\"max_cell_occupancy\":%d,\"collision_cell_count\":%zu}\n",
-                  m_physicsDiagnosticsRunId,
-                  frame,
-                  m_candidatePairs.size(),
-                  contactPairs.size(),
-                  rejectedPairs,
-                  activeCellCount,
-                  maxCellOccupancy,
-                  m_collisionCellKeys.size() );
+    SkullbonezCore::Core::Log().Writef(
+        m_physicsDiagnosticsPath,
+        "{\"kind\":\"broadphase\",\"run\":\"%s\",\"frame\":%d,\"candidate_pairs\":%zu,\"contact_pairs\":%zu,"
+        "\"rejected_pairs\":%d,\"active_cells\":%d,\"max_cell_occupancy\":%d,\"collision_cell_count\":%zu}\n",
+        m_physicsDiagnosticsRunId,
+        frame,
+        m_candidatePairs.size(),
+        contactPairs.size(),
+        rejectedPairs,
+        activeCellCount,
+        maxCellOccupancy,
+        m_collisionCellKeys.size() );
 
     if ( m_candidatePairs.size() > (std::max)( 128, modelCount * 8 ) || maxCellOccupancy > 32 )
     {
         const int eventId = ++m_physicsDiagnosticsEventCounter;
-        Log().Writef( m_physicsDiagnosticsPath,
-                      "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"E%d\",\"frame\":%d,\"type\":\"broadphase_"
-                      "spike\",\"severity\":\"medium\",\"body_a\":-1,\"body_b\":-1,\"island_id\":-1,\"summary\":"
-                      "\"Broadphase candidate work is unusually high for this "
-                      "frame.\",\"data\":{\"candidate_pairs\":%zu,\"active_cells\":%d,\"max_cell_occupancy\":%d,"
-                      "\"followups\":[\"broadphase --frames %d:%d\",\"frame %d\"]}}\n",
-                      m_physicsDiagnosticsRunId,
-                      eventId,
-                      frame,
-                      m_candidatePairs.size(),
-                      activeCellCount,
-                      maxCellOccupancy,
-                      (std::max)( 0, frame - 30 ),
-                      frame + 30,
-                      frame );
+        SkullbonezCore::Core::Log().Writef(
+            m_physicsDiagnosticsPath,
+            "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"E%d\",\"frame\":%d,\"type\":\"broadphase_"
+            "spike\",\"severity\":\"medium\",\"body_a\":-1,\"body_b\":-1,\"island_id\":-1,\"summary\":"
+            "\"Broadphase candidate work is unusually high for this "
+            "frame.\",\"data\":{\"candidate_pairs\":%zu,\"active_cells\":%d,\"max_cell_occupancy\":%d,"
+            "\"followups\":[\"broadphase --frames %d:%d\",\"frame %d\"]}}\n",
+            m_physicsDiagnosticsRunId,
+            eventId,
+            frame,
+            m_candidatePairs.size(),
+            activeCellCount,
+            maxCellOccupancy,
+            (std::max)( 0, frame - 30 ),
+            frame + 30,
+            frame );
     }
 
     constexpr double penetrationSustainedThreshold = 0.05;
@@ -611,35 +618,36 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
              m_physicsDiagnosticsPenetrationFrames >= penetrationSustainFrames )
         {
             const int eventId = ++m_physicsDiagnosticsEventCounter;
-            Log().Writef( m_physicsDiagnosticsPath,
-                          "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"E%d\",\"frame\":%d,\"type\":\"penetration_"
-                          "sustained\",\"severity\":\"medium\",\"body_a\":%d,\"body_b\":%d,\"island_id\":%d,"
-                          "\"summary\":\"Contact penetration stayed above the diagnostic threshold for multiple "
-                          "frames.\",\"data\":{\"max_penetration\":%.6f,\"threshold\":%.6f,\"frames_over_threshold\":%"
-                          "d,\"required_frames\":%d,\"contact\":\"%s\",\"feature_id\":%u,\"followups\":[\"contacts "
-                          "--frame %d --top penetration\",\"event E%d --window 30\",\"body %d --frames %d:%d\",\"body "
-                          "%d --frames %d:%d\",\"frame %d\"]}}\n",
-                          m_physicsDiagnosticsRunId,
-                          eventId,
-                          frame,
-                          maxPenetrationBodyA,
-                          maxPenetrationBodyB,
-                          penetrationIslandId,
-                          maxPenetration,
-                          penetrationSustainedThreshold,
-                          m_physicsDiagnosticsPenetrationFrames,
-                          penetrationSustainFrames,
-                          maxPenetrationContact,
-                          maxPenetrationFeatureId,
-                          frame,
-                          eventId,
-                          maxPenetrationBodyA,
-                          penetrationContextStartFrame,
-                          frame + 30,
-                          maxPenetrationBodyB,
-                          penetrationContextStartFrame,
-                          frame + 30,
-                          frame );
+            SkullbonezCore::Core::Log().Writef(
+                m_physicsDiagnosticsPath,
+                "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"E%d\",\"frame\":%d,\"type\":\"penetration_"
+                "sustained\",\"severity\":\"medium\",\"body_a\":%d,\"body_b\":%d,\"island_id\":%d,"
+                "\"summary\":\"Contact penetration stayed above the diagnostic threshold for multiple "
+                "frames.\",\"data\":{\"max_penetration\":%.6f,\"threshold\":%.6f,\"frames_over_threshold\":%"
+                "d,\"required_frames\":%d,\"contact\":\"%s\",\"feature_id\":%u,\"followups\":[\"contacts "
+                "--frame %d --top penetration\",\"event E%d --window 30\",\"body %d --frames %d:%d\",\"body "
+                "%d --frames %d:%d\",\"frame %d\"]}}\n",
+                m_physicsDiagnosticsRunId,
+                eventId,
+                frame,
+                maxPenetrationBodyA,
+                maxPenetrationBodyB,
+                penetrationIslandId,
+                maxPenetration,
+                penetrationSustainedThreshold,
+                m_physicsDiagnosticsPenetrationFrames,
+                penetrationSustainFrames,
+                maxPenetrationContact,
+                maxPenetrationFeatureId,
+                frame,
+                eventId,
+                maxPenetrationBodyA,
+                penetrationContextStartFrame,
+                frame + 30,
+                maxPenetrationBodyB,
+                penetrationContextStartFrame,
+                frame + 30,
+                frame );
             m_physicsDiagnosticsPenetrationSustainedReported = true;
         }
 
@@ -648,7 +656,7 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
              penetrationGrowthDelta >= penetrationGrowthMinDelta )
         {
             const int eventId = ++m_physicsDiagnosticsEventCounter;
-            Log().Writef(
+            SkullbonezCore::Core::Log().Writef(
                 m_physicsDiagnosticsPath,
                 "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"E%d\",\"frame\":%d,\"type\":\"penetration_growing\","
                 "\"severity\":\"high\",\"body_a\":%d,\"body_b\":%d,\"island_id\":%d,\"summary\":\"Contact penetration "
@@ -725,59 +733,62 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
                               m_sleepSupportedThisFrame[c.bodyA] ) );
         const Vector3 diagnosticNormal = c.isTerrain ? c.terrainNormal : c.normal;
 
-        Log().Writef( m_physicsDiagnosticsPath,
-                      "{\"kind\":\"contact\",\"run\":\"%s\",\"frame\":%d,\"contact_id\":\"%d:%d:%u\",\"body_a\":%d,"
-                      "\"body_b\":%d,\"contact_type\":\"%s\",\"feature_id\":%u,\"point_count\":%u,\"normal\":[%.6f,%."
-                      "6f,%.6f],\"penetration\":%.6f,\"normal_impulse\":%.6f,"
-                      "\"pre_solve_normal_speed\":%.6f,\"pre_solve_closing_speed\":%.6f,"
-                      "\"pre_solve_slip_speed\":%.6f,\"tangent_impulse\":%.6f,\"slip_speed\":%."
-                      "6f,\"rolling_residual\":%.6f,\"warm_started\":%d,\"supports_sleep\":%d}\n",
-                      m_physicsDiagnosticsRunId,
-                      frame,
-                      c.bodyA,
-                      c.bodyB,
-                      c.featureId,
-                      c.bodyA,
-                      c.bodyB,
-                      contactType,
-                      c.featureId,
-                      static_cast<unsigned>( c.manifoldPointCount ),
-                      diagnosticNormal.x,
-                      diagnosticNormal.y,
-                      diagnosticNormal.z,
-                      c.penetration,
-                      c.accN,
-                      c.preSolveNormalSpeed,
-                      c.preSolveClosingSpeed,
-                      c.preSolveSlipSpeed,
-                      tangentImpulse,
-                      slipSpeed,
-                      slipSpeed,
-                      c.warmStarted ? 1 : 0,
-                      supportsSleep ? 1 : 0 );
+        SkullbonezCore::Core::Log().Writef(
+            m_physicsDiagnosticsPath,
+            "{\"kind\":\"contact\",\"run\":\"%s\",\"frame\":%d,\"contact_id\":\"%d:%d:%u\",\"body_a\":%d,"
+            "\"body_b\":%d,\"contact_type\":\"%s\",\"feature_id\":%u,\"point_count\":%u,\"normal\":[%.6f,%."
+            "6f,%.6f],\"penetration\":%.6f,\"normal_impulse\":%.6f,"
+            "\"pre_solve_normal_speed\":%.6f,\"pre_solve_closing_speed\":%.6f,"
+            "\"pre_solve_slip_speed\":%.6f,\"tangent_impulse\":%.6f,\"slip_speed\":%."
+            "6f,\"rolling_residual\":%.6f,\"warm_started\":%d,\"supports_sleep\":%d}\n",
+            m_physicsDiagnosticsRunId,
+            frame,
+            c.bodyA,
+            c.bodyB,
+            c.featureId,
+            c.bodyA,
+            c.bodyB,
+            contactType,
+            c.featureId,
+            static_cast<unsigned>( c.manifoldPointCount ),
+            diagnosticNormal.x,
+            diagnosticNormal.y,
+            diagnosticNormal.z,
+            c.penetration,
+            c.accN,
+            c.preSolveNormalSpeed,
+            c.preSolveClosingSpeed,
+            c.preSolveSlipSpeed,
+            tangentImpulse,
+            slipSpeed,
+            slipSpeed,
+            c.warmStarted ? 1 : 0,
+            supportsSleep ? 1 : 0 );
     }
 
     for ( const auto& edge : m_sleepSupportEdges )
     {
-        Log().Writef( m_physicsDiagnosticsPath,
-                      "{\"kind\":\"support_edge\",\"run\":\"%s\",\"frame\":%d,\"supporter\":%d,\"supported\":%d,"
-                      "\"source\":\"object_contact\"}\n",
-                      m_physicsDiagnosticsRunId,
-                      frame,
-                      edge.first,
-                      edge.second );
+        SkullbonezCore::Core::Log().Writef(
+            m_physicsDiagnosticsPath,
+            "{\"kind\":\"support_edge\",\"run\":\"%s\",\"frame\":%d,\"supporter\":%d,\"supported\":%d,"
+            "\"source\":\"object_contact\"}\n",
+            m_physicsDiagnosticsRunId,
+            frame,
+            edge.first,
+            edge.second );
     }
 
     for ( const auto& manifold : m_terrainContactManifolds )
     {
         if ( manifold.supportsRestingPolicy )
         {
-            Log().Writef( m_physicsDiagnosticsPath,
-                          "{\"kind\":\"support_edge\",\"run\":\"%s\",\"frame\":%d,\"supporter\":-1,\"supported\":%d,"
-                          "\"source\":\"terrain\"}\n",
-                          m_physicsDiagnosticsRunId,
-                          frame,
-                          manifold.bodyA );
+            SkullbonezCore::Core::Log().Writef(
+                m_physicsDiagnosticsPath,
+                "{\"kind\":\"support_edge\",\"run\":\"%s\",\"frame\":%d,\"supporter\":-1,\"supported\":%d,"
+                "\"source\":\"terrain\"}\n",
+                m_physicsDiagnosticsRunId,
+                frame,
+                manifold.bodyA );
         }
     }
 
@@ -788,33 +799,35 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
             continue;
         }
         const DiagnosticsIslandStats& island = islandStats[root];
-        Log().Writef( m_physicsDiagnosticsPath,
-                      "{\"kind\":\"island\",\"run\":\"%s\",\"frame\":%d,\"island_id\":%d,\"body_count\":%d,\"awake_"
-                      "count\":%d,\"sleeping_count\":%d,\"supported_count\":%d,\"inhibited_count\":%d,\"eligible\":%d,"
-                      "\"can_sleep\":%d,\"max_speed\":%.6f,\"max_omega\":%.6f,\"total_energy\":%.6f}\n",
-                      m_physicsDiagnosticsRunId,
-                      frame,
-                      island.islandId,
-                      island.bodyCount,
-                      island.awakeCount,
-                      island.sleepingCount,
-                      island.supportedCount,
-                      island.inhibitedCount,
-                      island.eligible,
-                      island.canSleep,
-                      island.maxSpeed,
-                      island.maxOmega,
-                      island.totalEnergy );
+        SkullbonezCore::Core::Log().Writef(
+            m_physicsDiagnosticsPath,
+            "{\"kind\":\"island\",\"run\":\"%s\",\"frame\":%d,\"island_id\":%d,\"body_count\":%d,\"awake_"
+            "count\":%d,\"sleeping_count\":%d,\"supported_count\":%d,\"inhibited_count\":%d,\"eligible\":%d,"
+            "\"can_sleep\":%d,\"max_speed\":%.6f,\"max_omega\":%.6f,\"total_energy\":%.6f}\n",
+            m_physicsDiagnosticsRunId,
+            frame,
+            island.islandId,
+            island.bodyCount,
+            island.awakeCount,
+            island.sleepingCount,
+            island.supportedCount,
+            island.inhibitedCount,
+            island.eligible,
+            island.canSleep,
+            island.maxSpeed,
+            island.maxOmega,
+            island.totalEnergy );
     }
 
     for ( int i = 0; i < modelCount; ++i )
     {
-        Log().Writef( m_physicsDiagnosticsPath,
-                      "{\"kind\":\"island_member\",\"run\":\"%s\",\"frame\":%d,\"island_id\":%d,\"body_id\":%d}\n",
-                      m_physicsDiagnosticsRunId,
-                      frame,
-                      bodyIslandIds[i],
-                      i );
+        SkullbonezCore::Core::Log().Writef(
+            m_physicsDiagnosticsPath,
+            "{\"kind\":\"island_member\",\"run\":\"%s\",\"frame\":%d,\"island_id\":%d,\"body_id\":%d}\n",
+            m_physicsDiagnosticsRunId,
+            frame,
+            bodyIslandIds[i],
+            i );
     }
 
     for ( int i = 0; i < modelCount; ++i )
@@ -855,7 +868,7 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
         const uint16_t hullEdges = model.hullEdges;
         const std::string escapedHullName = EscapeSkullScopeJson( model.hullName );
 
-        Log().Writef(
+        SkullbonezCore::Core::Log().Writef(
             m_physicsDiagnosticsPath,
             "{\"kind\":\"body\",\"run\":\"%s\",\"frame\":%d,\"body_id\":%d,\"name\":\"%s\",\"shape\":\"%s\",\"pos\":[%."
             "6f,%.6f,%.6f],\"vel\":[%.6f,%.6f,%.6f],\"omega\":[%.6f,%.6f,%.6f],\"q\":[%.6f,%.6f,%.6f,%.6f],\"speed\":%."
@@ -907,26 +920,27 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
         if ( sleeping && visualIslandId == 0 )
         {
             const int eventId = ++m_physicsDiagnosticsEventCounter;
-            Log().Writef( m_physicsDiagnosticsPath,
-                          "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"E%d\",\"frame\":%d,\"type\":\"unsupported_"
-                          "sleep\",\"severity\":\"high\",\"body_a\":%d,\"body_b\":-1,\"island_id\":%d,\"summary\":"
-                          "\"Body is sleeping without an assigned sleep island "
-                          "id.\",\"data\":{\"body_id\":%d,\"sleep_supported\":%d,\"sleep_inhibited\":%d,\"followups\":["
-                          "\"body %d --frames %d:%d\",\"contacts --frame %d --body %d\",\"frame %d\"]}}\n",
-                          m_physicsDiagnosticsRunId,
-                          eventId,
-                          frame,
-                          i,
-                          islandId,
-                          i,
-                          sleepSupported,
-                          sleepInhibited,
-                          i,
-                          (std::max)( 0, frame - 30 ),
-                          frame + 30,
-                          frame,
-                          i,
-                          frame );
+            SkullbonezCore::Core::Log().Writef(
+                m_physicsDiagnosticsPath,
+                "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"E%d\",\"frame\":%d,\"type\":\"unsupported_"
+                "sleep\",\"severity\":\"high\",\"body_a\":%d,\"body_b\":-1,\"island_id\":%d,\"summary\":"
+                "\"Body is sleeping without an assigned sleep island "
+                "id.\",\"data\":{\"body_id\":%d,\"sleep_supported\":%d,\"sleep_inhibited\":%d,\"followups\":["
+                "\"body %d --frames %d:%d\",\"contacts --frame %d --body %d\",\"frame %d\"]}}\n",
+                m_physicsDiagnosticsRunId,
+                eventId,
+                frame,
+                i,
+                islandId,
+                i,
+                sleepSupported,
+                sleepInhibited,
+                i,
+                (std::max)( 0, frame - 30 ),
+                frame + 30,
+                frame,
+                i,
+                frame );
         }
     }
 

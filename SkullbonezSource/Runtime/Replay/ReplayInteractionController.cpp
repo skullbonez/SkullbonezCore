@@ -36,7 +36,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 bool ReplayInteractionController::BuildScrubberRestoreRequest( ReplayRuntime& replayRuntime,
                                                                double now,
@@ -244,5 +244,5 @@ void ReplayInteractionController::PublishScrubberRestoreResult( RunReplayScrubbe
     scrubber.visibleUntil = now + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
     scrubber.visible = true;
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

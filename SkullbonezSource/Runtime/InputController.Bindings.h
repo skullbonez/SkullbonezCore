@@ -33,7 +33,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct RuntimeInputKeyBindingView
 {
@@ -44,5 +44,5 @@ struct RuntimeInputKeyBindingView
 // Returns the static TakeInput keyboard table. The rows are immutable process
 // data and may be inspected by tests without constructing Run.
 RuntimeInputKeyBindingView TakeInputKeyboardBindings();
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

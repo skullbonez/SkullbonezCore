@@ -43,7 +43,8 @@ class IRenderCaptureBackend
     virtual ~IRenderCaptureBackend() = default;
 
     virtual bool SupportsBackbufferCapture() const = 0;
-    virtual Basics::SbResult CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight ) = 0;
+    virtual SkullbonezCore::Core::SbResult
+    CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight ) = 0;
 };
 
 } // namespace Rendering

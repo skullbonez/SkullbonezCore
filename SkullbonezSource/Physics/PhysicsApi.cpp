@@ -782,7 +782,7 @@ void PhysicsStandaloneWorld::ClearIslands()
 
 void PhysicsStandaloneWorld::GenerateStandaloneContacts()
 {
-    const auto& colliders = m_colliderStore.Records();
+    const auto colliders = m_colliderStore.Records();
     for ( std::size_t a = 0; a < colliders.size(); ++a )
     {
         const ColliderRecord& colliderA = colliders[a];
@@ -959,7 +959,7 @@ void PhysicsStandaloneWorld::GenerateStandaloneIslands()
 {
     ClearIslands();
 
-    const auto& bodies = m_bodyStore.Records();
+    const auto bodies = m_bodyStore.Records();
     if ( bodies.empty() )
     {
         return;
@@ -1198,7 +1198,7 @@ PhysicsStandaloneWorld::QueryBroadphaseCells( const PhysicsBroadphaseCellQueryDe
 {
     m_broadphaseQueryScratch.clear();
 
-    const auto& bodies = m_bodyStore.Records();
+    const auto bodies = m_bodyStore.Records();
     for ( const PhysicsBodyRecord& body : bodies )
     {
         if ( !BodyPassesQueryFilters( body, desc.includeFixedBodies, desc.includeSleepingBodies, m_sleepEnabled ) )
@@ -1490,7 +1490,7 @@ void PhysicsStandaloneWorld::TombstoneConstraintSlot( uint32_t index )
 PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke()
 {
     // Phase: cold validation probe. Each scenario world below owns several
-    // MAX_GAME_MODELS fixed stores and must not consume the launcher thread's
+    // SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS fixed stores and must not consume the launcher thread's
     // bounded stack merely to exercise the public API.
     auto worldOwner = std::make_unique<PhysicsStandaloneWorld>();
     PhysicsStandaloneWorld& world = *worldOwner;

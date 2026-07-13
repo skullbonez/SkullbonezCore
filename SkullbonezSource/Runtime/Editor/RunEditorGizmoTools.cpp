@@ -54,7 +54,7 @@ using SkullbonezCore::Physics::PhysicsBodyUpdateDesc;
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace RunInternal
 {
@@ -515,5 +515,5 @@ void UpdateEditorGizmoHotAxes( EditorGizmoContext context,
         context.editor.hotRotationAxis < 0 ? HitEditorGizmoAxis( context, rayOrigin, rayDirection ) : -1;
 }
 } // namespace RunInternal
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

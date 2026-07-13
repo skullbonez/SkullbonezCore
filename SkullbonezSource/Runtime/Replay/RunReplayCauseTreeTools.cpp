@@ -37,10 +37,10 @@ Related:
 #include <algorithm>
 #include <cmath>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Basics::ReplayOverlay;
+using namespace SkullbonezCore::Runtime::ReplayOverlay;
 
 namespace
 {
@@ -71,7 +71,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
                                         RuntimeInteractionController& interaction,
                                         const PhysicsBodyStore& bodyStore,
                                         const ColliderStore& colliderStore,
-                                        const std::vector<Rendering::RenderInstancePresentationRecord>& presentation,
+                                        std::span<const Rendering::RenderInstancePresentationRecord> presentation,
                                         Environment::CameraCollection* cameras,
                                         Geometry::Terrain* terrain,
                                         RunCameraState& camera,

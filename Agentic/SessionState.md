@@ -11,11 +11,11 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-12th-july` |
-| Current baseline | Runtime-contract enforcement is complete: thread-safe fatal logging, guarded SpatialGrid conversion, enforced AmortizedTask lifetime, and no WorkerPool exception plumbing |
-| Current objective | Execute adversarial-review round 3 (`Plans/TODO/adversarial-review-round-3.md`, R1→R10); validation-gate V3 remains externally blocked |
-| Portfolio progress | 302 / 313 tasks = 96% rounded overall |
-| Last broad local gate | `tools\\validate_full.bat` passed final runtime-contract source on 2026-07-12 in 84.41s: CPU lanes clean, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | Independent review and follow-up passed; fast, all-CPU, physics, healthy ASan, and full gates passed from final source. |
+| Current baseline | Adversarial-review round 3 is complete at 10/10; R10 runs three frames in flight with SM6.6 bindless raster texture access |
+| Current objective | Validation-gate V3 remains externally blocked; no local implementation task is live |
+| Portfolio progress | 312 / 313 tasks = 100% rounded overall |
+| Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-13 in 114.5s: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots/InfoQueue, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
+| Validation for current edits | R10 final: three consecutive DX12 passes 53.5/53.8/53.6s plus post-review passes, final perf 66.1s, final stress 61.6s with +0.70 MiB warmed working-set delta, and 179/179 unit tests. |
 
 ## Live Queue
 
@@ -29,12 +29,11 @@ plan inventory.
    2026-07-12 ruling) and is not live portfolio work.
 3. Round-2 runtime-contract remediation is locally complete and recorded in
    `Reports/2026-07-12/runtime-contract-enforcement-closure.md`.
-4. Round-3 adversarial-review remediation is live: ten owner-approved tasks
-   (exceptions off, header/namespace hygiene, `Common.h` platform leak,
-   `Basics` retirement, `Helper` dissolution, C++20 + `std::span`, solver
-   SIMD, DX12 bindless + three frames). Plan and fine-grained progress
-   checklist live in `Plans/TODO/`; execute in R1→R10 order. Out-of-scope
-   rulings are recorded in MASTER to avoid re-litigation.
+4. Round-3 adversarial-review remediation is complete at 10/10. R10 added
+   three-frame headroom and a backend-owned b1 bindless texture-index payload;
+   closure evidence and the 29/29 touched-file comment audit live in
+   `Reports/2026-07-13/adversarial-review-round-3-closure.md`. Out-of-scope
+   rulings remain recorded in MASTER to avoid re-litigation.
 
 ## Current Plan Decisions
 
@@ -91,5 +90,5 @@ plan inventory.
 
 ## Next Handoff
 
-No local implementation remains. V3 resumes when the required GitHub and
-runner authority exists.
+V3 resumes when the required GitHub merge-group/branch-protection authority and
+trusted or ephemeral DX12 runner administration exist.

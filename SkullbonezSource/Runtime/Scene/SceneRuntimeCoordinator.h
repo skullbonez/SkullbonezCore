@@ -41,7 +41,7 @@ namespace UI
 {
 struct UISceneCommands;
 }
-namespace Basics
+namespace Runtime
 {
 class SceneController;
 
@@ -100,11 +100,11 @@ struct SceneRuntimeUICommandResult
     bool saveSceneDefaults = false;
     bool createScene = false;
     bool selectScene = false;
-    SbResult status = SbResult::Success();
+    SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
 };
 
 SceneRuntimeUICommandResult SubmitSceneUIRequests( SceneController& sceneController,
                                                    const UI::UISceneCommands& commands );
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

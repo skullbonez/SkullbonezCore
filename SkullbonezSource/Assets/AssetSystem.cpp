@@ -122,7 +122,7 @@ AssetSystem::AssetSystem( std::string dataRoot ) : m_dataRoot( std::move( dataRo
 }
 
 
-void AssetSystem::RegisterBuiltInSourceAssets( const Basics::EngineConfig& config )
+void AssetSystem::RegisterBuiltInSourceAssets( const SkullbonezCore::Core::EngineConfig& config )
 {
     // Concept: built-in runtime assets are source records, not GPU resources.
     // Renderer lifecycle code consumes these records later when backend facets

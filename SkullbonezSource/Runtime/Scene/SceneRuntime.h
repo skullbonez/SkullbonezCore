@@ -44,11 +44,11 @@ namespace Physics
 {
 class PhysicsBodyStore;
 }
-namespace Basics
+namespace Runtime
 {
 class SceneController;
 }
-namespace Basics
+namespace Runtime
 {
 // Concept: Lifecycle events mark scene-owned load boundaries so policy can move
 // behind SceneRuntime without changing Run's process-level sequencing.
@@ -130,7 +130,7 @@ std::string NormalizeSceneQueuePath( const std::string& path );
 
 struct RunSceneState
 {
-    void ResetForLoad( const CinematicRenderConfig&
+    void ResetForLoad( const SkullbonezCore::Core::CinematicRenderConfig&
                            cinematicDefaults ); // Resets per-load state while preserving queue/manual-run ownership.
     Physics::PhysicsSceneObjectId AllocateSceneObjectId();
     Physics::PhysicsSceneObjectId AllocateSceneObjectIdRange( int count );
@@ -173,7 +173,7 @@ struct RunSceneState
     float cinematicGamma = 2.2f;
     uint64_t cinematicOverrideMask = 0;
     uint64_t uiCinematicOverrideMask = 0;       // Cine-tab values edited by sliders/toggles and eligible for Save Defaults
-    CinematicRenderConfig cinematicRender;
+    SkullbonezCore::Core::CinematicRenderConfig cinematicRender;
 };
 
 class SceneRuntime
@@ -210,7 +210,7 @@ class SceneRuntime
     std::vector<RunRequiredBroadphaseXCellsState>& RequiredBroadphaseXCells();
     const std::vector<RunRequiredBroadphaseXCellsState>& RequiredBroadphaseXCells() const;
     void ClearRequiredAutomationGates();
-    void UpdateRequiredContacts( Basics::SceneController& models, float contactEpsilon );
+    void UpdateRequiredContacts( Runtime::SceneController& models, float contactEpsilon );
     bool RequiredContactsComplete() const;
     void UpdateRequiredBroadphaseXCells( const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells,
                                          int activeCellCount );
@@ -223,5 +223,5 @@ class SceneRuntime
     std::vector<RunRequiredBroadphaseXCellsState> m_requiredBroadphaseXCells;
     SceneRuntimeLifecycleEvent m_lastLifecycleEvent = SceneRuntimeLifecycleEvent::None;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

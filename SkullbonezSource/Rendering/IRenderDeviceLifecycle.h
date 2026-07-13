@@ -50,7 +50,7 @@ Related:
 
 #include "../Core/SbResult.h"
 
-#include <windows.h>
+#include "../Core/PlatformWin32.h"
 
 namespace SkullbonezCore
 {
@@ -62,15 +62,15 @@ class IRenderDeviceLifecycle
   public:
     virtual ~IRenderDeviceLifecycle() = default;
 
-    virtual Basics::SbResult Init( HWND hwnd, HDC hdc, int width, int height ) = 0;
+    virtual SkullbonezCore::Core::SbResult Init( HWND hwnd, HDC hdc, int width, int height ) = 0;
     virtual void Shutdown() = 0;
-    virtual Basics::SbResult Present() = 0;
+    virtual SkullbonezCore::Core::SbResult Present() = 0;
     virtual void SetVsyncEnabled( bool enabled ) = 0;
     virtual bool IsVsyncEnabled() const = 0;
-    virtual Basics::SbResult Finish() = 0;
-    virtual Basics::SbResult FlushGPU() = 0;
-    virtual Basics::SbResult DrainForResourceRelease() = 0;
-    virtual Basics::SbResult Resize( int width, int height ) = 0;
+    virtual SkullbonezCore::Core::SbResult Finish() = 0;
+    virtual SkullbonezCore::Core::SbResult FlushGPU() = 0;
+    virtual SkullbonezCore::Core::SbResult DrainForResourceRelease() = 0;
+    virtual SkullbonezCore::Core::SbResult Resize( int width, int height ) = 0;
     virtual int GetWidth() const = 0;
     virtual int GetHeight() const = 0;
 };

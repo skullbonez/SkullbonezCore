@@ -41,7 +41,7 @@ using namespace SkullbonezCore::Physics;
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -490,5 +490,5 @@ void RuntimeTools::ClearEditorHistory()
 {
     m_editor.history.Clear();
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

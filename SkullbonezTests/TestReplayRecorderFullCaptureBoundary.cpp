@@ -36,11 +36,11 @@
 #include <stdexcept>
 #include <string>
 
-using SkullbonezCore::Basics::ReplayFrameIndex;
-using SkullbonezCore::Basics::ReplayRecorder;
-using SkullbonezCore::Basics::ReplayRecorderConfig;
-using SkullbonezCore::Basics::ReplaySolverBodySample;
-using SkullbonezCore::Basics::ReplaySolverFrameSample;
+using SkullbonezCore::Runtime::ReplayFrameIndex;
+using SkullbonezCore::Runtime::ReplayRecorder;
+using SkullbonezCore::Runtime::ReplayRecorderConfig;
+using SkullbonezCore::Runtime::ReplaySolverBodySample;
+using SkullbonezCore::Runtime::ReplaySolverFrameSample;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace

@@ -40,18 +40,18 @@ namespace Rendering
 class IRenderCaptureBackend;
 }
 
-namespace Basics
+namespace Runtime
 {
 struct RunScreenshotState
 {
-    bool isScreenshotSaved = false;   // Screenshot already written this run
-    bool isScreenshotAndExit = false; // Capture frame 1 as SCENENAME.bmp then exit
-    int screenshotFrame = -1;         // Save screenshot at this frame (-1 = unused)
-    int screenshotMs = -1;            // Save screenshot at this elapsed ms (-1 = unused)
-    char screenshotPath[256] = {};    // Output path for screenshot (empty = none)
-    int screenshotInterval = -1;      // Save screenshot every N frames (-1 = disabled)
-    int intervalCaptureCount = 0;     // Sequential counter for interval captures
-    char screenshotDir[256] = {};     // Output directory for interval captures
+    bool isScreenshotSaved = false;               // Screenshot already written this run
+    bool isScreenshotAndExit = false;             // Capture frame 1 as SCENENAME.bmp then exit
+    int screenshotFrame = -1;                     // Save screenshot at this frame (-1 = unused)
+    int screenshotMs = -1;                        // Save screenshot at this elapsed ms (-1 = unused)
+    char screenshotPath[256] = {};                // Output path for screenshot (empty = none)
+    int screenshotInterval = -1;                  // Save screenshot every N frames (-1 = disabled)
+    int intervalCaptureCount = 0;                 // Sequential counter for interval captures
+    char screenshotDir[256] = {};                 // Output directory for interval captures
 };
 
 enum class RuntimeCaptureCompletion
@@ -84,7 +84,7 @@ struct RuntimeCaptureResult
     bool restartFrame = false;
     RuntimeCaptureCompletion completion = RuntimeCaptureCompletion::None;
     RuntimeCaptureAutomation automation = RuntimeCaptureAutomation::None;
-    SbResult captureResult;           // Lane R result from screenshot readback/write side effects.
+    SkullbonezCore::Core::SbResult captureResult; // Lane R result from screenshot readback/write side effects.
 };
 
 class CaptureController;
@@ -94,7 +94,8 @@ class CaptureSystem
     static bool IsScreenshotDue( const RunScreenshotState& screenshot, const RuntimeCaptureSceneContext& context );
     static bool RequiresDeterministicPresentation( const RunScreenshotState& screenshot,
                                                    const RuntimeCaptureSceneContext& context );
-    static SbResult SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend, const char* path );
+    static SkullbonezCore::Core::SbResult SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend,
+                                                             const char* path );
     static RuntimeCaptureResult TickScreenshots( RunScreenshotState& screenshot,
                                                  const RuntimeCaptureSceneContext& context,
                                                  CaptureController& capture,
@@ -109,5 +110,5 @@ class CaptureSystem
                                                CaptureController& capture,
                                                Rendering::IRenderCaptureBackend& backend );
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

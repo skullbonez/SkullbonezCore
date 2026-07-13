@@ -43,7 +43,7 @@ namespace Physics
 class PhysicsEngine;
 }
 
-namespace Basics
+namespace Runtime
 {
 class CaptureController;
 class SceneController;
@@ -117,5 +117,5 @@ class RuntimeViewModelBuilder
     static RuntimeViewModel Build( const RuntimeViewModelContext& context,
                                    const Runtime::Audio::ContactAudioService& contactAudio );
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

@@ -33,7 +33,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 enum class OverlayMode
 {
@@ -98,5 +98,5 @@ struct RunDebugState
     }
 };
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

@@ -31,7 +31,7 @@ Related:
 #pragma once
 
 #include "../../Core/SbResult.h"
-#include "../../GameObjects/SceneCapacity.h"
+#include "SceneCapacity.h"
 #include "../../Physics/PhysicsHandles.h"
 #include "../../Rendering/RenderMaterial.h"
 
@@ -41,7 +41,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct SceneAssetAffiliation
 {
@@ -107,7 +107,7 @@ class SceneEntityStore
     SceneEntityStore();
     void ConfigureCapacity( int capacity );
     void Clear();
-    SbResult PreflightAppend( const SceneEntityCreateDesc& entity ) const;
+    SkullbonezCore::Core::SbResult PreflightAppend( const SceneEntityCreateDesc& entity ) const;
     void CommitAppend( const SceneEntityCreateDesc& entity, Physics::PhysicsBodyHandle body );
     // Called only inside the collection's coordinated cross-store deletion.
     bool DestroyAtSwapLast( int index );
@@ -125,12 +125,12 @@ class SceneEntityStore
     int FindBySceneObjectId( Physics::PhysicsSceneObjectId sceneObjectId ) const;
 
   private:
-    // Why: reserving cold scene metadata avoids touching MAX_GAME_MODELS worth
+    // Why: reserving cold scene metadata avoids touching SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS worth
     // of provenance pages in ordinary scenes while retaining a strict logical
     // ceiling. ConfigureCapacity is a scene-load preallocation boundary; all
     // CommitAppend calls must fit the existing reservation.
     std::vector<SceneEntityRecord> m_records;
-    int m_capacity = DEFAULT_GAME_MODEL_CAPACITY;
+    int m_capacity = SkullbonezCore::Scene::Capacity::DEFAULT_GAME_MODEL_CAPACITY;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

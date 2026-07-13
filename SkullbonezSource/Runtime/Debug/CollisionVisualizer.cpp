@@ -107,10 +107,12 @@ CollisionVisualizer::CollisionVisualizer()
     // Runtime allocation policy: the debug visualizer mirrors model state every
     // frame when enabled. Reserve its per-model and instance staging buffers up
     // front so diagnostics cannot grow heap storage during steady gameplay.
-    m_models.reserve( MAX_GAME_MODELS );
-    m_sleepGroupSizes.reserve( MAX_GAME_MODELS );
-    m_sphereInstanceData.reserve( static_cast<std::size_t>( MAX_GAME_MODELS ) * INSTANCE_FLOATS );
-    m_boxInstanceData.reserve( static_cast<std::size_t>( MAX_GAME_MODELS ) * INSTANCE_FLOATS );
+    m_models.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_sleepGroupSizes.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_sphereInstanceData.reserve( static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ) *
+                                  INSTANCE_FLOATS );
+    m_boxInstanceData.reserve( static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ) *
+                               INSTANCE_FLOATS );
 }
 
 CollisionVisualizer::~CollisionVisualizer()
@@ -191,7 +193,7 @@ void CollisionVisualizer::BuildSphereMesh( IRenderResourceFactory& renderResourc
     m_sphereInstMesh = renderResources.CreateInstancedMesh( verts.data(),
                                                             m_sphereVertexCount,
                                                             6,
-                                                            MAX_GAME_MODELS,
+                                                            SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS,
                                                             INSTANCE_FLOATS,
                                                             3,
                                                             instanceAttribSizes,
@@ -203,7 +205,7 @@ void CollisionVisualizer::BuildSphereMesh( IRenderResourceFactory& renderResourc
 
 void CollisionVisualizer::BuildBoxMesh( IRenderResourceFactory& renderResources )
 {
-    // Same shared unit cube as RenderHelper::BuildBoxMesh(), packed for the
+    // Same shared unit cube as PrimitiveMeshes::EmitUnitBox(), packed for the
     // collision shader's smaller static layout: position plus face normal.
     std::vector<float> verts;
     verts.reserve( PrimitiveMeshes::BoxTriangleVertexCount() * 6 );
@@ -222,7 +224,7 @@ void CollisionVisualizer::BuildBoxMesh( IRenderResourceFactory& renderResources 
     m_boxInstMesh = renderResources.CreateInstancedMesh( verts.data(),
                                                          m_boxVertexCount,
                                                          6,
-                                                         MAX_GAME_MODELS,
+                                                         SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS,
                                                          INSTANCE_FLOATS,
                                                          3,
                                                          instanceAttribSizes,
@@ -294,7 +296,7 @@ void CollisionVisualizer::Update( float dt, const CollisionVisualizerFrameView& 
     }
 
     const std::vector<uint8_t>& contacts = view.collisionContacts;
-    const std::vector<uint8_t>& sleepStates = view.sleepStates;
+    const auto sleepStates = view.sleepStates;
     const float fadeStep = ( FADE_DURATION > 0.0f ) ? ( dt / FADE_DURATION ) : 1.0f;
 
     for ( int i = 0; i < modelCount; ++i )
@@ -326,8 +328,8 @@ void CollisionVisualizer::BuildSleepGroupSizes( const CollisionVisualizerFrameVi
     const int modelCount = view.modelCount;
     m_sleepGroupSizes.assign( modelCount, 1 );
 
-    const std::vector<uint8_t>& sleepStates = view.sleepStates;
-    const std::vector<int>& islandIds = view.sleepIslandVisualIds;
+    const auto sleepStates = view.sleepStates;
+    const auto islandIds = view.sleepIslandVisualIds;
 
     for ( int i = 0; i < modelCount; ++i )
     {
@@ -374,7 +376,7 @@ CollisionVisualizer::Color CollisionVisualizer::ComputeModelColor( int modelInde
         { 0.05f, 0.42f, 1.0f, 1.0f },
     };
 
-    const std::vector<uint8_t>& sleepStates = view.sleepStates;
+    const auto sleepStates = view.sleepStates;
     const bool sleeping = modelIndex < static_cast<int>( sleepStates.size() ) && sleepStates[modelIndex] != 0;
     if ( sleeping )
     {
@@ -386,7 +388,7 @@ CollisionVisualizer::Color CollisionVisualizer::ComputeModelColor( int modelInde
             return yellow;
         }
 
-        const std::vector<int>& islandIds = view.sleepIslandVisualIds;
+        const auto islandIds = view.sleepIslandVisualIds;
         const int islandId = modelIndex < static_cast<int>( islandIds.size() ) && islandIds[modelIndex] != 0
                                  ? islandIds[modelIndex]
                                  : modelIndex + 1;
@@ -511,8 +513,8 @@ void CollisionVisualizer::Render( Assets::AssetSystem& assets,
     // Build primitive streams from the authoritative collision shape. Hulls are
     // drawn after shader constants are bound because each hull emits transient
     // triangle data instead of reusing a cached static mesh.
-    const auto& colliders = view.colliders.Records();
-    const std::vector<RenderInstanceRecord>& instances = view.renderInstances.Records();
+    const auto colliders = view.colliders.Records();
+    const auto instances = view.renderInstances.Records();
     const int modelCount =
         (std::min)( view.modelCount,
                     (std::min)( static_cast<int>( colliders.size() ), static_cast<int>( instances.size() ) ) );

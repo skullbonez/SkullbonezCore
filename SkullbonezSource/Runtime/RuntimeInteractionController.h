@@ -37,7 +37,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct RuntimeGestureCommand;
 struct RuntimeGestureEvent;
@@ -286,5 +286,5 @@ class RuntimeInteractionController
     RuntimeInteractionGesture m_gesture;
     RuntimePointerCaptureOwner m_pointerCapture = RuntimePointerCaptureOwner::None;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

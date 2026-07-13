@@ -43,7 +43,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -98,12 +98,15 @@ std::string NormalizeScenePathForCreate( const std::string& path )
     return normalized;
 }
 
-std::filesystem::path UniqueScenePath( const std::filesystem::path& sceneDir, const std::string& baseName )
+std::filesystem::path
+UniqueScenePath( const std::filesystem::path& sceneDir, const std::string& baseName, std::error_code& error )
 {
+    // Lane R: directory probing is editor-authored IO. Preserve filesystem
+    // errors for the caller instead of invoking a throwing overload.
     std::filesystem::path candidate = sceneDir / ( baseName + ".scene.json" );
-    if ( !std::filesystem::exists( candidate ) )
+    if ( !std::filesystem::exists( candidate, error ) )
     {
-        return candidate;
+        return error ? std::filesystem::path() : candidate;
     }
 
     for ( int suffix = 2; suffix < 1000; ++suffix )
@@ -111,9 +114,9 @@ std::filesystem::path UniqueScenePath( const std::filesystem::path& sceneDir, co
         char numberedName[80] = {};
         std::snprintf( numberedName, sizeof( numberedName ), "%s_%02d.scene.json", baseName.c_str(), suffix );
         candidate = sceneDir / numberedName;
-        if ( !std::filesystem::exists( candidate ) )
+        if ( !std::filesystem::exists( candidate, error ) )
         {
-            return candidate;
+            return error ? std::filesystem::path() : candidate;
         }
     }
     return std::filesystem::path();
@@ -191,16 +194,17 @@ SceneLoadRequest CreateSceneFromUI( SceneRuntimeCreateContext context, const cha
     std::filesystem::create_directories( sceneDir, ec );
     if ( ec )
     {
-        Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"mkdir\" message=\"%s\"",
-                           cleanName.c_str(),
-                           ec.message().c_str() );
+        SkullbonezCore::Core::Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"mkdir\" message=\"%s\"",
+                                                 cleanName.c_str(),
+                                                 ec.message().c_str() );
         return SceneLoadRequest::None();
     }
 
-    const std::filesystem::path scenePath = UniqueScenePath( sceneDir, cleanName );
+    const std::filesystem::path scenePath = UniqueScenePath( sceneDir, cleanName, ec );
     if ( scenePath.empty() || !WriteStarterSceneFile( scenePath, cleanName ) )
     {
-        Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"write\"", cleanName.c_str() );
+        SkullbonezCore::Core::Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"write\"",
+                                                 cleanName.c_str() );
         return SceneLoadRequest::None();
     }
 
@@ -209,5 +213,5 @@ SceneLoadRequest CreateSceneFromUI( SceneRuntimeCreateContext context, const cha
     return SceneLoadRequest::Load( context.controller.Append( normalizedPath ), true, true, false, true );
 }
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

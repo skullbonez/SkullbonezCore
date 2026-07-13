@@ -25,7 +25,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 bool TryCaptureEditorPrimitiveShape( const Math::CollisionDetection::CollisionShape& shape,
                                      EditorPrimitiveShapeSnapshot& outSnapshot )
@@ -160,5 +160,5 @@ std::size_t EditorCommandHistory::StoredCount() const
 {
     return m_count;
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

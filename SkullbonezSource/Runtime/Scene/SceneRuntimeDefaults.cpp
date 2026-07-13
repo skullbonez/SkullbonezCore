@@ -38,7 +38,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -257,7 +257,7 @@ bool WriteConfigLines( const std::string& configPath, const std::vector<std::str
 void StampCurrentConfigVersion( std::vector<std::string>& lines )
 {
     char version[16] = {};
-    sprintf_s( version, "%u", ENGINE_CONFIG_FORMAT_VERSION );
+    sprintf_s( version, "%u", SkullbonezCore::Core::ENGINE_CONFIG_FORMAT_VERSION );
     if ( ReplaceConfigLine( lines, "format_version", version ) )
     {
         return;
@@ -271,13 +271,13 @@ void StampCurrentConfigVersion( std::vector<std::string>& lines )
 
 } // namespace
 
-SbResult SaveRenderDefaults( const OrdinaryRenderConfig& ordinary )
+SkullbonezCore::Core::SbResult SaveRenderDefaults( const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary )
 {
     // Concept: Saving ordinary defaults is a text rewrite, not a full config
     // serialization. Unknown keys and comments must survive the round trip.
     const std::string configPath = std::string( DATA_ROOT ) + "engine.cfg";
-    EngineConfig versionProbe;
-    const SbResult versionResult = versionProbe.Load( configPath.c_str() );
+    SkullbonezCore::Core::EngineConfig versionProbe;
+    const SkullbonezCore::Core::SbResult versionResult = versionProbe.Load( configPath.c_str() );
     if ( !versionResult.ok )
     {
         // Hazard: writers must never turn a future document into an older
@@ -288,9 +288,9 @@ SbResult SaveRenderDefaults( const OrdinaryRenderConfig& ordinary )
     if ( !LoadConfigLines( configPath, lines ) )
     {
         // Lane R: the user-facing config may be missing, locked, or unreadable.
-        return SbResult::Failure( "Runtime/RenderDefaultsStore",
-                                  "Could not read render defaults file: %s",
-                                  configPath.c_str() );
+        return SkullbonezCore::Core::SbResult::Failure( "Runtime/RenderDefaultsStore",
+                                                        "Could not read render defaults file: %s",
+                                                        configPath.c_str() );
     }
 
     std::vector<std::string> missing;
@@ -358,18 +358,18 @@ SbResult SaveRenderDefaults( const OrdinaryRenderConfig& ordinary )
     StampCurrentConfigVersion( lines );
     if ( !WriteConfigLines( configPath, lines ) )
     {
-        return SbResult::Failure( "Runtime/RenderDefaultsStore",
-                                  "Could not write render defaults file: %s",
-                                  configPath.c_str() );
+        return SkullbonezCore::Core::SbResult::Failure( "Runtime/RenderDefaultsStore",
+                                                        "Could not write render defaults file: %s",
+                                                        configPath.c_str() );
     }
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
-SbResult SaveSkyDefaults( const CinematicRenderConfig& cinematic )
+SkullbonezCore::Core::SbResult SaveSkyDefaults( const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     const std::string configPath = std::string( DATA_ROOT ) + "engine.cfg";
-    EngineConfig versionProbe;
-    const SbResult versionResult = versionProbe.Load( configPath.c_str() );
+    SkullbonezCore::Core::EngineConfig versionProbe;
+    const SkullbonezCore::Core::SbResult versionResult = versionProbe.Load( configPath.c_str() );
     if ( !versionResult.ok )
     {
         return versionResult;
@@ -377,9 +377,9 @@ SbResult SaveSkyDefaults( const CinematicRenderConfig& cinematic )
     std::vector<std::string> lines;
     if ( !LoadConfigLines( configPath, lines ) )
     {
-        return SbResult::Failure( "Runtime/RenderDefaultsStore",
-                                  "Could not read cinematic defaults file: %s",
-                                  configPath.c_str() );
+        return SkullbonezCore::Core::SbResult::Failure( "Runtime/RenderDefaultsStore",
+                                                        "Could not read cinematic defaults file: %s",
+                                                        configPath.c_str() );
     }
 
     std::vector<std::string> missing;
@@ -448,12 +448,12 @@ SbResult SaveSkyDefaults( const CinematicRenderConfig& cinematic )
     StampCurrentConfigVersion( lines );
     if ( !WriteConfigLines( configPath, lines ) )
     {
-        return SbResult::Failure( "Runtime/RenderDefaultsStore",
-                                  "Could not write cinematic defaults file: %s",
-                                  configPath.c_str() );
+        return SkullbonezCore::Core::SbResult::Failure( "Runtime/RenderDefaultsStore",
+                                                        "Could not write cinematic defaults file: %s",
+                                                        configPath.c_str() );
     }
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

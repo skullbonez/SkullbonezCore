@@ -30,7 +30,7 @@ Related:
 
 #include "ReplayRetainedMemory.h"
 
-namespace SkullbonezCore::Basics
+namespace SkullbonezCore::Runtime
 {
 Runtime::Allocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner() noexcept;
 bool RequestReplayPredictionReserveGrowth( const char* targetName,
@@ -39,4 +39,4 @@ bool RequestReplayPredictionReserveGrowth( const char* targetName,
                                            int requestedCapacityBytes,
                                            int elementSizeBytes,
                                            Runtime::Allocation::RuntimeReserveGrowthResult& outResult ) noexcept;
-} // namespace SkullbonezCore::Basics
+} // namespace SkullbonezCore::Runtime

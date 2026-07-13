@@ -144,9 +144,9 @@ void TickContactSeconds( float& seconds, float deltaSeconds )
 
 RenderInstanceStore::RenderInstanceStore()
 {
-    m_presentationRecords.reserve( MAX_GAME_MODELS );
-    m_instances.reserve( MAX_GAME_MODELS );
-    m_modelInstanceHandles.reserve( MAX_GAME_MODELS );
+    m_presentationRecords.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_instances.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_modelInstanceHandles.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
 }
 
 
@@ -258,7 +258,7 @@ RenderInstancePresentationRecord* RenderInstanceStore::MutablePresentationRecord
 }
 
 
-const std::vector<RenderInstancePresentationRecord>& RenderInstanceStore::PresentationRecords() const
+std::span<const RenderInstancePresentationRecord> RenderInstanceStore::PresentationRecords() const
 {
     return m_presentationRecords;
 }
@@ -332,7 +332,7 @@ void RenderInstanceStore::BeginPhysicsStepPoseCapture( const PhysicsBodyStore& b
                   Count() );
     }
 
-    const auto& bodies = bodyStore.Records();
+    const auto bodies = bodyStore.Records();
     for ( int index = 0; index < bodyStore.Count(); ++index )
     {
         RenderInstanceRecord& record = m_instances[static_cast<std::size_t>( index )];
@@ -359,7 +359,7 @@ void RenderInstanceStore::CompletePhysicsStepPoseCapture( const PhysicsBodyStore
                   Count() );
     }
 
-    const auto& bodies = bodyStore.Records();
+    const auto bodies = bodyStore.Records();
     for ( int index = 0; index < bodyStore.Count(); ++index )
     {
         RenderInstanceRecord& record = m_instances[static_cast<std::size_t>( index )];
@@ -416,8 +416,8 @@ void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* prese
     }
     assert( presentation != nullptr || presentationCount == 0 );
 
-    const auto& bodies = bodyStore.Records();
-    const auto& colliders = colliderStore.Records();
+    const auto bodies = bodyStore.Records();
+    const auto colliders = colliderStore.Records();
 
     // Invariant: render instance handles intentionally mirror model slots until
     // a future renderer-facing allocation owner replaces them with render ids.
@@ -505,7 +505,7 @@ bool RenderInstanceStore::OverridePose( int modelIndex,
         return false;
     }
 
-    const auto& colliders = colliderStore.Records();
+    const auto colliders = colliderStore.Records();
     if ( modelIndex >= static_cast<int>( colliders.size() ) )
     {
         return false;
@@ -580,7 +580,13 @@ bool RenderInstanceStore::Contains( RenderInstanceHandle handle ) const
 }
 
 
-const std::vector<RenderInstanceRecord>& RenderInstanceStore::Records() const
+std::span<const RenderInstanceRecord> RenderInstanceStore::Records() const
 {
     return m_instances;
+}
+
+
+std::size_t RenderInstanceStore::RecordCapacity() const
+{
+    return m_instances.capacity();
 }

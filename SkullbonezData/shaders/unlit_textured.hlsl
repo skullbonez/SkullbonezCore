@@ -21,7 +21,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 // =============================================================================
-// UNLIT TEXTURED SHADER — HLSL 5.0 (Combined VS+PS)
+// UNLIT TEXTURED SHADER — Shader Model 6.6 (Combined VS+PS)
 // =============================================================================
 //
 // PURPOSE: Simple MVP transform + texture sample, no lighting. Used for skybox.
@@ -49,7 +49,19 @@ cbuffer Uniforms : register(b0)
     float4   uColorTint;   // Color multiplier (default 1,1,1,1 = no tint)
 };
 
-Texture2D    uTexture  : register(t0);  // The skybox face texture
+// Invariant: b1 carries stable indices into the directly indexed shader-visible
+// heap; the pipeline owner writes all six root constants before every draw.
+cbuffer BindlessTextureIndices : register(b1)
+{
+    uint4 _textureDescriptorIndices0;
+    uint2 _textureDescriptorIndices1;
+};
+
+uint BindlessTextureIndex(uint slot)
+{
+    return slot < 4u ? _textureDescriptorIndices0[slot] : _textureDescriptorIndices1[slot - 4u];
+}
+
 SamplerState sSampler0 : register(s0);  // Texture filtering settings
 
 struct VS_IN
@@ -78,5 +90,6 @@ VS_OUT main_vs(VS_IN input)
 float4 main_ps(VS_OUT input) : SV_TARGET
 {
     // Sample texture and apply color tint. No lighting calculations.
-    return uTexture.Sample(sSampler0, input.texCoord) * uColorTint;
+    Texture2D<float4> textureSource = ResourceDescriptorHeap[BindlessTextureIndex(0u)];
+    return textureSource.Sample(sSampler0, input.texCoord) * uColorTint;
 }

@@ -63,13 +63,7 @@ using namespace SkullbonezCore::GameObjects;
 using SkullbonezCore::Assets::EditorHullAsset;
 using SkullbonezCore::Assets::EditorHullAssetFromToken;
 using SkullbonezCore::Assets::EditorHullAssetToken;
-using SkullbonezCore::Basics::RuntimeFileWriter;
-using SkullbonezCore::Basics::SbResult;
-using SkullbonezCore::Basics::SceneAssetAffiliation;
-using SkullbonezCore::Basics::SceneBehaviorGroup;
-using SkullbonezCore::Basics::SceneBehaviorGroupKind;
-using SkullbonezCore::Basics::SceneEntityRecord;
-using SkullbonezCore::Basics::SceneEntityStore;
+using SkullbonezCore::Core::SbResult;
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
@@ -79,6 +73,12 @@ using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
+using SkullbonezCore::Runtime::RuntimeFileWriter;
+using SkullbonezCore::Runtime::SceneAssetAffiliation;
+using SkullbonezCore::Runtime::SceneBehaviorGroup;
+using SkullbonezCore::Runtime::SceneBehaviorGroupKind;
+using SkullbonezCore::Runtime::SceneEntityRecord;
+using SkullbonezCore::Runtime::SceneEntityStore;
 
 namespace
 {
@@ -278,7 +278,8 @@ bool SameAssetInstance( const SceneAssetAffiliation& a, const SceneAssetAffiliat
 } // namespace
 
 
-SbResult SceneSnapshotWriter::Save( const SceneSaveView& sceneView, const SceneSaveRequest& request )
+SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveView& sceneView,
+                                                          const SceneSaveRequest& request )
 {
     // Invariant: Editable scene saves emit state-form objects whose positions,
     // velocities, sleeping flags, and materials can round-trip through
@@ -522,16 +523,16 @@ SbResult SceneSnapshotWriter::Save( const SceneSaveView& sceneView, const SceneS
     std::ofstream output;
     if ( !request.path || request.path[0] == '\0' || !RuntimeFileWriter::OpenTextFile( request.path, output ) )
     {
-        return SbResult::Failure( "Scene/SceneSnapshotWriter",
-                                  "Failed to open scene snapshot path '%s' for writing.",
-                                  request.path ? request.path : "" );
+        return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneSnapshotWriter",
+                                                        "Failed to open scene snapshot path '%s' for writing.",
+                                                        request.path ? request.path : "" );
     }
     output << serializedScene << '\n';
     if ( !output.good() )
     {
-        return SbResult::Failure( "Scene/SceneSnapshotWriter",
-                                  "Failed while writing scene snapshot '%s'.",
-                                  request.path );
+        return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneSnapshotWriter",
+                                                        "Failed while writing scene snapshot '%s'.",
+                                                        request.path );
     }
-    return SbResult::Success();
+    return SkullbonezCore::Core::SbResult::Success();
 }

@@ -107,12 +107,13 @@ bool MeshDX12::Create( ID3D12Device* device,
         // Lane R: mesh buffers are backend resources. Factory callers receive
         // a null mesh and skip the dependent draw path while the DX12 gate keeps
         // the HRESULT visible.
-        Log().WriteEventf( "dx12_mesh_vertex_buffer_create_failed hresult=0x%08X vertices=%d stride=%d bytes=%llu",
-                           static_cast<unsigned int>( hr ),
-                           vertexCount,
-                           m_stride,
-                           static_cast<unsigned long long>( dataSize ) );
-        Log().FlushAll();
+        SkullbonezCore::Core::Log().WriteEventf(
+            "dx12_mesh_vertex_buffer_create_failed hresult=0x%08X vertices=%d stride=%d bytes=%llu",
+            static_cast<unsigned int>( hr ),
+            vertexCount,
+            m_stride,
+            static_cast<unsigned long long>( dataSize ) );
+        SkullbonezCore::Core::Log().FlushAll();
         return false;
     }
     NameDx12Object( m_vertexBuffer, L"Skullbonez DX12 Mesh Vertex Buffer" );

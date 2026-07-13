@@ -41,7 +41,7 @@ Related:
 #include <cmath>
 #include <cassert>
 #include "../Core/Common.h"
-#include "../GameObjects/SceneCapacity.h"
+#include "../Runtime/Scene/SceneCapacity.h"
 #include "../Maths/Vector3.h"
 
 namespace SkullbonezCore
@@ -84,12 +84,15 @@ class SpatialGrid
     // one tick. Large projectile clouds should use a dedicated ray/query path.
     static constexpr int TABLE_SIZE = 4096;
     static constexpr int TABLE_MASK = TABLE_SIZE - 1;
-    static constexpr int MAX_STATIC_CELL_ENTRIES = MAX_GAME_MODELS * 8;
+    static constexpr int MAX_STATIC_CELL_ENTRIES = SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 8;
     static constexpr int MAX_SWEPT_CELL_ENTRIES = 4096;
     static constexpr int MAX_CELL_ENTRIES = MAX_STATIC_CELL_ENTRIES + MAX_SWEPT_CELL_ENTRIES + 4;
     static constexpr int MAX_SWEPT_AABB_CELLS = MAX_SWEPT_CELL_ENTRIES / 2;
     static constexpr int MAX_SWEPT_TRAVERSED_CELLS = MAX_SWEPT_CELL_ENTRIES;
-    static constexpr int PAIR_WORDS = ( MAX_GAME_MODELS * ( MAX_GAME_MODELS - 1 ) / 2 + 63 ) / 64;
+    static constexpr int PAIR_WORDS = ( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS *
+                                            ( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS - 1 ) / 2 +
+                                        63 ) /
+                                      64;
 
     struct Entry
     {

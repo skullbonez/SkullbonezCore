@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/GameObjects/SceneCapacity.h
+File: SkullbonezSource/Runtime/Scene/SceneCapacity.h
 Purpose:
   Owns compile-time scene and presentation capacity constants shared by model,
   camera, texture, physics, replay, and render storage.
@@ -25,14 +25,17 @@ Invariants:
     because camera and texture owners use fixed-size arrays.
 
 Related:
-  - SkullbonezSource/Core/Common.h includes this during the aliasing period.
-  - SkullbonezSource/GameObjects/SceneController.h applies active capacity.
+  - SkullbonezSource/Runtime/Scene/SceneController.h applies active capacity.
+  - SkullbonezSource/Physics/PhysicsBodyStore.h fixes body storage to the scene ceiling.
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 
+namespace SkullbonezCore::Scene::Capacity
+{
 constexpr int TOTAL_CAMERA_COUNT = 8;
 constexpr int TOTAL_TEXTURE_COUNT = 8;
 constexpr int DEFAULT_GAME_MODEL_CAPACITY = 4000;
 constexpr int MAX_GAME_MODELS = 8192;
 constexpr int DEFAULT_GAME_MODELS = 300;
+} // namespace SkullbonezCore::Scene::Capacity

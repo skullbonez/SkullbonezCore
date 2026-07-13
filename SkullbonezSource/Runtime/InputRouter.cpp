@@ -34,7 +34,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -730,5 +730,5 @@ void InputRouter::SampleKeyboard( const DeviceInputFrame& frame, RuntimeInputKey
         }
     }
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

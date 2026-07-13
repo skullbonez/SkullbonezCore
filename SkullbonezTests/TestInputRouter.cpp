@@ -38,7 +38,7 @@ Related:
 
 #include <initializer_list>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 
 namespace
 {

@@ -41,7 +41,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
 {
 /* -- EngineLog
 ----------------------------------------------------------------------------------------------------------------------------------------------
@@ -97,12 +97,12 @@ class EngineLog
     std::unordered_map<std::string, FILE*> m_logs;
 #endif
 };
-} // namespace Basics
-} // namespace SkullbonezCore
 
 // Why: Log() stays as a tiny convenience wrapper, but callers now include this
 // owner header directly instead of receiving logging through Common.h.
-inline SkullbonezCore::Basics::EngineLog& Log()
+inline EngineLog& Log()
 {
-    return SkullbonezCore::Basics::EngineLog::Get();
+    return EngineLog::Get();
 }
+} // namespace Core
+} // namespace SkullbonezCore

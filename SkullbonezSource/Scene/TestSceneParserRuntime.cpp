@@ -26,8 +26,23 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
+using TestSceneParserDetail::CopyStringField;
+using TestSceneParserDetail::Fail;
+using TestSceneParserDetail::FindMember;
+using TestSceneParserDetail::Lowercase;
+using TestSceneParserDetail::MaxConfigurableWorkerThreadCount;
+using TestSceneParserDetail::ReadBool;
+using TestSceneParserDetail::ReadFloat;
+using TestSceneParserDetail::ReadInt;
+using TestSceneParserDetail::ReadString;
+using TestSceneParserDetail::ReadUInt;
+using TestSceneParserDetail::ReadVec3;
+using TestSceneParserDetail::RequireArray;
+using TestSceneParserDetail::RequireMember;
+using TestSceneParserDetail::RequireObject;
+
 void TestSceneParser::ApplyPlayback( const Json& playback, const std::string& path )
 {
     // Concept: playback fields are deterministic-run policy, not presentation
@@ -185,7 +200,7 @@ void TestSceneParser::ApplySimulation( const Json& simulation, const std::string
     if ( const Json* modelCapacity = FindMember( simulation, "modelCapacity" ) )
     {
         const int value = ReadInt( *modelCapacity, path, "simulation.modelCapacity" );
-        if ( value <= 0 || value > MAX_GAME_MODELS )
+        if ( value <= 0 || value > SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
         {
             Fail( path, "simulation.modelCapacity is out of range" );
         }
@@ -418,5 +433,5 @@ void TestSceneParser::ApplyLogging( const Json& logging, const std::string& path
 }
 
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

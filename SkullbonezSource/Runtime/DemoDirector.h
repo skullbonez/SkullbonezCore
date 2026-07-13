@@ -39,7 +39,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 enum class PhaseAdvance
 {
@@ -112,5 +112,5 @@ bool LoadDemoShotList( const char* path, DemoShotList& outShotList );
 // Writes the stable `.shot.json` schema and creates the parent folder if needed.
 bool SaveDemoShotList( const char* path, const DemoShotList& shotList );
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

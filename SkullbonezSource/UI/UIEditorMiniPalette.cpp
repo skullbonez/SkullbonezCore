@@ -324,19 +324,19 @@ int SceneDropdownHitboxOptionCount( const SceneTab::UISceneTabState& state, cons
 {
     const int filteredSceneCount =
         SceneTab::CountFilteredOptions( data.sceneOptions, data.sceneOptionCount, state.filter );
-    const int sceneVisibleCount = SceneComboVisibleCount( filteredSceneCount );
+    const int sceneVisibleCount = Layout::SceneComboVisibleCount( filteredSceneCount );
     return sceneVisibleCount == 0 && state.filter[0] != '\0' ? 1 : sceneVisibleCount;
 }
 
 void EllipsizeToWidth( char* text, size_t textSize, float pxSize, float maxWidth )
 {
-    if ( !text || textSize == 0 || Text2d::MeasureText( pxSize, text ) <= maxWidth )
+    if ( !text || textSize == 0 || Text::Text2d::MeasureText( pxSize, text ) <= maxWidth )
     {
         return;
     }
 
     size_t len = strlen( text );
-    while ( len > 3 && Text2d::MeasureText( pxSize, text ) > maxWidth )
+    while ( len > 3 && Text::Text2d::MeasureText( pxSize, text ) > maxWidth )
     {
         text[len - 3] = '.';
         text[len - 2] = '.';
@@ -403,7 +403,7 @@ int RenderTargetsContentHeight()
     return static_cast<int>( UI_TARGETS_CONTENT_H );
 }
 
-float RenderValueForParam( const OrdinaryRenderConfig& ordinary, UIRenderParam param )
+float RenderValueForParam( const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary, UIRenderParam param )
 {
     switch ( param )
     {
@@ -474,7 +474,7 @@ void SetRenderSliderResult( InGameUIInputResult& result,
 
 float EditorMiniChipWidth( const char* label )
 {
-    return Text2d::MeasureText( 10.5f, label ? label : "" ) + 18.0f;
+    return Text::Text2d::MeasureText( 10.5f, label ? label : "" ) + 18.0f;
 }
 
 
@@ -523,7 +523,7 @@ float EditorMinimizedWidth( const InGameUIFrameData& data, int screenW )
     const char* modeLabel = data.editorPlacementMode ? "Place" : "Gizmo";
     const char* bodyLabel = data.editorPlaceStatic ? "Static" : "Dynamic";
     const char* alignLabel = data.editorTerrainAlign ? "Align" : "Level";
-    const float desiredW = 140.0f + Text2d::MeasureText( 12.0f, shapeLabel ) + EditorMiniChipWidth( modeLabel ) +
+    const float desiredW = 140.0f + Text::Text2d::MeasureText( 12.0f, shapeLabel ) + EditorMiniChipWidth( modeLabel ) +
                            EditorMiniChipWidth( bodyLabel ) + EditorMiniChipWidth( alignLabel );
     return std::clamp( desiredW, 376.0f, maxW );
 }

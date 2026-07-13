@@ -51,7 +51,7 @@ Related:
 
 #include "../../Core/SbResult.h"
 
-#include <windows.h>
+#include "../../Core/PlatformWin32.h"
 
 #include <cstdint>
 #include <cstring>
@@ -139,11 +139,11 @@ class Dx12CommandRecordingState
     void ResetForDevice()
     {
         m_epoch = Dx12CommandRecordingEpoch::Closed;
-        m_firstFailure = Basics::SbResult::Success();
+        m_firstFailure = SkullbonezCore::Core::SbResult::Success();
         m_allocatorResetCommitted = false;
     }
 
-    Basics::SbResult CommitClose( HRESULT result, const char* operation = "command list Close" )
+    SkullbonezCore::Core::SbResult CommitClose( HRESULT result, const char* operation = "command list Close" )
     {
         const char* operationName = operation ? operation : "command list Close";
         if ( HasFailure() )
@@ -152,25 +152,26 @@ class Dx12CommandRecordingState
         }
         if ( FAILED( result ) )
         {
-            return RetainFailure( Basics::SbResult::Failure( "Rendering/DX12",
-                                                             "%s failed (HRESULT 0x%08X)",
-                                                             operationName,
-                                                             static_cast<unsigned int>( result ) ) );
+            return RetainFailure( SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                                           "%s failed (HRESULT 0x%08X)",
+                                                                           operationName,
+                                                                           static_cast<unsigned int>( result ) ) );
         }
         if ( m_epoch != Dx12CommandRecordingEpoch::Open )
         {
             return RetainFailure(
-                Basics::SbResult::Failure( "Rendering/DX12",
-                                           "%s succeeded while the command list was not logically open",
-                                           operationName ) );
+                SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                         "%s succeeded while the command list was not logically open",
+                                                         operationName ) );
         }
 
         m_epoch = Dx12CommandRecordingEpoch::Closed;
         m_allocatorResetCommitted = false;
-        return Basics::SbResult::Success();
+        return SkullbonezCore::Core::SbResult::Success();
     }
 
-    Basics::SbResult CommitAllocatorReset( HRESULT result, const char* operation = "command allocator Reset" )
+    SkullbonezCore::Core::SbResult CommitAllocatorReset( HRESULT result,
+                                                         const char* operation = "command allocator Reset" )
     {
         const char* operationName = operation ? operation : "command allocator Reset";
         if ( HasFailure() )
@@ -179,23 +180,24 @@ class Dx12CommandRecordingState
         }
         if ( m_epoch != Dx12CommandRecordingEpoch::Closed )
         {
-            return RetainFailure( Basics::SbResult::Failure( "Rendering/DX12",
-                                                             "%s attempted while the command list was logically open",
-                                                             operationName ) );
+            return RetainFailure(
+                SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                         "%s attempted while the command list was logically open",
+                                                         operationName ) );
         }
         if ( FAILED( result ) )
         {
-            return RetainFailure( Basics::SbResult::Failure( "Rendering/DX12",
-                                                             "%s failed (HRESULT 0x%08X)",
-                                                             operationName,
-                                                             static_cast<unsigned int>( result ) ) );
+            return RetainFailure( SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                                           "%s failed (HRESULT 0x%08X)",
+                                                                           operationName,
+                                                                           static_cast<unsigned int>( result ) ) );
         }
 
         m_allocatorResetCommitted = true;
-        return Basics::SbResult::Success();
+        return SkullbonezCore::Core::SbResult::Success();
     }
 
-    Basics::SbResult CommitListReset( HRESULT result, const char* operation = "command list Reset" )
+    SkullbonezCore::Core::SbResult CommitListReset( HRESULT result, const char* operation = "command list Reset" )
     {
         const char* operationName = operation ? operation : "command list Reset";
         if ( HasFailure() )
@@ -204,29 +206,30 @@ class Dx12CommandRecordingState
         }
         if ( m_epoch != Dx12CommandRecordingEpoch::Closed || !m_allocatorResetCommitted )
         {
-            return RetainFailure( Basics::SbResult::Failure( "Rendering/DX12",
-                                                             "%s attempted before a successful allocator Reset",
-                                                             operationName ) );
+            return RetainFailure(
+                SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                         "%s attempted before a successful allocator Reset",
+                                                         operationName ) );
         }
         if ( FAILED( result ) )
         {
-            return RetainFailure( Basics::SbResult::Failure( "Rendering/DX12",
-                                                             "%s failed (HRESULT 0x%08X)",
-                                                             operationName,
-                                                             static_cast<unsigned int>( result ) ) );
+            return RetainFailure( SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                                           "%s failed (HRESULT 0x%08X)",
+                                                                           operationName,
+                                                                           static_cast<unsigned int>( result ) ) );
         }
 
         m_epoch = Dx12CommandRecordingEpoch::Open;
         m_allocatorResetCommitted = false;
-        return Basics::SbResult::Success();
+        return SkullbonezCore::Core::SbResult::Success();
     }
 
-    Basics::SbResult CommitWait( const Basics::SbResult& result )
+    SkullbonezCore::Core::SbResult CommitWait( const SkullbonezCore::Core::SbResult& result )
     {
         return result.ok ? CurrentResult() : RetainFailure( result );
     }
 
-    Basics::SbResult RetainFailure( const Basics::SbResult& result )
+    SkullbonezCore::Core::SbResult RetainFailure( const SkullbonezCore::Core::SbResult& result )
     {
         if ( !result.ok && !HasFailure() )
         {
@@ -255,14 +258,14 @@ class Dx12CommandRecordingState
         return !m_firstFailure.ok;
     }
 
-    const Basics::SbResult& CurrentResult() const
+    const SkullbonezCore::Core::SbResult& CurrentResult() const
     {
         return m_firstFailure;
     }
 
   private:
     Dx12CommandRecordingEpoch m_epoch = Dx12CommandRecordingEpoch::Closed;
-    Basics::SbResult m_firstFailure = Basics::SbResult::Success();
+    SkullbonezCore::Core::SbResult m_firstFailure = SkullbonezCore::Core::SbResult::Success();
     bool m_allocatorResetCommitted = false;
 };
 
@@ -306,7 +309,7 @@ class Dx12SubmittedWorkState
         m_completionFence = 0;
     }
 
-    void CommitSignal( const Basics::SbResult& result, UINT64 fenceValue )
+    void CommitSignal( const SkullbonezCore::Core::SbResult& result, UINT64 fenceValue )
     {
         if ( !result.ok )
         {
@@ -334,7 +337,7 @@ class Dx12SubmittedWorkState
         m_completionFence = fenceValue;
     }
 
-    void CommitWait( const Basics::SbResult& result, UINT64 waitedFence )
+    void CommitWait( const SkullbonezCore::Core::SbResult& result, UINT64 waitedFence )
     {
         if ( !result.ok )
         {
@@ -487,7 +490,7 @@ class Dx12GpuDrainProgress
 
 struct Dx12MappedPointerResult
 {
-    Basics::SbResult result = Basics::SbResult::Success();
+    SkullbonezCore::Core::SbResult result = SkullbonezCore::Core::SbResult::Success();
     void* pointer = nullptr;
 };
 
@@ -498,17 +501,17 @@ ValidateDx12MappedPointer( HRESULT mapResult, void* mappedPointer, const char* o
     Dx12MappedPointerResult checked;
     if ( FAILED( mapResult ) )
     {
-        checked.result = Basics::SbResult::Failure( "Rendering/DX12",
-                                                    "%s failed (HRESULT 0x%08X)",
-                                                    operation ? operation : "resource Map",
-                                                    static_cast<unsigned int>( mapResult ) );
+        checked.result = SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                                  "%s failed (HRESULT 0x%08X)",
+                                                                  operation ? operation : "resource Map",
+                                                                  static_cast<unsigned int>( mapResult ) );
         return checked;
     }
     if ( !mappedPointer )
     {
-        checked.result = Basics::SbResult::Failure( "Rendering/DX12",
-                                                    "%s succeeded without returning a mapped pointer",
-                                                    operation ? operation : "resource Map" );
+        checked.result = SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                                  "%s succeeded without returning a mapped pointer",
+                                                                  operation ? operation : "resource Map" );
         return checked;
     }
 
@@ -526,18 +529,18 @@ class Dx12DeviceHealthState
     void ResetForDevice()
     {
         m_lost = false;
-        m_firstFailure = Basics::SbResult::Success();
+        m_firstFailure = SkullbonezCore::Core::SbResult::Success();
     }
 
-    Basics::SbResult RetainDeviceLoss( const char* operation, HRESULT result )
+    SkullbonezCore::Core::SbResult RetainDeviceLoss( const char* operation, HRESULT result )
     {
         if ( !m_lost )
         {
             m_lost = true;
-            m_firstFailure = Basics::SbResult::Failure( "Rendering/DX12",
-                                                        "DX12 device lost during %s (HRESULT 0x%08X)",
-                                                        operation ? operation : "unknown operation",
-                                                        static_cast<unsigned int>( result ) );
+            m_firstFailure = SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                                      "DX12 device lost during %s (HRESULT 0x%08X)",
+                                                                      operation ? operation : "unknown operation",
+                                                                      static_cast<unsigned int>( result ) );
         }
         return m_firstFailure;
     }
@@ -552,13 +555,13 @@ class Dx12DeviceHealthState
         return m_lost;
     }
 
-    const Basics::SbResult& CurrentResult() const
+    const SkullbonezCore::Core::SbResult& CurrentResult() const
     {
         return m_firstFailure;
     }
 
   private:
-    Basics::SbResult m_firstFailure = Basics::SbResult::Success();
+    SkullbonezCore::Core::SbResult m_firstFailure = SkullbonezCore::Core::SbResult::Success();
     bool m_lost = false;
 };
 
@@ -586,7 +589,7 @@ class Dx12RecreationTransaction
     {
         m_stage = Dx12RecreationStage::Idle;
         m_publishedGeneration = publishedGeneration;
-        m_firstFailure = Basics::SbResult::Success();
+        m_firstFailure = SkullbonezCore::Core::SbResult::Success();
     }
 
     bool CommitCandidateReady()
@@ -619,11 +622,12 @@ class Dx12RecreationTransaction
         return true;
     }
 
-    Basics::SbResult Fail( const Basics::SbResult& result )
+    SkullbonezCore::Core::SbResult Fail( const SkullbonezCore::Core::SbResult& result )
     {
         if ( result.ok )
         {
-            return Basics::SbResult::Failure( "Rendering/DX12", "Recreation failure requires a failed result" );
+            return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                            "Recreation failure requires a failed result" );
         }
         if ( m_stage != Dx12RecreationStage::Failed )
         {
@@ -664,7 +668,7 @@ class Dx12RecreationTransaction
         return true;
     }
 
-    Basics::SbResult m_firstFailure = Basics::SbResult::Success();
+    SkullbonezCore::Core::SbResult m_firstFailure = SkullbonezCore::Core::SbResult::Success();
     Dx12RecreationStage m_stage = Dx12RecreationStage::Idle;
     uint64_t m_publishedGeneration = 0;
 };
@@ -682,14 +686,14 @@ class Dx12FaultInjectionState
         m_injected = false;
         m_submissionCount = 0;
         m_blockedSubmissionCount = 0;
-        m_firstFailure = Basics::SbResult::Success();
+        m_firstFailure = SkullbonezCore::Core::SbResult::Success();
     }
 
-    Basics::SbResult BeforeSubmission()
+    SkullbonezCore::Core::SbResult BeforeSubmission()
     {
         if ( !m_armedBeforeFirstSubmission )
         {
-            return Basics::SbResult::Success();
+            return SkullbonezCore::Core::SbResult::Success();
         }
         if ( m_injected )
         {
@@ -698,8 +702,9 @@ class Dx12FaultInjectionState
         }
 
         m_injected = true;
-        m_firstFailure = Basics::SbResult::Failure( "Rendering/DX12FaultInjection",
-                                                    "Injected failure before first ExecuteCommandLists submission" );
+        m_firstFailure =
+            SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12FaultInjection",
+                                                     "Injected failure before first ExecuteCommandLists submission" );
         return m_firstFailure;
     }
 
@@ -729,7 +734,7 @@ class Dx12FaultInjectionState
     }
 
   private:
-    Basics::SbResult m_firstFailure = Basics::SbResult::Success();
+    SkullbonezCore::Core::SbResult m_firstFailure = SkullbonezCore::Core::SbResult::Success();
     uint32_t m_submissionCount = 0;
     uint32_t m_blockedSubmissionCount = 0;
     bool m_armedBeforeFirstSubmission = false;

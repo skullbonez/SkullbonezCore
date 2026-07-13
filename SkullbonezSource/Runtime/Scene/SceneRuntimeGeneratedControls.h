@@ -40,7 +40,7 @@ namespace Environment
 {
 class WorldEnvironment;
 }
-namespace Basics
+namespace Runtime
 {
 class SceneController;
 }
@@ -52,7 +52,7 @@ namespace Rendering
 {
 class IRenderDeviceLifecycle;
 }
-namespace Basics
+namespace Runtime
 {
 class SceneController;
 class SimulationSystem;
@@ -64,10 +64,10 @@ struct SceneRuntimeGeneratedControlContext
     RunSceneUIOverrideState& uiOverrides;
     RunCameraState& camera;
     SceneController& controller;
-    const EngineConfig& config;
+    const SkullbonezCore::Core::EngineConfig& config;
     Environment::WorldEnvironment& world;
     Geometry::Terrain* terrain = nullptr;
-    Basics::SceneController& models;
+    Runtime::SceneController& models;
     SimulationSystem& simulation;
     RuntimeTools& tools;
     Rendering::IRenderDeviceLifecycle* renderLifecycle = nullptr;
@@ -79,7 +79,7 @@ struct SceneRuntimeGeneratedControlAction
 {
     // Lane R: callers must terminate the current command/frame when a GPU
     // drain failed; no generated model/resource mutation has occurred.
-    SbResult status = SbResult::Success();
+    SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
     bool resetReplayTimeline = false;
     bool scheduleProfileReset = false;
 };
@@ -100,5 +100,5 @@ SceneGeneratedUICommandResult ApplySceneGeneratedSolverBallCountUICommand( Scene
 SceneGeneratedUICommandResult ApplySceneGeneratedSolverBoxCountUICommand( SceneRuntimeGeneratedControlContext context,
                                                                           int requestedSolverBoxCount );
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

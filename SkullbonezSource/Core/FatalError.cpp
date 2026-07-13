@@ -37,7 +37,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Core
 {
 namespace
 {
@@ -68,5 +68,5 @@ const char* SafeText( const char* text )
 
     std::abort();
 }
-} // namespace Basics
+} // namespace Core
 } // namespace SkullbonezCore

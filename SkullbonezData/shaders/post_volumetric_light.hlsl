@@ -43,8 +43,19 @@ cbuffer Uniforms : register(b0)
     float4 uVolumetricParams;  // strength, density, decay, fog density
 };
 
-Texture2D    uSceneTex : register(t0);
-Texture2D    uDepthTex : register(t1);
+// Invariant: b1 carries stable indices into the directly indexed shader-visible
+// heap; the pipeline owner writes all six root constants before every draw.
+cbuffer BindlessTextureIndices : register(b1)
+{
+    uint4 _textureDescriptorIndices0;
+    uint2 _textureDescriptorIndices1;
+};
+
+uint BindlessTextureIndex(uint slot)
+{
+    return slot < 4u ? _textureDescriptorIndices0[slot] : _textureDescriptorIndices1[slot - 4u];
+}
+
 SamplerState sSampler0 : register(s0);
 SamplerState sSampler1 : register(s1);
 
@@ -95,8 +106,10 @@ float SampleLightTransmittance(float2 uv)
     // if they are distant and bright, which makes far haze glow near the horizon.
     // Ownership: cloud shape is resolved by the world-space sky pass. A
     // camera-locked mask in this post pass would make cloud occlusion slide.
-    float rawDepth = uDepthTex.Sample(sSampler1, uv).r;
-    float3 sceneColor = uSceneTex.Sample(sSampler1, ClampScreenUV(uv)).rgb;
+    Texture2D<float4> sceneTexture = ResourceDescriptorHeap[BindlessTextureIndex(0u)];
+    Texture2D<float4> depthTexture = ResourceDescriptorHeap[BindlessTextureIndex(1u)];
+    float rawDepth = depthTexture.Sample(sSampler1, uv).r;
+    float3 sceneColor = sceneTexture.Sample(sSampler1, ClampScreenUV(uv)).rgb;
     float skyMask = rawDepth >= 0.9999f ? 1.0f : 0.0f;
     float linearDepth = LinearizeDepth(rawDepth);
     float distantGeometry = smoothstep(90.0f, 1250.0f, linearDepth) * (1.0f - skyMask);
@@ -115,7 +128,8 @@ float4 main_ps(VS_OUT input) : SV_TARGET
 
     // The receiver term fades shafts differently over sky and solid geometry.
     // Geometry gets a fog-based amount so the light feels suspended in air.
-    float rawDepth = uDepthTex.Sample(sSampler1, input.texCoord).r;
+    Texture2D<float4> depthTexture = ResourceDescriptorHeap[BindlessTextureIndex(1u)];
+    float rawDepth = depthTexture.Sample(sSampler1, input.texCoord).r;
     float linearDepth = LinearizeDepth(rawDepth);
     float geometryMask = rawDepth < 0.9999f ? 1.0f : 0.0f;
     float distanceFog = 1.0f - exp(-max(linearDepth, 0.0f) * max(uVolumetricParams.w, 0.0f) * 0.70f);

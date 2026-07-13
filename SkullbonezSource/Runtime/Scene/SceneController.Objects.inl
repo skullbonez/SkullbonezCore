@@ -1,4 +1,5 @@
 /*
+File: SceneController.Objects.inl
 Purpose:
   Declares SceneController's coordinated entity, physics, and render-store
   operations separately from navigation and request policy.
@@ -25,10 +26,11 @@ Related:
 */
 private:
 Rendering::RenderInstanceStore m_renderInstanceStore; // Render snapshot in scene/model order, owned outside physics.
-int m_activeGameModelCapacity = DEFAULT_GAME_MODEL_CAPACITY; // Configured model cap used by append/reserve guards.
+// Configured model cap used by append/reserve guards.
+int m_activeGameModelCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_GAME_MODEL_CAPACITY;
 void ReserveForActiveGameModelCapacity();
-const Basics::SceneBehaviorGroup& BehaviorGroupAt( int modelIndex ) const;
-int ResolveBehaviorGroupRootModelIndex( const Basics::SceneBehaviorGroup& group ) const;
+const Runtime::SceneBehaviorGroup& BehaviorGroupAt( int modelIndex ) const;
+int ResolveBehaviorGroupRootModelIndex( const Runtime::SceneBehaviorGroup& group ) const;
 // Owner boundary: SceneEntityStore owns fixed-tree grouping. Body-store
 // import receives only derived row hints, never scene metadata accessors.
 std::vector<Physics::ModelRowHint> BuildFixedTreeReleaseRootsForReload() const;
@@ -40,16 +42,16 @@ bool RefreshPhysicsBodyStoreFromAuthoredDescriptors();
 bool RepairPhysicsBodyTopology();
 int FixedTreeReleaseRootForModelIndex( int modelIndex ) const;
 void RefreshRenderInstances( float presentationAlpha = 1.0f );
-Basics::SceneEntityStore& SceneEntities();
-const Basics::SceneEntityStore& SceneEntities() const;
+Runtime::SceneEntityStore& SceneEntities();
+const Runtime::SceneEntityStore& SceneEntities() const;
 void AssertSceneCreationTopology( int expectedCount ) const;
 
 public:
-void ApplyRuntimeConfig( const Basics::EngineConfig& config );
+void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
 // One preflighted scene-creation command publishes metadata, physics, and
 // render rows together. Lane R input failures leave every owner unchanged;
 // a mismatched owner count is a fatal topology invariant.
-SceneEntityCreateResult TryCreateSceneEntity( Basics::SceneEntityCreateDesc entity,
+SceneEntityCreateResult TryCreateSceneEntity( Runtime::SceneEntityCreateDesc entity,
                                               Physics::PhysicsBodyCreateDesc bodyDesc,
                                               Physics::PhysicsColliderCreateDesc colliderDesc );
 // Cold scene/editor deletion removes the entity's physics, metadata,
@@ -72,7 +74,7 @@ bool TryGetPresentationPose( int index,
 int SceneEntityCount() const;
 // These compatibility queries read SceneEntityStore-owned stable behavior
 // groups; callers receive a row only when their operation requires one.
-Basics::SceneBehaviorGroupKind GroupKindAt( int modelIndex ) const;
+Runtime::SceneBehaviorGroupKind GroupKindAt( int modelIndex ) const;
 Physics::PhysicsSceneObjectId GroupRootObjectIdAt( int modelIndex ) const;
 int GroupPartIndexAt( int modelIndex ) const;
 bool IsSimpleRagdollPart( int modelIndex ) const;
@@ -84,13 +86,13 @@ int GatherGroupMemberIndices( int selectedModelIndex, int* outIndices, int maxIn
 bool TryGetPhysicsDiagnosticsModelName( int index, const char*& outName ) const;
 void FillPhysicsDiagnosticsNames( int bodyCount, std::vector<const char*>& outNames ) const;
 #endif
-Basics::MainMemoryGameObjectStats CollectMemoryStats() const;
+SkullbonezCore::Core::MainMemoryGameObjectStats CollectMemoryStats() const;
 // SceneController uses this narrow presentation-owner command while it
 // coordinates replay topology with physics and entity owners.
 bool CanTrimPresentationRowsForSceneRestore( int modelCount ) const;
 bool TrimPresentationRowsForSceneRestore( int modelCount );
-void CaptureReplaySolverWorldSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot ) const;
-bool RestoreReplaySolverWorldSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot );
+void CaptureReplaySolverWorldSnapshot( Runtime::ReplaySolverWorldSnapshot& outSnapshot ) const;
+bool RestoreReplaySolverWorldSnapshot( const Runtime::ReplaySolverWorldSnapshot& snapshot );
 // Explicit cold owner boundary before tool or picker code asks for body
 // handles and collider bounds. Read-only store accessors do not repair.
 bool RepairPhysicsBodyAndColliderTopology();
@@ -109,7 +111,7 @@ bool TryQueueReplayRenderPoseOverride( int modelIndex,
                                        uint32_t replayBodyId,
                                        const Math::Vector::Vector3& position,
                                        const Math::Orientation::Quaternion& orientation );
-const std::vector<Rendering::RenderInstancePresentationRecord>& RenderPresentationRecords() const
+std::span<const Rendering::RenderInstancePresentationRecord> RenderPresentationRecords() const
 {
     return m_renderInstanceStore.PresentationRecords();
 }

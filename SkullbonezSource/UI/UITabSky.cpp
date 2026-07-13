@@ -33,7 +33,7 @@ Related:
 #include <algorithm>
 #include <cstdio>
 
-using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::UI::Layout;
 using namespace SkullbonezCore::UI::Widgets;
 
@@ -163,7 +163,8 @@ SkullbonezCore::UI::UIRect SkySaveButtonBounds( float contentX, float scrolledY,
     return { saveX, scrolledY + 12.0f, UI_SKY_SAVE_BUTTON_W, UI_SKY_SAVE_BUTTON_H };
 }
 
-bool SkyFeatureEnabled( const CinematicRenderConfig& cinematic, SkullbonezCore::UI::UICinematicFeature feature )
+bool SkyFeatureEnabled( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                        SkullbonezCore::UI::UICinematicFeature feature )
 {
     switch ( feature )
     {
@@ -180,7 +181,8 @@ bool SkyFeatureEnabled( const CinematicRenderConfig& cinematic, SkullbonezCore::
     }
 }
 
-float SkyValueForParam( const CinematicRenderConfig& cinematic, SkullbonezCore::UI::UICinematicParam param )
+float SkyValueForParam( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+                        SkullbonezCore::UI::UICinematicParam param )
 {
     switch ( param )
     {

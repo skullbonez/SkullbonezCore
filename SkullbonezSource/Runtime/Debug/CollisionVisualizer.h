@@ -39,6 +39,7 @@ Related:
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <vector>
 #include "../../Rendering/IShader.h"
 #include "../../Maths/Matrix4.h"
@@ -77,8 +78,8 @@ struct CollisionVisualizerFrameView
     const ColliderStore& colliders;
     const Rendering::RenderInstanceStore& renderInstances;
     const std::vector<uint8_t>& collisionContacts;
-    const std::vector<uint8_t>& sleepStates;
-    const std::vector<int>& sleepIslandVisualIds;
+    std::span<const uint8_t> sleepStates;
+    std::span<const int> sleepIslandVisualIds;
     int modelCount = 0;
 };
 

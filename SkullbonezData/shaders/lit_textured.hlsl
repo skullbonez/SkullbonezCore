@@ -22,13 +22,14 @@ Glossary:
 Invariants:
   - CPU-side root signatures, input layouts, and descriptor bindings must
   match this shader exactly.
-  - The detail map occupies t5; t4 remains the instanced material-table ABI.
+  - The detail map occupies bindless payload index 5; index 4 remains the
+    instanced material-table ABI.
 
 Related:
   - Agentic/Reference/comment-style-guide.md
 */
 // =============================================================================
-// LIT TEXTURED SHADER — HLSL 5.0 (Combined Vertex + Pixel Shader)
+// LIT TEXTURED SHADER — Shader Model 6.6 (Combined Vertex + Pixel Shader)
 // =============================================================================
 //
 // PURPOSE: Transform geometry with MVP matrices and apply Phong lighting + texture.
@@ -104,10 +105,20 @@ cbuffer Uniforms : register(b0)
 };
 
 // Texture and sampler bindings are separate DX12 objects bound to different slots.
-// register(t0) = texture slot 0; register(s0) = sampler slot 0.
-Texture2D    uTexture  : register(t0);
-Texture2D    uShadowMap : register(t3);
-Texture2D    uDetailShadowMap : register(t5);
+// Bindless payload slot 0 selects the texture; register(s0) is its sampler.
+// Invariant: b1 carries stable indices into the directly indexed shader-visible
+// heap; the pipeline owner writes all six root constants before every draw.
+cbuffer BindlessTextureIndices : register(b1)
+{
+    uint4 _textureDescriptorIndices0;
+    uint2 _textureDescriptorIndices1;
+};
+
+uint BindlessTextureIndex(uint slot)
+{
+    return slot < 4u ? _textureDescriptorIndices0[slot] : _textureDescriptorIndices1[slot - 4u];
+}
+
 SamplerState sSampler0 : register(s0);
 SamplerState sSampler3 : register(s3);
 
@@ -174,7 +185,7 @@ float3 FacetNormalFromDerivatives(float3 viewPos, float3 fallbackNormal)
     return dot(faceN, fallbackNormal) < 0.0f ? -faceN : faceN;
 }
 
-float ShadowVisibilityFromMap(Texture2D shadowMap,
+float ShadowVisibilityFromMap(Texture2D<float4> shadowMap,
                               float4x4 shadowViewProj,
                               float4 shadowParams,
                               float4 shadowFlags,
@@ -249,8 +260,10 @@ float ShadowVisibilityFromMap(Texture2D shadowMap,
 
 float ShadowVisibility(float3 worldPos, float3 normalView, float3 lightView)
 {
+    Texture2D<float4> detailShadowMap = ResourceDescriptorHeap[BindlessTextureIndex(5u)];
+    Texture2D<float4> shadowMap = ResourceDescriptorHeap[BindlessTextureIndex(3u)];
     bool detailInside = false;
-    float detailVisibility = ShadowVisibilityFromMap(uDetailShadowMap,
+    float detailVisibility = ShadowVisibilityFromMap(detailShadowMap,
                                                      uDetailShadowViewProj,
                                                      uDetailShadowParams,
                                                      uDetailShadowFlags,
@@ -267,7 +280,7 @@ float ShadowVisibility(float3 worldPos, float3 normalView, float3 lightView)
     }
 
     bool broadInside = false;
-    float broadVisibility = ShadowVisibilityFromMap(uShadowMap,
+    float broadVisibility = ShadowVisibilityFromMap(shadowMap,
                                                     uShadowViewProj,
                                                     uShadowParams,
                                                     uShadowFlags,
@@ -423,6 +436,7 @@ VS_OUT main_vs(VS_IN input)
 // PIXEL SHADER: compute Phong lighting, apply texture, and fold in cinematic style controls.
 float4 main_ps(VS_OUT input) : SV_TARGET
 {
+    Texture2D<float4> primaryTexture = ResourceDescriptorHeap[BindlessTextureIndex(0u)];
     float3 N = normalize(input.normal);
     float3 V = normalize(-input.viewPos);
 
@@ -442,7 +456,7 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float3 specular = uLightDiffuse.rgb * spec * 0.1;
 
     // Sample the base color texture through the shader's bound sampler.
-    float4 texColor = uTexture.Sample(sSampler0, input.texCoord);
+    float4 texColor = primaryTexture.Sample(sSampler0, input.texCoord);
 
     bool cinematicMode = uStyleModes.x > 0.5f;
     if (cinematicMode)

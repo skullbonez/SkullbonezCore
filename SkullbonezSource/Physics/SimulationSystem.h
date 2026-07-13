@@ -36,7 +36,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct SimulationTickInput
 {
@@ -71,5 +71,5 @@ class SimulationSystem
     float m_physicsAccumulator = 0.0f;
     float m_fixedStepTickAccumulator = 0.0f;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

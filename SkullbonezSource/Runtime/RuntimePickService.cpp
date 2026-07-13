@@ -39,7 +39,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -54,8 +54,8 @@ bool RuntimePickService::TryPickModel( const RuntimePickRequest& request, Runtim
         return false;
     }
 
-    const auto& bodies = request.bodyStore->Records();
-    const auto& colliders = request.colliderStore->Records();
+    const auto bodies = request.bodyStore->Records();
+    const auto colliders = request.colliderStore->Records();
     const int candidateCount = static_cast<int>( (std::min)( bodies.size(), colliders.size() ) );
     const bool skipFixedBodies = request.purpose == RuntimePickPurpose::ManipulatorPickup;
     for ( int i = 0; i < candidateCount; ++i )
@@ -91,5 +91,5 @@ bool RuntimePickService::TryPickModel( const RuntimePickRequest& request, Runtim
 
     return outResult.modelRow.IsValid() && outResult.body.IsValid();
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

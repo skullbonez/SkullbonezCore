@@ -27,6 +27,7 @@ Related:
 */
 #include "UITabScene.h"
 
+#include "../Core/PlatformWin32.h"
 #include "UI.h"
 #include "UIButton.h"
 #include "UIComboBox.h"
@@ -53,7 +54,7 @@ char LowerAscii( char value )
 }
 
 bool ConsumeFilterKeyPress( SkullbonezCore::UI::SceneTab::UISceneTabState& state,
-                            const SkullbonezCore::Basics::InputKeySnapshot& keys,
+                            const SkullbonezCore::Runtime::InputKeySnapshot& keys,
                             int virtualKey )
 {
     return SkullbonezCore::UI::InputControl::ConsumeKeyPress( state.filterKeyWasDown, keys, virtualKey );
@@ -348,7 +349,7 @@ void ResetPreviewState( UISceneTabState& state )
 void UpdateFilterTyping( UISceneTabState& state,
                          UIComboBox& combo,
                          InGameUIInputResult& result,
-                         const Basics::InputKeySnapshot& keys,
+                         const Runtime::InputKeySnapshot& keys,
                          const char* const* sceneOptions,
                          int sceneOptionCount )
 {
@@ -562,7 +563,7 @@ bool HandleContentClick( UISceneTabState& state,
                          UIButton& resetDefaultsButton,
                          UIButton& saveDefaultsButton,
                          InGameUIInputResult& result,
-                         const Basics::InputKeySnapshot& keys,
+                         const Runtime::InputKeySnapshot& keys,
                          int& activeSlider,
                          const char* const* sceneOptions,
                          int sceneOptionCount,

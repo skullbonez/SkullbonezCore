@@ -30,11 +30,11 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 
-SbResult SaveRenderDefaults( const OrdinaryRenderConfig& ordinary );
-SbResult SaveSkyDefaults( const CinematicRenderConfig& cinematic );
+SkullbonezCore::Core::SbResult SaveRenderDefaults( const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary );
+SkullbonezCore::Core::SbResult SaveSkyDefaults( const SkullbonezCore::Core::CinematicRenderConfig& cinematic );
 
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

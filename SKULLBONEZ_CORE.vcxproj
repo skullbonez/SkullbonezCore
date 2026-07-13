@@ -87,7 +87,8 @@
       <FloatingPointModel>Precise</FloatingPointModel>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>./ThirdPtySource/stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_DEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;JSON_NOEXCEPTION;_DEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>false</ExceptionHandling>
       <MinimalRebUIld>false</MinimalRebUIld>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -96,7 +97,7 @@
       <WarningLevel>Level4</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
@@ -113,7 +114,8 @@
     <ClCompile>
       <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>./ThirdPtySource/stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NDEBUG;_WINDOWS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;JSON_NOEXCEPTION;NDEBUG;_WINDOWS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>false</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -121,7 +123,7 @@
       <WarningLevel>Level4</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
@@ -139,7 +141,8 @@
     <ClCompile>
       <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>./ThirdPtySource/stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NDEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;JSON_NOEXCEPTION;NDEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>false</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -147,7 +150,7 @@
       <WarningLevel>Level4</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
@@ -164,7 +167,8 @@
     <ClCompile>
       <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>./ThirdPtySource/stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NDEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;JSON_NOEXCEPTION;NDEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>false</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -172,7 +176,7 @@
       <WarningLevel>Level4</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
@@ -253,7 +257,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeTuning.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeViewModel.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\ApplicationExitState.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\Helper.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Init.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Input.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\InputController.Bindings.cpp" />
@@ -385,16 +389,17 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Editor\LauncherLaser.h" />
     <ClInclude Include="SkullbonezSource\Core\AmortizedTask.h" />
     <ClInclude Include="SkullbonezSource\Core\Common.h" />
+    <ClInclude Include="SkullbonezSource\Core\PlatformWin32.h" />
     <ClInclude Include="SkullbonezSource\Core\FatalError.h" />
     <ClInclude Include="SkullbonezSource\Core\MainMemoryStats.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DrawCallTrace.h" />
     <ClInclude Include="SkullbonezSource\Core\Fence.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.Objects.inl" />
-    <ClInclude Include="SkullbonezSource\GameObjects\SceneCapacity.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneCapacity.h" />
     <ClInclude Include="SkullbonezSource\Rendering\GameModelRenderer.h" />
     <ClInclude Include="SkullbonezSource\Scene\SceneSnapshotWriter.h" />
     <ClInclude Include="SkullbonezSource\Core\SkullScope.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\Helper.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\GraphicsStressController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeStressController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeFrameViews.h" />

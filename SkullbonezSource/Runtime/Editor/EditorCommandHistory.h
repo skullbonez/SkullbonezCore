@@ -38,7 +38,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 constexpr std::size_t EDITOR_COMMAND_HISTORY_CAPACITY = 64;
 constexpr std::size_t EDITOR_COMMAND_TRANSFORM_CAPACITY = 16;
@@ -145,5 +145,5 @@ class EditorCommandHistory
     std::size_t m_count = 0;
     std::size_t m_cursor = 0;
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

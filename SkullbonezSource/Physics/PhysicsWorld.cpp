@@ -71,14 +71,14 @@ Related:
 #include <cstring>
 
 using namespace SkullbonezCore::Physics;
-using SkullbonezCore::Basics::REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES;
-using SkullbonezCore::Basics::REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER;
-using SkullbonezCore::Basics::ReplaySolverContactCacheSample;
-using SkullbonezCore::Basics::ReplaySolverPersistentContactSample;
-using SkullbonezCore::Basics::ReplaySolverStatsSample;
-using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::ZERO_VECTOR;
+using SkullbonezCore::Runtime::REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES;
+using SkullbonezCore::Runtime::REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER;
+using SkullbonezCore::Runtime::ReplaySolverContactCacheSample;
+using SkullbonezCore::Runtime::ReplaySolverPersistentContactSample;
+using SkullbonezCore::Runtime::ReplaySolverStatsSample;
+using SkullbonezCore::Runtime::ReplaySolverWorldSnapshot;
 namespace Math = SkullbonezCore::Math;
 namespace Physics = SkullbonezCore::Physics;
 namespace Vector = SkullbonezCore::Math::Vector;
@@ -111,7 +111,7 @@ constexpr float POINT_JOINT_SLEEP_ANGULAR_SPEED_SCALE = 6.0f;
 constexpr float BROADPHASE_MIN_CELL_SIZE = 0.5f;
 constexpr float DEFAULT_BROADPHASE_CELL = 24.0f;
 constexpr uint8_t DEFAULT_PHYSICS_SLEEP_FRAMES = 30;
-constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = MAX_GAME_MODELS * 4;
+constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 4;
 constexpr int PHYSICS_COLLISION_VISUAL_BODY_RESERVE = PHYSICS_CANDIDATE_PAIR_RESERVE * 2;
 constexpr std::size_t REPLAY_SOLVER_SNAPSHOT_VECTOR_INITIAL_CAPACITY = 1024u;
 constexpr std::size_t REPLAY_SOLVER_SNAPSHOT_VECTOR_GROWTH_CHUNK = 4096u;
@@ -132,17 +132,17 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
 }
 
-bool IsSolverBodyFixed( const PhysicsBodyRecordList& bodyRecords, int bodyIndex )
+bool IsSolverBodyFixed( std::span<const PhysicsBodyRecord> bodyRecords, int bodyIndex )
 {
     return bodyRecords[static_cast<size_t>( bodyIndex )].isFixed;
 }
 
-const Vector3& SolverBodyPosition( const PhysicsBodyRecordList& bodyRecords, int bodyIndex )
+const Vector3& SolverBodyPosition( std::span<const PhysicsBodyRecord> bodyRecords, int bodyIndex )
 {
     return bodyRecords[static_cast<size_t>( bodyIndex )].position;
 }
 
-float SolverBodyRadius( const ColliderRecordList& colliderRecords, int bodyIndex )
+float SolverBodyRadius( std::span<const ColliderRecord> colliderRecords, int bodyIndex )
 {
     return colliderRecords[static_cast<size_t>( bodyIndex )].boundingRadius;
 }
@@ -187,8 +187,8 @@ void AppendCandidatePairIfMissing( std::vector<std::pair<int, int>>& candidatePa
 // bodies whose fixed-step displacement can skip ordinary cell sharing. Exact
 // CCD still runs later; this classifier only decides which moving bodies get
 // conservative extra pair candidates.
-bool IsFastSmallSweepBody( const PhysicsBodyRecordList& bodyRecords,
-                           const ColliderRecordList& colliderRecords,
+bool IsFastSmallSweepBody( std::span<const PhysicsBodyRecord> bodyRecords,
+                           std::span<const ColliderRecord> colliderRecords,
                            int bodyIndex,
                            float dt )
 {
@@ -212,8 +212,8 @@ bool IsFastSmallSweepBody( const PhysicsBodyRecordList& bodyRecords,
 // Invariant: contactEpsilon is the raw config value used by the former lambda,
 // not the clamped broadphase contact skin. Changing that input changes which
 // conservative pairs reach CCD and must be treated as a physics behavior change.
-bool SweptSegmentTouchesExpandedBody( const PhysicsBodyRecordList& bodyRecords,
-                                      const ColliderRecordList& colliderRecords,
+bool SweptSegmentTouchesExpandedBody( std::span<const PhysicsBodyRecord> bodyRecords,
+                                      std::span<const ColliderRecord> colliderRecords,
                                       int movingIndex,
                                       int targetIndex,
                                       float dt,
@@ -242,7 +242,7 @@ bool SweptSegmentTouchesExpandedBody( const PhysicsBodyRecordList& bodyRecords,
 // Why: two fixed bodies cannot create solver impulses or wake events, so they
 // are dead broadphase work. Keep the bounds checks before body-record reads
 // because candidate pairs are still an externalized scratch buffer at this point.
-bool IsFixedSolverCandidatePair( const PhysicsBodyRecordList& bodyRecords,
+bool IsFixedSolverCandidatePair( std::span<const PhysicsBodyRecord> bodyRecords,
                                  int modelCount,
                                  const std::pair<int, int>& pair )
 {
@@ -254,7 +254,7 @@ bool IsFixedSolverCandidatePair( const PhysicsBodyRecordList& bodyRecords,
 
 struct FixedSolverCandidatePairPredicate
 {
-    const PhysicsBodyRecordList& bodyRecords;
+    std::span<const PhysicsBodyRecord> bodyRecords;
     int modelCount = 0;
 
     bool operator()( const std::pair<int, int>& pair ) const
@@ -327,7 +327,7 @@ bool IsSleepPrunedCandidatePair( const std::vector<uint8_t>& sleepState, const s
 }
 
 void TryRecordSleepPrunedCandidatePair( std::vector<Physics::PhysicsPipelineRecord>& physicsPipelineTrace,
-                                        const PhysicsBodyRecordList& bodyRecords,
+                                        std::span<const PhysicsBodyRecord> bodyRecords,
                                         const std::pair<int, int>& pair )
 {
     if ( physicsPipelineTrace.size() >= MAX_PIPELINE_TRACE_RECORDS )
@@ -353,7 +353,7 @@ void TryRecordSleepPrunedCandidatePair( std::vector<Physics::PhysicsPipelineReco
 struct SleepPrunedCandidatePairPredicate
 {
     const std::vector<uint8_t>& sleepState;
-    const PhysicsBodyRecordList& bodyRecords;
+    std::span<const PhysicsBodyRecord> bodyRecords;
     std::vector<Physics::PhysicsPipelineRecord>& physicsPipelineTrace;
 
     bool operator()( const std::pair<int, int>& pair ) const
@@ -370,7 +370,7 @@ struct SleepPrunedCandidatePairPredicate
 // Concept: wake energy uses the same quietness thresholds as sleep eligibility.
 // A body with enough linear or angular motion can wake a sleeping neighbor
 // during persistent-contact handling.
-bool HasWakeEnergy( const PhysicsBodyRecordList& bodyRecords,
+bool HasWakeEnergy( std::span<const PhysicsBodyRecord> bodyRecords,
                     int awakeIndex,
                     float sleepLinearSq,
                     float sleepAngularSq )
@@ -385,7 +385,7 @@ bool HasWakeEnergy( const PhysicsBodyRecordList& bodyRecords,
 void WakeSleepingSolverBody( PhysicsBodyStore& bodyStore,
                              const ColliderStore& colliderStore,
                              const PhysicsWorldForces& worldForces,
-                             PhysicsBodyRecordList& bodyRecords,
+                             std::span<PhysicsBodyRecord> bodyRecords,
                              std::vector<uint8_t>& sleepState,
                              std::vector<uint8_t>& sleepCounter,
                              std::vector<int>& sleepIslandVisualId,
@@ -413,7 +413,8 @@ void WakeSleepingSolverBody( PhysicsBodyStore& bodyStore,
     (void)bodyStore.ApplyForces( worldForces, colliderStore, sleepingIndex, dt );
 }
 
-ObjectContactBodyView ObjectContactBodyViewAtTime( const PhysicsBodyRecordList& bodyRecords, int index, float time )
+ObjectContactBodyView
+ObjectContactBodyViewAtTime( std::span<const PhysicsBodyRecord> bodyRecords, int index, float time )
 {
     const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( index )];
     ObjectContactBodyView body;
@@ -422,8 +423,8 @@ ObjectContactBodyView ObjectContactBodyViewAtTime( const PhysicsBodyRecordList& 
     return body;
 }
 
-TerrainContactBodyView TerrainContactBodyViewForIndex( const PhysicsBodyRecordList& bodyRecords,
-                                                       const SkullbonezCore::Basics::EngineConfig& config,
+TerrainContactBodyView TerrainContactBodyViewForIndex( std::span<const PhysicsBodyRecord> bodyRecords,
+                                                       const SkullbonezCore::Core::EngineConfig& config,
                                                        int index )
 {
     const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( index )];
@@ -440,8 +441,8 @@ TerrainContactBodyView TerrainContactBodyViewForIndex( const PhysicsBodyRecordLi
     return body;
 }
 
-bool HasPersistentWakeContact( const PhysicsBodyRecordList& bodyRecords,
-                               const ColliderRecordList& colliderRecords,
+bool HasPersistentWakeContact( std::span<const PhysicsBodyRecord> bodyRecords,
+                               std::span<const ColliderRecord> colliderRecords,
                                int awakeIndex,
                                int sleepingIndex,
                                float contactEpsilon )
@@ -469,8 +470,8 @@ bool HasPersistentWakeContact( const PhysicsBodyRecordList& bodyRecords,
                                        manifold );
 }
 
-bool HasObjectContactAtTime( const PhysicsBodyRecordList& bodyRecords,
-                             const ColliderRecordList& colliderRecords,
+bool HasObjectContactAtTime( std::span<const PhysicsBodyRecord> bodyRecords,
+                             std::span<const ColliderRecord> colliderRecords,
                              int bodyA,
                              int bodyB,
                              float time,
@@ -498,8 +499,8 @@ bool HasObjectContactAtTime( const PhysicsBodyRecordList& bodyRecords,
                                        manifold );
 }
 
-float RefineObjectSweepContactTime( const PhysicsBodyRecordList& bodyRecords,
-                                    const ColliderRecordList& colliderRecords,
+float RefineObjectSweepContactTime( std::span<const PhysicsBodyRecord> bodyRecords,
+                                    std::span<const ColliderRecord> colliderRecords,
                                     int bodyA,
                                     int bodyB,
                                     float coarseTime,
@@ -557,8 +558,8 @@ float RefineObjectSweepContactTime( const PhysicsBodyRecordList& bodyRecords,
     return hi;
 }
 
-ObjectContactSweepResult SweepObjectPair( const PhysicsBodyRecordList& bodyRecords,
-                                          const ColliderRecordList& colliderRecords,
+ObjectContactSweepResult SweepObjectPair( std::span<const PhysicsBodyRecord> bodyRecords,
+                                          std::span<const ColliderRecord> colliderRecords,
                                           int bodyA,
                                           int bodyB,
                                           float availableTime )
@@ -609,8 +610,8 @@ bool ObjectPairHasPersistentContactCache( const std::vector<PersistentContactCac
            ( static_cast<uint64_t>( cachedIt->key ) & 0xffffffff00000000ull ) == pairPrefix;
 }
 
-bool ObjectPairNeedsSweptCcd( const PhysicsBodyRecordList& bodyRecords,
-                              const ColliderRecordList& colliderRecords,
+bool ObjectPairNeedsSweptCcd( std::span<const PhysicsBodyRecord> bodyRecords,
+                              std::span<const ColliderRecord> colliderRecords,
                               const std::vector<PersistentContactCacheEntry>& persistentContactCache,
                               int bodyAIndex,
                               int bodyBIndex,
@@ -655,7 +656,7 @@ bool ObjectPairNeedsSweptCcd( const PhysicsBodyRecordList& bodyRecords,
 void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                const PhysicsWorldForces& worldForces,
-                               const PhysicsBodyRecordList& bodyRecords,
+                               std::span<const PhysicsBodyRecord> bodyRecords,
                                std::vector<uint8_t>& sleepState,
                                std::vector<float>& timeRemaining,
                                const Vector3* mutualGravityForces,
@@ -686,7 +687,7 @@ struct ApplyForcesStageContext
     PhysicsBodyStore& bodyStore;
     const ColliderStore& colliderStore;
     const PhysicsWorldForces& worldForces;
-    const PhysicsBodyRecordList& bodyRecords;
+    std::span<const PhysicsBodyRecord> bodyRecords;
     std::vector<uint8_t>& sleepState;
     std::vector<float>& timeRemaining;
     const Vector3* mutualGravityForces = nullptr;
@@ -708,7 +709,7 @@ struct ApplyForcesStageContext
 
 void IntegrateRemainingSolverBody( PhysicsBodyStore& bodyStore,
                                    const ColliderStore& colliderStore,
-                                   const PhysicsBodyRecordList& bodyRecords,
+                                   std::span<const PhysicsBodyRecord> bodyRecords,
                                    const std::vector<uint8_t>& sleepState,
                                    const std::vector<float>& timeRemaining,
                                    int bodyIndex )
@@ -734,7 +735,7 @@ struct IntegrateRemainingStageContext
     // integration dispatch only; it owns no persistent body state.
     PhysicsBodyStore& bodyStore;
     const ColliderStore& colliderStore;
-    const PhysicsBodyRecordList& bodyRecords;
+    std::span<const PhysicsBodyRecord> bodyRecords;
     const std::vector<uint8_t>& sleepState;
     const std::vector<float>& timeRemaining;
 
@@ -913,61 +914,61 @@ void ReserveReplaySolverSnapshotVector( std::vector<T>& values, std::size_t requ
 PhysicsWorld::PhysicsWorld()
     : m_spatialGrid( DEFAULT_BROADPHASE_CELL ), m_seedSleepFrameCount( DEFAULT_PHYSICS_SLEEP_FRAMES )
 {
-    m_timeRemaining.reserve( MAX_GAME_MODELS );
-    m_mutualGravityForces.reserve( MAX_GAME_MODELS );
+    m_timeRemaining.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_mutualGravityForces.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     // Runtime allocation policy: broadphase candidate-pair storage is sized at
     // setup and SpatialGrid asserts on cap exhaustion instead of growing during
     // the fixed-step physics pass.
     m_candidatePairs.reserve( PHYSICS_CANDIDATE_PAIR_RESERVE );
-    m_sleepSupportedThisFrame.reserve( MAX_GAME_MODELS );
-    m_sleepInhibitedThisFrame.reserve( MAX_GAME_MODELS );
-    m_sleepState.reserve( MAX_GAME_MODELS );
-    m_sleepCounter.reserve( MAX_GAME_MODELS );
-    m_underwaterSleepLocked.reserve( MAX_GAME_MODELS );
-    m_collisionVisualContacts.reserve( MAX_GAME_MODELS );
-    m_sleepIslandVisualId.reserve( MAX_GAME_MODELS );
-    m_sleepIslandAssignedVisualId.reserve( MAX_GAME_MODELS );
-    m_sleepSupportEdges.reserve( MAX_GAME_MODELS * 4 );
-    m_sleepIslandParent.reserve( MAX_GAME_MODELS );
-    m_sleepIslandRank.reserve( MAX_GAME_MODELS );
-    m_sleepIslandHasAwake.reserve( MAX_GAME_MODELS );
-    m_sleepIslandHasSupportAnchor.reserve( MAX_GAME_MODELS );
-    m_sleepIslandEligible.reserve( MAX_GAME_MODELS );
-    m_sleepIslandCanSleep.reserve( MAX_GAME_MODELS );
-    m_sleepPointJointBody.reserve( MAX_GAME_MODELS );
-    m_sleepIslandHasPointJoint.reserve( MAX_GAME_MODELS );
-    m_sleepIslandPointJointsRelaxed.reserve( MAX_GAME_MODELS );
-    m_sleepVisualIslandIds.reserve( MAX_GAME_MODELS );
-    m_sleepVisualIslandBodies.reserve( MAX_GAME_MODELS );
-    m_persistentContacts.reserve( MAX_GAME_MODELS * 4 );
-    m_persistentContactCache.reserve( MAX_GAME_MODELS * 4 );
-    m_persistentContactCounts.reserve( MAX_GAME_MODELS );
-    m_persistentRestingContactCounts.reserve( MAX_GAME_MODELS );
-    m_solverBodies.reserve( MAX_GAME_MODELS );
-    m_physicsDebugContacts.reserve( MAX_GAME_MODELS * 4 );
+    m_sleepSupportedThisFrame.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_sleepInhibitedThisFrame.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_sleepState.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_sleepCounter.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_underwaterSleepLocked.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_collisionVisualContacts.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_sleepIslandVisualId.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_sleepIslandAssignedVisualId.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_sleepSupportEdges.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 4 );
+    m_sleepIslandParent.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_sleepIslandRank.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_sleepIslandHasAwake.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_sleepIslandHasSupportAnchor.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_sleepIslandEligible.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_sleepIslandCanSleep.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_sleepPointJointBody.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_sleepIslandHasPointJoint.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_sleepIslandPointJointsRelaxed.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_sleepVisualIslandIds.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_sleepVisualIslandBodies.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_persistentContacts.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 4 );
+    m_persistentContactCache.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 4 );
+    m_persistentContactCounts.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_persistentRestingContactCounts.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_solverBodies.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_physicsDebugContacts.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 4 );
     m_physicsPipelineTrace.reserve( MAX_PIPELINE_TRACE_RECORDS );
     m_persistentContactSideEffects.pipelineRecords.reserve( MAX_PIPELINE_TRACE_RECORDS );
     m_persistentContactSideEffects.collisionVisualBodies.reserve( PHYSICS_COLLISION_VISUAL_BODY_RESERVE );
-    m_persistentContactSideEffects.fixedContactBodies.reserve( MAX_GAME_MODELS );
+    m_persistentContactSideEffects.fixedContactBodies.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     m_persistentContactSideEffects.releaseWakeBodies.reserve( 8 );
     m_persistentContactSideEffects.fixedTreeReleases.reserve( 8 );
-    m_terrainContactManifolds.reserve( MAX_GAME_MODELS );
-    m_terrainDetectionCandidates.reserve( MAX_GAME_MODELS );
-    m_objectNarrowphaseEvents.reserve( MAX_GAME_MODELS * 4 );
-    m_objectNarrowphaseIslands.reserve( MAX_GAME_MODELS );
+    m_terrainContactManifolds.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_terrainDetectionCandidates.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_objectNarrowphaseEvents.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 4 );
+    m_objectNarrowphaseIslands.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     m_objectNarrowphaseIslandPairIndices.reserve( PHYSICS_CANDIDATE_PAIR_RESERVE );
-    m_objectNarrowphaseIslandWriteOffsets.reserve( MAX_GAME_MODELS );
-    m_objectNarrowphaseParent.reserve( MAX_GAME_MODELS );
-    m_objectNarrowphaseRank.reserve( MAX_GAME_MODELS );
-    m_objectNarrowphaseRootToIsland.reserve( MAX_GAME_MODELS );
-    m_restingWakeVisitedScratch.reserve( MAX_GAME_MODELS );
-    m_restingWakeQueueScratch.reserve( MAX_GAME_MODELS );
-    m_pointJointConstraints.reserve( MAX_GAME_MODELS );
+    m_objectNarrowphaseIslandWriteOffsets.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_objectNarrowphaseParent.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_objectNarrowphaseRank.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_objectNarrowphaseRootToIsland.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_restingWakeVisitedScratch.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_restingWakeQueueScratch.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_pointJointConstraints.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     m_collisionCellKeys.reserve( PHYSICS_CANDIDATE_PAIR_RESERVE );
 }
 
 
-void PhysicsWorld::ApplyRuntimeConfig( const Basics::EngineConfig& config )
+void PhysicsWorld::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
     const float configuredCell = (std::max)( BROADPHASE_MIN_CELL_SIZE, config.broadphase.cellSize );
     m_spatialGrid.SetCellSize( configuredCell );
@@ -1310,7 +1311,7 @@ bool PhysicsWorld::CanRecordPhysicsPipelineStage() const
 PersistentContactSolverContext
 PhysicsWorld::CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,
                                                     const ColliderStore& colliderStore,
-                                                    const Basics::EngineConfig& config,
+                                                    const SkullbonezCore::Core::EngineConfig& config,
                                                     const PhysicsWorldForces& worldForces )
 {
     const bool elasticCollisions = worldForces.mutualGravity.enabled && worldForces.mutualGravity.elasticCollisions;
@@ -1479,7 +1480,7 @@ const std::vector<PointJointConstraint>& PhysicsWorld::GetPointJointConstraints(
 void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                float fChangeInTime,
-                               const Basics::EngineConfig& config,
+                               const SkullbonezCore::Core::EngineConfig& config,
                                const PhysicsWorldForces& worldForces,
                                Threading::WorkerPool& workerPool )
 {
@@ -1496,7 +1497,7 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
     // Determinism note: changing this ordering can change byte-exact physics
     // baselines even when the final scene "looks" similar.
     const int modelCount = bodyStore.Count();
-    const auto& bodyRecords = bodyStore.Records();
+    const auto bodyRecords = bodyStore.Records();
     EnsureCollisionVisualBuffers( modelCount );
     if ( !m_collisionVisualFrameActive )
     {
@@ -1632,7 +1633,7 @@ void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore,
 // model owner just to wake a body. Store-owned wake commands stay on dense body
 // records; PhysicsScene owns any owner-side cache invalidation.
 void PhysicsWorld::WakeModel( int bodyCount,
-                              const PhysicsBodyRecordList& bodyRecords,
+                              std::span<const PhysicsBodyRecord> bodyRecords,
                               PhysicsBodyStore* bodyStore,
                               const ColliderStore* colliderStore,
                               const PhysicsWorldForces* worldForces,
@@ -1711,7 +1712,7 @@ void PhysicsWorld::SeedModelAsleep( const PhysicsBodyStore& bodyStore, int index
 // Why: store-owned seed commands already have dense body records. Avoid
 // rebuilding presentation streams from inside PhysicsWorld; owner-side
 // projection belongs to PhysicsScene.
-void PhysicsWorld::SeedModelAsleep( int bodyCount, const PhysicsBodyRecordList& bodyRecords, int index )
+void PhysicsWorld::SeedModelAsleep( int bodyCount, std::span<const PhysicsBodyRecord> bodyRecords, int index )
 {
     if ( !m_sleepEnabled )
     {
@@ -1784,7 +1785,7 @@ void PhysicsWorld::ApplyTornadoGameplay( PhysicsBodyStore& bodyStore,
                                          const ColliderStore& colliderStore,
                                          const PhysicsWorldForces& worldForces,
                                          float dt,
-                                         const Basics::EngineConfig& runtimeConfig,
+                                         const SkullbonezCore::Core::EngineConfig& runtimeConfig,
                                          Threading::WorkerPool& workerPool )
 {
     const TornadoGameplayStepState stepState = m_tornadoGameplay.BeginStep( dt );
@@ -1900,7 +1901,7 @@ void PhysicsWorld::EmitPhysicsCollisionTime( const char* type,
 }
 
 
-void PhysicsWorld::PropagateSleepSupport( const PhysicsBodyRecordList& bodyRecords )
+void PhysicsWorld::PropagateSleepSupport( std::span<const PhysicsBodyRecord> bodyRecords )
 {
     SleepSupportPropagationContext context = CreateSleepSupportPropagationContext();
     m_sleepIslandSystem.PropagateSupport( context, bodyRecords );
@@ -1963,7 +1964,7 @@ void PhysicsWorld::ForgetPersistentContactCacheForBody( int bodyIndex )
 // deleted legacy stream path, but fixed-state authority comes from
 // PhysicsBodyRecord. This keeps solver-triggered wakeups on physics-owned rows.
 bool PhysicsWorld::WakeDynamicBodyState( int bodyCount,
-                                         const PhysicsBodyRecordList& bodyRecords,
+                                         std::span<const PhysicsBodyRecord> bodyRecords,
                                          PhysicsBodyStore* bodyStore,
                                          int index,
                                          float dt,
@@ -2029,7 +2030,7 @@ bool PhysicsWorld::WakeDynamicBodyState( int bodyCount,
 // Why: sleep visual islands are persisted as model-order indices, but the fixed
 // and sleep-state facts needed to wake them are already in PhysicsBodyStore.
 void PhysicsWorld::WakeSleepVisualIsland( int bodyCount,
-                                          const PhysicsBodyRecordList& bodyRecords,
+                                          std::span<const PhysicsBodyRecord> bodyRecords,
                                           PhysicsBodyStore* bodyStore,
                                           int index,
                                           float dt,
@@ -2074,7 +2075,7 @@ void PhysicsWorld::WakeSleepVisualIsland( int bodyCount,
 // store path preserves the existing island walk while avoiding a model-stream
 // refresh inside the fixed step.
 void PhysicsWorld::WakePointJointIsland( int bodyCount,
-                                         const PhysicsBodyRecordList& bodyRecords,
+                                         std::span<const PhysicsBodyRecord> bodyRecords,
                                          PhysicsBodyStore* bodyStore,
                                          int index,
                                          float dt,
@@ -2139,7 +2140,7 @@ void PhysicsWorld::WakePointJointIsland( int bodyCount,
 // path uses body-record position/radius snapshots so solver side effects do not
 // rebuild the model SoA cache.
 void PhysicsWorld::WakeRestingContactIsland( int bodyCount,
-                                             const PhysicsBodyRecordList& bodyRecords,
+                                             std::span<const PhysicsBodyRecord> bodyRecords,
                                              PhysicsBodyStore* bodyStore,
                                              int index,
                                              float dt,
@@ -2249,7 +2250,7 @@ void PhysicsWorld::WakePointJointConnectedBodies( PhysicsBodyStore& bodyStore,
         return;
     }
 
-    const auto& bodyRecords = bodyStore.Records();
+    const auto bodyRecords = bodyStore.Records();
     const int modelCount = (std::min)( bodyStore.Count(), static_cast<int>( bodyRecords.size() ) );
     m_sleepIslandParent.assign( modelCount, 0 );
     m_sleepIslandRank.assign( modelCount, 0 );
@@ -2345,7 +2346,7 @@ void PhysicsWorld::MarkObjectVisualEvent( ObjectNarrowphaseEvent& event, int bod
 }
 
 void PhysicsWorld::WriteObjectCollisionCellEvent( ObjectNarrowphaseEvent& event,
-                                                  const PhysicsBodyRecordList& bodyRecords,
+                                                  std::span<const PhysicsBodyRecord> bodyRecords,
                                                   int bodyA,
                                                   int bodyB,
                                                   float invCellSize )
@@ -2922,9 +2923,9 @@ void PhysicsWorld::CommitTerrainCandidate( const TerrainCandidateCommitContext& 
 
 
 void PhysicsWorld::BuildSolverBroadphaseCandidatePairs( const PhysicsBodyStore& bodyStore,
-                                                        const PhysicsBodyRecordList& bodyRecords,
-                                                        const ColliderRecordList& colliderRecords,
-                                                        const Basics::EngineConfig& config,
+                                                        std::span<const PhysicsBodyRecord> bodyRecords,
+                                                        std::span<const ColliderRecord> colliderRecords,
+                                                        const SkullbonezCore::Core::EngineConfig& config,
                                                         int modelCount,
                                                         float dt,
                                                         float contactSkin,
@@ -3090,7 +3091,7 @@ void PhysicsWorld::BuildSolverBroadphaseCandidatePairs( const PhysicsBodyStore& 
 void PhysicsWorld::RunSleepIslandStage( PhysicsBodyStore& bodyStore,
                                         const ColliderStore& colliderStore,
                                         const PhysicsWorldForces& worldForces,
-                                        PhysicsBodyRecordList& bodyRecords,
+                                        std::span<PhysicsBodyRecord> bodyRecords,
                                         int modelCount,
                                         float sleepLinearSq,
                                         float sleepAngularSq,
@@ -3349,7 +3350,7 @@ void PhysicsWorld::RunSleepIslandStage( PhysicsBodyStore& bodyStore,
 void PhysicsWorld::ApplySleepIslandTransitions( PhysicsBodyStore& bodyStore,
                                                 const ColliderStore& colliderStore,
                                                 const PhysicsWorldForces& worldForces,
-                                                PhysicsBodyRecordList& bodyRecords,
+                                                std::span<PhysicsBodyRecord> bodyRecords,
                                                 DisjointSet& sleepIslands,
                                                 int modelCount,
                                                 uint8_t sleepFrames )
@@ -3466,7 +3467,7 @@ void PhysicsWorld::ApplySleepIslandTransitions( PhysicsBodyStore& bodyStore,
 }
 
 
-const Vector3* PhysicsWorld::PrepareMutualGravityForces( const PhysicsBodyRecordList& bodyRecords,
+const Vector3* PhysicsWorld::PrepareMutualGravityForces( std::span<const PhysicsBodyRecord> bodyRecords,
                                                          int modelCount,
                                                          const PhysicsWorldForces& worldForces )
 {
@@ -3543,12 +3544,12 @@ const Vector3* PhysicsWorld::PrepareMutualGravityForces( const PhysicsBodyRecord
 void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      const ColliderStore& colliderStore,
                                      float dt,
-                                     const Basics::EngineConfig& config,
+                                     const SkullbonezCore::Core::EngineConfig& config,
                                      const PhysicsWorldForces& worldForces,
                                      Threading::WorkerPool& workerPool )
 {
-    auto& bodyRecords = bodyStore.MutableRecords();
-    const auto& colliderRecords = colliderStore.Records();
+    const auto bodyRecords = bodyStore.MutableRecords();
+    const auto colliderRecords = colliderStore.Records();
     const int modelCount = (std::min)( { bodyStore.Count(),
                                          static_cast<int>( bodyRecords.size() ),
                                          static_cast<int>( colliderRecords.size() ) } );
@@ -3905,37 +3906,37 @@ const std::vector<uint8_t>& PhysicsWorld::GetCollisionVisualContacts() const
 }
 
 
-const std::vector<int>& PhysicsWorld::GetFixedContactHighlightBodies() const
+std::span<const int> PhysicsWorld::GetFixedContactHighlightBodies() const
 {
     return m_persistentContactSideEffects.fixedContactBodies;
 }
 
 
-const std::vector<PhysicsFixedTreeReleaseEvent>& PhysicsWorld::GetFixedTreeReleaseEvents() const
+std::span<const PhysicsFixedTreeReleaseEvent> PhysicsWorld::GetFixedTreeReleaseEvents() const
 {
     return m_persistentContactSideEffects.fixedTreeReleases;
 }
 
 
-const std::vector<uint8_t>& PhysicsWorld::GetSleepStates() const
+std::span<const uint8_t> PhysicsWorld::GetSleepStates() const
 {
     return m_sleepState;
 }
 
 
-const std::vector<int>& PhysicsWorld::GetSleepIslandVisualIds() const
+std::span<const int> PhysicsWorld::GetSleepIslandVisualIds() const
 {
     return m_sleepIslandVisualId;
 }
 
 
-const std::vector<uint8_t>& PhysicsWorld::GetSleepSupportedStates() const
+std::span<const uint8_t> PhysicsWorld::GetSleepSupportedStates() const
 {
     return m_sleepSupportedThisFrame;
 }
 
 
-const std::vector<uint8_t>& PhysicsWorld::GetSleepInhibitedStates() const
+std::span<const uint8_t> PhysicsWorld::GetSleepInhibitedStates() const
 {
     return m_sleepInhibitedThisFrame;
 }

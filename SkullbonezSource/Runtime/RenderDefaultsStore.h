@@ -33,7 +33,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 constexpr int RENDER_DEFAULTS_REQUEST_CAPACITY = 16;
 
@@ -45,7 +45,7 @@ enum class RenderDefaultsRequestType
 
 struct RenderDefaultsSaveBatchResult
 {
-    SbResult status = SbResult::Success();
+    SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
     RenderDefaultsRequestType saved[RENDER_DEFAULTS_REQUEST_CAPACITY];
     std::size_t savedCount = 0;
     std::size_t failedCount = 0;
@@ -54,12 +54,13 @@ struct RenderDefaultsSaveBatchResult
 class RenderDefaultsStore
 {
   public:
-    void CaptureStartupCinematicBaseline( const CinematicRenderConfig& cinematic );
-    const CinematicRenderConfig& CinematicBaseline() const;
+    void CaptureStartupCinematicBaseline( const SkullbonezCore::Core::CinematicRenderConfig& cinematic );
+    const SkullbonezCore::Core::CinematicRenderConfig& CinematicBaseline() const;
     void SubmitOrdinarySave();
     void SubmitCinematicSave();
-    RenderDefaultsSaveBatchResult DrainAtFrameCheckpoint( const OrdinaryRenderConfig& ordinary,
-                                                          const CinematicRenderConfig& cinematic );
+    RenderDefaultsSaveBatchResult
+    DrainAtFrameCheckpoint( const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
+                            const SkullbonezCore::Core::CinematicRenderConfig& cinematic );
     std::size_t PendingCount() const;
     RenderDefaultsRequestType PendingTypeAt( std::size_t index ) const;
 
@@ -69,7 +70,7 @@ class RenderDefaultsStore
     RenderDefaultsRequestType m_requests[RENDER_DEFAULTS_REQUEST_CAPACITY]; // Fixed persistence-intent ring.
     int m_head = 0;                                                         // Oldest save request.
     int m_count = 0;                                                        // Occupied request slots.
-    CinematicRenderConfig m_cinematicBaseline;                              // Process-start style restored by scene resets.
+    SkullbonezCore::Core::CinematicRenderConfig m_cinematicBaseline;        // Process-start style restored by scene resets.
 };
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

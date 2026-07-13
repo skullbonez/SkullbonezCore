@@ -219,7 +219,7 @@ void WorkerPool::ParallelForNoAlloc( int begin,
     const auto runChunk = [&]( int, int chunkBegin, int chunkEnd )
     {
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-        ::SkullbonezCore::Basics::WorkerProfilerScope workerScope( markerPath, markerHash );
+        ::SkullbonezCore::Core::WorkerProfilerScope workerScope( markerPath, markerHash );
 #else
         static_cast<void>( markerPath );
         static_cast<void>( markerHash );

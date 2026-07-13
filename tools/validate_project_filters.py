@@ -101,7 +101,6 @@ GAME_OBJECT_PREFIXES = (
     "GameModelSoACache",
     "GameModelStreams",
     "GameModel",
-    "SceneCapacity",
 )
 
 PHYSICS_PREFIXES = (
@@ -184,6 +183,7 @@ RENDERING_PREFIXES = (
     "IRenderShaderDevelopment",
     "IRenderResourceFactory",
     "IShader",
+    "PrimitiveBatchRenderer",
     "PrimitiveMeshBuilder",
     "RenderGraph",
     "RenderRasterBindingContract",
@@ -266,6 +266,7 @@ RUNTIME_PREFIXES = (
 
 RUNTIME_SCENE_PREFIXES = (
     "RunScene",
+    "SceneCapacity",
     "SceneController",
     "SceneControllerState",
     "SceneTerrain",
@@ -368,6 +369,7 @@ CORE_PREFIXES = (
     "Log",
     "MainMemoryStats",
     "PlatformProfiler",
+    "PlatformWin32",
     "Profiler",
     "SbResult",
     "SkullScope",

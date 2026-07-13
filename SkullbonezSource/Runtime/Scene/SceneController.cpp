@@ -40,7 +40,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 namespace
 {
@@ -55,7 +55,7 @@ SceneController::SceneController()
 
 
 void SceneController::StepPhysics( float fixedDt,
-                                   const EngineConfig& config,
+                                   const SkullbonezCore::Core::EngineConfig& config,
                                    const Physics::PhysicsWorldForces& worldForces,
                                    Threading::WorkerPool& workerPool )
 {
@@ -396,7 +396,7 @@ void SceneController::SubmitLoadBrowserIndex( int index )
     SceneRequest request;
     request.type = SceneRequestType::LoadBrowserIndex;
     request.index = index;
-    const SbResult result = m_requests.Submit( request );
+    const SkullbonezCore::Core::SbResult result = m_requests.Submit( request );
     if ( !result.ok )
     {
         SB_FATAL( result.error.owner, "%s", result.error.message );
@@ -408,7 +408,7 @@ void SceneController::SubmitLoadDemoScene()
 {
     SceneRequest request;
     request.type = SceneRequestType::LoadDemoScene;
-    const SbResult result = m_requests.Submit( request );
+    const SkullbonezCore::Core::SbResult result = m_requests.Submit( request );
     if ( !result.ok )
     {
         SB_FATAL( result.error.owner, "%s", result.error.message );
@@ -425,7 +425,7 @@ void SceneController::SubmitResetCurrentScene( bool preserveUIState,
     request.preserveUIState = preserveUIState;
     request.suppressExitOnComplete = suppressExitOnComplete;
     request.preserveRuntimeState = preserveRuntimeState;
-    const SbResult result = m_requests.Submit( request );
+    const SkullbonezCore::Core::SbResult result = m_requests.Submit( request );
     if ( !result.ok )
     {
         SB_FATAL( result.error.owner, "%s", result.error.message );
@@ -433,14 +433,14 @@ void SceneController::SubmitResetCurrentScene( bool preserveUIState,
 }
 
 
-SbResult SceneController::SubmitCreateScene( const char* requestedName )
+SkullbonezCore::Core::SbResult SceneController::SubmitCreateScene( const char* requestedName )
 {
     const std::size_t nameLength = requestedName ? strnlen_s( requestedName, SCENE_REQUEST_TEXT_CAPACITY ) : 0;
     if ( requestedName && nameLength >= SCENE_REQUEST_TEXT_CAPACITY )
     {
-        return SbResult::Failure( "Runtime/SceneController",
-                                  "Scene name exceeds the fixed %d-byte request payload",
-                                  SCENE_REQUEST_TEXT_CAPACITY - 1 );
+        return SkullbonezCore::Core::SbResult::Failure( "Runtime/SceneController",
+                                                        "Scene name exceeds the fixed %d-byte request payload",
+                                                        SCENE_REQUEST_TEXT_CAPACITY - 1 );
     }
 
     SceneRequest request;
@@ -457,7 +457,7 @@ void SceneController::SubmitSaveCurrentDefaults()
 {
     SceneRequest request;
     request.type = SceneRequestType::SaveCurrentDefaults;
-    const SbResult result = m_requests.Submit( request );
+    const SkullbonezCore::Core::SbResult result = m_requests.Submit( request );
     if ( !result.ok )
     {
         SB_FATAL( result.error.owner, "%s", result.error.message );
@@ -670,5 +670,5 @@ const SceneRuntime& SceneController::Runtime() const
 {
     return m_runtime;
 }
-} // namespace Basics
+} // namespace Runtime
 } // namespace SkullbonezCore

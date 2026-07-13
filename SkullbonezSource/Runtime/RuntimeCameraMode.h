@@ -27,7 +27,7 @@ Related:
 */
 #pragma once
 
-namespace SkullbonezCore::Basics
+namespace SkullbonezCore::Runtime
 {
 enum class RunCameraMode
 {
@@ -94,4 +94,4 @@ inline const char* RunCameraModeLabel( RunCameraMode mode )
         return "Unknown";
     }
 }
-} // namespace SkullbonezCore::Basics
+} // namespace SkullbonezCore::Runtime

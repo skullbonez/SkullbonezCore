@@ -65,11 +65,11 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Basics
+namespace Runtime
 {
 struct DeviceInputFrame;
 struct RuntimeMouseEdges;
-} // namespace Basics
+} // namespace Runtime
 
 namespace Assets
 {
@@ -216,7 +216,7 @@ struct InGameUIFrameData
     int soundSetCount = 0;
     const char* soundSamplePaths[UI_SOUND_SAMPLE_MAX] = {};
     int soundSampleCount = 0;
-    Basics::MainMemoryStats mainMemory;
+    SkullbonezCore::Core::MainMemoryStats mainMemory;
     Rendering::RenderMemoryStats renderMemory;     // Value snapshot for the Memory tab/overlay only.
     Runtime::Allocation::RuntimeReserveGrowthEventView reserveGrowthEvents[UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX];
     int reserveGrowthEventCount = 0;
@@ -230,7 +230,7 @@ struct InGameUIFrameData
     bool replayMemoryBudgetClamped = false;
     bool replayMemorySolverWindowReduced = false;
     int modelCount = 0;
-    int modelCapacity = DEFAULT_GAME_MODEL_CAPACITY;
+    int modelCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_GAME_MODEL_CAPACITY;
     int workerThreadCount = 0;
     int maxWorkerThreadCount = 1;
     int currentFrame = 0;
@@ -336,8 +336,8 @@ struct InGameUIFrameData
     int editorRedoDepth = 0;
     bool canSaveSceneDefaults = false;
     bool cinematicRendering = false;
-    Basics::OrdinaryRenderConfig ordinaryRender;
-    Basics::CinematicRenderConfig cinematic;
+    SkullbonezCore::Core::OrdinaryRenderConfig ordinaryRender;
+    SkullbonezCore::Core::CinematicRenderConfig cinematic;
     UIRenderTargetPreviewResource renderTargetPreviews[UI_RENDER_TARGET_PREVIEW_MAX];
     int renderTargetPreviewCount = 0;
 };
@@ -377,8 +377,8 @@ class InGameUI
     void CancelInputCapture();
     void ResetResources( Rendering::IRenderResourceFactory* resources );
 
-    InGameUIInputResult UpdateInput( const Basics::DeviceInputFrame& deviceFrame,
-                                     const Basics::RuntimeMouseEdges& mouse,
+    InGameUIInputResult UpdateInput( const Runtime::DeviceInputFrame& deviceFrame,
+                                     const Runtime::RuntimeMouseEdges& mouse,
                                      int screenW,
                                      int screenH,
                                      double now,
@@ -431,7 +431,7 @@ class InGameUI
     int m_mouseY = 0;
     int m_lastScreenW = 1;
     int m_lastScreenH = 1;
-    int m_lastModelCapacity = DEFAULT_GAME_MODEL_CAPACITY;
+    int m_lastModelCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_GAME_MODEL_CAPACITY;
     int m_lastSolverBallCount = 0;
     int m_lastSolverBoxCount = 0;
     int m_lastWorkerThreadCount = 0;
