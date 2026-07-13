@@ -244,6 +244,14 @@ def hash_text(value: int) -> str:
     return f"0x{value:016X}"
 
 
+def float32_bits_text(value: float) -> str:
+    return f"0x{struct.unpack('<I', struct.pack('<f', value))[0]:08X}"
+
+
+def float64_bits_text(value: float) -> str:
+    return f"0x{struct.unpack('<Q', struct.pack('<d', value))[0]:016X}"
+
+
 def float_from_i32_bits(value: int) -> float:
     return struct.unpack("<f", struct.pack("<I", value & 0xFFFFFFFF))[0]
 
@@ -1148,6 +1156,46 @@ class ReplayV2:
                 }
             )
         return hashes
+
+    def presentation_frame_headers(self) -> list[dict[str, object]]:
+        """Return exact, ordered presentation headers without decoding body rows."""
+        raw = self._chunk_bytes("PRES")
+        rows: list[dict[str, object]] = []
+        for ordinal, frame in enumerate(self.frames):
+            if frame.presentation_offset + FRAME_HEADER.size > len(raw):
+                raise ReplayQueryError(f"frame header {ordinal} points outside PRES chunk")
+            values = FRAME_HEADER.unpack_from(raw, frame.presentation_offset)
+            frame_index = int(values[0])
+            body_count = int(values[22])
+            if frame_index != frame.frame_index or body_count != frame.body_count:
+                raise ReplayQueryError(
+                    f"frame header/index mismatch at ordinal {ordinal}: "
+                    f"index_frame={frame.frame_index} header_frame={frame_index} "
+                    f"index_bodies={frame.body_count} header_bodies={body_count}"
+                )
+            flags = int(values[8])
+            rows.append(
+                {
+                    "frameIndex": frame_index,
+                    "sceneFrame": int(values[1]),
+                    "timeSecondsBits": float64_bits_text(float(values[2])),
+                    "dtBits": float32_bits_text(float(values[3])),
+                    "stateHash": hash_text(int(values[4])),
+                    "contactCount": int(values[5]),
+                    "pipelineRecordCount": int(values[6]),
+                    "checkpointBoundary": bool(values[7]),
+                    "fixedStep": bool(flags & FLAG_FIXED_STEP),
+                    "worldFlags": flags,
+                    "gravityBits": float32_bits_text(float(values[10])),
+                    "fluidHeightBits": float32_bits_text(float(values[11])),
+                    "fluidDensityBits": float32_bits_text(float(values[12])),
+                    "cameraEyeBits": [float32_bits_text(float(value)) for value in values[13:16]],
+                    "cameraViewBits": [float32_bits_text(float(value)) for value in values[16:19]],
+                    "cameraUpBits": [float32_bits_text(float(value)) for value in values[19:22]],
+                    "bodyCount": body_count,
+                }
+            )
+        return rows
 
     def body_samples(self, body: BodyInfo, frames: Iterable[FrameIndex], limit: int) -> list[dict[str, object]]:
         samples: list[dict[str, object]] = []

@@ -1,7 +1,7 @@
 # Replay Visual Fidelity Mega Probe — Frame-Exact 200-Box Prediction Proof
 
 Date: 2026-07-13
-Status: Live — 4/7 tasks complete
+Status: Live — 5/7 tasks complete
 Branch: `nightrunner-13th-july`
 Impact area: replay prediction, replay presentation, trajectory/marker
 submission, artifacts, automation, tests, and validation
@@ -131,7 +131,7 @@ and hashes. Hash-only diagnostics are insufficient.
   focused artifact tests, and `tools\migrate_data_formats.py --check` when
   applicable.
 
-- [ ] **V4 — Close timing, determinism, and false-pass holes.** Run at least
+- [x] **V4 — Close timing, determinism, and false-pass holes.** Run at least
   two clean processes and compare their ordered per-tick manifests. Pin fixed
   step, seed, reveal-frame mapping, camera input, worker completion, event
   cursor, scene/config input, and horizon. Reject render-frame/wall-clock
@@ -316,6 +316,45 @@ and hashes. Hash-only diagnostics are insufficient.
 - Touched-source/tool comment audit: 9/9 checked, 0 deferred —
   `InteractionAutomationController.cpp`, `ReplayRecorder.cpp/.h`,
   `ReplayV2Artifact.cpp/.h`, `check_replay_v2_artifact.py`,
+  `check_replay_visual_fidelity.py`, `replay_query.py`, and
+  `validate_replay_visual_fidelity.bat`.
+
+## V4 Closure Evidence — 2026-07-14
+
+- The permanent gate now runs clean Profile processes A and B sequentially,
+  hidden, and never concurrently. Each process retains V2's hard guard against
+  a duplicate, rewind, skip, or post-Play generation. B cannot launch until A
+  exits and independently passes the immutable V0/V2/V3 contract.
+- The cross-process determinism projection compares all 2,401 scene/reveal
+  mappings and raw visual submission fields, the full causal/live proof, pinned
+  scene/script/config/shader inputs, authored seed 62929, 20-second horizon,
+  quiescent worker/restart state, and zero trajectory-reserve growth. It also
+  compares 2,460 exact presentation headers including fixed-step world flags
+  and camera float bits, ordered body packet hashes, branches, events, all 41
+  event cursors, every solver hash, and the complete artifact SHA-256.
+- Clean-run artifacts A and B are byte-identical at
+  `E7CDCABA666F822B064CAF5D9469FA8D7D095712F47F600AA16E357DCAC4ACBF`.
+  Both runs independently report all 200 wall bricks moved, 199 causal nodes,
+  2,401 predicted/live matches, and 2,460 saved/loadable samples.
+- The first real A/B comparison correctly exposed an over-broad candidate:
+  internal trajectory-record publication fingerprints can vary with worker
+  completion order even when every renderer-facing record and byte is exact.
+  V2 already classified that ordering as diagnostic rather than visual. V4
+  therefore excludes only that internal fingerprint, retains its record/point
+  counts, and detects actual renderer record reordering through ordered raw
+  submission hashes and counts.
+- Nine V4 in-memory controls all fail at their injected first fields: seed
+  mismatch, missing tick, event mutation, non-fixed step, truncated horizon,
+  visual record reordering, vertex-byte change, dropped geometry, and reserve
+  growth. The five existing exact-float, incomplete-horizon, causal activation,
+  topology, and segment controls continue to fail as well.
+- Final `tools\validate_replay_visual_fidelity.bat` passed in 337.8 seconds:
+  hidden A, then hidden B, exact cross-process comparison, one fresh hidden
+  load/scrub-only process, and all fourteen controls. No process performed a
+  second prediction generation and no prediction processes overlapped.
+- `tools\validate_fast.bat` passed in 53.0 seconds with formatting, project
+  filters, staged-size policy, zero-warning Profile/Debug builds, and the main
+  test suite. Touched-tool comment audit: 3/3 checked, 0 deferred —
   `check_replay_visual_fidelity.py`, `replay_query.py`, and
   `validate_replay_visual_fidelity.bat`.
 

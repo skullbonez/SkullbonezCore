@@ -4,15 +4,17 @@ Purpose:
   for every deterministic prediction reveal frame.
 
 Mental model:
-  The hidden engine process records the approved prediction once. This checker
-  compares that report and its saved replay packets without launching the engine
-  or generating another prediction.
+  Each hidden engine process records the approved prediction once. This checker
+  compares one report with the golden and can compare two sequential clean-run
+  reports without launching the engine or generating another prediction.
 
 Glossary:
   Reveal tick: One future-frame packet exposed by the prediction cascade.
   Causal baseline: Approved topology and activation order for the wall cascade.
   Packet hash: Deterministic digest of the exact ordered body data rendered for
     a predicted or subsequently live frame.
+  Determinism contract: Ordered report/artifact projection that excludes only
+    measured wall-clock throughput and retains every simulation/visual input.
 
 Invariants:
   - Validation never updates the baseline.
@@ -287,6 +289,261 @@ def validate_artifact_roundtrip(report: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def replay_artifact_path(report: dict[str, Any]) -> Path:
+    path = Path(str(report.get("replayArtifact", {}).get("path", "")))
+    return path if path.is_absolute() else ROOT / path
+
+
+def replay_artifact_determinism_contract(report: dict[str, Any]) -> dict[str, Any]:
+    path = replay_artifact_path(report)
+    artifact = ReplayV2(path)
+    return {
+        "version": artifact.version,
+        "manifest": artifact.manifest,
+        "bodyDictionary": [
+            {
+                "dictionaryIndex": body.dictionary_index,
+                "bodyId": body.body_id,
+                "modelIndex": body.model_index,
+                "shapeKind": body.shape_kind,
+                "name": body.name,
+                "massHex": float(body.mass).hex(),
+                "fixed": body.fixed,
+            }
+            for body in artifact.bodies
+        ],
+        "frameHeaders": artifact.presentation_frame_headers(),
+        "presentationPackets": artifact.presentation_packet_hashes(),
+        "branches": [
+            {
+                "branchId": row.branch_id,
+                "parentBranchId": row.parent_branch_id,
+                "startFrame": row.start_frame,
+                "firstRetainedFrame": row.first_retained_frame,
+                "lastRetainedFrame": row.last_retained_frame,
+                "sourceFrame": row.source_frame,
+                "sourceSolverHash": row.source_solver_hash,
+                "flags": row.flags,
+            }
+            for row in artifact.branches
+        ],
+        "events": [
+            {
+                "frameIndex": row.frame_index,
+                "sequence": row.sequence,
+                "branchId": row.branch_id,
+                "parentBranchId": row.parent_branch_id,
+                "kind": row.kind,
+                "payloadVersion": row.payload_version,
+                "flags": row.flags,
+                "values": list(row.values),
+                "data0": row.data0,
+                "sourceFrame": row.source_frame,
+                "sourceSolverHash": row.source_solver_hash,
+                "text": row.text,
+            }
+            for row in artifact.events
+        ],
+        "eventCursors": [
+            {
+                "frameIndex": row.frame_index,
+                "eventCursor": row.event_cursor,
+                "flags": row.flags,
+                "solverHash": row.solver_hash,
+            }
+            for row in artifact.event_cursors
+        ],
+        "solverHashes": [
+            {
+                "frameIndex": row.frame_index,
+                "sceneFrame": row.scene_frame,
+                "timeSecondsHex": float(row.time_seconds).hex(),
+                "presentationHash": row.presentation_hash,
+                "solverHash": row.solver_hash,
+                "bodyCount": row.body_count,
+                "contactCount": row.contact_count,
+                "pipelineRecordCount": row.pipeline_record_count,
+                "checkpointBoundary": row.checkpoint_boundary,
+            }
+            for row in artifact.solver_hashes
+        ],
+        # This comes last so a semantic row is named before the whole-file hash
+        # if a process differs in any decoded presentation or timeline field.
+        "artifactSha256": sha256(path),
+    }
+
+
+def determinism_contract(report: dict[str, Any]) -> dict[str, Any]:
+    ticks = validate_report_shape(report)
+    causal = validate_causal_shape(report)
+    validate_artifact_roundtrip(report)
+    artifact = replay_artifact_determinism_contract(report)
+    scene_data = load_json(SCENE)
+    final = report["finalState"]
+    start_frame = report["replayVisualFidelity"]["startFrame"]
+    reveal_mapping = [
+        {"sceneFrame": tick["sceneFrame"], "revealFrame": tick["revealFrame"]}
+        for tick in ticks
+    ]
+    for index, mapping in enumerate(reveal_mapping):
+        if mapping["sceneFrame"] != start_frame + index:
+            raise ValueError(
+                f"reveal-frame mapping drifted at row {index}: "
+                f"expected_scene={start_frame + index} actual_scene={mapping['sceneFrame']}"
+            )
+
+    frame_headers = artifact["frameHeaders"]
+    if not frame_headers or not all(row["fixedStep"] for row in frame_headers):
+        raise ValueError("saved presentation contains a non-fixed-step frame")
+    event_cursors = artifact["eventCursors"]
+    if not event_cursors:
+        raise ValueError("saved presentation contains no event-cursor checkpoints")
+    if any(
+        event_cursors[index]["frameIndex"] <= event_cursors[index - 1]["frameIndex"]
+        for index in range(1, len(event_cursors))
+    ):
+        raise ValueError("saved event-cursor checkpoints are not strictly ordered")
+
+    reserve_start = int(final["predictionTrajectoryReserveGrowthEventsAtStart"])
+    reserve_end = int(final["predictionTrajectoryReserveGrowthEventsAtEnd"])
+    worker_complete = (
+        not final["replayPredictionEnabled"]
+        and not final["predictionPendingLatestRestart"]
+        and final["predictionSupersededRestartCount"] == 0
+        and final["predictionLatestRestartBeginCount"] == 0
+        and final["predictionBuildFrameCount"] == 0
+        and final["predictionFrameCount"] == EXPECTED_TICKS
+        and causal["singleRevealGeneration"]
+    )
+    if not worker_complete:
+        raise ValueError("prediction worker/restart state was not quiescent after one generation")
+    if not final["predictionTrajectorySteadyStateNoReserveGrowth"] or reserve_end != reserve_start:
+        raise ValueError(
+            f"trajectory reserve grew during proof: start={reserve_start} end={reserve_end}"
+        )
+    if final["predictionHorizonSeconds"] != 20.0:
+        raise ValueError(f"prediction horizon drifted: {final['predictionHorizonSeconds']}")
+    if not scene_data.get("playback", {}).get("fixedStep"):
+        raise ValueError("200-box scene no longer authors fixed-step playback")
+    scene_seed = scene_data.get("simulation", {}).get("seed")
+    if not isinstance(scene_seed, int) or scene_seed <= 0:
+        raise ValueError(f"200-box scene seed is not pinned: {scene_seed!r}")
+    if int(final["predictionSourceSolverHash"]) == 0:
+        raise ValueError("prediction source solver seed hash is empty")
+
+    # Worker completion may publish the internal trajectory records in a
+    # different diagnostic order. V2 deliberately excluded that fingerprint:
+    # renderer-facing record order is already covered by every raw submission
+    # hash/count in visualTicks, where reordering is a real visual divergence.
+    runtime_fields = (
+        "cameraMode",
+        "replayPredictionEnabled",
+        "predictionHorizonSeconds",
+        "predictionBuildMode",
+        "predictionPendingLatestRestart",
+        "predictionSupersededRestartCount",
+        "predictionLatestRestartBeginCount",
+        "replayPathTarget",
+        "replayPathTargetCount",
+        "predictionSourceSolverHash",
+        "predictionActiveFrameCount",
+        "predictionFrameCount",
+        "predictionBuildFrameCount",
+        "predictionTrajectoryFingerprintReady",
+        "predictionTrajectoryRecordCount",
+        "predictionTrajectoryPointCount",
+        "predictionFutureNodeCount",
+        "predictionAuthoredWallBrickCount",
+        "predictionAffectedWallBrickCount",
+        "predictionMovedWallBrickCount",
+        "predictionFutureNodeBuildFrameCount",
+        "predictionRetainedEntryMarkerCount",
+        "predictionRetainedRestMarkerCount",
+        "predictionRetainedHorizonMarkerCount",
+    )
+    return {
+        "inputs": {
+            "scene": str(report.get("scene", "")).replace("\\", "/"),
+            "script": str(report.get("script", "")).replace("\\", "/"),
+            "sceneSha256": sha256(SCENE),
+            "scriptSha256": sha256(SCRIPT),
+            "configSha256": sha256(CONFIG),
+            "shadersSha256": shader_tree_sha256(),
+            "sceneSeed": scene_seed,
+        },
+        "horizon": {
+            "fixedStep": True,
+            "startFrame": start_frame,
+            "tickCount": len(ticks),
+            "lastReveal": ticks[-1]["revealFrame"],
+            "seconds": final["predictionHorizonSeconds"],
+        },
+        "workerAndReserve": {
+            "workerComplete": worker_complete,
+            "reserveGrowthDelta": reserve_end - reserve_start,
+            "steadyStateNoReserveGrowth": final["predictionTrajectorySteadyStateNoReserveGrowth"],
+        },
+        "runtime": {field: final[field] for field in runtime_fields},
+        "revealMapping": reveal_mapping,
+        "visualTicks": ticks,
+        "causal": causal,
+        "artifact": artifact,
+    }
+
+
+def run_determinism_negative_controls(
+    expected: dict[str, Any], actual: dict[str, Any]
+) -> bool:
+    controls = (
+        ("seed-mismatch", "inputs.sceneSeed"),
+        ("missing-tick", "revealMapping[1200].revealFrame"),
+        ("event-mutation", "artifact.events[0].kind"),
+        ("non-fixed-step", "artifact.frameHeaders[0].fixedStep"),
+        ("truncated-horizon", "horizon.tickCount"),
+        ("record-reordering", "visualTicks[100].sceneFrame"),
+        ("vertex-byte-change", "visualTicks[1200].ordinaryVertexBytes"),
+        ("dropped-geometry", "visualTicks[1200].segmentCount"),
+        ("reserve-growth", "workerAndReserve.reserveGrowthDelta"),
+    )
+    for name, expected_path in controls:
+        mutated = copy.deepcopy(actual)
+        if name == "seed-mismatch":
+            mutated["inputs"]["sceneSeed"] += 1
+        elif name == "missing-tick":
+            mutated["revealMapping"][1200]["revealFrame"] += 1
+        elif name == "event-mutation":
+            if not mutated["artifact"]["events"]:
+                print("FAIL determinism event control has no event to mutate")
+                return False
+            mutated["artifact"]["events"][0]["kind"] += 1
+        elif name == "non-fixed-step":
+            mutated["artifact"]["frameHeaders"][0]["fixedStep"] = False
+        elif name == "truncated-horizon":
+            mutated["horizon"]["tickCount"] -= 1
+            mutated["visualTicks"].pop()
+        elif name == "record-reordering":
+            mutated["visualTicks"][100], mutated["visualTicks"][101] = (
+                mutated["visualTicks"][101],
+                mutated["visualTicks"][100],
+            )
+        elif name == "vertex-byte-change":
+            mutated["visualTicks"][1200]["ordinaryVertexBytes"] += 4
+        elif name == "dropped-geometry":
+            mutated["visualTicks"][1200]["segmentCount"] -= 1
+        elif name == "reserve-growth":
+            mutated["workerAndReserve"]["reserveGrowthDelta"] += 1
+
+        difference = first_difference(expected, mutated, "determinism")
+        if not difference or expected_path not in difference:
+            print(
+                f"FAIL determinism control {name} missed injected field: "
+                f"expected_path={expected_path} difference={difference}"
+            )
+            return False
+        print(f"PASS determinism control {name}: {difference}")
+    return True
+
+
 def causal_comparable(report: dict[str, Any]) -> dict[str, Any]:
     causal = validate_causal_shape(report)
     tick_fields = (
@@ -423,7 +680,12 @@ def main() -> int:
     parser.add_argument("--causal-activation-control", action="store_true")
     parser.add_argument("--causal-topology-control", action="store_true")
     parser.add_argument("--causal-segment-control", action="store_true")
+    parser.add_argument("--compare-report", type=Path)
+    parser.add_argument("--run-determinism-controls", action="store_true")
     args = parser.parse_args()
+
+    if args.run_determinism_controls and not args.compare_report:
+        parser.error("--run-determinism-controls requires --compare-report")
 
     report = load_json(args.report)
     if args.approve_baseline:
@@ -592,6 +854,33 @@ def main() -> int:
     if difference:
         print(f"FAIL replay visual fidelity first divergence: {difference}")
         return 1
+    if args.compare_report:
+        try:
+            expected_determinism = determinism_contract(report)
+            actual_determinism = determinism_contract(load_json(args.compare_report))
+        except (OSError, ReplayQueryError, ValueError) as error:
+            print(f"FAIL replay cross-process determinism input: {error}")
+            return 1
+        if args.run_determinism_controls:
+            return 0 if run_determinism_negative_controls(
+                expected_determinism, actual_determinism
+            ) else 1
+        determinism_difference = first_difference(
+            expected_determinism, actual_determinism, "determinism"
+        )
+        if determinism_difference:
+            print(
+                "FAIL replay cross-process determinism first divergence: "
+                f"{determinism_difference}"
+            )
+            return 1
+        print(
+            "PASS replay cross-process determinism: "
+            f"ticks={len(expected_determinism['visualTicks'])} "
+            f"saved_frames={len(expected_determinism['artifact']['frameHeaders'])} "
+            f"event_cursors={len(expected_determinism['artifact']['eventCursors'])}"
+        )
+        return 0
     print(
         f"PASS replay visual fidelity: ticks={actual['tickCount']} "
         f"moved_wall_bricks={actual['finalState']['predictionMovedWallBrickCount']} "
