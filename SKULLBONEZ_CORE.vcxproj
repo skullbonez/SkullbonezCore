@@ -680,11 +680,14 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <None Include="SkullbonezData\scenes\funnel_roll_test.scene.json" />
     <None Include="SkullbonezData\scenes\interaction_inspect_gizmo_harness.scene.json" />
     <None Include="SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json" />
+    <None Include="SkullbonezData\scenes\prediction_ragdoll_wall_200.scene.json" />
     <None Include="SkullbonezData\interaction\inspect_gizmo_click.json" />
     <None Include="SkullbonezData\interaction\memory_overlay_f6_toggle.json" />
     <None Include="SkullbonezData\interaction\shader_hot_reload_f9.json" />
     <None Include="SkullbonezData\interaction\replay_branch_restore_live_edge.json" />
     <None Include="SkullbonezData\interaction\replay_prediction_click.json" />
+    <None Include="SkullbonezData\interaction\prediction_ragdoll_wall_200_full_reveal.json" />
+    <None Include="SkullbonezData\interaction\prediction_ragdoll_wall_200_predict.json" />
     <None Include="SkullbonezData\scenes\material_authoring_contract.scene.json" />
     <None Include="SkullbonezData\scenes\solver_smoke.scene.json" />
     <None Include="SkullbonezData\scenes\perf_1000.scene.json" />

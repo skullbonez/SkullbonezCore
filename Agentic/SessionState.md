@@ -11,21 +11,22 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-13th-july` |
-| Current baseline | Replay visual-fidelity V4 is complete: two sequential hidden one-generation processes match 2,401 visual/live ticks and byte-identical 2,460-frame artifacts, with fourteen false-pass controls |
+| Current baseline | Replay visual-fidelity V5 is complete: the exact 200-box oracle is the registered permanent replay gate and the historical scrub command delegates to it with exact failure propagation |
 | Current objective | Build the permanent frame-exact 200-box replay visual fidelity mega probe, then execute replay monolith decomposition with that gate after every task |
-| Portfolio progress | 317 / 329 tasks = 96% rounded overall |
+| Portfolio progress | 318 / 329 tasks = 97% rounded overall |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-14: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | V4: the two-process hidden 200-box gate passed in 337.8s with exact reports/artifacts and fourteen controls; `validate_fast` passed in 53.0s. Prediction A and B were sequential, never visible or overlapping, and each generated exactly once |
+| Validation for current edits | V5: the delegated two-process hidden 200-box gate passed in about 300s with exact reports/artifacts and fourteen controls; `validate_fast` passed in about 49s; nested failure code 37 propagated unchanged; project filters passed 668/668 |
 
 ## Live Queue
 
-1. `replay-visual-fidelity-mega-probe` is active at 5/7 on
+1. `replay-visual-fidelity-mega-probe` is active at 6/7 on
    `nightrunner-13th-july`. V0 froze the known-good 200-box cascade, V1 made one
    typed packet the render/validation seam, and V2 proved one-generation causal
    plus predicted/live equality. V3 round-trips complete durable presentation
    state through versioned save, fresh-process load, and scrub. V4 proves two
-   clean processes and closes timing/determinism false-pass holes. V5 now makes
-   this the one permanent authoritative replay validation gate.
+   clean processes and closes timing/determinism false-pass holes. V5 makes
+   this the one permanent authoritative replay validation gate. V6 now performs
+   the final adversarial closure and decomposition handoff.
 2. `replay-monolith-decomposition` is blocked at 0/9 until the mega probe
    closes. Every M0-M8 task, including inventory documentation, must run the
    unchanged 200-box gate before it can be checked or committed.
@@ -104,5 +105,5 @@ plan inventory.
 ## Next Handoff
 
 Run the repository-local orchestrator against
-`Plans/TODO/replay-visual-fidelity-mega-probe.md` V5. Replay decomposition does
+`Plans/TODO/replay-visual-fidelity-mega-probe.md` V6. Replay decomposition does
 not begin until V0-V6 close with the permanent 200-box gate passing.

@@ -1,7 +1,7 @@
 # Replay Visual Fidelity Mega Probe — Frame-Exact 200-Box Prediction Proof
 
 Date: 2026-07-13
-Status: Live — 5/7 tasks complete
+Status: Live — 6/7 tasks complete
 Branch: `nightrunner-13th-july`
 Impact area: replay prediction, replay presentation, trajectory/marker
 submission, artifacts, automation, tests, and validation
@@ -141,7 +141,7 @@ and hashes. Hash-only diagnostics are insufficient.
   identical and every false-pass control fails. Validation:
   `tools\validate_replay_visual_fidelity.bat`.
 
-- [ ] **V5 — Make the probe a permanent repository gate.** Register scripts,
+- [x] **V5 — Make the probe a permanent repository gate.** Register scripts,
   interaction assets, manifest, and any CPU target in project filters,
   `tools\README.md`, `validate_select.bat`, and the mandatory CPU umbrella when
   applicable. Make `tools\validate_replay_scrub.bat` invoke this command rather
@@ -357,6 +357,39 @@ and hashes. Hash-only diagnostics are insufficient.
   test suite. Touched-tool comment audit: 3/3 checked, 0 deferred —
   `check_replay_visual_fidelity.py`, `replay_query.py`, and
   `validate_replay_visual_fidelity.bat`.
+
+## V5 Closure Evidence — 2026-07-14
+
+- `tools\validate_replay_visual_fidelity.bat` is now registered in
+  `tools\README.md` and `validate_select.bat` as the single authoritative replay
+  presentation gate. `tools\validate_replay_scrub.bat` no longer owns a weaker
+  trajectory-fingerprint/steady-window oracle; it delegates exclusively to the
+  authoritative command and launches no additional process of its own.
+- The historical scrub wrapper includes a no-engine
+  `--prove-failure-propagation` control. It returned the synthetic nested exit
+  code 37 unchanged, proving a child failure cannot be converted into a pass.
+- The 200-box scene and both interaction scripts are registered in
+  `SKULLBONEZ_CORE.vcxproj` and its filters. Project-filter validation passed
+  with 668 project items, 668 filter items, and zero errors. The committed
+  manifests and validation scripts remain governed through the documented
+  validation registry; this task introduced no standalone CPU target, so the
+  mandatory CPU umbrella required no new entry.
+- `AGENTS.md` now makes validation rows cumulative and requires the mega gate
+  for replay source, replay-facing presentation/submission, replay tests,
+  artifact/interaction/manifest inputs, and the owning validation tools.
+- `tools\validate_fast.bat` passed in about 49 seconds: formatting, project
+  filters, staged-size policy, 186/186 main tests with 4,111/4,111 assertions,
+  and zero-warning Profile/Debug ready builds.
+- One invocation of the changed `tools\validate_replay_scrub.bat` exercised the
+  authoritative command once and passed in about 300 seconds. Hidden A generated
+  once and exited; hidden B then generated once and exited; the later hidden
+  Debug process only loaded/scrubbed A's artifact. Both clean runs reported
+  2,401 visual ticks, all 200 wall bricks moved, 199 causal nodes, 2,401
+  predicted/live matches, and 2,460 saved/loaded samples. Cross-process equality
+  covered all ticks, saved frames, and 41 event cursors, and all fourteen
+  false-pass controls named their intended first divergence.
+- Touched-tool comment audit: 2/2 checked, 0 deferred —
+  `validate_replay_scrub.bat` and `validate_select.bat`.
 
 ## Dependencies And Decisions
 

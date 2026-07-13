@@ -1636,6 +1636,9 @@
     <None Include="SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json">
       <Filter>Scene Files</Filter>
     </None>
+    <None Include="SkullbonezData\scenes\prediction_ragdoll_wall_200.scene.json">
+      <Filter>Scene Files</Filter>
+    </None>
     <None Include="SkullbonezData\interaction\inspect_gizmo_click.json">
       <Filter>Scene Files</Filter>
     </None>
@@ -1649,6 +1652,12 @@
       <Filter>Scene Files</Filter>
     </None>
     <None Include="SkullbonezData\interaction\replay_prediction_click.json">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\interaction\prediction_ragdoll_wall_200_full_reveal.json">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\interaction\prediction_ragdoll_wall_200_predict.json">
       <Filter>Scene Files</Filter>
     </None>
     <None Include="SkullbonezData\scenes\material_authoring_contract.scene.json">
