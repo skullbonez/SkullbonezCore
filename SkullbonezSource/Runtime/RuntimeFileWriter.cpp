@@ -27,8 +27,7 @@ Related:
 #include <cstdio>
 #include <cstring>
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include "../Core/PlatformWin32.h"
 
 using namespace SkullbonezCore::Basics;
 

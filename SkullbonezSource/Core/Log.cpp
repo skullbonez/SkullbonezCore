@@ -33,8 +33,7 @@ Related:
 #include <cstring>
 
 #if defined( _DEBUG ) || defined( SKULLBONEZ_TEST_ENGINE_LOG )
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include "PlatformWin32.h"
 #endif
 
 using namespace SkullbonezCore::Basics;

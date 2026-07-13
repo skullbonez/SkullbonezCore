@@ -11,11 +11,11 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-12th-july` |
-| Current baseline | Round-3 R1-R2 are complete: headers export no `using namespace`; scene capacity is `SkullbonezCore::Scene::Capacity` beside the scene owner |
+| Current baseline | Round-3 R1-R3 are complete: headers have explicit namespaces, scene capacity has a domain owner, and `Common.h` is platform-free |
 | Current objective | Execute adversarial-review round 3 (`Plans/TODO/adversarial-review-round-3.md`, R1→R10); validation-gate V3 remains externally blocked |
-| Portfolio progress | 304 / 313 tasks = 97% rounded overall |
+| Portfolio progress | 305 / 313 tasks = 97% rounded overall |
 | Last broad local gate | `tools\\validate_full.bat` passed final runtime-contract source on 2026-07-12 in 84.41s: CPU lanes clean, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | R2 fast/physics/full/DX12/stress gates passed; physics 44,401 lines byte-exact, zero InfoQueue errors, screenshots matched, 61.8s stress exit 0. |
+| Validation for current edits | R3 all-config builds plus fast/full/DX12/stress passed; zero warnings, physics byte-exact, zero InfoQueue errors, screenshots matched. |
 
 ## Live Queue
 
@@ -29,12 +29,12 @@ plan inventory.
    2026-07-12 ruling) and is not live portfolio work.
 3. Round-2 runtime-contract remediation is locally complete and recorded in
    `Reports/2026-07-12/runtime-contract-enforcement-closure.md`.
-4. Round-3 adversarial-review remediation is live at 2/10: R1-R2 header and
-   scene-capacity ownership hygiene are complete. Eight tasks remain
+4. Round-3 adversarial-review remediation is live at 3/10: R1-R3 header,
+   scene-capacity, and platform-prelude hygiene are complete. Seven tasks remain
    (exceptions off, header/namespace hygiene, `Common.h` platform leak,
    `Basics` retirement, `Helper` dissolution, C++20 + `std::span`, solver
    SIMD, DX12 bindless + three frames). Plan and fine-grained progress
-   checklist live in `Plans/TODO/`; continue with R3→R10. Out-of-scope
+   checklist live in `Plans/TODO/`; continue with R4→R10. Out-of-scope
    rulings are recorded in MASTER to avoid re-litigation.
 
 ## Current Plan Decisions
@@ -92,5 +92,5 @@ plan inventory.
 
 ## Next Handoff
 
-Commit and push R2, then execute R3 `Common.h` platform prelude removal.
+Commit and push R3, then execute R4 compiler-enforced exception removal.
 V3 resumes separately when the required GitHub and runner authority exists.

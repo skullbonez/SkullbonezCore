@@ -64,22 +64,37 @@ scan passed with zero allowlist errors.
 
 ## R3 — `Common.h` platform prelude removal
 
-- [ ] Inventory which of the 43 `Common.h`-including headers actually use
+- [x] Inventory which of the 43 `Common.h`-including headers actually use
       Win32 types (HWND, DWORD, LARGE_INTEGER, CRITICAL_SECTION, …) versus
       only C/C++ stdlib.
-- [ ] Add `Core/PlatformWin32.h` owning `WIN32_LEAN_AND_MEAN` + `<windows.h>`
+- [x] Add `Core/PlatformWin32.h` owning `WIN32_LEAN_AND_MEAN` + `<windows.h>`
       (+ `NOMINMAX` decision — record it; current code uses `(std::max)`
       parenthesis-guards, so `NOMINMAX` is the cleaner end state).
-- [ ] Remove `<windows.h>` and `WIN32_LEAN_AND_MEAN` from `Core/Common.h`;
+- [x] Remove `<windows.h>` and `WIN32_LEAN_AND_MEAN` from `Core/Common.h`;
       keep the CRT debug block and stdlib includes, or shrink further if
       consumers allow.
-- [ ] Point true platform consumers (Window, Timer, WorkerPool, Input, DX12
+- [x] Point true platform consumers (Window, Timer, WorkerPool, Input, DX12
       device/backend, Init/Run message pump, capture/file IO) at the new
       prelude or at `<windows.h>` in their `.cpp`.
-- [ ] Compile-fix the fallout headers with narrow stdlib includes only —
+- [x] Compile-fix the fallout headers with narrow stdlib includes only —
       physics/maths/UI-layout/scene headers must not gain a platform include.
-- [ ] Prove: `rg -ln 'windows.h' SkullbonezSource` lists only platform-owner
+- [x] Prove: `rg -ln 'windows.h' SkullbonezSource` lists only platform-owner
       files; zero warnings in Debug, Profile, Release.
+
+Decision and evidence (2026-07-13): the current tree had 38 direct
+`Common.h`-including headers (the plan's 43 count was pre-round-3 evidence).
+`PlatformWin32.h` is the single Windows SDK prelude and defines both
+`WIN32_LEAN_AND_MEAN` and `NOMINMAX` before `windows.h`. Runtime window/input,
+automation, file/diagnostic, profiler, GDI text, and DX12 owners include it
+explicitly. `Terrain` replaced `BYTE`/`UINT` with standard fixed-width types
+and value initialization, so world/physics-facing headers stayed platform-free.
+Case-insensitive grep finds `windows.h` only in `PlatformWin32.h`.
+Profile (13.7s), Debug (24.9s), and Release (38.7s) built with zero warnings.
+Fast, full, and DX12 gates passed; full retained the 44,401-line byte-exact
+physics baseline, DX12 reported zero InfoQueue errors with matching screenshots,
+and the bounded 62.2s stress run exited 0. The profiler-marker probe emitted
+`requested` and `enabled`; because marker mode intentionally keeps the runtime
+alive, PID 46576 was stopped after the 34s probe window.
 
 ## R4 — Compile out engine exceptions
 

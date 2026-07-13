@@ -1,7 +1,7 @@
 # Adversarial Review Remediation Round 3 — Language, Namespace, And Renderer Modernization
 
 Date: 2026-07-13
-Status: Live — 2/10 tasks complete
+Status: Live — 3/10 tasks complete
 Impact area: build configuration, Core prelude, UI/Scene/Rendering headers,
 namespace layout, math/solver hot path, DX12 backend
 Owner: engine architecture
@@ -105,7 +105,7 @@ upgrades, then the two performance/architecture tasks.
   `tools\validate_dx12_renderer.bat` (49.4s), and
   `tools\run_graphics_stress.bat 1` (61.8s, exit 0). Allocation-policy
   self-test/repo scan and project-filter validation also passed.
-- [ ] **R3 — Stop `Common.h` injecting `<windows.h>`.** Remove
+- [x] **R3 — Stop `Common.h` injecting `<windows.h>`.** Remove
   `<windows.h>`/`WIN32_LEAN_AND_MEAN` from `Core/Common.h`. Audit all 43
   including headers; the consumers that genuinely need Win32 types (window,
   timer, worker pool, DX12 device, input) include a narrow platform prelude
@@ -113,8 +113,11 @@ upgrades, then the two performance/architecture tasks.
   `<windows.h>` directly in their `.cpp`. Physics, maths, UI-layout, and scene
   headers must compile without Win32. Acceptance: `Common.h` has no platform
   include; a grep inventory shows `windows.h` only in platform-owning files;
-  zero warnings in all configurations. Validation: `tools\validate_full.bat`
-  (Common.h is mapped to the full gate).
+  zero warnings in all configurations. Validation passed on 2026-07-13:
+  Profile/Debug/Release builds were zero-warning; `tools\validate_fast.bat`
+  (53.7s), `tools\validate_full.bat` (132.7s),
+  `tools\validate_dx12_renderer.bat` (48.9s), and
+  `tools\run_graphics_stress.bat 1` (62.2s, exit 0) passed.
 - [ ] **R4 — Compile out exceptions in engine projects.** Set
   `<ExceptionHandling>false</ExceptionHandling>` (`/EHs-c-`) and define
   `_HAS_EXCEPTIONS=0` for SKULLBONEZ_CORE, SKULLBONEZ_MATHS, and

@@ -24,6 +24,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "LiveStyleController.h"
+#include "../Core/PlatformWin32.h"
 #include "CaptureController.h"
 #include "../Rendering/IRenderCaptureBackend.h"
 #include "Scene/SceneRuntimeStyle.h"

@@ -51,6 +51,8 @@ Related:
 */
 #pragma once
 
+#include "../../Core/PlatformWin32.h"
+
 #include "ReplayRecorder.h"
 #include "ReplayPredictionScheduling.h"
 #include "../../Assets/AssetKeys.h"

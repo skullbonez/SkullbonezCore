@@ -27,6 +27,7 @@ Related:
 */
 #include "UITabScene.h"
 
+#include "../Core/PlatformWin32.h"
 #include "UI.h"
 #include "UIButton.h"
 #include "UIComboBox.h"

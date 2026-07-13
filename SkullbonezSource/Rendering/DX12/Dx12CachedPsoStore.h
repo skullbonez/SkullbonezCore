@@ -28,7 +28,8 @@ Related:
 */
 #pragma once
 
-#include <Windows.h>
+#include "../../Core/PlatformWin32.h"
+
 #include <d3d12.h>
 #include <wrl/client.h>
 

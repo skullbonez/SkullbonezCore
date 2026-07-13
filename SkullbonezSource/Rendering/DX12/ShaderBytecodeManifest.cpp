@@ -28,7 +28,7 @@ Related:
 
 #include "../../../ThirdPtySource/nlohmann/json.hpp"
 
-#include <Windows.h>
+#include "../../Core/PlatformWin32.h"
 #include <bcrypt.h>
 #include <d3dcompiler.h>
 #include <dxcapi.h>

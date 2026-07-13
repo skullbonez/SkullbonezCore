@@ -40,6 +40,7 @@ Related:
 #include "Audio/ContactAudioService.h"
 #include "Replay/ReplayRecorder.h"
 #include "Scene/SceneRuntime.h"
+#include "../Core/PlatformWin32.h"
 
 #include <array>
 #include <cstring>

@@ -50,7 +50,7 @@ Related:
 
 #include "../Core/SbResult.h"
 
-#include <windows.h>
+#include "../Core/PlatformWin32.h"
 
 namespace SkullbonezCore
 {

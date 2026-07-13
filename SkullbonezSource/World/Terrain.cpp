@@ -937,8 +937,7 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
     }
 
     // triangle structure for the target polygon
-    Triangle targetPolygon;
-    ZeroMemory( &targetPolygon, sizeof( targetPolygon ) );
+    Triangle targetPolygon{};
 
     /*
         The following test checks to see if triangle A or B has been hit

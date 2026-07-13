@@ -42,6 +42,8 @@ Related:
 */
 #pragma once
 
+#include "../../Core/PlatformWin32.h"
+
 #include "../../Core/SbResult.h"
 #include "../IRenderDiagnostics.h"
 #include "../../Runtime/Allocation/RuntimeAllocationTracker.h"

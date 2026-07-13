@@ -368,6 +368,7 @@ CORE_PREFIXES = (
     "Log",
     "MainMemoryStats",
     "PlatformProfiler",
+    "PlatformWin32",
     "Profiler",
     "SbResult",
     "SkullScope",

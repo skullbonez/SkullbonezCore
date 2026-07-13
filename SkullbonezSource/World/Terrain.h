@@ -49,6 +49,7 @@ Related:
 #include "../Rendering/IShader.h"
 #include "../Rendering/Shadow.h"
 #include <memory>
+#include <cstdint>
 #include <vector>
 
 
@@ -181,13 +182,13 @@ class Terrain
         CachedTriangleData m_triangleB;
     };
 
-    UINT displayListReference;                                             // Reference to the display list (retained for fallback)
+    std::uint32_t displayListReference;                                    // Legacy display-list token retained for serialized state.
     std::unique_ptr<Rendering::IMesh>
         m_terrainMesh;                                                     // Renderer-owned terrain vertex/index storage consumed by the active shader.
     std::unique_ptr<Rendering::IShader> m_terrainShader;                   // Lit+textured m_shader program
     std::unique_ptr<Rendering::IShader> m_shadowDepthShader;
     std::vector<TerrainPost> m_postData;                                   // Physics-authoritative coarse terrain posts
-    std::vector<BYTE> m_terrainData;                                       // Raw m_height map byte data retained for render mesh rebuilds
+    std::vector<std::uint8_t> m_terrainData;                               // Raw height-map bytes retained for render mesh rebuilds.
     std::vector<CachedQuadData> m_cachedCollisionData;
     int m_mapSize;                                                         // Size of map (pixels length)
     int m_stepSize;                                                        // Steps size between posts

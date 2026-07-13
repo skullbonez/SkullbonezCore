@@ -26,6 +26,7 @@ Related:
 */
 #include "Timer.h"
 #include "FatalError.h"
+#include "PlatformWin32.h"
 
 
 using namespace SkullbonezCore::Environment;

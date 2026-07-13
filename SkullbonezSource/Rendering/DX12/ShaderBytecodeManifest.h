@@ -24,6 +24,8 @@ Related:
 */
 #pragma once
 
+#include "../../Core/PlatformWin32.h"
+
 #include <d3d12shader.h>
 #include <d3dcommon.h>
 #include <wrl/client.h>

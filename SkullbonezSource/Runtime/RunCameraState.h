@@ -33,6 +33,8 @@ Related:
 */
 #pragma once
 
+#include "../Core/PlatformWin32.h"
+
 #include "../Core/Common.h"
 #include "DemoDirector.h"
 #include "Input.h"

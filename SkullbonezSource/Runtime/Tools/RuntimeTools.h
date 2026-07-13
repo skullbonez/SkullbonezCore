@@ -52,6 +52,8 @@ Related:
 */
 #pragma once
 
+#include "../../Core/PlatformWin32.h"
+
 #include "../../Core/Common.h"
 #include "../../Core/MainMemoryStats.h"
 #include "../Editor/LauncherLaser.h"

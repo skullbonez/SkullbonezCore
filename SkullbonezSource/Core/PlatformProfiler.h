@@ -10,6 +10,10 @@ Summary:
   glossary/invariants below.
 
 Glossary:
+  Marker domain: Stable engine category used to group profiler ranges without
+    exposing tool-specific state to callers.
+  Decorated marker: Bounded label that adds worker/chunk context to a caller's
+    original profiler name.
 
 Invariants:
   - All functions are safe to call when platform profiling is unavailable; they
@@ -19,10 +23,13 @@ Invariants:
 
 Related:
   - SkullbonezSource/Core/PlatformProfiler.cpp
+  - SkullbonezSource/Core/PlatformWin32.h
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
+
+#include "PlatformWin32.h"
 
 #include <cstddef>
 #include <cstdint>

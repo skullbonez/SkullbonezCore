@@ -55,6 +55,8 @@ Related:
 */
 #pragma once
 
+#include "../../Core/PlatformWin32.h"
+
 
 #include "../IRenderCaptureBackend.h"
 #include "../../Runtime/Scene/SceneCapacity.h"

@@ -59,7 +59,7 @@ Related:
 #include <limits>
 #include <string>
 #include <vector>
-#include <windows.h>
+#include "../../Core/PlatformWin32.h"
 #include <xaudio2.h>
 
 #pragma warning( push, 0 )

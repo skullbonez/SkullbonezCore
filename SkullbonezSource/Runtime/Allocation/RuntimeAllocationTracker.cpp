@@ -41,8 +41,7 @@ Related:
 #include <intrin.h>
 #endif
 #if defined( _WIN32 )
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
+#include "../../Core/PlatformWin32.h"
 #endif
 
 namespace

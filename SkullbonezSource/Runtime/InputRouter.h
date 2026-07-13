@@ -52,6 +52,8 @@ Related:
 */
 #pragma once
 
+#include "../Core/PlatformWin32.h"
+
 #include "InputController.Bindings.h"
 #include "RuntimeInteractionController.h"
 #include "../Maths/Vector3.h"
