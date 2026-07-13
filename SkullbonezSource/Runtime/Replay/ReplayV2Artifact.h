@@ -1,13 +1,14 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
 Purpose:
-  Declares the chunked binary v2 replay artifact writer.
+  Declares the versioned chunked-binary replay artifact writer.
 
 Summary:
-  V2 artifacts are saved replay buffers, not yet complete branchable timelines.
-  The first track is presentation data for smooth scrub, with optional solver
-  hash/checkpoint chunks and branch provenance layered in for saved restore
-  verification work.
+  The established ReplayV2Artifact API owns the .skreplay format family. The
+  current v3 writer persists complete replay-owned visual body state; its
+  reader deterministically migrates v2 pose-only presentation rows. Optional
+  solver hash/checkpoint chunks and branch provenance remain layered in for
+  saved restore verification work.
 
 Glossary:
   Presentation track: Body poses, camera, and world display fields used for
@@ -22,8 +23,10 @@ Glossary:
     the binary artifact's manifest chunk.
 
 Invariants:
-  - V2 presentation artifacts are little-endian and chunk-table based.
-  - Binary v2 is the sole saved replay artifact format.
+  - Presentation artifacts are little-endian and chunk-table based.
+  - The writer emits v3, the reader accepts v2/v3, and future versions fail closed.
+  - The ReplayV2Artifact type name is retained API vocabulary, not the current
+    wire-version declaration.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp
@@ -103,8 +106,8 @@ struct ReplayV2SolverHashLoadResult
 class ReplayV2Artifact
 {
   public:
-    // Saves presentation samples only: enough for visual scrub, not enough for
-    // authoritative physics rollback.
+    // Saves presentation samples only: enough for exact visual scrub, not
+    // enough for authoritative physics rollback.
     static bool
     SavePresentation( const ReplayRecorder& recorder, const char* path, ReplayV2SaveResult* result = nullptr );
     // Saves presentation data plus sparse solver hashes/checkpoints so restore

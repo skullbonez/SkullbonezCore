@@ -1,17 +1,32 @@
-"""Compare the frame-exact 200-box replay visual manifest.
-
+"""File: tools/check_replay_visual_fidelity.py
 Purpose:
   Turns the Profile interaction report into a bounded, immutable golden contract
   for every deterministic prediction reveal frame.
+
+Mental model:
+  The hidden engine process records the approved prediction once. This checker
+  compares that report and its saved replay packets without launching the engine
+  or generating another prediction.
+
+Glossary:
+  Reveal tick: One future-frame packet exposed by the prediction cascade.
+  Causal baseline: Approved topology and activation order for the wall cascade.
+  Packet hash: Deterministic digest of the exact ordered body data rendered for
+    a predicted or subsequently live frame.
 
 Invariants:
   - Validation never updates the baseline.
   - Reveal rows are contiguous ReplayFrameIndex values 0 through 2400.
   - All 200 authored wall bricks move before the approved horizon ends.
   - The first differing field is reported, not merely a whole-file hash.
+  - This checker is read-only and cannot start a second prediction generation.
 
 The explicit --approve-baseline lane is a cold owner action used only while
 freezing a user-approved working base. The validation batch never supplies it.
+
+Related:
+  - tools/validate_replay_visual_fidelity.bat
+  - tools/replay_query.py
 """
 
 from __future__ import annotations
@@ -23,6 +38,8 @@ import json
 import subprocess
 from pathlib import Path
 from typing import Any
+
+from replay_query import ReplayQueryError, ReplayV2
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -217,6 +234,57 @@ def validate_causal_shape(report: dict[str, Any]) -> dict[str, Any]:
         if tick.get("bodyCount", 0) <= 0:
             raise ValueError(f"predicted-versus-live body packet is empty at index={index}")
     return causal
+
+
+def validate_artifact_roundtrip(report: dict[str, Any]) -> dict[str, Any]:
+    artifact_report = report.get("replayArtifact", {})
+    if artifact_report.get("schemaVersion") != 3 or not artifact_report.get("saved"):
+        raise ValueError("v3 durable replay artifact was not saved by the fidelity probe")
+    path = Path(str(artifact_report.get("path", "")))
+    if not path.is_absolute():
+        path = ROOT / path
+    if not path.is_file():
+        raise ValueError(f"v3 durable replay artifact is missing: {path}")
+
+    try:
+        artifact = ReplayV2(path)
+        packet_hashes = artifact.presentation_packet_hashes()
+    except ReplayQueryError as error:
+        raise ValueError(f"v3 durable replay artifact is invalid: {error}") from error
+    if artifact.version != 3 or artifact.manifest.get("version") != 3:
+        raise ValueError(
+            "durable replay artifact version mismatch: "
+            f"header={artifact.version} manifest={artifact.manifest.get('version')}"
+        )
+    if artifact.manifest.get("bodyPoseBytes") != 76:
+        raise ValueError("v3 artifact did not declare the full 76-byte visual body state")
+    if len(packet_hashes) != artifact_report.get("sampleCount"):
+        raise ValueError(
+            "v3 artifact sample count mismatch: "
+            f"report={artifact_report.get('sampleCount')} loaded={len(packet_hashes)}"
+        )
+
+    hashes_by_frame = {row["frameIndex"]: row for row in packet_hashes}
+    live_ticks = report.get("replayCausalProof", {}).get("predictedLiveTicks", [])
+    if len(live_ticks) != EXPECTED_TICKS:
+        raise ValueError("artifact comparison requires the complete predicted/live horizon")
+    for index, tick in enumerate(live_ticks):
+        frame = tick.get("liveFrame")
+        saved = hashes_by_frame.get(frame)
+        if not saved:
+            raise ValueError(f"saved artifact omitted live packet frame {frame} at row {index}")
+        if saved["bodyCount"] != tick.get("bodyCount") or saved["hash"] != tick.get("liveHash"):
+            raise ValueError(
+                f"saved/load packet divergence at row={index} frame={frame}: "
+                f"expected_count={tick.get('bodyCount')} actual_count={saved['bodyCount']} "
+                f"expected_hash={tick.get('liveHash')} actual_hash={saved['hash']}"
+            )
+    return {
+        "path": str(path),
+        "sampleCount": len(packet_hashes),
+        "firstFrame": packet_hashes[0]["frameIndex"],
+        "lastFrame": packet_hashes[-1]["frameIndex"],
+    }
 
 
 def causal_comparable(report: dict[str, Any]) -> dict[str, Any]:
@@ -480,6 +548,12 @@ def main() -> int:
         print(f"FAIL replay causal proof first divergence: {causal_difference}")
         return 1
 
+    try:
+        artifact = validate_artifact_roundtrip(report)
+    except ValueError as error:
+        print(f"FAIL replay artifact round-trip: {error}")
+        return 1
+
     current_provenance = {
         "sceneSha256": sha256(SCENE),
         "scriptSha256": sha256(SCRIPT),
@@ -523,6 +597,7 @@ def main() -> int:
         f"moved_wall_bricks={actual['finalState']['predictionMovedWallBrickCount']} "
         f"causal_nodes={actual_causal['topologyCount']} "
         f"predicted_live_ticks={report['replayCausalProof']['predictedLiveTickCount']} "
+        f"saved_loaded_ticks={artifact['sampleCount']} "
         f"first_reveal={actual['ticks'][0]['revealFrame']} "
         f"last_reveal={actual['ticks'][-1]['revealFrame']}"
     )

@@ -2,8 +2,8 @@
 #
 # File: tools/replay_query.py
 # Purpose:
-#   Query chunked Skullbonez replay v2 artifacts without loading the full binary
-#   artifact into GPT or validation output.
+#   Query the versioned ReplayV2Artifact file family without loading the full
+#   binary artifact into GPT or validation output.
 #
 # Mental model:
 #   Replay artifacts are chunked binary files. This script reads only the
@@ -11,8 +11,11 @@
 #   validation, debugging, and agent analysis.
 #
 # Glossary:
-#   Replay v2 artifact: Chunked binary presentation .skreplay file.
+#   ReplayV2Artifact: Established API/file-family name for chunked .skreplay
+#     files; each file header declares its actual wire version.
 #   Chunk table: Header directory that names each stored replay section.
+#   Visual-state row: Versioned per-body packet holding every replay-owned field
+#     needed to reproduce the saved presentation hash.
 #   SkullScope slice: Bounded NDJSON export derived from selected replay frames.
 #
 # Invariants:
@@ -47,9 +50,11 @@ COUNTED_I32 = struct.Struct("<i")
 COUNTED_I64 = struct.Struct("<q")
 COUNTED_FLOAT = struct.Struct("<f")
 PAIR_I32 = struct.Struct("<ii")
-BODY_RECORD = struct.Struct("<IiB3s64s")
+BODY_RECORD_V2 = struct.Struct("<IiB3s64s")
+BODY_RECORD_V3 = struct.Struct("<IiBB2sf64s")
 FRAME_HEADER = struct.Struct("<QidfQHHBBH" + ("f" * 12) + "I")
-BODY_POSE = struct.Struct("<Ifffffff")
+BODY_POSE_V2 = struct.Struct("<Ifffffff")
+BODY_VISUAL_STATE_V3 = struct.Struct("<I" + ("f" * 13) + "B3siHHff")
 BRANCH_RECORD = struct.Struct("<IIQQQQQIIQ")
 EVENT_RECORD = struct.Struct("<QIIIHHIiiiiQQQ128sI")
 EVENT_CURSOR_RECORD = struct.Struct("<QIIQ")
@@ -67,6 +72,8 @@ FLAG_TERRAIN_HIDDEN = 1 << 1
 FLAG_FIXED_STEP = 1 << 2
 FLAG_SCENE_PHYSICS = 1 << 3
 FLAG_SCENE_TEXT = 1 << 4
+PRESENTATION_PACKET_FNV_OFFSET = 1469598103934665603
+PRESENTATION_PACKET_FNV_PRIME = 1099511628211
 
 
 class ReplayQueryError(RuntimeError):
@@ -88,6 +95,8 @@ class BodyInfo:
     model_index: int
     shape_kind: int
     name: str
+    mass: float = 0.0
+    fixed: bool = False
 
     @property
     def shape(self) -> str:
@@ -434,7 +443,7 @@ class ReplayV2:
             if self.data[:1] == b"{":
                 raise ReplayQueryError("this is a legacy JSON replay artifact, not v2 binary")
             raise ReplayQueryError("unrecognized replay magic")
-        if version != 2:
+        if version not in (2, 3):
             raise ReplayQueryError(f"unsupported replay version {version}")
         if header_size != HEADER.size:
             raise ReplayQueryError(f"unexpected v2 header size {header_size}")
@@ -477,11 +486,17 @@ class ReplayV2:
         body_count = struct.unpack_from("<I", raw, 0)[0]
         cursor = 4
         bodies: list[BodyInfo] = []
+        record_struct = BODY_RECORD_V3 if self.version >= 3 else BODY_RECORD_V2
         for dictionary_index in range(body_count):
-            if cursor + BODY_RECORD.size > len(raw):
+            if cursor + record_struct.size > len(raw):
                 raise ReplayQueryError("BODY chunk ended mid-record")
-            body_id, model_index, shape_kind, _reserved, name_raw = BODY_RECORD.unpack_from(raw, cursor)
-            cursor += BODY_RECORD.size
+            if self.version >= 3:
+                body_id, model_index, shape_kind, fixed, _reserved, mass, name_raw = record_struct.unpack_from(raw, cursor)
+            else:
+                body_id, model_index, shape_kind, _reserved, name_raw = record_struct.unpack_from(raw, cursor)
+                mass = 0.0
+                fixed = 0
+            cursor += record_struct.size
             bodies.append(
                 BodyInfo(
                     dictionary_index=dictionary_index,
@@ -489,8 +504,12 @@ class ReplayV2:
                     model_index=model_index,
                     shape_kind=shape_kind,
                     name=clean_name(name_raw),
+                    mass=mass,
+                    fixed=bool(fixed),
                 )
             )
+        if cursor != len(raw):
+            raise ReplayQueryError("BODY chunk has trailing or version-mismatched bytes")
         self.bodies = bodies
 
     def _parse_index(self) -> None:
@@ -901,6 +920,7 @@ class ReplayV2:
             "lastFrame": last.frame_index if last else None,
             "durationSeconds": self._duration_seconds(),
             "fileBytes": self.file_size,
+            "bodyDictionaryEntryBytes": self.manifest.get("bodyDictionaryEntryBytes"),
             "bodyPoseBytes": self.manifest.get("bodyPoseBytes"),
             "branchEntryBytes": self.manifest.get("branchEntryBytes", 0),
             "eventEntryBytes": self.manifest.get("eventEntryBytes", 0),
@@ -1007,11 +1027,33 @@ class ReplayV2:
         cursor = frame.presentation_offset + FRAME_HEADER.size
         body_records: list[dict[str, object]] = []
         limit = body_count if body_limit is None else min(body_count, max(body_limit, 0))
+        body_struct = BODY_VISUAL_STATE_V3 if self.version >= 3 else BODY_POSE_V2
         for body_ordinal in range(body_count):
-            if cursor + BODY_POSE.size > len(raw):
+            if cursor + body_struct.size > len(raw):
                 raise ReplayQueryError("PRES chunk ended mid-body-pose")
-            dictionary_index, px, py, pz, qx, qy, qz, qw = BODY_POSE.unpack_from(raw, cursor)
-            cursor += BODY_POSE.size
+            values = body_struct.unpack_from(raw, cursor)
+            cursor += body_struct.size
+            dictionary_index, px, py, pz, qx, qy, qz, qw = values[:8]
+            if self.version >= 3:
+                (
+                    lvx,
+                    lvy,
+                    lvz,
+                    avx,
+                    avy,
+                    avz,
+                    visual_flags,
+                    _reserved_flags,
+                    sleep_island_visual_id,
+                    body_contact_count,
+                    _reserved_contact,
+                    max_penetration,
+                    normal_impulse_sum,
+                ) = values[8:]
+            else:
+                lvx = lvy = lvz = avx = avy = avz = 0.0
+                visual_flags = sleep_island_visual_id = body_contact_count = 0
+                max_penetration = normal_impulse_sum = 0.0
             if body_ordinal >= limit:
                 continue
             body = self.bodies[dictionary_index] if dictionary_index < len(self.bodies) else None
@@ -1022,8 +1064,20 @@ class ReplayV2:
                     "modelIndex": body.model_index if body else None,
                     "name": body.name if body else "",
                     "shape": body.shape if body else "unknown",
+                    "mass": round_float(body.mass) if body else 0.0,
+                    "fixed": body.fixed if body else False,
                     "position": [round_float(px), round_float(py), round_float(pz)],
                     "orientation": [round_float(qx), round_float(qy), round_float(qz), round_float(qw)],
+                    "linearVelocity": [round_float(lvx), round_float(lvy), round_float(lvz)],
+                    "angularVelocity": [round_float(avx), round_float(avy), round_float(avz)],
+                    "sleeping": bool(visual_flags & 1),
+                    "sleepSupported": bool(visual_flags & 2),
+                    "sleepInhibited": bool(visual_flags & 4),
+                    "collisionContact": bool(visual_flags & 8),
+                    "sleepIslandVisualId": sleep_island_visual_id,
+                    "contactCount": body_contact_count,
+                    "maxPenetration": round_float(max_penetration),
+                    "normalImpulseSum": round_float(normal_impulse_sum),
                 }
             )
 
@@ -1056,9 +1110,49 @@ class ReplayV2:
             "bodies": body_records,
         }
 
+    def presentation_packet_hashes(self) -> list[dict[str, object]]:
+        """Hash the exact v3 body fields shared with prediction/live packets."""
+        if self.version < 3:
+            raise ReplayQueryError("exact presentation packet hashes require replay version 3")
+
+        def append_bytes(value: int, payload: bytes) -> int:
+            for byte in payload:
+                value ^= byte
+                value = (value * PRESENTATION_PACKET_FNV_PRIME) & 0xFFFFFFFFFFFFFFFF
+            return value
+
+        raw = self._chunk_bytes("PRES")
+        hashes: list[dict[str, object]] = []
+        for frame in self.frames:
+            cursor = frame.presentation_offset + FRAME_HEADER.size
+            value = append_bytes(PRESENTATION_PACKET_FNV_OFFSET, struct.pack("<Q", frame.body_count))
+            for _ in range(frame.body_count):
+                if cursor + BODY_VISUAL_STATE_V3.size > len(raw):
+                    raise ReplayQueryError("PRES chunk ended mid-v3 visual-state record")
+                dictionary_index = struct.unpack_from("<I", raw, cursor)[0]
+                if dictionary_index >= len(self.bodies):
+                    raise ReplayQueryError("PRES visual-state record has an invalid dictionary index")
+                body = self.bodies[dictionary_index]
+                value = append_bytes(value, struct.pack("<I", body.body_id))
+                value = append_bytes(value, struct.pack("<i", body.model_index))
+                # Wire offsets are dictionary index, position, orientation,
+                # linear velocity. Hash the original float bytes so no Python
+                # conversion can canonicalize a bit pattern.
+                value = append_bytes(value, raw[cursor + 4 : cursor + 44])
+                cursor += BODY_VISUAL_STATE_V3.size
+            hashes.append(
+                {
+                    "frameIndex": frame.frame_index,
+                    "bodyCount": frame.body_count,
+                    "hash": hash_text(value),
+                }
+            )
+        return hashes
+
     def body_samples(self, body: BodyInfo, frames: Iterable[FrameIndex], limit: int) -> list[dict[str, object]]:
         samples: list[dict[str, object]] = []
         raw = self._chunk_bytes("PRES")
+        body_struct = BODY_VISUAL_STATE_V3 if self.version >= 3 else BODY_POSE_V2
         for frame in frames:
             if len(samples) >= limit:
                 break
@@ -1066,10 +1160,11 @@ class ReplayV2:
                 raise ReplayQueryError("frame offset points outside PRES chunk")
             cursor = frame.presentation_offset + FRAME_HEADER.size
             for _ in range(frame.body_count):
-                if cursor + BODY_POSE.size > len(raw):
+                if cursor + body_struct.size > len(raw):
                     raise ReplayQueryError("PRES chunk ended mid-body-pose")
-                dictionary_index, px, py, pz, qx, qy, qz, qw = BODY_POSE.unpack_from(raw, cursor)
-                cursor += BODY_POSE.size
+                values = body_struct.unpack_from(raw, cursor)
+                cursor += body_struct.size
+                dictionary_index, px, py, pz, qx, qy, qz, qw = values[:8]
                 if dictionary_index != body.dictionary_index:
                     continue
                 samples.append(

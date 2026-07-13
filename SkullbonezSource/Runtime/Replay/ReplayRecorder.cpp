@@ -1454,6 +1454,20 @@ uint64_t HashSolverWorldSnapshot( uint64_t hash, const ReplaySolverWorldSnapshot
 }
 } // namespace
 
+uint64_t SkullbonezCore::Runtime::ComputeReplayPresentationStateHash( const ReplayPresentationSample& sample ) noexcept
+{
+    uint64_t hash = FNV64_OFFSET;
+    hash = HashWorld( hash, sample.world );
+    hash = HashInt( hash, static_cast<int>( sample.bodies.size() ) );
+    hash = HashInt( hash, static_cast<int>( sample.contactCount ) );
+    hash = HashInt( hash, static_cast<int>( sample.pipelineRecordCount ) );
+    for ( const ReplayBodyPresentationSample& body : sample.bodies )
+    {
+        hash = HashBodySample( hash, body );
+    }
+    return hash;
+}
+
 bool ReplayRecorder::Configure( const ReplayRecorderConfig& config )
 {
     // Concept: the recorder is a bounded ring buffer plus optional hash log.

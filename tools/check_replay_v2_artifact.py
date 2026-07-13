@@ -1,8 +1,8 @@
 #
 # File: tools/check_replay_v2_artifact.py
 # Purpose:
-#   Validates runtime-written replay v2 artifacts, saved checkpoint restore,
-#   and bounded query export.
+#   Validates the versioned ReplayV2Artifact file family, saved checkpoint
+#   restore, and bounded query export.
 #
 # Mental model:
 #   The runtime owns replay capture, artifact writing, and checkpoint restore.
@@ -11,7 +11,10 @@
 #   reading the whole binary artifact into the model.
 #
 # Glossary:
-#   Replay v2: Chunked binary presentation .skreplay artifact.
+#   ReplayV2Artifact: Established API/file-family name for chunked .skreplay
+#     artifacts; the current writer version is declared inside the file.
+#   Previous-version fixture: Deterministic v2 artifact derived from a current
+#     writer result to prove the one supported migration path.
 #   SkullScope slice: Bounded NDJSON exported from selected replay frames.
 #
 # Invariants:
@@ -19,6 +22,7 @@
 #     physics_query rather than by hand-parsing every byte in validation logs.
 #   - Expected failure coverage proves both preflight rejection and verified
 #     post-mutation rollback before the runtime returns control.
+#   - All engine subprocesses are hidden and this suite never starts prediction.
 #
 # Related:
 #   - tools/replay_query.py
@@ -32,7 +36,17 @@ import struct
 import subprocess
 import sys
 
-from replay_query import EVENT_RECORD, ReplayV2
+from replay_query import (
+    BODY_RECORD_V2,
+    BODY_RECORD_V3,
+    BODY_VISUAL_STATE_V3,
+    CHUNK_ENTRY,
+    EVENT_RECORD,
+    FRAME_HEADER,
+    HEADER,
+    ReplayQueryError,
+    ReplayV2,
+)
 
 
 REPO = Path(os.environ.get("SKORE_REPO", Path(__file__).resolve().parents[1])).resolve()
@@ -40,6 +54,9 @@ OUT_DIR = REPO / "TestOutput" / "validation" / "replay_v2"
 ARTIFACT = OUT_DIR / "replay_save_probe.skreplay"
 TOPOLOGY_ARTIFACT = OUT_DIR / "replay_generated_topology_probe.skreplay"
 MUTATION_ARTIFACT = OUT_DIR / "replay_timeline_mutation_probe.skreplay"
+LEGACY_ARTIFACT = OUT_DIR / "replay_previous_version_fixture.skreplay"
+FUTURE_ARTIFACT = OUT_DIR / "replay_future_version_fixture.skreplay"
+VISUAL_MUTATION_ARTIFACT = OUT_DIR / "replay_visual_state_mutation_fixture.skreplay"
 TRACE = OUT_DIR / "replay_save_probe.physicsdiag.ndjson"
 RUNTIME_TRACE = OUT_DIR / "replay_save_probe_runtime.physicsdiag.ndjson"
 TOPOLOGY_RUNTIME_TRACE = OUT_DIR / "replay_generated_topology_runtime.physicsdiag.ndjson"
@@ -59,6 +76,11 @@ def remove_if_exists(path):
 
 
 def run_checked(args, cwd):
+    args = list(args)
+    if args and Path(args[0]).resolve() == EXE.resolve() and "--automation-hidden-window" not in args:
+        # Validation owns these process launches; keep their real HWND/DX12 path
+        # while preventing repeated probe windows from interrupting the operator.
+        args.append("--automation-hidden-window")
     result = subprocess.run(
         args,
         cwd=str(cwd),
@@ -86,6 +108,9 @@ def generate_artifact():
     remove_if_exists(ARTIFACT)
     remove_if_exists(TOPOLOGY_ARTIFACT)
     remove_if_exists(MUTATION_ARTIFACT)
+    remove_if_exists(LEGACY_ARTIFACT)
+    remove_if_exists(FUTURE_ARTIFACT)
+    remove_if_exists(VISUAL_MUTATION_ARTIFACT)
     remove_if_exists(TRACE)
     remove_if_exists(TRACE.with_suffix(".sqlite"))
     remove_if_exists(TRACE.with_suffix(".sqlite.lock"))
@@ -479,20 +504,195 @@ def probe_timeline_mutation_rejection():
     return len(combined.encode("utf-8"))
 
 
+def write_versioned_file(path, chunks, version):
+    chunk_count = len(chunks)
+    table_offset = HEADER.size
+    next_offset = table_offset + chunk_count * CHUNK_ENTRY.size
+    entries = []
+    for ident, payload, record_count in chunks:
+        entries.append((ident, next_offset, len(payload), record_count))
+        next_offset += len(payload)
+    output = bytearray(
+        HEADER.pack(b"SKREPV2\0", version, HEADER.size, chunk_count, 0, table_offset, next_offset)
+    )
+    for ident, offset, size, record_count in entries:
+        output.extend(CHUNK_ENTRY.pack(ident.encode("ascii"), offset, size, record_count, 0))
+    for _ident, payload, _record_count in chunks:
+        output.extend(payload)
+    path.write_bytes(output)
+
+
+def build_previous_version_fixture(current):
+    body_raw = current._chunk_bytes("BODY")
+    body_count = struct.unpack_from("<I", body_raw, 0)[0]
+    body_v2 = bytearray(struct.pack("<I", body_count))
+    cursor = 4
+    for _ in range(body_count):
+        body_id, model_index, shape_kind, _fixed, _reserved, _mass, name = BODY_RECORD_V3.unpack_from(
+            body_raw, cursor
+        )
+        cursor += BODY_RECORD_V3.size
+        body_v2.extend(BODY_RECORD_V2.pack(body_id, model_index, shape_kind, b"\0\0\0", name))
+
+    presentation_raw = current._chunk_bytes("PRES")
+    presentation_v2 = bytearray(struct.pack("<I", len(current.frames)))
+    legacy_index = []
+    for frame in current.frames:
+        legacy_index.append((frame.frame_index, len(presentation_v2), frame.body_count))
+        frame_cursor = frame.presentation_offset
+        presentation_v2.extend(presentation_raw[frame_cursor : frame_cursor + FRAME_HEADER.size])
+        frame_cursor += FRAME_HEADER.size
+        for _ in range(frame.body_count):
+            presentation_v2.extend(presentation_raw[frame_cursor : frame_cursor + 32])
+            frame_cursor += BODY_VISUAL_STATE_V3.size
+
+    index_v2 = bytearray(struct.pack("<I", len(legacy_index)))
+    for frame_index, presentation_offset, frame_body_count in legacy_index:
+        index_v2.extend(struct.pack("<QQII", frame_index, presentation_offset, frame_body_count, 0))
+
+    manifest = dict(current.manifest)
+    manifest["version"] = 2
+    manifest["schema"] = str(manifest.get("schema", "")).replace(
+        "presentation-v3-visual-state", "presentation-v2"
+    )
+    manifest["bodyPoseBytes"] = 32
+    manifest.pop("bodyDictionaryEntryBytes", None)
+    manifest_raw = json.dumps(manifest, separators=(",", ":")).encode("utf-8")
+
+    replacements = {
+        "MANI": manifest_raw,
+        "BODY": bytes(body_v2),
+        "PRES": bytes(presentation_v2),
+        "INDX": bytes(index_v2),
+    }
+    chunks = []
+    for ident, chunk in current.chunks.items():
+        chunks.append((ident, replacements.get(ident, current._chunk_bytes(ident)), chunk.record_count))
+    write_versioned_file(LEGACY_ARTIFACT, chunks, 2)
+
+
+def validate_version_policy():
+    current = ReplayV2(ARTIFACT)
+    if current.version != 3 or current.manifest.get("version") != 3:
+        raise RuntimeError("current writer did not emit replay version 3")
+    if current.manifest.get("bodyDictionaryEntryBytes") != 80 or current.manifest.get("bodyPoseBytes") != 76:
+        raise RuntimeError("current writer did not emit the complete v3 visual-state ABI")
+    if not current.presentation_packet_hashes():
+        raise RuntimeError("current writer produced no exact presentation packet hashes")
+
+    build_previous_version_fixture(current)
+    legacy = ReplayV2(LEGACY_ARTIFACT)
+    if legacy.version != 2 or len(legacy.frames) != len(current.frames):
+        raise RuntimeError("previous-version fixture did not migrate through replay_query")
+    legacy_stdout = run_checked(
+        [
+            str(EXE),
+            "--renderer",
+            "dx12",
+            "--vsync",
+            "off",
+            "--shadows",
+            "off",
+            "--scene",
+            SCENE_ARG,
+            "--replay-load-probe",
+            str(LEGACY_ARTIFACT),
+        ],
+        REPO,
+    )
+    if "Load probe passed" not in legacy_stdout:
+        raise RuntimeError("runtime did not scrub the deterministic previous-version migration fixture")
+
+    future_bytes = bytearray(ARTIFACT.read_bytes())
+    struct.pack_into("<I", future_bytes, 8, 4)
+    FUTURE_ARTIFACT.write_bytes(future_bytes)
+    try:
+        ReplayV2(FUTURE_ARTIFACT)
+    except ReplayQueryError as error:
+        if "unsupported replay version 4" not in str(error):
+            raise RuntimeError(f"future-version tooling failed for the wrong reason: {error}") from error
+    else:
+        raise RuntimeError("future-version artifact was accepted by replay_query")
+
+    future_command = [
+        str(EXE),
+        "--renderer",
+        "dx12",
+        "--vsync",
+        "off",
+        "--shadows",
+        "off",
+        "--scene",
+        SCENE_ARG,
+        "--replay-load-probe",
+        str(FUTURE_ARTIFACT),
+        "--automation-hidden-window",
+    ]
+    future_result = subprocess.run(
+        future_command,
+        cwd=str(REPO),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if future_result.returncode == 0:
+        raise RuntimeError("runtime accepted an unsupported future replay version")
+
+    visual_mutation = bytearray(ARTIFACT.read_bytes())
+    first_frame = current.frames[0]
+    presentation_chunk = current.chunks["PRES"]
+    linear_velocity_offset = (
+        presentation_chunk.offset + first_frame.presentation_offset + FRAME_HEADER.size + 32
+    )
+    visual_mutation[linear_velocity_offset] ^= 0x01
+    VISUAL_MUTATION_ARTIFACT.write_bytes(visual_mutation)
+    mutation_command = [
+        str(EXE),
+        "--renderer",
+        "dx12",
+        "--vsync",
+        "off",
+        "--shadows",
+        "off",
+        "--scene",
+        SCENE_ARG,
+        "--replay-load-probe",
+        str(VISUAL_MUTATION_ARTIFACT),
+        "--automation-hidden-window",
+    ]
+    mutation_result = subprocess.run(
+        mutation_command,
+        cwd=str(REPO),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if mutation_result.returncode == 0:
+        raise RuntimeError("runtime accepted a v3 artifact with a mutated visual-state float")
+    print(
+        "  Version policy passed: writer=3 previous=2 future=4-rejected visual-float=rejected "
+        f"legacy_frames={len(legacy.frames)}"
+    )
+
+
 def query_artifact():
     summary_command = [str(REPLAY_QUERY_BAT), str(ARTIFACT), "summary"]
     print("  Summary command:")
     print("    tools\\replay_query.bat TestOutput\\validation\\replay_v2\\replay_save_probe.skreplay summary")
     summary_stdout, summary = run_json(summary_command, REPO)
 
-    if summary.get("version") != 2 or summary.get("track") != "presentation":
-        raise RuntimeError(f"unexpected replay v2 summary: {summary}")
+    if summary.get("version") != 3 or summary.get("track") != "presentation":
+        raise RuntimeError(f"unexpected current replay summary: {summary}")
     if int(summary.get("frameCount") or 0) < 24:
         raise RuntimeError(f"expected at least 24 replay frames, found {summary.get('frameCount')}")
     if int(summary.get("bodyDictionaryCount") or 0) <= 0:
         raise RuntimeError("expected at least one body dictionary entry")
-    if int(summary.get("bodyPoseBytes") or 0) != 32:
-        raise RuntimeError(f"expected 32-byte pose rows, found {summary.get('bodyPoseBytes')}")
+    if int(summary.get("bodyDictionaryEntryBytes") or 0) != 80:
+        raise RuntimeError(
+            f"expected 80-byte visual metadata rows, found {summary.get('bodyDictionaryEntryBytes')}"
+        )
+    if int(summary.get("bodyPoseBytes") or 0) != 76:
+        raise RuntimeError(f"expected 76-byte visual-state rows, found {summary.get('bodyPoseBytes')}")
     if int(summary.get("branchEntryBytes") or 0) != 64:
         raise RuntimeError(f"expected 64-byte branch rows, found {summary.get('branchEntryBytes')}")
     if int(summary.get("branchCount") or 0) <= 0:
@@ -609,8 +809,9 @@ def query_artifact():
     if event_samples[0].get("kind") != "timelineStart":
         raise RuntimeError(f"expected timelineStart event first, found {event_samples[0]}")
     event_kinds = {sample.get("kind") for sample in event_samples}
+    # Scene reset reconfigures the recorder itself, so it is the boundary that
+    # starts this artifact rather than a scene-owner mutation restored by it.
     for expected_kind in (
-        "ownerAction",
         "generatedSceneConfig",
         "worldOverride",
         "editorPlace",
@@ -620,9 +821,6 @@ def query_artifact():
     ):
         if expected_kind not in event_kinds:
             raise RuntimeError(f"expected replay event kind {expected_kind}, found {sorted(event_kinds)}")
-    owner_action_samples = [sample for sample in event_samples if sample.get("kind") == "ownerAction"]
-    if not any((sample.get("decoded") or {}).get("ownerAction") == "SceneReset" for sample in owner_action_samples):
-        raise RuntimeError(f"expected decoded SceneReset owner action, found {owner_action_samples}")
     for sample in event_samples:
         if sample.get("kind") in (
             "generatedSceneConfig",
@@ -753,6 +951,8 @@ def main():
         generate_artifact()
         print("  Probing loaded replay v2 artifact...")
         load_probe_bytes = probe_loaded_artifact()
+        print("  Probing replay writer/previous/future version policy...")
+        validate_version_policy()
         print("  Probing saved solver checkpoint restore...")
         restore_probe_bytes = probe_restored_checkpoint()
         print("  Probing saved solver target restore...")

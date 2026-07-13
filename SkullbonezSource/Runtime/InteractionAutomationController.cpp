@@ -44,6 +44,7 @@ Related:
 #include "Scene/SceneController.h"
 #include "Scene/SceneRuntime.h"
 #include "Replay/ReplayRuntime.h"
+#include "Replay/ReplayV2Artifact.h"
 #include "InputFrame.h"
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "Editor/EditorTools.h"
@@ -3447,6 +3448,28 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
         return InteractionAutomationResult( state );
     }
 
+    std::string replayArtifactPath;
+    ReplayV2SaveResult replayArtifactResult;
+    bool replayArtifactSaved = false;
+    if ( state.replayVisualFidelityCaptureEnabled && state.replayCausalLiveComplete && !state.failed )
+    {
+        replayArtifactPath = state.reportPath;
+        const std::size_t extensionOffset = replayArtifactPath.find_last_of( '.' );
+        if ( extensionOffset != std::string::npos )
+        {
+            replayArtifactPath.resize( extensionOffset );
+        }
+        replayArtifactPath += ".skreplay";
+        // Lane R: the artifact is cold validation IO. Its failure belongs in
+        // the machine-readable automation result, never in runtime ownership.
+        replayArtifactSaved =
+            replayRuntime.SavePresentationWithSolverHashes( replayArtifactPath.c_str(), &replayArtifactResult );
+        if ( !replayArtifactSaved )
+        {
+            FailAutomation( state, "replay visual fidelity probe failed to save its durable presentation artifact" );
+        }
+    }
+
     Json actions = Json::array();
     for ( const RunInteractionAutomationReportAction& report : state.actionReports )
     {
@@ -3714,6 +3737,16 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
               { "topology", replayCausalTopology },
               { "ticks", replayCausalTicks },
               { "predictedLiveTicks", replayPredictedLiveTicks } };
+    report["replayArtifact"] = Json{ { "schemaVersion", 3 },
+                                     { "saved", replayArtifactSaved },
+                                     { "path", replayArtifactPath },
+                                     { "sampleCount", replayArtifactResult.sampleCount },
+                                     { "bodyDictionaryCount", replayArtifactResult.bodyDictionaryCount },
+                                     { "solverHashCount", replayArtifactResult.solverHashCount },
+                                     { "solverCheckpointCount", replayArtifactResult.solverCheckpointCount },
+                                     { "eventCount", replayArtifactResult.eventCount },
+                                     { "eventCursorCount", replayArtifactResult.eventCursorCount },
+                                     { "fileBytes", replayArtifactResult.fileBytes } };
     report["failure"] = state.failure;
     report["finalState"] = Json{
         { "cameraMode", CameraModeName( camera.mode ) },

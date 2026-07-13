@@ -1,7 +1,7 @@
 # Replay Visual Fidelity Mega Probe — Frame-Exact 200-Box Prediction Proof
 
 Date: 2026-07-13
-Status: Live — 2/7 tasks complete
+Status: Live — 4/7 tasks complete
 Branch: `nightrunner-13th-july`
 Impact area: replay prediction, replay presentation, trajectory/marker
 submission, artifacts, automation, tests, and validation
@@ -119,7 +119,7 @@ and hashes. Hash-only diagnostics are insufficient.
   Acceptance: each fails at its injected first divergence. Validation:
   `tools\validate_replay_visual_fidelity.bat`.
 
-- [ ] **V3 — Round-trip durable replay presentation.** Extend the
+- [x] **V3 — Round-trip durable replay presentation.** Extend the
   `ReplayPresentationSample` visual seam, delta capture/hash, and artifact
   serialization with the minimum domain state required to reproduce the packet;
   never serialize DX12 resources or pointers. Any schema change follows the
@@ -274,6 +274,50 @@ and hashes. Hash-only diagnostics are insufficient.
   `InteractionAutomationController.cpp/.h`, `Window.cpp/.h`, and the
   mechanically formatted V1 files `RunEditorTracer.cpp`, `RuntimeRenderer.cpp`,
   `ReplayRuntime.cpp/.h`, `ReplayVisualPacket.h`, and `RunReplayTools.cpp`.
+
+## V3 Closure Evidence — 2026-07-14
+
+- The established `ReplayV2Artifact` file family now writes schema version 3.
+  Its 80-byte body dictionary rows retain stable replay identity plus resolver
+  hints, shape, mass, and fixed state; its 76-byte per-frame rows retain pose,
+  linear/angular velocity, sleep/support/inhibition/contact flags, sleep-island
+  visual id, contact count, maximum penetration, and normal impulse sum. No
+  renderer resource, DX12 handle, pointer, or owner object enters the artifact.
+- The reader accepts current v3, deterministically migrates previous v2
+  pose-only rows, and rejects future v4. A focused mutation flips one saved
+  linear-velocity bit and is rejected because every reconstructed v3 sample
+  must reproduce its complete presentation-state hash before scrub can expose
+  it. Writer/current, previous, future, and corrupt-visual tests all pass.
+- The final 200-box artifact is 48,578,901 bytes with 2,460 samples covering
+  frames 0 through 2459, 211 dictionary bodies, 2,460 solver hashes, 41 sparse
+  checkpoints/cursors, and one event. All 2,401 approved live frames 59 through
+  2459 reproduce the saved ordered packet hash and body count exactly.
+- Prediction remains one 20-second generation. The recorder alone uses a
+  21-second retention guard band because 2,400 intervals have 2,401 inclusive
+  endpoints; without that extra recording second, the source endpoint would be
+  evicted when the final packet arrived.
+- `tools\validate_replay_visual_fidelity.bat` passed in 185.3 seconds. It used
+  exactly one hidden Profile process to generate prediction, then one fresh
+  hidden Debug process that only loaded/scrubbed the saved artifact. The gate
+  reported 2,401 visual ticks, all 200 wall bricks moved, 199 causal nodes,
+  2,401 predicted/live matches, 2,460 saved/loaded samples, and all semantic,
+  topology, segment, exact-float, and incomplete-horizon controls rejected.
+- `tools\validate_replay_v2_artifact.bat` passed in 76.4 seconds, including
+  v3 write/load, deterministic v2 migration, future rejection, visual mutation
+  rejection, saved restore/query lanes, and generated-topology restore.
+  `python tools\migrate_data_formats.py --check` also passed all 39 authored
+  files; the binary replay schema remains format-owned rather than an authored
+  scene/asset schema.
+- `tools\validate_full.bat` passed in 103.0 seconds: formatting and metadata,
+  186 doctest cases with 4,111 assertions, every standalone CPU suite,
+  zero-warning Profile/Debug builds, zero DX12 validation errors and matching
+  screenshots, standalone physics, and the byte-exact 44,401-line varied
+  physics baseline. This broad gate did not run prediction.
+- Touched-source/tool comment audit: 9/9 checked, 0 deferred —
+  `InteractionAutomationController.cpp`, `ReplayRecorder.cpp/.h`,
+  `ReplayV2Artifact.cpp/.h`, `check_replay_v2_artifact.py`,
+  `check_replay_visual_fidelity.py`, `replay_query.py`, and
+  `validate_replay_visual_fidelity.bat`.
 
 ## Dependencies And Decisions
 
