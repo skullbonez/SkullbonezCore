@@ -11,11 +11,11 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-12th-july` |
-| Current baseline | Round-3 R1-R6 are complete: header/platform ownership is explicit, engine projects compile without C++ exceptions, the fossil `Basics` namespace is retired, and the legacy rendering helper is dissolved into named owners |
+| Current baseline | Round-3 R1-R7 are complete: ownership cleanup through the legacy rendering helper is complete, engine code is exception-free, and all engine/test projects now compile as C++20 |
 | Current objective | Execute adversarial-review round 3 (`Plans/TODO/adversarial-review-round-3.md`, R1→R10); validation-gate V3 remains externally blocked |
-| Portfolio progress | 308 / 313 tasks = 98% rounded overall |
-| Last broad local gate | `tools\\validate_full.bat` passed R5 on 2026-07-13 in 162.8s: CPU lanes clean, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | R6 passed `validate_fast` (46.6s), allocation-policy self-test/repository scans, `validate_dx12_renderer` (48.5s; zero errors and matching screenshots), and the bounded graphics stress run (61.8s; clean PID-scoped timeout). |
+| Portfolio progress | 309 / 313 tasks = 99% rounded overall |
+| Last broad local gate | `tools\\validate_full.bat` passed R7 on 2026-07-13 in 151.1s: all CPU lanes clean under C++20, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
+| Validation for current edits | R7 built all engine configurations with zero warnings plus the standalone Release configuration at `/W4 /WX`; the 151.1s full gate passed with byte-exact physics. |
 
 ## Live Queue
 
@@ -29,11 +29,12 @@ plan inventory.
    2026-07-12 ruling) and is not live portfolio work.
 3. Round-2 runtime-contract remediation is locally complete and recorded in
    `Reports/2026-07-12/runtime-contract-enforcement-closure.md`.
-4. Round-3 adversarial-review remediation is live at 6/10: R1-R6 header,
+4. Round-3 adversarial-review remediation is live at 7/10: R1-R7 header,
    scene-capacity, platform-prelude, exception-free engine, and namespace-owner
-   work plus rendering-helper dissolution are complete. Four tasks remain
-   (C++20, `std::span`, solver SIMD, and DX12 bindless + three frames). Plan and
-   fine-grained progress checklist live in `Plans/TODO/`; continue with R7→R10. Out-of-scope
+   work plus rendering-helper dissolution and the C++20 upgrade are complete.
+   Three tasks remain (`std::span`, solver SIMD, and DX12 bindless + three
+   frames). Plan and fine-grained progress checklist live in `Plans/TODO/`;
+   continue with R8→R10. Out-of-scope
    rulings are recorded in MASTER to avoid re-litigation.
 
 ## Current Plan Decisions

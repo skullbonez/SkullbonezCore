@@ -178,7 +178,7 @@ upgrades, then the two performance/architecture tasks.
   audit had zero deferrals. `validate_fast` and the allocation checker passed;
   `validate_dx12_renderer` passed in 48.5s with zero errors and matching
   screenshots; the bounded graphics stress run completed cleanly in 61.8s.
-- [ ] **R7 — Upgrade the toolchain contract to C++20.** Set
+- [x] **R7 — Upgrade the toolchain contract to C++20.** Set
   `<LanguageStandard>stdcpp20</LanguageStandard>` across all projects and
   configurations (engine + tests + standalone CPU test projects). Fix all
   /W4 fallout to zero warnings; no feature adoption in this task beyond what
@@ -187,6 +187,13 @@ upgrades, then the two performance/architecture tasks.
   baseline is the proof). Acceptance: all configurations build with zero
   warnings under stdcpp20; physics baseline byte-exact. Validation:
   `tools\validate_full.bat`.
+  Completed 2026-07-13: all 20 project/configuration declarations now select
+  C++20. The five non-copyable frame-view records gained explicit
+  reference-binding constructors to preserve their stack-only borrow contract
+  under the C++20 aggregate rules. All engine configurations and the standalone
+  Release configuration built with zero warnings; doctest 2.4.12,
+  nlohmann/json 3.12.0, and stb_image 2.30 compiled cleanly. The 151.1s full
+  gate passed, including the byte-exact 44,401-line physics baseline.
 - [ ] **R8 — Adopt `std::span` at dense-store boundaries.** Replace
   pointer+count and `const std::vector<T>&` view parameters with
   `std::span<T>`/`std::span<const T>` on the read/write seams of

@@ -275,18 +275,31 @@ screenshots, and physics matched the 44,401-line baseline byte-exactly.
 
 ## R7 — C++20 upgrade
 
-- [ ] `<LanguageStandard>stdcpp20</LanguageStandard>` in SKULLBONEZ_CORE,
+- [x] `<LanguageStandard>stdcpp20</LanguageStandard>` in SKULLBONEZ_CORE,
       SKULLBONEZ_MATHS, SKULLBONEZ_PHYSICS, SKULLBONEZ_TESTS and
-      `Agentic/Tests/*` projects — every x64 configuration.
-- [ ] Fix /W4 fallout to zero warnings (typical MSVC C++20 items: implicit
+      `Agentic/Tests/*` projects — all 20 x64 configuration declarations.
+- [x] Fix /W4 fallout to zero warnings (typical MSVC C++20 items: implicit
       `this` capture in lambdas, deprecated `u8` conversions, aggregate init
       changes, `std::result_of` remnants in third-party headers — wrap third
       party in the existing `#pragma warning(push,0)` pattern only).
-- [ ] Confirm doctest + nlohmann + stb compile clean under stdcpp20 (all are
-      C++20-compatible at current vendored versions; record versions).
-- [ ] Determinism proof: `tools\validate_physics.bat` byte-exact against the
+      The only fallout was C++20's aggregate rule for the five non-copyable
+      stack-only types in `RuntimeFrameViews.h`; explicit reference-binding
+      constructors preserve their lifetime contract. Profile built in 15.6s;
+      Debug/Release/Profile-WPO built in a combined 126.5s (Profile-WPO 47.8s),
+      all with zero warnings. The standalone RuntimeInteractionPolicyTests
+      Release configuration also built `/W4 /WX` clean in 7.8s.
+- [x] Confirm doctest + nlohmann + stb compile clean under stdcpp20: doctest
+      2.4.12, nlohmann/json 3.12.0, and stb_image 2.30 all compiled in the CPU
+      umbrella/full gate. No third-party warning suppression was added.
+- [x] Learning-header/comment audit for the sole touched source file,
+      `RuntimeFrameViews.h`: 1 checked, zero deferred. Its existing teaching
+      header remains complete and the C++20 constructor rationale is local.
+- [x] Determinism proof: `tools\validate_physics.bat` byte-exact against the
       existing committed baseline (no refresh allowed in this task).
-- [ ] `tools\validate_full.bat` pass recorded.
+      The full gate matched `physics_regression_varied.csv` at 44,401 lines.
+- [x] `tools\validate_full.bat` passed in 151.1s: all CPU lanes, Profile/Debug
+      zero-warning builds, zero DX12 InfoQueue errors with all three screenshots
+      inside baseline thresholds, and standalone plus regression physics clean.
 
 ## R8 — `std::span` at dense-store boundaries
 

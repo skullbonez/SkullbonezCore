@@ -95,6 +95,18 @@ struct RuntimeFrameHostView
     Threading::WorkerPool& workerPool;
     Window& window;
 
+    // C++20 no longer treats a type with a user-declared constructor as an
+    // aggregate. Keep copy construction forbidden and make the one valid
+    // stack-only borrow-map construction explicit.
+    RuntimeFrameHostView( ApplicationExitState& applicationExitValue,
+                          DiagnosticsRuntime& diagnosticsRuntimeValue,
+                          Assets::AssetSystem& assetsValue,
+                          Threading::WorkerPool& workerPoolValue,
+                          Window& windowValue )
+        : applicationExit( applicationExitValue ), diagnosticsRuntime( diagnosticsRuntimeValue ), assets( assetsValue ),
+          workerPool( workerPoolValue ), window( windowValue )
+    {
+    }
     RuntimeFrameHostView( const RuntimeFrameHostView& ) = delete;
     RuntimeFrameHostView& operator=( const RuntimeFrameHostView& ) = delete;
 };
@@ -112,6 +124,17 @@ struct RuntimeFrameInteractionView
     RuntimeTools& runtimeTools;
     RunCameraState& camera;
 
+    RuntimeFrameInteractionView( InputRouter& inputRouterValue,
+                                 RuntimeInteractionController& interactionValue,
+                                 AttachedCameraController& attachedCameraValue,
+                                 ReplayRuntime& replayRuntimeValue,
+                                 UI::InGameUI& uiValue,
+                                 RuntimeTools& runtimeToolsValue,
+                                 RunCameraState& cameraValue )
+        : inputRouter( inputRouterValue ), interaction( interactionValue ), attachedCamera( attachedCameraValue ),
+          replayRuntime( replayRuntimeValue ), ui( uiValue ), runtimeTools( runtimeToolsValue ), camera( cameraValue )
+    {
+    }
     RuntimeFrameInteractionView( const RuntimeFrameInteractionView& ) = delete;
     RuntimeFrameInteractionView& operator=( const RuntimeFrameInteractionView& ) = delete;
 };
@@ -130,6 +153,19 @@ struct RuntimeFrameSceneView
     Runtime::Audio::ContactAudioService& contactAudio;
     SceneController& sceneController;
 
+    RuntimeFrameSceneView( SkullbonezCore::Core::EngineConfig& configValue,
+                           RunLaunchOptions& launchOptionsValue,
+                           const RunStartupState& startupValue,
+                           RunTimerState& timersValue,
+                           RunDebugState& debugValue,
+                           SimulationSystem& simulationValue,
+                           Runtime::Audio::ContactAudioService& contactAudioValue,
+                           SceneController& sceneControllerValue )
+        : config( configValue ), launchOptions( launchOptionsValue ), startup( startupValue ), timers( timersValue ),
+          debug( debugValue ), simulation( simulationValue ), contactAudio( contactAudioValue ),
+          sceneController( sceneControllerValue )
+    {
+    }
     RuntimeFrameSceneView( const RuntimeFrameSceneView& ) = delete;
     RuntimeFrameSceneView& operator=( const RuntimeFrameSceneView& ) = delete;
 };
@@ -145,6 +181,16 @@ struct RuntimeFramePresentationView
     RuntimeRenderBackendView& renderBackendView;
     RuntimeRenderer& renderer;
 
+    RuntimeFramePresentationView( RenderDefaultsStore& renderDefaultsValue,
+                                  GraphicsStressController& graphicsStressValue,
+                                  Physics::PhysicsDebugVisualizer& physicsDebugVisualizerValue,
+                                  RuntimeRenderBackendView& renderBackendViewValue,
+                                  RuntimeRenderer& rendererValue )
+        : renderDefaults( renderDefaultsValue ), graphicsStress( graphicsStressValue ),
+          physicsDebugVisualizer( physicsDebugVisualizerValue ), renderBackendView( renderBackendViewValue ),
+          renderer( rendererValue )
+    {
+    }
     RuntimeFramePresentationView( const RuntimeFramePresentationView& ) = delete;
     RuntimeFramePresentationView& operator=( const RuntimeFramePresentationView& ) = delete;
 };
@@ -163,6 +209,20 @@ struct RuntimeUiTextFrameFacts
     bool presentationPinned = false;
     double secondsPerFrame = 0.0;
 
+    RuntimeUiTextFrameFacts( uint32_t cameraModeEnabledMaskValue,
+                             const char* cameraModeLabelValue,
+                             const char* launcherFireModeLabelValue,
+                             bool isLauncherCameraModeValue,
+                             const RuntimeInteractionGesture& interactionGestureValue,
+                             float presentationAlphaValue,
+                             bool presentationPinnedValue,
+                             double secondsPerFrameValue )
+        : cameraModeEnabledMask( cameraModeEnabledMaskValue ), cameraModeLabel( cameraModeLabelValue ),
+          launcherFireModeLabel( launcherFireModeLabelValue ), isLauncherCameraMode( isLauncherCameraModeValue ),
+          interactionGesture( interactionGestureValue ), presentationAlpha( presentationAlphaValue ),
+          presentationPinned( presentationPinnedValue ), secondsPerFrame( secondsPerFrameValue )
+    {
+    }
     RuntimeUiTextFrameFacts( const RuntimeUiTextFrameFacts& ) = delete;
     RuntimeUiTextFrameFacts& operator=( const RuntimeUiTextFrameFacts& ) = delete;
 };
