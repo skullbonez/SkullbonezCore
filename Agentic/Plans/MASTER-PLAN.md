@@ -107,14 +107,18 @@ concrete plan rows and counting it would duplicate tasks.
 | frame-view-calling-convention | 4 | 4 | 100% |
 | render-interface-and-workerpool-slimming | 5 | 5 | 100% |
 | runtime-contract-enforcement | 5 | 5 | 100% |
-| **Portfolio total** | **302** | **303** | **100%** |
+| adversarial-review-round-3 | 0 | 10 | 0% |
+| **Portfolio total** | **302** | **313** | **96%** |
 
 ## Current Execution Priority
 
 For maximum impact with minimal rework, use this binding critical path:
 
-`validation-gate V3 external administration`
+`adversarial-review round 3 → validation-gate V3 external administration`
 
+0. **Adversarial-review round 3 — live.** The only live local implementation
+   work. Execute `TODO/adversarial-review-round-3.md` in task order R1→R10;
+   the companion progress checklist carries the fine-grained steps.
 1. **Validation-gate V3 — blocked external lane.** Repository implementation is
    complete. Remaining work requires a real `merge_group` proof, required CPU
    branch protection, and trusted/ephemeral DX12 runner administration.
@@ -200,6 +204,25 @@ honestly documented, and baseline-entangled; undertake only with a concrete
 perf or stacking-stability motivation. Repeated glossary-header deduplication
 is available as a documentation-only plan if the owner wants it (currently
 excluded by the same no-comment-changes ruling).
+
+## Adversarial Review Remediation Round 3 (2026-07-13)
+
+Source: 2026-07-12 owner-commissioned adversarial architecture review of the
+full source tree at the `nightrunner-11th-july` tip, re-verified against the
+`nightrunner-12th-july` tip on 2026-07-13. Owner ruled findings in or out on
+2026-07-12/13; in-scope work is consolidated into one ten-task plan ordered
+header hygiene → mechanical namespace/ownership passes → C++20/`std::span` →
+solver SIMD → DX12 bindless and frame headroom.
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [adversarial-review-round-3](TODO/adversarial-review-round-3.md) | Live | 0/10 | Start R1 (header `using namespace` removal); companion checklist `TODO/adversarial-review-round-3-progress.md` carries fine-grained steps |
+
+Owner-ruled out of scope in this round (recorded so they are not re-litigated):
+replay subsystem right-sizing, unit-test depth expansion, sleep parallel-array
+consolidation, `Init.cpp` decomposition, and any `RenderBackendDX12`
+re-partitioning beyond the bindless/frame-headroom task. The unpinned-`/fp`
+finding was already closed by `determinism-contract-hardening`.
 
 ## Features
 

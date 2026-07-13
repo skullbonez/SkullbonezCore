@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-12
+Date: 2026-07-13
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-12th-july` |
 | Current baseline | Runtime-contract enforcement is complete: thread-safe fatal logging, guarded SpatialGrid conversion, enforced AmortizedTask lifetime, and no WorkerPool exception plumbing |
-| Current objective | All local MASTER work is complete; validation-gate V3 remains externally blocked |
-| Portfolio progress | 302 / 303 tasks = 100% rounded overall |
+| Current objective | Execute adversarial-review round 3 (`Plans/TODO/adversarial-review-round-3.md`, R1→R10); validation-gate V3 remains externally blocked |
+| Portfolio progress | 302 / 313 tasks = 96% rounded overall |
 | Last broad local gate | `tools\\validate_full.bat` passed final runtime-contract source on 2026-07-12 in 84.41s: CPU lanes clean, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
 | Validation for current edits | Independent review and follow-up passed; fast, all-CPU, physics, healthy ASan, and full gates passed from final source. |
 
@@ -29,6 +29,12 @@ plan inventory.
    2026-07-12 ruling) and is not live portfolio work.
 3. Round-2 runtime-contract remediation is locally complete and recorded in
    `Reports/2026-07-12/runtime-contract-enforcement-closure.md`.
+4. Round-3 adversarial-review remediation is live: ten owner-approved tasks
+   (exceptions off, header/namespace hygiene, `Common.h` platform leak,
+   `Basics` retirement, `Helper` dissolution, C++20 + `std::span`, solver
+   SIMD, DX12 bindless + three frames). Plan and fine-grained progress
+   checklist live in `Plans/TODO/`; execute in R1→R10 order. Out-of-scope
+   rulings are recorded in MASTER to avoid re-litigation.
 
 ## Current Plan Decisions
 
