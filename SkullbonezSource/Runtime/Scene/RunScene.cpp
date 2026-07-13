@@ -637,7 +637,7 @@ SceneController::Load( const SceneLoadRequest& request,
     m_diagnosticsRuntime.ResetForSceneLoad( m_perfPass + 1 );
     m_simulation.Reset();
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation );
-    m_contactAudio.ResetSimpleLinearHistory();
+    m_contactAudio.ResetSceneState();
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Audio );
     m_renderer.ResetSceneRuntimePolicyFromConfig();
     m_sceneController.ClearRequiredAutomationGates();

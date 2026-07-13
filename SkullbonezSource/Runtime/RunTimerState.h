@@ -104,7 +104,6 @@ struct RunTimerState
     float rollingSceneEnergy = 0.0f;       // Half-second averaged kinetic energy
     float cpuFrameWorkMs = 0.0f;           // Last frame CPU work before Present/VSync
     float gpuFrameWorkMs = 0.0f;           // Last available GPU work before Present/VSync
-    float contactAudioStatsLogTime = 0.0f; // Seconds since the last optional contact-audio counter print.
     float timeSinceLastRender = 0.0f;
     double sceneEnergyAccumulator = 0.0;
     int sceneEnergySampleCount = 0;

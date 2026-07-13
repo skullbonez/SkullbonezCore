@@ -357,7 +357,7 @@ TEST_CASE( "RenderDefaultsStore samples values at the drain checkpoint" )
     CHECK( result.status.ok );
     CHECK( result.savedCount == 1 );
     CHECK( configText.find( "ordinary_sun_intensity = 9.25" ) != std::string::npos );
-    CHECK( configText.find( "format_version = 1" ) != std::string::npos );
+    CHECK( configText.find( "format_version = 2" ) != std::string::npos );
 
     store.SubmitOrdinarySave();
     fs::current_path( testRoot, filesystemError );
@@ -387,7 +387,7 @@ TEST_CASE( "RenderDefaultsStore rejects future config without rewriting bytes" )
     const fs::path dataRoot = testRoot / "SkullbonezData";
     fs::create_directories( dataRoot, filesystemError );
     REQUIRE_FALSE( filesystemError );
-    const std::string originalText = "format_version = 2\nordinary_sun_intensity = 1.00\n";
+    const std::string originalText = "format_version = 3\nordinary_sun_intensity = 1.00\n";
     {
         std::ofstream configFile( dataRoot / "engine.cfg", std::ios::trunc );
         REQUIRE( configFile.is_open() );

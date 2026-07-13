@@ -17,10 +17,8 @@ Glossary:
   Presentation layer: UI or diagnostics code that reads state without owning it.
   Borrowed sample path: Contact-audio asset path owned by the audio service and
     valid only for the current presentation snapshot.
-  Contact-audio flash mode: Render-only diagnostic selector for emitted,
-    candidate, rejected, or hidden contact-audio decisions.
-  Simple linear mode: Contact-audio path that emits from mass-scaled linear
-    velocity changes rather than solver contact rows.
+  Min impact energy: Contact-audio threshold (joules) below which a collision
+    stays silent; one of the two Sound-tab knobs alongside master gain.
   Presentation alpha: Bounded live interpolation fraction copied for UI
     diagnostics; capture pin state explains intentional alpha 1 frames.
 
@@ -53,25 +51,13 @@ constexpr int RUNTIME_CONTACT_AUDIO_SAMPLE_MAX = 64;
 
 struct RuntimeContactAudioSnapshot
 {
+    // The two live tuning knobs plus read-only sample/set browsing data for
+    // the Sound tab. Everything else about contact audio is fixed policy
+    // inside ContactAudioService.
     bool enabled = false;
     bool available = false;
-    bool debugCounters = false;
-    int flashMode = 1;
-    const char* flashModeLabel = "Flash: Emitted";
     float masterGain = 0.0f;
-    float maxDistanceScale = 1.0f;
-    float minClosingSpeed = 0.0f;
-    float minImpactScore = 0.0f;
-    float impactScoreRangeSeconds = 1.0f;
-    bool simpleMode = true;
-    float simpleMinLinearEnergy = 270.0f;
-    float simpleMinLinearDeltaSpeed = 2.0f;
-    float simpleLinearEnergyRange = 320.0f;
-    uint32_t burstVoicesPerWindow = 0;     // Max submitted contact sounds per 100 ms burst.
-    float rollingLevelDb = -24.0f;
-    float rollingMaxDistance = 24.0f;
-    float rollingMinSlipSpeed = 0.65f;
-    uint32_t rollingVoicesPerWindow = 4;
+    float minImpactEnergy = 125.0f; // Joules; the "big enough to hear" threshold.
     Runtime::Audio::ContactAudioStats stats;
     int soundSetCount = 0;
     int soundSampleCount = 0;

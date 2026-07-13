@@ -56,18 +56,6 @@ namespace
 {
 constexpr const char* CONTACT_AUDIO_MATERIAL_MAP_PATH = "SkullbonezData/audio/contact_audio.materials.json";
 
-Runtime::Audio::ContactAudioFlashMode NextContactAudioFlashMode( Runtime::Audio::ContactAudioFlashMode mode )
-{
-    using Runtime::Audio::ContactAudioFlashMode;
-    constexpr int MODE_COUNT = static_cast<int>( ContactAudioFlashMode::Count );
-    const int rawMode = static_cast<int>( mode );
-    if ( rawMode < 0 || rawMode >= MODE_COUNT )
-    {
-        return ContactAudioFlashMode::Emitted;
-    }
-    return static_cast<ContactAudioFlashMode>( ( rawMode + 1 ) % MODE_COUNT );
-}
-
 bool EnsureContactAudioReady( SoundUICommandContext context )
 {
     if ( context.contactAudioDisabledByLaunch )
@@ -584,149 +572,15 @@ bool ApplySoundUICommands( SoundUICommandContext context, const UI::UISoundComma
         }
         soundTuningChanged = true;
     }
-    if ( commands.toggleDebugCounters )
-    {
-        contactAudio.SetDebugCountersEnabled( !contactAudio.DebugCountersEnabled() );
-        soundTuningChanged = true;
-    }
-    if ( commands.cycleFlashMode )
-    {
-        contactAudio.SetFlashMode( NextContactAudioFlashMode( contactAudio.FlashMode() ) );
-        soundTuningChanged = true;
-    }
-    if ( commands.toggleSimpleMode )
-    {
-        contactAudio.SetSimpleModeEnabled( !contactAudio.SimpleModeEnabled() );
-        soundTuningChanged = true;
-    }
     if ( commands.requestedParam != UISoundParam::None )
     {
-        using Runtime::Audio::ContactAudioSetParam;
         switch ( commands.requestedParam )
         {
-        case UISoundParam::SimpleMinLinearEnergy:
-            contactAudio.SetSimpleMinLinearEnergy( commands.requestedValue );
-            break;
-        case UISoundParam::SimpleMinLinearDeltaSpeed:
-            contactAudio.SetSimpleMinLinearDeltaSpeed( commands.requestedValue );
-            break;
-        case UISoundParam::SimpleLinearEnergyRange:
-            contactAudio.SetSimpleLinearEnergyRange( commands.requestedValue );
-            break;
         case UISoundParam::MasterGain:
             contactAudio.SetMasterGain( commands.requestedValue );
             break;
-        case UISoundParam::MaxDistanceScale:
-            contactAudio.SetMaxDistanceScale( commands.requestedValue );
-            break;
-        case UISoundParam::MinClosingSpeed:
-            contactAudio.SetMinClosingSpeed( commands.requestedValue );
-            break;
-        case UISoundParam::MinImpactScore:
-            contactAudio.SetMinImpactScore( commands.requestedValue );
-            break;
-        case UISoundParam::ImpactScoreRangeSeconds:
-            contactAudio.SetImpactScoreRangeSeconds( commands.requestedValue );
-            break;
-        case UISoundParam::BurstVoicesPerWindow:
-            contactAudio.SetBurstVoicesPerWindow( static_cast<uint32_t>( commands.requestedValue ) );
-            break;
-        case UISoundParam::RollingLevelDb:
-            contactAudio.SetRollingLevelDb( commands.requestedValue );
-            break;
-        case UISoundParam::RollingMaxDistance:
-            contactAudio.SetRollingMaxDistance( commands.requestedValue );
-            break;
-        case UISoundParam::RollingMinSlipSpeed:
-            contactAudio.SetRollingMinSlipSpeed( commands.requestedValue );
-            break;
-        case UISoundParam::RollingVoicesPerWindow:
-            contactAudio.SetRollingVoicesPerWindow( static_cast<uint32_t>( commands.requestedValue ) );
-            break;
-        case UISoundParam::SetMinImpulse:
-            contactAudio.SetSoundSetParam( commands.requestedSetIndex,
-                                           ContactAudioSetParam::MinImpulse,
-                                           commands.requestedValue );
-            break;
-        case UISoundParam::SetImpulseRange:
-            contactAudio.SetSoundSetParam( commands.requestedSetIndex,
-                                           ContactAudioSetParam::ImpulseRange,
-                                           commands.requestedValue );
-            break;
-        case UISoundParam::SetCooldownMs:
-            contactAudio.SetSoundSetParam( commands.requestedSetIndex,
-                                           ContactAudioSetParam::CooldownMs,
-                                           commands.requestedValue );
-            break;
-        case UISoundParam::SetOverrideCooldownMs:
-            contactAudio.SetSoundSetParam( commands.requestedSetIndex,
-                                           ContactAudioSetParam::OverrideCooldownMs,
-                                           commands.requestedValue );
-            break;
-        case UISoundParam::SetMaxDistance:
-            contactAudio.SetSoundSetParam( commands.requestedSetIndex,
-                                           ContactAudioSetParam::MaxDistance,
-                                           commands.requestedValue );
-            break;
-        case UISoundParam::SetBaseGain:
-            contactAudio.SetSoundSetParam( commands.requestedSetIndex,
-                                           ContactAudioSetParam::BaseGain,
-                                           commands.requestedValue );
-            break;
-        case UISoundParam::SetPitchMin:
-            contactAudio.SetSoundSetParam( commands.requestedSetIndex,
-                                           ContactAudioSetParam::PitchMin,
-                                           commands.requestedValue );
-            break;
-        case UISoundParam::SetPitchMax:
-            contactAudio.SetSoundSetParam( commands.requestedSetIndex,
-                                           ContactAudioSetParam::PitchMax,
-                                           commands.requestedValue );
-            break;
-        case UISoundParam::SetMaxVoices:
-            contactAudio.SetSoundSetParam( commands.requestedSetIndex,
-                                           ContactAudioSetParam::MaxVoices,
-                                           commands.requestedValue );
-            break;
-        default:
-            break;
-        }
-        soundTuningChanged = true;
-    }
-    if ( commands.requestedBandParam != UISoundBandParam::None )
-    {
-        using Runtime::Audio::ContactAudioBandParam;
-        switch ( commands.requestedBandParam )
-        {
-        case UISoundBandParam::MinImpulse:
-            contactAudio.SetSoundBandParam( commands.requestedSetIndex,
-                                            commands.requestedBandIndex,
-                                            ContactAudioBandParam::MinImpulse,
-                                            commands.requestedValue );
-            break;
-        case UISoundBandParam::ImpulseRange:
-            contactAudio.SetSoundBandParam( commands.requestedSetIndex,
-                                            commands.requestedBandIndex,
-                                            ContactAudioBandParam::ImpulseRange,
-                                            commands.requestedValue );
-            break;
-        case UISoundBandParam::BaseGain:
-            contactAudio.SetSoundBandParam( commands.requestedSetIndex,
-                                            commands.requestedBandIndex,
-                                            ContactAudioBandParam::BaseGain,
-                                            commands.requestedValue );
-            break;
-        case UISoundBandParam::PitchMin:
-            contactAudio.SetSoundBandParam( commands.requestedSetIndex,
-                                            commands.requestedBandIndex,
-                                            ContactAudioBandParam::PitchMin,
-                                            commands.requestedValue );
-            break;
-        case UISoundBandParam::PitchMax:
-            contactAudio.SetSoundBandParam( commands.requestedSetIndex,
-                                            commands.requestedBandIndex,
-                                            ContactAudioBandParam::PitchMax,
-                                            commands.requestedValue );
+        case UISoundParam::MinImpactEnergy:
+            contactAudio.SetMinImpactEnergy( commands.requestedValue );
             break;
         default:
             break;

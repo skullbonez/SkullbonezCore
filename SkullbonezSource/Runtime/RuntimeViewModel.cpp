@@ -35,47 +35,13 @@ namespace Runtime
 {
 namespace
 {
-const char* ContactAudioFlashModeLabel( Runtime::Audio::ContactAudioFlashMode mode )
-{
-    using Runtime::Audio::ContactAudioFlashMode;
-    switch ( mode )
-    {
-    case ContactAudioFlashMode::Off:
-        return "Flash: Off";
-    case ContactAudioFlashMode::Emitted:
-        return "Flash: Emitted";
-    case ContactAudioFlashMode::Candidates:
-        return "Flash: Candidates";
-    case ContactAudioFlashMode::Rejected:
-        return "Flash: Rejected";
-    default:
-        return "Flash: Emitted";
-    }
-}
-
-
 void FillContactAudioSnapshot( RuntimeContactAudioSnapshot& audio,
                                const Runtime::Audio::ContactAudioService& contactAudio )
 {
     audio.enabled = contactAudio.IsEnabled();
     audio.available = contactAudio.IsAvailable();
-    audio.debugCounters = contactAudio.DebugCountersEnabled();
-    audio.flashMode = static_cast<int>( contactAudio.FlashMode() );
-    audio.flashModeLabel = ContactAudioFlashModeLabel( contactAudio.FlashMode() );
     audio.masterGain = contactAudio.MasterGain();
-    audio.maxDistanceScale = contactAudio.MaxDistanceScale();
-    audio.minClosingSpeed = contactAudio.MinClosingSpeed();
-    audio.minImpactScore = contactAudio.MinImpactScore();
-    audio.impactScoreRangeSeconds = contactAudio.ImpactScoreRangeSeconds();
-    audio.simpleMode = contactAudio.SimpleModeEnabled();
-    audio.simpleMinLinearEnergy = contactAudio.SimpleMinLinearEnergy();
-    audio.simpleMinLinearDeltaSpeed = contactAudio.SimpleMinLinearDeltaSpeed();
-    audio.simpleLinearEnergyRange = contactAudio.SimpleLinearEnergyRange();
-    audio.burstVoicesPerWindow = contactAudio.BurstVoicesPerWindow();
-    audio.rollingLevelDb = contactAudio.RollingLevelDb();
-    audio.rollingMaxDistance = contactAudio.RollingMaxDistance();
-    audio.rollingMinSlipSpeed = contactAudio.RollingMinSlipSpeed();
-    audio.rollingVoicesPerWindow = contactAudio.RollingVoicesPerWindow();
+    audio.minImpactEnergy = contactAudio.MinImpactEnergy();
     audio.stats = contactAudio.Stats();
     audio.soundSetCount = (std::min)( contactAudio.SoundSetCount(), RUNTIME_CONTACT_AUDIO_SET_MAX );
     audio.soundSampleCount = (std::min)( contactAudio.SoundSampleCount(), RUNTIME_CONTACT_AUDIO_SAMPLE_MAX );

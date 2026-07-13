@@ -76,7 +76,6 @@ using Environment::WorldEnvironment;
 using UI::UICinematicFeature;
 using UI::UICinematicParam;
 using UI::UIRenderParam;
-using UI::UISoundBandParam;
 using UI::UISoundParam;
 
 namespace RunInternal

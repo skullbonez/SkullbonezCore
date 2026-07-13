@@ -34,9 +34,22 @@ import bake_hulls
 
 
 ASSET_LIBRARY_VERSION = 1
-CONFIG_VERSION = 1
+CONFIG_VERSION = 2
 ASSET_FORMAT = "skullbonez.asset_library.json"
 CONFIG_VERSION_RE = re.compile(r"^(?P<indent>\s*)format_version\s*=\s*(?P<version>[^#\s]+)(?P<tail>\s*(?:#.*)?)$")
+CONFIG_KEY_RE = re.compile(r"^\s*(?P<key>[A-Za-z0-9_]+)\s*=")
+# Named v1->v2 step: the contact-audio simplification deleted these settings
+# from the config registry (rolling lane, distance scale, and debug counters
+# are fixed policy or gone entirely). Migration drops the dead rows; the new
+# contact_audio_min_impact_energy key is optional and defaults in-engine.
+CONFIG_V2_REMOVED_KEYS = {
+    "contact_audio_max_distance_scale",
+    "contact_audio_rolling_level_db",
+    "contact_audio_rolling_max_distance",
+    "contact_audio_rolling_min_slip_speed",
+    "contact_audio_rolling_voices_per_window",
+    "contact_audio_debug_counters",
+}
 
 
 class MigrationError(RuntimeError):
@@ -74,6 +87,13 @@ def migrate_asset_text(text: str, path: Path) -> str:
 
 def migrate_config_text(text: str, path: Path) -> str:
     lines = text.splitlines()
+    # v1->v2: drop rows for settings deleted from the registry. Filtering is
+    # idempotent, so already-current files pass the byte-identity invariant.
+    def is_removed_key(line: str) -> bool:
+        match = CONFIG_KEY_RE.match(line)
+        return bool(match) and match.group("key") in CONFIG_V2_REMOVED_KEYS
+
+    lines = [line for line in lines if not is_removed_key(line)]
     version_rows: list[tuple[int, re.Match[str]]] = []
     for index, line in enumerate(lines):
         match = CONFIG_VERSION_RE.match(line)
@@ -152,13 +172,19 @@ def self_test() -> None:
         raise AssertionError("future asset version must fail")
 
     config_path = Path("engine.cfg")
-    config = migrate_config_text("# config\nscreen_x = 1\n", config_path)
-    assert "format_version = 1\n" in config
+    config = migrate_config_text(
+        "# config\nscreen_x = 1\ncontact_audio_rolling_level_db = -24.0\ncontact_audio_debug_counters = 0\n",
+        config_path,
+    )
+    assert "format_version = 2\n" in config
+    assert "contact_audio_rolling_level_db" not in config
+    assert "contact_audio_debug_counters" not in config
+    assert "screen_x = 1" in config
     assert migrate_config_text(config, config_path) == config
     try:
-        migrate_config_text("format_version = 2\n", config_path)
+        migrate_config_text("format_version = 3\n", config_path)
     except MigrationError as exc:
-        assert "newer than current version 1" in str(exc)
+        assert "newer than current version 2" in str(exc)
     else:
         raise AssertionError("future config version must fail")
 

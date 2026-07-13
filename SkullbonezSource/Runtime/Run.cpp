@@ -403,7 +403,6 @@ Run::Run( Window& window,
     m_sceneController.ApplyRuntimeConfig( cfg );
     m_renderer.SetVsyncEnabled( cfg.runtimeRender.vsyncEnabled );
     m_renderer.SetPipelineSyncEnabled( cfg.runtimeRender.forcePipelineSync );
-    m_contactAudio.SetDebugCountersEnabled( cfg.contactAudio.debugCounters );
     m_renderDefaults.CaptureStartupCinematicBaseline( cfg.cinematicRender );
     m_startup.ApplyStartupConfig( cfg );
 }
@@ -840,11 +839,7 @@ void Run::Initialise()
     }
 
     m_contactAudio.SetMasterGain( cfg.contactAudio.masterGain );
-    m_contactAudio.SetMaxDistanceScale( cfg.contactAudio.maxDistanceScale );
-    m_contactAudio.SetRollingLevelDb( cfg.contactAudio.rollingLevelDb );
-    m_contactAudio.SetRollingMaxDistance( cfg.contactAudio.rollingMaxDistance );
-    m_contactAudio.SetRollingMinSlipSpeed( cfg.contactAudio.rollingMinSlipSpeed );
-    m_contactAudio.SetRollingVoicesPerWindow( static_cast<uint32_t>( cfg.contactAudio.rollingVoicesPerWindow ) );
+    m_contactAudio.SetMinImpactEnergy( cfg.contactAudio.minImpactEnergy );
     if ( !m_launchOptions.noContactAudio && cfg.contactAudio.enabled )
     {
         const bool audioReady =

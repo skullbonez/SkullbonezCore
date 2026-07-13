@@ -650,8 +650,7 @@
       "patterns": [
         ".assign(",
         ".push_back(",
-        ".reserve(",
-        ".resize("
+        ".reserve("
       ],
       "owner": "Runtime audio asset-load storage surface",
       "phase": "startup_scene_load",

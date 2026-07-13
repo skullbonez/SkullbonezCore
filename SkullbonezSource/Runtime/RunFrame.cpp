@@ -11,10 +11,8 @@ Summary:
 Glossary:
   Simulation tick: One runtime decision about whether to advance logic, camera,
     and zero or more fixed physics steps this frame.
-  Contact-audio flash mode: Render-only diagnostic selector that decides which
-    completed audio decisions paint body flashes after a fixed physics step.
-  Contact-audio simple mode: Presentation-only path that emits from body linear
-    velocity changes rather than solver contact rows.
+  Contact-audio flash: Render-only feedback that briefly paints the bodies of
+    each submitted thud after a fixed physics step.
   Fixed-step edge: Runtime-owned code that repairs model/body topology before
     PhysicsEngine::Step and applies presentation-only refresh work after it.
   PhysicsBodyStore: Physics-owned body rows for live pose, velocity, fixed
@@ -84,7 +82,6 @@ using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Runtime::RunInternal;
 using SkullbonezCore::Math::Vector::Vector3;
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
-using SkullbonezCore::Runtime::Audio::ContactAudioFlashMode;
 
 namespace
 {
@@ -95,24 +92,6 @@ void PrintRuntimeExitReason( const char* reason )
 {
     printf( "[runtime-exit] %s\n", reason );
     fflush( stdout );
-}
-
-bool ShouldFlashContactAudioDecision( ContactAudioFlashMode mode,
-                                      const SkullbonezCore::Runtime::Audio::ContactAudioDecision& decision )
-{
-    switch ( mode )
-    {
-    case ContactAudioFlashMode::Off:
-        return false;
-    case ContactAudioFlashMode::Emitted:
-        return decision.submitted && decision.flashEligible;
-    case ContactAudioFlashMode::Candidates:
-        return true;
-    case ContactAudioFlashMode::Rejected:
-        return !decision.submitted;
-    default:
-        return decision.submitted && decision.flashEligible;
-    }
 }
 
 
@@ -314,7 +293,6 @@ namespace
 {
 
 void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio,
-                                  RunTimerState& timers,
                                   DiagnosticsRuntime& diagnosticsRuntime,
                                   RunSceneState& scene,
                                   const Vector3& listenerPosition,
@@ -338,60 +316,29 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
         return HashStr( "default" );
     };
 
-    if ( contactAudio.SimpleModeEnabled() )
+    // Why: PhysicsDebugContact rows are emitted after accumulated normal
+    // impulses are known. Audio consumes those copied facts (impulse + the
+    // pre-solve closing speed) without entering solver math or changing
+    // deterministic physics state; the emit rule itself lives in the service.
+    const std::vector<PhysicsDebugContact>& contacts = PhysicsEngine::ReadDebugContacts( models.Physics() );
+    for ( const PhysicsDebugContact& contact : contacts )
     {
-        // Why: Simple Mode answers the practical sound question directly:
-        // did a dynamic body experience enough mass-scaled linear velocity
-        // change to be heard? Motion comes from PhysicsBodyStore and contact
-        // material comes from the paired ColliderStore row.
-        const auto bodyRecords = models.BodyStore().Records();
-        const int simpleBodyCount = static_cast<int>(
-            bodyRecords.size() < colliderRecords.size() ? bodyRecords.size() : colliderRecords.size() );
-        contactAudio.BeginSimpleLinearStep( simpleBodyCount );
-        for ( int bodyIndex = 0; bodyIndex < simpleBodyCount; ++bodyIndex )
+        if ( contact.bodyA < 0 || contact.normalImpulse <= 0.0f )
         {
-            const PhysicsBodyRecord& body = bodyRecords[static_cast<std::size_t>( bodyIndex )];
-            if ( body.isFixed )
-            {
-                continue;
-            }
-            contactAudio.SubmitLinearMotion( bodyIndex,
-                                             colliderRecords[static_cast<std::size_t>( bodyIndex )].contactMaterialId,
-                                             body.position,
-                                             body.linearVelocity,
-                                             body.mass );
+            continue;
         }
-    }
-    else
-    {
-        // Why: PhysicsDebugContact rows are emitted after accumulated normal
-        // impulses are known. Audio can consume those facts without entering
-        // solver math or changing deterministic physics state.
-        const std::vector<PhysicsDebugContact>& contacts = PhysicsEngine::ReadDebugContacts( models.Physics() );
-        for ( const PhysicsDebugContact& contact : contacts )
-        {
-            if ( contact.bodyA < 0 || contact.normalImpulse <= 0.0f )
-            {
-                continue;
-            }
 
-            SkullbonezCore::Runtime::Audio::ContactAudioEvent event;
-            event.bodyA = contact.bodyA;
-            event.bodyB = contact.bodyB;
-            event.featureId = contact.featureId;
-            event.materialA = materialForBody( contact.bodyA );
-            event.materialB = materialForBody( contact.bodyB );
-            event.point = contact.point;
-            event.normal = contact.normal;
-            event.normalImpulse = contact.normalImpulse;
-            // Why: sound uses pre-solve relative motion so stationary wall bricks
-            // receiving propagated constraint force do not all become emitters.
-            event.normalClosingSpeed = contact.preSolveClosingSpeed;
-            event.tangentSlipSpeed = contact.preSolveSlipSpeed;
-            event.isTerrain = contact.bodyB < 0;
-            event.hasMotionData = true;
-            contactAudio.SubmitContact( event );
-        }
+        SkullbonezCore::Runtime::Audio::ContactAudioEvent event;
+        event.bodyA = contact.bodyA;
+        event.bodyB = contact.bodyB;
+        event.materialA = materialForBody( contact.bodyA );
+        event.materialB = materialForBody( contact.bodyB );
+        event.point = contact.point;
+        event.normalImpulse = contact.normalImpulse;
+        // Why: sound gates on pre-solve relative motion so stationary wall
+        // bricks receiving propagated constraint force do not become emitters.
+        event.closingSpeed = contact.preSolveClosingSpeed;
+        contactAudio.SubmitContact( event );
     }
 
     contactAudio.EndPhysicsStep();
@@ -412,45 +359,21 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
         }
     }
 #endif
-    if ( contactAudio.FlashMode() != ContactAudioFlashMode::Off )
     {
-        // Why: Sound-tab diagnostics can visualize emitted sounds, all
-        // candidates, or rejected candidates without touching physics state.
+        // Why: a brief white flash on the emitting bodies is the "did that
+        // play?" feedback loop. It reads only copied submitted events and
+        // never touches physics state.
         constexpr float CONTACT_AUDIO_FLASH_SECONDS = 0.1f;
-        const int decisionCount = contactAudio.DecisionCount();
-        for ( int i = 0; i < decisionCount; ++i )
+        const int submittedCount = contactAudio.SubmittedContactCount();
+        for ( int i = 0; i < submittedCount; ++i )
         {
-            SkullbonezCore::Runtime::Audio::ContactAudioDecision decision;
-            if ( !contactAudio.GetDecision( i, decision ) ||
-                 !ShouldFlashContactAudioDecision( contactAudio.FlashMode(), decision ) )
+            SkullbonezCore::Runtime::Audio::ContactAudioEvent event;
+            if ( !contactAudio.GetSubmittedContact( i, event ) )
             {
                 continue;
             }
-
-            models.NotifyAudioContact( decision.event.bodyA, CONTACT_AUDIO_FLASH_SECONDS );
-            models.NotifyAudioContact( decision.event.bodyB, CONTACT_AUDIO_FLASH_SECONDS );
-        }
-    }
-    if ( contactAudio.DebugCountersEnabled() )
-    {
-        timers.contactAudioStatsLogTime += PHYSICS_FIXED_DT;
-        if ( timers.contactAudioStatsLogTime >= 1.0f )
-        {
-            const SkullbonezCore::Runtime::Audio::ContactAudioStats& stats = contactAudio.Stats();
-            printf( "[audio] contact stats facts=%u patches=%u merged=%u threshold=%u cooldown=%u "
-                    "submitted=%u rolling=%u/%u budget=%u dropped=%u\n",
-                    stats.eventsSeen,
-                    stats.patchCandidates,
-                    stats.mergedCandidates,
-                    stats.rejectedByThreshold,
-                    stats.rejectedByCooldown,
-                    stats.submittedVoices,
-                    stats.rollingSubmittedVoices,
-                    stats.rollingCandidates,
-                    stats.candidateOverflows + stats.burstWindowSkippedCandidates + stats.budgetRejectedCandidates,
-                    stats.droppedVoices );
-            contactAudio.ResetFrameStats();
-            timers.contactAudioStatsLogTime = 0.0f;
+            models.NotifyAudioContact( event.bodyA, CONTACT_AUDIO_FLASH_SECONDS );
+            models.NotifyAudioContact( event.bodyB, CONTACT_AUDIO_FLASH_SECONDS );
         }
     }
 }
@@ -935,7 +858,6 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners, Runt
                                                                        listenerPosition );
         }
         ExecuteContactAudioPostStep( m_contactAudio,
-                                     m_timers,
                                      m_diagnosticsRuntime,
                                      m_sceneController.State(),
                                      listenerPosition,
