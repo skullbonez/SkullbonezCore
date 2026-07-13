@@ -108,25 +108,31 @@ concrete plan rows and counting it would duplicate tasks.
 | render-interface-and-workerpool-slimming | 5 | 5 | 100% |
 | runtime-contract-enforcement | 5 | 5 | 100% |
 | adversarial-review-round-3 | 10 | 10 | 100% |
-| **Portfolio total** | **312** | **313** | **100%** |
+| replay-prediction-fidelity-probe | 0 | 5 | 0% |
+| replay-monolith-decomposition | 0 | 8 | 0% |
+| **Portfolio total** | **312** | **326** | **96%** |
 
 ## Current Execution Priority
 
 For maximum impact with minimal rework, use this binding critical path:
 
-`validation-gate V3 external administration`
+`replay-prediction-fidelity-probe → replay-monolith-decomposition → validation-gate V3 external administration`
 
-0. **Validation-gate V3 — blocked external lane.** Repository implementation is
+0. **Replay architecture lane — live.** Execute
+   `TODO/replay-prediction-fidelity-probe.md` (F1→F5) first; it is the binding
+   prerequisite and divergence detector for
+   `TODO/replay-monolith-decomposition.md` (M0→M8), which follows it.
+1. **Validation-gate V3 — blocked external lane.** Repository implementation is
    complete. Remaining work requires a real `merge_group` proof, required CPU
    branch protection, and trusted/ephemeral DX12 runner administration.
-1. **Adversarial-review round 3 — locally complete.** All ten tasks and the
+2. **Adversarial-review round 3 — locally complete.** All ten tasks and the
    final independent review are closed; evidence lives in
    `../Reports/2026-07-13/adversarial-review-round-3-closure.md`.
-2. **Adversarial-review remediation round 1 — locally complete.** All five
+3. **Adversarial-review remediation round 1 — locally complete.** All five
    active 2026-07-12 remediation plans are closed. The comment-rot sweep
    remains owner-parked in `WNF/` (no comment changes yet), so it is not live
    work or part of the portfolio ledger.
-3. **Adversarial-review round 2 — locally complete.** EngineLog fatal-path
+4. **Adversarial-review round 2 — locally complete.** EngineLog fatal-path
    thread safety, SpatialGrid input validation, AmortizedTask lifetime guards,
    and worker-pool exception-plumbing removal are complete and validated.
 
@@ -141,6 +147,8 @@ For maximum impact with minimal rework, use this binding critical path:
 | Plan | State | Verified phase count | Next blocking action |
 |---|---|---:|---|
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs merge-group proof, required branch protection, and trusted/ephemeral DX12 runner administration |
+| [replay-prediction-fidelity-probe](TODO/replay-prediction-fidelity-probe.md) | Live | 0/5 | Start F1 (engine-level snapshot completeness doctest); F2-F4 add the predicted-vs-actual-future hash gate to `validate_replay_scrub` |
+| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Blocked on fidelity probe | 0/8 | M0 gates on `replay-prediction-fidelity-probe` closing; then M1 type inventory and the five-owner extraction (presentation → timeline/scrubber → authoring → prediction) behind a thin `ReplayRuntime` composition root |
 
 ## Planned Architecture Work (2026-07-11 gap review)
 

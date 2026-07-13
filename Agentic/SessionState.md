@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-12th-july` |
 | Current baseline | Adversarial-review round 3 is complete at 10/10; R10 runs three frames in flight with SM6.6 bindless raster texture access |
-| Current objective | Validation-gate V3 remains externally blocked; no local implementation task is live |
-| Portfolio progress | 312 / 313 tasks = 100% rounded overall |
+| Current objective | Execute the replay architecture lane: `Plans/TODO/replay-prediction-fidelity-probe.md` (F1→F5), then `Plans/TODO/replay-monolith-decomposition.md` (M0→M8); validation-gate V3 remains externally blocked |
+| Portfolio progress | 312 / 326 tasks = 96% rounded overall |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-13 in 114.5s: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots/InfoQueue, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
 | Validation for current edits | R10 final: three consecutive DX12 passes 53.5/53.8/53.6s plus post-review passes, final perf 66.1s, final stress 61.6s with +0.70 MiB warmed working-set delta, and 179/179 unit tests. |
 
@@ -34,6 +34,12 @@ plan inventory.
    closure evidence and the 29/29 touched-file comment audit live in
    `Reports/2026-07-13/adversarial-review-round-3-closure.md`. Out-of-scope
    rulings remain recorded in MASTER to avoid re-litigation.
+5. Replay architecture lane is live (2026-07-13 owner decision): the
+   prediction fidelity probe (5 tasks — predicted future must byte-match the
+   actual future) is the binding prerequisite, then the replay monolith
+   decomposition (8 tasks — five owners behind a thin ReplayRuntime
+   composition root). Both plans live in `Plans/TODO/` and are registered in
+   the MASTER ledger at 312/326.
 
 ## Current Plan Decisions
 
