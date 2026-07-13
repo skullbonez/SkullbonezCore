@@ -1913,8 +1913,11 @@ void DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
     }
 
     RunEditorTracer& tracer = inputs.runtimeTools.EditorTracer();
-    tracer.Render( inputs.frame.viewProjection, inputs.frame.eye, inputs.frame.up, RenderCommands( inputs.frame ) );
-    inputs.replayRuntime.RecordReplayTrajectorySubmissionFrame( tracer.ReplaySubmissionStats(),
+    const ReplayVisualPacket& publishedPacket = inputs.replayRuntime.PublishedReplayVisualPacket();
+    // Invariant: production submission and validation observe this same
+    // replay-owned packet; neither may rebuild geometry from tracer internals.
+    tracer.Render( publishedPacket, inputs.frame.viewProjection, RenderCommands( inputs.frame ) );
+    inputs.replayRuntime.RecordReplayTrajectorySubmissionFrame( publishedPacket.submission,
                                                                 inputs.replaySceneFrame,
                                                                 inputs.replayGrowthEventCount );
     inputs.runtimeTools.Laser().Render( inputs.frame.viewProjection,

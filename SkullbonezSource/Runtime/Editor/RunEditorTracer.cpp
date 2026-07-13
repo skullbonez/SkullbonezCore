@@ -547,9 +547,31 @@ void RunEditorTracer::RecordReplayRibbonDroppedSegments( SkullbonezCore::Core::M
     }
 }
 
-const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& RunEditorTracer::ReplaySubmissionStats() const
+ReplayVisualPacket RunEditorTracer::BuildReplayVisualPacket( const Vector3& cameraEye, const Vector3& cameraUp )
 {
-    return m_replaySubmissionStats;
+    m_renderLineData.clear();
+    if ( !m_priorityLineData.empty() )
+    {
+        // Invariant: the packet's combined stream is the exact single line
+        // submission consumed below. Ordinary and priority spans remain
+        // separate so first-difference diagnostics retain their owner lane.
+        m_renderLineData.insert( m_renderLineData.end(), m_lineData.begin(), m_lineData.end() );
+        m_renderLineData.insert( m_renderLineData.end(), m_priorityLineData.begin(), m_priorityLineData.end() );
+    }
+    BuildReplayRibbonVertices( cameraEye, cameraUp );
+
+    ReplayVisualPacket packet;
+    packet.header.cameraEye = cameraEye;
+    packet.header.cameraUp = cameraUp;
+    packet.combinedLines = m_priorityLineData.empty() ? std::span<const float>( m_lineData )
+                                                       : std::span<const float>( m_renderLineData );
+    packet.ordinaryLines = m_lineData;
+    packet.priorityLines = m_priorityLineData;
+    packet.ordinaryRibbonSegments = m_replayRibbonSegments;
+    packet.priorityRibbonSegments = m_priorityReplayRibbonSegments;
+    packet.expandedRibbonVertices = m_replayRibbonVertexData;
+    packet.submission = m_replaySubmissionStats;
+    return packet;
 }
 
 
@@ -1651,78 +1673,63 @@ void RunEditorTracer::AddReplayVelocityGizmo( const Vector3& origin,
 }
 
 
-void RunEditorTracer::Render( const Matrix4& viewProjection,
-                              const Vector3& cameraEye,
-                              const Vector3& cameraUp,
+void RunEditorTracer::Render( const ReplayVisualPacket& packet,
+                              const Matrix4& viewProjection,
                               Rendering::IRenderCommandContext& renderCommands )
 {
-    if ( m_lineData.empty() && m_priorityLineData.empty() && m_replayRibbonSegments.empty() &&
-         m_priorityReplayRibbonSegments.empty() )
+    if ( !packet.HasGeometry() )
     {
         return;
     }
 
-    if ( !m_lineData.empty() || !m_priorityLineData.empty() )
+    if ( !packet.combinedLines.empty() )
     {
-        // Invariant: m_lineData stores colored vertices as xyz/rgb floats; every
+        // Invariant: combinedLines stores colored vertices as xyz/rgb floats; every
         // pair of vertices is one line segment consumed by DrawLinesColored.
-        const float* lineData = m_lineData.data();
-        std::size_t floatCount = m_lineData.size();
-        if ( !m_priorityLineData.empty() )
-        {
-            // Build one pre-reserved stream so ordinary paths and priority causal
-            // markers keep independent caps while the caller-owned render context
-            // performs the single debug-line draw.
-            m_renderLineData.clear();
-            m_renderLineData.insert( m_renderLineData.end(), m_lineData.begin(), m_lineData.end() );
-            m_renderLineData.insert( m_renderLineData.end(), m_priorityLineData.begin(), m_priorityLineData.end() );
-            lineData = m_renderLineData.data();
-            floatCount = m_renderLineData.size();
-        }
-        renderCommands.DrawLinesColored( lineData, static_cast<int>( floatCount / 6 ), viewProjection.Data() );
+        renderCommands.DrawLinesColored( packet.combinedLines.data(),
+                                         static_cast<int>( packet.combinedLines.size() / 6u ),
+                                         viewProjection.Data() );
     }
 
-    if ( !m_replayRibbonSegments.empty() || !m_priorityReplayRibbonSegments.empty() )
+    if ( !packet.expandedRibbonVertices.empty() )
     {
-        BuildReplayRibbonVertices( cameraEye, cameraUp );
-        if ( !m_replayRibbonVertexData.empty() )
-        {
-            Rendering::BlendFactor blendSrc = Rendering::BlendFactor::One;
-            Rendering::BlendFactor blendDst = Rendering::BlendFactor::Zero;
-            const bool depthTestWasEnabled = renderCommands.IsDepthTestEnabled();
-            const bool depthWriteWasEnabled = renderCommands.IsDepthWriteEnabled();
-            const bool blendWasEnabled = renderCommands.IsBlendEnabled();
-            const bool cullWasEnabled = renderCommands.IsCullFaceEnabled();
-            renderCommands.GetBlendFunc( blendSrc, blendDst );
+        Rendering::BlendFactor blendSrc = Rendering::BlendFactor::One;
+        Rendering::BlendFactor blendDst = Rendering::BlendFactor::Zero;
+        const bool depthTestWasEnabled = renderCommands.IsDepthTestEnabled();
+        const bool depthWriteWasEnabled = renderCommands.IsDepthWriteEnabled();
+        const bool blendWasEnabled = renderCommands.IsBlendEnabled();
+        const bool cullWasEnabled = renderCommands.IsCullFaceEnabled();
+        renderCommands.GetBlendFunc( blendSrc, blendDst );
 
-            // Concept: the first pass is a low-opacity depth hint with depth
-            // testing disabled; the normal pass is depth-tested, so visible
-            // strokes stay seated while occluded spans remain only faintly
-            // readable behind scene geometry.
-            renderCommands.SetDepthTest( false );
-            renderCommands.SetDepthWrite( false );
-            renderCommands.SetBlend( true );
-            renderCommands.SetBlendFunc( Rendering::BlendFactor::SrcAlpha, Rendering::BlendFactor::One );
-            renderCommands.SetCullFace( false );
+        // Concept: the first pass is a low-opacity depth hint with depth
+        // testing disabled; the normal pass is depth-tested, so visible
+        // strokes stay seated while occluded spans remain only faintly
+        // readable behind scene geometry.
+        renderCommands.SetDepthTest( false );
+        renderCommands.SetDepthWrite( false );
+        renderCommands.SetBlend( true );
+        renderCommands.SetBlendFunc( Rendering::BlendFactor::SrcAlpha, Rendering::BlendFactor::One );
+        renderCommands.SetCullFace( false );
 
-            renderCommands.DrawTransientColoredTriangles(
-                m_replayRibbonVertexData.data(),
-                static_cast<int>( m_replayRibbonVertexData.size() / RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX ),
-                viewProjection.Data(),
-                Rendering::TransientTriangleStyle::TrajectoryRibbonDepthHint );
+        renderCommands.DrawTransientColoredTriangles(
+            packet.expandedRibbonVertices.data(),
+            static_cast<int>( packet.expandedRibbonVertices.size() /
+                              RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX ),
+            viewProjection.Data(),
+            Rendering::TransientTriangleStyle::TrajectoryRibbonDepthHint );
 
-            renderCommands.SetDepthTest( true );
-            renderCommands.DrawTransientColoredTriangles(
-                m_replayRibbonVertexData.data(),
-                static_cast<int>( m_replayRibbonVertexData.size() / RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX ),
-                viewProjection.Data(),
-                Rendering::TransientTriangleStyle::TrajectoryRibbon );
+        renderCommands.SetDepthTest( true );
+        renderCommands.DrawTransientColoredTriangles(
+            packet.expandedRibbonVertices.data(),
+            static_cast<int>( packet.expandedRibbonVertices.size() /
+                              RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX ),
+            viewProjection.Data(),
+            Rendering::TransientTriangleStyle::TrajectoryRibbon );
 
-            renderCommands.SetCullFace( cullWasEnabled );
-            renderCommands.SetBlendFunc( blendSrc, blendDst );
-            renderCommands.SetBlend( blendWasEnabled );
-            renderCommands.SetDepthWrite( depthWriteWasEnabled );
-            renderCommands.SetDepthTest( depthTestWasEnabled );
-        }
+        renderCommands.SetCullFace( cullWasEnabled );
+        renderCommands.SetBlendFunc( blendSrc, blendDst );
+        renderCommands.SetBlend( blendWasEnabled );
+        renderCommands.SetDepthWrite( depthWriteWasEnabled );
+        renderCommands.SetDepthTest( depthTestWasEnabled );
     }
 }

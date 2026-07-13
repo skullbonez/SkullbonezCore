@@ -54,6 +54,7 @@ Related:
 #include "../../Core/PlatformWin32.h"
 
 #include "ReplayRecorder.h"
+#include "ReplayVisualPacket.h"
 #include "ReplayPredictionScheduling.h"
 #include "../../Assets/AssetKeys.h"
 #include "../Scene/SceneCapacity.h"
@@ -316,19 +317,6 @@ struct RunReplayScrubberState
     char saveMessage[96] = {};
 };
 
-struct RunReplayPathTraceNode
-{
-    ReplayBodyId id;
-    ReplayBodyId parentId;
-    Physics::ModelRowHint modelRow;                                   // Fast lookup hint; ReplayBodyId remains authority.
-    Physics::ModelRowHint parentModelRow;                             // Fast lookup hint for contact-chain parents.
-    ReplayFrameIndex firstFrame = 0;
-    Math::Vector::Vector3 contactPoint = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 contactNormal = Math::Vector::ZERO_VECTOR;
-    int depth = 0;
-    bool contactDerived = true;                                       // False when prediction inferred the child from pose divergence.
-};
-
 struct RunReplayPathTarget
 {
     ReplayBodyId id;
@@ -507,33 +495,6 @@ struct RunReplayPredictionFrame
     std::vector<RunReplayPredictionBodySample> bodies;
     std::vector<Physics::PhysicsDebugContact> debugContacts;
     bool contactsIncomplete = false;
-};
-
-struct ReplayPredictionGhostDrawRequest
-{
-    Physics::ModelRowHint modelRow;
-    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
-    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
-    float alpha = 1.0f;
-    float tintR = 1.0f;
-    float tintG = 1.0f;
-    float tintB = 1.0f;
-    float tintStrength = 0.0f;
-};
-
-struct ReplayPredictionRetainedMarker
-{
-    ReplayBodyId id;
-    Physics::ModelRowHint modelRow;
-    bool hasEntryPose = false;
-    bool hasRestPose = false;
-    bool hasHorizonPose = false;
-    Math::Vector::Vector3 entryPosition = Math::Vector::ZERO_VECTOR;
-    Math::Orientation::Quaternion entryOrientation = Math::Orientation::IDENTITY_QUATERNION;
-    Math::Vector::Vector3 restPosition = Math::Vector::ZERO_VECTOR;
-    Math::Orientation::Quaternion restOrientation = Math::Orientation::IDENTITY_QUATERNION;
-    Math::Vector::Vector3 horizonPosition = Math::Vector::ZERO_VECTOR;
-    Math::Orientation::Quaternion horizonOrientation = Math::Orientation::IDENTITY_QUATERNION;
 };
 
 struct ReplayPredictionBaselineRootPoint
@@ -1309,7 +1270,6 @@ class ReplayRuntime
     bool
     BuildPredictionGhostDrawRequests( std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
                                       const Physics::PhysicsBodyStore& bodyStore );
-    const std::vector<ReplayPredictionGhostDrawRequest>& PredictionGhostDrawRequests() const;
     bool BuildFocusModelMask( const Physics::PhysicsBodyStore& bodyStore, int modelCount );
     std::vector<uint8_t>& FocusModelMask();
     const std::vector<uint8_t>& FocusModelMask() const;
@@ -1321,6 +1281,10 @@ class ReplayRuntime
     // Accumulates one rendered replay overlay pass into the repro-session
     // trajectory counters exposed through memory diagnostics.
     void RecordReplayTrajectoryFrameStats( const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& frameStats );
+    // Publishes the tracer's borrowed buffer spans with replay-owned identity,
+    // reveal, topology, and ghost metadata for this render frame.
+    void PublishReplayVisualPacket( ReplayVisualPacket packet, uint64_t replayReserveGrowthEvents );
+    const ReplayVisualPacket& PublishedReplayVisualPacket() const;
     void RecordReplayTrajectorySubmissionFrame(
         const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& submissionStats,
         int frameNumber,
@@ -1579,6 +1543,7 @@ class ReplayRuntime
         m_trajectoryVisualStats;                                      // Cumulative replay trajectory diagnostics for the current process.
     ReplayTrajectorySubmissionProbeStats
         m_trajectorySubmissionProbe;                                  // Submitted replay-ribbon stability window for validation reports.
+    ReplayVisualPacket m_publishedVisualPacket;                        // Frame-local immutable seam consumed by renderer and probes.
     RunReplayCauseTreeState m_causeTree;
     RunReplayVelocityEditState m_velocityEdit;
     std::vector<ReplayPredictionGhostDrawRequest> m_predictionGhostDrawRequests;

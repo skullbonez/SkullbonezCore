@@ -11,18 +11,18 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-13th-july` |
-| Current baseline | Replay visual-fidelity V0 is complete: two clean Profile processes matched 2,401 ordered raw-buffer ticks for the full 200-box prediction horizon |
+| Current baseline | Replay visual-fidelity V1 is complete: one replay-owned packet now feeds ghost and debug-overlay rendering plus validation, while the 2,401-tick 200-box golden remains exact |
 | Current objective | Build the permanent frame-exact 200-box replay visual fidelity mega probe, then execute replay monolith decomposition with that gate after every task |
-| Portfolio progress | 313 / 329 tasks = 95% rounded overall |
+| Portfolio progress | 314 / 329 tasks = 95% rounded overall |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-13 in 114.5s: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots/InfoQueue, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | `tools\validate_replay_visual_fidelity.bat` passed in about 109s: zero-warning Profile build, 2,401 exact ticks, all 200 bricks moved, mutation and incomplete controls rejected |
+| Validation for current edits | V1: `tools\validate_replay_visual_fidelity.bat` passed in about 110s with one engine process, 2,401 exact ticks, all 200 bricks moved, and both controls rejected; `tools\validate_tests.bat` passed 186/186 cases and 4,111/4,111 assertions |
 
 ## Live Queue
 
-1. `replay-visual-fidelity-mega-probe` is active at 1/7 on
-   `nightrunner-13th-july`. V0 froze the known-good 200-box cascade and landed
-   `tools\validate_replay_visual_fidelity.bat`; V1 publishes the typed canonical
-   replay visual packet at the production presentation-to-render seam.
+1. `replay-visual-fidelity-mega-probe` is active at 2/7 on
+   `nightrunner-13th-july`. V0 froze the known-good 200-box cascade and V1 made
+   one typed packet the production render/validation seam. V2 now proves the
+   causal cascade and predicted-versus-live packet equality tick by tick.
 2. `replay-monolith-decomposition` is blocked at 0/9 until the mega probe
    closes. Every M0-M8 task, including inventory documentation, must run the
    unchanged 200-box gate before it can be checked or committed.
@@ -101,5 +101,5 @@ plan inventory.
 ## Next Handoff
 
 Run the repository-local orchestrator against
-`Plans/TODO/replay-visual-fidelity-mega-probe.md` V1. Replay decomposition does
+`Plans/TODO/replay-visual-fidelity-mega-probe.md` V2. Replay decomposition does
 not begin until V0-V6 close with the permanent 200-box gate passing.

@@ -416,8 +416,8 @@ void RenderReplayPredictionGhosts( ReplayRuntime& replayRuntime,
                                    const Rendering::ShadowFrameData* shadow )
 {
     PROFILE_SCOPED( "Frame/Render/ReplayPredictionGhosts" );
-    if ( !frame.bodyStore ||
-         !replayRuntime.BuildPredictionGhostDrawRequests( frame.presentationRecords, *frame.bodyStore ) )
+    const ReplayVisualPacket& visualPacket = replayRuntime.PublishedReplayVisualPacket();
+    if ( visualPacket.ghostRequests.empty() )
     {
         return;
     }
@@ -459,7 +459,7 @@ void RenderReplayPredictionGhosts( ReplayRuntime& replayRuntime,
                                                              shadow,
                                                              1.0f );
 
-    for ( const ReplayPredictionGhostDrawRequest& request : replayRuntime.PredictionGhostDrawRequests() )
+    for ( const ReplayPredictionGhostDrawRequest& request : visualPacket.ghostRequests )
     {
         if ( request.modelRow.value < 0 || request.modelRow.value >= static_cast<int>( colliders.size() ) ||
              request.modelRow.value >= static_cast<int>( renderInstances.size() ) )
@@ -2394,6 +2394,15 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
                                                                               context.replayOverlay.totalSeconds } );
     m_toolOverlaySceneFrame = context.replayOverlay.sceneFrame;
     m_toolOverlayGrowthEventCount = RuntimeAllocation::RuntimeReserveAllocator::GrowthEventCount();
+    // Invariant: replay publishes once after every producer has finished and
+    // before the graph executes either ghost or debug-overlay consumers. This
+    // prevents a render pass and the fidelity probe from observing different
+    // frame-local request/buffer sets.
+    (void)replayRuntime.BuildPredictionGhostDrawRequests( context.renderModelOwner.RenderPresentationRecords(),
+                                                          context.renderModelOwner.BodyStore() );
+    ReplayVisualPacket replayVisualPacket = runtimeTools.EditorTracer().BuildReplayVisualPacket(
+        m_cameras.GetRenderCameraTranslation(), m_cameras.GetRenderCameraUp() );
+    replayRuntime.PublishReplayVisualPacket( replayVisualPacket, m_toolOverlayGrowthEventCount );
 
     const auto gradeNow = std::chrono::steady_clock::now();
     float gradeDtSeconds = 0.0f;

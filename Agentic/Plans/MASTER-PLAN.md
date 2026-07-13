@@ -112,9 +112,9 @@ concrete plan rows and counting it would duplicate tasks.
 | render-interface-and-workerpool-slimming | 5 | 5 | 100% |
 | runtime-contract-enforcement | 5 | 5 | 100% |
 | adversarial-review-round-3 | 10 | 10 | 100% |
-| replay-visual-fidelity-mega-probe | 1 | 7 | 14% |
+| replay-visual-fidelity-mega-probe | 2 | 7 | 29% |
 | replay-monolith-decomposition | 0 | 9 | 0% |
-| **Portfolio total** | **313** | **329** | **95%** |
+| **Portfolio total** | **314** | **329** | **95%** |
 
 ## Current Execution Priority
 
@@ -156,7 +156,7 @@ validation-gate V3 remains externally blocked.
 | Plan | State | Verified phase count | Next blocking action |
 |---|---|---:|---|
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs merge-group proof, required branch protection, and trusted/ephemeral DX12 runner administration |
-| [replay-visual-fidelity-mega-probe](TODO/replay-visual-fidelity-mega-probe.md) | Active | 1/7 | V1 publishes the canonical replay-owned visual packet at the production presentation-to-render seam |
+| [replay-visual-fidelity-mega-probe](TODO/replay-visual-fidelity-mega-probe.md) | Active | 2/7 | V2 proves the full causal cascade and predicted-versus-live packet equality tick by tick |
 | [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Blocked | 0/9 | Wait for V0-V6 closure; then every M0-M8 task runs the unchanged 200-box gate |
 
 ## Planned Architecture Work (2026-07-11 gap review)

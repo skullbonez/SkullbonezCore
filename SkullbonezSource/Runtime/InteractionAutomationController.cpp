@@ -2977,7 +2977,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
          state.replayVisualFidelityTicks.size() < replayRuntime.Prediction().simulation.frames.size() )
     {
         const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& submission =
-            runtimeTools.EditorTracer().ReplaySubmissionStats();
+            replayRuntime.PublishedReplayVisualPacket().submission;
         ReplayVisualFidelityReportTick tick;
         tick.sceneFrame = frame;
         tick.revealFrame = replayRuntime.Prediction().revealClock.presentedFrame;

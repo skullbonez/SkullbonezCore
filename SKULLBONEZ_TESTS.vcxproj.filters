@@ -147,6 +147,9 @@
     <ClCompile Include="SkullbonezTests\TestReplayPredictionScheduling.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestReplayVisualPacket.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestInputRouter.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>

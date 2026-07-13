@@ -3067,12 +3067,6 @@ bool ReplayRuntime::BuildPredictionGhostDrawRequests(
     return !m_predictionGhostDrawRequests.empty();
 }
 
-const std::vector<ReplayPredictionGhostDrawRequest>& ReplayRuntime::PredictionGhostDrawRequests() const
-{
-    return m_predictionGhostDrawRequests;
-}
-
-
 bool ReplayRuntime::BuildFocusModelMask( const PhysicsBodyStore& bodyStore, int modelCount )
 {
     PROFILE_SCOPED( "Frame/Replay/FocusMask" );
@@ -3184,6 +3178,38 @@ void ReplayRuntime::RecordReplayTrajectoryFrameStats(
         m_trajectoryVisualStats.emittedSegments[i] += frameStats.emittedSegments[i];
         m_trajectoryVisualStats.droppedSegments[i] += frameStats.droppedSegments[i];
     }
+}
+
+void ReplayRuntime::PublishReplayVisualPacket( ReplayVisualPacket packet, uint64_t replayReserveGrowthEvents )
+{
+    const ReplaySolverFrameSample* latest = Solver().LatestSample();
+    packet.header.sourceFrame = m_prediction.simulation.sourceFrameIndex;
+    packet.header.revealFrame = m_prediction.revealClock.presentedFrame;
+    packet.header.targetId = m_pathVisualizer.targetId;
+    packet.header.branchId = latest ? latest->branch.branchId : 0u;
+    packet.header.eventCursor = latest ? latest->eventCursor : 0u;
+    packet.header.topologyVersion = m_prediction.futureNodeCache.futureNodesTopologyVersion;
+    packet.header.publishedFrameCount = static_cast<uint32_t>( ActivePredictionFrames().size() );
+    packet.header.futureNodeCount = static_cast<uint32_t>( m_prediction.futureNodeCache.futureNodes.size() );
+    packet.header.ghostRequestCount = static_cast<uint32_t>( m_predictionGhostDrawRequests.size() );
+    packet.header.replayReserveGrowthEvents = replayReserveGrowthEvents;
+    packet.header.predictionEnabled = m_prediction.enabled;
+    packet.header.predictionBuilding = m_prediction.build.building;
+    packet.header.predictionComplete = m_prediction.build.complete;
+    packet.trajectoryRecords = m_prediction.trajectoryStore.records;
+    packet.futureNodes = m_prediction.futureNodeCache.futureNodes;
+    packet.retainedMarkers = std::span<const ReplayPredictionRetainedMarker>(
+        m_prediction.futureNodeCache.retainedMarkers.data(), m_prediction.futureNodeCache.retainedMarkerCount );
+    packet.ghostRequests = m_predictionGhostDrawRequests;
+    packet.trajectoryDiagnostics = m_trajectoryVisualStats;
+    // Lifetime: spans point into the tracer's fixed reserves and remain valid
+    // until the next frame clears that tracer. No packet survives frame order.
+    m_publishedVisualPacket = packet;
+}
+
+const ReplayVisualPacket& ReplayRuntime::PublishedReplayVisualPacket() const
+{
+    return m_publishedVisualPacket;
 }
 
 void ReplayRuntime::RecordReplayTrajectorySubmissionFrame(

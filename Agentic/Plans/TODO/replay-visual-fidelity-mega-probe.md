@@ -1,7 +1,7 @@
 # Replay Visual Fidelity Mega Probe — Frame-Exact 200-Box Prediction Proof
 
 Date: 2026-07-13
-Status: Live — 1/7 tasks complete
+Status: Live — 2/7 tasks complete
 Branch: `nightrunner-13th-july`
 Impact area: replay prediction, replay presentation, trajectory/marker
 submission, artifacts, automation, tests, and validation
@@ -99,7 +99,7 @@ and hashes. Hash-only diagnostics are insufficient.
   rejects empty/incomplete horizons. Validation:
   `tools\validate_replay_visual_fidelity.bat` at the end of V0.
 
-- [ ] **V1 — Publish the canonical replay visual packet.** Introduce a typed,
+- [x] **V1 — Publish the canonical replay visual packet.** Introduce a typed,
   replay-owned, read-only packet at the presentation-to-render seam. It observes
   every replay ribbon, line, marker, ghost, topology/reveal value, count, drop,
   and reserve diagnostic without owning renderer authority or becoming a broad
@@ -200,6 +200,40 @@ and hashes. Hash-only diagnostics are insufficient.
   `Runtime/Replay/RunReplayTools.cpp`. Learning headers were retained and the
   new reveal, exact-buffer, scheduling, and test-only ownership invariants are
   documented beside the affected code.
+
+## V1 Closure Evidence — 2026-07-14
+
+- `ReplayVisualPacket` is the replay-owned frame-local seam published once
+  before render-graph execution. Prediction ghosts and debug line/ribbon
+  submission both consume that same packet; automation reads it after render.
+  The former direct tracer submission getter and direct ghost-request accessor
+  were removed, so production and validation cannot select different sources.
+- The packet borrows ordered trajectory records and published points, causal
+  future nodes, retained entry/rest/horizon markers, prediction ghost requests,
+  camera inputs, trajectory drop/budget diagnostics, replay reserve-growth
+  evidence, ordinary/priority line and ribbon streams, and expanded ribbon
+  vertices. Comparison walks typed semantic fields first and bit-exact ordered
+  float streams second.
+- Focused packet tests passed 5/5 cases and 26/26 assertions, including semantic
+  precedence, causal-node reordering, exact ghost components, lane ordering,
+  and truncated buffers. `tools\validate_tests.bat` then passed 186/186 cases
+  and 4,111/4,111 assertions with 74/74 project/filter items.
+- The mandatory single-process `tools\validate_replay_visual_fidelity.bat`
+  run started at 00:40:18 and wrote its final report at 00:42:08 local time
+  (about 110 seconds). The Profile build reported zero warnings and zero errors;
+  all 2,401 reveal ticks matched, all 200 bricks moved, and the exact mutation
+  plus incomplete-horizon controls failed as intended. No second scene process
+  was launched.
+- Touched-source comment audit: 9/9 checked, 0 deferred —
+  `Runtime/Editor/RunEditorTracer.cpp`,
+  `Runtime/InteractionAutomationController.cpp`,
+  `Runtime/Render/RuntimeRenderPasses.cpp`,
+  `Runtime/Render/RuntimeRenderer.cpp`, `Runtime/Replay/ReplayRuntime.cpp`,
+  `Runtime/Replay/ReplayRuntime.h`, `Runtime/Replay/ReplayVisualPacket.h`,
+  `Runtime/Tools/RuntimeTools.h`, and
+  `SkullbonezTests/TestReplayVisualPacket.cpp`. Existing learning headers were
+  retained; packet lifetime, single-publication order, and typed diagnostic
+  vocabulary are documented beside the new seam.
 
 ## Dependencies And Decisions
 
