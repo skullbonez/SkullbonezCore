@@ -21,7 +21,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 // =============================================================================
-// SOLID COLOR BATCH SHADER — HLSL 5.0 (Combined VS+PS)
+// SOLID COLOR BATCH SHADER — Shader Model 6.6 (Combined VS+PS)
 // =============================================================================
 //
 // PURPOSE: Render 2D quads where each quad carries its own RGBA colour, batched

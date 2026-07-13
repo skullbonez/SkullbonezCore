@@ -723,6 +723,23 @@ D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorAllocator::StagingCpuHandle( UINT inde
 }
 
 
+void Dx12DescriptorAllocator::PublishStaticDescriptor( ID3D12Device* device, UINT index ) const
+{
+    if ( !device )
+    {
+        SB_FATAL( "RenderDeviceDX12", "DX12 static descriptor publication requires a device." );
+    }
+    ValidateStagingIndex( index, "bindless static descriptor publication" );
+    // Lifetime: the same static index is written once for a live resource and
+    // reused only after the frame retirement fence. Direct heap indexing is
+    // therefore no weaker than the old staging-to-transient copy lifetime.
+    device->CopyDescriptorsSimple( 1,
+                                   ShaderVisibleCpuHandle( index ),
+                                   StagingCpuHandle( index ),
+                                   D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+}
+
+
 Dx12DescriptorAllocatorStats Dx12DescriptorAllocator::GetStats() const
 {
     Dx12DescriptorAllocatorStats stats;

@@ -62,11 +62,9 @@ struct ShaderUniformDecl
 struct ShaderResourceDecl
 {
     const char* name;
-    // Contract: raster resources use the named UnifiedRaster binding ABI.
-    //
-    // Slot N means SRV register tN, bound through BindTexture(handle, N). The
-    // UnifiedRaster exposes t0..t5; semantic ownership lives in
-    // RenderRasterBindingContract.h and reflection rejects any other slot.
+    // Contract: named t-register resources remain available to non-bindless
+    // program contracts. Shipping UnifiedRaster programs instead translate
+    // BindTexture slot N into b1 bindless payload element N.
     int slot;
     ShaderResourceKind kind;
     bool required;
@@ -293,12 +291,6 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
         { "uProjection", ShaderValueType::Mat4, true },
         { "uColorTint", ShaderValueType::Vec4, true },
     };
-    static constexpr ShaderResourceDecl textureAtT0[] = {
-        { "uTexture", 0, ShaderResourceKind::Texture2D, true },
-    };
-    static constexpr ShaderResourceDecl fontAtT0[] = {
-        { "uFontTexture", 0, ShaderResourceKind::Texture2D, true },
-    };
     static constexpr ShaderUniformDecl litTexturedInstancedUniforms[] = {
         { "uView", ShaderValueType::Mat4, true },
         { "uProjection", ShaderValueType::Mat4, true },
@@ -315,14 +307,6 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
         { "uShadowParams", ShaderValueType::Vec4, true },
         { "uShadowFlags", ShaderValueType::Vec4, true },
     };
-    static constexpr ShaderResourceDecl litTexturedInstancedResources[] = {
-        // Instanced materials are sourced from uMaterialTable; the legacy t0
-        // declaration is optimized out of the shipping pixel stage.
-        { "uTexture", 0, ShaderResourceKind::Texture2D, false },
-        { "uShadowMap", 3, ShaderResourceKind::Texture2D, false },
-        { "uMaterialTable", 4, ShaderResourceKind::Texture2D, true },
-    };
-
     static constexpr ShaderUniformDecl litTexturedUniforms[] = {
         { "uModel", ShaderValueType::Mat4, true },
         { "uView", ShaderValueType::Mat4, true },
@@ -346,12 +330,6 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
         { "uDetailShadowParams", ShaderValueType::Vec4, false },
         { "uDetailShadowFlags", ShaderValueType::Vec4, false },
     };
-    static constexpr ShaderResourceDecl litTexturedResources[] = {
-        { "uTexture", 0, ShaderResourceKind::Texture2D, true },
-        { "uShadowMap", 3, ShaderResourceKind::Texture2D, false },
-        { "uDetailShadowMap", 5, ShaderResourceKind::Texture2D, false },
-    };
-
     static constexpr ShaderUniformDecl waterCalmUniforms[] = {
         { "uModel", ShaderValueType::Mat4, true },
         { "uView", ShaderValueType::Mat4, true },
@@ -369,10 +347,6 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
         { "uBasinMask", ShaderValueType::Vec4, true },
         { "uBasinMaskFeather", ShaderValueType::Float, true },
     };
-    static constexpr ShaderResourceDecl waterResources[] = {
-        { "uReflectionTex", 1, ShaderResourceKind::Texture2D, true },
-    };
-
     static constexpr ShaderUniformDecl waterOceanUniforms[] = {
         { "uModel", ShaderValueType::Mat4, true },
         { "uView", ShaderValueType::Mat4, true },
@@ -414,23 +388,12 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
         { "uBloomParams", ShaderValueType::Vec4, true },
         { "uStyleGrade", ShaderValueType::Vec4, true },
     };
-    static constexpr ShaderResourceDecl tonemapResources[] = {
-        { "uSceneTex", 0, ShaderResourceKind::Texture2D, true },
-        { "uDepthTex", 1, ShaderResourceKind::Texture2D, true },
-        { "uVolumetricTex", 2, ShaderResourceKind::Texture2D, true },
-    };
-
     static constexpr ShaderUniformDecl volumetricUniforms[] = {
         { "uDepthParams", ShaderValueType::Vec4, true },
         { "uSunShaftParams", ShaderValueType::Vec4, true },
         { "uSunColor", ShaderValueType::Vec3, true },
         { "uVolumetricParams", ShaderValueType::Vec4, true },
     };
-    static constexpr ShaderResourceDecl volumetricResources[] = {
-        { "uSceneTex", 0, ShaderResourceKind::Texture2D, true },
-        { "uDepthTex", 1, ShaderResourceKind::Texture2D, true },
-    };
-
     static constexpr ShaderProgramDesc contracts[] = {
         { "collision_visualizer",
           "debug",
@@ -458,29 +421,29 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
           "P3_N3_UV2_I4x4_Material4x3",
           litTexturedInstancedUniforms,
           sizeof( litTexturedInstancedUniforms ) / sizeof( litTexturedInstancedUniforms[0] ),
-          litTexturedInstancedResources,
-          sizeof( litTexturedInstancedResources ) / sizeof( litTexturedInstancedResources[0] ) },
+          nullptr,
+          0 },
         { "lit_textured",
           "terrain",
           "P3_N3_UV2",
           litTexturedUniforms,
           sizeof( litTexturedUniforms ) / sizeof( litTexturedUniforms[0] ),
-          litTexturedResources,
-          sizeof( litTexturedResources ) / sizeof( litTexturedResources[0] ) },
+          nullptr,
+          0 },
         { "water_calm",
           "water",
           "P3",
           waterCalmUniforms,
           sizeof( waterCalmUniforms ) / sizeof( waterCalmUniforms[0] ),
-          waterResources,
-          sizeof( waterResources ) / sizeof( waterResources[0] ) },
+          nullptr,
+          0 },
         { "water_ocean",
           "water",
           "P3",
           waterOceanUniforms,
           sizeof( waterOceanUniforms ) / sizeof( waterOceanUniforms[0] ),
-          waterResources,
-          sizeof( waterResources ) / sizeof( waterResources[0] ) },
+          nullptr,
+          0 },
         { "sky_atmosphere",
           "sky",
           "FullscreenP2_UV2",
@@ -493,15 +456,15 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
           "FullscreenP2_UV2",
           tonemapUniforms,
           sizeof( tonemapUniforms ) / sizeof( tonemapUniforms[0] ),
-          tonemapResources,
-          sizeof( tonemapResources ) / sizeof( tonemapResources[0] ) },
+          nullptr,
+          0 },
         { "post_volumetric_light",
           "post",
           "FullscreenP2_UV2",
           volumetricUniforms,
           sizeof( volumetricUniforms ) / sizeof( volumetricUniforms[0] ),
-          volumetricResources,
-          sizeof( volumetricResources ) / sizeof( volumetricResources[0] ) },
+          nullptr,
+          0 },
         { "shadow_depth",
           "shadow",
           "P3",
@@ -542,8 +505,8 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
           "P2_UV2_Color3",
           projectionUniforms,
           sizeof( projectionUniforms ) / sizeof( projectionUniforms[0] ),
-          fontAtT0,
-          sizeof( fontAtT0 ) / sizeof( fontAtT0[0] ) },
+          nullptr,
+          0 },
         { "tornado_fx",
           "effects",
           "P3_Color4_UV4",
@@ -563,22 +526,22 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
           "FullscreenP2_UV2",
           previewUniforms,
           sizeof( previewUniforms ) / sizeof( previewUniforms[0] ),
-          textureAtT0,
-          sizeof( textureAtT0 ) / sizeof( textureAtT0[0] ) },
+          nullptr,
+          0 },
         { "UIBackdropBlur",
           "ui",
           "FullscreenP2_UV2",
           backdropBlurUniforms,
           sizeof( backdropBlurUniforms ) / sizeof( backdropBlurUniforms[0] ),
-          textureAtT0,
-          sizeof( textureAtT0 ) / sizeof( textureAtT0[0] ) },
+          nullptr,
+          0 },
         { "unlit_textured",
           "objects",
           "P3_UV2",
           unlitTexturedUniforms,
           sizeof( unlitTexturedUniforms ) / sizeof( unlitTexturedUniforms[0] ),
-          textureAtT0,
-          sizeof( textureAtT0 ) / sizeof( textureAtT0[0] ) },
+          nullptr,
+          0 },
     };
     return contracts;
 }

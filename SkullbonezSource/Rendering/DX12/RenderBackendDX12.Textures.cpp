@@ -728,6 +728,7 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands,
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.Texture2D.MipLevels = numMips;
     commands.Device()->CreateShaderResourceView( texResource, &srvDesc, commands.StagingCpuHandle( srvIdx ) );
+    commands.PublishStaticDescriptor( srvIdx );
 
     // Register in the generation-tagged texture table. The low 24 bits name
     // the slot plus one; the high 8 bits reject stale ids after slot reuse.
@@ -743,8 +744,8 @@ void Dx12TextureOwner::ClearBoundSlotsForSrv( UINT srvIndex )
 {
     // Lifetime: m_boundTexSlot stores descriptor row indices, not texture
     // handles. When an FBO or texture unregisters an SRV, clear any cached slot
-    // that still names that row before the backend can copy a dead descriptor
-    // into the shader-visible heap on a later draw.
+    // that still names that row before a later draw can publish the retired
+    // descriptor index to a bindless shader.
     if ( srvIndex == UINT_MAX )
     {
         return;
@@ -773,7 +774,7 @@ void Dx12TextureOwner::BindTexture( uint32_t handle, int slot )
     {
 #ifdef _DEBUG
         SkullbonezCore::Core::Log().WriteEventf(
-            "dx12_bind_texture_slot_out_of_range handle=%u slot=%d valid_slots=t0..t%d",
+            "dx12_bind_texture_slot_out_of_range handle=%u slot=%d valid_payload_indices=0..%d",
             handle,
             slot,
             TEXTURE_SLOT_COUNT - 1 );

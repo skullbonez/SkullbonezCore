@@ -13,18 +13,18 @@
     "-Zpc",
     "-Qstrip_debug"
   ],
-  "shader_model": "6.0",
+  "shader_model": "6.6",
   "entries": [
     {
       "source": "SkullbonezData/shaders/collision_visualizer.hlsl",
       "entry": "main_vs",
       "stage": "vs",
-      "target": "vs_6_0",
+      "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/collision_visualizer.vs.dxil",
       "source_sha256": "0e7475b75e522cdd178fe7d367bdd7923bbd8c00977afcbd0d67bbcf9b9708f2",
-      "compile_inputs_sha256": "89207540eea16d0a18a6ed53b1895b1e08579af4991ef718766cb1710d5dd536",
-      "bytecode_sha256": "6a949744656c7bcb0608576026edf89e15d1814b01a4efd0f50ae169767bce06",
-      "bytecode_size": 7012,
+      "compile_inputs_sha256": "a9a77327ca318c4fea469b31b7817e1e22a1f465ea630d42e45f11a692be83b2",
+      "bytecode_sha256": "7ec0d8fe77bde745a1a7dce5a8678c1fe60d5fb35929eae1d4b3dd0524eca12f",
+      "bytecode_size": 7248,
       "reflection": {
         "cbuffers": [
           {
@@ -141,12 +141,12 @@
       "source": "SkullbonezData/shaders/collision_visualizer.hlsl",
       "entry": "main_ps",
       "stage": "ps",
-      "target": "ps_6_0",
+      "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/collision_visualizer.ps.dxil",
       "source_sha256": "0e7475b75e522cdd178fe7d367bdd7923bbd8c00977afcbd0d67bbcf9b9708f2",
-      "compile_inputs_sha256": "47f53018e4d434bc39563d626e3ca89be7b45889808291672c8e3ebae0e1984e",
-      "bytecode_sha256": "c4ebb15128f577e77b1c7a112ccf989a8bc61df4bc0ef8971d58f77a6d741a78",
-      "bytecode_size": 4860,
+      "compile_inputs_sha256": "a8a0b0f8884f60b38b8d1eae4778bb19a71e40bfd12af776b31fd8f39f097a57",
+      "bytecode_sha256": "4c89867dfb5f977de13d28a7db6941759cff14f77bf9d020908d9cf4f8f951c9",
+      "bytecode_size": 5084,
       "reflection": {
         "cbuffers": [
           {
@@ -227,12 +227,12 @@
       "source": "SkullbonezData/shaders/generate_mips.hlsl",
       "entry": "main_cs",
       "stage": "cs",
-      "target": "cs_6_0",
+      "target": "cs_6_6",
       "bytecode": "SkullbonezData/shaders/generate_mips.cs.dxil",
-      "source_sha256": "a4edb3c7c607c83a31e5771f11c9d528cb412c1df6aac1dd08f03c30ea693630",
-      "compile_inputs_sha256": "6e48bc6523332e3954deb35b9f9d9cf2ea807fc8d7a7211268b35cef66829d98",
-      "bytecode_sha256": "3e1902234e7d0cd527587489380e24d8065b73c76892f9afee7c793fb68da459",
-      "bytecode_size": 6560,
+      "source_sha256": "f4800085c633479ef4a3baff5109b6fbd9359ef2a80e748a8402634667c4a52c",
+      "compile_inputs_sha256": "148226665ac33d76fb4807ca497f6ab969dba08ddbbf95bef842bd61d7f2ea95",
+      "bytecode_sha256": "ab3ed97e6ca0faf17a31b4a57766021d4da374a1a5f7cf3c0d629040986e57aa",
+      "bytecode_size": 6936,
       "reflection": {
         "cbuffers": [
           {
@@ -345,12 +345,12 @@
       "source": "SkullbonezData/shaders/grid_line.hlsl",
       "entry": "main_vs",
       "stage": "vs",
-      "target": "vs_6_0",
+      "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/grid_line.vs.dxil",
-      "source_sha256": "a461a3860aadb37869cfd5695963b703ca7368e8f76dd679a56b7dc5e7b9c0ce",
-      "compile_inputs_sha256": "e2b527851414b2466225ceeb9e45f795772a5d20da6ef631d2837b0354f21bd3",
-      "bytecode_sha256": "a541c8118103cbd9d8d338a5340046a8402dc788cec8455e340118db8c5ebe49",
-      "bytecode_size": 4024,
+      "source_sha256": "caccd4c479d141aecac47cf4de1e84bbd823bbf4878bb6528b89ae625fb867ce",
+      "compile_inputs_sha256": "9573c9e779005a5584b7abd38cbf42d36fe76ebe1f2239fb9cec1bda7c6b86fc",
+      "bytecode_sha256": "b1d8b4c75d368641602f6db8d937c65331e679f3432431d3eced0d1b8afd6247",
+      "bytecode_size": 4216,
       "reflection": {
         "cbuffers": [
           {
@@ -404,11 +404,11 @@
       "source": "SkullbonezData/shaders/grid_line.hlsl",
       "entry": "main_ps",
       "stage": "ps",
-      "target": "ps_6_0",
+      "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/grid_line.ps.dxil",
-      "source_sha256": "a461a3860aadb37869cfd5695963b703ca7368e8f76dd679a56b7dc5e7b9c0ce",
-      "compile_inputs_sha256": "34a357cff14a738b91764b56a3a5467e60197aed0c1a1865f83d8d858913bf57",
-      "bytecode_sha256": "00efb3478664645e7120266bcb1f865598be048d7643e280b1004b5edadefbe7",
+      "source_sha256": "caccd4c479d141aecac47cf4de1e84bbd823bbf4878bb6528b89ae625fb867ce",
+      "compile_inputs_sha256": "b5ef2182c040759430444256544d3b87de830b039b3b9f09c2ea46cdc2426a16",
+      "bytecode_sha256": "aa572804f99991182f3dee7c1ec2762ac56204f1814f4a5644f4dad2b3f5bcc1",
       "bytecode_size": 2972,
       "reflection": {
         "cbuffers": [],
@@ -430,12 +430,12 @@
       "source": "SkullbonezData/shaders/launcher_laser.hlsl",
       "entry": "main_vs",
       "stage": "vs",
-      "target": "vs_6_0",
+      "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/launcher_laser.vs.dxil",
       "source_sha256": "9c5a721e194ce2ac10b0065569fb8220911c9e50c5b50264e76ab60ff29df780",
-      "compile_inputs_sha256": "483a0f05bbb8736cbd246044e0d1b9198ad86741acd3e976a55bb2d0d7d178df",
-      "bytecode_sha256": "a3152c98a3148014191618880a60f5bffff8f6a4d104b144f54bed1b52c93078",
-      "bytecode_size": 4060,
+      "compile_inputs_sha256": "1a0c25d026218b440d8b0247856adc628b637d92d067ae806d456d4390fc3616",
+      "bytecode_sha256": "9cfd321f136bc6068e1ae51425b07c289d2b6d7678d7486eed858874f3c764a6",
+      "bytecode_size": 4252,
       "reflection": {
         "cbuffers": [
           {
@@ -489,11 +489,11 @@
       "source": "SkullbonezData/shaders/launcher_laser.hlsl",
       "entry": "main_ps",
       "stage": "ps",
-      "target": "ps_6_0",
+      "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/launcher_laser.ps.dxil",
       "source_sha256": "9c5a721e194ce2ac10b0065569fb8220911c9e50c5b50264e76ab60ff29df780",
-      "compile_inputs_sha256": "2af5f6fae04496f49f4eab4e43736895c45c2b508df0c952c3f67ad2a4eff720",
-      "bytecode_sha256": "522dbb0862c74b08da066df7f2a0cdf724bc6b9d428d45e52e8243ddc6c07045",
+      "compile_inputs_sha256": "9080c3c15a960730c358f3dc6d26047abffff33dc78dabb8dec3049d800bf46f",
+      "bytecode_sha256": "c5364c4bd6627dc4eaa77c179df35d10a268fdeb96fb75af54b83172ec639e60",
       "bytecode_size": 2960,
       "reflection": {
         "cbuffers": [],
@@ -515,12 +515,12 @@
       "source": "SkullbonezData/shaders/lit_textured.hlsl",
       "entry": "main_vs",
       "stage": "vs",
-      "target": "vs_6_0",
+      "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/lit_textured.vs.dxil",
-      "source_sha256": "9545b9df802cfb69534d57cf18b26c05b957803281523e50dd9f92639f0a2ee5",
-      "compile_inputs_sha256": "e396c5fb2ca84c0585674a833f7b13aaa4e30fbfe0fedc61e7b822463e98df55",
-      "bytecode_sha256": "c80ba9dcf7594bf680e3e9a4afc954bb5fc374f70ab4350ed5ee030cdd9cfc71",
-      "bytecode_size": 9664,
+      "source_sha256": "833326f62103f5d511a9e5f34caf96edf2188e64a2a9f4ca128754140abb0b30",
+      "compile_inputs_sha256": "4cb1192b89c0c042b2cd7ab799e54015b7301728c499bce640de12b7451bf3fb",
+      "bytecode_sha256": "0de6aabe60437e59e2c4df1d77a1c38934c81063d053cc717b3c2b6800476a84",
+      "bytecode_size": 9864,
       "reflection": {
         "cbuffers": [
           {
@@ -703,12 +703,12 @@
       "source": "SkullbonezData/shaders/lit_textured.hlsl",
       "entry": "main_ps",
       "stage": "ps",
-      "target": "ps_6_0",
+      "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/lit_textured.ps.dxil",
-      "source_sha256": "9545b9df802cfb69534d57cf18b26c05b957803281523e50dd9f92639f0a2ee5",
-      "compile_inputs_sha256": "94b0afb10959261bfd3d90383f1f41a008e4bc6ec5c87e5893b5b4bcc09431ee",
-      "bytecode_sha256": "de1103147f7fd83e49ff3b366b9357f8a2e11fa8654bdf9d24e5a088409c4583",
-      "bytecode_size": 20248,
+      "source_sha256": "833326f62103f5d511a9e5f34caf96edf2188e64a2a9f4ca128754140abb0b30",
+      "compile_inputs_sha256": "43d27f5bf63da228b3ad7a022d8a106ae2f20377e81371285a1c8c3c1a3ff35f",
+      "bytecode_sha256": "3ff0f0f5d1586d35e0abacdcd5b440e297118edebcd622b34d025abb47bd761e",
+      "bytecode_size": 20652,
       "reflection": {
         "cbuffers": [
           {
@@ -842,6 +842,24 @@
                 "size": 16
               }
             ]
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "size": 32,
+            "fields": [
+              {
+                "type": "uint4",
+                "name": "_textureDescriptorIndices0",
+                "offset": 0,
+                "size": 16
+              },
+              {
+                "type": "uint2",
+                "name": "_textureDescriptorIndices1",
+                "offset": 16,
+                "size": 8
+              }
+            ]
           }
         ],
         "resources": [
@@ -849,6 +867,16 @@
             "name": "Uniforms",
             "register_class": "b",
             "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "register_class": "b",
+            "slot": 1,
             "space": 0,
             "count": 1,
             "type": "cbuffer",
@@ -874,36 +902,6 @@
             "type": "sampler",
             "format": "na",
             "dimension": "na"
-          },
-          {
-            "name": "uTexture",
-            "register_class": "t",
-            "slot": 0,
-            "space": 0,
-            "count": 1,
-            "type": "texture",
-            "format": "f32",
-            "dimension": "2d"
-          },
-          {
-            "name": "uShadowMap",
-            "register_class": "t",
-            "slot": 3,
-            "space": 0,
-            "count": 1,
-            "type": "texture",
-            "format": "f32",
-            "dimension": "2d"
-          },
-          {
-            "name": "uDetailShadowMap",
-            "register_class": "t",
-            "slot": 5,
-            "space": 0,
-            "count": 1,
-            "type": "texture",
-            "format": "f32",
-            "dimension": "2d"
           }
         ],
         "inputs": [
@@ -959,12 +957,12 @@
       "source": "SkullbonezData/shaders/lit_textured_instanced.hlsl",
       "entry": "main_vs",
       "stage": "vs",
-      "target": "vs_6_0",
+      "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/lit_textured_instanced.vs.dxil",
-      "source_sha256": "7fc2640769e22c093cd9c20dff3a5ea13529bb0685e1bb5b731feb202fb21f60",
-      "compile_inputs_sha256": "21cc9d30fab24baf6969ff5a48568afdcdb6f1ba7c67facab7efea6c02efcf65",
-      "bytecode_sha256": "44b042aab1d82a6266aac0ef2a901d51bdeb9ade26e25fd2817b493d004e28a4",
-      "bytecode_size": 9760,
+      "source_sha256": "e6db6cbf183183386a382e06128f9993c201ee5964dda38f7dd96f1059715132",
+      "compile_inputs_sha256": "79265bb22f4580b96071deb38f847bcd3e5f00af789b063daa1d1fe9f240a357",
+      "bytecode_sha256": "765bb64332d5576a41388ed9c29a2308d900211048525917039eb2e177858aa9",
+      "bytecode_size": 9972,
       "reflection": {
         "cbuffers": [
           {
@@ -1183,12 +1181,12 @@
       "source": "SkullbonezData/shaders/lit_textured_instanced.hlsl",
       "entry": "main_ps",
       "stage": "ps",
-      "target": "ps_6_0",
+      "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/lit_textured_instanced.ps.dxil",
-      "source_sha256": "7fc2640769e22c093cd9c20dff3a5ea13529bb0685e1bb5b731feb202fb21f60",
-      "compile_inputs_sha256": "a8ec0b1584a951c9e164544cb9c01c44e2ebb8f271f63701a3c4766cd015624b",
-      "bytecode_sha256": "b424717f008c6461c23f8e47160e647bccf97b7d393400f9e6a9e9f2a24556af",
-      "bytecode_size": 19856,
+      "source_sha256": "e6db6cbf183183386a382e06128f9993c201ee5964dda38f7dd96f1059715132",
+      "compile_inputs_sha256": "abe8f991014dabd984b066beaf03e605c76d9cf6cb502f92ad0b36b949a14851",
+      "bytecode_sha256": "395e94503d28ef8d3578a56d95d9df7bc32955bce4413f13feef15fe7f8e9052",
+      "bytecode_size": 20180,
       "reflection": {
         "cbuffers": [
           {
@@ -1286,6 +1284,24 @@
                 "size": 16
               }
             ]
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "size": 32,
+            "fields": [
+              {
+                "type": "uint4",
+                "name": "_textureDescriptorIndices0",
+                "offset": 0,
+                "size": 16
+              },
+              {
+                "type": "uint2",
+                "name": "_textureDescriptorIndices1",
+                "offset": 16,
+                "size": 8
+              }
+            ]
           }
         ],
         "resources": [
@@ -1293,6 +1309,16 @@
             "name": "Uniforms",
             "register_class": "b",
             "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "register_class": "b",
+            "slot": 1,
             "space": 0,
             "count": 1,
             "type": "cbuffer",
@@ -1308,26 +1334,6 @@
             "type": "sampler",
             "format": "na",
             "dimension": "na"
-          },
-          {
-            "name": "uShadowMap",
-            "register_class": "t",
-            "slot": 3,
-            "space": 0,
-            "count": 1,
-            "type": "texture",
-            "format": "f32",
-            "dimension": "2d"
-          },
-          {
-            "name": "uMaterialTable",
-            "register_class": "t",
-            "slot": 4,
-            "space": 0,
-            "count": 1,
-            "type": "texture",
-            "format": "f32",
-            "dimension": "2d"
           }
         ],
         "inputs": [
@@ -1428,11 +1434,11 @@
       "source": "SkullbonezData/shaders/post_tonemap.hlsl",
       "entry": "main_vs",
       "stage": "vs",
-      "target": "vs_6_0",
+      "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/post_tonemap.vs.dxil",
-      "source_sha256": "55b0fe1c8328d48399f5d9c447e653ca937c8f48ab8ad87e42c9bc69503ad863",
-      "compile_inputs_sha256": "512ab7b54ce5fb0a799b6304193aea7ec46d968f445921b1877f9f78f2c0187f",
-      "bytecode_sha256": "c3e66506cc23917074cdad5a2de9f8cda1df5e774d0fbf22510f6e8e5620b74e",
+      "source_sha256": "ac824dc94b68aef090e372946f23d7502490e57e9cca7c76734ca8ffe5cb0aff",
+      "compile_inputs_sha256": "74712d9c699b1da3941b06e24d6f097c57aa220cf7c2550b1079b52c1216b832",
+      "bytecode_sha256": "57c808c377752d98ad385c6e2827fb8038a1b31bd51d9ebc97923d4d6c945c51",
       "bytecode_size": 3104,
       "reflection": {
         "cbuffers": [],
@@ -1463,12 +1469,12 @@
       "source": "SkullbonezData/shaders/post_tonemap.hlsl",
       "entry": "main_ps",
       "stage": "ps",
-      "target": "ps_6_0",
+      "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/post_tonemap.ps.dxil",
-      "source_sha256": "55b0fe1c8328d48399f5d9c447e653ca937c8f48ab8ad87e42c9bc69503ad863",
-      "compile_inputs_sha256": "a51e5a99368fee06367074203ac90e22886449540afdc01fd90c02a402939059",
-      "bytecode_sha256": "1a2d68a15a5f9de143f9759af8e534130432add15e6797ee87f4a785e63244d2",
-      "bytecode_size": 8676,
+      "source_sha256": "ac824dc94b68aef090e372946f23d7502490e57e9cca7c76734ca8ffe5cb0aff",
+      "compile_inputs_sha256": "47c430777ce93f49c24ae62ef841d6ebf457bb35046b72bce824abbb58f88543",
+      "bytecode_sha256": "cd1a4008dcbf7a53ced58c49f5fde36d19fae06613a9d90c249a640eae8c8dcf",
+      "bytecode_size": 9068,
       "reflection": {
         "cbuffers": [
           {
@@ -1542,6 +1548,24 @@
                 "size": 16
               }
             ]
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "size": 32,
+            "fields": [
+              {
+                "type": "uint4",
+                "name": "_textureDescriptorIndices0",
+                "offset": 0,
+                "size": 16
+              },
+              {
+                "type": "uint2",
+                "name": "_textureDescriptorIndices1",
+                "offset": 16,
+                "size": 8
+              }
+            ]
           }
         ],
         "resources": [
@@ -1549,6 +1573,16 @@
             "name": "Uniforms",
             "register_class": "b",
             "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "register_class": "b",
+            "slot": 1,
             "space": 0,
             "count": 1,
             "type": "cbuffer",
@@ -1564,36 +1598,6 @@
             "type": "sampler",
             "format": "na",
             "dimension": "na"
-          },
-          {
-            "name": "uSceneTex",
-            "register_class": "t",
-            "slot": 0,
-            "space": 0,
-            "count": 1,
-            "type": "texture",
-            "format": "f32",
-            "dimension": "2d"
-          },
-          {
-            "name": "uDepthTex",
-            "register_class": "t",
-            "slot": 1,
-            "space": 0,
-            "count": 1,
-            "type": "texture",
-            "format": "f32",
-            "dimension": "2d"
-          },
-          {
-            "name": "uVolumetricTex",
-            "register_class": "t",
-            "slot": 2,
-            "space": 0,
-            "count": 1,
-            "type": "texture",
-            "format": "f32",
-            "dimension": "2d"
           }
         ],
         "inputs": [
@@ -1613,11 +1617,11 @@
       "source": "SkullbonezData/shaders/post_volumetric_light.hlsl",
       "entry": "main_vs",
       "stage": "vs",
-      "target": "vs_6_0",
+      "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/post_volumetric_light.vs.dxil",
-      "source_sha256": "9247ff3527c0b15af2b22e7d9d8193de21db8d7f3799dc02fab1b89e99257e20",
-      "compile_inputs_sha256": "a9c9a3416716538e22fe52981510841ddb6cb3c9df903f1adfacee00ae7ab9ea",
-      "bytecode_sha256": "c3e66506cc23917074cdad5a2de9f8cda1df5e774d0fbf22510f6e8e5620b74e",
+      "source_sha256": "5e7180a0d46973462565b4dd62365b73a0cdc6f3b1cb0b4611329b9a45148bd6",
+      "compile_inputs_sha256": "5778128283cd5bbc186037fdc3a8feb8d21be0976dcedf6ca8168c1dfeffad0d",
+      "bytecode_sha256": "57c808c377752d98ad385c6e2827fb8038a1b31bd51d9ebc97923d4d6c945c51",
       "bytecode_size": 3104,
       "reflection": {
         "cbuffers": [],
@@ -1648,12 +1652,12 @@
       "source": "SkullbonezData/shaders/post_volumetric_light.hlsl",
       "entry": "main_ps",
       "stage": "ps",
-      "target": "ps_6_0",
+      "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/post_volumetric_light.ps.dxil",
-      "source_sha256": "9247ff3527c0b15af2b22e7d9d8193de21db8d7f3799dc02fab1b89e99257e20",
-      "compile_inputs_sha256": "3800b993b7c27cdc5c036ca6ee1e86f4951ea9fa485f65af2be92f347e3883c4",
-      "bytecode_sha256": "989c9735b15603d21ff95d0a83c8bcb6568bf80a9c0bd4e4638cbfbb3c4c5494",
-      "bytecode_size": 5900,
+      "source_sha256": "5e7180a0d46973462565b4dd62365b73a0cdc6f3b1cb0b4611329b9a45148bd6",
+      "compile_inputs_sha256": "a3efe41617b2904b55177e80252022f26a558e7ad70714b9600e7629a7365858",
+      "bytecode_sha256": "7e9e72c34d328079bec7b8f918e49187a00ec9f22bdf56c82ad9d3ce362c7d2f",
+      "bytecode_size": 6352,
       "reflection": {
         "cbuffers": [
           {
@@ -1691,6 +1695,24 @@
                 "size": 16
               }
             ]
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "size": 32,
+            "fields": [
+              {
+                "type": "uint4",
+                "name": "_textureDescriptorIndices0",
+                "offset": 0,
+                "size": 16
+              },
+              {
+                "type": "uint2",
+                "name": "_textureDescriptorIndices1",
+                "offset": 16,
+                "size": 8
+              }
+            ]
           }
         ],
         "resources": [
@@ -1698,6 +1720,16 @@
             "name": "Uniforms",
             "register_class": "b",
             "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "register_class": "b",
+            "slot": 1,
             "space": 0,
             "count": 1,
             "type": "cbuffer",
@@ -1713,26 +1745,6 @@
             "type": "sampler",
             "format": "na",
             "dimension": "na"
-          },
-          {
-            "name": "uSceneTex",
-            "register_class": "t",
-            "slot": 0,
-            "space": 0,
-            "count": 1,
-            "type": "texture",
-            "format": "f32",
-            "dimension": "2d"
-          },
-          {
-            "name": "uDepthTex",
-            "register_class": "t",
-            "slot": 1,
-            "space": 0,
-            "count": 1,
-            "type": "texture",
-            "format": "f32",
-            "dimension": "2d"
           }
         ],
         "inputs": [
@@ -1752,12 +1764,12 @@
       "source": "SkullbonezData/shaders/shadow_depth.hlsl",
       "entry": "main_vs",
       "stage": "vs",
-      "target": "vs_6_0",
+      "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/shadow_depth.vs.dxil",
       "source_sha256": "f71acd8c652d1e9c3e419ec86fb2d9dc07700e1ec794d6f9d4af679ed451207e",
-      "compile_inputs_sha256": "a93e4bdb996fd8d95094de1b309966bf3866cc49f7625772fa562645b714004f",
-      "bytecode_sha256": "f04b4658acc45393483b43362f60168af1a0c4c492482d940ba8f3a5759b6007",
-      "bytecode_size": 5708,
+      "compile_inputs_sha256": "96cb17f288998278bcf7486e8a600051dfa1ddad18c3efb1508b481fbc515f41",
+      "bytecode_sha256": "3108c6f0b6571b18b7d55365eef2d838f4af21aaa790af9067bd7a4bd04ed9f2",
+      "bytecode_size": 5900,
       "reflection": {
         "cbuffers": [
           {
@@ -1832,11 +1844,11 @@
       "source": "SkullbonezData/shaders/shadow_depth.hlsl",
       "entry": "main_ps",
       "stage": "ps",
-      "target": "ps_6_0",
+      "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/shadow_depth.ps.dxil",
       "source_sha256": "f71acd8c652d1e9c3e419ec86fb2d9dc07700e1ec794d6f9d4af679ed451207e",
-      "compile_inputs_sha256": "0319ac3767ecfc15d26d92290fc150e95e7720718ee0013cb1fa026c105a3c92",
-      "bytecode_sha256": "3f9a30ee36e8ca655af31f904184995d1fdb68d057e1a1fcb45cc7a8212f710d",
+      "compile_inputs_sha256": "1b0033659c8ff364db18b9bcbe12075abe466b94275ffe844285cc166fcfdf52",
+      "bytecode_sha256": "ffc8ffe08fed92541797aafc6260d1a6e6d137a136dc9fe96c4f5bf9902d9f9b",
       "bytecode_size": 2848,
       "reflection": {
         "cbuffers": [],
@@ -1848,12 +1860,12 @@
       "source": "SkullbonezData/shaders/shadow_depth_instanced.hlsl",
       "entry": "main_vs",
       "stage": "vs",
-      "target": "vs_6_0",
+      "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/shadow_depth_instanced.vs.dxil",
       "source_sha256": "f23efac3c8d581947d40c9b72eac8df6203a8fee4d495dfb6a668ffbf8157cb4",
-      "compile_inputs_sha256": "82cf2a1715ccbc7eb2bb41e9d958bf9ae523b20aabeb4e603a76fa7552b6b716",
-      "bytecode_sha256": "3738af73268ffca85aa2475e2ec29f09fea2c78bda12d526c6f6fcdffc8b6798",
-      "bytecode_size": 5884,
+      "compile_inputs_sha256": "dbc7d743e7d493a80cd916e4d83f3bedcd136952c01b56764ec2abe59818d945",
+      "bytecode_sha256": "f6c08ff47fd8f8c194393e8c79f2f71671412d107150bca2f28a6950bcea8a95",
+      "bytecode_size": 6120,
       "reflection": {
         "cbuffers": [
           {
@@ -1946,11 +1958,11 @@
       "source": "SkullbonezData/shaders/shadow_depth_instanced.hlsl",
       "entry": "main_ps",
       "stage": "ps",
-      "target": "ps_6_0",
+      "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/shadow_depth_instanced.ps.dxil",
       "source_sha256": "f23efac3c8d581947d40c9b72eac8df6203a8fee4d495dfb6a668ffbf8157cb4",
-      "compile_inputs_sha256": "0914952a96049660c1bc6d55c5783f2a865395caf5468d7bbc80ae12fb0f69fb",
-      "bytecode_sha256": "3f9a30ee36e8ca655af31f904184995d1fdb68d057e1a1fcb45cc7a8212f710d",
+      "compile_inputs_sha256": "a7eb7eb9dd865646592e73c22499b150bb60112640e25ae49de3e763845695ca",
+      "bytecode_sha256": "ffc8ffe08fed92541797aafc6260d1a6e6d137a136dc9fe96c4f5bf9902d9f9b",
       "bytecode_size": 2848,
       "reflection": {
         "cbuffers": [],
@@ -1962,11 +1974,11 @@
       "source": "SkullbonezData/shaders/sky_atmosphere.hlsl",
       "entry": "main_vs",
       "stage": "vs",
-      "target": "vs_6_0",
+      "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/sky_atmosphere.vs.dxil",
       "source_sha256": "b8d442205151fc8316b162d4aa9dde6c8b57a02a58138c15f458efb237fce1ca",
-      "compile_inputs_sha256": "a2e5fed0f29d77604633f8229bea3d9727368586a3ba1ad3990aa26da8efbc2a",
-      "bytecode_sha256": "f150c80d2da8cae936b4e22e9b0aa0cf3404d16aae751b89681f9f67862e4395",
+      "compile_inputs_sha256": "f62a225ed0d759e4e809f6855f82c4a95c1b0da2868348ec4b7bddb1a1e32f00",
+      "bytecode_sha256": "b20f26d18ef915b03f3dfc9837fc80d161a5fb80f4bdf3883ed616386fa0a708",
       "bytecode_size": 3092,
       "reflection": {
         "cbuffers": [],
@@ -1997,12 +2009,12 @@
       "source": "SkullbonezData/shaders/sky_atmosphere.hlsl",
       "entry": "main_ps",
       "stage": "ps",
-      "target": "ps_6_0",
+      "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/sky_atmosphere.ps.dxil",
       "source_sha256": "b8d442205151fc8316b162d4aa9dde6c8b57a02a58138c15f458efb237fce1ca",
-      "compile_inputs_sha256": "3c50deb7421cbe7fbc8b4c317b91d50fc94ebb5b28432e4a4a7497638ae2b502",
-      "bytecode_sha256": "13ee77f689053614cb936c247c2d2cf2f679909de54afc52a73ab03a76068c46",
-      "bytecode_size": 16128,
+      "compile_inputs_sha256": "53f9cefd0d099dd80c3c0750e2d90c88096b8c9b09a34ca0904c7f2b7f4c4eaf",
+      "bytecode_sha256": "ce065ae6c9587df6b923a369853fdba7ea094728a6b7b30aafafb93269b05148",
+      "bytecode_size": 16328,
       "reflection": {
         "cbuffers": [
           {
@@ -2113,12 +2125,12 @@
       "source": "SkullbonezData/shaders/soft_additive_ribbon.hlsl",
       "entry": "main_vs",
       "stage": "vs",
-      "target": "vs_6_0",
+      "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/soft_additive_ribbon.vs.dxil",
       "source_sha256": "799e5218b55db08e9a14b99fed9d6ade2a244e736873284d8bbaaef2f3e22ef7",
-      "compile_inputs_sha256": "db26c4a09e950605b66841dac001c304d88dcee37cfe63daddfa7f44e77111d9",
-      "bytecode_sha256": "bc84c2115d95b56dda201385ca3783c7a12063b910628d1a519373bce9ac4a00",
-      "bytecode_size": 4424,
+      "compile_inputs_sha256": "b024faeea81283f724dae20c7a3c19bc80165bd15f0c10e1c5d01f685a742d69",
+      "bytecode_sha256": "e2d13b306bfe516ae4b8f4c8b8495fa3fdedc6103372e7557b4650b2d23d0e75",
+      "bytecode_size": 4616,
       "reflection": {
         "cbuffers": [
           {
@@ -2181,12 +2193,12 @@
       "source": "SkullbonezData/shaders/soft_additive_ribbon.hlsl",
       "entry": "main_ps",
       "stage": "ps",
-      "target": "ps_6_0",
+      "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/soft_additive_ribbon.ps.dxil",
       "source_sha256": "799e5218b55db08e9a14b99fed9d6ade2a244e736873284d8bbaaef2f3e22ef7",
-      "compile_inputs_sha256": "c9ee251724bb78a428f3dea75c7c952fb3163529781baa6dda6810460191fc1d",
-      "bytecode_sha256": "8514de3c72bf484997c4db21bd6782fa4bbd771dc0174d901328aa9c71025199",
-      "bytecode_size": 3628,
+      "compile_inputs_sha256": "96f1948b789d542387174644ee3fb1e38dd08dd5015f75684fcf8ed03fdd5c9c",
+      "bytecode_sha256": "e2c339a4c73a202fd49b266cf5629d2c79d10e5c6da78f5012a79e9ce11f0f90",
+      "bytecode_size": 3624,
       "reflection": {
         "cbuffers": [],
         "resources": [],
@@ -2216,12 +2228,12 @@
       "source": "SkullbonezData/shaders/solid_color.hlsl",
       "entry": "main_vs",
       "stage": "vs",
-      "target": "vs_6_0",
+      "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/solid_color.vs.dxil",
-      "source_sha256": "40ad7631f6b98e70c33f156447bb7374069db8b90d55c38b6432c13f21f04439",
-      "compile_inputs_sha256": "4f8a6990134e8550eb07f60a1b57abdf0072350936dcd461923d9a9e3c936fd9",
-      "bytecode_sha256": "5a509e7e03bc8468c5e31446c11ac1193529ab4c486f8b02eac8e951db44fc80",
-      "bytecode_size": 3636,
+      "source_sha256": "5adc81ce8938b49ff606df485e649ad6b6e6ae5fae1c8f1241c8b0492c00190b",
+      "compile_inputs_sha256": "c40c067e73c1f8d22ea22ca59e729585232bfb2795316e87c86d96e704661d0c",
+      "bytecode_sha256": "40f98722cebce4cd6adb6f00a241c1bb37ed9d82664e9043ccbdca1505a354bb",
+      "bytecode_size": 3828,
       "reflection": {
         "cbuffers": [
           {
@@ -2272,12 +2284,12 @@
       "source": "SkullbonezData/shaders/solid_color.hlsl",
       "entry": "main_ps",
       "stage": "ps",
-      "target": "ps_6_0",
+      "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/solid_color.ps.dxil",
-      "source_sha256": "40ad7631f6b98e70c33f156447bb7374069db8b90d55c38b6432c13f21f04439",
-      "compile_inputs_sha256": "ffa78da7692d06dab194a528ad7356eeb0e4874a72f445f7297a964274cc6be1",
-      "bytecode_sha256": "af090769b8f523b19e09b3f6b4f2a65113a736637e8480eb559f16d6da766dfc",
-      "bytecode_size": 3276,
+      "source_sha256": "5adc81ce8938b49ff606df485e649ad6b6e6ae5fae1c8f1241c8b0492c00190b",
+      "compile_inputs_sha256": "8ad73222accbf43383b708d05f2d99cf6385c61276ecb41ace4b9654c98b8045",
+      "bytecode_sha256": "ccdadaef70124d92c4330956405ad95068deef8858c34609a9d4b4ffba7acb38",
+      "bytecode_size": 3492,
       "reflection": {
         "cbuffers": [
           {
@@ -2318,12 +2330,12 @@
       "source": "SkullbonezData/shaders/solid_color_batch.hlsl",
       "entry": "main_vs",
       "stage": "vs",
-      "target": "vs_6_0",
+      "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/solid_color_batch.vs.dxil",
-      "source_sha256": "cb42087bb4261e50416e10b793a6d99e61a5b64d232fb851373b7fe26d57706d",
-      "compile_inputs_sha256": "52711215945bfd972b5f375d491748f03b628666fac5c5b3174d7443ded79244",
-      "bytecode_sha256": "fc29c45b0e3953a2759766576313741a186fcbf6cccf497b792378e5697befec",
-      "bytecode_size": 3956,
+      "source_sha256": "13e6bb668a319356fd8429099195188e8bb91916a44bddaa50ce3ad9476323e9",
+      "compile_inputs_sha256": "5258a5268d5fe6f1861653700c511f37d1172bff29a44a30978b3e8d6767e9dc",
+      "bytecode_sha256": "c12a3937e74e3f70a06dadb02eeed016b4940ebd42dd9a5223a694a6b50f0700",
+      "bytecode_size": 4148,
       "reflection": {
         "cbuffers": [
           {
@@ -2377,11 +2389,11 @@
       "source": "SkullbonezData/shaders/solid_color_batch.hlsl",
       "entry": "main_ps",
       "stage": "ps",
-      "target": "ps_6_0",
+      "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/solid_color_batch.ps.dxil",
-      "source_sha256": "cb42087bb4261e50416e10b793a6d99e61a5b64d232fb851373b7fe26d57706d",
-      "compile_inputs_sha256": "3a96c0e0969b2188e7ab72464029bfcb76b81334ce85cbb5301f7b9d74fb8ce2",
-      "bytecode_sha256": "a8b6e1f98f25c0069a163cfc66b2c3b5181bfbe27595d88f8355ccb4af1a1ea9",
+      "source_sha256": "13e6bb668a319356fd8429099195188e8bb91916a44bddaa50ce3ad9476323e9",
+      "compile_inputs_sha256": "870e6f573e4a476c4e08f2ba008fb3f3c3472b26a9cb886f7bd02451c7cd8161",
+      "bytecode_sha256": "d6818b403020d744588b6e4372c16a3e5dc999cf02a0398a7d522545c267cddb",
       "bytecode_size": 2972,
       "reflection": {
         "cbuffers": [],
@@ -2403,12 +2415,12 @@
       "source": "SkullbonezData/shaders/text.hlsl",
       "entry": "main_vs",
       "stage": "vs",
-      "target": "vs_6_0",
+      "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/text.vs.dxil",
-      "source_sha256": "23a82f87f031147f190ede83c65d8fa1641673a92dc11680cd859c273734fc06",
-      "compile_inputs_sha256": "4de267cac511e63475861ba6f7334fd578f68f6ec5469098d0e849822a0dfba3",
-      "bytecode_sha256": "1ee6e75414166faa7e30a7cca742bf014f61ac8691794a0ef879daade5050f5a",
-      "bytecode_size": 4216,
+      "source_sha256": "4f13b4eca4a495ae5bdfd6d87391dcd98aa0d06609ec649919e5bcc40b783724",
+      "compile_inputs_sha256": "c54f761b9101ec0c6ea73b74139083e511479ce1e783e716dd255a9697c0ee2c",
+      "bytecode_sha256": "5ffc71c4265e9527cffc94ee556cd11dcdbda2d80ee4a9cebb29e639ed7a3894",
+      "bytecode_size": 4408,
       "reflection": {
         "cbuffers": [
           {
@@ -2471,15 +2483,44 @@
       "source": "SkullbonezData/shaders/text.hlsl",
       "entry": "main_ps",
       "stage": "ps",
-      "target": "ps_6_0",
+      "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/text.ps.dxil",
-      "source_sha256": "23a82f87f031147f190ede83c65d8fa1641673a92dc11680cd859c273734fc06",
-      "compile_inputs_sha256": "f233bceb09b95b87208a7984ceadba79eb983d7247b6783576c64d4cca131ea2",
-      "bytecode_sha256": "d821e3d72051b2678c93dc004c1e7d62a798becd97377b3e86fdbb15634f1535",
-      "bytecode_size": 4224,
+      "source_sha256": "4f13b4eca4a495ae5bdfd6d87391dcd98aa0d06609ec649919e5bcc40b783724",
+      "compile_inputs_sha256": "d6ec5361581e3feec5426cc4cc5337a21df1a4a742bea45459a64a1e207e397b",
+      "bytecode_sha256": "5733a1c86c78ee4f8eb0717367d3dbd0fec5dc9f10e14057504ab2ed6048c7f4",
+      "bytecode_size": 4680,
       "reflection": {
-        "cbuffers": [],
+        "cbuffers": [
+          {
+            "name": "BindlessTextureIndices",
+            "size": 32,
+            "fields": [
+              {
+                "type": "uint4",
+                "name": "_textureDescriptorIndices0",
+                "offset": 0,
+                "size": 16
+              },
+              {
+                "type": "uint2",
+                "name": "_textureDescriptorIndices1",
+                "offset": 16,
+                "size": 8
+              }
+            ]
+          }
+        ],
         "resources": [
+          {
+            "name": "BindlessTextureIndices",
+            "register_class": "b",
+            "slot": 1,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
           {
             "name": "sSampler0",
             "register_class": "s",
@@ -2489,16 +2530,6 @@
             "type": "sampler",
             "format": "na",
             "dimension": "na"
-          },
-          {
-            "name": "uFontTexture",
-            "register_class": "t",
-            "slot": 0,
-            "space": 0,
-            "count": 1,
-            "type": "texture",
-            "format": "f32",
-            "dimension": "2d"
           }
         ],
         "inputs": [
@@ -2527,12 +2558,12 @@
       "source": "SkullbonezData/shaders/tornado_fx.hlsl",
       "entry": "main_vs",
       "stage": "vs",
-      "target": "vs_6_0",
+      "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/tornado_fx.vs.dxil",
       "source_sha256": "17c4d93a5ece01e6637f8c33bddb49620ad40bb91c8a2c3d0219b3a30c78020d",
-      "compile_inputs_sha256": "dbb075d1b6c0bb8512328f211543cb8105eca99ab04c4b9171bd55fa83564f9f",
-      "bytecode_sha256": "71775c299a37aff1d65dfc14d7114c2ee4b8167d662bd7809450058fbed2f10f",
-      "bytecode_size": 4556,
+      "compile_inputs_sha256": "836fa5c557e218f28f270f6a18fa082406f0fbaf971ec66c29195f78a3bbff14",
+      "bytecode_sha256": "739405799cae017c74e2da0899a645048643ea29a5d2d46dac79d7391abb545f",
+      "bytecode_size": 4756,
       "reflection": {
         "cbuffers": [
           {
@@ -2595,11 +2626,11 @@
       "source": "SkullbonezData/shaders/tornado_fx.hlsl",
       "entry": "main_ps",
       "stage": "ps",
-      "target": "ps_6_0",
+      "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/tornado_fx.ps.dxil",
       "source_sha256": "17c4d93a5ece01e6637f8c33bddb49620ad40bb91c8a2c3d0219b3a30c78020d",
-      "compile_inputs_sha256": "bfdbf9f72cbe5862332d30a673a4cadcb6037784df517395ac57e045758d5916",
-      "bytecode_sha256": "bd77268d41f288ffffdc6d2c4d8a477d161067d0cbc601e472b37873f59d9cbf",
+      "compile_inputs_sha256": "0177c6fff1e934304bbe1fea29e3ad79e251386e54cbd311e9dc21500e6c2846",
+      "bytecode_sha256": "13587b477acc957680d93e5831eeb58cdf417c3cfadcebba1841a9a794a37cd6",
       "bytecode_size": 4440,
       "reflection": {
         "cbuffers": [],
@@ -2639,12 +2670,12 @@
       "source": "SkullbonezData/shaders/trajectory_ribbon.hlsl",
       "entry": "main_vs",
       "stage": "vs",
-      "target": "vs_6_0",
+      "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/trajectory_ribbon.vs.dxil",
       "source_sha256": "989417c5798aeb93fc2007315565842bdbc91dfaf24d1cbc1ed6c1ecd9008d0f",
-      "compile_inputs_sha256": "9dd5f028b4233f64e6765ddf83af0cc687be6f4b457b2ec0e985062f80ea8d30",
-      "bytecode_sha256": "8c456c3872046203e69510db2e14fbfd193f418c6412c8d4d256cb84e2df6f9d",
-      "bytecode_size": 7280,
+      "compile_inputs_sha256": "5762b321337b3d19fb422a10b62d518bd35aa47a6de936cbf100ba3df382c818",
+      "bytecode_sha256": "63deae315fea1d76d1c000a5cbcc472dd02d09b09c0f861b978f2ba5dd0b71d8",
+      "bytecode_size": 7520,
       "reflection": {
         "cbuffers": [
           {
@@ -2755,12 +2786,12 @@
       "source": "SkullbonezData/shaders/trajectory_ribbon.hlsl",
       "entry": "main_ps",
       "stage": "ps",
-      "target": "ps_6_0",
+      "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/trajectory_ribbon.ps.dxil",
       "source_sha256": "989417c5798aeb93fc2007315565842bdbc91dfaf24d1cbc1ed6c1ecd9008d0f",
-      "compile_inputs_sha256": "5cea53dc0f5fe08452b250ec8d3e565d805cf0f429e2ef9dcc90eddf96d3e415",
-      "bytecode_sha256": "ebe333cae438eb183dec1aabb2eb7bc5deca9f4c8927d240e65f4e42ec14700a",
-      "bytecode_size": 4984,
+      "compile_inputs_sha256": "646e19fdf6ec46872b42cb10ed7f2035f3ea66ec6ed725913937e8f49fc7bbd6",
+      "bytecode_sha256": "6f15b5f7ff6fb82586206f76042421385c32e01e236d97d1826dd454d39e3974",
+      "bytecode_size": 5192,
       "reflection": {
         "cbuffers": [
           {
@@ -2844,12 +2875,12 @@
       "source": "SkullbonezData/shaders/ui_render_target_preview.hlsl",
       "entry": "main_vs",
       "stage": "vs",
-      "target": "vs_6_0",
+      "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/ui_render_target_preview.vs.dxil",
-      "source_sha256": "8b693e39d42e7a756001ca380d43cede07736da5f1efbcf2431c75039cb97eec",
-      "compile_inputs_sha256": "68af2fcf5d6f1d3e0789c2d70379c773f7b5160441ad0b5e187b9b071ba6fcc9",
-      "bytecode_sha256": "32993672afc0f5842589b6215cd4a959fe7d7bba115f7bc61596c7995821d8af",
-      "bytecode_size": 3928,
+      "source_sha256": "190f2218b7180eeff4bd5a4e65e7d1f9d69c4782f70bd71b79ef532bf6226821",
+      "compile_inputs_sha256": "fe47c45bf3a0314d366294cd831c0bd71e9105ed3126971e06e1e4c49ac3e142",
+      "bytecode_sha256": "549e20c87545f4628d706c8f4e39f8fb625b90a198a6d33e6bda1b67cd5029d3",
+      "bytecode_size": 4120,
       "reflection": {
         "cbuffers": [
           {
@@ -2909,12 +2940,12 @@
       "source": "SkullbonezData/shaders/ui_render_target_preview.hlsl",
       "entry": "main_ps",
       "stage": "ps",
-      "target": "ps_6_0",
+      "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/ui_render_target_preview.ps.dxil",
-      "source_sha256": "8b693e39d42e7a756001ca380d43cede07736da5f1efbcf2431c75039cb97eec",
-      "compile_inputs_sha256": "5371c26f7f9601952cb5ce2c82a7e12c0461d45bbf6ac564568b1719ef6ef2e5",
-      "bytecode_sha256": "5ca9701eaa69e63253c81c4d986d56e36f7dc4692fc874436971114b6f5d300b",
-      "bytecode_size": 4968,
+      "source_sha256": "190f2218b7180eeff4bd5a4e65e7d1f9d69c4782f70bd71b79ef532bf6226821",
+      "compile_inputs_sha256": "b1a5379e7366d4d0722d568299d27d7027277631afbb740763c7c293ed882748",
+      "bytecode_sha256": "0b1fade1ee4acf10a2c3ea9d8916d7a94220c900019615f9885d75c524676956",
+      "bytecode_size": 5428,
       "reflection": {
         "cbuffers": [
           {
@@ -2934,6 +2965,24 @@
                 "size": 16
               }
             ]
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "size": 32,
+            "fields": [
+              {
+                "type": "uint4",
+                "name": "_textureDescriptorIndices0",
+                "offset": 0,
+                "size": 16
+              },
+              {
+                "type": "uint2",
+                "name": "_textureDescriptorIndices1",
+                "offset": 16,
+                "size": 8
+              }
+            ]
           }
         ],
         "resources": [
@@ -2941,6 +2990,16 @@
             "name": "Uniforms",
             "register_class": "b",
             "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "register_class": "b",
+            "slot": 1,
             "space": 0,
             "count": 1,
             "type": "cbuffer",
@@ -2956,16 +3015,6 @@
             "type": "sampler",
             "format": "na",
             "dimension": "na"
-          },
-          {
-            "name": "uTexture",
-            "register_class": "t",
-            "slot": 0,
-            "space": 0,
-            "count": 1,
-            "type": "texture",
-            "format": "f32",
-            "dimension": "2d"
           }
         ],
         "inputs": [
@@ -2985,12 +3034,12 @@
       "source": "SkullbonezData/shaders/UIBackdropBlur.hlsl",
       "entry": "main_vs",
       "stage": "vs",
-      "target": "vs_6_0",
+      "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/UIBackdropBlur.vs.dxil",
-      "source_sha256": "c93863dc08f28a0ac5f7d9c30ad9e88f8e84d0ea5f7a1b8f6c2a71daf80f9c9f",
-      "compile_inputs_sha256": "327e5101dc8addd768bd610184f1b0386b72a1d1117296e38e283f4dccb3a92f",
-      "bytecode_sha256": "42b9081e23d9960a2aec9fead2a20d09c10f225a0a4888acc1b713f09c22cf86",
-      "bytecode_size": 4092,
+      "source_sha256": "6a64ef03156d03e1cefba8768dc2deefbdbd0726adec1839c114d34d6dd21fbe",
+      "compile_inputs_sha256": "09506b29fd3c4e376a5ac0a7d671198fa9e14afd2841b21963526e0b640ef63d",
+      "bytecode_sha256": "6d24ef4500e351b88d726a67867acea35a544aa151c6286904bac67b76721503",
+      "bytecode_size": 4280,
       "reflection": {
         "cbuffers": [
           {
@@ -3050,15 +3099,44 @@
       "source": "SkullbonezData/shaders/UIBackdropBlur.hlsl",
       "entry": "main_ps",
       "stage": "ps",
-      "target": "ps_6_0",
+      "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/UIBackdropBlur.ps.dxil",
-      "source_sha256": "c93863dc08f28a0ac5f7d9c30ad9e88f8e84d0ea5f7a1b8f6c2a71daf80f9c9f",
-      "compile_inputs_sha256": "6d70a2e6330bebeaf8e3ae99795a48d2c2ebd19c341e00e42bec61d2cbd8ee9f",
-      "bytecode_sha256": "92bb7aecf4b8397d6b2a43159e0c73da605ac276e530756e355b6931ba8c3543",
-      "bytecode_size": 5600,
+      "source_sha256": "6a64ef03156d03e1cefba8768dc2deefbdbd0726adec1839c114d34d6dd21fbe",
+      "compile_inputs_sha256": "a16951469a0359d288d25374242d78c7332aee2cb9767a912752060a81b1407c",
+      "bytecode_sha256": "044f88808d2ac18eb2ecaf6089922f6f134ae0e70cf618a28bac7c226036cf75",
+      "bytecode_size": 6076,
       "reflection": {
-        "cbuffers": [],
+        "cbuffers": [
+          {
+            "name": "BindlessTextureIndices",
+            "size": 32,
+            "fields": [
+              {
+                "type": "uint4",
+                "name": "_textureDescriptorIndices0",
+                "offset": 0,
+                "size": 16
+              },
+              {
+                "type": "uint2",
+                "name": "_textureDescriptorIndices1",
+                "offset": 16,
+                "size": 8
+              }
+            ]
+          }
+        ],
         "resources": [
+          {
+            "name": "BindlessTextureIndices",
+            "register_class": "b",
+            "slot": 1,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
           {
             "name": "sSampler0",
             "register_class": "s",
@@ -3068,16 +3146,6 @@
             "type": "sampler",
             "format": "na",
             "dimension": "na"
-          },
-          {
-            "name": "uTexture",
-            "register_class": "t",
-            "slot": 0,
-            "space": 0,
-            "count": 1,
-            "type": "texture",
-            "format": "f32",
-            "dimension": "2d"
           }
         ],
         "inputs": [
@@ -3106,12 +3174,12 @@
       "source": "SkullbonezData/shaders/unlit_textured.hlsl",
       "entry": "main_vs",
       "stage": "vs",
-      "target": "vs_6_0",
+      "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/unlit_textured.vs.dxil",
-      "source_sha256": "fc853018a89b1a491493f70d836cc22098925de8be84049010aec0e616465d63",
-      "compile_inputs_sha256": "1926482b39c5e7ca42ad6a9160481cedc8d8970617302928bfebde02954e7e0e",
-      "bytecode_sha256": "1eea1952572ff67418c2865e98b4464e8d225edbef7095e7bd63ed0e86ad26e4",
-      "bytecode_size": 4664,
+      "source_sha256": "5750435b2adedd4b783da368fb1c594d6f605547f856433a0dab856420e2ac73",
+      "compile_inputs_sha256": "55b3834ef3ff6d279fbfc957d33ce349869d87e62b56e014552856b1e750b82e",
+      "bytecode_sha256": "0a7bef6ed31e34e18acf8ea246b41dab53e8c2fca02fe1c4028e9b7c9fc2edea",
+      "bytecode_size": 4864,
       "reflection": {
         "cbuffers": [
           {
@@ -3183,12 +3251,12 @@
       "source": "SkullbonezData/shaders/unlit_textured.hlsl",
       "entry": "main_ps",
       "stage": "ps",
-      "target": "ps_6_0",
+      "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/unlit_textured.ps.dxil",
-      "source_sha256": "fc853018a89b1a491493f70d836cc22098925de8be84049010aec0e616465d63",
-      "compile_inputs_sha256": "0ccde00e2c32bc689cd4c18097955aac9345f252d1143afcd786040386971c3d",
-      "bytecode_sha256": "470394be3d0396a0de8cd36197cabfa1403807d60c664c40bbf67ee84faef9e1",
-      "bytecode_size": 4316,
+      "source_sha256": "5750435b2adedd4b783da368fb1c594d6f605547f856433a0dab856420e2ac73",
+      "compile_inputs_sha256": "2d90d5ad8e8871450117e2b2ad7689d632ee3fcdfc1106a0556aca7237d71dd2",
+      "bytecode_sha256": "2524868e4b5f87363ca99c38e791061155b1d3986eebf33ac86ce0cfa9f1bae4",
+      "bytecode_size": 4784,
       "reflection": {
         "cbuffers": [
           {
@@ -3220,6 +3288,24 @@
                 "size": 16
               }
             ]
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "size": 32,
+            "fields": [
+              {
+                "type": "uint4",
+                "name": "_textureDescriptorIndices0",
+                "offset": 0,
+                "size": 16
+              },
+              {
+                "type": "uint2",
+                "name": "_textureDescriptorIndices1",
+                "offset": 16,
+                "size": 8
+              }
+            ]
           }
         ],
         "resources": [
@@ -3227,6 +3313,16 @@
             "name": "Uniforms",
             "register_class": "b",
             "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "register_class": "b",
+            "slot": 1,
             "space": 0,
             "count": 1,
             "type": "cbuffer",
@@ -3242,16 +3338,6 @@
             "type": "sampler",
             "format": "na",
             "dimension": "na"
-          },
-          {
-            "name": "uTexture",
-            "register_class": "t",
-            "slot": 0,
-            "space": 0,
-            "count": 1,
-            "type": "texture",
-            "format": "f32",
-            "dimension": "2d"
           }
         ],
         "inputs": [
@@ -3271,12 +3357,12 @@
       "source": "SkullbonezData/shaders/water_calm.hlsl",
       "entry": "main_vs",
       "stage": "vs",
-      "target": "vs_6_0",
+      "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/water_calm.vs.dxil",
-      "source_sha256": "c11b97d8513fc49f965782fb07411917aeec1e0206efe9bcf01ab4ef77727eab",
-      "compile_inputs_sha256": "42b919f3bcee3f5ad384505d2dff786af01f0082654f901ce44ae43f2d48d474",
-      "bytecode_sha256": "dda0ccc5294e70b754ab3b8452fc541fdacd8dd2b1a40ae1db505d1a8657c847",
-      "bytecode_size": 5528,
+      "source_sha256": "4056ef360fd2f5fa1b0ee01ed8240ada00391fe06888a7e4acd2c765feb5fe1f",
+      "compile_inputs_sha256": "eeca3001127e36e30f7c9d23925bb48a9a53a7640ca8f14ad7c1085d15d7964a",
+      "bytecode_sha256": "fbac27de066f032524568bd973401415ac872e0cda316d899d2cb6f30a82580e",
+      "bytecode_size": 5720,
       "reflection": {
         "cbuffers": [
           {
@@ -3411,12 +3497,12 @@
       "source": "SkullbonezData/shaders/water_calm.hlsl",
       "entry": "main_ps",
       "stage": "ps",
-      "target": "ps_6_0",
+      "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/water_calm.ps.dxil",
-      "source_sha256": "c11b97d8513fc49f965782fb07411917aeec1e0206efe9bcf01ab4ef77727eab",
-      "compile_inputs_sha256": "da91f44f74d079b8efc0947b1120d2d542477739d22921e1965e48f95ce2f5a9",
-      "bytecode_sha256": "b82b15a1725a65b4d3e781f983eab58c502af717431158aca31c64fd7a512104",
-      "bytecode_size": 7884,
+      "source_sha256": "4056ef360fd2f5fa1b0ee01ed8240ada00391fe06888a7e4acd2c765feb5fe1f",
+      "compile_inputs_sha256": "fc001d5ba58177ecf9b75a7eb7e95c96b437fe8599cb5d8e7b62ee12cf96ee43",
+      "bytecode_sha256": "1267950091c2b6ce43fe03c23fced9b18fe4590d17fe9e22d37845ca3e6c3f51",
+      "bytecode_size": 8180,
       "reflection": {
         "cbuffers": [
           {
@@ -3520,6 +3606,24 @@
                 "size": 12
               }
             ]
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "size": 32,
+            "fields": [
+              {
+                "type": "uint4",
+                "name": "_textureDescriptorIndices0",
+                "offset": 0,
+                "size": 16
+              },
+              {
+                "type": "uint2",
+                "name": "_textureDescriptorIndices1",
+                "offset": 16,
+                "size": 8
+              }
+            ]
           }
         ],
         "resources": [
@@ -3527,6 +3631,16 @@
             "name": "Uniforms",
             "register_class": "b",
             "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "register_class": "b",
+            "slot": 1,
             "space": 0,
             "count": 1,
             "type": "cbuffer",
@@ -3542,16 +3656,6 @@
             "type": "sampler",
             "format": "na",
             "dimension": "na"
-          },
-          {
-            "name": "uReflectionTex",
-            "register_class": "t",
-            "slot": 1,
-            "space": 0,
-            "count": 1,
-            "type": "texture",
-            "format": "f32",
-            "dimension": "2d"
           }
         ],
         "inputs": [
@@ -3580,12 +3684,12 @@
       "source": "SkullbonezData/shaders/water_ocean.hlsl",
       "entry": "main_vs",
       "stage": "vs",
-      "target": "vs_6_0",
+      "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/water_ocean.vs.dxil",
-      "source_sha256": "66734d69130864f19bb7dd4f5f4dac68417d553339599ca2e939d6e0d09c30f7",
-      "compile_inputs_sha256": "217ef28e667701e0cec6c90e4958be0e3332d0ce5d8dd3c754d0563abe54703a",
-      "bytecode_sha256": "96a15a00b27168ccc06f98fcdfd7136245f0f28a2aa4e9eac0e0c1dbd1fc5f08",
-      "bytecode_size": 6104,
+      "source_sha256": "ebb0f14295e65fbbd45279762c94f06bee5837cd674c0d17314fa64b3e2f515b",
+      "compile_inputs_sha256": "916e8ba79632b71870e85519fa28023b62a4d81487855f2c65c4d391a51f8f5c",
+      "bytecode_sha256": "33530c0208a19576455b90fc0197c1a12e7810be7db9bd01f7b2c8cdcc95e4e0",
+      "bytecode_size": 6300,
       "reflection": {
         "cbuffers": [
           {
@@ -3726,12 +3830,12 @@
       "source": "SkullbonezData/shaders/water_ocean.hlsl",
       "entry": "main_ps",
       "stage": "ps",
-      "target": "ps_6_0",
+      "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/water_ocean.ps.dxil",
-      "source_sha256": "66734d69130864f19bb7dd4f5f4dac68417d553339599ca2e939d6e0d09c30f7",
-      "compile_inputs_sha256": "494992de242e2f68def0cae0256e6df02e27296b53f662e7ca88c4736e95a93b",
-      "bytecode_sha256": "5660c3e42a6b3051f747cf9ccaaebac455bae0b81a7dd1c8409b586c3b4ce142",
-      "bytecode_size": 6612,
+      "source_sha256": "ebb0f14295e65fbbd45279762c94f06bee5837cd674c0d17314fa64b3e2f515b",
+      "compile_inputs_sha256": "871c75293befff99e52873118e36ce808710233ba4b66b9243299da18ff6e3e6",
+      "bytecode_sha256": "68b80a717f86592f4e2cb9b65cbc4a5ad3024785253a9a095714b8d0cff530ef",
+      "bytecode_size": 6916,
       "reflection": {
         "cbuffers": [
           {
@@ -3841,6 +3945,24 @@
                 "size": 4
               }
             ]
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "size": 32,
+            "fields": [
+              {
+                "type": "uint4",
+                "name": "_textureDescriptorIndices0",
+                "offset": 0,
+                "size": 16
+              },
+              {
+                "type": "uint2",
+                "name": "_textureDescriptorIndices1",
+                "offset": 16,
+                "size": 8
+              }
+            ]
           }
         ],
         "resources": [
@@ -3848,6 +3970,16 @@
             "name": "Uniforms",
             "register_class": "b",
             "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          },
+          {
+            "name": "BindlessTextureIndices",
+            "register_class": "b",
+            "slot": 1,
             "space": 0,
             "count": 1,
             "type": "cbuffer",
@@ -3863,16 +3995,6 @@
             "type": "sampler",
             "format": "na",
             "dimension": "na"
-          },
-          {
-            "name": "uReflectionTex",
-            "register_class": "t",
-            "slot": 1,
-            "space": 0,
-            "count": 1,
-            "type": "texture",
-            "format": "f32",
-            "dimension": "2d"
           }
         ],
         "inputs": [

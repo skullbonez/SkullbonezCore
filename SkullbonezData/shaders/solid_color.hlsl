@@ -22,7 +22,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 // =============================================================================
-// SOLID COLOR SHADER — HLSL 5.0 (Combined VS+PS)
+// SOLID COLOR SHADER — Shader Model 6.6 (Combined VS+PS)
 // =============================================================================
 //
 // PURPOSE: Render flat-colored 2D quads for HUD backgrounds.
