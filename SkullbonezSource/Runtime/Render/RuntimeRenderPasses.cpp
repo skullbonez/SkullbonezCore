@@ -117,7 +117,7 @@ int CopyDxrRenderInstanceMatrices( const SkullbonezCore::Rendering::RenderInstan
         return 0;
     }
 
-    const std::vector<SkullbonezCore::Rendering::RenderInstanceRecord>& instances = renderStore.Records();
+    const auto instances = renderStore.Records();
     const int modelCount = (std::min)( static_cast<int>( instances.size() ), maxModelCount );
     for ( int i = 0; i < modelCount; ++i )
     {
@@ -129,8 +129,7 @@ int CopyDxrRenderInstanceMatrices( const SkullbonezCore::Rendering::RenderInstan
 
 bool HasCollisionVisualizerFrameView( const RenderFrameContext& frame )
 {
-    return frame.bodyStore && frame.colliders && frame.renderInstances && frame.collisionVisualContacts &&
-           frame.sleepStates && frame.sleepIslandVisualIds;
+    return frame.bodyStore && frame.colliders && frame.renderInstances && frame.collisionVisualContacts;
 }
 
 CollisionVisualizerFrameView BuildCollisionVisualizerFrameView( const RenderFrameContext& frame )
@@ -139,24 +138,23 @@ CollisionVisualizerFrameView BuildCollisionVisualizerFrameView( const RenderFram
                                          *frame.colliders,
                                          *frame.renderInstances,
                                          *frame.collisionVisualContacts,
-                                         *frame.sleepStates,
-                                         *frame.sleepIslandVisualIds,
+                                         frame.sleepStates,
+                                         frame.sleepIslandVisualIds,
                                          frame.modelCount };
 }
 
 bool HasPhysicsDebugFrameView( const RenderFrameContext& frame )
 {
-    return frame.bodyStore && frame.colliders && frame.sleepStates && frame.sleepSupportedStates &&
-           frame.sleepInhibitedStates && frame.physicsDebugContacts && frame.physicsPipelineTrace;
+    return frame.bodyStore && frame.colliders && frame.physicsDebugContacts && frame.physicsPipelineTrace;
 }
 
 PhysicsDebugFrameView BuildPhysicsDebugFrameView( const RenderFrameContext& frame )
 {
     return PhysicsDebugFrameView{ *frame.bodyStore,
                                   *frame.colliders,
-                                  *frame.sleepStates,
-                                  *frame.sleepSupportedStates,
-                                  *frame.sleepInhibitedStates,
+                                  frame.sleepStates,
+                                  frame.sleepSupportedStates,
+                                  frame.sleepInhibitedStates,
                                   *frame.physicsDebugContacts,
                                   *frame.physicsPipelineTrace,
                                   frame.modelCount };

@@ -328,7 +328,7 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
 
     contactAudio.BeginPhysicsStep( PHYSICS_FIXED_DT, listenerPosition );
 
-    const auto& colliderRecords = models.Colliders().Records();
+    const auto colliderRecords = models.Colliders().Records();
     auto materialForBody = [&]( int bodyIndex ) -> uint32_t
     {
         if ( bodyIndex >= 0 && bodyIndex < static_cast<int>( colliderRecords.size() ) )
@@ -344,7 +344,7 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
         // did a dynamic body experience enough mass-scaled linear velocity
         // change to be heard? Motion comes from PhysicsBodyStore and contact
         // material comes from the paired ColliderStore row.
-        const auto& bodyRecords = models.BodyStore().Records();
+        const auto bodyRecords = models.BodyStore().Records();
         const int simpleBodyCount = static_cast<int>(
             bodyRecords.size() < colliderRecords.size() ? bodyRecords.size() : colliderRecords.size() );
         contactAudio.BeginSimpleLinearStep( simpleBodyCount );

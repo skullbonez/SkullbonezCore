@@ -163,7 +163,7 @@ void ResetObjectMaterials( SceneEntityStore& entities, const SceneController& mo
 void ApplyObjectMaterials( SceneEntityStore& entities, SceneController& models, const TestScene& styleScene )
 {
     ResetObjectMaterials( entities, models );
-    const auto& colliders = models.Colliders().Records();
+    const auto colliders = models.Colliders().Records();
     for ( int materialIndex = 0; materialIndex < styleScene.GetObjectMaterialOverrideCount(); ++materialIndex )
     {
         const SceneObjectMaterialOverride& material = styleScene.GetObjectMaterialOverride( materialIndex );

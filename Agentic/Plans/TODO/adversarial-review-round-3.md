@@ -1,7 +1,7 @@
 # Adversarial Review Remediation Round 3 — Language, Namespace, And Renderer Modernization
 
 Date: 2026-07-13
-Status: Live — 3/10 tasks complete
+Status: Live — 8/10 tasks complete
 Impact area: build configuration, Core prelude, UI/Scene/Rendering headers,
 namespace layout, math/solver hot path, DX12 backend
 Owner: engine architecture
@@ -194,7 +194,7 @@ upgrades, then the two performance/architecture tasks.
   Release configuration built with zero warnings; doctest 2.4.12,
   nlohmann/json 3.12.0, and stb_image 2.30 compiled cleanly. The 151.1s full
   gate passed, including the byte-exact 44,401-line physics baseline.
-- [ ] **R8 — Adopt `std::span` at dense-store boundaries.** Replace
+- [x] **R8 — Adopt `std::span` at dense-store boundaries.** Replace
   pointer+count and `const std::vector<T>&` view parameters with
   `std::span<T>`/`std::span<const T>` on the read/write seams of
   `PhysicsBodyStore`, `ColliderStore`, solver contexts
@@ -204,6 +204,12 @@ upgrades, then the two performance/architecture tasks.
   scope of the store they view. Acceptance: hot-path signatures take spans;
   no added copies (perf gate holds); physics baseline byte-exact. Validation:
   `tools\validate_physics.bat` + `tools\validate_perf.bat`.
+  Completed 2026-07-13: dense physics, rendering, replay, and frame-context
+  read/write seams now use explicit spans while owner storage, capacities, and
+  append/resize output queues remain unchanged. The 66.8s physics gate kept the
+  44,401-line baseline byte-exact; pre/post perf gates passed in 61.6s/62.2s
+  with frame and physics phase results within noise or improved. All 52 touched
+  source-bearing files passed the required comment-quality audit.
 - [ ] **R9 — Deterministic SIMD in the solver inner loop.** Vectorize the
   `PersistentContactSolver` row solve (normal + two friction axes) and body
   velocity scratch updates with fixed-width SSE2 intrinsics — no runtime

@@ -1634,11 +1634,11 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
 
     sample.pipelineRecordCount = SaturatingUint16( Physics::PhysicsEngine::ReadPipelineTrace( physics ).size() );
 
-    const std::vector<uint8_t>& sleepStates = Physics::PhysicsEngine::ReadSleepStates( physics );
-    const std::vector<uint8_t>& sleepSupportedStates = Physics::PhysicsEngine::ReadSleepSupportedStates( physics );
-    const std::vector<uint8_t>& sleepInhibitedStates = Physics::PhysicsEngine::ReadSleepInhibitedStates( physics );
+    const auto sleepStates = Physics::PhysicsEngine::ReadSleepStates( physics );
+    const auto sleepSupportedStates = Physics::PhysicsEngine::ReadSleepSupportedStates( physics );
+    const auto sleepInhibitedStates = Physics::PhysicsEngine::ReadSleepInhibitedStates( physics );
     const std::vector<uint8_t>& collisionContacts = Physics::PhysicsEngine::ReadCollisionVisualContacts( physics );
-    const std::vector<int>& sleepIslandIds = Physics::PhysicsEngine::ReadSleepIslandVisualIds( physics );
+    const auto sleepIslandIds = Physics::PhysicsEngine::ReadSleepIslandVisualIds( physics );
 
     uint64_t hash = FNV64_OFFSET;
     // Concept: presentation hashes summarize what the viewer would need to see
@@ -2404,11 +2404,11 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
         m_solverCaptureWorldSnapshot,
         Physics::MakePhysicsBodyCountFromNonNegativeInt( static_cast<int>( modelCount ) ) );
 
-    const std::vector<uint8_t>& sleepStates = Physics::PhysicsEngine::ReadSleepStates( physics );
-    const std::vector<uint8_t>& sleepSupportedStates = Physics::PhysicsEngine::ReadSleepSupportedStates( physics );
-    const std::vector<uint8_t>& sleepInhibitedStates = Physics::PhysicsEngine::ReadSleepInhibitedStates( physics );
+    const auto sleepStates = Physics::PhysicsEngine::ReadSleepStates( physics );
+    const auto sleepSupportedStates = Physics::PhysicsEngine::ReadSleepSupportedStates( physics );
+    const auto sleepInhibitedStates = Physics::PhysicsEngine::ReadSleepInhibitedStates( physics );
     const std::vector<uint8_t>& collisionContacts = Physics::PhysicsEngine::ReadCollisionVisualContacts( physics );
-    const std::vector<int>& sleepIslandIds = Physics::PhysicsEngine::ReadSleepIslandVisualIds( physics );
+    const auto sleepIslandIds = Physics::PhysicsEngine::ReadSleepIslandVisualIds( physics );
 
     uint64_t presentationHash = FNV64_OFFSET;
     presentationHash = HashWorld( presentationHash, sample.world );

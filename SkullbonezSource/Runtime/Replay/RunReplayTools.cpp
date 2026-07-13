@@ -499,12 +499,10 @@ int ReplayPredictionEngineReserveBytes( const PhysicsEngine& engine )
     uint64_t bytes = static_cast<uint64_t>( sizeof( PhysicsEngine ) );
     bytes += engine.CollectPhysicsWorldMemoryBytes();
     bytes += engine.CollectDebugAndBroadphaseMemoryBytes();
-    bytes +=
-        static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Records().capacity() ) *
-        sizeof( PhysicsBodyRecord );
-    bytes +=
-        static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadColliders( engine ).Records().capacity() ) *
-        sizeof( ColliderRecord );
+    bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).RecordCapacity() ) *
+             sizeof( PhysicsBodyRecord );
+    bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadColliders( engine ).RecordCapacity() ) *
+             sizeof( ColliderRecord );
     if ( bytes == 0 || bytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) ||
          bytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
     {
@@ -3512,7 +3510,7 @@ bool CaptureReplayPredictionBodyState( const PhysicsBodyStore& bodyStore,
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureBodyState" );
     const int modelCount = bodyStore.Count();
-    const auto& bodyRecords = bodyStore.Records();
+    const auto bodyRecords = bodyStore.Records();
     if ( static_cast<int>( bodyRecords.size() ) < modelCount )
     {
         return false;
@@ -3685,7 +3683,7 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureSample" );
     const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physicsEngine );
-    const auto& bodyRecords = bodyStore.Records();
+    const auto bodyRecords = bodyStore.Records();
     if ( static_cast<int>( bodyRecords.size() ) < modelCount )
     {
         return false;
@@ -4913,7 +4911,7 @@ void ReplayRuntime::RenderCauseFocusOverlay( const PhysicsBodyStore& bodyStore,
             }
 
             bool drewPredictionManifold = false;
-            const std::vector<RunReplayPredictionFrame>& frames = ActivePredictionFrames();
+            const std::span<const RunReplayPredictionFrame> frames = ActivePredictionFrames();
             for ( const RunReplayPredictionFrame& frame : frames )
             {
                 if ( frame.frameIndex != focusFrame )

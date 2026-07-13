@@ -85,7 +85,7 @@ namespace Runtime
 {
 const char* PresentationNameForModelIndex( const SkullbonezCore::Runtime::SceneController& collection, int modelIndex )
 {
-    const auto& presentationRecords = collection.RenderPresentationRecords();
+    const auto presentationRecords = collection.RenderPresentationRecords();
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( presentationRecords.size() ) )
     {
         return "";

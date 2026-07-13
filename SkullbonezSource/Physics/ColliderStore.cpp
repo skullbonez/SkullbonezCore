@@ -462,15 +462,21 @@ bool ColliderStore::Contains( PhysicsColliderHandle handle ) const
 }
 
 
-const ColliderRecordList& ColliderStore::Records() const
+std::span<const ColliderRecord> ColliderStore::Records() const
 {
-    return m_colliders;
+    return { m_colliders.data(), m_colliders.size() };
 }
 
 
-ColliderRecordList& ColliderStore::MutableRecords()
+std::span<ColliderRecord> ColliderStore::MutableRecords()
 {
-    return m_colliders;
+    return { m_colliders.data(), m_colliders.size() };
+}
+
+
+std::size_t ColliderStore::RecordCapacity() const
+{
+    return m_colliders.capacity();
 }
 
 

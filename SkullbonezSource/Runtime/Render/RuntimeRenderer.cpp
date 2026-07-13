@@ -416,8 +416,8 @@ void RenderReplayPredictionGhosts( ReplayRuntime& replayRuntime,
                                    const Rendering::ShadowFrameData* shadow )
 {
     PROFILE_SCOPED( "Frame/Render/ReplayPredictionGhosts" );
-    if ( !frame.presentationRecords || !frame.bodyStore ||
-         !replayRuntime.BuildPredictionGhostDrawRequests( *frame.presentationRecords, *frame.bodyStore ) )
+    if ( !frame.bodyStore ||
+         !replayRuntime.BuildPredictionGhostDrawRequests( frame.presentationRecords, *frame.bodyStore ) )
     {
         return;
     }
@@ -429,8 +429,8 @@ void RenderReplayPredictionGhosts( ReplayRuntime& replayRuntime,
     {
         return;
     }
-    const auto& colliders = frame.colliders->Records();
-    const std::vector<Rendering::RenderInstanceRecord>& renderInstances = frame.renderInstances->Records();
+    const auto colliders = frame.colliders->Records();
+    const auto renderInstances = frame.renderInstances->Records();
 
     assert( frame.textures && "RenderFrameContext requires a texture collection" );
     const SkullbonezCore::Core::SbResult textureResult = frame.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
@@ -1426,12 +1426,12 @@ RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderInputs& renderInput
     frame.colliders = &services.models.colliders;
     frame.bodyStore = &services.models.bodyStore;
     frame.physicsEngine = &services.models.physicsEngine;
-    frame.presentationRecords = &services.models.presentationRecords;
+    frame.presentationRecords = services.models.presentationRecords;
     frame.collisionVisualContacts = &services.models.collisionVisualContacts;
-    frame.sleepStates = &services.models.sleepStates;
-    frame.sleepIslandVisualIds = &services.models.sleepIslandVisualIds;
-    frame.sleepSupportedStates = &services.models.sleepSupportedStates;
-    frame.sleepInhibitedStates = &services.models.sleepInhibitedStates;
+    frame.sleepStates = services.models.sleepStates;
+    frame.sleepIslandVisualIds = services.models.sleepIslandVisualIds;
+    frame.sleepSupportedStates = services.models.sleepSupportedStates;
+    frame.sleepInhibitedStates = services.models.sleepInhibitedStates;
     frame.physicsDebugContacts = &services.models.physicsDebugContacts;
     frame.physicsPipelineTrace = &services.models.physicsPipelineTrace;
     frame.renderWorkerPool = services.models.renderWorkerPool;

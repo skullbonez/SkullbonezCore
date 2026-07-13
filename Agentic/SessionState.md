@@ -11,11 +11,11 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-12th-july` |
-| Current baseline | Round-3 R1-R7 are complete: ownership cleanup through the legacy rendering helper is complete, engine code is exception-free, and all engine/test projects now compile as C++20 |
+| Current baseline | Round-3 R1-R8 are complete: ownership cleanup, exception-free C++20 migration, and explicit span borrowing at dense-store seams are complete |
 | Current objective | Execute adversarial-review round 3 (`Plans/TODO/adversarial-review-round-3.md`, R1→R10); validation-gate V3 remains externally blocked |
-| Portfolio progress | 309 / 313 tasks = 99% rounded overall |
+| Portfolio progress | 310 / 313 tasks = 99% rounded overall |
 | Last broad local gate | `tools\\validate_full.bat` passed R7 on 2026-07-13 in 151.1s: all CPU lanes clean under C++20, zero-warning Profile/Debug builds, zero DX12 InfoQueue errors with matching screenshots, and the 44,401-line varied physics baseline byte-exactly |
-| Validation for current edits | R7 built all engine configurations with zero warnings plus the standalone Release configuration at `/W4 /WX`; the 151.1s full gate passed with byte-exact physics. |
+| Validation for current edits | R8 pre/post perf gates passed in 61.6s/62.2s; `tools\\validate_physics.bat` passed in 66.8s with zero-warning Debug, standalone smoke, and the 44,401-line varied baseline byte-exact. |
 
 ## Live Queue
 
@@ -29,12 +29,12 @@ plan inventory.
    2026-07-12 ruling) and is not live portfolio work.
 3. Round-2 runtime-contract remediation is locally complete and recorded in
    `Reports/2026-07-12/runtime-contract-enforcement-closure.md`.
-4. Round-3 adversarial-review remediation is live at 7/10: R1-R7 header,
+4. Round-3 adversarial-review remediation is live at 8/10: R1-R8 header,
    scene-capacity, platform-prelude, exception-free engine, and namespace-owner
-   work plus rendering-helper dissolution and the C++20 upgrade are complete.
-   Three tasks remain (`std::span`, solver SIMD, and DX12 bindless + three
-   frames). Plan and fine-grained progress checklist live in `Plans/TODO/`;
-   continue with R8→R10. Out-of-scope
+   work plus rendering-helper dissolution, the C++20 upgrade, and dense-store
+   span seams are complete. Two tasks remain (solver SIMD and DX12 bindless +
+   three frames). Plan and fine-grained progress checklist live in
+   `Plans/TODO/`; continue with R9→R10. Out-of-scope
    rulings are recorded in MASTER to avoid re-litigation.
 
 ## Current Plan Decisions
@@ -92,5 +92,6 @@ plan inventory.
 
 ## Next Handoff
 
-Commit and push R3, then execute R4 compiler-enforced exception removal.
+Execute R9 deterministic solver SIMD, retaining it only if measured evidence
+clears the plan's noise threshold, then execute R10.
 V3 resumes separately when the required GitHub and runner authority exists.

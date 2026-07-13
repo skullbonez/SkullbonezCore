@@ -410,8 +410,8 @@ void SceneRuntime::UpdateRequiredContacts( SkullbonezCore::Runtime::SceneControl
 
     const PhysicsBodyStore& bodyStore = models.BodyStore();
     const ColliderStore& colliderStore = models.Colliders();
-    const auto& bodyRecords = bodyStore.Records();
-    const auto& colliderRecords = colliderStore.Records();
+    const auto bodyRecords = bodyStore.Records();
+    const auto colliderRecords = colliderStore.Records();
     const int contactModelCount =
         (std::min)( bodyStore.Count(), static_cast<int>( (std::min)( bodyRecords.size(), colliderRecords.size() ) ) );
     for ( RunRequiredContactState& required : m_requiredContacts )

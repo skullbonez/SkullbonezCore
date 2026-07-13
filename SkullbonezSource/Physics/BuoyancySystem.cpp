@@ -50,7 +50,7 @@ bool BuoyancySystem::IsFullySubmergedBall( const PhysicsBodyRecord& bodyRecord,
                                            const ColliderStore& colliderStore,
                                            int index )
 {
-    const ColliderRecordList& colliders = colliderStore.Records();
+    const auto colliders = colliderStore.Records();
     if ( index < 0 || index >= static_cast<int>( colliders.size() ) || bodyRecord.isFixed ||
          colliders[static_cast<std::size_t>( index )].shapeKind != ColliderShapeKind::Sphere )
     {
@@ -73,7 +73,7 @@ bool BuoyancySystem::RefreshUnderwaterSubmersionForBall( const PhysicsWorldForce
     }
 
     bodyRecord->submergedVolumePercent = 0.0f;
-    const ColliderRecordList& colliders = colliderStore.Records();
+    const auto colliders = colliderStore.Records();
     if ( index < 0 || index >= static_cast<int>( colliders.size() ) )
     {
         return false;

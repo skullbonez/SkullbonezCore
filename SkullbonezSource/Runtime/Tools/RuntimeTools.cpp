@@ -496,8 +496,8 @@ bool RuntimeTools::TryRayCastTestHit( const Physics::PhysicsBodyStore& bodyStore
     // mesh intersections. The broad deterministic hit result is enough for
     // impulse placement and visual feedback, and it stays on store records.
     const int hitCount = (std::min)( bodyStore.Count(), colliderStore.Count() );
-    const auto& bodies = bodyStore.Records();
-    const auto& colliders = colliderStore.Records();
+    const auto bodies = bodyStore.Records();
+    const auto colliders = colliderStore.Records();
     for ( int i = 0; i < hitCount; ++i )
     {
         const std::size_t index = static_cast<std::size_t>( i );

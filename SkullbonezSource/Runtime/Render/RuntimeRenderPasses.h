@@ -47,6 +47,7 @@ Related:
 
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <vector>
 
 namespace SkullbonezCore
@@ -223,12 +224,14 @@ struct RenderFrameContext
     const Physics::ColliderStore* colliders = nullptr;
     const Physics::PhysicsBodyStore* bodyStore = nullptr;
     Physics::PhysicsEngine* physicsEngine = nullptr;
-    const std::vector<Rendering::RenderInstancePresentationRecord>* presentationRecords = nullptr;
+    // Lifetime: spans borrow the frame model stores and remain valid only for
+    // this synchronous render-graph execution.
+    std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords;
     const std::vector<uint8_t>* collisionVisualContacts = nullptr;
-    const std::vector<uint8_t>* sleepStates = nullptr;
-    const std::vector<int>* sleepIslandVisualIds = nullptr;
-    const std::vector<uint8_t>* sleepSupportedStates = nullptr;
-    const std::vector<uint8_t>* sleepInhibitedStates = nullptr;
+    std::span<const uint8_t> sleepStates;
+    std::span<const int> sleepIslandVisualIds;
+    std::span<const uint8_t> sleepSupportedStates;
+    std::span<const uint8_t> sleepInhibitedStates;
     const std::vector<Physics::PhysicsDebugContact>* physicsDebugContacts = nullptr;
     const std::vector<Physics::PhysicsPipelineRecord>* physicsPipelineTrace = nullptr;
     Threading::WorkerPool* renderWorkerPool = nullptr;

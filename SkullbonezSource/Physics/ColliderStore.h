@@ -31,6 +31,7 @@ Related:
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <vector>
 
 #include "CollisionShape.h"
@@ -113,8 +114,11 @@ class ColliderStore
     PhysicsColliderHandle HandleForSceneObjectId( PhysicsSceneObjectId sceneObjectId ) const;
     int ModelIndexForHandle( PhysicsColliderHandle handle ) const;
     bool Contains( PhysicsColliderHandle handle ) const;
-    const ColliderRecordList& Records() const;
-    ColliderRecordList& MutableRecords();
+    // Lifetime: these spans borrow the store's live dense prefix and expire on
+    // scene mutation, compaction, or store destruction.
+    std::span<const ColliderRecord> Records() const;
+    std::span<ColliderRecord> MutableRecords();
+    std::size_t RecordCapacity() const;
     ColliderRecord* MutableRecordForHandle( PhysicsColliderHandle handle );
     const ColliderRecord* RecordForHandle( PhysicsColliderHandle handle ) const;
 

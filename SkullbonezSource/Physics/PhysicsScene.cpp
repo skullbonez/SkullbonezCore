@@ -493,8 +493,8 @@ void PhysicsScene::ValidatePhysicsStoreMappings( int modelCount ) const
     assert( m_bodyStore.Count() == modelCount );
     assert( m_colliderStore.Count() == modelCount );
 
-    const auto& bodies = m_bodyStore.Records();
-    const auto& colliders = m_colliderStore.Records();
+    const auto bodies = m_bodyStore.Records();
+    const auto colliders = m_colliderStore.Records();
     for ( int i = 0; i < modelCount; ++i )
     {
         const std::size_t index = static_cast<std::size_t>( i );
@@ -545,7 +545,7 @@ void PhysicsScene::RunPhysics( float fChangeInTime,
 
 void PhysicsScene::ApplyFixedTreeReleaseEvents( const PhysicsWorldForces& worldForces )
 {
-    const std::vector<PhysicsFixedTreeReleaseEvent>& releaseEvents = m_world.GetFixedTreeReleaseEvents();
+    const std::span<const PhysicsFixedTreeReleaseEvent> releaseEvents = m_world.GetFixedTreeReleaseEvents();
     if ( releaseEvents.empty() )
     {
         return;
@@ -847,7 +847,7 @@ bool PhysicsScene::ShouldEmitCollisionTimeDiagnostics() const
 }
 
 
-const std::vector<int>& PhysicsScene::GetFixedContactHighlightBodies() const
+std::span<const int> PhysicsScene::GetFixedContactHighlightBodies() const
 {
     return m_world.GetFixedContactHighlightBodies();
 }
@@ -883,25 +883,25 @@ const std::vector<uint8_t>& PhysicsScene::GetCollisionVisualContacts() const
 }
 
 
-const std::vector<uint8_t>& PhysicsScene::GetSleepStates() const
+std::span<const uint8_t> PhysicsScene::GetSleepStates() const
 {
     return m_world.GetSleepStates();
 }
 
 
-const std::vector<int>& PhysicsScene::GetSleepIslandVisualIds() const
+std::span<const int> PhysicsScene::GetSleepIslandVisualIds() const
 {
     return m_world.GetSleepIslandVisualIds();
 }
 
 
-const std::vector<uint8_t>& PhysicsScene::GetSleepSupportedStates() const
+std::span<const uint8_t> PhysicsScene::GetSleepSupportedStates() const
 {
     return m_world.GetSleepSupportedStates();
 }
 
 
-const std::vector<uint8_t>& PhysicsScene::GetSleepInhibitedStates() const
+std::span<const uint8_t> PhysicsScene::GetSleepInhibitedStates() const
 {
     return m_world.GetSleepInhibitedStates();
 }

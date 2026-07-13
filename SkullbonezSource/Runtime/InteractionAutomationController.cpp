@@ -302,12 +302,12 @@ bool TryPredictionTargetDisplacement( const ReplayRuntime& replayRuntime,
     // for the selected replay body. Missing target data is a clean "not ready",
     // not an error state for the running scene.
     const RunReplayPredictionState& prediction = replayRuntime.Prediction();
-    const std::vector<RunReplayPredictionFrame>* activePredictionFrames = &replayRuntime.ActivePredictionFrames();
-    std::size_t activeFrameCount = activePredictionFrames->size();
+    std::span<const RunReplayPredictionFrame> activePredictionFrames = replayRuntime.ActivePredictionFrames();
+    std::size_t activeFrameCount = activePredictionFrames.size();
     if ( activeFrameCount < 2 && prediction.BuildPrefixShouldBePresented() )
     {
-        activePredictionFrames = &prediction.build.buildFrames;
         activeFrameCount = prediction.PublishedBuildFrameCount();
+        activePredictionFrames = { prediction.build.buildFrames.data(), activeFrameCount };
     }
     const ReplayBodyId targetId = replayRuntime.PathVisualizer().targetId;
     if ( targetId.value == 0 || activeFrameCount < 2 )
@@ -315,9 +315,9 @@ bool TryPredictionTargetDisplacement( const ReplayRuntime& replayRuntime,
         return false;
     }
 
-    const RunReplayPredictionBodySample* first = FindPredictionBodyById( activePredictionFrames->front(), targetId );
+    const RunReplayPredictionBodySample* first = FindPredictionBodyById( activePredictionFrames.front(), targetId );
     const RunReplayPredictionBodySample* last =
-        FindPredictionBodyById( ( *activePredictionFrames )[activeFrameCount - 1], targetId );
+        FindPredictionBodyById( activePredictionFrames[activeFrameCount - 1], targetId );
     if ( !first || !last )
     {
         return false;
@@ -338,7 +338,7 @@ bool TryPredictionTargetDisplacement( const ReplayRuntime& replayRuntime,
 std::size_t VisiblePredictionFrameCount( const ReplayRuntime& replayRuntime )
 {
     const RunReplayPredictionState& prediction = replayRuntime.Prediction();
-    const std::vector<RunReplayPredictionFrame>& activePredictionFrames = replayRuntime.ActivePredictionFrames();
+    const std::span<const RunReplayPredictionFrame> activePredictionFrames = replayRuntime.ActivePredictionFrames();
     if ( activePredictionFrames.size() >= 2 )
     {
         return activePredictionFrames.size();

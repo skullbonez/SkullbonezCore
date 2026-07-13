@@ -128,7 +128,7 @@ float AttachedCameraTargetRadius( const PhysicsBodyRecord& body, const ColliderR
 
 const char* PresentationNameForModelIndex( const SceneController& collection, int modelIndex )
 {
-    const auto& presentationRecords = collection.RenderPresentationRecords();
+    const auto presentationRecords = collection.RenderPresentationRecords();
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( presentationRecords.size() ) )
     {
         return "";
@@ -614,7 +614,7 @@ bool AttachedCameraController::TryResolveTargetIdentity( const SceneController& 
     if ( target.replayBodyId != 0 )
     {
         int match = -1;
-        const auto& bodyRecords = bodyStore.Records();
+        const auto bodyRecords = bodyStore.Records();
         // Invariant: duplicate replay ids are corruption, not an arbitrary
         // first match. Scan the dense body rows so stale camera targets fail
         // closed without touching authoring/presentation data.

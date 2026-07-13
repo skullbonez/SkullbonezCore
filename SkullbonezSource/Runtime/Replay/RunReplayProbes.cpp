@@ -83,7 +83,7 @@ bool TryPrepareReplayProbeRenderPosition( SkullbonezCore::Runtime::SceneControll
                                           int modelIndex,
                                           Vector3& outPosition )
 {
-    const auto& instances = collection.RenderInstances().Records();
+    const auto instances = collection.RenderInstances().Records();
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( instances.size() ) )
     {
         return false;

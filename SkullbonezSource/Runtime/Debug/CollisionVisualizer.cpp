@@ -296,7 +296,7 @@ void CollisionVisualizer::Update( float dt, const CollisionVisualizerFrameView& 
     }
 
     const std::vector<uint8_t>& contacts = view.collisionContacts;
-    const std::vector<uint8_t>& sleepStates = view.sleepStates;
+    const auto sleepStates = view.sleepStates;
     const float fadeStep = ( FADE_DURATION > 0.0f ) ? ( dt / FADE_DURATION ) : 1.0f;
 
     for ( int i = 0; i < modelCount; ++i )
@@ -328,8 +328,8 @@ void CollisionVisualizer::BuildSleepGroupSizes( const CollisionVisualizerFrameVi
     const int modelCount = view.modelCount;
     m_sleepGroupSizes.assign( modelCount, 1 );
 
-    const std::vector<uint8_t>& sleepStates = view.sleepStates;
-    const std::vector<int>& islandIds = view.sleepIslandVisualIds;
+    const auto sleepStates = view.sleepStates;
+    const auto islandIds = view.sleepIslandVisualIds;
 
     for ( int i = 0; i < modelCount; ++i )
     {
@@ -376,7 +376,7 @@ CollisionVisualizer::Color CollisionVisualizer::ComputeModelColor( int modelInde
         { 0.05f, 0.42f, 1.0f, 1.0f },
     };
 
-    const std::vector<uint8_t>& sleepStates = view.sleepStates;
+    const auto sleepStates = view.sleepStates;
     const bool sleeping = modelIndex < static_cast<int>( sleepStates.size() ) && sleepStates[modelIndex] != 0;
     if ( sleeping )
     {
@@ -388,7 +388,7 @@ CollisionVisualizer::Color CollisionVisualizer::ComputeModelColor( int modelInde
             return yellow;
         }
 
-        const std::vector<int>& islandIds = view.sleepIslandVisualIds;
+        const auto islandIds = view.sleepIslandVisualIds;
         const int islandId = modelIndex < static_cast<int>( islandIds.size() ) && islandIds[modelIndex] != 0
                                  ? islandIds[modelIndex]
                                  : modelIndex + 1;
@@ -513,8 +513,8 @@ void CollisionVisualizer::Render( Assets::AssetSystem& assets,
     // Build primitive streams from the authoritative collision shape. Hulls are
     // drawn after shader constants are bound because each hull emits transient
     // triangle data instead of reusing a cached static mesh.
-    const auto& colliders = view.colliders.Records();
-    const std::vector<RenderInstanceRecord>& instances = view.renderInstances.Records();
+    const auto colliders = view.colliders.Records();
+    const auto instances = view.renderInstances.Records();
     const int modelCount =
         (std::min)( view.modelCount,
                     (std::min)( static_cast<int>( colliders.size() ), static_cast<int>( instances.size() ) ) );

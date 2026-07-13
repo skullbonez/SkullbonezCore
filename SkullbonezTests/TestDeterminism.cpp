@@ -66,25 +66,25 @@
 #include <vector>
 
 using SkullbonezCore::Core::EngineConfig;
-using SkullbonezCore::Runtime::ReplayBodyShapeKind;
-using SkullbonezCore::Runtime::ReplayFrameIndex;
-using SkullbonezCore::Runtime::ReplaySolverBodySample;
-using SkullbonezCore::Runtime::ReplaySolverFrameSample;
-using SkullbonezCore::Runtime::ReplaySolverWorldSnapshot;
 using SkullbonezCore::Geometry::Terrain;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::MakeColliderCreateDesc;
-using SkullbonezCore::Physics::MakePhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt;
+using SkullbonezCore::Physics::MakePhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
 using SkullbonezCore::Physics::PhysicsWorldForces;
+using SkullbonezCore::Runtime::ReplayBodyShapeKind;
+using SkullbonezCore::Runtime::ReplayFrameIndex;
+using SkullbonezCore::Runtime::ReplaySolverBodySample;
+using SkullbonezCore::Runtime::ReplaySolverFrameSample;
+using SkullbonezCore::Runtime::ReplaySolverWorldSnapshot;
 using SkullbonezCore::Threading::WorkerPool;
 
 namespace
@@ -362,7 +362,8 @@ void StepMicroWorld( PhysicsEngine& engine, int ticks )
 
 const PhysicsBodyRecord& RequireBodyRecord( const PhysicsEngine& engine, int modelIndex )
 {
-    const PhysicsBodyRecord* record = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).RecordForModelIndex( modelIndex );
+    const PhysicsBodyRecord* record =
+        SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).RecordForModelIndex( modelIndex );
     REQUIRE( record != nullptr );
     return *record;
 }
@@ -380,10 +381,9 @@ float VectorMagnitudeSquared( const Vector3& value )
 float BodyKineticEnergy( const PhysicsBodyRecord& record )
 {
     const float translational = 0.5f * record.mass * VectorMagnitudeSquared( record.linearVelocity );
-    const float angular = 0.5f *
-        ( record.rotationalInertia.x * record.angularVelocity.x * record.angularVelocity.x +
-          record.rotationalInertia.y * record.angularVelocity.y * record.angularVelocity.y +
-          record.rotationalInertia.z * record.angularVelocity.z * record.angularVelocity.z );
+    const float angular = 0.5f * ( record.rotationalInertia.x * record.angularVelocity.x * record.angularVelocity.x +
+                                   record.rotationalInertia.y * record.angularVelocity.y * record.angularVelocity.y +
+                                   record.rotationalInertia.z * record.angularVelocity.z * record.angularVelocity.z );
     return translational + angular;
 }
 
@@ -399,12 +399,13 @@ float TotalKineticEnergy( const PhysicsEngine& engine )
 
 bool DiagnosticsSleepStateAt( const PhysicsEngine& engine, int modelIndex )
 {
-    const std::vector<uint8_t>& sleepStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( engine );
+    const auto sleepStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( engine );
     const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
     return bodyIndex < sleepStates.size() && sleepStates[bodyIndex] != 0;
 }
 
-void CheckTerrainPenetrationWithinTolerance( const PhysicsEngine& engine, const SkullbonezCore::Core::EngineConfig& config )
+void CheckTerrainPenetrationWithinTolerance( const PhysicsEngine& engine,
+                                             const SkullbonezCore::Core::EngineConfig& config )
 {
     // Concept: this is the fast invariant partner to byte-exact CSV baselines.
     // It does not care about exact impulse history, only that settled body rows
@@ -454,14 +455,12 @@ void HashBytesForReplayTest( uint64_t& hash, const void* data, std::size_t byteC
     }
 }
 
-template <typename T>
-void HashValueForReplayTest( uint64_t& hash, const T& value )
+template <typename T> void HashValueForReplayTest( uint64_t& hash, const T& value )
 {
     HashBytesForReplayTest( hash, &value, sizeof( T ) );
 }
 
-template <typename T>
-void HashVectorForReplayTest( uint64_t& hash, const std::vector<T>& values )
+template <typename T> void HashVectorForReplayTest( uint64_t& hash, const std::vector<T>& values )
 {
     const std::size_t count = values.size();
     HashValueForReplayTest( hash, count );
@@ -539,7 +538,8 @@ MicroWorldSnapshot CaptureMicroWorldSnapshot( const PhysicsEngine& engine )
     engine.CaptureReplaySolverSnapshot( snapshot.solver, MakePhysicsBodyCountFromNonNegativeInt( kMicroBodyCount ) );
     for ( int i = 0; i < kMicroBodyCount; ++i )
     {
-        const PhysicsBodyRecord* record = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).RecordForModelIndex( i );
+        const PhysicsBodyRecord* record =
+            SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).RecordForModelIndex( i );
         REQUIRE( record != nullptr );
         snapshot.bodies[static_cast<std::size_t>( i )] = CaptureBodyReplayState( *record );
     }
@@ -548,7 +548,8 @@ MicroWorldSnapshot CaptureMicroWorldSnapshot( const PhysicsEngine& engine )
 
 ReplaySolverBodySample CaptureMicroWorldReplayBodySample( const PhysicsEngine& engine, int modelIndex )
 {
-    const PhysicsBodyRecord* record = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).RecordForModelIndex( modelIndex );
+    const PhysicsBodyRecord* record =
+        SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).RecordForModelIndex( modelIndex );
     REQUIRE( record != nullptr );
 
     ReplaySolverBodySample body;
@@ -558,7 +559,10 @@ ReplaySolverBodySample CaptureMicroWorldReplayBodySample( const PhysicsEngine& e
     body.position = record->position;
     body.linearVelocity = record->linearVelocity;
     body.angularVelocity = record->angularVelocity;
-    record->orientation.GetComponents( body.orientation[0], body.orientation[1], body.orientation[2], body.orientation[3] );
+    record->orientation.GetComponents( body.orientation[0],
+                                       body.orientation[1],
+                                       body.orientation[2],
+                                       body.orientation[3] );
     body.mass = record->mass;
     body.inverseMass = record->invMass;
     body.rotationalInertia = record->rotationalInertia;
@@ -566,11 +570,12 @@ ReplaySolverBodySample CaptureMicroWorldReplayBodySample( const PhysicsEngine& e
     body.fixed = record->isFixed;
 
     const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
-    const std::vector<uint8_t>& sleepStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( engine );
-    const std::vector<uint8_t>& sleepSupportedStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepSupportedStates( engine );
-    const std::vector<uint8_t>& sleepInhibitedStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepInhibitedStates( engine );
-    const std::vector<uint8_t>& collisionContacts = SkullbonezCore::Physics::PhysicsEngine::ReadCollisionVisualContacts( engine );
-    const std::vector<int>& sleepIslandIds = SkullbonezCore::Physics::PhysicsEngine::ReadSleepIslandVisualIds( engine );
+    const auto sleepStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( engine );
+    const auto sleepSupportedStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepSupportedStates( engine );
+    const auto sleepInhibitedStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepInhibitedStates( engine );
+    const std::vector<uint8_t>& collisionContacts =
+        SkullbonezCore::Physics::PhysicsEngine::ReadCollisionVisualContacts( engine );
+    const auto sleepIslandIds = SkullbonezCore::Physics::PhysicsEngine::ReadSleepIslandVisualIds( engine );
     body.sleeping = bodyIndex < sleepStates.size() && sleepStates[bodyIndex] != 0;
     body.sleepSupported = bodyIndex < sleepSupportedStates.size() && sleepSupportedStates[bodyIndex] != 0;
     body.sleepInhibited = bodyIndex < sleepInhibitedStates.size() && sleepInhibitedStates[bodyIndex] != 0;
@@ -595,9 +600,12 @@ ReplaySolverFrameSample CaptureMicroWorldReplaySample( const PhysicsEngine& engi
     sample.world.fixedStep = true;
     sample.world.scenePhysicsEnabled = true;
     sample.world.sceneTextEnabled = true;
-    sample.contactCount = static_cast<uint16_t>( SkullbonezCore::Physics::PhysicsEngine::ReadDebugContacts( engine ).size() );
-    sample.pipelineRecordCount = static_cast<uint16_t>( SkullbonezCore::Physics::PhysicsEngine::ReadPipelineTrace( engine ).size() );
-    engine.CaptureReplaySolverSnapshot( sample.worldSnapshot, MakePhysicsBodyCountFromNonNegativeInt( kMicroBodyCount ) );
+    sample.contactCount =
+        static_cast<uint16_t>( SkullbonezCore::Physics::PhysicsEngine::ReadDebugContacts( engine ).size() );
+    sample.pipelineRecordCount =
+        static_cast<uint16_t>( SkullbonezCore::Physics::PhysicsEngine::ReadPipelineTrace( engine ).size() );
+    engine.CaptureReplaySolverSnapshot( sample.worldSnapshot,
+                                        MakePhysicsBodyCountFromNonNegativeInt( kMicroBodyCount ) );
 
     sample.bodies.reserve( kMicroBodyCount );
     for ( int i = 0; i < kMicroBodyCount; ++i )
@@ -611,7 +619,8 @@ ReplaySolverFrameSample CaptureMicroWorldReplaySample( const PhysicsEngine& engi
 
 void RestoreMicroWorldSnapshot( PhysicsEngine& engine, const MicroWorldSnapshot& snapshot )
 {
-    REQUIRE( engine.RestoreReplaySolverSnapshot( snapshot.solver, MakePhysicsBodyCountFromNonNegativeInt( kMicroBodyCount ) ) );
+    REQUIRE( engine.RestoreReplaySolverSnapshot( snapshot.solver,
+                                                 MakePhysicsBodyCountFromNonNegativeInt( kMicroBodyCount ) ) );
     for ( const BodyReplayState& state : snapshot.bodies )
     {
         REQUIRE( engine.RestoreReplayBodyState( state.handle,
@@ -638,8 +647,12 @@ void RestoreMicroWorldReplaySample( PhysicsEngine& engine, const ReplaySolverFra
         MakePhysicsBodyCountFromNonNegativeInt( static_cast<int>( sample.bodies.size() ) ) ) );
     for ( const ReplaySolverBodySample& body : sample.bodies )
     {
-        const Quaternion orientation( body.orientation[0], body.orientation[1], body.orientation[2], body.orientation[3] );
-        const PhysicsBodyRecord* record = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).RecordForModelIndex( body.modelRow.value );
+        const Quaternion orientation( body.orientation[0],
+                                      body.orientation[1],
+                                      body.orientation[2],
+                                      body.orientation[3] );
+        const PhysicsBodyRecord* record =
+            SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).RecordForModelIndex( body.modelRow.value );
         REQUIRE( record != nullptr );
         REQUIRE( engine.RestoreReplayBodyState( record->handle,
                                                 body.id.value,
@@ -669,8 +682,7 @@ void CheckQuaternionBytesEqual( const Quaternion& lhs, const Quaternion& rhs )
     CHECK( std::memcmp( left, right, sizeof( left ) ) == 0 );
 }
 
-template <typename T>
-void CheckVectorContentsEqual( const std::vector<T>& lhs, const std::vector<T>& rhs )
+template <typename T> void CheckVectorContentsEqual( const std::vector<T>& lhs, const std::vector<T>& rhs )
 {
     REQUIRE( lhs.size() == rhs.size() );
     for ( std::size_t i = 0; i < lhs.size(); ++i )
@@ -740,11 +752,14 @@ void CheckReplaySamplesEqual( const ReplaySolverFrameSample& lhs, const ReplaySo
 
 void CheckEngineKinematicsEqual( const PhysicsEngine& lhs, const PhysicsEngine& rhs )
 {
-    REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( lhs ).Count() == SkullbonezCore::Physics::PhysicsEngine::ReadBodies( rhs ).Count() );
+    REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( lhs ).Count() ==
+             SkullbonezCore::Physics::PhysicsEngine::ReadBodies( rhs ).Count() );
     for ( int i = 0; i < SkullbonezCore::Physics::PhysicsEngine::ReadBodies( lhs ).Count(); ++i )
     {
-        const PhysicsBodyRecord* left = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( lhs ).RecordForModelIndex( i );
-        const PhysicsBodyRecord* right = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( rhs ).RecordForModelIndex( i );
+        const PhysicsBodyRecord* left =
+            SkullbonezCore::Physics::PhysicsEngine::ReadBodies( lhs ).RecordForModelIndex( i );
+        const PhysicsBodyRecord* right =
+            SkullbonezCore::Physics::PhysicsEngine::ReadBodies( rhs ).RecordForModelIndex( i );
         REQUIRE( left != nullptr );
         REQUIRE( right != nullptr );
         CheckVectorBytesEqual( left->position, right->position );
@@ -873,11 +888,19 @@ TEST_CASE( "PhysicsEngine mutual gravity: chaotic triple is deterministic" )
         engine.ApplyRuntimeConfig( config );
         engine.SetSleepEnabled( false );
         engine.ReserveAuthoredBodyCapacity( 3 );
-        AddMutualGravityBody(
-            engine, 301u, Vector3( -18.0f, 90.0f, 0.0f ), Vector3( 0.8f, 0.0f, -1.0f ), 12.0f, 0.45f );
+        AddMutualGravityBody( engine,
+                              301u,
+                              Vector3( -18.0f, 90.0f, 0.0f ),
+                              Vector3( 0.8f, 0.0f, -1.0f ),
+                              12.0f,
+                              0.45f );
         AddMutualGravityBody( engine, 302u, Vector3( 16.0f, 90.0f, 4.0f ), Vector3( -0.4f, 0.0f, 1.1f ), 16.0f, 0.45f );
-        AddMutualGravityBody(
-            engine, 303u, Vector3( 2.0f, 90.0f, 24.0f ), Vector3( -0.2f, 0.0f, -0.8f ), 10.0f, 0.45f );
+        AddMutualGravityBody( engine,
+                              303u,
+                              Vector3( 2.0f, 90.0f, 24.0f ),
+                              Vector3( -0.2f, 0.0f, -0.8f ),
+                              10.0f,
+                              0.45f );
         REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Count() == 3 );
         REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadColliders( engine ).Count() == 3 );
     };
@@ -977,10 +1000,7 @@ TEST_CASE( "PhysicsEngine invariants: authored velocity wakes a sleeping body" )
     CHECK( DiagnosticsSleepStateAt( sleepWorld, 0 ) );
 
     const Vector3 positionBeforeWake = RequireBodyRecord( sleepWorld, 0 ).position;
-    REQUIRE( sleepWorld.SetBodyVelocity( body,
-                                         Vector3( 2.0f, 0.0f, 0.0f ),
-                                         Vector3( 0.0f, 0.0f, 0.0f ),
-                                         true ) );
+    REQUIRE( sleepWorld.SetBodyVelocity( body, Vector3( 2.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), true ) );
     CHECK_FALSE( RequireBodyRecord( sleepWorld, 0 ).isSleeping );
     CHECK_FALSE( DiagnosticsSleepStateAt( sleepWorld, 0 ) );
 
@@ -1049,18 +1069,16 @@ TEST_CASE( "Replay solver sample restore: recorded frame reproduces future frame
         CaptureMicroWorldReplaySample( restored, static_cast<ReplayFrameIndex>( kReplaySampleSnapshotFrame ) );
 
     StepMicroWorld( expected, kReplaySampleWindowTicks );
-    const ReplaySolverFrameSample expectedFuture =
-        CaptureMicroWorldReplaySample( expected,
-                                       static_cast<ReplayFrameIndex>( kReplaySampleSnapshotFrame +
-                                                                      kReplaySampleWindowTicks ) );
+    const ReplaySolverFrameSample expectedFuture = CaptureMicroWorldReplaySample(
+        expected,
+        static_cast<ReplayFrameIndex>( kReplaySampleSnapshotFrame + kReplaySampleWindowTicks ) );
 
     StepMicroWorld( restored, kReplaySampleWindowTicks );
     RestoreMicroWorldReplaySample( restored, restorePoint );
     StepMicroWorld( restored, kReplaySampleWindowTicks );
-    const ReplaySolverFrameSample restoredFuture =
-        CaptureMicroWorldReplaySample( restored,
-                                       static_cast<ReplayFrameIndex>( kReplaySampleSnapshotFrame +
-                                                                      kReplaySampleWindowTicks ) );
+    const ReplaySolverFrameSample restoredFuture = CaptureMicroWorldReplaySample(
+        restored,
+        static_cast<ReplayFrameIndex>( kReplaySampleSnapshotFrame + kReplaySampleWindowTicks ) );
 
     CheckReplaySamplesEqual( expectedFuture, restoredFuture );
 }

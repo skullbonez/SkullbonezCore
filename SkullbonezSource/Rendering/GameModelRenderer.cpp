@@ -98,7 +98,7 @@ bool IsPineVisualMaterial( const RenderMaterial& material )
 
 ShadowCasterStream ResolveShadowCasterStream( const RenderInstanceRecord& instance,
                                               int modelIndex,
-                                              const ColliderRecordList& colliders,
+                                              std::span<const ColliderRecord> colliders,
                                               const ConvexHullShape*& outHull )
 {
     outHull = nullptr;
@@ -149,7 +149,7 @@ void IncrementShadowCasterCount( ShadowCasterStreamCounts& counts, ShadowCasterS
 
 void AppendShadowCasterToBatches( const RenderInstanceRecord& instance,
                                   int modelIndex,
-                                  const ColliderRecordList& colliders,
+                                  std::span<const ColliderRecord> colliders,
                                   ShadowCasterBatches& batches )
 {
     const ConvexHullShape* hull = nullptr;
@@ -174,8 +174,8 @@ void AppendShadowCasterToBatches( const RenderInstanceRecord& instance,
     }
 }
 
-void CountShadowCasterRange( const std::vector<RenderInstanceRecord>& instances,
-                             const ColliderRecordList& colliders,
+void CountShadowCasterRange( std::span<const RenderInstanceRecord> instances,
+                             std::span<const ColliderRecord> colliders,
                              int begin,
                              int end,
                              ShadowCasterStreamCounts& counts )
@@ -205,8 +205,8 @@ void ResizeShadowCasterBatchesNoAlloc( ShadowCasterBatches& batches, const Shado
     batches.convexHulls.resize( static_cast<std::size_t>( totals.convexHulls ) );
 }
 
-void FillShadowCasterRange( const std::vector<RenderInstanceRecord>& instances,
-                            const ColliderRecordList& colliders,
+void FillShadowCasterRange( std::span<const RenderInstanceRecord> instances,
+                            std::span<const ColliderRecord> colliders,
                             int begin,
                             int end,
                             const ShadowCasterStreamCounts& offsets,
@@ -242,8 +242,8 @@ void FillShadowCasterRange( const std::vector<RenderInstanceRecord>& instances,
     }
 }
 
-bool BuildShadowCasterBatchesWithWorkers( const std::vector<RenderInstanceRecord>& instances,
-                                          const ColliderRecordList& colliders,
+bool BuildShadowCasterBatchesWithWorkers( std::span<const RenderInstanceRecord> instances,
+                                          std::span<const ColliderRecord> colliders,
                                           SkullbonezCore::Threading::WorkerPool& workerPool,
                                           int modelCount,
                                           ShadowCasterBatches& outBatches )
@@ -353,7 +353,7 @@ void GameModelRenderer::RenderModels( const PrimitiveRenderContext& primitiveCon
                                       bool drawMaskedModels,
                                       Rendering::RenderVisibilityView visibilityView )
 {
-    const std::vector<RenderInstanceRecord>& instances = renderStore.Records();
+    const auto instances = renderStore.Records();
 
     if ( instances.empty() )
     {
@@ -514,7 +514,7 @@ void GameModelRenderer::RenderModels( const PrimitiveRenderContext& primitiveCon
 
     {
         DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "ConvexHulls" );
-        const ColliderRecordList* colliders = nullptr;
+        std::span<const ColliderRecord> colliders;
         for ( int visibleIndex = 0; visibleIndex < visibleCount; ++visibleIndex )
         {
             const int x = visibleIndices[visibleIndex];
@@ -527,16 +527,16 @@ void GameModelRenderer::RenderModels( const PrimitiveRenderContext& primitiveCon
             {
                 continue;
             }
-            if ( !colliders )
+            if ( colliders.empty() )
             {
-                colliders = &colliderStore.Records();
+                colliders = colliderStore.Records();
             }
-            if ( static_cast<std::size_t>( x ) >= colliders->size() )
+            if ( static_cast<std::size_t>( x ) >= colliders.size() )
             {
                 continue;
             }
 
-            const ColliderRecord& collider = ( *colliders )[static_cast<std::size_t>( x )];
+            const ColliderRecord& collider = colliders[static_cast<std::size_t>( x )];
             const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &collider.shape );
             if ( !hull )
             {
@@ -575,7 +575,7 @@ void GameModelRenderer::BuildShadowCasterBatches( const RenderInstanceStore& ren
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches" );
 
-    const std::vector<RenderInstanceRecord>& instances = renderStore.Records();
+    const auto instances = renderStore.Records();
     outBatches.Clear();
 
     if ( instances.empty() )
@@ -597,7 +597,7 @@ void GameModelRenderer::BuildShadowCasterBatches( const RenderInstanceStore& ren
                   outBatches.convexHulls.capacity() );
     }
 
-    const ColliderRecordList& colliders = colliderStore.Records();
+    const auto colliders = colliderStore.Records();
     auto appendRange = [&]( int begin, int end, ShadowCasterBatches& batches )
     {
         for ( int x = begin; x < end; ++x )
@@ -748,7 +748,7 @@ bool GameModelRenderer::GetObjectShadowBounds( const RenderInstanceStore& render
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds" );
 
-    const std::vector<RenderInstanceRecord>& instances = renderStore.Records();
+    const auto instances = renderStore.Records();
 
     if ( instances.empty() )
     {

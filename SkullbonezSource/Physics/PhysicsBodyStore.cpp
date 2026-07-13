@@ -123,7 +123,7 @@ Vector3 PositiveComponentInverseOrZero( const Vector3& value )
 
 const ColliderRecord* ColliderRecordForModelIndex( const ColliderStore& colliderStore, int modelIndex )
 {
-    const ColliderRecordList& colliders = colliderStore.Records();
+    const auto colliders = colliderStore.Records();
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( colliders.size() ) )
     {
         return nullptr;
@@ -1168,8 +1168,8 @@ void PhysicsBodyStore::Clear()
 }
 
 
-void PhysicsBodyStore::LoadFromDescriptors( const std::vector<PhysicsBodyCreateDesc>& bodyDescs,
-                                            const std::vector<uint8_t>& sleepStates )
+void PhysicsBodyStore::LoadFromDescriptors( std::span<const PhysicsBodyCreateDesc> bodyDescs,
+                                            std::span<const uint8_t> sleepStates )
 {
     const PreservedRefreshStateList preservedStateByHandle =
         CapturePreservedRefreshState( m_bodies, m_handleGenerations.size() );
@@ -1397,7 +1397,7 @@ void PhysicsBodyStore::RefreshRecordFromDescriptorAt( const PhysicsBodyCreateDes
 }
 
 
-void PhysicsBodyStore::CopySleepStatesFrom( const std::vector<uint8_t>& sleepStates )
+void PhysicsBodyStore::CopySleepStatesFrom( std::span<const uint8_t> sleepStates )
 {
     const int bodyCount = Count();
     for ( int i = 0; i < bodyCount; ++i )
@@ -1598,15 +1598,21 @@ bool PhysicsBodyStore::Contains( PhysicsBodyHandle handle ) const
 }
 
 
-const PhysicsBodyRecordList& PhysicsBodyStore::Records() const
+std::span<const PhysicsBodyRecord> PhysicsBodyStore::Records() const
 {
-    return m_bodies;
+    return { m_bodies.data(), m_bodies.size() };
 }
 
 
-PhysicsBodyRecordList& PhysicsBodyStore::MutableRecords()
+std::span<PhysicsBodyRecord> PhysicsBodyStore::MutableRecords()
 {
-    return m_bodies;
+    return { m_bodies.data(), m_bodies.size() };
+}
+
+
+std::size_t PhysicsBodyStore::RecordCapacity() const
+{
+    return m_bodies.capacity();
 }
 
 

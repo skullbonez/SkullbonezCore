@@ -645,13 +645,15 @@ SkullbonezCore::Core::MainMemoryGameObjectStats SceneController::CollectMemorySt
 
     stats.modelCount = static_cast<std::size_t>( m_renderInstanceStore.PresentationCount() );
     stats.modelCapacity = m_renderInstanceStore.PresentationCapacity();
-    stats.bodyStoreCapacity = bodyStore.Records().capacity();
-    stats.colliderStoreCapacity = colliderStore.Records().capacity();
-    stats.renderStoreCapacity = renderStore.Records().capacity();
+    stats.bodyStoreCapacity = bodyStore.RecordCapacity();
+    stats.colliderStoreCapacity = colliderStore.RecordCapacity();
+    stats.renderStoreCapacity = renderStore.RecordCapacity();
     stats.modelVectorBytes = m_renderInstanceStore.PresentationCapacityBytes() + SceneEntities().CapacityBytes();
-    stats.physicsStoreBytes = VectorCapacityBytes( bodyStore.Records() );
-    stats.colliderStoreBytes = VectorCapacityBytes( colliderStore.Records() );
-    stats.renderStoreBytes = VectorCapacityBytes( renderStore.Records() );
+    stats.physicsStoreBytes = static_cast<uint64_t>( bodyStore.RecordCapacity() ) * sizeof( PhysicsBodyRecord );
+    stats.colliderStoreBytes =
+        static_cast<uint64_t>( colliderStore.RecordCapacity() ) * sizeof( Physics::ColliderRecord );
+    stats.renderStoreBytes =
+        static_cast<uint64_t>( renderStore.RecordCapacity() ) * sizeof( Rendering::RenderInstanceRecord );
     stats.physicsWorldBytes = m_physics.CollectPhysicsWorldMemoryBytes();
     stats.debugAndBroadphaseBytes = m_physics.CollectDebugAndBroadphaseMemoryBytes();
     stats.totalBytes = stats.modelVectorBytes + stats.physicsStoreBytes + stats.colliderStoreBytes +
@@ -783,7 +785,7 @@ double SceneController::GetSceneKineticEnergy()
     constexpr double REST_ANGULAR_SPEED_SQ = 0.3 * 0.3;
     double totalEnergy = 0.0;
     const PhysicsBodyStore& bodyStore = BodyStore();
-    const auto& bodies = bodyStore.Records();
+    const auto bodies = bodyStore.Records();
     for ( const PhysicsBodyRecord& body : bodies )
     {
         if ( body.isFixed )
@@ -867,7 +869,7 @@ void SceneController::RefreshRenderInstances( float presentationAlpha )
         return;
     }
 #ifdef _DEBUG
-    const std::vector<Rendering::RenderInstanceRecord>& instances = m_renderInstanceStore.Records();
+    const auto instances = m_renderInstanceStore.Records();
     for ( int i = 0; i < modelCount; ++i )
     {
         const std::size_t index = static_cast<std::size_t>( i );

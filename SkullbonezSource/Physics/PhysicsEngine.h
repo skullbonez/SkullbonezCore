@@ -31,6 +31,7 @@ Related:
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include "PhysicsScene.h"
 
 namespace SkullbonezCore
@@ -173,13 +174,13 @@ class PhysicsEngine
     static const PhysicsBodyStore& ReadBodies( const PhysicsEngine& engine );
     static const ColliderStore& ReadColliders( const PhysicsEngine& engine );
     static const Math::CollisionDetection::SpatialGrid& ReadSpatialGrid( const PhysicsEngine& engine );
-    static const std::vector<int>& ReadFixedContactHighlightBodies( const PhysicsEngine& engine );
+    static std::span<const int> ReadFixedContactHighlightBodies( const PhysicsEngine& engine );
     static const std::vector<int64_t>& ReadCollisionCellKeys( const PhysicsEngine& engine );
     static const std::vector<uint8_t>& ReadCollisionVisualContacts( const PhysicsEngine& engine );
-    static const std::vector<uint8_t>& ReadSleepStates( const PhysicsEngine& engine );
-    static const std::vector<int>& ReadSleepIslandVisualIds( const PhysicsEngine& engine );
-    static const std::vector<uint8_t>& ReadSleepSupportedStates( const PhysicsEngine& engine );
-    static const std::vector<uint8_t>& ReadSleepInhibitedStates( const PhysicsEngine& engine );
+    static std::span<const uint8_t> ReadSleepStates( const PhysicsEngine& engine );
+    static std::span<const int> ReadSleepIslandVisualIds( const PhysicsEngine& engine );
+    static std::span<const uint8_t> ReadSleepSupportedStates( const PhysicsEngine& engine );
+    static std::span<const uint8_t> ReadSleepInhibitedStates( const PhysicsEngine& engine );
     static const std::vector<PhysicsDebugContact>& ReadDebugContacts( const PhysicsEngine& engine );
     static const std::vector<PhysicsPipelineRecord>& ReadPipelineTrace( const PhysicsEngine& engine );
     static const std::vector<PointJointConstraint>& ReadPointJointConstraints( const PhysicsEngine& engine );

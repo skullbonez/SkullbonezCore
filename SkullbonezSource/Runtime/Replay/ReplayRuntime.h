@@ -74,6 +74,7 @@ Related:
 #include <atomic>
 #include <chrono>
 #include <memory>
+#include <span>
 #include <string>
 
 namespace SkullbonezCore
@@ -899,7 +900,7 @@ class ReplayRuntime
         const SceneEntityStore& entities;
         const Physics::PhysicsBodyStore& bodyStore;
         const Physics::ColliderStore& colliderStore;
-        const std::vector<Rendering::RenderInstancePresentationRecord>& presentation;
+        std::span<const Rendering::RenderInstancePresentationRecord> presentation;
         Environment::CameraCollection* cameras = nullptr;
         Geometry::Terrain* terrain = nullptr;
         RunCameraState& camera;
@@ -924,7 +925,7 @@ class ReplayRuntime
         RuntimeInteractionController& interaction;
         Physics::PhysicsEngine& physics;
         const SceneEntityStore& entities;
-        const std::vector<Rendering::RenderInstancePresentationRecord>& presentation;
+        std::span<const Rendering::RenderInstancePresentationRecord> presentation;
         Environment::CameraCollection* cameras = nullptr;
         Geometry::Terrain* terrain = nullptr;
         RunCameraState& camera;
@@ -1121,7 +1122,9 @@ class ReplayRuntime
 
     RunReplayPredictionState& Prediction();
     const RunReplayPredictionState& Prediction() const;
-    const std::vector<RunReplayPredictionFrame>& ActivePredictionFrames() const;
+    // Lifetime: the view borrows the active retained prediction buffer and is
+    // valid only until replay prediction state mutates.
+    std::span<const RunReplayPredictionFrame> ActivePredictionFrames() const;
     void ClearPredictionFutureNodeCache();
     void WaitForPredictionJobIdle();
     // Promotes the currently visible worker-built prediction prefix into the
@@ -1298,11 +1301,11 @@ class ReplayRuntime
     // Resolves the current velocity-edit target to live physics authority. The
     // stored model index is a staleable hint, not identity.
     Physics::PhysicsBodyHandle ResolveVelocityEditBodyHandle( const Physics::PhysicsBodyStore& bodyStore ) const;
-    bool BuildCauseTreeRows( const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords,
+    bool BuildCauseTreeRows( std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
                              const Physics::PhysicsBodyStore& bodyStore );
-    bool BuildPredictionGhostDrawRequests(
-        const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords,
-        const Physics::PhysicsBodyStore& bodyStore );
+    bool
+    BuildPredictionGhostDrawRequests( std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
+                                      const Physics::PhysicsBodyStore& bodyStore );
     const std::vector<ReplayPredictionGhostDrawRequest>& PredictionGhostDrawRequests() const;
     bool BuildFocusModelMask( const Physics::PhysicsBodyStore& bodyStore, int modelCount );
     std::vector<uint8_t>& FocusModelMask();
@@ -1427,7 +1430,7 @@ class ReplayRuntime
                                       const SceneEntityStore& entities,
                                       const Physics::PhysicsBodyStore& bodyStore,
                                       const Physics::ColliderStore& colliderStore,
-                                      const std::vector<Rendering::RenderInstancePresentationRecord>& presentation );
+                                      std::span<const Rendering::RenderInstancePresentationRecord> presentation );
     bool RouteWorldPointer( const WorldPointerInput& input );
     bool SetPathTarget( const char* name, int modelIndex, const Physics::PhysicsBodyStore& bodyStore );
     bool BeginToolGesture( RuntimeInteractionController& interaction,
@@ -1457,7 +1460,7 @@ class ReplayRuntime
                              RuntimeInteractionController& interaction,
                              const Physics::PhysicsBodyStore& bodyStore,
                              const Physics::ColliderStore& colliderStore,
-                             const std::vector<Rendering::RenderInstancePresentationRecord>& presentation,
+                             std::span<const Rendering::RenderInstancePresentationRecord> presentation,
                              Environment::CameraCollection* cameras,
                              Geometry::Terrain* terrain,
                              RunCameraState& camera,
@@ -1476,7 +1479,7 @@ class ReplayRuntime
                                 RuntimeInteractionController& interaction,
                                 Physics::PhysicsEngine& physics,
                                 const SceneEntityStore& entities,
-                                const std::vector<Rendering::RenderInstancePresentationRecord>& presentation,
+                                std::span<const Rendering::RenderInstancePresentationRecord> presentation,
                                 Environment::CameraCollection* cameras,
                                 Geometry::Terrain* terrain,
                                 RunCameraState& camera,

@@ -111,7 +111,7 @@ bool TryQueueReplayRenderPoseOverride( int modelIndex,
                                        uint32_t replayBodyId,
                                        const Math::Vector::Vector3& position,
                                        const Math::Orientation::Quaternion& orientation );
-const std::vector<Rendering::RenderInstancePresentationRecord>& RenderPresentationRecords() const
+std::span<const Rendering::RenderInstancePresentationRecord> RenderPresentationRecords() const
 {
     return m_renderInstanceStore.PresentationRecords();
 }

@@ -203,7 +203,7 @@ const std::vector<int>& TornadoGameplay::ReleaseFixedBodies( const TornadoGamepl
         return m_releaseWakeBodies;
     }
 
-    PhysicsBodyRecordList& bodyRecords = bodyStore.MutableRecords();
+    const auto bodyRecords = bodyStore.MutableRecords();
     for ( int i = 0; i < bodyStore.Count(); ++i )
     {
         PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( i )];
@@ -251,7 +251,7 @@ void TornadoGameplay::ApplyBodyForces( const TornadoGameplayStepState& stepState
         return;
     }
 
-    PhysicsBodyRecordList& bodyRecords = context.bodyStore.MutableRecords();
+    const auto bodyRecords = context.bodyStore.MutableRecords();
     const int modelCount = (std::min)( { context.bodyStore.Count(),
                                          static_cast<int>( bodyRecords.size() ),
                                          context.colliderStore.Count() } );

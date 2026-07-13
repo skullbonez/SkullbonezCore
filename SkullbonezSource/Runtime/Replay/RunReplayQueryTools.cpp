@@ -131,7 +131,7 @@ ReplayRuntime::TryPickPathTarget( const PathPickInput& input,
                                   const SceneEntityStore& entities,
                                   const PhysicsBodyStore& bodyStore,
                                   const ColliderStore& colliderStore,
-                                  const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords )
+                                  std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords )
 {
     PathPickResult pickResult;
     // Concept: A path pick converts volatile mouse/model hits into stable

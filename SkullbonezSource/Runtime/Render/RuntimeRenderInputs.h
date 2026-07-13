@@ -31,6 +31,7 @@ Related:
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <vector>
 
 #include "../../Core/MainMemoryStats.h"
@@ -129,12 +130,12 @@ struct RuntimeRenderModelFrameView
     const Physics::ColliderStore& colliders;
     const Physics::PhysicsBodyStore& bodyStore;
     Physics::PhysicsEngine& physicsEngine;
-    const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords;
+    std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords;
     const std::vector<uint8_t>& collisionVisualContacts;
-    const std::vector<uint8_t>& sleepStates;
-    const std::vector<int>& sleepIslandVisualIds;
-    const std::vector<uint8_t>& sleepSupportedStates;
-    const std::vector<uint8_t>& sleepInhibitedStates;
+    std::span<const uint8_t> sleepStates;
+    std::span<const int> sleepIslandVisualIds;
+    std::span<const uint8_t> sleepSupportedStates;
+    std::span<const uint8_t> sleepInhibitedStates;
     const std::vector<Physics::PhysicsDebugContact>& physicsDebugContacts;
     const std::vector<Physics::PhysicsPipelineRecord>& physicsPipelineTrace;
     Threading::WorkerPool* renderWorkerPool;

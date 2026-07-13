@@ -303,18 +303,29 @@ screenshots, and physics matched the 44,401-line baseline byte-exactly.
 
 ## R8 — `std::span` at dense-store boundaries
 
-- [ ] Inventory pointer+count and `const std::vector<T>&` view parameters on:
+- [x] Inventory pointer+count and `const std::vector<T>&` view parameters on:
       `PhysicsBodyStore`, `ColliderStore`, `PersistentContactSolverContext`,
       solver side-effect queues, sleep/island passes, broadphase candidate
       consumers, `RenderInstanceStore` submission, replay sample views.
-- [ ] Convert read seams to `std::span<const T>`, write seams to
+- [x] Convert read seams to `std::span<const T>`, write seams to
       `std::span<T>`; storage ownership and capacities unchanged.
-- [ ] Guard rail: spans are frame-scoped borrows; no span stored as a member
+- [x] Guard rail: spans are frame-scoped borrows; no span stored as a member
       that outlives the store contents it views (comment the lifetime rule at
       each stored-view site if any must exist).
-- [ ] Prove no copies were introduced: `tools\validate_perf.bat` within noise
-      of the pre-change run (record both numbers).
-- [ ] `tools\validate_physics.bat` byte-exact (no refresh allowed).
+- [x] Prove no copies were introduced: the pre-change
+      `tools\validate_perf.bat` passed in 61.6s and the post-change run passed
+      in 62.2s. DX12 frame average/p99 improved 6.2%/23.0%; physics-bench frame
+      average/p99 improved 9.7%/22.1%; all structural and budget comparisons
+      passed. The sole upward comparison was the quantized physics-bench
+      shadow-batch average, 0.0005ms to 0.0006ms (+0.0001ms), while its p99
+      improved 25%.
+- [x] `tools\validate_physics.bat` passed in 66.8s: Debug built with zero
+      warnings, standalone smoke passed, and the 44,401-line varied-scene CSV
+      remained byte-exact without a baseline refresh.
+- [x] Comment-quality audit completed for all 52 touched source-bearing files
+      using `Agentic/Skills/comment-style-audit/skill.md`: 52 checked, 0
+      deferred, 0 unchecked. Learning headers remain complete and every stored
+      span is a synchronous frame/context borrow with a local lifetime rule.
 
 ## R9 — Deterministic solver SIMD
 

@@ -110,9 +110,7 @@ struct SolverFixture
     SkullbonezCore::Core::EngineConfig config;
     PersistentContactSolver solver;
 
-    SolverFixture()
-        : bodyRecords( TestBodyRecords() ),
-          colliderRecords( TestColliderRecords() )
+    SolverFixture() : bodyRecords( TestBodyRecords() ), colliderRecords( TestColliderRecords() )
     {
         config.physicsExecution.parallel = false;
         config.worldForces.gravity = -30.0f;
@@ -124,9 +122,7 @@ struct SolverFixture
         config.persistentContactSolver.iterations = 12;
     }
 
-    void AddDynamicSphere( const Vector3& position,
-                           const Vector3& linearVelocity,
-                           float restitution = 0.0f )
+    void AddDynamicSphere( const Vector3& position, const Vector3& linearVelocity, float restitution = 0.0f )
     {
         const float radius = 1.0f;
         const float mass = 2.0f;
@@ -189,8 +185,8 @@ struct SolverFixture
                                                terrainRestApplied,
                                                sleepSupportedThisFrame,
                                                sideEffects,
-                                               bodyRecords,
-                                               colliderRecords,
+                                               { bodyRecords.data(), bodyRecords.size() },
+                                               { colliderRecords.data(), colliderRecords.size() },
                                                static_cast<int>( bodyRecords.size() ),
                                                0,
                                                false,

@@ -208,7 +208,7 @@ bool ApplyNeckSwingLimits( PhysicsBodyStore& bodyStore,
                            const std::vector<PointJointConstraint>& constraints,
                            const std::vector<uint8_t>& sleepState )
 {
-    auto& bodyRecords = bodyStore.MutableRecords();
+    const auto bodyRecords = bodyStore.MutableRecords();
     const int modelCount = bodyStore.Count();
     bool changed = false;
     for ( const PointJointConstraint& constraint : constraints )
@@ -472,7 +472,7 @@ bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore,
         return false;
     }
 
-    auto& bodyRecords = bodyStore.MutableRecords();
+    const auto bodyRecords = bodyStore.MutableRecords();
     const int modelCount = bodyStore.Count();
     const float invDt = 1.0f / dt;
     for ( int iteration = 0; iteration < RAGDOLL_SOLVER_ITERATIONS; ++iteration )

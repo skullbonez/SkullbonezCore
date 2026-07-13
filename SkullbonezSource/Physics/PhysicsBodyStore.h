@@ -40,6 +40,7 @@ Related:
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <vector>
 
 #include "PhysicsHandles.h"
@@ -121,8 +122,7 @@ class PhysicsBodyStore
     // Cold topology repair imports descriptor rows produced by the collection
     // owner. The store preserves handle-keyed one-shot state while replacing
     // model-order records from those explicit values.
-    void LoadFromDescriptors( const std::vector<PhysicsBodyCreateDesc>& bodyDescs,
-                              const std::vector<uint8_t>& sleepStates );
+    void LoadFromDescriptors( std::span<const PhysicsBodyCreateDesc> bodyDescs, std::span<const uint8_t> sleepStates );
     // Creates a physics-owned body row from descriptor data. The store
     // assigns the handle and keeps the row dense; callers supply authored state.
     PhysicsBodyHandle CreateBodyRecord( const PhysicsBodyRecord& record );
@@ -152,7 +152,7 @@ class PhysicsBodyStore
                                  const Math::Vector::Vector3& rotationalInertia,
                                  const Math::Vector::Vector3& inverseRotationalInertia );
     void RefreshRecordFromDescriptorAt( const PhysicsBodyCreateDesc& desc, int modelIndex );
-    void CopySleepStatesFrom( const std::vector<uint8_t>& sleepStates );
+    void CopySleepStatesFrom( std::span<const uint8_t> sleepStates );
     void CopySleepStatesTo( std::vector<uint8_t>& sleepStates ) const;
     // Cold descriptor refresh keeps replay identity with the body store. Scene
     // owners supply only the row count; missing rows receive fresh store-scanned ids.
@@ -180,8 +180,11 @@ class PhysicsBodyStore
     int ResolveModelRow( PhysicsBodyHandle handle, ModelRowHint& hint ) const;
     int ModelIndexForHandle( PhysicsBodyHandle handle ) const;
     bool Contains( PhysicsBodyHandle handle ) const;
-    const PhysicsBodyRecordList& Records() const;
-    PhysicsBodyRecordList& MutableRecords();
+    // Lifetime: these spans borrow the store's live dense prefix and must not be
+    // retained across scene mutation, compaction, or store destruction.
+    std::span<const PhysicsBodyRecord> Records() const;
+    std::span<PhysicsBodyRecord> MutableRecords();
+    std::size_t RecordCapacity() const;
     PhysicsBodyRecord* MutableRecordForHandle( PhysicsBodyHandle handle );
     const PhysicsBodyRecord* RecordForHandle( PhysicsBodyHandle handle ) const;
     PhysicsBodyRecord* MutableRecordForModelIndex( int modelIndex );

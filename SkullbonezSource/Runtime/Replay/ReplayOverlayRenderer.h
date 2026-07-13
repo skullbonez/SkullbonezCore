@@ -65,7 +65,7 @@ struct ReplayOverlayRenderContext
     // store it after the draw call returns.
     Rendering::IRenderCommandContext& renderCommands;
     ReplayRuntime& replayRuntime;
-    const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords;
+    std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords;
     const Physics::PhysicsBodyStore& bodyStore;
     bool editorModeEnabled = false;
     bool uiVisible = false;

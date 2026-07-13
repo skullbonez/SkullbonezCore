@@ -36,6 +36,7 @@ Related:
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 #include "ColliderStore.h"
@@ -188,16 +189,16 @@ class PhysicsScene
     friend class PhysicsEngine;
 
     void LoadBodyDescriptors( const std::vector<PhysicsBodyCreateDesc>& bodyDescs );
-    const std::vector<int>& GetFixedContactHighlightBodies() const;
+    std::span<const int> GetFixedContactHighlightBodies() const;
     const PhysicsBodyStore& BodyStore() const;
     const ColliderStore& Colliders() const;
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
     const std::vector<int64_t>& GetCollisionCellKeys() const;
     const std::vector<uint8_t>& GetCollisionVisualContacts() const;
-    const std::vector<uint8_t>& GetSleepStates() const;
-    const std::vector<int>& GetSleepIslandVisualIds() const;
-    const std::vector<uint8_t>& GetSleepSupportedStates() const;
-    const std::vector<uint8_t>& GetSleepInhibitedStates() const;
+    std::span<const uint8_t> GetSleepStates() const;
+    std::span<const int> GetSleepIslandVisualIds() const;
+    std::span<const uint8_t> GetSleepSupportedStates() const;
+    std::span<const uint8_t> GetSleepInhibitedStates() const;
     const std::vector<PhysicsDebugContact>& GetPhysicsDebugContacts() const;
     const std::vector<PhysicsPipelineRecord>& GetPhysicsPipelineTrace() const;
     const std::vector<PointJointConstraint>& GetPointJointConstraints() const;

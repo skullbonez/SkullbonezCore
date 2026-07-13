@@ -310,18 +310,15 @@ uint64_t PredictionEngineMemoryBytes( const PhysicsEngine& engine )
     uint64_t bytes = static_cast<uint64_t>( sizeof( engine ) );
     bytes += engine.CollectPhysicsWorldMemoryBytes();
     bytes += engine.CollectDebugAndBroadphaseMemoryBytes();
-    bytes +=
-        static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Records().capacity() ) *
-        sizeof( PhysicsBodyRecord );
-    bytes +=
-        static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadColliders( engine ).Records().capacity() ) *
-        sizeof( ColliderRecord );
+    bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).RecordCapacity() ) *
+             sizeof( PhysicsBodyRecord );
+    bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadColliders( engine ).RecordCapacity() ) *
+             sizeof( ColliderRecord );
     return bytes;
 }
 
-bool ReplayRuntimeModelIsRagdollPart(
-    const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords,
-    int modelIndex )
+bool ReplayRuntimeModelIsRagdollPart( std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
+                                      int modelIndex )
 {
     // SimpleRagdoll children share replay visuals with their collection root.
     // This helper keeps that policy local to replay loading/restoration paths.
@@ -482,7 +479,7 @@ float ReplayRuntimeColliderRadiusForModelIndex( const ColliderStore& colliderSto
         return ReplayRuntimeColliderRadius( *collider );
     }
 
-    const auto& colliders = colliderStore.Records();
+    const auto colliders = colliderStore.Records();
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( colliders.size() ) )
     {
         return 1.0f;
@@ -957,7 +954,7 @@ const RunReplayPredictionState& ReplayRuntime::Prediction() const
     return m_prediction;
 }
 
-const std::vector<RunReplayPredictionFrame>& ReplayRuntime::ActivePredictionFrames() const
+std::span<const RunReplayPredictionFrame> ReplayRuntime::ActivePredictionFrames() const
 {
     return ReplayRuntimeActivePredictionFrames( m_prediction );
 }
@@ -2380,7 +2377,7 @@ bool ReplayRuntime::ResolveCauseTreeBodyPosition( ReplayBodyId id,
         *outRadius = 1.0f;
     }
 
-    const std::vector<RunReplayPredictionFrame>& activePredictionFrames = ActivePredictionFrames();
+    const std::span<const RunReplayPredictionFrame> activePredictionFrames = ActivePredictionFrames();
     if ( m_prediction.enabled && !activePredictionFrames.empty() &&
          m_prediction.simulation.targetId.value == m_pathVisualizer.targetId.value )
     {
@@ -2419,7 +2416,7 @@ bool ReplayRuntime::ResolveCauseTreeBodyPosition( ReplayBodyId id,
         }
     }
 
-    const auto& bodies = bodyStore.Records();
+    const auto bodies = bodyStore.Records();
     for ( int i = 0; i < static_cast<int>( bodies.size() ); ++i )
     {
         const PhysicsBodyRecord& body = bodies[static_cast<std::size_t>( i )];
@@ -2450,7 +2447,7 @@ PhysicsBodyHandle ReplayRuntime::ResolveVelocityEditBodyHandle( const PhysicsBod
 
 
 bool ReplayRuntime::BuildCauseTreeRows(
-    const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords,
+    std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
     const PhysicsBodyStore& bodyStore )
 {
     PROFILE_SCOPED( "Frame/Replay/CauseTree/BuildRows" );
@@ -2941,11 +2938,11 @@ bool ReplayRuntime::BuildCauseTreeRows(
 
 
 bool ReplayRuntime::BuildPredictionGhostDrawRequests(
-    const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords,
+    std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
     const PhysicsBodyStore& bodyStore )
 {
     m_predictionGhostDrawRequests.clear();
-    const std::vector<RunReplayPredictionFrame>& frames = ActivePredictionFrames();
+    const std::span<const RunReplayPredictionFrame> frames = ActivePredictionFrames();
     const bool drawLivePrediction = m_prediction.enabled && m_prediction.ragdollVisualsEnabled && frames.size() >= 2;
     const bool drawBaseline = m_prediction.baseline.valid && m_prediction.baseline.comparisonActive &&
                               m_prediction.ragdollVisualsEnabled && !m_prediction.baseline.bodyPoses.empty();
