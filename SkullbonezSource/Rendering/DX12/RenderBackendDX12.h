@@ -295,7 +295,11 @@ class Dx12ResourceRelease
 class Dx12FrameOwner
 {
   public:
-    static constexpr int FRAME_COUNT = 3;
+    // Why: two frame owners bound uncapped input-to-display latency and restore
+    // the smoother camera pacing observed before the three-frame experiment.
+    // Raise this to three only if profiling proves allocator-reuse waits are
+    // limiting a GPU-heavy workload enough to justify the extra queued frame.
+    static constexpr int FRAME_COUNT = 2;
     static constexpr int PROFILER_STACK_CAPACITY = 64;
 
     Dx12FrameOwner( Dx12RenderDevice& device, Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures );
@@ -980,7 +984,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
   private:
     // Frame management:
     //
-    // Three frames can be in flight. Each frame owns its own command allocator,
+    // Two frames can be in flight. Each frame owns its own command allocator,
     // upload arena, transient descriptors, and fence value so the CPU never
     // overwrites memory or descriptor rows still being read by the GPU.
     static constexpr int FRAME_COUNT = Dx12FrameOwner::FRAME_COUNT;
@@ -990,9 +994,10 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     static const UINT MAX_TRANSIENT_SRVS = 2048;                   // per frame allocator
     // Replay/debug geometry is owner-bounded before it reaches this arena. A
     // steady-phase overflow drops that draw; cold lifecycle/capture work may drain.
-    // Capacity: 32 MiB per frame means three arenas reserve 96 MiB total. The
-    // third arena buys CPU/GPU overlap without changing the no-growth overflow
-    // policy: steady runtime still drops the bounded draw instead of growing.
+    // Capacity: 32 MiB per frame means two arenas reserve 64 MiB total. Raising
+    // FRAME_COUNT to three would reserve 96 MiB and buy more CPU/GPU overlap
+    // without changing the no-growth overflow policy: steady runtime would
+    // still drop the bounded draw instead of growing.
     static const UINT64 UPLOAD_BUFFER_SIZE = 32 * 1024 * 1024;
     static const int TIMER_HEAP_MARKERS = DX12_TIMER_HEAP_MARKERS; // must be >= SkullbonezCore::Core::Profiler::MAX_MARKERS
     static const int TIMER_HEAP_SIZE = DX12_TIMER_HEAP_SIZE;       // begin + end per marker
