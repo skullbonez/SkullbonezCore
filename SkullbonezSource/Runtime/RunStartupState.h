@@ -37,7 +37,7 @@ namespace Basics
 {
 struct RunStartupState
 {
-    int gameModelCapacity = DEFAULT_GAME_MODEL_CAPACITY;
+    int gameModelCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_GAME_MODEL_CAPACITY;
     int workerThreads = -1;
 
     void ApplyStartupConfig( const EngineConfig& config ); // Captures startup-only capacity/thread policy from config.

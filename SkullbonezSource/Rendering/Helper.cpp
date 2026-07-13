@@ -28,7 +28,7 @@ Related:
 */
 #include "Helper.h"
 #include "../Core/Config.h"
-#include "../GameObjects/SceneCapacity.h"
+#include "../Runtime/Scene/SceneCapacity.h"
 #include "../Assets/AssetSystem.h"
 #include "../Physics/ConvexHullShape.h"
 #include "../Core/Profiler.h"
@@ -800,7 +800,7 @@ void RenderHelper::BuildSphereMesh( const RenderHelperContext& context, int slic
     m_state.sphereInstMesh = Resources( context ).CreateInstancedMesh( verts.data(),
                                                                        m_state.sphereVertexCount,
                                                                        8,
-                                                                       MAX_GAME_MODELS,
+                                                                       SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS,
                                                                        INSTANCE_FLOATS,
                                                                        3,
                                                                        instanceAttribSizes,
@@ -808,7 +808,7 @@ void RenderHelper::BuildSphereMesh( const RenderHelperContext& context, int slic
                                                                        staticAttribSizes,
                                                                        3 );
 
-    m_state.sphereInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
+    m_state.sphereInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
 
 
@@ -830,18 +830,19 @@ void RenderHelper::BuildLowPolySphereMesh( const RenderHelperContext& context, i
 
     int staticAttribSizes[] = { 3, 3, 2 };
     int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4, 4 };
-    m_state.lowPolySphereInstMesh = Resources( context ).CreateInstancedMesh( verts.data(),
-                                                                              m_state.lowPolySphereVertexCount,
-                                                                              8,
-                                                                              MAX_GAME_MODELS,
-                                                                              INSTANCE_FLOATS,
-                                                                              3,
-                                                                              instanceAttribSizes,
-                                                                              8,
-                                                                              staticAttribSizes,
-                                                                              3 );
+    m_state.lowPolySphereInstMesh =
+        Resources( context ).CreateInstancedMesh( verts.data(),
+                                                  m_state.lowPolySphereVertexCount,
+                                                  8,
+                                                  SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS,
+                                                  INSTANCE_FLOATS,
+                                                  3,
+                                                  instanceAttribSizes,
+                                                  8,
+                                                  staticAttribSizes,
+                                                  3 );
 
-    m_state.sphereInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
+    m_state.sphereInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
 
 
@@ -1047,7 +1048,7 @@ void RenderHelper::BuildBoxMesh( const RenderHelperContext& context )
     m_state.boxInstMesh = Resources( context ).CreateInstancedMesh( verts.data(),
                                                                     m_state.boxVertexCount,
                                                                     8,
-                                                                    MAX_GAME_MODELS,
+                                                                    SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS,
                                                                     INSTANCE_FLOATS,
                                                                     3,
                                                                     instanceAttribSizes,
@@ -1055,7 +1056,7 @@ void RenderHelper::BuildBoxMesh( const RenderHelperContext& context )
                                                                     staticAttribSizes,
                                                                     3 );
 
-    m_state.boxInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
+    m_state.boxInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
 
 
@@ -1282,7 +1283,7 @@ void RenderHelper::BuildPineMesh( const RenderHelperContext& context )
     m_state.pineInstMesh = Resources( context ).CreateInstancedMesh( verts.data(),
                                                                      m_state.pineVertexCount,
                                                                      8,
-                                                                     MAX_GAME_MODELS,
+                                                                     SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS,
                                                                      INSTANCE_FLOATS,
                                                                      3,
                                                                      instanceAttribSizes,
@@ -1290,7 +1291,7 @@ void RenderHelper::BuildPineMesh( const RenderHelperContext& context )
                                                                      staticAttribSizes,
                                                                      3 );
 
-    m_state.pineInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
+    m_state.pineInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
 
 

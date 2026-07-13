@@ -742,7 +742,7 @@ SbResult SceneController::Load( const SceneLoadRequest& request,
                                              m_sceneController.UIOverrides().solverBoxCountOverride,
                                              0,
                                              0,
-                                             DEFAULT_GAME_MODELS },
+                                             SkullbonezCore::Scene::Capacity::DEFAULT_GAME_MODELS },
             true );
         if ( !generatedSetup.status.ok )
         {

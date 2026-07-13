@@ -367,7 +367,8 @@ void ApplyStartupDiagnosticsPolicy( const RunStartupOverrides& overrides,
 
 void RunStartupState::ApplyStartupConfig( const EngineConfig& config )
 {
-    gameModelCapacity = std::clamp( config.runtimeCapacity.gameModelCapacity, 1, MAX_GAME_MODELS );
+    gameModelCapacity =
+        std::clamp( config.runtimeCapacity.gameModelCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     workerThreads = config.runtimeCapacity.workerThreads;
 }
 

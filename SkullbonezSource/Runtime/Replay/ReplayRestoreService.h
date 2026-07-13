@@ -72,7 +72,7 @@ struct ReplaySolverSampleRestoreContext
 class ReplayRestoreService
 {
   public:
-    using ResolvedBodyTable = std::array<Physics::PhysicsBodyHandle, MAX_GAME_MODELS>;
+    using ResolvedBodyTable = std::array<Physics::PhysicsBodyHandle, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
 
     // Resolves every retained body by stable replay identity. modelRow is only
     // a cache hint; callers may deliberately pass stale hints to prove that a

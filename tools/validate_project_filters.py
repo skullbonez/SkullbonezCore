@@ -101,7 +101,6 @@ GAME_OBJECT_PREFIXES = (
     "GameModelSoACache",
     "GameModelStreams",
     "GameModel",
-    "SceneCapacity",
 )
 
 PHYSICS_PREFIXES = (
@@ -266,6 +265,7 @@ RUNTIME_PREFIXES = (
 
 RUNTIME_SCENE_PREFIXES = (
     "RunScene",
+    "SceneCapacity",
     "SceneController",
     "SceneControllerState",
     "SceneTerrain",

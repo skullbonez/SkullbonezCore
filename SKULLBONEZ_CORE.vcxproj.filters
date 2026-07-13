@@ -65,9 +65,6 @@
     <Filter Include="Header Files\Maths">
       <UniqueIdentifier>{7A9FA734-4718-4E61-870D-F1683365AEB2}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\GameObjects">
-      <UniqueIdentifier>{97DDA76D-6055-480F-9064-FA05F3332B8A}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Header Files\Physics">
       <UniqueIdentifier>{A5899E12-4DBE-4DCA-810A-B68F7BDE8517}</UniqueIdentifier>
     </Filter>
@@ -698,8 +695,8 @@
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.Objects.inl">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\GameObjects\SceneCapacity.h">
-      <Filter>Header Files\GameObjects</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneCapacity.h">
+      <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\GameModelRenderer.h">
       <Filter>Header Files\Rendering</Filter>

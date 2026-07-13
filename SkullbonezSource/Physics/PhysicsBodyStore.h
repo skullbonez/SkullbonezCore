@@ -43,7 +43,7 @@ Related:
 #include <vector>
 
 #include "PhysicsHandles.h"
-#include "../GameObjects/SceneCapacity.h"
+#include "../Runtime/Scene/SceneCapacity.h"
 #include "PhysicsFixedList.h"
 #include "../Maths/Quaternion.h"
 #include "../Maths/Vector3.h"
@@ -103,14 +103,14 @@ struct PhysicsBodyRecord
     bool hasPendingImpulse = false;                                                            // One-shot impulse waiting for the next body integration pass.
 };
 
-using PhysicsBodyRecordList = PhysicsFixedList<PhysicsBodyRecord, MAX_GAME_MODELS>;
-using PhysicsBodyHandleList = PhysicsFixedList<PhysicsBodyHandle, MAX_GAME_MODELS>;
-using PhysicsHandleGenerationList = PhysicsFixedList<uint32_t, MAX_GAME_MODELS>;
-using PhysicsHandleFlagList = PhysicsFixedList<uint8_t, MAX_GAME_MODELS>;
-using PhysicsHandleModelIndexList = PhysicsFixedList<int, MAX_GAME_MODELS>;
-using PhysicsHandleReplayIdList = PhysicsFixedList<uint32_t, MAX_GAME_MODELS>;
-using PhysicsHandleSlotList = PhysicsFixedList<uint32_t, MAX_GAME_MODELS>;
-using PhysicsHandleAssignmentMask = PhysicsFixedList<uint8_t, MAX_GAME_MODELS>;
+using PhysicsBodyRecordList = PhysicsFixedList<PhysicsBodyRecord, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
+using PhysicsBodyHandleList = PhysicsFixedList<PhysicsBodyHandle, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
+using PhysicsHandleGenerationList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
+using PhysicsHandleFlagList = PhysicsFixedList<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
+using PhysicsHandleModelIndexList = PhysicsFixedList<int, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
+using PhysicsHandleReplayIdList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
+using PhysicsHandleSlotList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
+using PhysicsHandleAssignmentMask = PhysicsFixedList<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
 
 class PhysicsBodyStore
 {

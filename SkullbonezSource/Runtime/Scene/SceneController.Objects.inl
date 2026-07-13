@@ -1,4 +1,5 @@
 /*
+File: SceneController.Objects.inl
 Purpose:
   Declares SceneController's coordinated entity, physics, and render-store
   operations separately from navigation and request policy.
@@ -25,7 +26,8 @@ Related:
 */
 private:
 Rendering::RenderInstanceStore m_renderInstanceStore; // Render snapshot in scene/model order, owned outside physics.
-int m_activeGameModelCapacity = DEFAULT_GAME_MODEL_CAPACITY; // Configured model cap used by append/reserve guards.
+// Configured model cap used by append/reserve guards.
+int m_activeGameModelCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_GAME_MODEL_CAPACITY;
 void ReserveForActiveGameModelCapacity();
 const Basics::SceneBehaviorGroup& BehaviorGroupAt( int modelIndex ) const;
 int ResolveBehaviorGroupRootModelIndex( const Basics::SceneBehaviorGroup& group ) const;

@@ -54,7 +54,7 @@ Related:
 #include "ReplayRecorder.h"
 #include "ReplayPredictionScheduling.h"
 #include "../../Assets/AssetKeys.h"
-#include "../../GameObjects/SceneCapacity.h"
+#include "../Scene/SceneCapacity.h"
 #include "TrajectoryStore.h"
 #include "../RuntimeCameraMode.h"
 #include "../RuntimeInteractionController.h"
@@ -142,15 +142,19 @@ using ReplayPredictionAmortizedTask = Threading::AmortizedTask<ReplayPredictionW
 
 inline constexpr std::size_t REPLAY_PREDICTION_GHOST_MAX_FRAMES = 24;
 inline constexpr std::size_t REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY =
-    ( REPLAY_PREDICTION_GHOST_MAX_FRAMES + 2u ) * static_cast<std::size_t>( MAX_GAME_MODELS );
-inline constexpr std::size_t REPLAY_PREDICTION_MARKER_CAPACITY = static_cast<std::size_t>( MAX_GAME_MODELS );
+    ( REPLAY_PREDICTION_GHOST_MAX_FRAMES + 2u ) *
+    static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+inline constexpr std::size_t REPLAY_PREDICTION_MARKER_CAPACITY =
+    static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
 inline constexpr std::size_t REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY = 261u;
 // Runtime allocation policy: live replay path-target picks rotate inside this
 // fixed vector budget instead of growing while gameplay is running.
 inline constexpr std::size_t REPLAY_PATH_MAX_ROOT_TARGETS = 100u;
-inline constexpr std::size_t REPLAY_CAUSE_TREE_CONTACT_CAPACITY = static_cast<std::size_t>( MAX_GAME_MODELS ) * 4u;
+inline constexpr std::size_t REPLAY_CAUSE_TREE_CONTACT_CAPACITY =
+    static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ) * 4u;
 inline constexpr std::size_t REPLAY_CAUSE_TREE_ROW_CAPACITY =
-    1u + static_cast<std::size_t>( MAX_GAME_MODELS ) + REPLAY_CAUSE_TREE_CONTACT_CAPACITY * 3u;
+    1u + static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ) +
+    REPLAY_CAUSE_TREE_CONTACT_CAPACITY * 3u;
 inline constexpr uint32_t REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS = 1u;
 inline constexpr uint32_t REPLAY_GENERATED_SCENE_UI_MODEL_COUNT = 2u;
 inline constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
@@ -1573,7 +1577,7 @@ class ReplayRuntime
     // Invariant: replay render pose matching is a per-frame mark table capped by
     // the live model budget. It must not allocate while scrub/prediction views
     // are applied during rendering.
-    std::array<uint8_t, MAX_GAME_MODELS> m_renderPoseBodyMatched = {};
+    std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_renderPoseBodyMatched = {};
     std::string m_recordingHashLogPath;
     int m_presentationSaveSequence = 0;                               // Next numbered binary-v2 scrubber path candidate.
     int m_recordingRuntimeBodyCapacity = 0;

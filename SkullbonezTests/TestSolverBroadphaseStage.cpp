@@ -58,7 +58,7 @@ void AddCandidateBody( PhysicsBodyRecordList& bodyRecords,
 
 PhysicsBodyRecordList& TestBodyRecords()
 {
-    // Why: physics fixed lists own MAX_GAME_MODELS slots. Static storage matches
+    // Why: physics fixed lists own SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS slots. Static storage matches
     // runtime ownership and avoids consuming the doctest thread stack.
     static PhysicsBodyRecordList records( "TestSolverBroadphaseStage.bodyRecords" );
     records.clear();

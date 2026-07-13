@@ -15,7 +15,7 @@ Glossary:
   Back buffer: Swap-chain image that will be presented to the window.
 
 Invariants:
-  - m_textures is fixed to TOTAL_TEXTURE_COUNT; hash lookup must resolve to one
+  - m_textures is fixed to SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT; hash lookup must resolve to one
     resident slot before binding.
   - m_assets is borrowed and may be null for legacy direct texture loads.
   - Texture creation/deletion uses a borrowed render-resource context; texture
@@ -32,7 +32,7 @@ Related:
 
 #include "AssetSystem.h"
 #include "AssetKeys.h"
-#include "../GameObjects/SceneCapacity.h"
+#include "../Runtime/Scene/SceneCapacity.h"
 #include "../Core/Common.h"
 #include "../Core/SbResult.h"
 
@@ -67,7 +67,7 @@ class TextureCollection
         }
     };
 
-    std::array<GpuTextureRecord, TOTAL_TEXTURE_COUNT> m_textures = {};
+    std::array<GpuTextureRecord, SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT> m_textures = {};
     Assets::AssetSystem* m_assets = nullptr;
     Rendering::IRenderResourceFactory* m_renderResources = nullptr;
     Rendering::IRenderCommandContext* m_renderCommands = nullptr;

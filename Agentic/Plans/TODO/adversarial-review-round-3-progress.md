@@ -36,20 +36,31 @@ and `tools\validate_fast.bat` passed in 53.7s with 177/177 doctest cases,
 
 ## R2 — Scene capacity constant ownership
 
-- [ ] Choose and record the namespace (proposal:
+- [x] Choose and record the namespace (proposal:
       `SkullbonezCore::Scene::Capacity` or the R5 target namespace — decide
       once, consistent with R5 mapping).
-- [ ] Wrap `TOTAL_CAMERA_COUNT`, `TOTAL_TEXTURE_COUNT`,
+- [x] Wrap `TOTAL_CAMERA_COUNT`, `TOTAL_TEXTURE_COUNT`,
       `DEFAULT_GAME_MODEL_CAPACITY`, `MAX_GAME_MODELS`, `DEFAULT_GAME_MODELS`
       in that namespace; keep `constexpr` (they size fixed arrays — an
       `extern const` would break constant expressions; decision recorded).
-- [ ] Update every consumer qualification (`rg -l 'MAX_GAME_MODELS|TOTAL_CAMERA_COUNT|TOTAL_TEXTURE_COUNT|DEFAULT_GAME_MODEL'`).
-- [ ] Fix the stale Related block: remove the `Core/Common.h` aliasing claim;
+- [x] Update every consumer qualification (`rg -l 'MAX_GAME_MODELS|TOTAL_CAMERA_COUNT|TOTAL_TEXTURE_COUNT|DEFAULT_GAME_MODEL'`).
+- [x] Fix the stale Related block: remove the `Core/Common.h` aliasing claim;
       point at the real `Runtime/Scene/SceneController.h`.
-- [ ] Decide `GameObjects/` directory fate: relocate `SceneCapacity.h` to
+- [x] Decide `GameObjects/` directory fate: relocate `SceneCapacity.h` to
       `Runtime/Scene/` (and update `.vcxproj` + `.filters`) or record why the
       directory remains; no orphan folder left behind.
-- [ ] `tools\validate_project_filters` clean after any file move.
+- [x] `tools\validate_project_filters` clean after any file move.
+
+Decision and evidence (2026-07-13): `SkullbonezCore::Scene::Capacity` owns the
+five `constexpr` budgets. The domain namespace stays correct through R5 and
+does not make cross-system ceilings composition-root state. The header moved to
+`Runtime/Scene/SceneCapacity.h`; the empty `GameObjects/` source/filter roots
+were retired, and every source/test consumer is explicitly qualified. Project
+filters passed with 663/663 entries. Fast, physics, full, and DX12 renderer
+gates passed; physics remained a 44,401-line byte-exact match, DX12 reported
+zero InfoQueue errors with matching screenshots, and the 61.8s bounded stress
+run completed with exit 0. Allocation-policy self-test and the 321-file repo
+scan passed with zero allowlist errors.
 
 ## R3 — `Common.h` platform prelude removal
 

@@ -106,7 +106,8 @@ struct PreservedRefreshState
     bool hasState = false;
 };
 
-using PreservedRefreshStateList = PhysicsFixedList<PreservedRefreshState, MAX_GAME_MODELS>;
+using PreservedRefreshStateList =
+    PhysicsFixedList<PreservedRefreshState, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
 
 float PositiveInverseOrZero( float value )
 {

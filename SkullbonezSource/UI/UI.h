@@ -230,7 +230,7 @@ struct InGameUIFrameData
     bool replayMemoryBudgetClamped = false;
     bool replayMemorySolverWindowReduced = false;
     int modelCount = 0;
-    int modelCapacity = DEFAULT_GAME_MODEL_CAPACITY;
+    int modelCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_GAME_MODEL_CAPACITY;
     int workerThreadCount = 0;
     int maxWorkerThreadCount = 1;
     int currentFrame = 0;
@@ -431,7 +431,7 @@ class InGameUI
     int m_mouseY = 0;
     int m_lastScreenW = 1;
     int m_lastScreenH = 1;
-    int m_lastModelCapacity = DEFAULT_GAME_MODEL_CAPACITY;
+    int m_lastModelCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_GAME_MODEL_CAPACITY;
     int m_lastSolverBallCount = 0;
     int m_lastSolverBoxCount = 0;
     int m_lastWorkerThreadCount = 0;

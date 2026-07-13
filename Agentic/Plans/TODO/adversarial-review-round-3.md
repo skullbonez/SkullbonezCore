@@ -1,7 +1,7 @@
 # Adversarial Review Remediation Round 3 — Language, Namespace, And Renderer Modernization
 
 Date: 2026-07-13
-Status: Live — 1/10 tasks complete
+Status: Live — 2/10 tasks complete
 Impact area: build configuration, Core prelude, UI/Scene/Rendering headers,
 namespace layout, math/solver hot path, DX12 backend
 Owner: engine architecture
@@ -26,7 +26,8 @@ in-scope, with current file:line evidence:
    `SkullbonezSource/Scene/TestSceneParserSchema.h:1040`, and
    `SkullbonezSource/Rendering/ShaderReflectionContracts.h:217`.
 3. **Global-namespace capacity constants with stale ownership comments.**
-   `SkullbonezSource/GameObjects/SceneCapacity.h` defines `MAX_GAME_MODELS`,
+   Before R2, the now-retired `SkullbonezSource/GameObjects/SceneCapacity.h`
+   defined `MAX_GAME_MODELS`,
    `TOTAL_CAMERA_COUNT`, `TOTAL_TEXTURE_COUNT`, `DEFAULT_GAME_MODEL_CAPACITY`,
    and `DEFAULT_GAME_MODELS` in the global namespace; its Related block claims
    `Core/Common.h` still includes it (it does not) and points at
@@ -91,7 +92,7 @@ upgrades, then the two performance/architecture tasks.
   returns zero rows; zero warnings. Validation: `tools\validate_fast.bat`
   passed on 2026-07-13 in 53.7s: formatting, project filters, 177 doctest
   cases/4,059 assertions, and zero-warning Profile/Debug builds were clean.
-- [ ] **R2 — Give scene capacity constants an owner.** Move the
+- [x] **R2 — Give scene capacity constants an owner.** Move the
   `SceneCapacity.h` constants into a named namespace (owner decision: they
   must remain `constexpr`, not `extern const`, because they size fixed arrays
   and appear in constant expressions). Correct the stale Related references,
@@ -99,8 +100,11 @@ upgrades, then the two performance/architecture tasks.
   directory by relocating the header next to its real consumers
   (`Runtime/Scene/`) or record why the directory stays. Acceptance: no
   engine-owned identifiers remain in the global namespace; stale references
-  gone. Validation: `tools\validate_physics.bat` at the PR gate (physics
-  consumers include this header), plus `tools\validate_fast.bat`.
+  gone. Validation passed on 2026-07-13: `tools\validate_fast.bat` (73.7s),
+  `tools\validate_physics.bat` (50.8s), `tools\validate_full.bat` (122.7s),
+  `tools\validate_dx12_renderer.bat` (49.4s), and
+  `tools\run_graphics_stress.bat 1` (61.8s, exit 0). Allocation-policy
+  self-test/repo scan and project-filter validation also passed.
 - [ ] **R3 — Stop `Common.h` injecting `<windows.h>`.** Remove
   `<windows.h>`/`WIN32_LEAN_AND_MEAN` from `Core/Common.h`. Audit all 43
   including headers; the consumers that genuinely need Win32 types (window,

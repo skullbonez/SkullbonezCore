@@ -362,14 +362,14 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
     const int modelCount = static_cast<int>( instances.size() );
     // Invariant: the visible-index scratch array mirrors the scene store's
     // compile-time ceiling. Crossing it would corrupt render-thread stack data.
-    if ( modelCount > MAX_GAME_MODELS )
+    if ( modelCount > SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
     {
         SB_FATAL( "Rendering/Visibility",
                   "Render instance count exceeds visibility capacity. count=%d capacity=%d",
                   modelCount,
-                  MAX_GAME_MODELS );
+                  SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     }
-    int visibleIndices[MAX_GAME_MODELS] = {};
+    int visibleIndices[SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS] = {};
     int visibleCount = 0;
     // Why: the planar reflection has its own mirrored camera volume. Its water
     // half-space removes only instances wholly below the surface; straddlers

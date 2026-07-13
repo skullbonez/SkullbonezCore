@@ -259,7 +259,7 @@ TEST_CASE( "Physics collision-time diagnostics cover every bounded fixed-step ev
     // Four candidate pairs per model are the PhysicsWorld reserve contract;
     // terrain can add one more event for every model in the same fixed step.
     CHECK( SkullbonezCore::Physics::PhysicsDiagnosticsSink::CollisionTimeEventCapacity() ==
-           MAX_GAME_MODELS * 5 );
+           SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 5 );
 }
 
 TEST_CASE( "PhysicsEngine exposes its owned sleep policy" )

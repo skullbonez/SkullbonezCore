@@ -30,7 +30,7 @@ Related:
 #pragma once
 
 #include "../../Core/Common.h"
-#include "../../GameObjects/SceneCapacity.h"
+#include "../Scene/SceneCapacity.h"
 #include "../../Rendering/IFramebuffer.h"
 #include "../../Rendering/IShader.h"
 #include "../../Rendering/Shadow.h"
@@ -102,7 +102,7 @@ struct ShadowPassResources
         // capacity is a startup/runtime-resource contract sized to the maximum
         // scene model pool. Exhaustion means the scene capacity budget changed,
         // not that render should grow during the shadow pass.
-        objectCasterBatches.ReserveForModelCapacity( MAX_GAME_MODELS );
+        objectCasterBatches.ReserveForModelCapacity( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     }
 
     // Terrain target: broad map centered on terrain bounds. Object target:

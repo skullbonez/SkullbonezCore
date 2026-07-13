@@ -77,7 +77,7 @@ constexpr uint64_t FNV64_PRIME = 1099511628211ull;
 
 int ReplayRuntimeBodyCapacity( const ReplayRecorderConfig& config )
 {
-    return std::clamp( config.runtimeBodyCapacity, 1, MAX_GAME_MODELS );
+    return std::clamp( config.runtimeBodyCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
 }
 
 RuntimeAllocation::RuntimeReserveOwnerHandle ReplayRecorderSampleReserveOwner()
@@ -107,7 +107,7 @@ std::size_t ReplayRecorderReserveCapacity( std::size_t currentCapacity, std::siz
     {
         return currentCapacity;
     }
-    if ( requestedCapacity > static_cast<std::size_t>( MAX_GAME_MODELS ) )
+    if ( requestedCapacity > static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ) )
     {
         return requestedCapacity;
     }
@@ -117,13 +117,13 @@ std::size_t ReplayRecorderReserveCapacity( std::size_t currentCapacity, std::siz
     const std::size_t chunked =
         remainder == 0u ? requestedCapacity : requestedCapacity + ( REPLAY_RECORDER_SAMPLE_GROWTH_CHUNK - remainder );
     const std::size_t reserveCapacity = (std::max)( doubled, chunked );
-    return (std::min)( reserveCapacity, static_cast<std::size_t>( MAX_GAME_MODELS ) );
+    return (std::min)( reserveCapacity, static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ) );
 }
 
 std::size_t ReplayRecorderDeltaReserveCapacity( std::size_t currentCapacity, std::size_t requestedCapacity )
 {
     // Why: solver-world deltas include contact/debug vectors whose natural
-    // capacity is not bounded by MAX_GAME_MODELS, so they use the byte-budget
+    // capacity is not bounded by SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS, so they use the byte-budget
     // reserve gate without the body-vector element-count clamp.
     if ( requestedCapacity <= currentCapacity )
     {
@@ -177,7 +177,7 @@ void ReserveReplayRecorderSampleVector( std::vector<T>& values,
     {
         return;
     }
-    if ( requestedCapacity > static_cast<std::size_t>( MAX_GAME_MODELS ) )
+    if ( requestedCapacity > static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ) )
     {
         ReportReplayRecorderReserveFailure( targetName, requestedCapacity, 0u );
     }

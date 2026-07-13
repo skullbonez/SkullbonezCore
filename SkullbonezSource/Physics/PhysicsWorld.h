@@ -40,7 +40,7 @@ Related:
 #include <vector>
 
 #include "ColliderStore.h"
-#include "../GameObjects/SceneCapacity.h"
+#include "../Runtime/Scene/SceneCapacity.h"
 #include "PersistentContactSolver.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsDiagnosticsSink.h"
@@ -399,7 +399,7 @@ class PhysicsWorld
     std::vector<int> m_restingWakeQueueScratch;
     std::vector<PointJointConstraint> m_pointJointConstraints;
     std::vector<int64_t> m_collisionCellKeys;
-    std::array<uint8_t, MAX_GAME_MODELS> m_terrainRestApplied = {};
+    std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_terrainRestApplied = {};
     TornadoGameplay m_tornadoGameplay;
     PersistentContactSolver m_contactSolver;
     SleepIslandSystem m_sleepIslandSystem;
@@ -601,7 +601,7 @@ struct PersistentContactSolverContext
     std::vector<SolverBodyState>& solverBodies;
     std::vector<PhysicsDebugContact>& physicsDebugContacts;
     std::vector<TerrainContactManifold>& terrainContactManifolds;
-    std::array<uint8_t, MAX_GAME_MODELS>& terrainRestApplied;
+    std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>& terrainRestApplied;
     std::vector<uint8_t>& sleepSupportedThisFrame;
     PersistentContactSolverSideEffects& sideEffects;
     PhysicsBodyRecordList& bodyRecords;

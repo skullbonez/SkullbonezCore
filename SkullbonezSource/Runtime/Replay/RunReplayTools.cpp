@@ -1500,7 +1500,8 @@ bool CaptureReplayPredictionBaselineSnapshot( RunReplayPredictionState& predicti
     const RunReplayPredictionFrame& firstFrame = frames.front();
     const RunReplayPredictionFrame& lastFrame = frames[frameCount - 1];
     const std::size_t bodyCapacity =
-        (std::min)( static_cast<std::size_t>( MAX_GAME_MODELS ), firstFrame.bodies.size() );
+        (std::min)( static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ),
+                    firstFrame.bodies.size() );
     const int reserveFrame = static_cast<int>( lastFrame.frameIndex );
     if ( !ReserveReplayPredictionVector( prediction.baseline.rootPolyline,
                                          REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY,
@@ -2292,7 +2293,7 @@ void DrawReplayPredictionRetainedMarkers( const RunReplayPredictionState& predic
                                           const ColliderStore& colliderStore,
                                           RunEditorTracer& tracer )
 {
-    // Invariant: marker emission is bounded by MAX_GAME_MODELS and independent
+    // Invariant: marker emission is bounded by SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS and independent
     // of the visualizer budget. Lines may degrade under load; already-revealed
     // yellow/grey boxes must not.
     for ( std::size_t i = 0; i < prediction.futureNodeCache.retainedMarkerCount; ++i )

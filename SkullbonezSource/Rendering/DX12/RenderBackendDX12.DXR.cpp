@@ -569,7 +569,7 @@ SbResult Dx12RaytracingOwner::CompleteSetup( ID3D12Device* device, int maxInstan
     m_terrainBlas.ReleaseAfterBuild();
     m_sphereBlas.ReleaseAfterBuild();
 
-    m_maxInstances = std::clamp( maxInstances, 1, MAX_GAME_MODELS );
+    m_maxInstances = std::clamp( maxInstances, 1, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     SbResult setupResult = m_tlas.Init( m_device5, m_maxInstances + 1 );
     if ( !setupResult.ok )
     {
@@ -703,7 +703,7 @@ SbResult Dx12RaytracingOwner::BuildScene( const float* instanceTransforms, int i
     {
         return SbResult::Success();
     }
-    if ( instanceCount < 0 || instanceCount > MAX_GAME_MODELS ||
+    if ( instanceCount < 0 || instanceCount > SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ||
          ( m_maxInstances > 0 && instanceCount > m_maxInstances ) )
     {
         // Invariant: the TLAS instance buffer was sized during InitDXR for one
@@ -714,7 +714,7 @@ SbResult Dx12RaytracingOwner::BuildScene( const float* instanceTransforms, int i
             "DX12 TLAS instance count exceeds active model capacity. requested=%d activeCapacity=%d maxGameModels=%d",
             instanceCount,
             m_maxInstances,
-            MAX_GAME_MODELS );
+            SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     }
 
     // Concept: a TLAS is a scene-level table of instances.

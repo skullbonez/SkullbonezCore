@@ -44,7 +44,7 @@ Related:
 */
 #include "ContactAudioService.h"
 #include "../../Assets/AssetKeys.h"
-#include "../../GameObjects/SceneCapacity.h"
+#include "../Scene/SceneCapacity.h"
 
 #include "../../Core/Common.h"
 
@@ -378,7 +378,7 @@ struct ContactAudioService::Impl
         // Runtime allocation policy: simple linear contact audio runs inside the
         // physics step, so its body-history rows are reserved at startup and
         // capped to the engine model limit instead of growing on first replay use.
-        simpleLinearBodies.reserve( MAX_GAME_MODELS );
+        simpleLinearBodies.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     }
 
     bool InitializeBackend()

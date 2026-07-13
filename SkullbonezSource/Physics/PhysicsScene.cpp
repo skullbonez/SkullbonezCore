@@ -38,7 +38,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsScene.h
 */
 #include "PhysicsScene.h"
-#include "../GameObjects/SceneCapacity.h"
+#include "../Runtime/Scene/SceneCapacity.h"
 #include "PhysicsApi.h"
 
 #include "../Core/Common.h"
@@ -195,7 +195,8 @@ bool PhysicsScene::CanRegisterAuthoredBody( PhysicsAuthoredBodyCount expectedBod
     const std::size_t expected = static_cast<std::size_t>( expectedBodyCount.value );
     return m_authoredBodyDescs.size() == expected &&
            m_bodyStore.Count() == static_cast<int>( expectedBodyCount.value ) &&
-           m_authoredBodyDescs.size() < m_authoredBodyDescs.capacity() && expected < MAX_GAME_MODELS;
+           m_authoredBodyDescs.size() < m_authoredBodyDescs.capacity() &&
+           expected < SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS;
 }
 
 

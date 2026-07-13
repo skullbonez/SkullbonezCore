@@ -790,7 +790,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
 
     constexpr uint32_t REORDER_BODY_A_REPLAY_ID = 100u;
     constexpr uint32_t REORDER_BODY_B_REPLAY_ID = 101u;
-    // Why: PhysicsBodyStore owns MAX_GAME_MODELS fixed arrays. Keep this cold
+    // Why: PhysicsBodyStore owns SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS fixed arrays. Keep this cold
     // standalone probe owner off WinMain's bounded thread stack.
     auto reorderBodyStore = std::make_unique<PhysicsBodyStore>();
     std::vector<PhysicsBodyCreateDesc> reorderBodyDescs;
@@ -1965,15 +1965,17 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
           {
               static_cast<void>( args );
               int capacity = 0;
-              if ( !ParseIntToken( value, capacity ) || capacity < 1 || capacity > MAX_GAME_MODELS )
+              if ( !ParseIntToken( value, capacity ) || capacity < 1 ||
+                   capacity > SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
               {
-                  return FailCommandLineParse( "--model-capacity expects 1..%d.", MAX_GAME_MODELS );
+                  return FailCommandLineParse( "--model-capacity expects 1..%d.",
+                                               SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
               }
               config.runtimeCapacity.gameModelCapacity = capacity;
               fprintf( stdout,
                        "[models] Active model capacity: %d (compiled max %d)\n",
                        config.runtimeCapacity.gameModelCapacity,
-                       MAX_GAME_MODELS );
+                       SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
               return true;
           } },
         { "--physics-parallel",

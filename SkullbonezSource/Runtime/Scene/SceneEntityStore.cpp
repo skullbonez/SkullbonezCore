@@ -104,13 +104,13 @@ SceneEntityStore::SceneEntityStore()
 
 void SceneEntityStore::ConfigureCapacity( int capacity )
 {
-    if ( capacity < 1 || capacity > MAX_GAME_MODELS || Count() > capacity )
+    if ( capacity < 1 || capacity > SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS || Count() > capacity )
     {
         SB_FATAL( "Scene/SceneEntityStore",
                   "Invalid scene entity capacity. requested=%d count=%d max=%d",
                   capacity,
                   Count(),
-                  MAX_GAME_MODELS );
+                  SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     }
     // Phase: scene-load preallocation. Growth is allowed only before the first
     // entity of the replacement scene is published; Clear deliberately retains
