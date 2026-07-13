@@ -21,7 +21,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 // =============================================================================
-// CALM WATER SHADER — HLSL 5.0 (Combined VS+PS)
+// CALM WATER SHADER — Shader Model 6.6 (Combined VS+PS)
 // =============================================================================
 //
 // PURPOSE: Render the INNER water zone as a perfectly flat mirror surface.
@@ -66,7 +66,19 @@ cbuffer Uniforms : register(b0)
     float3   _pad0;
 };
 
-Texture2D    uReflectionTex : register(t1);  // Scene rendered from reflected camera
+// Invariant: b1 carries stable indices into the directly indexed shader-visible
+// heap; the pipeline owner writes all six root constants before every draw.
+cbuffer BindlessTextureIndices : register(b1)
+{
+    uint4 _textureDescriptorIndices0;
+    uint2 _textureDescriptorIndices1;
+};
+
+uint BindlessTextureIndex(uint slot)
+{
+    return slot < 4u ? _textureDescriptorIndices0[slot] : _textureDescriptorIndices1[slot - 4u];
+}
+
 SamplerState sSampler1      : register(s1);
 
 struct VS_IN
@@ -107,6 +119,7 @@ float OrdinaryWaterReflectance(float3 worldPos, float3 normal)
 
 float4 main_ps(VS_OUT input) : SV_TARGET
 {
+    Texture2D<float4> reflectionTexture = ResourceDescriptorHeap[BindlessTextureIndex(1u)];
     float basinMask = 1.0f;
     float basinDistance = 0.0f;
     float2 basinOffset = float2(0.0f, 0.0f);
@@ -128,7 +141,7 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float2 reflUV = (input.reflectClipPos.xy / input.reflectClipPos.w) * 0.5 + 0.5;
     reflUV.y = 1.0 - reflUV.y;  // DX texture Y-flip (top-left origin)
     // Sample undistorted reflection — perfect mirror.
-    float4 reflection = uReflectionTex.Sample(sSampler1, reflUV);
+    float4 reflection = reflectionTexture.Sample(sSampler1, reflUV);
     float reflectBlend = (uCinematicMode > 0.5f)
                            ? uReflectionStrength
                            : OrdinaryWaterReflectance(input.worldPos, float3(0.0f, 1.0f, 0.0f));

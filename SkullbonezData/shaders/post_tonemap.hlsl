@@ -53,9 +53,19 @@ cbuffer Uniforms : register(b0)
     float4 uStyleGrade;  // saturation, contrast, vignette floor, sky mode
 };
 
-Texture2D    uSceneTex : register(t0);
-Texture2D    uDepthTex : register(t1);
-Texture2D    uVolumetricTex : register(t2);
+// Invariant: b1 carries stable indices into the directly indexed shader-visible
+// heap; the pipeline owner writes all six root constants before every draw.
+cbuffer BindlessTextureIndices : register(b1)
+{
+    uint4 _textureDescriptorIndices0;
+    uint2 _textureDescriptorIndices1;
+};
+
+uint BindlessTextureIndex(uint slot)
+{
+    return slot < 4u ? _textureDescriptorIndices0[slot] : _textureDescriptorIndices1[slot - 4u];
+}
+
 SamplerState sSampler0 : register(s0);
 SamplerState sSampler1 : register(s1);
 
@@ -119,7 +129,8 @@ float2 ClampScreenUV(float2 uv)
 
 float3 SampleScene(float2 uv)
 {
-    return uSceneTex.Sample(sSampler1, ClampScreenUV(uv)).rgb;
+    Texture2D<float4> sceneTexture = ResourceDescriptorHeap[BindlessTextureIndex(0u)];
+    return sceneTexture.Sample(sSampler1, ClampScreenUV(uv)).rgb;
 }
 
 float3 SampleBloom(float2 uv)
@@ -158,7 +169,9 @@ float3 SampleBloom(float2 uv)
 float4 main_ps(VS_OUT input) : SV_TARGET
 {
     // Start with the fully rendered HDR world color and its depth.
-    float rawDepth = uDepthTex.Sample(sSampler1, input.texCoord).r;
+    Texture2D<float4> depthTexture = ResourceDescriptorHeap[BindlessTextureIndex(1u)];
+    Texture2D<float4> volumetricTexture = ResourceDescriptorHeap[BindlessTextureIndex(2u)];
+    float rawDepth = depthTexture.Sample(sSampler1, input.texCoord).r;
     float3 hdrColor = SampleScene(input.texCoord);
 
     // Depth fog: terrain and objects fade into warm air with distance. Sky pixels
@@ -180,7 +193,7 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     // The sole screen-space sun march runs in the half-resolution volumetric
     // pass. Tonemap only composites that completed result; it must not grow a
     // second full-resolution shaft path.
-    hdrColor += uVolumetricTex.Sample(sSampler1, ClampScreenUV(input.texCoord)).rgb * max(uVolumetricCompositeStrength, 0.0f);
+    hdrColor += volumetricTexture.Sample(sSampler1, ClampScreenUV(input.texCoord)).rgb * max(uVolumetricCompositeStrength, 0.0f);
     hdrColor += SampleBloom(input.texCoord);
 
     // Convert HDR to monitor color, then apply display gamma. The small contrast,

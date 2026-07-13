@@ -947,7 +947,6 @@ bool Dx12FrameOwner::PreparePipelineDraw( VertexFormat12 format,
                                    CommandList(),
                                    m_recording,
                                    m_textures,
-                                   m_descriptors,
                                    format,
                                    instanced,
                                    instancedMesh,
@@ -1525,7 +1524,7 @@ void RenderBackendDX12::ReportArchitectureStats( const char* reason ) const
     // staging allocation used by any one in-flight frame.
     SkullbonezCore::Core::Log().WriteEventf(
         "dx12_render_architecture_stats reason=%s raster_contract=%s root_parameters=%u "
-        "raster_srv_slots=t%u..t%u "
+        "raster_bindless_slots=%d texture_indices_register=b%u "
         "rtv_descriptors=%u/%u dsv_descriptors=%u/%u static_srvs=%u/%u static_srv_high_water=%u "
         "transient_srv_peak=%u/%u draw_call_high_water=%d "
         "upload_peak_bytes=%llu upload_capacity_bytes=%llu "
@@ -1535,9 +1534,8 @@ void RenderBackendDX12::ReportArchitectureStats( const char* reason ) const
         reason ? reason : "unknown",
         UnifiedRasterRootSignature::NAME,
         UnifiedRasterRootSignature::ROOT_PARAMETER_COUNT,
-        UnifiedRasterRootSignature::SHADER_REGISTER_FIRST_TEXTURE,
-        UnifiedRasterRootSignature::SHADER_REGISTER_FIRST_TEXTURE +
-            static_cast<UINT>( UnifiedRasterRootSignature::TEXTURE_SLOT_COUNT - 1 ),
+        UnifiedRasterRootSignature::TEXTURE_SLOT_COUNT,
+        UnifiedRasterRootSignature::SHADER_REGISTER_TEXTURE_INDICES,
         rtvStats.used,
         rtvStats.capacity,
         dsvStats.used,
@@ -1770,6 +1768,7 @@ RenderBackendDX12::MaterializeGraphTransientResources( const RenderGraph& graph,
                 Device()->CreateShaderResourceView( slot->resource,
                                                     &srvDesc,
                                                     GetSRVStagingCpuHandle( slot->srvIndex ) );
+                m_frameOwner.Descriptors().PublishStaticDescriptor( Device(), slot->srvIndex );
             }
             if ( desc.descriptors.unorderedAccess )
             {
@@ -1781,6 +1780,7 @@ RenderBackendDX12::MaterializeGraphTransientResources( const RenderGraph& graph,
                                                      nullptr,
                                                      &uavDesc,
                                                      GetSRVStagingCpuHandle( slot->uavIndex ) );
+                m_frameOwner.Descriptors().PublishStaticDescriptor( Device(), slot->uavIndex );
             }
             ++m_graphTransientStats.createdThisCompile;
         }
@@ -2116,6 +2116,29 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
         return deviceResult;
     }
 
+    // Lane R: all shipping raster shaders use SM6.6 direct heap indexing. A
+    // table-binding fallback would retain the per-draw descriptor copies this
+    // renderer contract deliberately removes, so unsupported devices fail
+    // startup with actionable capability diagnostics.
+    D3D12_FEATURE_DATA_SHADER_MODEL shaderModel = { D3D_SHADER_MODEL_6_6 };
+    const HRESULT shaderModelResult =
+        Device()->CheckFeatureSupport( D3D12_FEATURE_SHADER_MODEL, &shaderModel, sizeof( shaderModel ) );
+    D3D12_FEATURE_DATA_D3D12_OPTIONS bindingOptions = {};
+    const HRESULT bindingTierResult =
+        Device()->CheckFeatureSupport( D3D12_FEATURE_D3D12_OPTIONS, &bindingOptions, sizeof( bindingOptions ) );
+    if ( FAILED( shaderModelResult ) || shaderModel.HighestShaderModel < D3D_SHADER_MODEL_6_6 ||
+         FAILED( bindingTierResult ) || bindingOptions.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_3 )
+    {
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Rendering/DX12",
+            "SM6.6 bindless raster unsupported. shader_model_query=0x%08X highest_shader_model=0x%X "
+            "binding_tier_query=0x%08X resource_binding_tier=%u required_tier=3",
+            static_cast<unsigned int>( shaderModelResult ),
+            static_cast<unsigned int>( shaderModel.HighestShaderModel ),
+            static_cast<unsigned int>( bindingTierResult ),
+            static_cast<unsigned int>( bindingOptions.ResourceBindingTier ) );
+    }
+
     // A fresh device is the sole boundary allowed to clear a prior command
     // failure and submitted-work uncertainty. Dx12RenderDevice has already
     // closed the newly created list.
@@ -2141,10 +2164,11 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
     // SRV rows are used when shaders read textures or buffers.
     // UAV rows are used when compute/raytracing shaders write textures/buffers.
     //
-    // The high-churn SRV/CBV/UAV heap has two copies of the same idea:
+    // The SRV/CBV/UAV heap has two views of the same static row identity:
     //
     // - staging heap: CPU-only, stable descriptor templates created at load time,
-    // - shader-visible heap: GPU-readable rows bound during draws/dispatches.
+    // - shader-visible heap: GPU-readable rows indexed directly by SM6.6 raster
+    //   shaders, plus fenced transient rows retained for compute/DXR tables.
     //
     // The descriptor allocator below owns row assignment for that pair. It keeps
     // long-lived static rows separate from short-lived per-frame rows so the CPU
@@ -2260,6 +2284,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
     nullTextureSrv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     nullTextureSrv.Texture2D.MipLevels = 1;
     Device()->CreateShaderResourceView( nullptr, &nullTextureSrv, GetSRVStagingCpuHandle( nullTextureSrvIndex ) );
+    m_frameOwner.Descriptors().PublishStaticDescriptor( Device(), nullTextureSrvIndex );
 
     // Lifetime: swap-chain images are replaced on resize, but the engine keeps
     // one stable RTV descriptor row per back buffer index. ResizeBuffers swaps
@@ -2438,22 +2463,12 @@ SkullbonezCore::Core::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* devi
     // UnifiedRaster is deliberately simple and shared by every raster family:
     //
     // - DrawConstants binds the per-draw matrices, colors, and scalar values.
-    // - TEXTURE_SLOTS supplies one descriptor table for each named texture row;
-    //   each table points at one transient SRV row prepared by the allocator.
+    // - TextureIndices supplies six static descriptor indices through b1 root
+    //   constants; SM6.6 pixel shaders read ResourceDescriptorHeap directly.
     // - STATIC_SAMPLERS supplies the fixed filtering/addressing rules.
     //
     // The future render graph will not replace this shader contract. It will
     // decide when resources are safe to read/write and which pass binds them.
-    D3D12_DESCRIPTOR_RANGE1 srvRanges[UnifiedRasterRootSignature::TEXTURE_SLOT_COUNT] = {};
-    for ( int slot = 0; slot < UnifiedRasterRootSignature::TEXTURE_SLOT_COUNT; ++slot )
-    {
-        srvRanges[slot].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-        srvRanges[slot].NumDescriptors = 1;
-        srvRanges[slot].BaseShaderRegister = UnifiedRasterRootSignature::TEXTURE_SLOTS[slot].shaderRegister;
-        srvRanges[slot].RegisterSpace = UnifiedRasterRootSignature::REGISTER_SPACE;
-        srvRanges[slot].OffsetInDescriptorsFromTableStart = 0;
-    }
-
     D3D12_ROOT_PARAMETER1 params[UnifiedRasterRootSignature::ROOT_PARAMETER_COUNT] = {};
     params[UnifiedRasterRootSignature::ROOT_PARAMETER_DRAW_CONSTANTS].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     params[UnifiedRasterRootSignature::ROOT_PARAMETER_DRAW_CONSTANTS].Descriptor.ShaderRegister =
@@ -2462,14 +2477,15 @@ SkullbonezCore::Core::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* devi
         UnifiedRasterRootSignature::REGISTER_SPACE;
     params[UnifiedRasterRootSignature::ROOT_PARAMETER_DRAW_CONSTANTS].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-    for ( int slot = 0; slot < UnifiedRasterRootSignature::TEXTURE_SLOT_COUNT; ++slot )
-    {
-        const UINT rootParameter = UnifiedRasterRootSignature::TEXTURE_SLOTS[slot].rootParameter;
-        params[rootParameter].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-        params[rootParameter].DescriptorTable.NumDescriptorRanges = 1;
-        params[rootParameter].DescriptorTable.pDescriptorRanges = &srvRanges[slot];
-        params[rootParameter].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-    }
+    params[UnifiedRasterRootSignature::ROOT_PARAMETER_TEXTURE_INDICES].ParameterType =
+        D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+    params[UnifiedRasterRootSignature::ROOT_PARAMETER_TEXTURE_INDICES].Constants.ShaderRegister =
+        UnifiedRasterRootSignature::SHADER_REGISTER_TEXTURE_INDICES;
+    params[UnifiedRasterRootSignature::ROOT_PARAMETER_TEXTURE_INDICES].Constants.RegisterSpace =
+        UnifiedRasterRootSignature::REGISTER_SPACE;
+    params[UnifiedRasterRootSignature::ROOT_PARAMETER_TEXTURE_INDICES].Constants.Num32BitValues =
+        UnifiedRasterRootSignature::TEXTURE_SLOT_COUNT;
+    params[UnifiedRasterRootSignature::ROOT_PARAMETER_TEXTURE_INDICES].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
     D3D12_STATIC_SAMPLER_DESC samplers[3] = {};
     // s0: linear wrap (most textures — terrain, skybox, sphere)
@@ -2511,11 +2527,12 @@ SkullbonezCore::Core::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* devi
     rootSigDesc.Desc_1_1.pParameters = params;
     rootSigDesc.Desc_1_1.NumStaticSamplers = 3;
     rootSigDesc.Desc_1_1.pStaticSamplers = samplers;
-    rootSigDesc.Desc_1_1.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+    rootSigDesc.Desc_1_1.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
+                                 D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED;
 
     // Serialize the root signature description into a binary blob. The root signature defines
-    // what data shaders can access: [0] CBV at b0 (constants), [1..5] SRV
-    // tables at t0..t5, plus static samplers for regular, FBO, and shadow reads.
+    // what data shaders can access: [0] CBV at b0, [1] six b1 descriptor-index
+    // constants, the directly indexed resource heap, and fixed samplers.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-d3d12serializeversionedrootsignature
     ComPtr<ID3DBlob> signature;
     ComPtr<ID3DBlob> error;
@@ -2565,14 +2582,12 @@ SkullbonezCore::Core::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* devi
     m_persistentPsoCache.Initialize( signature->GetBufferPointer(), signature->GetBufferSize() );
 #ifdef _DEBUG
     SkullbonezCore::Core::Log().WriteEventf(
-        "dx12_raster_binding_contract name=%s root_parameters=%u cbv=b%u srv_slots=t%u..t%u material_table=t4 "
-        "samplers=s%u,s%u,s%u bind_texture_slots=%d material_payload=packed_instance_params",
+        "dx12_raster_binding_contract name=%s root_parameters=%u cbv=b%u texture_indices=b%u "
+        "resource_heap=direct material_payload=packed_instance_params samplers=s%u,s%u,s%u bind_texture_slots=%d",
         UnifiedRasterRootSignature::NAME,
         UnifiedRasterRootSignature::ROOT_PARAMETER_COUNT,
         UnifiedRasterRootSignature::SHADER_REGISTER_DRAW_CONSTANTS,
-        UnifiedRasterRootSignature::SHADER_REGISTER_FIRST_TEXTURE,
-        UnifiedRasterRootSignature::SHADER_REGISTER_FIRST_TEXTURE +
-            static_cast<UINT>( UnifiedRasterRootSignature::TEXTURE_SLOT_COUNT - 1 ),
+        UnifiedRasterRootSignature::SHADER_REGISTER_TEXTURE_INDICES,
         UnifiedRasterRootSignature::STATIC_SAMPLERS[0].shaderRegister,
         UnifiedRasterRootSignature::STATIC_SAMPLERS[1].shaderRegister,
         UnifiedRasterRootSignature::STATIC_SAMPLERS[2].shaderRegister,

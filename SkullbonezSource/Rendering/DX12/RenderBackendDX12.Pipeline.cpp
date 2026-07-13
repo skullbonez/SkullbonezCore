@@ -7,7 +7,7 @@ Summary:
   Dx12PipelineOwner turns the active shader, vertex layout, raster/depth/blend
   choices, and output format into a bounded cached PSO. It owns the dirty-state
   fast path and receives only the device, command list, recording state,
-  descriptor allocator, and texture bindings required for one draw.
+  and texture bindings required for one draw.
 
 Glossary:
   RTV (Render Target View): Descriptor row used when the GPU writes color
@@ -416,7 +416,6 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
                                      ID3D12GraphicsCommandList* commandList,
                                      Dx12CommandRecordingState& recording,
                                      Dx12TextureOwner& textures,
-                                     Dx12DescriptorAllocator& descriptors,
                                      VertexFormat12 format,
                                      bool instanced,
                                      const InstancedMeshDX12* im,
@@ -493,7 +492,7 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
 
     // Full state setup path: at least one expensive binding category changed,
     // so rebuild/reuse the PSO, rebind the root signature, refresh constants,
-    // copy texture descriptors, and update output targets.
+    // publish texture indices, and update output targets.
     if ( psoChanged )
     {
         ID3D12PipelineState* pso = nullptr;
@@ -587,47 +586,22 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
         }
     }
 
-    // Bind UnifiedRaster textures by copying their SRV descriptors to the
-    // shader-visible heap and pointing the named slot-map parameters at them.
-    //
-    // Plain-language flow:
-    //
-    // 1. Game/render code chooses a texture handle.
-    // 2. The texture registry resolves that to a persistent SRV descriptor row
-    //    in the CPU-only staging heap.
-    // 3. This draw gets a transient row in the shader-visible heap.
-    // 4. The persistent descriptor is copied into the transient row.
-    // 5. The command list binds the transient row's GPU handle.
-    // 6. When the pixel shader samples t0/t1/t2/t3/t4, the GPU follows that handle.
-    //
-    // DX12 does not bind "the C++ texture object" directly. It binds a descriptor
-    // table row that describes how the shader should read that texture.
-    // Docs:
-    // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootdescriptortable
-    if ( textures.BindingsDirty() )
+    // Owner ruling: Dx12PipelineOwner carries six native descriptor indices in
+    // b1 root constants. Engine instance rows retain material-domain values;
+    // putting DX12 heap identity there would leak the backend boundary and
+    // overwrite packed material flags. The matching descriptors already occupy
+    // stable shader-visible rows, so this draw loop allocates or copies nothing.
+    if ( psoChanged || textures.BindingsDirty() )
     {
+        UINT textureIndices[TEXTURE_SLOT_COUNT] = {};
         for ( int slot = 0; slot < TEXTURE_SLOT_COUNT; ++slot )
         {
-            UINT srcIdx = textures.ResolveBoundSrv( slot );
-            if ( srcIdx != UINT_MAX )
-            {
-                // The texture's persistent descriptor lives in the CPU-only
-                // staging heap. For this draw, copy that descriptor into a
-                // per-frame shader-visible row and bind the GPU handle to that
-                // row. This copy looks redundant at first, but it is the safety
-                // mechanism: transient rows are reset only after the frame fence
-                // proves the GPU is done with them.
-                UINT transient = descriptors.AllocateTransient();
-                D3D12_CPU_DESCRIPTOR_HANDLE dstHandle = descriptors.ShaderVisibleCpuHandle( transient );
-                device->CopyDescriptorsSimple( 1,
-                                               dstHandle,
-                                               descriptors.StagingCpuHandle( srcIdx ),
-                                               D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
-                commandList->SetGraphicsRootDescriptorTable(
-                    UnifiedRasterRootSignature::TEXTURE_SLOTS[slot].rootParameter,
-                    descriptors.ShaderVisibleGpuHandle( transient ) );
-            }
+            textureIndices[slot] = textures.ResolveBoundSrv( slot );
         }
+        commandList->SetGraphicsRoot32BitConstants( UnifiedRasterRootSignature::ROOT_PARAMETER_TEXTURE_INDICES,
+                                                    TEXTURE_SLOT_COUNT,
+                                                    textureIndices,
+                                                    0 );
         textures.MarkBindingsClean();
     }
 

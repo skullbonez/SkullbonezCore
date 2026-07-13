@@ -329,7 +329,9 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
             return reflectionFailure( "constant buffer GetDesc", hr );
         }
 
-        if ( bufDesc.Size > m_cbReflectedSize )
+        const bool isDrawConstants =
+            bufDesc.Name && bakedStage->cbufferName && std::strcmp( bufDesc.Name, bakedStage->cbufferName ) == 0;
+        if ( isDrawConstants && bufDesc.Size > m_cbReflectedSize )
         {
             m_cbReflectedSize = bufDesc.Size;
         }
@@ -347,7 +349,13 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
             {
                 return reflectionFailure( "variable GetDesc", hr );
             }
-            m_uniformMap[varDesc.Name] = { varDesc.StartOffset, varDesc.Size };
+            // Invariant: only b0 draw constants belong to the CPU uniform
+            // image. The b1 bindless indices are root constants published by
+            // the pipeline owner immediately before each draw.
+            if ( isDrawConstants )
+            {
+                m_uniformMap[varDesc.Name] = { varDesc.StartOffset, varDesc.Size };
+            }
         }
     }
 

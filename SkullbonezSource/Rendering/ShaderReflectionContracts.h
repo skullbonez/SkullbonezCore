@@ -27,6 +27,7 @@ Related:
 #include "RenderRasterBindingContract.h"
 #include "DX12/GeneratedShaderReflection.h"
 
+#include <algorithm>
 #include <cstring>
 #include <string>
 
@@ -114,6 +115,22 @@ inline std::uint32_t ShaderValueByteSize( ShaderValueType type )
     default:
         return 0;
     }
+}
+
+inline std::uint32_t GeneratedCbufferSize( const GeneratedShaderReflection::Stage& stage, const char* cbufferName )
+{
+    std::uint32_t size = 0;
+    for ( std::uint32_t fieldIndex = 0; cbufferName && fieldIndex < stage.fieldCount; ++fieldIndex )
+    {
+        const auto& field = GeneratedShaderReflection::Fields[stage.fieldStart + fieldIndex];
+        if ( std::strcmp( field.cbuffer, cbufferName ) == 0 )
+        {
+            size = (std::max)( size, field.offset + field.size );
+        }
+    }
+    // Invariant: constant-buffer storage is rounded to 16-byte register rows,
+    // independently for b0 draw data and b1 bindless indices.
+    return ( size + 15u ) & ~15u;
 }
 
 inline bool
@@ -223,17 +240,10 @@ inline bool ValidateUnifiedRasterResource( const GeneratedShaderReflection::Stag
 
     if ( resource.registerClass == 'b' )
     {
-        if ( resource.slot == UnifiedRasterRootSignature::SHADER_REGISTER_DRAW_CONSTANTS &&
-             std::strcmp( resource.type, "cbuffer" ) == 0 )
-        {
-            return true;
-        }
-    }
-    else if ( resource.registerClass == 't' )
-    {
-        if ( std::strcmp( stage.stage, "ps" ) == 0 &&
-             UnifiedRasterRootSignature::AcceptsTextureRegister( resource.slot ) &&
-             std::strcmp( resource.type, "texture" ) == 0 && std::strcmp( resource.dimension, "2d" ) == 0 )
+        const bool drawConstants = resource.slot == UnifiedRasterRootSignature::SHADER_REGISTER_DRAW_CONSTANTS;
+        const bool pixelTextureIndices = resource.slot == UnifiedRasterRootSignature::SHADER_REGISTER_TEXTURE_INDICES &&
+                                         std::strcmp( stage.stage, "ps" ) == 0;
+        if ( ( drawConstants || pixelTextureIndices ) && std::strcmp( resource.type, "cbuffer" ) == 0 )
         {
             return true;
         }
