@@ -329,23 +329,51 @@ screenshots, and physics matched the 44,401-line baseline byte-exactly.
 
 ## R9 — Deterministic solver SIMD
 
-- [ ] Baseline profile FIRST: `tools\validate_perf.bat` + SkullScope solver
+- [x] Baseline profile FIRST: `tools\validate_perf.bat` + SkullScope solver
       phase numbers on the perf scene; record commands, artifact sizes, and
       model-ingested query bytes per the SkullScope reporting rule.
-- [ ] Design note: SSE2 only, fixed-width, no FMA, no AVX, no runtime
+      The pre-edit perf gate passed in 62.2s with `SolveRows` averaging
+      0.0157ms. Trace command:
+      `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off
+      --scene SkullbonezData/scenes/physics_bench_varied.scene.json
+      --physics-diag Debug\r9_solver_before.physicsdiag.ndjson` (30.5s).
+      The NDJSON is 100,811,064 bytes and its SQLite cache is 49,045,504
+      bytes; neither raw artifact was read by GPT.
+- [x] Bounded SkullScope query:
+      `tools\physics_query.bat Debug\r9_solver_before.physicsdiag.ndjson
+      solver --frames 0:1200 --limit 12`. Output read: 3,510 characters,
+      3,513 UTF-8 bytes, not truncated. Total GPT-read SkullScope output is
+      3,510 characters / 3,513 bytes. It reports 13,540 contact rows, 11.2833
+      average rows, and 9.3725 average iterations across 1,200 frames.
+- [x] Design note: SSE2 only, fixed-width, no FMA, no AVX, no runtime
       dispatch — the deterministic envelope is one code path on all supported
       x64 hardware (matches the documented MSVC v143 envelope).
-- [ ] Vectorize the PGS row solve (normal + two friction axes accumulate/
+- [x] Vectorize the PGS row solve (normal + two friction axes accumulate/
       clamp) and solver body scratch velocity updates in
       `PersistentContactSolver.cpp`; keep row ordering identical.
-- [ ] Rebuild final Debug artifacts; regenerate physics CSV + SkullScope
-      baselines from that exact executable/scene/config state.
-- [ ] Rerun `tools\validate_physics.bat` AND `tools\validate_physics_deep.bat`
-      against the refreshed baselines — byte-exact required.
-- [ ] After-profile: record measured solver-phase delta. If below noise,
+      The candidate preserved normal-before-friction and row order, built
+      Profile with zero warnings in 14.7s, then was fully reverted because it
+      was slower.
+- [x] Rebuild final Debug artifacts; regenerate physics CSV + SkullScope
+      baselines from that exact executable/scene/config state. No solver or
+      SkullScope baseline changed after the revert. A first deep run exposed a
+      separate stale `space_three_body_chaos.csv`: commit `28a1eee0` had raised
+      the scene's gravity and velocities without updating its deep baseline.
+      Refreshed that 361-line artifact from the final scalar Debug executable.
+- [x] Rerun `tools\validate_physics.bat` AND `tools\validate_physics_deep.bat`
+      against the refreshed baselines — byte-exact required. Physics passed in
+      58.2s (44,401 varied-scene lines exact); the final deep gate passed in
+      131.7s, including the repaired 361-line three-body artifact and the
+      committed SkullScope query packet.
+- [x] After-profile: record measured solver-phase delta. If below noise,
       revert the SIMD change, keep the measurement report, and close the task
       as "measured, declined" — that is an accepted closure.
-- [ ] `tools\validate_perf.bat` pass recorded either way.
+      Measured, declined: candidate `SolveRows` rose from 0.0157ms to 0.0180ms
+      average (+14.6%; compared tail +13.3%). The final scalar run measured
+      0.0155ms average, so the candidate added complexity and regressed cost.
+- [x] `tools\validate_perf.bat` pass recorded either way. Candidate gate passed
+      in 66.4s; final retained-scalar gate passed in 61.4s with allocation,
+      structural, and performance budgets clean.
 
 ## R10 — Bindless + three frames in flight
 

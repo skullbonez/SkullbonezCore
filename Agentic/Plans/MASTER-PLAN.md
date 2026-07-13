@@ -107,8 +107,8 @@ concrete plan rows and counting it would duplicate tasks.
 | frame-view-calling-convention | 4 | 4 | 100% |
 | render-interface-and-workerpool-slimming | 5 | 5 | 100% |
 | runtime-contract-enforcement | 5 | 5 | 100% |
-| adversarial-review-round-3 | 8 | 10 | 80% |
-| **Portfolio total** | **310** | **313** | **99%** |
+| adversarial-review-round-3 | 9 | 10 | 90% |
+| **Portfolio total** | **311** | **313** | **99%** |
 
 ## Current Execution Priority
 
@@ -216,7 +216,7 @@ solver SIMD → DX12 bindless and frame headroom.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [adversarial-review-round-3](TODO/adversarial-review-round-3.md) | Live | 8/10 | Start R9 (baseline, implement, and measure deterministic solver SIMD; revert if the gain is below noise); companion checklist `TODO/adversarial-review-round-3-progress.md` carries fine-grained steps |
+| [adversarial-review-round-3](TODO/adversarial-review-round-3.md) | Live | 9/10 | Start R10 Stage A (inventory and raise DX12 frame resources to three), then Stage B SM6.6 bindless textures; companion checklist `TODO/adversarial-review-round-3-progress.md` carries fine-grained steps |
 
 Owner-ruled out of scope in this round (recorded so they are not re-litigated):
 replay subsystem right-sizing, unit-test depth expansion, sleep parallel-array

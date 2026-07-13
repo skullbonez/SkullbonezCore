@@ -1,7 +1,7 @@
 # Adversarial Review Remediation Round 3 — Language, Namespace, And Renderer Modernization
 
 Date: 2026-07-13
-Status: Live — 8/10 tasks complete
+Status: Live — 9/10 tasks complete
 Impact area: build configuration, Core prelude, UI/Scene/Rendering headers,
 namespace layout, math/solver hot path, DX12 backend
 Owner: engine architecture
@@ -210,7 +210,7 @@ upgrades, then the two performance/architecture tasks.
   44,401-line baseline byte-exact; pre/post perf gates passed in 61.6s/62.2s
   with frame and physics phase results within noise or improved. All 52 touched
   source-bearing files passed the required comment-quality audit.
-- [ ] **R9 — Deterministic SIMD in the solver inner loop.** Vectorize the
+- [x] **R9 — Deterministic SIMD in the solver inner loop.** Vectorize the
   `PersistentContactSolver` row solve (normal + two friction axes) and body
   velocity scratch updates with fixed-width SSE2 intrinsics — no runtime
   dispatch, no FMA/AVX variants, so the Windows x64 MSVC v143 determinism
@@ -225,6 +225,13 @@ upgrades, then the two performance/architecture tasks.
   improvement recorded (or documented revert), deterministic baselines green.
   Validation: `tools\validate_physics.bat`, `tools\validate_physics_deep.bat`,
   `tools\validate_perf.bat`.
+  Completed 2026-07-13 as measured, declined: the fixed-width SSE2 candidate
+  preserved row order and the normal-before-friction dependency but regressed
+  `SolveRows` from 0.0157ms to 0.0180ms average (+14.6%), so it was fully
+  reverted. The retained scalar path measured 0.0155ms. Final physics (58.2s),
+  deep physics/SkullScope (131.7s), and perf (61.4s) gates passed. The deep run
+  also repaired the stale three-body CSV omitted when commit `28a1eee0`
+  intentionally increased that scene's gravity and initial velocities.
 - [ ] **R10 — Bindless textures and three frames in flight.** Two staged
   changes to the DX12 backend, each independently gated. Stage A: raise
   `FRAME_COUNT` 2→3; audit every per-frame array, upload arena, transient SRV
