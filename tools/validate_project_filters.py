@@ -295,17 +295,23 @@ RUNTIME_ALLOCATION_PREFIXES = (
 )
 
 RUNTIME_REPLAY_PREFIXES = (
+    "ReplayAuthoring",
+    "ReplayIdentity",
     "ReplayInteractionController",
     "ReplayOverlayLayout",
     "ReplayOverlayRenderer",
     "ReplayPredictionArchive",
+    "ReplayPrediction",
     "ReplayPredictionReserve",
     "ReplayPredictionScheduling",
     "ReplayRetainedMemory",
     "ReplayRecorder",
+    "ReplayPresentation",
     "ReplayRestoreService",
     "ReplayRuntime",
     "ReplayRuntimeOwnerViews",
+    "ReplayScrubber",
+    "ReplayTimeline",
     "ReplayVisualPacket",
     "ReplayVisualPacketFingerprint",
     "ReplaySolverSnapshot",

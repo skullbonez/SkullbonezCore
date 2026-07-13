@@ -27,6 +27,9 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
   - Agentic/Reference/comment-style-guide.md
 */
+#include "ReplayPresentation.h"
+#include "ReplayScrubber.h"
+#include "ReplayTimeline.h"
 #include "ReplayRuntime.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Scene/SceneController.h"

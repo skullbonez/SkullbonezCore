@@ -23,6 +23,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
 */
+#include "ReplayAuthoring.h"
 #include "ReplayRuntime.h"
 #include "../../Assets/AssetKeys.h"
 #include "../CameraCollection.h"

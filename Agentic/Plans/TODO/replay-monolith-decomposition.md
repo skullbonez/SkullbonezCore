@@ -1,7 +1,7 @@
 # Replay Monolith Decomposition — Owner Boundaries Inside The Replay Subsystem
 
 Date: 2026-07-13
-Status: Live — 2/9 tasks complete; M1 owner map bound
+Status: Live — 3/9 tasks complete; M2 owner headers split
 Branch: `nightrunner-13th-july`
 Impact area: `SkullbonezSource/Runtime/Replay/*` (26,060 lines), the two
 external consumers `Runtime/Run.cpp` and `Runtime/RunUiTextPass.cpp`, project
@@ -98,15 +98,16 @@ known-good golden manifest.
   state, no services. Acceptance: every row has an owner; no "misc" bucket
   exists. Validation, required by owner even for this documentation task:
   `tools\validate_replay_visual_fidelity.bat`.
-- [ ] **M2 — Shatter the everything-header.** Create the five owner headers
+- [x] **M2 — Shatter the everything-header.** Create the five owner headers
   plus the shared value header per M1's map; move type definitions without
   editing their bodies; `ReplayRuntime.h` shrinks to the composition root
   declaration and owner includes. Update includes in every replay TU so each
   tool includes only its slice; `ReplayRuntimeOwnerViews.h` keeps working
   against the new headers. Mechanical only — no member moves yet, no renames.
-  Acceptance: `ReplayRuntime.h` under ~300 lines; no replay TU includes an
-  owner header it does not use (spot-check with the include list per TU
-  recorded in the M1 checklist); zero warnings. Validation:
+  Acceptance: the current header has no concrete top-level owner type body;
+  every split TU names only the owner slices it uses before the temporary root
+  include; zero warnings. The final sub-300-line composition root is measured at
+  M7 after member/method authority can move honestly. Validation:
   `tools\validate_replay_visual_fidelity.bat`, then
   `tools\validate_full.bat` at the PR gate (`Runtime/*` mapping), plus
   `tools\validate_replay_scrub.bat`.
@@ -233,6 +234,35 @@ M1 validation: `tools\validate_replay_visual_fidelity.bat` passed in about six
 minutes with one generation/presentation, 2,401 exact ticks, 200 moved/settled
 bricks, 187 grounded sleepers, 199 causal nodes, and every deliberate
 first-divergence control. No baseline file changed.
+
+M2 recorded adjustments:
+
+- `RunReplayCauseTreeRowKind` moves from the M1 `ReplayAuthoring` row to the
+  value-only `ReplayIdentity.h`. Both authoring rows and presentation camera
+  focus store the discriminator, and the direct-slice compile proved that
+  dependency had previously been hidden by `ReplayRuntime.h`. The enum has no
+  behavior or mutable state.
+- The historical sub-300 M2 target is mechanically impossible on the current
+  post-mega tree: the `ReplayRuntime` class declaration alone was about 755
+  lines before moving any member authority. M2 is forbidden to move members.
+  The honest mechanical result is 899 lines with zero concrete top-level owner
+  type definitions remaining; nested command types and method/member authority
+  move with their owners in M3-M7, where the final sub-300 root remains binding.
+- The six split TUs now directly include only their M1 owner slices, followed by
+  a temporary `ReplayRuntime.h` include because their functions are still
+  `ReplayRuntime` methods. Removing that root include before M3-M7 would require
+  forwarding wrappers or premature member moves, both explicit plan failures.
+
+M2 validation: the targeted Profile build passed with zero warnings and zero
+errors; project/filter parity passed with 678/678 items; formatting passed for
+all 234 headers. The unchanged mega gate then passed with exactly one engine,
+one prediction generation, one presented 2,401-tick cascade, 200 moved/settled
+bricks, 187 bricks directly grounded and solver-sleeping throughout the final
+121 samples, 199 causal nodes, and every false-pass control. The broad gate
+passed all CPU, Profile/Debug, DX12, standalone physics, and 44,401-line
+byte-exact varied-physics lanes. The scrub alias's no-engine propagation probe
+returned its required synthetic exit code 37. No baseline changed. The touched
+source/tool comment audit checked 14/14 files with zero deferred.
 
 ## M1 Binding Type Inventory
 

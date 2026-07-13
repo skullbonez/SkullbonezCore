@@ -26,6 +26,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
   - Agentic/Reference/comment-style-guide.md
 */
+#include "ReplayAuthoring.h"
 #include "ReplayRuntime.h"
 #include "../../Assets/AssetKeys.h"
 #include "../Editor/EditorTools.h"

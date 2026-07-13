@@ -47,6 +47,8 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
+#include "ReplayPrediction.h"
+#include "ReplayPresentation.h"
 #include "ReplayRuntime.h"
 #include "../Editor/EditorTools.h"
 #include "../Tools/RuntimeTools.h"

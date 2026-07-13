@@ -20,6 +20,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
   - SkullbonezSource/Runtime/RuntimePickService.h
 */
+#include "ReplayPresentation.h"
 #include "ReplayRuntime.h"
 #include "../Scene/SceneEntityStore.h"
 #include "../RuntimePickService.h"

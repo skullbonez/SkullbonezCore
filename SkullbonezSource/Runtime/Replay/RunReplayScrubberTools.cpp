@@ -28,6 +28,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
 */
+#include "ReplayScrubber.h"
 #include "ReplayRuntime.h"
 #include "../../Assets/AssetKeys.h"
 #include "../CameraCollection.h"

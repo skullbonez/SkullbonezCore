@@ -118,8 +118,8 @@ concrete plan rows and counting it would duplicate tasks.
 | runtime-contract-enforcement | 5 | 5 | 100% |
 | adversarial-review-round-3 | 10 | 10 | 100% |
 | replay-visual-fidelity-mega-probe | 7 | 7 | 100% |
-| replay-monolith-decomposition | 2 | 9 | 22% |
-| **Portfolio total** | **321** | **329** | **98%** |
+| replay-monolith-decomposition | 3 | 9 | 33% |
+| **Portfolio total** | **322** | **329** | **98%** |
 
 ## Current Execution Priority
 
@@ -166,7 +166,7 @@ validation-gate V3 remains externally blocked.
 |---|---|---:|---|
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs merge-group proof, required branch protection, and trusted/ephemeral DX12 runner administration |
 | [replay-visual-fidelity-mega-probe](TODO/replay-visual-fidelity-mega-probe.md) | Complete | 7/7 | One engine, one prediction, 2,401 exact ticks, 187 grounded sleepers, durable CPU-only reconstruction, and adversarial closure approved |
-| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Active | 2/9 | M1 bound 55 current header types and 212 free functions; M2 shatters the everything-header mechanically |
+| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Active | 3/9 | M2 split six owner/value headers with the unchanged mega oracle green; M3 extracts presentation authority |
 
 ## Planned Architecture Work (2026-07-11 gap review)
 
