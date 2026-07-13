@@ -1,7 +1,7 @@
 # Replay Monolith Decomposition — Owner Boundaries Inside The Replay Subsystem
 
 Date: 2026-07-13
-Status: Live — 0/9 tasks complete; blocked on `replay-visual-fidelity-mega-probe.md`
+Status: Live — 1/9 tasks complete; M0 prerequisite certified
 Branch: `nightrunner-13th-july`
 Impact area: `SkullbonezSource/Runtime/Replay/*` (26,060 lines), the two
 external consumers `Runtime/Run.cpp` and `Runtime/RunUiTextPass.cpp`, project
@@ -81,7 +81,7 @@ inventory work, ends with `tools\validate_replay_visual_fidelity.bat`. Any
 failure reopens the current task. A decomposition task may never refresh the
 known-good golden manifest.
 
-- [ ] **M0 — Prerequisite gate (no code).**
+- [x] **M0 — Prerequisite gate (no code).**
   `replay-visual-fidelity-mega-probe` is complete and both
   `tools\validate_replay_visual_fidelity.bat` and
   `tools\validate_replay_scrub.bat` pass on the exact starting tree. Record
@@ -216,6 +216,36 @@ known-good golden manifest.
 - Hazard: `ReplayV2Artifact` serializes branch/provenance records that M5
   moves; the artifact format and field order must not change (no version bump
   is in scope — moving code must not reorder serialization).
+
+## M0 Starting-Tree Evidence — 2026-07-14
+
+- Starting commit: `1dff40e1d1541a6bb9511ef4f1ad4bd3986dda61` on
+  `nightrunner-13th-july`, immediately after the 7/7 mega-probe closure.
+- `tools\validate_replay_visual_fidelity.bat` passed in about six minutes with
+  one engine process, one prediction generation, one presented cascade, 2,401
+  compared ticks, packet schema 1 inside manifest schema 2, 200 moved and
+  settled wall bricks, 187 grounded sleepers, and 199 causal nodes. All packet,
+  causal, artifact, RVPD, and ten determinism false-pass controls rejected their
+  intended mutations.
+- Immutable visual manifest SHA-256:
+  `2448394EB4E456DFEAB7F36645F124C9C6792456AAA689323E1C786FFB453C93`.
+  Immutable causal manifest SHA-256:
+  `07E6E6FDA8918CBACDFF6F151C986389D11DAEE65BCAAF64AEAFD01DC81D27D3`.
+  Generated schema-4 artifact SHA-256:
+  `B631D319CDF8098B038995C793045991A27FD4132A52A21647678EF2EC906136`.
+- Manifest provenance remains scene
+  `41ec952ba22fae36e462b750d894909dd0ee58975554d696aea16220c0f2c934`,
+  interaction script
+  `585a904bad3f6224062d338fd830028664067f3d2455a6d861e6969d0b57eea1`,
+  config
+  `541cfec50cdc052e502b042d2c80c288c06157ad4269ede382d61e2e456efcd5`,
+  and shader tree
+  `4c285cc8ee1371b1e97d93c8e450998a9c1a2f2b267742a1a258799b7d775d20`.
+- The historical scrub alias was verified without another engine launch: its
+  static launcher shape still delegates to the one authoritative command and
+  `--prove-failure-propagation` previously returned synthetic exit code 37.
+  Running the normal alias here is forbidden because it would present the
+  prediction a second time.
 
 ## Validation
 
