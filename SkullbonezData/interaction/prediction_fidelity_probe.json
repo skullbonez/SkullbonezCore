@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 5, "setReplayPredictionHorizonSeconds": 1.0 },
+    { "frame": 5, "setReplayPathTarget": "chaos_a" },
+    { "frame": 5, "setReplayPredictionEnabled": true },
+    { "frame": 80, "assert": { "predictionFullHorizonComplete": true } },
+    { "frame": 90, "setReplayPredictionEnabled": false },
+    { "frame": 230, "assert": { "predictionMatchesLiveHorizon": 120 } }
+  ]
+}

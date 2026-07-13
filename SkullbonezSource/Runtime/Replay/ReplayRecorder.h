@@ -386,6 +386,16 @@ struct ReplaySolverFrameSample
     bool checkpointBoundary = false;
 };
 
+// Compact lookup result used by fidelity probes. It deliberately exposes only
+// the retained header fields needed to compare prediction against live history.
+struct ReplaySolverHashRecord
+{
+    ReplayFrameIndex frameIndex = 0;
+    uint64_t solverHash = 0;
+    uint32_t eventCursor = 0;
+    bool fixedStep = false;
+};
+
 struct ReplayCheckpointSummary
 {
     ReplayFrameIndex frameIndex = 0;
@@ -680,6 +690,9 @@ class ReplaySolverRecorder
     }
     const ReplaySolverFrameSample* LatestSample() const;
     const ReplaySolverFrameSample* SampleAtNormalized( float normalized ) const;
+    // Reads one retained sample's hash header without reconstructing its dense
+    // body/world delta payload. Returns false after ring eviction.
+    bool TryGetHashRecord( ReplayFrameIndex frameIndex, ReplaySolverHashRecord& outRecord ) const;
 
   private:
     std::size_t AcquireSampleSlotIndex();

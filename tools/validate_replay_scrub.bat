@@ -49,14 +49,14 @@ echo   VALIDATE_REPLAY_SCRUB - replay probes
 echo ========================================
 echo.
 
-echo [1/3] Building Debug x64...
+echo [1/4] Building Debug x64...
 call "%~dp0validate_build.bat" Debug
 if errorlevel 1 (
     popd
     exit /b 1
 )
 
-echo [2/3] Checking replay scrub and restore SkullScope probes...
+echo [2/4] Checking replay scrub and restore SkullScope probes...
 set "SKORE_REPO=%REPO%"
 "%PYTHON_EXE%" "%~dp0check_replay_scrub_regression.py"
 if errorlevel 1 (
@@ -67,13 +67,22 @@ if errorlevel 1 (
     exit /b 2
 )
 
-echo [3/3] Checking replay prediction trajectory determinism and submitted-geometry stability...
+echo [3/4] Checking replay prediction trajectory determinism and submitted-geometry stability...
 "%PYTHON_EXE%" "%~dp0check_replay_prediction_determinism.py"
 if errorlevel 1 (
     echo FAIL: replay prediction determinism/stability probe detected drift.
     echo       Reports: TestOutput\validation\replay_prediction_determinism
     popd
     exit /b 4
+)
+
+echo [4/4] Checking replay prediction against the later live solver horizon...
+"%PYTHON_EXE%" "%~dp0check_replay_prediction_fidelity.py"
+if errorlevel 1 (
+    echo FAIL: replay prediction fidelity probe detected predicted/live divergence.
+    echo       Report: TestOutput\validation\replay_prediction_fidelity
+    popd
+    exit /b 5
 )
 
 call "%~dp0validate_ready_builds.bat"

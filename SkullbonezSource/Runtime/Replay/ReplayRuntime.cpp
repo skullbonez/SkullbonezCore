@@ -1052,6 +1052,11 @@ void ReplayRuntime::ClearPredictionCache()
     m_prediction.simulation.targetId = ReplayBodyId{};
     m_prediction.simulation.sourceFrameIndex = 0;
     m_prediction.simulation.sourceSolverHash = 0;
+    m_prediction.simulation.sourceEventCursor = 0;
+    m_prediction.simulation.sourceWorld = ReplayWorldPresentationSample{};
+    m_prediction.simulation.sourceLauncherControl.fireMode = ReplayLauncherFireMode::Laser;
+    m_prediction.simulation.sourceLauncherControl.impulseStrength = 0.0f;
+    m_prediction.simulation.sourceLauncherControl.projectileSpeed = 0.0f;
     m_prediction.simulation.sourceSimulationSeconds = 0.0;
     m_prediction.build.lastBuildTime = 0.0;
     m_prediction.trajectoryBuild = RunReplayPredictionTrajectoryBuildState{};

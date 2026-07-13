@@ -57,6 +57,7 @@ Related:
 #include "ReplayOverlayLayout.h"
 #include "ReplayOverlayRenderer.h"
 #include "ReplayPredictionReserve.h"
+#include "ReplaySolverHash.h"
 #include "../RuntimePickService.h"
 #include "../Allocation/RuntimeAllocationTracker.h"
 #include "../Allocation/RuntimeReserveAllocator.h"
@@ -3607,10 +3608,56 @@ bool ApplyReplayPredictionBodyState( PhysicsEngine& physicsEngine,
 }
 
 
+bool ApplyReplayPredictionBodyState( PhysicsEngine& physicsEngine, const std::vector<ReplaySolverBodySample>& bodies )
+{
+    PROFILE_SCOPED( "Frame/Replay/Prediction/ApplyRetainedBodyState" );
+    const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physicsEngine );
+    if ( bodies.size() != static_cast<std::size_t>( bodyStore.Count() ) )
+    {
+        return false;
+    }
+
+    // Invariant: a retained solver sample is the authority for prediction T.
+    // Reading current live rows here would mix T's hash/snapshot with transient
+    // state from a later point in the render frame.
+    for ( const ReplaySolverBodySample& body : bodies )
+    {
+        const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( body.modelRow.value );
+        const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( bodyHandle );
+        if ( !bodyRecord || bodyStore.ModelIndexForHandle( bodyHandle ) != body.modelRow.value ||
+             bodyRecord->replayBodyId != body.id.value )
+        {
+            return false;
+        }
+        if ( !physicsEngine.RestoreReplayBodyState(
+                 bodyHandle,
+                 body.id.value,
+                 body.fixed,
+                 body.position,
+                 SkullbonezCore::Math::Orientation::Quaternion( body.orientation[0],
+                                                                body.orientation[1],
+                                                                body.orientation[2],
+                                                                body.orientation[3] ),
+                 body.linearVelocity,
+                 body.angularVelocity,
+                 body.mass,
+                 body.inverseMass,
+                 body.rotationalInertia,
+                 body.inverseRotationalInertia ) )
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+
 bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
                                  const PhysicsEngine& liveEngine,
                                  const SkullbonezCore::Core::EngineConfig& config,
                                  const PhysicsWorldForces& worldForces,
+                                 const ReplaySolverFrameSample* retainedSeed,
+                                 const ReplaySolverWorldSnapshot& seedWorld,
                                  int modelCount )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/SeedPrivateEngine" );
@@ -3664,8 +3711,11 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
     predictionEngine = liveEngine;
     predictionEngine.ApplyRuntimeConfig( config );
     prediction.simulation.predictionWorldForces = worldForces;
-    if ( !ApplyReplayPredictionBodyState( predictionEngine, prediction.simulation.predictionBodies ) ||
-         !predictionEngine.RestoreReplaySolverSnapshot( prediction.simulation.predictionWorld,
+    const bool bodyStateApplied =
+        retainedSeed ? ApplyReplayPredictionBodyState( predictionEngine, retainedSeed->bodies )
+                     : ApplyReplayPredictionBodyState( predictionEngine, prediction.simulation.predictionBodies );
+    if ( !bodyStateApplied ||
+         !predictionEngine.RestoreReplaySolverSnapshot( seedWorld,
                                                         MakePhysicsBodyCountFromNonNegativeInt( modelCount ) ) )
     {
         return false;
@@ -3683,8 +3733,12 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureSample" );
     const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physicsEngine );
+    const ColliderStore& colliderStore = SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physicsEngine );
     const auto bodyRecords = bodyStore.Records();
-    if ( static_cast<int>( bodyRecords.size() ) < modelCount )
+    const auto colliderRecords = colliderStore.Records();
+    if ( modelCount < 0 || modelCount > SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ||
+         static_cast<int>( bodyRecords.size() ) < modelCount ||
+         static_cast<int>( colliderRecords.size() ) < modelCount )
     {
         return false;
     }
@@ -3701,6 +3755,7 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
     frame.simulationSeconds = prediction.simulation.sourceSimulationSeconds +
                               static_cast<double>( frameIndex ) * static_cast<double>( PHYSICS_FIXED_DT );
     frame.tornadoSystemElapsedSeconds = physicsEngine.GetTornadoSystemElapsedSeconds();
+    frame.solverHash = 0;
     frame.contactsIncomplete = false;
     if ( static_cast<std::size_t>( modelCount ) > frame.bodies.capacity() )
     {
@@ -3743,6 +3798,84 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
     }
     const std::vector<PhysicsDebugContact>& debugContacts =
         SkullbonezCore::Physics::PhysicsEngine::ReadDebugContacts( physicsEngine );
+
+    // Concept: recorder and prediction hashes include the same per-body
+    // contact summaries in addition to the full solver snapshot. These fixed
+    // arrays are cleared only across live model rows, then filled from the
+    // post-step debug-contact list without heap growth.
+    auto& contactCounts = prediction.simulation.solverHashContactCounts;
+    auto& maxPenetrations = prediction.simulation.solverHashMaxPenetrations;
+    auto& normalImpulseSums = prediction.simulation.solverHashNormalImpulseSums;
+    std::fill_n( contactCounts.begin(), modelCount, uint16_t{ 0 } );
+    std::fill_n( maxPenetrations.begin(), modelCount, 0.0f );
+    std::fill_n( normalImpulseSums.begin(), modelCount, 0.0f );
+    const auto accumulateContact = [&]( int bodyIndex, float penetration, float normalImpulse )
+    {
+        if ( bodyIndex < 0 || bodyIndex >= modelCount )
+        {
+            return;
+        }
+        const std::size_t index = static_cast<std::size_t>( bodyIndex );
+        if ( contactCounts[index] < 0xffffu )
+        {
+            ++contactCounts[index];
+        }
+        maxPenetrations[index] = (std::max)( maxPenetrations[index], penetration );
+        normalImpulseSums[index] += normalImpulse;
+    };
+    for ( const PhysicsDebugContact& contact : debugContacts )
+    {
+        accumulateContact( contact.bodyA, contact.penetration, contact.normalImpulse );
+        accumulateContact( contact.bodyB, contact.penetration, contact.normalImpulse );
+    }
+
+    physicsEngine.CaptureReplaySolverSnapshot( prediction.simulation.predictionWorld,
+                                               MakePhysicsBodyCountFromNonNegativeInt( modelCount ) );
+    frame.solverHash =
+        BeginReplaySolverHash( prediction.simulation.sourceWorld,
+                               modelCount,
+                               debugContacts.size(),
+                               SkullbonezCore::Physics::PhysicsEngine::ReadPipelineTrace( physicsEngine ).size(),
+                               prediction.simulation.sourceLauncherControl,
+                               prediction.simulation.predictionWorld );
+
+    const auto sleepStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( physicsEngine );
+    const auto sleepSupportedStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepSupportedStates( physicsEngine );
+    const auto sleepInhibitedStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepInhibitedStates( physicsEngine );
+    const std::vector<uint8_t>& collisionContacts =
+        SkullbonezCore::Physics::PhysicsEngine::ReadCollisionVisualContacts( physicsEngine );
+    const auto sleepIslandIds = SkullbonezCore::Physics::PhysicsEngine::ReadSleepIslandVisualIds( physicsEngine );
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        const std::size_t bodyIndex = static_cast<std::size_t>( i );
+        const PhysicsBodyRecord& source = bodyRecords[bodyIndex];
+        ReplaySolverBodySample body;
+        body.id.value = source.replayBodyId;
+        body.modelRow = MakeModelRowHint( i );
+        body.shapeKind = ReplayShapeKindForCollider( colliderRecords[bodyIndex] );
+        body.position = source.position;
+        body.linearVelocity = source.linearVelocity;
+        body.angularVelocity = source.angularVelocity;
+        source.orientation.GetComponents( body.orientation[0],
+                                          body.orientation[1],
+                                          body.orientation[2],
+                                          body.orientation[3] );
+        body.mass = source.mass;
+        body.inverseMass = source.invMass;
+        body.rotationalInertia = source.rotationalInertia;
+        body.inverseRotationalInertia = source.invRotationalInertia;
+        body.fixed = source.isFixed;
+        body.sleeping = bodyIndex < sleepStates.size() && sleepStates[bodyIndex] != 0;
+        body.sleepSupported = bodyIndex < sleepSupportedStates.size() && sleepSupportedStates[bodyIndex] != 0;
+        body.sleepInhibited = bodyIndex < sleepInhibitedStates.size() && sleepInhibitedStates[bodyIndex] != 0;
+        body.collisionContact = bodyIndex < collisionContacts.size() && collisionContacts[bodyIndex] != 0;
+        body.sleepIslandVisualId = bodyIndex < sleepIslandIds.size() ? sleepIslandIds[bodyIndex] : 0;
+        body.contactCount = contactCounts[bodyIndex];
+        body.maxPenetration = maxPenetrations[bodyIndex];
+        body.normalImpulseSum = normalImpulseSums[bodyIndex];
+        frame.solverHash = AppendReplaySolverBodyHash( frame.solverHash, body );
+    }
+
     if ( debugContacts.size() > frame.debugContacts.capacity() )
     {
         // Why: debug contacts feed the optional future-impact tree; the root
@@ -4009,13 +4142,26 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
     prediction.build.instantBudgetMs = static_cast<double>( config.replayPrediction.instantBudgetMs );
     prediction.build.probeTickBudget = config.replayPrediction.probeTicks;
     prediction.build.jobStart = std::chrono::steady_clock::now();
-    if ( const ReplaySolverFrameSample* latest = replayRuntime.Solver().LatestSample() )
+    const ReplaySolverFrameSample* latest = replayRuntime.Solver().LatestSample();
+    const ReplaySolverFrameSample* retainedSeed =
+        latest && latest->frameIndex == sourceFrameIndex && latest->solverHash == sourceSolverHash ? latest : nullptr;
+    if ( latest )
     {
         prediction.simulation.sourceSimulationSeconds = latest->simulationSeconds;
+        prediction.simulation.sourceEventCursor = latest->eventCursor;
+        prediction.simulation.sourceWorld = latest->world;
+        prediction.simulation.sourceLauncherControl.fireMode = latest->launcherVisual.fireMode;
+        prediction.simulation.sourceLauncherControl.impulseStrength = latest->launcherVisual.impulseStrength;
+        prediction.simulation.sourceLauncherControl.projectileSpeed = latest->launcherVisual.projectileSpeed;
     }
     else
     {
         prediction.simulation.sourceSimulationSeconds = fallbackSourceSimulationSeconds;
+        prediction.simulation.sourceEventCursor = 0;
+        prediction.simulation.sourceWorld = ReplayWorldPresentationSample{};
+        prediction.simulation.sourceLauncherControl.fireMode = ReplayLauncherFireMode::Laser;
+        prediction.simulation.sourceLauncherControl.impulseStrength = 0.0f;
+        prediction.simulation.sourceLauncherControl.projectileSpeed = 0.0f;
     }
     prediction.build.lastBuildTime = simulationTotalSeconds;
 
@@ -4128,10 +4274,30 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         return false;
     }
 
-    physicsEngine.CaptureReplaySolverSnapshot( prediction.simulation.predictionWorld,
-                                               MakePhysicsBodyCountFromNonNegativeInt( modelCount ) );
+    const ReplaySolverWorldSnapshot* seedWorld = nullptr;
+    if ( retainedSeed && retainedSeed->bodies.size() == static_cast<std::size_t>( modelCount ) )
+    {
+        // Why: the retained snapshot and body payload were hashed together at
+        // T. Passing those exact values into the private engine avoids mixing
+        // them with scratch fields that live physics may clear later in the
+        // same render frame.
+        seedWorld = &retainedSeed->worldSnapshot;
+    }
+    else
+    {
+        retainedSeed = nullptr;
+        physicsEngine.CaptureReplaySolverSnapshot( prediction.simulation.predictionWorld,
+                                                   MakePhysicsBodyCountFromNonNegativeInt( modelCount ) );
+        seedWorld = &prediction.simulation.predictionWorld;
+    }
 
-    if ( !SeedReplayPredictionEngine( prediction, physicsEngine, config, worldForces, modelCount ) )
+    if ( !SeedReplayPredictionEngine( prediction,
+                                      physicsEngine,
+                                      config,
+                                      worldForces,
+                                      retainedSeed,
+                                      *seedWorld,
+                                      modelCount ) )
     {
         replayRuntime.CancelPredictionJob( clearSamplesOnCancel );
         prediction.build.dirty = true;
