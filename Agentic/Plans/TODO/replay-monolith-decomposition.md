@@ -7,12 +7,6 @@ external consumers `Runtime/Run.cpp` and `Runtime/RunUiTextPass.cpp`, project
 filters
 Owner: replay subsystem
 
-Ledger note: NOT yet registered in `Agentic/Plans/MASTER-PLAN.md` — owner
-instruction 2026-07-13: MASTER is in active use by another agent. Before the
-first plan-runner commit against this plan, add the ledger row
-(`replay-monolith-decomposition`, 8 tasks), recompute the portfolio
-denominator in that same commit, and delete this note.
-
 ## Problem And Evidence (measured 2026-07-13 at the `nightrunner-12th-july` tip)
 
 The replay subsystem is externally contained but internally undifferentiated:

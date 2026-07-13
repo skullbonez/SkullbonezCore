@@ -6,12 +6,6 @@ Impact area: replay prediction capture, interaction automation asserts, doctest
 unit suite, replay scrub validation lane
 Owner: replay subsystem
 
-Ledger note: NOT yet registered in `Agentic/Plans/MASTER-PLAN.md` — owner
-instruction 2026-07-13: MASTER is in active use by another agent. Before the
-first plan-runner commit against this plan, add the ledger row
-(`replay-prediction-fidelity-probe`, 5 tasks), recompute the portfolio
-denominator in that same commit, and delete this note.
-
 ## Problem And Evidence
 
 Forward prediction is mechanically "replay of the future": the private
