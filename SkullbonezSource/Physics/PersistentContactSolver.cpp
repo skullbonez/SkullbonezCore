@@ -775,8 +775,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                 // with the support normal. Once it topples onto a face, this veto
                 // clears and the existing quiet-frame sleep gate applies again.
                 // Changing this classification affects byte-exact physics baselines.
-                hasRestingFootprint = ( !hasConvexHull || hasSphere || manifold.pointCount >= 2 ) &&
-                                      !boxHasOnlyEdgeSupport;
+                hasRestingFootprint =
+                    ( !hasConvexHull || hasSphere || manifold.pointCount >= 2 ) && !boxHasOnlyEdgeSupport;
                 uint8_t selectedPointIndices[4] = { 0, 1, 2, 3 };
                 uint8_t selectedPointCount = manifold.pointCount;
                 if ( manifold.pointCount > 2 && !hasSphere && sameShapeFaceFootprint && hasRestingFootprint &&
