@@ -109,8 +109,8 @@ concrete plan rows and counting it would duplicate tasks.
 | runtime-contract-enforcement | 5 | 5 | 100% |
 | adversarial-review-round-3 | 10 | 10 | 100% |
 | replay-prediction-fidelity-probe | 5 | 5 | 100% |
-| replay-monolith-decomposition | 0 | 9 | 0% |
-| **Portfolio total** | **317** | **327** | **97%** |
+| replay-monolith-decomposition | 2 | 9 | 22% |
+| **Portfolio total** | **319** | **327** | **98%** |
 
 ## Current Execution Priority
 
@@ -149,7 +149,7 @@ For maximum impact with minimal rework, use this binding critical path:
 |---|---|---:|---|
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs merge-group proof, required branch protection, and trusted/ephemeral DX12 runner administration |
 | [replay-prediction-fidelity-probe](../Reports/2026-07-13/replay-prediction-fidelity-probe-closure.md) | Complete | 5/5 | Engine snapshot completeness and the permanent 120-tick predicted/live replay gate are closed |
-| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Live | 0/9 | Complete M0/M1, then extract the five owners (presentation → timeline/scrubber → authoring → prediction) behind a thin `ReplayRuntime` composition root |
+| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Live | 2/9 | M0/M1 are closed with a complete owner inventory; shatter the everything-header in M2 |
 
 ## Planned Architecture Work (2026-07-11 gap review)
 

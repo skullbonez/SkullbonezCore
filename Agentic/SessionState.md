@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-13th-july` |
 | Current baseline | Replay prediction fidelity is complete: engine restore is byte-exact and the scrub gate compares 120 predicted/live solver hashes |
-| Current objective | Execute `Plans/TODO/replay-monolith-decomposition.md` (M0→M8); validation-gate V3 remains externally blocked |
-| Portfolio progress | 317 / 327 tasks = 97% rounded overall |
+| Current objective | Execute `Plans/TODO/replay-monolith-decomposition.md` from M2 through M8; validation-gate V3 remains externally blocked |
+| Portfolio progress | 319 / 327 tasks = 98% rounded overall |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-13 in 114.5s: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots/InfoQueue, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
 | Validation for current edits | Fidelity final: `validate_fast` passed; 180/180 unit cases and 4,665 assertions passed; all four replay scrub probes passed including 120 hash-equal ticks; physics matched 44,401 lines byte-exactly. |
 
@@ -36,8 +36,9 @@ plan inventory.
    rulings remain recorded in MASTER to avoid re-litigation.
 5. Replay prediction fidelity is complete at 5/5 with evidence in
    `Reports/2026-07-13/replay-prediction-fidelity-probe-closure.md`. Replay
-   monolith decomposition is now live at 0/9: M0-M8 extract five owners behind
-   a thin ReplayRuntime composition root. MASTER is at 317/327.
+   monolith decomposition is now live at 2/9: M0/M1 record the prerequisite
+   and bind all 84 header declarations plus 213 free functions to owners.
+   M2 next shatters the everything-header. MASTER is at 319/327.
 
 ## Current Plan Decisions
 
@@ -96,6 +97,6 @@ plan inventory.
 
 ## Next Handoff
 
-Continue `Plans/TODO/replay-monolith-decomposition.md` at M0. V3 resumes when
+Continue `Plans/TODO/replay-monolith-decomposition.md` at M2. V3 resumes when
 the required GitHub merge-group/branch-protection authority and trusted or
 ephemeral DX12 runner administration exist.
