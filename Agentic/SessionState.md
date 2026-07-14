@@ -13,7 +13,7 @@ plan inventory.
 | Branch | `nightrunner-13th-july` |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
 | Current objective | Execute replay monolith decomposition with the unchanged frame-exact 200-box gate after every task |
-| Portfolio progress | 326 / 329 tasks = 99% rounded overall |
+| Portfolio progress | 326 / 336 tasks = 97% rounded overall |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-14: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
 | Validation for current edits | M6 passed formatting, allocation-policy checks, zero-warning Profile, the unchanged one-generation 2,401-tick mega gate with all 200 moved and 187 grounded sleepers, performance budgets, the full repository gate including zero DX12 errors and byte-exact physics, and the no-engine scrub-alias propagation probe; no baseline changed. |
 
@@ -51,6 +51,14 @@ plan inventory.
    closure evidence and the 29/29 touched-file comment audit live in
    `Reports/2026-07-13/adversarial-review-round-3-closure.md`. Out-of-scope
    rulings remain recorded in MASTER to avoid re-litigation.
+7. Future-path presentation lane is registered (2026-07-14 owner request):
+   `Plans/TODO/future-path-vector-splines.md` (7 tasks — near-black prediction
+   sky, thin anti-aliased vector-spline trajectory ribbons, comma-cycled color
+   modes with UI reflection, selected-object-only glow, and deletion of the
+   temporary authoring-look cycler). Independent presentation-only lane; its
+   restyle changes presented prediction frames, so any refresh of the 200-box
+   visual-fidelity golden manifest requires explicit owner approval and must
+   be sequenced against the decomposition lane's unchanged-golden rule.
 
 ## Current Plan Decisions
 

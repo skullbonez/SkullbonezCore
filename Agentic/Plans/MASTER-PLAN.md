@@ -119,7 +119,8 @@ concrete plan rows and counting it would duplicate tasks.
 | adversarial-review-round-3 | 10 | 10 | 100% |
 | replay-visual-fidelity-mega-probe | 7 | 7 | 100% |
 | replay-monolith-decomposition | 7 | 9 | 78% |
-| **Portfolio total** | **326** | **329** | **99%** |
+| future-path-vector-splines | 0 | 7 | 0% |
+| **Portfolio total** | **326** | **336** | **97%** |
 
 ## Current Execution Priority
 
@@ -143,14 +144,27 @@ validation-gate V3 remains externally blocked.
    `nightrunner-13th-july`. Every task,
    including documentation inventory, reruns the unchanged 200-box gate before
    it may be checked or committed.
-3. **Adversarial-review round 3 — locally complete.** All ten tasks and the
+3. **Future-path vector splines — live independent presentation lane
+   (2026-07-14 owner request).** `TODO/future-path-vector-splines.md` (T1→T7)
+   restyles the prediction view: near-black sky, thin anti-aliased
+   vector-spline ribbons, comma-cycled color modes with UI reflection,
+   selected-object-only glow, and deletion of the temporary authoring cycler.
+   It touches no prediction simulation or capture code and may run in parallel
+   with the decomposition lane, but its intentional presentation restyle will
+   change presented prediction frames: any refresh of the frame-exact 200-box
+   visual-fidelity golden manifest requires explicit owner approval per
+   inventory rule 11 and must be sequenced with the decomposition lane's
+   unchanged-golden requirement (restyle lands only with owner sign-off on the
+   new golden, or after decomposition tasks that depend on the current golden
+   are closed).
+4. **Adversarial-review round 3 — locally complete.** All ten tasks and the
    final independent review are closed; evidence lives in
    `../Reports/2026-07-13/adversarial-review-round-3-closure.md`.
-4. **Adversarial-review remediation round 1 — locally complete.** All five
+5. **Adversarial-review remediation round 1 — locally complete.** All five
    active 2026-07-12 remediation plans are closed. The comment-rot sweep
    remains owner-parked in `WNF/` (no comment changes yet), so it is not live
    work or part of the portfolio ledger.
-5. **Adversarial-review round 2 — locally complete.** EngineLog fatal-path
+6. **Adversarial-review round 2 — locally complete.** EngineLog fatal-path
    thread safety, SpatialGrid input validation, AmortizedTask lifetime guards,
    and worker-pool exception-plumbing removal are complete and validated.
 
@@ -167,6 +181,7 @@ validation-gate V3 remains externally blocked.
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs merge-group proof, required branch protection, and trusted/ephemeral DX12 runner administration |
 | [replay-visual-fidelity-mega-probe](TODO/replay-visual-fidelity-mega-probe.md) | Complete | 7/7 | One engine, one prediction, 2,401 exact ticks, 187 grounded sleepers, durable CPU-only reconstruction, and adversarial closure approved |
 | [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Active | 7/9 | M6 extracted private prediction ownership and a never-stored presentation view with mega, perf, and full gates green; M7 closes the Run/probe seam |
+| [future-path-vector-splines](TODO/future-path-vector-splines.md) | Live — independent presentation lane | 0/7 | Start T1 (near-black prediction sky) and T2 (thin AA vector-spline ribbon shader); owner decisions 2026-07-14 are recorded in the plan; golden-manifest refresh needs owner approval |
 
 ## Planned Architecture Work (2026-07-11 gap review)
 
