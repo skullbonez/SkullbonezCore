@@ -27,10 +27,7 @@ Related:
 #include "../../Assets/AssetKeys.h"
 
 #include "ReplayOverlayLayout.h"
-#include "../../Core/Profiler.h"
-#include "../../Physics/PhysicsEngine.h"
 
-#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
@@ -127,96 +124,6 @@ void ReplayInteractionController::CompleteScrubberRestore( ReplayRuntime& replay
     }
     PublishScrubberRestoreResult( replayRuntime.Scrubber(), request.now, restored, request.messageTrack );
     WriteReason( outReason, reasonSize, safeReason );
-}
-
-
-ReplayVelocityEditInputFrame
-ReplayInteractionController::BeginVelocityEditInputFrame( bool leftDown, bool leftPressed, bool leftReleased )
-{
-    ReplayVelocityEditInputFrame frame;
-    frame.leftDown = leftDown;
-    frame.leftPressed = leftPressed;
-    frame.leftReleased = leftReleased;
-    return frame;
-}
-
-
-void ReplayInteractionController::SetVelocityEditHoverAxes( ReplayRuntime& replayRuntime,
-                                                            int linearAxis,
-                                                            int angularAxis )
-{
-    replayRuntime.VelocityEdit().hotLinearAxis = linearAxis;
-    replayRuntime.VelocityEdit().hotAngularAxis = angularAxis;
-}
-
-
-void ReplayInteractionController::ResetVelocityEditInteraction( ReplayRuntime& replayRuntime, bool clearHoverAxes )
-{
-    RunReplayVelocityEditState& velocityEdit = replayRuntime.VelocityEdit();
-    if ( clearHoverAxes )
-    {
-        velocityEdit.hotLinearAxis = -1;
-        velocityEdit.hotAngularAxis = -1;
-    }
-}
-
-
-void ReplayInteractionController::EndVelocityEditDrag( ReplayRuntime& replayRuntime )
-{
-    ResetVelocityEditInteraction( replayRuntime, false );
-}
-
-
-void ReplayInteractionController::BeginVelocityEditDrag( ReplayRuntime& replayRuntime,
-                                                         const ReplayVelocityEditDragStart& start )
-{
-    // Invariant: active body, axis, and angular mode live in the controller's
-    // typed gesture. Replay retains only the sampled start values used by drag math.
-    replayRuntime.Prediction().enabled = true;
-    RunReplayVelocityEditState& velocityEdit = replayRuntime.VelocityEdit();
-    velocityEdit.dragStartAxisT = start.axisT;
-    velocityEdit.dragStartAngle = start.angle;
-    velocityEdit.dragStartLinearVelocity = start.linearVelocity;
-    velocityEdit.dragStartAngularVelocity = start.angularVelocity;
-}
-
-
-void ReplayInteractionController::SelectVelocityEditTarget( ReplayRuntime& replayRuntime, double visibleUntil )
-{
-    replayRuntime.Prediction().enabled = true;
-    replayRuntime.Scrubber().visibleUntil = visibleUntil;
-    replayRuntime.Scrubber().visible = true;
-}
-
-
-bool ReplayInteractionController::ApplyVelocityEditToBody( const ReplayVelocityEditApplyContext& context )
-{
-    PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Apply" );
-    // Invariant: replay velocity edit mutates live physics state deliberately,
-    // then publishes an authoring refresh request so retained and predicted
-    // overlays do not present stale paths for the edited body.
-    if ( !context.body.IsValid() )
-    {
-        return false;
-    }
-
-    Math::Vector::Vector3 clampedLinear = context.linearVelocity;
-    Math::Vector::Vector3 clampedAngular = context.angularVelocity;
-    clampedLinear.x = std::clamp( clampedLinear.x, -context.linearVelocityLimit, context.linearVelocityLimit );
-    clampedLinear.y = std::clamp( clampedLinear.y, -context.linearVelocityLimit, context.linearVelocityLimit );
-    clampedLinear.z = std::clamp( clampedLinear.z, -context.linearVelocityLimit, context.linearVelocityLimit );
-    clampedAngular.x = std::clamp( clampedAngular.x, -context.angularVelocityLimit, context.angularVelocityLimit );
-    clampedAngular.y = std::clamp( clampedAngular.y, -context.angularVelocityLimit, context.angularVelocityLimit );
-    clampedAngular.z = std::clamp( clampedAngular.z, -context.angularVelocityLimit, context.angularVelocityLimit );
-
-    if ( !context.physics.SetBodyVelocity( context.body, clampedLinear, clampedAngular, true ) )
-    {
-        return false;
-    }
-    context.replayRuntime.NotifyVelocityEditApplied();
-    context.replayRuntime.Scrubber().visibleUntil = context.visibleUntil;
-    context.replayRuntime.Scrubber().visible = true;
-    return true;
 }
 
 

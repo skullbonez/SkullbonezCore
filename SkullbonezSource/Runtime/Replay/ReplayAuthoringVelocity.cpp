@@ -35,7 +35,6 @@ Related:
 #include "../Scene/SceneEntityStore.h"
 #include "../../Core/Profiler.h"
 
-#include "ReplayInteractionController.h"
 #include "ReplayOverlayLayout.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
@@ -475,13 +474,10 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
                               m_inputRouter );
     };
     PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Input" );
-    ReplayInteractionController replayInteraction;
     const RuntimeMouseEdges& pointer = m_inputRouter.UiSnapshot().mouse;
-    const ReplayVelocityEditInputFrame inputFrame =
-        replayInteraction.BeginVelocityEditInputFrame( pointer.leftDown, pointer.leftPressed, pointer.leftReleased );
-    const bool leftDown = inputFrame.leftDown;
-    const bool leftPressed = inputFrame.leftPressed;
-    const bool leftReleased = inputFrame.leftReleased;
+    const bool leftDown = pointer.leftDown;
+    const bool leftPressed = pointer.leftPressed;
+    const bool leftReleased = pointer.leftReleased;
     const auto velocityDragActive = [&]()
     { return m_interaction.Gesture().kind == RuntimeInteractionGestureKind::ReplayVelocityDrag; };
 
@@ -489,7 +485,7 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
          screenHeight <= 0 )
     {
         const bool endDragGesture = velocityDragActive();
-        replayInteraction.ResetVelocityEditInteraction( m_replayRuntime, true );
+        m_authoring.ClearVelocityEditInputState();
         if ( endDragGesture )
         {
             m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayVelocityDrag );
@@ -504,7 +500,6 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
     {
         if ( velocityDragActive() && ( leftReleased || !leftDown ) )
         {
-            replayInteraction.EndVelocityEditDrag( m_replayRuntime );
             m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayVelocityDrag );
             m_inputRouter.ReleaseNativeCapture();
         }
@@ -534,7 +529,6 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
         if ( !tryResolveVelocityBody( body ) || gesture.kind != RuntimeInteractionGestureKind::ReplayVelocityDrag ||
              gesture.axis < 0 )
         {
-            replayInteraction.EndVelocityEditDrag( m_replayRuntime );
             m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayVelocityDrag );
             m_inputRouter.ReleaseNativeCapture();
             return;
@@ -579,15 +573,23 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
                 std::clamp( component, -REPLAY_VELOCITY_EDIT_LINEAR_MAX, REPLAY_VELOCITY_EDIT_LINEAR_MAX ) );
         }
 
-        replayInteraction.ApplyVelocityEditToBody(
-            ReplayVelocityEditApplyContext{ m_replayRuntime,
-                                            velocityPhysics,
-                                            body.body,
-                                            linearVelocity,
-                                            angularVelocity,
-                                            REPLAY_VELOCITY_EDIT_LINEAR_MAX,
-                                            REPLAY_VELOCITY_EDIT_ANGULAR_MAX,
-                                            now + REPLAY_SCRUBBER_VISIBLE_SECONDS } );
+        linearVelocity.x =
+            std::clamp( linearVelocity.x, -REPLAY_VELOCITY_EDIT_LINEAR_MAX, REPLAY_VELOCITY_EDIT_LINEAR_MAX );
+        linearVelocity.y =
+            std::clamp( linearVelocity.y, -REPLAY_VELOCITY_EDIT_LINEAR_MAX, REPLAY_VELOCITY_EDIT_LINEAR_MAX );
+        linearVelocity.z =
+            std::clamp( linearVelocity.z, -REPLAY_VELOCITY_EDIT_LINEAR_MAX, REPLAY_VELOCITY_EDIT_LINEAR_MAX );
+        angularVelocity.x =
+            std::clamp( angularVelocity.x, -REPLAY_VELOCITY_EDIT_ANGULAR_MAX, REPLAY_VELOCITY_EDIT_ANGULAR_MAX );
+        angularVelocity.y =
+            std::clamp( angularVelocity.y, -REPLAY_VELOCITY_EDIT_ANGULAR_MAX, REPLAY_VELOCITY_EDIT_ANGULAR_MAX );
+        angularVelocity.z =
+            std::clamp( angularVelocity.z, -REPLAY_VELOCITY_EDIT_ANGULAR_MAX, REPLAY_VELOCITY_EDIT_ANGULAR_MAX );
+        if ( velocityPhysics.SetBodyVelocity( body.body, linearVelocity, angularVelocity, true ) )
+        {
+            m_replayRuntime.NotifyVelocityEditApplied();
+            m_scrubberOwner.SetVisible( true, now, REPLAY_SCRUBBER_VISIBLE_SECONDS );
+        }
     };
 
     if ( velocityDragActive() )
@@ -601,7 +603,6 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
             // Invariant: the final drag sample is applied above while leftDown is
             // still true, before release ends the gesture. Its dirty request is
             // therefore the newest live velocity consumed by the coalesced build.
-            replayInteraction.EndVelocityEditDrag( m_replayRuntime );
             m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayVelocityDrag );
             m_inputRouter.ReleaseNativeCapture();
         }
@@ -613,7 +614,7 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
     const int hotAngularAxis = hasHotBody ? HitReplayVelocityAngularAxis( hotBody, rayOrigin, rayDirection ) : -1;
     const int hotLinearAxis =
         ( !hasHotBody || hotAngularAxis >= 0 ) ? -1 : HitReplayVelocityLinearAxis( hotBody, rayOrigin, rayDirection );
-    replayInteraction.SetVelocityEditHoverAxes( m_replayRuntime, hotLinearAxis, hotAngularAxis );
+    m_authoring.SetVelocityEditHoverAxes( hotLinearAxis, hotAngularAxis );
 
     const auto armBaselineComparisonForDrag = [&]()
     {
@@ -679,7 +680,8 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
                     dragStart.linearVelocity = body.linearVelocity;
                     dragStart.angularVelocity = body.angularVelocity;
                     armBaselineComparisonForDrag();
-                    replayInteraction.BeginVelocityEditDrag( m_replayRuntime, dragStart );
+                    m_predictionOwner.SetEnabled( true );
+                    m_authoring.BeginVelocityEditDrag( dragStart );
                     m_inputRouter.RequestNativeCapture();
                     return true;
                 }
@@ -725,7 +727,8 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
                     dragStart.linearVelocity = body.linearVelocity;
                     dragStart.angularVelocity = body.angularVelocity;
                     armBaselineComparisonForDrag();
-                    replayInteraction.BeginVelocityEditDrag( m_replayRuntime, dragStart );
+                    m_predictionOwner.SetEnabled( true );
+                    m_authoring.BeginVelocityEditDrag( dragStart );
                     m_inputRouter.RequestNativeCapture();
                     return true;
                 }
@@ -750,7 +753,8 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
             interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
                                                              WorldInteractionOwner::ReplayVelocityEdit,
                                                              InteractionExitReason::EnterReplay );
-            replayInteraction.SelectVelocityEditTarget( m_replayRuntime, now + REPLAY_SCRUBBER_VISIBLE_SECONDS );
+            m_predictionOwner.SetEnabled( true );
+            m_scrubberOwner.SetVisible( true, now, REPLAY_SCRUBBER_VISIBLE_SECONDS );
         }
         return true;
     }

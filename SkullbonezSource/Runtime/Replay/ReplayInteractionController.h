@@ -1,8 +1,7 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayInteractionController.h
 Purpose:
-  Owns replay restore commands and retained drag-start values that mutate
-  replay UI state.
+  Builds replay restore commands and publishes their scrubber result state.
 
 Summary:
   ReplayInteractionController converts operator replay intent into replay-owned
@@ -21,8 +20,8 @@ Invariants:
     command is applied.
   - Scrubber message, consumed-input state, and live-edge reset are published in
     one place after every restore attempt.
-  - Active drag kind, body, axis, and angular mode remain controller gesture
-    payload; this owner retains only values sampled at gesture start.
+  - Velocity authoring does not pass through this controller; ReplayAuthoring
+    owns its retained edit values and replay composition sequences the command.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayScrubberTools.cpp
@@ -36,10 +35,6 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Physics
-{
-class PhysicsEngine;
-}
 namespace Runtime
 {
 // Invariant: replay input clamping and editor visualization share this exact
@@ -47,33 +42,6 @@ namespace Runtime
 inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_MAX = 140.0f;
 inline constexpr float REPLAY_VELOCITY_EDIT_ANGULAR_MAX = 5.0f;
 inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_EXTRA = 36.0f;
-
-struct ReplayVelocityEditInputFrame
-{
-    bool leftDown = false;
-    bool leftPressed = false;
-    bool leftReleased = false;
-};
-
-struct ReplayVelocityEditDragStart
-{
-    float axisT = 0.0f;
-    float angle = 0.0f;
-    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
-};
-
-struct ReplayVelocityEditApplyContext
-{
-    ReplayRuntime& replayRuntime;
-    Physics::PhysicsEngine& physics;
-    Physics::PhysicsBodyHandle body;
-    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
-    float linearVelocityLimit = 0.0f;
-    float angularVelocityLimit = 0.0f;
-    double visibleUntil = 0.0;
-};
 
 class ReplayInteractionController
 {
@@ -91,13 +59,6 @@ class ReplayInteractionController
                                   RunReplayV2TargetRestoreResult* outV2Result = nullptr,
                                   char* outReason = nullptr,
                                   std::size_t reasonSize = 0 );
-    ReplayVelocityEditInputFrame BeginVelocityEditInputFrame( bool leftDown, bool leftPressed, bool leftReleased );
-    void SetVelocityEditHoverAxes( ReplayRuntime& replayRuntime, int linearAxis, int angularAxis );
-    void ResetVelocityEditInteraction( ReplayRuntime& replayRuntime, bool clearHoverAxes );
-    void EndVelocityEditDrag( ReplayRuntime& replayRuntime );
-    void BeginVelocityEditDrag( ReplayRuntime& replayRuntime, const ReplayVelocityEditDragStart& start );
-    void SelectVelocityEditTarget( ReplayRuntime& replayRuntime, double visibleUntil );
-    bool ApplyVelocityEditToBody( const ReplayVelocityEditApplyContext& context );
 
   private:
     static void WriteReason( char* outReason, std::size_t reasonSize, const char* reason );

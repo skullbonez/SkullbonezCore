@@ -107,6 +107,14 @@ struct ReplayAuthoringPredictionRequest
     bool refreshPrediction = false;
 };
 
+struct ReplayVelocityEditDragStart
+{
+    float axisT = 0.0f;
+    float angle = 0.0f;
+    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
+};
+
 class ReplayAuthoring
 {
   public:
@@ -156,6 +164,20 @@ class ReplayAuthoring
         m_velocityEdit.keyboardAltWasDown = false;
         m_velocityEdit.hotLinearAxis = -1;
         m_velocityEdit.hotAngularAxis = -1;
+    }
+
+    void SetVelocityEditHoverAxes( int linearAxis, int angularAxis ) noexcept
+    {
+        m_velocityEdit.hotLinearAxis = linearAxis;
+        m_velocityEdit.hotAngularAxis = angularAxis;
+    }
+
+    void BeginVelocityEditDrag( const ReplayVelocityEditDragStart& start ) noexcept
+    {
+        m_velocityEdit.dragStartAxisT = start.axisT;
+        m_velocityEdit.dragStartAngle = start.angle;
+        m_velocityEdit.dragStartLinearVelocity = start.linearVelocity;
+        m_velocityEdit.dragStartAngularVelocity = start.angularVelocity;
     }
 
     // Concept: authoring publishes a value command instead of holding a

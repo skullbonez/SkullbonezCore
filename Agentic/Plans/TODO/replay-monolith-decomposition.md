@@ -476,6 +476,22 @@ Third ownership-remediation checkpoint after that review:
   every false-pass control. No baseline changed. The internal scrubber methods
   and root forwarding surface still keep M4/M5/M7 open.
 
+Fourth ownership-remediation checkpoint after that review:
+
+- Velocity-authoring state and commands no longer pass through
+  `ReplayInteractionController` or its deleted `ReplayRuntime` mutation
+  contexts. Replay authoring now owns hover and drag-start state, while the
+  replay composition operation calls the prediction, scrubber, and authoring
+  owners directly after a successful physics edit.
+- The final source passed a zero-warning Profile build and the unchanged
+  one-process mega oracle at 2,401 exact ticks, 200 moved bricks, 187 strict
+  grounded sleepers, 199 causal nodes, one generation, one presentation, and
+  every false-pass control, including the duplicate-generation tripwire. No
+  baseline changed. The touched-source comment audit inspected 4/4 files with
+  zero deferred or unchecked and corrected the interaction controller's stale
+  ownership description. Moving the remaining root operation and closing the
+  timeline/probe/prediction/presentation seams still keep M3-M7 open.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |
