@@ -10,10 +10,10 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-13th-july` |
+| Branch | `nightrunner-14th-july` |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
 | Current objective | Reclose replay M3-M7 ownership findings from mandatory M8 review, with the unchanged frame-exact 200-box gate after every task |
-| Portfolio progress | 322 / 336 tasks = 96% rounded overall |
+| Active/future progress | 3 / 16 tasks = 19% rounded overall (decomposition + spline plans only; completed past plans and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-14: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
 | Validation for current edits | M3-M7 remain reopened by M8 review. The sixteenth remediation checkpoint physically split prediction scheduling/publication from read-only drawing and removed mutable presentation/root storage access. Formatting, 678/678 filters, allocation policy, and the 75.3-second fast gate passed. The exact one-process oracle passed in 465.0 seconds (2,401 ticks, 200 moved, 187 strict topples, 199 causal nodes, one generation, one presentation, durable reconstruction, zero reserve growth, all controls); the 102.2-second full CPU/Profile/Debug/DX12/physics gate and 61.9-second perf gate passed with zero warnings/DX12 errors and byte-exact physics. No baseline changed. |
 
@@ -73,12 +73,16 @@ plan inventory.
   unless the owner explicitly restores a plan to `TODO/`.
 - The MASTER critical path is binding; preparation may run early only where it
   is explicitly named, and no work crosses a recorded dependency barrier.
-- Both replay plans execute on `nightrunner-13th-july`. The visual mega probe
-  closes first; every decomposition task then reruns its unchanged golden
-  200-box manifest. Refactors do not authorize baseline refresh.
+- Active decomposition and future spline work execute on
+  `nightrunner-14th-july`. The visual mega probe is completed historical
+  evidence; every decomposition task reruns its unchanged golden 200-box
+  manifest. Refactors do not authorize baseline refresh.
 - Every plan-runner commit and plan-implementation prompt starts with the
   resolved MASTER progress header: plan name, completed plan tasks, and rounded
-  overall portfolio completion. Ordinary commits do not claim plan progress.
+  active/future portfolio completion. That percentage covers only the active
+  decomposition and future spline plans, not completed historical plans or the
+  externally blocked validation lane. Ordinary commits do not claim plan
+  progress.
 - A completed plan may remain in the tip tree only when MASTER explicitly marks
   it as evidence for an unmet aggregate closure gate; it is deleted when that
   gate passes.

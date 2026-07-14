@@ -1,6 +1,6 @@
 # MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-07-13
+Date: 2026-07-14
 Status: Authoritative inventory of every live repository plan
 
 ## Inventory Rules
@@ -43,8 +43,8 @@ Status: Authoritative inventory of every live repository plan
 ## Commit Progress Contract
 
 Every commit produced by a plan runner must begin with the owning plan, that
-plan's completed task count after the commit, and overall portfolio completion
-after the commit:
+plan's completed task count after the commit, and active/future portfolio
+completion after the commit:
 
 ```text
 <PLAN_NAME>, TASK <DONE> / <TASK_COUNT>, <OVERALL_PERCENT>% OVERALL COMPLETE — <ACTION SUMMARY>
@@ -61,16 +61,20 @@ Rules:
 
 1. `DONE` is the owning plan's completed ledger tasks after the commit, not the
    ordinal number of the commit or the number of raw Markdown checkboxes.
-2. `OVERALL_PERCENT` is `round(100 * portfolio done / portfolio total)` using
-   the authoritative ledger below. Never estimate it subjectively.
+2. `OVERALL_PERCENT` is
+   `round(100 * active/future done / active/future total)` using the
+   authoritative ledger below. Never estimate it subjectively or include
+   completed historical work.
 3. Companion/progress checklists do not add a second denominator. Their count
    is represented by the owning plan's ledger row. The prediction plan is the
    current deliberate 50-task exception because its execution checklist is the
    accepted task source.
-4. Completed-plan ledger rows remain after their plan files are deleted. They
-   preserve arithmetic only; git history and reports remain the evidence
-   archive. New or rescoped plans update the ledger and denominator in the same
-   commit.
+4. Overall progress covers active and future implementation plans only.
+   Completed historical plans, retained closure evidence, owner-parked work,
+   and externally blocked lanes do not contribute to either side of the
+   percentage. Git history and reports remain the evidence archive. New,
+   completed, activated, parked, blocked, or rescoped plans update the ledger
+   and denominator in the same commit.
 5. One plan owns each plan-runner commit. Split unrelated plan work. For an
    unavoidable aggregate governance/documentation commit, use `MASTER-PLAN`
    with the bounded governance task count and list every affected plan in the
@@ -84,43 +88,17 @@ Rules:
 
 ### Portfolio Progress Ledger
 
-Scope: every concrete non-WNF plan in the current MASTER portfolio. The engine-
-cleanup campaign meta-plan is excluded because its work is represented by the
-concrete plan rows and counting it would duplicate tasks.
+Scope: active and future implementation work only. Per the 2026-07-14 owner
+decision, the current execution percentage is the combined completion of replay
+monolith decomposition and future-path vector splines. Completed past plans and
+the externally blocked validation lane are deliberately excluded, so this
+number measures remaining executable work instead of lifetime repository work.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| validation-gate-integrity | 5 | 6 | 83% |
-| dx12-failure-propagation | 6 | 6 | 100% |
-| behavioral-test-depth | 6 | 6 | 100% |
-| runtime-shell-decomposition | 27 | 27 | 100% |
-| runtime-ui-control-architecture-cleanup | 7 | 7 | 100% |
-| interaction-state-machine | 6 | 6 | 100% |
-| replay-architecture-and-right-sizing | 6 | 6 | 100% |
-| physics-authority-and-identity | 16 | 16 | 100% |
-| render-backend-decomposition | 8 | 8 | 100% |
-| stale-plan-reference-cleanup-15.6-checklist | 86 | 86 | 100% |
-| dx12-post-final-cleanup | 6 | 6 | 100% |
-| shader-pipeline-modernization | 8 | 8 | 100% |
-| render-visibility-architecture | 7 | 7 | 100% |
-| sim-render-interpolation | 5 | 5 | 100% |
-| editor-undo-redo | 5 | 5 | 100% |
-| data-format-versioning | 5 | 5 | 100% |
-| engine-config-decomposition | 5 | 5 | 100% |
-| entity-model-endgame | 4 | 4 | 100% |
-| instant-prediction-velocity-chaos | 52 | 52 | 100% |
-| shadow-edge-quality | 5 | 5 | 100% |
-| dx12-descriptor-and-handle-lifetime | 5 | 5 | 100% |
-| determinism-contract-hardening | 4 | 4 | 100% |
-| upload-arena-overflow-policy | 4 | 4 | 100% |
-| frame-view-calling-convention | 4 | 4 | 100% |
-| render-interface-and-workerpool-slimming | 5 | 5 | 100% |
-| runtime-contract-enforcement | 5 | 5 | 100% |
-| adversarial-review-round-3 | 10 | 10 | 100% |
-| replay-visual-fidelity-mega-probe | 7 | 7 | 100% |
 | replay-monolith-decomposition | 3 | 9 | 33% |
 | future-path-vector-splines | 0 | 7 | 0% |
-| **Portfolio total** | **322** | **336** | **96%** |
+| **Active/future total** | **3** | **16** | **19%** |
 
 ## Current Execution Priority
 
@@ -141,7 +119,7 @@ validation-gate V3 remains externally blocked.
    engine-sleeping throughout the final second; the approved base records 187.
    Every V0-V6 task ends with that command passing.
 2. **Replay monolith decomposition — active.** Execute M0-M8 on
-   `nightrunner-13th-july`. Every task,
+   `nightrunner-14th-july`. Every task,
    including documentation inventory, reruns the unchanged 200-box gate before
    it may be checked or committed. Checkpoint `b4b13749` publishes typed
    render/automation views, removes automation reach-back into the mutable
@@ -316,8 +294,11 @@ Binding:
   and closes `tools\validate_replay_visual_fidelity.bat`, then every M0-M8
   decomposition task reruns it against the unchanged approved 200-box manifest.
   Refactors cannot authorize a baseline refresh.
-- Both replay plans execute on `nightrunner-13th-july`; moving them requires an
-  explicit owner decision and fresh passing baseline provenance evidence.
+- The active decomposition and future spline plans execute on
+  `nightrunner-14th-july` by explicit 2026-07-14 owner decision. Decomposition
+  retains the unchanged passing baseline provenance requirement; spline
+  presentation changes still require explicit approval before any golden
+  manifest refresh.
 - 2026-07-11 owner ruling (definitive): no `SimulationController` — the
   implemented `SimulationSystem` pacing / `SceneController` ownership / `Run`
   frame-order split stands. No unified `EntityId` registry —
