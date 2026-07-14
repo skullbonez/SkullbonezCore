@@ -1309,16 +1309,6 @@ const RunLoadedReplayPresentationState& ReplayRuntime::LoadedPresentation() cons
     return m_timeline.LoadedPresentation();
 }
 
-RunReplayScrubberState& ReplayRuntime::Scrubber()
-{
-    return m_scrubberOwner.State();
-}
-
-const RunReplayScrubberState& ReplayRuntime::Scrubber() const
-{
-    return m_scrubberOwner.State();
-}
-
 ReplayScrubberView ReplayRuntime::ScrubberView() const noexcept
 {
     return m_scrubberOwner.View();
@@ -1578,9 +1568,10 @@ void ReplayRuntime::CancelToolDragState( RuntimeInteractionController& interacti
 
 bool ReplayRuntime::HasActiveInteractionState() const
 {
+    const ReplayScrubberView scrubber = m_scrubberOwner.View();
     return m_visualPresentation.Camera().active ||
            m_visualPresentation.Camera().focusKind != RunReplayCameraFocusKind::None ||
-           m_scrubberOwner.State().historicalSamplePaused || m_scrubberOwner.State().liveAdvanceHeld ||
+           scrubber.historicalSamplePaused || scrubber.liveAdvanceHeld ||
            m_visualPresentation.PathVisualizer().hasTarget || !m_visualPresentation.PathVisualizer().targets.empty() ||
            m_predictionOwner.State().enabled || m_predictionOwner.State().build.building ||
            m_authoring.VelocityEdit().enabled || m_authoring.CauseTree().selectedRow >= 0 ||
@@ -1621,9 +1612,7 @@ bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionCont
     SetLiveAdvanceHeld( false );
     const bool exitInspectionCamera = ResetScrubberState() || m_visualPresentation.Camera().active;
     SetAllTrackPositions( 1.0f );
-    m_scrubberOwner.State().visible = false;
-    m_scrubberOwner.State().visibleAlpha = 0.0f;
-    m_scrubberOwner.State().fadeUpdatedAt = 0.0;
+    m_scrubberOwner.HideSurface();
     ClearCameraFocusForRestore();
     ClearPathVisualizerState();
     m_predictionOwner.State().enabled = false;
@@ -1682,8 +1671,7 @@ ReplayRuntime::ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput&
                 result.worldOwner = WorldInteractionOwner::ReplayScrub;
             }
         }
-        m_scrubberOwner.State().visibleUntil = input.now + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
-        m_scrubberOwner.State().visible = true;
+        m_scrubberOwner.KeepVisible( input.now, ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS );
     }
     m_authoring.ObserveVelocityEditAltKey( input.altDown );
     return result;
@@ -1699,9 +1687,13 @@ void ReplayRuntime::SetTrackPosition( RunReplayTrack track, float position )
     m_scrubberOwner.SetTrackPosition( track, position );
 }
 
-void ReplayRuntime::SyncActiveTrackPosition()
+void ReplayRuntime::PinSolverScrubberToPresent()
 {
-    m_scrubberOwner.SyncActiveTrackPosition();
+    m_scrubberOwner.SetTrackPosition( RunReplayTrack::Solver, SolverPresentTrackPosition() );
+    if ( m_scrubberOwner.View().activeTrack == RunReplayTrack::Solver )
+    {
+        m_scrubberOwner.SetHistoricalSamplePaused( false );
+    }
 }
 
 void ReplayRuntime::SetAllTrackPositions( float position )
@@ -1791,24 +1783,26 @@ bool ReplayRuntime::ShouldRenderScrubber( bool editorModeEnabled,
     const bool loadedPresentation = HasLoadedPresentation();
     const ReplayRecorderStats solverReplayStats = m_timeline.Solver().GetStats();
     const bool solverReplayEnabled = solverReplayStats.enabled;
+    const ReplayScrubberView scrubber = m_scrubberOwner.View();
     // Why: visibility is about whether a replay control surface is armed, not
     // whether enough retained frames exist to enable scrub/prediction tools.
     return ( loadedPresentation || solverReplayEnabled ) &&
-           ( m_scrubberOwner.State().visible || gesture == RuntimeInteractionGestureKind::ReplayScrubDrag ||
-             gesture == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag ||
-             m_scrubberOwner.State().historicalSamplePaused || m_scrubberOwner.State().liveAdvanceHeld );
+           ( scrubber.visible || gesture == RuntimeInteractionGestureKind::ReplayScrubDrag ||
+             gesture == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag || scrubber.historicalSamplePaused ||
+             scrubber.liveAdvanceHeld );
 }
 
 bool ReplayRuntime::ShouldUseInspectionCamera() const
 {
-    return m_scrubberOwner.State().historicalSamplePaused || m_scrubberOwner.State().liveAdvanceHeld ||
+    const ReplayScrubberView scrubber = m_scrubberOwner.View();
+    return scrubber.historicalSamplePaused || scrubber.liveAdvanceHeld ||
            m_visualPresentation.Camera().focusKind != RunReplayCameraFocusKind::None;
 }
 
 bool ReplayRuntime::InspectionActive() const
 {
-    return m_visualPresentation.Camera().active || m_scrubberOwner.State().historicalSamplePaused ||
-           m_scrubberOwner.State().liveAdvanceHeld;
+    const ReplayScrubberView scrubber = m_scrubberOwner.View();
+    return m_visualPresentation.Camera().active || scrubber.historicalSamplePaused || scrubber.liveAdvanceHeld;
 }
 
 bool ReplayRuntime::InspectionMouseLookActive( bool rightMouseDown,
@@ -1828,12 +1822,7 @@ bool ReplayRuntime::ArmLoadedPresentationScrubber( float normalized, double now 
     ClearPathVisualizerState();
     m_predictionOwner.State().enabled = false;
     m_authoring.ResetVelocityEdit();
-    m_scrubberOwner.State().activeTrack = RunReplayTrack::Presentation;
-    SetTrackPosition( RunReplayTrack::Presentation, normalized );
-    m_scrubberOwner.State().solverPosition = 1.0f;
-    m_scrubberOwner.State().historicalSamplePaused = true;
-    m_scrubberOwner.State().visible = true;
-    m_scrubberOwner.State().visibleUntil = now + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    m_scrubberOwner.ArmLoadedPresentation( normalized, now, ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS );
     return true;
 }
 
@@ -1855,10 +1844,11 @@ void ReplayRuntime::ClearCameraFocusForRestore()
     m_visualPresentation.Camera().impulseVector = Math::Vector::ZERO_VECTOR;
     m_authoring.ClearCauseTreeFocus();
 
-    if ( m_visualPresentation.Camera().ownsSimulationPause && m_scrubberOwner.State().liveAdvanceHeld &&
-         !m_scrubberOwner.State().historicalSamplePaused )
+    const ReplayScrubberView scrubber = m_scrubberOwner.View();
+    if ( m_visualPresentation.Camera().ownsSimulationPause && scrubber.liveAdvanceHeld &&
+         !scrubber.historicalSamplePaused )
     {
-        m_scrubberOwner.State().liveAdvanceHeld = false;
+        m_scrubberOwner.SetLiveAdvanceHeld( false );
     }
     m_visualPresentation.Camera().ownsSimulationPause = false;
 }
@@ -1985,7 +1975,7 @@ ReplaySceneTimelineResetResult ReplayRuntime::BeginSceneTimelineReset( const Rep
     {
         m_authoring.ResetBranch();
     }
-    if ( m_scrubberOwner.State().liveAdvanceHeld )
+    if ( m_scrubberOwner.LiveAdvanceHeld() )
     {
         SetLiveAdvanceHeld( false );
     }
@@ -2532,25 +2522,25 @@ const ReplayPresentationSample* ReplayRuntime::LoadedPresentationLatestSample() 
 
 bool ReplayRuntime::IsScrubPaused() const
 {
-    if ( !m_scrubberOwner.State().historicalSamplePaused )
+    const ReplayScrubberView scrubber = m_scrubberOwner.View();
+    if ( !scrubber.historicalSamplePaused )
     {
         return false;
     }
 
-    if ( m_scrubberOwner.State().activeTrack == RunReplayTrack::Presentation && HasLoadedPresentation() )
+    if ( scrubber.activeTrack == RunReplayTrack::Presentation && HasLoadedPresentation() )
     {
         return LoadedPresentationSampleAtNormalized( TrackPosition( RunReplayTrack::Presentation ) ) != nullptr;
     }
 
-    const float position = TrackPosition( m_scrubberOwner.State().activeTrack );
-    const float presentT =
-        m_scrubberOwner.State().activeTrack == RunReplayTrack::Solver ? SolverPresentTrackPosition() : 1.0f;
+    const float position = TrackPosition( scrubber.activeTrack );
+    const float presentT = scrubber.activeTrack == RunReplayTrack::Solver ? SolverPresentTrackPosition() : 1.0f;
     if ( ReplayAtPresentTrackPosition( position, presentT ) )
     {
         return false;
     }
 
-    if ( m_scrubberOwner.State().activeTrack == RunReplayTrack::Presentation )
+    if ( scrubber.activeTrack == RunReplayTrack::Presentation )
     {
         return m_timeline.Presentation().IsEnabled() &&
                m_timeline.Presentation().SampleAtNormalized( position ) != nullptr;
@@ -2571,14 +2561,15 @@ const ReplayPresentationSample* ReplayRuntime::CurrentScrubSample() const
     // Concept: a scrub sample is available only when the active track is paused
     // away from live time. Live presentation should continue drawing the live
     // scene instead of borrowing old retained samples.
-    if ( m_scrubberOwner.State().activeTrack != RunReplayTrack::Presentation )
+    const ReplayScrubberView scrubber = m_scrubberOwner.View();
+    if ( scrubber.activeTrack != RunReplayTrack::Presentation )
     {
         return nullptr;
     }
 
     if ( HasLoadedPresentation() )
     {
-        return m_scrubberOwner.State().historicalSamplePaused
+        return scrubber.historicalSamplePaused
                    ? LoadedPresentationSampleAtNormalized( TrackPosition( RunReplayTrack::Presentation ) )
                    : nullptr;
     }
@@ -2594,7 +2585,7 @@ const ReplayPresentationSample* ReplayRuntime::CurrentScrubSample() const
 
 const ReplaySolverFrameSample* ReplayRuntime::CurrentSolverScrubSample() const
 {
-    if ( m_scrubberOwner.State().activeTrack != RunReplayTrack::Solver || !IsScrubPaused() )
+    if ( m_scrubberOwner.View().activeTrack != RunReplayTrack::Solver || !IsScrubPaused() )
     {
         return nullptr;
     }
@@ -2620,8 +2611,8 @@ const RunReplayPredictionFrame* ReplayRuntime::CurrentPredictionScrubFrame() con
     std::size_t frameCount = 0;
     const std::vector<RunReplayPredictionFrame>& frames =
         ReplayRuntimeTimelinePredictionFrames( m_predictionOwner.State(), frameCount );
-    if ( m_scrubberOwner.State().activeTrack != RunReplayTrack::Solver ||
-         !m_scrubberOwner.State().historicalSamplePaused || frameCount < 2 )
+    const ReplayScrubberView scrubber = m_scrubberOwner.View();
+    if ( scrubber.activeTrack != RunReplayTrack::Solver || !scrubber.historicalSamplePaused || frameCount < 2 )
     {
         return nullptr;
     }
@@ -3969,7 +3960,7 @@ bool ReplayRuntime::SavePresentationFromScrubber( double now )
         saved = SavePresentationWithSolverHashes( path );
     }
 
-    m_scrubberOwner.State().saveMessageTrack = RunReplayTrack::Presentation;
+    char message[96] = {};
     if ( saved )
     {
         const char* fileName = std::strrchr( path, '\\' );
@@ -3978,20 +3969,14 @@ bool ReplayRuntime::SavePresentationFromScrubber( double now )
             fileName = std::strrchr( path, '/' );
         }
         fileName = fileName ? fileName + 1 : path;
-        sprintf_s( m_scrubberOwner.State().saveMessage,
-                   sizeof( m_scrubberOwner.State().saveMessage ),
-                   "SAVED %s",
-                   fileName );
+        sprintf_s( message, sizeof( message ), "SAVED %s", fileName );
     }
     else
     {
-        sprintf_s( m_scrubberOwner.State().saveMessage,
-                   sizeof( m_scrubberOwner.State().saveMessage ),
-                   "REPLAY SAVE FAILED" );
+        sprintf_s( message, sizeof( message ), "REPLAY SAVE FAILED" );
     }
-    m_scrubberOwner.State().saveMessageUntil = now + 2.5;
-    m_scrubberOwner.State().visibleUntil = now + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
-    m_scrubberOwner.State().visible = true;
+    m_scrubberOwner.PublishFeedback( RunReplayTrack::Presentation, message, now, 2.5 );
+    m_scrubberOwner.KeepVisible( now, ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS );
     return saved;
 }
 

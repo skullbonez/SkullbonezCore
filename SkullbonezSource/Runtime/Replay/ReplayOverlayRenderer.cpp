@@ -84,6 +84,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
 {
     PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay" );
     ReplayRuntime& replayRuntime = context.replayRuntime;
+    const ReplayScrubberView scrubber = replayRuntime.ScrubberView();
     Rendering::IRenderCommandContext& renderCommands = context.renderCommands;
     // Why: the cause tree is an inspection tool, not a child of the scrubber.
     // Draw it even when the scrubber itself is hidden by UI/editor policy.
@@ -121,7 +122,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                                                                                    context.gesture );
     ReplayScrubberSurface surface;
     BuildReplayScrubberSurface( surfaceInput, surface );
-    surface.ResolvePointer( replayRuntime.Scrubber().mouseX, replayRuntime.Scrubber().mouseY );
+    surface.ResolvePointer( scrubber.mouseX, scrubber.mouseY );
     const auto control = [&]( ReplayScrubberControl id ) -> const RuntimeUiControl&
     {
         const RuntimeUiControl* row = surface.Find( ReplayScrubberControlId( id ) );
@@ -178,7 +179,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     {
         sprintf_s( timeLabel, sizeof( timeLabel ), "+%.1fs", futureSeconds );
     }
-    else if ( ReplayAtPresentTrackPosition( t, solverPresentT ) && !replayRuntime.Scrubber().historicalSamplePaused )
+    else if ( ReplayAtPresentTrackPosition( t, solverPresentT ) && !scrubber.historicalSamplePaused )
     {
         sprintf_s( timeLabel, sizeof( timeLabel ), "LIVE" );
     }
@@ -191,7 +192,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     const UI::UIRect panel = control( ReplayScrubberControl::Panel ).drawRect;
     const UI::Style::UIPalette& palette = UI::Style::Palette();
     const UI::Style::UIRadii& radii = UI::Style::Radii();
-    const float fade = std::clamp( replayRuntime.Scrubber().visibleAlpha, 0.0f, 1.0f );
+    const float fade = std::clamp( scrubber.visibleAlpha, 0.0f, 1.0f );
     if ( fade <= REPLAY_SCRUBBER_FADE_EPSILON )
     {
         return;
@@ -200,12 +201,12 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     auto fadeC = [fade]( float channel ) -> float { return channel * fade; };
     auto drawText = [&]( float x, float y, float pxSize, float r, float g, float b, const char* value )
     { draw.Text( x, y, pxSize, fadeC( r ), fadeC( g ), fadeC( b ), value ); };
-    const bool live = !loadedPresentation && ReplayAtPresentTrackPosition( t, solverPresentT ) &&
-                      !replayRuntime.Scrubber().historicalSamplePaused;
+    const bool live =
+        !loadedPresentation && ReplayAtPresentTrackPosition( t, solverPresentT ) && !scrubber.historicalSamplePaused;
     const double now = context.nowSeconds;
     const char* sourceLabel = loadedPresentation ? "V2 FILE" : "SOLVER";
     const bool branchEnabled =
-        replayRuntime.Scrubber().historicalSamplePaused &&
+        scrubber.historicalSamplePaused &&
         ( ( loadedPresentation && replayRuntime.CurrentScrubSample() != nullptr ) ||
           ( !loadedPresentation && solverToolsEnabled && replayRuntime.CurrentSolverScrubSample() != nullptr ) );
 
@@ -262,7 +263,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     if ( !loadedPresentation )
     {
         const UI::UIRect pauseButton = control( ReplayScrubberControl::Pause ).drawRect;
-        const bool liveAdvanceHeld = replayRuntime.Scrubber().liveAdvanceHeld;
+        const bool liveAdvanceHeld = scrubber.liveAdvanceHeld;
         const bool pauseHover = solverToolsEnabled && isHotControl( ReplayScrubberControl::Pause );
         draw.RoundedRect( pauseButton.x,
                           pauseButton.y,
@@ -366,13 +367,12 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
         const float fillW = (std::max)( REPLAY_SCRUBBER_TRACK_HEIGHT, track.w * rowT );
         const float knobX = track.x + track.w * rowT;
         const bool active = activeTrack == trackName;
-        const bool inactiveDuringScrub = ( context.gesture == RuntimeInteractionGestureKind::ReplayScrubDrag ||
-                                           replayRuntime.Scrubber().historicalSamplePaused ) &&
-                                         !active;
+        const bool inactiveDuringScrub =
+            ( context.gesture == RuntimeInteractionGestureKind::ReplayScrubDrag || scrubber.historicalSamplePaused ) &&
+            !active;
         const bool saveHover = saveEnabled && isHotControl( ReplayScrubberControl::Save );
-        const bool saveFeedback =
-            replayRuntime.Scrubber().saveMessage[0] != '\0' && replayRuntime.Scrubber().saveMessageUntil >= now;
-        const bool saveFailed = saveFeedback && strstr( replayRuntime.Scrubber().saveMessage, "FAILED" ) != nullptr;
+        const bool saveFeedback = scrubber.saveMessage[0] != '\0' && scrubber.saveMessageUntil >= now;
+        const bool saveFailed = saveFeedback && strstr( scrubber.saveMessage, "FAILED" ) != nullptr;
         const bool loadHover = isHotControl( ReplayScrubberControl::Load );
         const float saveR = saveFeedback ? ( saveFailed ? 0.48f : palette.accent.r )
                                          : ( saveHover ? palette.controlHover.r : palette.control.r );

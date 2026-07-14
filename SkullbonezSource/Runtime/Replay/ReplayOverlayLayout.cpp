@@ -353,6 +353,7 @@ ReplayScrubberSurfaceInput DescribeReplayScrubberSurface( const ReplayRuntime& r
                                                           RuntimeInteractionGestureKind gesture )
 {
     ReplayScrubberSurfaceInput input;
+    const ReplayScrubberView scrubber = replayRuntime.ScrubberView();
     input.screenW = screenW;
     input.screenH = screenH;
     input.gesture = gesture;
@@ -369,10 +370,10 @@ ReplayScrubberSurfaceInput DescribeReplayScrubberSurface( const ReplayRuntime& r
                                           replayRuntime.Prediction().BuildPrefixShouldBePresented() );
     input.scrubTrackDragEnabled = input.loadedPresentation || input.solverToolsEnabled || predictionTimelineAvailable;
     input.branchTargetAvailable =
-        replayRuntime.Scrubber().historicalSamplePaused &&
-        ( ( input.loadedPresentation && replayRuntime.Scrubber().activeTrack == RunReplayTrack::Presentation &&
+        scrubber.historicalSamplePaused &&
+        ( ( input.loadedPresentation && scrubber.activeTrack == RunReplayTrack::Presentation &&
             replayRuntime.CurrentScrubSample() != nullptr ) ||
-          ( input.solverToolsEnabled && replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver &&
+          ( input.solverToolsEnabled && scrubber.activeTrack == RunReplayTrack::Solver &&
             replayRuntime.CurrentSolverScrubSample() != nullptr ) );
     input.hotZoneEnabled = !uiBlocksMouse;
     return input;

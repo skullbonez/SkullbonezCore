@@ -257,7 +257,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
 
         outEnterInteractive = true;
         const bool hadReplayCameraFocus = m_replayRuntime.Camera().focusKind != RunReplayCameraFocusKind::None;
-        if ( !m_replayRuntime.Scrubber().liveAdvanceHeld )
+        if ( !m_replayRuntime.ScrubberView().liveAdvanceHeld )
         {
             if ( m_replayRuntime.SetLiveAdvanceHeld( true ) && !IsReplayCauseTreeToolOwner( m_interaction.Owner() ) )
             {

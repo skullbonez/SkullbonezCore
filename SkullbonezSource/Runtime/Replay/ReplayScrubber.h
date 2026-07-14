@@ -11,6 +11,8 @@ Glossary:
   Live edge: The newest retained replay sample.
 
 Invariants:
+  - Retained cursor state never escapes by mutable reference; consumers receive
+    value snapshots and issue owner commands.
   - Restore sample pointers are borrowed for the applying frame only.
   - Prediction cancellation completes before a live restore mutates authority.
 
@@ -207,15 +209,6 @@ class ReplayScrubber
         return view;
     }
 
-    RunReplayScrubberState& State() noexcept
-    {
-        return m_state;
-    }
-    const RunReplayScrubberState& State() const noexcept
-    {
-        return m_state;
-    }
-
     float TrackPosition( RunReplayTrack track ) const noexcept
     {
         return track == RunReplayTrack::Solver ? m_state.solverPosition : m_state.presentationPosition;
@@ -316,6 +309,79 @@ class ReplayScrubber
         {
             m_state.visibleUntil = now + (std::max)( 0.0, holdSeconds );
         }
+    }
+
+    void HideSurface() noexcept
+    {
+        m_state.visible = false;
+        m_state.visibleAlpha = 0.0f;
+        m_state.fadeUpdatedAt = 0.0;
+    }
+
+    void KeepVisible( double now, double holdSeconds ) noexcept
+    {
+        m_state.visibleUntil = now + (std::max)( 0.0, holdSeconds );
+        m_state.visible = true;
+    }
+
+    void SetHistoricalSamplePaused( bool paused ) noexcept
+    {
+        m_state.historicalSamplePaused = paused;
+    }
+
+    void SelectTrack( RunReplayTrack track ) noexcept
+    {
+        m_state.activeTrack = track;
+        SyncActiveTrackPosition();
+    }
+
+    void SetPointer( int mouseX, int mouseY ) noexcept
+    {
+        m_state.mouseX = mouseX;
+        m_state.mouseY = mouseY;
+    }
+
+    void ArmLoadedPresentation( float normalized, double now, double holdSeconds ) noexcept
+    {
+        // Invariant: a loaded artifact owns the presentation cursor while the
+        // live solver cursor stays parked at its present edge.
+        SelectTrack( RunReplayTrack::Presentation );
+        SetTrackPosition( RunReplayTrack::Presentation, normalized );
+        m_state.solverPosition = 1.0f;
+        m_state.historicalSamplePaused = true;
+        KeepVisible( now, holdSeconds );
+    }
+
+    // Concept: cold file/save feedback is copied into the bounded retained UI
+    // buffer; no dialog or file-path lifetime crosses the call.
+    void PublishFeedback( RunReplayTrack track, const char* message, double now, double durationSeconds ) noexcept
+    {
+        m_state.saveMessageTrack = track;
+        strncpy_s( m_state.saveMessage, sizeof( m_state.saveMessage ), message ? message : "", _TRUNCATE );
+        m_state.saveMessageUntil = now + (std::max)( 0.0, durationSeconds );
+    }
+
+    // Concept: fade integration belongs to the retained cursor owner because
+    // the previous update timestamp is part of scrubber presentation state.
+    // Invariant: visibility remains published through the fade-out tail and
+    // frame stalls contribute at most 250 ms to one opacity step.
+    void UpdateVisibilityFade( bool targetVisible,
+                               double now,
+                               double fadeInSeconds,
+                               double fadeOutSeconds,
+                               float visibleEpsilon ) noexcept
+    {
+        if ( m_state.fadeUpdatedAt <= 0.0 || now < m_state.fadeUpdatedAt )
+        {
+            m_state.fadeUpdatedAt = now;
+        }
+        const double deltaSeconds = std::clamp( now - m_state.fadeUpdatedAt, 0.0, 0.25 );
+        m_state.fadeUpdatedAt = now;
+        const double fadeSeconds = targetVisible ? fadeInSeconds : fadeOutSeconds;
+        const float alphaStep = fadeSeconds > 0.0 ? static_cast<float>( deltaSeconds / fadeSeconds ) : 1.0f;
+        m_state.visibleAlpha =
+            std::clamp( m_state.visibleAlpha + ( targetVisible ? alphaStep : -alphaStep ), 0.0f, 1.0f );
+        m_state.visible = targetVisible || m_state.visibleAlpha > visibleEpsilon;
     }
 
     bool BuildRestoreRequest( const ReplayScrubberRestoreSources& sources,

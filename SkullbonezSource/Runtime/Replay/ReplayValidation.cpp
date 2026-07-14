@@ -2484,7 +2484,7 @@ ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& tr
         }
     }
 
-    if ( Scrubber().liveAdvanceHeld )
+    if ( LiveAdvanceHeld() )
     {
         SetLiveAdvanceHeld( false );
     }
@@ -3108,8 +3108,8 @@ SkullbonezCore::Core::SbResult ReplayRuntime::VerifySolverBranchFileProbe( const
     {
         return ReplayProbeFailure( "replay restore branch probe failed to load v2 presentation scrub source" );
     }
-    Scrubber().historicalSamplePaused = true;
-    Scrubber().activeTrack = RunReplayTrack::Presentation;
+    m_scrubberOwner.SetHistoricalSamplePaused( true );
+    m_scrubberOwner.SelectTrack( RunReplayTrack::Presentation );
     SetTrackPosition( RunReplayTrack::Presentation, 1.0f );
 
     RunReplayV2TargetRestoreResult result;

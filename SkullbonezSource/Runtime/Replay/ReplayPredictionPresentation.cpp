@@ -3913,7 +3913,7 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayRuntime& replayRuntime, dou
     const bool hadCommittedPredictionFrames = prediction.simulation.frames.size() >= 2;
     const bool solverWasOldLiveEdge =
         !hadCommittedPredictionFrames && ReplayAtPresentTrackPosition( previousSolverPosition, 1.0f );
-    const bool scrubberWasPinnedToPresent = !replayRuntime.Scrubber().historicalSamplePaused ||
+    const bool scrubberWasPinnedToPresent = !replayRuntime.ScrubberView().historicalSamplePaused ||
                                             ReplayAtPresentTrackPosition( previousSolverPosition, previousPresentT ) ||
                                             solverWasOldLiveEdge;
 
@@ -3940,11 +3940,7 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayRuntime& replayRuntime, dou
         // present marker left. A scrub value that meant "live/present" before
         // the swap must remain present, or render will preview the far future and
         // make the selected body appear to move.
-        replayRuntime.SetTrackPosition( RunReplayTrack::Solver, replayRuntime.SolverPresentTrackPosition() );
-        if ( replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver )
-        {
-            replayRuntime.Scrubber().historicalSamplePaused = false;
-        }
+        replayRuntime.PinSolverScrubberToPresent();
     }
     // Why: worker timing decides how much build-frame topology render had seen
     // before the swap. Rebuild the child cache from the committed full buffer so
@@ -4535,7 +4531,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
     // branch. Space-stepping the paused live scene changes solver frame/hash,
     // but must not redraw the preview; explicit dirty events such as branch,
     // target, horizon, or predict toggles are the only rebuild triggers.
-    const bool allowAutomaticRefresh = !replayRuntime.Scrubber().liveAdvanceHeld && !hasCommittedPrediction;
+    const bool allowAutomaticRefresh = !replayRuntime.ScrubberView().liveAdvanceHeld && !hasCommittedPrediction;
     RunReplayPredictionState& prediction = replayRuntime.Prediction();
     const ReplayPredictionCoalescerAction coalescerAction =
         ChooseReplayPredictionCoalescerAction( prediction.build.dirty,

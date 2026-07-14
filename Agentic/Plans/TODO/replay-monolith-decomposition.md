@@ -577,6 +577,28 @@ Ninth ownership-remediation checkpoint after that review:
   presentation mutable surfaces remain, and prediction scheduling still shares
   a translation unit with presentation work.
 
+Tenth ownership-remediation checkpoint after that review:
+
+- `ReplayScrubber` and `ReplayRuntime` no longer return retained scrubber state
+  by mutable or const reference. Render, layout, cause-tree, prediction, and
+  probe consumers receive a value-only `ReplayScrubberView`; pause/track,
+  pointer, visibility, bounded feedback, loaded-artifact arming, and fade
+  transitions execute as scrubber-owner commands. The unused root cursor-sync
+  forwarder was deleted, while prediction completion uses one named composition
+  operation to preserve the solver present edge.
+- The unchanged one-process mega oracle passed at 2,401 exact ticks, 200 moved
+  bricks, 187 strict grounded sleepers, 199 causal nodes, one generation, one
+  presentation, and every false-pass control. The first broad-gate attempt then
+  caught three Debug-only probe calls to the deleted accessor; those probes now
+  use the published predicate and concrete owner commands. The full rerun passed
+  all CPU/Profile/Debug/DX12/physics lanes with zero warnings, zero DX12
+  validation errors, matching screenshots, and the 44,401-line byte-exact
+  varied baseline. No baseline changed. The touched-source comment audit
+  inspected 9/9 files with zero deferred or unchecked. M3-M7 remain open for
+  remaining root business forwarding, mutable prediction/presentation state,
+  external frame/probe authority, and the mixed prediction/presentation
+  translation unit; M4 is not reclosed ahead of the repeated ownership review.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |

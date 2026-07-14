@@ -154,8 +154,6 @@ class ReplayRuntime
 
     const RunLoadedReplayPresentationState& LoadedPresentation() const;
 
-    RunReplayScrubberState& Scrubber();
-    const RunReplayScrubberState& Scrubber() const;
     ReplayScrubberView ScrubberView() const noexcept;
 
     RunReplayCameraState& Camera();
@@ -191,7 +189,7 @@ class ReplayRuntime
     ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input );
     float TrackPosition( RunReplayTrack track ) const;
     void SetTrackPosition( RunReplayTrack track, float position );
-    void SyncActiveTrackPosition();
+    void PinSolverScrubberToPresent();
     void SetAllTrackPositions( float position );
     bool ResetScrubberState();
     ReplayScrubberInputFrame BeginReplayScrubberInputFrame( bool leftPressed, bool leftReleased, bool restoreDown );
