@@ -144,19 +144,14 @@ class ReplayRuntime
   public:
     ReplayRuntime();
 
-    ReplayRecorder& Presentation();
     const ReplayRecorder& Presentation() const;
 
-    ReplaySolverRecorder& Solver();
     const ReplaySolverRecorder& Solver() const;
 
-    ReplayEventRecorder& Events();
     const ReplayEventRecorder& Events() const;
 
-    ReplayBranchInfo& Branch();
     const ReplayBranchInfo& Branch() const;
 
-    RunLoadedReplayPresentationState& LoadedPresentation();
     const RunLoadedReplayPresentationState& LoadedPresentation() const;
 
     RunReplayScrubberState& Scrubber();

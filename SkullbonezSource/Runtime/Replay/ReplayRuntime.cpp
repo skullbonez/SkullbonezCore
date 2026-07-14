@@ -1292,19 +1292,9 @@ void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics,
 }
 
 
-ReplayRecorder& ReplayRuntime::Presentation()
-{
-    return m_timeline.Presentation();
-}
-
 const ReplayRecorder& ReplayRuntime::Presentation() const
 {
     return m_timeline.Presentation();
-}
-
-ReplaySolverRecorder& ReplayRuntime::Solver()
-{
-    return m_timeline.Solver();
 }
 
 const ReplaySolverRecorder& ReplayRuntime::Solver() const
@@ -1312,29 +1302,14 @@ const ReplaySolverRecorder& ReplayRuntime::Solver() const
     return m_timeline.Solver();
 }
 
-ReplayEventRecorder& ReplayRuntime::Events()
-{
-    return m_timeline.Events();
-}
-
 const ReplayEventRecorder& ReplayRuntime::Events() const
 {
     return m_timeline.Events();
 }
 
-ReplayBranchInfo& ReplayRuntime::Branch()
-{
-    return m_authoring.Branch();
-}
-
 const ReplayBranchInfo& ReplayRuntime::Branch() const
 {
     return m_authoring.Branch();
-}
-
-RunLoadedReplayPresentationState& ReplayRuntime::LoadedPresentation()
-{
-    return m_timeline.LoadedPresentation();
 }
 
 const RunLoadedReplayPresentationState& ReplayRuntime::LoadedPresentation() const

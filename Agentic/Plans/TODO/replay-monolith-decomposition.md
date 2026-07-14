@@ -511,6 +511,21 @@ Fifth ownership-remediation checkpoint after that review:
   deferred or unchecked; the two deleted façade files require no final-tree
   checklist row. M3-M7 remain open for the remaining mutable owner/root seams.
 
+Sixth ownership-remediation checkpoint after that review:
+
+- Removed the mutable `ReplayRuntime` forwarding overloads for presentation,
+  solver, event, branch, and loaded-presentation state. External tools and
+  automation retain const timeline reads; branch mutation during a V2 restore
+  now executes inside the replay-owned restore operation before its preserving
+  timeline reset.
+- The final source passed a zero-warning Profile build, formatting, and the
+  unchanged one-process mega oracle at 2,401 exact ticks, 200 moved bricks, 187
+  strict grounded sleepers, 199 causal nodes, one generation, one presentation,
+  and every false-pass control. No baseline changed. The touched-source comment
+  audit inspected 3/3 files with zero deferred or unchecked. M3-M7 remain open
+  for the mutable scrubber/authoring/prediction/presentation surfaces and the
+  mixed prediction/presentation translation unit.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |

@@ -1689,41 +1689,6 @@ void LogReplayRestoreTargetSuccess( DiagnosticsRuntime& diagnosticsRuntime,
                                         false );
 }
 
-// Why: branch metadata must be installed before the replay-owned timeline reset
-// so preserveBranchMetadata keeps the new ancestry while clearing old samples.
-template <typename ResetReplayTimeline>
-void ApplyReplayRestoreLiveBranch( ReplayRuntime& replayRuntime,
-                                   const ReplaySolverFrameSample& checkpoint,
-                                   const ReplayV2SolverHashSample& target,
-                                   RunReplayV2TargetRestoreResult& outResult,
-                                   ResetReplayTimeline resetReplayTimeline )
-{
-    const uint32_t parentBranchId =
-        checkpoint.branch.branchId != 0
-            ? checkpoint.branch.branchId
-            : ( replayRuntime.Branch().branchId != 0 ? replayRuntime.Branch().branchId : 1u );
-    ReplayBranchInfo restoredBranch;
-    restoredBranch.branchId = (std::max)( replayRuntime.Branch().branchId, parentBranchId ) + 1u;
-    restoredBranch.parentBranchId = parentBranchId;
-    restoredBranch.startFrame = 0;
-    restoredBranch.sourceFrame = target.frameIndex;
-    restoredBranch.sourceSolverHash = target.solverHash;
-    replayRuntime.Branch() = restoredBranch;
-    resetReplayTimeline();
-    replayRuntime.RecordEvent( ReplayEventKind::BranchRestore,
-                               0,
-                               0,
-                               static_cast<int32_t>( parentBranchId ),
-                               target.sceneFrame,
-                               0,
-                               0,
-                               target.solverHash,
-                               "hash-verified v2 file restore" );
-    outResult.branchId = restoredBranch.branchId;
-    outResult.parentBranchId = parentBranchId;
-    outResult.madeLiveBranch = true;
-}
-
 struct ReplayRestoreOwnerContext
 {
     RuntimeTools& runtimeTools;
@@ -2969,16 +2934,34 @@ bool ReplayRuntime::RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransac
 
     if ( makeLiveBranch )
     {
-        ApplyReplayRestoreLiveBranch( *this,
-                                      *checkpoint,
-                                      *target,
-                                      outResult,
-                                      [this, &transaction]()
-                                      {
-                                          ReplaySceneTimelineResetInput reset = transaction.timelineReset;
-                                          reset.preserveBranchMetadata = true;
-                                          ResetSceneTimeline( reset, transaction.timelineOwners );
-                                      } );
+        // Why: install branch ancestry before resetting the replay-owned
+        // timeline so preserveBranchMetadata retains the new live lineage.
+        const uint32_t parentBranchId =
+            checkpoint->branch.branchId != 0
+                ? checkpoint->branch.branchId
+                : ( m_authoring.Branch().branchId != 0 ? m_authoring.Branch().branchId : 1u );
+        ReplayBranchInfo restoredBranch;
+        restoredBranch.branchId = (std::max)( m_authoring.Branch().branchId, parentBranchId ) + 1u;
+        restoredBranch.parentBranchId = parentBranchId;
+        restoredBranch.startFrame = 0;
+        restoredBranch.sourceFrame = target->frameIndex;
+        restoredBranch.sourceSolverHash = target->solverHash;
+        m_authoring.Branch() = restoredBranch;
+        ReplaySceneTimelineResetInput reset = transaction.timelineReset;
+        reset.preserveBranchMetadata = true;
+        ResetSceneTimeline( reset, transaction.timelineOwners );
+        RecordEvent( ReplayEventKind::BranchRestore,
+                     0,
+                     0,
+                     static_cast<int32_t>( parentBranchId ),
+                     target->sceneFrame,
+                     0,
+                     0,
+                     target->solverHash,
+                     "hash-verified v2 file restore" );
+        outResult.branchId = restoredBranch.branchId;
+        outResult.parentBranchId = parentBranchId;
+        outResult.madeLiveBranch = true;
     }
 
     writeReason( "restored hash match" );
