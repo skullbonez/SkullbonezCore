@@ -1,17 +1,18 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayScrubber.h
 Purpose:
-  Defines scrub cursor and live-restore command values.
+  Owns scrub cursor state and defines live-restore command values.
 
 Summary:
-  ReplayScrubber coordinates past-track inspection and transactional restore; M2 moves definitions only.
+  ReplayScrubber is the mutable cursor/track authority. ReplayRuntime sequences
+  cross-owner prediction cancellation, physics restore, and camera reactions.
 
 Glossary:
   Live edge: The newest retained replay sample.
 
 Invariants:
   - Restore sample pointers are borrowed for the applying frame only.
-  - M2 preserves the moved definition bodies verbatim.
+  - Prediction cancellation completes before a live restore mutates authority.
 
 Related:
   - ReplayRuntime.h
@@ -21,6 +22,7 @@ Related:
 
 #include "ReplayRecorder.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 
@@ -55,6 +57,18 @@ struct RunReplayScrubberState
     float visibleAlpha = 0.0f;                             // 0 = hidden, 1 = fully faded in.
     double saveMessageUntil = 0.0;
     char saveMessage[96] = {};
+};
+
+struct ReplayScrubberInputFrame
+{
+    bool leftPressed = false;
+    bool leftReleased = false;
+    bool restorePressed = false;
+};
+
+struct ReplayScrubberUnavailableResult
+{
+    bool exitInspectionCamera = false;
 };
 
 struct RunReplayV2TargetRestoreResult
@@ -94,6 +108,113 @@ struct ReplayLiveRestoreRequest
     RunReplayTrack messageTrack = RunReplayTrack::Solver;
     double now = 0.0;
     char path[260] = {};
+};
+
+class ReplayScrubber
+{
+  public:
+    RunReplayScrubberState& State() noexcept
+    {
+        return m_state;
+    }
+    const RunReplayScrubberState& State() const noexcept
+    {
+        return m_state;
+    }
+
+    float TrackPosition( RunReplayTrack track ) const noexcept
+    {
+        return track == RunReplayTrack::Solver ? m_state.solverPosition : m_state.presentationPosition;
+    }
+
+    void SetTrackPosition( RunReplayTrack track, float position ) noexcept
+    {
+        const float clamped = std::clamp( position, 0.0f, 1.0f );
+        if ( track == RunReplayTrack::Solver )
+        {
+            m_state.solverPosition = clamped;
+        }
+        else
+        {
+            m_state.presentationPosition = clamped;
+        }
+        if ( m_state.activeTrack == track )
+        {
+            m_state.position = clamped;
+        }
+    }
+
+    void SyncActiveTrackPosition() noexcept
+    {
+        m_state.position = TrackPosition( m_state.activeTrack );
+    }
+
+    void SetAllTrackPositions( float position ) noexcept
+    {
+        const float clamped = std::clamp( position, 0.0f, 1.0f );
+        m_state.presentationPosition = clamped;
+        m_state.solverPosition = clamped;
+        m_state.position = clamped;
+    }
+
+    bool ResetState( bool inspectionCameraActive ) noexcept
+    {
+        const bool shouldExitInspectionCamera = inspectionCameraActive && !m_state.liveAdvanceHeld;
+        const bool restoreWasDown = m_state.restoreWasDown;
+        const bool restoreConsumedThisFrame = m_state.restoreConsumedThisFrame;
+        const bool liveAdvanceHeld = m_state.liveAdvanceHeld;
+        const bool pauseRestoreFlyMode = m_state.pauseRestoreFlyMode;
+        const bool pauseRestoreLauncherMode = m_state.pauseRestoreLauncherMode;
+        m_state = RunReplayScrubberState{};
+        m_state.restoreWasDown = restoreWasDown;
+        m_state.restoreConsumedThisFrame = restoreConsumedThisFrame;
+        m_state.liveAdvanceHeld = liveAdvanceHeld;
+        m_state.pauseRestoreFlyMode = pauseRestoreFlyMode;
+        m_state.pauseRestoreLauncherMode = pauseRestoreLauncherMode;
+        return shouldExitInspectionCamera;
+    }
+
+    ReplayScrubberInputFrame BeginInputFrame( bool leftPressed, bool leftReleased, bool restoreDown ) noexcept
+    {
+        ReplayScrubberInputFrame frame;
+        m_state.restoreConsumedThisFrame = false;
+        frame.leftPressed = leftPressed;
+        frame.leftReleased = leftReleased;
+        frame.restorePressed = restoreDown && !m_state.restoreWasDown;
+        m_state.restoreWasDown = restoreDown;
+        return frame;
+    }
+
+    ReplayScrubberUnavailableResult ResetUnavailableSurface( bool loadedPresentation,
+                                                             bool inspectionCameraActive ) noexcept
+    {
+        ReplayScrubberUnavailableResult result;
+        if ( !loadedPresentation )
+        {
+            result.exitInspectionCamera = ResetState( inspectionCameraActive );
+        }
+        m_state.fadeUpdatedAt = 0.0;
+        m_state.visibleAlpha = 0.0f;
+        return result;
+    }
+
+    bool SetLiveAdvanceHeld( bool held ) noexcept
+    {
+        if ( m_state.liveAdvanceHeld == held )
+        {
+            return false;
+        }
+        m_state.liveAdvanceHeld = held;
+        return true;
+    }
+
+    bool LiveAdvanceHeld() const noexcept
+    {
+        return m_state.liveAdvanceHeld;
+    }
+
+  private:
+    RunReplayScrubberState m_state;
 };
 
 } // namespace Runtime

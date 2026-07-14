@@ -1,7 +1,7 @@
 # Replay Monolith Decomposition — Owner Boundaries Inside The Replay Subsystem
 
 Date: 2026-07-13
-Status: Live — 4/9 tasks complete; M3 presentation state owner extracted
+Status: Live — 5/9 tasks complete; M4 timeline and scrubber owners extracted
 Branch: `nightrunner-13th-july`
 Impact area: `SkullbonezSource/Runtime/Replay/*` (26,060 lines), the two
 external consumers `Runtime/Run.cpp` and `Runtime/RunUiTextPass.cpp`, project
@@ -126,7 +126,7 @@ known-good golden manifest.
   `tools\validate_replay_scrub.bat`, and `tools\validate_full.bat` at the PR
   gate. The legacy final fingerprint is supporting evidence only; the mega
   probe is the frame-by-frame presentation proof.
-- [ ] **M4 — Extract `ReplayScrubber` and `ReplayTimeline`.** Timeline first
+- [x] **M4 — Extract `ReplayScrubber` and `ReplayTimeline`.** Timeline first
   (recorder + retention + memory policy are already nearly self-contained),
   then scrubber (cursor state machine + restore transactions +
   `RunReplayScrubberTools.cpp`). Restore paths keep cancelling prediction
@@ -295,6 +295,34 @@ M3 recorded adjustments and evidence:
   and the scrub alias's no-engine exit-37 propagation proof. No baseline
   changed. The touched source comment audit checked 7/7 files with zero
   deferred.
+
+M4 recorded adjustments and evidence:
+
+- `ReplayTimeline` now exclusively owns the presentation, solver, and event
+  recorders; branch provenance; retention/memory policy; loaded presentation;
+  recording configuration; and mismatch diagnostics. `ReplayRuntime` holds one
+  timeline owner and no parallel recorder or retention members.
+- `ReplayScrubber` now exclusively owns cursor/track state and implements track
+  clamping/synchronization, input-edge capture, reset preservation, fade reset,
+  and live-advance transitions. `ReplayRuntime` holds one scrubber owner and no
+  cursor member.
+- `ApplyLiveRestoreRequest` now performs an unconditional explicit
+  owner-to-owner `CancelPredictionJob(false)` before either artifact or solver
+  restore can mutate live physics authority. The interaction controller's
+  earlier cancellation remains a harmless preflight; a directly constructed
+  restore request can no longer bypass the transaction invariant.
+- The existing recording hash-log path allocation exception moved from the
+  composition root to `ReplayTimeline` with its cold-configuration reason and
+  fixed-path replacement condition; allocation-policy self-test and repository
+  scan passed with zero allowlist errors.
+- Validation passed: formatting; 679/679 project/filter items; zero-warning
+  Profile; the unchanged single-engine/single-prediction mega oracle at 2,401
+  ticks, 200 moved/settled bricks, 187 directly grounded sleepers, and 199
+  causal nodes; every false-pass control; the full CPU/Profile/Debug/DX12/
+  physics gate including zero DX12 errors and the 44,401-line byte-exact varied
+  physics baseline; and the scrub alias's no-engine exit-37 propagation proof.
+  No baseline changed. The touched source comment audit checked 5/5 files with
+  zero deferred.
 
 ## M1 Binding Type Inventory
 

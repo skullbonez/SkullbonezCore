@@ -1,12 +1,12 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayRuntime.h
 Purpose:
-  Owns replay recorders and branch state for the runtime replay subsystem.
+  Composes replay's timeline, scrubber, presentation, prediction, and authoring owners.
 
 Summary:
-  ReplayRuntime owns replay timelines and workspace behavior. The application
-  shell supplies frame-scoped live-owner views and sequences the result; it does
-  not implement scrub, restore, prediction, camera, overlay, or probe decisions.
+  ReplayRuntime sequences owner-to-owner work. The application shell supplies
+  frame-scoped live-owner views; concrete replay owners retain their own state
+  and implement their domain transitions.
 
 Glossary:
   Presentation track: Render-facing replay samples used for visual scrubbing.
@@ -289,17 +289,8 @@ class ReplayRuntime
     // ReplayRuntime owns gesture state but never advances duplicate button memory.
     using PointerButtonEdges = ReplayPointerButtonEdges;
 
-    struct ScrubberInputFrame
-    {
-        bool leftPressed = false;
-        bool leftReleased = false;
-        bool restorePressed = false;
-    };
-
-    struct ScrubberUnavailableResult
-    {
-        bool exitInspectionCamera = false;
-    };
+    using ScrubberInputFrame = ReplayScrubberInputFrame;
+    using ScrubberUnavailableResult = ReplayScrubberUnavailableResult;
 
     struct KeyboardVelocityEditInput
     {
@@ -793,11 +784,7 @@ class ReplayRuntime
                                      const ReplaySolverFrameSample& reference,
                                      ReplaySolverFrameSample& outSample );
 
-    ReplayRecorder m_presentation;         // Bounded replay presentation recorder for recent-frame inspection.
-    ReplaySolverRecorder m_solver;         // Same-tick solver-state recorder kept in tandem with presentation replay.
-    ReplayEventRecorder m_events;          // Bounded intent/event stream kept beside v2 replay tracks.
-    ReplayBranchInfo m_branch;             // Current live replay branch provenance.
-    ReplayMemoryPolicy m_memoryPolicy;     // Resolved recorder-window policy owned by ReplayRuntime.
+    ReplayTimeline m_timeline;
     struct StartupWorkflowState
     {
         char loadPath[260] = {};
@@ -810,10 +797,9 @@ class ReplayRuntime
 #endif
     } m_startupWorkflows;
 #ifdef _DEBUG
-    RunReplayProbeState m_probes;          // CLI-only replay validation state owned with the workflows it drives.
+    RunReplayProbeState m_probes; // CLI-only replay validation state owned with the workflows it drives.
 #endif
-    RunLoadedReplayPresentationState m_loadedPresentation;
-    RunReplayScrubberState m_scrubber;
+    ReplayScrubber m_scrubberOwner;
     ReplayPresentation m_visualPresentation;
     RunReplayPredictionState m_prediction;
     // Invariant: a replay-load probe reconstructs saved presentation only. It
@@ -821,13 +807,6 @@ class ReplayRuntime
     bool m_predictionGenerationPermitted = true;
     RunReplayCauseTreeState m_causeTree;
     RunReplayVelocityEditState m_velocityEdit;
-    std::string m_recordingHashLogPath;
-    int m_presentationSaveSequence = 0;    // Next numbered binary-v2 scrubber path candidate.
-    int m_recordingRuntimeBodyCapacity = 0;
-    uint32_t m_captureMismatchReports = 0; // Process-lifetime throttle for paired presentation/solver capture diagnostics.
-    bool m_captureMismatchSuppressed = false;
-    bool m_recordingConfigured = false;
-    bool m_recordingEnabled = false;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

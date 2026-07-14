@@ -5,8 +5,8 @@ Purpose:
 
 Summary:
   The scrubber maps mouse/UI intent to retained solver or presentation samples.
-  ReplayRuntime receives a frame-scoped workspace view, owns all replay state
-  transitions, and returns restore/application commands to the shell.
+  ReplayScrubber owns cursor transitions; ReplayRuntime receives a frame-scoped
+  workspace view and coordinates restore/application commands across owners.
 
 Glossary:
   Scrubber: UI control that selects retained replay frames.
@@ -350,6 +350,11 @@ ReplayRuntime::ApplyLiveRestoreRequest( const ReplayRestoreTransaction& transact
     {
         return outcome;
     }
+
+    // Invariant: restore is an owner-to-owner transaction. Prediction must be
+    // idle before either restore path mutates live physics authority, even when
+    // a caller constructs the request without using the interaction controller.
+    CancelPredictionJob( false );
 
     char reason[160] = {};
     RunReplayV2TargetRestoreResult v2Result;

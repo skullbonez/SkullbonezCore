@@ -1,17 +1,18 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayTimeline.h
 Purpose:
-  Defines replay recording-retention policy and retained presentation values.
+  Owns replay recorders, retained loading state, branch provenance, and memory policy.
 
 Summary:
-  ReplayTimeline owns bounded recorder history and retention policy; M2 moves definitions only.
+  ReplayTimeline is the mutable authority for retained presentation, solver,
+  event, branch, and recording-policy state.
 
 Glossary:
   Retention: Seconds retained by a bounded recorder ring.
 
 Invariants:
   - Retention clamps preserve presentation history before solver history.
-  - M2 preserves the moved definition bodies verbatim.
+  - Recorder windows and loaded samples never have parallel storage in ReplayRuntime.
 
 Related:
   - ReplayRuntime.h
@@ -23,6 +24,8 @@ Related:
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
+#include <string>
 #include <vector>
 
 namespace SkullbonezCore
@@ -158,6 +161,114 @@ struct RunLoadedReplayPresentationState
     ReplayFrameIndex firstFrame = 0;
     ReplayFrameIndex lastFrame = 0;
     char path[260] = {};
+};
+
+class ReplayTimeline
+{
+  public:
+    ReplayRecorder& Presentation() noexcept
+    {
+        return m_presentation;
+    }
+    const ReplayRecorder& Presentation() const noexcept
+    {
+        return m_presentation;
+    }
+    ReplaySolverRecorder& Solver() noexcept
+    {
+        return m_solver;
+    }
+    const ReplaySolverRecorder& Solver() const noexcept
+    {
+        return m_solver;
+    }
+    ReplayEventRecorder& Events() noexcept
+    {
+        return m_events;
+    }
+    const ReplayEventRecorder& Events() const noexcept
+    {
+        return m_events;
+    }
+    ReplayBranchInfo& Branch() noexcept
+    {
+        return m_branch;
+    }
+    const ReplayBranchInfo& Branch() const noexcept
+    {
+        return m_branch;
+    }
+    ReplayMemoryPolicy& MemoryPolicy() noexcept
+    {
+        return m_memoryPolicy;
+    }
+    const ReplayMemoryPolicy& MemoryPolicy() const noexcept
+    {
+        return m_memoryPolicy;
+    }
+    RunLoadedReplayPresentationState& LoadedPresentation() noexcept
+    {
+        return m_loadedPresentation;
+    }
+    const RunLoadedReplayPresentationState& LoadedPresentation() const noexcept
+    {
+        return m_loadedPresentation;
+    }
+    std::string& RecordingHashLogPath() noexcept
+    {
+        return m_recordingHashLogPath;
+    }
+    const std::string& RecordingHashLogPath() const noexcept
+    {
+        return m_recordingHashLogPath;
+    }
+    int& PresentationSaveSequence() noexcept
+    {
+        return m_presentationSaveSequence;
+    }
+    int& RecordingRuntimeBodyCapacity() noexcept
+    {
+        return m_recordingRuntimeBodyCapacity;
+    }
+    uint32_t& CaptureMismatchReports() noexcept
+    {
+        return m_captureMismatchReports;
+    }
+    bool& CaptureMismatchSuppressed() noexcept
+    {
+        return m_captureMismatchSuppressed;
+    }
+    bool& RecordingConfigured() noexcept
+    {
+        return m_recordingConfigured;
+    }
+    bool RecordingConfigured() const noexcept
+    {
+        return m_recordingConfigured;
+    }
+    bool& RecordingEnabled() noexcept
+    {
+        return m_recordingEnabled;
+    }
+    bool RecordingEnabled() const noexcept
+    {
+        return m_recordingEnabled;
+    }
+
+  private:
+    ReplayRecorder m_presentation;
+    ReplaySolverRecorder m_solver;
+    ReplayEventRecorder m_events;
+    ReplayBranchInfo m_branch;
+    ReplayMemoryPolicy m_memoryPolicy;
+    RunLoadedReplayPresentationState m_loadedPresentation;
+    std::string m_recordingHashLogPath;
+    int m_presentationSaveSequence = 0;
+    int m_recordingRuntimeBodyCapacity = 0;
+    uint32_t m_captureMismatchReports = 0;
+    bool m_captureMismatchSuppressed = false;
+    bool m_recordingConfigured = false;
+    bool m_recordingEnabled = false;
 };
 
 } // namespace Runtime

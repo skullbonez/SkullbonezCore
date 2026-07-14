@@ -1,12 +1,13 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp
 Purpose:
-  Implements replay recording, workspace, restore, prediction, and probe ownership.
+  Sequences replay owners across recording, workspace, restore, prediction, and probes.
 
 Summary:
-  ReplayRuntime owns the replay timeline and its tools. The application shell
-  supplies frame-scoped owner views, then replay sequences workspace input,
-  transactional restore, prediction, artifact, and validation behavior.
+  ReplayRuntime is the composition boundary between concrete replay owners. The
+  application shell supplies frame-scoped owner views, then this file orders
+  workspace input, transactional restore, prediction, artifact, and validation
+  behavior without retaining cursor or recorder state itself.
 
 Glossary:
   Branch: Child replay timeline created from a restored source frame.
@@ -856,62 +857,62 @@ void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics,
 
 ReplayRecorder& ReplayRuntime::Presentation()
 {
-    return m_presentation;
+    return m_timeline.Presentation();
 }
 
 const ReplayRecorder& ReplayRuntime::Presentation() const
 {
-    return m_presentation;
+    return m_timeline.Presentation();
 }
 
 ReplaySolverRecorder& ReplayRuntime::Solver()
 {
-    return m_solver;
+    return m_timeline.Solver();
 }
 
 const ReplaySolverRecorder& ReplayRuntime::Solver() const
 {
-    return m_solver;
+    return m_timeline.Solver();
 }
 
 ReplayEventRecorder& ReplayRuntime::Events()
 {
-    return m_events;
+    return m_timeline.Events();
 }
 
 const ReplayEventRecorder& ReplayRuntime::Events() const
 {
-    return m_events;
+    return m_timeline.Events();
 }
 
 ReplayBranchInfo& ReplayRuntime::Branch()
 {
-    return m_branch;
+    return m_timeline.Branch();
 }
 
 const ReplayBranchInfo& ReplayRuntime::Branch() const
 {
-    return m_branch;
+    return m_timeline.Branch();
 }
 
 RunLoadedReplayPresentationState& ReplayRuntime::LoadedPresentation()
 {
-    return m_loadedPresentation;
+    return m_timeline.LoadedPresentation();
 }
 
 const RunLoadedReplayPresentationState& ReplayRuntime::LoadedPresentation() const
 {
-    return m_loadedPresentation;
+    return m_timeline.LoadedPresentation();
 }
 
 RunReplayScrubberState& ReplayRuntime::Scrubber()
 {
-    return m_scrubber;
+    return m_scrubberOwner.State();
 }
 
 const RunReplayScrubberState& ReplayRuntime::Scrubber() const
 {
-    return m_scrubber;
+    return m_scrubberOwner.State();
 }
 
 RunReplayCameraState& ReplayRuntime::Camera()
@@ -1184,7 +1185,7 @@ bool ReplayRuntime::HasActiveInteractionState() const
 {
     return m_visualPresentation.Camera().active ||
            m_visualPresentation.Camera().focusKind != RunReplayCameraFocusKind::None ||
-           m_scrubber.historicalSamplePaused || m_scrubber.liveAdvanceHeld ||
+           m_scrubberOwner.State().historicalSamplePaused || m_scrubberOwner.State().liveAdvanceHeld ||
            m_visualPresentation.PathVisualizer().hasTarget || !m_visualPresentation.PathVisualizer().targets.empty() ||
            m_prediction.enabled || m_prediction.build.building || m_velocityEdit.enabled ||
            m_causeTree.selectedRow >= 0 || !m_causeTree.rows.empty();
@@ -1224,9 +1225,9 @@ bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionCont
     SetLiveAdvanceHeld( false );
     const bool exitInspectionCamera = ResetScrubberState() || m_visualPresentation.Camera().active;
     SetAllTrackPositions( 1.0f );
-    m_scrubber.visible = false;
-    m_scrubber.visibleAlpha = 0.0f;
-    m_scrubber.fadeUpdatedAt = 0.0;
+    m_scrubberOwner.State().visible = false;
+    m_scrubberOwner.State().visibleAlpha = 0.0f;
+    m_scrubberOwner.State().fadeUpdatedAt = 0.0;
     ClearCameraFocusForRestore();
     ClearPathVisualizerState();
     m_prediction.enabled = false;
@@ -1316,8 +1317,8 @@ ReplayRuntime::ApplyKeyboardVelocityEdit( const KeyboardVelocityEditInput& input
                 result.worldOwner = WorldInteractionOwner::ReplayScrub;
             }
         }
-        m_scrubber.visibleUntil = input.now + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
-        m_scrubber.visible = true;
+        m_scrubberOwner.State().visibleUntil = input.now + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
+        m_scrubberOwner.State().visible = true;
     }
     m_velocityEdit.keyboardAltWasDown = input.altDown;
     return result;
@@ -1325,81 +1326,40 @@ ReplayRuntime::ApplyKeyboardVelocityEdit( const KeyboardVelocityEditInput& input
 
 float ReplayRuntime::TrackPosition( RunReplayTrack track ) const
 {
-    return track == RunReplayTrack::Solver ? m_scrubber.solverPosition : m_scrubber.presentationPosition;
+    return m_scrubberOwner.TrackPosition( track );
 }
 
 void ReplayRuntime::SetTrackPosition( RunReplayTrack track, float position )
 {
-    const float clamped = std::clamp( position, 0.0f, 1.0f );
-    if ( track == RunReplayTrack::Solver )
-    {
-        m_scrubber.solverPosition = clamped;
-    }
-    else
-    {
-        m_scrubber.presentationPosition = clamped;
-    }
-
-    if ( m_scrubber.activeTrack == track )
-    {
-        m_scrubber.position = clamped;
-    }
+    m_scrubberOwner.SetTrackPosition( track, position );
 }
 
 void ReplayRuntime::SyncActiveTrackPosition()
 {
-    m_scrubber.position = TrackPosition( m_scrubber.activeTrack );
+    m_scrubberOwner.SyncActiveTrackPosition();
 }
 
 void ReplayRuntime::SetAllTrackPositions( float position )
 {
-    const float clamped = std::clamp( position, 0.0f, 1.0f );
-    m_scrubber.presentationPosition = clamped;
-    m_scrubber.solverPosition = clamped;
-    m_scrubber.position = clamped;
+    m_scrubberOwner.SetAllTrackPositions( position );
 }
 
 bool ReplayRuntime::ResetScrubberState()
 {
-    const bool shouldExitInspectionCamera = m_visualPresentation.Camera().active && !m_scrubber.liveAdvanceHeld;
-    const bool restoreWasDown = m_scrubber.restoreWasDown;
-    const bool restoreConsumedThisFrame = m_scrubber.restoreConsumedThisFrame;
-    const bool liveAdvanceHeld = m_scrubber.liveAdvanceHeld;
-    const bool pauseRestoreFlyMode = m_scrubber.pauseRestoreFlyMode;
-    const bool pauseRestoreLauncherMode = m_scrubber.pauseRestoreLauncherMode;
-    m_scrubber = RunReplayScrubberState{};
-    m_scrubber.restoreWasDown = restoreWasDown;
-    m_scrubber.restoreConsumedThisFrame = restoreConsumedThisFrame;
-    m_scrubber.liveAdvanceHeld = liveAdvanceHeld;
-    m_scrubber.pauseRestoreFlyMode = pauseRestoreFlyMode;
-    m_scrubber.pauseRestoreLauncherMode = pauseRestoreLauncherMode;
-    return shouldExitInspectionCamera;
+    return m_scrubberOwner.ResetState( m_visualPresentation.Camera().active );
 }
 
 
 ReplayRuntime::ScrubberInputFrame
 ReplayRuntime::BeginScrubberInputFrame( bool leftPressed, bool leftReleased, bool restoreDown )
 {
-    ScrubberInputFrame frame;
-    m_scrubber.restoreConsumedThisFrame = false;
-    frame.leftPressed = leftPressed;
-    frame.leftReleased = leftReleased;
-    frame.restorePressed = restoreDown && !m_scrubber.restoreWasDown;
-    m_scrubber.restoreWasDown = restoreDown;
-    return frame;
+    return m_scrubberOwner.BeginInputFrame( leftPressed, leftReleased, restoreDown );
 }
 
 
 ReplayRuntime::ScrubberUnavailableResult ReplayRuntime::ResetUnavailableScrubberSurface( bool loadedPresentation )
 {
-    ScrubberUnavailableResult result;
-    if ( !loadedPresentation )
-    {
-        result.exitInspectionCamera = ResetScrubberState();
-    }
-    m_scrubber.fadeUpdatedAt = 0.0;
-    m_scrubber.visibleAlpha = 0.0f;
-    return result;
+    return m_scrubberOwner.ResetUnavailableSurface( loadedPresentation, m_visualPresentation.Camera().active );
 }
 
 
@@ -1421,7 +1381,7 @@ void ReplayRuntime::ClearCauseTreeFocusSelection()
 
 bool ReplayRuntime::SetLiveAdvanceHeld( bool held )
 {
-    if ( m_scrubber.liveAdvanceHeld == held )
+    if ( !m_scrubberOwner.SetLiveAdvanceHeld( held ) )
     {
         if ( !held )
         {
@@ -1430,7 +1390,6 @@ bool ReplayRuntime::SetLiveAdvanceHeld( bool held )
         return false;
     }
 
-    m_scrubber.liveAdvanceHeld = held;
     if ( !held )
     {
         m_visualPresentation.Camera().ownsSimulationPause = false;
@@ -1440,7 +1399,7 @@ bool ReplayRuntime::SetLiveAdvanceHeld( bool held )
 
 bool ReplayRuntime::LiveAdvanceHeld() const
 {
-    return m_scrubber.liveAdvanceHeld;
+    return m_scrubberOwner.LiveAdvanceHeld();
 }
 
 bool ReplayRuntime::HasPathVisualizerTarget() const
@@ -1460,7 +1419,7 @@ bool ReplayRuntime::VelocityEditActive() const
 
 float ReplayRuntime::SolverPresentTrackPosition() const
 {
-    return ReplayRuntimeScrubberPresentTrackPosition( m_solver.GetStats(), m_prediction );
+    return ReplayRuntimeScrubberPresentTrackPosition( m_timeline.Solver().GetStats(), m_prediction );
 }
 
 bool ReplayRuntime::TimelineHasFuture( float presentT )
@@ -1511,25 +1470,26 @@ bool ReplayRuntime::ShouldRenderScrubber( bool editorModeEnabled,
     }
 
     const bool loadedPresentation = HasLoadedPresentation();
-    const ReplayRecorderStats solverReplayStats = m_solver.GetStats();
+    const ReplayRecorderStats solverReplayStats = m_timeline.Solver().GetStats();
     const bool solverReplayEnabled = solverReplayStats.enabled;
     // Why: visibility is about whether a replay control surface is armed, not
     // whether enough retained frames exist to enable scrub/prediction tools.
     return ( loadedPresentation || solverReplayEnabled ) &&
-           ( m_scrubber.visible || gesture == RuntimeInteractionGestureKind::ReplayScrubDrag ||
+           ( m_scrubberOwner.State().visible || gesture == RuntimeInteractionGestureKind::ReplayScrubDrag ||
              gesture == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag ||
-             m_scrubber.historicalSamplePaused || m_scrubber.liveAdvanceHeld );
+             m_scrubberOwner.State().historicalSamplePaused || m_scrubberOwner.State().liveAdvanceHeld );
 }
 
 bool ReplayRuntime::ShouldUseInspectionCamera() const
 {
-    return m_scrubber.historicalSamplePaused || m_scrubber.liveAdvanceHeld ||
+    return m_scrubberOwner.State().historicalSamplePaused || m_scrubberOwner.State().liveAdvanceHeld ||
            m_visualPresentation.Camera().focusKind != RunReplayCameraFocusKind::None;
 }
 
 bool ReplayRuntime::InspectionActive() const
 {
-    return m_visualPresentation.Camera().active || m_scrubber.historicalSamplePaused || m_scrubber.liveAdvanceHeld;
+    return m_visualPresentation.Camera().active || m_scrubberOwner.State().historicalSamplePaused ||
+           m_scrubberOwner.State().liveAdvanceHeld;
 }
 
 bool ReplayRuntime::InspectionMouseLookActive( bool rightMouseDown,
@@ -1549,12 +1509,12 @@ bool ReplayRuntime::ArmLoadedPresentationScrubber( float normalized, double now 
     ClearPathVisualizerState();
     m_prediction.enabled = false;
     m_velocityEdit = RunReplayVelocityEditState{};
-    m_scrubber.activeTrack = RunReplayTrack::Presentation;
+    m_scrubberOwner.State().activeTrack = RunReplayTrack::Presentation;
     SetTrackPosition( RunReplayTrack::Presentation, normalized );
-    m_scrubber.solverPosition = 1.0f;
-    m_scrubber.historicalSamplePaused = true;
-    m_scrubber.visible = true;
-    m_scrubber.visibleUntil = now + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    m_scrubberOwner.State().solverPosition = 1.0f;
+    m_scrubberOwner.State().historicalSamplePaused = true;
+    m_scrubberOwner.State().visible = true;
+    m_scrubberOwner.State().visibleUntil = now + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
     return true;
 }
 
@@ -1577,10 +1537,10 @@ void ReplayRuntime::ClearCameraFocusForRestore()
     m_causeTree.focusedId = ReplayBodyId{};
     m_causeTree.selectedRow = -1;
 
-    if ( m_visualPresentation.Camera().ownsSimulationPause && m_scrubber.liveAdvanceHeld &&
-         !m_scrubber.historicalSamplePaused )
+    if ( m_visualPresentation.Camera().ownsSimulationPause && m_scrubberOwner.State().liveAdvanceHeld &&
+         !m_scrubberOwner.State().historicalSamplePaused )
     {
-        m_scrubber.liveAdvanceHeld = false;
+        m_scrubberOwner.State().liveAdvanceHeld = false;
     }
     m_visualPresentation.Camera().ownsSimulationPause = false;
 }
@@ -1590,16 +1550,16 @@ ReplayRuntime::RecordingConfigResult ReplayRuntime::ConfigureRecording( bool ena
                                                                         const char* hashLogPath,
                                                                         int runtimeBodyCapacity )
 {
-    m_recordingConfigured = true;
-    m_recordingEnabled = enabled || ( hashLogPath && hashLogPath[0] != '\0' );
-    m_recordingRuntimeBodyCapacity = runtimeBodyCapacity;
-    m_recordingHashLogPath = hashLogPath ? hashLogPath : "";
-    m_memoryPolicy.requestedRetentionSeconds = (std::max)( 1, retentionSeconds );
-    m_memoryPolicy = ResolveReplayMemoryPolicy( m_memoryPolicy );
+    m_timeline.RecordingConfigured() = true;
+    m_timeline.RecordingEnabled() = enabled || ( hashLogPath && hashLogPath[0] != '\0' );
+    m_timeline.RecordingRuntimeBodyCapacity() = runtimeBodyCapacity;
+    m_timeline.RecordingHashLogPath() = hashLogPath ? hashLogPath : "";
+    m_timeline.MemoryPolicy().requestedRetentionSeconds = (std::max)( 1, retentionSeconds );
+    m_timeline.MemoryPolicy() = ResolveReplayMemoryPolicy( m_timeline.MemoryPolicy() );
 
     ReplayRecorderConfig replayConfig;
     replayConfig.enabled = enabled || ( hashLogPath && hashLogPath[0] != '\0' );
-    replayConfig.retentionSeconds = m_memoryPolicy.presentationRetentionSeconds;
+    replayConfig.retentionSeconds = m_timeline.MemoryPolicy().presentationRetentionSeconds;
     replayConfig.checkpointIntervalFrames = 30;
     replayConfig.runtimeBodyCapacity = runtimeBodyCapacity;
     if ( hashLogPath && hashLogPath[0] != '\0' )
@@ -1608,13 +1568,13 @@ ReplayRuntime::RecordingConfigResult ReplayRuntime::ConfigureRecording( bool ena
     }
 
     ReplayRecorderConfig solverReplayConfig = replayConfig;
-    solverReplayConfig.retentionSeconds = m_memoryPolicy.solverRetentionSeconds;
+    solverReplayConfig.retentionSeconds = m_timeline.MemoryPolicy().solverRetentionSeconds;
     solverReplayConfig.checkpointIntervalFrames = 60;
     solverReplayConfig.hashLogPath = SolverReplayHashLogPath( replayConfig.hashLogPath );
 
-    m_presentation.Configure( replayConfig );
-    m_solver.Configure( solverReplayConfig );
-    m_events.Configure( replayConfig );
+    m_timeline.Presentation().Configure( replayConfig );
+    m_timeline.Solver().Configure( solverReplayConfig );
+    m_timeline.Events().Configure( replayConfig );
     if ( replayConfig.enabled )
     {
         // Runtime allocation policy: cause rows and prediction ghost requests are
@@ -1628,15 +1588,15 @@ ReplayRuntime::RecordingConfigResult ReplayRuntime::ConfigureRecording( bool ena
     RecordingConfigResult result;
     result.presentationConfig = replayConfig;
     result.solverConfig = solverReplayConfig;
-    result.presentationStats = m_presentation.GetStats();
-    result.solverStats = m_solver.GetStats();
-    result.eventStats = m_events.GetStats();
+    result.presentationStats = m_timeline.Presentation().GetStats();
+    result.solverStats = m_timeline.Solver().GetStats();
+    result.eventStats = m_timeline.Events().GetStats();
     return result;
 }
 
 bool ReplayRuntime::ApplyMemoryPolicyRequest( const ReplayMemoryPolicyRequest& request )
 {
-    ReplayMemoryPolicy nextPolicy = m_memoryPolicy;
+    ReplayMemoryPolicy nextPolicy = m_timeline.MemoryPolicy();
     if ( request.presetIndex >= 0 )
     {
         nextPolicy = ReplayMemoryPresetPolicy( ReplayMemoryPresetFromIndex( request.presetIndex ) );
@@ -1650,17 +1610,17 @@ bool ReplayRuntime::ApplyMemoryPolicyRequest( const ReplayMemoryPolicyRequest& r
         nextPolicy.requestedBudgetMiB = request.budgetMiB;
     }
     nextPolicy = ResolveReplayMemoryPolicy( nextPolicy );
-    if ( nextPolicy.preset == m_memoryPolicy.preset &&
-         nextPolicy.requestedRetentionSeconds == m_memoryPolicy.requestedRetentionSeconds &&
-         nextPolicy.requestedBudgetMiB == m_memoryPolicy.requestedBudgetMiB &&
-         nextPolicy.presentationRetentionSeconds == m_memoryPolicy.presentationRetentionSeconds &&
-         nextPolicy.solverRetentionSeconds == m_memoryPolicy.solverRetentionSeconds )
+    if ( nextPolicy.preset == m_timeline.MemoryPolicy().preset &&
+         nextPolicy.requestedRetentionSeconds == m_timeline.MemoryPolicy().requestedRetentionSeconds &&
+         nextPolicy.requestedBudgetMiB == m_timeline.MemoryPolicy().requestedBudgetMiB &&
+         nextPolicy.presentationRetentionSeconds == m_timeline.MemoryPolicy().presentationRetentionSeconds &&
+         nextPolicy.solverRetentionSeconds == m_timeline.MemoryPolicy().solverRetentionSeconds )
     {
         return false;
     }
 
-    m_memoryPolicy = nextPolicy;
-    if ( !m_recordingConfigured )
+    m_timeline.MemoryPolicy() = nextPolicy;
+    if ( !m_timeline.RecordingConfigured() )
     {
         return true;
     }
@@ -1668,10 +1628,10 @@ bool ReplayRuntime::ApplyMemoryPolicyRequest( const ReplayMemoryPolicyRequest& r
     // Hazard: changing retention policy invalidates normalized scrub positions
     // and retained samples, so replay resets the recorders and snaps tracks back
     // to the live edge in one owner-controlled step.
-    ConfigureRecording( m_recordingEnabled,
-                        m_memoryPolicy.requestedRetentionSeconds,
-                        m_recordingHashLogPath.empty() ? nullptr : m_recordingHashLogPath.c_str(),
-                        m_recordingRuntimeBodyCapacity );
+    ConfigureRecording( m_timeline.RecordingEnabled(),
+                        m_timeline.MemoryPolicy().requestedRetentionSeconds,
+                        m_timeline.RecordingHashLogPath().empty() ? nullptr : m_timeline.RecordingHashLogPath().c_str(),
+                        m_timeline.RecordingRuntimeBodyCapacity() );
     ResetScrubberState();
     SetAllTrackPositions( 1.0f );
     return true;
@@ -1679,25 +1639,25 @@ bool ReplayRuntime::ApplyMemoryPolicyRequest( const ReplayMemoryPolicyRequest& r
 
 const ReplayMemoryPolicy& ReplayRuntime::MemoryPolicy() const
 {
-    return m_memoryPolicy;
+    return m_timeline.MemoryPolicy();
 }
 
 void ReplayRuntime::FlushHashLogs()
 {
-    m_presentation.FlushHashLog();
-    m_solver.FlushHashLog();
+    m_timeline.Presentation().FlushHashLog();
+    m_timeline.Solver().FlushHashLog();
 }
 
 void ReplayRuntime::ResetBranch()
 {
-    m_branch = ReplayBranchInfo();
+    m_timeline.Branch() = ReplayBranchInfo();
 }
 
 void ReplayRuntime::ResetTimeline( const char* sceneLabel )
 {
-    m_presentation.ResetTimeline( sceneLabel );
-    m_solver.ResetTimeline( sceneLabel );
-    m_events.ResetTimeline( sceneLabel );
+    m_timeline.Presentation().ResetTimeline( sceneLabel );
+    m_timeline.Solver().ResetTimeline( sceneLabel );
+    m_timeline.Events().ResetTimeline( sceneLabel );
 }
 
 
@@ -1712,7 +1672,7 @@ ReplayRuntime::SceneTimelineResetResult ReplayRuntime::BeginSceneTimelineReset( 
     {
         ResetBranch();
     }
-    if ( m_scrubber.liveAdvanceHeld )
+    if ( m_scrubberOwner.State().liveAdvanceHeld )
     {
         SetLiveAdvanceHeld( false );
     }
@@ -1727,7 +1687,7 @@ ReplayRuntime::SceneTimelineResetResult ReplayRuntime::BeginSceneTimelineReset( 
 ReplayRuntime::SceneTimelineResetResult ReplayRuntime::FinishSceneTimelineReset( const SceneTimelineResetInput& input )
 {
     SceneTimelineResetResult result;
-    m_loadedPresentation = RunLoadedReplayPresentationState{};
+    m_timeline.LoadedPresentation() = RunLoadedReplayPresentationState{};
     ClearCameraFocusForRestore();
     result.exitInspectionCamera = true;
     ClearPathVisualizerState();
@@ -1743,8 +1703,8 @@ ReplayRuntime::SceneTimelineResetResult ReplayRuntime::FinishSceneTimelineReset(
     result.timelineStarted = true;
     // Why: mismatch diagnostics are scoped to the active replay timeline so a
     // noisy prior scene does not suppress the first useful report in this scene.
-    m_captureMismatchReports = 0;
-    m_captureMismatchSuppressed = false;
+    m_timeline.CaptureMismatchReports() = 0;
+    m_timeline.CaptureMismatchSuppressed() = false;
 
     if ( SceneTimelineRecordsGeneratedConfig( input ) )
     {
@@ -1774,38 +1734,38 @@ ReplayRuntime::SceneTimelineResetResult ReplayRuntime::FinishSceneTimelineReset(
 
 bool ReplayRuntime::IsPresentationEnabled() const
 {
-    return m_presentation.IsEnabled();
+    return m_timeline.Presentation().IsEnabled();
 }
 
 bool ReplayRuntime::IsCaptureEnabled() const
 {
-    return m_presentation.IsEnabled() || m_solver.IsEnabled();
+    return m_timeline.Presentation().IsEnabled() || m_timeline.Solver().IsEnabled();
 }
 
 ReplayRecorderStats ReplayRuntime::PresentationStats() const
 {
-    return m_presentation.GetStats();
+    return m_timeline.Presentation().GetStats();
 }
 
 ReplayRecorderStats ReplayRuntime::SolverStats() const
 {
-    return m_solver.GetStats();
+    return m_timeline.Solver().GetStats();
 }
 
 ReplayEventRecorderStats ReplayRuntime::EventStats() const
 {
-    return m_events.GetStats();
+    return m_timeline.Events().GetStats();
 }
 
 ReplayFrameIndex ReplayRuntime::NextEventFrameIndex() const
 {
-    const ReplayRecorderStats solverStats = m_solver.GetStats();
+    const ReplayRecorderStats solverStats = m_timeline.Solver().GetStats();
     if ( solverStats.enabled )
     {
         return solverStats.nextFrameIndex;
     }
 
-    const ReplayRecorderStats presentationStats = m_presentation.GetStats();
+    const ReplayRecorderStats presentationStats = m_timeline.Presentation().GetStats();
     return presentationStats.nextFrameIndex;
 }
 
@@ -1817,7 +1777,7 @@ void ReplayRuntime::RefreshPastTrajectoryStoreFromSolverSamples()
         return;
     }
 
-    const ReplayRecorderStats stats = m_solver.GetStats();
+    const ReplayRecorderStats stats = m_timeline.Solver().GetStats();
     if ( !stats.enabled || stats.sampleCount == 0 || stats.nextFrameIndex == 0 )
     {
         m_visualPresentation.PathVisualizer().pastTrajectory = RunReplayPastTrajectoryBuildState{};
@@ -1853,7 +1813,7 @@ void ReplayRuntime::RefreshPastTrajectoryStoreFromSolverSamples()
     ReplayPastRootRebuildContext rebuild;
     rebuild.store = &m_prediction.trajectoryStore;
     rebuild.record = record;
-    const bool traversalOk = m_solver.ForEachBodyPositionChronological(
+    const bool traversalOk = m_timeline.Solver().ForEachBodyPositionChronological(
         m_visualPresentation.PathVisualizer().targetId,
         [&]( ReplayFrameIndex frameIndex, Physics::ModelRowHint modelRow, const Math::Vector::Vector3& position )
         {
@@ -1895,8 +1855,8 @@ void ReplayRuntime::RefreshPastTrajectoryStoreFromSolverSamples()
 // capture without carrying replay-specific diagnostic state.
 void ReplayRuntime::ReportLatestCaptureMismatch()
 {
-    const ReplayPresentationSample* presentation = m_presentation.LatestSample();
-    const ReplaySolverFrameSample* solver = m_solver.LatestSample();
+    const ReplayPresentationSample* presentation = m_timeline.Presentation().LatestSample();
+    const ReplaySolverFrameSample* solver = m_timeline.Solver().LatestSample();
     if ( !presentation || !solver )
     {
         return;
@@ -1910,14 +1870,14 @@ void ReplayRuntime::ReportLatestCaptureMismatch()
         return;
     }
 
-    if ( m_captureMismatchReports < 8 )
+    if ( m_timeline.CaptureMismatchReports() < 8 )
     {
-        ++m_captureMismatchReports;
+        ++m_timeline.CaptureMismatchReports();
         fprintf( stderr,
                  "[replay] Solver/presentation capture mismatch #%u: presentation_frame=%llu solver_frame=%llu "
                  "presentation_hash=0x%016llX solver_presentation_hash=0x%016llX solver_hash=0x%016llX "
                  "presentation_bodies=%llu solver_bodies=%llu\n",
-                 m_captureMismatchReports,
+                 m_timeline.CaptureMismatchReports(),
                  static_cast<unsigned long long>( presentation->frameIndex ),
                  static_cast<unsigned long long>( solver->frameIndex ),
                  static_cast<unsigned long long>( presentation->stateHash ),
@@ -1926,9 +1886,9 @@ void ReplayRuntime::ReportLatestCaptureMismatch()
                  static_cast<unsigned long long>( presentation->bodies.size() ),
                  static_cast<unsigned long long>( solver->bodies.size() ) );
     }
-    else if ( !m_captureMismatchSuppressed )
+    else if ( !m_timeline.CaptureMismatchSuppressed() )
     {
-        m_captureMismatchSuppressed = true;
+        m_timeline.CaptureMismatchSuppressed() = true;
         fprintf( stderr,
                  "[replay] Further solver/presentation capture mismatch diagnostics suppressed for this replay "
                  "timeline.\n" );
@@ -1946,7 +1906,7 @@ void ReplayRuntime::AppendSolverTrajectorySampleToStore( const ReplaySolverFrame
         return;
     }
 
-    const ReplayRecorderStats stats = m_solver.GetStats();
+    const ReplayRecorderStats stats = m_timeline.Solver().GetStats();
     ReplayTrajectoryRecord* record = m_prediction.trajectoryStore.FindRecord(
         ReplayPastRootTrajectoryKey( m_visualPresentation.PathVisualizer().targetId ) );
     if ( !record )
@@ -2003,26 +1963,26 @@ void ReplayRuntime::CaptureFrame( ReplayCaptureInput input )
     // Invariant: presentation, solver, and event timelines share the same
     // branch and event cursor for this frame. Save/export code depends on that
     // alignment when it pairs visual frames with restore checkpoints.
-    input.branch = m_branch;
-    input.eventCursor = m_events.GetStats().nextSequence;
-    if ( m_solver.IsEnabled() )
+    input.branch = m_timeline.Branch();
+    input.eventCursor = m_timeline.Events().GetStats().nextSequence;
+    if ( m_timeline.Solver().IsEnabled() )
     {
-        const ReplayFrameIndex expectedSolverFrame = m_solver.GetStats().nextFrameIndex;
-        m_solver.CaptureFrame( input );
-        const ReplaySolverFrameSample* solverSample = m_solver.LatestSample();
+        const ReplayFrameIndex expectedSolverFrame = m_timeline.Solver().GetStats().nextFrameIndex;
+        m_timeline.Solver().CaptureFrame( input );
+        const ReplaySolverFrameSample* solverSample = m_timeline.Solver().LatestSample();
         if ( solverSample && solverSample->frameIndex == expectedSolverFrame )
         {
             // Why: the solver sample contains every presentation-facing body
             // field plus the already computed presentation hash. Reusing it
             // avoids a second per-body/contact pass in the frame tick.
-            m_presentation.CaptureFrameFromSolverSample( *solverSample );
+            m_timeline.Presentation().CaptureFrameFromSolverSample( *solverSample );
             AppendSolverTrajectorySampleToStore( *solverSample );
             ReportLatestCaptureMismatch();
             return;
         }
     }
 
-    m_presentation.CaptureFrame( input );
+    m_timeline.Presentation().CaptureFrame( input );
     ReportLatestCaptureMismatch();
 }
 
@@ -2236,7 +2196,7 @@ bool ReplayRuntime::ApplyPredictionFrameForRender( Rendering::RenderInstanceStor
 
 bool ReplayRuntime::HasLoadedPresentation() const
 {
-    return m_loadedPresentation.enabled && m_loadedPresentation.samples.size() >= 2;
+    return m_timeline.LoadedPresentation().enabled && m_timeline.LoadedPresentation().samples.size() >= 2;
 }
 
 
@@ -2247,38 +2207,40 @@ const ReplayPresentationSample* ReplayRuntime::LoadedPresentationSampleAtNormali
         return nullptr;
     }
 
-    return ReplayRuntimeLoadedPresentationSampleAtNormalized( m_loadedPresentation.samples, normalized );
+    return ReplayRuntimeLoadedPresentationSampleAtNormalized( m_timeline.LoadedPresentation().samples, normalized );
 }
 
 
 const ReplayPresentationSample* ReplayRuntime::LoadedPresentationLatestSample() const
 {
-    return HasLoadedPresentation() ? &m_loadedPresentation.samples.back() : nullptr;
+    return HasLoadedPresentation() ? &m_timeline.LoadedPresentation().samples.back() : nullptr;
 }
 
 
 bool ReplayRuntime::IsScrubPaused() const
 {
-    if ( !m_scrubber.historicalSamplePaused )
+    if ( !m_scrubberOwner.State().historicalSamplePaused )
     {
         return false;
     }
 
-    if ( m_scrubber.activeTrack == RunReplayTrack::Presentation && HasLoadedPresentation() )
+    if ( m_scrubberOwner.State().activeTrack == RunReplayTrack::Presentation && HasLoadedPresentation() )
     {
         return LoadedPresentationSampleAtNormalized( TrackPosition( RunReplayTrack::Presentation ) ) != nullptr;
     }
 
-    const float position = TrackPosition( m_scrubber.activeTrack );
-    const float presentT = m_scrubber.activeTrack == RunReplayTrack::Solver ? SolverPresentTrackPosition() : 1.0f;
+    const float position = TrackPosition( m_scrubberOwner.State().activeTrack );
+    const float presentT =
+        m_scrubberOwner.State().activeTrack == RunReplayTrack::Solver ? SolverPresentTrackPosition() : 1.0f;
     if ( AtPresentTrackPosition( position, presentT ) )
     {
         return false;
     }
 
-    if ( m_scrubber.activeTrack == RunReplayTrack::Presentation )
+    if ( m_scrubberOwner.State().activeTrack == RunReplayTrack::Presentation )
     {
-        return m_presentation.IsEnabled() && m_presentation.SampleAtNormalized( position ) != nullptr;
+        return m_timeline.Presentation().IsEnabled() &&
+               m_timeline.Presentation().SampleAtNormalized( position ) != nullptr;
     }
 
     if ( TrackPositionIsFuture( position, presentT ) )
@@ -2286,8 +2248,8 @@ bool ReplayRuntime::IsScrubPaused() const
         return CurrentPredictionScrubFrame() != nullptr;
     }
 
-    return m_solver.IsEnabled() &&
-           m_solver.SampleAtNormalized( SolverNormalizedFromTrack( position, presentT ) ) != nullptr;
+    return m_timeline.Solver().IsEnabled() &&
+           m_timeline.Solver().SampleAtNormalized( SolverNormalizedFromTrack( position, presentT ) ) != nullptr;
 }
 
 
@@ -2296,14 +2258,14 @@ const ReplayPresentationSample* ReplayRuntime::CurrentScrubSample() const
     // Concept: a scrub sample is available only when the active track is paused
     // away from live time. Live presentation should continue drawing the live
     // scene instead of borrowing old retained samples.
-    if ( m_scrubber.activeTrack != RunReplayTrack::Presentation )
+    if ( m_scrubberOwner.State().activeTrack != RunReplayTrack::Presentation )
     {
         return nullptr;
     }
 
     if ( HasLoadedPresentation() )
     {
-        return m_scrubber.historicalSamplePaused
+        return m_scrubberOwner.State().historicalSamplePaused
                    ? LoadedPresentationSampleAtNormalized( TrackPosition( RunReplayTrack::Presentation ) )
                    : nullptr;
     }
@@ -2313,13 +2275,13 @@ const ReplayPresentationSample* ReplayRuntime::CurrentScrubSample() const
         return nullptr;
     }
 
-    return m_presentation.SampleAtNormalized( TrackPosition( RunReplayTrack::Presentation ) );
+    return m_timeline.Presentation().SampleAtNormalized( TrackPosition( RunReplayTrack::Presentation ) );
 }
 
 
 const ReplaySolverFrameSample* ReplayRuntime::CurrentSolverScrubSample() const
 {
-    if ( m_scrubber.activeTrack != RunReplayTrack::Solver || !IsScrubPaused() )
+    if ( m_scrubberOwner.State().activeTrack != RunReplayTrack::Solver || !IsScrubPaused() )
     {
         return nullptr;
     }
@@ -2331,7 +2293,7 @@ const ReplaySolverFrameSample* ReplayRuntime::CurrentSolverScrubSample() const
         return nullptr;
     }
 
-    return m_solver.SampleAtNormalized( SolverNormalizedFromTrack( position, presentT ) );
+    return m_timeline.Solver().SampleAtNormalized( SolverNormalizedFromTrack( position, presentT ) );
 }
 
 
@@ -2345,7 +2307,8 @@ const RunReplayPredictionFrame* ReplayRuntime::CurrentPredictionScrubFrame() con
     std::size_t frameCount = 0;
     const std::vector<RunReplayPredictionFrame>& frames =
         ReplayRuntimeTimelinePredictionFrames( m_prediction, frameCount );
-    if ( m_scrubber.activeTrack != RunReplayTrack::Solver || !m_scrubber.historicalSamplePaused || frameCount < 2 )
+    if ( m_scrubberOwner.State().activeTrack != RunReplayTrack::Solver ||
+         !m_scrubberOwner.State().historicalSamplePaused || frameCount < 2 )
     {
         return nullptr;
     }
@@ -3188,16 +3151,16 @@ void ReplayRuntime::RecordReplayTrajectoryRebuildCause( SkullbonezCore::Core::Ma
 SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
 {
     SkullbonezCore::Core::MainMemoryReplayStats stats;
-    const ReplayRecorderStats presentationStats = m_presentation.GetStats();
-    const ReplayRecorderStats solverStats = m_solver.GetStats();
-    const ReplayEventRecorderStats eventStats = m_events.GetStats();
+    const ReplayRecorderStats presentationStats = m_timeline.Presentation().GetStats();
+    const ReplayRecorderStats solverStats = m_timeline.Solver().GetStats();
+    const ReplayEventRecorderStats eventStats = m_timeline.Events().GetStats();
 
     // Concept: the broad replay totals are sums of the same category table
     // exposed to diagnostics. That keeps UI totals and memory-dump evidence in
     // lockstep when later stages move storage between owners.
-    m_presentation.CollectMemoryCategoryBytes( stats.categoryBytes );
-    m_solver.CollectMemoryCategoryBytes( stats.categoryBytes );
-    m_events.CollectMemoryCategoryBytes( stats.categoryBytes );
+    m_timeline.Presentation().CollectMemoryCategoryBytes( stats.categoryBytes );
+    m_timeline.Solver().CollectMemoryCategoryBytes( stats.categoryBytes );
+    m_timeline.Events().CollectMemoryCategoryBytes( stats.categoryBytes );
     stats.presentationBytes = SkullbonezCore::Core::MainMemoryReplayCategoryRangeBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationOwner,
@@ -3213,13 +3176,13 @@ SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() 
     stats.presentationSamples = presentationStats.sampleCount;
     stats.solverSamples = solverStats.sampleCount;
     stats.eventSamples = eventStats.eventCount;
-    stats.memoryPreset = static_cast<int>( m_memoryPolicy.preset );
-    stats.requestedRetentionSeconds = m_memoryPolicy.requestedRetentionSeconds;
-    stats.requestedBudgetMiB = m_memoryPolicy.requestedBudgetMiB;
-    stats.presentationRetentionSeconds = m_memoryPolicy.presentationRetentionSeconds;
-    stats.solverRetentionSeconds = m_memoryPolicy.solverRetentionSeconds;
-    stats.memoryBudgetClamped = m_memoryPolicy.budgetClamped;
-    stats.solverWindowReduced = m_memoryPolicy.solverWindowReduced;
+    stats.memoryPreset = static_cast<int>( m_timeline.MemoryPolicy().preset );
+    stats.requestedRetentionSeconds = m_timeline.MemoryPolicy().requestedRetentionSeconds;
+    stats.requestedBudgetMiB = m_timeline.MemoryPolicy().requestedBudgetMiB;
+    stats.presentationRetentionSeconds = m_timeline.MemoryPolicy().presentationRetentionSeconds;
+    stats.solverRetentionSeconds = m_timeline.MemoryPolicy().solverRetentionSeconds;
+    stats.memoryBudgetClamped = m_timeline.MemoryPolicy().budgetClamped;
+    stats.solverWindowReduced = m_timeline.MemoryPolicy().solverWindowReduced;
     // The policy table is stable and fixed-size; diagnostics never discovers
     // replay owners by scanning recent-event text or allocating a report map.
     for ( std::size_t index = 0; index < REPLAY_GROWTH_OWNER_POLICIES.size(); ++index )
@@ -3245,12 +3208,12 @@ SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() 
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedOwner,
-        static_cast<uint64_t>( sizeof( m_loadedPresentation ) ) );
+        static_cast<uint64_t>( sizeof( m_timeline.LoadedPresentation() ) ) );
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedSampleRecords,
-        VectorCapacityBytes( m_loadedPresentation.samples ) );
-    for ( const ReplayPresentationSample& sample : m_loadedPresentation.samples )
+        VectorCapacityBytes( m_timeline.LoadedPresentation().samples ) );
+    for ( const ReplayPresentationSample& sample : m_timeline.LoadedPresentation().samples )
     {
         SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
             stats.categoryBytes,
@@ -3261,7 +3224,7 @@ SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() 
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedOwner,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionOwner );
-    stats.loadedReplaySamples = m_loadedPresentation.samples.size();
+    stats.loadedReplaySamples = m_timeline.LoadedPresentation().samples.size();
 
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
@@ -3383,14 +3346,14 @@ void ReplayRuntime::RecordEvent( ReplayEventKind kind,
                                  uint64_t data0,
                                  const char* text )
 {
-    if ( !m_events.IsEnabled() )
+    if ( !m_timeline.Events().IsEnabled() )
     {
         return;
     }
 
     ReplayEventInput input;
     input.frameIndex = frameIndex;
-    input.branch = m_branch;
+    input.branch = m_timeline.Branch();
     input.kind = kind;
     input.flags = flags;
     input.value0 = value0;
@@ -3399,7 +3362,7 @@ void ReplayRuntime::RecordEvent( ReplayEventKind kind,
     input.value3 = value3;
     input.data0 = data0;
     input.text = text;
-    m_events.RecordEvent( input );
+    m_timeline.Events().RecordEvent( input );
 }
 
 void ReplayRuntime::RecordWorldOverrideEvent( float previousGravity,
@@ -3641,9 +3604,9 @@ bool ReplayRuntime::SavePresentationWithSolverHashes( const char* path,
     }
     const std::span<const uint8_t> predictionState =
         !visualPredictionState.empty() ? visualPredictionState : std::span<const uint8_t>( fallbackPredictionState );
-    return ReplayV2Artifact::SavePresentationWithSolverHashes( m_presentation,
-                                                               m_solver,
-                                                               m_events,
+    return ReplayV2Artifact::SavePresentationWithSolverHashes( m_timeline.Presentation(),
+                                                               m_timeline.Solver(),
+                                                               m_timeline.Events(),
                                                                visualPackets,
                                                                predictionState,
                                                                path,
@@ -3661,12 +3624,12 @@ bool ReplayRuntime::SavePresentationFromScrubber( double now )
                                               "replays",
                                               "replay_v2_",
                                               ".skreplay",
-                                              m_presentationSaveSequence ) )
+                                              m_timeline.PresentationSaveSequence() ) )
     {
         saved = SavePresentationWithSolverHashes( path );
     }
 
-    m_scrubber.saveMessageTrack = RunReplayTrack::Presentation;
+    m_scrubberOwner.State().saveMessageTrack = RunReplayTrack::Presentation;
     if ( saved )
     {
         const char* fileName = std::strrchr( path, '\\' );
@@ -3675,15 +3638,20 @@ bool ReplayRuntime::SavePresentationFromScrubber( double now )
             fileName = std::strrchr( path, '/' );
         }
         fileName = fileName ? fileName + 1 : path;
-        sprintf_s( m_scrubber.saveMessage, sizeof( m_scrubber.saveMessage ), "SAVED %s", fileName );
+        sprintf_s( m_scrubberOwner.State().saveMessage,
+                   sizeof( m_scrubberOwner.State().saveMessage ),
+                   "SAVED %s",
+                   fileName );
     }
     else
     {
-        sprintf_s( m_scrubber.saveMessage, sizeof( m_scrubber.saveMessage ), "REPLAY SAVE FAILED" );
+        sprintf_s( m_scrubberOwner.State().saveMessage,
+                   sizeof( m_scrubberOwner.State().saveMessage ),
+                   "REPLAY SAVE FAILED" );
     }
-    m_scrubber.saveMessageUntil = now + 2.5;
-    m_scrubber.visibleUntil = now + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
-    m_scrubber.visible = true;
+    m_scrubberOwner.State().saveMessageUntil = now + 2.5;
+    m_scrubberOwner.State().visibleUntil = now + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    m_scrubberOwner.State().visible = true;
     return saved;
 }
 
@@ -3712,14 +3680,14 @@ bool ReplayRuntime::LoadPresentationArtifact( const char* path,
         return false;
     }
 
-    m_loadedPresentation = RunLoadedReplayPresentationState{};
-    m_loadedPresentation.samples.swap( samples );
-    m_loadedPresentation.enabled = true;
-    m_loadedPresentation.bodyDictionaryCount = result.bodyDictionaryCount;
-    m_loadedPresentation.fileBytes = result.fileBytes;
-    m_loadedPresentation.firstFrame = result.firstFrame;
-    m_loadedPresentation.lastFrame = result.lastFrame;
-    strncpy_s( m_loadedPresentation.path, sizeof( m_loadedPresentation.path ), path, _TRUNCATE );
+    m_timeline.LoadedPresentation() = RunLoadedReplayPresentationState{};
+    m_timeline.LoadedPresentation().samples.swap( samples );
+    m_timeline.LoadedPresentation().enabled = true;
+    m_timeline.LoadedPresentation().bodyDictionaryCount = result.bodyDictionaryCount;
+    m_timeline.LoadedPresentation().fileBytes = result.fileBytes;
+    m_timeline.LoadedPresentation().firstFrame = result.firstFrame;
+    m_timeline.LoadedPresentation().lastFrame = result.lastFrame;
+    strncpy_s( m_timeline.LoadedPresentation().path, sizeof( m_timeline.LoadedPresentation().path ), path, _TRUNCATE );
 
     if ( activateScrubber )
     {
@@ -3746,12 +3714,12 @@ bool ReplayRuntime::LoadPresentationArtifact( const char* path,
 
     printf( "[replay] Loaded v2 presentation artifact: path=%s samples=%llu bodies=%llu first_frame=%llu "
             "last_frame=%llu bytes=%llu\n",
-            m_loadedPresentation.path,
-            static_cast<unsigned long long>( m_loadedPresentation.samples.size() ),
-            static_cast<unsigned long long>( m_loadedPresentation.bodyDictionaryCount ),
-            static_cast<unsigned long long>( m_loadedPresentation.firstFrame ),
-            static_cast<unsigned long long>( m_loadedPresentation.lastFrame ),
-            static_cast<unsigned long long>( m_loadedPresentation.fileBytes ) );
+            m_timeline.LoadedPresentation().path,
+            static_cast<unsigned long long>( m_timeline.LoadedPresentation().samples.size() ),
+            static_cast<unsigned long long>( m_timeline.LoadedPresentation().bodyDictionaryCount ),
+            static_cast<unsigned long long>( m_timeline.LoadedPresentation().firstFrame ),
+            static_cast<unsigned long long>( m_timeline.LoadedPresentation().lastFrame ),
+            static_cast<unsigned long long>( m_timeline.LoadedPresentation().fileBytes ) );
     return true;
 }
 } // namespace SkullbonezCore::Runtime
