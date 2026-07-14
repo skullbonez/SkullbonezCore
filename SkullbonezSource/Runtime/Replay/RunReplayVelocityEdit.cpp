@@ -739,7 +739,7 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
         pickInput.hasWorldRay = pointerRay.hasWorldRay;
         pickInput.rayOrigin = rayOrigin;
         pickInput.rayDirection = rayDirection;
-        (void)m_replayRuntime.TryPickPathTarget( pickInput, entities, velocityBodies, velocityColliders, presentation );
+        (void)m_replayRuntime.ApplyPathPick( pickInput, entities, velocityBodies, velocityColliders, presentation );
         if ( m_replayRuntime.PathVisualizer().hasTarget )
         {
             outEnterInteractive = true;

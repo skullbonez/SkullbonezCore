@@ -1191,7 +1191,7 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
         // exposes, while still forcing a rebuild when a script changes it before
         // a proof.
         replayRuntime.Prediction().simulation.horizonSeconds = horizonSeconds;
-        replayRuntime.MarkPredictionDirty();
+        replayRuntime.PredictionOwner().MarkDirty();
         std::ostringstream detail;
         detail << "prediction horizon set to " << horizonSeconds << "s";
         AppendReportAction( state, frame, action.type, "", nullptr, true, detail.str().c_str() );
@@ -1231,7 +1231,7 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
                 if ( applied )
                 {
                     replayRuntime.Prediction().enabled = true;
-                    replayRuntime.MarkPredictionDirty();
+                    replayRuntime.PredictionOwner().MarkDirty();
                     replayRuntime.Scrubber().visible = true;
                     replayRuntime.Scrubber().visibleUntil =
                         timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;

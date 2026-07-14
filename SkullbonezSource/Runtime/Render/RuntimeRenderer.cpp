@@ -52,6 +52,7 @@ Related:
 #include "../Scene/SceneTerrain.h"
 #include "../Allocation/RuntimeAllocationTracker.h"
 #include "../Allocation/RuntimeReserveAllocator.h"
+#include "../Replay/ReplayOverlayRenderer.h"
 #include "../RuntimeTuning.h"
 #include "../../Assets/TextureCollection.h"
 #include "../../Core/FatalError.h"
@@ -276,6 +277,7 @@ struct UiTextGraphCallbackData
     SkullbonezCore::UI::InGameUI* ui = nullptr;
     const RuntimeRenderModelFrameView* models = nullptr;
     DiagnosticsRuntime* diagnosticsRuntime = nullptr;
+    const ReplayHudStatus* replayHud = nullptr;
     ReplayRuntime* replayRuntime = nullptr;
     const ReplayOverlayFrameState* replayOverlay = nullptr;
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
@@ -531,11 +533,24 @@ void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
 {
     auto* data = static_cast<UiTextGraphCallbackData*>( userData );
     if ( !data || !data->uiTextPass || !data->renderDiagnostics || !data->uiRender || !data->state || !data->timers ||
-         !data->ui || !data->models || !data->diagnosticsRuntime || !data->replayRuntime || !data->replayOverlay ||
-         !data->cinematic )
+         !data->ui || !data->models || !data->diagnosticsRuntime || !data->replayHud || !data->replayRuntime ||
+         !data->replayOverlay || !data->cinematic || !data->uiRender->IsReady() )
     {
         SB_FATAL( "RunRender", "UiTextPass graph callback missing execution data." );
     }
+    const ReplayOverlayFrameState& overlay = *data->replayOverlay;
+    const ReplayOverlay::ReplayOverlayRenderContext overlayContext{ *data->uiRender->commands,
+                                                                    *data->replayRuntime,
+                                                                    data->models->presentationRecords,
+                                                                    data->models->bodyStore,
+                                                                    overlay.editorModeEnabled,
+                                                                    overlay.uiVisible,
+                                                                    overlay.uiMinimized,
+                                                                    overlay.scenePhysicsEnabled,
+                                                                    overlay.gesture,
+                                                                    overlay.screenW,
+                                                                    overlay.screenH,
+                                                                    overlay.nowSeconds };
     data->uiTextPass->Render( { *data->state,
                                 *data->timers,
                                 *data->ui,
@@ -544,8 +559,8 @@ void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
                                 *data->uiRender,
                                 *data->models,
                                 *data->diagnosticsRuntime,
-                                *data->replayRuntime,
-                                *data->replayOverlay,
+                                *data->replayHud,
+                                overlayContext,
                                 *data->cinematic,
                                 data->cinematicRendering,
                                 data->renderRayTracing,
@@ -1368,6 +1383,7 @@ bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnos
                                                        UI::InGameUI& ui,
                                                        const RuntimeRenderModelFrameView& models,
                                                        DiagnosticsRuntime& diagnosticsRuntime,
+                                                       const ReplayHudStatus& replayHud,
                                                        ReplayRuntime& replayRuntime,
                                                        const ReplayOverlayFrameState& replayOverlay,
                                                        const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
@@ -1394,6 +1410,7 @@ bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnos
     callbackData.ui = &ui;
     callbackData.models = &models;
     callbackData.diagnosticsRuntime = &diagnosticsRuntime;
+    callbackData.replayHud = &replayHud;
     callbackData.replayRuntime = &replayRuntime;
     callbackData.replayOverlay = &replayOverlay;
     callbackData.cinematic = &cinematic;
@@ -2237,6 +2254,7 @@ void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnos
                                     UI::InGameUI& ui,
                                     const RuntimeRenderModelFrameView& models,
                                     DiagnosticsRuntime& diagnosticsRuntime,
+                                    const ReplayHudStatus& replayHud,
                                     ReplayRuntime& replayRuntime,
                                     const ReplayOverlayFrameState& replayOverlay,
                                     const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
@@ -2250,6 +2268,7 @@ void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnos
                                            ui,
                                            models,
                                            diagnosticsRuntime,
+                                           replayHud,
                                            replayRuntime,
                                            replayOverlay,
                                            cinematic,

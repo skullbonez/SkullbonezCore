@@ -118,9 +118,9 @@ concrete plan rows and counting it would duplicate tasks.
 | runtime-contract-enforcement | 5 | 5 | 100% |
 | adversarial-review-round-3 | 10 | 10 | 100% |
 | replay-visual-fidelity-mega-probe | 7 | 7 | 100% |
-| replay-monolith-decomposition | 7 | 9 | 78% |
+| replay-monolith-decomposition | 8 | 9 | 89% |
 | future-path-vector-splines | 0 | 7 | 0% |
-| **Portfolio total** | **326** | **336** | **97%** |
+| **Portfolio total** | **327** | **336** | **97%** |
 
 ## Current Execution Priority
 
@@ -180,7 +180,7 @@ validation-gate V3 remains externally blocked.
 |---|---|---:|---|
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs merge-group proof, required branch protection, and trusted/ephemeral DX12 runner administration |
 | [replay-visual-fidelity-mega-probe](TODO/replay-visual-fidelity-mega-probe.md) | Complete | 7/7 | One engine, one prediction, 2,401 exact ticks, 187 grounded sleepers, durable CPU-only reconstruction, and adversarial closure approved |
-| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Active | 7/9 | M6 extracted private prediction ownership and a never-stored presentation view with mega, perf, and full gates green; M7 closes the Run/probe seam |
+| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Active | 8/9 | M7 published the value-only HUD, moved Run/query/probe behavior behind replay operations, and recorded the stale external-grep premise; M8 performs honest renames and mandatory logical ownership closure |
 | [future-path-vector-splines](TODO/future-path-vector-splines.md) | Live — independent presentation lane | 0/7 | Start T1 (near-black prediction sky) and T2 (thin AA vector-spline ribbon shader); owner decisions 2026-07-14 are recorded in the plan; golden-manifest refresh needs owner approval |
 
 ## Planned Architecture Work (2026-07-11 gap review)

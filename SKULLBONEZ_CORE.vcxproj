@@ -248,7 +248,6 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayVisualPacketFingerprint.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayCauseTreeTools.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayQueryTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayScrubberTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.cpp" />
@@ -471,6 +470,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRestoreService.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayAuthoring.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayCoordination.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayIdentity.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPrediction.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPresentation.h" />

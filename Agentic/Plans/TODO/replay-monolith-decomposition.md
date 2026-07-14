@@ -1,7 +1,7 @@
 # Replay Monolith Decomposition — Owner Boundaries Inside The Replay Subsystem
 
 Date: 2026-07-13
-Status: Live — 7/9 tasks complete; M6 prediction owner extracted
+Status: Live — 8/9 tasks complete; M7 HUD and probe seam closed
 Branch: `nightrunner-13th-july`
 Impact area: `SkullbonezSource/Runtime/Replay/*` (26,060 lines), the two
 external consumers `Runtime/Run.cpp` and `Runtime/RunUiTextPass.cpp`, project
@@ -164,7 +164,7 @@ known-good golden manifest.
   `tools\validate_replay_scrub.bat`,
   `tools\validate_perf.bat` (prediction budget unchanged),
   `tools\validate_full.bat` at the PR gate.
-- [ ] **M7 — Close the Run seam and decouple probes.** Define a small
+- [x] **M7 — Close the Run seam and decouple probes.** Define a small
   `ReplayHudStatus` value struct (published once per frame by the composition
   root) carrying exactly what `Run.cpp` and `RunUiTextPass.cpp` read today;
   those two files stop taking `ReplayRuntime&`. `RunReplayProbes.cpp` and
@@ -375,6 +375,40 @@ M6 recorded adjustments and evidence:
   the scrub alias's no-engine delegated exit-37 propagation proof. No baseline
   changed. The touched source comment audit checked 4/4 files with zero
   deferred.
+
+M7 recorded adjustments and evidence:
+
+- `ReplayHudStatus` is the value-only late-pass boundary. `RunFrame` samples it
+  once after replay work, `RuntimeRenderer` expands the borrowed overlay render
+  context at the graph callback boundary, and `RunUiTextPass.cpp` no longer
+  includes or names `ReplayRuntime`. Replay memory diagnostics accept the
+  already-published accounting value instead of reopening replay ownership.
+- Solver restore, scene-timeline description, prediction publication controls,
+  path picking, and startup/probe sequencing moved from `Run.cpp` or raw owner
+  state into replay-owned operations. The obsolete query TU was deleted after
+  its presentation query moved to `ReplayPresentation` and its cross-owner
+  reaction moved to the composition implementation. Probes consume named
+  archive-verification and prediction-publication operations rather than
+  reaching into mutable prediction banks.
+- The historical acceptance premise that only `Run.cpp` and
+  `RunUiTextPass.cpp` name `ReplayRuntime` is not true on the current tree.
+  A correctly rooted inventory (`--glob
+  '!SkullbonezSource/Runtime/Replay/**'`) finds 35 files, including comments,
+  frame borrow views, input/scene composition, renderer coordination,
+  diagnostics, and automation. M7 therefore binds the seam to the behavioral
+  ownership rule: the UI late pass consumes only `ReplayHudStatus`, `Run.cpp`
+  contains construction/startup sequencing rather than replay algorithms, and
+  M8's mandatory logical-type review must judge every remaining external
+  capability and root wrapper. The stale grep cannot be reported as passing.
+- Validation passed from final M7 source: formatting; 679/679 project/filter
+  items; zero-warning Profile and Debug builds; the unchanged one-engine,
+  one-generation, one-presentation mega oracle at 2,401 ticks, all 200 bricks
+  moved, 187 directly grounded and solver-sleeping throughout the final 121
+  samples, 199 causal nodes, and every false-pass control; the full CPU/DX12/
+  physics gate with zero DX12 validation errors and the 44,401-line byte-exact
+  varied baseline; and the scrub alias's no-engine delegated exit-37
+  propagation proof. No baseline changed. The touched source/tool comment
+  audit checked 22/22 files with zero deferred.
 
 ## M1 Binding Type Inventory
 

@@ -147,6 +147,11 @@ struct SkyPassResources;
 struct TonemapPassResources;
 struct VolumetricLightPassResources;
 class ReplayRuntime;
+struct ReplayHudStatus;
+namespace ReplayOverlay
+{
+struct ReplayOverlayRenderContext;
+}
 struct RuntimeRenderModelFrameView;
 struct RuntimeViewModel;
 struct RunSceneBrowserState;
@@ -434,8 +439,8 @@ struct UiTextPassInputs
     const UI::UIRenderContext& uiRender;
     const RuntimeRenderModelFrameView& models;
     DiagnosticsRuntime& diagnosticsRuntime;
-    ReplayRuntime& replayRuntime;
-    const ReplayOverlayFrameState& replayOverlay;
+    const ReplayHudStatus& replayHud;
+    const ReplayOverlay::ReplayOverlayRenderContext& replayOverlayContext;
     // Lifetime: selected by Run for this UI frame. UI text can render without
     // world passes, so it receives its own snapshot instead of reopening host state.
     const SkullbonezCore::Core::CinematicRenderConfig& cinematic;

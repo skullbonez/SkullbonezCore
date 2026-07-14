@@ -49,7 +49,7 @@ bool ReplayInteractionController::BuildScrubberRestoreRequest( ReplayRuntime& re
     if ( replayRuntime.HasLoadedPresentation() && replayRuntime.Scrubber().historicalSamplePaused &&
          replayRuntime.Scrubber().activeTrack == RunReplayTrack::Presentation )
     {
-        replayRuntime.CancelPredictionJob( false );
+        replayRuntime.PredictionOwner().CancelJob( false );
         const ReplayPresentationSample* selected = replayRuntime.CurrentScrubSample();
         if ( selected )
         {
@@ -65,7 +65,7 @@ bool ReplayInteractionController::BuildScrubberRestoreRequest( ReplayRuntime& re
     else if ( replayRuntime.Scrubber().historicalSamplePaused &&
               replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver )
     {
-        replayRuntime.CancelPredictionJob( false );
+        replayRuntime.PredictionOwner().CancelJob( false );
         if ( const ReplaySolverFrameSample* sample = replayRuntime.CurrentSolverScrubSample() )
         {
             outRequest.kind = ReplayLiveRestoreKind::SolverSample;

@@ -4,9 +4,9 @@ Purpose:
   Defines frame-scoped owner views used by replay startup and restore.
 
 Summary:
-  ReplayRuntime owns replay decisions while Run owns application composition.
-  These values are short-lived borrow packets assembled at that boundary; they
-  expose only the owners required by one replay operation and are never stored.
+  These values are short-lived borrow packets assembled at the application
+  composition boundary. They expose only the owners required by one replay
+  operation and are never stored.
 
 Glossary:
   Sample restore: Transaction that applies one solver sample to live owners.
@@ -23,7 +23,8 @@ Related:
 */
 #pragma once
 
-#include "ReplayRuntime.h"
+#include "ReplayCoordination.h"
+#include "ReplayRestoreService.h"
 
 namespace SkullbonezCore
 {
@@ -37,30 +38,37 @@ class WorkerPool;
 }
 namespace Runtime
 {
+class DiagnosticsRuntime;
+class SceneController;
+class SimulationSystem;
+class RuntimeTools;
+enum class GeneratedObjectTypeOverride;
+struct RunDebugState;
+struct RunSceneState;
 // Lifetime: startup replay loading borrows only interaction/camera owners.
 // Solver, scene-rebuild, and diagnostic owners are intentionally excluded so
 // a normal artifact load cannot gain the debug probe's authority.
-struct ReplayRuntime::ReplayStartupLoadInput
+struct ReplayStartupLoadInput
 {
     double now = 0.0;
     Environment::CameraCollection* cameras = nullptr;
     RunMousePickupState& mousePickup;
     RunCameraMode normalizedCurrentMode = RunCameraMode::Demo;
-    const SceneTimelineResetOwners& timelineOwners;
+    const ReplaySceneTimelineResetOwners& timelineOwners;
 };
 
 // Concept: live restore composes two narrow operand sets. The sample service
 // owns physics/presentation mutation; artifact topology rebuilding separately
 // borrows cold scene-construction owners. Neither grants a callback into Run.
-struct ReplayRuntime::ReplayRestoreTransaction
+struct ReplayRestoreTransaction
 {
     ReplaySolverSampleRestoreContext& sampleOwners;
     DiagnosticsRuntime& diagnostics;
-    SceneTimelineResetInput timelineReset;
-    const SceneTimelineResetOwners& timelineOwners;
+    ReplaySceneTimelineResetInput timelineReset;
+    const ReplaySceneTimelineResetOwners& timelineOwners;
 };
 
-struct ReplayRuntime::ReplayArtifactTopologyOwners
+struct ReplayArtifactTopologyOwners
 {
     SimulationSystem& simulation;
     const SkullbonezCore::Core::EngineConfig& config;

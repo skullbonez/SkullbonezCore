@@ -13,9 +13,9 @@ plan inventory.
 | Branch | `nightrunner-13th-july` |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
 | Current objective | Execute replay monolith decomposition with the unchanged frame-exact 200-box gate after every task |
-| Portfolio progress | 326 / 336 tasks = 97% rounded overall |
+| Portfolio progress | 327 / 336 tasks = 97% rounded overall |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-14: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | M6 passed formatting, allocation-policy checks, zero-warning Profile, the unchanged one-generation 2,401-tick mega gate with all 200 moved and 187 grounded sleepers, performance budgets, the full repository gate including zero DX12 errors and byte-exact physics, and the no-engine scrub-alias propagation probe; no baseline changed. |
+| Validation for current edits | M7 passed formatting, 679/679 project metadata, zero-warning Profile/Debug, the unchanged one-generation 2,401-tick mega gate with all 200 moved and 187 grounded sleepers, the full repository gate including zero DX12 errors and byte-exact physics, and the no-engine scrub-alias propagation probe; no baseline changed. |
 
 ## Live Queue
 
@@ -25,14 +25,18 @@ plan inventory.
    `Toppled` now means more than half the wall is directly grounded and sleeping;
    the approved base has 187/200 through the final second. Independent V6 review
    found no blocking issue.
-2. `replay-monolith-decomposition` is active at 7/9. M0 certified the exact
+2. `replay-monolith-decomposition` is active at 8/9. M0 certified the exact
    starting tree; M1 bound all 55 current header type definitions/aliases and
    212 free functions to named owners; M2 mechanically split the six owner/value
    headers; M3 extracted the concrete presentation state, query, packet, and
    diagnostic owner; M4 extracted timeline retention and scrubber cursor/
    restore authority; M5 extracted authoring and its queued prediction-refresh
    value boundary; M6 extracted private prediction ownership and its
-   never-stored published view while leaving mixed drawing statics for M8.
+   never-stored published view while leaving mixed drawing statics for M8; M7
+   published the HUD value seam, removed replay ownership from the late UI
+   pass, and moved Run/query/probe behavior behind replay operations. The
+   historical two-consumer grep premise was stale, so M8's mandatory review
+   must judge the remaining logical root and external capabilities directly.
    Every M0-M8 task,
    including inventory documentation, must run the
    unchanged 200-box gate before it can be checked or committed.
@@ -119,8 +123,9 @@ plan inventory.
 ## Next Handoff
 
 Run the repository-local orchestrator against
-`Plans/TODO/replay-monolith-decomposition.md` M7. Publish the small per-frame
-HUD value snapshot, remove `ReplayRuntime&` from Run/UI consumers, and convert
-probes/query tools to deliberate published views without back-door owner-state
-access. The permanent one-presentation 200-box gate remains the unchanged
-per-task oracle.
+`Plans/TODO/replay-monolith-decomposition.md` M8. Rename the remaining
+`RunReplay*.cpp` files to honest owner names, reconcile project filters, audit
+every touched source file, and run the mandatory independent logical-ownership
+review. Any credible root-forwarding, reach-back, or next-god-object finding
+reopens the owning work. The permanent one-presentation 200-box gate remains
+the unchanged final oracle.

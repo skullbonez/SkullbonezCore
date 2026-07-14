@@ -63,6 +63,19 @@ Related:
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
+
+#ifdef _DEBUG
+RunReplayProbeState& ReplayRuntime::Probes()
+{
+    return m_probes;
+}
+
+
+const RunReplayProbeState& ReplayRuntime::Probes() const
+{
+    return m_probes;
+}
+#endif
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
@@ -2373,7 +2386,7 @@ ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& tr
                                               double now,
                                               float normalized )
 {
-    if ( PredictionGenerationPermitted() )
+    if ( m_predictionOwner.GenerationPermitted() )
     {
         return ReplayProbeFailure( "replay load probe did not disable prediction generation" );
     }
@@ -2430,11 +2443,7 @@ ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& tr
         }
         visualPredictionBytes = visualPredictionState.size();
         char archiveReason[192] = {};
-        if ( !LoadReplayPredictionArchive( visualPredictionState,
-                                           m_visualPresentation.PathVisualizer(),
-                                           m_predictionOwner.State(),
-                                           archiveReason,
-                                           sizeof( archiveReason ) ) )
+        if ( !LoadPredictionArchiveForVerification( visualPredictionState, archiveReason, sizeof( archiveReason ) ) )
         {
             return SkullbonezCore::Core::SbResult::Failure( REPLAY_PROBE_OWNER,
                                                             "replay prediction archive rejected: %s",
@@ -2448,16 +2457,14 @@ ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& tr
         SceneController& sceneController = transaction.sampleOwners.sceneController;
         RunEditorTracer& tracer = runtimeTools.EditorTracer();
         const Physics::PhysicsWorldForces worldForces = sceneController.World().GetPhysicsWorldForces();
-        m_visualPresentation.TrajectoryVisualStats() = {};
+        ResetPredictionPresentationVerification();
         // The archive retains the final marker prefix exactly. This optional
         // presenting Debug probe deliberately replays first appearance from
         // frame zero, so only the probe resets publication state.
-        m_predictionOwner.State().futureNodeCache.retainedMarkerCount = 0;
         std::vector<ReplayVisualTrajectoryDigestState> trajectoryDigests;
         for ( const ReplayVisualArchiveSample& expected : visualPackets )
         {
-            m_predictionOwner.State().revealClock.deterministicFrame = expected.revealFrame;
-            m_predictionOwner.State().revealClock.presentedFrame = expected.revealFrame;
+            m_predictionOwner.SetVerificationRevealFrame( expected.revealFrame );
             tracer.Clear();
             RenderPathVisualizer( transaction.sampleOwners.physics,
                                   sceneController.Entities(),

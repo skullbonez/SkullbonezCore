@@ -154,6 +154,14 @@ class DiagnosticsRuntime
                             double nowSeconds,
                             bool force,
                             bool includePrivateWorkingSet = true );
+    // Accepts replay accounting already published by the composition root so
+    // the UI pass cannot reopen ReplayRuntime while reconciling memory totals.
+    const SkullbonezCore::Core::MainMemoryStats&
+    RefreshMainMemoryStats( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
+                            const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
+                            double nowSeconds,
+                            bool force,
+                            bool includePrivateWorkingSet = true );
     const SkullbonezCore::Core::MainMemoryStats& MainMemoryStatsSnapshot() const;
     void SetMainMemoryDumpPath( const char* path );
     const char* MainMemoryDumpPath() const;

@@ -845,6 +845,28 @@ DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayRuntime& replay,
     {
         return m_mainMemoryStats;
     }
+    return RefreshMainMemoryStats( replay.CollectMemoryStats(),
+                                   gameObjects,
+                                   nowSeconds,
+                                   force,
+                                   includePrivateWorkingSet );
+}
+
+
+const SkullbonezCore::Core::MainMemoryStats&
+DiagnosticsRuntime::RefreshMainMemoryStats( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
+                                            const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
+                                            double nowSeconds,
+                                            bool force,
+                                            bool includePrivateWorkingSet )
+{
+    const bool sampleDue = m_lastMainMemorySampleSeconds < 0.0 ||
+                           nowSeconds - m_lastMainMemorySampleSeconds >= MAIN_MEMORY_SAMPLE_INTERVAL_SECONDS;
+    const bool deepSampleDue = includePrivateWorkingSet && !m_lastMainMemorySampleUsedPrivateWorkingSetQuery;
+    if ( !force && !sampleDue && !deepSampleDue )
+    {
+        return m_mainMemoryStats;
+    }
 
     SkullbonezCore::Runtime::Allocation::RuntimeAllocationScope allocationScope(
         SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase::Diagnostics );
@@ -855,7 +877,7 @@ DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayRuntime& replay,
     SkullbonezCore::Core::MainMemoryStats stats;
     stats.sampleTimeSeconds = nowSeconds;
     stats.process = RuntimeDiagnostics::SampleProcessMemory( includePrivateWorkingSet );
-    stats.replay = replay.CollectMemoryStats();
+    stats.replay = replay;
     stats.gameObjects = gameObjects;
     stats.trackedEngineBytes = stats.replay.totalBytes + stats.gameObjects.totalBytes + stats.otherTrackedBytes;
     if ( stats.process.available )

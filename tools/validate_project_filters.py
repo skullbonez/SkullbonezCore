@@ -4,7 +4,7 @@
 # Purpose:
 #   Validate Visual Studio project item filters and path casing.
 #
-# Mental model:
+# Summary:
 #   The .vcxproj controls what Visual Studio builds or displays, while the
 #   .vcxproj.filters file controls where those items appear in Solution
 #   Explorer. This check keeps source, headers, scenes, shaders, and style data
@@ -296,6 +296,7 @@ RUNTIME_ALLOCATION_PREFIXES = (
 
 RUNTIME_REPLAY_PREFIXES = (
     "ReplayAuthoring",
+    "ReplayCoordination",
     "ReplayIdentity",
     "ReplayInteractionController",
     "ReplayOverlayLayout",

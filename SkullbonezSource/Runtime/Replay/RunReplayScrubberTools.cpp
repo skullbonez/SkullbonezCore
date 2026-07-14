@@ -354,7 +354,7 @@ ReplayRuntime::ApplyLiveRestoreRequest( const ReplayRestoreTransaction& transact
     // Invariant: restore is an owner-to-owner transaction. Prediction must be
     // idle before either restore path mutates live physics authority, even when
     // a caller constructs the request without using the interaction controller.
-    CancelPredictionJob( false );
+    m_predictionOwner.CancelJob( false );
 
     char reason[160] = {};
     RunReplayV2TargetRestoreResult v2Result;
@@ -414,7 +414,7 @@ void ApplyReplayLiveAdvanceAction( ReplayRuntime& replayRuntime,
         {
             // Why: Play freezes the prediction prefix currently visible to the
             // operator, not an older committed path hidden behind worker state.
-            promotedBuildPrefix = replayRuntime.PromotePredictionBuildPrefixToCommitted();
+            promotedBuildPrefix = replayRuntime.PredictionOwner().PromoteBuildPrefixToCommitted();
         }
         replayRuntime.Prediction().enabled = false;
         if ( interaction.Gesture().kind == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag )
@@ -426,7 +426,7 @@ void ApplyReplayLiveAdvanceAction( ReplayRuntime& replayRuntime,
         }
         if ( !promotedBuildPrefix )
         {
-            replayRuntime.CancelPredictionJob( false );
+            replayRuntime.PredictionOwner().CancelJob( false );
         }
         const float currentPosition = replayRuntime.TrackPosition( RunReplayTrack::Solver );
         if ( ReplayRuntime::TrackPositionIsFuture( currentPosition, previousPredictionPresentT ) )
@@ -522,7 +522,7 @@ void HandleReplayPastPathPressed( ReplayRuntime& replayRuntime, double now )
 void HandleReplayRagdollVisualsPressed( ReplayRuntime& replayRuntime, double now )
 {
     replayRuntime.Prediction().ragdollVisualsEnabled = !replayRuntime.Prediction().ragdollVisualsEnabled;
-    replayRuntime.ClearPredictionFutureNodeCache();
+    replayRuntime.PredictionOwner().ClearFutureNodeCache();
     KeepReplayScrubberVisible( replayRuntime, now );
 }
 
@@ -546,7 +546,7 @@ void SetReplayPredictionHorizonFromPointer( ReplayRuntime& replayRuntime,
     if ( nextSeconds != replayRuntime.Prediction().simulation.horizonSeconds )
     {
         replayRuntime.Prediction().simulation.horizonSeconds = nextSeconds;
-        replayRuntime.MarkPredictionDirty();
+        replayRuntime.PredictionOwner().MarkDirty();
     }
     KeepReplayScrubberVisible( replayRuntime, now );
 }
@@ -577,9 +577,9 @@ void HandleReplayPredictionPressed( ReplayRuntime& replayRuntime,
             replayRuntime.SetTrackPosition( RunReplayTrack::Solver, 1.0f );
             replayRuntime.Scrubber().historicalSamplePaused = false;
         }
-        replayRuntime.ClearPredictionCache();
+        replayRuntime.PredictionOwner().ClearCache();
     }
-    replayRuntime.MarkPredictionDirty();
+    replayRuntime.PredictionOwner().MarkDirty();
     KeepReplayScrubberVisible( replayRuntime, now );
 }
 

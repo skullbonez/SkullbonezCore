@@ -9,11 +9,14 @@ Summary:
 
 Glossary:
   Path target: Stable replay body selected for visualization.
+  HUD (Heads-Up Display): Value-only replay diagnostics sampled once for the
+    late UI/text pass.
 
 Invariants:
   - ReplayBodyId is identity; ModelRowHint is only a dense-row hint.
   - Published packet spans are frame-local borrows into the submitted tracer.
   - Render-pose matching uses a fixed model-capacity mask and never allocates.
+  - ReplayHudStatus borrows no owner and is coherent for one UI frame.
 
 Related:
   - ReplayRuntime.h
@@ -28,6 +31,7 @@ Related:
 #include "../RuntimeInteractionController.h"
 #include "../../Assets/AssetKeys.h"
 #include "../../Core/Common.h"
+#include "../../Core/MainMemoryStats.h"
 #include "../../Physics/PhysicsHandles.h"
 #include "../Scene/SceneCapacity.h"
 
@@ -61,6 +65,24 @@ class SceneEntityStore;
 class InputRouter;
 class ReplayInteractionController;
 struct RunCameraState;
+
+// Value-only per-frame publication for replay diagnostics drawn by the late
+// UI/text pass. It borrows no owner, and memoryStats is populated only while
+// the Memory tab explicitly requests replay accounting.
+struct ReplayHudStatus
+{
+    SkullbonezCore::Core::MainMemoryReplayStats memoryStats;
+    int memoryPreset = 0;
+    int requestedRetentionSeconds = 0;
+    int requestedBudgetMiB = 0;
+    int presentationRetentionSeconds = 0;
+    int solverRetentionSeconds = 0;
+    float divergenceUnits = 0.0f;
+    bool memoryBudgetClamped = false;
+    bool solverWindowReduced = false;
+    bool divergenceValid = false;
+    bool memoryStatsValid = false;
+};
 
 struct ReplayOverlayBuildInput
 {

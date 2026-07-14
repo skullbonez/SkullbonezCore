@@ -41,8 +41,11 @@ Related:
 #include "../../Assets/AssetKeys.h"
 #include "ReplayOverlayLayout.h"
 #include "ReplayRetainedMemory.h"
+#include "ReplayRestoreService.h"
+#include "ReplayRuntimeOwnerViews.h"
 #include "ReplayV2Artifact.h"
 #include "ReplayPredictionArchive.h"
+#include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../RuntimeFileWriter.h"
 #include "../InputRouter.h"
 #include "../RuntimeInteractionCommands.h"
@@ -827,7 +830,345 @@ RunReplayPredictionState::~RunReplayPredictionState()
 }
 
 
+void ReplayPrediction::ClearFutureNodeCache()
+{
+    m_state.futureNodeCache.futureNodes.clear();
+    m_state.futureNodeCache.futureNodeBuildScratch.clear();
+    m_state.futureNodeCache.futureNodesBuiltFrameCount = 0;
+    m_state.futureNodeCache.futureNodesBuiltContactIndex = 0;
+    m_state.futureNodeCache.futureNodesBuiltTargetId = ReplayBodyId{};
+    m_state.futureNodeCache.futureNodesBuiltRagdollVisuals = m_state.ragdollVisualsEnabled;
+    m_state.futureNodeCache.futureNodesBuiltFromBuildFrames = false;
+    m_state.futureNodeCache.futureNodesCacheValid = false;
+    m_state.futureNodeCache.retainedMarkerCount = 0;
+    m_state.trajectoryBuild.childFrameCount = 0;
+    m_state.trajectoryBuild.builtNodeCount = 0;
+}
+
+
+void ReplayPrediction::WaitForJobIdle()
+{
+    WaitForReplayPredictionWorkerIdle( m_state );
+}
+
+
+bool ReplayPrediction::PromoteBuildPrefixToCommitted()
+{
+    if ( !m_state.BuildPrefixShouldBePresented() )
+    {
+        return false;
+    }
+    WaitForJobIdle();
+    const std::size_t promotedFrameCount = m_state.PublishedBuildFrameCount();
+    if ( promotedFrameCount < 2u || promotedFrameCount > m_state.build.buildFrames.size() )
+    {
+        return false;
+    }
+
+    // Hazard: this is the Play-button ownership transfer. The worker has
+    // released buildFrames before the visible prefix becomes committed state.
+    m_state.build.workerTask.reset();
+    m_state.build.building = false;
+    m_state.build.complete = true;
+    m_state.simulation.frames.swap( m_state.build.buildFrames );
+    m_state.simulation.frames.resize( promotedFrameCount );
+    m_state.ResetBuildFramePublication();
+    if ( !RebuildReplayRuntimePredictionCommittedRootTrajectory( m_state ) )
+    {
+        return false;
+    }
+    m_state.simulation.predictionEngineReady = false;
+    m_state.simulation.predictionBodies.clear();
+    m_state.simulation.predictionWorld = ReplaySolverWorldSnapshot();
+    return true;
+}
+
+
+void ReplayPrediction::CancelJob( bool clearSamples )
+{
+    WaitForJobIdle();
+    m_state.build.workerTask.reset();
+    m_state.build.building = false;
+    m_state.build.complete = false;
+    m_state.build.buildMode = ReplayPredictionBuildMode::Undecided;
+    m_state.build.pendingLatestRestart = false;
+    m_state.simulation.targetModelRow.value = -1;
+    m_state.build.nextTick = 1;
+    m_state.build.targetTickCount = 0;
+    m_state.simulation.predictionEngineReady = false;
+    m_state.simulation.predictionBodies.clear();
+    m_state.simulation.predictionWorld = ReplaySolverWorldSnapshot();
+    // Runtime allocation policy: cancellation invalidates publication but keeps
+    // the double-buffered frame payloads warm for the next replay rebuild.
+    m_state.ResetBuildFramePublication();
+    m_state.trajectoryBuild = RunReplayPredictionTrajectoryBuildState{};
+    if ( clearSamples )
+    {
+        m_state.build.supersededRestartCount = 0;
+        m_state.build.latestRestartBeginCount = 0;
+        m_state.simulation.measuredTicksPerMs.store( 0.0, std::memory_order_release );
+        m_state.simulation.probeElapsedMs = 0.0;
+        m_state.simulation.probeTicksCompleted = 0;
+        m_state.simulation.calibratedModelCount = -1;
+        m_state.simulation.frames.clear();
+        m_state.trajectoryStore.Clear();
+        ClearFutureNodeCache();
+    }
+}
+
+
+void ReplayPrediction::ClearCache()
+{
+    CancelJob( true );
+    m_state.simulation.targetId = ReplayBodyId{};
+    m_state.simulation.sourceFrameIndex = 0;
+    m_state.simulation.sourceSolverHash = 0;
+    m_state.simulation.sourceSimulationSeconds = 0.0;
+    m_state.build.lastBuildTime = 0.0;
+    m_state.trajectoryBuild = RunReplayPredictionTrajectoryBuildState{};
+    m_state.trajectoryStore.Clear();
+    m_state.baseline = ReplayPredictionBaselineSnapshot{};
+}
+
+
+void ReplayPrediction::MarkDirty() noexcept
+{
+    if ( !m_generationPermitted )
+    {
+        // Why: load-only verification may consume the frozen artifact but can
+        // never request a replacement future generation.
+        m_state.build.dirty = false;
+        return;
+    }
+    m_state.build.dirty = true;
+}
+
+
+void ReplayPrediction::EnterOfflineVerification()
+{
+    WaitForJobIdle();
+    ForbidGeneration();
+    m_state.build.dirty = false;
+    m_state.build.pendingLatestRestart = false;
+}
+
+
+void ReplayPrediction::ResetVerificationMarkers() noexcept
+{
+    m_state.futureNodeCache.retainedMarkerCount = 0;
+}
+
+
+void ReplayPrediction::SetVerificationRevealFrame( ReplayFrameIndex frame ) noexcept
+{
+    m_state.revealClock.deterministicFrame = frame;
+    m_state.revealClock.presentedFrame = frame;
+}
+
+
 ReplayRuntime::ReplayRuntime() = default;
+
+
+ReplayRuntime::SceneTimelineResetInput ReplayRuntime::DescribeSceneTimeline( const SceneController& sceneController,
+                                                                             const RunSceneState& scene,
+                                                                             int gameModelCapacity,
+                                                                             uint32_t generatedObjectTypeOverride )
+{
+    const std::string* scenePath = sceneController.CurrentPath();
+    const char* sceneLabel = scenePath && !scenePath->empty() ? scenePath->c_str() : "generated";
+    SceneTimelineResetInput replayReset;
+    replayReset.sceneLabel = sceneLabel;
+    replayReset.isSceneMode = scene.isSceneMode;
+    replayReset.modelCount = scene.modelCount;
+    replayReset.solverBallCount = scene.solverBallCount;
+    replayReset.solverBoxCount = scene.solverBoxCount;
+    replayReset.rngSeed = scene.rngSeed;
+    replayReset.gameModelCapacity = gameModelCapacity;
+    replayReset.generatedObjectTypeOverride = generatedObjectTypeOverride;
+    replayReset.hasUiModelCountOverride = sceneController.UIOverrides().modelCountOverride >= 0;
+    replayReset.hasUiSolverCountOverride = sceneController.UIOverrides().solverBallCountOverride >= 0 ||
+                                           sceneController.UIOverrides().solverBoxCountOverride >= 0;
+    return replayReset;
+}
+
+
+bool ReplayRuntime::ApplySolverSampleState( const ReplaySolverSampleRestoreContext& owners,
+                                            const ReplaySolverFrameSample& sample,
+                                            char* outReason,
+                                            std::size_t reasonSize )
+{
+    return ReplayRestoreService::ApplySolverSampleState( owners, sample, outReason, reasonSize );
+}
+
+
+bool ReplayRuntime::CaptureCurrentSolverSample( const ReplaySolverSampleRestoreContext& owners,
+                                                const ReplaySolverFrameSample& reference,
+                                                ReplaySolverFrameSample& outSample )
+{
+    ReplayRecorderConfig config;
+    config.enabled = true;
+    config.retentionSeconds = 1;
+    config.checkpointIntervalFrames = 1;
+
+    ReplaySolverRecorder verifier;
+    if ( !verifier.Configure( config ) )
+    {
+        return false;
+    }
+
+    ReplayLauncherVisualSample launcherVisual;
+    owners.runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
+
+    ReplayCaptureInput input;
+    input.branch = reference.branch;
+    input.eventCursor = reference.eventCursor;
+    input.sceneFrame = reference.sceneFrame;
+    input.simulationSeconds = reference.simulationSeconds;
+    input.physicsDt = reference.physicsDt > 0.0f ? reference.physicsDt : PHYSICS_FIXED_DT;
+    input.fixedStep = owners.scene.isFixedStep;
+    input.scenePhysicsEnabled = owners.scene.isScenePhysics;
+    input.sceneTextEnabled = owners.scene.isSceneText;
+    input.waterHidden = owners.debug.isWaterHidden;
+    input.terrainHidden = owners.debug.isTerrainHidden;
+    input.cameras = &owners.sceneController.Cameras();
+    input.world = &owners.sceneController.World();
+    input.physics = &owners.physics;
+    input.entities = &owners.sceneController.Entities();
+    input.bodyStore = &Physics::PhysicsEngine::ReadBodies( owners.physics );
+    input.colliderStore = &Physics::PhysicsEngine::ReadColliders( owners.physics );
+    input.launcherVisual = &launcherVisual;
+    verifier.CaptureFrame( input );
+
+    const ReplaySolverFrameSample* verified = verifier.LatestSample();
+    if ( !verified )
+    {
+        return false;
+    }
+
+    outSample = *verified;
+    return true;
+}
+
+
+bool ReplayRuntime::CaptureCurrentSolverHash( const ReplaySolverSampleRestoreContext& owners,
+                                              const ReplaySolverFrameSample& reference,
+                                              uint64_t& outSolverHash,
+                                              uint64_t& outPresentationHash,
+                                              std::size_t& outBodyCount )
+{
+    ReplaySolverFrameSample verified;
+    if ( !CaptureCurrentSolverSample( owners, reference, verified ) )
+    {
+        return false;
+    }
+    outSolverHash = verified.solverHash;
+    outPresentationHash = verified.presentationHash;
+    outBodyCount = verified.bodies.size();
+    return true;
+}
+
+
+bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayRestoreTransaction& transaction,
+                                               const ReplaySolverFrameSample& sample,
+                                               char* outReason,
+                                               std::size_t reasonSize )
+{
+    auto writeReason = [outReason, reasonSize]( const char* message )
+    {
+        if ( outReason && reasonSize > 0 )
+        {
+            strncpy_s( outReason, reasonSize, message ? message : "restore failed", _TRUNCATE );
+        }
+    };
+
+    ReplaySolverFrameSample liveBackup;
+    if ( !CaptureCurrentSolverSample( transaction.sampleOwners, sample, liveBackup ) )
+    {
+        writeReason( "failed to capture live replay backup" );
+        return false;
+    }
+
+    char applyReason[128] = {};
+    if ( !ApplySolverSampleState( transaction.sampleOwners, sample, applyReason, sizeof( applyReason ) ) )
+    {
+        writeReason( applyReason[0] != '\0' ? applyReason : "restore apply failed" );
+        return false;
+    }
+
+    uint64_t restoredSolverHash = 0;
+    uint64_t restoredPresentationHash = 0;
+    std::size_t restoredBodyCount = 0;
+    const bool hashCaptured = CaptureCurrentSolverHash( transaction.sampleOwners,
+                                                        sample,
+                                                        restoredSolverHash,
+                                                        restoredPresentationHash,
+                                                        restoredBodyCount );
+    const bool hashMatched = hashCaptured && restoredSolverHash == sample.solverHash;
+    bool fallbackRestored = false;
+    if ( !hashMatched )
+    {
+        char fallbackReason[128] = {};
+        fallbackRestored =
+            ApplySolverSampleState( transaction.sampleOwners, liveBackup, fallbackReason, sizeof( fallbackReason ) );
+    }
+
+#ifdef _DEBUG
+    transaction.diagnostics.LogReplayRestoreProbe( transaction.sampleOwners.scene,
+                                                   sample,
+                                                   restoredSolverHash,
+                                                   restoredPresentationHash,
+                                                   restoredBodyCount,
+                                                   hashCaptured,
+                                                   hashMatched,
+                                                   !hashMatched,
+                                                   fallbackRestored );
+#endif
+
+    // Hazard: a recoverable restore failure may return only after the live
+    // backup was reapplied. Continuing from a half-restored solver would make
+    // later physics output nondeterministic, so rollback failure is Lane F.
+    if ( !hashMatched && !fallbackRestored )
+    {
+        SB_FATAL( "Runtime/ReplayRestore",
+                  "Replay restore verification failed and the live backup could not be restored" );
+    }
+    if ( !hashCaptured )
+    {
+        writeReason( "restore hash capture failed" );
+        return false;
+    }
+    if ( !hashMatched )
+    {
+        writeReason( fallbackRestored ? "restore hash mismatch; live state restored"
+                                      : "restore hash mismatch; fallback unavailable" );
+        return false;
+    }
+
+    const uint32_t parentBranchId = sample.branch.branchId != 0
+                                        ? sample.branch.branchId
+                                        : ( m_authoring.Branch().branchId != 0 ? m_authoring.Branch().branchId : 1u );
+    ReplayBranchInfo restoredBranch;
+    restoredBranch.branchId = (std::max)( m_authoring.Branch().branchId, parentBranchId ) + 1u;
+    restoredBranch.parentBranchId = parentBranchId;
+    restoredBranch.startFrame = 0;
+    restoredBranch.sourceFrame = sample.frameIndex;
+    restoredBranch.sourceSolverHash = sample.solverHash;
+    m_authoring.Branch() = restoredBranch;
+    SceneTimelineResetInput reset = transaction.timelineReset;
+    reset.preserveBranchMetadata = true;
+    ResetSceneTimeline( reset, transaction.timelineOwners );
+    RecordEvent( ReplayEventKind::BranchRestore,
+                 0,
+                 0,
+                 static_cast<int32_t>( parentBranchId ),
+                 sample.sceneFrame,
+                 0,
+                 0,
+                 sample.solverHash,
+                 "hash-verified solver restore" );
+    writeReason( "restored hash match" );
+    return true;
+}
 
 
 void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics,
@@ -945,6 +1286,16 @@ const RunReplayPredictionState& ReplayRuntime::Prediction() const
     return m_predictionOwner.State();
 }
 
+ReplayPrediction& ReplayRuntime::PredictionOwner() noexcept
+{
+    return m_predictionOwner;
+}
+
+const ReplayPrediction& ReplayRuntime::PredictionOwner() const noexcept
+{
+    return m_predictionOwner;
+}
+
 ReplayPredictionPresentationView ReplayRuntime::PredictionPresentationView() const
 {
     return m_predictionOwner.PresentationView();
@@ -953,123 +1304,6 @@ ReplayPredictionPresentationView ReplayRuntime::PredictionPresentationView() con
 std::span<const RunReplayPredictionFrame> ReplayRuntime::ActivePredictionFrames() const
 {
     return m_predictionOwner.ActiveFrames();
-}
-
-void ReplayRuntime::ClearPredictionFutureNodeCache()
-{
-    m_predictionOwner.State().futureNodeCache.futureNodes.clear();
-    m_predictionOwner.State().futureNodeCache.futureNodeBuildScratch.clear();
-    m_predictionOwner.State().futureNodeCache.futureNodesBuiltFrameCount = 0;
-    m_predictionOwner.State().futureNodeCache.futureNodesBuiltContactIndex = 0;
-    m_predictionOwner.State().futureNodeCache.futureNodesBuiltTargetId = ReplayBodyId{};
-    m_predictionOwner.State().futureNodeCache.futureNodesBuiltRagdollVisuals =
-        m_predictionOwner.State().ragdollVisualsEnabled;
-    m_predictionOwner.State().futureNodeCache.futureNodesBuiltFromBuildFrames = false;
-    m_predictionOwner.State().futureNodeCache.futureNodesCacheValid = false;
-    m_predictionOwner.State().futureNodeCache.retainedMarkerCount = 0;
-    m_predictionOwner.State().trajectoryBuild.childFrameCount = 0;
-    m_predictionOwner.State().trajectoryBuild.builtNodeCount = 0;
-}
-
-void ReplayRuntime::WaitForPredictionJobIdle()
-{
-    WaitForReplayPredictionWorkerIdle( m_predictionOwner.State() );
-}
-
-bool ReplayRuntime::PromotePredictionBuildPrefixToCommitted()
-{
-    if ( !m_predictionOwner.State().BuildPrefixShouldBePresented() )
-    {
-        return false;
-    }
-
-    WaitForReplayPredictionWorkerIdle( m_predictionOwner.State() );
-    const std::size_t promotedFrameCount = m_predictionOwner.State().PublishedBuildFrameCount();
-    if ( promotedFrameCount < 2u || promotedFrameCount > m_predictionOwner.State().build.buildFrames.size() )
-    {
-        return false;
-    }
-
-    // Hazard: this is the Play-button ownership transfer. The worker has
-    // released buildFrames, so the frame loop can turn the visible prefix into
-    // committed replay samples before clearing private prediction scratch.
-    m_predictionOwner.State().build.workerTask.reset();
-    m_predictionOwner.State().build.building = false;
-    m_predictionOwner.State().build.complete = true;
-    m_predictionOwner.State().simulation.frames.swap( m_predictionOwner.State().build.buildFrames );
-    m_predictionOwner.State().simulation.frames.resize( promotedFrameCount );
-    // Why: keep the inactive frame bank and each row's payload capacity warm.
-    // The publication count, not vector size, decides whether readers may use it.
-    m_predictionOwner.State().ResetBuildFramePublication();
-    if ( !RebuildReplayRuntimePredictionCommittedRootTrajectory( m_predictionOwner.State() ) )
-    {
-        return false;
-    }
-    m_predictionOwner.State().simulation.predictionEngineReady = false;
-    m_predictionOwner.State().simulation.predictionBodies.clear();
-    m_predictionOwner.State().simulation.predictionWorld = ReplaySolverWorldSnapshot();
-    return true;
-}
-
-void ReplayRuntime::CancelPredictionJob( bool clearSamples )
-{
-    WaitForReplayPredictionWorkerIdle( m_predictionOwner.State() );
-    m_predictionOwner.State().build.workerTask.reset();
-    m_predictionOwner.State().build.building = false;
-    m_predictionOwner.State().build.complete = false;
-    m_predictionOwner.State().build.buildMode = ReplayPredictionBuildMode::Undecided;
-    m_predictionOwner.State().build.pendingLatestRestart = false;
-    m_predictionOwner.State().simulation.targetModelRow.value = -1;
-    m_predictionOwner.State().build.nextTick = 1;
-    m_predictionOwner.State().build.targetTickCount = 0;
-    m_predictionOwner.State().simulation.predictionEngineReady = false;
-    m_predictionOwner.State().simulation.predictionBodies.clear();
-    m_predictionOwner.State().simulation.predictionWorld = ReplaySolverWorldSnapshot();
-    // Runtime allocation policy: cancellation invalidates publication but keeps
-    // the double-buffered frame payloads warm for the next replay rebuild.
-    m_predictionOwner.State().ResetBuildFramePublication();
-    m_predictionOwner.State().trajectoryBuild = RunReplayPredictionTrajectoryBuildState{};
-    if ( clearSamples )
-    {
-        m_predictionOwner.State().build.supersededRestartCount = 0;
-        m_predictionOwner.State().build.latestRestartBeginCount = 0;
-        m_predictionOwner.State().simulation.measuredTicksPerMs.store( 0.0, std::memory_order_release );
-        m_predictionOwner.State().simulation.probeElapsedMs = 0.0;
-        m_predictionOwner.State().simulation.probeTicksCompleted = 0;
-        m_predictionOwner.State().simulation.calibratedModelCount = -1;
-        m_predictionOwner.State().simulation.frames.clear();
-        m_predictionOwner.State().trajectoryStore.Clear();
-        ClearPredictionFutureNodeCache();
-    }
-}
-
-void ReplayRuntime::ClearPredictionCache()
-{
-    CancelPredictionJob( true );
-    m_predictionOwner.State().simulation.targetId = ReplayBodyId{};
-    m_predictionOwner.State().simulation.sourceFrameIndex = 0;
-    m_predictionOwner.State().simulation.sourceSolverHash = 0;
-    m_predictionOwner.State().simulation.sourceSimulationSeconds = 0.0;
-    m_predictionOwner.State().build.lastBuildTime = 0.0;
-    m_predictionOwner.State().trajectoryBuild = RunReplayPredictionTrajectoryBuildState{};
-    m_predictionOwner.State().trajectoryStore.Clear();
-    m_predictionOwner.State().baseline = ReplayPredictionBaselineSnapshot{};
-}
-
-void ReplayRuntime::MarkPredictionDirty()
-{
-    if ( !m_predictionOwner.GenerationPermitted() )
-    {
-        // Why: load-only validation is intentionally incapable of requesting a
-        // replacement future. Its sole input is the artifact created by the
-        // gate's one permitted prediction generation.
-        m_predictionOwner.State().build.dirty = false;
-        return;
-    }
-    // Why: the prediction dispatcher owns cancellation. Marking dirty must stay
-    // non-blocking during velocity drag so an in-flight instant build can finish
-    // and be superseded by one newest-state restart.
-    m_predictionOwner.State().build.dirty = true;
 }
 
 void ReplayRuntime::ApplyAuthoringPredictionRequest()
@@ -1085,7 +1319,7 @@ void ReplayRuntime::ApplyAuthoringPredictionRequest()
     }
     if ( request.refreshPrediction )
     {
-        MarkPredictionDirty();
+        m_predictionOwner.MarkDirty();
     }
 }
 
@@ -1097,22 +1331,34 @@ void ReplayRuntime::NotifyVelocityEditApplied()
     ApplyAuthoringPredictionRequest();
 }
 
-bool ReplayRuntime::PredictionGenerationPermitted() const noexcept
-{
-    return m_predictionOwner.GenerationPermitted();
-}
-
 void ReplayRuntime::EnterOfflinePredictionVerification()
 {
     // Invariant: this is a one-way terminal capability transition for a CLI
     // validation process. It does not clear the frozen prediction because the
     // caller immediately replaces it from RVPD, and no render frame follows.
-    WaitForReplayPredictionWorkerIdle( m_predictionOwner.State() );
-    m_predictionOwner.ForbidGeneration();
-    m_predictionOwner.State().build.dirty = false;
-    m_predictionOwner.State().build.pendingLatestRestart = false;
+    m_predictionOwner.EnterOfflineVerification();
     m_visualPresentation.TrajectoryVisualStats() = {};
 }
+
+
+bool ReplayRuntime::LoadPredictionArchiveForVerification( std::span<const uint8_t> bytes,
+                                                          char* outReason,
+                                                          std::size_t reasonSize )
+{
+    return LoadReplayPredictionArchive( bytes,
+                                        m_visualPresentation.PathVisualizer(),
+                                        m_predictionOwner.State(),
+                                        outReason,
+                                        reasonSize );
+}
+
+
+void ReplayRuntime::ResetPredictionPresentationVerification()
+{
+    m_visualPresentation.TrajectoryVisualStats() = {};
+    m_predictionOwner.ResetVerificationMarkers();
+}
+
 
 void ReplayRuntime::ClearPathVisualizerState()
 {
@@ -1120,8 +1366,8 @@ void ReplayRuntime::ClearPathVisualizerState()
     m_authoring.CauseTree().rows.clear();
     m_authoring.CauseTree().selectedRow = -1;
     m_authoring.CauseTree().scrollY = 0.0f;
-    ClearPredictionCache();
-    MarkPredictionDirty();
+    m_predictionOwner.ClearCache();
+    m_predictionOwner.MarkDirty();
 }
 
 bool ReplayRuntime::SetPathTarget( const char* name, int modelIndex, const PhysicsBodyStore& bodyStore )
@@ -1130,8 +1376,60 @@ bool ReplayRuntime::SetPathTarget( const char* name, int modelIndex, const Physi
     {
         return false;
     }
-    ClearPredictionCache();
-    MarkPredictionDirty();
+    m_predictionOwner.ClearCache();
+    m_predictionOwner.MarkDirty();
+    return true;
+}
+
+
+ReplayRuntime::PathPickResult
+ReplayRuntime::ApplyPathPick( const PathPickInput& input,
+                              const SceneEntityStore& entities,
+                              const PhysicsBodyStore& bodyStore,
+                              const ColliderStore& colliderStore,
+                              std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords )
+{
+    const PathPickResult result = m_visualPresentation.TryPickPathTarget( input,
+                                                                          entities,
+                                                                          bodyStore,
+                                                                          colliderStore,
+                                                                          presentationRecords,
+                                                                          CurrentSolverScrubSample() );
+    if ( result.picked )
+    {
+        m_predictionOwner.ClearCache();
+        m_predictionOwner.MarkDirty();
+    }
+    else if ( result.exitInspectionCamera )
+    {
+        ClearCameraFocusForRestore();
+        ClearPathVisualizerState();
+    }
+    return result;
+}
+
+
+bool ReplayRuntime::RouteWorldPointer( const WorldPointerInput& input )
+{
+    if ( !input.leftPressed || input.suppressWorldAction || input.editorMode || input.uiWantsNativeCursor ||
+         ( !input.controlDown && input.launcherMode ) )
+    {
+        return false;
+    }
+
+    const PathPickResult pickResult =
+        ApplyPathPick( input.pick, input.entities, input.bodyStore, input.colliderStore, input.presentation );
+    if ( pickResult.exitInspectionCamera )
+    {
+        ExitInspectionCamera( input.cameras,
+                              input.terrain,
+                              input.camera,
+                              input.restoreCameraMode,
+                              input.attachedCameraFollow,
+                              input.directorGrabbed,
+                              input.interaction,
+                              input.inputRouter );
+    }
     return true;
 }
 
@@ -1263,7 +1561,7 @@ bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionCont
     ClearCameraFocusForRestore();
     ClearPathVisualizerState();
     m_predictionOwner.State().enabled = false;
-    ClearPredictionCache();
+    m_predictionOwner.ClearCache();
     m_authoring.VelocityEdit() = RunReplayVelocityEditState{};
     m_authoring.CauseTree().selectedRow = -1;
     m_authoring.CauseTree().scrollY = 0.0f;
@@ -1686,7 +1984,7 @@ ReplayRuntime::SceneTimelineResetResult ReplayRuntime::BeginSceneTimelineReset( 
     // Hazard: scene reset can rebuild live model, body, and collider storage.
     // Prediction workers hold only replay-owned values, but cancellation still
     // waits here before old private-engine snapshots are cleared or replaced.
-    CancelPredictionJob( true );
+    m_predictionOwner.CancelJob( true );
     if ( SceneTimelineResetClearsBranch( input ) )
     {
         ResetBranch();
@@ -3358,6 +3656,28 @@ SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() 
                        stats.predictionBytes + stats.pathAndCauseBytes + stats.renderScratchBytes +
                        stats.trajectory.storeBytes;
     return stats;
+}
+
+
+ReplayHudStatus ReplayRuntime::BuildHudStatus( bool includeMemoryStats ) const
+{
+    ReplayHudStatus status;
+    const ReplayMemoryPolicy& policy = m_timeline.MemoryPolicy();
+    status.memoryPreset = static_cast<int>( policy.preset );
+    status.requestedRetentionSeconds = policy.requestedRetentionSeconds;
+    status.requestedBudgetMiB = policy.requestedBudgetMiB;
+    status.presentationRetentionSeconds = policy.presentationRetentionSeconds;
+    status.solverRetentionSeconds = policy.solverRetentionSeconds;
+    status.memoryBudgetClamped = policy.budgetClamped;
+    status.solverWindowReduced = policy.solverWindowReduced;
+    status.divergenceUnits = m_predictionOwner.State().baseline.divergenceUnits;
+    status.divergenceValid = m_predictionOwner.State().baseline.divergenceValid;
+    if ( includeMemoryStats )
+    {
+        status.memoryStats = CollectMemoryStats();
+        status.memoryStatsValid = true;
+    }
+    return status;
 }
 
 void ReplayRuntime::RecordEvent( ReplayEventKind kind,

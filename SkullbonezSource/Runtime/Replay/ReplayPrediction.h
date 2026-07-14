@@ -384,6 +384,15 @@ class ReplayPrediction
     {
         m_generationPermitted = false;
     }
+    void ClearFutureNodeCache();
+    void WaitForJobIdle();
+    bool PromoteBuildPrefixToCommitted();
+    void CancelJob( bool clearSamples );
+    void ClearCache();
+    void MarkDirty() noexcept;
+    void EnterOfflineVerification();
+    void ResetVerificationMarkers() noexcept;
+    void SetVerificationRevealFrame( ReplayFrameIndex frame ) noexcept;
 
   private:
     RunReplayPredictionState m_state;

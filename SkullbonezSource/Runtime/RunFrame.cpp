@@ -206,6 +206,9 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                                      window.ClientHeight(),
                                                      timers.simulationTimer.GetTotalTime() };
         const int uiDrawCallStart = renderDiagnostics.GetFrameDrawCallCount();
+        const bool replayMemoryStatsRequested =
+            ui.IsVisible() && !ui.IsMinimized() && ui.GetActiveTab() == SkullbonezCore::UI::InGameUITab::Memory;
+        const ReplayHudStatus replayHud = replayRuntime.BuildHudStatus( replayMemoryStatsRequested );
         PROFILE_BEGIN( "Frame/UI" );
         {
             RuntimeAllocation::RuntimeAllocationScope allocationScope(
@@ -218,6 +221,7 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                    ui,
                                    renderModels,
                                    diagnosticsRuntime,
+                                   replayHud,
                                    replayRuntime,
                                    replayOverlay,
                                    uiCinematic,
