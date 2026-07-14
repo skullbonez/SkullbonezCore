@@ -170,15 +170,17 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         }
         for ( std::size_t index = 0; index < batch.savedCount; ++index )
         {
-            m_replayRuntime.RecordEvent( ReplayEventKind::OwnerAction,
-                                         m_replayRuntime.NextEventFrameIndex(),
+            m_replayRuntime.SubmitEvent(
+                BuildReplayEventCommand( ReplayEventKind::OwnerAction,
+                                         0,
+                                         true,
                                          0,
                                          static_cast<int32_t>( ReplayOwnerEventCode::CaptureScreenshot ),
                                          0,
                                          0,
                                          0,
                                          0,
-                                         batch.saved[index].path );
+                                         batch.saved[index].path ) );
         }
         return true;
     };
@@ -201,15 +203,16 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             const ReplayOwnerEventCode code = batch.saved[index] == RenderDefaultsRequestType::Ordinary
                                                   ? ReplayOwnerEventCode::RenderSaveOrdinaryDefaults
                                                   : ReplayOwnerEventCode::RenderSaveCinematicDefaults;
-            m_replayRuntime.RecordEvent( ReplayEventKind::OwnerAction,
-                                         m_replayRuntime.NextEventFrameIndex(),
-                                         0,
-                                         static_cast<int32_t>( code ),
-                                         0,
-                                         0,
-                                         0,
-                                         0,
-                                         ReplayOwnerEventName( code ) );
+            m_replayRuntime.SubmitEvent( BuildReplayEventCommand( ReplayEventKind::OwnerAction,
+                                                                  0,
+                                                                  true,
+                                                                  0,
+                                                                  static_cast<int32_t>( code ),
+                                                                  0,
+                                                                  0,
+                                                                  0,
+                                                                  0,
+                                                                  ReplayOwnerEventName( code ) ) );
         }
         return true;
     };

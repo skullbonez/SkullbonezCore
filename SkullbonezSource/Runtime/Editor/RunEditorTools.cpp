@@ -150,14 +150,14 @@ bool RecordEditorTransformEventFromBodyStore( ReplayRuntime& replayRuntime,
         return false;
     }
 
-    replayRuntime.RecordEditorTransformEvent( modelIndex,
-                                              changedFlags,
-                                              body->replayBodyId,
-                                              body->position,
-                                              body->orientation,
-                                              collection.SceneEntityCount(),
-                                              scaleAxis,
-                                              scaleFactor );
+    replayRuntime.SubmitEvent( BuildReplayEditorTransformEvent( modelIndex,
+                                                                changedFlags,
+                                                                body->replayBodyId,
+                                                                body->position,
+                                                                body->orientation,
+                                                                collection.SceneEntityCount(),
+                                                                scaleAxis,
+                                                                scaleFactor ) );
     return true;
 }
 
@@ -1205,13 +1205,13 @@ RuntimeTools::RouteEditorPlacementScalePointer( bool leftReleased,
                 RecordEditorPlacementHistory( collection,
                                               placementResult.modelCountBefore,
                                               placementResult.modelCountAfter );
-                replayRuntime.RecordEditorPlaceEvent( placementResult.objectType,
-                                                      placementResult.fixedObject,
-                                                      placementResult.autoTerrainAlign,
-                                                      placementResult.modelCountBefore,
-                                                      placementResult.terrainPoint,
-                                                      placementResult.placementScale,
-                                                      placementResult.placementYawRadians );
+                replayRuntime.SubmitEvent( BuildReplayEditorPlaceEvent( placementResult.objectType,
+                                                                        placementResult.fixedObject,
+                                                                        placementResult.autoTerrainAlign,
+                                                                        placementResult.modelCountBefore,
+                                                                        placementResult.terrainPoint,
+                                                                        placementResult.placementScale,
+                                                                        placementResult.placementYawRadians ) );
 
                 RuntimeInteractionCommand command;
                 command.type = RuntimeInteractionCommandType::SetEditorSelection;

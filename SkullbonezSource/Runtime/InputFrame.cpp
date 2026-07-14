@@ -922,16 +922,18 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         runtimeTools.ApplyRayCastLauncherTuningUICommands( uiCommands.physics );
     if ( rayCastLauncherCommands.setImpulseStrength )
     {
-        replayRuntime.RecordLauncherConfigEvent( rayCastLauncherCommands.impulseConfigChangedFlags,
-                                                 rayCastLauncherCommands.impulseConfigImpulseStrength,
-                                                 rayCastLauncherCommands.impulseConfigProjectileSpeed );
+        replayRuntime.SubmitEvent(
+            BuildReplayLauncherConfigEvent( rayCastLauncherCommands.impulseConfigChangedFlags,
+                                            rayCastLauncherCommands.impulseConfigImpulseStrength,
+                                            rayCastLauncherCommands.impulseConfigProjectileSpeed ) );
         recordUIAction( RuntimeInputAction::SetRayCastImpulseStrength );
     }
     if ( rayCastLauncherCommands.setProjectileSpeed )
     {
-        replayRuntime.RecordLauncherConfigEvent( rayCastLauncherCommands.projectileConfigChangedFlags,
-                                                 rayCastLauncherCommands.projectileConfigImpulseStrength,
-                                                 rayCastLauncherCommands.projectileConfigProjectileSpeed );
+        replayRuntime.SubmitEvent(
+            BuildReplayLauncherConfigEvent( rayCastLauncherCommands.projectileConfigChangedFlags,
+                                            rayCastLauncherCommands.projectileConfigImpulseStrength,
+                                            rayCastLauncherCommands.projectileConfigProjectileSpeed ) );
         recordUIAction( RuntimeInputAction::SetLauncherProjectileSpeed );
     }
     SkullbonezCore::Core::EngineConfig& liveConfig = config;
@@ -1025,12 +1027,12 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     WorldOverrideChange worldOverride;
     if ( ApplyWorldWaterUICommands( sceneController.World(), uiCommands.water, worldOverride ) )
     {
-        replayRuntime.RecordWorldOverrideEvent( worldOverride.previousGravity,
-                                                worldOverride.previousFluidHeight,
-                                                worldOverride.previousFluidDensity,
-                                                worldOverride.gravity,
-                                                worldOverride.fluidHeight,
-                                                worldOverride.fluidDensity );
+        replayRuntime.SubmitEvent( BuildReplayWorldOverrideEvent( worldOverride.previousGravity,
+                                                                  worldOverride.previousFluidHeight,
+                                                                  worldOverride.previousFluidDensity,
+                                                                  worldOverride.gravity,
+                                                                  worldOverride.fluidHeight,
+                                                                  worldOverride.fluidDensity ) );
         recordUIAction( RuntimeInputAction::ApplyWorldWaterSettings );
     }
     SkullbonezCore::Core::CinematicRenderConfig& activeCinematic =

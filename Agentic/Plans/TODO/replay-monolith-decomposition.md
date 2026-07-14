@@ -961,6 +961,36 @@ Twenty-third ownership-remediation checkpoint after the first review:
   completed past plans and externally blocked work are excluded from that
   percentage.
 
+Twenty-fourth ownership-remediation checkpoint after the first review:
+
+- Moved world, launcher, editor-placement, editor-transform, and generated-scene
+  event hashing/packing/text construction from `ReplayRuntime.cpp` into the
+  recorder domain. `ReplayEventCommand` owns its text inline and carries only
+  serialized values plus an explicit current-frame request.
+- Replaced five specialized public event methods, generic `RecordEvent`, and
+  public `NextEventFrameIndex` with one `SubmitEvent` value boundary. The root
+  now only attaches current branch/frame provenance and hands the immutable
+  command to `ReplayTimeline`; 13 callers across input, scene, editor, tools,
+  stress, and validation use the same command seam.
+- `ReplayRuntime.cpp` fell from 3,438 to 3,108 lines and
+  `ReplayRuntime.h` fell to 563 lines. Exact event encoding remains in one
+  replay-owned implementation rather than being duplicated at callers.
+- Formatting passed. A focused Profile build passed in 21.8 seconds with zero
+  warnings and zero errors, and the touched-source comment audit inspected
+  12/12 files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 471.0 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control, including event mutation. The
+  scrub alias propagated delegated exit 37 without launching an engine. The
+  115.7-second full gate passed all CPU, Profile, Debug, DX12, and physics lanes
+  with zero warnings, zero DX12 errors, matching screenshots, and the
+  44,401-line byte-exact varied baseline. No baseline changed.
+- M3-M7 remain open for root-owned input, probe, and the remaining broad
+  external API surface. Active/future portfolio progress therefore remains
+  3/16, or 19%; completed past plans and externally blocked work are excluded
+  from that percentage.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |

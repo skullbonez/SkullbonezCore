@@ -670,13 +670,13 @@ LauncherPointerResult RuntimeTools::RouteLauncherPointer( const LauncherPointerI
     }
 
     const int modelCountBefore = collection.SceneEntityCount();
-    replayRuntime.RecordLauncherFireEvent( rayOrigin,
-                                           rayDirection,
-                                           cameraUp,
-                                           m_rayCastTest.fireMode == RunLauncherFireMode::Projectile,
-                                           m_rayCastTest.impulseStrength,
-                                           m_rayCastTest.projectileSpeed,
-                                           modelCountBefore );
+    replayRuntime.SubmitEvent( BuildReplayLauncherFireEvent( rayOrigin,
+                                                             rayDirection,
+                                                             cameraUp,
+                                                             m_rayCastTest.fireMode == RunLauncherFireMode::Projectile,
+                                                             m_rayCastTest.impulseStrength,
+                                                             m_rayCastTest.projectileSpeed,
+                                                             modelCountBefore ) );
     // Why: the launcher is a cold input action, so it repairs any construction-
     // time collection/store drift before entering handle-based physics queries.
     if ( collection.RepairPhysicsBodyAndColliderTopology() && FireLauncherRay( collection,

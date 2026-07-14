@@ -48,6 +48,7 @@ Related:
 #include <vector>
 
 #include "../../Core/MainMemoryStats.h"
+#include "../../Maths/Quaternion.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/PhysicsHandles.h"
 #include "../Editor/LauncherLaser.h"
@@ -461,6 +462,72 @@ struct ReplayEventInput
     uint64_t data0 = 0;
     const char* text = nullptr;
 };
+
+// Value-only event command accepted by the replay composition boundary. Text
+// is owned inline so callers never lend transient formatting storage across the
+// command seam; useNextFrame lets the boundary attach the current timeline
+// cursor without exposing timeline ownership.
+struct ReplayEventCommand
+{
+    ReplayFrameIndex frameIndex = 0;
+    ReplayEventKind kind = ReplayEventKind::Unknown;
+    uint32_t flags = 0;
+    int32_t value0 = 0;
+    int32_t value1 = 0;
+    int32_t value2 = 0;
+    int32_t value3 = 0;
+    uint64_t data0 = 0;
+    char text[128] = {};
+    bool useNextFrame = true;
+};
+
+ReplayEventCommand BuildReplayEventCommand( ReplayEventKind kind,
+                                            ReplayFrameIndex frameIndex,
+                                            bool useNextFrame,
+                                            uint32_t flags,
+                                            int32_t value0,
+                                            int32_t value1,
+                                            int32_t value2,
+                                            int32_t value3,
+                                            uint64_t data0,
+                                            const char* text );
+ReplayEventCommand BuildReplayGeneratedSceneConfigEvent( uint32_t flags,
+                                                         int modelCount,
+                                                         int solverBallCount,
+                                                         int solverBoxCount,
+                                                         uint32_t rngSeed,
+                                                         int gameModelCapacity,
+                                                         uint32_t generatedObjectTypeOverride );
+ReplayEventCommand BuildReplayWorldOverrideEvent( float previousGravity,
+                                                  float previousFluidHeight,
+                                                  float previousFluidDensity,
+                                                  float gravity,
+                                                  float fluidHeight,
+                                                  float fluidDensity );
+ReplayEventCommand
+BuildReplayLauncherConfigEvent( uint32_t changedFlags, float impulseStrength, float projectileSpeed );
+ReplayEventCommand BuildReplayLauncherFireEvent( const Math::Vector::Vector3& rayOrigin,
+                                                 const Math::Vector::Vector3& rayDirection,
+                                                 const Math::Vector::Vector3& cameraUp,
+                                                 bool projectile,
+                                                 float impulseStrength,
+                                                 float projectileSpeed,
+                                                 int modelCount );
+ReplayEventCommand BuildReplayEditorPlaceEvent( int objectType,
+                                                bool fixedObject,
+                                                bool terrainAlign,
+                                                int modelCountBefore,
+                                                const Math::Vector::Vector3& terrainPoint,
+                                                const Math::Vector::Vector3& placementScale,
+                                                float placementYawRadians );
+ReplayEventCommand BuildReplayEditorTransformEvent( int modelIndex,
+                                                    uint32_t changedFlags,
+                                                    uint32_t replayBodyId,
+                                                    const Math::Vector::Vector3& position,
+                                                    const Math::Orientation::Quaternion& orientation,
+                                                    int modelCount,
+                                                    int scaleAxis,
+                                                    float scaleFactor );
 
 struct ReplayCaptureInput
 {

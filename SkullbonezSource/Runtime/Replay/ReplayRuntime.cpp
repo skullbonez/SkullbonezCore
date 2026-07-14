@@ -71,17 +71,6 @@ namespace SkullbonezCore::Runtime
 
 namespace
 {
-constexpr uint32_t REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED = 1u;
-constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED = 2u;
-constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED = 4u;
-constexpr uint32_t REPLAY_LAUNCHER_FIRE_PROJECTILE = 1u;
-constexpr uint32_t REPLAY_EDITOR_PLACE_FIXED = 1u;
-constexpr uint32_t REPLAY_EDITOR_PLACE_TERRAIN_ALIGN = 2u;
-constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
-constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
-constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
-constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
-constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
 using Math::Vector::Vector3;
 using Math::Vector::VectorMagSquared;
 using Physics::ColliderRecord;
@@ -94,82 +83,6 @@ using Physics::PhysicsPipelineRecord;
 using Physics::PhysicsPipelineStageName;
 
 constexpr double REPLAY_PREDICTION_MAX_WORK_MILLISECONDS = 5.0;
-
-uint32_t ReplayRuntimeFloatBits( float value )
-{
-    uint32_t bits = 0;
-    static_assert( sizeof( bits ) == sizeof( value ), "Replay float payloads assume 32-bit floats." );
-    std::memcpy( &bits, &value, sizeof( bits ) );
-    return bits;
-}
-
-int32_t ReplayRuntimeFloatBitsSigned( float value )
-{
-    const uint32_t bits = ReplayRuntimeFloatBits( value );
-    int32_t signedBits = 0;
-    std::memcpy( &signedBits, &bits, sizeof( signedBits ) );
-    return signedBits;
-}
-
-void ReplayRuntimeHashFloat( uint64_t& hash, float value )
-{
-    const uint32_t bits = ReplayRuntimeFloatBits( value );
-    for ( int shift = 0; shift < 32; shift += 8 )
-    {
-        hash ^= static_cast<uint64_t>( ( bits >> shift ) & 0xFFu );
-        hash *= REPLAY_EVENT_FNV_PRIME;
-    }
-}
-
-void ReplayRuntimeHashInt( uint64_t& hash, int32_t value )
-{
-    const uint32_t bits = static_cast<uint32_t>( value );
-    for ( int shift = 0; shift < 32; shift += 8 )
-    {
-        hash ^= static_cast<uint64_t>( ( bits >> shift ) & 0xFFu );
-        hash *= REPLAY_EVENT_FNV_PRIME;
-    }
-}
-
-void ReplayRuntimeAppendFloatHex( char*& cursor, std::size_t& remaining, float value )
-{
-    if ( remaining == 0 )
-    {
-        return;
-    }
-
-    const int written = std::snprintf( cursor, remaining, "%08X", ReplayRuntimeFloatBits( value ) );
-    if ( written < 0 )
-    {
-        cursor[0] = '\0';
-        return;
-    }
-    const std::size_t consumed = (std::min)( static_cast<std::size_t>( written ), remaining > 0 ? remaining - 1 : 0 );
-    cursor += consumed;
-    remaining -= consumed;
-}
-
-void ReplayRuntimeAppendVectorHex( char*& cursor, std::size_t& remaining, const Vector3& value )
-{
-    ReplayRuntimeAppendFloatHex( cursor, remaining, value.x );
-    ReplayRuntimeAppendFloatHex( cursor, remaining, value.y );
-    ReplayRuntimeAppendFloatHex( cursor, remaining, value.z );
-}
-
-void ReplayRuntimeAppendQuaternionHex( char*& cursor,
-                                       std::size_t& remaining,
-                                       const Math::Orientation::Quaternion& value )
-{
-    float x = 0.0f;
-    float y = 0.0f;
-    float z = 0.0f;
-    float w = 1.0f;
-    value.GetComponents( x, y, z, w );
-    ReplayRuntimeAppendFloatHex( cursor, remaining, x );
-    ReplayRuntimeAppendFloatHex( cursor, remaining, y );
-    ReplayRuntimeAppendFloatHex( cursor, remaining, z );
-    ReplayRuntimeAppendFloatHex( cursor, remaining, w );
-}
 
 const ReplayPresentationSample*
 ReplayRuntimeLoadedPresentationSampleAtNormalized( const std::vector<ReplayPresentationSample>& samples,
@@ -717,15 +630,16 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayRestoreTransaction& t
     ReplaySceneTimelineResetInput reset = transaction.timelineReset;
     reset.preserveBranchMetadata = true;
     ResetSceneTimeline( reset, transaction.timelineOwners );
-    RecordEvent( ReplayEventKind::BranchRestore,
-                 0,
-                 0,
-                 static_cast<int32_t>( parentBranchId ),
-                 sample.sceneFrame,
-                 0,
-                 0,
-                 sample.solverHash,
-                 "hash-verified solver restore" );
+    SubmitEvent( BuildReplayEventCommand( ReplayEventKind::BranchRestore,
+                                          0,
+                                          false,
+                                          0,
+                                          static_cast<int32_t>( parentBranchId ),
+                                          sample.sceneFrame,
+                                          0,
+                                          0,
+                                          sample.solverHash,
+                                          "hash-verified solver restore" ) );
     writeReason( "restored hash match" );
     return true;
 }
@@ -1661,7 +1575,7 @@ ReplaySceneTimelineResetResult ReplayRuntime::FinishSceneTimelineReset( const Re
 
     const char* sceneLabel = input.sceneLabel && input.sceneLabel[0] != '\0' ? input.sceneLabel : "generated";
     m_timeline.Reset( sceneLabel );
-    RecordEvent( ReplayEventKind::TimelineStart, 0, 0, 0, 0, 0, 0, 0, sceneLabel );
+    SubmitEvent( BuildReplayEventCommand( ReplayEventKind::TimelineStart, 0, false, 0, 0, 0, 0, 0, 0, sceneLabel ) );
     result.timelineStarted = true;
     // Why: mismatch diagnostics are scoped to the active replay timeline so a
     // noisy prior scene does not suppress the first useful report in this scene.
@@ -1671,23 +1585,13 @@ ReplaySceneTimelineResetResult ReplayRuntime::FinishSceneTimelineReset( const Re
     {
         const uint32_t flags = SceneTimelineGeneratedConfigFlags( input );
 
-        uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
-        ReplayRuntimeHashInt( hash, input.modelCount );
-        ReplayRuntimeHashInt( hash, input.solverBallCount );
-        ReplayRuntimeHashInt( hash, input.solverBoxCount );
-        ReplayRuntimeHashInt( hash, static_cast<int32_t>( input.rngSeed ) );
-        ReplayRuntimeHashInt( hash, input.gameModelCapacity );
-        ReplayRuntimeHashInt( hash, static_cast<int32_t>( input.generatedObjectTypeOverride ) );
-
-        RecordEvent( ReplayEventKind::GeneratedSceneConfig,
-                     0,
-                     flags,
-                     input.modelCount,
-                     input.solverBallCount,
-                     input.solverBoxCount,
-                     static_cast<int32_t>( input.rngSeed ),
-                     hash,
-                     "generated_scene_config" );
+        SubmitEvent( BuildReplayGeneratedSceneConfigEvent( flags,
+                                                           input.modelCount,
+                                                           input.solverBallCount,
+                                                           input.solverBoxCount,
+                                                           input.rngSeed,
+                                                           input.gameModelCapacity,
+                                                           input.generatedObjectTypeOverride ) );
     }
     return result;
 }
@@ -2969,259 +2873,25 @@ ReplayHudStatus ReplayRuntime::BuildHudStatus( bool includeMemoryStats ) const
     return status;
 }
 
-void ReplayRuntime::RecordEvent( ReplayEventKind kind,
-                                 ReplayFrameIndex frameIndex,
-                                 uint32_t flags,
-                                 int32_t value0,
-                                 int32_t value1,
-                                 int32_t value2,
-                                 int32_t value3,
-                                 uint64_t data0,
-                                 const char* text )
+void ReplayRuntime::SubmitEvent( const ReplayEventCommand& command )
 {
-    if ( !m_timeline.Events().IsEnabled() )
+    if ( command.kind == ReplayEventKind::Unknown || !m_timeline.Events().IsEnabled() )
     {
         return;
     }
 
     ReplayEventInput input;
-    input.frameIndex = frameIndex;
+    input.frameIndex = command.useNextFrame ? NextEventFrameIndex() : command.frameIndex;
     input.branch = m_authoring.Branch();
-    input.kind = kind;
-    input.flags = flags;
-    input.value0 = value0;
-    input.value1 = value1;
-    input.value2 = value2;
-    input.value3 = value3;
-    input.data0 = data0;
-    input.text = text;
+    input.kind = command.kind;
+    input.flags = command.flags;
+    input.value0 = command.value0;
+    input.value1 = command.value1;
+    input.value2 = command.value2;
+    input.value3 = command.value3;
+    input.data0 = command.data0;
+    input.text = command.text;
     m_timeline.RecordEvent( input );
-}
-
-void ReplayRuntime::RecordWorldOverrideEvent( float previousGravity,
-                                              float previousFluidHeight,
-                                              float previousFluidDensity,
-                                              float gravity,
-                                              float fluidHeight,
-                                              float fluidDensity )
-{
-    uint32_t flags = 0;
-    flags |= previousGravity != gravity ? REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED : 0u;
-    flags |= previousFluidHeight != fluidHeight ? REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED : 0u;
-    flags |= previousFluidDensity != fluidDensity ? REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED : 0u;
-    if ( flags == 0 )
-    {
-        return;
-    }
-
-    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
-    ReplayRuntimeHashFloat( hash, gravity );
-    ReplayRuntimeHashFloat( hash, fluidHeight );
-    ReplayRuntimeHashFloat( hash, fluidDensity );
-
-    RecordEvent( ReplayEventKind::WorldOverride,
-                 NextEventFrameIndex(),
-                 flags,
-                 ReplayRuntimeFloatBitsSigned( gravity ),
-                 ReplayRuntimeFloatBitsSigned( fluidHeight ),
-                 ReplayRuntimeFloatBitsSigned( fluidDensity ),
-                 0,
-                 hash,
-                 "world_override" );
-}
-
-void ReplayRuntime::RecordLauncherConfigEvent( uint32_t changedFlags, float impulseStrength, float projectileSpeed )
-{
-    if ( changedFlags == 0 )
-    {
-        return;
-    }
-
-    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
-    ReplayRuntimeHashFloat( hash, impulseStrength );
-    ReplayRuntimeHashFloat( hash, projectileSpeed );
-
-    RecordEvent( ReplayEventKind::LauncherConfig,
-                 NextEventFrameIndex(),
-                 changedFlags,
-                 ReplayRuntimeFloatBitsSigned( impulseStrength ),
-                 ReplayRuntimeFloatBitsSigned( projectileSpeed ),
-                 0,
-                 0,
-                 hash,
-                 "launcher_config" );
-}
-
-void ReplayRuntime::RecordLauncherFireEvent( const Vector3& rayOrigin,
-                                             const Vector3& rayDirection,
-                                             const Vector3& cameraUp,
-                                             bool projectile,
-                                             float impulseStrength,
-                                             float projectileSpeed,
-                                             int modelCount )
-{
-    char payload[96] = {};
-    char* cursor = payload;
-    std::size_t remaining = sizeof( payload );
-    const int prefixWritten = std::snprintf( cursor, remaining, "ray9:" );
-    if ( prefixWritten > 0 )
-    {
-        const std::size_t consumed =
-            (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
-        cursor += consumed;
-        remaining -= consumed;
-    }
-    ReplayRuntimeAppendVectorHex( cursor, remaining, rayOrigin );
-    ReplayRuntimeAppendVectorHex( cursor, remaining, rayDirection );
-    ReplayRuntimeAppendVectorHex( cursor, remaining, cameraUp );
-
-    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
-    ReplayRuntimeHashFloat( hash, rayOrigin.x );
-    ReplayRuntimeHashFloat( hash, rayOrigin.y );
-    ReplayRuntimeHashFloat( hash, rayOrigin.z );
-    ReplayRuntimeHashFloat( hash, rayDirection.x );
-    ReplayRuntimeHashFloat( hash, rayDirection.y );
-    ReplayRuntimeHashFloat( hash, rayDirection.z );
-    ReplayRuntimeHashFloat( hash, cameraUp.x );
-    ReplayRuntimeHashFloat( hash, cameraUp.y );
-    ReplayRuntimeHashFloat( hash, cameraUp.z );
-
-    const uint32_t flags = projectile ? REPLAY_LAUNCHER_FIRE_PROJECTILE : 0u;
-    RecordEvent( ReplayEventKind::LauncherFire,
-                 NextEventFrameIndex(),
-                 flags,
-                 projectile ? 1 : 0,
-                 ReplayRuntimeFloatBitsSigned( impulseStrength ),
-                 ReplayRuntimeFloatBitsSigned( projectileSpeed ),
-                 modelCount,
-                 hash,
-                 payload );
-}
-
-void ReplayRuntime::RecordEditorPlaceEvent( int objectType,
-                                            bool fixedObject,
-                                            bool terrainAlign,
-                                            int modelCountBefore,
-                                            const Vector3& terrainPoint,
-                                            const Vector3& placementScale,
-                                            float placementYawRadians )
-{
-    char payload[80] = {};
-    char* cursor = payload;
-    std::size_t remaining = sizeof( payload );
-    const int prefixWritten = std::snprintf( cursor, remaining, "place7:" );
-    if ( prefixWritten > 0 )
-    {
-        const std::size_t consumed =
-            (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
-        cursor += consumed;
-        remaining -= consumed;
-    }
-    ReplayRuntimeAppendVectorHex( cursor, remaining, terrainPoint );
-    ReplayRuntimeAppendVectorHex( cursor, remaining, placementScale );
-    ReplayRuntimeAppendFloatHex( cursor, remaining, placementYawRadians );
-
-    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
-    ReplayRuntimeHashInt( hash, objectType );
-    ReplayRuntimeHashInt( hash, fixedObject ? 1 : 0 );
-    ReplayRuntimeHashInt( hash, terrainAlign ? 1 : 0 );
-    ReplayRuntimeHashInt( hash, modelCountBefore );
-    ReplayRuntimeHashFloat( hash, terrainPoint.x );
-    ReplayRuntimeHashFloat( hash, terrainPoint.y );
-    ReplayRuntimeHashFloat( hash, terrainPoint.z );
-    ReplayRuntimeHashFloat( hash, placementScale.x );
-    ReplayRuntimeHashFloat( hash, placementScale.y );
-    ReplayRuntimeHashFloat( hash, placementScale.z );
-    ReplayRuntimeHashFloat( hash, placementYawRadians );
-
-    uint32_t flags = 0;
-    flags |= fixedObject ? REPLAY_EDITOR_PLACE_FIXED : 0u;
-    flags |= terrainAlign ? REPLAY_EDITOR_PLACE_TERRAIN_ALIGN : 0u;
-
-    RecordEvent( ReplayEventKind::EditorPlace,
-                 NextEventFrameIndex(),
-                 flags,
-                 objectType,
-                 fixedObject ? 1 : 0,
-                 terrainAlign ? 1 : 0,
-                 modelCountBefore,
-                 hash,
-                 payload );
-}
-
-void ReplayRuntime::RecordEditorTransformEvent( int modelIndex,
-                                                uint32_t changedFlags,
-                                                uint32_t replayBodyId,
-                                                const Vector3& position,
-                                                const Math::Orientation::Quaternion& orientation,
-                                                int modelCount,
-                                                int scaleAxis,
-                                                float scaleFactor )
-{
-    changedFlags &= REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE;
-    if ( changedFlags == 0 )
-    {
-        return;
-    }
-    if ( ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE ) == 0 )
-    {
-        scaleAxis = -1;
-        scaleFactor = 1.0f;
-    }
-    else if ( scaleAxis < 0 || scaleAxis > 2 || !std::isfinite( scaleFactor ) || scaleFactor <= 0.0f )
-    {
-        return;
-    }
-
-    char payload[96] = {};
-    char* cursor = payload;
-    std::size_t remaining = sizeof( payload );
-    const int prefixWritten =
-        std::snprintf( cursor, remaining, ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE ) ? "xform8:" : "xform7:" );
-    if ( prefixWritten > 0 )
-    {
-        const std::size_t consumed =
-            (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
-        cursor += consumed;
-        remaining -= consumed;
-    }
-    ReplayRuntimeAppendVectorHex( cursor, remaining, position );
-    ReplayRuntimeAppendQuaternionHex( cursor, remaining, orientation );
-    if ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE )
-    {
-        ReplayRuntimeAppendFloatHex( cursor, remaining, scaleFactor );
-    }
-
-    float qx = 0.0f;
-    float qy = 0.0f;
-    float qz = 0.0f;
-    float qw = 1.0f;
-    orientation.GetComponents( qx, qy, qz, qw );
-
-    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
-    ReplayRuntimeHashInt( hash, modelIndex );
-    ReplayRuntimeHashInt( hash, static_cast<int32_t>( replayBodyId ) );
-    ReplayRuntimeHashInt( hash, modelCount );
-    ReplayRuntimeHashInt( hash, static_cast<int32_t>( changedFlags ) );
-    ReplayRuntimeHashInt( hash, scaleAxis );
-    ReplayRuntimeHashFloat( hash, position.x );
-    ReplayRuntimeHashFloat( hash, position.y );
-    ReplayRuntimeHashFloat( hash, position.z );
-    ReplayRuntimeHashFloat( hash, qx );
-    ReplayRuntimeHashFloat( hash, qy );
-    ReplayRuntimeHashFloat( hash, qz );
-    ReplayRuntimeHashFloat( hash, qw );
-    ReplayRuntimeHashFloat( hash, scaleFactor );
-
-    RecordEvent( ReplayEventKind::EditorTransform,
-                 NextEventFrameIndex(),
-                 changedFlags,
-                 modelIndex,
-                 static_cast<int32_t>( replayBodyId ),
-                 modelCount,
-                 scaleAxis,
-                 hash,
-                 payload );
 }
 
 bool ReplayRuntime::SavePresentationWithSolverHashes( const char* path,

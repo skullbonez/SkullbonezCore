@@ -2207,26 +2207,26 @@ ReplayProbeTickResult ReplayRuntime::TickProbes( const ReplayRestoreTransaction&
             // sequence numbers and artifact bytes remain unchanged.
             if ( commands.recordWorldOverride )
             {
-                RecordWorldOverrideEvent( commands.previousGravity,
-                                          commands.previousFluidHeight,
-                                          commands.previousFluidDensity,
-                                          commands.gravity,
-                                          commands.fluidHeight,
-                                          commands.fluidDensity );
+                SubmitEvent( BuildReplayWorldOverrideEvent( commands.previousGravity,
+                                                            commands.previousFluidHeight,
+                                                            commands.previousFluidDensity,
+                                                            commands.gravity,
+                                                            commands.fluidHeight,
+                                                            commands.fluidDensity ) );
             }
             if ( commands.recordEditorPlace )
             {
-                RecordEditorPlaceEvent( commands.placedObjectType,
-                                        commands.placedFixedObject,
-                                        commands.placedAutoTerrainAlign,
-                                        commands.placedModelCountBefore,
-                                        commands.placedTerrainPoint,
-                                        commands.placedScale,
-                                        commands.placedYawRadians );
+                SubmitEvent( BuildReplayEditorPlaceEvent( commands.placedObjectType,
+                                                          commands.placedFixedObject,
+                                                          commands.placedAutoTerrainAlign,
+                                                          commands.placedModelCountBefore,
+                                                          commands.placedTerrainPoint,
+                                                          commands.placedScale,
+                                                          commands.placedYawRadians ) );
             }
             if ( commands.recordEditorTransform )
             {
-                RecordEditorTransformEvent(
+                SubmitEvent( BuildReplayEditorTransformEvent(
                     commands.transformedModelIndex,
                     REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE,
                     commands.transformedReplayBodyId,
@@ -2234,21 +2234,23 @@ ReplayProbeTickResult ReplayRuntime::TickProbes( const ReplayRestoreTransaction&
                     commands.transformedOrientation,
                     commands.transformedModelCount,
                     commands.transformedScaleAxis,
-                    commands.transformedScaleFactor );
+                    commands.transformedScaleFactor ) );
             }
             if ( commands.recordLauncherConfig )
             {
-                RecordLauncherConfigEvent( 2u, commands.launcherImpulseStrength, commands.launcherProjectileSpeed );
+                SubmitEvent( BuildReplayLauncherConfigEvent( 2u,
+                                                             commands.launcherImpulseStrength,
+                                                             commands.launcherProjectileSpeed ) );
             }
             if ( commands.recordLauncherFire )
             {
-                RecordLauncherFireEvent( commands.launcherRayOrigin,
-                                         commands.launcherRayDirection,
-                                         commands.launcherCameraUp,
-                                         commands.launcherProjectile,
-                                         commands.launcherImpulseStrength,
-                                         commands.launcherProjectileSpeed,
-                                         commands.launcherModelCount );
+                SubmitEvent( BuildReplayLauncherFireEvent( commands.launcherRayOrigin,
+                                                           commands.launcherRayDirection,
+                                                           commands.launcherCameraUp,
+                                                           commands.launcherProjectile,
+                                                           commands.launcherImpulseStrength,
+                                                           commands.launcherProjectileSpeed,
+                                                           commands.launcherModelCount ) );
             }
             break;
         }
@@ -3130,15 +3132,16 @@ bool ReplayRuntime::RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransac
         ReplaySceneTimelineResetInput reset = transaction.timelineReset;
         reset.preserveBranchMetadata = true;
         ResetSceneTimeline( reset, transaction.timelineOwners );
-        RecordEvent( ReplayEventKind::BranchRestore,
-                     0,
-                     0,
-                     static_cast<int32_t>( parentBranchId ),
-                     target->sceneFrame,
-                     0,
-                     0,
-                     target->solverHash,
-                     "hash-verified v2 file restore" );
+        SubmitEvent( BuildReplayEventCommand( ReplayEventKind::BranchRestore,
+                                              0,
+                                              false,
+                                              0,
+                                              static_cast<int32_t>( parentBranchId ),
+                                              target->sceneFrame,
+                                              0,
+                                              0,
+                                              target->solverHash,
+                                              "hash-verified v2 file restore" ) );
         outResult.branchId = m_authoring.Branch().branchId;
         outResult.parentBranchId = parentBranchId;
         outResult.madeLiveBranch = true;

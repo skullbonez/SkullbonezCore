@@ -284,7 +284,6 @@ class ReplayRuntime
 
   public:
 #endif
-    ReplayFrameIndex NextEventFrameIndex() const;
     // Refreshes the selected past-root trajectory from retained solver samples.
     // The method is cheap when the cursor already matches the recorder window.
     void RefreshPastTrajectoryStoreFromSolverSamples();
@@ -304,46 +303,10 @@ class ReplayRuntime
     // Publishes the value-only replay facts consumed by the late HUD pass.
     // Memory accounting is sampled only when explicitly requested for the tab.
     ReplayHudStatus BuildHudStatus( bool includeMemoryStats ) const;
-    void RecordEvent( ReplayEventKind kind,
-                      ReplayFrameIndex frameIndex,
-                      uint32_t flags,
-                      int32_t value0,
-                      int32_t value1,
-                      int32_t value2,
-                      int32_t value3,
-                      uint64_t data0,
-                      const char* text );
-    void RecordWorldOverrideEvent( float previousGravity,
-                                   float previousFluidHeight,
-                                   float previousFluidDensity,
-                                   float gravity,
-                                   float fluidHeight,
-                                   float fluidDensity );
-    void RecordLauncherConfigEvent( uint32_t changedFlags, float impulseStrength, float projectileSpeed );
-    void RecordLauncherFireEvent( const Math::Vector::Vector3& rayOrigin,
-                                  const Math::Vector::Vector3& rayDirection,
-                                  const Math::Vector::Vector3& cameraUp,
-                                  bool projectile,
-                                  float impulseStrength,
-                                  float projectileSpeed,
-                                  int modelCount );
-    void RecordEditorPlaceEvent( int objectType,
-                                 bool fixedObject,
-                                 bool terrainAlign,
-                                 int modelCountBefore,
-                                 const Math::Vector::Vector3& terrainPoint,
-                                 const Math::Vector::Vector3& placementScale,
-                                 float placementYawRadians );
-    // Records exact transform payload values supplied by the caller; replay must
-    // not reread legacy object record pose after physics store authority has the body row.
-    void RecordEditorTransformEvent( int modelIndex,
-                                     uint32_t changedFlags,
-                                     uint32_t replayBodyId,
-                                     const Math::Vector::Vector3& position,
-                                     const Math::Orientation::Quaternion& orientation,
-                                     int modelCount,
-                                     int scaleAxis,
-                                     float scaleFactor );
+    // Attaches branch/frame provenance and submits one already encoded event
+    // value. Hashing and payload construction belong to ReplayRecorder domain
+    // builders, leaving this boundary as composition only.
+    void SubmitEvent( const ReplayEventCommand& command );
     // Writes the current presentation, solver hashes/checkpoints, and event
     // stream to an explicit cold-I/O binary v2 path.
     bool SavePresentationWithSolverHashes( const char* path,
@@ -546,6 +509,7 @@ class ReplayRuntime
     const ReplayRecorder& Presentation() const;
     const ReplaySolverRecorder& Solver() const;
     const ReplayEventRecorder& Events() const;
+    ReplayFrameIndex NextEventFrameIndex() const;
     const ReplayBranchInfo& Branch() const;
     const RunLoadedReplayPresentationState& LoadedPresentation() const;
     ReplayScrubberView ScrubberView() const noexcept;
