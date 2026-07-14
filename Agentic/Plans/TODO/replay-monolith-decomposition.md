@@ -766,6 +766,55 @@ Seventeenth ownership-remediation checkpoint after that review:
   stress/scene/tool root dependencies, the broad workspace packet, remaining
   root forwarding, and the repeated independent ownership review.
 
+Second mandatory ownership review `replay-monolith-decomposition-duck-02`
+confirmed the current closure boundary after checkpoints 1-17:
+
+- Resolved findings: the prediction worker has no stored root reach-back;
+  prediction scheduling/capture and drawing are physically separated and use
+  const publication values; public mutable owner/state escape hatches are gone;
+  `RuntimeFrameInteractionView` carries no replay root; and
+  `ReplayWorkspaceFrameInput` is value-only rather than an authority bag.
+- Remaining blockers: the 611-line root still exposes timeline, scrubber,
+  authoring, prediction, presentation, event, probe, and diagnostics business
+  operations to 22 non-replay files; cause-tree, velocity, and scrubber input
+  remain root methods; verification and probe execution retain root business
+  authority; owner implementations and drawing dependencies are not yet fully
+  honest by TU; and `CollectMemoryStats` traverses every owner's storage layout.
+- The review also found that checkpoint 17's output packet was sound but its
+  mutable `ReplaySaveProbeEventCoverageContext` was a replacement broad bag.
+  That finding was addressed immediately in checkpoint 18 below. M3-M7 and M8
+  remain blocked by the other listed findings; behavioral gates cannot waive
+  them.
+- Rubber-duck accounting: plan
+  `Agentic/Plans/TODO/replay-monolith-decomposition.md`, run
+  `replay-monolith-decomposition-duck-02`, reviewer
+  `/root/replay_ownership_duck_02`, follow-up-after-remediation reason, 1,117
+  prompt characters, approximately 10,200 response characters as reported by
+  the reviewer, token counts unavailable, approximately five minutes elapsed,
+  verdict blocked with follow-up required.
+
+Eighteenth ownership-remediation checkpoint after the first review:
+
+- Deleted `ReplaySaveProbeEventCoverageContext`. The Debug fixture now invokes
+  three narrow synchronous actions for world override, editor placement/
+  transform, and launcher coverage. Each action receives only its explicit
+  owner operands for that call; none stores a root, callback, or multi-domain
+  context. The existing fixed value-only replay event output remains intact and
+  `TickProbes` still records its commands in the original event order.
+- A focused Profile build passed in 20.2 seconds with zero warnings and zero
+  errors. Formatting passed, and the touched-source comment audit inspected
+  1/1 file with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 482.1 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 119.5-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M3-M7 remain open for the other second-review findings. This checkpoint
+  corrects the context-bag regression and does not claim task progress.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |

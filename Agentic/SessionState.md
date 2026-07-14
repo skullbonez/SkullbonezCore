@@ -15,7 +15,7 @@ plan inventory.
 | Current objective | Reclose replay M3-M7 ownership findings from mandatory M8 review, with the unchanged frame-exact 200-box gate after every task |
 | Active/future progress | 3 / 16 tasks = 19% rounded overall (decomposition + spline plans only; completed past plans and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-14: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | The seventeenth remediation checkpoint removed the replay root and callback from the Debug save-probe fixture. Debug build (29.3s), formatting, the unchanged replay oracle (483.2s), scrub exit-37 propagation, and the full CPU/Profile/Debug/DX12/physics gate (114.2s) passed with zero warnings/DX12 errors and byte-exact physics. M3-M7 remain reopened; no baseline changed. |
+| Validation for current edits | The eighteenth remediation checkpoint deleted the broad save-probe context bag and split fixture work into three explicit synchronous actions. Profile build (20.2s), formatting, the unchanged replay oracle (482.1s), scrub exit-37 propagation, and the full CPU/Profile/Debug/DX12/physics gate (119.5s) passed with zero warnings/DX12 errors and byte-exact physics. Second ownership review still blocks M3-M7 on root business APIs, external seams, probe execution, TU honesty, and root-wide diagnostics. No baseline changed. |
 
 ## Live Queue
 
@@ -36,9 +36,13 @@ plan inventory.
    never-stored published view while leaving mixed drawing statics for M8; M7
    published the HUD value seam, removed replay ownership from the late UI
    pass, and moved Run/query/probe behavior behind replay operations. The
-   historical two-consumer grep premise was stale. M8 review then confirmed
-   that mutable owner/root access, external frame-view reach-back, probe
-   authority, and the mixed prediction/presentation TU are blocking closure.
+   historical two-consumer grep premise was stale. The first M8 review reopened
+   M3-M7. Remediation removed mutable owner/root escape hatches, frame-view
+   reach-back, the broad workspace bag, and the mixed prediction/presentation
+   scheduler/drawing TU. A second independent review confirmed those closures
+   but still blocks completion on root business APIs used by 22 external files,
+   root-owned cause/velocity/scrubber input, probe execution, incomplete owner-
+   TU honesty, and root-wide diagnostics traversal.
    Every M0-M8 task,
    including inventory documentation, must run the
    unchanged 200-box gate before it can be checked or committed.
@@ -130,10 +134,11 @@ plan inventory.
 
 Run the repository-local orchestrator against
 `Plans/TODO/replay-monolith-decomposition.md` reopened M3-M7. Prediction and
-drawing are physically separate, prediction state is private, and presentation
-mutation is command-only. Next remove the replay root from
-`RuntimeFrameInteractionView`, replace renderer/input exchanges with value
-boundaries, split the broad workspace input, and make validation contexts
-consume published views/owner commands. Reclose each task only after its
-unchanged one-presentation 200-box oracle, then repeat M8's independent
-ownership review.
+drawing are physically separate, prediction state is private, presentation
+mutation is command-only, frame views carry no replay root, and the workspace
+input plus save-probe output are value-only. Next move single-owner timeline/
+event/stat relays, authoring and scrubber input algorithms, probe verification,
+and owner memory contributions out of `ReplayRuntime`; replace the remaining
+external root parameters with typed intents/results assembled only by `Run`.
+Reclose each task only after its unchanged one-presentation 200-box oracle,
+then repeat M8's independent ownership review.

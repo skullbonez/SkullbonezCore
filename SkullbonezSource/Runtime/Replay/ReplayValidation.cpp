@@ -179,20 +179,6 @@ float ReplaySaveProbeDistanceSquared( const Vector3& a, const Vector3& b )
 }
 
 
-struct ReplaySaveProbeEventCoverageContext
-{
-    RuntimeTools& runtimeTools;
-    RunSceneState& scene;
-    SkullbonezCore::Assets::AssetSystem& assets;
-    SkullbonezCore::Environment::CameraCollection& cameras;
-    SceneTerrain& terrain;
-    SkullbonezCore::Environment::WorldEnvironment& world;
-    SkullbonezCore::Runtime::SceneController& models;
-    PhysicsEngine& physics;
-    int gameModelCapacity = 0;
-};
-
-
 // Value-only replay effects emitted by the external save-probe fixture. The
 // fixture may mutate its temporary scene, but it cannot retain or call the
 // replay composition root; TickProbes applies these commands in event order.
@@ -239,16 +225,19 @@ struct ReplaySaveProbeEventCommands
 };
 
 
-SkullbonezCore::Core::SbResult InjectReplaySaveProbeEventCoverage( ReplaySaveProbeEventCoverageContext& context,
-                                                                   ReplaySaveProbeEventCommands& commands )
+// Lifetime: each fixture action borrows only the concrete owners needed for
+// that synchronous mutation. Keeping the actions separate prevents validation
+// from rebuilding the application shell as a retained multi-domain context.
+void InjectReplaySaveProbeWorldCoverage( SkullbonezCore::Environment::WorldEnvironment& world,
+                                         ReplaySaveProbeEventCommands& commands )
 {
-    const float currentGravity = context.world.GetGravity();
-    const float currentFluidHeight = context.world.GetFluidSurfaceHeight();
-    const float currentFluidDensity = context.world.GetFluidDensity();
+    const float currentGravity = world.GetGravity();
+    const float currentFluidHeight = world.GetFluidSurfaceHeight();
+    const float currentFluidDensity = world.GetFluidDensity();
     const float probeGravity = currentGravity != 0.0f ? currentGravity * 0.95f : -0.25f;
-    context.world.SetGravity( probeGravity );
-    context.world.SetFluidSurfaceHeight( currentFluidHeight );
-    context.world.SetFluidDensity( currentFluidDensity );
+    world.SetGravity( probeGravity );
+    world.SetFluidSurfaceHeight( currentFluidHeight );
+    world.SetFluidDensity( currentFluidDensity );
     commands.recordWorldOverride = true;
     commands.previousGravity = currentGravity;
     commands.previousFluidHeight = currentFluidHeight;
@@ -256,17 +245,31 @@ SkullbonezCore::Core::SbResult InjectReplaySaveProbeEventCoverage( ReplaySavePro
     commands.gravity = probeGravity;
     commands.fluidHeight = currentFluidHeight;
     commands.fluidDensity = currentFluidDensity;
-    context.runtimeTools.Editor().placementScale = Vector3( 2.0f, 2.0f, 2.0f );
-    context.runtimeTools.Editor().autoTerrainAlign = false;
-    const int modelCountBeforePlace = context.models.SceneEntityCount();
-    EditorObjectPlacementContext placementContext{ context.runtimeTools.Editor(),
-                                                   context.models,
-                                                   context.physics,
-                                                   context.scene,
-                                                   context.world,
-                                                   context.terrain.Get(),
-                                                   context.assets,
-                                                   context.gameModelCapacity };
+}
+
+
+SkullbonezCore::Core::SbResult
+InjectReplaySaveProbePlacementCoverage( RuntimeTools& runtimeTools,
+                                        SkullbonezCore::Runtime::SceneController& models,
+                                        PhysicsEngine& physics,
+                                        RunSceneState& scene,
+                                        SkullbonezCore::Environment::WorldEnvironment& world,
+                                        SceneTerrain& terrain,
+                                        SkullbonezCore::Assets::AssetSystem& assets,
+                                        int gameModelCapacity,
+                                        ReplaySaveProbeEventCommands& commands )
+{
+    runtimeTools.Editor().placementScale = Vector3( 2.0f, 2.0f, 2.0f );
+    runtimeTools.Editor().autoTerrainAlign = false;
+    const int modelCountBeforePlace = models.SceneEntityCount();
+    EditorObjectPlacementContext placementContext{ runtimeTools.Editor(),
+                                                   models,
+                                                   physics,
+                                                   scene,
+                                                   world,
+                                                   terrain.Get(),
+                                                   assets,
+                                                   gameModelCapacity };
     EditorObjectPlacementRequest placementRequest{ SkullbonezCore::UI::EditorTab::OBJECT_BOX,
                                                    true,
                                                    Vector3( 18.0f, 0.0f, 18.0f ) };
@@ -287,7 +290,7 @@ SkullbonezCore::Core::SbResult InjectReplaySaveProbeEventCoverage( ReplaySavePro
         commands.placedScale = placementResult.placementScale;
         commands.placedYawRadians = placementResult.placementYawRadians;
         const PhysicsBodyRecord* placedBodyBeforeEdit =
-            context.models.BodyStore().RecordForHandle( placementResult.placedBody );
+            models.BodyStore().RecordForHandle( placementResult.placedBody );
         if ( !placedBodyBeforeEdit )
         {
             return ReplayProbeFailure( "replay save probe failed to resolve placed body record" );
@@ -303,7 +306,7 @@ SkullbonezCore::Core::SbResult InjectReplaySaveProbeEventCoverage( ReplaySavePro
         placedOrientation.RotateAboutAxis( Vector3( 0.0f, 1.0f, 0.0f ), 0.25f );
         placedBodyEdit.orientation = placedOrientation;
         const ColliderRecord* placedColliderBeforeEdit =
-            TryGetEditorTransformColliderRecord( context.models,
+            TryGetEditorTransformColliderRecord( models,
                                                  placementResult.placedCollider,
                                                  modelCountBeforePlace,
                                                  placedBodyBeforeEdit->replayBodyId );
@@ -326,7 +329,7 @@ SkullbonezCore::Core::SbResult InjectReplaySaveProbeEventCoverage( ReplaySavePro
         placedBodyEdit.angularVelocity = Vector3( 0.0f, 0.0f, 0.0f );
         // Invariant: the replay probe exercises the same explicit collider
         // edit command as the editor instead of relying on a model recapture.
-        if ( !context.physics.UpdateAuthoredBodyAndCollider(
+        if ( !physics.UpdateAuthoredBodyAndCollider(
                  placedBodyEdit,
                  MakeColliderCreateDesc( std::move( placedShapeAfterScale ),
                                          placedColliderBeforeEdit->restitution,
@@ -334,8 +337,7 @@ SkullbonezCore::Core::SbResult InjectReplaySaveProbeEventCoverage( ReplaySavePro
         {
             return ReplayProbeFailure( "replay save probe failed to commit edited physics rows" );
         }
-        const PhysicsBodyRecord* placedBodyAfterEdit =
-            context.models.BodyStore().RecordForModelIndex( modelCountBeforePlace );
+        const PhysicsBodyRecord* placedBodyAfterEdit = models.BodyStore().RecordForModelIndex( modelCountBeforePlace );
         if ( !placedBodyAfterEdit || placedBodyAfterEdit->replayBodyId == 0 )
         {
             return ReplayProbeFailure( "replay save probe failed to capture edited body record" );
@@ -345,41 +347,53 @@ SkullbonezCore::Core::SbResult InjectReplaySaveProbeEventCoverage( ReplaySavePro
         commands.transformedReplayBodyId = placedBodyAfterEdit->replayBodyId;
         commands.transformedPosition = placedBodyAfterEdit->position;
         commands.transformedOrientation = placedBodyAfterEdit->orientation;
-        commands.transformedModelCount = context.models.SceneEntityCount();
+        commands.transformedModelCount = models.SceneEntityCount();
         commands.transformedScaleAxis = PROBE_SCALE_AXIS;
         commands.transformedScaleFactor = PROBE_SCALE_FACTOR;
     }
-    context.runtimeTools.RayCastTest().projectileSpeed += 1.0f;
+    return SkullbonezCore::Core::SbResult::Success();
+}
+
+
+void InjectReplaySaveProbeLauncherCoverage( RuntimeTools& runtimeTools,
+                                            SkullbonezCore::Environment::CameraCollection& cameras,
+                                            SkullbonezCore::Runtime::SceneController& models,
+                                            PhysicsEngine& physics,
+                                            RunSceneState& scene,
+                                            SceneTerrain& terrain,
+                                            int gameModelCapacity,
+                                            ReplaySaveProbeEventCommands& commands )
+{
+    runtimeTools.RayCastTest().projectileSpeed += 1.0f;
     commands.recordLauncherConfig = true;
-    commands.launcherImpulseStrength = context.runtimeTools.RayCastTest().impulseStrength;
-    commands.launcherProjectileSpeed = context.runtimeTools.RayCastTest().projectileSpeed;
+    commands.launcherImpulseStrength = runtimeTools.RayCastTest().impulseStrength;
+    commands.launcherProjectileSpeed = runtimeTools.RayCastTest().projectileSpeed;
     Vector3 rayOrigin;
     Vector3 rayDirection;
     Vector3 cameraUp;
-    if ( context.runtimeTools.TryBuildLauncherCameraRay( &context.cameras, rayOrigin, rayDirection, cameraUp ) )
+    if ( runtimeTools.TryBuildLauncherCameraRay( &cameras, rayOrigin, rayDirection, cameraUp ) )
     {
         commands.recordLauncherFire = true;
         commands.launcherRayOrigin = rayOrigin;
         commands.launcherRayDirection = rayDirection;
         commands.launcherCameraUp = cameraUp;
-        commands.launcherProjectile = context.runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile;
-        commands.launcherModelCount = context.models.SceneEntityCount();
+        commands.launcherProjectile = runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile;
+        commands.launcherModelCount = models.SceneEntityCount();
         // Why: RuntimeTools now fails closed unless Run has completed the cold
         // collection-to-store topology repair at the owner boundary.
-        const bool launcherStoresReady = context.models.RepairPhysicsBodyAndColliderTopology();
-        if ( launcherStoresReady && context.runtimeTools.FireLauncherRay( context.models,
-                                                                          context.physics,
-                                                                          context.scene,
-                                                                          context.terrain.Get(),
-                                                                          context.gameModelCapacity,
-                                                                          rayOrigin,
-                                                                          rayDirection,
-                                                                          cameraUp ) )
+        const bool launcherStoresReady = models.RepairPhysicsBodyAndColliderTopology();
+        if ( launcherStoresReady && runtimeTools.FireLauncherRay( models,
+                                                                  physics,
+                                                                  scene,
+                                                                  terrain.Get(),
+                                                                  gameModelCapacity,
+                                                                  rayOrigin,
+                                                                  rayDirection,
+                                                                  cameraUp ) )
         {
-            context.scene.modelCount = context.models.SceneEntityCount();
+            scene.modelCount = models.SceneEntityCount();
         }
     }
-    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
@@ -2164,18 +2178,28 @@ ReplayProbeTickResult ReplayRuntime::TickProbes( const ReplayRestoreTransaction&
             break;
         case ReplayProbeSaveAction::InjectEventCoverage:
         {
-            ReplaySaveProbeEventCoverageContext eventCoverageContext{
-                transaction.sampleOwners.runtimeTools,
-                transaction.sampleOwners.scene,
-                topology.assets,
-                transaction.sampleOwners.sceneController.Cameras(),
-                transaction.sampleOwners.sceneController.Terrain(),
-                transaction.sampleOwners.sceneController.World(),
-                transaction.sampleOwners.sceneController,
-                transaction.sampleOwners.sceneController.Physics(),
-                topology.gameModelCapacity };
             ReplaySaveProbeEventCommands commands;
-            result.status = InjectReplaySaveProbeEventCoverage( eventCoverageContext, commands );
+            InjectReplaySaveProbeWorldCoverage( transaction.sampleOwners.sceneController.World(), commands );
+            result.status = InjectReplaySaveProbePlacementCoverage( transaction.sampleOwners.runtimeTools,
+                                                                    transaction.sampleOwners.sceneController,
+                                                                    transaction.sampleOwners.sceneController.Physics(),
+                                                                    transaction.sampleOwners.scene,
+                                                                    transaction.sampleOwners.sceneController.World(),
+                                                                    transaction.sampleOwners.sceneController.Terrain(),
+                                                                    topology.assets,
+                                                                    topology.gameModelCapacity,
+                                                                    commands );
+            if ( result.status.ok )
+            {
+                InjectReplaySaveProbeLauncherCoverage( transaction.sampleOwners.runtimeTools,
+                                                       transaction.sampleOwners.sceneController.Cameras(),
+                                                       transaction.sampleOwners.sceneController,
+                                                       transaction.sampleOwners.sceneController.Physics(),
+                                                       transaction.sampleOwners.scene,
+                                                       transaction.sampleOwners.sceneController.Terrain(),
+                                                       topology.gameModelCapacity,
+                                                       commands );
+            }
             result.enterInteractive = result.enterInteractive || commands.requestInteractiveScene;
 
             // Invariant: the external fixture returns facts only. Apply replay
