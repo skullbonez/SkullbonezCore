@@ -51,7 +51,6 @@ struct UIPhysicsCommands;
 } // namespace UI
 namespace Runtime
 {
-class ReplayRuntime;
 class SceneController;
 class TestScene;
 enum class RuntimeInputAction;
@@ -143,13 +142,10 @@ class DiagnosticsRuntime
     bool PerfTestActive() const;
     void TickPerfLog( const RuntimePerfTickContext& context );
     RuntimeProfilerFrameTimes SampleProfilerFrameTimes() const;
-    const SkullbonezCore::Core::MainMemoryStats& RefreshMainMemoryStats( const ReplayRuntime& replay,
-                                                                         const Runtime::SceneController& models,
-                                                                         double nowSeconds,
-                                                                         bool force,
-                                                                         bool includePrivateWorkingSet = true );
+    // Accepts replay accounting already published by the composition root so
+    // the UI pass cannot reopen replay ownership while reconciling totals.
     const SkullbonezCore::Core::MainMemoryStats&
-    RefreshMainMemoryStats( const ReplayRuntime& replay,
+    RefreshMainMemoryStats( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
                             const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
                             double nowSeconds,
                             bool force,
@@ -158,7 +154,7 @@ class DiagnosticsRuntime
     void SetMainMemoryDumpPath( const char* path );
     const char* MainMemoryDumpPath() const;
     bool MainMemoryDumpRequested() const;
-    bool WriteMainMemoryDump( const ReplayRuntime& replay,
+    bool WriteMainMemoryDump( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
                               const Runtime::SceneController& models,
                               const RunSceneState& scene,
                               const char* checkpoint,

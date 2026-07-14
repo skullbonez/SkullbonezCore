@@ -29,7 +29,7 @@
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
-#include "../SkullbonezSource/Runtime/Replay/ReplayRuntime.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayCoordination.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRetainedMemory.h"
 
 #include <vector>
@@ -52,7 +52,10 @@ using SkullbonezCore::Runtime::ReplayRecorder;
 using SkullbonezCore::Runtime::ReplayRecorderConfig;
 using SkullbonezCore::Runtime::ReplayRecorderStats;
 using SkullbonezCore::Runtime::ReplayRetainedDataOwner;
-using SkullbonezCore::Runtime::ReplayRuntime;
+using SkullbonezCore::Runtime::ReplaySceneTimelineResetInput;
+using SkullbonezCore::Runtime::SceneTimelineGeneratedConfigFlags;
+using SkullbonezCore::Runtime::SceneTimelineRecordsGeneratedConfig;
+using SkullbonezCore::Runtime::SceneTimelineResetClearsBranch;
 using SkullbonezCore::Runtime::ReplaySolverBodySample;
 using SkullbonezCore::Runtime::ReplaySolverFrameSample;
 using SkullbonezCore::Runtime::ReplaySolverRecorder;
@@ -248,9 +251,9 @@ TEST_CASE( "ReplayRuntime: retained ownership and growth policies are complete a
 }
 
 
-TEST_CASE( "ReplayRuntime: scene timeline reset decisions preserve branch and authored-scene semantics" )
+TEST_CASE( "Replay coordination: scene timeline reset decisions preserve branch and authored-scene semantics" )
 {
-    ReplayRuntime::SceneTimelineResetInput reset;
+    ReplaySceneTimelineResetInput reset;
     reset.modelCount = 5;
     reset.solverBallCount = 3;
     reset.solverBoxCount = 2;
@@ -259,20 +262,20 @@ TEST_CASE( "ReplayRuntime: scene timeline reset decisions preserve branch and au
     reset.hasUiModelCountOverride = true;
     reset.hasUiSolverCountOverride = true;
 
-    CHECK( ReplayRuntime::SceneTimelineResetClearsBranch( reset ) );
-    CHECK( ReplayRuntime::SceneTimelineRecordsGeneratedConfig( reset ) );
-    const uint32_t generatedFlags = ReplayRuntime::SceneTimelineGeneratedConfigFlags( reset );
+    CHECK( SceneTimelineResetClearsBranch( reset ) );
+    CHECK( SceneTimelineRecordsGeneratedConfig( reset ) );
+    const uint32_t generatedFlags = SceneTimelineGeneratedConfigFlags( reset );
     CHECK( ( generatedFlags & SkullbonezCore::Runtime::REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS ) != 0u );
     CHECK( ( generatedFlags & SkullbonezCore::Runtime::REPLAY_GENERATED_SCENE_UI_MODEL_COUNT ) != 0u );
     CHECK( ( generatedFlags & SkullbonezCore::Runtime::REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS ) != 0u );
 
     reset.preserveBranchMetadata = true;
-    CHECK_FALSE( ReplayRuntime::SceneTimelineResetClearsBranch( reset ) );
+    CHECK_FALSE( SceneTimelineResetClearsBranch( reset ) );
 
     reset.isSceneMode = true;
     reset.solverBallCount = 0;
     reset.solverBoxCount = 0;
-    CHECK_FALSE( ReplayRuntime::SceneTimelineRecordsGeneratedConfig( reset ) );
+    CHECK_FALSE( SceneTimelineRecordsGeneratedConfig( reset ) );
 }
 
 

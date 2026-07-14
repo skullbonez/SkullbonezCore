@@ -30,13 +30,12 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h
   - SkullbonezSource/Runtime/DiagnosticsController.cpp
-  - SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayPresentation.cpp
 */
 #include "DiagnosticsRuntime.h"
 
 #include "../Allocation/RuntimeAllocationTracker.h"
 #include "../InputController.h"
-#include "../Replay/ReplayRuntime.h"
 #include "../RunDebugState.h"
 #include "../Scene/SceneRuntime.h"
 #include "../Scene/SceneController.h"
@@ -819,20 +818,7 @@ RuntimeProfilerFrameTimes DiagnosticsRuntime::SampleProfilerFrameTimes() const
 
 
 const SkullbonezCore::Core::MainMemoryStats&
-DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayRuntime& replay,
-                                            const Runtime::SceneController& models,
-                                            double nowSeconds,
-                                            bool force,
-                                            bool includePrivateWorkingSet )
-{
-    SkullbonezCore::Runtime::Allocation::RuntimeAllocationScope allocationScope(
-        SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase::Diagnostics );
-    return RefreshMainMemoryStats( replay, models.CollectMemoryStats(), nowSeconds, force, includePrivateWorkingSet );
-}
-
-
-const SkullbonezCore::Core::MainMemoryStats&
-DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayRuntime& replay,
+DiagnosticsRuntime::RefreshMainMemoryStats( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
                                             const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
                                             double nowSeconds,
                                             bool force,
@@ -855,7 +841,7 @@ DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayRuntime& replay,
     SkullbonezCore::Core::MainMemoryStats stats;
     stats.sampleTimeSeconds = nowSeconds;
     stats.process = RuntimeDiagnostics::SampleProcessMemory( includePrivateWorkingSet );
-    stats.replay = replay.CollectMemoryStats();
+    stats.replay = replay;
     stats.gameObjects = gameObjects;
     stats.trackedEngineBytes = stats.replay.totalBytes + stats.gameObjects.totalBytes + stats.otherTrackedBytes;
     if ( stats.process.available )
@@ -919,7 +905,7 @@ bool DiagnosticsRuntime::MainMemoryDumpRequested() const
 }
 
 
-bool DiagnosticsRuntime::WriteMainMemoryDump( const ReplayRuntime& replay,
+bool DiagnosticsRuntime::WriteMainMemoryDump( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
                                               const Runtime::SceneController& models,
                                               const RunSceneState& scene,
                                               const char* checkpoint,
@@ -931,7 +917,7 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const ReplayRuntime& replay,
     }
 
     const SkullbonezCore::Core::MainMemoryStats& stats =
-        RefreshMainMemoryStats( replay, models, nowSeconds, true, true );
+        RefreshMainMemoryStats( replay, models.CollectMemoryStats(), nowSeconds, true, true );
     FILE* file = nullptr;
     if ( fopen_s( &file, m_mainMemoryDumpPath, "wb" ) != 0 || !file )
     {

@@ -4,7 +4,7 @@
 # Purpose:
 #   Validate Visual Studio project item filters and path casing.
 #
-# Mental model:
+# Summary:
 #   The .vcxproj controls what Visual Studio builds or displays, while the
 #   .vcxproj.filters file controls where those items appear in Solution
 #   Explorer. This check keeps source, headers, scenes, shaders, and style data
@@ -243,7 +243,6 @@ RUNTIME_PREFIXES = (
     "RunCameraState",
     "RunPasses",
     "RunLaunchOptions",
-    "RunReplayProbeState",
     "RunRender",
     "RunStartupState",
     "RunTimerState",
@@ -295,27 +294,35 @@ RUNTIME_ALLOCATION_PREFIXES = (
 )
 
 RUNTIME_REPLAY_PREFIXES = (
+    "ReplayAuthoring",
+    "ReplayAuthoringCauseTree",
+    "ReplayAuthoringVelocity",
+    "ReplayCoordination",
+    "ReplayIdentity",
     "ReplayInteractionController",
     "ReplayOverlayLayout",
     "ReplayOverlayRenderer",
+    "ReplayPredictionArchive",
+    "ReplayPrediction",
+    "ReplayPredictionDrawing",
     "ReplayPredictionReserve",
     "ReplayPredictionScheduling",
     "ReplayRetainedMemory",
     "ReplayRecorder",
+    "ReplayPresentation",
+    "ReplayProbeState",
     "ReplayRestoreService",
     "ReplayRuntime",
     "ReplayRuntimeOwnerViews",
+    "ReplayScrubber",
+    "ReplayScrubberTools",
+    "ReplayTimeline",
+    "ReplayVisualPacket",
+    "ReplayVisualPacketFingerprint",
     "ReplaySolverSnapshot",
     "ReplayV2Artifact",
+    "ReplayValidation",
     "TrajectoryStore",
-    "RunReplayCauseTreeTools",
-    "RunReplayPredictionHelpers",
-    "RunReplayPredictionVisualizer",
-    "RunReplayProbes",
-    "RunReplayQueryTools",
-    "RunReplayScrubberTools",
-    "RunReplayTools",
-    "RunReplayVelocityEdit",
 )
 
 RUNTIME_RENDER_PREFIXES = (

@@ -34,7 +34,7 @@ Related:
 #include "Allocation/RuntimeReserveAllocator.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
 #include "Replay/ReplayOverlayRenderer.h"
-#include "Replay/ReplayRuntime.h"
+#include "Replay/ReplayPresentation.h"
 #include "../Core/WorkerPool.h"
 #include "../Physics/PhysicsDebugData.h"
 #include "../Core/Profiler.h"
@@ -101,38 +101,19 @@ BuildMainMemoryOverlayStats( const DiagnosticsRuntime& diagnosticsRuntime,
     return stats;
 }
 
-ReplayOverlay::ReplayOverlayRenderContext BuildReplayOverlayRenderContext( const UiTextPassInputs& inputs )
-{
-    assert( inputs.uiRender.IsReady() );
-    const ReplayOverlayFrameState& overlay = inputs.replayOverlay;
-    return { *inputs.uiRender.commands,
-             inputs.replayRuntime,
-             inputs.models.presentationRecords,
-             inputs.models.bodyStore,
-             overlay.editorModeEnabled,
-             overlay.uiVisible,
-             overlay.uiMinimized,
-             overlay.scenePhysicsEnabled,
-             overlay.gesture,
-             overlay.screenW,
-             overlay.screenH,
-             overlay.nowSeconds };
-}
-
 void RenderReplayScrubberOverlayFromInputs( const UiTextPassInputs& inputs )
 {
-    ReplayOverlay::RenderReplayScrubberOverlay( BuildReplayOverlayRenderContext( inputs ) );
+    ReplayOverlay::RenderReplayScrubberOverlay( inputs.replayOverlayContext );
 }
 
 void RenderReplayDivergenceCounter( const UiTextPassInputs& inputs )
 {
-    const ReplayPredictionBaselineSnapshot& baseline = inputs.replayRuntime.Prediction().baseline;
-    if ( !inputs.state.debug.isTopTextHidden || !baseline.divergenceValid )
+    if ( !inputs.state.debug.isTopTextHidden || !inputs.replayHud.divergenceValid )
     {
         return;
     }
 
-    const int divergence = (std::max)( 0, static_cast<int>( baseline.divergenceUnits + 0.5f ) );
+    const int divergence = (std::max)( 0, static_cast<int>( inputs.replayHud.divergenceUnits + 0.5f ) );
     char value[32] = {};
     if ( divergence >= 1000 )
     {
@@ -732,14 +713,13 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.currentSceneIndex = view.sceneIndex;
         UIData.sceneCount = view.sceneCount;
         UIData.now = inputs.timers.simulationTimer.GetTotalTime();
-        const ReplayMemoryPolicy& replayMemoryPolicy = inputs.replayRuntime.MemoryPolicy();
-        UIData.replayMemoryPreset = static_cast<int>( replayMemoryPolicy.preset );
-        UIData.replayMemoryRequestedRetentionSeconds = replayMemoryPolicy.requestedRetentionSeconds;
-        UIData.replayMemoryRequestedBudgetMiB = replayMemoryPolicy.requestedBudgetMiB;
-        UIData.replayMemoryPresentationRetentionSeconds = replayMemoryPolicy.presentationRetentionSeconds;
-        UIData.replayMemorySolverRetentionSeconds = replayMemoryPolicy.solverRetentionSeconds;
-        UIData.replayMemoryBudgetClamped = replayMemoryPolicy.budgetClamped;
-        UIData.replayMemorySolverWindowReduced = replayMemoryPolicy.solverWindowReduced;
+        UIData.replayMemoryPreset = inputs.replayHud.memoryPreset;
+        UIData.replayMemoryRequestedRetentionSeconds = inputs.replayHud.requestedRetentionSeconds;
+        UIData.replayMemoryRequestedBudgetMiB = inputs.replayHud.requestedBudgetMiB;
+        UIData.replayMemoryPresentationRetentionSeconds = inputs.replayHud.presentationRetentionSeconds;
+        UIData.replayMemorySolverRetentionSeconds = inputs.replayHud.solverRetentionSeconds;
+        UIData.replayMemoryBudgetClamped = inputs.replayHud.memoryBudgetClamped;
+        UIData.replayMemorySolverWindowReduced = inputs.replayHud.solverWindowReduced;
         const bool memoryTabActive =
             inputs.ui.IsVisible() && !inputs.ui.IsMinimized() && inputs.ui.GetActiveTab() == InGameUITab::Memory;
         const bool memoryOverlayEnabled = inputs.ui.IsMemoryOverlayEnabled();
@@ -747,7 +727,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         {
             // Why: memory sampling belongs to DiagnosticsRuntime; the render host
             // only decides whether the UI pass needs to draw.
-            UIData.mainMemory = inputs.diagnosticsRuntime.RefreshMainMemoryStats( inputs.replayRuntime,
+            assert( inputs.replayHud.memoryStatsValid );
+            UIData.mainMemory = inputs.diagnosticsRuntime.RefreshMainMemoryStats( inputs.replayHud.memoryStats,
                                                                                   inputs.models.gameObjectMemory,
                                                                                   UIData.now,
                                                                                   false,

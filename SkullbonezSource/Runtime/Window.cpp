@@ -305,7 +305,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 }
 
 
-SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
+SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode, bool showOnCreate )
 {
     HWND hWnd = nullptr;       // Handle to our window
     WNDCLASS wndclass = { 0 }; // Window class struct
@@ -377,9 +377,29 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, boo
     // Lifetime: bind callback-fed input queues as soon as the HWND exists so
     // later window messages cannot enqueue input against an unknown window.
     Input::BindCallbackBridge( hWnd );
-    ShowWindow( hWnd, SW_SHOWNORMAL ); // Show window
-    UpdateWindow( hWnd );
-    SetFocus( hWnd );
+    // Why: long-running automation still creates a real HWND and DX12 swap
+    // chain so screenshots and presentation buffers follow production. The
+    // hidden lane only suppresses repeated desktop demonstrations; it does not
+    // switch validation to a headless or alternate renderer.
+    if ( showOnCreate )
+    {
+        ShowWindow( hWnd, SW_SHOWNORMAL );
+        UpdateWindow( hWnd );
+        SetFocus( hWnd );
+    }
+    else
+    {
+        RECT clientDimensions = {};
+        if ( !GetClientRect( hWnd, &clientDimensions ) || clientDimensions.right <= 0 || clientDimensions.bottom <= 0 )
+        {
+            return SkullbonezCore::Core::SbResult::Failure( "Runtime/Window",
+                                                            "Hidden automation window has no drawable client area." );
+        }
+        // Hidden windows do not receive the normal WM_SIZE publication before
+        // renderer startup. Publish the real client rectangle here so DX12 uses
+        // the same swap-chain dimensions as the shown-window path.
+        SetWindowDimensions( clientDimensions );
+    }
     Input::SetSystemCursorVisible( false );
     (void)Input::RegisterRawMouseInput( hWnd );
     return SkullbonezCore::Core::SbResult::Success();

@@ -1,13 +1,15 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
 Purpose:
-  Declares the chunked binary v2 replay artifact writer.
+  Declares the versioned chunked-binary replay artifact writer.
 
 Summary:
-  V2 artifacts are saved replay buffers, not yet complete branchable timelines.
-  The first track is presentation data for smooth scrub, with optional solver
-  hash/checkpoint chunks and branch provenance layered in for saved restore
-  verification work.
+  The established ReplayV2Artifact API owns the .skreplay format family. The
+  v4 persists v3's complete replay-owned visual body state plus ordered RVIS
+  packet fields and the RVPD typed prediction-state payload. Its reader retains
+  deterministic v2/v3 compatibility.
+  Optional solver hash/checkpoint chunks and branch provenance remain layered
+  in for saved restore verification work.
 
 Glossary:
   Presentation track: Body poses, camera, and world display fields used for
@@ -17,13 +19,17 @@ Glossary:
     exists; event chunks and arbitrary target restore are separate work.
   Branch provenance chunk: Small records naming live timeline ancestry after a
     hash-verified restore creates a child branch.
+  RVIS: Ordered packet identity, typed counts, and exact render-buffer rows.
+  RVPD: Bounded typed prediction state used by non-presenting round-trip checks.
   Chunk: A typed byte range in the replay file, found through the chunk table.
   JSON (JavaScript Object Notation): Human-readable metadata encoding used by
     the binary artifact's manifest chunk.
 
 Invariants:
-  - V2 presentation artifacts are little-endian and chunk-table based.
-  - Binary v2 is the sole saved replay artifact format.
+  - Presentation artifacts are little-endian and chunk-table based.
+  - The writer emits v4, the reader accepts v2/v3/v4, and future versions fail closed.
+  - The ReplayV2Artifact type name is retained API vocabulary, not the current
+    wire-version declaration.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp
@@ -34,9 +40,11 @@ Related:
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 #include "ReplayRecorder.h"
+#include "ReplayVisualPacket.h"
 
 namespace SkullbonezCore
 {
@@ -50,6 +58,8 @@ struct ReplayV2SaveResult
     std::size_t solverCheckpointCount = 0;
     std::size_t eventCount = 0;
     std::size_t eventCursorCount = 0;
+    std::size_t visualPacketCount = 0;
+    uint64_t visualPredictionHash = 0;
     std::size_t fileBytes = 0;
 };
 
@@ -103,8 +113,8 @@ struct ReplayV2SolverHashLoadResult
 class ReplayV2Artifact
 {
   public:
-    // Saves presentation samples only: enough for visual scrub, not enough for
-    // authoritative physics rollback.
+    // Saves presentation samples only: enough for exact visual scrub, not
+    // enough for authoritative physics rollback.
     static bool
     SavePresentation( const ReplayRecorder& recorder, const char* path, ReplayV2SaveResult* result = nullptr );
     // Saves presentation data plus sparse solver hashes/checkpoints so restore
@@ -116,6 +126,13 @@ class ReplayV2Artifact
     static bool SavePresentationWithSolverHashes( const ReplayRecorder& recorder,
                                                   const ReplaySolverRecorder& solverRecorder,
                                                   const ReplayEventRecorder& eventRecorder,
+                                                  const char* path,
+                                                  ReplayV2SaveResult* result = nullptr );
+    static bool SavePresentationWithSolverHashes( const ReplayRecorder& recorder,
+                                                  const ReplaySolverRecorder& solverRecorder,
+                                                  const ReplayEventRecorder& eventRecorder,
+                                                  std::span<const ReplayVisualArchiveSample> visualPackets,
+                                                  std::span<const uint8_t> visualPredictionState,
                                                   const char* path,
                                                   ReplayV2SaveResult* result = nullptr );
     // Loaders are intentionally chunk-specific so tools can inspect a replay
@@ -132,6 +149,8 @@ class ReplayV2Artifact
     static bool LoadSolverHashes( const char* path,
                                   std::vector<ReplayV2SolverHashSample>& outHashes,
                                   ReplayV2SolverHashLoadResult* result = nullptr );
+    static bool LoadVisualPackets( const char* path, std::vector<ReplayVisualArchiveSample>& outPackets );
+    static bool LoadVisualPredictionState( const char* path, std::vector<uint8_t>& outBytes );
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

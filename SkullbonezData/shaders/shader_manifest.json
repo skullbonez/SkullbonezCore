@@ -845,7 +845,7 @@
           },
           {
             "name": "BindlessTextureIndices",
-            "size": 24,
+            "size": 32,
             "fields": [
               {
                 "type": "uint4",
@@ -1287,7 +1287,7 @@
           },
           {
             "name": "BindlessTextureIndices",
-            "size": 24,
+            "size": 32,
             "fields": [
               {
                 "type": "uint4",
@@ -1551,7 +1551,7 @@
           },
           {
             "name": "BindlessTextureIndices",
-            "size": 24,
+            "size": 32,
             "fields": [
               {
                 "type": "uint4",
@@ -1698,7 +1698,7 @@
           },
           {
             "name": "BindlessTextureIndices",
-            "size": 24,
+            "size": 32,
             "fields": [
               {
                 "type": "uint4",
@@ -2493,7 +2493,7 @@
         "cbuffers": [
           {
             "name": "BindlessTextureIndices",
-            "size": 24,
+            "size": 32,
             "fields": [
               {
                 "type": "uint4",
@@ -2968,7 +2968,7 @@
           },
           {
             "name": "BindlessTextureIndices",
-            "size": 24,
+            "size": 32,
             "fields": [
               {
                 "type": "uint4",
@@ -3109,7 +3109,7 @@
         "cbuffers": [
           {
             "name": "BindlessTextureIndices",
-            "size": 24,
+            "size": 32,
             "fields": [
               {
                 "type": "uint4",
@@ -3291,7 +3291,7 @@
           },
           {
             "name": "BindlessTextureIndices",
-            "size": 24,
+            "size": 32,
             "fields": [
               {
                 "type": "uint4",
@@ -3609,7 +3609,7 @@
           },
           {
             "name": "BindlessTextureIndices",
-            "size": 24,
+            "size": 32,
             "fields": [
               {
                 "type": "uint4",
@@ -3948,7 +3948,7 @@
           },
           {
             "name": "BindlessTextureIndices",
-            "size": 24,
+            "size": 32,
             "fields": [
               {
                 "type": "uint4",

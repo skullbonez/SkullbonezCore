@@ -60,6 +60,7 @@ Related:
 #include "../Editor/EditorCommandHistory.h"
 #include "../RuntimeCameraMode.h"
 #include "../RuntimeInteractionController.h"
+#include "../Replay/ReplayVisualPacket.h"
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/Vector3.h"
@@ -571,8 +572,10 @@ class RunEditorTracer
     // quota before vertex emission, preserving lane-specific diagnostics.
     void RecordReplayRibbonDroppedSegments( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
                                             std::size_t count = 1u );
-    // Returns the post-build replay ribbon submission hash for validation probes.
-    const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& ReplaySubmissionStats() const;
+    // Prepares the exact frame-local spans later published by ReplayRuntime.
+    // Lifetime: returned spans borrow this tracer until its next Clear().
+    ReplayVisualPacket BuildReplayVisualPacket( const Math::Vector::Vector3& cameraEye,
+                                                const Math::Vector::Vector3& cameraUp );
     // Invariant: replay path drawing budgets against ordinary ribbon slots
     // before emitting segments, so the tracer's fixed reserve remains the
     // single source of capacity truth.
@@ -677,9 +680,8 @@ class RunEditorTracer
                                  int hotAngularAxis,
                                  int activeAxis,
                                  bool activeAngular );
-    void Render( const Math::Transformation::Matrix4& viewProjection,
-                 const Math::Vector::Vector3& cameraEye,
-                 const Math::Vector::Vector3& cameraUp,
+    void Render( const ReplayVisualPacket& packet,
+                 const Math::Transformation::Matrix4& viewProjection,
                  Rendering::IRenderCommandContext& renderCommands );
 };
 

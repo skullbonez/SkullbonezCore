@@ -84,6 +84,14 @@ TEST_CASE( "Shader reflection contracts: each cbuffer owns an independent reflec
     CHECK( GeneratedCbufferSize( *pixelStage, "BindlessTextureIndices" ) != pixelStage->cbufferSize );
 }
 
+TEST_CASE( "Shader reflection contracts: text bindless constants use API-visible cbuffer storage" )
+{
+    const auto* pixelStage = FindGeneratedShaderStage( "text.hlsl", "ps" );
+    REQUIRE( pixelStage != nullptr );
+    CHECK( pixelStage->cbufferSize == 32u );
+    CHECK( GeneratedCbufferSize( *pixelStage, "BindlessTextureIndices" ) == 32u );
+}
+
 TEST_CASE( "Shader reflection contracts: bindless texture indices are pixel-stage only" )
 {
     const auto* vertexStage = FindGeneratedShaderStage( "lit_textured.hlsl", "vs" );

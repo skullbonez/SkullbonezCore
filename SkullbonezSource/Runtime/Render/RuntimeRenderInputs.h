@@ -96,8 +96,8 @@ class InGameUI;
 namespace Runtime
 {
 class Window;
-class ReplayRuntime;
 class RuntimeTools;
+struct ReplayRenderFrameView;
 struct RenderToolOverlayView;
 
 struct RuntimeRenderFramePolicy
@@ -158,7 +158,7 @@ struct RuntimeRenderServices
     Window& window;
     UI::InGameUI& ui;
     RuntimeTools& runtimeTools;
-    ReplayRuntime& replayRuntime;
+    const ReplayRenderFrameView& replayFrame;
     const RenderToolOverlayView& toolOverlay;
     const RuntimeRenderFramePolicy& framePolicy;
     Geometry::SkyBox* skyBox;

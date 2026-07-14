@@ -69,7 +69,6 @@ class DiagnosticsRuntime;
 class GraphicsStressController;
 class InputRouter;
 class RenderDefaultsStore;
-class ReplayRuntime;
 class RuntimeInteractionController;
 class RuntimeRenderer;
 class RuntimeTools;
@@ -112,14 +111,13 @@ struct RuntimeFrameHostView
 };
 
 // Lifetime: this slice exists only while routing one frame of operator or
-// automation intent. Durable input, replay, camera, UI, and tool state stays in
+// automation intent. Durable input, camera, UI, and tool state stays in
 // the named owners below.
 struct RuntimeFrameInteractionView
 {
     InputRouter& inputRouter;
     RuntimeInteractionController& interaction;
     AttachedCameraController& attachedCamera;
-    ReplayRuntime& replayRuntime;
     UI::InGameUI& ui;
     RuntimeTools& runtimeTools;
     RunCameraState& camera;
@@ -127,12 +125,11 @@ struct RuntimeFrameInteractionView
     RuntimeFrameInteractionView( InputRouter& inputRouterValue,
                                  RuntimeInteractionController& interactionValue,
                                  AttachedCameraController& attachedCameraValue,
-                                 ReplayRuntime& replayRuntimeValue,
                                  UI::InGameUI& uiValue,
                                  RuntimeTools& runtimeToolsValue,
                                  RunCameraState& cameraValue )
         : inputRouter( inputRouterValue ), interaction( interactionValue ), attachedCamera( attachedCameraValue ),
-          replayRuntime( replayRuntimeValue ), ui( uiValue ), runtimeTools( runtimeToolsValue ), camera( cameraValue )
+          ui( uiValue ), runtimeTools( runtimeToolsValue ), camera( cameraValue )
     {
     }
     RuntimeFrameInteractionView( const RuntimeFrameInteractionView& ) = delete;

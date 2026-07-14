@@ -129,7 +129,7 @@ RuntimeInputModeState BuildRuntimeInputModeState( RunCameraMode mode,
 
 PointerPresentationPolicy EvaluateRuntimePointerPresentation( const InputRouter& inputRouter,
                                                               const RunEditorPlacementState& editor,
-                                                              const ReplayRuntime& replayRuntime )
+                                                              const ReplayInputView& replayInput )
 {
     const RuntimeInputSnapshot& runtimeSnapshot = inputRouter.RuntimeSnapshot();
     const UiInputHitSnapshot& uiSnapshot = inputRouter.UiSnapshot();
@@ -138,11 +138,9 @@ PointerPresentationPolicy EvaluateRuntimePointerPresentation( const InputRouter&
     input.editorViewportLookActive = editor.viewportLookActive;
     input.editorPlacementModeEnabled = editor.placementModeEnabled;
     input.editorPlacementPreviewVisible = editor.placementPreviewVisible;
-    input.replayInspectionActive = replayRuntime.InspectionActive();
-    input.replayInspectionLookActive =
-        input.replayInspectionActive && replayRuntime.InspectionMouseLookActive( runtimeSnapshot.pointer.rightDown,
-                                                                                 uiSnapshot.wantsNativeCursor,
-                                                                                 uiSnapshot.blocksCameraMouse );
+    input.replayInspectionActive = replayInput.inspectionActive;
+    input.replayInspectionLookActive = input.replayInspectionActive && runtimeSnapshot.pointer.rightDown &&
+                                       !uiSnapshot.wantsNativeCursor && !uiSnapshot.blocksCameraMouse;
     return inputRouter.EvaluatePointerPresentation( input );
 }
 
@@ -185,7 +183,7 @@ void EnterFlyModeCamera( InputRouter& inputRouter,
                          SkullbonezCore::Environment::CameraCollection& cameras,
                          bool authoredScene,
                          const RunEditorPlacementState& editor,
-                         const ReplayRuntime& replayRuntime )
+                         const ReplayInputView& replayInput )
 {
     // Why: generated demos snap to CAMERA_FREE; authored scenes keep their
     // selected camera so manual controls continue from the visible pose.
@@ -203,7 +201,7 @@ void EnterFlyModeCamera( InputRouter& inputRouter,
     cameras.SetCameraXZBounds( activeCamera, unbounded );
 
     const PointerPresentationPolicy presentation =
-        EvaluateRuntimePointerPresentation( inputRouter, editor, replayRuntime );
+        EvaluateRuntimePointerPresentation( inputRouter, editor, replayInput );
     if ( presentation.hideNativeCursor )
     {
         inputRouter.RequestCursorVisible( false );
@@ -520,14 +518,14 @@ void RecordSceneRuntimeUIActions( const SceneRuntimeUICommandResult& commands, R
 RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
                                           RuntimeFrameInteractionView& interactionOwners,
                                           RuntimeFrameSceneView& sceneOwners,
-                                          const ReplayRuntime::PathPickInput& replayPointerRay,
+                                          ReplayRuntime& replayRuntime,
+                                          const ReplayPathPickInput& replayPointerRay,
                                           const RuntimeInputFrameFacts& facts )
 {
     InputRouter& inputRouter = interactionOwners.inputRouter;
     RuntimeInputContext& runtimeInput = inputRouter.RuntimeContext();
     RunCameraState& camera = interactionOwners.camera;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    ReplayRuntime& replayRuntime = interactionOwners.replayRuntime;
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     RunTimerState& timers = sceneOwners.timers;
@@ -588,30 +586,30 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
     // the completed interaction policy exists. Publish current post-UI pointer
     // and key facts now; ProcessInputFrame republishes the final policy facts below.
     inputRouter.PublishRuntimeSnapshot( RuntimeInteractionFrameInput{}, result.suppressWorldActionThisFrame );
-    replayRuntime.TickWorkspace( ReplayRuntime::ReplayWorkspaceInput{ windowHandle,
-                                                                      ui.BlocksCameraMouse(),
-                                                                      result.editorUnhandledWheelDelta,
-                                                                      replayPointerRay,
-                                                                      inputRouter,
-                                                                      interaction,
-                                                                      sceneController.Physics(),
-                                                                      sceneController.Entities(),
-                                                                      sceneController.RenderPresentationRecords(),
-                                                                      &sceneController.Cameras(),
-                                                                      sceneController.Terrain().Get(),
-                                                                      camera,
-                                                                      runtimeTools.MousePickup(),
-                                                                      facts.replayCurrentCameraMode,
-                                                                      facts.replayRestoreCameraMode,
-                                                                      attachedCamera.State().activeFollow,
-                                                                      camera.director.grabbed,
-                                                                      runtimeTools.Editor().editorModeEnabled,
-                                                                      sceneController.State().isScenePhysics,
-                                                                      ui.IsVisible(),
-                                                                      ui.IsMinimized(),
-                                                                      window.ClientWidth(),
-                                                                      window.ClientHeight(),
-                                                                      timers.simulationTimer.GetTotalTime() },
+    replayRuntime.TickWorkspace( ReplayWorkspaceFrameInput{ windowHandle,
+                                                            ui.BlocksCameraMouse(),
+                                                            result.editorUnhandledWheelDelta,
+                                                            replayPointerRay,
+                                                            facts.replayCurrentCameraMode,
+                                                            facts.replayRestoreCameraMode,
+                                                            attachedCamera.State().activeFollow,
+                                                            camera.director.grabbed,
+                                                            runtimeTools.Editor().editorModeEnabled,
+                                                            sceneController.State().isScenePhysics,
+                                                            ui.IsVisible(),
+                                                            ui.IsMinimized(),
+                                                            window.ClientWidth(),
+                                                            window.ClientHeight(),
+                                                            timers.simulationTimer.GetTotalTime() },
+                                 inputRouter,
+                                 interaction,
+                                 sceneController.Physics(),
+                                 sceneController.Entities(),
+                                 sceneController.RenderPresentationRecords(),
+                                 &sceneController.Cameras(),
+                                 sceneController.Terrain().Get(),
+                                 camera,
+                                 runtimeTools.MousePickup(),
                                  result.replayWorkspace );
     result.enterInteractiveScene = result.enterInteractiveScene || result.replayWorkspace.enterInteractive;
     result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || result.replayWorkspace.consumesMouse;
@@ -629,13 +627,13 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                   RuntimeFrameInteractionView& interactionOwners,
                                                   RuntimeFrameSceneView& sceneOwners,
                                                   RuntimeFramePresentationView& presentationOwners,
+                                                  ReplayRuntime& replayRuntime,
                                                   const RuntimeInputFrameFacts& facts )
 {
     InputRouter& inputRouter = interactionOwners.inputRouter;
     RuntimeInputContext& runtimeInput = inputRouter.RuntimeContext();
     RunCameraState& camera = interactionOwners.camera;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    ReplayRuntime& replayRuntime = interactionOwners.replayRuntime;
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     RunTimerState& timers = sceneOwners.timers;
@@ -693,13 +691,14 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                               facts.replayRestoreCameraMode,
                                               attachedCamera.State().activeFollow,
                                               camera.director.grabbed );
-        if ( inputRouter.ReleasePointerToUi(
-                 EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(), replayRuntime ) ) )
+        if ( inputRouter.ReleasePointerToUi( EvaluateRuntimePointerPresentation( inputRouter,
+                                                                                 runtimeTools.Editor(),
+                                                                                 replayRuntime.BuildInputView() ) ) )
         {
             InputController::ResetMouseLook( camera );
         }
         inputRouter.ApplyPointerPresentation(
-            EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(), replayRuntime ) );
+            EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(), replayRuntime.BuildInputView() ) );
         updateInputMode( RuntimeInputAction::ToggleEditorTool, RuntimeInputActionSource::UI );
     };
     const auto applyEditorModeToggle = [&]( RuntimeInputActionSource source )
@@ -738,7 +737,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                     sceneController.Cameras(),
                                     sceneController.State().isSceneMode,
                                     runtimeTools.Editor(),
-                                    replayRuntime );
+                                    replayRuntime.BuildInputView() );
             }
             else
             {
@@ -786,7 +785,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
             }
         }
         inputRouter.ApplyPointerPresentation(
-            EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(), replayRuntime ) );
+            EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(), replayRuntime.BuildInputView() ) );
         updateInputMode( RuntimeInputAction::ToggleEditor, source );
     };
 
@@ -960,21 +959,20 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     {
         if ( action.resetReplayTimeline )
         {
-            const ReplayRuntime::SceneTimelineResetInput reset = ReplayRuntime::DescribeSceneTimeline(
-                sceneController,
-                sceneController.State(),
-                facts.gameModelCapacity,
-                static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
-            replayRuntime.ResetSceneTimeline(
-                reset,
-                ReplayRuntime::SceneTimelineResetOwners{ inputRouter,
-                                                         interaction,
-                                                         &sceneController.Cameras(),
-                                                         sceneController.Terrain().Get(),
-                                                         camera,
-                                                         facts.replayRestoreCameraMode,
-                                                         attachedCamera.State().activeFollow,
-                                                         camera.director.grabbed } );
+            const ReplaySceneTimelineResetInput reset =
+                DescribeReplaySceneTimeline( sceneController,
+                                             sceneController.State(),
+                                             facts.gameModelCapacity,
+                                             static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
+            replayRuntime.ResetSceneTimeline( reset,
+                                              ReplaySceneTimelineResetOwners{ inputRouter,
+                                                                              interaction,
+                                                                              &sceneController.Cameras(),
+                                                                              sceneController.Terrain().Get(),
+                                                                              camera,
+                                                                              facts.replayRestoreCameraMode,
+                                                                              attachedCamera.State().activeFollow,
+                                                                              camera.director.grabbed } );
         }
         if ( action.scheduleProfileReset )
         {
@@ -1073,13 +1071,13 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
 RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
                                                   RuntimeFrameInteractionView& interactionOwners,
                                                   RuntimeFrameSceneView& sceneOwners,
+                                                  ReplayRuntime& replayRuntime,
                                                   RunCameraMode replayCurrentCameraMode )
 {
     InputRouter& inputRouter = interactionOwners.inputRouter;
     RuntimeInputContext& runtimeInput = inputRouter.RuntimeContext();
     RunCameraState& camera = interactionOwners.camera;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    ReplayRuntime& replayRuntime = interactionOwners.replayRuntime;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     SceneController& sceneController = sceneOwners.sceneController;
@@ -1146,12 +1144,11 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
     presentationInput.editorViewportLookActive = runtimeTools.Editor().viewportLookActive;
     presentationInput.editorPlacementModeEnabled = runtimeTools.Editor().placementModeEnabled;
     presentationInput.editorPlacementPreviewVisible = runtimeTools.Editor().placementPreviewVisible;
-    presentationInput.replayInspectionActive = replayRuntime.InspectionActive();
-    presentationInput.replayInspectionLookActive =
-        presentationInput.replayInspectionActive &&
-        replayRuntime.InspectionMouseLookActive( editorDevice.rightDown,
-                                                 presentationUi.wantsNativeCursor,
-                                                 presentationUi.blocksCameraMouse );
+    const ReplayInputView replayInput = replayRuntime.BuildInputView();
+    presentationInput.replayInspectionActive = replayInput.inspectionActive;
+    presentationInput.replayInspectionLookActive = presentationInput.replayInspectionActive && editorDevice.rightDown &&
+                                                   !presentationUi.wantsNativeCursor &&
+                                                   !presentationUi.blocksCameraMouse;
     inputRouter.RequestCursorVisible( !inputRouter.EvaluatePointerPresentation( presentationInput ).hideNativeCursor );
     return result;
 }

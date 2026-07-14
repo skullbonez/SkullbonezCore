@@ -36,6 +36,8 @@ Related:
 #include "../Maths/Vector3.h"
 #include "DemoDirector.h"
 #include "RuntimeCameraMode.h"
+#include "Replay/ReplayCoordination.h"
+#include "Replay/ReplayVisualPacketFingerprint.h"
 
 #include <string>
 #include <vector>
@@ -59,7 +61,6 @@ namespace Runtime
 class AttachedCameraController;
 class CaptureController;
 class InputRouter;
-class ReplayRuntime;
 class RuntimeInteractionController;
 class RuntimeTools;
 class SceneController;
@@ -84,6 +85,7 @@ enum class RunInteractionAutomationActionType
     ScrubReplaySolverTrack,
     SetReplayPredictionEnabled,
     SetReplayPredictionHorizonSeconds,
+    BeginReplayVisualFidelityCapture,
     SetReplayPathTarget,
     NudgeReplayPathTargetVelocity,
     ShowReplayScrubber,
@@ -181,6 +183,90 @@ struct RunInteractionAutomationReportAssertion
     bool passed = false;
 };
 
+struct ReplayVisualFidelityReportTick
+{
+    int sceneFrame = 0;
+    uint64_t revealFrame = 0;
+    uint64_t sourceFrame = 0;
+    uint64_t semanticHash = 0;
+    uint64_t headerStateHash = 0;
+    uint64_t trajectoryStateHash = 0;
+    uint64_t topologyStateHash = 0;
+    uint64_t markerStateHash = 0;
+    uint64_t ghostStateHash = 0;
+    uint64_t visualStateHash = 0;
+    uint64_t exactPacketHash = 0;
+    uint32_t schemaVersion = 0;
+    uint32_t targetId = 0;
+    uint32_t branchId = 0;
+    uint32_t eventCursor = 0;
+    uint32_t topologyVersion = 0;
+    uint32_t publishedFrameCount = 0;
+    bool predictionEnabled = false;
+    bool predictionBuilding = false;
+    bool predictionComplete = false;
+    Math::Vector::Vector3 cameraEye = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 cameraUp = Math::Vector::ZERO_VECTOR;
+    uint32_t trajectoryRecordCount = 0;
+    uint32_t futureNodeCount = 0;
+    uint32_t retainedMarkerCount = 0;
+    uint32_t ghostRequestCount = 0;
+    uint64_t droppedSegmentCount = 0;
+    uint64_t replayReserveGrowthEvents = 0;
+    bool hasGeometry = false;
+    uint64_t combinedLineHash = 0;
+    uint64_t combinedLineBytes = 0;
+    uint32_t combinedLineVertexCount = 0;
+    uint64_t ordinaryLineHash = 0;
+    uint64_t priorityLineHash = 0;
+    uint64_t priorityLineCanonicalHash = 0;
+    uint64_t ordinaryRibbonHash = 0;
+    uint64_t priorityRibbonHash = 0;
+    uint64_t priorityRibbonCanonicalHash = 0;
+    uint64_t vertexHash = 0;
+    uint64_t ordinaryVertexHash = 0;
+    uint64_t ordinaryLineBytes = 0;
+    uint64_t priorityLineBytes = 0;
+    uint64_t ordinaryRibbonBytes = 0;
+    uint64_t priorityRibbonBytes = 0;
+    uint64_t vertexBytes = 0;
+    uint64_t ordinaryVertexBytes = 0;
+    uint32_t ordinaryLineVertexCount = 0;
+    uint32_t priorityLineVertexCount = 0;
+    uint32_t ordinaryRibbonSegmentCount = 0;
+    uint32_t priorityRibbonSegmentCount = 0;
+    uint32_t vertexCount = 0;
+    uint32_t ordinaryVertexCount = 0;
+    uint32_t segmentCount = 0;
+};
+
+struct ReplayCausalProofTick
+{
+    // Concept: this is the stable causal envelope beside V0's exact submitted
+    // geometry. Counts may only grow as the fixed reveal cursor advances.
+    uint64_t revealFrame = 0;
+    uint64_t activeTopologyHash = 0;
+    uint32_t activeNodeCount = 0;
+    uint32_t revealedRecordCount = 0;
+    uint32_t revealedPointCount = 0;
+    uint32_t revealedSegmentCount = 0;
+    uint32_t entryMarkerCount = 0;
+    uint32_t restMarkerCount = 0;
+    uint32_t horizonMarkerCount = 0;
+    uint32_t ghostRequestCount = 0;
+};
+
+struct ReplayCausalTopologyNodeReport
+{
+    // PhysicsSceneObjectId-backed replay ids preserve the parent/depth chain in
+    // report JSON without borrowing mutable runtime topology storage.
+    uint32_t id = 0;
+    uint32_t parentId = 0;
+    uint64_t firstFrame = 0;
+    int depth = 0;
+    bool contactDerived = false;
+};
+
 struct InteractionAutomationController
 {
     bool enabled = false;
@@ -195,6 +281,20 @@ struct InteractionAutomationController
     std::vector<RunInteractionAutomationReportAction> actionReports;
     std::vector<RunInteractionAutomationReportAssertion> assertionReports;
     std::vector<std::string> screenshots;
+    std::vector<ReplayVisualFidelityReportTick> replayVisualFidelityTicks;
+    // Validation-only retained evidence. These vectors live only for a bounded
+    // CLI automation process and never become replay/runtime business state.
+    std::vector<ReplayCausalProofTick> replayCausalProofTicks;
+    std::vector<ReplayCausalTopologyNodeReport> replayCausalTopology;
+    std::vector<ReplayVisualTrajectoryDigestState> replayVisualTrajectoryDigests;
+    std::vector<uint8_t> replayVisualPredictionArchive;
+    int replayVisualFidelityStartFrame = -1;
+    bool replayVisualFidelityCaptureEnabled = false;
+    uint64_t replayVisualFidelityTrajectoryHash = 0;
+    uint64_t replayVisualFidelityTrajectoryRecordCount = 0;
+    uint64_t replayVisualFidelityTrajectoryPointCount = 0;
+    bool replayVisualFidelityTrajectoryCaptured = false;
+    bool replayVisualOfflineProjectionComplete = false;
     POINT mouseClientPosition = {};
     bool hasMouseClientPosition = false;
     bool leftMouseDown = false;
@@ -214,6 +314,14 @@ struct InteractionAutomationFrameResult
 {
     bool requestQuit = false;
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
+    // Value-only replay mutations are applied once by the frame composition
+    // boundary after automation has finished producing its synthetic input.
+    ReplayFrameIntent replayIntent;
+    bool applyCameraMode = false;
+    RunCameraMode cameraMode = RunCameraMode::Demo;
+    bool setWorldInteractionOwner = false;
+    WorldInteractionOwner worldInteractionOwner = WorldInteractionOwner::None;
+    InteractionExitReason worldInteractionReason = InteractionExitReason::EnterReplay;
 };
 
 SkullbonezCore::Core::SbResult ConfigureInteractionAutomation( InteractionAutomationController& state,
@@ -224,18 +332,20 @@ void ClearInteractionAutomationInput( InteractionAutomationController& state );
 InteractionAutomationFrameResult TickInteractionAutomationBeforeInput( InteractionAutomationController& state,
                                                                        RuntimeFrameHostView& host,
                                                                        RuntimeFrameInteractionView& interactionOwners,
-                                                                       RuntimeFrameSceneView& sceneOwners );
+                                                                       RuntimeFrameSceneView& sceneOwners,
+                                                                       const ReplayAutomationView& replayView );
 InteractionAutomationFrameResult
 TickInteractionAutomationAfterRender( InteractionAutomationController& state,
                                       RuntimeFrameInteractionView& interactionOwners,
                                       RuntimeFrameSceneView& sceneOwners,
+                                      const ReplayAutomationView& replayView,
                                       CaptureController& capture,
                                       Rendering::IRenderCaptureBackend& captureBackend );
 bool InteractionAutomationWillCaptureAfterRender( const InteractionAutomationController& state, int frame );
 SkullbonezCore::Core::SbResult WriteInteractionAutomationReport( InteractionAutomationController& state,
                                                                  const SceneController& scene,
                                                                  const RuntimeTools& runtimeTools,
-                                                                 const ReplayRuntime& replayRuntime,
+                                                                 const ReplayAutomationView& replay,
                                                                  const RuntimeInteractionController& interaction,
                                                                  const RunCameraState& camera,
                                                                  const UI::InGameUI& ui );

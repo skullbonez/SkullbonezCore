@@ -83,6 +83,9 @@ for %%A in (%*) do (
     ) else if /I "!ARG!"=="runtime-interaction-policy" (
         call "%ROOT%validate_runtime_interaction_policy.bat"
         if errorlevel 1 set "FAILED=1"
+    ) else if /I "!ARG!"=="replay-visual-fidelity" (
+        call "%ROOT%validate_replay_visual_fidelity.bat"
+        if errorlevel 1 set "FAILED=1"
     ) else if /I "!ARG!"=="scene-parser-tests" (
         call "%ROOT%validate_scene_parser_tests.bat"
         if errorlevel 1 set "FAILED=1"
@@ -175,6 +178,7 @@ echo   tools\validate_select.bat concept-full
 echo   tools\validate_select.bat shaders
 echo   tools\validate_select.bat project-filters
 echo   tools\validate_select.bat runtime-interaction-policy
+echo   tools\validate_select.bat replay-visual-fidelity
 echo   tools\validate_select.bat scene-parser-tests
 echo   tools\validate_select.bat dx12-arch-tests
 echo   tools\validate_select.bat ui

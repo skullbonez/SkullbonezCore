@@ -176,7 +176,12 @@ def reflect_job(repo: Path, dxc: Path, job: dict[str, str], bytecode_path: Path)
                     re.MULTILINE,
                 )
             ]
-            total_size = int(size_match.group(1))
+            raw_size = int(size_match.group(1))
+            # Invariant: ID3D12ShaderReflection reports constant-buffer storage
+            # in complete 16-byte register rows. DXC dumpbin can print the last
+            # used byte instead (for example uint4 + uint2 as 24), so generated
+            # startup evidence must use the API-visible padded size.
+            total_size = (raw_size + 15) & ~15
             for field in fields:
                 type_match = re.search(r"(\d+)(?:x(\d+))?$", str(field["type"]))
                 field["size"] = 4 * ( int(type_match.group(1)) if type_match else 1 ) * (

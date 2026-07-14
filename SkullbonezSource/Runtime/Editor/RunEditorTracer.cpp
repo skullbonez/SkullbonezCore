@@ -100,6 +100,45 @@ void HashReplaySubmissionBytes( uint64_t& hash, const void* data, std::size_t by
     }
 }
 
+void HashReplaySubmissionFloatStream( const std::vector<float>& values, uint64_t& outHash, uint64_t& outBytes )
+{
+    outHash = REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET;
+    const uint64_t floatCount = static_cast<uint64_t>( values.size() );
+    HashReplaySubmissionBytes( outHash, &floatCount, sizeof( floatCount ) );
+    outBytes = floatCount * sizeof( float );
+    if ( !values.empty() )
+    {
+        HashReplaySubmissionBytes( outHash, values.data(), static_cast<std::size_t>( outBytes ) );
+    }
+}
+
+uint64_t HashReplaySubmissionCanonicalRecords( const std::vector<float>& values, std::size_t floatsPerRecord )
+{
+    uint64_t sum = 0;
+    uint64_t mixedSum = 0;
+    uint64_t recordCount = 0;
+    for ( std::size_t index = 0; index + floatsPerRecord <= values.size(); index += floatsPerRecord )
+    {
+        uint64_t recordHash = REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET;
+        HashReplaySubmissionBytes( recordHash, values.data() + index, floatsPerRecord * sizeof( float ) );
+        sum += recordHash;
+        // A second commutative moment prevents permutations from mattering
+        // while duplicate records and individual-bit mutations remain visible.
+        recordHash ^= recordHash >> 30u;
+        recordHash *= 0xBF58476D1CE4E5B9ull;
+        recordHash ^= recordHash >> 27u;
+        recordHash *= 0x94D049BB133111EBull;
+        recordHash ^= recordHash >> 31u;
+        mixedSum += recordHash;
+        ++recordCount;
+    }
+    uint64_t hash = REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET;
+    HashReplaySubmissionBytes( hash, &recordCount, sizeof( recordCount ) );
+    HashReplaySubmissionBytes( hash, &sum, sizeof( sum ) );
+    HashReplaySubmissionBytes( hash, &mixedSum, sizeof( mixedSum ) );
+    return hash;
+}
+
 void AppendReplayRibbonVertex( std::vector<float>& vertexData,
                                const Vector3& previous,
                                const Vector3& start,
@@ -506,9 +545,31 @@ void RunEditorTracer::RecordReplayRibbonDroppedSegments( SkullbonezCore::Core::M
     }
 }
 
-const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& RunEditorTracer::ReplaySubmissionStats() const
+ReplayVisualPacket RunEditorTracer::BuildReplayVisualPacket( const Vector3& cameraEye, const Vector3& cameraUp )
 {
-    return m_replaySubmissionStats;
+    m_renderLineData.clear();
+    if ( !m_priorityLineData.empty() )
+    {
+        // Invariant: the packet's combined stream is the exact single line
+        // submission consumed below. Ordinary and priority spans remain
+        // separate so first-difference diagnostics retain their owner lane.
+        m_renderLineData.insert( m_renderLineData.end(), m_lineData.begin(), m_lineData.end() );
+        m_renderLineData.insert( m_renderLineData.end(), m_priorityLineData.begin(), m_priorityLineData.end() );
+    }
+    BuildReplayRibbonVertices( cameraEye, cameraUp );
+
+    ReplayVisualPacket packet;
+    packet.header.cameraEye = cameraEye;
+    packet.header.cameraUp = cameraUp;
+    packet.combinedLines =
+        m_priorityLineData.empty() ? std::span<const float>( m_lineData ) : std::span<const float>( m_renderLineData );
+    packet.ordinaryLines = m_lineData;
+    packet.priorityLines = m_priorityLineData;
+    packet.ordinaryRibbonSegments = m_replayRibbonSegments;
+    packet.priorityRibbonSegments = m_priorityReplayRibbonSegments;
+    packet.expandedRibbonVertices = m_replayRibbonVertexData;
+    packet.submission = m_replaySubmissionStats;
+    return packet;
 }
 
 
@@ -1037,9 +1098,37 @@ void RunEditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const
     // evidence. Priority ribbons are appended second; only the yellow entry box
     // remains on this ribbon path while rest/horizon boxes use priority lines.
     appendRibbonData( m_replayRibbonSegments );
+    const std::size_t ordinaryVertexFloatCount = m_replayRibbonVertexData.size();
     appendRibbonData( m_priorityReplayRibbonSegments );
 
     m_replaySubmissionStats = SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats{};
+    // Invariant: the fidelity probe observes the same ordered floats consumed
+    // by the render commands. Empty streams still have a count-bearing hash so
+    // absence cannot alias a skipped sample in the golden manifest.
+    HashReplaySubmissionFloatStream( m_lineData,
+                                     m_replaySubmissionStats.ordinaryLineHash,
+                                     m_replaySubmissionStats.ordinaryLineBytes );
+    m_replaySubmissionStats.ordinaryLineVertexCount = static_cast<uint32_t>( m_lineData.size() / 6u );
+    HashReplaySubmissionFloatStream( m_priorityLineData,
+                                     m_replaySubmissionStats.priorityLineHash,
+                                     m_replaySubmissionStats.priorityLineBytes );
+    m_replaySubmissionStats.priorityLineCanonicalHash = HashReplaySubmissionCanonicalRecords( m_priorityLineData, 12u );
+    m_replaySubmissionStats.priorityLineVertexCount = static_cast<uint32_t>( m_priorityLineData.size() / 6u );
+    HashReplaySubmissionFloatStream( m_replayRibbonSegments,
+                                     m_replaySubmissionStats.ordinaryRibbonHash,
+                                     m_replaySubmissionStats.ordinaryRibbonBytes );
+    m_replaySubmissionStats.ordinaryRibbonSegmentCount =
+        static_cast<uint32_t>( m_replayRibbonSegments.size() / RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT );
+    HashReplaySubmissionFloatStream( m_priorityReplayRibbonSegments,
+                                     m_replaySubmissionStats.priorityRibbonHash,
+                                     m_replaySubmissionStats.priorityRibbonBytes );
+    m_replaySubmissionStats.priorityRibbonCanonicalHash =
+        HashReplaySubmissionCanonicalRecords( m_priorityReplayRibbonSegments,
+                                              RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT );
+    m_replaySubmissionStats.priorityRibbonSegmentCount = static_cast<uint32_t>(
+        m_priorityReplayRibbonSegments.size() / RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT );
+    m_replaySubmissionStats.hasGeometry = !m_lineData.empty() || !m_priorityLineData.empty() ||
+                                          !m_replayRibbonSegments.empty() || !m_priorityReplayRibbonSegments.empty();
     if ( !m_replayRibbonVertexData.empty() )
     {
         // Invariant: Stage-9 flicker validation hashes the exact float payload
@@ -1051,8 +1140,20 @@ void RunEditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const
         const uint64_t floatCount = static_cast<uint64_t>( m_replayRibbonVertexData.size() );
         HashReplaySubmissionBytes( hash, &floatCount, sizeof( floatCount ) );
         HashReplaySubmissionBytes( hash, m_replayRibbonVertexData.data(), byteCount );
-        m_replaySubmissionStats.hasGeometry = true;
         m_replaySubmissionStats.vertexHash = hash;
+        m_replaySubmissionStats.ordinaryVertexBytes = ordinaryVertexFloatCount * sizeof( float );
+        m_replaySubmissionStats.ordinaryVertexCount =
+            static_cast<uint32_t>( ordinaryVertexFloatCount / RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX );
+        uint64_t ordinaryHash = REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET;
+        const uint64_t ordinaryFloatCount = static_cast<uint64_t>( ordinaryVertexFloatCount );
+        HashReplaySubmissionBytes( ordinaryHash, &ordinaryFloatCount, sizeof( ordinaryFloatCount ) );
+        if ( ordinaryVertexFloatCount > 0u )
+        {
+            HashReplaySubmissionBytes( ordinaryHash,
+                                       m_replayRibbonVertexData.data(),
+                                       ordinaryVertexFloatCount * sizeof( float ) );
+        }
+        m_replaySubmissionStats.ordinaryVertexHash = ordinaryHash;
         m_replaySubmissionStats.vertexBytes = static_cast<uint64_t>( byteCount );
         m_replaySubmissionStats.vertexCount = static_cast<uint32_t>(
             m_replayRibbonVertexData.size() / RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX );
@@ -1569,78 +1670,63 @@ void RunEditorTracer::AddReplayVelocityGizmo( const Vector3& origin,
 }
 
 
-void RunEditorTracer::Render( const Matrix4& viewProjection,
-                              const Vector3& cameraEye,
-                              const Vector3& cameraUp,
+void RunEditorTracer::Render( const ReplayVisualPacket& packet,
+                              const Matrix4& viewProjection,
                               Rendering::IRenderCommandContext& renderCommands )
 {
-    if ( m_lineData.empty() && m_priorityLineData.empty() && m_replayRibbonSegments.empty() &&
-         m_priorityReplayRibbonSegments.empty() )
+    if ( !packet.HasGeometry() )
     {
         return;
     }
 
-    if ( !m_lineData.empty() || !m_priorityLineData.empty() )
+    if ( !packet.combinedLines.empty() )
     {
-        // Invariant: m_lineData stores colored vertices as xyz/rgb floats; every
+        // Invariant: combinedLines stores colored vertices as xyz/rgb floats; every
         // pair of vertices is one line segment consumed by DrawLinesColored.
-        const float* lineData = m_lineData.data();
-        std::size_t floatCount = m_lineData.size();
-        if ( !m_priorityLineData.empty() )
-        {
-            // Build one pre-reserved stream so ordinary paths and priority causal
-            // markers keep independent caps while the caller-owned render context
-            // performs the single debug-line draw.
-            m_renderLineData.clear();
-            m_renderLineData.insert( m_renderLineData.end(), m_lineData.begin(), m_lineData.end() );
-            m_renderLineData.insert( m_renderLineData.end(), m_priorityLineData.begin(), m_priorityLineData.end() );
-            lineData = m_renderLineData.data();
-            floatCount = m_renderLineData.size();
-        }
-        renderCommands.DrawLinesColored( lineData, static_cast<int>( floatCount / 6 ), viewProjection.Data() );
+        renderCommands.DrawLinesColored( packet.combinedLines.data(),
+                                         static_cast<int>( packet.combinedLines.size() / 6u ),
+                                         viewProjection.Data() );
     }
 
-    if ( !m_replayRibbonSegments.empty() || !m_priorityReplayRibbonSegments.empty() )
+    if ( !packet.expandedRibbonVertices.empty() )
     {
-        BuildReplayRibbonVertices( cameraEye, cameraUp );
-        if ( !m_replayRibbonVertexData.empty() )
-        {
-            Rendering::BlendFactor blendSrc = Rendering::BlendFactor::One;
-            Rendering::BlendFactor blendDst = Rendering::BlendFactor::Zero;
-            const bool depthTestWasEnabled = renderCommands.IsDepthTestEnabled();
-            const bool depthWriteWasEnabled = renderCommands.IsDepthWriteEnabled();
-            const bool blendWasEnabled = renderCommands.IsBlendEnabled();
-            const bool cullWasEnabled = renderCommands.IsCullFaceEnabled();
-            renderCommands.GetBlendFunc( blendSrc, blendDst );
+        Rendering::BlendFactor blendSrc = Rendering::BlendFactor::One;
+        Rendering::BlendFactor blendDst = Rendering::BlendFactor::Zero;
+        const bool depthTestWasEnabled = renderCommands.IsDepthTestEnabled();
+        const bool depthWriteWasEnabled = renderCommands.IsDepthWriteEnabled();
+        const bool blendWasEnabled = renderCommands.IsBlendEnabled();
+        const bool cullWasEnabled = renderCommands.IsCullFaceEnabled();
+        renderCommands.GetBlendFunc( blendSrc, blendDst );
 
-            // Concept: the first pass is a low-opacity depth hint with depth
-            // testing disabled; the normal pass is depth-tested, so visible
-            // strokes stay seated while occluded spans remain only faintly
-            // readable behind scene geometry.
-            renderCommands.SetDepthTest( false );
-            renderCommands.SetDepthWrite( false );
-            renderCommands.SetBlend( true );
-            renderCommands.SetBlendFunc( Rendering::BlendFactor::SrcAlpha, Rendering::BlendFactor::One );
-            renderCommands.SetCullFace( false );
+        // Concept: the first pass is a low-opacity depth hint with depth
+        // testing disabled; the normal pass is depth-tested, so visible
+        // strokes stay seated while occluded spans remain only faintly
+        // readable behind scene geometry.
+        renderCommands.SetDepthTest( false );
+        renderCommands.SetDepthWrite( false );
+        renderCommands.SetBlend( true );
+        renderCommands.SetBlendFunc( Rendering::BlendFactor::SrcAlpha, Rendering::BlendFactor::One );
+        renderCommands.SetCullFace( false );
 
-            renderCommands.DrawTransientColoredTriangles(
-                m_replayRibbonVertexData.data(),
-                static_cast<int>( m_replayRibbonVertexData.size() / RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX ),
-                viewProjection.Data(),
-                Rendering::TransientTriangleStyle::TrajectoryRibbonDepthHint );
+        renderCommands.DrawTransientColoredTriangles(
+            packet.expandedRibbonVertices.data(),
+            static_cast<int>( packet.expandedRibbonVertices.size() /
+                              RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX ),
+            viewProjection.Data(),
+            Rendering::TransientTriangleStyle::TrajectoryRibbonDepthHint );
 
-            renderCommands.SetDepthTest( true );
-            renderCommands.DrawTransientColoredTriangles(
-                m_replayRibbonVertexData.data(),
-                static_cast<int>( m_replayRibbonVertexData.size() / RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX ),
-                viewProjection.Data(),
-                Rendering::TransientTriangleStyle::TrajectoryRibbon );
+        renderCommands.SetDepthTest( true );
+        renderCommands.DrawTransientColoredTriangles(
+            packet.expandedRibbonVertices.data(),
+            static_cast<int>( packet.expandedRibbonVertices.size() /
+                              RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX ),
+            viewProjection.Data(),
+            Rendering::TransientTriangleStyle::TrajectoryRibbon );
 
-            renderCommands.SetCullFace( cullWasEnabled );
-            renderCommands.SetBlendFunc( blendSrc, blendDst );
-            renderCommands.SetBlend( blendWasEnabled );
-            renderCommands.SetDepthWrite( depthWriteWasEnabled );
-            renderCommands.SetDepthTest( depthTestWasEnabled );
-        }
+        renderCommands.SetCullFace( cullWasEnabled );
+        renderCommands.SetBlendFunc( blendSrc, blendDst );
+        renderCommands.SetBlend( blendWasEnabled );
+        renderCommands.SetDepthWrite( depthWriteWasEnabled );
+        renderCommands.SetDepthTest( depthTestWasEnabled );
     }
 }

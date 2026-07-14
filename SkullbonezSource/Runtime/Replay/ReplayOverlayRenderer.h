@@ -13,10 +13,12 @@ Glossary:
     scene rendering.
   Replay overlay: UI draw pass for replay timeline, prediction controls, and
     cause-tree inspection.
-  Render context: Borrowed state bundle for one overlay draw call.
+  Overlay state view: Read-only replay publication borrowed for one late pass.
+  Render context: Overlay state plus the render-command target and window facts.
 
 Invariants:
-  - The context borrows live runtime state for one frame only.
+  - Replay state reaches the context only through the published overlay view.
+  - Published references and sample pointers remain valid for one frame only.
   - Overlay functions must not store references from the context.
 
 Related:
@@ -25,7 +27,10 @@ Related:
 */
 #pragma once
 
-#include "ReplayRuntime.h"
+#include "ReplayAuthoring.h"
+#include "ReplayPrediction.h"
+#include "ReplayPresentation.h"
+#include "ReplayScrubber.h"
 #include "../../Rendering/RenderInstanceStore.h"
 
 #include <vector>
@@ -39,18 +44,7 @@ namespace SkullbonezCore::Physics
 {
 class PhysicsBodyStore;
 class PhysicsEngine;
-struct PhysicsWorldForces;
 } // namespace SkullbonezCore::Physics
-
-namespace SkullbonezCore::Threading
-{
-class WorkerPool;
-}
-
-namespace SkullbonezCore::Core
-{
-class EngineConfig;
-} // namespace SkullbonezCore::Core
 
 namespace SkullbonezCore::Runtime
 {
@@ -59,14 +53,52 @@ class RunEditorTracer;
 
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
+// Lifetime: a synchronous, read-only replay publication. References and sample
+// pointers remain valid only until the next replay update; UI composition must
+// not retain this value after the late pass.
+struct ReplayOverlayStateView
+{
+    ReplayScrubberView scrubber;
+    ReplayPredictionPresentationView prediction;
+    const RunReplayPathVisualizerState& pathVisualizer;
+    const RunReplayVelocityEditState& velocityEdit;
+    const RunReplayCauseTreeState& causeTree;
+    ReplayRecorderStats solverStats;
+    const ReplayPresentationSample* selectedPresentation = nullptr;
+    const ReplayPresentationSample* latestPresentation = nullptr;
+    const ReplaySolverFrameSample* selectedSolver = nullptr;
+    const ReplaySolverFrameSample* latestSolver = nullptr;
+    const RunReplayPredictionFrame* selectedPrediction = nullptr;
+    const ReplayPresentationSample* currentPresentation = nullptr;
+    const ReplaySolverFrameSample* currentSolver = nullptr;
+    float solverPresentTrackPosition = 1.0f;
+    bool loadedPresentation = false;
+    bool predictionTimelineAvailable = false;
+    bool shouldRenderScrubber = false;
+};
+
 struct ReplayOverlayRenderContext
 {
     // Lifetime: borrowed from the current UI/text pass; overlay code must not
     // store it after the draw call returns.
     Rendering::IRenderCommandContext& renderCommands;
-    ReplayRuntime& replayRuntime;
-    std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords;
-    const Physics::PhysicsBodyStore& bodyStore;
+    ReplayScrubberView scrubber;
+    const ReplayPredictionPresentationView& prediction;
+    const RunReplayPathVisualizerState& pathVisualizer;
+    const RunReplayVelocityEditState& velocityEdit;
+    const RunReplayCauseTreeState& causeTree;
+    ReplayRecorderStats solverStats;
+    const ReplayPresentationSample* selectedPresentation = nullptr;
+    const ReplayPresentationSample* latestPresentation = nullptr;
+    const ReplaySolverFrameSample* selectedSolver = nullptr;
+    const ReplaySolverFrameSample* latestSolver = nullptr;
+    const RunReplayPredictionFrame* selectedPrediction = nullptr;
+    const ReplayPresentationSample* currentPresentation = nullptr;
+    const ReplaySolverFrameSample* currentSolver = nullptr;
+    float solverPresentTrackPosition = 1.0f;
+    bool loadedPresentation = false;
+    bool predictionTimelineAvailable = false;
+    bool shouldRenderScrubber = false;
     bool editorModeEnabled = false;
     bool uiVisible = false;
     bool uiMinimized = false;
@@ -79,23 +111,25 @@ struct ReplayOverlayRenderContext
 
 struct ReplayPathVisualizerRenderContext
 {
-    // Lifetime: every reference is a frame-local borrow from Run's render-tool
-    // pass. The visualizer may update replay-owned caches, but must not retain
-    // owner references after returning.
-    ReplayRuntime& replayRuntime;
+    // Lifetime: every reference is a frame-local borrow from the render-tool
+    // pass. Prediction scheduling and presentation-cache preparation have
+    // already published for this frame, so drawing receives prediction as a
+    // read-only borrow and cannot reach worker or reveal-clock authority.
+    const ReplayPredictionPresentationView& prediction;
+    const RunReplayPathVisualizerState& pathVisualizer;
     SkullbonezCore::Physics::PhysicsEngine& physics;
     const SceneEntityStore& entities;
-    const SkullbonezCore::Core::EngineConfig& config;
-    const SkullbonezCore::Physics::PhysicsWorldForces& worldForces;
-    SkullbonezCore::Threading::WorkerPool& workerPool;
     RunEditorTracer& tracer;
-    bool scenePhysicsEnabled = false;
-    int sceneCurrentFrame = 0;
-    double simulationTimeSinceLastStart = 0.0;
-    double simulationTotalTime = 0.0;
+    ReplayFrameIndex presentFrame = 0;
+    bool hasPresentSample = false;
+};
+
+struct ReplayPathVisualizerRenderResult
+{
+    bool retainedRefreshBudgetExpired = false;
 };
 
 void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context );
 void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context );
-void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context );
+ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context );
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

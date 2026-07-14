@@ -24,12 +24,15 @@ Invariants:
     mutate replay state.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayPredictionDrawing.cpp
   - SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.h
 */
 #pragma once
 
-#include "ReplayRuntime.h"
+#include "ReplayAuthoring.h"
+#include "ReplayRecorder.h"
+#include "ReplayScrubber.h"
+#include "../RuntimeInteractionController.h"
 #include "../UI/RuntimeUiSurface.h"
 #include "../../UI/UIDraw.h"
 
@@ -141,7 +144,13 @@ inline RuntimeUiControlId ReplayCauseWindowControlId( ReplayCauseWindowControl c
 
 using ReplayCauseWindowSurface = RuntimeUiSurface<4>;
 
-ReplayScrubberSurfaceInput DescribeReplayScrubberSurface( const ReplayRuntime& replayRuntime,
+ReplayScrubberSurfaceInput DescribeReplayScrubberSurface( const ReplayScrubberView& scrubber,
+                                                          const ReplayRecorderStats& solverStats,
+                                                          bool loadedPresentation,
+                                                          bool pathTargetAvailable,
+                                                          bool predictionTimelineAvailable,
+                                                          bool currentPresentationAvailable,
+                                                          bool currentSolverAvailable,
                                                           bool scenePhysicsEnabled,
                                                           bool uiBlocksMouse,
                                                           int screenW,

@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-13
+Date: 2026-07-14
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -10,36 +10,61 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-12th-july` |
-| Current baseline | Adversarial-review round 3 is complete at 10/10; R10 runs three frames in flight with SM6.6 bindless raster texture access |
-| Current objective | Execute the replay architecture lane: `Plans/TODO/replay-prediction-fidelity-probe.md` (F1→F5), then `Plans/TODO/replay-monolith-decomposition.md` (M0→M8); validation-gate V3 remains externally blocked |
-| Portfolio progress | 312 / 326 tasks = 96% rounded overall |
-| Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-13 in 114.5s: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots/InfoQueue, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | R10 final: three consecutive DX12 passes 53.5/53.8/53.6s plus post-review passes, final perf 66.1s, final stress 61.6s with +0.70 MiB warmed working-set delta, and 179/179 unit tests. |
+| Branch | `nightrunner-13th-july` |
+| Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
+| Current objective | Reclose replay M3-M7 ownership findings from mandatory M8 review, with the unchanged frame-exact 200-box gate after every task |
+| Portfolio progress | 322 / 336 tasks = 96% rounded overall |
+| Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-14: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
+| Validation for current edits | M3-M7 remain reopened by M8 review. The sixteenth remediation checkpoint physically split prediction scheduling/publication from read-only drawing and removed mutable presentation/root storage access. Formatting, 678/678 filters, allocation policy, and the 75.3-second fast gate passed. The exact one-process oracle passed in 465.0 seconds (2,401 ticks, 200 moved, 187 strict topples, 199 causal nodes, one generation, one presentation, durable reconstruction, zero reserve growth, all controls); the 102.2-second full CPU/Profile/Debug/DX12/physics gate and 61.9-second perf gate passed with zero warnings/DX12 errors and byte-exact physics. No baseline changed. |
 
 ## Live Queue
 
-1. Validation-gate V3 is externally blocked at 5/6. The hosted CPU
+1. `replay-visual-fidelity-mega-probe` is complete at 7/7 on
+   `nightrunner-13th-july`. It uses one generation and one presented reveal,
+   then only non-presenting CPU/artifact verification.
+   `Toppled` now means more than half the wall is directly grounded and sleeping;
+   the approved base has 187/200 through the final second. Independent V6 review
+   found no blocking issue.
+2. `replay-monolith-decomposition` is active at 3/9 after the mandatory M8
+   ownership review reopened M3-M7. M0 certified the exact
+   starting tree; M1 bound all 55 current header type definitions/aliases and
+   212 free functions to named owners; M2 mechanically split the six owner/value
+   headers; M3 extracted the concrete presentation state, query, packet, and
+   diagnostic owner; M4 extracted timeline retention and scrubber cursor/
+   restore authority; M5 extracted authoring and its queued prediction-refresh
+   value boundary; M6 extracted private prediction ownership and its
+   never-stored published view while leaving mixed drawing statics for M8; M7
+   published the HUD value seam, removed replay ownership from the late UI
+   pass, and moved Run/query/probe behavior behind replay operations. The
+   historical two-consumer grep premise was stale. M8 review then confirmed
+   that mutable owner/root access, external frame-view reach-back, probe
+   authority, and the mixed prediction/presentation TU are blocking closure.
+   Every M0-M8 task,
+   including inventory documentation, must run the
+   unchanged 200-box gate before it can be checked or committed.
+3. Validation-gate V3 is externally blocked at 5/6. The hosted CPU
    PR lane has a successful real run. Remaining work is a `merge_group` proof,
    required `main` branch protection, and trusted DX12-runner administration.
    Persistent self-hosted DX12 stays trusted-main/manual only; public-PR GPU
    evidence needs an ephemeral isolated runner.
-2. Round-1 adversarial-review remediation is locally complete. The
+4. Round-1 adversarial-review remediation is locally complete. The
    comment-rot sweep is owner-parked in `WNF/` (no comment changes yet,
    2026-07-12 ruling) and is not live portfolio work.
-3. Round-2 runtime-contract remediation is locally complete and recorded in
+5. Round-2 runtime-contract remediation is locally complete and recorded in
    `Reports/2026-07-12/runtime-contract-enforcement-closure.md`.
-4. Round-3 adversarial-review remediation is complete at 10/10. R10 added
+6. Round-3 adversarial-review remediation is complete at 10/10. R10 added
    three-frame headroom and a backend-owned b1 bindless texture-index payload;
    closure evidence and the 29/29 touched-file comment audit live in
    `Reports/2026-07-13/adversarial-review-round-3-closure.md`. Out-of-scope
    rulings remain recorded in MASTER to avoid re-litigation.
-5. Replay architecture lane is live (2026-07-13 owner decision): the
-   prediction fidelity probe (5 tasks — predicted future must byte-match the
-   actual future) is the binding prerequisite, then the replay monolith
-   decomposition (8 tasks — five owners behind a thin ReplayRuntime
-   composition root). Both plans live in `Plans/TODO/` and are registered in
-   the MASTER ledger at 312/326.
+7. Future-path presentation lane is registered (2026-07-14 owner request):
+   `Plans/TODO/future-path-vector-splines.md` (7 tasks — near-black prediction
+   sky, thin anti-aliased vector-spline trajectory ribbons, comma-cycled color
+   modes with UI reflection, selected-object-only glow, and deletion of the
+   temporary authoring-look cycler). Independent presentation-only lane; its
+   restyle changes presented prediction frames, so any refresh of the 200-box
+   visual-fidelity golden manifest requires explicit owner approval and must
+   be sequenced against the decomposition lane's unchanged-golden rule.
 
 ## Current Plan Decisions
 
@@ -48,6 +73,9 @@ plan inventory.
   unless the owner explicitly restores a plan to `TODO/`.
 - The MASTER critical path is binding; preparation may run early only where it
   is explicitly named, and no work crosses a recorded dependency barrier.
+- Both replay plans execute on `nightrunner-13th-july`. The visual mega probe
+  closes first; every decomposition task then reruns its unchanged golden
+  200-box manifest. Refactors do not authorize baseline refresh.
 - Every plan-runner commit and plan-implementation prompt starts with the
   resolved MASTER progress header: plan name, completed plan tasks, and rounded
   overall portfolio completion. Ordinary commits do not claim plan progress.
@@ -96,5 +124,12 @@ plan inventory.
 
 ## Next Handoff
 
-V3 resumes when the required GitHub merge-group/branch-protection authority and
-trusted or ephemeral DX12 runner administration exist.
+Run the repository-local orchestrator against
+`Plans/TODO/replay-monolith-decomposition.md` reopened M3-M7. Prediction and
+drawing are physically separate, prediction state is private, and presentation
+mutation is command-only. Next remove the replay root from
+`RuntimeFrameInteractionView`, replace renderer/input exchanges with value
+boundaries, split the broad workspace input, and make validation contexts
+consume published views/owner commands. Reclose each task only after its
+unchanged one-presentation 200-box oracle, then repeat M8's independent
+ownership review.

@@ -97,6 +97,7 @@ enum class RunCameraMode;
 enum class WorldInteractionOwner;
 enum class InteractionExitReason;
 class ReplayRuntime;
+struct ReplayInputView;
 class RuntimeInteractionController;
 class RuntimeTools;
 class AttachedCameraController;
@@ -422,7 +423,7 @@ class InputRouter
                                  RunCameraState& camera,
                                  AttachedCameraController& attachedCamera,
                                  RuntimeTools& runtimeTools,
-                                 ReplayRuntime& replayRuntime,
+                                 const ReplayInputView& replayInput,
                                  SceneController& sceneController,
                                  DiagnosticsRuntime& diagnosticsRuntime,
                                  RunDebugState& debug,
@@ -431,7 +432,7 @@ class InputRouter
     void DispatchCaptureActions( InputActions& actions,
                                  const RunCameraState& camera,
                                  const AttachedCameraController& attachedCamera,
-                                 const ReplayRuntime& replayRuntime,
+                                 const ReplayInputView& replayInput,
                                  SceneController& sceneController,
                                  DiagnosticsRuntime& diagnosticsRuntime,
                                  const UI::InGameUI& ui );

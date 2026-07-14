@@ -115,7 +115,8 @@ class Window
     void SetWindowDimensions( int width, int height );                    // Caches dimensions from explicit client width/height.
     SkullbonezCore::Core::SbResult
     CreateAppWindow( HINSTANCE hInstance,
-                     bool isFullScreenMode );                             // Creates the native window or reports Lane R startup failure.
+                     bool isFullScreenMode,
+                     bool showOnCreate = true );                          // Creates the native window or reports Lane R startup failure.
     void ChangeToFullScreen( int xResolution, int yResolution );          // Applies fullscreen display mode dimensions.
     int MsgBox( const char* cMsgBoxText,
                 const char* cMsgBoxTitle,

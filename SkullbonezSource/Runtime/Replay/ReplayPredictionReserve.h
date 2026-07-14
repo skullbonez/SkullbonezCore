@@ -22,7 +22,7 @@ Invariants:
   - The hard cap is byte-based and shared by all prediction working-set users.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp
   - SkullbonezSource/Runtime/Replay/TrajectoryStore.h
   - tools/allocation_policy_allowlist.json
 */

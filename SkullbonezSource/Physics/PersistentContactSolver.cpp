@@ -751,7 +751,32 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                 const bool hasSphere = std::get_if<BoundingSphere>( &shapeA ) || std::get_if<BoundingSphere>( &shapeB );
                 const bool sameShapeFaceFootprint =
                     ( shapeAIsBox && shapeBIsBox ) || ( shapeAIsConvexHull && shapeBIsConvexHull );
-                hasRestingFootprint = !hasConvexHull || hasSphere || manifold.pointCount >= 2;
+                bool boxHasOnlyEdgeSupport = false;
+                if ( !hasSphere && manifold.pointCount <= 2 && fabsf( manifold.normal.y ) > 0.25f )
+                {
+                    const int supportedIndex = manifold.normal.y > 0.0f ? bIndex : aIndex;
+                    const bool supportedBodyIsBox = manifold.normal.y > 0.0f ? shapeBIsBox : shapeAIsBox;
+                    if ( supportedBodyIsBox )
+                    {
+                        Quaternion orientation = m_bodyRecords[static_cast<size_t>( supportedIndex )].orientation;
+                        const auto rotation = orientation.GetOrientationMatrix();
+                        const Vector3 supportNormal = manifold.normal.y > 0.0f ? manifold.normal : -manifold.normal;
+                        const float faceDotX = fabsf( ( rotation * Vector3( 1.0f, 0.0f, 0.0f ) ) * supportNormal );
+                        const float faceDotY = fabsf( ( rotation * Vector3( 0.0f, 1.0f, 0.0f ) ) * supportNormal );
+                        const float faceDotZ = fabsf( ( rotation * Vector3( 0.0f, 0.0f, 1.0f ) ) * supportNormal );
+                        constexpr float stableFaceDot = 0.95f; // About 18 degrees from face-flat support.
+                        boxHasOnlyEdgeSupport = (std::max)( { faceDotX, faceDotY, faceDotZ } ) < stableFaceDot;
+                    }
+                }
+
+                // Invariant: preserve the normal resting/sleep policy for every
+                // contact except a vertically supported box balanced on one edge.
+                // An edge has at most two manifold rows and no box face aligned
+                // with the support normal. Once it topples onto a face, this veto
+                // clears and the existing quiet-frame sleep gate applies again.
+                // Changing this classification affects byte-exact physics baselines.
+                hasRestingFootprint =
+                    ( !hasConvexHull || hasSphere || manifold.pointCount >= 2 ) && !boxHasOnlyEdgeSupport;
                 uint8_t selectedPointIndices[4] = { 0, 1, 2, 3 };
                 uint8_t selectedPointCount = manifold.pointCount;
                 if ( manifold.pointCount > 2 && !hasSphere && sameShapeFaceFootprint && hasRestingFootprint &&
