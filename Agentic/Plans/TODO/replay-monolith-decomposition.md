@@ -2,7 +2,7 @@
 
 Date: 2026-07-13
 Status: Live — 3/9 tasks complete; M3-M7 reopened by mandatory M8 ownership review
-Branch: `nightrunner-13th-july`
+Branch: `nightrunner-14th-july`
 Impact area: `SkullbonezSource/Runtime/Replay/*` (26,060 lines), the two
 external consumers `Runtime/Run.cpp` and `Runtime/RunUiTextPass.cpp`, project
 filters
@@ -201,9 +201,9 @@ known-good golden manifest.
 - **Binding prerequisite:** `replay-visual-fidelity-mega-probe.md` complete
   (M0). Its golden-base, causal, and durable packet comparisons are binding
   divergence detectors for every decomposition task, not only M6.
-- **Branch binding:** both plans execute on `nightrunner-13th-july`. Moving the
-  work requires an explicit owner decision and a fresh passing mega-probe
-  provenance check on the destination.
+- **Branch binding:** the 2026-07-14 owner request moved the remaining work to
+  `nightrunner-14th-july`. The fresh destination-branch mega-probe provenance
+  check passed before any source edit; its evidence is recorded below.
 - `adversarial-review-round-3` is complete and is no longer a sequencing
   dependency.
 - Decision recorded: extraction order is presentation → timeline/scrubber →
@@ -1065,6 +1065,22 @@ intentional exception.
   `--prove-failure-propagation` previously returned synthetic exit code 37.
   Running the normal alias here is forbidden because it would present the
   prediction a second time.
+
+### Destination-Branch Provenance — 2026-07-14
+
+- Owner decision: continue the decomposition and future spline queue on
+  `nightrunner-14th-july`, branched from merged `main` commit `d6fd497c`.
+- Before source edits, `tools\validate_replay_visual_fidelity.bat` passed in
+  496.3 seconds on the destination branch. Launcher shape remained exactly one
+  engine process, one prediction generation, and one presented cascade.
+- The unchanged manifest compared 2,401 exact ticks with all 200 wall bricks
+  moved, 187 strict grounded sleepers, 199 causal nodes, 62 durable saved/load
+  ticks, reveal range 0–2,400, and zero reserve growth. All typed-packet,
+  artifact, causal, determinism, incomplete-horizon, and duplicate-generation
+  false-pass controls rejected their intended mutations.
+- Evidence log:
+  `TestOutput/validation_logs/nightrunner-14th-july-branch-provenance.log`
+  (91,158 bytes). The log is a local validation artifact and is not committed.
 
 ## Validation
 

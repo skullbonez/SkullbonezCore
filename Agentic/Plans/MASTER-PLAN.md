@@ -125,10 +125,10 @@ validation-gate V3 remains externally blocked.
    render/automation views, removes automation reach-back into the mutable
    replay root, moves scrub/restore/save probe lifecycle state into
    `ReplayProbeRunner`, and gives `ReplayTimeline` its owner-named translation
-   unit. The ledger remains 3/9 because the mandatory closure review still
-   requires startup-probe execution, external input routing, remaining root
-   forwarding, and owner-file cleanup to close. Work is paused after this
-   checkpoint for owner testing.
+   unit. Destination-branch provenance passed on `nightrunner-14th-july`
+   before source edits. The ledger remains 3/9 because the mandatory closure
+   review still requires startup-probe execution, external input routing,
+   remaining root forwarding, and owner-file cleanup to close.
 3. **Future-path vector splines — live independent presentation lane
    (2026-07-14 owner request).** `TODO/future-path-vector-splines.md` (T1→T7)
    restyles the prediction view: near-black sky, thin anti-aliased
@@ -165,7 +165,7 @@ validation-gate V3 remains externally blocked.
 |---|---|---:|---|
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs merge-group proof, required branch protection, and trusted/ephemeral DX12 runner administration |
 | [replay-visual-fidelity-mega-probe](TODO/replay-visual-fidelity-mega-probe.md) | Complete | 7/7 | One engine, one prediction, 2,401 exact ticks, 187 grounded sleepers, durable CPU-only reconstruction, and adversarial closure approved |
-| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Active — checkpoint `b4b13749`; paused for owner testing | 3/9 | Resume startup-probe execution, external input routing, remaining root forwarding, and owner-file cleanup; then rerun the mandatory M8 ownership review and unchanged per-task mega gate |
+| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Active on `nightrunner-14th-july` | 3/9 | Remove external input/probe root dependencies and remaining root forwarding; then rerun the mandatory M8 ownership review and unchanged per-task mega gate |
 | [future-path-vector-splines](TODO/future-path-vector-splines.md) | Live — independent presentation lane | 0/7 | Start T1 (near-black prediction sky) and T2 (thin AA vector-spline ribbon shader); owner decisions 2026-07-14 are recorded in the plan; golden-manifest refresh needs owner approval |
 
 ## Planned Architecture Work (2026-07-11 gap review)
