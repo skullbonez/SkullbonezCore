@@ -128,10 +128,11 @@ validation-gate V3 remains externally blocked.
    the presentation TU consumes only the value-only `ReplayPredictionView.h`,
    not private prediction-owner internals. Destination-branch provenance and
    every per-checkpoint gate passed on `nightrunner-14th-july`. The ledger is
-   4/9. M4 checkpoint 27 moved scrubber hit testing, visibility, and semantic
-   pointer-action selection into `ReplayScrubber`; M4-M7 still require the
-   remaining cross-owner action dispatch, startup-probe execution, external
-   input routing, and broad root API to close.
+   4/9. M4 checkpoints 27-28 moved scrubber hit testing, visibility, and
+   semantic pointer-action selection into `ReplayScrubber`, then deleted six
+   raw root cursor-forwarding APIs; M4-M7 still require the remaining
+   cross-owner action dispatch, startup-probe execution, external input routing,
+   and broad root API to close.
 3. **Future-path vector splines — live independent presentation lane
    (2026-07-14 owner request).** `TODO/future-path-vector-splines.md` (T1→T7)
    restyles the prediction view: near-black sky, thin anti-aliased

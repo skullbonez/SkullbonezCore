@@ -1286,7 +1286,7 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
     ReplayScrubberView scrubber = m_scrubberOwner.View();
     if ( !scrubberGestureHandled && !loadedPresentation && !scrubber.historicalSamplePaused )
     {
-        m_replayRuntime.SetAllTrackPositions( m_replayRuntime.SolverPresentTrackPosition() );
+        m_scrubberOwner.SetAllTrackPositions( m_replayRuntime.SolverPresentTrackPosition() );
     }
 
     const bool scrubberTargetVisible = scrubDragActive() || horizonDragActive() || scrubber.historicalSamplePaused ||

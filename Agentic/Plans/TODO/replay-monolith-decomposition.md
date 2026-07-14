@@ -1080,6 +1080,36 @@ Twenty-seventh ownership-remediation checkpoint after M3 closure:
   percentage covers active and future plans only and excludes completed past
   plans and externally blocked work.
 
+Twenty-eighth ownership-remediation checkpoint after M3 closure:
+
+- Deleted the root's behavior-free track-position, pin-to-present,
+  all-track-position, scrubber-reset, input-edge, and unavailable-surface
+  forwarding APIs. Internal composition now issues the same owner commands
+  directly; no external caller can mutate cursor state through those seams.
+- Replaced Run's separate `ConfigureRecording` plus raw scrubber reset sequence
+  with value-only `ReplayRecordingActivationResult`. Replay startup receives
+  the resolved timeline configuration and a camera-exit reaction while cursor
+  reset remains private to replay composition.
+- Prediction publication now applies its pin-to-present result directly to
+  `ReplayScrubber`, and Debug branch verification uses the same owner command.
+  Ordering and cursor semantics are unchanged.
+- Formatting passed. A focused Profile build passed in 31.3 seconds with zero
+  warnings and zero errors, and the touched-source comment audit inspected 6/6
+  files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 471.7 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 169.0-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M4 remains open for semantic action dispatch and restore/camera reactions;
+  M5-M7 and the final M8 review also remain open. Active/future portfolio
+  progress therefore remains 4/16, or 25%; this percentage covers active and
+  future plans only and excludes completed past plans and externally blocked
+  work.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |

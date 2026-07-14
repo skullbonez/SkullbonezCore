@@ -210,11 +210,12 @@ bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
     // captured physics tick, so keep their scratch vectors reserved before the
     // replay phase begins.
 
-    const ReplayRecordingConfigResult replayConfig = replayRuntime.ConfigureRecording( overrides.replayRecordingEnabled,
-                                                                                       overrides.replayRetentionSeconds,
-                                                                                       overrides.replayHashLogPath,
-                                                                                       gameModelCapacity );
-    const bool resetScrubberState = replayRuntime.ResetScrubberState();
+    const ReplayRecordingActivationResult replayActivation =
+        replayRuntime.ConfigureRecording( overrides.replayRecordingEnabled,
+                                          overrides.replayRetentionSeconds,
+                                          overrides.replayHashLogPath,
+                                          gameModelCapacity );
+    const ReplayRecordingConfigResult& replayConfig = replayActivation.configuration;
     if ( replayConfig.presentationStats.enabled )
     {
         printf( "[replay] Capture enabled: retention_seconds=%d retention_frames=%llu checkpoint_interval_frames=%d "
@@ -232,7 +233,7 @@ bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
                 replayConfig.solverConfig.hashLogPath.empty() ? "" : " solver_hash_log=",
                 replayConfig.solverConfig.hashLogPath.empty() ? "" : replayConfig.solverConfig.hashLogPath.c_str() );
     }
-    return resetScrubberState;
+    return replayActivation.exitInspectionCamera;
 }
 
 

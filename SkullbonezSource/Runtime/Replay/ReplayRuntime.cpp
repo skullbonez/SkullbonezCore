@@ -1169,7 +1169,7 @@ void ReplayRuntime::ApplyInputFocusLoss( Environment::CameraCollection* cameras,
                                          InputRouter& inputRouter )
 {
     CancelToolDragState( interaction, inputRouter );
-    if ( ResetScrubberState() )
+    if ( m_scrubberOwner.ResetState( m_visualPresentation.CameraView().active ) )
     {
         ExitInspectionCamera( cameras,
                               terrain,
@@ -1215,8 +1215,9 @@ bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionCont
 {
     CancelToolDragState( interaction, inputRouter );
     SetLiveAdvanceHeld( false );
-    const bool exitInspectionCamera = ResetScrubberState() || m_visualPresentation.CameraView().active;
-    SetAllTrackPositions( 1.0f );
+    const bool exitInspectionCamera = m_scrubberOwner.ResetState( m_visualPresentation.CameraView().active ) ||
+                                      m_visualPresentation.CameraView().active;
+    m_scrubberOwner.SetAllTrackPositions( 1.0f );
     m_scrubberOwner.HideSurface();
     ClearCameraFocusForRestore();
     ClearPathVisualizerState();
@@ -1285,44 +1286,6 @@ float ReplayRuntime::TrackPosition( RunReplayTrack track ) const
 {
     return m_scrubberOwner.TrackPosition( track );
 }
-
-void ReplayRuntime::SetTrackPosition( RunReplayTrack track, float position )
-{
-    m_scrubberOwner.SetTrackPosition( track, position );
-}
-
-void ReplayRuntime::PinSolverScrubberToPresent()
-{
-    m_scrubberOwner.SetTrackPosition( RunReplayTrack::Solver, SolverPresentTrackPosition() );
-    if ( m_scrubberOwner.View().activeTrack == RunReplayTrack::Solver )
-    {
-        m_scrubberOwner.SetHistoricalSamplePaused( false );
-    }
-}
-
-void ReplayRuntime::SetAllTrackPositions( float position )
-{
-    m_scrubberOwner.SetAllTrackPositions( position );
-}
-
-bool ReplayRuntime::ResetScrubberState()
-{
-    return m_scrubberOwner.ResetState( m_visualPresentation.CameraView().active );
-}
-
-
-ReplayScrubberInputFrame
-ReplayRuntime::BeginReplayScrubberInputFrame( bool leftPressed, bool leftReleased, bool restoreDown )
-{
-    return m_scrubberOwner.BeginInputFrame( leftPressed, leftReleased, restoreDown );
-}
-
-
-ReplayScrubberUnavailableResult ReplayRuntime::ResetUnavailableScrubberSurface( bool loadedPresentation )
-{
-    return m_scrubberOwner.ResetUnavailableSurface( loadedPresentation, m_visualPresentation.CameraView().active );
-}
-
 
 void ReplayRuntime::ClearCauseTreeFocusSelection()
 {
@@ -1442,22 +1405,24 @@ void ReplayRuntime::ClearCameraFocusForRestore()
     }
 }
 
-ReplayRecordingConfigResult ReplayRuntime::ConfigureRecording( bool enabled,
-                                                               int retentionSeconds,
-                                                               const char* hashLogPath,
-                                                               int runtimeBodyCapacity )
+ReplayRecordingActivationResult ReplayRuntime::ConfigureRecording( bool enabled,
+                                                                   int retentionSeconds,
+                                                                   const char* hashLogPath,
+                                                                   int runtimeBodyCapacity )
 {
+    ReplayRecordingActivationResult activation;
     m_visualPresentation.ReserveLauncherVisualCaptureBuffers();
-    const ReplayRecordingConfigResult result =
+    activation.configuration =
         m_timeline.ConfigureRecording( enabled, retentionSeconds, hashLogPath, runtimeBodyCapacity );
-    if ( result.presentationConfig.enabled )
+    if ( activation.configuration.presentationConfig.enabled )
     {
         // Runtime allocation policy: presentation buffers reserve during replay
         // setup, before steady gameplay begins.
         m_authoring.ReserveCauseTreeRows( REPLAY_CAUSE_TREE_ROW_CAPACITY );
         m_visualPresentation.ReserveRecordingBuffers();
     }
-    return result;
+    activation.exitInspectionCamera = m_scrubberOwner.ResetState( m_visualPresentation.CameraView().active );
+    return activation;
 }
 
 bool ReplayRuntime::ApplyMemoryPolicyRequest( const ReplayMemoryPolicyRequest& request )
@@ -1465,8 +1430,8 @@ bool ReplayRuntime::ApplyMemoryPolicyRequest( const ReplayMemoryPolicyRequest& r
     const ReplayMemoryPolicyApplyResult result = m_timeline.ApplyMemoryPolicyRequest( request );
     if ( result.recordersReset )
     {
-        ResetScrubberState();
-        SetAllTrackPositions( 1.0f );
+        m_scrubberOwner.ResetState( m_visualPresentation.CameraView().active );
+        m_scrubberOwner.SetAllTrackPositions( 1.0f );
     }
     return result.changed;
 }
@@ -1495,7 +1460,7 @@ ReplaySceneTimelineResetResult ReplayRuntime::BeginSceneTimelineReset( const Rep
     {
         SetLiveAdvanceHeld( false );
     }
-    if ( ResetScrubberState() )
+    if ( m_scrubberOwner.ResetState( m_visualPresentation.CameraView().active ) )
     {
         result.exitInspectionCamera = true;
     }
@@ -2635,7 +2600,11 @@ void ReplayRuntime::ApplyPredictionUpdateResult( const ReplayPredictionUpdateRes
     }
     if ( result.pinSolverScrubberToPresent )
     {
-        PinSolverScrubberToPresent();
+        m_scrubberOwner.SetTrackPosition( RunReplayTrack::Solver, SolverPresentTrackPosition() );
+        if ( m_scrubberOwner.View().activeTrack == RunReplayTrack::Solver )
+        {
+            m_scrubberOwner.SetHistoricalSamplePaused( false );
+        }
     }
     for ( std::size_t passIndex = 0; passIndex < result.budgetExpiries.size(); ++passIndex )
     {

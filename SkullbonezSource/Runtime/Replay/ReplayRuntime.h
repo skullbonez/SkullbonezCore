@@ -213,12 +213,6 @@ class ReplayRuntime
 
     bool SetVelocityEditEnabled( bool enabled );
     ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input );
-    void SetTrackPosition( RunReplayTrack track, float position );
-    void PinSolverScrubberToPresent();
-    void SetAllTrackPositions( float position );
-    bool ResetScrubberState();
-    ReplayScrubberInputFrame BeginReplayScrubberInputFrame( bool leftPressed, bool leftReleased, bool restoreDown );
-    ReplayScrubberUnavailableResult ResetUnavailableScrubberSurface( bool loadedPresentation );
     void ClearCauseTreeFocusSelection();
     bool SetLiveAdvanceHeld( bool held );
     bool ShouldUseInspectionCamera() const;
@@ -229,7 +223,7 @@ class ReplayRuntime
 
     // Configures bounded recorder storage. runtimeBodyCapacity must be the
     // scene/run body cap known before capture so replay frames do not allocate.
-    ReplayRecordingConfigResult
+    ReplayRecordingActivationResult
     ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath, int runtimeBodyCapacity );
     // Applies a UI or tool policy request. A true return means recorder windows
     // changed or queued policy state changed before recording was configured.

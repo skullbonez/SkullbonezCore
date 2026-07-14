@@ -3302,7 +3302,7 @@ SkullbonezCore::Core::SbResult ReplayRuntime::VerifySolverBranchFileProbe( const
     }
     m_scrubberOwner.SetHistoricalSamplePaused( true );
     m_scrubberOwner.SelectTrack( RunReplayTrack::Presentation );
-    SetTrackPosition( RunReplayTrack::Presentation, 1.0f );
+    m_scrubberOwner.SetTrackPosition( RunReplayTrack::Presentation, 1.0f );
 
     RunReplayV2TargetRestoreResult result;
     char reason[256] = {};

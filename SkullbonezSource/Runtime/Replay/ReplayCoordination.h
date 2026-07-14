@@ -200,6 +200,15 @@ struct ReplayShutdownReport
     ReplayRecorderStats solver;
 };
 
+// Cold startup configures timeline capacity and resets the retained cursor as
+// one replay operation. The camera reaction is returned as a value so Run does
+// not receive a raw scrubber mutation API.
+struct ReplayRecordingActivationResult
+{
+    ReplayRecordingConfigResult configuration;
+    bool exitInspectionCamera = false;
+};
+
 // Concept: external automation publishes replay intent as values. The replay
 // composition boundary applies each requested transition through the owning
 // scrubber or prediction API; no caller receives a mutable owner reference.
