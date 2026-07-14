@@ -273,9 +273,13 @@ struct ReplayCameraFocusRequest
 
 struct ReplayPresentationMemoryStats
 {
+    uint64_t pathOwnerBytes = 0;
+    uint64_t pathTargetCapacityBytes = 0;
+    uint64_t pathFutureNodeCapacityBytes = 0;
     uint64_t ghostRequestCapacityBytes = 0;
     uint64_t focusModelMaskCapacityBytes = 0;
     uint64_t launcherVisualBytes = 0;
+    uint64_t pathNodeCount = 0;
     uint64_t ghostRequestCount = 0;
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats trajectory;
 };

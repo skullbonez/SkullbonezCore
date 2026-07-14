@@ -224,11 +224,15 @@ const std::vector<uint8_t>& ReplayPresentation::FocusModelMaskView() const noexc
 ReplayPresentationMemoryStats ReplayPresentation::CollectMemoryStats() const noexcept
 {
     ReplayPresentationMemoryStats stats;
+    stats.pathOwnerBytes = static_cast<uint64_t>( sizeof( m_pathVisualizer ) );
+    stats.pathTargetCapacityBytes = ReplayPresentationVectorCapacityBytes( m_pathVisualizer.targets );
+    stats.pathFutureNodeCapacityBytes = ReplayPresentationVectorCapacityBytes( m_pathVisualizer.futureNodes );
     stats.ghostRequestCapacityBytes = ReplayPresentationVectorCapacityBytes( m_predictionGhostDrawRequests );
     stats.focusModelMaskCapacityBytes = ReplayPresentationVectorCapacityBytes( m_focusModelMask );
     stats.launcherVisualBytes = static_cast<uint64_t>( sizeof( m_launcherVisualBackup ) ) +
                                 ReplayPresentationVectorCapacityBytes( m_launcherVisualBackup.rayLines ) +
                                 ReplayPresentationVectorCapacityBytes( m_launcherVisualBackup.laserShots );
+    stats.pathNodeCount = static_cast<uint64_t>( m_pathVisualizer.futureNodes.size() );
     stats.ghostRequestCount = static_cast<uint64_t>( m_predictionGhostDrawRequests.size() );
     stats.trajectory = m_trajectoryVisualStats;
     return stats;

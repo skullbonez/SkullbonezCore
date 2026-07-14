@@ -343,6 +343,56 @@ template <typename T> bool ReplayPredictionCapacityBytes( std::size_t capacity, 
     return true;
 }
 
+template <typename T> uint64_t ReplayPredictionVectorCapacityBytes( const std::vector<T>& values )
+{
+    uint64_t bytes = 0;
+    return ReplayPredictionCapacityBytes<T>( values.capacity(), bytes ) ? bytes : 0;
+}
+
+uint64_t ReplayPredictionWorldSnapshotMemoryBytes( const ReplaySolverWorldSnapshot& snapshot )
+{
+    uint64_t bytes = 0;
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.timeRemaining );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepSupportedThisFrame );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepInhibitedThisFrame );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepState );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepCounter );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.underwaterSleepLocked );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.tornadoCaptureSeconds );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.tornadoEjectCooldownSeconds );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.collisionVisualContacts );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandVisualId );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandAssignedVisualId );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepSupportEdges );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandParent );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandRank );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandHasAwake );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandHasSupportAnchor );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandEligible );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandCanSleep );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.persistentContacts );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.persistentContactCache );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.persistentContactCounts );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.persistentRestingContactCounts );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.debugContacts );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.pipelineTrace );
+    bytes += ReplayPredictionVectorCapacityBytes( snapshot.collisionCellKeys );
+    return bytes;
+}
+
+void AddReplayPredictionFrameCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories,
+                                            const RunReplayPredictionFrame& frame )
+{
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        categories,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFrameBodies,
+        ReplayPredictionVectorCapacityBytes( frame.bodies ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        categories,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionDebugContacts,
+        ReplayPredictionVectorCapacityBytes( frame.debugContacts ) );
+}
+
 template <typename T>
 bool ReplayPredictionFramePayloadBytes( std::size_t frameCount, std::size_t capacityPerFrame, uint64_t& outBytes )
 {
@@ -388,7 +438,7 @@ std::size_t ReplayPredictionNextDebugContactCapacity( std::size_t currentCapacit
     return (std::max)( chunked, doubled );
 }
 
-int ReplayPredictionEngineReserveBytes( const PhysicsEngine& engine )
+uint64_t ReplayPredictionEngineMemoryBytes( const PhysicsEngine& engine )
 {
     // Why: seeding the private engine copies several physics-owned vectors.
     // Estimate the live working set before requesting the replay growth scope so
@@ -400,6 +450,12 @@ int ReplayPredictionEngineReserveBytes( const PhysicsEngine& engine )
              sizeof( PhysicsBodyRecord );
     bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadColliders( engine ).RecordCapacity() ) *
              sizeof( ColliderRecord );
+    return bytes;
+}
+
+int ReplayPredictionEngineReserveBytes( const PhysicsEngine& engine )
+{
+    const uint64_t bytes = ReplayPredictionEngineMemoryBytes( engine );
     if ( bytes == 0 || bytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) ||
          bytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
     {
@@ -4253,4 +4309,66 @@ void ReplayPrediction::AppendPastTrajectorySample( const ReplayRecorderStats& so
     update.targetModelRowRepaired = true;
     update.builtThroughFrame = sample.frameIndex;
     update.apply = true;
+}
+
+ReplayPredictionMemoryStats ReplayPrediction::CollectMemoryStats() const
+{
+    ReplayPredictionMemoryStats stats;
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionOwner,
+        static_cast<uint64_t>( sizeof( m_state ) ) );
+    if ( m_state.simulation.predictionEngine )
+    {
+        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+            stats.categoryBytes,
+            SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionEngine,
+            ReplayPredictionEngineMemoryBytes( *m_state.simulation.predictionEngine ) );
+    }
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionWorldState,
+        ReplayPredictionWorldSnapshotMemoryBytes( m_state.simulation.predictionWorld ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionBodyState,
+        ReplayPredictionVectorCapacityBytes( m_state.simulation.predictionBodies ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFrameRecords,
+        ReplayPredictionVectorCapacityBytes( m_state.simulation.frames ) +
+            ReplayPredictionVectorCapacityBytes( m_state.build.buildFrames ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFutureTree,
+        ReplayPredictionVectorCapacityBytes( m_state.futureNodeCache.futureNodes ) +
+            ReplayPredictionVectorCapacityBytes( m_state.futureNodeCache.futureNodeBuildScratch ) );
+    for ( const RunReplayPredictionFrame& frame : m_state.simulation.frames )
+    {
+        AddReplayPredictionFrameCategoryBytes( stats.categoryBytes, frame );
+    }
+    for ( const RunReplayPredictionFrame& frame : m_state.build.buildFrames )
+    {
+        AddReplayPredictionFrameCategoryBytes( stats.categoryBytes, frame );
+    }
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::TrajectoryStore,
+        m_state.trajectoryStore.CapacityBytes() );
+
+    stats.frameCount = m_state.simulation.frames.size() + m_state.build.buildFrames.size();
+    stats.futureNodeCount = m_state.futureNodeCache.futureNodes.size();
+    stats.trajectory.storeBytes = m_state.trajectoryStore.CapacityBytes();
+    stats.trajectory.recordCount = static_cast<uint64_t>( m_state.trajectoryStore.RecordCount() );
+    stats.trajectory.pointCount = static_cast<uint64_t>( m_state.trajectoryStore.PointCount() );
+    stats.trajectory.versionChurn = m_state.trajectoryStore.nextVersion > 0u
+                                        ? static_cast<uint64_t>( m_state.trajectoryStore.nextVersion - 1u )
+                                        : 0u;
+    for ( const ReplayTrajectoryRecord& record : m_state.trajectoryStore.records )
+    {
+        stats.trajectory.publishedPointCount +=
+            static_cast<uint64_t>( (std::min)( record.publishedPointCount, record.points.size() ) );
+        stats.trajectory.maxRecordVersion = (std::max)( stats.trajectory.maxRecordVersion, record.version );
+    }
+    return stats;
 }

@@ -401,6 +401,14 @@ struct ReplayPastTrajectoryUpdate
     bool valid = false;
 };
 
+struct ReplayPredictionMemoryStats
+{
+    SkullbonezCore::Core::MainMemoryReplayCategoryBytes categoryBytes;
+    SkullbonezCore::Core::MainMemoryReplayTrajectoryStats trajectory;
+    std::size_t frameCount = 0;
+    std::size_t futureNodeCount = 0;
+};
+
 class ReplayPrediction
 {
   public:
@@ -570,6 +578,7 @@ class ReplayPrediction
                                      const ReplayPastTrajectoryView& path,
                                      const ReplaySolverFrameSample& sample,
                                      ReplayPastTrajectoryUpdate& update );
+    ReplayPredictionMemoryStats CollectMemoryStats() const;
 
   private:
     RunReplayPredictionState m_state;

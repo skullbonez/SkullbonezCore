@@ -127,12 +127,29 @@ struct ReplayVelocityEditDragStart
     Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
 };
 
+struct ReplayAuthoringMemoryStats
+{
+    uint64_t ownerBytes = 0;
+    uint64_t causeRowCapacityBytes = 0;
+    std::size_t causeRowCount = 0;
+};
+
 class ReplayAuthoring
 {
   public:
     const RunReplayCauseTreeState& CauseTree() const noexcept
     {
         return m_causeTree;
+    }
+
+    ReplayAuthoringMemoryStats CollectMemoryStats() const noexcept
+    {
+        ReplayAuthoringMemoryStats stats;
+        stats.ownerBytes = sizeof( m_causeTree );
+        stats.causeRowCapacityBytes =
+            static_cast<uint64_t>( m_causeTree.rows.capacity() ) * sizeof( RunReplayCauseTreeRow );
+        stats.causeRowCount = m_causeTree.rows.size();
+        return stats;
     }
 
     // Clears generated explanation rows and their selection while preserving

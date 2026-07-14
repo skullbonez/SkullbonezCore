@@ -95,11 +95,6 @@ using Physics::PhysicsPipelineStageName;
 
 constexpr double REPLAY_PREDICTION_MAX_WORK_MILLISECONDS = 5.0;
 
-template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
-{
-    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
-}
-
 uint32_t ReplayRuntimeFloatBits( float value )
 {
     uint32_t bits = 0;
@@ -251,70 +246,6 @@ float ReplayRuntimeScrubberPresentTrackPosition( const ReplayRecorderStats& stat
         return 1.0f;
     }
     return std::clamp( pastSeconds / ( pastSeconds + futureSeconds ), 0.05f, 0.995f );
-}
-
-uint64_t SolverWorldSnapshotMemoryBytes( const ReplaySolverWorldSnapshot& snapshot )
-{
-    uint64_t bytes = 0;
-    bytes += VectorCapacityBytes( snapshot.timeRemaining );
-    bytes += VectorCapacityBytes( snapshot.sleepSupportedThisFrame );
-    bytes += VectorCapacityBytes( snapshot.sleepInhibitedThisFrame );
-    bytes += VectorCapacityBytes( snapshot.sleepState );
-    bytes += VectorCapacityBytes( snapshot.sleepCounter );
-    bytes += VectorCapacityBytes( snapshot.underwaterSleepLocked );
-    bytes += VectorCapacityBytes( snapshot.tornadoCaptureSeconds );
-    bytes += VectorCapacityBytes( snapshot.tornadoEjectCooldownSeconds );
-    bytes += VectorCapacityBytes( snapshot.collisionVisualContacts );
-    bytes += VectorCapacityBytes( snapshot.sleepIslandVisualId );
-    bytes += VectorCapacityBytes( snapshot.sleepIslandAssignedVisualId );
-    bytes += VectorCapacityBytes( snapshot.sleepSupportEdges );
-    bytes += VectorCapacityBytes( snapshot.sleepIslandParent );
-    bytes += VectorCapacityBytes( snapshot.sleepIslandRank );
-    bytes += VectorCapacityBytes( snapshot.sleepIslandHasAwake );
-    bytes += VectorCapacityBytes( snapshot.sleepIslandHasSupportAnchor );
-    bytes += VectorCapacityBytes( snapshot.sleepIslandEligible );
-    bytes += VectorCapacityBytes( snapshot.sleepIslandCanSleep );
-    bytes += VectorCapacityBytes( snapshot.persistentContacts );
-    bytes += VectorCapacityBytes( snapshot.persistentContactCache );
-    bytes += VectorCapacityBytes( snapshot.persistentContactCounts );
-    bytes += VectorCapacityBytes( snapshot.persistentRestingContactCounts );
-    bytes += VectorCapacityBytes( snapshot.debugContacts );
-    bytes += VectorCapacityBytes( snapshot.pipelineTrace );
-    bytes += VectorCapacityBytes( snapshot.collisionCellKeys );
-    return bytes;
-}
-
-uint64_t PresentationSampleMemoryBytes( const ReplayPresentationSample& sample )
-{
-    return VectorCapacityBytes( sample.bodies );
-}
-
-void AddPredictionFrameCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories,
-                                      const RunReplayPredictionFrame& frame )
-{
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
-        categories,
-        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFrameBodies,
-        VectorCapacityBytes( frame.bodies ) );
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
-        categories,
-        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionDebugContacts,
-        VectorCapacityBytes( frame.debugContacts ) );
-}
-
-uint64_t PredictionEngineMemoryBytes( const PhysicsEngine& engine )
-{
-    // Why: sizeof the prediction state only counts the unique_ptr. The private
-    // prediction engine owns physics stores and solver scratch that must remain
-    // visible in the replay memory overlay.
-    uint64_t bytes = static_cast<uint64_t>( sizeof( engine ) );
-    bytes += engine.CollectPhysicsWorldMemoryBytes();
-    bytes += engine.CollectDebugAndBroadphaseMemoryBytes();
-    bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).RecordCapacity() ) *
-             sizeof( PhysicsBodyRecord );
-    bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadColliders( engine ).RecordCapacity() ) *
-             sizeof( ColliderRecord );
-    return bytes;
 }
 
 bool ReplayRuntimeModelIsRagdollPart( std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
@@ -2893,14 +2824,20 @@ void ReplayPresentation::PublishVisualPacket( ReplayVisualPacket packet,
 SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
 {
     SkullbonezCore::Core::MainMemoryReplayStats stats;
-    const ReplayRecorderStats presentationStats = m_timeline.Presentation().GetStats();
-    const ReplayRecorderStats solverStats = m_timeline.Solver().GetStats();
-    const ReplayEventRecorderStats eventStats = m_timeline.Events().GetStats();
+    const ReplayTimelineMemoryStats timelineMemory = m_timeline.CollectMemoryStats();
+    const ReplayPredictionMemoryStats predictionMemory = m_predictionOwner.CollectMemoryStats();
+    const ReplayPresentationMemoryStats visualMemory = m_visualPresentation.CollectMemoryStats();
+    const ReplayAuthoringMemoryStats authoringMemory = m_authoring.CollectMemoryStats();
 
-    // Concept: the broad replay totals are sums of the same category table
-    // exposed to diagnostics. That keeps UI totals and memory-dump evidence in
-    // lockstep when later stages move storage between owners.
-    m_timeline.CollectMemoryCategoryBytes( stats.categoryBytes );
+    // Concept: each concrete owner reports its own capacities into the shared
+    // fixed category table. The composition root only merges those value
+    // snapshots and allocator-registration facts; it never traverses owner
+    // storage to rediscover memory authority.
+    stats.categoryBytes = timelineMemory.categoryBytes;
+    for ( std::size_t index = 0; index < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_BYTE_CATEGORY_COUNT; ++index )
+    {
+        stats.categoryBytes.bytes[index] += predictionMemory.categoryBytes.bytes[index];
+    }
     stats.presentationBytes = SkullbonezCore::Core::MainMemoryReplayCategoryRangeBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationOwner,
@@ -2913,16 +2850,17 @@ SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() 
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::EventsOwner,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedOwner );
-    stats.presentationSamples = presentationStats.sampleCount;
-    stats.solverSamples = solverStats.sampleCount;
-    stats.eventSamples = eventStats.eventCount;
-    stats.memoryPreset = static_cast<int>( m_timeline.MemoryPolicy().preset );
-    stats.requestedRetentionSeconds = m_timeline.MemoryPolicy().requestedRetentionSeconds;
-    stats.requestedBudgetMiB = m_timeline.MemoryPolicy().requestedBudgetMiB;
-    stats.presentationRetentionSeconds = m_timeline.MemoryPolicy().presentationRetentionSeconds;
-    stats.solverRetentionSeconds = m_timeline.MemoryPolicy().solverRetentionSeconds;
-    stats.memoryBudgetClamped = m_timeline.MemoryPolicy().budgetClamped;
-    stats.solverWindowReduced = m_timeline.MemoryPolicy().solverWindowReduced;
+    stats.presentationSamples = timelineMemory.presentationSamples;
+    stats.solverSamples = timelineMemory.solverSamples;
+    stats.eventSamples = timelineMemory.eventSamples;
+    stats.loadedReplaySamples = timelineMemory.loadedSamples;
+    stats.memoryPreset = static_cast<int>( timelineMemory.policy.preset );
+    stats.requestedRetentionSeconds = timelineMemory.policy.requestedRetentionSeconds;
+    stats.requestedBudgetMiB = timelineMemory.policy.requestedBudgetMiB;
+    stats.presentationRetentionSeconds = timelineMemory.policy.presentationRetentionSeconds;
+    stats.solverRetentionSeconds = timelineMemory.policy.solverRetentionSeconds;
+    stats.memoryBudgetClamped = timelineMemory.policy.budgetClamped;
+    stats.solverWindowReduced = timelineMemory.policy.solverWindowReduced;
     // The policy table is stable and fixed-size; diagnostics never discovers
     // replay owners by scanning recent-event text or allocating a report map.
     for ( std::size_t index = 0; index < REPLAY_GROWTH_OWNER_POLICIES.size(); ++index )
@@ -2945,100 +2883,39 @@ SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() 
         }
     }
 
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
-        stats.categoryBytes,
-        SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedOwner,
-        static_cast<uint64_t>( sizeof( m_timeline.LoadedPresentation() ) ) );
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
-        stats.categoryBytes,
-        SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedSampleRecords,
-        VectorCapacityBytes( m_timeline.LoadedPresentation().samples ) );
-    for ( const ReplayPresentationSample& sample : m_timeline.LoadedPresentation().samples )
-    {
-        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
-            stats.categoryBytes,
-            SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedBodies,
-            PresentationSampleMemoryBytes( sample ) );
-    }
     stats.loadedReplayBytes = SkullbonezCore::Core::MainMemoryReplayCategoryRangeBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedOwner,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionOwner );
-    stats.loadedReplaySamples = m_timeline.LoadedPresentation().samples.size();
-
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
-        stats.categoryBytes,
-        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionOwner,
-        static_cast<uint64_t>( sizeof( m_predictionOwner.State() ) ) );
-    if ( m_predictionOwner.State().simulation.predictionEngine )
-    {
-        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
-            stats.categoryBytes,
-            SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionEngine,
-            PredictionEngineMemoryBytes( *m_predictionOwner.State().simulation.predictionEngine ) );
-    }
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
-        stats.categoryBytes,
-        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionWorldState,
-        SolverWorldSnapshotMemoryBytes( m_predictionOwner.State().simulation.predictionWorld ) );
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
-        stats.categoryBytes,
-        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionBodyState,
-        VectorCapacityBytes( m_predictionOwner.State().simulation.predictionBodies ) );
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
-        stats.categoryBytes,
-        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFrameRecords,
-        VectorCapacityBytes( m_predictionOwner.State().simulation.frames ) +
-            VectorCapacityBytes( m_predictionOwner.State().build.buildFrames ) );
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
-        stats.categoryBytes,
-        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFutureTree,
-        VectorCapacityBytes( m_predictionOwner.State().futureNodeCache.futureNodes ) +
-            VectorCapacityBytes( m_predictionOwner.State().futureNodeCache.futureNodeBuildScratch ) );
-    for ( const RunReplayPredictionFrame& frame : m_predictionOwner.State().simulation.frames )
-    {
-        AddPredictionFrameCategoryBytes( stats.categoryBytes, frame );
-    }
-    for ( const RunReplayPredictionFrame& frame : m_predictionOwner.State().build.buildFrames )
-    {
-        AddPredictionFrameCategoryBytes( stats.categoryBytes, frame );
-    }
     stats.predictionBytes = SkullbonezCore::Core::MainMemoryReplayCategoryRangeBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionOwner,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PathOwner );
-    stats.predictionFrames =
-        m_predictionOwner.State().simulation.frames.size() + m_predictionOwner.State().build.buildFrames.size();
+    stats.predictionFrames = predictionMemory.frameCount;
 
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PathOwner,
-        static_cast<uint64_t>( sizeof( m_visualPresentation.PathVisualizer() ) + sizeof( m_authoring.CauseTree() ) ) );
+        visualMemory.pathOwnerBytes + authoringMemory.ownerBytes );
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PathFutureNodes,
-        VectorCapacityBytes( m_visualPresentation.PathVisualizer().futureNodes ) );
+        visualMemory.pathFutureNodeCapacityBytes );
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PathTargets,
-        VectorCapacityBytes( m_visualPresentation.PathVisualizer().targets ) );
+        visualMemory.pathTargetCapacityBytes );
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PathCauseRows,
-        VectorCapacityBytes( m_authoring.CauseTree().rows ) );
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
-        stats.categoryBytes,
-        SkullbonezCore::Core::MainMemoryReplayByteCategory::TrajectoryStore,
-        m_predictionOwner.State().trajectoryStore.CapacityBytes() );
+        authoringMemory.causeRowCapacityBytes );
     stats.pathAndCauseBytes = SkullbonezCore::Core::MainMemoryReplayCategoryRangeBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PathOwner,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::RenderGhostRequests );
-    stats.pathNodes = m_visualPresentation.PathVisualizer().futureNodes.size() +
-                      m_predictionOwner.State().futureNodeCache.futureNodes.size();
-    stats.causeRows = m_authoring.CauseTree().rows.size();
+    stats.pathNodes = static_cast<std::size_t>( visualMemory.pathNodeCount ) + predictionMemory.futureNodeCount;
+    stats.causeRows = authoringMemory.causeRowCount;
 
-    const ReplayPresentationMemoryStats visualMemory = m_visualPresentation.CollectMemoryStats();
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::RenderGhostRequests,
@@ -3057,21 +2934,12 @@ SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() 
         SkullbonezCore::Core::MainMemoryReplayByteCategory::TrajectoryStore );
     stats.ghostRequests = visualMemory.ghostRequestCount;
     stats.trajectory = visualMemory.trajectory;
-    stats.trajectory.storeBytes = SkullbonezCore::Core::MainMemoryReplayCategoryByte(
-        stats.categoryBytes,
-        SkullbonezCore::Core::MainMemoryReplayByteCategory::TrajectoryStore );
-    stats.trajectory.recordCount = static_cast<uint64_t>( m_predictionOwner.State().trajectoryStore.RecordCount() );
-    stats.trajectory.pointCount = static_cast<uint64_t>( m_predictionOwner.State().trajectoryStore.PointCount() );
-    stats.trajectory.versionChurn =
-        m_predictionOwner.State().trajectoryStore.nextVersion > 0u
-            ? static_cast<uint64_t>( m_predictionOwner.State().trajectoryStore.nextVersion - 1u )
-            : 0u;
-    for ( const ReplayTrajectoryRecord& record : m_predictionOwner.State().trajectoryStore.records )
-    {
-        stats.trajectory.publishedPointCount +=
-            static_cast<uint64_t>( (std::min)( record.publishedPointCount, record.points.size() ) );
-        stats.trajectory.maxRecordVersion = (std::max)( stats.trajectory.maxRecordVersion, record.version );
-    }
+    stats.trajectory.storeBytes = predictionMemory.trajectory.storeBytes;
+    stats.trajectory.recordCount = predictionMemory.trajectory.recordCount;
+    stats.trajectory.pointCount = predictionMemory.trajectory.pointCount;
+    stats.trajectory.publishedPointCount = predictionMemory.trajectory.publishedPointCount;
+    stats.trajectory.versionChurn = predictionMemory.trajectory.versionChurn;
+    stats.trajectory.maxRecordVersion = predictionMemory.trajectory.maxRecordVersion;
 
     stats.totalBytes = stats.presentationBytes + stats.solverBytes + stats.eventsBytes + stats.loadedReplayBytes +
                        stats.predictionBytes + stats.pathAndCauseBytes + stats.renderScratchBytes +

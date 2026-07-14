@@ -183,6 +183,16 @@ struct ReplayTimelineCaptureResult
     const ReplaySolverFrameSample* solverSample = nullptr;
 };
 
+struct ReplayTimelineMemoryStats
+{
+    SkullbonezCore::Core::MainMemoryReplayCategoryBytes categoryBytes;
+    ReplayMemoryPolicy policy;
+    std::size_t presentationSamples = 0;
+    std::size_t solverSamples = 0;
+    std::size_t eventSamples = 0;
+    std::size_t loadedSamples = 0;
+};
+
 class ReplayTimeline
 {
   public:
@@ -231,6 +241,7 @@ class ReplayTimeline
     ReplayTimelineCaptureResult CaptureFrame( ReplayCaptureInput input );
     void RecordEvent( const ReplayEventInput& input );
     void CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const;
+    ReplayTimelineMemoryStats CollectMemoryStats() const;
     void ResetCaptureMismatchDiagnostics() noexcept;
 
   private:

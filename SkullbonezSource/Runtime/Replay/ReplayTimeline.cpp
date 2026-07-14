@@ -38,6 +38,11 @@ namespace SkullbonezCore::Runtime
 {
 namespace
 {
+template <typename T> uint64_t ReplayTimelineVectorCapacityBytes( const std::vector<T>& values )
+{
+    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
+}
+
 std::string SolverReplayHashLogPath( const std::string& presentationPath )
 {
     // Why: paired log names let diagnostics copy or remove one capture without
@@ -198,6 +203,33 @@ void ReplayTimeline::CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemor
     m_presentation.CollectMemoryCategoryBytes( categories );
     m_solver.CollectMemoryCategoryBytes( categories );
     m_events.CollectMemoryCategoryBytes( categories );
+}
+
+ReplayTimelineMemoryStats ReplayTimeline::CollectMemoryStats() const
+{
+    ReplayTimelineMemoryStats stats;
+    CollectMemoryCategoryBytes( stats.categoryBytes );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedOwner,
+        static_cast<uint64_t>( sizeof( m_loadedPresentation ) ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedSampleRecords,
+        ReplayTimelineVectorCapacityBytes( m_loadedPresentation.samples ) );
+    for ( const ReplayPresentationSample& sample : m_loadedPresentation.samples )
+    {
+        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+            stats.categoryBytes,
+            SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedBodies,
+            ReplayTimelineVectorCapacityBytes( sample.bodies ) );
+    }
+    stats.policy = m_memoryPolicy;
+    stats.presentationSamples = m_presentation.GetStats().sampleCount;
+    stats.solverSamples = m_solver.GetStats().sampleCount;
+    stats.eventSamples = m_events.GetStats().eventCount;
+    stats.loadedSamples = m_loadedPresentation.samples.size();
+    return stats;
 }
 
 void ReplayTimeline::ResetCaptureMismatchDiagnostics() noexcept

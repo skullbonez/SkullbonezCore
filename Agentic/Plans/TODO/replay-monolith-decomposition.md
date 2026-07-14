@@ -932,6 +932,35 @@ Twenty-second ownership-remediation checkpoint after the first review:
   remains 3/16, or 19%; completed past plans and externally blocked work are
   excluded from that percentage.
 
+Twenty-third ownership-remediation checkpoint after the first review:
+
+- Replaced root-wide replay memory traversal with typed owner snapshots.
+  `ReplayTimeline` now reports retained/loaded categories, sample counts, and
+  resolved policy; `ReplayPrediction` reports its private engine/world/frame,
+  future-tree, and trajectory-store facts; `ReplayPresentation` reports path
+  and render capacities; `ReplayAuthoring` reports cause-row capacity/count.
+- `ReplayRuntime::CollectMemoryStats` now only merges fixed category arrays,
+  computes category ranges, and attaches allocator registration facts. It no
+  longer walks loaded sample bodies, prediction frames/world/tree/storage,
+  presentation path vectors, or authoring rows. `ReplayRuntime.cpp` fell from
+  3,570 to 3,438 lines, closing the second review's root-wide diagnostics
+  traversal finding.
+- Formatting passed. A focused Profile build passed in 20.9 seconds with zero
+  warnings and zero errors, and the touched-source comment audit inspected 8/8
+  files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 470.7 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 115.3-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M3-M7 remain open for root-owned input, probe, event, and broad external API
+  findings. Active/future portfolio progress therefore remains 3/16, or 19%;
+  completed past plans and externally blocked work are excluded from that
+  percentage.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |
