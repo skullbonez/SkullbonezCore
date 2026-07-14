@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-14th-july` |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Reclose replay M3-M7 ownership findings from mandatory M8 review, with the unchanged frame-exact 200-box gate after every task |
-| Active/future progress | 3 / 16 tasks = 19% rounded overall (decomposition + spline plans only; completed past plans and externally blocked work are excluded) |
+| Current objective | Reclose replay M4-M7 ownership findings from mandatory M8 review, with the unchanged frame-exact 200-box gate after every task |
+| Active/future progress | 4 / 16 tasks = 25% rounded overall (decomposition + spline plans only; completed past plans and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-14: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | The twenty-fifth remediation checkpoint moved every remaining `ReplayPresentation` implementation and its render-pose helpers out of the replay root; `ReplayRuntime.cpp` fell from 3,108 to 2,440 lines and now defines no presentation-owner method. Profile build (13.5s), formatting, the unchanged replay oracle (470.1s), scrub exit-37 propagation, and the full CPU/Profile/Debug/DX12/physics gate (111.2s) passed with zero warnings/DX12 errors and byte-exact physics. M3-M7 remain open; no baseline changed. |
+| Validation for current edits | M3 is complete: presentation state/methods live behind `ReplayPresentation`, and its TU consumes the new value-only `ReplayPredictionView.h` instead of private prediction-owner internals. Profile build (31.7s MSBuild), formatting, `validate_fast` (77.7s; 196 tests/4,152 assertions), project filters (680/680), the unchanged replay oracle (474.3s), scrub exit-37 propagation, and the full CPU/Profile/Debug/DX12/physics gate (146.8s) passed with zero warnings/DX12 errors and byte-exact physics. M4-M7 remain open; no baseline changed. |
 
 ## Live Queue
 
@@ -25,8 +25,8 @@ plan inventory.
    `Toppled` now means more than half the wall is directly grounded and sleeping;
    the approved base has 187/200 through the final second. Independent V6 review
    found no blocking issue.
-2. `replay-monolith-decomposition` is active at 3/9 after the mandatory M8
-   ownership review reopened M3-M7. M0 certified the exact
+2. `replay-monolith-decomposition` is active at 4/9 after the mandatory M8
+   ownership review reopened M3-M7 and remediation reclosed M3. M0 certified the exact
    starting tree; M1 bound all 55 current header type definitions/aliases and
    212 free functions to named owners; M2 mechanically split the six owner/value
    headers; M3 extracted the concrete presentation state, query, packet, and
@@ -36,13 +36,13 @@ plan inventory.
    never-stored published view while leaving mixed drawing statics for M8; M7
    published the HUD value seam, removed replay ownership from the late UI
    pass, and moved Run/query/probe behavior behind replay operations. The
-   historical two-consumer grep premise was stale. The first M8 review reopened
-   M3-M7. Remediation removed mutable owner/root escape hatches, frame-view
-   reach-back, the broad workspace bag, and the mixed prediction/presentation
-   scheduler/drawing TU. A second independent review confirmed those closures
-   but still blocks completion on root business APIs used by 22 external files,
-   root-owned cause/velocity/scrubber input, probe execution, incomplete owner-
-   TU honesty, and root-wide diagnostics traversal.
+   historical two-consumer grep premise was stale. The M8 review reopened
+   M3-M7. Remediation reclosed presentation ownership and removed mutable
+   owner/root escape hatches, frame-view reach-back, the broad workspace bag,
+   mixed prediction/presentation scheduling and drawing, incomplete prediction/
+   presentation owner-TU placement, event encoding, and root-wide diagnostics
+   traversal. M4-M7 remain blocked by broad root business APIs, root-owned
+   cause/velocity/scrubber input, and startup/probe execution.
    Every M0-M8 task,
    including inventory documentation, must run the
    unchanged 200-box gate before it can be checked or committed.

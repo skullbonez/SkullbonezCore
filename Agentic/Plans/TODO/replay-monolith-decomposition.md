@@ -1,7 +1,7 @@
 # Replay Monolith Decomposition — Owner Boundaries Inside The Replay Subsystem
 
 Date: 2026-07-13
-Status: Live — 3/9 tasks complete; M3-M7 reopened by mandatory M8 ownership review
+Status: Live — 4/9 tasks complete; M3 reclosed, M4-M7 remain open after mandatory M8 ownership review
 Branch: `nightrunner-14th-july`
 Impact area: `SkullbonezSource/Runtime/Replay/*` (26,060 lines), the two
 external consumers `Runtime/Run.cpp` and `Runtime/RunUiTextPass.cpp`, project
@@ -111,7 +111,7 @@ known-good golden manifest.
   `tools\validate_replay_visual_fidelity.bat`, then
   `tools\validate_full.bat` at the PR gate (`Runtime/*` mapping), plus
   `tools\validate_replay_scrub.bat`.
-- [ ] **M3 — Extract `ReplayPresentation` (biggest, safest).** Move overlay
+- [x] **M3 — Extract `ReplayPresentation` (biggest, safest).** Move overlay
   layout/renderer, path visualizer, ribbon/marker drawing, and the
   presentation-only operations into the owner: state
   that today lives in `ReplayRuntime` members (overlay/trajectory display
@@ -1016,6 +1016,37 @@ Twenty-fifth ownership-remediation checkpoint after the first review:
 - M3-M7 remain open for root-owned input, probe, and the remaining broad
   external API surface. Active/future portfolio progress therefore remains
   3/16, or 19%; this percentage covers active and future plans only and excludes
+  completed past plans and externally blocked work.
+
+Twenty-sixth ownership-remediation checkpoint and M3 closure:
+
+- Added `ReplayPredictionView.h` as the value-only publication boundary for
+  prediction frames, body samples, baseline poses, presentation spans, and the
+  immutable past-trajectory cursor. It contains no owner, service, callback,
+  or mutable authority.
+- `ReplayPresentation.cpp` now includes that published value header instead of
+  private `ReplayPrediction.h`. Together with checkpoint 25's physical method
+  move, presentation state and operations live entirely behind
+  `ReplayPresentation`, while the root only sequences its concrete owner.
+- The header is registered in the VS project/filter and the project-filter
+  policy. Formatting and the touched-source comment audit passed for 4/4 files
+  with zero deferred or unchecked. The focused Profile build passed with zero
+  warnings/errors (31.7-second MSBuild); `validate_fast` passed in 77.7 seconds
+  with 196/196 tests and 4,152/4,152 assertions; the changed project-filter
+  checker passed 680/680 project items with zero errors.
+- The unchanged one-process oracle passed in 474.3 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 146.8-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M3 acceptance is complete: no parallel presentation state remains in the
+  composition root, the presentation TU consumes published prediction values
+  only, and the submitted-geometry/determinism oracle is unchanged. M4-M7 and
+  the final M8 review remain open. Active/future portfolio progress is now
+  4/16, or 25%; this percentage covers active and future plans only and excludes
   completed past plans and externally blocked work.
 
 ## M1 Binding Type Inventory

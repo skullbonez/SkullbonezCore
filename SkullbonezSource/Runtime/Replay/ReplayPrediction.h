@@ -22,6 +22,7 @@ Related:
 #pragma once
 
 #include "ReplayIdentity.h"
+#include "ReplayPredictionView.h"
 #include "ReplayPredictionScheduling.h"
 #include "ReplayRecorder.h"
 #include "ReplayVisualPacket.h"
@@ -91,46 +92,10 @@ struct RunReplayPredictionBodyBackup
     bool fixed = false;
 };
 
-struct RunReplayPredictionBodySample
-{
-    ReplayBodyId id;
-    Physics::ModelRowHint modelRow;
-    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
-    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
-    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR; // m/s-equivalent simulation units.
-    bool sleeping = false;                                            // Solver sleep state used by whole-cascade outcome validation.
-};
-
-struct RunReplayPredictionFrame
-{
-    // Concept: body samples are authoritative for the root trajectory, while
-    // debugContacts are optional evidence for the contact-derived cause tree.
-    // contactsIncomplete means the frame stayed usable after contact scratch
-    // reserve failed, so UI/reporting can label the tree as partial.
-    ReplayFrameIndex frameIndex = 0;
-    double simulationSeconds = 0.0;
-    float tornadoSystemElapsedSeconds = 0.0f;
-    std::vector<RunReplayPredictionBodySample> bodies;
-    std::vector<Physics::PhysicsDebugContact> debugContacts;
-    bool contactsIncomplete = false;
-};
-
 struct ReplayPredictionBaselineRootPoint
 {
     ReplayFrameIndex frameIndex = 0;
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
-};
-
-struct ReplayPredictionBaselineBodyPose
-{
-    ReplayBodyId id;
-    Physics::ModelRowHint modelRow;
-    bool hasEntryPose = false;
-    bool hasRestPose = false;
-    Math::Vector::Vector3 entryPosition = Math::Vector::ZERO_VECTOR;
-    Math::Orientation::Quaternion entryOrientation = Math::Orientation::IDENTITY_QUATERNION;
-    Math::Vector::Vector3 restPosition = Math::Vector::ZERO_VECTOR;
-    Math::Orientation::Quaternion restOrientation = Math::Orientation::IDENTITY_QUATERNION;
 };
 
 struct ReplayPredictionBaselineSnapshot
@@ -157,10 +122,10 @@ struct RunReplayPredictionRevealClock
     // whole.
     // Invariant: overlay pacing never feeds physics, replay samples, or solver
     // restores, so steady_clock here cannot affect deterministic simulation.
-    double secondsPerSecond = 1.0;                                    // Runtime-authored causal-unfold speed; 1.0 = real-time.
+    double secondsPerSecond = 1.0;           // Runtime-authored causal-unfold speed; 1.0 = real-time.
     std::chrono::steady_clock::time_point anchor = {};
-    ReplayFrameIndex presentedFrame = 0;                              // Last common reveal clamp consumed by replay presentation.
-    ReplayFrameIndex deterministicFrame = 0;                          // Automation-owned cursor; ignored outside fidelity capture.
+    ReplayFrameIndex presentedFrame = 0;     // Last common reveal clamp consumed by replay presentation.
+    ReplayFrameIndex deterministicFrame = 0; // Automation-owned cursor; ignored outside fidelity capture.
     bool deterministicFrameEnabled = false;
     bool anchorValid = false;
 };
@@ -209,7 +174,7 @@ struct RunReplayPredictionTrajectoryBuildState
 struct RunReplayPredictionBuildState
 {
     bool dirty = true;
-    uint32_t generationBeginCount = 0;                                // Successful future-simulation generations in this process.
+    uint32_t generationBeginCount = 0;       // Successful future-simulation generations in this process.
     // Concept: velocity edits do not form a queue. While an instant worker job
     // is in flight, this bit remembers only that the newest live state needs one
     // replacement build after completion.
@@ -320,40 +285,6 @@ struct RunReplayPredictionState
     RunReplayPredictionRevealClock revealClock;
 };
 
-struct ReplayPredictionPresentationView
-{
-    std::span<const RunReplayPredictionFrame> frames;
-    std::span<const RunReplayPathTraceNode> futureNodes;
-    std::span<const ReplayTrajectoryRecord> trajectoryRecords;
-    std::span<const ReplayPredictionRetainedMarker> retainedMarkers;
-    std::span<const ReplayPredictionBaselineBodyPose> baselineBodyPoses;
-    ReplayBodyId targetId;
-    ReplayBodyId baselineRootId;
-    ReplayBodyId trajectoryBuildRootId;
-    ReplayFrameIndex sourceFrame = 0;
-    ReplayFrameIndex revealFrame = 0;
-    uint32_t topologyVersion = 0;
-    uint32_t trajectoryBuildTopologyVersion = 0;
-    std::size_t trajectoryBuiltNodeCount = 0;
-    std::size_t trajectoryChildFrameCount = 0;
-    ReplayPredictionBuildMode buildMode = ReplayPredictionBuildMode::Undecided;
-    float horizonSeconds = 0.0f;
-    double measuredTicksPerMs = 0.0;
-    double lastBuildWallMs = 0.0;
-    bool enabled = false;
-    bool building = false;
-    bool complete = false;
-    bool usingBuildFrames = false;
-    bool futureNodesCacheValid = false;
-    bool trajectoryBuildValid = false;
-    bool trajectoryBuildUsingBuildFrames = false;
-    bool ragdollVisualsEnabled = false;
-    bool baselineValid = false;
-    bool baselineComparisonActive = false;
-    bool deterministicRevealEnabled = false;
-    bool generationPermitted = true;
-};
-
 // Value-only effects emitted by prediction update/preparation for the
 // composition root to apply to the scrubber and presentation owners. Keeping
 // these counters out of callbacks prevents the private owner from reaching
@@ -365,23 +296,6 @@ struct ReplayPredictionUpdateResult
     Physics::ModelRowHint repairedTargetModelRow;
     bool targetModelRowRepaired = false;
     bool pinSolverScrubberToPresent = false;
-};
-
-// Immutable presentation cursor consumed while prediction maintains the
-// retained/past trajectory lane. This avoids borrowing the presentation
-// owner's complete path state across the owner boundary.
-struct ReplayPastTrajectoryView
-{
-    ReplayBodyId targetId;
-    ReplayBodyId retainedTargetId;
-    Physics::ModelRowHint targetModelRow;
-    ReplayFrameIndex firstFrame = 0;
-    ReplayFrameIndex builtThroughFrame = 0;
-    uint64_t totalFramesEvicted = 0;
-    uint64_t fullRebuildCount = 0;
-    uint64_t incrementalTrimCount = 0;
-    bool hasTarget = false;
-    bool valid = false;
 };
 
 // Value boundary for the trajectory store's presentation-owned cursor. The

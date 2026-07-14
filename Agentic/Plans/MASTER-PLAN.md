@@ -96,9 +96,9 @@ number measures remaining executable work instead of lifetime repository work.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| replay-monolith-decomposition | 3 | 9 | 33% |
+| replay-monolith-decomposition | 4 | 9 | 44% |
 | future-path-vector-splines | 0 | 7 | 0% |
-| **Active/future total** | **3** | **16** | **19%** |
+| **Active/future total** | **4** | **16** | **25%** |
 
 ## Current Execution Priority
 
@@ -124,11 +124,12 @@ validation-gate V3 remains externally blocked.
    it may be checked or committed. Remediation checkpoint 25 has moved all
    prediction and presentation owner implementations into their owner-named
    translation units, replaced root event encoding with one immutable recorder
-   command, and reduced `ReplayRuntime.cpp` to 2,440 lines. Destination-branch
-   provenance and every per-checkpoint gate passed on
-   `nightrunner-14th-july`. The ledger remains 3/9 because the mandatory closure
-   review still requires startup-probe execution, external input routing, and
-   the remaining broad root API to close.
+   command, and reduced `ReplayRuntime.cpp` to 2,440 lines. M3 is now complete:
+   the presentation TU consumes only the value-only `ReplayPredictionView.h`,
+   not private prediction-owner internals. Destination-branch provenance and
+   every per-checkpoint gate passed on `nightrunner-14th-july`. The ledger is
+   4/9; M4-M7 still require startup-probe execution, external input routing,
+   and the remaining broad root API to close.
 3. **Future-path vector splines — live independent presentation lane
    (2026-07-14 owner request).** `TODO/future-path-vector-splines.md` (T1→T7)
    restyles the prediction view: near-black sky, thin anti-aliased
@@ -165,7 +166,7 @@ validation-gate V3 remains externally blocked.
 |---|---|---:|---|
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs merge-group proof, required branch protection, and trusted/ephemeral DX12 runner administration |
 | [replay-visual-fidelity-mega-probe](TODO/replay-visual-fidelity-mega-probe.md) | Complete | 7/7 | One engine, one prediction, 2,401 exact ticks, 187 grounded sleepers, durable CPU-only reconstruction, and adversarial closure approved |
-| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Active on `nightrunner-14th-july` | 3/9 | Remove external input/probe root dependencies and remaining root forwarding; then rerun the mandatory M8 ownership review and unchanged per-task mega gate |
+| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Active on `nightrunner-14th-july` | 4/9 | Remove external input/probe root dependencies and remaining root forwarding; then rerun the mandatory M8 ownership review and unchanged per-task mega gate |
 | [future-path-vector-splines](TODO/future-path-vector-splines.md) | Live — independent presentation lane | 0/7 | Start T1 (near-black prediction sky) and T2 (thin AA vector-spline ribbon shader); owner decisions 2026-07-14 are recorded in the plan; golden-manifest refresh needs owner approval |
 
 ## Planned Architecture Work (2026-07-11 gap review)
