@@ -874,6 +874,32 @@ Twentieth ownership-remediation checkpoint after the first review:
   This checkpoint removes one owner-TU leak and one external dependency without
   claiming task progress.
 
+Twenty-first ownership-remediation checkpoint after the first review:
+
+- Moved prediction enablement, authoring-request, verification, archive,
+  reveal-clock, horizon, and velocity-mutation capabilities from
+  `ReplayRuntime.cpp` into `ReplayPrediction.cpp`. The prediction owner now
+  implements these operations beside its private state and locally includes
+  the archive contract it consumes; no API or behavior changed.
+- Seven prediction methods that still depend on composition-root-local worker
+  and trajectory helpers remain in `ReplayRuntime.cpp`; they are explicit
+  follow-up scope rather than being hidden by this physical split.
+- A focused Profile build passed in 13.4 seconds with zero warnings and zero
+  errors. Formatting passed, and the touched-source comment audit inspected
+  2/2 files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 477.6 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 106.4-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M3-M7 remain open for the seven root-dependent prediction methods and the
+  other root-owned input, probe, event, diagnostics, and external API findings.
+  Active/future portfolio progress therefore remains 3/16, or 19%; completed
+  past plans and externally blocked work are excluded from that percentage.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |
