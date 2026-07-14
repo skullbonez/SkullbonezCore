@@ -29,7 +29,7 @@
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
-#include "../SkullbonezSource/Runtime/Replay/ReplayRuntime.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayCoordination.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRetainedMemory.h"
 
 #include <vector>
@@ -52,7 +52,10 @@ using SkullbonezCore::Runtime::ReplayRecorder;
 using SkullbonezCore::Runtime::ReplayRecorderConfig;
 using SkullbonezCore::Runtime::ReplayRecorderStats;
 using SkullbonezCore::Runtime::ReplayRetainedDataOwner;
-using SkullbonezCore::Runtime::ReplayRuntime;
+using SkullbonezCore::Runtime::ReplaySceneTimelineResetInput;
+using SkullbonezCore::Runtime::SceneTimelineGeneratedConfigFlags;
+using SkullbonezCore::Runtime::SceneTimelineRecordsGeneratedConfig;
+using SkullbonezCore::Runtime::SceneTimelineResetClearsBranch;
 using SkullbonezCore::Runtime::ReplaySolverBodySample;
 using SkullbonezCore::Runtime::ReplaySolverFrameSample;
 using SkullbonezCore::Runtime::ReplaySolverRecorder;
@@ -250,7 +253,7 @@ TEST_CASE( "ReplayRuntime: retained ownership and growth policies are complete a
 
 TEST_CASE( "Replay coordination: scene timeline reset decisions preserve branch and authored-scene semantics" )
 {
-    ReplayRuntime::SceneTimelineResetInput reset;
+    ReplaySceneTimelineResetInput reset;
     reset.modelCount = 5;
     reset.solverBallCount = 3;
     reset.solverBoxCount = 2;

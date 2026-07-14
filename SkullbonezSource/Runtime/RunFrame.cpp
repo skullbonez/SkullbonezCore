@@ -954,18 +954,18 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners, Runt
 #ifdef _DEBUG
     if ( replayCaptured )
     {
-        const ReplayRuntime::SceneTimelineResetInput timelineReset = ReplayRuntime::DescribeSceneTimeline(
-            m_sceneController,
-            m_sceneController.State(),
-            m_startup.gameModelCapacity,
-            static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
+        const ReplaySceneTimelineResetInput timelineReset =
+            DescribeReplaySceneTimeline( m_sceneController,
+                                         m_sceneController.State(),
+                                         m_startup.gameModelCapacity,
+                                         static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
         ReplaySolverSampleRestoreContext probeSample{ m_sceneController.Physics(),
                                                       m_sceneController,
                                                       m_sceneController.State(),
                                                       m_renderer,
                                                       m_debug,
                                                       m_runtimeTools };
-        const ReplayRuntime::SceneTimelineResetOwners timelineOwners{
+        const ReplaySceneTimelineResetOwners timelineOwners{
             m_inputRouter,
             m_interaction,
             &m_sceneController.Cameras(),
@@ -976,21 +976,20 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners, Runt
                                         RuntimeCameraModeEnabledMask( m_sceneController ) ),
             m_attachedCamera.State().activeFollow,
             m_camera.director.grabbed };
-        const ReplayRuntime::ReplayRestoreTransaction probeTransaction{ probeSample,
-                                                                        m_diagnosticsRuntime,
-                                                                        timelineReset,
-                                                                        timelineOwners };
-        const ReplayRuntime::ReplayArtifactTopologyOwners probeTopology{ m_simulation,
-                                                                         m_config,
-                                                                         m_assets,
-                                                                         m_workerPool,
-                                                                         m_launchOptions.generatedObjectTypeOverride,
-                                                                         m_startup.gameModelCapacity };
+        const ReplayRestoreTransaction probeTransaction{ probeSample,
+                                                         m_diagnosticsRuntime,
+                                                         timelineReset,
+                                                         timelineOwners };
+        const ReplayArtifactTopologyOwners probeTopology{ m_simulation,
+                                                          m_config,
+                                                          m_assets,
+                                                          m_workerPool,
+                                                          m_launchOptions.generatedObjectTypeOverride,
+                                                          m_startup.gameModelCapacity };
         // Why: ReplayRuntime owns probe sequencing and bounded failure state;
         // the application exit latch only preserves that first owned failure
         // while WM_QUIT unwinds the frame loop.
-        const ReplayRuntime::ReplayProbeTickResult probeResult =
-            m_replayRuntime.TickProbes( probeTransaction, probeTopology );
+        const ReplayProbeTickResult probeResult = m_replayRuntime.TickProbes( probeTransaction, probeTopology );
         if ( !probeResult.status.ok )
         {
             m_applicationExit.RequestOwnedFailure( probeResult.status );

@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/RunReplayProbeState.h
+File: SkullbonezSource/Runtime/Replay/ReplayProbeState.h
 Purpose:
   Groups debug-only CLI replay probe state owned by ReplayRuntime.
 
@@ -27,11 +27,11 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
-  - SkullbonezSource/Runtime/Replay/RunReplayProbes.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayValidation.cpp
 */
 #pragma once
 
-#include "../Core/SbResult.h"
+#include "../../Core/SbResult.h"
 
 #include <cstring>
 
@@ -74,7 +74,7 @@ struct RunReplayProbeFailureState
     char message[512] = {};
 };
 
-struct RunReplayProbeState
+struct ReplayProbeState
 {
     void RecordFailure( const SkullbonezCore::Core::SbResult& result )
     {

@@ -25,7 +25,7 @@ Invariants:
     payload; this owner retains only values sampled at gesture start.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayScrubberTools.cpp
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
 */
 #pragma once

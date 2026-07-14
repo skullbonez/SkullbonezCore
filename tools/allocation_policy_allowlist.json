@@ -95,7 +95,7 @@
       "removal_or_wrapper_plan": "Keep prediction growth behind RequestReplayPredictionReserveGrowth/ReserveReplayPredictionVector or replace the working set with a fixed prediction arena."
     },
     {
-      "path": "SkullbonezSource/Runtime/Replay/RunReplayTools.cpp",
+      "path": "SkullbonezSource/Runtime/Replay/ReplayPredictionPresentation.cpp",
       "patterns": [
         "std::make_unique<PhysicsEngine>"
       ],
@@ -106,7 +106,7 @@
       "removal_or_wrapper_plan": "Replace with a dedicated replay prediction arena/object factory if runtime allocation policy gains typed owner allocators; do not construct the private engine at startup."
     },
     {
-      "path": "SkullbonezSource/Runtime/Replay/RunReplayTools.cpp",
+      "path": "SkullbonezSource/Runtime/Replay/ReplayPredictionPresentation.cpp",
       "patterns": [
         "std::make_unique<ReplayPredictionAmortizedTask>"
       ],
@@ -927,7 +927,7 @@
       "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
     },
     {
-      "path": "SkullbonezSource/Runtime/Replay/RunReplayTools.cpp",
+      "path": "SkullbonezSource/Runtime/Replay/ReplayPredictionPresentation.cpp",
       "patterns": [
         ".push_back(",
         ".reserve(",

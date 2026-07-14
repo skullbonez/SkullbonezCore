@@ -243,12 +243,12 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRuntime.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\TrajectoryStore.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayProbes.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayValidation.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionArchive.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayVisualPacketFingerprint.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayCauseTreeTools.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayScrubberTools.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayAuthoringCauseTree.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayScrubberTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Audio\ContactAudioService.cpp" />
@@ -289,8 +289,8 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\LiveStyleController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderer.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayTools.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayVelocityEdit.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionPresentation.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayAuthoringVelocity.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunRender.cpp" />
@@ -424,7 +424,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\RunDebugState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\InteractionAutomationController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunLaunchOptions.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\RunReplayProbeState.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayProbeState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RenderPresentationSettings.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunStartupState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunTimerState.h" />

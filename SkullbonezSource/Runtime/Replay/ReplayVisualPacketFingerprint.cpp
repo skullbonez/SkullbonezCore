@@ -83,7 +83,7 @@ bool TrajectoryRecordParticipatesInCompletedPresentation( const ReplayVisualPack
 {
     // During a growing prediction the renderer may switch between committed
     // and worker banks according to prefix readiness, which is intentionally
-    // left conservative here. Once completion is published, RunReplayTools
+    // left conservative here. Once completion is published, ReplayPredictionPresentation
     // draws only the committed root (branch 0) and committed child range.
     if ( packet.header.predictionBuilding || !packet.header.predictionComplete )
     {

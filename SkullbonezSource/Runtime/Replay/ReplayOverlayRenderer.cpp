@@ -140,9 +140,9 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     // Concept: the solver track is split into retained history and generated
     // future. Positions past the live marker draw prediction frames instead of
     // retained solver samples.
-    const bool futureTimelineVisible = !loadedPresentation && ReplayRuntime::TimelineHasFuture( solverPresentT );
-    const bool futureSelected = !loadedPresentation && ReplayRuntime::TrackPositionIsFuture( t, solverPresentT );
-    const float solverSampleT = ReplayRuntime::SolverNormalizedFromTrack( t, solverPresentT );
+    const bool futureTimelineVisible = !loadedPresentation && ReplayTimelineHasFuture( solverPresentT );
+    const bool futureSelected = !loadedPresentation && ReplayTrackPositionIsFuture( t, solverPresentT );
+    const float solverSampleT = ReplaySolverNormalizedFromTrack( t, solverPresentT );
     const ReplayPresentationSample* selectedPresentation =
         loadedPresentation ? replayRuntime.LoadedPresentationSampleAtNormalized( t ) : nullptr;
     const ReplayPresentationSample* latestPresentation =
@@ -170,7 +170,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     }
 
     char timeLabel[48] = {};
-    if ( loadedPresentation && ReplayRuntime::AtPresentTrackPosition( t, 1.0f ) )
+    if ( loadedPresentation && ReplayAtPresentTrackPosition( t, 1.0f ) )
     {
         sprintf_s( timeLabel, sizeof( timeLabel ), "END" );
     }
@@ -178,8 +178,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     {
         sprintf_s( timeLabel, sizeof( timeLabel ), "+%.1fs", futureSeconds );
     }
-    else if ( ReplayRuntime::AtPresentTrackPosition( t, solverPresentT ) &&
-              !replayRuntime.Scrubber().historicalSamplePaused )
+    else if ( ReplayAtPresentTrackPosition( t, solverPresentT ) && !replayRuntime.Scrubber().historicalSamplePaused )
     {
         sprintf_s( timeLabel, sizeof( timeLabel ), "LIVE" );
     }
@@ -201,7 +200,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     auto fadeC = [fade]( float channel ) -> float { return channel * fade; };
     auto drawText = [&]( float x, float y, float pxSize, float r, float g, float b, const char* value )
     { draw.Text( x, y, pxSize, fadeC( r ), fadeC( g ), fadeC( b ), value ); };
-    const bool live = !loadedPresentation && ReplayRuntime::AtPresentTrackPosition( t, solverPresentT ) &&
+    const bool live = !loadedPresentation && ReplayAtPresentTrackPosition( t, solverPresentT ) &&
                       !replayRuntime.Scrubber().historicalSamplePaused;
     const double now = context.nowSeconds;
     const char* sourceLabel = loadedPresentation ? "V2 FILE" : "SOLVER";

@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
+File: SkullbonezSource/Runtime/Replay/ReplayPredictionPresentation.cpp
 Purpose:
   Owns replay path visualization, cause-focus overlays, and prediction-preview
   helpers as one real translation unit after deleting the replay text splices.
@@ -42,8 +42,8 @@ Invariants:
     only after the step, and each worker writes a distinct pre-sized frame row.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.cpp
-  - SkullbonezSource/Runtime/Replay/RunReplayCauseTreeTools.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayScrubberTools.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayAuthoringCauseTree.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -3687,7 +3687,7 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
 }
 
 
-bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
+bool CaptureReplayPredictionFrame( RunReplayPredictionState& prediction,
                                    const PhysicsEngine& physicsEngine,
                                    SkullbonezCore::Threading::WorkerPool& workerPool,
                                    int modelCount,
@@ -3701,7 +3701,6 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
         return false;
     }
 
-    RunReplayPredictionState& prediction = replayRuntime.Prediction();
     const std::size_t frameSlot = static_cast<std::size_t>( frameIndex );
     if ( frameSlot >= prediction.build.buildFrames.size() )
     {
@@ -3806,14 +3805,14 @@ void MarkReplayPredictionWorkerFailed( RunReplayPredictionState& prediction )
     prediction.build.workerFailed.store( true, std::memory_order_release );
 }
 
-void RunReplayPredictionWorkerRange( ReplayRuntime& replayRuntime,
+void RunReplayPredictionWorkerRange( ReplayPrediction& predictionOwner,
                                      const SkullbonezCore::Core::EngineConfig& config,
                                      SkullbonezCore::Threading::WorkerPool& workerPool,
                                      int modelCount,
                                      int beginTickIndex,
                                      int endTickIndex )
 {
-    RunReplayPredictionState& prediction = replayRuntime.Prediction();
+    RunReplayPredictionState& prediction = predictionOwner.State();
     if ( prediction.build.workerFailed.load( std::memory_order_acquire ) ||
          !prediction.simulation.predictionEngineReady || !prediction.simulation.predictionEngine )
     {
@@ -3841,7 +3840,7 @@ void RunReplayPredictionWorkerRange( ReplayRuntime& replayRuntime,
                                         config,
                                         prediction.simulation.predictionWorldForces,
                                         workerPool ) ||
-             !CaptureReplayPredictionFrame( replayRuntime,
+             !CaptureReplayPredictionFrame( prediction,
                                             predictionEngine,
                                             workerPool,
                                             modelCount,
@@ -3876,14 +3875,9 @@ void ReplayPredictionWorkerOperation::operator()( int beginTickIndex, int endTic
 {
     // Lifetime: CancelPredictionJob waits for the enclosing AmortizedTask before
     // any of these replay-owned borrows can be cleared or replaced.
-    if ( replayRuntime && config && workerPool )
+    if ( prediction && config && workerPool )
     {
-        RunReplayPredictionWorkerRange( *replayRuntime,
-                                        *config,
-                                        *workerPool,
-                                        modelCount,
-                                        beginTickIndex,
-                                        endTickIndex );
+        RunReplayPredictionWorkerRange( *prediction, *config, *workerPool, modelCount, beginTickIndex, endTickIndex );
     }
 }
 
@@ -3919,10 +3913,10 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayRuntime& replayRuntime, dou
     const float previousSolverPosition = replayRuntime.TrackPosition( RunReplayTrack::Solver );
     const bool hadCommittedPredictionFrames = prediction.simulation.frames.size() >= 2;
     const bool solverWasOldLiveEdge =
-        !hadCommittedPredictionFrames && ReplayRuntime::AtPresentTrackPosition( previousSolverPosition, 1.0f );
-    const bool scrubberWasPinnedToPresent =
-        !replayRuntime.Scrubber().historicalSamplePaused ||
-        ReplayRuntime::AtPresentTrackPosition( previousSolverPosition, previousPresentT ) || solverWasOldLiveEdge;
+        !hadCommittedPredictionFrames && ReplayAtPresentTrackPosition( previousSolverPosition, 1.0f );
+    const bool scrubberWasPinnedToPresent = !replayRuntime.Scrubber().historicalSamplePaused ||
+                                            ReplayAtPresentTrackPosition( previousSolverPosition, previousPresentT ) ||
+                                            solverWasOldLiveEdge;
 
     prediction.build.workerTask.reset();
     prediction.build.building = false;
@@ -4160,7 +4154,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
     }
 
     if ( !prediction.simulation.predictionEngine ||
-         !CaptureReplayPredictionFrame( replayRuntime,
+         !CaptureReplayPredictionFrame( prediction,
                                         *prediction.simulation.predictionEngine,
                                         workerPool,
                                         modelCount,
@@ -4177,7 +4171,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         prediction.build.workerTask = std::make_unique<ReplayPredictionAmortizedTask>(
             prediction.build.targetTickCount,
             REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT,
-            ReplayPredictionWorkerOperation{ &replayRuntime, &config, &workerPool, modelCount } );
+            ReplayPredictionWorkerOperation{ &replayRuntime.PredictionOwner(), &config, &workerPool, modelCount } );
         prediction.build.workerTask->SetBudget( REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT );
     }
     prediction.build.building = true;

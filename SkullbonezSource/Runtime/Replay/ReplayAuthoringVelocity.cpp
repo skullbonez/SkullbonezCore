@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp
+File: SkullbonezSource/Runtime/Replay/ReplayAuthoringVelocity.cpp
 Purpose:
   Implements replay velocity-edit picking, dragging, mutation, and overlay drawing.
 
@@ -23,7 +23,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
-  - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayPredictionPresentation.cpp
   - Agentic/Reference/comment-style-guide.md
 */
 #include "ReplayAuthoring.h"
@@ -437,7 +437,7 @@ bool TryReplayVelocityAngularRayAngle( const ReplayVelocityBodyView& body,
 
 
 bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
-                                           const PathPickInput& pointerRay,
+                                           const ReplayPathPickInput& pointerRay,
                                            InputRouter& inputRouter,
                                            RuntimeInteractionController& interaction,
                                            PhysicsEngine& velocityPhysics,
@@ -735,7 +735,7 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
         // Concept: velocity edit owns replay body targeting. A click on the
         // body itself should select the replay path target for the velocity
         // gizmo, not fall through to normal editor/world selection and clear it.
-        ReplayRuntime::PathPickInput pickInput;
+        ReplayPathPickInput pickInput;
         pickInput.hasWorldRay = pointerRay.hasWorldRay;
         pickInput.rayOrigin = rayOrigin;
         pickInput.rayDirection = rayDirection;

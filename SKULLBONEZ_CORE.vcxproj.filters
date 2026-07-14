@@ -247,13 +247,13 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\TrajectoryStore.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayProbes.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayValidation.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayCauseTreeTools.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayAuthoringCauseTree.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayScrubberTools.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayScrubberTools.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeTools.cpp">
@@ -373,10 +373,10 @@
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderer.cpp">
       <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayTools.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionPresentation.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayVelocityEdit.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayAuthoringVelocity.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.cpp">
@@ -797,8 +797,8 @@
     <ClInclude Include="SkullbonezSource\Runtime\RunLaunchOptions.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\RunReplayProbeState.h">
-      <Filter>Header Files\Runtime</Filter>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayProbeState.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Render\RenderPresentationSettings.h">
       <Filter>Header Files\Runtime\Render</Filter>

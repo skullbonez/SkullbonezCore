@@ -55,12 +55,13 @@ class WorkerPool;
 namespace Runtime
 {
 class ReplayRuntime;
+class ReplayPrediction;
 // Concept: this named value operation keeps prediction slices typed through the
 // WorkerPool boundary. Its borrowed owners remain valid until cancellation
 // waits for the task's in-flight flag to clear.
 struct ReplayPredictionWorkerOperation
 {
-    ReplayRuntime* replayRuntime = nullptr;
+    ReplayPrediction* prediction = nullptr;
     const SkullbonezCore::Core::EngineConfig* config = nullptr;
     Threading::WorkerPool* workerPool = nullptr;
     int modelCount = 0;

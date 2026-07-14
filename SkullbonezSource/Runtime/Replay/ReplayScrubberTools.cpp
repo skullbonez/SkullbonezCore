@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.cpp
+File: SkullbonezSource/Runtime/Replay/ReplayScrubberTools.cpp
 Purpose:
   Contains replay scrubber input, inspection-camera, and live-restore glue.
 
@@ -25,7 +25,7 @@ Invariants:
     not recreate per-button rectangles or fall-through exclusions.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayPredictionPresentation.cpp
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
 */
 #include "ReplayScrubber.h"
@@ -308,10 +308,11 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceInput& input, ReplayWork
 }
 
 
-void ReplayRuntime::ResetSceneTimeline( const SceneTimelineResetInput& input, const SceneTimelineResetOwners& owners )
+void ReplayRuntime::ResetSceneTimeline( const ReplaySceneTimelineResetInput& input,
+                                        const ReplaySceneTimelineResetOwners& owners )
 {
     CancelToolDragState( owners.interaction, owners.inputRouter );
-    const SceneTimelineResetResult begin = BeginSceneTimelineReset( input );
+    const ReplaySceneTimelineResetResult begin = BeginSceneTimelineReset( input );
     if ( begin.exitInspectionCamera )
     {
         ExitInspectionCamera( owners.cameras,
@@ -324,7 +325,7 @@ void ReplayRuntime::ResetSceneTimeline( const SceneTimelineResetInput& input, co
                               owners.inputRouter );
     }
 
-    const SceneTimelineResetResult finish = FinishSceneTimelineReset( input );
+    const ReplaySceneTimelineResetResult finish = FinishSceneTimelineReset( input );
     if ( finish.exitInspectionCamera )
     {
         ExitInspectionCamera( owners.cameras,
@@ -339,10 +340,9 @@ void ReplayRuntime::ResetSceneTimeline( const SceneTimelineResetInput& input, co
 }
 
 
-ReplayRuntime::ReplayLiveRestoreOutcome
-ReplayRuntime::ApplyLiveRestoreRequest( const ReplayRestoreTransaction& transaction,
-                                        const ReplayArtifactTopologyOwners& topologyOwners,
-                                        const ReplayLiveRestoreRequest& request )
+ReplayLiveRestoreOutcome ReplayRuntime::ApplyLiveRestoreRequest( const ReplayRestoreTransaction& transaction,
+                                                                 const ReplayArtifactTopologyOwners& topologyOwners,
+                                                                 const ReplayLiveRestoreRequest& request )
 {
     ReplayLiveRestoreOutcome outcome;
     outcome.requested = request.kind != ReplayLiveRestoreKind::None;
@@ -429,7 +429,7 @@ void ApplyReplayLiveAdvanceAction( ReplayRuntime& replayRuntime,
             replayRuntime.PredictionOwner().CancelJob( false );
         }
         const float currentPosition = replayRuntime.TrackPosition( RunReplayTrack::Solver );
-        if ( ReplayRuntime::TrackPositionIsFuture( currentPosition, previousPredictionPresentT ) )
+        if ( ReplayTrackPositionIsFuture( currentPosition, previousPredictionPresentT ) )
         {
             replayRuntime.SetTrackPosition( RunReplayTrack::Solver, 1.0f );
             replayRuntime.Scrubber().historicalSamplePaused = false;
@@ -572,7 +572,7 @@ void HandleReplayPredictionPressed( ReplayRuntime& replayRuntime,
     if ( !replayRuntime.Prediction().enabled )
     {
         const float currentPosition = replayRuntime.TrackPosition( RunReplayTrack::Solver );
-        if ( ReplayRuntime::TrackPositionIsFuture( currentPosition, previousPredictionPresentT ) )
+        if ( ReplayTrackPositionIsFuture( currentPosition, previousPredictionPresentT ) )
         {
             replayRuntime.SetTrackPosition( RunReplayTrack::Solver, 1.0f );
             replayRuntime.Scrubber().historicalSamplePaused = false;
@@ -797,7 +797,7 @@ bool TickReplayScrubberGesture( ReplayRuntime& replayRuntime,
         else
         {
             const float presentT = replayRuntime.SolverPresentTrackPosition();
-            if ( ReplayRuntime::AtPresentTrackPosition( replayRuntime.Scrubber().position, presentT ) )
+            if ( ReplayAtPresentTrackPosition( replayRuntime.Scrubber().position, presentT ) )
             {
                 replayRuntime.SetTrackPosition( replayRuntime.Scrubber().activeTrack, presentT );
                 replayRuntime.Scrubber().historicalSamplePaused = false;
@@ -880,8 +880,8 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
     PROFILE_SCOPED( "Frame/Replay/ScrubberInput" );
     const RuntimeMouseEdges& pointer = m_inputRouter.UiSnapshot().mouse;
     const bool restoreDown = m_inputRouter.RuntimeSnapshot().enterDown;
-    const ReplayRuntime::ScrubberInputFrame inputFrame =
-        m_replayRuntime.BeginScrubberInputFrame( pointer.leftPressed, pointer.leftReleased, restoreDown );
+    const ReplayScrubberInputFrame inputFrame =
+        m_replayRuntime.BeginReplayScrubberInputFrame( pointer.leftPressed, pointer.leftReleased, restoreDown );
     const bool leftPressed = inputFrame.leftPressed;
     const bool leftReleased = inputFrame.leftReleased;
     const bool restorePressed = inputFrame.restorePressed;
@@ -896,7 +896,7 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
     if ( !scrubberAllowed || !replaySurfaceAvailable || screenW <= 0 || screenH <= 0 )
     {
         m_replayRuntime.CancelToolDragState( m_interaction, m_inputRouter );
-        const ReplayRuntime::ScrubberUnavailableResult unavailable =
+        const ReplayScrubberUnavailableResult unavailable =
             m_replayRuntime.ResetUnavailableScrubberSurface( loadedPresentation );
         if ( unavailable.exitInspectionCamera )
         {

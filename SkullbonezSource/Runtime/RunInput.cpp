@@ -374,32 +374,32 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
 
     if ( !consumed )
     {
-        ReplayRuntime::PathPickInput pickInput;
+        ReplayPathPickInput pickInput;
         pickInput.hasWorldRay = input.leftPressed && input.hasWorldRay;
         pickInput.rayOrigin = input.rayOrigin;
         pickInput.rayDirection = input.rayDirection;
         pickInput.additive = input.shiftDown;
         pickInput.clearOnMiss = !input.shiftDown;
-        consumed = replayRuntime.RouteWorldPointer(
-            ReplayRuntime::WorldPointerInput{ input.leftPressed,
-                                              input.suppressWorldAction,
-                                              runtimeTools.Editor().editorModeEnabled,
-                                              input.uiWantsNativeCursor,
-                                              input.controlDown,
-                                              RunCameraModeUsesLauncher( input.cameraMode ),
-                                              pickInput,
-                                              entities,
-                                              models.BodyStore(),
-                                              models.Colliders(),
-                                              models.RenderPresentationRecords(),
-                                              &cameras,
-                                              terrain,
-                                              camera,
-                                              replayRestoreCameraMode,
-                                              attachedCameraFollow,
-                                              directorGrabbed,
-                                              interaction,
-                                              *this } );
+        consumed =
+            replayRuntime.RouteWorldPointer( ReplayWorldPointerInput{ input.leftPressed,
+                                                                      input.suppressWorldAction,
+                                                                      runtimeTools.Editor().editorModeEnabled,
+                                                                      input.uiWantsNativeCursor,
+                                                                      input.controlDown,
+                                                                      RunCameraModeUsesLauncher( input.cameraMode ),
+                                                                      pickInput,
+                                                                      entities,
+                                                                      models.BodyStore(),
+                                                                      models.Colliders(),
+                                                                      models.RenderPresentationRecords(),
+                                                                      &cameras,
+                                                                      terrain,
+                                                                      camera,
+                                                                      replayRestoreCameraMode,
+                                                                      attachedCameraFollow,
+                                                                      directorGrabbed,
+                                                                      interaction,
+                                                                      *this } );
     }
 
     if ( !consumed )

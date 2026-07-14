@@ -520,7 +520,7 @@ void RecordSceneRuntimeUIActions( const SceneRuntimeUICommandResult& commands, R
 RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
                                           RuntimeFrameInteractionView& interactionOwners,
                                           RuntimeFrameSceneView& sceneOwners,
-                                          const ReplayRuntime::PathPickInput& replayPointerRay,
+                                          const ReplayPathPickInput& replayPointerRay,
                                           const RuntimeInputFrameFacts& facts )
 {
     InputRouter& inputRouter = interactionOwners.inputRouter;
@@ -588,30 +588,30 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
     // the completed interaction policy exists. Publish current post-UI pointer
     // and key facts now; ProcessInputFrame republishes the final policy facts below.
     inputRouter.PublishRuntimeSnapshot( RuntimeInteractionFrameInput{}, result.suppressWorldActionThisFrame );
-    replayRuntime.TickWorkspace( ReplayRuntime::ReplayWorkspaceInput{ windowHandle,
-                                                                      ui.BlocksCameraMouse(),
-                                                                      result.editorUnhandledWheelDelta,
-                                                                      replayPointerRay,
-                                                                      inputRouter,
-                                                                      interaction,
-                                                                      sceneController.Physics(),
-                                                                      sceneController.Entities(),
-                                                                      sceneController.RenderPresentationRecords(),
-                                                                      &sceneController.Cameras(),
-                                                                      sceneController.Terrain().Get(),
-                                                                      camera,
-                                                                      runtimeTools.MousePickup(),
-                                                                      facts.replayCurrentCameraMode,
-                                                                      facts.replayRestoreCameraMode,
-                                                                      attachedCamera.State().activeFollow,
-                                                                      camera.director.grabbed,
-                                                                      runtimeTools.Editor().editorModeEnabled,
-                                                                      sceneController.State().isScenePhysics,
-                                                                      ui.IsVisible(),
-                                                                      ui.IsMinimized(),
-                                                                      window.ClientWidth(),
-                                                                      window.ClientHeight(),
-                                                                      timers.simulationTimer.GetTotalTime() },
+    replayRuntime.TickWorkspace( ReplayWorkspaceInput{ windowHandle,
+                                                       ui.BlocksCameraMouse(),
+                                                       result.editorUnhandledWheelDelta,
+                                                       replayPointerRay,
+                                                       inputRouter,
+                                                       interaction,
+                                                       sceneController.Physics(),
+                                                       sceneController.Entities(),
+                                                       sceneController.RenderPresentationRecords(),
+                                                       &sceneController.Cameras(),
+                                                       sceneController.Terrain().Get(),
+                                                       camera,
+                                                       runtimeTools.MousePickup(),
+                                                       facts.replayCurrentCameraMode,
+                                                       facts.replayRestoreCameraMode,
+                                                       attachedCamera.State().activeFollow,
+                                                       camera.director.grabbed,
+                                                       runtimeTools.Editor().editorModeEnabled,
+                                                       sceneController.State().isScenePhysics,
+                                                       ui.IsVisible(),
+                                                       ui.IsMinimized(),
+                                                       window.ClientWidth(),
+                                                       window.ClientHeight(),
+                                                       timers.simulationTimer.GetTotalTime() },
                                  result.replayWorkspace );
     result.enterInteractiveScene = result.enterInteractiveScene || result.replayWorkspace.enterInteractive;
     result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || result.replayWorkspace.consumesMouse;
@@ -960,21 +960,20 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     {
         if ( action.resetReplayTimeline )
         {
-            const ReplayRuntime::SceneTimelineResetInput reset = ReplayRuntime::DescribeSceneTimeline(
-                sceneController,
-                sceneController.State(),
-                facts.gameModelCapacity,
-                static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
-            replayRuntime.ResetSceneTimeline(
-                reset,
-                ReplayRuntime::SceneTimelineResetOwners{ inputRouter,
-                                                         interaction,
-                                                         &sceneController.Cameras(),
-                                                         sceneController.Terrain().Get(),
-                                                         camera,
-                                                         facts.replayRestoreCameraMode,
-                                                         attachedCamera.State().activeFollow,
-                                                         camera.director.grabbed } );
+            const ReplaySceneTimelineResetInput reset =
+                DescribeReplaySceneTimeline( sceneController,
+                                             sceneController.State(),
+                                             facts.gameModelCapacity,
+                                             static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
+            replayRuntime.ResetSceneTimeline( reset,
+                                              ReplaySceneTimelineResetOwners{ inputRouter,
+                                                                              interaction,
+                                                                              &sceneController.Cameras(),
+                                                                              sceneController.Terrain().Get(),
+                                                                              camera,
+                                                                              facts.replayRestoreCameraMode,
+                                                                              attachedCamera.State().activeFollow,
+                                                                              camera.director.grabbed } );
         }
         if ( action.scheduleProfileReset )
         {

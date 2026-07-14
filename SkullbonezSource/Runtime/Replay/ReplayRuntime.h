@@ -44,7 +44,7 @@ Invariants:
     or private-engine state are cleared.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayPredictionPresentation.cpp
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
 */
 #pragma once
@@ -67,7 +67,7 @@ Related:
 #include "TrajectoryStore.h"
 #include "../RuntimeCameraMode.h"
 #include "../RuntimeInteractionController.h"
-#include "../RunReplayProbeState.h"
+#include "ReplayProbeState.h"
 #include "../../Core/MainMemoryStats.h"
 #include "../../Core/Common.h"
 #include "../../Core/AmortizedTask.h"
@@ -142,37 +142,6 @@ struct ReplaySolverSampleRestoreContext;
 class ReplayRuntime
 {
   public:
-    using ReplayOverlayBuildInput = Runtime::ReplayOverlayBuildInput;
-    using PathPickInput = ReplayPathPickInput;
-    using PathPickResult = ReplayPathPickResult;
-    using WorldPointerInput = ReplayWorldPointerInput;
-
-    using ReplayWorkspaceInput = Runtime::ReplayWorkspaceInput;
-    using ReplayWorkspaceOutput = Runtime::ReplayWorkspaceOutput;
-    using ReplayLiveRestoreOutcome = Runtime::ReplayLiveRestoreOutcome;
-    using ReplayStartupRequest = Runtime::ReplayStartupRequest;
-    using ReplayStartupResult = Runtime::ReplayStartupResult;
-    using RecordingConfigResult = Runtime::ReplayRecordingConfigResult;
-
-    using SceneTimelineResetInput = Runtime::ReplaySceneTimelineResetInput;
-    using SceneTimelineResetResult = Runtime::ReplaySceneTimelineResetResult;
-    using SceneTimelineResetOwners = Runtime::ReplaySceneTimelineResetOwners;
-
-    using ReplayStartupLoadInput = Runtime::ReplayStartupLoadInput;
-    using ReplayRestoreTransaction = Runtime::ReplayRestoreTransaction;
-    using ReplayArtifactTopologyOwners = Runtime::ReplayArtifactTopologyOwners;
-
-    // Concept: replay interaction ticks receive InputRouter-owned pointer edges;
-    // ReplayRuntime owns gesture state but never advances duplicate button memory.
-    using PointerButtonEdges = ReplayPointerButtonEdges;
-
-    using ScrubberInputFrame = ReplayScrubberInputFrame;
-    using ScrubberUnavailableResult = ReplayScrubberUnavailableResult;
-
-    using KeyboardVelocityEditInput = Runtime::ReplayKeyboardVelocityEditInput;
-    using KeyboardVelocityEditCameraAction = Runtime::ReplayKeyboardVelocityEditCameraAction;
-    using KeyboardVelocityEditResult = Runtime::ReplayKeyboardVelocityEditResult;
-
     ReplayRuntime();
 
     ReplayRecorder& Presentation();
@@ -226,15 +195,15 @@ class ReplayRuntime
     const RunReplayVelocityEditState& VelocityEdit() const;
     bool SetVelocityEditEnabled( bool enabled );
     void SetVelocityEditAltKeyDown( bool isDown );
-    KeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const KeyboardVelocityEditInput& input );
+    ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input );
     float TrackPosition( RunReplayTrack track ) const;
     void SetTrackPosition( RunReplayTrack track, float position );
     void SyncActiveTrackPosition();
     void SetAllTrackPositions( float position );
     bool ResetScrubberState();
-    ScrubberInputFrame BeginScrubberInputFrame( bool leftPressed, bool leftReleased, bool restoreDown );
-    ScrubberUnavailableResult ResetUnavailableScrubberSurface( bool loadedPresentation );
-    PointerButtonEdges BeginCauseTreeInputFrame( bool leftPressed, bool leftReleased );
+    ReplayScrubberInputFrame BeginReplayScrubberInputFrame( bool leftPressed, bool leftReleased, bool restoreDown );
+    ReplayScrubberUnavailableResult ResetUnavailableScrubberSurface( bool loadedPresentation );
+    ReplayPointerButtonEdges BeginCauseTreeInputFrame( bool leftPressed, bool leftReleased );
     void ClearCauseTreeFocusSelection();
     bool SetLiveAdvanceHeld( bool held );
     // Concept: Render/input code asks replay-owned state for intent-level
@@ -244,11 +213,6 @@ class ReplayRuntime
     bool HasCameraFocus() const;
     bool VelocityEditActive() const;
     float SolverPresentTrackPosition() const;
-    static bool TimelineHasFuture( float presentT );
-    static bool AtPresentTrackPosition( float position, float presentT );
-    static bool TrackPositionIsFuture( float position, float presentT );
-    static float SolverNormalizedFromTrack( float position, float presentT );
-    static float PredictionNormalizedFromTrack( float position, float presentT );
     bool ShouldRenderScrubber( bool editorModeEnabled,
                                bool uiVisible,
                                bool uiMinimized,
@@ -261,7 +225,7 @@ class ReplayRuntime
 
     // Configures bounded recorder storage. runtimeBodyCapacity must be the
     // scene/run body cap known before capture so replay frames do not allocate.
-    RecordingConfigResult
+    ReplayRecordingConfigResult
     ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath, int runtimeBodyCapacity );
     // Applies a UI or tool policy request. A true return means recorder windows
     // changed or queued policy state changed before recording was configured.
@@ -272,13 +236,9 @@ class ReplayRuntime
     void FlushHashLogs();
     void ResetBranch();
     void ResetTimeline( const char* sceneLabel );
-    SceneTimelineResetResult BeginSceneTimelineReset( const SceneTimelineResetInput& input );
-    SceneTimelineResetResult FinishSceneTimelineReset( const SceneTimelineResetInput& input );
-    static SceneTimelineResetInput DescribeSceneTimeline( const SceneController& sceneController,
-                                                          const RunSceneState& scene,
-                                                          int gameModelCapacity,
-                                                          uint32_t generatedObjectTypeOverride );
-    void ResetSceneTimeline( const SceneTimelineResetInput& input, const SceneTimelineResetOwners& owners );
+    ReplaySceneTimelineResetResult BeginSceneTimelineReset( const ReplaySceneTimelineResetInput& input );
+    ReplaySceneTimelineResetResult FinishSceneTimelineReset( const ReplaySceneTimelineResetInput& input );
+    void ResetSceneTimeline( const ReplaySceneTimelineResetInput& input, const ReplaySceneTimelineResetOwners& owners );
     bool ApplySolverSampleState( const ReplaySolverSampleRestoreContext& owners,
                                  const ReplaySolverFrameSample& sample,
                                  char* outReason,
@@ -304,9 +264,8 @@ class ReplayRuntime
                                                       const ReplayArtifactTopologyOwners& topologyOwners,
                                                       const ReplayLiveRestoreRequest& request );
 #ifdef _DEBUG
-    using ReplayProbeTickResult = Runtime::ReplayProbeTickResult;
-    RunReplayProbeState& Probes();
-    const RunReplayProbeState& Probes() const;
+    ReplayProbeState& Probes();
+    const ReplayProbeState& Probes() const;
     // Debug probes compose the same restore transaction and topology operands
     // as production restore. No whole-runtime probe fixture or Run backdoor is accepted.
     ReplayProbeTickResult TickProbes( const ReplayRestoreTransaction& transaction,
@@ -514,7 +473,7 @@ class ReplayRuntime
                                     bool editorModeEnabled,
                                     const RuntimeInteractionGesture& gesture,
                                     RunEditorTracer& tracer );
-    bool RouteWorldPointer( const WorldPointerInput& input );
+    bool RouteWorldPointer( const ReplayWorldPointerInput& input );
     bool SetPathTarget( const char* name, int modelIndex, const Physics::PhysicsBodyStore& bodyStore );
     bool BeginToolGesture( RuntimeInteractionController& interaction,
                            RuntimeInteractionGestureKind kind,
@@ -531,17 +490,17 @@ class ReplayRuntime
     bool HasActiveInteractionState() const;
     // Clears replay gesture/camera state as one replay-owned scene transition.
     // The owner bundle is borrowed for this synchronous operation only.
-    void ClearInteractionForSceneLoad( const SceneTimelineResetOwners& owners );
+    void ClearInteractionForSceneLoad( const ReplaySceneTimelineResetOwners& owners );
     // Clears replay-owned transient state and reports whether the camera owner
     // must execute an inspection-camera exit after the state transition.
     bool ClearInteractionForRuntimeTransition( RuntimeInteractionController& interaction, InputRouter& inputRouter );
 
   private:
-    PathPickResult ApplyPathPick( const PathPickInput& input,
-                                  const SceneEntityStore& entities,
-                                  const Physics::PhysicsBodyStore& bodyStore,
-                                  const Physics::ColliderStore& colliderStore,
-                                  std::span<const Rendering::RenderInstancePresentationRecord> presentation );
+    ReplayPathPickResult ApplyPathPick( const ReplayPathPickInput& input,
+                                        const SceneEntityStore& entities,
+                                        const Physics::PhysicsBodyStore& bodyStore,
+                                        const Physics::ColliderStore& colliderStore,
+                                        std::span<const Rendering::RenderInstancePresentationRecord> presentation );
     bool TickCauseTreeInput( bool uiBlocksMouse,
                              int wheelDelta,
                              InputRouter& inputRouter,
@@ -562,7 +521,7 @@ class ReplayRuntime
                              int screenHeight,
                              bool& outEnterInteractive );
     bool TickVelocityEditInput( bool uiBlocksMouse,
-                                const PathPickInput& pointerRay,
+                                const ReplayPathPickInput& pointerRay,
                                 InputRouter& inputRouter,
                                 RuntimeInteractionController& interaction,
                                 Physics::PhysicsEngine& physics,
@@ -650,7 +609,7 @@ class ReplayRuntime
 #endif
     } m_startupWorkflows;
 #ifdef _DEBUG
-    RunReplayProbeState m_probes; // CLI-only replay validation state owned with the workflows it drives.
+    ReplayProbeState m_probes; // CLI-only replay validation state owned with the workflows it drives.
 #endif
     ReplayScrubber m_scrubberOwner;
     ReplayPresentation m_visualPresentation;

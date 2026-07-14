@@ -89,7 +89,7 @@ struct RuntimeViewModel;
 struct RuntimeUIFrameResult
 {
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
-    ReplayRuntime::ReplayWorkspaceOutput replayWorkspace;
+    ReplayWorkspaceOutput replayWorkspace;
     UI::InGameUICommands commands;
     bool suppressWorldActionThisFrame = false;
     bool frameActive = false;
@@ -155,7 +155,7 @@ void ReportRuntimeInputFailure( const SkullbonezCore::Core::SbResult& result );
 RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
                                           RuntimeFrameInteractionView& interactionOwners,
                                           RuntimeFrameSceneView& sceneOwners,
-                                          const ReplayRuntime::PathPickInput& replayPointerRay,
+                                          const ReplayPathPickInput& replayPointerRay,
                                           const RuntimeInputFrameFacts& facts );
 RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                   bool keyboardToggleEditorMode,

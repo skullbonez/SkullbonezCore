@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-13th-july` |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Execute replay monolith decomposition with the unchanged frame-exact 200-box gate after every task |
-| Portfolio progress | 327 / 336 tasks = 97% rounded overall |
+| Current objective | Reclose replay M3-M7 ownership findings from mandatory M8 review, with the unchanged frame-exact 200-box gate after every task |
+| Portfolio progress | 322 / 336 tasks = 96% rounded overall |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-14: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | M7 passed formatting, 679/679 project metadata, zero-warning Profile/Debug, the unchanged one-generation 2,401-tick mega gate with all 200 moved and 187 grounded sleepers, the full repository gate including zero DX12 errors and byte-exact physics, and the no-engine scrub-alias propagation probe; no baseline changed. |
+| Validation for current edits | M8 review `replay-monolith-decomposition-duck-01` blocked architectural closure and reopened M3-M7. The first remediation checkpoint passed the exact one-process 200-box oracle (2,401 ticks, 187 strict topples, one generation), full CPU/Profile/Debug/DX12/physics validation, 679/679 project metadata, allocation-policy checks, and the no-engine scrub failure-propagation proof; no baseline changed. |
 
 ## Live Queue
 
@@ -25,7 +25,8 @@ plan inventory.
    `Toppled` now means more than half the wall is directly grounded and sleeping;
    the approved base has 187/200 through the final second. Independent V6 review
    found no blocking issue.
-2. `replay-monolith-decomposition` is active at 8/9. M0 certified the exact
+2. `replay-monolith-decomposition` is active at 3/9 after the mandatory M8
+   ownership review reopened M3-M7. M0 certified the exact
    starting tree; M1 bound all 55 current header type definitions/aliases and
    212 free functions to named owners; M2 mechanically split the six owner/value
    headers; M3 extracted the concrete presentation state, query, packet, and
@@ -35,8 +36,9 @@ plan inventory.
    never-stored published view while leaving mixed drawing statics for M8; M7
    published the HUD value seam, removed replay ownership from the late UI
    pass, and moved Run/query/probe behavior behind replay operations. The
-   historical two-consumer grep premise was stale, so M8's mandatory review
-   must judge the remaining logical root and external capabilities directly.
+   historical two-consumer grep premise was stale. M8 review then confirmed
+   that mutable owner/root access, external frame-view reach-back, probe
+   authority, and the mixed prediction/presentation TU are blocking closure.
    Every M0-M8 task,
    including inventory documentation, must run the
    unchanged 200-box gate before it can be checked or committed.
@@ -123,9 +125,9 @@ plan inventory.
 ## Next Handoff
 
 Run the repository-local orchestrator against
-`Plans/TODO/replay-monolith-decomposition.md` M8. Rename the remaining
-`RunReplay*.cpp` files to honest owner names, reconcile project filters, audit
-every touched source file, and run the mandatory independent logical-ownership
-review. Any credible root-forwarding, reach-back, or next-god-object finding
-reopens the owning work. The permanent one-presentation 200-box gate remains
-the unchanged final oracle.
+`Plans/TODO/replay-monolith-decomposition.md` reopened M3-M7. Remove mutable
+state and forwarding access through `ReplayRuntime`, split prediction scheduling
+from presentation drawing, remove the replay root from external frame views,
+and make probes consume published views/owner commands. Reclose each task only
+after its unchanged one-presentation 200-box oracle, then repeat M8's independent
+ownership review.

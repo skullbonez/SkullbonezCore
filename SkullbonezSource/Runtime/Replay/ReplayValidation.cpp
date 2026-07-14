@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/RunReplayProbes.cpp
+File: SkullbonezSource/Runtime/Replay/ReplayValidation.cpp
 Purpose:
   Owns replay validation probes and transactional v2 target restore work.
 
@@ -65,13 +65,13 @@ using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 
 #ifdef _DEBUG
-RunReplayProbeState& ReplayRuntime::Probes()
+ReplayProbeState& ReplayRuntime::Probes()
 {
     return m_probes;
 }
 
 
-const RunReplayProbeState& ReplayRuntime::Probes() const
+const ReplayProbeState& ReplayRuntime::Probes() const
 {
     return m_probes;
 }
@@ -1997,15 +1997,14 @@ void ReplayRuntime::ConfigureStartupWorkflows( const ReplayStartupRequest& reque
 }
 
 
-ReplayRuntime::ReplayStartupResult
-ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadInput& loadInput
+ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadInput& loadInput
 #ifdef _DEBUG
-                                    ,
-                                    const ReplayRestoreTransaction& probeTransaction,
-                                    const ReplayArtifactTopologyOwners& probeTopology,
-                                    RunMousePickupState& probeMousePickup,
-                                    RunCameraMode probeNormalizedCurrentMode,
-                                    double probeNow
+                                                        ,
+                                                        const ReplayRestoreTransaction& probeTransaction,
+                                                        const ReplayArtifactTopologyOwners& probeTopology,
+                                                        RunMousePickupState& probeMousePickup,
+                                                        RunCameraMode probeNormalizedCurrentMode,
+                                                        double probeNow
 #endif
 )
 {
@@ -2104,8 +2103,8 @@ ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadInput& loadInput
 }
 
 #ifdef _DEBUG
-ReplayRuntime::ReplayProbeTickResult ReplayRuntime::TickProbes( const ReplayRestoreTransaction& transaction,
-                                                                const ReplayArtifactTopologyOwners& topology )
+ReplayProbeTickResult ReplayRuntime::TickProbes( const ReplayRestoreTransaction& transaction,
+                                                 const ReplayArtifactTopologyOwners& topology )
 {
     // Invariant: each probe receives only the restore/topology authority its
     // replay operation already requires; adding a whole-world fixture here
@@ -2958,7 +2957,7 @@ bool ReplayRuntime::RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransac
                                       outResult,
                                       [this, &transaction]()
                                       {
-                                          SceneTimelineResetInput reset = transaction.timelineReset;
+                                          ReplaySceneTimelineResetInput reset = transaction.timelineReset;
                                           reset.preserveBranchMetadata = true;
                                           ResetSceneTimeline( reset, transaction.timelineOwners );
                                       } );

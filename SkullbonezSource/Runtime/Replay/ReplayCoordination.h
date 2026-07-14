@@ -28,8 +28,9 @@ Related:
 #include "ReplayPresentation.h"
 #include "ReplayScrubber.h"
 #include "ReplayTimeline.h"
+#include "../../Core/PlatformWin32.h"
 #include "../../Core/Common.h"
-#include "../RunReplayProbeState.h"
+#include "ReplayProbeState.h"
 
 #include <span>
 
@@ -51,12 +52,14 @@ namespace Runtime
 {
 class InputRouter;
 class RuntimeInteractionController;
+class SceneController;
 class SceneEntityStore;
 struct ReplayArtifactTopologyOwners;
 struct ReplayRestoreTransaction;
 struct ReplayStartupLoadInput;
 struct RunCameraState;
 struct RunMousePickupState;
+struct RunSceneState;
 
 struct ReplayWorkspaceInput
 {
@@ -163,6 +166,11 @@ inline uint32_t SceneTimelineGeneratedConfigFlags( const ReplaySceneTimelineRese
              REPLAY_GENERATED_SCENE_OVERRIDE_MASK;
     return flags;
 }
+
+ReplaySceneTimelineResetInput DescribeReplaySceneTimeline( const SceneController& sceneController,
+                                                           const RunSceneState& scene,
+                                                           int gameModelCapacity,
+                                                           uint32_t generatedObjectTypeOverride );
 
 struct ReplaySceneTimelineResetResult
 {

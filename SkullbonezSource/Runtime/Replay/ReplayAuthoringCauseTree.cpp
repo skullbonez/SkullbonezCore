@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/RunReplayCauseTreeTools.cpp
+File: SkullbonezSource/Runtime/Replay/ReplayAuthoringCauseTree.cpp
 Purpose:
   Contains replay cause-tree window input and focus behavior.
 
@@ -20,7 +20,7 @@ Invariants:
   - Focus changes hold live replay advance so selected historical rows remain visible.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayPredictionPresentation.cpp
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
 */
 #include "ReplayAuthoring.h"
@@ -106,7 +106,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
     // Concept: Cause-tree input owns the explanatory replay window state while
     // delegating body/sample interpretation to ReplayRuntime queries.
     const RuntimeMouseEdges& pointer = m_inputRouter.UiSnapshot().mouse;
-    const ReplayRuntime::PointerButtonEdges inputEdges =
+    const ReplayPointerButtonEdges inputEdges =
         m_replayRuntime.BeginCauseTreeInputFrame( pointer.leftPressed, pointer.leftReleased );
     const bool leftPressed = inputEdges.leftPressed;
     const bool leftReleased = inputEdges.leftReleased;

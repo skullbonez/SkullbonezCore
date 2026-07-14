@@ -2405,12 +2405,12 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
                                       m_world.GetPhysicsWorldForces(),
                                       *context.renderModels.renderWorkerPool,
                                       runtimeTools.EditorTracer(),
-                                      ReplayRuntime::ReplayOverlayBuildInput{ context.replayOverlay.scenePhysicsEnabled,
-                                                                              runtimeTools.Editor().editorModeEnabled,
-                                                                              context.replayOverlay.gesture,
-                                                                              context.replayOverlay.sceneFrame,
-                                                                              context.replayOverlay.frameSeconds,
-                                                                              context.replayOverlay.totalSeconds } );
+                                      ReplayOverlayBuildInput{ context.replayOverlay.scenePhysicsEnabled,
+                                                               runtimeTools.Editor().editorModeEnabled,
+                                                               context.replayOverlay.gesture,
+                                                               context.replayOverlay.sceneFrame,
+                                                               context.replayOverlay.frameSeconds,
+                                                               context.replayOverlay.totalSeconds } );
     m_toolOverlaySceneFrame = context.replayOverlay.sceneFrame;
     m_toolOverlayGrowthEventCount = RuntimeAllocation::RuntimeReserveAllocator::GrowthEventCount();
     // Invariant: replay publishes once after every producer has finished and

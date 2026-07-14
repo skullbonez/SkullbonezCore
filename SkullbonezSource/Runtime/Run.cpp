@@ -213,11 +213,10 @@ bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
     launcherVisualScratch.rayLines.reserve( RunRayCastTestState::MAX_LINES );
     launcherVisualScratch.laserShots.reserve( REPLAY_LAUNCHER_LASER_SHOT_CAPACITY );
 
-    const ReplayRuntime::RecordingConfigResult replayConfig =
-        replayRuntime.ConfigureRecording( overrides.replayRecordingEnabled,
-                                          overrides.replayRetentionSeconds,
-                                          overrides.replayHashLogPath,
-                                          gameModelCapacity );
+    const ReplayRecordingConfigResult replayConfig = replayRuntime.ConfigureRecording( overrides.replayRecordingEnabled,
+                                                                                       overrides.replayRetentionSeconds,
+                                                                                       overrides.replayHashLogPath,
+                                                                                       gameModelCapacity );
     const bool resetScrubberState = replayRuntime.ResetScrubberState();
     if ( replayConfig.presentationStats.enabled )
     {
@@ -241,7 +240,7 @@ bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
 
 
 #ifdef _DEBUG
-void ApplyReplayProbeStartup( const RunStartupOverrides& overrides, RunReplayProbeState& probes )
+void ApplyReplayProbeStartup( const RunStartupOverrides& overrides, ReplayProbeState& probes )
 {
     if ( overrides.replayScrubProbe )
     {
@@ -511,14 +510,13 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
             m_interaction,
             m_inputRouter );
     }
-    m_replayRuntime.ConfigureStartupWorkflows( ReplayRuntime::ReplayStartupRequest{
-        overrides.replayLoadPath,
-        overrides.replayLoadProbe,
+    m_replayRuntime.ConfigureStartupWorkflows( ReplayStartupRequest{ overrides.replayLoadPath,
+                                                                     overrides.replayLoadProbe,
 #ifdef _DEBUG
-        overrides.replayRestoreFileProbePath,
-        overrides.replayRestoreTargetFileProbePath,
-        overrides.replayRestoreBranchFileProbePath,
-        overrides.replayRestoreFailureFileProbePath
+                                                                     overrides.replayRestoreFileProbePath,
+                                                                     overrides.replayRestoreTargetFileProbePath,
+                                                                     overrides.replayRestoreBranchFileProbePath,
+                                                                     overrides.replayRestoreFailureFileProbePath
 #endif
     } );
 #ifdef _DEBUG
@@ -669,12 +667,12 @@ void Run::Initialise()
         return;
     }
 
-    const ReplayRuntime::SceneTimelineResetInput timelineReset =
-        ReplayRuntime::DescribeSceneTimeline( m_sceneController,
-                                              m_sceneController.State(),
-                                              m_startup.gameModelCapacity,
-                                              static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
-    ReplayRuntime::SceneTimelineResetOwners timelineOwners{
+    const ReplaySceneTimelineResetInput timelineReset =
+        DescribeReplaySceneTimeline( m_sceneController,
+                                     m_sceneController.State(),
+                                     m_startup.gameModelCapacity,
+                                     static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
+    ReplaySceneTimelineResetOwners timelineOwners{
         m_inputRouter,
         m_interaction,
         &m_sceneController.Cameras(),
@@ -685,7 +683,7 @@ void Run::Initialise()
                                     RuntimeCameraModeEnabledMask( m_sceneController ) ),
         m_attachedCamera.State().activeFollow,
         m_camera.director.grabbed };
-    const ReplayRuntime::ReplayStartupLoadInput loadInput{
+    const ReplayStartupLoadInput loadInput{
         m_timers.simulationTimer.GetTotalTime(),
         &m_sceneController.Cameras(),
         m_runtimeTools.MousePickup(),
@@ -700,17 +698,14 @@ void Run::Initialise()
                                                   m_renderer,
                                                   m_debug,
                                                   m_runtimeTools };
-    const ReplayRuntime::ReplayRestoreTransaction probeTransaction{ probeSample,
-                                                                    m_diagnosticsRuntime,
-                                                                    timelineReset,
-                                                                    timelineOwners };
-    const ReplayRuntime::ReplayArtifactTopologyOwners probeTopology{ m_simulation,
-                                                                     m_config,
-                                                                     m_assets,
-                                                                     m_workerPool,
-                                                                     m_launchOptions.generatedObjectTypeOverride,
-                                                                     m_startup.gameModelCapacity };
-    const ReplayRuntime::ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows(
+    const ReplayRestoreTransaction probeTransaction{ probeSample, m_diagnosticsRuntime, timelineReset, timelineOwners };
+    const ReplayArtifactTopologyOwners probeTopology{ m_simulation,
+                                                      m_config,
+                                                      m_assets,
+                                                      m_workerPool,
+                                                      m_launchOptions.generatedObjectTypeOverride,
+                                                      m_startup.gameModelCapacity };
+    const ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows(
         loadInput,
         probeTransaction,
         probeTopology,
@@ -720,7 +715,7 @@ void Run::Initialise()
                                     RuntimeCameraModeEnabledMask( m_sceneController ) ),
         m_timers.simulationTimer.GetTotalTime() );
 #else
-    const ReplayRuntime::ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows( loadInput );
+    const ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows( loadInput );
 #endif
     if ( !replayStartup.status.ok )
     {

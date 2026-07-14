@@ -795,7 +795,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     }
     else
     {
-        const ReplayRuntime::KeyboardVelocityEditResult velocityEditResult = m_replayRuntime.ApplyKeyboardVelocityEdit(
+        const ReplayKeyboardVelocityEditResult velocityEditResult = m_replayRuntime.ApplyKeyboardVelocityEdit(
             { keyboardEditorToolShortcut.altDown, m_interaction.Owner(), m_timers.simulationTimer.GetTotalTime() } );
         if ( velocityEditResult.cancelToolDrag )
         {
@@ -805,7 +805,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         {
             EnterInteractiveSceneRun();
         }
-        if ( velocityEditResult.cameraAction == ReplayRuntime::KeyboardVelocityEditCameraAction::EnterInspection )
+        if ( velocityEditResult.cameraAction == ReplayKeyboardVelocityEditCameraAction::EnterInspection )
         {
             m_replayRuntime.EnterInspectionCamera( &m_sceneController.Cameras(),
                                                    m_camera,
@@ -814,7 +814,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                    m_inputRouter,
                                                    m_runtimeTools.MousePickup() );
         }
-        else if ( velocityEditResult.cameraAction == ReplayRuntime::KeyboardVelocityEditCameraAction::ExitInspection )
+        else if ( velocityEditResult.cameraAction == ReplayKeyboardVelocityEditCameraAction::ExitInspection )
         {
             m_replayRuntime.ExitInspectionCamera(
                 &m_sceneController.Cameras(),
@@ -844,7 +844,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                 m_camera.director.grabbed );
         }
     }
-    ReplayRuntime::PathPickInput replayPointerRay;
+    ReplayPathPickInput replayPointerRay;
     replayPointerRay.hasWorldRay = m_inputRouter.TryBuildWorldRay( m_sceneController.Cameras(),
                                                                    m_window,
                                                                    replayPointerRay.rayOrigin,
@@ -907,18 +907,18 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     const ReplayLiveRestoreRequest& restoreRequest = uiFrameResult.replayWorkspace.restoreRequest;
     if ( restoreRequest.kind != ReplayLiveRestoreKind::None )
     {
-        const ReplayRuntime::SceneTimelineResetInput timelineReset = ReplayRuntime::DescribeSceneTimeline(
-            m_sceneController,
-            SceneState(),
-            m_startup.gameModelCapacity,
-            static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
+        const ReplaySceneTimelineResetInput timelineReset =
+            DescribeReplaySceneTimeline( m_sceneController,
+                                         SceneState(),
+                                         m_startup.gameModelCapacity,
+                                         static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
         ReplaySolverSampleRestoreContext sampleOwners{ m_sceneController.Physics(),
                                                        m_sceneController,
                                                        SceneState(),
                                                        m_renderer,
                                                        m_debug,
                                                        m_runtimeTools };
-        ReplayRuntime::SceneTimelineResetOwners timelineOwners{
+        ReplaySceneTimelineResetOwners timelineOwners{
             m_inputRouter,
             m_interaction,
             &m_sceneController.Cameras(),
@@ -927,17 +927,14 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
             m_attachedCamera.State().activeFollow,
             m_camera.director.grabbed };
-        const ReplayRuntime::ReplayRestoreTransaction transaction{ sampleOwners,
-                                                                   m_diagnosticsRuntime,
-                                                                   timelineReset,
-                                                                   timelineOwners };
-        const ReplayRuntime::ReplayArtifactTopologyOwners topologyOwners{ m_simulation,
-                                                                          m_config,
-                                                                          m_assets,
-                                                                          m_workerPool,
-                                                                          m_launchOptions.generatedObjectTypeOverride,
-                                                                          m_startup.gameModelCapacity };
-        const ReplayRuntime::ReplayLiveRestoreOutcome restoreOutcome =
+        const ReplayRestoreTransaction transaction{ sampleOwners, m_diagnosticsRuntime, timelineReset, timelineOwners };
+        const ReplayArtifactTopologyOwners topologyOwners{ m_simulation,
+                                                           m_config,
+                                                           m_assets,
+                                                           m_workerPool,
+                                                           m_launchOptions.generatedObjectTypeOverride,
+                                                           m_startup.gameModelCapacity };
+        const ReplayLiveRestoreOutcome restoreOutcome =
             m_replayRuntime.ApplyLiveRestoreRequest( transaction, topologyOwners, restoreRequest );
         if ( restoreOutcome.enterInteractive )
         {

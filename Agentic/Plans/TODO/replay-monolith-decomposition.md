@@ -1,7 +1,7 @@
 # Replay Monolith Decomposition — Owner Boundaries Inside The Replay Subsystem
 
 Date: 2026-07-13
-Status: Live — 8/9 tasks complete; M7 HUD and probe seam closed
+Status: Live — 3/9 tasks complete; M3-M7 reopened by mandatory M8 ownership review
 Branch: `nightrunner-13th-july`
 Impact area: `SkullbonezSource/Runtime/Replay/*` (26,060 lines), the two
 external consumers `Runtime/Run.cpp` and `Runtime/RunUiTextPass.cpp`, project
@@ -111,7 +111,7 @@ known-good golden manifest.
   `tools\validate_replay_visual_fidelity.bat`, then
   `tools\validate_full.bat` at the PR gate (`Runtime/*` mapping), plus
   `tools\validate_replay_scrub.bat`.
-- [x] **M3 — Extract `ReplayPresentation` (biggest, safest).** Move overlay
+- [ ] **M3 — Extract `ReplayPresentation` (biggest, safest).** Move overlay
   layout/renderer, path visualizer, ribbon/marker drawing, and the
   presentation-only operations into the owner: state
   that today lives in `ReplayRuntime` members (overlay/trajectory display
@@ -126,7 +126,7 @@ known-good golden manifest.
   `tools\validate_replay_scrub.bat`, and `tools\validate_full.bat` at the PR
   gate. The legacy final fingerprint is supporting evidence only; the mega
   probe is the frame-by-frame presentation proof.
-- [x] **M4 — Extract `ReplayScrubber` and `ReplayTimeline`.** Timeline first
+- [ ] **M4 — Extract `ReplayScrubber` and `ReplayTimeline`.** Timeline first
   (recorder + retention + memory policy are already nearly self-contained),
   then scrubber (cursor state machine + restore transactions +
   `RunReplayScrubberTools.cpp`). Restore paths keep cancelling prediction
@@ -138,7 +138,7 @@ known-good golden manifest.
   `tools\validate_replay_visual_fidelity.bat` first,
   `tools\validate_replay_scrub.bat`, and `tools\validate_full.bat` at the PR
   gate.
-- [x] **M5 — Extract `ReplayAuthoring`.** Velocity edit, branch provenance,
+- [ ] **M5 — Extract `ReplayAuthoring`.** Velocity edit, branch provenance,
   cause-tree tools move behind the owner; the velocity-edit "dirty
   prediction" side effect becomes an explicit request to `ReplayPrediction`
   (queued value command, consistent with the repo's one-frame command-packet
@@ -148,7 +148,7 @@ known-good golden manifest.
   `tools\validate_replay_scrub.bat`,
   `tools\validate_interaction_clicks.bat` if the click scripts cover velocity
   edit, `tools\validate_full.bat` at the PR gate.
-- [x] **M6 — Extract `ReplayPrediction` (most invariant-laden, deliberately
+- [ ] **M6 — Extract `ReplayPrediction` (most invariant-laden, deliberately
   last).** Move the private engine, scheduling, reserve, trajectory store,
   seeding (`SeedReplayPredictionEngine`), capture, and worker publication
   intact. The three documented invariants move as API shape, not comments
@@ -164,7 +164,7 @@ known-good golden manifest.
   `tools\validate_replay_scrub.bat`,
   `tools\validate_perf.bat` (prediction budget unchanged),
   `tools\validate_full.bat` at the PR gate.
-- [x] **M7 — Close the Run seam and decouple probes.** Define a small
+- [ ] **M7 — Close the Run seam and decouple probes.** Define a small
   `ReplayHudStatus` value struct (published once per frame by the composition
   root) carrying exactly what `Run.cpp` and `RunUiTextPass.cpp` read today;
   those two files stop taking `ReplayRuntime&`. `RunReplayProbes.cpp` and
@@ -409,6 +409,43 @@ M7 recorded adjustments and evidence:
   varied baseline; and the scrub alias's no-engine delegated exit-37
   propagation proof. No baseline changed. The touched source/tool comment
   audit checked 22/22 files with zero deferred.
+
+M8 mandatory ownership review `replay-monolith-decomposition-duck-01`
+reopened M3-M7 before the final gate:
+
+- M3/M6: `ReplayPredictionPresentation.cpp` still mixes private prediction
+  scheduling/capture with presentation drawing and root methods. The worker's
+  stored `ReplayRuntime*` reach-back was removed during review and the reviewer
+  withdrew that finding, but the mixed implementation remains blocking.
+- M3-M6: each extracted owner still returns mutable state, while
+  `ReplayRuntime` republishes those values through forwarding accessors. That
+  leaves business authority reachable through the old root and reopens every
+  affected owner extraction.
+- M7: `RuntimeFrameViews` still carries `ReplayRuntime&`; renderer/input code
+  still calls broad business APIs; `ReplayWorkspaceInput` is a multi-domain
+  authority packet; and validation contexts retain the root and mutate branch/
+  event/probe state. The HUD value boundary alone does not close that seam.
+- Review verdict: blocked. No behavioral validation can waive these ownership
+  failures. Remove mutable root/owner exposure, split prediction from
+  presentation, and make probes consumers of published views/owner commands;
+  then rerun the unchanged mega gate after each reclosed task and repeat the
+  independent review.
+
+First ownership-remediation checkpoint after that review:
+
+- Removed the root's nested aliases for owner value packets, moved replay-track
+  normalization policy to `ReplayScrubber.h`, changed prediction worker storage
+  from `ReplayRuntime*` to `ReplayPrediction*`, and completed the honest
+  `RunReplay*` file/type renames without changing the approved visual baseline.
+- Validation from the formatted checkpoint source passed the one-process
+  200-box oracle (`2401` ticks, `200` moved, `187` strictly toppled, `199`
+  causal nodes, one presented cascade, one prediction generation), the full
+  CPU/Profile/Debug/DX12/physics gate, and the scrub alias's no-engine delegated
+  exit-37 propagation proof. No baseline changed.
+- The touched-source comment checklist is this M8 checkpoint inventory: 32/32
+  source-bearing files inspected against the comment-style guide, zero
+  deferred and zero unchecked. M3-M7 remain open; this evidence records a safe
+  remediation boundary and does not claim ownership closure.
 
 ## M1 Binding Type Inventory
 

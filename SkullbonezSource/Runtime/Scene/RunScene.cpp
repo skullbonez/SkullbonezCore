@@ -649,7 +649,7 @@ SceneController::Load( const SceneLoadRequest& request,
     m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
     AttachedCameraController::Reset( m_attachedCamera );
     {
-        m_replayRuntime.ClearInteractionForSceneLoad( ReplayRuntime::SceneTimelineResetOwners{
+        m_replayRuntime.ClearInteractionForSceneLoad( ReplaySceneTimelineResetOwners{
             m_inputRouter,
             m_interaction,
             &m_sceneController.Cameras(),
@@ -1210,14 +1210,14 @@ SceneController::Load( const SceneLoadRequest& request,
 
     // Restart timers
     m_timers.RestartForSceneActivation();
-    const ReplayRuntime::SceneTimelineResetInput replayReset =
-        ReplayRuntime::DescribeSceneTimeline( m_sceneController,
-                                              SceneState(),
-                                              m_startup.gameModelCapacity,
-                                              static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
+    const ReplaySceneTimelineResetInput replayReset =
+        DescribeReplaySceneTimeline( m_sceneController,
+                                     SceneState(),
+                                     m_startup.gameModelCapacity,
+                                     static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
     m_replayRuntime.ResetSceneTimeline(
         replayReset,
-        ReplayRuntime::SceneTimelineResetOwners{
+        ReplaySceneTimelineResetOwners{
             m_inputRouter,
             m_interaction,
             &m_sceneController.Cameras(),

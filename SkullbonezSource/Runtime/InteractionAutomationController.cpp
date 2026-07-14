@@ -2254,7 +2254,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     {
         const float solverPosition = replayRuntime.TrackPosition( RunReplayTrack::Solver );
         const float presentT = replayRuntime.SolverPresentTrackPosition();
-        const bool atPresent = ReplayRuntime::AtPresentTrackPosition( solverPosition, presentT );
+        const bool atPresent = ReplayAtPresentTrackPosition( solverPosition, presentT );
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( atPresent );
         evaluation.passed = atPresent == action.boolValue;
@@ -3644,7 +3644,7 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
     const float replaySolverTrackPosition = replayRuntime.TrackPosition( RunReplayTrack::Solver );
     const float replaySolverPresentTrackPosition = replayRuntime.SolverPresentTrackPosition();
     const bool replaySolverTrackAtPresent =
-        ReplayRuntime::AtPresentTrackPosition( replaySolverTrackPosition, replaySolverPresentTrackPosition );
+        ReplayAtPresentTrackPosition( replaySolverTrackPosition, replaySolverPresentTrackPosition );
     const bool predictionScrubFrameActive = replayRuntime.CurrentPredictionScrubFrame() != nullptr;
     bool predictionTargetDisplacementValid = false;
     Vector3 predictionTargetFirst = ZERO_VECTOR;

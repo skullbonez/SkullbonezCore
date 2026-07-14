@@ -69,8 +69,6 @@ namespace SkullbonezCore::Runtime
 {
 namespace
 {
-constexpr float REPLAY_RUNTIME_SCRUBBER_LIVE_THRESHOLD = 0.995f;
-constexpr float REPLAY_RUNTIME_SCRUBBER_PRESENT_EPSILON = 0.0035f;
 constexpr uint32_t REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED = 1u;
 constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED = 2u;
 constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED = 4u;
@@ -559,7 +557,7 @@ ReplayTrajectoryRecordKey ReplayPastRootTrajectoryKey( ReplayBodyId targetId )
 
 // Concept: committed prediction roots use trajectory branch 0.
 //
-// RunReplayTools writes in-progress worker output to branch 1 so render can draw
+// ReplayPredictionPresentation writes in-progress worker output to branch 1 so render can draw
 // a published prefix without replacing the old future. Promotion and completion
 // republish the accepted root into branch 0, which is the frozen preview branch.
 ReplayTrajectoryRecordKey ReplayPredictionCommittedRootTrajectoryKey( ReplayBodyId targetId )
@@ -969,14 +967,14 @@ void ReplayPrediction::SetVerificationRevealFrame( ReplayFrameIndex frame ) noex
 ReplayRuntime::ReplayRuntime() = default;
 
 
-ReplayRuntime::SceneTimelineResetInput ReplayRuntime::DescribeSceneTimeline( const SceneController& sceneController,
-                                                                             const RunSceneState& scene,
-                                                                             int gameModelCapacity,
-                                                                             uint32_t generatedObjectTypeOverride )
+ReplaySceneTimelineResetInput DescribeReplaySceneTimeline( const SceneController& sceneController,
+                                                           const RunSceneState& scene,
+                                                           int gameModelCapacity,
+                                                           uint32_t generatedObjectTypeOverride )
 {
     const std::string* scenePath = sceneController.CurrentPath();
     const char* sceneLabel = scenePath && !scenePath->empty() ? scenePath->c_str() : "generated";
-    SceneTimelineResetInput replayReset;
+    ReplaySceneTimelineResetInput replayReset;
     replayReset.sceneLabel = sceneLabel;
     replayReset.isSceneMode = scene.isSceneMode;
     replayReset.modelCount = scene.modelCount;
@@ -1154,7 +1152,7 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayRestoreTransaction& t
     restoredBranch.sourceFrame = sample.frameIndex;
     restoredBranch.sourceSolverHash = sample.solverHash;
     m_authoring.Branch() = restoredBranch;
-    SceneTimelineResetInput reset = transaction.timelineReset;
+    ReplaySceneTimelineResetInput reset = transaction.timelineReset;
     reset.preserveBranchMetadata = true;
     ResetSceneTimeline( reset, transaction.timelineOwners );
     RecordEvent( ReplayEventKind::BranchRestore,
@@ -1382,19 +1380,19 @@ bool ReplayRuntime::SetPathTarget( const char* name, int modelIndex, const Physi
 }
 
 
-ReplayRuntime::PathPickResult
-ReplayRuntime::ApplyPathPick( const PathPickInput& input,
+ReplayPathPickResult
+ReplayRuntime::ApplyPathPick( const ReplayPathPickInput& input,
                               const SceneEntityStore& entities,
                               const PhysicsBodyStore& bodyStore,
                               const ColliderStore& colliderStore,
                               std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords )
 {
-    const PathPickResult result = m_visualPresentation.TryPickPathTarget( input,
-                                                                          entities,
-                                                                          bodyStore,
-                                                                          colliderStore,
-                                                                          presentationRecords,
-                                                                          CurrentSolverScrubSample() );
+    const ReplayPathPickResult result = m_visualPresentation.TryPickPathTarget( input,
+                                                                                entities,
+                                                                                bodyStore,
+                                                                                colliderStore,
+                                                                                presentationRecords,
+                                                                                CurrentSolverScrubSample() );
     if ( result.picked )
     {
         m_predictionOwner.ClearCache();
@@ -1409,7 +1407,7 @@ ReplayRuntime::ApplyPathPick( const PathPickInput& input,
 }
 
 
-bool ReplayRuntime::RouteWorldPointer( const WorldPointerInput& input )
+bool ReplayRuntime::RouteWorldPointer( const ReplayWorldPointerInput& input )
 {
     if ( !input.leftPressed || input.suppressWorldAction || input.editorMode || input.uiWantsNativeCursor ||
          ( !input.controlDown && input.launcherMode ) )
@@ -1417,7 +1415,7 @@ bool ReplayRuntime::RouteWorldPointer( const WorldPointerInput& input )
         return false;
     }
 
-    const PathPickResult pickResult =
+    const ReplayPathPickResult pickResult =
         ApplyPathPick( input.pick, input.entities, input.bodyStore, input.colliderStore, input.presentation );
     if ( pickResult.exitInspectionCamera )
     {
@@ -1522,7 +1520,7 @@ bool ReplayRuntime::HasActiveInteractionState() const
 }
 
 
-void ReplayRuntime::ClearInteractionForSceneLoad( const SceneTimelineResetOwners& owners )
+void ReplayRuntime::ClearInteractionForSceneLoad( const ReplaySceneTimelineResetOwners& owners )
 {
     const RuntimeInteractionTransition transition =
         owners.interaction.ResetForScene( InteractionExitReason::LoadScene );
@@ -1606,10 +1604,10 @@ void ReplayRuntime::SetVelocityEditAltKeyDown( bool isDown )
 }
 
 
-ReplayRuntime::KeyboardVelocityEditResult
-ReplayRuntime::ApplyKeyboardVelocityEdit( const KeyboardVelocityEditInput& input )
+ReplayKeyboardVelocityEditResult
+ReplayRuntime::ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input )
 {
-    KeyboardVelocityEditResult result;
+    ReplayKeyboardVelocityEditResult result;
     if ( input.altDown && !m_authoring.VelocityEdit().keyboardAltWasDown )
     {
         const bool enableVelocityEdit = !m_authoring.VelocityEdit().enabled;
@@ -1622,8 +1620,8 @@ ReplayRuntime::ApplyKeyboardVelocityEdit( const KeyboardVelocityEditInput& input
                 if ( SetLiveAdvanceHeld( true ) )
                 {
                     result.cameraAction = ShouldUseInspectionCamera()
-                                              ? KeyboardVelocityEditCameraAction::EnterInspection
-                                              : KeyboardVelocityEditCameraAction::ExitInspection;
+                                              ? ReplayKeyboardVelocityEditCameraAction::EnterInspection
+                                              : ReplayKeyboardVelocityEditCameraAction::ExitInspection;
                 }
                 result.setWorldOwner = true;
                 result.worldOwner = WorldInteractionOwner::ReplayVelocityEdit;
@@ -1667,22 +1665,22 @@ bool ReplayRuntime::ResetScrubberState()
 }
 
 
-ReplayRuntime::ScrubberInputFrame
-ReplayRuntime::BeginScrubberInputFrame( bool leftPressed, bool leftReleased, bool restoreDown )
+ReplayScrubberInputFrame
+ReplayRuntime::BeginReplayScrubberInputFrame( bool leftPressed, bool leftReleased, bool restoreDown )
 {
     return m_scrubberOwner.BeginInputFrame( leftPressed, leftReleased, restoreDown );
 }
 
 
-ReplayRuntime::ScrubberUnavailableResult ReplayRuntime::ResetUnavailableScrubberSurface( bool loadedPresentation )
+ReplayScrubberUnavailableResult ReplayRuntime::ResetUnavailableScrubberSurface( bool loadedPresentation )
 {
     return m_scrubberOwner.ResetUnavailableSurface( loadedPresentation, m_visualPresentation.Camera().active );
 }
 
 
-ReplayRuntime::PointerButtonEdges ReplayRuntime::BeginCauseTreeInputFrame( bool leftPressed, bool leftReleased )
+ReplayPointerButtonEdges ReplayRuntime::BeginCauseTreeInputFrame( bool leftPressed, bool leftReleased )
 {
-    PointerButtonEdges edges;
+    ReplayPointerButtonEdges edges;
     edges.leftPressed = leftPressed;
     edges.leftReleased = leftReleased;
     return edges;
@@ -1737,43 +1735,6 @@ bool ReplayRuntime::VelocityEditActive() const
 float ReplayRuntime::SolverPresentTrackPosition() const
 {
     return ReplayRuntimeScrubberPresentTrackPosition( m_timeline.Solver().GetStats(), m_predictionOwner.State() );
-}
-
-bool ReplayRuntime::TimelineHasFuture( float presentT )
-{
-    return presentT < REPLAY_RUNTIME_SCRUBBER_LIVE_THRESHOLD;
-}
-
-bool ReplayRuntime::AtPresentTrackPosition( float position, float presentT )
-{
-    if ( !TimelineHasFuture( presentT ) )
-    {
-        return position >= REPLAY_RUNTIME_SCRUBBER_LIVE_THRESHOLD;
-    }
-    return std::fabs( position - presentT ) <= REPLAY_RUNTIME_SCRUBBER_PRESENT_EPSILON;
-}
-
-bool ReplayRuntime::TrackPositionIsFuture( float position, float presentT )
-{
-    return TimelineHasFuture( presentT ) && position > presentT + REPLAY_RUNTIME_SCRUBBER_PRESENT_EPSILON;
-}
-
-float ReplayRuntime::SolverNormalizedFromTrack( float position, float presentT )
-{
-    if ( !TimelineHasFuture( presentT ) )
-    {
-        return std::clamp( position, 0.0f, 1.0f );
-    }
-    return std::clamp( position / (std::max)( presentT, 0.0001f ), 0.0f, 1.0f );
-}
-
-float ReplayRuntime::PredictionNormalizedFromTrack( float position, float presentT )
-{
-    if ( !TimelineHasFuture( presentT ) )
-    {
-        return 0.0f;
-    }
-    return std::clamp( ( position - presentT ) / ( 1.0f - presentT ), 0.0f, 1.0f );
 }
 
 bool ReplayRuntime::ShouldRenderScrubber( bool editorModeEnabled,
@@ -1862,10 +1823,10 @@ void ReplayRuntime::ClearCameraFocusForRestore()
     m_visualPresentation.Camera().ownsSimulationPause = false;
 }
 
-ReplayRuntime::RecordingConfigResult ReplayRuntime::ConfigureRecording( bool enabled,
-                                                                        int retentionSeconds,
-                                                                        const char* hashLogPath,
-                                                                        int runtimeBodyCapacity )
+ReplayRecordingConfigResult ReplayRuntime::ConfigureRecording( bool enabled,
+                                                               int retentionSeconds,
+                                                               const char* hashLogPath,
+                                                               int runtimeBodyCapacity )
 {
     m_timeline.RecordingConfigured() = true;
     m_timeline.RecordingEnabled() = enabled || ( hashLogPath && hashLogPath[0] != '\0' );
@@ -1902,7 +1863,7 @@ ReplayRuntime::RecordingConfigResult ReplayRuntime::ConfigureRecording( bool ena
         m_visualPresentation.ReserveRecordingBuffers();
     }
 
-    RecordingConfigResult result;
+    ReplayRecordingConfigResult result;
     result.presentationConfig = replayConfig;
     result.solverConfig = solverReplayConfig;
     result.presentationStats = m_timeline.Presentation().GetStats();
@@ -1978,9 +1939,9 @@ void ReplayRuntime::ResetTimeline( const char* sceneLabel )
 }
 
 
-ReplayRuntime::SceneTimelineResetResult ReplayRuntime::BeginSceneTimelineReset( const SceneTimelineResetInput& input )
+ReplaySceneTimelineResetResult ReplayRuntime::BeginSceneTimelineReset( const ReplaySceneTimelineResetInput& input )
 {
-    SceneTimelineResetResult result;
+    ReplaySceneTimelineResetResult result;
     // Hazard: scene reset can rebuild live model, body, and collider storage.
     // Prediction workers hold only replay-owned values, but cancellation still
     // waits here before old private-engine snapshots are cleared or replaced.
@@ -2001,9 +1962,9 @@ ReplayRuntime::SceneTimelineResetResult ReplayRuntime::BeginSceneTimelineReset( 
 }
 
 
-ReplayRuntime::SceneTimelineResetResult ReplayRuntime::FinishSceneTimelineReset( const SceneTimelineResetInput& input )
+ReplaySceneTimelineResetResult ReplayRuntime::FinishSceneTimelineReset( const ReplaySceneTimelineResetInput& input )
 {
-    SceneTimelineResetResult result;
+    ReplaySceneTimelineResetResult result;
     m_timeline.LoadedPresentation() = RunLoadedReplayPresentationState{};
     ClearCameraFocusForRestore();
     result.exitInspectionCamera = true;
@@ -2549,7 +2510,7 @@ bool ReplayRuntime::IsScrubPaused() const
     const float position = TrackPosition( m_scrubberOwner.State().activeTrack );
     const float presentT =
         m_scrubberOwner.State().activeTrack == RunReplayTrack::Solver ? SolverPresentTrackPosition() : 1.0f;
-    if ( AtPresentTrackPosition( position, presentT ) )
+    if ( ReplayAtPresentTrackPosition( position, presentT ) )
     {
         return false;
     }
@@ -2560,13 +2521,13 @@ bool ReplayRuntime::IsScrubPaused() const
                m_timeline.Presentation().SampleAtNormalized( position ) != nullptr;
     }
 
-    if ( TrackPositionIsFuture( position, presentT ) )
+    if ( ReplayTrackPositionIsFuture( position, presentT ) )
     {
         return CurrentPredictionScrubFrame() != nullptr;
     }
 
     return m_timeline.Solver().IsEnabled() &&
-           m_timeline.Solver().SampleAtNormalized( SolverNormalizedFromTrack( position, presentT ) ) != nullptr;
+           m_timeline.Solver().SampleAtNormalized( ReplaySolverNormalizedFromTrack( position, presentT ) ) != nullptr;
 }
 
 
@@ -2605,12 +2566,12 @@ const ReplaySolverFrameSample* ReplayRuntime::CurrentSolverScrubSample() const
 
     const float position = TrackPosition( RunReplayTrack::Solver );
     const float presentT = SolverPresentTrackPosition();
-    if ( TrackPositionIsFuture( position, presentT ) )
+    if ( ReplayTrackPositionIsFuture( position, presentT ) )
     {
         return nullptr;
     }
 
-    return m_timeline.Solver().SampleAtNormalized( SolverNormalizedFromTrack( position, presentT ) );
+    return m_timeline.Solver().SampleAtNormalized( ReplaySolverNormalizedFromTrack( position, presentT ) );
 }
 
 
@@ -2632,12 +2593,12 @@ const RunReplayPredictionFrame* ReplayRuntime::CurrentPredictionScrubFrame() con
 
     const float position = TrackPosition( RunReplayTrack::Solver );
     const float presentT = SolverPresentTrackPosition();
-    if ( !TrackPositionIsFuture( position, presentT ) )
+    if ( !ReplayTrackPositionIsFuture( position, presentT ) )
     {
         return nullptr;
     }
 
-    const float predictionT = PredictionNormalizedFromTrack( position, presentT );
+    const float predictionT = ReplayPredictionNormalizedFromTrack( position, presentT );
     const std::size_t frameIndex =
         (std::min)( frameCount - 1,
                     static_cast<std::size_t>( std::round( predictionT * static_cast<float>( frameCount - 1 ) ) ) );

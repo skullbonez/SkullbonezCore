@@ -932,21 +932,20 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
         }
         if ( action.resetReplayTimeline )
         {
-            const ReplayRuntime::SceneTimelineResetInput reset = ReplayRuntime::DescribeSceneTimeline(
-                m_sceneController,
-                m_sceneController.State(),
-                m_startup.gameModelCapacity,
-                static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
-            m_replayRuntime.ResetSceneTimeline(
-                reset,
-                ReplayRuntime::SceneTimelineResetOwners{ m_inputRouter,
-                                                         m_interaction,
-                                                         &m_sceneController.Cameras(),
-                                                         m_sceneController.Terrain().Get(),
-                                                         m_camera,
-                                                         replayRestoreCameraMode,
-                                                         m_attachedCamera.State().activeFollow,
-                                                         m_camera.director.grabbed } );
+            const ReplaySceneTimelineResetInput reset =
+                DescribeReplaySceneTimeline( m_sceneController,
+                                             m_sceneController.State(),
+                                             m_startup.gameModelCapacity,
+                                             static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
+            m_replayRuntime.ResetSceneTimeline( reset,
+                                                ReplaySceneTimelineResetOwners{ m_inputRouter,
+                                                                                m_interaction,
+                                                                                &m_sceneController.Cameras(),
+                                                                                m_sceneController.Terrain().Get(),
+                                                                                m_camera,
+                                                                                replayRestoreCameraMode,
+                                                                                m_attachedCamera.State().activeFollow,
+                                                                                m_camera.director.grabbed } );
         }
         if ( action.scheduleProfileReset )
         {
