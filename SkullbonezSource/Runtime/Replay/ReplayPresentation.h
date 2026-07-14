@@ -66,7 +66,9 @@ namespace Runtime
 class SceneEntityStore;
 class InputRouter;
 class ReplayAuthoring;
+class ReplayPrediction;
 class ReplayPresentation;
+class ReplayScrubber;
 class RuntimeTools;
 class RunEditorTracer;
 struct RunCameraState;
@@ -162,6 +164,30 @@ void ExitReplayInspectionCamera( ReplayPresentation& presentation,
                                  bool directorGrabbed,
                                  RuntimeInteractionController& interaction,
                                  InputRouter& inputRouter );
+
+namespace ReplayPresentationOperations
+{
+// Applies the replay-owner and host-camera reaction after ReplayTimeline has
+// committed a presentation artifact. Production startup and Debug probes share
+// this operation so validation cannot drift from the operator-visible path.
+bool ActivateLoadedPresentation( bool hasLoadedPresentation,
+                                 float normalized,
+                                 double now,
+                                 ReplayScrubber& scrubber,
+                                 ReplayPresentation& presentation,
+                                 ReplayAuthoring& authoring,
+                                 ReplayPrediction& prediction,
+                                 Environment::CameraCollection* cameras,
+                                 Geometry::Terrain* terrain,
+                                 RunCameraState& camera,
+                                 RunMousePickupState& mousePickup,
+                                 RunCameraMode normalizedCurrentMode,
+                                 RunCameraMode normalizedRestoreMode,
+                                 bool attachedFollow,
+                                 bool directorGrabbed,
+                                 RuntimeInteractionController& interaction,
+                                 InputRouter& inputRouter );
+} // namespace ReplayPresentationOperations
 
 struct ReplayWorldPointerInput
 {

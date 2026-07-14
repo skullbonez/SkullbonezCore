@@ -237,6 +237,10 @@ class ReplayTimeline
     bool NextPresentationSavePath( char* outPath, std::size_t outPathSize );
     ReplayTimelineCaptureResult CaptureFrame( ReplayCaptureInput input );
     void RecordEvent( const ReplayEventInput& input );
+    // Concept: event sequencing belongs to the timeline owner. The caller
+    // supplies branch provenance as a value so recording never reaches into
+    // authoring state or the replay composition root.
+    void SubmitEvent( const ReplayEventCommand& command, const ReplayBranchInfo& branch );
     void CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const;
     ReplayTimelineMemoryStats CollectMemoryStats() const;
     void ResetCaptureMismatchDiagnostics() noexcept;

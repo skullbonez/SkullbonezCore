@@ -55,6 +55,7 @@ Related:
 #include "../Core/PlatformWin32.h"
 
 #include "InputController.Bindings.h"
+#include "Replay/ReplayEventCommand.h"
 #include "RuntimeInteractionController.h"
 #include "../Maths/Vector3.h"
 
@@ -131,8 +132,11 @@ struct EditorPointerRouteInput
 struct EditorPointerRouteResult
 {
     static constexpr std::size_t MAX_MODE_ACTIONS = 2;
+    ReplayEventCommandBatch replayEvents;
+    RuntimeInteractionTransition interactionTransition;
     bool consumed = false;
     bool enteredInteractiveScene = false;
+    bool hasInteractionTransition = false;
     std::array<RuntimeInputAction, MAX_MODE_ACTIONS> modeActions = {};
     std::size_t modeActionCount = 0;
 };
@@ -445,19 +449,13 @@ class InputRouter
                            RuntimeInputActionSource source );
     EditorPointerRouteResult RouteEditorPointer( const EditorPointerRouteInput& input,
                                                  RuntimeTools& runtimeTools,
-                                                 ReplayRuntime& replayRuntime,
                                                  RuntimeInteractionController& interaction,
                                                  Runtime::SceneController& models,
                                                  Physics::PhysicsEngine& physics,
                                                  RunSceneState& scene,
                                                  Environment::WorldEnvironment& world,
                                                  Geometry::Terrain* terrain,
-                                                 Assets::AssetSystem& assets,
-                                                 Environment::CameraCollection& cameras,
-                                                 RunCameraState& camera,
-                                                 RunCameraMode replayRestoreCameraMode,
-                                                 bool attachedCameraFollow,
-                                                 bool directorGrabbed );
+                                                 Assets::AssetSystem& assets );
     RuntimePointerRouteResult RouteRuntimePointer( const RuntimePointerRouteInput& input,
                                                    RuntimeTools& runtimeTools,
                                                    ReplayRuntime& replayRuntime,

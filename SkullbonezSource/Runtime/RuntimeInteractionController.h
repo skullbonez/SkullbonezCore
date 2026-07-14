@@ -238,6 +238,9 @@ class RuntimeInteractionController
     PhysicsAdvanceState PhysicsAdvance() const;
     const RuntimeInteractionGesture& Gesture() const;
     RuntimePointerCaptureOwner PointerCapture() const;
+    // Maps a world owner onto the workspace that owns its interaction policy;
+    // unclassified owners remain in the controller's current workspace.
+    RuntimeWorkspace WorkspaceForOwner( WorldInteractionOwner owner ) const;
 
     RuntimeInteractionTransition EnterLive();
     RuntimeInteractionTransition EnterInspect();

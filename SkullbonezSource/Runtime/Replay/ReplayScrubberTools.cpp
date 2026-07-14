@@ -331,6 +331,84 @@ void SkullbonezCore::Runtime::ExitReplayInspectionCamera( ReplayPresentation& pr
     InputController::ResetMouseLook( camera );
 }
 
+bool SkullbonezCore::Runtime::ReplayPresentationOperations::ActivateLoadedPresentation(
+    bool hasLoadedPresentation,
+    float normalized,
+    double now,
+    ReplayScrubber& scrubber,
+    ReplayPresentation& presentation,
+    ReplayAuthoring& authoring,
+    ReplayPrediction& prediction,
+    Environment::CameraCollection* cameras,
+    Geometry::Terrain* terrain,
+    RunCameraState& camera,
+    RunMousePickupState& mousePickup,
+    RunCameraMode normalizedCurrentMode,
+    RunCameraMode normalizedRestoreMode,
+    bool attachedFollow,
+    bool directorGrabbed,
+    RuntimeInteractionController& interaction,
+    InputRouter& inputRouter )
+{
+    if ( !hasLoadedPresentation )
+    {
+        return false;
+    }
+
+    // Invariant: timeline decode has committed before this cross-owner reaction.
+    // No owner or host reference escapes the operation.
+    scrubber.SetLiveAdvanceHeld( false );
+    presentation.SetCameraPauseOwnership( false );
+
+    const RuntimeInteractionGestureKind gesture = interaction.Gesture().kind;
+    const bool replayGesture = gesture == RuntimeInteractionGestureKind::ReplayScrubDrag ||
+                               gesture == RuntimeInteractionGestureKind::ReplayVelocityDrag ||
+                               gesture == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag ||
+                               gesture == RuntimeInteractionGestureKind::ReplayCauseTreeDrag;
+    const bool ownsReplayCapture =
+        replayGesture && interaction.PointerCapture() == RuntimePointerCaptureOwner::ToolGesture;
+    if ( replayGesture )
+    {
+        interaction.EndGestureIfKind( gesture );
+    }
+    if ( ownsReplayCapture )
+    {
+        inputRouter.ReleaseNativeCapture();
+    }
+
+    (void)presentation.ClearCameraFocus();
+    authoring.ClearCauseTreeFocus();
+    ExitReplayInspectionCamera( presentation,
+                                authoring,
+                                cameras,
+                                terrain,
+                                camera,
+                                normalizedRestoreMode,
+                                attachedFollow,
+                                directorGrabbed,
+                                interaction,
+                                inputRouter );
+
+    presentation.ClearPathState();
+    authoring.ResetCauseTreeRows();
+    prediction.ClearCache();
+    prediction.MarkDirty();
+    prediction.DisableForLiveAdvance();
+    authoring.ResetVelocityEdit();
+    scrubber.ArmLoadedPresentation( normalized, now, ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS );
+    interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                     WorldInteractionOwner::ReplayScrub,
+                                                     InteractionExitReason::EnterReplay );
+    EnterReplayInspectionCamera( presentation,
+                                 cameras,
+                                 camera,
+                                 normalizedCurrentMode,
+                                 interaction,
+                                 inputRouter,
+                                 mousePickup );
+    return true;
+}
+
 void ReplayRuntime::EnterInspectionCamera( Environment::CameraCollection* cameras,
                                            RunCameraState& camera,
                                            RunCameraMode normalizedCurrentMode,
@@ -411,36 +489,23 @@ void ReplayRuntime::ActivateLoadedPresentationScrubber( double now,
                                                         bool attachedFollow,
                                                         bool directorGrabbed )
 {
-    // Invariant: file decode has already committed through ReplayTimeline.
-    // This operation only sequences the visible scrub/camera reaction.
-    m_scrubberOwner.SetLiveAdvanceHeld( false );
-    m_visualPresentation.SetCameraPauseOwnership( false );
-    CancelToolDragState( interaction, inputRouter );
-    ClearCameraFocusForRestore();
-    ExitReplayInspectionCamera( m_visualPresentation,
-                                m_authoring,
-                                cameras,
-                                terrain,
-                                camera,
-                                normalizedRestoreMode,
-                                attachedFollow,
-                                directorGrabbed,
-                                interaction,
-                                inputRouter );
-    (void)ArmLoadedPresentationScrubber( 0.25f, now );
-    interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
-                                                     WorldInteractionOwner::ReplayScrub,
-                                                     InteractionExitReason::EnterReplay );
-    if ( ShouldUseInspectionCamera() )
-    {
-        EnterReplayInspectionCamera( m_visualPresentation,
-                                     cameras,
-                                     camera,
-                                     normalizedCurrentMode,
-                                     interaction,
-                                     inputRouter,
-                                     mousePickup );
-    }
+    (void)ReplayPresentationOperations::ActivateLoadedPresentation( HasLoadedPresentation(),
+                                                                    0.25f,
+                                                                    now,
+                                                                    m_scrubberOwner,
+                                                                    m_visualPresentation,
+                                                                    m_authoring,
+                                                                    m_predictionOwner,
+                                                                    cameras,
+                                                                    terrain,
+                                                                    camera,
+                                                                    mousePickup,
+                                                                    normalizedCurrentMode,
+                                                                    normalizedRestoreMode,
+                                                                    attachedFollow,
+                                                                    directorGrabbed,
+                                                                    interaction,
+                                                                    inputRouter );
 }
 
 
@@ -486,7 +551,7 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input,
     const bool causeTreeOwnsMouse = m_authoring.TickCauseTreeInput( m_visualPresentation,
                                                                     m_scrubberOwner,
                                                                     m_predictionOwner.State(),
-                                                                    ActivePredictionFrames(),
+                                                                    m_predictionOwner.ActiveFrames(),
                                                                     CurrentSolverScrubSample(),
                                                                     input.uiBlocksMouse || scrubberOwnsMouse,
                                                                     input.wheelDelta,
@@ -1285,7 +1350,7 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
     pointerFrame.loadedPresentation = loadedPresentation;
     pointerFrame.pathTargetAvailable = m_visualPresentation.PathVisualizer().hasTarget;
     pointerFrame.predictionTimelineAvailable =
-        ActivePredictionFrames().size() >= 2 || m_predictionOwner.State().BuildPrefixShouldBePresented();
+        m_predictionOwner.ActiveFrames().size() >= 2 || m_predictionOwner.State().BuildPrefixShouldBePresented();
     pointerFrame.currentPresentationAvailable = CurrentScrubSample() != nullptr;
     pointerFrame.currentSolverAvailable = CurrentSolverScrubSample() != nullptr;
     pointerFrame.scenePhysicsEnabled = scenePhysicsEnabled;

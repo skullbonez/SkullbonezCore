@@ -580,32 +580,6 @@ void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics,
 }
 
 
-const ReplayRecorder& ReplayRuntime::Presentation() const
-{
-    return m_timeline.Presentation();
-}
-
-const ReplaySolverRecorder& ReplayRuntime::Solver() const
-{
-    return m_timeline.Solver();
-}
-
-const ReplayEventRecorder& ReplayRuntime::Events() const
-{
-    return m_timeline.Events();
-}
-
-const RunLoadedReplayPresentationState& ReplayRuntime::LoadedPresentation() const
-{
-    return m_timeline.LoadedPresentation();
-}
-
-ReplayScrubberView ReplayRuntime::ScrubberView() const noexcept
-{
-    return m_scrubberOwner.View();
-}
-
-
 ReplayInputView ReplayRuntime::BuildInputView() const noexcept
 {
     const ReplayScrubberView scrubber = m_scrubberOwner.View();
@@ -639,7 +613,7 @@ ReplayAutomationView ReplayRuntime::BuildAutomationView() const
              m_timeline.Presentation(),
              m_timeline.Solver(),
              m_timeline.Events(),
-             ActivePredictionFrames(),
+             m_predictionOwner.ActiveFrames(),
              m_scrubberOwner.View(),
              m_timeline.Solver().GetStats(),
              m_timeline.Solver().LatestSample(),
@@ -649,7 +623,7 @@ ReplayAutomationView ReplayRuntime::BuildAutomationView() const
              m_visualPresentation.TrajectorySubmissionProbeSnapshot(),
              CollectMemoryStats(),
              BuildInputView(),
-             TrackPosition( RunReplayTrack::Solver ),
+             m_scrubberOwner.TrackPosition( RunReplayTrack::Solver ),
              SolverPresentTrackPosition() };
 }
 
@@ -665,7 +639,7 @@ ReplayRuntime::BuildOverlayStateView( bool editorModeEnabled,
     int focusedCameraRow = -1;
     (void)m_authoring.BuildCauseTreeRows( m_visualPresentation.PathVisualizer(),
                                           m_predictionOwner.State(),
-                                          ActivePredictionFrames(),
+                                          m_predictionOwner.ActiveFrames(),
                                           CurrentSolverScrubSample(),
                                           presentation,
                                           bodyStore,
@@ -679,7 +653,7 @@ ReplayRuntime::BuildOverlayStateView( bool editorModeEnabled,
     const ReplayScrubberView scrubber = m_scrubberOwner.View();
     const bool loadedPresentation = HasLoadedPresentation();
     const RunReplayTrack overlayTrack = loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
-    const float overlayTrackPosition = TrackPosition( overlayTrack );
+    const float overlayTrackPosition = m_scrubberOwner.TrackPosition( overlayTrack );
     const float solverPresentTrackPosition = SolverPresentTrackPosition();
     const bool futureSelected =
         !loadedPresentation && ReplayTrackPositionIsFuture( overlayTrackPosition, solverPresentTrackPosition );
@@ -709,7 +683,7 @@ ReplayRuntime::BuildOverlayStateView( bool editorModeEnabled,
              CurrentSolverScrubSample(),
              solverPresentTrackPosition,
              loadedPresentation,
-             ActivePredictionFrames().size() >= 2 || m_predictionOwner.State().BuildPrefixShouldBePresented(),
+             m_predictionOwner.ActiveFrames().size() >= 2 || m_predictionOwner.State().BuildPrefixShouldBePresented(),
              ShouldRenderScrubber( editorModeEnabled, uiVisible, uiMinimized, gesture ) };
 }
 
@@ -855,37 +829,6 @@ ReplayVisualPacket ReplayRuntime::BuildVisualProjectionForValidation(
                                               m_timeline.Solver().LatestSample(),
                                               replayReserveGrowthEvents );
     return m_visualPresentation.PublishedVisualPacketView();
-}
-
-RunCameraMode ReplayRuntime::ReplayRestoreCameraMode() const noexcept
-{
-    return m_visualPresentation.CameraView().restoreCameraMode;
-}
-
-bool ReplayRuntime::ReplayCameraActive() const noexcept
-{
-    return m_visualPresentation.CameraView().active;
-}
-
-const RunReplayPathVisualizerState& ReplayRuntime::PathVisualizer() const
-{
-    return m_visualPresentation.PathVisualizer();
-}
-
-const RunReplayPredictionState& ReplayRuntime::Prediction() const
-{
-    return m_predictionOwner.State();
-}
-
-ReplayPredictionPresentationView ReplayRuntime::PredictionPresentationView() const
-{
-    return m_predictionOwner.PresentationView();
-}
-
-
-std::span<const RunReplayPredictionFrame> ReplayRuntime::ActivePredictionFrames() const
-{
-    return m_predictionOwner.ActiveFrames();
 }
 
 void ReplayRuntime::ApplyAuthoringPredictionRequest()
@@ -1219,21 +1162,6 @@ ReplayRuntime::ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput&
     return result;
 }
 
-float ReplayRuntime::TrackPosition( RunReplayTrack track ) const
-{
-    return m_scrubberOwner.TrackPosition( track );
-}
-
-bool ReplayRuntime::LiveAdvanceHeld() const
-{
-    return m_scrubberOwner.LiveAdvanceHeld();
-}
-
-bool ReplayRuntime::VelocityEditActive() const
-{
-    return m_authoring.VelocityEdit().enabled;
-}
-
 float ReplayRuntime::SolverPresentTrackPosition() const
 {
     return ReplayRuntimeScrubberPresentTrackPosition( m_timeline.Solver().GetStats(), m_predictionOwner.State() );
@@ -1259,27 +1187,6 @@ bool ReplayRuntime::ShouldRenderScrubber( bool editorModeEnabled,
            ( scrubber.visible || gesture == RuntimeInteractionGestureKind::ReplayScrubDrag ||
              gesture == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag || scrubber.historicalSamplePaused ||
              scrubber.liveAdvanceHeld );
-}
-
-bool ReplayRuntime::ShouldUseInspectionCamera() const
-{
-    const ReplayScrubberView scrubber = m_scrubberOwner.View();
-    return scrubber.historicalSamplePaused || scrubber.liveAdvanceHeld ||
-           m_visualPresentation.CameraView().focusKind != RunReplayCameraFocusKind::None;
-}
-
-bool ReplayRuntime::ArmLoadedPresentationScrubber( float normalized, double now )
-{
-    if ( !HasLoadedPresentation() )
-    {
-        return false;
-    }
-
-    ClearPathVisualizerState();
-    m_predictionOwner.DisableForLiveAdvance();
-    m_authoring.ResetVelocityEdit();
-    m_scrubberOwner.ArmLoadedPresentation( normalized, now, ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS );
-    return true;
 }
 
 void ReplayRuntime::ClearCameraFocusForRestore()
@@ -1395,19 +1302,6 @@ ReplaySceneTimelineResetResult ReplayRuntime::FinishSceneTimelineReset( const Re
 }
 
 
-ReplayFrameIndex ReplayRuntime::NextEventFrameIndex() const
-{
-    const ReplayRecorderStats solverStats = m_timeline.Solver().GetStats();
-    if ( solverStats.enabled )
-    {
-        return solverStats.nextFrameIndex;
-    }
-
-    const ReplayRecorderStats presentationStats = m_timeline.Presentation().GetStats();
-    return presentationStats.nextFrameIndex;
-}
-
-
 void ReplayRuntime::ApplyPastTrajectoryUpdate( const ReplayPastTrajectoryUpdate& update )
 {
     if ( !update.apply )
@@ -1423,13 +1317,6 @@ void ReplayRuntime::ApplyPastTrajectoryUpdate( const ReplayPastTrajectoryUpdate&
                                                     update.valid,
                                                     update.targetModelRow,
                                                     update.targetModelRowRepaired );
-}
-
-void ReplayRuntime::RefreshPastTrajectoryStoreFromSolverSamples()
-{
-    ApplyPastTrajectoryUpdate(
-        m_predictionOwner.RefreshPastTrajectoryStore( m_timeline.Solver(),
-                                                      m_visualPresentation.PastTrajectoryView() ) );
 }
 
 void ReplayRuntime::AppendSolverTrajectorySampleToStore( const ReplaySolverFrameSample& sample )
@@ -1489,10 +1376,11 @@ bool ReplayRuntime::IsScrubPaused() const
 
     if ( scrubber.activeTrack == RunReplayTrack::Presentation && HasLoadedPresentation() )
     {
-        return LoadedPresentationSampleAtNormalized( TrackPosition( RunReplayTrack::Presentation ) ) != nullptr;
+        return LoadedPresentationSampleAtNormalized( m_scrubberOwner.TrackPosition( RunReplayTrack::Presentation ) ) !=
+               nullptr;
     }
 
-    const float position = TrackPosition( scrubber.activeTrack );
+    const float position = m_scrubberOwner.TrackPosition( scrubber.activeTrack );
     const float presentT = scrubber.activeTrack == RunReplayTrack::Solver ? SolverPresentTrackPosition() : 1.0f;
     if ( ReplayAtPresentTrackPosition( position, presentT ) )
     {
@@ -1528,9 +1416,9 @@ const ReplayPresentationSample* ReplayRuntime::CurrentScrubSample() const
 
     if ( HasLoadedPresentation() )
     {
-        return scrubber.historicalSamplePaused
-                   ? LoadedPresentationSampleAtNormalized( TrackPosition( RunReplayTrack::Presentation ) )
-                   : nullptr;
+        return scrubber.historicalSamplePaused ? LoadedPresentationSampleAtNormalized(
+                                                     m_scrubberOwner.TrackPosition( RunReplayTrack::Presentation ) )
+                                               : nullptr;
     }
 
     if ( !IsScrubPaused() )
@@ -1538,7 +1426,8 @@ const ReplayPresentationSample* ReplayRuntime::CurrentScrubSample() const
         return nullptr;
     }
 
-    return m_timeline.Presentation().SampleAtNormalized( TrackPosition( RunReplayTrack::Presentation ) );
+    return m_timeline.Presentation().SampleAtNormalized(
+        m_scrubberOwner.TrackPosition( RunReplayTrack::Presentation ) );
 }
 
 
@@ -1549,7 +1438,7 @@ const ReplaySolverFrameSample* ReplayRuntime::CurrentSolverScrubSample() const
         return nullptr;
     }
 
-    const float position = TrackPosition( RunReplayTrack::Solver );
+    const float position = m_scrubberOwner.TrackPosition( RunReplayTrack::Solver );
     const float presentT = SolverPresentTrackPosition();
     if ( ReplayTrackPositionIsFuture( position, presentT ) )
     {
@@ -1576,7 +1465,7 @@ const RunReplayPredictionFrame* ReplayRuntime::CurrentPredictionScrubFrame() con
         return nullptr;
     }
 
-    const float position = TrackPosition( RunReplayTrack::Solver );
+    const float position = m_scrubberOwner.TrackPosition( RunReplayTrack::Solver );
     const float presentT = SolverPresentTrackPosition();
     if ( !ReplayTrackPositionIsFuture( position, presentT ) )
     {
@@ -2231,23 +2120,7 @@ ReplayHudStatus ReplayRuntime::BuildHudStatus( bool includeMemoryStats ) const
 
 void ReplayRuntime::SubmitEvent( const ReplayEventCommand& command )
 {
-    if ( command.kind == ReplayEventKind::Unknown || !m_timeline.Events().IsEnabled() )
-    {
-        return;
-    }
-
-    ReplayEventInput input;
-    input.frameIndex = command.useNextFrame ? NextEventFrameIndex() : command.frameIndex;
-    input.branch = m_authoring.Branch();
-    input.kind = command.kind;
-    input.flags = command.flags;
-    input.value0 = command.value0;
-    input.value1 = command.value1;
-    input.value2 = command.value2;
-    input.value3 = command.value3;
-    input.data0 = command.data0;
-    input.text = command.text;
-    m_timeline.RecordEvent( input );
+    m_timeline.SubmitEvent( command, m_authoring.Branch() );
 }
 
 bool ReplayRuntime::SavePresentationWithSolverHashes( const char* path,

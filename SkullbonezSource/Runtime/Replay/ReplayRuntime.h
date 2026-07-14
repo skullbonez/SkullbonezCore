@@ -250,32 +250,7 @@ class ReplayRuntime
     ReplayProbeTickResult TickProbes( const ReplayRestoreTransaction& transaction,
                                       const ReplayArtifactTopologyOwners& topology );
 
-  private:
-    SkullbonezCore::Core::SbResult VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& transaction,
-                                                                  RunMousePickupState& mousePickup,
-                                                                  RunCameraMode normalizedCurrentMode,
-                                                                  double now,
-                                                                  float normalized );
-    SkullbonezCore::Core::SbResult VerifySolverCheckpointFileProbe( const ReplayRestoreTransaction& transaction,
-                                                                    const char* path );
-    SkullbonezCore::Core::SbResult VerifySolverTargetFileProbe( const ReplayRestoreTransaction& transaction,
-                                                                const ReplayArtifactTopologyOwners& topology,
-                                                                const char* path );
-    SkullbonezCore::Core::SbResult VerifySolverBranchFileProbe( const ReplayRestoreTransaction& transaction,
-                                                                const ReplayArtifactTopologyOwners& topology,
-                                                                RunMousePickupState& mousePickup,
-                                                                RunCameraMode normalizedCurrentMode,
-                                                                double now,
-                                                                const char* path );
-    SkullbonezCore::Core::SbResult VerifySolverFailureFileProbe( const ReplayRestoreTransaction& transaction,
-                                                                 const ReplayArtifactTopologyOwners& topology,
-                                                                 const char* path );
-
-  public:
 #endif
-    // Refreshes the selected past-root trajectory from retained solver samples.
-    // The method is cheap when the cursor already matches the recorder window.
-    void RefreshPastTrajectoryStoreFromSolverSamples();
     void CaptureFrame( ReplayCaptureInput input, RuntimeTools& runtimeTools );
     SkullbonezCore::Core::MainMemoryReplayStats CollectMemoryStats() const;
     // Publishes the value-only replay facts consumed by the late HUD pass.
@@ -405,8 +380,6 @@ class ReplayRuntime
                                              RunCameraMode normalizedRestoreMode,
                                              bool attachedFollow,
                                              bool directorGrabbed );
-    bool ShouldUseInspectionCamera() const;
-    bool ArmLoadedPresentationScrubber( float normalized, double now );
     void ClearCameraFocusForRestore();
     ReplayPathPickResult ApplyPathPick( const ReplayPathPickInput& input,
                                         const SceneEntityStore& entities,
@@ -435,25 +408,7 @@ class ReplayRuntime
                             bool& outEnterInteractive,
                             ReplayLiveRestoreRequest& outRestoreRequest );
 
-  public:
   private:
-    // Private owner reads support replay's own cross-owner composition. The
-    // application shell receives only the published value/view APIs above.
-    const ReplayRecorder& Presentation() const;
-    const ReplaySolverRecorder& Solver() const;
-    const ReplayEventRecorder& Events() const;
-    ReplayFrameIndex NextEventFrameIndex() const;
-    const RunLoadedReplayPresentationState& LoadedPresentation() const;
-    ReplayScrubberView ScrubberView() const noexcept;
-    RunCameraMode ReplayRestoreCameraMode() const noexcept;
-    bool ReplayCameraActive() const noexcept;
-    const RunReplayPathVisualizerState& PathVisualizer() const;
-    const RunReplayPredictionState& Prediction() const;
-    ReplayPredictionPresentationView PredictionPresentationView() const;
-    std::span<const RunReplayPredictionFrame> ActivePredictionFrames() const;
-    float TrackPosition( RunReplayTrack track ) const;
-    bool LiveAdvanceHeld() const;
-    bool VelocityEditActive() const;
     float SolverPresentTrackPosition() const;
     bool ShouldRenderScrubber( bool editorModeEnabled,
                                bool uiVisible,

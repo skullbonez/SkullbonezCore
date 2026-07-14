@@ -235,7 +235,7 @@ struct MainMemoryReplayStats
     std::size_t causeRows = 0;
     std::size_t ghostRequests = 0;
     // Replay policy fields report the requested knobs and the resolved recorder
-    // windows that were actually applied by ReplayRuntime.
+    // windows that were actually applied by replay timeline composition.
     int memoryPreset = 0;                                   // 0=lossless look, 1=balanced, 2=compact.
     int requestedRetentionSeconds = 0;
     int requestedBudgetMiB = 0;

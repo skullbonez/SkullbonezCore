@@ -14,7 +14,7 @@ Glossary:
     target structure, frame, capacity delta, and byte size.
   Main memory: Coarsely reconciled process, replay, and game-object memory stats.
   Replay policy: Preset, retention, and budget request displayed by the Memory
-    tab and applied by ReplayRuntime.
+    tab and applied by replay timeline composition.
   Memory waterline: Compact F6 overlay that tracks known engine memory and
     pinned reserve-growth events without polling process memory.
 

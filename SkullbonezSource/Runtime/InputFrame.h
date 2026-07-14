@@ -148,7 +148,6 @@ void ExitFlyModeCamera( InputRouter& inputRouter,
 RuntimeInputContextMask BuildKeyboardContextMask( const KeyboardContextFacts& facts );
 bool IsReplayWorldOwner( WorldInteractionOwner owner );
 bool IsEditorWorldOwner( WorldInteractionOwner owner );
-RuntimeWorkspace WorkspaceForWorldInteractionOwner( RuntimeWorkspace fallback, WorldInteractionOwner owner );
 const char* ReplayOwnerEventName( ReplayOwnerEventCode code );
 uint32_t ReplaySceneRequestFlags( const SceneRequest& request );
 void ReportRuntimeInputFailure( const SkullbonezCore::Core::SbResult& result );

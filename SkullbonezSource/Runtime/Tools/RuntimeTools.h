@@ -48,7 +48,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.cpp
   - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
-  - SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayPresentation.h
 */
 #pragma once
 
@@ -61,6 +61,7 @@ Related:
 #include "../RuntimeCameraMode.h"
 #include "../RuntimeInteractionController.h"
 #include "../Replay/ReplayVisualPacket.h"
+#include "../Replay/ReplayEventCommand.h"
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/Vector3.h"
@@ -126,7 +127,6 @@ struct ReplayLauncherVisualSample;
 class SceneEntityStore;
 class InputRouter;
 class RuntimeInteractionController;
-class ReplayRuntime;
 enum class WorldInteractionOwner;
 enum class InteractionExitReason;
 struct RuntimeInteractionCommand;
@@ -279,9 +279,11 @@ struct EditorPlacementScalePointerResult
 {
     // Composition consumes these facts after the tool has atomically ended or
     // committed the placement gesture; no callback reaches back into Run.
+    ReplayEventCommand replayEvent;
     bool consumed = false;
     bool enteredInteractiveScene = false;
     bool endedGesture = false;
+    bool recordReplayEvent = false;
 };
 
 struct EditorGizmoDragPointerInput
@@ -300,6 +302,7 @@ struct EditorGizmoDragPointerInput
 struct EditorGizmoDragPointerResult
 {
     // Composition publishes the input-mode edge after owner teardown.
+    ReplayEventCommandBatch replayEvents;
     bool consumed = false;
     bool endedGesture = false;
 };
@@ -392,8 +395,10 @@ struct LauncherPointerInput
 
 struct LauncherPointerResult
 {
+    ReplayEventCommand replayEvent;
     bool consumed = false;
     bool enteredInteractive = false;
+    bool recordReplayEvent = false;
 };
 
 struct RunEditorPlacementState
@@ -555,7 +560,7 @@ class RunEditorTracer
                                          SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
     void BuildReplayRibbonVertices( const Math::Vector::Vector3& cameraEye, const Math::Vector::Vector3& cameraUp );
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats
-        m_replayTrajectoryStats;                                            // Frame-local replay ribbon counters sampled by ReplayRuntime.
+        m_replayTrajectoryStats;                                            // Frame-local replay ribbon counters sampled by replay composition.
 
   public:
     RunEditorTracer();
@@ -572,7 +577,7 @@ class RunEditorTracer
     // quota before vertex emission, preserving lane-specific diagnostics.
     void RecordReplayRibbonDroppedSegments( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
                                             std::size_t count = 1u );
-    // Prepares the exact frame-local spans later published by ReplayRuntime.
+    // Prepares the exact frame-local spans later published by replay composition.
     // Lifetime: returned spans borrow this tracer until its next Clear().
     ReplayVisualPacket BuildReplayVisualPacket( const Math::Vector::Vector3& cameraEye,
                                                 const Math::Vector::Vector3& cameraUp );
@@ -728,7 +733,6 @@ class RuntimeTools
                           const Math::Vector::Vector3& cameraUp );
     LauncherPointerResult RouteLauncherPointer( const LauncherPointerInput& input,
                                                 Environment::CameraCollection& cameras,
-                                                ReplayRuntime& replayRuntime,
                                                 Runtime::SceneController& collection,
                                                 Physics::PhysicsEngine& physics,
                                                 RunSceneState& scene,
@@ -796,13 +800,11 @@ class RuntimeTools
                                                                         Geometry::Terrain* terrain,
                                                                         Assets::AssetSystem& assets,
                                                                         int activeModelCapacity,
-                                                                        RuntimeInteractionController& interaction,
-                                                                        ReplayRuntime& replayRuntime );
+                                                                        RuntimeInteractionController& interaction );
     EditorGizmoDragPointerResult RouteEditorGizmoDragPointer( const EditorGizmoDragPointerInput& input,
                                                               Runtime::SceneController& collection,
                                                               Physics::PhysicsEngine& physics,
-                                                              RuntimeInteractionController& interaction,
-                                                              ReplayRuntime& replayRuntime );
+                                                              RuntimeInteractionController& interaction );
     void RecordEditorTransformHistory( Runtime::SceneController& collection,
                                        RuntimeGizmoDragKind gizmoKind,
                                        int selectedModelIndex );

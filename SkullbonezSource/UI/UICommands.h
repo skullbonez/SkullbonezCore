@@ -357,7 +357,7 @@ struct UISoundCommands
 struct UIReplayMemoryCommands
 {
     // One-frame replay policy request from the Memory tab. RunInput translates
-    // these UI-facing values into ReplayRuntime's authoritative policy owner.
+    // these UI-facing values into the authoritative replay policy owner.
     bool requestPolicy = false;
     int requestedPresetIndex = -1;
     int requestedRetentionSeconds = -1;

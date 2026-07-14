@@ -207,6 +207,31 @@ RuntimeInteractionTransition RuntimeInteractionController::SetWorldInteractionOw
     return TransitionTo( m_workspace, owner, reason );
 }
 
+RuntimeWorkspace RuntimeInteractionController::WorkspaceForOwner( WorldInteractionOwner owner ) const
+{
+    // Concept: workspace classification is interaction-domain vocabulary. Tool
+    // routers ask this owner instead of duplicating replay/edit/live mappings.
+    if ( owner == WorldInteractionOwner::ReplayScrub || owner == WorldInteractionOwner::ReplayVelocityEdit ||
+         owner == WorldInteractionOwner::ReplayPrediction || owner == WorldInteractionOwner::ReplayBranchTarget ||
+         owner == WorldInteractionOwner::ReplayCauseTree )
+    {
+        return RuntimeWorkspace::Replay;
+    }
+    if ( owner == WorldInteractionOwner::InspectGizmo )
+    {
+        return RuntimeWorkspace::Inspect;
+    }
+    if ( owner == WorldInteractionOwner::EditorPlacement || owner == WorldInteractionOwner::EditorGizmo )
+    {
+        return RuntimeWorkspace::Edit;
+    }
+    if ( owner == WorldInteractionOwner::Launcher || owner == WorldInteractionOwner::Manipulator )
+    {
+        return RuntimeWorkspace::Live;
+    }
+    return m_workspace;
+}
+
 
 RuntimeInteractionTransition
 RuntimeInteractionController::SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace workspace,

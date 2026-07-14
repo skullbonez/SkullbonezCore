@@ -273,27 +273,6 @@ bool IsEditorWorldOwner( WorldInteractionOwner owner )
            owner == WorldInteractionOwner::InspectGizmo;
 }
 
-RuntimeWorkspace WorkspaceForWorldInteractionOwner( RuntimeWorkspace fallback, WorldInteractionOwner owner )
-{
-    if ( IsReplayWorldOwner( owner ) )
-    {
-        return RuntimeWorkspace::Replay;
-    }
-    if ( owner == WorldInteractionOwner::InspectGizmo )
-    {
-        return RuntimeWorkspace::Inspect;
-    }
-    if ( owner == WorldInteractionOwner::EditorPlacement || owner == WorldInteractionOwner::EditorGizmo )
-    {
-        return RuntimeWorkspace::Edit;
-    }
-    if ( owner == WorldInteractionOwner::Launcher || owner == WorldInteractionOwner::Manipulator )
-    {
-        return RuntimeWorkspace::Live;
-    }
-    return fallback;
-}
-
 const char* ReplayOwnerEventName( ReplayOwnerEventCode code )
 {
     switch ( code )

@@ -1,7 +1,7 @@
 # Replay Monolith Decomposition — Owner Boundaries Inside The Replay Subsystem
 
 Date: 2026-07-13
-Status: Live — 7/9 tasks complete; M3-M6 reclosed, M7 remains open after mandatory M8 ownership review
+Status: Live — 8/9 tasks complete; M3-M7 reclosed, mandatory M8 ownership review remains
 Branch: `nightrunner-14th-july`
 Impact area: `SkullbonezSource/Runtime/Replay/*` (26,060 lines), the two
 external consumers `Runtime/Run.cpp` and `Runtime/RunUiTextPass.cpp`, project
@@ -164,7 +164,7 @@ known-good golden manifest.
   `tools\validate_replay_scrub.bat`,
   `tools\validate_perf.bat` (prediction budget unchanged),
   `tools\validate_full.bat` at the PR gate.
-- [ ] **M7 — Close the Run seam and decouple probes.** Define a small
+- [x] **M7 — Close the Run seam and decouple probes.** Define a small
   `ReplayHudStatus` value struct (published once per frame by the composition
   root) carrying exactly what `Run.cpp` and `RunUiTextPass.cpp` read today;
   those two files stop taking `ReplayRuntime&`. `RunReplayProbes.cpp` and
@@ -1333,6 +1333,55 @@ Thirty-fifth ownership-remediation checkpoint and M6 closure:
   portfolio progress is now 7/16, or 44% rounded; this percentage covers active
   and future plans only and excludes completed past plans and externally
   blocked work.
+
+## M7 Reclosure Checkpoint — 2026-07-15
+
+- `ReplayProbeRunner` now owns loaded/checkpoint/target/branch/failure probe
+  decisions and bounded diagnostic state. The root executes typed prepare/
+  advance requests through production restore primitives; it no longer embeds
+  the failure probe's expected-failure program or exposes probe-only root
+  verifiers.
+- Ordinary startup, deep load verification, and branch-file verification share
+  `ReplayPresentationOperations::ActivateLoadedPresentation`. The operation
+  borrows concrete owners synchronously, performs no file I/O, and removes the
+  Debug-only copy of camera, scrubber, authoring, and prediction activation.
+- `ReplayEventCommand.h` is a value-only, fixed-capacity seam. Timeline owns
+  next-frame selection and event-record construction; launcher/editor tools
+  return commands or bounded batches for application composition to submit.
+  RuntimeTools and editor tool implementation no longer see `ReplayRuntime`.
+- Editor interaction claims now return one typed transition for immediate
+  composition cleanup. `RuntimeInteractionController` owns world-owner to
+  workspace classification, removing the duplicated mapping and the replay
+  root from editor pointer routing.
+- Fourteen pure private root forwarding accessors and one unused trajectory
+  relay were deleted. `ReplayRuntime` retains exactly the six concrete replay
+  owners, stores no host pointer/callback/context bag, and its class declaration
+  is 299 lines, satisfying the binding sub-300 target.
+- The rubber-duck critique found and fixed three blockers: duplicated loaded
+  activation, event values coupled to the recorder storage header, and the
+  root-owned failure-probe transaction program. Its final M7 pass found no
+  blocking owner reach-back or mutable authority escape. Remaining synchronous
+  input, scene-lifecycle, and stress-harness composition borrows are explicit
+  evidence for M8's mandatory logical-type review, not a claim that the stale
+  historical two-file grep passes.
+- The touched-source comment audit inspected 25/25 C++ source/header files with
+  zero deferred and zero unchecked. Project/filter validation passed with
+  681/681 production entries; the new prefix was added to the validator's owned
+  replay rule map.
+- From final M7 source, the unchanged visual-fidelity oracle passed in 493.6
+  seconds with 2,401 ticks, all 200 bricks moved, 187 toppled/grounded sleepers,
+  199 causal nodes, one prediction/presentation, 62 saved/loaded ticks, zero
+  reserve-growth divergence, and every false-pass control. `validate_fast`
+  passed in 67.0 seconds with 196/196 tests and 4,152/4,152 assertions. The
+  explicit project/filter script passed in 1.4 seconds; the scrub alias
+  propagated delegated exit 37 in 0.1 seconds without launching an engine.
+  `validate_full` passed in 113.4 seconds with all mandatory CPU lanes, zero
+  warnings, zero DX12 errors, matching screenshots, standalone physics, and the
+  44,401-line byte-exact varied baseline. No baseline changed.
+- M7 is reclosed. M8 remains mandatory and may reopen any owner task on a
+  credible finding. Active/future portfolio progress is now 8/16, or 50%; this
+  percentage covers active and future decomposition plus spline work only and
+  excludes completed past plans and externally blocked work.
 
 ## M1 Binding Type Inventory
 

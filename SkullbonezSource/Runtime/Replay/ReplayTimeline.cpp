@@ -234,6 +234,35 @@ void ReplayTimeline::RecordEvent( const ReplayEventInput& input )
     }
 }
 
+void ReplayTimeline::SubmitEvent( const ReplayEventCommand& command, const ReplayBranchInfo& branch )
+{
+    if ( command.kind == ReplayEventKind::Unknown || !m_events.IsEnabled() )
+    {
+        return;
+    }
+
+    ReplayEventInput input;
+    if ( command.useNextFrame )
+    {
+        const ReplayRecorderStats solverStats = m_solver.GetStats();
+        input.frameIndex = solverStats.enabled ? solverStats.nextFrameIndex : m_presentation.GetStats().nextFrameIndex;
+    }
+    else
+    {
+        input.frameIndex = command.frameIndex;
+    }
+    input.branch = branch;
+    input.kind = command.kind;
+    input.flags = command.flags;
+    input.value0 = command.value0;
+    input.value1 = command.value1;
+    input.value2 = command.value2;
+    input.value3 = command.value3;
+    input.data0 = command.data0;
+    input.text = command.text;
+    m_events.RecordEvent( input );
+}
+
 void ReplayTimeline::CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const
 {
     m_presentation.CollectMemoryCategoryBytes( categories );

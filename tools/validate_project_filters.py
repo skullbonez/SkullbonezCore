@@ -298,6 +298,7 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayAuthoringCauseTree",
     "ReplayAuthoringVelocity",
     "ReplayCoordination",
+    "ReplayEventCommand",
     "ReplayIdentity",
     "ReplayInteractionController",
     "ReplayOverlayLayout",

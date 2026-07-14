@@ -8,9 +8,11 @@ Summary:
 
 Glossary:
   Capacity: A fixed upper bound established before steady runtime work.
+  Frame index: Monotonic replay-timeline position shared by retained tracks.
 
 Invariants:
   - This header contains values only: no mutable state, services, or callbacks.
+  - ReplayFrameIndex is the single replay-wide frame-cursor representation.
   - M2 preserves the moved definition bodies verbatim.
 
 Related:
@@ -28,6 +30,8 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+using ReplayFrameIndex = uint64_t;
+
 inline constexpr std::size_t REPLAY_PREDICTION_GHOST_MAX_FRAMES = 24;
 inline constexpr std::size_t REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY =
     ( REPLAY_PREDICTION_GHOST_MAX_FRAMES + 2u ) *

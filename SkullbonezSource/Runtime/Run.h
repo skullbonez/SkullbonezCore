@@ -141,7 +141,7 @@ class Run
     SimulationSystem m_simulation;                             // Simulation timestep policy and physics accumulators
     float m_presentationAlpha = 1.0f;                          // Live leftover fixed-tick fraction for render interpolation.
     bool m_capturePresentationPinned = false;                  // Due captures force exact current solver poses for this frame.
-    ReplayRuntime m_replayRuntime;                             // Owns replay recorders, branch provenance, and replay interaction state.
+    ReplayRuntime m_replayRuntime;                             // Constructs and sequences the concrete replay domain owners.
     Runtime::Audio::ContactAudioService m_contactAudio;        // Presentation-only material impact playback sink.
     LiveStyleController m_liveStyle;                           // Owns live style tweak/capture harness file-watching state.
     UI::InGameUI m_UI;                                         // Encapsulated in-game diagnostics window
