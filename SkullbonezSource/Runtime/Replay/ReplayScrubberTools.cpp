@@ -500,6 +500,7 @@ void KeepReplayScrubberVisible( ReplayScrubber& scrubber, double now )
 
 
 void ApplyReplayLiveAdvanceAction( ReplayRuntime& replayRuntime,
+                                   ReplayPrediction& predictionOwner,
                                    ReplayScrubber& scrubber,
                                    bool held,
                                    InputRouter& inputRouter,
@@ -516,13 +517,13 @@ void ApplyReplayLiveAdvanceAction( ReplayRuntime& replayRuntime,
     if ( !held )
     {
         bool promotedBuildPrefix = false;
-        if ( replayRuntime.Prediction().BuildPrefixShouldBePresented() )
+        if ( predictionOwner.BuildPrefixShouldBePresented() )
         {
             // Why: Play freezes the prediction prefix currently visible to the
             // operator, not an older committed path hidden behind worker state.
-            promotedBuildPrefix = replayRuntime.PredictionOwner().PromoteBuildPrefixToCommitted();
+            promotedBuildPrefix = predictionOwner.PromoteBuildPrefixToCommitted();
         }
-        replayRuntime.Prediction().enabled = false;
+        predictionOwner.DisableForLiveAdvance();
         if ( interaction.Gesture().kind == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag )
         {
             EndReplayScrubberGesture( replayRuntime,
@@ -532,7 +533,7 @@ void ApplyReplayLiveAdvanceAction( ReplayRuntime& replayRuntime,
         }
         if ( !promotedBuildPrefix )
         {
-            replayRuntime.PredictionOwner().CancelJob( false );
+            predictionOwner.CancelJob( false );
         }
         const float currentPosition = replayRuntime.TrackPosition( RunReplayTrack::Solver );
         if ( ReplayTrackPositionIsFuture( currentPosition, previousPredictionPresentT ) )
@@ -567,6 +568,7 @@ void ApplyReplayLiveAdvanceAction( ReplayRuntime& replayRuntime,
 
 
 void HandleReplayPausePressed( ReplayRuntime& replayRuntime,
+                               ReplayPrediction& predictionOwner,
                                ReplayScrubber& scrubber,
                                InputRouter& inputRouter,
                                RuntimeInteractionController& interaction,
@@ -575,6 +577,7 @@ void HandleReplayPausePressed( ReplayRuntime& replayRuntime,
                                bool& outEnterInteractive )
 {
     ApplyReplayLiveAdvanceAction( replayRuntime,
+                                  predictionOwner,
                                   scrubber,
                                   !scrubber.View().liveAdvanceHeld,
                                   inputRouter,
@@ -586,6 +589,7 @@ void HandleReplayPausePressed( ReplayRuntime& replayRuntime,
 
 
 void HandleReplayVelocityEditPressed( ReplayRuntime& replayRuntime,
+                                      ReplayPrediction& predictionOwner,
                                       ReplayScrubber& scrubber,
                                       InputRouter& inputRouter,
                                       RuntimeInteractionController& interaction,
@@ -601,6 +605,7 @@ void HandleReplayVelocityEditPressed( ReplayRuntime& replayRuntime,
         {
             outEnterInteractive = true;
             ApplyReplayLiveAdvanceAction( replayRuntime,
+                                          predictionOwner,
                                           scrubber,
                                           true,
                                           inputRouter,
@@ -634,15 +639,15 @@ void HandleReplayPastPathPressed( ReplayRuntime& replayRuntime, ReplayScrubber& 
 }
 
 
-void HandleReplayRagdollVisualsPressed( ReplayRuntime& replayRuntime, ReplayScrubber& scrubber, double now )
+void HandleReplayRagdollVisualsPressed( ReplayPrediction& predictionOwner, ReplayScrubber& scrubber, double now )
 {
-    replayRuntime.Prediction().ragdollVisualsEnabled = !replayRuntime.Prediction().ragdollVisualsEnabled;
-    replayRuntime.PredictionOwner().ClearFutureNodeCache();
+    (void)predictionOwner.ToggleRagdollVisualsEnabled();
+    predictionOwner.ClearFutureNodeCache();
     KeepReplayScrubberVisible( scrubber, now );
 }
 
 
-void SetReplayPredictionHorizonFromPointer( ReplayRuntime& replayRuntime,
+void SetReplayPredictionHorizonFromPointer( ReplayPrediction& predictionOwner,
                                             ReplayScrubber& scrubber,
                                             RuntimeInteractionController& interaction,
                                             const SkullbonezCore::UI::UIRect& horizon,
@@ -659,16 +664,13 @@ void SetReplayPredictionHorizonFromPointer( ReplayRuntime& replayRuntime,
                                                          InteractionExitReason::EnterReplay );
     }
     const float nextSeconds = ReplayPredictionHorizonFromMouse( mouseX, horizon );
-    if ( nextSeconds != replayRuntime.Prediction().simulation.horizonSeconds )
-    {
-        replayRuntime.Prediction().simulation.horizonSeconds = nextSeconds;
-        replayRuntime.PredictionOwner().MarkDirty();
-    }
+    (void)predictionOwner.SetHorizonSeconds( nextSeconds );
     KeepReplayScrubberVisible( scrubber, now );
 }
 
 
 void HandleReplayPredictionPressed( ReplayRuntime& replayRuntime,
+                                    ReplayPrediction& predictionOwner,
                                     ReplayScrubber& scrubber,
                                     RuntimeInteractionController& interaction,
                                     double now,
@@ -676,17 +678,13 @@ void HandleReplayPredictionPressed( ReplayRuntime& replayRuntime,
 {
     outEnterInteractive = true;
     const float previousPredictionPresentT = replayRuntime.SolverPresentTrackPosition();
-    replayRuntime.Prediction().enabled = !replayRuntime.Prediction().enabled;
-    interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
-                                                     replayRuntime.Prediction().enabled
-                                                         ? WorldInteractionOwner::ReplayPrediction
-                                                         : WorldInteractionOwner::ReplayScrub,
-                                                     InteractionExitReason::EnterReplay );
-    replayRuntime.Prediction().simulation.horizonSeconds =
-        std::clamp( replayRuntime.Prediction().simulation.horizonSeconds,
-                    REPLAY_PREDICTION_MIN_SECONDS,
-                    REPLAY_PREDICTION_MAX_SECONDS );
-    if ( !replayRuntime.Prediction().enabled )
+    const bool predictionEnabled = predictionOwner.ToggleEnabled();
+    interaction.SetWorldInteractionOwnerInWorkspace(
+        RuntimeWorkspace::Replay,
+        predictionEnabled ? WorldInteractionOwner::ReplayPrediction : WorldInteractionOwner::ReplayScrub,
+        InteractionExitReason::EnterReplay );
+    predictionOwner.ClampHorizonSeconds( REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS );
+    if ( !predictionEnabled )
     {
         const float currentPosition = replayRuntime.TrackPosition( RunReplayTrack::Solver );
         if ( ReplayTrackPositionIsFuture( currentPosition, previousPredictionPresentT ) )
@@ -694,9 +692,9 @@ void HandleReplayPredictionPressed( ReplayRuntime& replayRuntime,
             replayRuntime.SetTrackPosition( RunReplayTrack::Solver, 1.0f );
             scrubber.SetHistoricalSamplePaused( false );
         }
-        replayRuntime.PredictionOwner().ClearCache();
+        predictionOwner.ClearCache();
     }
-    replayRuntime.PredictionOwner().MarkDirty();
+    predictionOwner.MarkDirty();
     KeepReplayScrubberVisible( scrubber, now );
 }
 
@@ -824,6 +822,7 @@ void HandleReplayLoadPressed( ReplayRuntime& replayRuntime,
 
 
 bool HandleReplayPredictionHorizonPressed( ReplayRuntime& replayRuntime,
+                                           ReplayPrediction& predictionOwner,
                                            ReplayScrubber& scrubber,
                                            InputRouter& inputRouter,
                                            RuntimeInteractionController& interaction,
@@ -843,7 +842,7 @@ bool HandleReplayPredictionHorizonPressed( ReplayRuntime& replayRuntime,
     {
         return false;
     }
-    SetReplayPredictionHorizonFromPointer( replayRuntime,
+    SetReplayPredictionHorizonFromPointer( predictionOwner,
                                            scrubber,
                                            interaction,
                                            horizon,
@@ -881,6 +880,7 @@ bool HandleReplayScrubPressed( ReplayRuntime& replayRuntime,
 
 
 bool TickReplayScrubberGesture( ReplayRuntime& replayRuntime,
+                                ReplayPrediction& predictionOwner,
                                 ReplayScrubber& scrubber,
                                 InputRouter& inputRouter,
                                 RuntimeInteractionController& interaction,
@@ -927,7 +927,7 @@ bool TickReplayScrubberGesture( ReplayRuntime& replayRuntime,
         return true;
     }
     case RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag:
-        SetReplayPredictionHorizonFromPointer( replayRuntime,
+        SetReplayPredictionHorizonFromPointer( predictionOwner,
                                                scrubber,
                                                interaction,
                                                predictionHorizon,
@@ -1131,6 +1131,7 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
     }
     case ReplayScrubberAction::TogglePause:
         HandleReplayPausePressed( *this,
+                                  m_predictionOwner,
                                   m_scrubberOwner,
                                   m_inputRouter,
                                   m_interaction,
@@ -1141,6 +1142,7 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
         break;
     case ReplayScrubberAction::ToggleVelocityEdit:
         HandleReplayVelocityEditPressed( *this,
+                                         m_predictionOwner,
                                          m_scrubberOwner,
                                          m_inputRouter,
                                          m_interaction,
@@ -1154,11 +1156,12 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
         consumesMouse = true;
         break;
     case ReplayScrubberAction::ToggleRagdollVisuals:
-        HandleReplayRagdollVisualsPressed( *this, m_scrubberOwner, now );
+        HandleReplayRagdollVisualsPressed( m_predictionOwner, m_scrubberOwner, now );
         consumesMouse = true;
         break;
     case ReplayScrubberAction::SetPredictionHorizon:
         if ( !HandleReplayPredictionHorizonPressed( *this,
+                                                    m_predictionOwner,
                                                     m_scrubberOwner,
                                                     m_inputRouter,
                                                     m_interaction,
@@ -1173,7 +1176,12 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
         consumesMouse = true;
         break;
     case ReplayScrubberAction::TogglePrediction:
-        HandleReplayPredictionPressed( *this, m_scrubberOwner, m_interaction, now, outEnterInteractive );
+        HandleReplayPredictionPressed( *this,
+                                       m_predictionOwner,
+                                       m_scrubberOwner,
+                                       m_interaction,
+                                       now,
+                                       outEnterInteractive );
         consumesMouse = true;
         break;
     case ReplayScrubberAction::Save:
@@ -1215,6 +1223,7 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
     }
 
     const bool scrubberGestureHandled = TickReplayScrubberGesture( *this,
+                                                                   m_predictionOwner,
                                                                    m_scrubberOwner,
                                                                    m_inputRouter,
                                                                    m_interaction,

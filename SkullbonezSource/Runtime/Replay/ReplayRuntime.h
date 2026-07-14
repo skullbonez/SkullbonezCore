@@ -164,8 +164,6 @@ class ReplayRuntime
 
     RunReplayPredictionState& Prediction();
     const RunReplayPredictionState& Prediction() const;
-    ReplayPrediction& PredictionOwner() noexcept;
-    const ReplayPrediction& PredictionOwner() const noexcept;
     ReplayPredictionPresentationView PredictionPresentationView() const;
     // Lifetime: the view borrows the active retained prediction buffer and is
     // valid only until replay prediction state mutates.

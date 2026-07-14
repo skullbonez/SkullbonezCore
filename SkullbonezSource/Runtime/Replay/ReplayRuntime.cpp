@@ -1332,16 +1332,6 @@ const RunReplayPredictionState& ReplayRuntime::Prediction() const
     return m_predictionOwner.State();
 }
 
-ReplayPrediction& ReplayRuntime::PredictionOwner() noexcept
-{
-    return m_predictionOwner;
-}
-
-const ReplayPrediction& ReplayRuntime::PredictionOwner() const noexcept
-{
-    return m_predictionOwner;
-}
-
 ReplayPredictionPresentationView ReplayRuntime::PredictionPresentationView() const
 {
     return m_predictionOwner.PresentationView();

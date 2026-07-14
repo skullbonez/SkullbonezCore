@@ -3885,13 +3885,15 @@ void ReplayPredictionWorkerOperation::operator()( int beginTickIndex, int endTic
 
 namespace
 {
-bool CompleteReplayPredictionJobOnFrameThread( ReplayRuntime& replayRuntime, double simulationTotalSeconds )
+bool CompleteReplayPredictionJobOnFrameThread( ReplayRuntime& replayRuntime,
+                                               ReplayPrediction& predictionOwner,
+                                               double simulationTotalSeconds )
 {
     RunReplayPredictionState& prediction = replayRuntime.Prediction();
     if ( prediction.build.workerFailed.load( std::memory_order_acquire ) )
     {
         const bool preserveCommittedFuture = prediction.simulation.frames.size() >= 2u;
-        replayRuntime.PredictionOwner().CancelJob( !preserveCommittedFuture );
+        predictionOwner.CancelJob( !preserveCommittedFuture );
         replayRuntime.Prediction().build.dirty = true;
         return false;
     }
@@ -3954,6 +3956,7 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayRuntime& replayRuntime, dou
 }
 
 bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
+                               ReplayPrediction& predictionOwner,
                                PhysicsEngine& physicsEngine,
                                const SceneEntityStore& entities,
                                const SkullbonezCore::Core::EngineConfig& config,
@@ -3968,7 +3971,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
                                double budgetMilliseconds )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/BeginJob" );
-    if ( !replayRuntime.PredictionOwner().GenerationPermitted() )
+    if ( !predictionOwner.GenerationPermitted() )
     {
         // Invariant: artifact verification is load-only. Returning before any
         // snapshot, reserve, worker, or trajectory mutation makes a second
@@ -3999,10 +4002,10 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         preserveCommittedFuture ? ReplayPredictionBuildPresentationFrameCountForRefresh( prediction, requestedTargetId )
                                 : 2u;
     const bool clearSamplesOnCancel = !preserveCommittedFuture;
-    replayRuntime.PredictionOwner().CancelJob( clearSamplesOnCancel );
+    predictionOwner.CancelJob( clearSamplesOnCancel );
     if ( clearSamplesOnCancel )
     {
-        replayRuntime.PredictionOwner().ClearFutureNodeCache();
+        predictionOwner.ClearFutureNodeCache();
         // Why: only a genuinely empty replacement should replay the causal
         // story from the root. Same-target refreshes preserve the anchor and
         // keep showing the committed future until the new prefix catches up.
@@ -4084,7 +4087,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
                                          0,
                                          "RunReplayPredictionBuildState::buildFrames" ) )
     {
-        replayRuntime.PredictionOwner().CancelJob( clearSamplesOnCancel );
+        predictionOwner.CancelJob( clearSamplesOnCancel );
         prediction.build.dirty = true;
         return false;
     }
@@ -4098,7 +4101,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
                                                       "RunReplayPredictionFrame::bodies",
                                                       &RunReplayPredictionFrame::bodies ) )
     {
-        replayRuntime.PredictionOwner().CancelJob( clearSamplesOnCancel );
+        predictionOwner.CancelJob( clearSamplesOnCancel );
         prediction.build.dirty = true;
         return false;
     }
@@ -4122,13 +4125,13 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
                                          0,
                                          "RunReplayPredictionFutureNodeCache::futureNodeBuildScratch" ) )
     {
-        replayRuntime.PredictionOwner().CancelJob( clearSamplesOnCancel );
+        predictionOwner.CancelJob( clearSamplesOnCancel );
         prediction.build.dirty = true;
         return false;
     }
     if ( !PrepareReplayPredictionTrajectoryBuild( prediction, prediction.simulation.targetId, buildFrameCapacity ) )
     {
-        replayRuntime.PredictionOwner().CancelJob( clearSamplesOnCancel );
+        predictionOwner.CancelJob( clearSamplesOnCancel );
         prediction.build.dirty = true;
         return false;
     }
@@ -4137,7 +4140,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
          modelCount != entities.Count() ||
          !CaptureReplayPredictionBodyState( liveBodyStore, workerPool, prediction.simulation.predictionBodies ) )
     {
-        replayRuntime.PredictionOwner().CancelJob( clearSamplesOnCancel );
+        predictionOwner.CancelJob( clearSamplesOnCancel );
         return false;
     }
 
@@ -4146,7 +4149,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
 
     if ( !SeedReplayPredictionEngine( prediction, physicsEngine, config, worldForces, modelCount ) )
     {
-        replayRuntime.PredictionOwner().CancelJob( clearSamplesOnCancel );
+        predictionOwner.CancelJob( clearSamplesOnCancel );
         prediction.build.dirty = true;
         return false;
     }
@@ -4158,7 +4161,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
                                         modelCount,
                                         0 ) )
     {
-        replayRuntime.PredictionOwner().CancelJob( clearSamplesOnCancel );
+        predictionOwner.CancelJob( clearSamplesOnCancel );
         prediction.build.dirty = true;
         return false;
     }
@@ -4169,7 +4172,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         prediction.build.workerTask = std::make_unique<ReplayPredictionAmortizedTask>(
             prediction.build.targetTickCount,
             REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT,
-            ReplayPredictionWorkerOperation{ &replayRuntime.PredictionOwner(), &config, &workerPool, modelCount } );
+            ReplayPredictionWorkerOperation{ &predictionOwner, &config, &workerPool, modelCount } );
         prediction.build.workerTask->SetBudget( REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT );
     }
     prediction.build.building = true;
@@ -4180,6 +4183,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
 
 
 bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
+                              ReplayPrediction& predictionOwner,
                               SkullbonezCore::Threading::WorkerPool& workerPool,
                               double simulationTotalSeconds,
                               const std::chrono::steady_clock::time_point& budgetStart,
@@ -4204,7 +4208,7 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
          !prediction.build.workerTask )
     {
         const bool preserveCommittedFuture = prediction.simulation.frames.size() >= 2u;
-        replayRuntime.PredictionOwner().CancelJob( !preserveCommittedFuture );
+        predictionOwner.CancelJob( !preserveCommittedFuture );
         replayRuntime.Prediction().build.dirty = true;
         return false;
     }
@@ -4239,14 +4243,14 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
     }
     prediction.build.workerTask->SubmitTick( workerPool );
 
-    if ( CompleteReplayPredictionJobOnFrameThread( replayRuntime, simulationTotalSeconds ) )
+    if ( CompleteReplayPredictionJobOnFrameThread( replayRuntime, predictionOwner, simulationTotalSeconds ) )
     {
         return true;
     }
 
     if ( prediction.build.workerFailed.load( std::memory_order_acquire ) )
     {
-        (void)CompleteReplayPredictionJobOnFrameThread( replayRuntime, simulationTotalSeconds );
+        (void)CompleteReplayPredictionJobOnFrameThread( replayRuntime, predictionOwner, simulationTotalSeconds );
         return false;
     }
 
@@ -4318,7 +4322,6 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
 
     if ( !replayRuntime.PathVisualizer().hasTarget || replayRuntime.PathVisualizer().targetId.value == 0 )
     {
-        replayRuntime.PredictionOwner().ClearFutureNodeCache();
         if ( replayRuntime.Prediction().ragdollVisualsEnabled )
         {
             DrawReplayPredictionRagdollTorsoTrails( activePredictionFrames,
@@ -4479,6 +4482,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
 
 
 void UpdateReplayPrediction( ReplayRuntime& replayRuntime,
+                             ReplayPrediction& predictionOwner,
                              PhysicsEngine& physicsEngine,
                              const SceneEntityStore& entities,
                              const SkullbonezCore::Core::EngineConfig& config,
@@ -4491,15 +4495,19 @@ void UpdateReplayPrediction( ReplayRuntime& replayRuntime,
                              double budgetMilliseconds )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/Update" );
+    if ( !replayRuntime.PathVisualizer().hasTarget )
+    {
+        predictionOwner.ClearFutureNodeCache();
+    }
     if ( !replayRuntime.Prediction().enabled )
     {
         if ( replayRuntime.Prediction().build.building )
         {
-            replayRuntime.PredictionOwner().CancelJob( false );
+            predictionOwner.CancelJob( false );
         }
         return;
     }
-    if ( !replayRuntime.PredictionOwner().GenerationPermitted() )
+    if ( !predictionOwner.GenerationPermitted() )
     {
         // Probe assertion lane: the archive may remain visually enabled, but
         // this branch draws only restored values and never reaches a snapshot,
@@ -4580,6 +4588,7 @@ void UpdateReplayPrediction( ReplayRuntime& replayRuntime,
             }
         }
         const bool began = BeginReplayPredictionJob( replayRuntime,
+                                                     predictionOwner,
                                                      physicsEngine,
                                                      entities,
                                                      config,
@@ -4624,6 +4633,7 @@ void UpdateReplayPrediction( ReplayRuntime& replayRuntime,
         {
             const bool wasBuilding = replayRuntime.Prediction().build.building;
             StepReplayPredictionJob( replayRuntime,
+                                     predictionOwner,
                                      workerPool,
                                      simulationTotalSeconds,
                                      budgetStart,
@@ -4685,6 +4695,7 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
                                     ribbonQuota,
                                     REPLAY_PREDICTION_MAX_WORK_MILLISECONDS );
     const RunReplayPredictionState& prediction = context.replayRuntime.Prediction();
+    const ReplayPredictionPresentationView predictionView = context.replayRuntime.PredictionPresentationView();
     if ( !prediction.enabled && prediction.simulation.frames.size() >= 2 &&
          context.replayRuntime.PathVisualizer().hasTarget && !context.replayRuntime.PathVisualizer().pastPathVisible &&
          prediction.simulation.targetId.value == context.replayRuntime.PathVisualizer().targetId.value )
@@ -4727,7 +4738,7 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
     {
         return;
     }
-    if ( context.replayRuntime.PredictionOwner().GenerationPermitted() )
+    if ( predictionView.generationPermitted )
     {
         context.replayRuntime.RefreshPastTrajectoryStoreFromSolverSamples();
     }
@@ -4765,7 +4776,7 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
         return;
     }
 
-    const ReplayFrameIndex presentFrame = context.replayRuntime.PredictionOwner().GenerationPermitted()
+    const ReplayFrameIndex presentFrame = predictionView.generationPermitted
                                               ? presentSample->frameIndex
                                               : context.replayRuntime.Prediction().simulation.sourceFrameIndex;
     context.replayRuntime.PathVisualizer().futureNodes.clear();
@@ -4824,6 +4835,7 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics,
     // owning worker scheduling, cancellation, or generation decisions.
     const auto predictionStart = std::chrono::steady_clock::now();
     UpdateReplayPrediction( *this,
+                            m_predictionOwner,
                             physics,
                             entities,
                             config,

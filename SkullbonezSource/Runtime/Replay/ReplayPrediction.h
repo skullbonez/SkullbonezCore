@@ -30,6 +30,7 @@ Related:
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/PhysicsWorldForces.h"
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <chrono>
@@ -331,6 +332,7 @@ struct ReplayPredictionPresentationView
     bool ragdollVisualsEnabled = false;
     bool baselineValid = false;
     bool baselineComparisonActive = false;
+    bool generationPermitted = true;
 };
 
 class ReplayPrediction
@@ -370,7 +372,35 @@ class ReplayPrediction
         view.ragdollVisualsEnabled = m_state.ragdollVisualsEnabled;
         view.baselineValid = m_state.baseline.valid;
         view.baselineComparisonActive = m_state.baseline.comparisonActive;
+        view.generationPermitted = m_generationPermitted;
         return view;
+    }
+
+    bool Enabled() const noexcept
+    {
+        return m_state.enabled;
+    }
+    bool ToggleEnabled() noexcept
+    {
+        m_state.enabled = !m_state.enabled;
+        return m_state.enabled;
+    }
+    bool BuildPrefixShouldBePresented() const noexcept
+    {
+        return m_state.BuildPrefixShouldBePresented();
+    }
+    bool ToggleRagdollVisualsEnabled() noexcept
+    {
+        m_state.ragdollVisualsEnabled = !m_state.ragdollVisualsEnabled;
+        return m_state.ragdollVisualsEnabled;
+    }
+    float HorizonSeconds() const noexcept
+    {
+        return m_state.simulation.horizonSeconds;
+    }
+    void ClampHorizonSeconds( float minSeconds, float maxSeconds ) noexcept
+    {
+        m_state.simulation.horizonSeconds = std::clamp( m_state.simulation.horizonSeconds, minSeconds, maxSeconds );
     }
 
     bool GenerationPermitted() const noexcept
@@ -397,6 +427,12 @@ class ReplayPrediction
     // Owner commands used by validation and UI paths. These keep rebuild and
     // baseline invalidation coupled to the state transition that requires it.
     void SetEnabled( bool enabled ) noexcept;
+    // Play freezes the visible committed prefix and cancels any worker; unlike
+    // an authored enable toggle, that transition must not request a rebuild.
+    void DisableForLiveAdvance() noexcept
+    {
+        m_state.enabled = false;
+    }
     void SetHorizonSeconds( float horizonSeconds ) noexcept;
     bool PrepareVelocityMutationBaseline() noexcept;
     void CommitVelocityMutation() noexcept;

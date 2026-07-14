@@ -622,6 +622,27 @@ Eleventh ownership-remediation checkpoint after that review:
   M3-M7 remain open for the physical prediction/presentation TU split, mutable
   prediction/presentation surfaces, and the remaining external root seam.
 
+Twelfth ownership-remediation checkpoint after that review:
+
+- `ReplayRuntime` no longer returns its concrete `ReplayPrediction` owner.
+  Prediction scheduling helpers receive that owner explicitly from the
+  composing member, and scrubber helpers use intent-level enable, horizon,
+  ragdoll, promotion, cancellation, and dirty commands instead of opening the
+  owner's state bag. Generation permission needed by presentation is published
+  as a value in `ReplayPredictionPresentationView`.
+- The unchanged one-process oracle passed at 2,401 exact ticks, 200 moved
+  bricks, 187 strict grounded sleepers, 199 causal nodes, one generation, one
+  presentation, and every false-pass control. The first broad attempt stopped
+  in formatting preflight before build or launch; the prediction header was run
+  through the repository's targeted header post-pass, and the full rerun passed
+  every CPU/Profile/Debug/DX12/physics lane with zero warnings, zero DX12
+  validation errors, matching screenshots, and the 44,401-line byte-exact
+  varied baseline. No baseline changed. The touched-source comment audit
+  inspected 5/5 files with zero deferred or unchecked. M3-M7 remain open for
+  draw-time marker/reveal preparation behind the prediction owner, removal of
+  the root's mutable prediction-state overload, the physical TU split, and the
+  remaining external root/presentation seams.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |
