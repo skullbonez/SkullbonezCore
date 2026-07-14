@@ -946,6 +946,124 @@ bool TickReplayScrubberGesture( ReplayRuntime& replayRuntime,
 }
 } // namespace
 
+ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const ReplayScrubberPointerFrame& frame )
+{
+    ReplayScrubberPointerDecision decision;
+    const ReplayScrubberInputFrame inputFrame =
+        BeginInputFrame( frame.leftPressed, frame.leftReleased, frame.restoreDown );
+    decision.leftReleased = inputFrame.leftReleased;
+
+    const bool scrubberAllowed = !frame.editorModeEnabled && frame.uiVisible && frame.uiMinimized;
+    const bool replaySurfaceAvailable = frame.loadedPresentation || frame.solverStats.enabled;
+    if ( !scrubberAllowed || !replaySurfaceAvailable || frame.screenWidth <= 0 || frame.screenHeight <= 0 )
+    {
+        decision.cancelToolDrag = true;
+        const ReplayScrubberUnavailableResult unavailable =
+            ResetUnavailableSurface( frame.loadedPresentation, frame.inspectionCameraActive );
+        decision.exitInspectionCamera = unavailable.exitInspectionCamera;
+        return decision;
+    }
+    if ( !frame.hasClientPosition )
+    {
+        return decision;
+    }
+
+    decision.surfaceAvailable = true;
+    SetPointer( frame.mouseX, frame.mouseY );
+    const bool scrubDragActive = frame.gesture == RuntimeInteractionGestureKind::ReplayScrubDrag;
+    const bool horizonDragActive = frame.gesture == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag;
+
+    const ReplayScrubberSurfaceInput surfaceInput = DescribeReplayScrubberSurface( View(),
+                                                                                   frame.solverStats,
+                                                                                   frame.loadedPresentation,
+                                                                                   frame.pathTargetAvailable,
+                                                                                   frame.predictionTimelineAvailable,
+                                                                                   frame.currentPresentationAvailable,
+                                                                                   frame.currentSolverAvailable,
+                                                                                   frame.scenePhysicsEnabled,
+                                                                                   frame.uiBlocksMouse,
+                                                                                   frame.screenWidth,
+                                                                                   frame.screenHeight,
+                                                                                   frame.gesture );
+    decision.track = surfaceInput.track;
+    ReplayScrubberSurface surface;
+    BuildReplayScrubberSurface( surfaceInput, surface );
+    surface.ResolvePointer( frame.mouseX, frame.mouseY );
+
+    const auto isHotControl = [&]( ReplayScrubberControl control )
+    { return surface.hasHotControl && surface.hotControl == ReplayScrubberControlId( control ); };
+    const RuntimeUiControl* pointerControl =
+        surface.hasPointerControl ? surface.Find( surface.pointerControl ) : nullptr;
+    const RuntimeUiControl* horizonControl =
+        surface.Find( ReplayScrubberControlId( ReplayScrubberControl::PredictionHorizon ) );
+    // Invariant: the fixed scrubber builder always publishes the horizon row;
+    // disabled state changes eligibility, not the geometry table.
+    if ( !horizonControl )
+    {
+        SB_FATAL( "ReplayScrubberSurface", "Prediction horizon control is missing from the scrubber surface." );
+    }
+    decision.horizonX = horizonControl->drawRect.x;
+    decision.horizonY = horizonControl->drawRect.y;
+    decision.horizonWidth = horizonControl->drawRect.w;
+    decision.horizonHeight = horizonControl->drawRect.h;
+
+    const bool canTakeMouse = frame.uiBlocksMouse == false || scrubDragActive || horizonDragActive;
+    const bool pointerRequestsReplayOverlay = pointerControl && pointerControl->requestsReveal;
+    const bool replayDragInProgress = scrubDragActive || horizonDragActive;
+    ReplayScrubberView scrubber = View();
+    const bool replayStateKeepsScrubberVisible =
+        replayDragInProgress || scrubber.historicalSamplePaused || scrubber.liveAdvanceHeld;
+    // Why: only the track or its broad background/reveal rows may begin a scrub.
+    // A disabled front-most control still blocks fall-through to these rows.
+    const bool scrubTrackStartTarget = isHotControl( ReplayScrubberControl::ScrubTrack ) ||
+                                       isHotControl( ReplayScrubberControl::Panel ) ||
+                                       isHotControl( ReplayScrubberControl::HotZone ) ||
+                                       ( scrubber.historicalSamplePaused && !surface.hasPointerControl );
+    // Why: passive Scene/Demo cameras still reveal the replay bar at its hot
+    // zone, while UI-owned mouse regions do not. Active replay state pins the
+    // surface open without making empty screen space consume pointer input.
+    if ( pointerRequestsReplayOverlay || replayStateKeepsScrubberVisible )
+    {
+        KeepVisible( frame.now, REPLAY_SCRUBBER_VISIBLE_SECONDS );
+        scrubber = View();
+    }
+    const bool branchControlVisible = scrubber.visibleUntil >= frame.now || scrubDragActive ||
+                                      scrubber.historicalSamplePaused || scrubber.liveAdvanceHeld;
+    decision.consumesMouse = canTakeMouse && ( replayDragInProgress ||
+                                               ( scrubber.visibleUntil >= frame.now && pointerRequestsReplayOverlay ) );
+
+    if ( surfaceInput.branchTargetAvailable && inputFrame.restorePressed )
+    {
+        decision.action = ReplayScrubberAction::RestoreBranch;
+    }
+    else if ( inputFrame.leftPressed && canTakeMouse )
+    {
+        const RuntimeUiControl* hotControl = surface.hasHotControl ? surface.Find( surface.hotControl ) : nullptr;
+        if ( hotControl )
+        {
+            decision.action = static_cast<ReplayScrubberAction>( hotControl->action.value );
+            if ( decision.action == ReplayScrubberAction::RestoreBranch && !branchControlVisible )
+            {
+                decision.action = ReplayScrubberAction::None;
+            }
+            else if ( decision.action != ReplayScrubberAction::None && decision.action != ReplayScrubberAction::Scrub &&
+                      decision.action != ReplayScrubberAction::RestoreBranch && scrubber.visibleUntil < frame.now )
+            {
+                decision.action = ReplayScrubberAction::None;
+            }
+            else if ( decision.action == ReplayScrubberAction::None && scrubTrackStartTarget )
+            {
+                decision.action = ReplayScrubberAction::Scrub;
+            }
+        }
+        else if ( scrubTrackStartTarget )
+        {
+            decision.action = ReplayScrubberAction::Scrub;
+        }
+    }
+    return decision;
+}
+
 bool ReplayRuntime::TickScrubberInput( HWND hwnd,
                                        bool uiBlocksMouse,
                                        InputRouter& inputRouter,
@@ -986,137 +1104,62 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
                               m_inputRouter );
     };
     PROFILE_SCOPED( "Frame/Replay/ScrubberInput" );
-    const RuntimeMouseEdges& pointer = m_inputRouter.UiSnapshot().mouse;
-    const bool restoreDown = m_inputRouter.RuntimeSnapshot().enterDown;
-    const ReplayScrubberInputFrame inputFrame =
-        m_replayRuntime.BeginReplayScrubberInputFrame( pointer.leftPressed, pointer.leftReleased, restoreDown );
-    const bool leftPressed = inputFrame.leftPressed;
-    const bool leftReleased = inputFrame.leftReleased;
-    const bool restorePressed = inputFrame.restorePressed;
-
-    const bool scrubberAllowed = !editorModeEnabled && uiVisible && uiMinimized;
     const bool loadedPresentation = m_replayRuntime.HasLoadedPresentation();
-    const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
-    const bool solverReplayEnabled = solverReplayStats.enabled;
-    const bool replaySurfaceAvailable = loadedPresentation || solverReplayEnabled;
     const int screenW = screenWidth;
     const int screenH = screenHeight;
-    if ( !scrubberAllowed || !replaySurfaceAvailable || screenW <= 0 || screenH <= 0 )
+    const RuntimeMouseEdges& pointer = m_inputRouter.UiSnapshot().mouse;
+    const RuntimePointerEvent& runtimePointer = m_inputRouter.RuntimeSnapshot().pointer;
+    ReplayScrubberPointerFrame pointerFrame;
+    pointerFrame.solverStats = m_replayRuntime.Solver().GetStats();
+    pointerFrame.gesture = m_interaction.Gesture().kind;
+    pointerFrame.now = now;
+    pointerFrame.mouseX = runtimePointer.clientX;
+    pointerFrame.mouseY = runtimePointer.clientY;
+    pointerFrame.screenWidth = screenW;
+    pointerFrame.screenHeight = screenH;
+    pointerFrame.leftPressed = pointer.leftPressed;
+    pointerFrame.leftReleased = pointer.leftReleased;
+    pointerFrame.restoreDown = m_inputRouter.RuntimeSnapshot().enterDown;
+    pointerFrame.hasClientPosition = runtimePointer.hasClientPosition;
+    pointerFrame.uiBlocksMouse = uiBlocksMouse;
+    pointerFrame.editorModeEnabled = editorModeEnabled;
+    pointerFrame.uiVisible = uiVisible;
+    pointerFrame.uiMinimized = uiMinimized;
+    pointerFrame.loadedPresentation = loadedPresentation;
+    pointerFrame.pathTargetAvailable = m_visualPresentation.PathVisualizer().hasTarget;
+    pointerFrame.predictionTimelineAvailable =
+        ActivePredictionFrames().size() >= 2 || m_predictionOwner.State().BuildPrefixShouldBePresented();
+    pointerFrame.currentPresentationAvailable = CurrentScrubSample() != nullptr;
+    pointerFrame.currentSolverAvailable = CurrentSolverScrubSample() != nullptr;
+    pointerFrame.scenePhysicsEnabled = scenePhysicsEnabled;
+    pointerFrame.inspectionCameraActive = m_visualPresentation.CameraView().active;
+    const ReplayScrubberPointerDecision decision = m_scrubberOwner.ResolvePointerAction( pointerFrame );
+    if ( decision.cancelToolDrag )
     {
         m_replayRuntime.CancelToolDragState( m_interaction, m_inputRouter );
-        const ReplayScrubberUnavailableResult unavailable =
-            m_replayRuntime.ResetUnavailableScrubberSurface( loadedPresentation );
-        if ( unavailable.exitInspectionCamera )
-        {
-            exitInspectionCamera();
-        }
-        return false;
     }
-
-    const RuntimePointerEvent& runtimePointer = m_inputRouter.RuntimeSnapshot().pointer;
-    if ( !runtimePointer.hasClientPosition )
+    if ( decision.exitInspectionCamera )
+    {
+        exitInspectionCamera();
+    }
+    if ( !decision.surfaceAvailable )
     {
         return false;
     }
-    const POINT mouse{ runtimePointer.clientX, runtimePointer.clientY };
-    m_scrubberOwner.SetPointer( mouse.x, mouse.y );
 
+    const POINT mouse{ pointerFrame.mouseX, pointerFrame.mouseY };
+    const bool leftReleased = decision.leftReleased;
     const auto scrubDragActive = [&]()
     { return m_interaction.Gesture().kind == RuntimeInteractionGestureKind::ReplayScrubDrag; };
     const auto horizonDragActive = [&]()
     { return m_interaction.Gesture().kind == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag; };
-
-    const ReplayScrubberSurfaceInput surfaceInput = DescribeReplayScrubberSurface(
-        m_scrubberOwner.View(),
-        m_timeline.Solver().GetStats(),
-        HasLoadedPresentation(),
-        m_visualPresentation.PathVisualizer().hasTarget,
-        ActivePredictionFrames().size() >= 2 || m_predictionOwner.State().BuildPrefixShouldBePresented(),
-        CurrentScrubSample() != nullptr,
-        CurrentSolverScrubSample() != nullptr,
-        scenePhysicsEnabled,
-        uiBlocksMouse,
-        screenW,
-        screenH,
-        m_interaction.Gesture().kind );
-    const RunReplayTrack scrubTrack = surfaceInput.track;
-    const bool branchTargetAvailable = surfaceInput.branchTargetAvailable;
-    ReplayScrubberSurface surface;
-    BuildReplayScrubberSurface( surfaceInput, surface );
-    surface.ResolvePointer( mouse.x, mouse.y );
-
-    const auto isHotControl = [&]( ReplayScrubberControl control )
-    { return surface.hasHotControl && surface.hotControl == ReplayScrubberControlId( control ); };
-    const RuntimeUiControl* pointerControl =
-        surface.hasPointerControl ? surface.Find( surface.pointerControl ) : nullptr;
-    const RuntimeUiControl* horizonControl =
-        surface.Find( ReplayScrubberControlId( ReplayScrubberControl::PredictionHorizon ) );
-    // Invariant: the fixed scrubber builder always publishes the horizon row;
-    // disabled state changes eligibility, not the geometry table.
-    if ( !horizonControl )
-    {
-        SB_FATAL( "ReplayScrubberSurface", "Prediction horizon control is missing from the scrubber surface." );
-    }
-    const UI::UIRect predictHorizon = horizonControl->drawRect;
-
-    const bool canTakeMouse = !uiBlocksMouse || scrubDragActive() || horizonDragActive();
-    const bool pointerRequestsReplayOverlay = pointerControl && pointerControl->requestsReveal;
-    const bool replayDragInProgress = scrubDragActive() || horizonDragActive();
-    ReplayScrubberView scrubber = m_scrubberOwner.View();
-    const bool replayStateKeepsScrubberVisible =
-        replayDragInProgress || scrubber.historicalSamplePaused || scrubber.liveAdvanceHeld;
-    // Why: only the track or its broad background/reveal rows may begin a scrub.
-    // A disabled front-most control still blocks fall-through to these rows.
-    const bool scrubTrackStartTarget = isHotControl( ReplayScrubberControl::ScrubTrack ) ||
-                                       isHotControl( ReplayScrubberControl::Panel ) ||
-                                       isHotControl( ReplayScrubberControl::HotZone ) ||
-                                       ( scrubber.historicalSamplePaused && !surface.hasPointerControl );
-    // Why: the replay reveal zone is mode-agnostic. Passive Scene/Demo cameras
-    // do not own mouse tools, but moving to the bottom edge should still expose
-    // retained replay controls. UI-owned mouse areas, such as the minimized
-    // options window, should not wake the replay bar. Paused/held replay states
-    // pin the bar open without making empty screen space consume mouse input.
-    if ( pointerRequestsReplayOverlay || replayStateKeepsScrubberVisible )
-    {
-        m_scrubberOwner.KeepVisible( now, REPLAY_SCRUBBER_VISIBLE_SECONDS );
-        scrubber = m_scrubberOwner.View();
-    }
-    const bool branchControlVisible = scrubber.visibleUntil >= now || scrubDragActive() ||
-                                      scrubber.historicalSamplePaused || scrubber.liveAdvanceHeld;
-
-    bool consumesMouse =
-        canTakeMouse && ( replayDragInProgress || ( scrubber.visibleUntil >= now && pointerRequestsReplayOverlay ) );
-
-    ReplayScrubberAction requestedAction = ReplayScrubberAction::None;
-    if ( branchTargetAvailable && restorePressed )
-    {
-        requestedAction = ReplayScrubberAction::RestoreBranch;
-    }
-    else if ( leftPressed && canTakeMouse )
-    {
-        const RuntimeUiControl* hotControl = surface.hasHotControl ? surface.Find( surface.hotControl ) : nullptr;
-        if ( hotControl )
-        {
-            requestedAction = static_cast<ReplayScrubberAction>( hotControl->action.value );
-            if ( requestedAction == ReplayScrubberAction::RestoreBranch && !branchControlVisible )
-            {
-                requestedAction = ReplayScrubberAction::None;
-            }
-            else if ( requestedAction != ReplayScrubberAction::None && requestedAction != ReplayScrubberAction::Scrub &&
-                      requestedAction != ReplayScrubberAction::RestoreBranch && scrubber.visibleUntil < now )
-            {
-                requestedAction = ReplayScrubberAction::None;
-            }
-            else if ( requestedAction == ReplayScrubberAction::None && scrubTrackStartTarget )
-            {
-                requestedAction = ReplayScrubberAction::Scrub;
-            }
-        }
-        else if ( scrubTrackStartTarget )
-        {
-            requestedAction = ReplayScrubberAction::Scrub;
-        }
-    }
+    const RunReplayTrack scrubTrack = decision.track;
+    const UI::UIRect predictHorizon{ decision.horizonX,
+                                     decision.horizonY,
+                                     decision.horizonWidth,
+                                     decision.horizonHeight };
+    bool consumesMouse = decision.consumesMouse;
+    const ReplayScrubberAction requestedAction = decision.action;
 
     // Concept: pointer rows and keyboard shortcuts select the same semantic
     // action before any owner mutation. The switch is an explicit value dispatch,
@@ -1240,7 +1283,7 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
                                                                    now,
                                                                    outEnterInteractive );
     consumesMouse = consumesMouse || scrubberGestureHandled;
-    scrubber = m_scrubberOwner.View();
+    ReplayScrubberView scrubber = m_scrubberOwner.View();
     if ( !scrubberGestureHandled && !loadedPresentation && !scrubber.historicalSamplePaused )
     {
         m_replayRuntime.SetAllTrackPositions( m_replayRuntime.SolverPresentTrackPosition() );

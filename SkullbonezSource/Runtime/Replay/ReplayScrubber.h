@@ -23,6 +23,7 @@ Related:
 #pragma once
 
 #include "ReplayRecorder.h"
+#include "../RuntimeInteractionController.h"
 
 #include <algorithm>
 #include <cmath>
@@ -80,6 +81,25 @@ enum class RunReplayTrack
     Solver
 };
 
+// Semantic scrubber actions are owner vocabulary, not screen-layout policy.
+// The layout publishes action ids; ReplayScrubber resolves one action from the
+// current pointer/frame values before the composition root applies cross-owner
+// effects.
+enum class ReplayScrubberAction : uint32_t
+{
+    None,
+    RestoreBranch,
+    TogglePause,
+    ToggleVelocityEdit,
+    TogglePrediction,
+    SetPredictionHorizon,
+    ToggleRagdollVisuals,
+    TogglePastPath,
+    Save,
+    Load,
+    Scrub
+};
+
 struct RunReplayScrubberState
 {
     bool visible = false;
@@ -134,6 +154,47 @@ struct ReplayScrubberInputFrame
 struct ReplayScrubberUnavailableResult
 {
     bool exitInspectionCamera = false;
+};
+
+struct ReplayScrubberPointerFrame
+{
+    ReplayRecorderStats solverStats;
+    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
+    double now = 0.0;
+    int mouseX = 0;
+    int mouseY = 0;
+    int screenWidth = 0;
+    int screenHeight = 0;
+    bool leftPressed = false;
+    bool leftReleased = false;
+    bool restoreDown = false;
+    bool hasClientPosition = false;
+    bool uiBlocksMouse = false;
+    bool editorModeEnabled = false;
+    bool uiVisible = false;
+    bool uiMinimized = false;
+    bool loadedPresentation = false;
+    bool pathTargetAvailable = false;
+    bool predictionTimelineAvailable = false;
+    bool currentPresentationAvailable = false;
+    bool currentSolverAvailable = false;
+    bool scenePhysicsEnabled = false;
+    bool inspectionCameraActive = false;
+};
+
+struct ReplayScrubberPointerDecision
+{
+    ReplayScrubberAction action = ReplayScrubberAction::None;
+    RunReplayTrack track = RunReplayTrack::Solver;
+    float horizonX = 0.0f;
+    float horizonY = 0.0f;
+    float horizonWidth = 0.0f;
+    float horizonHeight = 0.0f;
+    bool surfaceAvailable = false;
+    bool cancelToolDrag = false;
+    bool exitInspectionCamera = false;
+    bool consumesMouse = false;
+    bool leftReleased = false;
 };
 
 struct RunReplayV2TargetRestoreResult
@@ -284,6 +345,8 @@ class ReplayScrubber
         m_state.visibleAlpha = 0.0f;
         return result;
     }
+
+    ReplayScrubberPointerDecision ResolvePointerAction( const ReplayScrubberPointerFrame& frame );
 
     bool SetLiveAdvanceHeld( bool held ) noexcept
     {

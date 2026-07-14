@@ -1049,6 +1049,37 @@ Twenty-sixth ownership-remediation checkpoint and M3 closure:
   4/16, or 25%; this percentage covers active and future plans only and excludes
   completed past plans and externally blocked work.
 
+Twenty-seventh ownership-remediation checkpoint after M3 closure:
+
+- Moved scrubber pointer-edge tracking, surface availability, hit testing,
+  reveal/visibility retention, and semantic action selection from
+  `ReplayRuntime::TickScrubberInput` into
+  `ReplayScrubber::ResolvePointerAction`.
+- Added cohesive value-only `ReplayScrubberPointerFrame` and
+  `ReplayScrubberPointerDecision` boundaries. They carry scrubber/UI facts and
+  a typed semantic result only—no owner references, services, callbacks, host
+  pointer, or stored cross-domain authority. Prediction, restore, camera, and
+  cold file actions remain explicit one-call composition steps.
+- Moved `ReplayScrubberAction` out of presentation layout vocabulary and into
+  the scrubber owner. The shared layout still encodes the same action ids, so
+  drawing and hit testing retain one geometry/action table.
+- Formatting passed. A focused Profile build passed in 31.1 seconds with zero
+  warnings and zero errors, and the touched-source comment audit inspected 3/3
+  files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 470.2 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 209.4-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M4 remains open because semantic action dispatch and restore/camera reactions
+  still compose through the root. M5-M7 and the final M8 review also remain
+  open. Active/future portfolio progress therefore remains 4/16, or 25%; this
+  percentage covers active and future plans only and excludes completed past
+  plans and externally blocked work.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |

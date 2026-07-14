@@ -15,7 +15,7 @@ plan inventory.
 | Current objective | Reclose replay M4-M7 ownership findings from mandatory M8 review, with the unchanged frame-exact 200-box gate after every task |
 | Active/future progress | 4 / 16 tasks = 25% rounded overall (decomposition + spline plans only; completed past plans and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-14: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | M3 is complete: presentation state/methods live behind `ReplayPresentation`, and its TU consumes the new value-only `ReplayPredictionView.h` instead of private prediction-owner internals. Profile build (31.7s MSBuild), formatting, `validate_fast` (77.7s; 196 tests/4,152 assertions), project filters (680/680), the unchanged replay oracle (474.3s), scrub exit-37 propagation, and the full CPU/Profile/Debug/DX12/physics gate (146.8s) passed with zero warnings/DX12 errors and byte-exact physics. M4-M7 remain open; no baseline changed. |
+| Validation for current edits | M4 checkpoint 27 moved scrubber pointer tracking, hit testing, visibility retention, and typed semantic action selection into `ReplayScrubber` through value-only frame/decision records; cross-owner effects remain explicit. Profile build (31.1s), formatting, the unchanged replay oracle (470.2s), scrub exit-37 propagation, and the full CPU/Profile/Debug/DX12/physics gate (209.4s) passed with zero warnings/DX12 errors and byte-exact physics. M4-M7 remain open; no baseline changed. |
 
 ## Live Queue
 
