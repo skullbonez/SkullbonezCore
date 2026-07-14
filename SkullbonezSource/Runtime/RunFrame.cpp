@@ -631,6 +631,22 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 TickPhysics( secondsPerFrame, frameInteraction, frameScene );
             }
 
+            {
+                // Invariant: prediction scheduling completes before overlay
+                // construction. Render consumes only the published future and
+                // cannot decide whether the private engine advances.
+                RuntimeAllocation::RuntimeAllocationScope allocationScope(
+                    RuntimeAllocation::RuntimeAllocationPhase::Replay );
+                m_replayRuntime.UpdatePrediction( m_sceneController.Physics(),
+                                                  m_sceneController.Entities(),
+                                                  m_config,
+                                                  m_sceneController.World().GetPhysicsWorldForces(),
+                                                  m_workerPool,
+                                                  m_sceneController.State().isScenePhysics,
+                                                  m_timers.simulationTimer.GetTimeSinceLastStart(),
+                                                  m_timers.simulationTimer.GetTotalTime() );
+            }
+
             TickExecutePostPhysicsVisualizers(
                 m_debug,
                 m_sceneController,
@@ -716,7 +732,6 @@ SkullbonezCore::Core::SbResult Run::Execute()
             PROFILE_BEGIN( "Frame/PostDraw/InteractionAutomation" );
             const InteractionAutomationFrameResult automationAfterRender =
                 TickInteractionAutomationAfterRender( m_interactionAutomation,
-                                                      frameHost,
                                                       frameInteraction,
                                                       frameScene,
                                                       m_diagnosticsRuntime.Capture(),

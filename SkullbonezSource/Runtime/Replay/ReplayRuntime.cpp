@@ -1261,22 +1261,10 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayRestoreTransaction& t
 
 void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics,
                                         const SceneEntityStore& entities,
-                                        const SkullbonezCore::Core::EngineConfig& config,
-                                        const Physics::PhysicsWorldForces& worldForces,
-                                        Threading::WorkerPool& workerPool,
                                         RunEditorTracer& tracer,
                                         const ReplayOverlayBuildInput& input )
 {
-    RenderPathVisualizer( physics,
-                          entities,
-                          config,
-                          worldForces,
-                          workerPool,
-                          tracer,
-                          input.scenePhysicsEnabled,
-                          input.sceneFrame,
-                          input.frameSeconds,
-                          input.totalSeconds );
+    RenderPathVisualizer( physics, entities, tracer, input.sceneFrame );
     const PhysicsBodyStore& bodyStore = Physics::PhysicsEngine::ReadBodies( physics );
     const ColliderStore& colliderStore = Physics::PhysicsEngine::ReadColliders( physics );
     RenderCauseFocusOverlay( bodyStore, colliderStore, entities, tracer );

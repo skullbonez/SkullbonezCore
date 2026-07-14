@@ -85,12 +85,9 @@ struct ReplayHudStatus
 
 struct ReplayOverlayBuildInput
 {
-    bool scenePhysicsEnabled = false;
     bool editorModeEnabled = false;
     RuntimeInteractionGesture gesture;
     int sceneFrame = 0;
-    double frameSeconds = 0.0;
-    double totalSeconds = 0.0;
 };
 
 struct ReplayPathPickInput

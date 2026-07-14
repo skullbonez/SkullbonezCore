@@ -265,7 +265,6 @@ class ReplayRuntime
                                                   const ReplayArtifactTopologyOwners& topology,
                                                   bool& outEnterInteractive );
     SkullbonezCore::Core::SbResult VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& transaction,
-                                                                  const ReplayArtifactTopologyOwners& topology,
                                                                   RunMousePickupState& mousePickup,
                                                                   RunCameraMode normalizedCurrentMode,
                                                                   double now,
@@ -432,27 +431,28 @@ class ReplayRuntime
                                              double probeNow
 #endif
     );
+    // Advances and publishes the private prediction during frame update.
+    // Callers must complete this before any replay overlay traversal begins.
+    void UpdatePrediction( Physics::PhysicsEngine& physics,
+                           const SceneEntityStore& entities,
+                           const SkullbonezCore::Core::EngineConfig& config,
+                           const Physics::PhysicsWorldForces& worldForces,
+                           Threading::WorkerPool& workerPool,
+                           bool scenePhysicsEnabled,
+                           double simulationTimeSinceLastStart,
+                           double simulationTotalTime );
     // Appends replay-owned records after RuntimeTools has rebuilt the shared
     // fixed-capacity tracer. RuntimeRenderer only submits the completed buffer.
     void AppendOverlayTrace( Physics::PhysicsEngine& physics,
                              const SceneEntityStore& entities,
-                             const SkullbonezCore::Core::EngineConfig& config,
-                             const Physics::PhysicsWorldForces& worldForces,
-                             Threading::WorkerPool& workerPool,
                              RunEditorTracer& tracer,
                              const ReplayOverlayBuildInput& input );
     // Emits replay-owned fixed-capacity tracer records; Run/RuntimeRenderer
     // only sequence the completed record buffer into render submission.
     void RenderPathVisualizer( Physics::PhysicsEngine& physics,
                                const SceneEntityStore& entities,
-                               const SkullbonezCore::Core::EngineConfig& config,
-                               const Physics::PhysicsWorldForces& worldForces,
-                               Threading::WorkerPool& workerPool,
                                RunEditorTracer& tracer,
-                               bool scenePhysicsEnabled,
-                               int currentFrame,
-                               double frameSeconds,
-                               double totalSeconds );
+                               int currentFrame );
     void RenderCauseFocusOverlay( const Physics::PhysicsBodyStore& bodyStore,
                                   const Physics::ColliderStore& colliderStore,
                                   const SceneEntityStore& entities,

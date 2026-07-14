@@ -599,6 +599,29 @@ Tenth ownership-remediation checkpoint after that review:
   external frame/probe authority, and the mixed prediction/presentation
   translation unit; M4 is not reclosed ahead of the repeated ownership review.
 
+Eleventh ownership-remediation checkpoint after that review:
+
+- Private prediction scheduling now runs from `RunFrame` immediately after the
+  physics tick and before post-physics visualizers or render traversal. The
+  renderer-facing replay overlay context no longer carries engine config,
+  world forces, worker-pool authority, scene-physics state, or simulation
+  clocks; drawing cannot start, advance, cancel, or complete a prediction job.
+- Offline packet reconstruction and the Debug presentation probe now call the
+  draw-only path without a host/worker/topology packet, preserving the
+  one-engine, one-generation rule while deleting broad validation borrows.
+- The first oracle attempt stopped during Profile compilation before an engine
+  launch and exposed the obsolete after-render host parameter. After narrowing
+  that signature, the single authoritative unchanged-golden oracle passed at
+  2,401 exact ticks, 200 moved bricks, 187 strict grounded sleepers, 199 causal
+  nodes, one generation, one presentation, and every false-pass control. The
+  first broad-gate attempt stopped at the Debug compile on an obsolete topology
+  parameter; the full rerun passed every CPU/Profile/Debug/DX12/physics lane
+  with zero warnings, zero DX12 validation errors, matching screenshots, and
+  the 44,401-line byte-exact varied baseline. No baseline changed. The touched-
+  source comment audit inspected 10/10 files with zero deferred or unchecked.
+  M3-M7 remain open for the physical prediction/presentation TU split, mutable
+  prediction/presentation surfaces, and the remaining external root seam.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |

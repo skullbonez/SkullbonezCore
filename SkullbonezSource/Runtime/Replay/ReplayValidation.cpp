@@ -2039,7 +2039,6 @@ ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadI
             return result;
         }
         if ( !acceptProbe( VerifyLoadedPresentationProbe( probeTransaction,
-                                                          probeTopology,
                                                           probeMousePickup,
                                                           probeNormalizedCurrentMode,
                                                           probeNow,
@@ -2362,7 +2361,6 @@ SkullbonezCore::Core::SbResult ReplayRuntime::TickSaveProbe( const ReplayRestore
 
 SkullbonezCore::Core::SbResult
 ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& transaction,
-                                              const ReplayArtifactTopologyOwners& topology,
                                               RunMousePickupState& mousePickup,
                                               RunCameraMode normalizedCurrentMode,
                                               double now,
@@ -2438,7 +2436,6 @@ ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& tr
         RuntimeTools& runtimeTools = transaction.sampleOwners.runtimeTools;
         SceneController& sceneController = transaction.sampleOwners.sceneController;
         RunEditorTracer& tracer = runtimeTools.EditorTracer();
-        const Physics::PhysicsWorldForces worldForces = sceneController.World().GetPhysicsWorldForces();
         ResetPredictionPresentationVerification();
         // The archive retains the final marker prefix exactly. This optional
         // presenting Debug probe deliberately replays first appearance from
@@ -2450,14 +2447,8 @@ ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& tr
             tracer.Clear();
             RenderPathVisualizer( transaction.sampleOwners.physics,
                                   sceneController.Entities(),
-                                  topology.config,
-                                  worldForces,
-                                  topology.workerPool,
                                   tracer,
-                                  transaction.sampleOwners.scene.isScenePhysics,
-                                  transaction.sampleOwners.scene.currentFrame,
-                                  PHYSICS_FIXED_DT,
-                                  static_cast<double>( expected.revealFrame ) * PHYSICS_FIXED_DT );
+                                  transaction.sampleOwners.scene.currentFrame );
             (void)BuildPredictionGhostDrawRequests( sceneController.RenderPresentationRecords(),
                                                     sceneController.BodyStore() );
             ReplayVisualPacket rebuilt = tracer.BuildReplayVisualPacket( expected.cameraEye, expected.cameraUp );

@@ -327,7 +327,6 @@ InteractionAutomationFrameResult TickInteractionAutomationBeforeInput( Interacti
                                                                        RuntimeFrameSceneView& sceneOwners );
 InteractionAutomationFrameResult
 TickInteractionAutomationAfterRender( InteractionAutomationController& state,
-                                      RuntimeFrameHostView& host,
                                       RuntimeFrameInteractionView& interactionOwners,
                                       RuntimeFrameSceneView& sceneOwners,
                                       CaptureController& capture,

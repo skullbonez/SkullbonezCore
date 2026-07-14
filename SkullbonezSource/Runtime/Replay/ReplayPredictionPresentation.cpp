@@ -1,13 +1,14 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayPredictionPresentation.cpp
 Purpose:
-  Owns replay path visualization, cause-focus overlays, and prediction-preview
-  helpers as one real translation unit after deleting the replay text splices.
+  Hosts the prediction-update and path-presentation implementations while their
+  remaining shared helpers are separated into their concrete owner units.
 
 Summary:
   Replay tools read two timelines. Retained solver samples describe what already
   happened; prediction samples advance a private replay-owned physics engine.
-  The renderer only receives lightweight overlay geometry.
+  Frame update schedules and publishes prediction before the render pass draws
+  the published state as lightweight overlay geometry.
 
 Glossary:
   Path visualizer: Overlay that draws past/future body trajectories and contact
@@ -38,6 +39,8 @@ Invariants:
     all future ticks and samples.
   - Prediction stepping is single-writer worker work; the render frame consumes
     only the published prefix and fixed trajectory slots.
+  - Render traversal never starts, advances, cancels, or completes prediction;
+    those transitions finish in ReplayRuntime::UpdatePrediction first.
   - Physics steps stay serial per prediction engine; body capture may fan out
     only after the step, and each worker writes a distinct pre-sized frame row.
 
@@ -4475,29 +4478,25 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
 }
 
 
-void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
-                                       PhysicsEngine& physicsEngine,
-                                       const SceneEntityStore& entities,
-                                       const SkullbonezCore::Core::EngineConfig& config,
-                                       const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
-                                       SkullbonezCore::Threading::WorkerPool& workerPool,
-                                       bool scenePhysics,
-                                       double fallbackSourceSimulationSeconds,
-                                       double simulationTotalSeconds,
-                                       RunEditorTracer& tracer,
-                                       ReplayRibbonDrawQuota& ribbonQuota,
-                                       const std::chrono::steady_clock::time_point& budgetStart,
-                                       double budgetMilliseconds )
+void UpdateReplayPrediction( ReplayRuntime& replayRuntime,
+                             PhysicsEngine& physicsEngine,
+                             const SceneEntityStore& entities,
+                             const SkullbonezCore::Core::EngineConfig& config,
+                             const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
+                             SkullbonezCore::Threading::WorkerPool& workerPool,
+                             bool scenePhysics,
+                             double fallbackSourceSimulationSeconds,
+                             double simulationTotalSeconds,
+                             const std::chrono::steady_clock::time_point& budgetStart,
+                             double budgetMilliseconds )
 {
-    PROFILE_SCOPED( "Frame/Replay/PathVisualizer/Prediction" );
+    PROFILE_SCOPED( "Frame/Replay/Prediction/Update" );
     if ( !replayRuntime.Prediction().enabled )
     {
         if ( replayRuntime.Prediction().build.building )
         {
             replayRuntime.PredictionOwner().CancelJob( false );
         }
-        const ColliderStore& colliderStore = PhysicsEngine::ReadColliders( physicsEngine );
-        DrawReplayPredictionOverlay( replayRuntime, entities, colliderStore, tracer, ribbonQuota, budgetMilliseconds );
         return;
     }
     if ( !replayRuntime.PredictionOwner().GenerationPermitted() )
@@ -4511,8 +4510,6 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
         // retired the worker. Cancelling here would invalidate the restored
         // complete/build and trajectory state before the CPU projection reads
         // it, producing a different packet without starting new simulation.
-        const ColliderStore& colliderStore = PhysicsEngine::ReadColliders( physicsEngine );
-        DrawReplayPredictionOverlay( replayRuntime, entities, colliderStore, tracer, ribbonQuota, budgetMilliseconds );
         return;
     }
 
@@ -4619,7 +4616,6 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
             return;
         }
     }
-    const ColliderStore& colliderStore = PhysicsEngine::ReadColliders( physicsEngine );
     bool predictionCompletedThisPass = false;
     if ( replayRuntime.Prediction().build.building )
     {
@@ -4653,11 +4649,18 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
     {
         RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( replayRuntime, entities );
     }
+}
 
-    // Why: prediction stepping and future-node discovery still share the
-    // private-engine budget, but draw work is capped by frame-index strides and
-    // the fixed ribbon quota so visible trajectory lines do not flicker under
-    // load.
+
+void DrawReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
+                                     PhysicsEngine& physicsEngine,
+                                     const SceneEntityStore& entities,
+                                     RunEditorTracer& tracer,
+                                     ReplayRibbonDrawQuota& ribbonQuota,
+                                     double budgetMilliseconds )
+{
+    PROFILE_SCOPED( "Frame/Replay/PathVisualizer/Prediction" );
+    const ColliderStore& colliderStore = PhysicsEngine::ReadColliders( physicsEngine );
     DrawReplayPredictionOverlay( replayRuntime, entities, colliderStore, tracer, ribbonQuota, budgetMilliseconds );
 }
 
@@ -4668,26 +4671,19 @@ namespace SkullbonezCore::Runtime::ReplayOverlay
 void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context )
 {
     PROFILE_SCOPED( "Frame/Replay/PathVisualizer" );
-    // Concept: this marker owns replay visualizer budgeting.
+    // Concept: this marker owns replay presentation budgeting.
     //
-    // Prediction stepping plus future-node build work share the wall-clock
-    // deadline. Visible trajectory drawing spends a fixed ribbon quota instead,
-    // so completed segments do not flicker under transient load.
+    // Prediction has already published during frame update. Visible trajectory
+    // drawing spends a fixed ribbon quota here so completed segments do not
+    // flicker under transient render load.
     const auto visualizerStart = std::chrono::steady_clock::now();
     ReplayRibbonDrawQuota ribbonQuota = BeginReplayRibbonDrawQuota( context.tracer );
-    RenderReplayPredictionVisualizer( context.replayRuntime,
-                                      context.physics,
-                                      context.entities,
-                                      context.config,
-                                      context.worldForces,
-                                      context.workerPool,
-                                      context.scenePhysicsEnabled,
-                                      context.simulationTimeSinceLastStart,
-                                      context.simulationTotalTime,
-                                      context.tracer,
-                                      ribbonQuota,
-                                      visualizerStart,
-                                      REPLAY_PREDICTION_MAX_WORK_MILLISECONDS );
+    DrawReplayPredictionVisualizer( context.replayRuntime,
+                                    context.physics,
+                                    context.entities,
+                                    context.tracer,
+                                    ribbonQuota,
+                                    REPLAY_PREDICTION_MAX_WORK_MILLISECONDS );
     const RunReplayPredictionState& prediction = context.replayRuntime.Prediction();
     if ( !prediction.enabled && prediction.simulation.frames.size() >= 2 &&
          context.replayRuntime.PathVisualizer().hasTarget && !context.replayRuntime.PathVisualizer().pastPathVisible &&
@@ -4814,29 +4810,44 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
 }
 } // namespace SkullbonezCore::Runtime::ReplayOverlay
 
+void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics,
+                                      const SceneEntityStore& entities,
+                                      const SkullbonezCore::Core::EngineConfig& config,
+                                      const Physics::PhysicsWorldForces& worldForces,
+                                      Threading::WorkerPool& workerPool,
+                                      bool scenePhysicsEnabled,
+                                      double simulationTimeSinceLastStart,
+                                      double simulationTotalTime )
+{
+    // Concept: private prediction advances during frame update and publishes
+    // before any overlay draw. Rendering consumes the resulting view without
+    // owning worker scheduling, cancellation, or generation decisions.
+    const auto predictionStart = std::chrono::steady_clock::now();
+    UpdateReplayPrediction( *this,
+                            physics,
+                            entities,
+                            config,
+                            worldForces,
+                            workerPool,
+                            scenePhysicsEnabled,
+                            simulationTimeSinceLastStart,
+                            simulationTotalTime,
+                            predictionStart,
+                            REPLAY_PREDICTION_MAX_WORK_MILLISECONDS );
+}
+
+
 void ReplayRuntime::RenderPathVisualizer( PhysicsEngine& physics,
                                           const SceneEntityStore& entities,
-                                          const SkullbonezCore::Core::EngineConfig& config,
-                                          const Physics::PhysicsWorldForces& worldForces,
-                                          Threading::WorkerPool& workerPool,
                                           RunEditorTracer& tracer,
-                                          bool scenePhysicsEnabled,
-                                          int currentFrame,
-                                          double frameSeconds,
-                                          double totalSeconds )
+                                          int currentFrame )
 {
     tracer.ClearReplayTrajectoryStats();
     const SkullbonezCore::Runtime::ReplayOverlay::ReplayPathVisualizerRenderContext context{ *this,
                                                                                              physics,
                                                                                              entities,
-                                                                                             config,
-                                                                                             worldForces,
-                                                                                             workerPool,
                                                                                              tracer,
-                                                                                             scenePhysicsEnabled,
-                                                                                             currentFrame,
-                                                                                             frameSeconds,
-                                                                                             totalSeconds };
+                                                                                             currentFrame };
     SkullbonezCore::Runtime::ReplayOverlay::RenderReplayPathVisualizer( context );
     RecordReplayTrajectoryFrameStats( tracer.ReplayTrajectoryStats() );
 }

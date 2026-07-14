@@ -2528,7 +2528,6 @@ ReplayVisualArchiveSample BuildReplayVisualArchiveSample( const ReplayVisualFide
 }
 
 bool VerifyReplayVisualOfflineProjection( InteractionAutomationController& state,
-                                          RuntimeFrameHostView& host,
                                           RuntimeFrameInteractionView& interactionOwners,
                                           RuntimeFrameSceneView& sceneOwners )
 {
@@ -2565,7 +2564,6 @@ bool VerifyReplayVisualOfflineProjection( InteractionAutomationController& state
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     RunEditorTracer& tracer = runtimeTools.EditorTracer();
     SceneController& scene = sceneOwners.sceneController;
-    const Physics::PhysicsWorldForces worldForces = scene.World().GetPhysicsWorldForces();
     std::vector<ReplayVisualTrajectoryDigestState> trajectoryDigests;
     trajectoryDigests.reserve( replay.Prediction().trajectoryStore.RecordCount() );
     for ( const ReplayVisualFidelityReportTick& tick : state.replayVisualFidelityTicks )
@@ -2573,16 +2571,7 @@ bool VerifyReplayVisualOfflineProjection( InteractionAutomationController& state
         const ReplayVisualArchiveSample expected = BuildReplayVisualArchiveSample( tick );
         PublishReplayDeterministicReveal( replay, expected.revealFrame, true );
         tracer.Clear();
-        replay.RenderPathVisualizer( scene.Physics(),
-                                     scene.Entities(),
-                                     sceneOwners.config,
-                                     worldForces,
-                                     host.workerPool,
-                                     tracer,
-                                     scene.State().isScenePhysics,
-                                     tick.sceneFrame,
-                                     PHYSICS_FIXED_DT,
-                                     static_cast<double>( expected.revealFrame ) * PHYSICS_FIXED_DT );
+        replay.RenderPathVisualizer( scene.Physics(), scene.Entities(), tracer, tick.sceneFrame );
         (void)replay.BuildPredictionGhostDrawRequests( scene.RenderPresentationRecords(), scene.BodyStore() );
         ReplayVisualPacket rebuilt = tracer.BuildReplayVisualPacket( expected.cameraEye, expected.cameraUp );
         replay.PublishReplayVisualPacket( rebuilt, expected.replayReserveGrowthEvents );
@@ -3167,7 +3156,6 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
 
 InteractionAutomationFrameResult
 SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutomationController& state,
-                                                               RuntimeFrameHostView& host,
                                                                RuntimeFrameInteractionView& interactionOwners,
                                                                RuntimeFrameSceneView& sceneOwners,
                                                                CaptureController& capture,
@@ -3411,7 +3399,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
             // This is after the final reveal screenshot while live physics still
             // holds the seed pose used by root markers. The CPU-only loop cannot
             // become a second presented visual pass.
-            (void)VerifyReplayVisualOfflineProjection( state, host, interactionOwners, sceneOwners );
+            (void)VerifyReplayVisualOfflineProjection( state, interactionOwners, sceneOwners );
         }
         if ( !state.failed && state.replayVisualFidelityCaptureEnabled &&
              state.replayVisualFidelityTicks.size() != replayRuntime.Prediction().simulation.frames.size() )

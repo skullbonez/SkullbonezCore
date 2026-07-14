@@ -2398,19 +2398,12 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
                                                              context.replayOverlay.gesture,
                                                              context.toolOverlay.attachedTargetIndex,
                                                              context.toolOverlay.attachedFollow } );
-    assert( context.renderModels.renderWorkerPool && "Replay overlay preparation requires the model worker owner" );
     replayRuntime.AppendOverlayTrace( context.physics,
                                       context.replayOverlay.entities,
-                                      m_config,
-                                      m_world.GetPhysicsWorldForces(),
-                                      *context.renderModels.renderWorkerPool,
                                       runtimeTools.EditorTracer(),
-                                      ReplayOverlayBuildInput{ context.replayOverlay.scenePhysicsEnabled,
-                                                               runtimeTools.Editor().editorModeEnabled,
+                                      ReplayOverlayBuildInput{ runtimeTools.Editor().editorModeEnabled,
                                                                context.replayOverlay.gesture,
-                                                               context.replayOverlay.sceneFrame,
-                                                               context.replayOverlay.frameSeconds,
-                                                               context.replayOverlay.totalSeconds } );
+                                                               context.replayOverlay.sceneFrame } );
     m_toolOverlaySceneFrame = context.replayOverlay.sceneFrame;
     m_toolOverlayGrowthEventCount = RuntimeAllocation::RuntimeReserveAllocator::GrowthEventCount();
     // Invariant: replay publishes once after every producer has finished and

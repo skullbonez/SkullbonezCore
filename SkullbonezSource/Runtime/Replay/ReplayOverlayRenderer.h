@@ -39,18 +39,7 @@ namespace SkullbonezCore::Physics
 {
 class PhysicsBodyStore;
 class PhysicsEngine;
-struct PhysicsWorldForces;
 } // namespace SkullbonezCore::Physics
-
-namespace SkullbonezCore::Threading
-{
-class WorkerPool;
-}
-
-namespace SkullbonezCore::Core
-{
-class EngineConfig;
-} // namespace SkullbonezCore::Core
 
 namespace SkullbonezCore::Runtime
 {
@@ -79,20 +68,14 @@ struct ReplayOverlayRenderContext
 
 struct ReplayPathVisualizerRenderContext
 {
-    // Lifetime: every reference is a frame-local borrow from Run's render-tool
-    // pass. The visualizer may update replay-owned caches, but must not retain
-    // owner references after returning.
+    // Lifetime: every reference is a frame-local borrow from the render-tool
+    // pass. Prediction scheduling has already published for this frame; this
+    // context carries only presentation operands and retains nothing.
     ReplayRuntime& replayRuntime;
     SkullbonezCore::Physics::PhysicsEngine& physics;
     const SceneEntityStore& entities;
-    const SkullbonezCore::Core::EngineConfig& config;
-    const SkullbonezCore::Physics::PhysicsWorldForces& worldForces;
-    SkullbonezCore::Threading::WorkerPool& workerPool;
     RunEditorTracer& tracer;
-    bool scenePhysicsEnabled = false;
     int sceneCurrentFrame = 0;
-    double simulationTimeSinceLastStart = 0.0;
-    double simulationTotalTime = 0.0;
 };
 
 void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context );
