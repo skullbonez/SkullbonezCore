@@ -1240,16 +1240,8 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayRestoreTransaction& t
         return false;
     }
 
-    const uint32_t parentBranchId = sample.branch.branchId != 0
-                                        ? sample.branch.branchId
-                                        : ( m_authoring.Branch().branchId != 0 ? m_authoring.Branch().branchId : 1u );
-    ReplayBranchInfo restoredBranch;
-    restoredBranch.branchId = (std::max)( m_authoring.Branch().branchId, parentBranchId ) + 1u;
-    restoredBranch.parentBranchId = parentBranchId;
-    restoredBranch.startFrame = 0;
-    restoredBranch.sourceFrame = sample.frameIndex;
-    restoredBranch.sourceSolverHash = sample.solverHash;
-    m_authoring.Branch() = restoredBranch;
+    const uint32_t parentBranchId =
+        m_authoring.BeginRestoredBranch( sample.branch, sample.frameIndex, sample.solverHash );
     ReplaySceneTimelineResetInput reset = transaction.timelineReset;
     reset.preserveBranchMetadata = true;
     ResetSceneTimeline( reset, transaction.timelineOwners );
@@ -2004,11 +1996,6 @@ void ReplayRuntime::FlushHashLogs()
     m_timeline.Solver().FlushHashLog();
 }
 
-void ReplayRuntime::ResetBranch()
-{
-    m_authoring.Branch() = ReplayBranchInfo();
-}
-
 void ReplayRuntime::ResetTimeline( const char* sceneLabel )
 {
     m_timeline.Presentation().ResetTimeline( sceneLabel );
@@ -2026,7 +2013,7 @@ ReplaySceneTimelineResetResult ReplayRuntime::BeginSceneTimelineReset( const Rep
     m_predictionOwner.CancelJob( true );
     if ( SceneTimelineResetClearsBranch( input ) )
     {
-        ResetBranch();
+        m_authoring.ResetBranch();
     }
     if ( m_scrubberOwner.State().liveAdvanceHeld )
     {

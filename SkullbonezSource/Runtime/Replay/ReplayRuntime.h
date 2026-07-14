@@ -230,7 +230,6 @@ class ReplayRuntime
     // recorder capacity from raw requested fields.
     const ReplayMemoryPolicy& MemoryPolicy() const;
     void FlushHashLogs();
-    void ResetBranch();
     void ResetTimeline( const char* sceneLabel );
     ReplaySceneTimelineResetResult BeginSceneTimelineReset( const ReplaySceneTimelineResetInput& input );
     ReplaySceneTimelineResetResult FinishSceneTimelineReset( const ReplaySceneTimelineResetInput& input );

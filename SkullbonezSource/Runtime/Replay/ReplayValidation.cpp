@@ -2937,16 +2937,7 @@ bool ReplayRuntime::RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransac
         // Why: install branch ancestry before resetting the replay-owned
         // timeline so preserveBranchMetadata retains the new live lineage.
         const uint32_t parentBranchId =
-            checkpoint->branch.branchId != 0
-                ? checkpoint->branch.branchId
-                : ( m_authoring.Branch().branchId != 0 ? m_authoring.Branch().branchId : 1u );
-        ReplayBranchInfo restoredBranch;
-        restoredBranch.branchId = (std::max)( m_authoring.Branch().branchId, parentBranchId ) + 1u;
-        restoredBranch.parentBranchId = parentBranchId;
-        restoredBranch.startFrame = 0;
-        restoredBranch.sourceFrame = target->frameIndex;
-        restoredBranch.sourceSolverHash = target->solverHash;
-        m_authoring.Branch() = restoredBranch;
+            m_authoring.BeginRestoredBranch( checkpoint->branch, target->frameIndex, target->solverHash );
         ReplaySceneTimelineResetInput reset = transaction.timelineReset;
         reset.preserveBranchMetadata = true;
         ResetSceneTimeline( reset, transaction.timelineOwners );
@@ -2959,7 +2950,7 @@ bool ReplayRuntime::RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransac
                      0,
                      target->solverHash,
                      "hash-verified v2 file restore" );
-        outResult.branchId = restoredBranch.branchId;
+        outResult.branchId = m_authoring.Branch().branchId;
         outResult.parentBranchId = parentBranchId;
         outResult.madeLiveBranch = true;
     }

@@ -140,13 +140,35 @@ class ReplayAuthoring
     {
         return m_velocityEdit;
     }
-    ReplayBranchInfo& Branch() noexcept
-    {
-        return m_branch;
-    }
     const ReplayBranchInfo& Branch() const noexcept
     {
         return m_branch;
+    }
+
+    // Starts a new live lineage after restoring a retained solver sample. The
+    // returned parent id is the value that the timeline records in its branch
+    // event; callers never receive mutable provenance state.
+    uint32_t BeginRestoredBranch( const ReplayBranchInfo& sourceBranch,
+                                  ReplayFrameIndex sourceFrame,
+                                  uint64_t sourceSolverHash ) noexcept
+    {
+        const uint32_t currentBranchId = m_branch.branchId;
+        const uint32_t parentBranchId =
+            sourceBranch.branchId != 0 ? sourceBranch.branchId : ( currentBranchId != 0 ? currentBranchId : 1u );
+
+        ReplayBranchInfo restoredBranch;
+        restoredBranch.branchId = ( currentBranchId > parentBranchId ? currentBranchId : parentBranchId ) + 1u;
+        restoredBranch.parentBranchId = parentBranchId;
+        restoredBranch.startFrame = 0;
+        restoredBranch.sourceFrame = sourceFrame;
+        restoredBranch.sourceSolverHash = sourceSolverHash;
+        m_branch = restoredBranch;
+        return parentBranchId;
+    }
+
+    void ResetBranch() noexcept
+    {
+        m_branch = ReplayBranchInfo{};
     }
 
     bool SetVelocityEditEnabled( bool enabled ) noexcept

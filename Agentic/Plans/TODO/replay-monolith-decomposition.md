@@ -526,6 +526,22 @@ Sixth ownership-remediation checkpoint after that review:
   for the mutable scrubber/authoring/prediction/presentation surfaces and the
   mixed prediction/presentation translation unit.
 
+Seventh ownership-remediation checkpoint after that review:
+
+- `ReplayAuthoring` no longer returns mutable branch provenance. It alone now
+  constructs restored lineage and resets branch state; restore callers receive
+  only the parent id needed for the timeline event, and the obsolete
+  `ReplayRuntime::ResetBranch` forwarding wrapper was deleted.
+- Final formatted source passed a zero-warning Profile build, the unchanged
+  one-process mega oracle at 2,401 exact ticks, 200 moved bricks, 187 strict
+  grounded sleepers, 199 causal nodes, one generation, one presentation, and
+  every false-pass control. The broad CPU/Profile/Debug/DX12/physics gate also
+  passed with zero DX12 validation errors and the 44,401-line byte-exact varied
+  baseline. No baseline changed. The touched-source comment audit inspected
+  4/4 files with zero deferred or unchecked. M3-M7 remain open for the mutable
+  cause-tree, velocity-edit, scrubber, prediction, and presentation surfaces
+  plus the mixed prediction/presentation translation unit.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |
