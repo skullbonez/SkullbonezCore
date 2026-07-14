@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-14th-july` |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Reclose replay M6-M7 ownership findings from mandatory M8 review, with the unchanged frame-exact 200-box gate after every task |
-| Active/future progress | 6 / 16 tasks = 38% rounded overall (decomposition + spline plans only; completed past plans and externally blocked work are excluded) |
+| Current objective | Reclose replay M7 startup/probe and external-root ownership findings, then repeat mandatory M8 review with the unchanged frame-exact 200-box gate |
+| Active/future progress | 7 / 16 tasks = 44% rounded overall (decomposition + spline plans only; completed past plans and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | M5 checkpoint 34 moved cause-tree construction and cause/velocity input execution behind `ReplayAuthoring`, deleted the root implementations, and queued prediction mutations as typed value requests. Formatting (11.4s), focused Profile build (13.3s), unchanged replay oracle (471.5s), scrub exit-37 propagation (0.1s), and full CPU/Profile/Debug/DX12/physics gate (170.8s) passed with zero warnings, zero DX12 errors, matching screenshots, and byte-exact physics. Comment audit: 9/9, zero deferred. M5 is reclosed; no baseline changed. |
+| Validation for current edits | M6 checkpoint 35 reaudited the single private prediction owner and removed the obsolete `ReplayRuntime.cpp` allocation exception. Allocation self-test/repo scan (8.9s), `validate_fast` (54.4s), unchanged replay oracle (475.1s), scrub exit-37 propagation (0.1s), performance gate (63.6s), and full gate (104.0s) passed with all budgets, zero warnings, zero DX12 errors, matching screenshots, and byte-exact physics. No source-bearing file changed; no baseline changed. |
 
 ## Live Queue
 
@@ -25,8 +25,8 @@ plan inventory.
    `Toppled` now means more than half the wall is directly grounded and sleeping;
    the approved base has 187/200 through the final second. Independent V6 review
    found no blocking issue.
-2. `replay-monolith-decomposition` is active at 6/9 after the mandatory M8
-   ownership review reopened M3-M7 and remediation reclosed M3-M5. M0 certified the exact
+2. `replay-monolith-decomposition` is active at 7/9 after the mandatory M8
+   ownership review reopened M3-M7 and remediation reclosed M3-M6. M0 certified the exact
    starting tree; M1 bound all 55 current header type definitions/aliases and
    212 free functions to named owners; M2 mechanically split the six owner/value
    headers; M3 extracted the concrete presentation state, query, packet, and
@@ -40,9 +40,10 @@ plan inventory.
    M3-M7. Remediation reclosed presentation ownership and removed mutable
    owner/root escape hatches, frame-view reach-back, the broad workspace bag,
    mixed prediction/presentation scheduling and drawing, incomplete prediction/
-   presentation owner-TU placement, event encoding, root-wide diagnostics
-   traversal, and root-owned cause/velocity authoring input. M6-M7 remain
-   blocked by prediction/startup-probe execution and broad external root APIs.
+   presentation/prediction owner-TU placement, event encoding, root-wide
+   diagnostics traversal, root-owned cause/velocity authoring input, and the
+   stale root allocation exception. M7 remains blocked by startup/probe
+   execution and broad external root APIs.
    Every M0-M8 task,
    including inventory documentation, must run the
    unchanged 200-box gate before it can be checked or committed.
@@ -133,15 +134,15 @@ plan inventory.
 ## Next Handoff
 
 Run the repository-local orchestrator against
-`Plans/TODO/replay-monolith-decomposition.md` reopened M3-M7. M3-M5 are now
+`Plans/TODO/replay-monolith-decomposition.md` reopened M3-M7. M3-M6 are now
 reclosed. Prediction and
 drawing are physically separate, prediction state is private, presentation
 mutation is command-only, frame views carry no replay root, and the workspace
 input plus save-probe output are value-only. Shutdown stats are one value
 report, velocity-gizmo drawing is authoring-owned, launcher capture lives in
 the presentation TU, and world tuning publishes values without replay access.
-Next close prediction/startup-probe execution, probe verification, and owner
-memory contributions outside `ReplayRuntime`; replace the remaining
+Next close startup/probe execution, probe verification, and remaining owner
+memory publication outside `ReplayRuntime`; replace the remaining
 external root parameters with typed intents/results assembled only by `Run`.
 Reclose each task only after its unchanged one-presentation 200-box oracle,
 then repeat M8's independent ownership review.

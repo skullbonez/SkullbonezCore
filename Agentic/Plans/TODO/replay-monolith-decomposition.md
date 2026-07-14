@@ -1,7 +1,7 @@
 # Replay Monolith Decomposition — Owner Boundaries Inside The Replay Subsystem
 
 Date: 2026-07-13
-Status: Live — 6/9 tasks complete; M3-M5 reclosed, M6-M7 remain open after mandatory M8 ownership review
+Status: Live — 7/9 tasks complete; M3-M6 reclosed, M7 remains open after mandatory M8 ownership review
 Branch: `nightrunner-14th-july`
 Impact area: `SkullbonezSource/Runtime/Replay/*` (26,060 lines), the two
 external consumers `Runtime/Run.cpp` and `Runtime/RunUiTextPass.cpp`, project
@@ -148,7 +148,7 @@ known-good golden manifest.
   `tools\validate_replay_scrub.bat`,
   `tools\validate_interaction_clicks.bat` if the click scripts cover velocity
   edit, `tools\validate_full.bat` at the PR gate.
-- [ ] **M6 — Extract `ReplayPrediction` (most invariant-laden, deliberately
+- [x] **M6 — Extract `ReplayPrediction` (most invariant-laden, deliberately
   last).** Move the private engine, scheduling, reserve, trajectory store,
   seeding (`SeedReplayPredictionEngine`), capture, and worker publication
   intact. The three documented invariants move as API shape, not comments
@@ -1295,6 +1295,44 @@ Thirty-fourth ownership-remediation checkpoint and M5 closure:
   final M8 review remain open. Active/future portfolio progress is now 6/16,
   or 38% rounded; this percentage covers active and future plans only and
   excludes completed past plans and externally blocked work.
+
+Thirty-fifth ownership-remediation checkpoint and M6 closure:
+
+- Reaudited the extracted prediction boundary against M6 acceptance after the
+  M5 changes. `ReplayRuntime` retains exactly one concrete `ReplayPrediction`
+  and no parallel prediction state. The private engine, worker task, simulation
+  and build banks, future-node cache, trajectories, baseline snapshot, reveal
+  clock, archive verification, and memory accounting remain owner-held.
+- Every `ReplayPrediction::*` implementation remains in
+  `ReplayPrediction.cpp`; none is implemented in `ReplayRuntime.cpp`.
+  Presentation and validation consume immutable span/value publication, while
+  root prediction methods only sequence explicit results across the concrete
+  prediction, presentation, timeline, and scrubber owners.
+- The allocation-policy audit found that M5 had deleted the last direct
+  `.reserve(` and `.resize(` calls in `ReplayRuntime.cpp` but left their broad
+  allowlist row behind. Deleted that obsolete exception. The checker self-test
+  and 335-file repository scan then passed in 8.9 seconds with zero allowlist
+  errors; the prediction reserve, private engine/task, bounded buffers, and
+  trajectory rows continue to name `ReplayPrediction` owners.
+- The allowlist-mapped `validate_fast` gate passed in 54.4 seconds with 680/680
+  project/filter entries, 196/196 tests and 4,152/4,152 assertions, and
+  zero-warning Profile/Debug builds. No source-bearing file changed in this
+  checkpoint, so the touched-source comment audit was not applicable.
+- The unchanged one-process oracle passed in 475.1 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, 62 saved/loaded ticks, durable
+  reconstruction, zero reserve growth, and every false-pass control. The scrub
+  alias propagated delegated exit 37 in 0.1 seconds without launching an
+  engine. No baseline changed.
+- The 63.6-second performance gate passed the one-build/incremental-publication
+  prediction path and all absolute budgets; DX12 averaged 0.7039 ms/frame and
+  physics averaged 0.3808 ms/frame. The 104.0-second full gate passed all CPU,
+  Profile, Debug, DX12, and physics lanes with zero warnings, zero DX12 errors,
+  matching screenshots, and the 44,401-line byte-exact varied baseline.
+- M6 is reclosed. M7 and the final M8 review remain open. Active/future
+  portfolio progress is now 7/16, or 44% rounded; this percentage covers active
+  and future plans only and excludes completed past plans and externally
+  blocked work.
 
 ## M1 Binding Type Inventory
 
