@@ -63,7 +63,6 @@ namespace Runtime
 {
 class SceneEntityStore;
 class InputRouter;
-class ReplayInteractionController;
 struct RunCameraState;
 
 // Value-only per-frame publication for replay diagnostics drawn by the late

@@ -173,6 +173,16 @@ struct ReplayLiveRestoreRequest
     char path[260] = {};
 };
 
+// Lifetime: sample pointers and the path are borrowed only while the scrubber
+// builds the frame-local restore command. The command copies durable path data.
+struct ReplayScrubberRestoreSources
+{
+    bool hasLoadedPresentation = false;
+    const ReplayPresentationSample* presentationSample = nullptr;
+    const ReplaySolverFrameSample* solverSample = nullptr;
+    const char* loadedPresentationPath = nullptr;
+};
+
 class ReplayScrubber
 {
   public:
@@ -308,7 +318,22 @@ class ReplayScrubber
         }
     }
 
+    bool BuildRestoreRequest( const ReplayScrubberRestoreSources& sources,
+                              double now,
+                              ReplayLiveRestoreRequest& outRequest,
+                              char* outReason = nullptr,
+                              std::size_t reasonSize = 0 );
+    void CompleteRestore( const ReplayLiveRestoreRequest& request,
+                          bool restored,
+                          const RunReplayV2TargetRestoreResult& v2Result,
+                          const char* reason,
+                          RunReplayV2TargetRestoreResult* outV2Result = nullptr,
+                          char* outReason = nullptr,
+                          std::size_t reasonSize = 0 );
+
   private:
+    static void WriteRestoreReason( char* outReason, std::size_t reasonSize, const char* reason );
+    void PublishRestoreResult( double now, bool restored, RunReplayTrack messageTrack );
     RunReplayScrubberState m_state;
 };
 

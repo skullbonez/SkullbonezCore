@@ -37,7 +37,6 @@ Related:
 #include "../../Core/WorkerPool.h"
 #include "../RuntimeTuning.h"
 #include "../Editor/EditorTools.h"
-#include "ReplayInteractionController.h"
 #include "ReplayRestoreService.h"
 #include "ReplayRuntimeOwnerViews.h"
 #include "ReplayPredictionArchive.h"
@@ -3141,25 +3140,23 @@ SkullbonezCore::Core::SbResult ReplayRuntime::VerifySolverBranchFileProbe( const
 
     RunReplayV2TargetRestoreResult result;
     char reason[256] = {};
-    ReplayInteractionController replayInteraction;
     ReplayLiveRestoreRequest request;
-    if ( !replayInteraction.BuildScrubberRestoreRequest( *this, now, request, reason, sizeof( reason ) ) )
+    ReplayScrubberRestoreSources sources;
+    sources.hasLoadedPresentation = HasLoadedPresentation();
+    sources.presentationSample = CurrentScrubSample();
+    sources.solverSample = CurrentSolverScrubSample();
+    sources.loadedPresentationPath = m_timeline.LoadedPresentation().path;
+    if ( !m_scrubberOwner.BuildRestoreRequest( sources, now, request, reason, sizeof( reason ) ) )
     {
         return SkullbonezCore::Core::SbResult::Failure(
             REPLAY_PROBE_OWNER,
             "replay restore branch probe failed: %s",
             reason[0] != '\0' ? reason : "failed to build restore request" );
     }
-    const bool restored = RestoreV2ArtifactTargetState( transaction,
-                                                        topology,
-                                                        request.path,
-                                                        request.requestedFrame,
-                                                        request.makeLiveBranch,
-                                                        result,
-                                                        reason,
-                                                        sizeof( reason ) );
-    replayInteraction.CompleteScrubberRestore( *this, request, restored, result, reason );
-    if ( !restored )
+    const ReplayLiveRestoreOutcome outcome = ApplyLiveRestoreRequest( transaction, topology, request );
+    result = outcome.v2Result;
+    strncpy_s( reason, sizeof( reason ), outcome.reason, _TRUNCATE );
+    if ( !outcome.restored )
     {
         return SkullbonezCore::Core::SbResult::Failure( REPLAY_PROBE_OWNER,
                                                         "replay restore branch probe failed: %s",

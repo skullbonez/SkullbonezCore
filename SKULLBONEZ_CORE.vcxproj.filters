@@ -223,9 +223,6 @@
     <ClCompile Include="SkullbonezSource\Runtime\AttachedCameraController.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayInteractionController.cpp">
-      <Filter>Source Files\Runtime\Replay</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
@@ -910,9 +907,6 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeUiOptions.h">
       <Filter>Header Files\Runtime\Scene</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayInteractionController.h">
-      <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.h">
       <Filter>Header Files\Runtime\Replay</Filter>

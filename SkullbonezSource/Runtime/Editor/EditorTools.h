@@ -29,7 +29,7 @@ Related:
 */
 #pragma once
 
-#include "../Replay/ReplayInteractionController.h"
+#include "../Replay/ReplayAuthoring.h"
 
 #include "EditorHullAssets.h"
 #include "../InputController.h"

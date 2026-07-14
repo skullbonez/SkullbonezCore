@@ -101,6 +101,8 @@ struct ReplayLiveRestoreOutcome
     bool requested = false;
     bool restored = false;
     bool enterInteractive = false;
+    RunReplayV2TargetRestoreResult v2Result;
+    char reason[160] = {};
 };
 
 struct ReplayStartupRequest

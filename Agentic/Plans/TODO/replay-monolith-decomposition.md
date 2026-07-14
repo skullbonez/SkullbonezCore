@@ -130,9 +130,9 @@ known-good golden manifest.
   (recorder + retention + memory policy are already nearly self-contained),
   then scrubber (cursor state machine + restore transactions +
   `RunReplayScrubberTools.cpp`). Restore paths keep cancelling prediction
-  before mutating live authority (`ReplayInteractionController.cpp:20`
-  invariant) — that call becomes an explicit owner-to-owner request, not a
-  reach into `ReplayRuntime` fields. Acceptance: scrub/retained-restore
+  before mutating live authority (`ReplayScrubber.h` invariant) — that call
+  becomes an explicit owner-to-owner request, not a reach into
+  `ReplayRuntime` fields. Acceptance: scrub/retained-restore
   SkullScope probes pass; solver-track hash-restore behavior unchanged;
   `ReplayRuntime` no longer holds cursor or retention members. Validation:
   `tools\validate_replay_visual_fidelity.bat` first,
@@ -491,6 +491,25 @@ Fourth ownership-remediation checkpoint after that review:
   zero deferred or unchecked and corrected the interaction controller's stale
   ownership description. Moving the remaining root operation and closing the
   timeline/probe/prediction/presentation seams still keep M3-M7 open.
+
+Fifth ownership-remediation checkpoint after that review:
+
+- Deleted `ReplayInteractionController` after its final velocity-authoring and
+  restore responsibilities moved to their real owners. `ReplayScrubber` now
+  builds frame-local restore commands and publishes restore result state; the
+  replay composition transaction still cancels prediction before either live
+  restore path mutates physics authority.
+- The debug branch probe now calls the same `ApplyLiveRestoreRequest`
+  transaction as production instead of invoking the V2 restore implementation
+  directly. The transaction publishes the bounded V2 result and reason values
+  needed by validation without returning mutable owner state.
+- The final source passed 677/677 project/filter items, a zero-warning Profile
+  build, and the unchanged one-process mega oracle at 2,401 exact ticks, 200
+  moved bricks, 187 strict grounded sleepers, 199 causal nodes, one generation,
+  one presentation, and every false-pass control. No baseline changed. The
+  touched-source comment audit inspected 8/8 retained source files with zero
+  deferred or unchecked; the two deleted façade files require no final-tree
+  checklist row. M3-M7 remain open for the remaining mutable owner/root seams.
 
 ## M1 Binding Type Inventory
 

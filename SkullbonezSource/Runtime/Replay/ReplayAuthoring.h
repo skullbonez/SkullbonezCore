@@ -32,6 +32,12 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+// Invariant: replay input clamping and editor visualization share these scales
+// so the velocity gizmo cannot advertise values that authoring rejects.
+inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_MAX = 140.0f;
+inline constexpr float REPLAY_VELOCITY_EDIT_ANGULAR_MAX = 5.0f;
+inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_EXTRA = 36.0f;
+
 struct RunReplayCauseTreeRow
 {
     RunReplayCauseTreeRowKind kind = RunReplayCauseTreeRowKind::Body;

@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayScrubberTools.cpp
 Purpose:
-  Contains replay scrubber input, inspection-camera, and live-restore glue.
+  Implements replay scrubber input, inspection-camera, and live-restore policy.
 
 Summary:
   The scrubber maps mouse/UI intent to retained solver or presentation samples.
@@ -42,7 +42,6 @@ Related:
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../InputController.h"
-#include "ReplayInteractionController.h"
 #include "ReplayOverlayLayout.h"
 #include "ReplayRuntimeOwnerViews.h"
 #include "../../World/Terrain.h"
@@ -58,6 +57,112 @@ using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Runtime::ReplayOverlay;
 using SkullbonezCore::Geometry::XZBounds;
+
+bool ReplayScrubber::BuildRestoreRequest( const ReplayScrubberRestoreSources& sources,
+                                          double now,
+                                          ReplayLiveRestoreRequest& outRequest,
+                                          char* outReason,
+                                          std::size_t reasonSize )
+{
+    outRequest = ReplayLiveRestoreRequest{};
+    outRequest.now = now;
+    if ( sources.hasLoadedPresentation && m_state.historicalSamplePaused &&
+         m_state.activeTrack == RunReplayTrack::Presentation && sources.presentationSample )
+    {
+        outRequest.kind = ReplayLiveRestoreKind::V2ArtifactTarget;
+        outRequest.requestedFrame = sources.presentationSample->frameIndex;
+        outRequest.makeLiveBranch = true;
+        outRequest.enterInteractive = true;
+        outRequest.messageTrack = RunReplayTrack::Presentation;
+        strncpy_s( outRequest.path,
+                   sizeof( outRequest.path ),
+                   sources.loadedPresentationPath ? sources.loadedPresentationPath : "",
+                   _TRUNCATE );
+        return true;
+    }
+    if ( m_state.historicalSamplePaused && m_state.activeTrack == RunReplayTrack::Solver && sources.solverSample )
+    {
+        outRequest.kind = ReplayLiveRestoreKind::SolverSample;
+        outRequest.solverSample = sources.solverSample;
+        outRequest.enterInteractive = true;
+        outRequest.messageTrack = RunReplayTrack::Solver;
+        return true;
+    }
+
+    const char* reason = "no historical replay branch target selected";
+    fprintf( stderr, "[replay] Branch restore failed: %s\n", reason );
+    PublishRestoreResult( now, false, m_state.activeTrack );
+    WriteRestoreReason( outReason, reasonSize, reason );
+    return false;
+}
+
+
+void ReplayScrubber::CompleteRestore( const ReplayLiveRestoreRequest& request,
+                                      bool restored,
+                                      const RunReplayV2TargetRestoreResult& v2Result,
+                                      const char* reason,
+                                      RunReplayV2TargetRestoreResult* outV2Result,
+                                      char* outReason,
+                                      std::size_t reasonSize )
+{
+    const char* safeReason = reason ? reason : "";
+    if ( request.kind == ReplayLiveRestoreKind::V2ArtifactTarget )
+    {
+        if ( outV2Result )
+        {
+            *outV2Result = v2Result;
+        }
+        fprintf( stderr,
+                 "[replay] V2 file restore %s target_frame=%llu branch_id=%u%s%s\n",
+                 restored ? "applied" : "failed",
+                 static_cast<unsigned long long>( request.requestedFrame ),
+                 restored ? v2Result.branchId : 0,
+                 safeReason[0] != '\0' ? ": " : "",
+                 safeReason );
+    }
+    else
+    {
+        fprintf( stderr,
+                 "[replay] Solver restore %s%s%s\n",
+                 restored ? "applied" : "failed",
+                 safeReason[0] != '\0' ? ": " : "",
+                 safeReason );
+    }
+
+    if ( restored )
+    {
+        // Why: the restored historical frame is now the live timeline edge;
+        // retaining the parent cursor would advertise authority that no longer exists.
+        m_state.activeTrack = RunReplayTrack::Solver;
+        m_state.historicalSamplePaused = false;
+        SetAllTrackPositions( 1.0f );
+    }
+    PublishRestoreResult( request.now, restored, request.messageTrack );
+    WriteRestoreReason( outReason, reasonSize, safeReason );
+}
+
+
+void ReplayScrubber::WriteRestoreReason( char* outReason, std::size_t reasonSize, const char* reason )
+{
+    if ( outReason && reasonSize > 0 )
+    {
+        strncpy_s( outReason, reasonSize, reason ? reason : "restore failed", _TRUNCATE );
+    }
+}
+
+
+void ReplayScrubber::PublishRestoreResult( double now, bool restored, RunReplayTrack messageTrack )
+{
+    m_state.restoreConsumedThisFrame = true;
+    m_state.saveMessageTrack = messageTrack;
+    sprintf_s( m_state.saveMessage,
+               sizeof( m_state.saveMessage ),
+               restored ? ( messageTrack == RunReplayTrack::Presentation ? "V2 FILE BRANCHED" : "SOLVER RESTORED" )
+                        : "RESTORE FAILED" );
+    m_state.saveMessageUntil = now + 2.5;
+    m_state.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    m_state.visible = true;
+}
 
 namespace
 {
@@ -353,7 +458,7 @@ ReplayLiveRestoreOutcome ReplayRuntime::ApplyLiveRestoreRequest( const ReplayRes
 
     // Invariant: restore is an owner-to-owner transaction. Prediction must be
     // idle before either restore path mutates live physics authority, even when
-    // a caller constructs the request without using the interaction controller.
+    // a caller constructs the request without using the scrubber request builder.
     m_predictionOwner.CancelJob( false );
 
     char reason[160] = {};
@@ -374,8 +479,9 @@ ReplayLiveRestoreOutcome ReplayRuntime::ApplyLiveRestoreRequest( const ReplayRes
         outcome.restored = RestoreSolverSampleAsLive( transaction, *request.solverSample, reason, sizeof( reason ) );
     }
 
-    ReplayInteractionController replayInteraction;
-    replayInteraction.CompleteScrubberRestore( *this, request, outcome.restored, v2Result, reason );
+    outcome.v2Result = v2Result;
+    strncpy_s( outcome.reason, sizeof( outcome.reason ), reason, _TRUNCATE );
+    m_scrubberOwner.CompleteRestore( request, outcome.restored, v2Result, reason );
     outcome.enterInteractive = v2Result.enterInteractiveRequested;
     return outcome;
 }
@@ -584,16 +690,16 @@ void HandleReplayPredictionPressed( ReplayRuntime& replayRuntime,
 }
 
 
-void HandleReplayBranchPressed( ReplayRuntime& replayRuntime,
+void HandleReplayBranchPressed( ReplayScrubber& scrubber,
                                 RuntimeInteractionController& interaction,
+                                const ReplayScrubberRestoreSources& sources,
                                 double now,
                                 ReplayLiveRestoreRequest& outRestoreRequest )
 {
     interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
                                                      WorldInteractionOwner::ReplayBranchTarget,
                                                      InteractionExitReason::EnterReplay );
-    ReplayInteractionController replayInteraction;
-    (void)replayInteraction.BuildScrubberRestoreRequest( replayRuntime, now, outRestoreRequest );
+    (void)scrubber.BuildRestoreRequest( sources, now, outRestoreRequest );
 }
 
 
@@ -1012,8 +1118,15 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
     switch ( requestedAction )
     {
     case ReplayScrubberAction::RestoreBranch:
-        HandleReplayBranchPressed( *this, m_interaction, now, outRestoreRequest );
+    {
+        ReplayScrubberRestoreSources sources;
+        sources.hasLoadedPresentation = HasLoadedPresentation();
+        sources.presentationSample = CurrentScrubSample();
+        sources.solverSample = CurrentSolverScrubSample();
+        sources.loadedPresentationPath = m_timeline.LoadedPresentation().path;
+        HandleReplayBranchPressed( m_scrubberOwner, m_interaction, sources, now, outRestoreRequest );
         return true;
+    }
     case ReplayScrubberAction::TogglePause:
         HandleReplayPausePressed( *this, m_inputRouter, m_interaction, camera, now, outEnterInteractive );
         consumesMouse = true;
