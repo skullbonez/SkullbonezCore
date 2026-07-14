@@ -46,7 +46,6 @@ Related:
 #include "ReplayRestoreService.h"
 #include "ReplayRuntimeOwnerViews.h"
 #include "ReplayV2Artifact.h"
-#include "ReplayPredictionArchive.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Allocation/RuntimeAllocationTracker.h"
 #include "../RuntimeFileWriter.h"
@@ -63,11 +62,9 @@ Related:
 #include "../../Physics/PhysicsTimestep.h"
 
 #include <algorithm>
-#include <climits>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
-#include <thread>
 
 namespace SkullbonezCore::Runtime
 {
@@ -512,154 +509,6 @@ const ReplaySolverBodySample* FindReplayBodyByModelIndex( const ReplaySolverFram
                                                                                                       modelIndex );
 }
 
-const ReplaySolverBodySample*
-FindReplayBodyByIdWithHint( const ReplaySolverFrameSample& sample, ReplayBodyId id, int modelIndex )
-{
-    if ( const ReplaySolverBodySample* hinted = FindReplayBodyByModelIndex( sample, modelIndex ) )
-    {
-        if ( hinted->id.value == id.value )
-        {
-            return hinted;
-        }
-    }
-    return FindReplayBodyById( sample, id );
-}
-
-ReplayFrameIndex ReplayOldestFrameFromStats( const ReplayRecorderStats& stats )
-{
-    return stats.nextFrameIndex > static_cast<ReplayFrameIndex>( stats.sampleCount )
-               ? stats.nextFrameIndex - static_cast<ReplayFrameIndex>( stats.sampleCount )
-               : 0;
-}
-
-// Concept: the past-root trajectory mirrors the solver recorder window. Rebuild
-// handles target changes and ring eviction; capture-time append handles the
-// ordinary newest-sample case without re-walking retained history.
-ReplayTrajectoryRecordKey ReplayPastRootTrajectoryKey( ReplayBodyId targetId )
-{
-    ReplayTrajectoryRecordKey key;
-    key.bodyId = targetId;
-    key.lane = ReplayTrajectoryLane::PastRoot;
-    key.branchOrdinal = 0;
-    return key;
-}
-
-// Concept: committed prediction roots use trajectory branch 0.
-//
-// ReplayPrediction writes in-progress worker output to branch 1 so presentation can draw
-// a published prefix without replacing the old future. Promotion and completion
-// republish the accepted root into branch 0, which is the frozen preview branch.
-ReplayTrajectoryRecordKey ReplayPredictionCommittedRootTrajectoryKey( ReplayBodyId targetId )
-{
-    ReplayTrajectoryRecordKey key;
-    key.bodyId = targetId;
-    key.lane = ReplayTrajectoryLane::FutureRoot;
-    key.branchOrdinal = 0;
-    return key;
-}
-
-ReplayTrajectoryRecord* BeginReplayPredictionCommittedRootTrajectoryRecord( ReplayTrajectoryStore& store,
-                                                                            ReplayBodyId targetId,
-                                                                            std::size_t pointCapacity )
-{
-    const ReplayTrajectoryRecordKey key = ReplayPredictionCommittedRootTrajectoryKey( targetId );
-    if ( !store.FindRecord( key ) && !store.ReserveRecords( store.RecordCount() + 1u, 0 ) )
-    {
-        return nullptr;
-    }
-
-    ReplayTrajectoryRecord* record = store.BeginReplaceRecord( key, 0, ReplayBodyId{}, 0, 0, false );
-    if ( !record || !store.ReserveRecordPoints( *record, pointCapacity, 0 ) )
-    {
-        return nullptr;
-    }
-    return record;
-}
-
-bool RebuildReplayRuntimePredictionCommittedRootTrajectory( RunReplayPredictionState& prediction )
-{
-    if ( prediction.simulation.targetId.value == 0 || prediction.simulation.frames.size() < 2u )
-    {
-        return true;
-    }
-
-    ReplayTrajectoryRecord* record =
-        BeginReplayPredictionCommittedRootTrajectoryRecord( prediction.trajectoryStore,
-                                                            prediction.simulation.targetId,
-                                                            prediction.simulation.frames.size() );
-    if ( !record )
-    {
-        prediction.trajectoryBuild.valid = false;
-        return false;
-    }
-
-    for ( const RunReplayPredictionFrame& frame : prediction.simulation.frames )
-    {
-        const RunReplayPredictionBodySample* body =
-            FindReplayPredictionBodyByIdWithHint( frame,
-                                                  prediction.simulation.targetId,
-                                                  prediction.simulation.targetModelRow.value );
-        if ( body && !prediction.trajectoryStore.TryAppendPoint( *record, { frame.frameIndex, body->position } ) )
-        {
-            prediction.trajectoryBuild.valid = false;
-            return false;
-        }
-    }
-
-    prediction.trajectoryStore.PublishPrefix( *record, record->points.size() );
-    prediction.trajectoryBuild.rootId = prediction.simulation.targetId;
-    prediction.trajectoryBuild.usingBuildFrames = false;
-    prediction.trajectoryBuild.rootFrameCount = record->points.size();
-    prediction.trajectoryBuild.childFrameCount = 0;
-    prediction.trajectoryBuild.builtNodeCount = 0;
-    prediction.trajectoryBuild.topologyVersion = 0;
-    prediction.trajectoryBuild.valid = true;
-    return true;
-}
-
-ReplayTrajectoryRecord* BeginReplayPastRootTrajectoryRecord( ReplayTrajectoryStore& store,
-                                                             ReplayBodyId targetId,
-                                                             std::size_t pointCapacity,
-                                                             int frameNumber )
-{
-    const ReplayTrajectoryRecordKey key = ReplayPastRootTrajectoryKey( targetId );
-    if ( !store.FindRecord( key ) && !store.ReserveRecords( store.RecordCount() + 1u, frameNumber ) )
-    {
-        return nullptr;
-    }
-
-    ReplayTrajectoryRecord* record =
-        store.BeginReplaceRecord( key, 0, ReplayBodyId{}, 0, static_cast<ReplayFrameIndex>( frameNumber ), false );
-    if ( !record || !store.ReserveRecordPoints( *record, pointCapacity, frameNumber ) )
-    {
-        return nullptr;
-    }
-    return record;
-}
-
-bool AppendReplayPastRootTrajectoryPoint( ReplayTrajectoryStore& store,
-                                          ReplayTrajectoryRecord& record,
-                                          ReplayFrameIndex frameIndex,
-                                          const Math::Vector::Vector3& position )
-{
-    if ( !store.TryAppendPoint( record, { frameIndex, position } ) )
-    {
-        return false;
-    }
-    store.PublishPrefix( record, record.points.size() );
-    return true;
-}
-
-struct ReplayPastRootRebuildContext
-{
-    ReplayTrajectoryStore* store = nullptr;
-    ReplayTrajectoryRecord* record = nullptr;
-    Physics::ModelRowHint targetModelRow;
-    ReplayFrameIndex firstFrame = 0;
-    bool hasSample = false;
-    bool ok = true;
-};
-
 template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
 const BodySample* FindReplayBodyByModelIndexInSample( const FrameSample& sample, int modelIndex )
 {
@@ -774,131 +623,7 @@ int ReplayFindPipelineIndexForContact( const ReplaySolverWorldSnapshot& snapshot
     return -1;
 }
 
-void WaitForReplayPredictionWorkerIdle( RunReplayPredictionState& prediction )
-{
-    while ( prediction.build.workerTask && prediction.build.workerTask->IsInFlight() )
-    {
-        // Hazard: cancellation is a scene/branch mutation edge. The worker task
-        // owns buildFrames and prediction trajectory slots until it drops
-        // in-flight, so clearing those arrays before this wait would let render
-        // read freed scratch.
-        std::this_thread::yield();
-    }
-}
 } // namespace
-
-
-RunReplayPredictionState::RunReplayPredictionState() = default;
-
-
-RunReplayPredictionState::~RunReplayPredictionState()
-{
-    // Hazard: WorkerPool tasks capture this replay state by reference. Destruct
-    // only after the in-flight slice has dropped ownership of build scratch.
-    WaitForReplayPredictionWorkerIdle( *this );
-}
-
-
-void ReplayPrediction::ClearFutureNodeCache()
-{
-    m_state.futureNodeCache.futureNodes.clear();
-    m_state.futureNodeCache.futureNodeBuildScratch.clear();
-    m_state.futureNodeCache.futureNodesBuiltFrameCount = 0;
-    m_state.futureNodeCache.futureNodesBuiltContactIndex = 0;
-    m_state.futureNodeCache.futureNodesBuiltTargetId = ReplayBodyId{};
-    m_state.futureNodeCache.futureNodesBuiltRagdollVisuals = m_state.ragdollVisualsEnabled;
-    m_state.futureNodeCache.futureNodesBuiltFromBuildFrames = false;
-    m_state.futureNodeCache.futureNodesCacheValid = false;
-    m_state.futureNodeCache.retainedMarkerCount = 0;
-    m_state.trajectoryBuild.childFrameCount = 0;
-    m_state.trajectoryBuild.builtNodeCount = 0;
-}
-
-
-void ReplayPrediction::WaitForJobIdle()
-{
-    WaitForReplayPredictionWorkerIdle( m_state );
-}
-
-
-bool ReplayPrediction::PromoteBuildPrefixToCommitted()
-{
-    if ( !m_state.BuildPrefixShouldBePresented() )
-    {
-        return false;
-    }
-    WaitForJobIdle();
-    const std::size_t promotedFrameCount = m_state.PublishedBuildFrameCount();
-    if ( promotedFrameCount < 2u || promotedFrameCount > m_state.build.buildFrames.size() )
-    {
-        return false;
-    }
-
-    // Hazard: this is the Play-button ownership transfer. The worker has
-    // released buildFrames before the visible prefix becomes committed state.
-    m_state.build.workerTask.reset();
-    m_state.build.building = false;
-    m_state.build.complete = true;
-    m_state.simulation.frames.swap( m_state.build.buildFrames );
-    m_state.simulation.frames.resize( promotedFrameCount );
-    m_state.ResetBuildFramePublication();
-    if ( !RebuildReplayRuntimePredictionCommittedRootTrajectory( m_state ) )
-    {
-        return false;
-    }
-    m_state.simulation.predictionEngineReady = false;
-    m_state.simulation.predictionBodies.clear();
-    m_state.simulation.predictionWorld = ReplaySolverWorldSnapshot();
-    return true;
-}
-
-
-void ReplayPrediction::CancelJob( bool clearSamples )
-{
-    WaitForJobIdle();
-    m_state.build.workerTask.reset();
-    m_state.build.building = false;
-    m_state.build.complete = false;
-    m_state.build.buildMode = ReplayPredictionBuildMode::Undecided;
-    m_state.build.pendingLatestRestart = false;
-    m_state.simulation.targetModelRow.value = -1;
-    m_state.build.nextTick = 1;
-    m_state.build.targetTickCount = 0;
-    m_state.simulation.predictionEngineReady = false;
-    m_state.simulation.predictionBodies.clear();
-    m_state.simulation.predictionWorld = ReplaySolverWorldSnapshot();
-    // Runtime allocation policy: cancellation invalidates publication but keeps
-    // the double-buffered frame payloads warm for the next replay rebuild.
-    m_state.ResetBuildFramePublication();
-    m_state.trajectoryBuild = RunReplayPredictionTrajectoryBuildState{};
-    if ( clearSamples )
-    {
-        m_state.build.supersededRestartCount = 0;
-        m_state.build.latestRestartBeginCount = 0;
-        m_state.simulation.measuredTicksPerMs.store( 0.0, std::memory_order_release );
-        m_state.simulation.probeElapsedMs = 0.0;
-        m_state.simulation.probeTicksCompleted = 0;
-        m_state.simulation.calibratedModelCount = -1;
-        m_state.simulation.frames.clear();
-        m_state.trajectoryStore.Clear();
-        ClearFutureNodeCache();
-    }
-}
-
-
-void ReplayPrediction::ClearCache()
-{
-    CancelJob( true );
-    m_state.simulation.targetId = ReplayBodyId{};
-    m_state.simulation.sourceFrameIndex = 0;
-    m_state.simulation.sourceSolverHash = 0;
-    m_state.simulation.sourceSimulationSeconds = 0.0;
-    m_state.build.lastBuildTime = 0.0;
-    m_state.trajectoryBuild = RunReplayPredictionTrajectoryBuildState{};
-    m_state.trajectoryStore.Clear();
-    m_state.baseline = ReplayPredictionBaselineSnapshot{};
-}
-
 
 ReplayRuntime::ReplayRuntime() = default;
 
@@ -2067,178 +1792,18 @@ void ReplayRuntime::ApplyPastTrajectoryUpdate( const ReplayPastTrajectoryUpdate&
                                                     update.targetModelRowRepaired );
 }
 
-ReplayPastTrajectoryUpdate
-ReplayPrediction::RefreshPastTrajectoryStore( const ReplaySolverRecorder& solver,
-                                              const RunReplayPathVisualizerState& pathVisualizer )
-{
-    ReplayPastTrajectoryUpdate update;
-    if ( !pathVisualizer.hasTarget || pathVisualizer.targetId.value == 0 )
-    {
-        update.apply = true;
-        return update;
-    }
-
-    const ReplayRecorderStats stats = solver.GetStats();
-    if ( !stats.enabled || stats.sampleCount == 0 || stats.nextFrameIndex == 0 )
-    {
-        update.apply = true;
-        return update;
-    }
-
-    const ReplayFrameIndex oldestFrame = ReplayOldestFrameFromStats( stats );
-    const ReplayFrameIndex newestFrame = stats.nextFrameIndex - 1u;
-    const bool needsRebuild = !pathVisualizer.pastTrajectory.valid ||
-                              pathVisualizer.pastTrajectory.targetId.value != pathVisualizer.targetId.value ||
-                              pathVisualizer.pastTrajectory.totalFramesEvicted != stats.totalFramesEvicted ||
-                              pathVisualizer.pastTrajectory.firstFrame != oldestFrame ||
-                              pathVisualizer.pastTrajectory.builtThroughFrame < newestFrame;
-    if ( !needsRebuild )
-    {
-        return update;
-    }
-
-    const int frameNumber = static_cast<int>( (std::min)( newestFrame, static_cast<ReplayFrameIndex>( INT_MAX ) ) );
-    ReplayTrajectoryRecord* record = BeginReplayPastRootTrajectoryRecord( m_state.trajectoryStore,
-                                                                          pathVisualizer.targetId,
-                                                                          stats.sampleCount,
-                                                                          frameNumber );
-    if ( !record )
-    {
-        update.apply = true;
-        return update;
-    }
-
-    ReplayPastRootRebuildContext rebuild;
-    rebuild.store = &m_state.trajectoryStore;
-    rebuild.record = record;
-    const bool traversalOk = solver.ForEachBodyPositionChronological(
-        pathVisualizer.targetId,
-        [&]( ReplayFrameIndex frameIndex, Physics::ModelRowHint modelRow, const Math::Vector::Vector3& position )
-        {
-            if ( !rebuild.ok )
-            {
-                return;
-            }
-            rebuild.ok = AppendReplayPastRootTrajectoryPoint( *rebuild.store, *rebuild.record, frameIndex, position );
-            if ( rebuild.ok )
-            {
-                if ( !rebuild.hasSample )
-                {
-                    rebuild.firstFrame = frameIndex;
-                    rebuild.hasSample = true;
-                }
-                rebuild.targetModelRow = modelRow;
-            }
-        } );
-    if ( !traversalOk || !rebuild.ok || !rebuild.hasSample )
-    {
-        update.apply = true;
-        return update;
-    }
-
-    record->firstFrame = rebuild.firstFrame;
-    update.targetId = pathVisualizer.targetId;
-    update.firstFrame = oldestFrame;
-    update.builtThroughFrame = newestFrame;
-    update.totalFramesEvicted = stats.totalFramesEvicted;
-    update.fullRebuildCount = pathVisualizer.pastTrajectory.fullRebuildCount + 1u;
-    update.incrementalTrimCount = pathVisualizer.pastTrajectory.incrementalTrimCount;
-    update.targetModelRow = rebuild.targetModelRow;
-    update.apply = true;
-    update.targetModelRowRepaired = true;
-    update.valid = true;
-    return update;
-}
-
-
 void ReplayRuntime::RefreshPastTrajectoryStoreFromSolverSamples()
 {
     ApplyPastTrajectoryUpdate(
-        m_predictionOwner.RefreshPastTrajectoryStore( m_timeline.Solver(), m_visualPresentation.PathVisualizer() ) );
+        m_predictionOwner.RefreshPastTrajectoryStore( m_timeline.Solver(),
+                                                      m_visualPresentation.PastTrajectoryView() ) );
 }
-
-// Concept: capture mismatch diagnostics compare the newest paired presentation
-// and solver samples after ReplayTimeline records the current frame.
-//
-// Why: the throttle and paired recorder state belong to one owner, so capture
-// callers never receive mutable recorder access merely to validate alignment.
-void ReplayPrediction::AppendPastTrajectorySample( const ReplayRecorderStats& solverStats,
-                                                   const RunReplayPathVisualizerState& pathVisualizer,
-                                                   const ReplaySolverFrameSample& sample,
-                                                   ReplayPastTrajectoryUpdate& update )
-{
-    if ( !pathVisualizer.hasTarget || pathVisualizer.targetId.value == 0 || !pathVisualizer.pastTrajectory.valid ||
-         pathVisualizer.pastTrajectory.targetId.value != pathVisualizer.targetId.value )
-    {
-        return;
-    }
-
-    ReplayTrajectoryRecord* record =
-        m_state.trajectoryStore.FindRecord( ReplayPastRootTrajectoryKey( pathVisualizer.targetId ) );
-    if ( !record )
-    {
-        update.apply = true;
-        update.valid = false;
-        return;
-    }
-
-    update.targetId = pathVisualizer.pastTrajectory.targetId;
-    update.firstFrame = pathVisualizer.pastTrajectory.firstFrame;
-    update.builtThroughFrame = pathVisualizer.pastTrajectory.builtThroughFrame;
-    update.totalFramesEvicted = pathVisualizer.pastTrajectory.totalFramesEvicted;
-    update.fullRebuildCount = pathVisualizer.pastTrajectory.fullRebuildCount;
-    update.incrementalTrimCount = pathVisualizer.pastTrajectory.incrementalTrimCount;
-    update.valid = pathVisualizer.pastTrajectory.valid;
-
-    const ReplayFrameIndex oldestFrame = ReplayOldestFrameFromStats( solverStats );
-    if ( pathVisualizer.pastTrajectory.totalFramesEvicted != solverStats.totalFramesEvicted ||
-         pathVisualizer.pastTrajectory.firstFrame != oldestFrame )
-    {
-        // Why: ring eviction advances every live capture once retention is
-        // full. Slide the already-published record in place; rebuilding compact
-        // solver history here would reconstruct every world snapshot and would
-        // also replace the record version that prevents path flicker.
-        m_state.trajectoryStore.TrimPublishedPointsBeforeFrame( *record, oldestFrame );
-        update.firstFrame = oldestFrame;
-        update.totalFramesEvicted = solverStats.totalFramesEvicted;
-        ++update.incrementalTrimCount;
-        update.apply = true;
-    }
-    if ( sample.frameIndex <= pathVisualizer.pastTrajectory.builtThroughFrame )
-    {
-        return;
-    }
-
-    const ReplaySolverBodySample* body =
-        FindReplayBodyByIdWithHint( sample, pathVisualizer.targetId, pathVisualizer.targetModelRow.value );
-    if ( !body )
-    {
-        // The frame was inspected even when the selected body no longer exists;
-        // do not trigger a full historical rebuild on the next render pass.
-        update.builtThroughFrame = sample.frameIndex;
-        update.apply = true;
-        return;
-    }
-
-    if ( !AppendReplayPastRootTrajectoryPoint( m_state.trajectoryStore, *record, sample.frameIndex, body->position ) )
-    {
-        update.valid = false;
-        update.apply = true;
-        return;
-    }
-
-    update.targetModelRow = body->modelRow;
-    update.targetModelRowRepaired = true;
-    update.builtThroughFrame = sample.frameIndex;
-    update.apply = true;
-}
-
 
 void ReplayRuntime::AppendSolverTrajectorySampleToStore( const ReplaySolverFrameSample& sample )
 {
     ReplayPastTrajectoryUpdate update;
     m_predictionOwner.AppendPastTrajectorySample( m_timeline.Solver().GetStats(),
-                                                  m_visualPresentation.PathVisualizer(),
+                                                  m_visualPresentation.PastTrajectoryView(),
                                                   sample,
                                                   update );
     ApplyPastTrajectoryUpdate( update );
@@ -3996,7 +3561,7 @@ void ReplayRuntime::PreparePredictionPresentation( PhysicsEngine& physics, const
     {
         ApplyPastTrajectoryUpdate(
             m_predictionOwner.RefreshPastTrajectoryStore( m_timeline.Solver(),
-                                                          m_visualPresentation.PathVisualizer() ) );
+                                                          m_visualPresentation.PastTrajectoryView() ) );
     }
     m_visualPresentation.PreparePathDrawing( PhysicsEngine::ReadBodies( physics ) );
 }

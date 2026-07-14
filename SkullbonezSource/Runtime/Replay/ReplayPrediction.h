@@ -367,6 +367,23 @@ struct ReplayPredictionUpdateResult
     bool pinSolverScrubberToPresent = false;
 };
 
+// Immutable presentation cursor consumed while prediction maintains the
+// retained/past trajectory lane. This avoids borrowing the presentation
+// owner's complete path state across the owner boundary.
+struct ReplayPastTrajectoryView
+{
+    ReplayBodyId targetId;
+    ReplayBodyId retainedTargetId;
+    Physics::ModelRowHint targetModelRow;
+    ReplayFrameIndex firstFrame = 0;
+    ReplayFrameIndex builtThroughFrame = 0;
+    uint64_t totalFramesEvicted = 0;
+    uint64_t fullRebuildCount = 0;
+    uint64_t incrementalTrimCount = 0;
+    bool hasTarget = false;
+    bool valid = false;
+};
+
 // Value boundary for the trajectory store's presentation-owned cursor. The
 // prediction owner mutates its store, then publishes only the repaired row and
 // retention window metadata that ReplayPresentation must retain.
@@ -548,9 +565,9 @@ class ReplayPrediction
                       std::size_t reasonSize );
     bool BuildArchive( const RunReplayPathVisualizerState& pathVisualizer, std::vector<uint8_t>& outBytes ) const;
     ReplayPastTrajectoryUpdate RefreshPastTrajectoryStore( const ReplaySolverRecorder& solver,
-                                                           const RunReplayPathVisualizerState& pathVisualizer );
+                                                           const ReplayPastTrajectoryView& path );
     void AppendPastTrajectorySample( const ReplayRecorderStats& solverStats,
-                                     const RunReplayPathVisualizerState& pathVisualizer,
+                                     const ReplayPastTrajectoryView& path,
                                      const ReplaySolverFrameSample& sample,
                                      ReplayPastTrajectoryUpdate& update );
 

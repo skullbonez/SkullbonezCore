@@ -900,6 +900,38 @@ Twenty-first ownership-remediation checkpoint after the first review:
   Active/future portfolio progress therefore remains 3/16, or 19%; completed
   past plans and externally blocked work are excluded from that percentage.
 
+Twenty-second ownership-remediation checkpoint after the first review:
+
+- Completed the physical prediction-owner extraction: worker-idle lifetime,
+  cache cancellation/promotion, retained past-trajectory maintenance, and
+  prediction-state construction/destruction now live in
+  `ReplayPrediction.cpp`. `ReplayRuntime.cpp` contains no
+  `ReplayPrediction::*` or `RunReplayPredictionState::*` implementation.
+- Deleted the redundant root-specific committed-trajectory implementation and
+  reused the prediction owner's existing generic trajectory record path.
+  `ReplayRuntime.cpp` fell to 3,570 lines, with a net 82-line reduction across
+  the five touched source files.
+- Added immutable `ReplayPastTrajectoryView` publication. Presentation exposes
+  only target identity, repairable row hint, and retained cursor metadata;
+  prediction no longer needs the presentation-state definition to maintain its
+  trajectory store. This closes the physical owner-TU finding without creating
+  a cross-owner mutable borrow.
+- Formatting passed. A focused Profile build passed in 19.5 seconds with zero
+  warnings and zero errors, and the touched-source comment audit inspected 5/5
+  files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 472.1 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 112.9-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M3-M7 remain open for root-owned input, probe, event, diagnostics, and the
+  broad external API surface. Active/future portfolio progress therefore
+  remains 3/16, or 19%; completed past plans and externally blocked work are
+  excluded from that percentage.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |

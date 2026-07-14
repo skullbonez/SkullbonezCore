@@ -25,6 +25,7 @@ Related:
   - ReplayPredictionDrawing.cpp
 */
 #include "ReplayPresentation.h"
+#include "ReplayPrediction.h"
 #include "../RuntimePickService.h"
 #include "../Scene/SceneEntityStore.h"
 #include "../Tools/RuntimeTools.h"
@@ -39,6 +40,22 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
+
+ReplayPastTrajectoryView ReplayPresentation::PastTrajectoryView() const noexcept
+{
+    ReplayPastTrajectoryView view;
+    view.targetId = m_pathVisualizer.targetId;
+    view.retainedTargetId = m_pathVisualizer.pastTrajectory.targetId;
+    view.targetModelRow = m_pathVisualizer.targetModelRow;
+    view.firstFrame = m_pathVisualizer.pastTrajectory.firstFrame;
+    view.builtThroughFrame = m_pathVisualizer.pastTrajectory.builtThroughFrame;
+    view.totalFramesEvicted = m_pathVisualizer.pastTrajectory.totalFramesEvicted;
+    view.fullRebuildCount = m_pathVisualizer.pastTrajectory.fullRebuildCount;
+    view.incrementalTrimCount = m_pathVisualizer.pastTrajectory.incrementalTrimCount;
+    view.hasTarget = m_pathVisualizer.hasTarget;
+    view.valid = m_pathVisualizer.pastTrajectory.valid;
+    return view;
+}
 
 void ReplayPresentation::PopulateLauncherVisualCapture( ReplayCaptureInput& input, RuntimeTools& runtimeTools )
 {

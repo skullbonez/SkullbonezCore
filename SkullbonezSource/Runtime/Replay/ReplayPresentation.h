@@ -70,6 +70,7 @@ class RunEditorTracer;
 struct RunCameraState;
 struct RunReplayCauseTreeState;
 struct RunReplayPredictionFrame;
+struct ReplayPastTrajectoryView;
 struct ReplayPredictionPresentationView;
 
 // Read-only publication consumed by world render passes after Run has prepared
@@ -292,6 +293,7 @@ class ReplayPresentation
     {
         return m_pathVisualizer;
     }
+    ReplayPastTrajectoryView PastTrajectoryView() const noexcept;
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats TrajectoryVisualStatsSnapshot() const noexcept;
     ReplayTrajectorySubmissionProbeStats TrajectorySubmissionProbeSnapshot() const noexcept;
     const ReplayVisualPacket& PublishedVisualPacketView() const noexcept;

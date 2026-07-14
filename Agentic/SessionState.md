@@ -15,7 +15,7 @@ plan inventory.
 | Current objective | Reclose replay M3-M7 ownership findings from mandatory M8 review, with the unchanged frame-exact 200-box gate after every task |
 | Active/future progress | 3 / 16 tasks = 19% rounded overall (decomposition + spline plans only; completed past plans and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-14: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | The twenty-first remediation checkpoint moved prediction enablement, verification, archive, reveal-clock, horizon, and velocity-mutation capabilities into the prediction owner TU. Profile build (13.4s), formatting, the unchanged replay oracle (477.6s), scrub exit-37 propagation, and the full CPU/Profile/Debug/DX12/physics gate (106.4s) passed with zero warnings/DX12 errors and byte-exact physics. M3-M7 remain open; no baseline changed. |
+| Validation for current edits | The twenty-second remediation checkpoint completed the physical prediction-owner extraction, removed the redundant root trajectory implementation, and narrowed presentation coupling to immutable `ReplayPastTrajectoryView`. Profile build (19.5s), formatting, the unchanged replay oracle (472.1s), scrub exit-37 propagation, and the full CPU/Profile/Debug/DX12/physics gate (112.9s) passed with zero warnings/DX12 errors and byte-exact physics. M3-M7 remain open; no baseline changed. |
 
 ## Live Queue
 
