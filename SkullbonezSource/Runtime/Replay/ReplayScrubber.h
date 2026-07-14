@@ -254,6 +254,17 @@ class ReplayScrubber
         return m_state.liveAdvanceHeld;
     }
 
+    // Publishes explicit visibility policy without giving automation or UI
+    // callers mutable access to the scrubber's retained cursor state.
+    void SetVisible( bool visible, double now, double holdSeconds ) noexcept
+    {
+        m_state.visible = visible;
+        if ( visible )
+        {
+            m_state.visibleUntil = now + (std::max)( 0.0, holdSeconds );
+        }
+    }
+
   private:
     RunReplayScrubberState m_state;
 };

@@ -161,6 +161,8 @@ class ReplayRuntime
 
     RunReplayScrubberState& Scrubber();
     const RunReplayScrubberState& Scrubber() const;
+    ReplayScrubber& ScrubberOwner() noexcept;
+    const ReplayScrubber& ScrubberOwner() const noexcept;
 
     RunReplayCameraState& Camera();
     const RunReplayCameraState& Camera() const;

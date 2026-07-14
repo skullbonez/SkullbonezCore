@@ -394,6 +394,14 @@ class ReplayPrediction
     void EnterOfflineVerification();
     void ResetVerificationMarkers() noexcept;
     void SetVerificationRevealFrame( ReplayFrameIndex frame ) noexcept;
+    // Owner commands used by validation and UI paths. These keep rebuild and
+    // baseline invalidation coupled to the state transition that requires it.
+    void SetEnabled( bool enabled ) noexcept;
+    void SetHorizonSeconds( float horizonSeconds ) noexcept;
+    bool PrepareVelocityMutationBaseline() noexcept;
+    void CommitVelocityMutation() noexcept;
+    bool ReadyForDeterministicReveal() const noexcept;
+    void ArmDeterministicReveal( ReplayFrameIndex frame, bool resetPresentedFrame ) noexcept;
 
   private:
     RunReplayPredictionState m_state;

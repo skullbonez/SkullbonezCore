@@ -964,6 +964,65 @@ void ReplayPrediction::SetVerificationRevealFrame( ReplayFrameIndex frame ) noex
 }
 
 
+void ReplayPrediction::SetEnabled( bool enabled ) noexcept
+{
+    m_state.enabled = enabled;
+    MarkDirty();
+}
+
+
+void ReplayPrediction::SetHorizonSeconds( float horizonSeconds ) noexcept
+{
+    if ( m_state.simulation.horizonSeconds == horizonSeconds )
+    {
+        return;
+    }
+    m_state.simulation.horizonSeconds = horizonSeconds;
+    MarkDirty();
+}
+
+
+bool ReplayPrediction::PrepareVelocityMutationBaseline() noexcept
+{
+    if ( ( !m_state.build.complete || m_state.simulation.frames.size() < 2u ) && !m_state.baseline.comparisonActive )
+    {
+        return false;
+    }
+    if ( m_state.build.complete )
+    {
+        m_state.baseline.valid = false;
+        m_state.baseline.comparisonActive = true;
+        m_state.baseline.divergenceValid = false;
+        m_state.baseline.divergenceUnits = 0.0f;
+    }
+    return true;
+}
+
+
+void ReplayPrediction::CommitVelocityMutation() noexcept
+{
+    m_state.enabled = true;
+    MarkDirty();
+}
+
+
+bool ReplayPrediction::ReadyForDeterministicReveal() const noexcept
+{
+    return !m_state.build.building && m_state.simulation.frames.size() >= 2u && m_state.build.complete;
+}
+
+
+void ReplayPrediction::ArmDeterministicReveal( ReplayFrameIndex frame, bool resetPresentedFrame ) noexcept
+{
+    m_state.revealClock.deterministicFrameEnabled = true;
+    m_state.revealClock.deterministicFrame = frame;
+    if ( resetPresentedFrame )
+    {
+        m_state.revealClock.presentedFrame = frame;
+    }
+}
+
+
 ReplayRuntime::ReplayRuntime() = default;
 
 
@@ -1252,6 +1311,16 @@ RunReplayScrubberState& ReplayRuntime::Scrubber()
 const RunReplayScrubberState& ReplayRuntime::Scrubber() const
 {
     return m_scrubberOwner.State();
+}
+
+ReplayScrubber& ReplayRuntime::ScrubberOwner() noexcept
+{
+    return m_scrubberOwner;
+}
+
+const ReplayScrubber& ReplayRuntime::ScrubberOwner() const noexcept
+{
+    return m_scrubberOwner;
 }
 
 RunReplayCameraState& ReplayRuntime::Camera()

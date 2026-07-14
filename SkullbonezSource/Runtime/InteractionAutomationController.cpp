@@ -1146,16 +1146,11 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
     switch ( action.type )
     {
     case RunInteractionAutomationActionType::ShowReplayScrubber:
-        replayRuntime.Scrubber().visible = action.boolValue;
-        if ( action.boolValue )
-        {
-            replayRuntime.Scrubber().visibleUntil = timers.simulationTimer.GetTotalTime() + 5.0;
-        }
+        replayRuntime.ScrubberOwner().SetVisible( action.boolValue, timers.simulationTimer.GetTotalTime(), 5.0 );
         AppendReportAction( state, frame, action.type, "", nullptr, true, action.boolValue ? "visible" : "hidden" );
         break;
     case RunInteractionAutomationActionType::SetReplayPredictionEnabled:
-        replayRuntime.Prediction().enabled = action.boolValue;
-        replayRuntime.Prediction().build.dirty = true;
+        replayRuntime.PredictionOwner().SetEnabled( action.boolValue );
         setWorldInteractionOwner(
             action.boolValue ? WorldInteractionOwner::ReplayPrediction : WorldInteractionOwner::None,
             InteractionExitReason::EnterReplay );
@@ -1190,8 +1185,7 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
         // Why: automation should use the same bounded horizon value the replay UI
         // exposes, while still forcing a rebuild when a script changes it before
         // a proof.
-        replayRuntime.Prediction().simulation.horizonSeconds = horizonSeconds;
-        replayRuntime.PredictionOwner().MarkDirty();
+        replayRuntime.PredictionOwner().SetHorizonSeconds( horizonSeconds );
         std::ostringstream detail;
         detail << "prediction horizon set to " << horizonSeconds << "s";
         AppendReportAction( state, frame, action.type, "", nullptr, true, detail.str().c_str() );
@@ -1207,9 +1201,8 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
         bool applied = false;
         if ( hasTarget && record )
         {
-            RunReplayPredictionState& prediction = replayRuntime.Prediction();
-            if ( ( !prediction.build.complete || prediction.simulation.frames.size() < 2 ) &&
-                 !prediction.baseline.comparisonActive )
+            ReplayPrediction& prediction = replayRuntime.PredictionOwner();
+            if ( !prediction.PrepareVelocityMutationBaseline() )
             {
                 FailAutomation( state, "replay path target velocity nudge requires a completed prediction baseline" );
             }
@@ -1218,23 +1211,14 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
                 // Why: automation needs the same old-vs-new future proof as a
                 // mouse drag, but without depending on pixel-perfect axis hit
                 // testing. Capture is still deferred to the visualizer.
-                if ( prediction.build.complete )
-                {
-                    prediction.baseline.valid = false;
-                    prediction.baseline.comparisonActive = true;
-                    prediction.baseline.divergenceValid = false;
-                    prediction.baseline.divergenceUnits = 0.0f;
-                }
-
                 const Vector3 nextLinearVelocity = record->linearVelocity + action.vectorValue;
                 applied = physics.SetBodyVelocity( body, nextLinearVelocity, record->angularVelocity, true );
                 if ( applied )
                 {
-                    replayRuntime.Prediction().enabled = true;
-                    replayRuntime.PredictionOwner().MarkDirty();
-                    replayRuntime.Scrubber().visible = true;
-                    replayRuntime.Scrubber().visibleUntil =
-                        timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+                    prediction.CommitVelocityMutation();
+                    replayRuntime.ScrubberOwner().SetVisible( true,
+                                                              timers.simulationTimer.GetTotalTime(),
+                                                              REPLAY_SCRUBBER_VISIBLE_SECONDS );
                     setWorldInteractionOwner( WorldInteractionOwner::ReplayVelocityEdit,
                                               InteractionExitReason::EnterReplay );
                 }
@@ -1264,8 +1248,9 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
 
 void ShowInteractionAutomationReplayScrubber( RunTimerState& timers, ReplayRuntime& replayRuntime )
 {
-    replayRuntime.Scrubber().visible = true;
-    replayRuntime.Scrubber().visibleUntil = timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    replayRuntime.ScrubberOwner().SetVisible( true,
+                                              timers.simulationTimer.GetTotalTime(),
+                                              REPLAY_SCRUBBER_VISIBLE_SECONDS );
 }
 
 void AppendInteractionAutomationReplayControlFailure( InteractionAutomationController& state,
@@ -2496,11 +2481,9 @@ bool VerifyReplayVisualOfflineProjection( InteractionAutomationController& state
     ReplayRuntime& replay = interactionOwners.replayRuntime;
     replay.EnterOfflinePredictionVerification();
     char archiveReason[192] = {};
-    if ( !LoadReplayPredictionArchive( state.replayVisualPredictionArchive,
-                                       replay.PathVisualizer(),
-                                       replay.Prediction(),
-                                       archiveReason,
-                                       sizeof( archiveReason ) ) )
+    if ( !replay.LoadPredictionArchiveForVerification( state.replayVisualPredictionArchive,
+                                                       archiveReason,
+                                                       sizeof( archiveReason ) ) )
     {
         char message[320] = {};
         sprintf_s( message,
@@ -2514,7 +2497,7 @@ bool VerifyReplayVisualOfflineProjection( InteractionAutomationController& state
     // The archived value retains the final marker prefix. CPU projection starts
     // at reveal zero and rebuilds first appearance exactly as the sole presented
     // run did. No renderer/backend method is reachable from this function.
-    replay.Prediction().futureNodeCache.retainedMarkerCount = 0;
+    replay.ResetPredictionPresentationVerification();
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     RunEditorTracer& tracer = runtimeTools.EditorTracer();
     SceneController& scene = sceneOwners.sceneController;
@@ -2524,10 +2507,7 @@ bool VerifyReplayVisualOfflineProjection( InteractionAutomationController& state
     for ( const ReplayVisualFidelityReportTick& tick : state.replayVisualFidelityTicks )
     {
         const ReplayVisualArchiveSample expected = BuildReplayVisualArchiveSample( tick );
-        RunReplayPredictionState& prediction = replay.Prediction();
-        prediction.revealClock.deterministicFrameEnabled = true;
-        prediction.revealClock.deterministicFrame = expected.revealFrame;
-        prediction.revealClock.presentedFrame = expected.revealFrame;
+        replay.PredictionOwner().ArmDeterministicReveal( expected.revealFrame, true );
         tracer.Clear();
         replay.RenderPathVisualizer( scene.Physics(),
                                      scene.Entities(),
@@ -2811,7 +2791,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
     const int frame = scene.State().currentFrame;
     if ( state.replayVisualFidelityCaptureEnabled )
     {
-        RunReplayPredictionState& prediction = replayRuntime.Prediction();
+        ReplayPrediction& prediction = replayRuntime.PredictionOwner();
         // Invariant: the mega probe is one presented cascade. Advancing the
         // authoritative scene after the reveal would show a second, unrelated
         // wall fall and make a visually broken run appear to be test coverage.
@@ -2821,7 +2801,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         }
         if ( state.replayVisualFidelityStartFrame < 0 && frame == REPLAY_VISUAL_FIDELITY_START_FRAME )
         {
-            if ( prediction.build.building || prediction.simulation.frames.size() < 2u || !prediction.build.complete )
+            if ( !prediction.ReadyForDeterministicReveal() )
             {
                 FailAutomation( state,
                                 "replay visual fidelity prediction was not fully published before fixed reveal start" );
@@ -2829,9 +2809,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
             else
             {
                 state.replayVisualFidelityStartFrame = frame;
-                prediction.revealClock.deterministicFrameEnabled = true;
-                prediction.revealClock.deterministicFrame = 0;
-                prediction.revealClock.presentedFrame = 0;
+                prediction.ArmDeterministicReveal( 0, true );
             }
         }
         else if ( state.replayVisualFidelityStartFrame < 0 && frame > REPLAY_VISUAL_FIDELITY_START_FRAME )
@@ -2840,10 +2818,9 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         }
         if ( state.replayVisualFidelityStartFrame >= 0 )
         {
-            RunReplayPredictionRevealClock& revealClock = prediction.revealClock;
-            revealClock.deterministicFrameEnabled = true;
-            revealClock.deterministicFrame =
-                static_cast<ReplayFrameIndex>( (std::max)( 0, frame - state.replayVisualFidelityStartFrame ) );
+            prediction.ArmDeterministicReveal(
+                static_cast<ReplayFrameIndex>( (std::max)( 0, frame - state.replayVisualFidelityStartFrame ) ),
+                false );
         }
     }
     if ( state.releaseLeftFrame == frame )
@@ -2974,10 +2951,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
             // and the sole Predict click. Letting wall-clock reveal run first
             // would retain markers, then rewinding to zero would create a
             // broken second presentation pass.
-            RunReplayPredictionRevealClock& revealClock = replayRuntime.Prediction().revealClock;
-            revealClock.deterministicFrameEnabled = true;
-            revealClock.deterministicFrame = 0;
-            revealClock.presentedFrame = 0;
+            replayRuntime.PredictionOwner().ArmDeterministicReveal( 0, true );
             AppendReportAction( state,
                                 frame,
                                 action.type,
