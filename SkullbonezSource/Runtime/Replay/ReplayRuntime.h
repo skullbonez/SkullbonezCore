@@ -576,6 +576,7 @@ class ReplayRuntime
 
   private:
     void ApplyAuthoringPredictionRequest();
+    void ApplyPredictionUpdateResult( const ReplayPredictionUpdateResult& result );
     void ReportLatestCaptureMismatch();
     void AppendSolverTrajectorySampleToStore( const ReplaySolverFrameSample& sample );
     bool RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransaction& transaction,

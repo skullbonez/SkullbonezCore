@@ -15,7 +15,7 @@ plan inventory.
 | Current objective | Reclose replay M3-M7 ownership findings from mandatory M8 review, with the unchanged frame-exact 200-box gate after every task |
 | Portfolio progress | 322 / 336 tasks = 96% rounded overall |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-14: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | M3-M7 remain reopened by M8 review. The fourteenth remediation checkpoint moved reveal, future-tree/trajectory, and marker-cache preparation before overlay traversal; live and CPU-only projection paths now issue one explicit prepare command, and rendering borrows prediction state as `const`. The corrected exact one-process oracle passed in 464.1 seconds (2,401 ticks, 200 moved, 187 strict topples, 199 causal nodes, one generation, one presentation, durable reconstruction, all controls), and the 112.1-second full CPU/Profile/Debug/DX12/physics gate passed with zero warnings/DX12 errors and byte-exact physics. No baseline changed. |
+| Validation for current edits | M3-M7 remain reopened by M8 review. The fifteenth remediation checkpoint deleted mutable `ReplayPrediction::State()` access: scheduling, preparation, archives, and trajectory mutation now use owner commands, while bounded value effects replace runtime reach-back. The exact one-process oracle passed in 469.7 seconds (2,401 ticks, 200 moved, 187 strict topples, 199 causal nodes, one generation, one presentation, durable reconstruction, zero reserve growth, all controls), and the 111.7-second full CPU/Profile/Debug/DX12/physics gate passed with zero warnings/DX12 errors and byte-exact physics. No baseline changed. |
 
 ## Live Queue
 
@@ -126,10 +126,9 @@ plan inventory.
 
 Run the repository-local orchestrator against
 `Plans/TODO/replay-monolith-decomposition.md` reopened M3-M7. Presentation
-drawing is now read-only; next move the new preparation command and scheduling
-helpers fully onto `ReplayPrediction` so its mutable `State()` accessor can be
-deleted, then physically separate prediction scheduling from presentation
-drawing. Remove the replay root from external frame views and make probes
-consume published views/owner commands. Reclose each task only after its
-unchanged one-presentation 200-box oracle, then repeat M8's independent
-ownership review.
+drawing is now read-only and prediction state is private; next physically
+separate prediction scheduling from presentation drawing, then remove mutable
+presentation/root accessors. Remove the replay root from external frame views
+and make probes consume published views/owner commands. Reclose each task only
+after its unchanged one-presentation 200-box oracle, then repeat M8's
+independent ownership review.

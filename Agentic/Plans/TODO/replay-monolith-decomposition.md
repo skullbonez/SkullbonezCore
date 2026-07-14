@@ -689,6 +689,28 @@ Fourteenth ownership-remediation checkpoint after that review:
   state, the physical prediction/presentation split, presentation/root
   accessors, and external frame/probe root closure.
 
+Fifteenth ownership-remediation checkpoint after that review:
+
+- `ReplayPrediction::State()` is now const-only. Prediction scheduling,
+  completion, presentation preparation, archive IO, and past-trajectory
+  mutation execute through owner commands; no caller can borrow the owner's
+  mutable aggregate.
+- Scheduler and preparation helpers no longer reach back through
+  `ReplayRuntime`. They consume sampled solver/scrubber/target values and emit
+  a bounded `ReplayPredictionUpdateResult`; the composition root applies only
+  the resulting target repair, scrubber pin, and telemetry increments after
+  the owner returns.
+- Formatting and a zero-warning Profile build passed. The unchanged one-
+  process oracle passed in 469.7 seconds with 2,401 exact ticks, 200 moved
+  bricks, 187 strict grounded sleepers, 199 causal nodes, one generation, one
+  presentation, durable reconstruction, zero reserve growth, and every false-
+  pass control. The 111.7-second full gate passed every CPU/Profile/Debug/
+  DX12/physics lane with zero DX12 validation errors, matching screenshots,
+  and the 44,401-line byte-exact varied baseline. No baseline changed. The
+  touched-source comment audit inspected 4/4 files with zero deferred or
+  unchecked. M3-M7 remain open for the physical prediction/presentation split,
+  presentation/root accessors, and external frame/probe root closure.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |

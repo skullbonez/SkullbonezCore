@@ -971,6 +971,47 @@ void ReplayPrediction::SetEnabled( bool enabled ) noexcept
 }
 
 
+void ReplayPrediction::ApplyAuthoringRequest( bool enablePrediction,
+                                              bool refreshPrediction,
+                                              float minHorizonSeconds,
+                                              float maxHorizonSeconds ) noexcept
+{
+    if ( enablePrediction )
+    {
+        m_state.enabled = true;
+        m_state.simulation.horizonSeconds =
+            std::clamp( m_state.simulation.horizonSeconds, minHorizonSeconds, maxHorizonSeconds );
+    }
+    if ( refreshPrediction )
+    {
+        MarkDirty();
+    }
+}
+
+
+void ReplayPrediction::DisableAndClearCache()
+{
+    m_state.enabled = false;
+    ClearCache();
+}
+
+
+bool ReplayPrediction::LoadArchive( std::span<const uint8_t> bytes,
+                                    RunReplayPathVisualizerState& pathVisualizer,
+                                    char* outReason,
+                                    std::size_t reasonSize )
+{
+    return LoadReplayPredictionArchive( bytes, pathVisualizer, m_state, outReason, reasonSize );
+}
+
+
+bool ReplayPrediction::BuildArchive( const RunReplayPathVisualizerState& pathVisualizer,
+                                     std::vector<uint8_t>& outBytes ) const
+{
+    return BuildReplayPredictionArchive( pathVisualizer, m_state, outBytes );
+}
+
+
 void ReplayPrediction::SetHorizonSeconds( float horizonSeconds ) noexcept
 {
     if ( m_state.simulation.horizonSeconds == horizonSeconds )
@@ -1402,18 +1443,10 @@ std::span<const RunReplayPredictionFrame> ReplayRuntime::ActivePredictionFrames(
 void ReplayRuntime::ApplyAuthoringPredictionRequest()
 {
     const ReplayAuthoringPredictionRequest request = m_authoring.TakePredictionRequest();
-    if ( request.enablePrediction )
-    {
-        m_predictionOwner.State().enabled = true;
-        m_predictionOwner.State().simulation.horizonSeconds =
-            std::clamp( m_predictionOwner.State().simulation.horizonSeconds,
-                        ReplayOverlay::REPLAY_PREDICTION_MIN_SECONDS,
-                        ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS );
-    }
-    if ( request.refreshPrediction )
-    {
-        m_predictionOwner.MarkDirty();
-    }
+    m_predictionOwner.ApplyAuthoringRequest( request.enablePrediction,
+                                             request.refreshPrediction,
+                                             ReplayOverlay::REPLAY_PREDICTION_MIN_SECONDS,
+                                             ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS );
 }
 
 void ReplayRuntime::NotifyVelocityEditApplied()
@@ -1438,11 +1471,7 @@ bool ReplayRuntime::LoadPredictionArchiveForVerification( std::span<const uint8_
                                                           char* outReason,
                                                           std::size_t reasonSize )
 {
-    return LoadReplayPredictionArchive( bytes,
-                                        m_visualPresentation.PathVisualizer(),
-                                        m_predictionOwner.State(),
-                                        outReason,
-                                        reasonSize );
+    return m_predictionOwner.LoadArchive( bytes, m_visualPresentation.PathVisualizer(), outReason, reasonSize );
 }
 
 
@@ -1650,8 +1679,7 @@ bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionCont
     m_scrubberOwner.HideSurface();
     ClearCameraFocusForRestore();
     ClearPathVisualizerState();
-    m_predictionOwner.State().enabled = false;
-    m_predictionOwner.ClearCache();
+    m_predictionOwner.DisableAndClearCache();
     m_authoring.ResetVelocityEdit();
     m_authoring.ResetCauseTreeRows();
     return exitInspectionCamera;
@@ -1855,7 +1883,7 @@ bool ReplayRuntime::ArmLoadedPresentationScrubber( float normalized, double now 
     }
 
     ClearPathVisualizerState();
-    m_predictionOwner.State().enabled = false;
+    m_predictionOwner.DisableForLiveAdvance();
     m_authoring.ResetVelocityEdit();
     m_scrubberOwner.ArmLoadedPresentation( normalized, now, ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS );
     return true;
@@ -2107,52 +2135,50 @@ ReplayFrameIndex ReplayRuntime::NextEventFrameIndex() const
     return presentationStats.nextFrameIndex;
 }
 
-void ReplayRuntime::RefreshPastTrajectoryStoreFromSolverSamples()
+void ReplayPrediction::RefreshPastTrajectoryStore( const ReplaySolverRecorder& solver,
+                                                   RunReplayPathVisualizerState& pathVisualizer )
 {
-    if ( !m_visualPresentation.PathVisualizer().hasTarget || m_visualPresentation.PathVisualizer().targetId.value == 0 )
+    if ( !pathVisualizer.hasTarget || pathVisualizer.targetId.value == 0 )
     {
-        m_visualPresentation.PathVisualizer().pastTrajectory = RunReplayPastTrajectoryBuildState{};
+        pathVisualizer.pastTrajectory = RunReplayPastTrajectoryBuildState{};
         return;
     }
 
-    const ReplayRecorderStats stats = m_timeline.Solver().GetStats();
+    const ReplayRecorderStats stats = solver.GetStats();
     if ( !stats.enabled || stats.sampleCount == 0 || stats.nextFrameIndex == 0 )
     {
-        m_visualPresentation.PathVisualizer().pastTrajectory = RunReplayPastTrajectoryBuildState{};
+        pathVisualizer.pastTrajectory = RunReplayPastTrajectoryBuildState{};
         return;
     }
 
     const ReplayFrameIndex oldestFrame = ReplayOldestFrameFromStats( stats );
     const ReplayFrameIndex newestFrame = stats.nextFrameIndex - 1u;
-    const bool needsRebuild =
-        !m_visualPresentation.PathVisualizer().pastTrajectory.valid ||
-        m_visualPresentation.PathVisualizer().pastTrajectory.targetId.value !=
-            m_visualPresentation.PathVisualizer().targetId.value ||
-        m_visualPresentation.PathVisualizer().pastTrajectory.totalFramesEvicted != stats.totalFramesEvicted ||
-        m_visualPresentation.PathVisualizer().pastTrajectory.firstFrame != oldestFrame ||
-        m_visualPresentation.PathVisualizer().pastTrajectory.builtThroughFrame < newestFrame;
+    const bool needsRebuild = !pathVisualizer.pastTrajectory.valid ||
+                              pathVisualizer.pastTrajectory.targetId.value != pathVisualizer.targetId.value ||
+                              pathVisualizer.pastTrajectory.totalFramesEvicted != stats.totalFramesEvicted ||
+                              pathVisualizer.pastTrajectory.firstFrame != oldestFrame ||
+                              pathVisualizer.pastTrajectory.builtThroughFrame < newestFrame;
     if ( !needsRebuild )
     {
         return;
     }
 
     const int frameNumber = static_cast<int>( (std::min)( newestFrame, static_cast<ReplayFrameIndex>( INT_MAX ) ) );
-    ReplayTrajectoryRecord* record =
-        BeginReplayPastRootTrajectoryRecord( m_predictionOwner.State().trajectoryStore,
-                                             m_visualPresentation.PathVisualizer().targetId,
-                                             stats.sampleCount,
-                                             frameNumber );
+    ReplayTrajectoryRecord* record = BeginReplayPastRootTrajectoryRecord( m_state.trajectoryStore,
+                                                                          pathVisualizer.targetId,
+                                                                          stats.sampleCount,
+                                                                          frameNumber );
     if ( !record )
     {
-        m_visualPresentation.PathVisualizer().pastTrajectory = RunReplayPastTrajectoryBuildState{};
+        pathVisualizer.pastTrajectory = RunReplayPastTrajectoryBuildState{};
         return;
     }
 
     ReplayPastRootRebuildContext rebuild;
-    rebuild.store = &m_predictionOwner.State().trajectoryStore;
+    rebuild.store = &m_state.trajectoryStore;
     rebuild.record = record;
-    const bool traversalOk = m_timeline.Solver().ForEachBodyPositionChronological(
-        m_visualPresentation.PathVisualizer().targetId,
+    const bool traversalOk = solver.ForEachBodyPositionChronological(
+        pathVisualizer.targetId,
         [&]( ReplayFrameIndex frameIndex, Physics::ModelRowHint modelRow, const Math::Vector::Vector3& position )
         {
             if ( !rebuild.ok )
@@ -2172,18 +2198,24 @@ void ReplayRuntime::RefreshPastTrajectoryStoreFromSolverSamples()
         } );
     if ( !traversalOk || !rebuild.ok || !rebuild.hasSample )
     {
-        m_visualPresentation.PathVisualizer().pastTrajectory = RunReplayPastTrajectoryBuildState{};
+        pathVisualizer.pastTrajectory = RunReplayPastTrajectoryBuildState{};
         return;
     }
 
     record->firstFrame = rebuild.firstFrame;
-    m_visualPresentation.PathVisualizer().targetModelRow.value = rebuild.targetModelRow.value;
-    m_visualPresentation.PathVisualizer().pastTrajectory.targetId = m_visualPresentation.PathVisualizer().targetId;
-    m_visualPresentation.PathVisualizer().pastTrajectory.firstFrame = oldestFrame;
-    m_visualPresentation.PathVisualizer().pastTrajectory.builtThroughFrame = newestFrame;
-    m_visualPresentation.PathVisualizer().pastTrajectory.totalFramesEvicted = stats.totalFramesEvicted;
-    ++m_visualPresentation.PathVisualizer().pastTrajectory.fullRebuildCount;
-    m_visualPresentation.PathVisualizer().pastTrajectory.valid = true;
+    pathVisualizer.targetModelRow.value = rebuild.targetModelRow.value;
+    pathVisualizer.pastTrajectory.targetId = pathVisualizer.targetId;
+    pathVisualizer.pastTrajectory.firstFrame = oldestFrame;
+    pathVisualizer.pastTrajectory.builtThroughFrame = newestFrame;
+    pathVisualizer.pastTrajectory.totalFramesEvicted = stats.totalFramesEvicted;
+    ++pathVisualizer.pastTrajectory.fullRebuildCount;
+    pathVisualizer.pastTrajectory.valid = true;
+}
+
+
+void ReplayRuntime::RefreshPastTrajectoryStoreFromSolverSamples()
+{
+    m_predictionOwner.RefreshPastTrajectoryStore( m_timeline.Solver(), m_visualPresentation.PathVisualizer() );
 }
 
 // Concept: capture mismatch diagnostics compare the newest paired presentation
@@ -2233,67 +2265,68 @@ void ReplayRuntime::ReportLatestCaptureMismatch()
     }
 }
 
-void ReplayRuntime::AppendSolverTrajectorySampleToStore( const ReplaySolverFrameSample& sample )
+void ReplayPrediction::AppendPastTrajectorySample( const ReplayRecorderStats& solverStats,
+                                                   RunReplayPathVisualizerState& pathVisualizer,
+                                                   const ReplaySolverFrameSample& sample )
 {
-    if ( !m_visualPresentation.PathVisualizer().hasTarget ||
-         m_visualPresentation.PathVisualizer().targetId.value == 0 ||
-         !m_visualPresentation.PathVisualizer().pastTrajectory.valid ||
-         m_visualPresentation.PathVisualizer().pastTrajectory.targetId.value !=
-             m_visualPresentation.PathVisualizer().targetId.value )
+    if ( !pathVisualizer.hasTarget || pathVisualizer.targetId.value == 0 || !pathVisualizer.pastTrajectory.valid ||
+         pathVisualizer.pastTrajectory.targetId.value != pathVisualizer.targetId.value )
     {
         return;
     }
 
-    const ReplayRecorderStats stats = m_timeline.Solver().GetStats();
-    ReplayTrajectoryRecord* record = m_predictionOwner.State().trajectoryStore.FindRecord(
-        ReplayPastRootTrajectoryKey( m_visualPresentation.PathVisualizer().targetId ) );
+    ReplayTrajectoryRecord* record =
+        m_state.trajectoryStore.FindRecord( ReplayPastRootTrajectoryKey( pathVisualizer.targetId ) );
     if ( !record )
     {
-        m_visualPresentation.PathVisualizer().pastTrajectory.valid = false;
+        pathVisualizer.pastTrajectory.valid = false;
         return;
     }
 
-    const ReplayFrameIndex oldestFrame = ReplayOldestFrameFromStats( stats );
-    if ( m_visualPresentation.PathVisualizer().pastTrajectory.totalFramesEvicted != stats.totalFramesEvicted ||
-         m_visualPresentation.PathVisualizer().pastTrajectory.firstFrame != oldestFrame )
+    const ReplayFrameIndex oldestFrame = ReplayOldestFrameFromStats( solverStats );
+    if ( pathVisualizer.pastTrajectory.totalFramesEvicted != solverStats.totalFramesEvicted ||
+         pathVisualizer.pastTrajectory.firstFrame != oldestFrame )
     {
         // Why: ring eviction advances every live capture once retention is
         // full. Slide the already-published record in place; rebuilding compact
         // solver history here would reconstruct every world snapshot and would
         // also replace the record version that prevents path flicker.
-        m_predictionOwner.State().trajectoryStore.TrimPublishedPointsBeforeFrame( *record, oldestFrame );
-        m_visualPresentation.PathVisualizer().pastTrajectory.firstFrame = oldestFrame;
-        m_visualPresentation.PathVisualizer().pastTrajectory.totalFramesEvicted = stats.totalFramesEvicted;
-        ++m_visualPresentation.PathVisualizer().pastTrajectory.incrementalTrimCount;
+        m_state.trajectoryStore.TrimPublishedPointsBeforeFrame( *record, oldestFrame );
+        pathVisualizer.pastTrajectory.firstFrame = oldestFrame;
+        pathVisualizer.pastTrajectory.totalFramesEvicted = solverStats.totalFramesEvicted;
+        ++pathVisualizer.pastTrajectory.incrementalTrimCount;
     }
-    if ( sample.frameIndex <= m_visualPresentation.PathVisualizer().pastTrajectory.builtThroughFrame )
+    if ( sample.frameIndex <= pathVisualizer.pastTrajectory.builtThroughFrame )
     {
         return;
     }
 
     const ReplaySolverBodySample* body =
-        FindReplayBodyByIdWithHint( sample,
-                                    m_visualPresentation.PathVisualizer().targetId,
-                                    m_visualPresentation.PathVisualizer().targetModelRow.value );
+        FindReplayBodyByIdWithHint( sample, pathVisualizer.targetId, pathVisualizer.targetModelRow.value );
     if ( !body )
     {
         // The frame was inspected even when the selected body no longer exists;
         // do not trigger a full historical rebuild on the next render pass.
-        m_visualPresentation.PathVisualizer().pastTrajectory.builtThroughFrame = sample.frameIndex;
+        pathVisualizer.pastTrajectory.builtThroughFrame = sample.frameIndex;
         return;
     }
 
-    if ( !AppendReplayPastRootTrajectoryPoint( m_predictionOwner.State().trajectoryStore,
-                                               *record,
-                                               sample.frameIndex,
-                                               body->position ) )
+    if ( !AppendReplayPastRootTrajectoryPoint( m_state.trajectoryStore, *record, sample.frameIndex, body->position ) )
     {
-        m_visualPresentation.PathVisualizer().pastTrajectory.valid = false;
+        pathVisualizer.pastTrajectory.valid = false;
         return;
     }
 
-    m_visualPresentation.PathVisualizer().targetModelRow.value = body->modelRow.value;
-    m_visualPresentation.PathVisualizer().pastTrajectory.builtThroughFrame = sample.frameIndex;
+    pathVisualizer.targetModelRow.value = body->modelRow.value;
+    pathVisualizer.pastTrajectory.builtThroughFrame = sample.frameIndex;
+}
+
+
+void ReplayRuntime::AppendSolverTrajectorySampleToStore( const ReplaySolverFrameSample& sample )
+{
+    m_predictionOwner.AppendPastTrajectorySample( m_timeline.Solver().GetStats(),
+                                                  m_visualPresentation.PathVisualizer(),
+                                                  sample );
 }
 
 void ReplayRuntime::CaptureFrame( ReplayCaptureInput input )
@@ -3962,9 +3995,7 @@ bool ReplayRuntime::SavePresentationWithSolverHashes( const char* path,
 {
     std::vector<uint8_t> fallbackPredictionState;
     if ( !visualPackets.empty() && visualPredictionState.empty() &&
-         !BuildReplayPredictionArchive( m_visualPresentation.PathVisualizer(),
-                                        m_predictionOwner.State(),
-                                        fallbackPredictionState ) )
+         !m_predictionOwner.BuildArchive( m_visualPresentation.PathVisualizer(), fallbackPredictionState ) )
     {
         return false;
     }

@@ -27,6 +27,7 @@ Related:
 #include "ReplayVisualPacket.h"
 #include "TrajectoryStore.h"
 #include "../../Core/AmortizedTask.h"
+#include "../../Core/MainMemoryStats.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/PhysicsWorldForces.h"
 
@@ -46,8 +47,9 @@ class EngineConfig;
 }
 namespace Physics
 {
+class ColliderStore;
 class PhysicsEngine;
-}
+} // namespace Physics
 namespace Threading
 {
 class WorkerPool;
@@ -55,8 +57,10 @@ class WorkerPool;
 
 namespace Runtime
 {
-class ReplayRuntime;
+class SceneEntityStore;
 class ReplayPrediction;
+class ReplaySolverRecorder;
+struct RunReplayPathVisualizerState;
 // Concept: this named value operation keeps prediction slices typed through the
 // WorkerPool boundary. Its borrowed owners remain valid until cancellation
 // waits for the task's in-flight flag to clear.
@@ -335,13 +339,22 @@ struct ReplayPredictionPresentationView
     bool generationPermitted = true;
 };
 
+// Value-only effects emitted by prediction update/preparation for the
+// composition root to apply to the scrubber and presentation owners. Keeping
+// these counters out of callbacks prevents the private owner from reaching
+// back through ReplayRuntime while it advances a worker or cache publication.
+struct ReplayPredictionUpdateResult
+{
+    std::array<uint32_t, SkullbonezCore::Core::MAIN_MEMORY_REPLAY_BUDGET_PASS_COUNT> budgetExpiries = {};
+    std::array<uint32_t, SkullbonezCore::Core::MAIN_MEMORY_REPLAY_REBUILD_CAUSE_COUNT> rebuildCauses = {};
+    Physics::ModelRowHint repairedTargetModelRow;
+    bool targetModelRowRepaired = false;
+    bool pinSolverScrubberToPresent = false;
+};
+
 class ReplayPrediction
 {
   public:
-    RunReplayPredictionState& State() noexcept
-    {
-        return m_state;
-    }
     const RunReplayPredictionState& State() const noexcept
     {
         return m_state;
@@ -427,6 +440,11 @@ class ReplayPrediction
     // Owner commands used by validation and UI paths. These keep rebuild and
     // baseline invalidation coupled to the state transition that requires it.
     void SetEnabled( bool enabled ) noexcept;
+    void ApplyAuthoringRequest( bool enablePrediction,
+                                bool refreshPrediction,
+                                float minHorizonSeconds,
+                                float maxHorizonSeconds ) noexcept;
+    void DisableAndClearCache();
     // Play freezes the visible committed prefix and cancels any worker; unlike
     // an authored enable toggle, that transition must not request a rebuild.
     void DisableForLiveAdvance() noexcept
@@ -440,6 +458,45 @@ class ReplayPrediction
     void CommitVelocityMutation() noexcept;
     bool ReadyForDeterministicReveal() const noexcept;
     void ArmDeterministicReveal( ReplayFrameIndex frame, bool resetPresentedFrame ) noexcept;
+    void RunWorkerRange( const SkullbonezCore::Core::EngineConfig& config,
+                         Threading::WorkerPool& workerPool,
+                         int modelCount,
+                         int beginTickIndex,
+                         int endTickIndex );
+    void UpdateFrame( Physics::PhysicsEngine& physicsEngine,
+                      const SceneEntityStore& entities,
+                      const SkullbonezCore::Core::EngineConfig& config,
+                      const Physics::PhysicsWorldForces& worldForces,
+                      Threading::WorkerPool& workerPool,
+                      const ReplaySolverFrameSample* latestSolverSample,
+                      ReplayBodyId targetId,
+                      Physics::ModelRowHint targetModelRow,
+                      bool targetAvailable,
+                      bool liveAdvanceHeld,
+                      bool historicalSamplePaused,
+                      float solverTrackPosition,
+                      float solverPresentTrackPosition,
+                      bool scenePhysics,
+                      double fallbackSourceSimulationSeconds,
+                      double simulationTotalSeconds,
+                      double budgetMilliseconds,
+                      ReplayPredictionUpdateResult& result );
+    void PreparePresentation( const SceneEntityStore& entities,
+                              const Physics::ColliderStore& colliderStore,
+                              ReplayBodyId targetId,
+                              Physics::ModelRowHint targetModelRow,
+                              bool targetAvailable,
+                              double budgetMilliseconds,
+                              ReplayPredictionUpdateResult& result );
+    bool LoadArchive( std::span<const uint8_t> bytes,
+                      RunReplayPathVisualizerState& pathVisualizer,
+                      char* outReason,
+                      std::size_t reasonSize );
+    bool BuildArchive( const RunReplayPathVisualizerState& pathVisualizer, std::vector<uint8_t>& outBytes ) const;
+    void RefreshPastTrajectoryStore( const ReplaySolverRecorder& solver, RunReplayPathVisualizerState& pathVisualizer );
+    void AppendPastTrajectorySample( const ReplayRecorderStats& solverStats,
+                                     RunReplayPathVisualizerState& pathVisualizer,
+                                     const ReplaySolverFrameSample& sample );
 
   private:
     RunReplayPredictionState m_state;
