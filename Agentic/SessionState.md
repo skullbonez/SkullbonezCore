@@ -15,7 +15,7 @@ plan inventory.
 | Current objective | Reclose replay M3-M7 ownership findings from mandatory M8 review, with the unchanged frame-exact 200-box gate after every task |
 | Active/future progress | 3 / 16 tasks = 19% rounded overall (decomposition + spline plans only; completed past plans and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-14: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | The twenty-fourth remediation checkpoint moved all event encoding into the recorder domain and replaced six public event/frame APIs with one immutable `SubmitEvent` command seam. Profile build (21.8s), formatting, the unchanged replay oracle (471.0s), scrub exit-37 propagation, and the full CPU/Profile/Debug/DX12/physics gate (115.7s) passed with zero warnings/DX12 errors and byte-exact physics. M3-M7 remain open; no baseline changed. |
+| Validation for current edits | The twenty-fifth remediation checkpoint moved every remaining `ReplayPresentation` implementation and its render-pose helpers out of the replay root; `ReplayRuntime.cpp` fell from 3,108 to 2,440 lines and now defines no presentation-owner method. Profile build (13.5s), formatting, the unchanged replay oracle (470.1s), scrub exit-37 propagation, and the full CPU/Profile/Debug/DX12/physics gate (111.2s) passed with zero warnings/DX12 errors and byte-exact physics. M3-M7 remain open; no baseline changed. |
 
 ## Live Queue
 

@@ -121,14 +121,14 @@ validation-gate V3 remains externally blocked.
 2. **Replay monolith decomposition — active.** Execute M0-M8 on
    `nightrunner-14th-july`. Every task,
    including documentation inventory, reruns the unchanged 200-box gate before
-   it may be checked or committed. Checkpoint `b4b13749` publishes typed
-   render/automation views, removes automation reach-back into the mutable
-   replay root, moves scrub/restore/save probe lifecycle state into
-   `ReplayProbeRunner`, and gives `ReplayTimeline` its owner-named translation
-   unit. Destination-branch provenance passed on `nightrunner-14th-july`
-   before source edits. The ledger remains 3/9 because the mandatory closure
-   review still requires startup-probe execution, external input routing,
-   remaining root forwarding, and owner-file cleanup to close.
+   it may be checked or committed. Remediation checkpoint 25 has moved all
+   prediction and presentation owner implementations into their owner-named
+   translation units, replaced root event encoding with one immutable recorder
+   command, and reduced `ReplayRuntime.cpp` to 2,440 lines. Destination-branch
+   provenance and every per-checkpoint gate passed on
+   `nightrunner-14th-july`. The ledger remains 3/9 because the mandatory closure
+   review still requires startup-probe execution, external input routing, and
+   the remaining broad root API to close.
 3. **Future-path vector splines — live independent presentation lane
    (2026-07-14 owner request).** `TODO/future-path-vector-splines.md` (T1→T7)
    restyles the prediction view: near-black sky, thin anti-aliased

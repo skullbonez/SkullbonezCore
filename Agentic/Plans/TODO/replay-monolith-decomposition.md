@@ -991,6 +991,33 @@ Twenty-fourth ownership-remediation checkpoint after the first review:
   3/16, or 19%; completed past plans and externally blocked work are excluded
   from that percentage.
 
+Twenty-fifth ownership-remediation checkpoint after the first review:
+
+- Moved the remaining five `ReplayPresentation` implementations out of
+  `ReplayRuntime.cpp`: replay, solver, and prediction render-pose overrides,
+  prediction ghost request construction, and typed visual-packet publication
+  now live beside presentation-owned state in `ReplayPresentation.cpp`.
+- Moved the render-pose identity resolution, unmatched-body lookup, and
+  transient override helpers with those methods. The helpers have no
+  non-presentation callers, and the root no longer defines or reaches through
+  any `ReplayPresentation::*` implementation. `ReplayRuntime.cpp` fell from
+  3,108 to 2,440 lines without changing a public replay value or file format.
+- Formatting passed. A focused Profile build passed in 13.5 seconds with zero
+  warnings and zero errors, and the touched-source comment audit inspected 2/2
+  files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 470.1 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 111.2-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M3-M7 remain open for root-owned input, probe, and the remaining broad
+  external API surface. Active/future portfolio progress therefore remains
+  3/16, or 19%; this percentage covers active and future plans only and excludes
+  completed past plans and externally blocked work.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |

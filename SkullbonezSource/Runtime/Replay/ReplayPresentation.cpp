@@ -145,6 +145,74 @@ bool ReplayQueryIntersectRaySphere( const Math::Vector::Vector3& rayOrigin,
     return true;
 }
 
+bool ReplayPresentationModelIsRagdollPart(
+    std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
+    int modelIndex )
+{
+    // SimpleRagdoll children share replay visuals with their collection root.
+    // This helper keeps that policy beside the ghost requests it filters.
+    if ( modelIndex < 0 || modelIndex >= static_cast<int>( presentationRecords.size() ) )
+    {
+        return false;
+    }
+    return presentationRecords[static_cast<std::size_t>( modelIndex )].simpleRagdollPart;
+}
+
+const Physics::PhysicsBodyRecord* ReplayPresentationResolveReplayBody( const Physics::PhysicsBodyStore& bodyStore,
+                                                                       ReplayBodyId id,
+                                                                       int modelIndexHint,
+                                                                       int modelCount,
+                                                                       int& outModelIndex )
+{
+    outModelIndex = -1;
+    if ( id.value == 0 )
+    {
+        return nullptr;
+    }
+
+    // Invariant: replay artifacts carry model indices only as staleable hints.
+    // Stable identity is the replay id resolved through the live body handle map.
+    const Physics::PhysicsBodyHandle body = bodyStore.HandleForReplayBodyId( id.value, modelIndexHint );
+    const int modelIndex = bodyStore.ModelIndexForHandle( body );
+    const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
+    if ( !record || record->replayBodyId != id.value || modelIndex < 0 || modelIndex >= modelCount )
+    {
+        return nullptr;
+    }
+
+    outModelIndex = modelIndex;
+    return record;
+}
+
+const Physics::PhysicsBodyRecord* ReplayPresentationBodyRecordForModelIndex( const Physics::PhysicsBodyStore& bodyStore,
+                                                                             int modelIndex )
+{
+    const Physics::PhysicsBodyHandle body = bodyStore.HandleForModelIndex( modelIndex );
+    const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
+    if ( !record || bodyStore.ModelIndexForHandle( body ) != modelIndex || record->replayBodyId == 0 )
+    {
+        return nullptr;
+    }
+    return record;
+}
+
+bool ReplayPresentationQueueRenderPoseOverride( Rendering::RenderInstanceStore& renderInstances,
+                                                const Physics::PhysicsBodyStore& bodyStore,
+                                                const Physics::ColliderStore& colliderStore,
+                                                ReplayBodyId replayBodyId,
+                                                const Math::Vector::Vector3& position,
+                                                const Math::Orientation::Quaternion& orientation )
+{
+    const Physics::PhysicsBodyHandle body = bodyStore.HandleForReplayBodyId( replayBodyId.value );
+    const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
+    const int modelIndex = bodyStore.ModelIndexForHandle( body );
+    if ( !record || record->replayBodyId != replayBodyId.value || modelIndex < 0 )
+    {
+        return false;
+    }
+    return renderInstances.OverridePose( modelIndex, replayBodyId.value, position, orientation, colliderStore );
+}
+
 RunReplayPathTarget* FindReplayQueryPathTarget( RunReplayPathVisualizerState& visualizer, ReplayBodyId id )
 {
     for ( RunReplayPathTarget& target : visualizer.targets )
@@ -710,6 +778,349 @@ bool ReplayPresentation::HasPredictionGhostDrawRequests() const noexcept
 }
 
 
+// Concept: render replay poses are temporary render-instance overrides.
+//
+// Scrubbing should affect only the pixels drawn for this frame. These methods
+// apply replay or prediction poses to a freshly prepared render-instance
+// snapshot; live physics rows and authored presentation metadata are not
+// mutated and therefore need no restore.
+bool ReplayPresentation::ApplyPresentationSampleForRender( Rendering::RenderInstanceStore& renderInstances,
+                                                           const Physics::PhysicsBodyStore& bodyStore,
+                                                           const Physics::ColliderStore& colliderStore,
+                                                           const ReplayPresentationSample& sample )
+{
+    const int modelCount = renderInstances.Count();
+    if ( !PrepareRenderPoseBodyMatch( modelCount ) )
+    {
+        return false;
+    }
+    bool queuedAny = false;
+
+    for ( const ReplayBodyPresentationSample& body : sample.bodies )
+    {
+        int resolvedModelIndex = -1;
+        if ( !ReplayPresentationResolveReplayBody( bodyStore, body.id, -1, modelCount, resolvedModelIndex ) )
+        {
+            continue;
+        }
+
+        Math::Orientation::Quaternion orientation( body.orientation[0],
+                                                   body.orientation[1],
+                                                   body.orientation[2],
+                                                   body.orientation[3] );
+        orientation.Normalise();
+        if ( ReplayPresentationQueueRenderPoseOverride( renderInstances,
+                                                        bodyStore,
+                                                        colliderStore,
+                                                        body.id,
+                                                        body.position,
+                                                        orientation ) )
+        {
+            MarkRenderPoseBodyMatched( resolvedModelIndex );
+            queuedAny = true;
+        }
+    }
+
+    const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        const std::size_t bodyIndex = static_cast<std::size_t>( i );
+        if ( RenderPoseBodyMatched( static_cast<int>( bodyIndex ) ) )
+        {
+            continue;
+        }
+
+        const Physics::PhysicsBodyRecord* bodyRecord = ReplayPresentationBodyRecordForModelIndex( bodyStore, i );
+        if ( !bodyRecord )
+        {
+            continue;
+        }
+
+        // Why: loaded artifacts may not contain every live body. Move unmatched
+        // bodies out of view instead of letting unrelated live geometry appear
+        // inside the scrubbed replay frame.
+        ReplayBodyId replayBodyId{ bodyRecord->replayBodyId };
+        if ( ReplayPresentationQueueRenderPoseOverride( renderInstances,
+                                                        bodyStore,
+                                                        colliderStore,
+                                                        replayBodyId,
+                                                        hiddenReplayPosition,
+                                                        Math::Orientation::IDENTITY_QUATERNION ) )
+        {
+            queuedAny = true;
+        }
+    }
+    return queuedAny;
+}
+
+
+bool ReplayPresentation::ApplySolverSampleForRender( Rendering::RenderInstanceStore& renderInstances,
+                                                     const Physics::PhysicsBodyStore& bodyStore,
+                                                     const Physics::ColliderStore& colliderStore,
+                                                     const ReplaySolverFrameSample& sample )
+{
+    const int modelCount = renderInstances.Count();
+    if ( !PrepareRenderPoseBodyMatch( modelCount ) )
+    {
+        return false;
+    }
+    bool queuedAny = false;
+
+    for ( const ReplaySolverBodySample& body : sample.bodies )
+    {
+        int resolvedModelIndex = -1;
+        if ( !ReplayPresentationResolveReplayBody( bodyStore, body.id, -1, modelCount, resolvedModelIndex ) )
+        {
+            continue;
+        }
+
+        Math::Orientation::Quaternion orientation( body.orientation[0],
+                                                   body.orientation[1],
+                                                   body.orientation[2],
+                                                   body.orientation[3] );
+        orientation.Normalise();
+        if ( ReplayPresentationQueueRenderPoseOverride( renderInstances,
+                                                        bodyStore,
+                                                        colliderStore,
+                                                        body.id,
+                                                        body.position,
+                                                        orientation ) )
+        {
+            MarkRenderPoseBodyMatched( resolvedModelIndex );
+            queuedAny = true;
+        }
+    }
+
+    const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        const std::size_t bodyIndex = static_cast<std::size_t>( i );
+        if ( RenderPoseBodyMatched( static_cast<int>( bodyIndex ) ) )
+        {
+            continue;
+        }
+
+        const Physics::PhysicsBodyRecord* bodyRecord = ReplayPresentationBodyRecordForModelIndex( bodyStore, i );
+        if ( !bodyRecord )
+        {
+            continue;
+        }
+
+        ReplayBodyId replayBodyId{ bodyRecord->replayBodyId };
+        if ( ReplayPresentationQueueRenderPoseOverride( renderInstances,
+                                                        bodyStore,
+                                                        colliderStore,
+                                                        replayBodyId,
+                                                        hiddenReplayPosition,
+                                                        Math::Orientation::IDENTITY_QUATERNION ) )
+        {
+            queuedAny = true;
+        }
+    }
+    return queuedAny;
+}
+
+
+bool ReplayPresentation::ApplyPredictionFrameForRender( Rendering::RenderInstanceStore& renderInstances,
+                                                        const Physics::PhysicsBodyStore& bodyStore,
+                                                        const Physics::ColliderStore& colliderStore,
+                                                        const RunReplayPredictionFrame& frame )
+{
+    const int modelCount = renderInstances.Count();
+    if ( !PrepareRenderPoseBodyMatch( modelCount ) )
+    {
+        return false;
+    }
+    bool queuedAny = false;
+
+    for ( const RunReplayPredictionBodySample& body : frame.bodies )
+    {
+        int resolvedModelIndex = -1;
+        if ( !ReplayPresentationResolveReplayBody( bodyStore,
+                                                   body.id,
+                                                   body.modelRow.value,
+                                                   modelCount,
+                                                   resolvedModelIndex ) )
+        {
+            continue;
+        }
+
+        Math::Orientation::Quaternion orientation = body.orientation;
+        orientation.Normalise();
+        if ( ReplayPresentationQueueRenderPoseOverride( renderInstances,
+                                                        bodyStore,
+                                                        colliderStore,
+                                                        body.id,
+                                                        body.position,
+                                                        orientation ) )
+        {
+            MarkRenderPoseBodyMatched( resolvedModelIndex );
+            queuedAny = true;
+        }
+    }
+
+    const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        const std::size_t bodyIndex = static_cast<std::size_t>( i );
+        if ( RenderPoseBodyMatched( static_cast<int>( bodyIndex ) ) )
+        {
+            continue;
+        }
+
+        const Physics::PhysicsBodyRecord* bodyRecord = ReplayPresentationBodyRecordForModelIndex( bodyStore, i );
+        if ( !bodyRecord )
+        {
+            continue;
+        }
+
+        ReplayBodyId replayBodyId{ bodyRecord->replayBodyId };
+        if ( ReplayPresentationQueueRenderPoseOverride( renderInstances,
+                                                        bodyStore,
+                                                        colliderStore,
+                                                        replayBodyId,
+                                                        hiddenReplayPosition,
+                                                        Math::Orientation::IDENTITY_QUATERNION ) )
+        {
+            queuedAny = true;
+        }
+    }
+    return queuedAny;
+}
+
+
+bool ReplayPresentation::BuildPredictionGhostDrawRequests(
+    const ReplayPredictionPresentationView& prediction,
+    std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
+    const Physics::PhysicsBodyStore& bodyStore )
+{
+    ClearPredictionGhostDrawRequests();
+    const std::span<const RunReplayPredictionFrame> frames = prediction.frames;
+    const bool drawLivePrediction = prediction.enabled && prediction.ragdollVisualsEnabled && frames.size() >= 2;
+    const bool drawBaseline = prediction.baselineValid && prediction.baselineComparisonActive &&
+                              prediction.ragdollVisualsEnabled && !prediction.baselineBodyPoses.empty();
+
+    bool hasRagdollPart = false;
+    for ( int i = 0; i < static_cast<int>( presentationRecords.size() ); ++i )
+    {
+        if ( ReplayPresentationModelIsRagdollPart( presentationRecords, i ) )
+        {
+            hasRagdollPart = true;
+            break;
+        }
+    }
+    if ( !hasRagdollPart )
+    {
+        return false;
+    }
+
+    const std::size_t liveRequestCapacity =
+        drawLivePrediction
+            ? (std::min)( frames.size(), REPLAY_PREDICTION_GHOST_MAX_FRAMES + 1 ) * presentationRecords.size()
+            : 0u;
+    const std::size_t baselineRequestCapacity = drawBaseline ? prediction.baselineBodyPoses.size() : 0u;
+    if ( !CanAppendPredictionGhostDrawRequests( liveRequestCapacity + baselineRequestCapacity ) )
+    {
+        return false;
+    }
+
+    if ( drawBaseline )
+    {
+        for ( const ReplayPredictionBaselineBodyPose& pose : prediction.baselineBodyPoses )
+        {
+            if ( !pose.hasRestPose || pose.modelRow.value < 0 ||
+                 pose.modelRow.value >= static_cast<int>( presentationRecords.size() ) ||
+                 !ReplayPresentationModelIsRagdollPart( presentationRecords, pose.modelRow.value ) )
+            {
+                continue;
+            }
+
+            ReplayPredictionGhostDrawRequest request;
+            request.modelRow.value = pose.modelRow.value;
+            request.position = pose.restPosition;
+            request.orientation = pose.restOrientation;
+            request.orientation.Normalise();
+            request.alpha = 0.075f;
+            request.tintR = 0.28f;
+            request.tintG = 0.76f;
+            request.tintB = 1.0f;
+            request.tintStrength = 0.82f;
+            AppendPredictionGhostDrawRequest( request );
+        }
+    }
+
+    if ( !drawLivePrediction )
+    {
+        return HasPredictionGhostDrawRequests();
+    }
+
+    const std::size_t lastIndex = frames.size() - 1;
+    const std::size_t stride =
+        (std::max)( static_cast<std::size_t>( 1 ),
+                    ( lastIndex + REPLAY_PREDICTION_GHOST_MAX_FRAMES - 1 ) / REPLAY_PREDICTION_GHOST_MAX_FRAMES );
+    const ReplayFrameIndex lastFrame = frames.back().frameIndex;
+
+    auto appendGhostFrame = [&]( std::size_t index )
+    {
+        const RunReplayPredictionFrame& predictionFrame = frames[index];
+        if ( predictionFrame.frameIndex == 0 )
+        {
+            return;
+        }
+
+        const float t =
+            lastFrame > 0
+                ? std::clamp( static_cast<float>( predictionFrame.frameIndex ) / static_cast<float>( lastFrame ),
+                              0.0f,
+                              1.0f )
+                : 1.0f;
+        const float alpha = std::clamp( 0.055f + ( 1.0f - t ) * 0.105f, 0.045f, 0.18f );
+
+        for ( const RunReplayPredictionBodySample& body : predictionFrame.bodies )
+        {
+            int resolvedModelIndex = -1;
+            if ( !ReplayPresentationResolveReplayBody( bodyStore,
+                                                       body.id,
+                                                       body.modelRow.value,
+                                                       static_cast<int>( presentationRecords.size() ),
+                                                       resolvedModelIndex ) )
+            {
+                continue;
+            }
+
+            if ( !ReplayPresentationModelIsRagdollPart( presentationRecords, resolvedModelIndex ) )
+            {
+                continue;
+            }
+
+            ReplayPredictionGhostDrawRequest request;
+            request.modelRow.value = resolvedModelIndex;
+            request.position = body.position;
+            request.orientation = body.orientation;
+            request.orientation.Normalise();
+            request.alpha = alpha;
+            AppendPredictionGhostDrawRequest( request );
+        }
+    };
+
+    std::size_t farIndex = lastIndex;
+    if ( farIndex % stride != 0 )
+    {
+        appendGhostFrame( farIndex );
+        farIndex = ( farIndex / stride ) * stride;
+    }
+    for ( std::size_t index = farIndex; index >= stride; index -= stride )
+    {
+        appendGhostFrame( index );
+        if ( index == stride )
+        {
+            break;
+        }
+    }
+    return HasPredictionGhostDrawRequests();
+}
+
+
 bool ReplayPresentation::PrepareRenderPoseBodyMatch( int modelCount ) noexcept
 {
     if ( modelCount < 0 || modelCount > SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
@@ -768,6 +1179,34 @@ void ReplayPresentation::PublishVisualPacket( ReplayVisualPacket packet )
     // Lifetime: spans point into the tracer's fixed reserves and remain valid
     // until the next frame clears that tracer. No packet survives frame order.
     m_publishedVisualPacket = packet;
+}
+
+
+void ReplayPresentation::PublishVisualPacket( ReplayVisualPacket packet,
+                                              const ReplayPredictionPresentationView& prediction,
+                                              const ReplaySolverFrameSample* latestSolver,
+                                              uint64_t replayReserveGrowthEvents )
+{
+    packet.header.sourceFrame = prediction.sourceFrame;
+    packet.header.revealFrame = prediction.revealFrame;
+    packet.header.targetId = m_pathVisualizer.targetId;
+    packet.header.branchId = latestSolver ? latestSolver->branch.branchId : 0u;
+    packet.header.eventCursor = latestSolver ? latestSolver->eventCursor : 0u;
+    packet.header.topologyVersion = prediction.topologyVersion;
+    packet.header.publishedFrameCount = static_cast<uint32_t>( prediction.frames.size() );
+    packet.header.futureNodeCount = static_cast<uint32_t>( prediction.futureNodes.size() );
+    const std::span<const ReplayPredictionGhostDrawRequest> ghostRequests = PredictionGhostDrawRequestsView();
+    packet.header.ghostRequestCount = static_cast<uint32_t>( ghostRequests.size() );
+    packet.header.replayReserveGrowthEvents = replayReserveGrowthEvents;
+    packet.header.predictionEnabled = prediction.enabled;
+    packet.header.predictionBuilding = prediction.building;
+    packet.header.predictionComplete = prediction.complete;
+    packet.trajectoryRecords = prediction.trajectoryRecords;
+    packet.futureNodes = prediction.futureNodes;
+    packet.retainedMarkers = prediction.retainedMarkers;
+    packet.ghostRequests = ghostRequests;
+    packet.trajectoryDiagnostics = TrajectoryVisualStatsSnapshot();
+    PublishVisualPacket( packet );
 }
 
 
