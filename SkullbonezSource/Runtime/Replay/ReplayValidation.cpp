@@ -193,18 +193,69 @@ struct ReplaySaveProbeEventCoverageContext
 };
 
 
-template <typename RequestInteractiveScene>
+// Value-only replay effects emitted by the external save-probe fixture. The
+// fixture may mutate its temporary scene, but it cannot retain or call the
+// replay composition root; TickProbes applies these commands in event order.
+struct ReplaySaveProbeEventCommands
+{
+    bool requestInteractiveScene = false;
+
+    bool recordWorldOverride = false;
+    float previousGravity = 0.0f;
+    float previousFluidHeight = 0.0f;
+    float previousFluidDensity = 0.0f;
+    float gravity = 0.0f;
+    float fluidHeight = 0.0f;
+    float fluidDensity = 0.0f;
+
+    bool recordEditorPlace = false;
+    int placedObjectType = 0;
+    bool placedFixedObject = false;
+    bool placedAutoTerrainAlign = false;
+    int placedModelCountBefore = 0;
+    Vector3 placedTerrainPoint;
+    Vector3 placedScale;
+    float placedYawRadians = 0.0f;
+
+    bool recordEditorTransform = false;
+    int transformedModelIndex = -1;
+    uint32_t transformedReplayBodyId = 0;
+    Vector3 transformedPosition;
+    Quaternion transformedOrientation;
+    int transformedModelCount = 0;
+    int transformedScaleAxis = -1;
+    float transformedScaleFactor = 1.0f;
+
+    bool recordLauncherConfig = false;
+    float launcherImpulseStrength = 0.0f;
+    float launcherProjectileSpeed = 0.0f;
+
+    bool recordLauncherFire = false;
+    Vector3 launcherRayOrigin;
+    Vector3 launcherRayDirection;
+    Vector3 launcherCameraUp;
+    bool launcherProjectile = false;
+    int launcherModelCount = 0;
+};
+
+
 SkullbonezCore::Core::SbResult InjectReplaySaveProbeEventCoverage( ReplaySaveProbeEventCoverageContext& context,
-                                                                   ReplayRuntime& replayRuntime,
-                                                                   RequestInteractiveScene requestInteractiveScene )
+                                                                   ReplaySaveProbeEventCommands& commands )
 {
     const float currentGravity = context.world.GetGravity();
+    const float currentFluidHeight = context.world.GetFluidSurfaceHeight();
+    const float currentFluidDensity = context.world.GetFluidDensity();
     const float probeGravity = currentGravity != 0.0f ? currentGravity * 0.95f : -0.25f;
-    ApplyUIWorldOverride( context.world,
-                          replayRuntime,
-                          probeGravity,
-                          context.world.GetFluidSurfaceHeight(),
-                          context.world.GetFluidDensity() );
+    context.world.SetGravity( probeGravity );
+    context.world.SetFluidSurfaceHeight( currentFluidHeight );
+    context.world.SetFluidDensity( currentFluidDensity );
+    commands.recordWorldOverride = true;
+    commands.previousGravity = currentGravity;
+    commands.previousFluidHeight = currentFluidHeight;
+    commands.previousFluidDensity = currentFluidDensity;
+    commands.gravity = probeGravity;
+    commands.fluidHeight = currentFluidHeight;
+    commands.fluidDensity = currentFluidDensity;
     context.runtimeTools.Editor().placementScale = Vector3( 2.0f, 2.0f, 2.0f );
     context.runtimeTools.Editor().autoTerrainAlign = false;
     const int modelCountBeforePlace = context.models.SceneEntityCount();
@@ -222,18 +273,19 @@ SkullbonezCore::Core::SbResult InjectReplaySaveProbeEventCoverage( ReplaySavePro
     EditorObjectPlacementResult placementResult;
     if ( CanPlaceEditorObjectAtTerrainPoint( placementContext, placementRequest ) )
     {
-        requestInteractiveScene();
+        commands.requestInteractiveScene = true;
         PlaceEditorObjectAtTerrainPoint( placementContext, placementRequest, placementResult );
     }
     if ( placementResult.placed )
     {
-        replayRuntime.RecordEditorPlaceEvent( placementResult.objectType,
-                                              placementResult.fixedObject,
-                                              placementResult.autoTerrainAlign,
-                                              placementResult.modelCountBefore,
-                                              placementResult.terrainPoint,
-                                              placementResult.placementScale,
-                                              placementResult.placementYawRadians );
+        commands.recordEditorPlace = true;
+        commands.placedObjectType = placementResult.objectType;
+        commands.placedFixedObject = placementResult.fixedObject;
+        commands.placedAutoTerrainAlign = placementResult.autoTerrainAlign;
+        commands.placedModelCountBefore = placementResult.modelCountBefore;
+        commands.placedTerrainPoint = placementResult.terrainPoint;
+        commands.placedScale = placementResult.placementScale;
+        commands.placedYawRadians = placementResult.placementYawRadians;
         const PhysicsBodyRecord* placedBodyBeforeEdit =
             context.models.BodyStore().RecordForHandle( placementResult.placedBody );
         if ( !placedBodyBeforeEdit )
@@ -288,33 +340,30 @@ SkullbonezCore::Core::SbResult InjectReplaySaveProbeEventCoverage( ReplaySavePro
         {
             return ReplayProbeFailure( "replay save probe failed to capture edited body record" );
         }
-        replayRuntime.RecordEditorTransformEvent(
-            modelCountBeforePlace,
-            REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE,
-            placedBodyAfterEdit->replayBodyId,
-            placedBodyAfterEdit->position,
-            placedBodyAfterEdit->orientation,
-            context.models.SceneEntityCount(),
-            PROBE_SCALE_AXIS,
-            PROBE_SCALE_FACTOR );
+        commands.recordEditorTransform = true;
+        commands.transformedModelIndex = modelCountBeforePlace;
+        commands.transformedReplayBodyId = placedBodyAfterEdit->replayBodyId;
+        commands.transformedPosition = placedBodyAfterEdit->position;
+        commands.transformedOrientation = placedBodyAfterEdit->orientation;
+        commands.transformedModelCount = context.models.SceneEntityCount();
+        commands.transformedScaleAxis = PROBE_SCALE_AXIS;
+        commands.transformedScaleFactor = PROBE_SCALE_FACTOR;
     }
     context.runtimeTools.RayCastTest().projectileSpeed += 1.0f;
-    replayRuntime.RecordLauncherConfigEvent( 2u,
-                                             context.runtimeTools.RayCastTest().impulseStrength,
-                                             context.runtimeTools.RayCastTest().projectileSpeed );
+    commands.recordLauncherConfig = true;
+    commands.launcherImpulseStrength = context.runtimeTools.RayCastTest().impulseStrength;
+    commands.launcherProjectileSpeed = context.runtimeTools.RayCastTest().projectileSpeed;
     Vector3 rayOrigin;
     Vector3 rayDirection;
     Vector3 cameraUp;
     if ( context.runtimeTools.TryBuildLauncherCameraRay( &context.cameras, rayOrigin, rayDirection, cameraUp ) )
     {
-        replayRuntime.RecordLauncherFireEvent(
-            rayOrigin,
-            rayDirection,
-            cameraUp,
-            context.runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile,
-            context.runtimeTools.RayCastTest().impulseStrength,
-            context.runtimeTools.RayCastTest().projectileSpeed,
-            context.models.SceneEntityCount() );
+        commands.recordLauncherFire = true;
+        commands.launcherRayOrigin = rayOrigin;
+        commands.launcherRayDirection = rayDirection;
+        commands.launcherCameraUp = cameraUp;
+        commands.launcherProjectile = context.runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile;
+        commands.launcherModelCount = context.models.SceneEntityCount();
         // Why: RuntimeTools now fails closed unless Run has completed the cold
         // collection-to-store topology repair at the owner boundary.
         const bool launcherStoresReady = context.models.RepairPhysicsBodyAndColliderTopology();
@@ -2125,9 +2174,58 @@ ReplayProbeTickResult ReplayRuntime::TickProbes( const ReplayRestoreTransaction&
                 transaction.sampleOwners.sceneController,
                 transaction.sampleOwners.sceneController.Physics(),
                 topology.gameModelCapacity };
-            result.status = InjectReplaySaveProbeEventCoverage( eventCoverageContext,
-                                                                *this,
-                                                                [&result]() { result.enterInteractive = true; } );
+            ReplaySaveProbeEventCommands commands;
+            result.status = InjectReplaySaveProbeEventCoverage( eventCoverageContext, commands );
+            result.enterInteractive = result.enterInteractive || commands.requestInteractiveScene;
+
+            // Invariant: the external fixture returns facts only. Apply replay
+            // events here in the same order as the live actions so recorder
+            // sequence numbers and artifact bytes remain unchanged.
+            if ( commands.recordWorldOverride )
+            {
+                RecordWorldOverrideEvent( commands.previousGravity,
+                                          commands.previousFluidHeight,
+                                          commands.previousFluidDensity,
+                                          commands.gravity,
+                                          commands.fluidHeight,
+                                          commands.fluidDensity );
+            }
+            if ( commands.recordEditorPlace )
+            {
+                RecordEditorPlaceEvent( commands.placedObjectType,
+                                        commands.placedFixedObject,
+                                        commands.placedAutoTerrainAlign,
+                                        commands.placedModelCountBefore,
+                                        commands.placedTerrainPoint,
+                                        commands.placedScale,
+                                        commands.placedYawRadians );
+            }
+            if ( commands.recordEditorTransform )
+            {
+                RecordEditorTransformEvent(
+                    commands.transformedModelIndex,
+                    REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE,
+                    commands.transformedReplayBodyId,
+                    commands.transformedPosition,
+                    commands.transformedOrientation,
+                    commands.transformedModelCount,
+                    commands.transformedScaleAxis,
+                    commands.transformedScaleFactor );
+            }
+            if ( commands.recordLauncherConfig )
+            {
+                RecordLauncherConfigEvent( 2u, commands.launcherImpulseStrength, commands.launcherProjectileSpeed );
+            }
+            if ( commands.recordLauncherFire )
+            {
+                RecordLauncherFireEvent( commands.launcherRayOrigin,
+                                         commands.launcherRayDirection,
+                                         commands.launcherCameraUp,
+                                         commands.launcherProjectile,
+                                         commands.launcherImpulseStrength,
+                                         commands.launcherProjectileSpeed,
+                                         commands.launcherModelCount );
+            }
             break;
         }
         case ReplayProbeSaveAction::ValidateArtifact:

@@ -744,6 +744,28 @@ Sixteenth ownership-remediation checkpoint after that review:
   waive the remaining `RuntimeFrameInteractionView`, renderer/input, workspace
   packet, or validation-context findings.
 
+Seventeenth ownership-remediation checkpoint after that review:
+
+- The Debug save-probe fixture no longer receives `ReplayRuntime&` or a callback.
+  It mutates only its temporary scene and emits a fixed value packet containing
+  the five possible replay event commands plus the interactive-scene fact.
+  `ReplayRuntime::TickProbes` applies those commands in original event order at
+  the composition boundary, preserving recorder sequence and artifact bytes.
+- A focused Debug build passed in 29.3 seconds with zero warnings. Formatting
+  passed after a targeted formatter run, and the touched-source comment audit
+  inspected 1/1 file with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 483.2 seconds with 2,401 exact
+  ticks, 200 moved bricks, 187 strict grounded sleepers, 199 causal nodes, one
+  generation, one presentation, durable reconstruction, zero reserve growth,
+  and every false-pass control. The scrub alias propagated delegated exit 37
+  without launching an engine. The 114.2-second full gate passed all CPU,
+  Profile, Debug, DX12, and physics lanes with zero warnings, zero DX12 errors,
+  matching screenshots, and the 44,401-line byte-exact varied baseline. No
+  baseline changed.
+- M3-M7 remain open for startup-probe/root member execution, external input and
+  stress/scene/tool root dependencies, the broad workspace packet, remaining
+  root forwarding, and the repeated independent ownership review.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |

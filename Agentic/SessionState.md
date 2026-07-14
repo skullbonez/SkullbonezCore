@@ -15,7 +15,7 @@ plan inventory.
 | Current objective | Reclose replay M3-M7 ownership findings from mandatory M8 review, with the unchanged frame-exact 200-box gate after every task |
 | Active/future progress | 3 / 16 tasks = 19% rounded overall (decomposition + spline plans only; completed past plans and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-14: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | Fresh destination-branch provenance passed in 496.3 seconds before source edits: one engine, one generation, one presentation, 2,401 exact ticks, 200 moved bricks, 187 strict grounded sleepers, 199 causal nodes, durable reconstruction, zero reserve growth, and every false-pass control. M3-M7 remain reopened by M8 review; no baseline changed. |
+| Validation for current edits | The seventeenth remediation checkpoint removed the replay root and callback from the Debug save-probe fixture. Debug build (29.3s), formatting, the unchanged replay oracle (483.2s), scrub exit-37 propagation, and the full CPU/Profile/Debug/DX12/physics gate (114.2s) passed with zero warnings/DX12 errors and byte-exact physics. M3-M7 remain reopened; no baseline changed. |
 
 ## Live Queue
 
