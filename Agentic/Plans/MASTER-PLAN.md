@@ -118,8 +118,8 @@ concrete plan rows and counting it would duplicate tasks.
 | runtime-contract-enforcement | 5 | 5 | 100% |
 | adversarial-review-round-3 | 10 | 10 | 100% |
 | replay-visual-fidelity-mega-probe | 7 | 7 | 100% |
-| replay-monolith-decomposition | 6 | 9 | 67% |
-| **Portfolio total** | **325** | **329** | **99%** |
+| replay-monolith-decomposition | 7 | 9 | 78% |
+| **Portfolio total** | **326** | **329** | **99%** |
 
 ## Current Execution Priority
 
@@ -166,7 +166,7 @@ validation-gate V3 remains externally blocked.
 |---|---|---:|---|
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs merge-group proof, required branch protection, and trusted/ephemeral DX12 runner administration |
 | [replay-visual-fidelity-mega-probe](TODO/replay-visual-fidelity-mega-probe.md) | Complete | 7/7 | One engine, one prediction, 2,401 exact ticks, 187 grounded sleepers, durable CPU-only reconstruction, and adversarial closure approved |
-| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Active | 6/9 | M5 extracted authoring state and queued prediction refresh values with the unchanged mega oracle green; M6 extracts prediction |
+| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Active | 7/9 | M6 extracted private prediction ownership and a never-stored presentation view with mega, perf, and full gates green; M7 closes the Run/probe seam |
 
 ## Planned Architecture Work (2026-07-11 gap review)
 

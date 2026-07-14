@@ -88,7 +88,7 @@
       "patterns": [
         "Runtime::Allocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"
       ],
-      "owner": "Replay prediction working set",
+      "owner": "ReplayPrediction private working set",
       "phase": "replay",
       "reason": "Prediction frames, frame payload pools, private prediction engine storage, and trajectory records share one registered replay growth gate.",
       "cap": "ReplayRetainedMemory policy registers replay_prediction_working_set with a 256 MiB hard byte cap; measured combined high-water is 211,376,304 bytes.",
@@ -99,10 +99,10 @@
       "patterns": [
         "std::make_unique<PhysicsEngine>"
       ],
-      "owner": "Replay prediction working set",
+      "owner": "ReplayPrediction private working set",
       "phase": "replay",
       "reason": "The private prediction engine object is constructed lazily inside the replay reserve owner scope so normal runtime startup and perf-smoke paths do not pay PhysicsWorld reserve memory.",
-      "cap": "One PhysicsEngine instance retained by RunReplayPredictionState; its construction and copied store growth are counted under replay_prediction_working_set with the 256 MB hard cap.",
+      "cap": "One PhysicsEngine instance retained by ReplayPrediction; its construction and copied store growth are counted under replay_prediction_working_set with the 256 MB hard cap.",
       "removal_or_wrapper_plan": "Replace with a dedicated replay prediction arena/object factory if runtime allocation policy gains typed owner allocators; do not construct the private engine at startup."
     },
     {
@@ -110,7 +110,7 @@
       "patterns": [
         "std::make_unique<ReplayPredictionAmortizedTask>"
       ],
-      "owner": "Replay prediction working set",
+      "owner": "ReplayPrediction private working set",
       "phase": "replay",
       "reason": "The prediction worker task is constructed lazily with the private replay prediction build and retained only until the build completes or is cancelled.",
       "cap": "One AmortizedTask instance per active prediction build; construction runs under replay_prediction_working_set and is discarded by CancelPredictionJob or completion.",
@@ -821,10 +821,10 @@
         ".reserve(",
         ".resize("
       ],
-      "owner": "Replay static STL storage/growth surface",
+      "owner": "ReplayPrediction bounded build and presentation working set",
       "phase": "replay",
-      "reason": "Replay is the only approved runtime growth exception; these existing recorder, prediction, query, artifact, and trajectory buffers remain reviewed while runtime reserve owners and validation guard actual gameplay growth.",
-      "cap": "Replay hard caps and artifact sizes remain enforced by the replay reserve owners and validation gates.",
+      "reason": "ReplayPrediction builds private future frames, causal nodes, and publication payloads under the registered replay_prediction_working_set reserve owner.",
+      "cap": "ReplayPrediction growth is bounded by the replay_prediction_working_set 256 MiB hard cap and its per-container limits.",
       "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
     },
     {
@@ -832,10 +832,10 @@
       "patterns": [
         "std::vector<"
       ],
-      "owner": "Replay static STL storage/growth surface",
+      "owner": "ReplayPrediction trajectory publication store",
       "phase": "replay",
-      "reason": "Replay is the only approved runtime growth exception; these existing recorder, prediction, query, artifact, and trajectory buffers remain reviewed while runtime reserve owners and validation guard actual gameplay growth.",
-      "cap": "Replay hard caps and artifact sizes remain enforced by the replay reserve owners and validation gates.",
+      "reason": "ReplayPrediction owns trajectory records and their point buffers; growth is approved through the registered replay_prediction_working_set reserve path.",
+      "cap": "Trajectory records and points share ReplayPrediction's replay_prediction_working_set 256 MiB hard cap and explicit record/point limits.",
       "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
     },
     {

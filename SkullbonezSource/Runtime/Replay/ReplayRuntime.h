@@ -346,6 +346,7 @@ class ReplayRuntime
 
     RunReplayPredictionState& Prediction();
     const RunReplayPredictionState& Prediction() const;
+    ReplayPredictionPresentationView PredictionPresentationView() const;
     // Lifetime: the view borrows the active retained prediction buffer and is
     // valid only until replay prediction state mutates.
     std::span<const RunReplayPredictionFrame> ActivePredictionFrames() const;
@@ -804,10 +805,7 @@ class ReplayRuntime
     ReplayScrubber m_scrubberOwner;
     ReplayPresentation m_visualPresentation;
     ReplayAuthoring m_authoring;
-    RunReplayPredictionState m_prediction;
-    // Invariant: a replay-load probe reconstructs saved presentation only. It
-    // must never enter the future-simulation builder that created the artifact.
-    bool m_predictionGenerationPermitted = true;
+    ReplayPrediction m_predictionOwner;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

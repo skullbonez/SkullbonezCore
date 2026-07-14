@@ -304,7 +304,7 @@ void AddPredictionFrameCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCate
 
 uint64_t PredictionEngineMemoryBytes( const PhysicsEngine& engine )
 {
-    // Why: sizeof(m_prediction) only counts the unique_ptr. The private
+    // Why: sizeof the prediction state only counts the unique_ptr. The private
     // prediction engine owns physics stores and solver scratch that must remain
     // visible in the replay memory overlay.
     uint64_t bytes = static_cast<uint64_t>( sizeof( engine ) );
@@ -937,49 +937,55 @@ const RunReplayPathVisualizerState& ReplayRuntime::PathVisualizer() const
 
 RunReplayPredictionState& ReplayRuntime::Prediction()
 {
-    return m_prediction;
+    return m_predictionOwner.State();
 }
 
 const RunReplayPredictionState& ReplayRuntime::Prediction() const
 {
-    return m_prediction;
+    return m_predictionOwner.State();
+}
+
+ReplayPredictionPresentationView ReplayRuntime::PredictionPresentationView() const
+{
+    return m_predictionOwner.PresentationView();
 }
 
 std::span<const RunReplayPredictionFrame> ReplayRuntime::ActivePredictionFrames() const
 {
-    return ReplayRuntimeActivePredictionFrames( m_prediction );
+    return m_predictionOwner.ActiveFrames();
 }
 
 void ReplayRuntime::ClearPredictionFutureNodeCache()
 {
-    m_prediction.futureNodeCache.futureNodes.clear();
-    m_prediction.futureNodeCache.futureNodeBuildScratch.clear();
-    m_prediction.futureNodeCache.futureNodesBuiltFrameCount = 0;
-    m_prediction.futureNodeCache.futureNodesBuiltContactIndex = 0;
-    m_prediction.futureNodeCache.futureNodesBuiltTargetId = ReplayBodyId{};
-    m_prediction.futureNodeCache.futureNodesBuiltRagdollVisuals = m_prediction.ragdollVisualsEnabled;
-    m_prediction.futureNodeCache.futureNodesBuiltFromBuildFrames = false;
-    m_prediction.futureNodeCache.futureNodesCacheValid = false;
-    m_prediction.futureNodeCache.retainedMarkerCount = 0;
-    m_prediction.trajectoryBuild.childFrameCount = 0;
-    m_prediction.trajectoryBuild.builtNodeCount = 0;
+    m_predictionOwner.State().futureNodeCache.futureNodes.clear();
+    m_predictionOwner.State().futureNodeCache.futureNodeBuildScratch.clear();
+    m_predictionOwner.State().futureNodeCache.futureNodesBuiltFrameCount = 0;
+    m_predictionOwner.State().futureNodeCache.futureNodesBuiltContactIndex = 0;
+    m_predictionOwner.State().futureNodeCache.futureNodesBuiltTargetId = ReplayBodyId{};
+    m_predictionOwner.State().futureNodeCache.futureNodesBuiltRagdollVisuals =
+        m_predictionOwner.State().ragdollVisualsEnabled;
+    m_predictionOwner.State().futureNodeCache.futureNodesBuiltFromBuildFrames = false;
+    m_predictionOwner.State().futureNodeCache.futureNodesCacheValid = false;
+    m_predictionOwner.State().futureNodeCache.retainedMarkerCount = 0;
+    m_predictionOwner.State().trajectoryBuild.childFrameCount = 0;
+    m_predictionOwner.State().trajectoryBuild.builtNodeCount = 0;
 }
 
 void ReplayRuntime::WaitForPredictionJobIdle()
 {
-    WaitForReplayPredictionWorkerIdle( m_prediction );
+    WaitForReplayPredictionWorkerIdle( m_predictionOwner.State() );
 }
 
 bool ReplayRuntime::PromotePredictionBuildPrefixToCommitted()
 {
-    if ( !m_prediction.BuildPrefixShouldBePresented() )
+    if ( !m_predictionOwner.State().BuildPrefixShouldBePresented() )
     {
         return false;
     }
 
-    WaitForReplayPredictionWorkerIdle( m_prediction );
-    const std::size_t promotedFrameCount = m_prediction.PublishedBuildFrameCount();
-    if ( promotedFrameCount < 2u || promotedFrameCount > m_prediction.build.buildFrames.size() )
+    WaitForReplayPredictionWorkerIdle( m_predictionOwner.State() );
+    const std::size_t promotedFrameCount = m_predictionOwner.State().PublishedBuildFrameCount();
+    if ( promotedFrameCount < 2u || promotedFrameCount > m_predictionOwner.State().build.buildFrames.size() )
     {
         return false;
     }
@@ -987,52 +993,52 @@ bool ReplayRuntime::PromotePredictionBuildPrefixToCommitted()
     // Hazard: this is the Play-button ownership transfer. The worker has
     // released buildFrames, so the frame loop can turn the visible prefix into
     // committed replay samples before clearing private prediction scratch.
-    m_prediction.build.workerTask.reset();
-    m_prediction.build.building = false;
-    m_prediction.build.complete = true;
-    m_prediction.simulation.frames.swap( m_prediction.build.buildFrames );
-    m_prediction.simulation.frames.resize( promotedFrameCount );
+    m_predictionOwner.State().build.workerTask.reset();
+    m_predictionOwner.State().build.building = false;
+    m_predictionOwner.State().build.complete = true;
+    m_predictionOwner.State().simulation.frames.swap( m_predictionOwner.State().build.buildFrames );
+    m_predictionOwner.State().simulation.frames.resize( promotedFrameCount );
     // Why: keep the inactive frame bank and each row's payload capacity warm.
     // The publication count, not vector size, decides whether readers may use it.
-    m_prediction.ResetBuildFramePublication();
-    if ( !RebuildReplayRuntimePredictionCommittedRootTrajectory( m_prediction ) )
+    m_predictionOwner.State().ResetBuildFramePublication();
+    if ( !RebuildReplayRuntimePredictionCommittedRootTrajectory( m_predictionOwner.State() ) )
     {
         return false;
     }
-    m_prediction.simulation.predictionEngineReady = false;
-    m_prediction.simulation.predictionBodies.clear();
-    m_prediction.simulation.predictionWorld = ReplaySolverWorldSnapshot();
+    m_predictionOwner.State().simulation.predictionEngineReady = false;
+    m_predictionOwner.State().simulation.predictionBodies.clear();
+    m_predictionOwner.State().simulation.predictionWorld = ReplaySolverWorldSnapshot();
     return true;
 }
 
 void ReplayRuntime::CancelPredictionJob( bool clearSamples )
 {
-    WaitForReplayPredictionWorkerIdle( m_prediction );
-    m_prediction.build.workerTask.reset();
-    m_prediction.build.building = false;
-    m_prediction.build.complete = false;
-    m_prediction.build.buildMode = ReplayPredictionBuildMode::Undecided;
-    m_prediction.build.pendingLatestRestart = false;
-    m_prediction.simulation.targetModelRow.value = -1;
-    m_prediction.build.nextTick = 1;
-    m_prediction.build.targetTickCount = 0;
-    m_prediction.simulation.predictionEngineReady = false;
-    m_prediction.simulation.predictionBodies.clear();
-    m_prediction.simulation.predictionWorld = ReplaySolverWorldSnapshot();
+    WaitForReplayPredictionWorkerIdle( m_predictionOwner.State() );
+    m_predictionOwner.State().build.workerTask.reset();
+    m_predictionOwner.State().build.building = false;
+    m_predictionOwner.State().build.complete = false;
+    m_predictionOwner.State().build.buildMode = ReplayPredictionBuildMode::Undecided;
+    m_predictionOwner.State().build.pendingLatestRestart = false;
+    m_predictionOwner.State().simulation.targetModelRow.value = -1;
+    m_predictionOwner.State().build.nextTick = 1;
+    m_predictionOwner.State().build.targetTickCount = 0;
+    m_predictionOwner.State().simulation.predictionEngineReady = false;
+    m_predictionOwner.State().simulation.predictionBodies.clear();
+    m_predictionOwner.State().simulation.predictionWorld = ReplaySolverWorldSnapshot();
     // Runtime allocation policy: cancellation invalidates publication but keeps
     // the double-buffered frame payloads warm for the next replay rebuild.
-    m_prediction.ResetBuildFramePublication();
-    m_prediction.trajectoryBuild = RunReplayPredictionTrajectoryBuildState{};
+    m_predictionOwner.State().ResetBuildFramePublication();
+    m_predictionOwner.State().trajectoryBuild = RunReplayPredictionTrajectoryBuildState{};
     if ( clearSamples )
     {
-        m_prediction.build.supersededRestartCount = 0;
-        m_prediction.build.latestRestartBeginCount = 0;
-        m_prediction.simulation.measuredTicksPerMs.store( 0.0, std::memory_order_release );
-        m_prediction.simulation.probeElapsedMs = 0.0;
-        m_prediction.simulation.probeTicksCompleted = 0;
-        m_prediction.simulation.calibratedModelCount = -1;
-        m_prediction.simulation.frames.clear();
-        m_prediction.trajectoryStore.Clear();
+        m_predictionOwner.State().build.supersededRestartCount = 0;
+        m_predictionOwner.State().build.latestRestartBeginCount = 0;
+        m_predictionOwner.State().simulation.measuredTicksPerMs.store( 0.0, std::memory_order_release );
+        m_predictionOwner.State().simulation.probeElapsedMs = 0.0;
+        m_predictionOwner.State().simulation.probeTicksCompleted = 0;
+        m_predictionOwner.State().simulation.calibratedModelCount = -1;
+        m_predictionOwner.State().simulation.frames.clear();
+        m_predictionOwner.State().trajectoryStore.Clear();
         ClearPredictionFutureNodeCache();
     }
 }
@@ -1040,30 +1046,30 @@ void ReplayRuntime::CancelPredictionJob( bool clearSamples )
 void ReplayRuntime::ClearPredictionCache()
 {
     CancelPredictionJob( true );
-    m_prediction.simulation.targetId = ReplayBodyId{};
-    m_prediction.simulation.sourceFrameIndex = 0;
-    m_prediction.simulation.sourceSolverHash = 0;
-    m_prediction.simulation.sourceSimulationSeconds = 0.0;
-    m_prediction.build.lastBuildTime = 0.0;
-    m_prediction.trajectoryBuild = RunReplayPredictionTrajectoryBuildState{};
-    m_prediction.trajectoryStore.Clear();
-    m_prediction.baseline = ReplayPredictionBaselineSnapshot{};
+    m_predictionOwner.State().simulation.targetId = ReplayBodyId{};
+    m_predictionOwner.State().simulation.sourceFrameIndex = 0;
+    m_predictionOwner.State().simulation.sourceSolverHash = 0;
+    m_predictionOwner.State().simulation.sourceSimulationSeconds = 0.0;
+    m_predictionOwner.State().build.lastBuildTime = 0.0;
+    m_predictionOwner.State().trajectoryBuild = RunReplayPredictionTrajectoryBuildState{};
+    m_predictionOwner.State().trajectoryStore.Clear();
+    m_predictionOwner.State().baseline = ReplayPredictionBaselineSnapshot{};
 }
 
 void ReplayRuntime::MarkPredictionDirty()
 {
-    if ( !m_predictionGenerationPermitted )
+    if ( !m_predictionOwner.GenerationPermitted() )
     {
         // Why: load-only validation is intentionally incapable of requesting a
         // replacement future. Its sole input is the artifact created by the
         // gate's one permitted prediction generation.
-        m_prediction.build.dirty = false;
+        m_predictionOwner.State().build.dirty = false;
         return;
     }
     // Why: the prediction dispatcher owns cancellation. Marking dirty must stay
     // non-blocking during velocity drag so an in-flight instant build can finish
     // and be superseded by one newest-state restart.
-    m_prediction.build.dirty = true;
+    m_predictionOwner.State().build.dirty = true;
 }
 
 void ReplayRuntime::ApplyAuthoringPredictionRequest()
@@ -1071,10 +1077,11 @@ void ReplayRuntime::ApplyAuthoringPredictionRequest()
     const ReplayAuthoringPredictionRequest request = m_authoring.TakePredictionRequest();
     if ( request.enablePrediction )
     {
-        m_prediction.enabled = true;
-        m_prediction.simulation.horizonSeconds = std::clamp( m_prediction.simulation.horizonSeconds,
-                                                             ReplayOverlay::REPLAY_PREDICTION_MIN_SECONDS,
-                                                             ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS );
+        m_predictionOwner.State().enabled = true;
+        m_predictionOwner.State().simulation.horizonSeconds =
+            std::clamp( m_predictionOwner.State().simulation.horizonSeconds,
+                        ReplayOverlay::REPLAY_PREDICTION_MIN_SECONDS,
+                        ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS );
     }
     if ( request.refreshPrediction )
     {
@@ -1092,7 +1099,7 @@ void ReplayRuntime::NotifyVelocityEditApplied()
 
 bool ReplayRuntime::PredictionGenerationPermitted() const noexcept
 {
-    return m_predictionGenerationPermitted;
+    return m_predictionOwner.GenerationPermitted();
 }
 
 void ReplayRuntime::EnterOfflinePredictionVerification()
@@ -1100,10 +1107,10 @@ void ReplayRuntime::EnterOfflinePredictionVerification()
     // Invariant: this is a one-way terminal capability transition for a CLI
     // validation process. It does not clear the frozen prediction because the
     // caller immediately replaces it from RVPD, and no render frame follows.
-    WaitForReplayPredictionWorkerIdle( m_prediction );
-    m_predictionGenerationPermitted = false;
-    m_prediction.build.dirty = false;
-    m_prediction.build.pendingLatestRestart = false;
+    WaitForReplayPredictionWorkerIdle( m_predictionOwner.State() );
+    m_predictionOwner.ForbidGeneration();
+    m_predictionOwner.State().build.dirty = false;
+    m_predictionOwner.State().build.pendingLatestRestart = false;
     m_visualPresentation.TrajectoryVisualStats() = {};
 }
 
@@ -1211,8 +1218,9 @@ bool ReplayRuntime::HasActiveInteractionState() const
            m_visualPresentation.Camera().focusKind != RunReplayCameraFocusKind::None ||
            m_scrubberOwner.State().historicalSamplePaused || m_scrubberOwner.State().liveAdvanceHeld ||
            m_visualPresentation.PathVisualizer().hasTarget || !m_visualPresentation.PathVisualizer().targets.empty() ||
-           m_prediction.enabled || m_prediction.build.building || m_authoring.VelocityEdit().enabled ||
-           m_authoring.CauseTree().selectedRow >= 0 || !m_authoring.CauseTree().rows.empty();
+           m_predictionOwner.State().enabled || m_predictionOwner.State().build.building ||
+           m_authoring.VelocityEdit().enabled || m_authoring.CauseTree().selectedRow >= 0 ||
+           !m_authoring.CauseTree().rows.empty();
 }
 
 
@@ -1254,7 +1262,7 @@ bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionCont
     m_scrubberOwner.State().fadeUpdatedAt = 0.0;
     ClearCameraFocusForRestore();
     ClearPathVisualizerState();
-    m_prediction.enabled = false;
+    m_predictionOwner.State().enabled = false;
     ClearPredictionCache();
     m_authoring.VelocityEdit() = RunReplayVelocityEditState{};
     m_authoring.CauseTree().selectedRow = -1;
@@ -1430,7 +1438,7 @@ bool ReplayRuntime::VelocityEditActive() const
 
 float ReplayRuntime::SolverPresentTrackPosition() const
 {
-    return ReplayRuntimeScrubberPresentTrackPosition( m_timeline.Solver().GetStats(), m_prediction );
+    return ReplayRuntimeScrubberPresentTrackPosition( m_timeline.Solver().GetStats(), m_predictionOwner.State() );
 }
 
 bool ReplayRuntime::TimelineHasFuture( float presentT )
@@ -1518,7 +1526,7 @@ bool ReplayRuntime::ArmLoadedPresentationScrubber( float normalized, double now 
     }
 
     ClearPathVisualizerState();
-    m_prediction.enabled = false;
+    m_predictionOwner.State().enabled = false;
     m_authoring.VelocityEdit() = RunReplayVelocityEditState{};
     m_scrubberOwner.State().activeTrack = RunReplayTrack::Presentation;
     SetTrackPosition( RunReplayTrack::Presentation, normalized );
@@ -1811,7 +1819,7 @@ void ReplayRuntime::RefreshPastTrajectoryStoreFromSolverSamples()
 
     const int frameNumber = static_cast<int>( (std::min)( newestFrame, static_cast<ReplayFrameIndex>( INT_MAX ) ) );
     ReplayTrajectoryRecord* record =
-        BeginReplayPastRootTrajectoryRecord( m_prediction.trajectoryStore,
+        BeginReplayPastRootTrajectoryRecord( m_predictionOwner.State().trajectoryStore,
                                              m_visualPresentation.PathVisualizer().targetId,
                                              stats.sampleCount,
                                              frameNumber );
@@ -1822,7 +1830,7 @@ void ReplayRuntime::RefreshPastTrajectoryStoreFromSolverSamples()
     }
 
     ReplayPastRootRebuildContext rebuild;
-    rebuild.store = &m_prediction.trajectoryStore;
+    rebuild.store = &m_predictionOwner.State().trajectoryStore;
     rebuild.record = record;
     const bool traversalOk = m_timeline.Solver().ForEachBodyPositionChronological(
         m_visualPresentation.PathVisualizer().targetId,
@@ -1918,7 +1926,7 @@ void ReplayRuntime::AppendSolverTrajectorySampleToStore( const ReplaySolverFrame
     }
 
     const ReplayRecorderStats stats = m_timeline.Solver().GetStats();
-    ReplayTrajectoryRecord* record = m_prediction.trajectoryStore.FindRecord(
+    ReplayTrajectoryRecord* record = m_predictionOwner.State().trajectoryStore.FindRecord(
         ReplayPastRootTrajectoryKey( m_visualPresentation.PathVisualizer().targetId ) );
     if ( !record )
     {
@@ -1934,7 +1942,7 @@ void ReplayRuntime::AppendSolverTrajectorySampleToStore( const ReplaySolverFrame
         // full. Slide the already-published record in place; rebuilding compact
         // solver history here would reconstruct every world snapshot and would
         // also replace the record version that prevents path flicker.
-        m_prediction.trajectoryStore.TrimPublishedPointsBeforeFrame( *record, oldestFrame );
+        m_predictionOwner.State().trajectoryStore.TrimPublishedPointsBeforeFrame( *record, oldestFrame );
         m_visualPresentation.PathVisualizer().pastTrajectory.firstFrame = oldestFrame;
         m_visualPresentation.PathVisualizer().pastTrajectory.totalFramesEvicted = stats.totalFramesEvicted;
         ++m_visualPresentation.PathVisualizer().pastTrajectory.incrementalTrimCount;
@@ -1956,7 +1964,7 @@ void ReplayRuntime::AppendSolverTrajectorySampleToStore( const ReplaySolverFrame
         return;
     }
 
-    if ( !AppendReplayPastRootTrajectoryPoint( m_prediction.trajectoryStore,
+    if ( !AppendReplayPastRootTrajectoryPoint( m_predictionOwner.State().trajectoryStore,
                                                *record,
                                                sample.frameIndex,
                                                body->position ) )
@@ -2317,7 +2325,7 @@ const RunReplayPredictionFrame* ReplayRuntime::CurrentPredictionScrubFrame() con
     // committed future scrubbable.
     std::size_t frameCount = 0;
     const std::vector<RunReplayPredictionFrame>& frames =
-        ReplayRuntimeTimelinePredictionFrames( m_prediction, frameCount );
+        ReplayRuntimeTimelinePredictionFrames( m_predictionOwner.State(), frameCount );
     if ( m_scrubberOwner.State().activeTrack != RunReplayTrack::Solver ||
          !m_scrubberOwner.State().historicalSamplePaused || frameCount < 2 )
     {
@@ -2356,8 +2364,8 @@ bool ReplayRuntime::ResolveCauseTreeBodyPosition( ReplayBodyId id,
     }
 
     const std::span<const RunReplayPredictionFrame> activePredictionFrames = ActivePredictionFrames();
-    if ( m_prediction.enabled && !activePredictionFrames.empty() &&
-         m_prediction.simulation.targetId.value == m_visualPresentation.PathVisualizer().targetId.value )
+    if ( m_predictionOwner.State().enabled && !activePredictionFrames.empty() &&
+         m_predictionOwner.State().simulation.targetId.value == m_visualPresentation.PathVisualizer().targetId.value )
     {
         if ( const RunReplayPredictionBodySample* body =
                  FindReplayPredictionBodyById( activePredictionFrames.front(), id ) )
@@ -2441,13 +2449,14 @@ bool ReplayRuntime::BuildCauseTreeRows(
     // prediction overlay exposes a populated build prefix so long jobs are
     // visible immediately. The cause tree must use the same readiness rule.
     const bool predictionPrefixVisible = ActivePredictionFrames().size() >= 2 ||
-                                         m_prediction.HasPublishedBuildFramePrefix() ||
-                                         !m_prediction.futureNodeCache.futureNodes.empty();
+                                         m_predictionOwner.State().HasPublishedBuildFramePrefix() ||
+                                         !m_predictionOwner.State().futureNodeCache.futureNodes.empty();
     const bool usePrediction =
-        m_prediction.enabled && predictionPrefixVisible &&
-        m_prediction.simulation.targetId.value == m_visualPresentation.PathVisualizer().targetId.value;
-    const std::vector<RunReplayPathTraceNode>& nodes =
-        usePrediction ? m_prediction.futureNodeCache.futureNodes : m_visualPresentation.PathVisualizer().futureNodes;
+        m_predictionOwner.State().enabled && predictionPrefixVisible &&
+        m_predictionOwner.State().simulation.targetId.value == m_visualPresentation.PathVisualizer().targetId.value;
+    const std::vector<RunReplayPathTraceNode>& nodes = usePrediction
+                                                           ? m_predictionOwner.State().futureNodeCache.futureNodes
+                                                           : m_visualPresentation.PathVisualizer().futureNodes;
     const ReplaySolverFrameSample* solverSample = CurrentSolverScrubSample();
     const std::size_t solverContactCount =
         solverSample ? solverSample->worldSnapshot.persistentContacts.size() : static_cast<std::size_t>( 0 );
@@ -2925,9 +2934,11 @@ bool ReplayRuntime::BuildPredictionGhostDrawRequests(
 {
     m_visualPresentation.PredictionGhostDrawRequests().clear();
     const std::span<const RunReplayPredictionFrame> frames = ActivePredictionFrames();
-    const bool drawLivePrediction = m_prediction.enabled && m_prediction.ragdollVisualsEnabled && frames.size() >= 2;
-    const bool drawBaseline = m_prediction.baseline.valid && m_prediction.baseline.comparisonActive &&
-                              m_prediction.ragdollVisualsEnabled && !m_prediction.baseline.bodyPoses.empty();
+    const bool drawLivePrediction =
+        m_predictionOwner.State().enabled && m_predictionOwner.State().ragdollVisualsEnabled && frames.size() >= 2;
+    const bool drawBaseline =
+        m_predictionOwner.State().baseline.valid && m_predictionOwner.State().baseline.comparisonActive &&
+        m_predictionOwner.State().ragdollVisualsEnabled && !m_predictionOwner.State().baseline.bodyPoses.empty();
 
     bool hasRagdollPart = false;
     for ( int i = 0; i < static_cast<int>( presentationRecords.size() ); ++i )
@@ -2947,7 +2958,7 @@ bool ReplayRuntime::BuildPredictionGhostDrawRequests(
         drawLivePrediction
             ? (std::min)( frames.size(), REPLAY_PREDICTION_GHOST_MAX_FRAMES + 1 ) * presentationRecords.size()
             : 0u;
-    const std::size_t baselineRequestCapacity = drawBaseline ? m_prediction.baseline.bodyPoses.size() : 0u;
+    const std::size_t baselineRequestCapacity = drawBaseline ? m_predictionOwner.State().baseline.bodyPoses.size() : 0u;
     if ( liveRequestCapacity + baselineRequestCapacity > m_visualPresentation.PredictionGhostDrawRequests().capacity() )
     {
         return false;
@@ -2955,7 +2966,7 @@ bool ReplayRuntime::BuildPredictionGhostDrawRequests(
 
     if ( drawBaseline )
     {
-        for ( const ReplayPredictionBaselineBodyPose& pose : m_prediction.baseline.bodyPoses )
+        for ( const ReplayPredictionBaselineBodyPose& pose : m_predictionOwner.State().baseline.bodyPoses )
         {
             if ( !pose.hasRestPose || pose.modelRow.value < 0 ||
                  pose.modelRow.value >= static_cast<int>( presentationRecords.size() ) ||
@@ -3053,8 +3064,8 @@ bool ReplayRuntime::BuildFocusModelMask( const PhysicsBodyStore& bodyStore, int 
 {
     PROFILE_SCOPED( "Frame/Replay/FocusMask" );
     const std::span<const RunReplayPathTraceNode> futureNodes =
-        m_prediction.enabled
-            ? std::span<const RunReplayPathTraceNode>( m_prediction.futureNodeCache.futureNodes )
+        m_predictionOwner.State().enabled
+            ? std::span<const RunReplayPathTraceNode>( m_predictionOwner.State().futureNodeCache.futureNodes )
             : std::span<const RunReplayPathTraceNode>( m_visualPresentation.PathVisualizer().futureNodes );
     return m_visualPresentation.BuildFocusModelMask( bodyStore, modelCount, futureNodes );
 }
@@ -3107,25 +3118,24 @@ void ReplayRuntime::RecordReplayTrajectoryFrameStats(
 void ReplayRuntime::PublishReplayVisualPacket( ReplayVisualPacket packet, uint64_t replayReserveGrowthEvents )
 {
     const ReplaySolverFrameSample* latest = Solver().LatestSample();
-    packet.header.sourceFrame = m_prediction.simulation.sourceFrameIndex;
-    packet.header.revealFrame = m_prediction.revealClock.presentedFrame;
+    const ReplayPredictionPresentationView predictionView = m_predictionOwner.PresentationView();
+    packet.header.sourceFrame = predictionView.sourceFrame;
+    packet.header.revealFrame = predictionView.revealFrame;
     packet.header.targetId = m_visualPresentation.PathVisualizer().targetId;
     packet.header.branchId = latest ? latest->branch.branchId : 0u;
     packet.header.eventCursor = latest ? latest->eventCursor : 0u;
-    packet.header.topologyVersion = m_prediction.futureNodeCache.futureNodesTopologyVersion;
-    packet.header.publishedFrameCount = static_cast<uint32_t>( ActivePredictionFrames().size() );
-    packet.header.futureNodeCount = static_cast<uint32_t>( m_prediction.futureNodeCache.futureNodes.size() );
+    packet.header.topologyVersion = predictionView.topologyVersion;
+    packet.header.publishedFrameCount = static_cast<uint32_t>( predictionView.frames.size() );
+    packet.header.futureNodeCount = static_cast<uint32_t>( predictionView.futureNodes.size() );
     packet.header.ghostRequestCount =
         static_cast<uint32_t>( m_visualPresentation.PredictionGhostDrawRequests().size() );
     packet.header.replayReserveGrowthEvents = replayReserveGrowthEvents;
-    packet.header.predictionEnabled = m_prediction.enabled;
-    packet.header.predictionBuilding = m_prediction.build.building;
-    packet.header.predictionComplete = m_prediction.build.complete;
-    packet.trajectoryRecords = m_prediction.trajectoryStore.records;
-    packet.futureNodes = m_prediction.futureNodeCache.futureNodes;
-    packet.retainedMarkers =
-        std::span<const ReplayPredictionRetainedMarker>( m_prediction.futureNodeCache.retainedMarkers.data(),
-                                                         m_prediction.futureNodeCache.retainedMarkerCount );
+    packet.header.predictionEnabled = predictionView.enabled;
+    packet.header.predictionBuilding = predictionView.building;
+    packet.header.predictionComplete = predictionView.complete;
+    packet.trajectoryRecords = predictionView.trajectoryRecords;
+    packet.futureNodes = predictionView.futureNodes;
+    packet.retainedMarkers = predictionView.retainedMarkers;
     packet.ghostRequests = m_visualPresentation.PredictionGhostDrawRequests();
     packet.trajectoryDiagnostics = m_visualPresentation.TrajectoryVisualStats();
     m_visualPresentation.PublishVisualPacket( packet );
@@ -3240,36 +3250,37 @@ SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() 
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionOwner,
-        static_cast<uint64_t>( sizeof( m_prediction ) ) );
-    if ( m_prediction.simulation.predictionEngine )
+        static_cast<uint64_t>( sizeof( m_predictionOwner.State() ) ) );
+    if ( m_predictionOwner.State().simulation.predictionEngine )
     {
         SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
             stats.categoryBytes,
             SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionEngine,
-            PredictionEngineMemoryBytes( *m_prediction.simulation.predictionEngine ) );
+            PredictionEngineMemoryBytes( *m_predictionOwner.State().simulation.predictionEngine ) );
     }
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionWorldState,
-        SolverWorldSnapshotMemoryBytes( m_prediction.simulation.predictionWorld ) );
+        SolverWorldSnapshotMemoryBytes( m_predictionOwner.State().simulation.predictionWorld ) );
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionBodyState,
-        VectorCapacityBytes( m_prediction.simulation.predictionBodies ) );
+        VectorCapacityBytes( m_predictionOwner.State().simulation.predictionBodies ) );
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFrameRecords,
-        VectorCapacityBytes( m_prediction.simulation.frames ) + VectorCapacityBytes( m_prediction.build.buildFrames ) );
+        VectorCapacityBytes( m_predictionOwner.State().simulation.frames ) +
+            VectorCapacityBytes( m_predictionOwner.State().build.buildFrames ) );
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFutureTree,
-        VectorCapacityBytes( m_prediction.futureNodeCache.futureNodes ) +
-            VectorCapacityBytes( m_prediction.futureNodeCache.futureNodeBuildScratch ) );
-    for ( const RunReplayPredictionFrame& frame : m_prediction.simulation.frames )
+        VectorCapacityBytes( m_predictionOwner.State().futureNodeCache.futureNodes ) +
+            VectorCapacityBytes( m_predictionOwner.State().futureNodeCache.futureNodeBuildScratch ) );
+    for ( const RunReplayPredictionFrame& frame : m_predictionOwner.State().simulation.frames )
     {
         AddPredictionFrameCategoryBytes( stats.categoryBytes, frame );
     }
-    for ( const RunReplayPredictionFrame& frame : m_prediction.build.buildFrames )
+    for ( const RunReplayPredictionFrame& frame : m_predictionOwner.State().build.buildFrames )
     {
         AddPredictionFrameCategoryBytes( stats.categoryBytes, frame );
     }
@@ -3277,7 +3288,8 @@ SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() 
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionOwner,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PathOwner );
-    stats.predictionFrames = m_prediction.simulation.frames.size() + m_prediction.build.buildFrames.size();
+    stats.predictionFrames =
+        m_predictionOwner.State().simulation.frames.size() + m_predictionOwner.State().build.buildFrames.size();
 
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
@@ -3298,13 +3310,13 @@ SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() 
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::TrajectoryStore,
-        m_prediction.trajectoryStore.CapacityBytes() );
+        m_predictionOwner.State().trajectoryStore.CapacityBytes() );
     stats.pathAndCauseBytes = SkullbonezCore::Core::MainMemoryReplayCategoryRangeBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PathOwner,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::RenderGhostRequests );
-    stats.pathNodes =
-        m_visualPresentation.PathVisualizer().futureNodes.size() + m_prediction.futureNodeCache.futureNodes.size();
+    stats.pathNodes = m_visualPresentation.PathVisualizer().futureNodes.size() +
+                      m_predictionOwner.State().futureNodeCache.futureNodes.size();
     stats.causeRows = m_authoring.CauseTree().rows.size();
 
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
@@ -3329,12 +3341,13 @@ SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() 
     stats.trajectory.storeBytes = SkullbonezCore::Core::MainMemoryReplayCategoryByte(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::TrajectoryStore );
-    stats.trajectory.recordCount = static_cast<uint64_t>( m_prediction.trajectoryStore.RecordCount() );
-    stats.trajectory.pointCount = static_cast<uint64_t>( m_prediction.trajectoryStore.PointCount() );
-    stats.trajectory.versionChurn = m_prediction.trajectoryStore.nextVersion > 0u
-                                        ? static_cast<uint64_t>( m_prediction.trajectoryStore.nextVersion - 1u )
-                                        : 0u;
-    for ( const ReplayTrajectoryRecord& record : m_prediction.trajectoryStore.records )
+    stats.trajectory.recordCount = static_cast<uint64_t>( m_predictionOwner.State().trajectoryStore.RecordCount() );
+    stats.trajectory.pointCount = static_cast<uint64_t>( m_predictionOwner.State().trajectoryStore.PointCount() );
+    stats.trajectory.versionChurn =
+        m_predictionOwner.State().trajectoryStore.nextVersion > 0u
+            ? static_cast<uint64_t>( m_predictionOwner.State().trajectoryStore.nextVersion - 1u )
+            : 0u;
+    for ( const ReplayTrajectoryRecord& record : m_predictionOwner.State().trajectoryStore.records )
     {
         stats.trajectory.publishedPointCount +=
             static_cast<uint64_t>( (std::min)( record.publishedPointCount, record.points.size() ) );
@@ -3609,7 +3622,9 @@ bool ReplayRuntime::SavePresentationWithSolverHashes( const char* path,
 {
     std::vector<uint8_t> fallbackPredictionState;
     if ( !visualPackets.empty() && visualPredictionState.empty() &&
-         !BuildReplayPredictionArchive( m_visualPresentation.PathVisualizer(), m_prediction, fallbackPredictionState ) )
+         !BuildReplayPredictionArchive( m_visualPresentation.PathVisualizer(),
+                                        m_predictionOwner.State(),
+                                        fallbackPredictionState ) )
     {
         return false;
     }

@@ -1,17 +1,19 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayPrediction.h
 Purpose:
-  Defines private replay prediction build, publication, and trajectory values.
+  Owns private replay prediction build, publication, and trajectory state.
 
 Summary:
-  ReplayPrediction simulates an isolated future and publishes completed prefixes; M2 moves definitions only.
+  ReplayPrediction simulates an isolated future and publishes completed prefixes
+  while readers consume a never-stored presentation view.
 
 Glossary:
   Published prefix: Contiguous prediction rows safe for readers.
 
 Invariants:
   - Worker publication retains the release/acquire prefix protocol.
-  - M2 preserves the moved definition bodies verbatim.
+  - Prediction owns its private engine and never mutates live physics stores.
+  - Cancellation waits for an in-flight worker slice before clearing state.
 
 Related:
   - ReplayRuntime.h
@@ -32,6 +34,7 @@ Related:
 #include <atomic>
 #include <chrono>
 #include <memory>
+#include <span>
 #include <vector>
 
 namespace SkullbonezCore
@@ -309,6 +312,82 @@ struct RunReplayPredictionState
     // unfold over it.
     ReplayPredictionBaselineSnapshot baseline;
     RunReplayPredictionRevealClock revealClock;
+};
+
+struct ReplayPredictionPresentationView
+{
+    std::span<const RunReplayPredictionFrame> frames;
+    std::span<const RunReplayPathTraceNode> futureNodes;
+    std::span<const ReplayTrajectoryRecord> trajectoryRecords;
+    std::span<const ReplayPredictionRetainedMarker> retainedMarkers;
+    std::span<const ReplayPredictionBaselineBodyPose> baselineBodyPoses;
+    ReplayFrameIndex sourceFrame = 0;
+    ReplayFrameIndex revealFrame = 0;
+    uint32_t topologyVersion = 0;
+    bool enabled = false;
+    bool building = false;
+    bool complete = false;
+    bool ragdollVisualsEnabled = false;
+    bool baselineValid = false;
+    bool baselineComparisonActive = false;
+};
+
+class ReplayPrediction
+{
+  public:
+    RunReplayPredictionState& State() noexcept
+    {
+        return m_state;
+    }
+    const RunReplayPredictionState& State() const noexcept
+    {
+        return m_state;
+    }
+
+    std::span<const RunReplayPredictionFrame> ActiveFrames() const noexcept
+    {
+        const std::vector<RunReplayPredictionFrame>& frames =
+            m_state.BuildFramesAreComplete() ? m_state.build.buildFrames : m_state.simulation.frames;
+        return { frames.data(), frames.size() };
+    }
+
+    ReplayPredictionPresentationView PresentationView() const noexcept
+    {
+        ReplayPredictionPresentationView view;
+        view.frames = ActiveFrames();
+        view.futureNodes = m_state.futureNodeCache.futureNodes;
+        view.trajectoryRecords = m_state.trajectoryStore.records;
+        view.retainedMarkers = { m_state.futureNodeCache.retainedMarkers.data(),
+                                 m_state.futureNodeCache.retainedMarkerCount };
+        view.baselineBodyPoses = m_state.baseline.bodyPoses;
+        view.sourceFrame = m_state.simulation.sourceFrameIndex;
+        view.revealFrame = m_state.revealClock.presentedFrame;
+        view.topologyVersion = m_state.futureNodeCache.futureNodesTopologyVersion;
+        view.enabled = m_state.enabled;
+        view.building = m_state.build.building;
+        view.complete = m_state.build.complete;
+        view.ragdollVisualsEnabled = m_state.ragdollVisualsEnabled;
+        view.baselineValid = m_state.baseline.valid;
+        view.baselineComparisonActive = m_state.baseline.comparisonActive;
+        return view;
+    }
+
+    bool GenerationPermitted() const noexcept
+    {
+        return m_generationPermitted;
+    }
+    void SetGenerationPermitted( bool permitted ) noexcept
+    {
+        m_generationPermitted = permitted;
+    }
+    void ForbidGeneration() noexcept
+    {
+        m_generationPermitted = false;
+    }
+
+  private:
+    RunReplayPredictionState m_state;
+    bool m_generationPermitted = true;
 };
 
 inline std::size_t RunReplayPredictionState::PublishedBuildFrameCount() const noexcept

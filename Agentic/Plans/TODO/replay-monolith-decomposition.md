@@ -1,7 +1,7 @@
 # Replay Monolith Decomposition — Owner Boundaries Inside The Replay Subsystem
 
 Date: 2026-07-13
-Status: Live — 6/9 tasks complete; M5 authoring owner extracted
+Status: Live — 7/9 tasks complete; M6 prediction owner extracted
 Branch: `nightrunner-13th-july`
 Impact area: `SkullbonezSource/Runtime/Replay/*` (26,060 lines), the two
 external consumers `Runtime/Run.cpp` and `Runtime/RunUiTextPass.cpp`, project
@@ -148,7 +148,7 @@ known-good golden manifest.
   `tools\validate_replay_scrub.bat`,
   `tools\validate_interaction_clicks.bat` if the click scripts cover velocity
   edit, `tools\validate_full.bat` at the PR gate.
-- [ ] **M6 — Extract `ReplayPrediction` (most invariant-laden, deliberately
+- [x] **M6 — Extract `ReplayPrediction` (most invariant-laden, deliberately
   last).** Move the private engine, scheduling, reserve, trajectory store,
   seeding (`SeedReplayPredictionEngine`), capture, and worker publication
   intact. The three documented invariants move as API shape, not comments
@@ -345,6 +345,36 @@ M5 recorded adjustments and evidence:
   errors and the 44,401-line byte-exact varied physics baseline; and the scrub
   alias's no-engine exit-37 propagation proof. No baseline changed. The touched
   source comment audit checked 5/5 files with zero deferred.
+
+M6 recorded adjustments and evidence:
+
+- `ReplayPrediction` now exclusively owns the private prediction engine,
+  simulation/build banks, worker task and publication counters, future-node
+  cache, trajectory store/build state, baseline snapshot, reveal clock, and
+  the terminal generation capability. `ReplayRuntime` retains one concrete
+  prediction owner and no parallel prediction state.
+- `ReplayPredictionPresentationView` is a never-stored span/value snapshot of
+  the active published frame bank, causal nodes, trajectories, retained
+  markers, baseline poses, reveal/source frames, topology version, and status
+  flags. Visual packet publication now consumes that view, preserving the
+  exact existing active-prefix selection and packet bytes.
+- Cancellation/restore still waits for the owner-held worker slice before any
+  build, engine, or trajectory state is cleared. The load-only verification
+  capability also moved into the owner, so reconstructed artifacts cannot
+  request a second prediction generation.
+- Allocation-policy ownership now explicitly names `ReplayPrediction` for the
+  reserve gate, private engine/task construction, bounded build/presentation
+  buffers, and trajectory publication store. Checker self-test and the full
+  repository scan passed with zero allowlist errors.
+- Validation passed: formatting; zero-warning Profile; the unchanged
+  single-engine/single-prediction mega oracle at 2,401 ticks, all 200 bricks
+  moved, 187 directly grounded and solver-sleeping throughout the final 121
+  samples, 199 causal nodes, and every false-pass control; the performance gate
+  and absolute budgets; the full CPU/Profile/Debug/DX12/physics gate including
+  zero DX12 errors and the 44,401-line byte-exact varied physics baseline; and
+  the scrub alias's no-engine delegated exit-37 propagation proof. No baseline
+  changed. The touched source comment audit checked 4/4 files with zero
+  deferred.
 
 ## M1 Binding Type Inventory
 

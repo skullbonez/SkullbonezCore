@@ -1966,7 +1966,7 @@ void ReplayRuntime::ConfigureStartupWorkflows( const ReplayStartupRequest& reque
     // Invariant: this is a capability boundary, not merely a scripted promise.
     // A fresh load-probe process can reconstruct and scrub the supplied artifact
     // but cannot ask the prediction dispatcher to generate another future.
-    m_predictionGenerationPermitted = !request.loadProbe;
+    m_predictionOwner.SetGenerationPermitted( !request.loadProbe );
 #ifdef _DEBUG
     copyPath( m_startupWorkflows.checkpointProbePath,
               sizeof( m_startupWorkflows.checkpointProbePath ),
@@ -2432,7 +2432,7 @@ ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& tr
         char archiveReason[192] = {};
         if ( !LoadReplayPredictionArchive( visualPredictionState,
                                            m_visualPresentation.PathVisualizer(),
-                                           m_prediction,
+                                           m_predictionOwner.State(),
                                            archiveReason,
                                            sizeof( archiveReason ) ) )
         {
@@ -2452,12 +2452,12 @@ ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& tr
         // The archive retains the final marker prefix exactly. This optional
         // presenting Debug probe deliberately replays first appearance from
         // frame zero, so only the probe resets publication state.
-        m_prediction.futureNodeCache.retainedMarkerCount = 0;
+        m_predictionOwner.State().futureNodeCache.retainedMarkerCount = 0;
         std::vector<ReplayVisualTrajectoryDigestState> trajectoryDigests;
         for ( const ReplayVisualArchiveSample& expected : visualPackets )
         {
-            m_prediction.revealClock.deterministicFrame = expected.revealFrame;
-            m_prediction.revealClock.presentedFrame = expected.revealFrame;
+            m_predictionOwner.State().revealClock.deterministicFrame = expected.revealFrame;
+            m_predictionOwner.State().revealClock.presentedFrame = expected.revealFrame;
             tracer.Clear();
             RenderPathVisualizer( transaction.sampleOwners.physics,
                                   sceneController.Entities(),
