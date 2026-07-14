@@ -2445,6 +2445,7 @@ ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& tr
         {
             m_predictionOwner.SetVerificationRevealFrame( expected.revealFrame );
             tracer.Clear();
+            PreparePredictionPresentation( transaction.sampleOwners.physics, sceneController.Entities() );
             RenderPathVisualizer( transaction.sampleOwners.physics,
                                   sceneController.Entities(),
                                   tracer,

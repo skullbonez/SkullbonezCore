@@ -183,6 +183,10 @@ class ReplayRuntime
     bool
     LoadPredictionArchiveForVerification( std::span<const uint8_t> bytes, char* outReason, std::size_t reasonSize );
     void ResetPredictionPresentationVerification();
+    // Publishes reveal, trajectory, and marker caches for callers that project
+    // restored prediction values without running the normal frame scheduler.
+    // RenderPathVisualizer remains read-only and must follow this command.
+    void PreparePredictionPresentation( Physics::PhysicsEngine& physics, const SceneEntityStore& entities );
     void ClearPathVisualizerState();
 
     const RunReplayCauseTreeState& CauseTree() const;

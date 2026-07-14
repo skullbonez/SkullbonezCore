@@ -665,6 +665,30 @@ Thirteenth ownership-remediation checkpoint after that review:
   presentation state/root accessors remain, and the external frame/probe root
   seam plus physical TU split still require closure.
 
+Fourteenth ownership-remediation checkpoint after that review:
+
+- Reveal-clock advancement, future-node/trajectory publication, and retained
+  causal-marker preparation now execute before overlay traversal. The path
+  visualizer render context borrows prediction state as `const`, and affected-
+  body trail discovery is shared by separate publication and draw passes so
+  rendering cannot mutate prediction-owned caches.
+- Live frame update and the two CPU-only archive projection paths call one
+  explicit `PreparePredictionPresentation` command before read-only drawing.
+  The first unchanged-golden attempt correctly rejected the initially omitted
+  offline command at reveal 112 (`retainedMarkerCount`); after wiring both cold
+  projection consumers through the same publication order, the rerun passed in
+  464.1 seconds with 2,401 exact ticks, 200 moved bricks, 187 strict grounded
+  sleepers, 199 causal nodes, one generation, one presentation, durable CPU
+  reconstruction, and every false-pass control. The zero-growth control passed
+  and no baseline changed.
+- Formatting passed, focused Profile builds passed with zero warnings, and the
+  112.1-second full gate passed every CPU/Profile/Debug/DX12/physics lane with
+  zero DX12 validation errors, matching screenshots, and the 44,401-line byte-
+  exact varied baseline. The touched-source comment audit inspected 5/5 files
+  with zero deferred or unchecked. M3-M7 remain open for private mutable owner
+  state, the physical prediction/presentation split, presentation/root
+  accessors, and external frame/probe root closure.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |

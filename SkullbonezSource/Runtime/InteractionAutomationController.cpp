@@ -2571,6 +2571,7 @@ bool VerifyReplayVisualOfflineProjection( InteractionAutomationController& state
         const ReplayVisualArchiveSample expected = BuildReplayVisualArchiveSample( tick );
         PublishReplayDeterministicReveal( replay, expected.revealFrame, true );
         tracer.Clear();
+        replay.PreparePredictionPresentation( scene.Physics(), scene.Entities() );
         replay.RenderPathVisualizer( scene.Physics(), scene.Entities(), tracer, tick.sceneFrame );
         (void)replay.BuildPredictionGhostDrawRequests( scene.RenderPresentationRecords(), scene.BodyStore() );
         ReplayVisualPacket rebuilt = tracer.BuildReplayVisualPacket( expected.cameraEye, expected.cameraUp );
