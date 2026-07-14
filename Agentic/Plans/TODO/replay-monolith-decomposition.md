@@ -463,6 +463,19 @@ Second ownership-remediation checkpoint after that review:
   samples, 199 causal nodes, one generation, one presentation, and every
   deliberate false-pass control. No baseline changed. M3-M7 remain open.
 
+Third ownership-remediation checkpoint after that review:
+
+- Every non-replay consumer now reads scrubber state through a value-only
+  `ReplayScrubberView`; no frame, input, or automation file receives the
+  mutable retained cursor. The remaining external velocity-input reset is a
+  replay intent handled by `ReplayAuthoring` rather than three direct field
+  writes.
+- The final source passed a zero-warning Profile build and the unchanged
+  one-process mega oracle at 2,401 exact ticks, 200 moved bricks, 187 strict
+  grounded sleepers, 199 causal nodes, one generation, one presentation, and
+  every false-pass control. No baseline changed. The internal scrubber methods
+  and root forwarding surface still keep M4/M5/M7 open.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |

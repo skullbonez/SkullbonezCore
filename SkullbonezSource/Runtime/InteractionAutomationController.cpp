@@ -1476,8 +1476,8 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
         const int screenW = window ? window->ClientWidth() : config.window.screenX;
         const int screenH = window ? window->ClientHeight() : config.window.screenY;
         const ReplayRecorderStats solverReplayStats = replayRuntime.Solver().GetStats();
-        const bool branchTargetAvailable = replayRuntime.Scrubber().historicalSamplePaused &&
-                                           replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver &&
+        const bool branchTargetAvailable = replayRuntime.ScrubberView().historicalSamplePaused &&
+                                           replayRuntime.ScrubberView().activeTrack == RunReplayTrack::Solver &&
                                            solverReplayStats.enabled && solverReplayStats.sampleCount >= 2 &&
                                            replayRuntime.CurrentSolverScrubSample() != nullptr;
         if ( screenW > 0 && screenH > 0 && branchTargetAvailable )
@@ -2415,12 +2415,12 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     }
     case RunInteractionAutomationAssertKind::ReplayActiveTrack:
         evaluation.expected = action.text;
-        evaluation.actual = ReplayTrackName( replayRuntime.Scrubber().activeTrack );
+        evaluation.actual = ReplayTrackName( replayRuntime.ScrubberView().activeTrack );
         evaluation.passed = evaluation.actual == evaluation.expected;
         break;
     case RunInteractionAutomationAssertKind::ReplayHistoricalSamplePaused:
     {
-        const bool paused = replayRuntime.Scrubber().historicalSamplePaused;
+        const bool paused = replayRuntime.ScrubberView().historicalSamplePaused;
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( paused );
         evaluation.passed = paused == action.boolValue;
@@ -2858,7 +2858,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         // Invariant: the mega probe is one presented cascade. Advancing the
         // authoritative scene after the reveal would show a second, unrelated
         // wall fall and make a visually broken run appear to be test coverage.
-        if ( replayRuntime.Scrubber().liveAdvanceHeld )
+        if ( replayRuntime.ScrubberView().liveAdvanceHeld )
         {
             FailAutomation( state, "replay visual fidelity probe entered a second live playback pass" );
         }
@@ -4038,8 +4038,8 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
         { "predictionRetainedEntryMarkerCount", static_cast<int>( predictionRetainedEntryMarkerCount ) },
         { "predictionRetainedRestMarkerCount", static_cast<int>( predictionRetainedRestMarkerCount ) },
         { "predictionRetainedHorizonMarkerCount", static_cast<int>( predictionRetainedHorizonMarkerCount ) },
-        { "replayActiveTrack", ReplayTrackName( replayRuntime.Scrubber().activeTrack ) },
-        { "replayHistoricalSamplePaused", replayRuntime.Scrubber().historicalSamplePaused },
+        { "replayActiveTrack", ReplayTrackName( replayRuntime.ScrubberView().activeTrack ) },
+        { "replayHistoricalSamplePaused", replayRuntime.ScrubberView().historicalSamplePaused },
         { "replaySolverTrackPosition", replaySolverTrackPosition },
         { "replaySolverPresentTrackPosition", replaySolverPresentTrackPosition },
         { "replaySolverTrackAtPresent", replaySolverTrackAtPresent },

@@ -1049,6 +1049,10 @@ ReplayFrameIntentResult ReplayRuntime::ApplyFrameIntent( const ReplayFrameIntent
     {
         m_predictionOwner.CommitVelocityMutation();
     }
+    if ( intent.clearVelocityEditInputState )
+    {
+        m_authoring.ClearVelocityEditInputState();
+    }
     if ( intent.queryDeterministicRevealReady )
     {
         result.deterministicRevealReady = m_predictionOwner.ReadyForDeterministicReveal();
@@ -1346,6 +1350,11 @@ RunReplayScrubberState& ReplayRuntime::Scrubber()
 const RunReplayScrubberState& ReplayRuntime::Scrubber() const
 {
     return m_scrubberOwner.State();
+}
+
+ReplayScrubberView ReplayRuntime::ScrubberView() const noexcept
+{
+    return m_scrubberOwner.View();
 }
 
 RunReplayCameraState& ReplayRuntime::Camera()

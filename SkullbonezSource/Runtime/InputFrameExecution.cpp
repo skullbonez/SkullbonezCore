@@ -334,7 +334,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                      m_camera.mode == RunCameraMode::Director,
                                                      m_camera.mode == RunCameraMode::Director || flyCamera,
                                                      m_runtimeTools.Editor().editorModeEnabled,
-                                                     !m_replayRuntime.Scrubber().restoreConsumedThisFrame,
+                                                     !m_replayRuntime.ScrubberView().restoreConsumedThisFrame,
                                                      false };
     m_inputRouter.RoutePhase( keyboardBindings,
                               InputActionPhase::PreUi,
@@ -534,7 +534,8 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             break;
         case RuntimeInputAction::WriteLauncherReproSnapshot:
 #ifdef _DEBUG
-            if ( RunCameraModeUsesLauncher( m_camera.mode ) && !m_replayRuntime.Scrubber().restoreConsumedThisFrame )
+            if ( RunCameraModeUsesLauncher( m_camera.mode ) &&
+                 !m_replayRuntime.ScrubberView().restoreConsumedThisFrame )
             {
                 const double simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
                 m_runtimeTools.WriteLauncherReproSnapshotWithStatusMessage(
@@ -963,7 +964,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         SceneState().isScenePhysics,
         routedDeviceFrame.keys.IsDown( VK_SPACE ),
         m_replayRuntime.IsScrubPaused(),
-        m_replayRuntime.Scrubber().liveAdvanceHeld,
+        m_replayRuntime.ScrubberView().liveAdvanceHeld,
         mouseEdges.rightDown,
         m_runtimeTools.Editor().viewportLookActive,
         m_replayRuntime.InspectionMouseLookActive( routedDeviceFrame.rightDown,

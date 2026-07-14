@@ -142,6 +142,7 @@ struct ReplayFrameIntent
     float predictionHorizonSeconds = 0.0f;
     bool prepareVelocityMutationBaseline = false;
     bool commitVelocityMutation = false;
+    bool clearVelocityEditInputState = false;
     bool queryDeterministicRevealReady = false;
     bool armDeterministicReveal = false;
     ReplayFrameIndex revealFrame = 0;

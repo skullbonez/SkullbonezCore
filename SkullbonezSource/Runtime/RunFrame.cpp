@@ -813,7 +813,7 @@ void Run::TickPhysics( double secondsPerFrame,
         return;
     }
 
-    const bool replayLiveAdvanceHeld = m_replayRuntime.Scrubber().liveAdvanceHeld;
+    const bool replayLiveAdvanceHeld = m_replayRuntime.ScrubberView().liveAdvanceHeld;
     const RuntimeInputSnapshot& inputSnapshot = m_inputRouter.RuntimeSnapshot();
     const bool stepRequested = inputSnapshot.frameInput.stepHeld;
     const bool replayCapture = m_replayRuntime.IsCaptureEnabled();

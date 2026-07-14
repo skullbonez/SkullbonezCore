@@ -695,9 +695,9 @@ bool InputRouter::HandleUnfocusedFrame( RuntimeInputContext& runtimeInput,
             interaction,
             *this );
     }
-    replayRuntime.VelocityEdit().keyboardAltWasDown = false;
-    replayRuntime.VelocityEdit().hotLinearAxis = -1;
-    replayRuntime.VelocityEdit().hotAngularAxis = -1;
+    ReplayFrameIntent replayIntent;
+    replayIntent.clearVelocityEditInputState = true;
+    (void)replayRuntime.ApplyFrameIntent( replayIntent );
     runtimeTools.CancelMousePickup( *this, interaction );
     RunInternal::ResetEditorUnfocusedInputState(
         { runtimeTools.Editor(), sceneController, sceneController.Physics(), interaction } );
@@ -736,7 +736,7 @@ void InputRouter::DispatchCaptureActions( InputActions& actions,
                                              camera.mode == RunCameraMode::Director,
                                              camera.mode == RunCameraMode::Director || flyCamera,
                                              false,
-                                             !replayRuntime.Scrubber().restoreConsumedThisFrame,
+                                             !replayRuntime.ScrubberView().restoreConsumedThisFrame,
                                              false };
     const RuntimeInputKeyBindingView bindings = TakeInputKeyboardBindings();
     RoutePhase( bindings, InputActionPhase::Capture, BuildKeyboardContextMask( contextFacts ), actions );
@@ -808,7 +808,7 @@ bool InputRouter::DispatchAfterUiDismiss( InputActions& actions,
                                              camera.mode == RunCameraMode::Director,
                                              camera.mode == RunCameraMode::Director || flyCamera,
                                              runtimeTools.Editor().editorModeEnabled,
-                                             !replayRuntime.Scrubber().restoreConsumedThisFrame,
+                                             !replayRuntime.ScrubberView().restoreConsumedThisFrame,
                                              !uiUserInteracted };
     const RuntimeInputKeyBindingView bindings = TakeInputKeyboardBindings();
     RoutePhase( bindings, InputActionPhase::AfterUi, BuildKeyboardContextMask( contextFacts ), actions );

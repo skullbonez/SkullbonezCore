@@ -151,6 +151,13 @@ class ReplayAuthoring
         return true;
     }
 
+    void ClearVelocityEditInputState() noexcept
+    {
+        m_velocityEdit.keyboardAltWasDown = false;
+        m_velocityEdit.hotLinearAxis = -1;
+        m_velocityEdit.hotAngularAxis = -1;
+    }
+
     // Concept: authoring publishes a value command instead of holding a
     // prediction pointer or callback. Multiple edits before consumption fold
     // into one newest-state refresh request.

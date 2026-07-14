@@ -26,6 +26,7 @@ Related:
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 
 namespace SkullbonezCore
 {
@@ -100,6 +101,27 @@ struct RunReplayScrubberState
     char saveMessage[96] = {};
 };
 
+// Value-only publication for input, render, and validation consumers. Mutating
+// this copy cannot move the retained replay cursor or alter restore/fade state.
+struct ReplayScrubberView
+{
+    bool visible = false;
+    bool historicalSamplePaused = false;
+    bool liveAdvanceHeld = false;
+    bool restoreConsumedThisFrame = false;
+    RunReplayTrack activeTrack = RunReplayTrack::Solver;
+    RunReplayTrack saveMessageTrack = RunReplayTrack::Solver;
+    float position = 1.0f;
+    float presentationPosition = 1.0f;
+    float solverPosition = 1.0f;
+    int mouseX = 0;
+    int mouseY = 0;
+    double visibleUntil = 0.0;
+    float visibleAlpha = 0.0f;
+    double saveMessageUntil = 0.0;
+    char saveMessage[96] = {};
+};
+
 struct ReplayScrubberInputFrame
 {
     bool leftPressed = false;
@@ -154,6 +176,27 @@ struct ReplayLiveRestoreRequest
 class ReplayScrubber
 {
   public:
+    ReplayScrubberView View() const noexcept
+    {
+        ReplayScrubberView view;
+        view.visible = m_state.visible;
+        view.historicalSamplePaused = m_state.historicalSamplePaused;
+        view.liveAdvanceHeld = m_state.liveAdvanceHeld;
+        view.restoreConsumedThisFrame = m_state.restoreConsumedThisFrame;
+        view.activeTrack = m_state.activeTrack;
+        view.saveMessageTrack = m_state.saveMessageTrack;
+        view.position = m_state.position;
+        view.presentationPosition = m_state.presentationPosition;
+        view.solverPosition = m_state.solverPosition;
+        view.mouseX = m_state.mouseX;
+        view.mouseY = m_state.mouseY;
+        view.visibleUntil = m_state.visibleUntil;
+        view.visibleAlpha = m_state.visibleAlpha;
+        view.saveMessageUntil = m_state.saveMessageUntil;
+        strcpy_s( view.saveMessage, sizeof( view.saveMessage ), m_state.saveMessage );
+        return view;
+    }
+
     RunReplayScrubberState& State() noexcept
     {
         return m_state;
