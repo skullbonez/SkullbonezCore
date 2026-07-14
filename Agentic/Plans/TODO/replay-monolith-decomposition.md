@@ -1,7 +1,7 @@
 # Replay Monolith Decomposition — Owner Boundaries Inside The Replay Subsystem
 
 Date: 2026-07-13
-Status: Live — 3/9 tasks complete; M2 owner headers split
+Status: Live — 4/9 tasks complete; M3 presentation state owner extracted
 Branch: `nightrunner-13th-july`
 Impact area: `SkullbonezSource/Runtime/Replay/*` (26,060 lines), the two
 external consumers `Runtime/Run.cpp` and `Runtime/RunUiTextPass.cpp`, project
@@ -111,13 +111,14 @@ known-good golden manifest.
   `tools\validate_replay_visual_fidelity.bat`, then
   `tools\validate_full.bat` at the PR gate (`Runtime/*` mapping), plus
   `tools\validate_replay_scrub.bat`.
-- [ ] **M3 — Extract `ReplayPresentation` (biggest, safest).** Move overlay
+- [x] **M3 — Extract `ReplayPresentation` (biggest, safest).** Move overlay
   layout/renderer, path visualizer, ribbon/marker drawing, and the
-  visualization free functions of `RunReplayTools.cpp` into the owner: state
+  presentation-only operations into the owner: state
   that today lives in `ReplayRuntime` members (overlay/trajectory display
   state) moves into `ReplayPresentation`; the owner consumes timeline/
-  prediction data through published views only (never-stored borrows). Free
-  functions become owner methods or file-local statics in the owner's TU.
+  prediction data through published views only (never-stored borrows). The
+  legacy mixed prediction/draw statics remain file-local until M6 publishes
+  the prediction view they require, then move with the owner-named TU in M8.
   Acceptance: no presentation state remains in `ReplayRuntime`; the
   presentation TU does not include prediction internals (only published
   views); prediction-determinism submitted-geometry fingerprint unchanged.
@@ -263,6 +264,37 @@ passed all CPU, Profile/Debug, DX12, standalone physics, and 44,401-line
 byte-exact varied-physics lanes. The scrub alias's no-engine propagation probe
 returned its required synthetic exit code 37. No baseline changed. The touched
 source/tool comment audit checked 14/14 files with zero deferred.
+
+M3 recorded adjustments and evidence:
+
+- `ReplayPresentation` now exclusively owns camera/path selection, render-pose
+  masks, ghost requests, launcher render backup/scratch, trajectory diagnostics,
+  submission stability, and the frame-local published visual packet.
+  `ReplayRuntime` retains one concrete owner object and composition wrappers,
+  not parallel presentation fields.
+- Path picking and its four query helpers moved into the clean
+  `ReplayPresentation.cpp`; the legacy query TU is now only the cross-owner
+  reaction that dirties prediction or exits the camera. Packet publication,
+  focus-mask construction, bounded presentation reserves, and trajectory
+  diagnostics are owner methods. `ReplayPresentation.cpp` does not include
+  `ReplayPrediction.h`.
+- The current `RunReplayTools.cpp` interleaves private prediction begin/step
+  scheduling with ribbon/marker drawing. Moving that block wholesale in M3
+  would make the presentation owner include prediction internals, directly
+  violating M3's clean-view acceptance. M6 must first publish the narrow
+  prediction view; M8 then moves the remaining file-local drawing statics and
+  performs the binding owner-named TU rename. This is a sequencing correction,
+  not permission for presentation state to remain in the composition root.
+- Allocation-policy rows moved with the concrete presentation owner and now
+  name its target/model/ghost hard caps; the checker self-test and repository
+  scan passed with zero allowlist errors.
+- Validation passed: formatting; 679/679 project/filter items; zero-warning
+  Profile; the unchanged one-engine/one-prediction mega oracle at 2,401 ticks,
+  200 moved/settled bricks, 187 directly grounded sleepers, and 199 causal
+  nodes; all false-pass controls; the full CPU/Profile/Debug/DX12/physics gate;
+  and the scrub alias's no-engine exit-37 propagation proof. No baseline
+  changed. The touched source comment audit checked 7/7 files with zero
+  deferred.
 
 ## M1 Binding Type Inventory
 

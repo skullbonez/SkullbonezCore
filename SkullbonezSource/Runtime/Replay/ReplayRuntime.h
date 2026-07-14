@@ -143,55 +143,10 @@ struct ReplaySolverSampleRestoreContext;
 class ReplayRuntime
 {
   public:
-    struct ReplayOverlayBuildInput
-    {
-        bool scenePhysicsEnabled = false;
-        bool editorModeEnabled = false;
-        RuntimeInteractionGesture gesture;
-        int sceneFrame = 0;
-        double frameSeconds = 0.0;
-        double totalSeconds = 0.0;
-    };
-
-    struct PathPickInput
-    {
-        Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
-        Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
-        bool hasWorldRay = false;
-        bool additive = false;
-        bool clearOnMiss = false;
-    };
-
-    struct PathPickResult
-    {
-        bool picked = false;
-        bool exitInspectionCamera = false;
-    };
-
-    struct WorldPointerInput
-    {
-        // Lifetime: one routed pointer gesture. Every reference is borrowed for
-        // the synchronous pick/optional camera-exit operation and is never stored.
-        bool leftPressed = false;
-        bool suppressWorldAction = false;
-        bool editorMode = false;
-        bool uiWantsNativeCursor = false;
-        bool controlDown = false;
-        bool launcherMode = false;
-        PathPickInput pick;
-        const SceneEntityStore& entities;
-        const Physics::PhysicsBodyStore& bodyStore;
-        const Physics::ColliderStore& colliderStore;
-        std::span<const Rendering::RenderInstancePresentationRecord> presentation;
-        Environment::CameraCollection* cameras = nullptr;
-        Geometry::Terrain* terrain = nullptr;
-        RunCameraState& camera;
-        RunCameraMode restoreCameraMode = RunCameraMode::Inspect;
-        bool attachedCameraFollow = false;
-        bool directorGrabbed = false;
-        RuntimeInteractionController& interaction;
-        InputRouter& inputRouter;
-    };
+    using ReplayOverlayBuildInput = Runtime::ReplayOverlayBuildInput;
+    using PathPickInput = ReplayPathPickInput;
+    using PathPickResult = ReplayPathPickResult;
+    using WorldPointerInput = ReplayWorldPointerInput;
 
     // Concept: one borrowed, frame-scoped replay workspace view replaces the
     // three callback packs formerly threaded through Run's UI command helper.
@@ -332,11 +287,7 @@ class ReplayRuntime
 
     // Concept: replay interaction ticks receive InputRouter-owned pointer edges;
     // ReplayRuntime owns gesture state but never advances duplicate button memory.
-    struct PointerButtonEdges
-    {
-        bool leftPressed = false;
-        bool leftReleased = false;
-    };
+    using PointerButtonEdges = ReplayPointerButtonEdges;
 
     struct ScrubberInputFrame
     {
@@ -842,11 +793,11 @@ class ReplayRuntime
                                      const ReplaySolverFrameSample& reference,
                                      ReplaySolverFrameSample& outSample );
 
-    ReplayRecorder m_presentation;              // Bounded replay presentation recorder for recent-frame inspection.
-    ReplaySolverRecorder m_solver;              // Same-tick solver-state recorder kept in tandem with presentation replay.
-    ReplayEventRecorder m_events;               // Bounded intent/event stream kept beside v2 replay tracks.
-    ReplayBranchInfo m_branch;                  // Current live replay branch provenance.
-    ReplayMemoryPolicy m_memoryPolicy;          // Resolved recorder-window policy owned by ReplayRuntime.
+    ReplayRecorder m_presentation;         // Bounded replay presentation recorder for recent-frame inspection.
+    ReplaySolverRecorder m_solver;         // Same-tick solver-state recorder kept in tandem with presentation replay.
+    ReplayEventRecorder m_events;          // Bounded intent/event stream kept beside v2 replay tracks.
+    ReplayBranchInfo m_branch;             // Current live replay branch provenance.
+    ReplayMemoryPolicy m_memoryPolicy;     // Resolved recorder-window policy owned by ReplayRuntime.
     struct StartupWorkflowState
     {
         char loadPath[260] = {};
@@ -859,39 +810,22 @@ class ReplayRuntime
 #endif
     } m_startupWorkflows;
 #ifdef _DEBUG
-    RunReplayProbeState m_probes;               // CLI-only replay validation state owned with the workflows it drives.
+    RunReplayProbeState m_probes;          // CLI-only replay validation state owned with the workflows it drives.
 #endif
     RunLoadedReplayPresentationState m_loadedPresentation;
     RunReplayScrubberState m_scrubber;
-    RunReplayCameraState m_camera;
-    RunReplayPathVisualizerState m_pathVisualizer;
+    ReplayPresentation m_visualPresentation;
     RunReplayPredictionState m_prediction;
     // Invariant: a replay-load probe reconstructs saved presentation only. It
     // must never enter the future-simulation builder that created the artifact.
     bool m_predictionGenerationPermitted = true;
-    SkullbonezCore::Core::MainMemoryReplayTrajectoryStats
-        m_trajectoryVisualStats;                // Cumulative replay trajectory diagnostics for the current process.
-    ReplayTrajectorySubmissionProbeStats
-        m_trajectorySubmissionProbe;            // Submitted replay-ribbon stability window for validation reports.
-    ReplayVisualPacket m_publishedVisualPacket; // Frame-local immutable seam consumed by renderer and probes.
     RunReplayCauseTreeState m_causeTree;
     RunReplayVelocityEditState m_velocityEdit;
-    std::vector<ReplayPredictionGhostDrawRequest> m_predictionGhostDrawRequests;
-    std::vector<uint8_t> m_focusModelMask;
-    ReplayLauncherVisualSample
-        m_launcherVisualBackup;                 // Live launcher visuals restored after replay presentation overrides.
-    ReplayLauncherVisualSample
-        m_launcherVisualCaptureScratch;         // Reserved post-physics capture payload reused every replay tick.
-    // Invariant: replay render pose matching is a per-frame mark table capped by
-    // the live model budget. It must not allocate while scrub/prediction views
-    // are applied during rendering.
-    std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_renderPoseBodyMatched = {};
     std::string m_recordingHashLogPath;
-    int m_presentationSaveSequence = 0;         // Next numbered binary-v2 scrubber path candidate.
+    int m_presentationSaveSequence = 0;    // Next numbered binary-v2 scrubber path candidate.
     int m_recordingRuntimeBodyCapacity = 0;
-    uint32_t m_captureMismatchReports = 0;      // Process-lifetime throttle for paired presentation/solver capture diagnostics.
+    uint32_t m_captureMismatchReports = 0; // Process-lifetime throttle for paired presentation/solver capture diagnostics.
     bool m_captureMismatchSuppressed = false;
-    bool m_launcherVisualBackupActive = false;
     bool m_recordingConfigured = false;
     bool m_recordingEnabled = false;
 };

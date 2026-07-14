@@ -839,9 +839,46 @@
       "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
     },
     {
-      "path": "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp",
+      "path": "SkullbonezSource/Runtime/Replay/ReplayPredictionArchive.cpp",
+      "patterns": [
+        ".push_back(",
+        ".reserve(",
+        ".resize(",
+        "std::vector<"
+      ],
+      "owner": "Replay prediction artifact IO",
+      "phase": "cold_replay_artifact_io",
+      "reason": "Durable prediction archive encoding and offline reconstruction allocate only while writing or reading an explicit replay artifact, never while stepping or presenting live prediction.",
+      "cap": "Every decoded vector is bounded by validated artifact counts and the replay prediction hard capacities before storage is populated.",
+      "removal_or_wrapper_plan": "Move archive byte and decode scratch storage behind the cold replay artifact reader/writer wrappers when artifact IO ownership is consolidated."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Replay/ReplayPresentation.cpp",
       "patterns": [
         ".assign(",
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "ReplayPresentation",
+      "phase": "startup_replay_and_capacity_bounded_interaction",
+      "reason": "ReplayPresentation reserves target, focus-mask, and ghost storage before steady use; live picking rotates targets and focus assignment remains within those pre-reserved hard capacities.",
+      "cap": "Targets are capped by REPLAY_PATH_MAX_ROOT_TARGETS, focus rows by MAX_GAME_MODELS, and ghosts by REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY.",
+      "removal_or_wrapper_plan": "Route presentation reserves through a typed ReplayPresentation reserve wrapper once the replay allocation-policy owner API replaces direct pre-gameplay vector reservation."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Replay/ReplayPresentation.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "ReplayPresentation",
+      "phase": "startup_replay_and_capacity_bounded_interaction",
+      "reason": "The concrete presentation owner retains only replay-approved target, ghost, and focus vectors whose capacity is established before steady use.",
+      "cap": "Targets, ghosts, and focus rows use the explicit replay/model hard caps named by ReplayPresentation.cpp.",
+      "removal_or_wrapper_plan": "Replace the vectors with typed fixed/reserve-backed presentation buffers when the replay allocation owner wrapper lands."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp",
+      "patterns": [
         ".push_back(",
         ".reserve(",
         ".resize("
@@ -855,33 +892,33 @@
     {
       "path": "SkullbonezSource/Runtime/Replay/ReplayRuntime.h",
       "patterns": [
-        "std::string",
-        "std::vector<"
+        "std::string"
       ],
       "owner": "Replay static STL storage/growth surface",
       "phase": "replay",
       "reason": "Replay is the only approved runtime growth exception; these existing recorder, prediction, query, artifact, and trajectory buffers remain reviewed while runtime reserve owners and validation guard actual gameplay growth.",
       "cap": "Replay hard caps and artifact sizes remain enforced by the replay reserve owners and validation gates.",
       "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.cpp",
+      "patterns": [
+        ".resize("
+      ],
+      "owner": "Replay visual artifact fingerprinting",
+      "phase": "cold_replay_artifact_io",
+      "reason": "Canonical trajectory digest scratch is sized only while fingerprinting a replay packet for artifact validation and offline fidelity comparison.",
+      "cap": "Digest rows are bounded by the already validated trajectory-record count in the replay visual packet.",
+      "removal_or_wrapper_plan": "Move canonical digest scratch into the cold replay artifact fingerprint workspace when that utility receives a typed bounded buffer."
     },
     {
       "path": "SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp",
       "patterns": [
+        ".assign(",
         ".insert(",
         ".push_back(",
         ".reserve(",
         ".resize("
-      ],
-      "owner": "Replay static STL storage/growth surface",
-      "phase": "replay",
-      "reason": "Replay is the only approved runtime growth exception; these existing recorder, prediction, query, artifact, and trajectory buffers remain reviewed while runtime reserve owners and validation guard actual gameplay growth.",
-      "cap": "Replay hard caps and artifact sizes remain enforced by the replay reserve owners and validation gates.",
-      "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
-    },
-    {
-      "path": "SkullbonezSource/Runtime/Replay/RunReplayQueryTools.cpp",
-      "patterns": [
-        ".push_back("
       ],
       "owner": "Replay static STL storage/growth surface",
       "phase": "replay",
@@ -931,7 +968,8 @@
       "patterns": [
         ".emplace_back(",
         ".push_back(",
-        ".reserve("
+        ".reserve(",
+        ".resize("
       ],
       "owner": "Interaction automation controller",
       "phase": "startup_scene_load_diagnostics",

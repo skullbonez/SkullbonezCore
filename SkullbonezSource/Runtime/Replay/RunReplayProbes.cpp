@@ -2431,7 +2431,7 @@ ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& tr
         visualPredictionBytes = visualPredictionState.size();
         char archiveReason[192] = {};
         if ( !LoadReplayPredictionArchive( visualPredictionState,
-                                           m_pathVisualizer,
+                                           m_visualPresentation.PathVisualizer(),
                                            m_prediction,
                                            archiveReason,
                                            sizeof( archiveReason ) ) )
@@ -2448,7 +2448,7 @@ ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& tr
         SceneController& sceneController = transaction.sampleOwners.sceneController;
         RunEditorTracer& tracer = runtimeTools.EditorTracer();
         const Physics::PhysicsWorldForces worldForces = sceneController.World().GetPhysicsWorldForces();
-        m_trajectoryVisualStats = {};
+        m_visualPresentation.TrajectoryVisualStats() = {};
         // The archive retains the final marker prefix exactly. This optional
         // presenting Debug probe deliberately replays first appearance from
         // frame zero, so only the probe resets publication state.

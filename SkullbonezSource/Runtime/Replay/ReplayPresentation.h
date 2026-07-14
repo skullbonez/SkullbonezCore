@@ -1,17 +1,19 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayPresentation.h
 Purpose:
-  Defines replay path, camera, and overlay presentation values.
+  Owns replay path, camera, overlay, render-pose, and published visual state.
 
 Summary:
-  ReplayPresentation owns renderer-facing selection and path-display state; M2 moves definitions only.
+  ReplayPresentation is the mutable authority for everything replay renders.
+  ReplayRuntime sequences the owner but does not retain parallel visual state.
 
 Glossary:
   Path target: Stable replay body selected for visualization.
 
 Invariants:
   - ReplayBodyId is identity; ModelRowHint is only a dense-row hint.
-  - M2 preserves the moved definition bodies verbatim.
+  - Published packet spans are frame-local borrows into the submitted tracer.
+  - Render-pose matching uses a fixed model-capacity mask and never allocates.
 
 Related:
   - ReplayRuntime.h
@@ -23,17 +25,98 @@ Related:
 #include "ReplayRecorder.h"
 #include "ReplayVisualPacket.h"
 #include "../RuntimeCameraMode.h"
+#include "../RuntimeInteractionController.h"
 #include "../../Assets/AssetKeys.h"
 #include "../../Core/Common.h"
 #include "../../Physics/PhysicsHandles.h"
+#include "../Scene/SceneCapacity.h"
 
+#include <array>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 namespace SkullbonezCore
 {
+namespace Physics
+{
+class ColliderStore;
+class PhysicsBodyStore;
+} // namespace Physics
+namespace Rendering
+{
+struct RenderInstancePresentationRecord;
+}
+namespace Environment
+{
+class CameraCollection;
+}
+namespace Geometry
+{
+class Terrain;
+}
 namespace Runtime
 {
+class SceneEntityStore;
+class InputRouter;
+class ReplayInteractionController;
+struct RunCameraState;
+
+struct ReplayOverlayBuildInput
+{
+    bool scenePhysicsEnabled = false;
+    bool editorModeEnabled = false;
+    RuntimeInteractionGesture gesture;
+    int sceneFrame = 0;
+    double frameSeconds = 0.0;
+    double totalSeconds = 0.0;
+};
+
+struct ReplayPathPickInput
+{
+    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
+    bool hasWorldRay = false;
+    bool additive = false;
+    bool clearOnMiss = false;
+};
+
+struct ReplayPathPickResult
+{
+    bool picked = false;
+    bool exitInspectionCamera = false;
+};
+
+struct ReplayWorldPointerInput
+{
+    // Lifetime: one routed pointer gesture. Every reference is borrowed for
+    // the synchronous pick/optional camera-exit operation and is never stored.
+    bool leftPressed = false;
+    bool suppressWorldAction = false;
+    bool editorMode = false;
+    bool uiWantsNativeCursor = false;
+    bool controlDown = false;
+    bool launcherMode = false;
+    ReplayPathPickInput pick;
+    const SceneEntityStore& entities;
+    const Physics::PhysicsBodyStore& bodyStore;
+    const Physics::ColliderStore& colliderStore;
+    std::span<const Rendering::RenderInstancePresentationRecord> presentation;
+    Environment::CameraCollection* cameras = nullptr;
+    Geometry::Terrain* terrain = nullptr;
+    RunCameraState& camera;
+    RunCameraMode restoreCameraMode = RunCameraMode::Inspect;
+    bool attachedCameraFollow = false;
+    bool directorGrabbed = false;
+    RuntimeInteractionController& interaction;
+    InputRouter& inputRouter;
+};
+
+struct ReplayPointerButtonEdges
+{
+    bool leftPressed = false;
+    bool leftReleased = false;
+};
 struct RunReplayPathTarget
 {
     ReplayBodyId id;
@@ -108,6 +191,152 @@ struct RunReplayPathVisualizerState
     std::vector<RunReplayPathTraceNode> futureNodes;
     std::vector<RunReplayPathTarget> targets;
     RunReplayPastTrajectoryBuildState pastTrajectory;
+};
+
+struct ReplayTrajectorySubmissionProbeStats
+{
+    bool hasSubmission = false;
+    bool stableWindowReady = false;
+    bool noReserveGrowth = true;
+    int observedFrameCount = 0;
+    int stableFrameCount = 0;
+    int stableWindowTargetFrameCount = 120;
+    int firstFrame = -1;
+    int lastFrame = -1;
+    uint64_t stableHash = 0;
+    uint64_t vertexBytes = 0;
+    uint32_t vertexCount = 0;
+    uint32_t segmentCount = 0;
+    uint64_t reserveGrowthEventsAtStart = 0;
+    uint64_t reserveGrowthEventsAtEnd = 0;
+};
+
+// Concept: presentation is a concrete owner, not a collection of fields on
+// ReplayRuntime. Its accessors are the temporary migration surface used while
+// M3 moves drawing operations; consumers cannot substitute another state bag.
+class ReplayPresentation
+{
+  public:
+    ReplayPresentation();
+
+    RunReplayCameraState& Camera() noexcept
+    {
+        return m_camera;
+    }
+    const RunReplayCameraState& Camera() const noexcept
+    {
+        return m_camera;
+    }
+    RunReplayPathVisualizerState& PathVisualizer() noexcept
+    {
+        return m_pathVisualizer;
+    }
+    const RunReplayPathVisualizerState& PathVisualizer() const noexcept
+    {
+        return m_pathVisualizer;
+    }
+    SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& TrajectoryVisualStats() noexcept
+    {
+        return m_trajectoryVisualStats;
+    }
+    const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& TrajectoryVisualStats() const noexcept
+    {
+        return m_trajectoryVisualStats;
+    }
+    ReplayTrajectorySubmissionProbeStats& TrajectorySubmissionProbe() noexcept
+    {
+        return m_trajectorySubmissionProbe;
+    }
+    const ReplayTrajectorySubmissionProbeStats& TrajectorySubmissionProbe() const noexcept
+    {
+        return m_trajectorySubmissionProbe;
+    }
+    ReplayVisualPacket& PublishedVisualPacket() noexcept
+    {
+        return m_publishedVisualPacket;
+    }
+    const ReplayVisualPacket& PublishedVisualPacket() const noexcept
+    {
+        return m_publishedVisualPacket;
+    }
+    std::vector<ReplayPredictionGhostDrawRequest>& PredictionGhostDrawRequests() noexcept
+    {
+        return m_predictionGhostDrawRequests;
+    }
+    const std::vector<ReplayPredictionGhostDrawRequest>& PredictionGhostDrawRequests() const noexcept
+    {
+        return m_predictionGhostDrawRequests;
+    }
+    std::vector<uint8_t>& FocusModelMask() noexcept
+    {
+        return m_focusModelMask;
+    }
+    const std::vector<uint8_t>& FocusModelMask() const noexcept
+    {
+        return m_focusModelMask;
+    }
+    ReplayLauncherVisualSample& LauncherVisualBackup() noexcept
+    {
+        return m_launcherVisualBackup;
+    }
+    const ReplayLauncherVisualSample& LauncherVisualBackup() const noexcept
+    {
+        return m_launcherVisualBackup;
+    }
+    ReplayLauncherVisualSample& LauncherVisualCaptureScratch() noexcept
+    {
+        return m_launcherVisualCaptureScratch;
+    }
+    std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>& RenderPoseBodyMatched() noexcept
+    {
+        return m_renderPoseBodyMatched;
+    }
+    bool& LauncherVisualBackupActive() noexcept
+    {
+        return m_launcherVisualBackupActive;
+    }
+    bool LauncherVisualBackupActive() const noexcept
+    {
+        return m_launcherVisualBackupActive;
+    }
+    void ReserveRecordingBuffers();
+    void ClearPathState();
+    bool SetPathTarget( const char* name, int modelIndex, const Physics::PhysicsBodyStore& bodyStore );
+    ReplayPathPickResult
+    TryPickPathTarget( const ReplayPathPickInput& input,
+                       const SceneEntityStore& entities,
+                       const Physics::PhysicsBodyStore& bodyStore,
+                       const Physics::ColliderStore& colliderStore,
+                       std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
+                       const ReplaySolverFrameSample* currentSolverSample );
+    bool BuildFocusModelMask( const Physics::PhysicsBodyStore& bodyStore,
+                              int modelCount,
+                              std::span<const RunReplayPathTraceNode> futureNodes );
+    void StoreLauncherVisualBackup( const ReplayLauncherVisualSample& sample );
+    void ClearLauncherVisualBackup();
+    void RecordTrajectoryFrameStats( const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& frameStats );
+    void PublishVisualPacket( ReplayVisualPacket packet );
+    void RecordTrajectorySubmissionFrame(
+        const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& submissionStats,
+        int frameNumber,
+        uint64_t reserveGrowthEventCount );
+    void RecordTrajectoryBudgetExpiry( SkullbonezCore::Core::MainMemoryReplayBudgetPass pass );
+    void RecordTrajectoryRebuildCause( SkullbonezCore::Core::MainMemoryReplayRebuildCause cause );
+
+  private:
+    RunReplayCameraState m_camera;
+    RunReplayPathVisualizerState m_pathVisualizer;
+    SkullbonezCore::Core::MainMemoryReplayTrajectoryStats m_trajectoryVisualStats;
+    ReplayTrajectorySubmissionProbeStats m_trajectorySubmissionProbe;
+    ReplayVisualPacket m_publishedVisualPacket;
+    std::vector<ReplayPredictionGhostDrawRequest> m_predictionGhostDrawRequests;
+    std::vector<uint8_t> m_focusModelMask;
+    ReplayLauncherVisualSample m_launcherVisualBackup;
+    ReplayLauncherVisualSample m_launcherVisualCaptureScratch;
+    // Invariant: replay render pose matching is a per-frame mark table capped
+    // by the live model budget, so scrub/prediction rendering never allocates.
+    std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_renderPoseBodyMatched = {};
+    bool m_launcherVisualBackupActive = false;
 };
 
 } // namespace Runtime

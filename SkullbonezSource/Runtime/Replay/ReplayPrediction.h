@@ -352,23 +352,5 @@ inline void RunReplayPredictionState::PublishBuildFrameSlot( std::size_t frameSl
     }
 }
 
-struct ReplayTrajectorySubmissionProbeStats
-{
-    bool hasSubmission = false;
-    bool stableWindowReady = false;
-    bool noReserveGrowth = true;
-    int observedFrameCount = 0;
-    int stableFrameCount = 0;
-    int stableWindowTargetFrameCount = 120;
-    int firstFrame = -1;
-    int lastFrame = -1;
-    uint64_t stableHash = 0;
-    uint64_t vertexBytes = 0;
-    uint32_t vertexCount = 0;
-    uint32_t segmentCount = 0;
-    uint64_t reserveGrowthEventsAtStart = 0;
-    uint64_t reserveGrowthEventsAtEnd = 0;
-};
-
 } // namespace Runtime
 } // namespace SkullbonezCore
