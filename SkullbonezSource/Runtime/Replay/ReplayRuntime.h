@@ -213,11 +213,6 @@ class ReplayRuntime
 
     ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input );
     void ClearCauseTreeFocusSelection();
-    bool ShouldUseInspectionCamera() const;
-    bool InspectionActive() const;
-    bool InspectionMouseLookActive( bool rightMouseDown, bool uiWantsNativeCursor, bool uiBlocksCameraMouse ) const;
-    bool ArmLoadedPresentationScrubber( float normalized, double now );
-    void ClearCameraFocusForRestore();
 
     // Configures bounded recorder storage. runtimeBodyCapacity must be the
     // scene/run body cap known before capture so replay frames do not allocate.
@@ -389,19 +384,22 @@ class ReplayRuntime
     // Owns scrubber save sequencing and status publication; file decode and
     // loaded-track state belong to ReplayTimeline.
     bool SavePresentationFromScrubber( double now );
-    bool LoadPresentationArtifact( const char* path,
-                                   bool activateScrubber,
-                                   double now,
-                                   InputRouter& inputRouter,
-                                   RuntimeInteractionController& interaction,
-                                   Environment::CameraCollection* cameras,
-                                   Geometry::Terrain* terrain,
-                                   RunCameraState& camera,
-                                   RunMousePickupState& mousePickup,
-                                   RunCameraMode normalizedCurrentMode,
-                                   RunCameraMode normalizedRestoreMode,
-                                   bool attachedFollow,
-                                   bool directorGrabbed );
+    // Applies the visible replay-owner and host-camera reaction after a
+    // successful ReplayTimeline load; this operation performs no file I/O.
+    void ActivateLoadedPresentationScrubber( double now,
+                                             InputRouter& inputRouter,
+                                             RuntimeInteractionController& interaction,
+                                             Environment::CameraCollection* cameras,
+                                             Geometry::Terrain* terrain,
+                                             RunCameraState& camera,
+                                             RunMousePickupState& mousePickup,
+                                             RunCameraMode normalizedCurrentMode,
+                                             RunCameraMode normalizedRestoreMode,
+                                             bool attachedFollow,
+                                             bool directorGrabbed );
+    bool ShouldUseInspectionCamera() const;
+    bool ArmLoadedPresentationScrubber( float normalized, double now );
+    void ClearCameraFocusForRestore();
     ReplayPathPickResult ApplyPathPick( const ReplayPathPickInput& input,
                                         const SceneEntityStore& entities,
                                         const Physics::PhysicsBodyStore& bodyStore,

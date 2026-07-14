@@ -328,6 +328,73 @@ void ReplayRuntime::ExitInspectionCamera( Environment::CameraCollection* cameras
     InputController::ResetMouseLook( camera );
 }
 
+bool ReplayRuntime::SavePresentationFromScrubber( double now )
+{
+    // Invariant: the timeline advances the process-local sequence and the
+    // scrubber publishes success only after the binary v2 writer completes.
+    char path[256] = {};
+    bool saved = false;
+    if ( m_timeline.NextPresentationSavePath( path, sizeof( path ) ) )
+    {
+        saved = SavePresentationWithSolverHashes( path );
+    }
+
+    char message[96] = {};
+    if ( saved )
+    {
+        const char* fileName = std::strrchr( path, '\\' );
+        if ( !fileName )
+        {
+            fileName = std::strrchr( path, '/' );
+        }
+        fileName = fileName ? fileName + 1 : path;
+        sprintf_s( message, sizeof( message ), "SAVED %s", fileName );
+    }
+    else
+    {
+        sprintf_s( message, sizeof( message ), "REPLAY SAVE FAILED" );
+    }
+    m_scrubberOwner.PublishFeedback( RunReplayTrack::Presentation, message, now, 2.5 );
+    m_scrubberOwner.KeepVisible( now, ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS );
+    return saved;
+}
+
+void ReplayRuntime::ActivateLoadedPresentationScrubber( double now,
+                                                        InputRouter& inputRouter,
+                                                        RuntimeInteractionController& interaction,
+                                                        Environment::CameraCollection* cameras,
+                                                        Geometry::Terrain* terrain,
+                                                        RunCameraState& camera,
+                                                        RunMousePickupState& mousePickup,
+                                                        RunCameraMode normalizedCurrentMode,
+                                                        RunCameraMode normalizedRestoreMode,
+                                                        bool attachedFollow,
+                                                        bool directorGrabbed )
+{
+    // Invariant: file decode has already committed through ReplayTimeline.
+    // This operation only sequences the visible scrub/camera reaction.
+    m_scrubberOwner.SetLiveAdvanceHeld( false );
+    m_visualPresentation.SetCameraPauseOwnership( false );
+    CancelToolDragState( interaction, inputRouter );
+    ClearCameraFocusForRestore();
+    ExitInspectionCamera( cameras,
+                          terrain,
+                          camera,
+                          normalizedRestoreMode,
+                          attachedFollow,
+                          directorGrabbed,
+                          interaction,
+                          inputRouter );
+    (void)ArmLoadedPresentationScrubber( 0.25f, now );
+    interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                     WorldInteractionOwner::ReplayScrub,
+                                                     InteractionExitReason::EnterReplay );
+    if ( ShouldUseInspectionCamera() )
+    {
+        EnterInspectionCamera( cameras, camera, normalizedCurrentMode, interaction, inputRouter, mousePickup );
+    }
+}
+
 
 void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input,
                                    InputRouter& inputRouter,
@@ -1103,7 +1170,6 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
                                        bool& outEnterInteractive,
                                        ReplayLiveRestoreRequest& outRestoreRequest )
 {
-    ReplayRuntime& m_replayRuntime = *this;
     InputRouter& m_inputRouter = inputRouter;
     RuntimeInteractionController& m_interaction = interaction;
     outRestoreRequest = ReplayLiveRestoreRequest{};
@@ -1121,15 +1187,15 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
                               m_inputRouter );
     };
     PROFILE_SCOPED( "Frame/Replay/ScrubberInput" );
-    const bool loadedPresentation = m_replayRuntime.HasLoadedPresentation();
-    const float solverPresentTrackPosition = m_replayRuntime.SolverPresentTrackPosition();
+    const bool loadedPresentation = HasLoadedPresentation();
+    const float solverPresentTrackPosition = SolverPresentTrackPosition();
     const bool hasCameraFocus = m_visualPresentation.CameraView().focusKind != RunReplayCameraFocusKind::None;
     const int screenW = screenWidth;
     const int screenH = screenHeight;
     const RuntimeMouseEdges& pointer = m_inputRouter.UiSnapshot().mouse;
     const RuntimePointerEvent& runtimePointer = m_inputRouter.RuntimeSnapshot().pointer;
     ReplayScrubberPointerFrame pointerFrame;
-    pointerFrame.solverStats = m_replayRuntime.Solver().GetStats();
+    pointerFrame.solverStats = m_timeline.Solver().GetStats();
     pointerFrame.gesture = m_interaction.Gesture().kind;
     pointerFrame.now = now;
     pointerFrame.mouseX = runtimePointer.clientX;
@@ -1265,19 +1331,21 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
         char path[MAX_PATH] = {};
         if ( SelectReplayPresentationArtifact( m_scrubberOwner, hwnd, now, path ) )
         {
-            const bool loaded = LoadPresentationArtifact( path,
-                                                          true,
-                                                          now,
-                                                          m_inputRouter,
-                                                          m_interaction,
-                                                          cameras,
-                                                          terrain,
-                                                          camera,
-                                                          mousePickup,
-                                                          normalizedCurrentMode,
-                                                          normalizedRestoreMode,
-                                                          attachedFollow,
-                                                          directorGrabbed );
+            const bool loaded = m_timeline.LoadPresentationArtifact( path );
+            if ( loaded )
+            {
+                ActivateLoadedPresentationScrubber( now,
+                                                    m_inputRouter,
+                                                    m_interaction,
+                                                    cameras,
+                                                    terrain,
+                                                    camera,
+                                                    mousePickup,
+                                                    normalizedCurrentMode,
+                                                    normalizedRestoreMode,
+                                                    attachedFollow,
+                                                    directorGrabbed );
+            }
             PublishReplayLoadResult( m_scrubberOwner, path, loaded, now );
         }
         consumesMouse = true;

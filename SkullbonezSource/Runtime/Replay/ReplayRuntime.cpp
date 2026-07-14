@@ -1295,19 +1295,6 @@ bool ReplayRuntime::ShouldUseInspectionCamera() const
            m_visualPresentation.CameraView().focusKind != RunReplayCameraFocusKind::None;
 }
 
-bool ReplayRuntime::InspectionActive() const
-{
-    const ReplayScrubberView scrubber = m_scrubberOwner.View();
-    return m_visualPresentation.CameraView().active || scrubber.historicalSamplePaused || scrubber.liveAdvanceHeld;
-}
-
-bool ReplayRuntime::InspectionMouseLookActive( bool rightMouseDown,
-                                               bool uiWantsNativeCursor,
-                                               bool uiBlocksCameraMouse ) const
-{
-    return InspectionActive() && rightMouseDown && !uiWantsNativeCursor && !uiBlocksCameraMouse;
-}
-
 bool ReplayRuntime::ArmLoadedPresentationScrubber( float normalized, double now )
 {
     if ( !HasLoadedPresentation() )
@@ -2388,82 +2375,6 @@ bool ReplayRuntime::SavePresentationWithSolverHashes( const char* path,
                                                                result );
 }
 
-bool ReplayRuntime::SavePresentationFromScrubber( double now )
-{
-    // Invariant: the owner advances the process-local sequence and publishes
-    // success only after the binary v2 writer completes.
-    char path[256] = {};
-    bool saved = false;
-    if ( m_timeline.NextPresentationSavePath( path, sizeof( path ) ) )
-    {
-        saved = SavePresentationWithSolverHashes( path );
-    }
-
-    char message[96] = {};
-    if ( saved )
-    {
-        const char* fileName = std::strrchr( path, '\\' );
-        if ( !fileName )
-        {
-            fileName = std::strrchr( path, '/' );
-        }
-        fileName = fileName ? fileName + 1 : path;
-        sprintf_s( message, sizeof( message ), "SAVED %s", fileName );
-    }
-    else
-    {
-        sprintf_s( message, sizeof( message ), "REPLAY SAVE FAILED" );
-    }
-    m_scrubberOwner.PublishFeedback( RunReplayTrack::Presentation, message, now, 2.5 );
-    m_scrubberOwner.KeepVisible( now, ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS );
-    return saved;
-}
-
-bool ReplayRuntime::LoadPresentationArtifact( const char* path,
-                                              bool activateScrubber,
-                                              double now,
-                                              InputRouter& inputRouter,
-                                              RuntimeInteractionController& interaction,
-                                              Environment::CameraCollection* cameras,
-                                              Geometry::Terrain* terrain,
-                                              RunCameraState& camera,
-                                              RunMousePickupState& mousePickup,
-                                              RunCameraMode normalizedCurrentMode,
-                                              RunCameraMode normalizedRestoreMode,
-                                              bool attachedFollow,
-                                              bool directorGrabbed )
-{
-    if ( !m_timeline.LoadPresentationArtifact( path ) )
-    {
-        return false;
-    }
-
-    if ( activateScrubber )
-    {
-        m_scrubberOwner.SetLiveAdvanceHeld( false );
-        m_visualPresentation.SetCameraPauseOwnership( false );
-        CancelToolDragState( interaction, inputRouter );
-        ClearCameraFocusForRestore();
-        ExitInspectionCamera( cameras,
-                              terrain,
-                              camera,
-                              normalizedRestoreMode,
-                              attachedFollow,
-                              directorGrabbed,
-                              interaction,
-                              inputRouter );
-        ArmLoadedPresentationScrubber( 0.25f, now );
-        interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
-                                                         WorldInteractionOwner::ReplayScrub,
-                                                         InteractionExitReason::EnterReplay );
-        if ( ShouldUseInspectionCamera() )
-        {
-            EnterInspectionCamera( cameras, camera, normalizedCurrentMode, interaction, inputRouter, mousePickup );
-        }
-    }
-
-    return true;
-}
 void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics,
                                       const SceneEntityStore& entities,
                                       const SkullbonezCore::Core::EngineConfig& config,

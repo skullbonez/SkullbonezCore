@@ -2064,23 +2064,25 @@ ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadI
         return result;
     }
 #endif
-    if ( startup.loadPath[0] != '\0' && !LoadPresentationArtifact( startup.loadPath,
-                                                                   true,
-                                                                   loadInput.now,
-                                                                   loadInput.timelineOwners.inputRouter,
-                                                                   loadInput.timelineOwners.interaction,
-                                                                   loadInput.cameras,
-                                                                   loadInput.timelineOwners.terrain,
-                                                                   loadInput.timelineOwners.camera,
-                                                                   loadInput.mousePickup,
-                                                                   loadInput.normalizedCurrentMode,
-                                                                   loadInput.timelineOwners.normalizedRestoreMode,
-                                                                   loadInput.timelineOwners.attachedFollow,
-                                                                   loadInput.timelineOwners.directorGrabbed ) )
+    if ( startup.loadPath[0] != '\0' && !m_timeline.LoadPresentationArtifact( startup.loadPath ) )
     {
         result.status = SkullbonezCore::Core::SbResult::Failure( "Runtime/ReplayLoad",
                                                                  "failed to load replay v2 presentation artifact" );
         return result;
+    }
+    if ( startup.loadPath[0] != '\0' )
+    {
+        ActivateLoadedPresentationScrubber( loadInput.now,
+                                            loadInput.timelineOwners.inputRouter,
+                                            loadInput.timelineOwners.interaction,
+                                            loadInput.cameras,
+                                            loadInput.timelineOwners.terrain,
+                                            loadInput.timelineOwners.camera,
+                                            loadInput.mousePickup,
+                                            loadInput.normalizedCurrentMode,
+                                            loadInput.timelineOwners.normalizedRestoreMode,
+                                            loadInput.timelineOwners.attachedFollow,
+                                            loadInput.timelineOwners.directorGrabbed );
     }
 
 #ifdef _DEBUG
@@ -3285,22 +3287,21 @@ SkullbonezCore::Core::SbResult ReplayRuntime::VerifySolverBranchFileProbe( const
                                                                            double now,
                                                                            const char* path )
 {
-    if ( !LoadPresentationArtifact( path,
-                                    true,
-                                    now,
-                                    transaction.timelineOwners.inputRouter,
-                                    transaction.timelineOwners.interaction,
-                                    &transaction.sampleOwners.sceneController.Cameras(),
-                                    transaction.timelineOwners.terrain,
-                                    transaction.timelineOwners.camera,
-                                    mousePickup,
-                                    normalizedCurrentMode,
-                                    transaction.timelineOwners.normalizedRestoreMode,
-                                    transaction.timelineOwners.attachedFollow,
-                                    transaction.timelineOwners.directorGrabbed ) )
+    if ( !m_timeline.LoadPresentationArtifact( path ) )
     {
         return ReplayProbeFailure( "replay restore branch probe failed to load v2 presentation scrub source" );
     }
+    ActivateLoadedPresentationScrubber( now,
+                                        transaction.timelineOwners.inputRouter,
+                                        transaction.timelineOwners.interaction,
+                                        &transaction.sampleOwners.sceneController.Cameras(),
+                                        transaction.timelineOwners.terrain,
+                                        transaction.timelineOwners.camera,
+                                        mousePickup,
+                                        normalizedCurrentMode,
+                                        transaction.timelineOwners.normalizedRestoreMode,
+                                        transaction.timelineOwners.attachedFollow,
+                                        transaction.timelineOwners.directorGrabbed );
     m_scrubberOwner.SetHistoricalSamplePaused( true );
     m_scrubberOwner.SelectTrack( RunReplayTrack::Presentation );
     m_scrubberOwner.SetTrackPosition( RunReplayTrack::Presentation, 1.0f );

@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-14th-july` |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Reclose replay M4-M7 ownership findings from mandatory M8 review, with the unchanged frame-exact 200-box gate after every task |
-| Active/future progress | 4 / 16 tasks = 25% rounded overall (decomposition + spline plans only; completed past plans and externally blocked work are excluded) |
+| Current objective | Reclose replay M5-M7 ownership findings from mandatory M8 review, with the unchanged frame-exact 200-box gate after every task |
+| Active/future progress | 5 / 16 tasks = 31% rounded overall (decomposition + spline plans only; completed past plans and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | M4 checkpoint 31 moved cold presentation-artifact decode/validation/atomic install into `ReplayTimeline`, made its raw install private, removed `ReplayRuntime` from native picker/feedback helpers, and made root save/load composition methods private. Profile build (32.6s), formatting (11.3s), the unchanged replay oracle (469.9s), scrub exit-37 propagation, and the full CPU/Profile/Debug/DX12/physics gate (172.0s) passed with zero warnings/DX12 errors and byte-exact physics. Comment audit: 5/5, zero deferred. M4-M7 remain open; no baseline changed. |
+| Validation for current edits | M4 checkpoint 32 deleted the combined root artifact-load operation, separated timeline load from no-I/O scrubber activation, moved cold save/activation into scrubber tools, privatized internal scrub/camera helpers, and deleted dead root queries/self-aliasing. Formatting (11.4s), Profile build (32.6s), the unchanged replay oracle (473.0s), scrub exit-37 propagation (0.1s), and the full CPU/Profile/Debug/DX12/physics gate (173.1s) passed with zero warnings/DX12 errors and byte-exact physics. Comment audit: 4/4, zero deferred. M4 is reclosed; no baseline changed. |
 
 ## Live Queue
 
@@ -25,8 +25,8 @@ plan inventory.
    `Toppled` now means more than half the wall is directly grounded and sleeping;
    the approved base has 187/200 through the final second. Independent V6 review
    found no blocking issue.
-2. `replay-monolith-decomposition` is active at 4/9 after the mandatory M8
-   ownership review reopened M3-M7 and remediation reclosed M3. M0 certified the exact
+2. `replay-monolith-decomposition` is active at 5/9 after the mandatory M8
+   ownership review reopened M3-M7 and remediation reclosed M3-M4. M0 certified the exact
    starting tree; M1 bound all 55 current header type definitions/aliases and
    212 free functions to named owners; M2 mechanically split the six owner/value
    headers; M3 extracted the concrete presentation state, query, packet, and
@@ -41,8 +41,8 @@ plan inventory.
    owner/root escape hatches, frame-view reach-back, the broad workspace bag,
    mixed prediction/presentation scheduling and drawing, incomplete prediction/
    presentation owner-TU placement, event encoding, and root-wide diagnostics
-   traversal. M4-M7 remain blocked by broad root business APIs, root-owned
-   cause/velocity/scrubber input, and startup/probe execution.
+   traversal. M5-M7 remain blocked by broad root business APIs, root-owned
+   cause/velocity authoring input, and startup/probe execution.
    Every M0-M8 task,
    including inventory documentation, must run the
    unchanged 200-box gate before it can be checked or committed.

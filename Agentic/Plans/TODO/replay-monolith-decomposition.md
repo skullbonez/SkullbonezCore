@@ -1,7 +1,7 @@
 # Replay Monolith Decomposition — Owner Boundaries Inside The Replay Subsystem
 
 Date: 2026-07-13
-Status: Live — 4/9 tasks complete; M3 reclosed, M4-M7 remain open after mandatory M8 ownership review
+Status: Live — 5/9 tasks complete; M3-M4 reclosed, M5-M7 remain open after mandatory M8 ownership review
 Branch: `nightrunner-14th-july`
 Impact area: `SkullbonezSource/Runtime/Replay/*` (26,060 lines), the two
 external consumers `Runtime/Run.cpp` and `Runtime/RunUiTextPass.cpp`, project
@@ -126,7 +126,7 @@ known-good golden manifest.
   `tools\validate_replay_scrub.bat`, and `tools\validate_full.bat` at the PR
   gate. The legacy final fingerprint is supporting evidence only; the mega
   probe is the frame-by-frame presentation proof.
-- [ ] **M4 — Extract `ReplayScrubber` and `ReplayTimeline`.** Timeline first
+- [x] **M4 — Extract `ReplayScrubber` and `ReplayTimeline`.** Timeline first
   (recorder + retention + memory policy are already nearly self-contained),
   then scrubber (cursor state machine + restore transactions +
   `RunReplayScrubberTools.cpp`). Restore paths keep cancelling prediction
@@ -1200,6 +1200,37 @@ Thirty-first ownership-remediation checkpoint after M3 closure:
   M8 review also remain open. Active/future portfolio progress therefore
   remains 4/16, or 25%; this percentage covers active and future plans only and
   excludes completed past plans and externally blocked work.
+
+Thirty-second ownership-remediation checkpoint and M4 closure:
+
+- Deleted the combined root artifact-load operation. Each of its three member
+  call sites now asks `ReplayTimeline` to decode and atomically install the
+  artifact, then separately sequences loaded-track scrubber activation only
+  after that owner operation succeeds.
+- Cold scrubber save and loaded-track activation now live in
+  `ReplayScrubberTools.cpp`. Activation performs no file I/O: the timeline has
+  already committed the decoded track, and the operation only coordinates the
+  explicit scrubber, interaction, and camera reaction.
+- Internal scrub/camera helpers are private, two dead inspection queries were
+  deleted, and `TickScrubberInput` no longer creates a `ReplayRuntime` self
+  alias. `ReplayRuntime` stores no cursor or retention state; those authorities
+  remain in the concrete `ReplayScrubber` and `ReplayTimeline` owners.
+- Formatting passed in 11.4 seconds. The focused Profile build passed in 32.6
+  seconds with zero warnings and zero errors, and the touched-source comment
+  audit inspected 4/4 files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 473.0 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, 62 saved/loaded ticks, durable
+  reconstruction, zero reserve growth, and every false-pass control. The scrub
+  alias propagated delegated exit 37 in 0.1 seconds without launching an
+  engine; the direct oracle was invoked only once. The 173.1-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M4 is reclosed. M5-M7 and the final M8 review remain open. Active/future
+  portfolio progress is now 5/16, or 31% rounded; this percentage covers active
+  and future plans only and excludes completed past plans and externally
+  blocked work.
 
 ## M1 Binding Type Inventory
 
