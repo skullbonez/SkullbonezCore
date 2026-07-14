@@ -2667,7 +2667,8 @@ ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& tr
 
     if ( LiveAdvanceHeld() )
     {
-        SetLiveAdvanceHeld( false );
+        m_scrubberOwner.SetLiveAdvanceHeld( false );
+        m_visualPresentation.SetCameraPauseOwnership( false );
     }
     CancelToolDragState( transaction.timelineOwners.interaction, transaction.timelineOwners.inputRouter );
 

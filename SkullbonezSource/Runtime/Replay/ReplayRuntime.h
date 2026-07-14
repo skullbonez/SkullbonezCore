@@ -211,10 +211,8 @@ class ReplayRuntime
     void PreparePredictionPresentation( Physics::PhysicsEngine& physics, const SceneEntityStore& entities );
     void ClearPathVisualizerState();
 
-    bool SetVelocityEditEnabled( bool enabled );
     ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input );
     void ClearCauseTreeFocusSelection();
-    bool SetLiveAdvanceHeld( bool held );
     bool ShouldUseInspectionCamera() const;
     bool InspectionActive() const;
     bool InspectionMouseLookActive( bool rightMouseDown, bool uiWantsNativeCursor, bool uiBlocksCameraMouse ) const;

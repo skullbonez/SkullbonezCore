@@ -259,7 +259,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         const bool hadReplayCameraFocus = m_replayRuntime.HasCameraFocus();
         if ( !m_replayRuntime.ScrubberView().liveAdvanceHeld )
         {
-            if ( m_replayRuntime.SetLiveAdvanceHeld( true ) && !IsReplayCauseTreeToolOwner( m_interaction.Owner() ) )
+            if ( m_scrubberOwner.SetLiveAdvanceHeld( true ) && !IsReplayCauseTreeToolOwner( m_interaction.Owner() ) )
             {
                 interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
                                                                  WorldInteractionOwner::ReplayScrub,

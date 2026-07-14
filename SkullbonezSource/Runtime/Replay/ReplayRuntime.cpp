@@ -1169,7 +1169,8 @@ bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionCont
                                                           InputRouter& inputRouter )
 {
     CancelToolDragState( interaction, inputRouter );
-    SetLiveAdvanceHeld( false );
+    m_scrubberOwner.SetLiveAdvanceHeld( false );
+    m_visualPresentation.SetCameraPauseOwnership( false );
     const bool exitInspectionCamera = m_scrubberOwner.ResetState( m_visualPresentation.CameraView().active ) ||
                                       m_visualPresentation.CameraView().active;
     m_scrubberOwner.SetAllTrackPositions( 1.0f );
@@ -1192,17 +1193,6 @@ const RunReplayVelocityEditState& ReplayRuntime::VelocityEdit() const
     return m_authoring.VelocityEdit();
 }
 
-bool ReplayRuntime::SetVelocityEditEnabled( bool enabled )
-{
-    PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Toggle" );
-    if ( !m_authoring.SetVelocityEditEnabled( enabled ) )
-    {
-        return false;
-    }
-    ApplyAuthoringPredictionRequest();
-    return true;
-}
-
 ReplayKeyboardVelocityEditResult
 ReplayRuntime::ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input )
 {
@@ -1210,13 +1200,15 @@ ReplayRuntime::ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput&
     if ( input.toggleAllowed && input.altDown && !m_authoring.VelocityEdit().keyboardAltWasDown )
     {
         const bool enableVelocityEdit = !m_authoring.VelocityEdit().enabled;
-        if ( SetVelocityEditEnabled( enableVelocityEdit ) )
+        PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Toggle" );
+        if ( m_authoring.SetVelocityEditEnabled( enableVelocityEdit ) )
         {
+            ApplyAuthoringPredictionRequest();
             result.cancelToolDrag = true;
             if ( enableVelocityEdit )
             {
                 result.enterInteractive = true;
-                if ( SetLiveAdvanceHeld( true ) )
+                if ( m_scrubberOwner.SetLiveAdvanceHeld( true ) )
                 {
                     result.cameraAction = ShouldUseInspectionCamera()
                                               ? ReplayKeyboardVelocityEditCameraAction::EnterInspection
@@ -1248,24 +1240,6 @@ void ReplayRuntime::ClearCauseTreeFocusSelection()
     ClearPathVisualizerState();
 }
 
-
-bool ReplayRuntime::SetLiveAdvanceHeld( bool held )
-{
-    if ( !m_scrubberOwner.SetLiveAdvanceHeld( held ) )
-    {
-        if ( !held )
-        {
-            m_visualPresentation.SetCameraPauseOwnership( false );
-        }
-        return false;
-    }
-
-    if ( !held )
-    {
-        m_visualPresentation.SetCameraPauseOwnership( false );
-    }
-    return true;
-}
 
 bool ReplayRuntime::LiveAdvanceHeld() const
 {
@@ -1413,7 +1387,8 @@ ReplaySceneTimelineResetResult ReplayRuntime::BeginSceneTimelineReset( const Rep
     }
     if ( m_scrubberOwner.LiveAdvanceHeld() )
     {
-        SetLiveAdvanceHeld( false );
+        m_scrubberOwner.SetLiveAdvanceHeld( false );
+        m_visualPresentation.SetCameraPauseOwnership( false );
     }
     if ( m_scrubberOwner.ResetState( m_visualPresentation.CameraView().active ) )
     {
@@ -2478,7 +2453,8 @@ bool ReplayRuntime::LoadPresentationArtifact( const char* path,
 
     if ( activateScrubber )
     {
-        SetLiveAdvanceHeld( false );
+        m_scrubberOwner.SetLiveAdvanceHeld( false );
+        m_visualPresentation.SetCameraPauseOwnership( false );
         CancelToolDragState( interaction, inputRouter );
         ClearCameraFocusForRestore();
         ExitInspectionCamera( cameras,

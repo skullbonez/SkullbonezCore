@@ -501,17 +501,53 @@ void KeepReplayScrubberVisible( ReplayScrubber& scrubber, double now )
 }
 
 
-void ApplyReplayLiveAdvanceAction( ReplayRuntime& replayRuntime,
-                                   ReplayPrediction& predictionOwner,
+bool IsReplayToolGesture( RuntimeInteractionGestureKind kind )
+{
+    return kind == RuntimeInteractionGestureKind::ReplayScrubDrag ||
+           kind == RuntimeInteractionGestureKind::ReplayVelocityDrag ||
+           kind == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag ||
+           kind == RuntimeInteractionGestureKind::ReplayCauseTreeDrag;
+}
+
+
+void CancelReplayToolDragState( RuntimeInteractionController& interaction, InputRouter& inputRouter )
+{
+    // Invariant: a stale replay cleanup must not end editor, manipulator, or
+    // camera capture that became active later in the same input turn.
+    const RuntimeInteractionGestureKind gesture = interaction.Gesture().kind;
+    if ( !IsReplayToolGesture( gesture ) )
+    {
+        return;
+    }
+    const bool ownsReplayCapture = interaction.PointerCapture() == RuntimePointerCaptureOwner::ToolGesture;
+    interaction.EndGestureIfKind( gesture );
+    if ( ownsReplayCapture )
+    {
+        inputRouter.ReleaseNativeCapture();
+    }
+}
+
+
+void ApplyReplayLiveAdvanceAction( ReplayPrediction& predictionOwner,
+                                   ReplayPresentation& presentation,
                                    ReplayScrubber& scrubber,
                                    bool held,
+                                   float previousPredictionPresentT,
+                                   bool velocityEditEnabled,
+                                   bool hasCameraFocus,
                                    InputRouter& inputRouter,
                                    RuntimeInteractionController& interaction,
                                    RunCameraState& camera,
                                    bool& outEnterInteractive )
 {
-    const float previousPredictionPresentT = replayRuntime.BuildInputView().solverPresentTrackPosition;
-    if ( !replayRuntime.SetLiveAdvanceHeld( held ) )
+    // Concept: live advance is scrubber state; prediction and presentation
+    // receive explicit reactions here without reopening ReplayRuntime state.
+    const bool liveAdvanceChanged = scrubber.SetLiveAdvanceHeld( held );
+    if ( !held )
+    {
+        presentation.SetCameraPauseOwnership( false );
+    }
+    if ( !liveAdvanceChanged )
     {
         return;
     }
@@ -554,32 +590,38 @@ void ApplyReplayLiveAdvanceAction( ReplayRuntime& replayRuntime,
                                                              InteractionExitReason::EnterReplay );
         }
     }
-    else if ( replayRuntime.BuildInputView().velocityEditEnabled )
+    else if ( velocityEditEnabled )
     {
         interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
                                                          WorldInteractionOwner::ReplayVelocityEdit,
                                                          InteractionExitReason::EnterReplay );
     }
-    else if ( !scrubber.View().historicalSamplePaused && !replayRuntime.BuildInputView().hasCameraFocus )
+    else if ( !scrubber.View().historicalSamplePaused && !hasCameraFocus )
     {
         interaction.EnterCameraMode( camera.mode );
     }
 }
 
 
-void HandleReplayPausePressed( ReplayRuntime& replayRuntime,
-                               ReplayPrediction& predictionOwner,
+void HandleReplayPausePressed( ReplayPrediction& predictionOwner,
+                               ReplayPresentation& presentation,
                                ReplayScrubber& scrubber,
+                               float solverPresentTrackPosition,
+                               bool velocityEditEnabled,
+                               bool hasCameraFocus,
                                InputRouter& inputRouter,
                                RuntimeInteractionController& interaction,
                                RunCameraState& camera,
                                double now,
                                bool& outEnterInteractive )
 {
-    ApplyReplayLiveAdvanceAction( replayRuntime,
-                                  predictionOwner,
+    ApplyReplayLiveAdvanceAction( predictionOwner,
+                                  presentation,
                                   scrubber,
                                   !scrubber.View().liveAdvanceHeld,
+                                  solverPresentTrackPosition,
+                                  velocityEditEnabled,
+                                  hasCameraFocus,
                                   inputRouter,
                                   interaction,
                                   camera,
@@ -588,26 +630,40 @@ void HandleReplayPausePressed( ReplayRuntime& replayRuntime,
 }
 
 
-void HandleReplayVelocityEditPressed( ReplayRuntime& replayRuntime,
+void HandleReplayVelocityEditPressed( ReplayAuthoring& authoring,
                                       ReplayPrediction& predictionOwner,
+                                      ReplayPresentation& presentation,
                                       ReplayScrubber& scrubber,
+                                      float solverPresentTrackPosition,
+                                      bool hasCameraFocus,
                                       InputRouter& inputRouter,
                                       RuntimeInteractionController& interaction,
                                       RunCameraState& camera,
                                       double now,
                                       bool& outEnterInteractive )
 {
-    const bool enableVelocityEdit = !replayRuntime.BuildInputView().velocityEditEnabled;
-    if ( replayRuntime.SetVelocityEditEnabled( enableVelocityEdit ) )
+    PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Toggle" );
+    const bool enableVelocityEdit = !authoring.VelocityEdit().enabled;
+    if ( authoring.SetVelocityEditEnabled( enableVelocityEdit ) )
     {
-        replayRuntime.CancelToolDragState( interaction, inputRouter );
+        // Why: authoring emits a value command so prediction is refreshed in
+        // this composition turn without storing an owner pointer or callback.
+        const ReplayAuthoringPredictionRequest request = authoring.TakePredictionRequest();
+        predictionOwner.ApplyAuthoringRequest( request.enablePrediction,
+                                               request.refreshPrediction,
+                                               REPLAY_PREDICTION_MIN_SECONDS,
+                                               REPLAY_PREDICTION_MAX_SECONDS );
+        CancelReplayToolDragState( interaction, inputRouter );
         if ( enableVelocityEdit )
         {
             outEnterInteractive = true;
-            ApplyReplayLiveAdvanceAction( replayRuntime,
-                                          predictionOwner,
+            ApplyReplayLiveAdvanceAction( predictionOwner,
+                                          presentation,
                                           scrubber,
                                           true,
+                                          solverPresentTrackPosition,
+                                          true,
+                                          hasCameraFocus,
                                           inputRouter,
                                           interaction,
                                           camera,
@@ -664,15 +720,14 @@ void SetReplayPredictionHorizonFromPointer( ReplayPrediction& predictionOwner,
 }
 
 
-void HandleReplayPredictionPressed( ReplayRuntime& replayRuntime,
-                                    ReplayPrediction& predictionOwner,
+void HandleReplayPredictionPressed( ReplayPrediction& predictionOwner,
                                     ReplayScrubber& scrubber,
+                                    float previousPredictionPresentT,
                                     RuntimeInteractionController& interaction,
                                     double now,
                                     bool& outEnterInteractive )
 {
     outEnterInteractive = true;
-    const float previousPredictionPresentT = replayRuntime.BuildInputView().solverPresentTrackPosition;
     const bool predictionEnabled = predictionOwner.ToggleEnabled();
     interaction.SetWorldInteractionOwnerInWorkspace(
         RuntimeWorkspace::Replay,
@@ -873,9 +928,9 @@ bool HandleReplayScrubPressed( ReplayScrubber& scrubber,
 }
 
 
-bool TickReplayScrubberGesture( ReplayRuntime& replayRuntime,
-                                ReplayPrediction& predictionOwner,
+bool TickReplayScrubberGesture( ReplayPrediction& predictionOwner,
                                 ReplayScrubber& scrubber,
+                                float solverPresentTrackPosition,
                                 InputRouter& inputRouter,
                                 RuntimeInteractionController& interaction,
                                 bool loadedPresentation,
@@ -900,10 +955,9 @@ bool TickReplayScrubberGesture( ReplayRuntime& replayRuntime,
         }
         else
         {
-            const float presentT = replayRuntime.BuildInputView().solverPresentTrackPosition;
-            if ( ReplayAtPresentTrackPosition( scrubber.View().position, presentT ) )
+            if ( ReplayAtPresentTrackPosition( scrubber.View().position, solverPresentTrackPosition ) )
             {
-                scrubber.SetTrackPosition( activeTrack, presentT );
+                scrubber.SetTrackPosition( activeTrack, solverPresentTrackPosition );
                 scrubber.SetHistoricalSamplePaused( false );
             }
             else
@@ -1098,6 +1152,8 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
     };
     PROFILE_SCOPED( "Frame/Replay/ScrubberInput" );
     const bool loadedPresentation = m_replayRuntime.HasLoadedPresentation();
+    const float solverPresentTrackPosition = m_replayRuntime.SolverPresentTrackPosition();
+    const bool hasCameraFocus = m_visualPresentation.CameraView().focusKind != RunReplayCameraFocusKind::None;
     const int screenW = screenWidth;
     const int screenH = screenHeight;
     const RuntimeMouseEdges& pointer = m_inputRouter.UiSnapshot().mouse;
@@ -1129,7 +1185,7 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
     const ReplayScrubberPointerDecision decision = m_scrubberOwner.ResolvePointerAction( pointerFrame );
     if ( decision.cancelToolDrag )
     {
-        m_replayRuntime.CancelToolDragState( m_interaction, m_inputRouter );
+        CancelReplayToolDragState( m_interaction, m_inputRouter );
     }
     if ( decision.exitInspectionCamera )
     {
@@ -1170,9 +1226,12 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
         return true;
     }
     case ReplayScrubberAction::TogglePause:
-        HandleReplayPausePressed( *this,
-                                  m_predictionOwner,
+        HandleReplayPausePressed( m_predictionOwner,
+                                  m_visualPresentation,
                                   m_scrubberOwner,
+                                  solverPresentTrackPosition,
+                                  m_authoring.VelocityEdit().enabled,
+                                  hasCameraFocus,
                                   m_inputRouter,
                                   m_interaction,
                                   camera,
@@ -1181,9 +1240,12 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
         consumesMouse = true;
         break;
     case ReplayScrubberAction::ToggleVelocityEdit:
-        HandleReplayVelocityEditPressed( *this,
+        HandleReplayVelocityEditPressed( m_authoring,
                                          m_predictionOwner,
+                                         m_visualPresentation,
                                          m_scrubberOwner,
+                                         solverPresentTrackPosition,
+                                         hasCameraFocus,
                                          m_inputRouter,
                                          m_interaction,
                                          camera,
@@ -1215,9 +1277,9 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
         consumesMouse = true;
         break;
     case ReplayScrubberAction::TogglePrediction:
-        HandleReplayPredictionPressed( *this,
-                                       m_predictionOwner,
+        HandleReplayPredictionPressed( m_predictionOwner,
                                        m_scrubberOwner,
+                                       solverPresentTrackPosition,
                                        m_interaction,
                                        now,
                                        outEnterInteractive );
@@ -1260,9 +1322,9 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
         break;
     }
 
-    const bool scrubberGestureHandled = TickReplayScrubberGesture( *this,
-                                                                   m_predictionOwner,
+    const bool scrubberGestureHandled = TickReplayScrubberGesture( m_predictionOwner,
                                                                    m_scrubberOwner,
+                                                                   solverPresentTrackPosition,
                                                                    m_inputRouter,
                                                                    m_interaction,
                                                                    loadedPresentation,
@@ -1277,7 +1339,7 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
     ReplayScrubberView scrubber = m_scrubberOwner.View();
     if ( !scrubberGestureHandled && !loadedPresentation && !scrubber.historicalSamplePaused )
     {
-        m_scrubberOwner.SetAllTrackPositions( m_replayRuntime.SolverPresentTrackPosition() );
+        m_scrubberOwner.SetAllTrackPositions( solverPresentTrackPosition );
     }
 
     const bool scrubberTargetVisible = scrubDragActive() || horizonDragActive() || scrubber.historicalSamplePaused ||
@@ -1287,7 +1349,9 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
                                           REPLAY_SCRUBBER_FADE_IN_SECONDS,
                                           REPLAY_SCRUBBER_FADE_OUT_SECONDS,
                                           REPLAY_SCRUBBER_FADE_EPSILON );
-    if ( m_replayRuntime.ShouldUseInspectionCamera() )
+    scrubber = m_scrubberOwner.View();
+    if ( scrubber.historicalSamplePaused || scrubber.liveAdvanceHeld ||
+         m_visualPresentation.CameraView().focusKind != RunReplayCameraFocusKind::None )
     {
         enterInspectionCamera();
     }

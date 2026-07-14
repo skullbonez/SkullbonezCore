@@ -657,7 +657,7 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
                                                        startAngle ) )
                 {
                     outEnterInteractive = true;
-                    if ( m_replayRuntime.SetLiveAdvanceHeld( true ) && !IsReplayToolOwner( m_interaction.Owner() ) )
+                    if ( m_scrubberOwner.SetLiveAdvanceHeld( true ) && !IsReplayToolOwner( m_interaction.Owner() ) )
                     {
                         interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
                                                                          WorldInteractionOwner::ReplayScrub,
@@ -706,7 +706,7 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
                                                         axisT ) )
                 {
                     outEnterInteractive = true;
-                    if ( m_replayRuntime.SetLiveAdvanceHeld( true ) && !IsReplayToolOwner( m_interaction.Owner() ) )
+                    if ( m_scrubberOwner.SetLiveAdvanceHeld( true ) && !IsReplayToolOwner( m_interaction.Owner() ) )
                     {
                         interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
                                                                          WorldInteractionOwner::ReplayScrub,
@@ -758,7 +758,7 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
         if ( m_replayRuntime.PathVisualizer().hasTarget )
         {
             outEnterInteractive = true;
-            if ( m_replayRuntime.SetLiveAdvanceHeld( true ) && m_replayRuntime.ShouldUseInspectionCamera() )
+            if ( m_scrubberOwner.SetLiveAdvanceHeld( true ) && m_replayRuntime.ShouldUseInspectionCamera() )
             {
                 enterInspectionCamera();
             }

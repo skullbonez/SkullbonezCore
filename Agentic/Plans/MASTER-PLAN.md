@@ -128,12 +128,13 @@ validation-gate V3 remains externally blocked.
    the presentation TU consumes only the value-only `ReplayPredictionView.h`,
    not private prediction-owner internals. Destination-branch provenance and
    every per-checkpoint gate passed on `nightrunner-14th-july`. The ledger is
-   4/9. M4 checkpoints 27-29 moved scrubber hit testing, visibility, and
+   4/9. M4 checkpoints 27-30 moved scrubber hit testing, visibility, and
    semantic pointer-action selection into `ReplayScrubber`, deleted six raw
-   root cursor-forwarding APIs, and moved typed replay gesture begin/end
-   ownership into `RuntimeInteractionController`; M4-M7 still require the
-   remaining cross-owner action dispatch, startup-probe execution, external
-   input routing, and broad root API to close.
+   root cursor-forwarding APIs, moved typed replay gesture begin/end ownership
+   into `RuntimeInteractionController`, and deleted root live-advance/velocity
+   toggle forwarding in favor of explicit owner commands; M4-M7 still require
+   cold save/load and camera/restore separation, startup-probe execution,
+   external input routing, and broad root API closure.
 3. **Future-path vector splines — live independent presentation lane
    (2026-07-14 owner request).** `TODO/future-path-vector-splines.md` (T1→T7)
    restyles the prediction view: near-black sky, thin anti-aliased

@@ -1140,6 +1140,37 @@ Twenty-ninth ownership-remediation checkpoint after M3 closure:
   future plans only and excludes completed past plans and externally blocked
   work.
 
+Thirtieth ownership-remediation checkpoint after M3 closure:
+
+- Scrubber pause, prediction-toggle, prediction-horizon, velocity-toggle, and
+  active-drag handlers no longer receive or query `ReplayRuntime`. The input
+  composition samples solver-present, velocity-enabled, and camera-focus facts
+  once, then passes explicit owner references and scalar values to each typed
+  action.
+- Deleted the public root `SetLiveAdvanceHeld` and
+  `SetVelocityEditEnabled` APIs. Live-advance is now a direct scrubber command
+  with an explicit presentation pause-release reaction; authoring publishes its
+  queued prediction-refresh value directly to `ReplayPrediction`. Replay-only
+  drag cancellation cannot end a newer editor, manipulator, or camera gesture.
+- Cold save/load transactions remain composition-root operations because they
+  still coordinate artifact, camera, and restore owners; they are the next M4
+  seam rather than being hidden behind a callback or broad context bag.
+- Formatting passed. The focused Profile build passed in 32.2 seconds with
+  zero warnings and zero errors, and the touched-source comment audit inspected
+  6/6 files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 472.1 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 170.6-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M4 remains open for cold save/load and camera/restore reactions; M5-M7 and
+  the final M8 review also remain open. Active/future portfolio progress
+  therefore remains 4/16, or 25%; this percentage covers active and future
+  plans only and excludes completed past plans and externally blocked work.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |
