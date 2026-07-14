@@ -1,7 +1,7 @@
 # Replay Monolith Decomposition — Owner Boundaries Inside The Replay Subsystem
 
 Date: 2026-07-13
-Status: Live — 5/9 tasks complete; M4 timeline and scrubber owners extracted
+Status: Live — 6/9 tasks complete; M5 authoring owner extracted
 Branch: `nightrunner-13th-july`
 Impact area: `SkullbonezSource/Runtime/Replay/*` (26,060 lines), the two
 external consumers `Runtime/Run.cpp` and `Runtime/RunUiTextPass.cpp`, project
@@ -138,7 +138,7 @@ known-good golden manifest.
   `tools\validate_replay_visual_fidelity.bat` first,
   `tools\validate_replay_scrub.bat`, and `tools\validate_full.bat` at the PR
   gate.
-- [ ] **M5 — Extract `ReplayAuthoring`.** Velocity edit, branch provenance,
+- [x] **M5 — Extract `ReplayAuthoring`.** Velocity edit, branch provenance,
   cause-tree tools move behind the owner; the velocity-edit "dirty
   prediction" side effect becomes an explicit request to `ReplayPrediction`
   (queued value command, consistent with the repo's one-frame command-packet
@@ -323,6 +323,28 @@ M4 recorded adjustments and evidence:
   physics baseline; and the scrub alias's no-engine exit-37 propagation proof.
   No baseline changed. The touched source comment audit checked 5/5 files with
   zero deferred.
+
+M5 recorded adjustments and evidence:
+
+- `ReplayAuthoring` now exclusively owns velocity-edit state, cause-tree rows
+  and selection, and replay branch provenance. `ReplayRuntime` retains one
+  concrete authoring owner and no parallel authoring members.
+- Velocity-edit enable/apply publishes a coalescing
+  `ReplayAuthoringPredictionRequest`; the composition root consumes that value
+  in the mutation frame and sequences prediction enable/dirty state. Authoring
+  stores no prediction pointer, callback, or root reach-back, and repeated edits
+  fold into one newest-state refresh request.
+- The focused click gate does not cover velocity editing, so it was not run.
+  The authoritative 200-box interaction script does perform real velocity
+  nudges and therefore exercises the new request boundary frame by frame.
+- Validation passed: formatting; 679/679 project/filter items; allocation-policy
+  self-test and repository scan; zero-warning Profile; the unchanged
+  single-engine/single-prediction mega oracle at 2,401 ticks, 200 moved/settled
+  bricks, 187 directly grounded sleepers, and 199 causal nodes; every false-pass
+  control; the full CPU/Profile/Debug/DX12/physics gate including zero DX12
+  errors and the 44,401-line byte-exact varied physics baseline; and the scrub
+  alias's no-engine exit-37 propagation proof. No baseline changed. The touched
+  source comment audit checked 5/5 files with zero deferred.
 
 ## M1 Binding Type Inventory
 

@@ -359,6 +359,7 @@ class ReplayRuntime
     void CancelPredictionJob( bool clearSamples );
     void ClearPredictionCache();
     void MarkPredictionDirty();
+    void NotifyVelocityEditApplied();
     bool PredictionGenerationPermitted() const noexcept;
     // Validation-only terminal transition: the sole engine process may decode
     // its frozen RVPD state and rebuild CPU presentation values after the last
@@ -769,6 +770,7 @@ class ReplayRuntime
                                InputRouter& inputRouter );
 
   private:
+    void ApplyAuthoringPredictionRequest();
     void ReportLatestCaptureMismatch();
     void AppendSolverTrajectorySampleToStore( const ReplaySolverFrameSample& sample );
     bool RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransaction& transaction,
@@ -801,12 +803,11 @@ class ReplayRuntime
 #endif
     ReplayScrubber m_scrubberOwner;
     ReplayPresentation m_visualPresentation;
+    ReplayAuthoring m_authoring;
     RunReplayPredictionState m_prediction;
     // Invariant: a replay-load probe reconstructs saved presentation only. It
     // must never enter the future-simulation builder that created the artifact.
     bool m_predictionGenerationPermitted = true;
-    RunReplayCauseTreeState m_causeTree;
-    RunReplayVelocityEditState m_velocityEdit;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

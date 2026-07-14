@@ -1,11 +1,11 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayTimeline.h
 Purpose:
-  Owns replay recorders, retained loading state, branch provenance, and memory policy.
+  Owns replay recorders, retained loading state, and memory policy.
 
 Summary:
   ReplayTimeline is the mutable authority for retained presentation, solver,
-  event, branch, and recording-policy state.
+  event, and recording-policy state.
 
 Glossary:
   Retention: Seconds retained by a bounded recorder ring.
@@ -190,14 +190,6 @@ class ReplayTimeline
     {
         return m_events;
     }
-    ReplayBranchInfo& Branch() noexcept
-    {
-        return m_branch;
-    }
-    const ReplayBranchInfo& Branch() const noexcept
-    {
-        return m_branch;
-    }
     ReplayMemoryPolicy& MemoryPolicy() noexcept
     {
         return m_memoryPolicy;
@@ -259,7 +251,6 @@ class ReplayTimeline
     ReplayRecorder m_presentation;
     ReplaySolverRecorder m_solver;
     ReplayEventRecorder m_events;
-    ReplayBranchInfo m_branch;
     ReplayMemoryPolicy m_memoryPolicy;
     RunLoadedReplayPresentationState m_loadedPresentation;
     std::string m_recordingHashLogPath;

@@ -887,12 +887,12 @@ const ReplayEventRecorder& ReplayRuntime::Events() const
 
 ReplayBranchInfo& ReplayRuntime::Branch()
 {
-    return m_timeline.Branch();
+    return m_authoring.Branch();
 }
 
 const ReplayBranchInfo& ReplayRuntime::Branch() const
 {
-    return m_timeline.Branch();
+    return m_authoring.Branch();
 }
 
 RunLoadedReplayPresentationState& ReplayRuntime::LoadedPresentation()
@@ -1066,6 +1066,30 @@ void ReplayRuntime::MarkPredictionDirty()
     m_prediction.build.dirty = true;
 }
 
+void ReplayRuntime::ApplyAuthoringPredictionRequest()
+{
+    const ReplayAuthoringPredictionRequest request = m_authoring.TakePredictionRequest();
+    if ( request.enablePrediction )
+    {
+        m_prediction.enabled = true;
+        m_prediction.simulation.horizonSeconds = std::clamp( m_prediction.simulation.horizonSeconds,
+                                                             ReplayOverlay::REPLAY_PREDICTION_MIN_SECONDS,
+                                                             ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS );
+    }
+    if ( request.refreshPrediction )
+    {
+        MarkPredictionDirty();
+    }
+}
+
+void ReplayRuntime::NotifyVelocityEditApplied()
+{
+    m_authoring.QueuePredictionRefresh();
+    // Invariant: consume in the mutation frame so the next prediction dispatch
+    // observes the edited live velocity, matching the pre-owner frame order.
+    ApplyAuthoringPredictionRequest();
+}
+
 bool ReplayRuntime::PredictionGenerationPermitted() const noexcept
 {
     return m_predictionGenerationPermitted;
@@ -1086,9 +1110,9 @@ void ReplayRuntime::EnterOfflinePredictionVerification()
 void ReplayRuntime::ClearPathVisualizerState()
 {
     m_visualPresentation.ClearPathState();
-    m_causeTree.rows.clear();
-    m_causeTree.selectedRow = -1;
-    m_causeTree.scrollY = 0.0f;
+    m_authoring.CauseTree().rows.clear();
+    m_authoring.CauseTree().selectedRow = -1;
+    m_authoring.CauseTree().scrollY = 0.0f;
     ClearPredictionCache();
     MarkPredictionDirty();
 }
@@ -1187,8 +1211,8 @@ bool ReplayRuntime::HasActiveInteractionState() const
            m_visualPresentation.Camera().focusKind != RunReplayCameraFocusKind::None ||
            m_scrubberOwner.State().historicalSamplePaused || m_scrubberOwner.State().liveAdvanceHeld ||
            m_visualPresentation.PathVisualizer().hasTarget || !m_visualPresentation.PathVisualizer().targets.empty() ||
-           m_prediction.enabled || m_prediction.build.building || m_velocityEdit.enabled ||
-           m_causeTree.selectedRow >= 0 || !m_causeTree.rows.empty();
+           m_prediction.enabled || m_prediction.build.building || m_authoring.VelocityEdit().enabled ||
+           m_authoring.CauseTree().selectedRow >= 0 || !m_authoring.CauseTree().rows.empty();
 }
 
 
@@ -1232,60 +1256,47 @@ bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionCont
     ClearPathVisualizerState();
     m_prediction.enabled = false;
     ClearPredictionCache();
-    m_velocityEdit = RunReplayVelocityEditState{};
-    m_causeTree.selectedRow = -1;
-    m_causeTree.scrollY = 0.0f;
-    m_causeTree.rows.clear();
+    m_authoring.VelocityEdit() = RunReplayVelocityEditState{};
+    m_authoring.CauseTree().selectedRow = -1;
+    m_authoring.CauseTree().scrollY = 0.0f;
+    m_authoring.CauseTree().rows.clear();
     return exitInspectionCamera;
 }
 
 RunReplayCauseTreeState& ReplayRuntime::CauseTree()
 {
-    return m_causeTree;
+    return m_authoring.CauseTree();
 }
 
 const RunReplayCauseTreeState& ReplayRuntime::CauseTree() const
 {
-    return m_causeTree;
+    return m_authoring.CauseTree();
 }
 
 RunReplayVelocityEditState& ReplayRuntime::VelocityEdit()
 {
-    return m_velocityEdit;
+    return m_authoring.VelocityEdit();
 }
 
 const RunReplayVelocityEditState& ReplayRuntime::VelocityEdit() const
 {
-    return m_velocityEdit;
+    return m_authoring.VelocityEdit();
 }
 
 bool ReplayRuntime::SetVelocityEditEnabled( bool enabled )
 {
-    if ( m_velocityEdit.enabled == enabled )
+    PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Toggle" );
+    if ( !m_authoring.SetVelocityEditEnabled( enabled ) )
     {
         return false;
     }
-
-    PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Toggle" );
-    m_velocityEdit.enabled = enabled;
-    m_velocityEdit.hotLinearAxis = -1;
-    m_velocityEdit.hotAngularAxis = -1;
-
-    if ( enabled )
-    {
-        m_prediction.enabled = true;
-        m_prediction.simulation.horizonSeconds = std::clamp( m_prediction.simulation.horizonSeconds,
-                                                             ReplayOverlay::REPLAY_PREDICTION_MIN_SECONDS,
-                                                             ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS );
-        MarkPredictionDirty();
-    }
-
+    ApplyAuthoringPredictionRequest();
     return true;
 }
 
 void ReplayRuntime::SetVelocityEditAltKeyDown( bool isDown )
 {
-    m_velocityEdit.keyboardAltWasDown = isDown;
+    m_authoring.VelocityEdit().keyboardAltWasDown = isDown;
 }
 
 
@@ -1293,9 +1304,9 @@ ReplayRuntime::KeyboardVelocityEditResult
 ReplayRuntime::ApplyKeyboardVelocityEdit( const KeyboardVelocityEditInput& input )
 {
     KeyboardVelocityEditResult result;
-    if ( input.altDown && !m_velocityEdit.keyboardAltWasDown )
+    if ( input.altDown && !m_authoring.VelocityEdit().keyboardAltWasDown )
     {
-        const bool enableVelocityEdit = !m_velocityEdit.enabled;
+        const bool enableVelocityEdit = !m_authoring.VelocityEdit().enabled;
         if ( SetVelocityEditEnabled( enableVelocityEdit ) )
         {
             result.cancelToolDrag = true;
@@ -1320,7 +1331,7 @@ ReplayRuntime::ApplyKeyboardVelocityEdit( const KeyboardVelocityEditInput& input
         m_scrubberOwner.State().visibleUntil = input.now + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
         m_scrubberOwner.State().visible = true;
     }
-    m_velocityEdit.keyboardAltWasDown = input.altDown;
+    m_authoring.VelocityEdit().keyboardAltWasDown = input.altDown;
     return result;
 }
 
@@ -1414,7 +1425,7 @@ bool ReplayRuntime::HasCameraFocus() const
 
 bool ReplayRuntime::VelocityEditActive() const
 {
-    return m_velocityEdit.enabled;
+    return m_authoring.VelocityEdit().enabled;
 }
 
 float ReplayRuntime::SolverPresentTrackPosition() const
@@ -1508,7 +1519,7 @@ bool ReplayRuntime::ArmLoadedPresentationScrubber( float normalized, double now 
 
     ClearPathVisualizerState();
     m_prediction.enabled = false;
-    m_velocityEdit = RunReplayVelocityEditState{};
+    m_authoring.VelocityEdit() = RunReplayVelocityEditState{};
     m_scrubberOwner.State().activeTrack = RunReplayTrack::Presentation;
     SetTrackPosition( RunReplayTrack::Presentation, normalized );
     m_scrubberOwner.State().solverPosition = 1.0f;
@@ -1534,8 +1545,8 @@ void ReplayRuntime::ClearCameraFocusForRestore()
     m_visualPresentation.Camera().targetPoint = Math::Vector::ZERO_VECTOR;
     m_visualPresentation.Camera().targetNormal = Vector3( 0.0f, 1.0f, 0.0f );
     m_visualPresentation.Camera().impulseVector = Math::Vector::ZERO_VECTOR;
-    m_causeTree.focusedId = ReplayBodyId{};
-    m_causeTree.selectedRow = -1;
+    m_authoring.CauseTree().focusedId = ReplayBodyId{};
+    m_authoring.CauseTree().selectedRow = -1;
 
     if ( m_visualPresentation.Camera().ownsSimulationPause && m_scrubberOwner.State().liveAdvanceHeld &&
          !m_scrubberOwner.State().historicalSamplePaused )
@@ -1581,7 +1592,7 @@ ReplayRuntime::RecordingConfigResult ReplayRuntime::ConfigureRecording( bool ena
         // replay-only overlay buffers. Reserve them at startup replay
         // configuration, not in the always-constructed runtime, so non-replay perf
         // scenes do not carry 49 MB of dormant visualization capacity.
-        m_causeTree.rows.reserve( REPLAY_CAUSE_TREE_ROW_CAPACITY );
+        m_authoring.CauseTree().rows.reserve( REPLAY_CAUSE_TREE_ROW_CAPACITY );
         m_visualPresentation.ReserveRecordingBuffers();
     }
 
@@ -1650,7 +1661,7 @@ void ReplayRuntime::FlushHashLogs()
 
 void ReplayRuntime::ResetBranch()
 {
-    m_timeline.Branch() = ReplayBranchInfo();
+    m_authoring.Branch() = ReplayBranchInfo();
 }
 
 void ReplayRuntime::ResetTimeline( const char* sceneLabel )
@@ -1691,7 +1702,7 @@ ReplayRuntime::SceneTimelineResetResult ReplayRuntime::FinishSceneTimelineReset(
     ClearCameraFocusForRestore();
     result.exitInspectionCamera = true;
     ClearPathVisualizerState();
-    m_velocityEdit = RunReplayVelocityEditState{};
+    m_authoring.VelocityEdit() = RunReplayVelocityEditState{};
     if ( !IsPresentationEnabled() )
     {
         return result;
@@ -1963,7 +1974,7 @@ void ReplayRuntime::CaptureFrame( ReplayCaptureInput input )
     // Invariant: presentation, solver, and event timelines share the same
     // branch and event cursor for this frame. Save/export code depends on that
     // alignment when it pairs visual frames with restore checkpoints.
-    input.branch = m_timeline.Branch();
+    input.branch = m_authoring.Branch();
     input.eventCursor = m_timeline.Events().GetStats().nextSequence;
     if ( m_timeline.Solver().IsEnabled() )
     {
@@ -2419,7 +2430,7 @@ bool ReplayRuntime::BuildCauseTreeRows(
     const PhysicsBodyStore& bodyStore )
 {
     PROFILE_SCOPED( "Frame/Replay/CauseTree/BuildRows" );
-    m_causeTree.rows.clear();
+    m_authoring.CauseTree().rows.clear();
 
     if ( !m_visualPresentation.PathVisualizer().hasTarget || m_visualPresentation.PathVisualizer().targetId.value == 0 )
     {
@@ -2441,23 +2452,23 @@ bool ReplayRuntime::BuildCauseTreeRows(
     const std::size_t solverContactCount =
         solverSample ? solverSample->worldSnapshot.persistentContacts.size() : static_cast<std::size_t>( 0 );
     const std::size_t estimatedRows = 1 + nodes.size() + solverContactCount * 3;
-    if ( estimatedRows > m_causeTree.rows.capacity() )
+    if ( estimatedRows > m_authoring.CauseTree().rows.capacity() )
     {
         // Hazard: this path runs from input/render. If a future scene exceeds
         // the preallocated explanation budget, hide the overlay for the frame
         // instead of growing row storage on the hot path.
-        m_causeTree.selectedRow = -1;
+        m_authoring.CauseTree().selectedRow = -1;
         return false;
     }
     bool rowOverflow = false;
     auto appendCauseTreeRow = [&]( const RunReplayCauseTreeRow& row ) -> bool
     {
-        if ( m_causeTree.rows.size() >= m_causeTree.rows.capacity() )
+        if ( m_authoring.CauseTree().rows.size() >= m_authoring.CauseTree().rows.capacity() )
         {
             rowOverflow = true;
             return false;
         }
-        m_causeTree.rows.push_back( row );
+        m_authoring.CauseTree().rows.push_back( row );
         return true;
     };
 
@@ -2830,7 +2841,7 @@ bool ReplayRuntime::BuildCauseTreeRows(
         {
             return false;
         }
-        appendSolverRowsForBody( m_causeTree.rows.back() );
+        appendSolverRowsForBody( m_authoring.CauseTree().rows.back() );
         return !rowOverflow;
     };
 
@@ -2841,8 +2852,8 @@ bool ReplayRuntime::BuildCauseTreeRows(
                       m_visualPresentation.PathVisualizer().targetModelRow.value,
                       m_visualPresentation.PathVisualizer().targetName ) )
     {
-        m_causeTree.rows.clear();
-        m_causeTree.selectedRow = -1;
+        m_authoring.CauseTree().rows.clear();
+        m_authoring.CauseTree().selectedRow = -1;
         return false;
     }
 
@@ -2869,17 +2880,17 @@ bool ReplayRuntime::BuildCauseTreeRows(
     addChildren( addChildren, m_visualPresentation.PathVisualizer().targetId, 1 );
     if ( rowOverflow )
     {
-        m_causeTree.rows.clear();
-        m_causeTree.selectedRow = -1;
+        m_authoring.CauseTree().rows.clear();
+        m_authoring.CauseTree().selectedRow = -1;
         return false;
     }
 
-    m_causeTree.selectedRow = -1;
+    m_authoring.CauseTree().selectedRow = -1;
     if ( m_visualPresentation.Camera().focusKind != RunReplayCameraFocusKind::None )
     {
-        for ( int i = 0; i < static_cast<int>( m_causeTree.rows.size() ); ++i )
+        for ( int i = 0; i < static_cast<int>( m_authoring.CauseTree().rows.size() ); ++i )
         {
-            const RunReplayCauseTreeRow& row = m_causeTree.rows[static_cast<std::size_t>( i )];
+            const RunReplayCauseTreeRow& row = m_authoring.CauseTree().rows[static_cast<std::size_t>( i )];
             if ( row.kind != m_visualPresentation.Camera().focusRowKind ||
                  row.id.value != m_visualPresentation.Camera().focusedId.value ||
                  row.modelRow.value != m_visualPresentation.Camera().focusModelRow.value ||
@@ -2894,17 +2905,17 @@ bool ReplayRuntime::BuildCauseTreeRows(
                      ( row.featureId == m_visualPresentation.Camera().focusFeatureId &&
                        row.solverRowIndex == m_visualPresentation.Camera().focusSolverRowIndex ) ) ) )
             {
-                m_causeTree.selectedRow = i;
+                m_authoring.CauseTree().selectedRow = i;
                 m_visualPresentation.Camera().focusedRow = i;
                 break;
             }
         }
     }
-    if ( m_causeTree.selectedRow >= static_cast<int>( m_causeTree.rows.size() ) )
+    if ( m_authoring.CauseTree().selectedRow >= static_cast<int>( m_authoring.CauseTree().rows.size() ) )
     {
-        m_causeTree.selectedRow = -1;
+        m_authoring.CauseTree().selectedRow = -1;
     }
-    return !m_causeTree.rows.empty();
+    return !m_authoring.CauseTree().rows.empty();
 }
 
 
@@ -3271,7 +3282,7 @@ SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() 
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PathOwner,
-        static_cast<uint64_t>( sizeof( m_visualPresentation.PathVisualizer() ) + sizeof( m_causeTree ) ) );
+        static_cast<uint64_t>( sizeof( m_visualPresentation.PathVisualizer() ) + sizeof( m_authoring.CauseTree() ) ) );
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PathFutureNodes,
@@ -3283,7 +3294,7 @@ SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() 
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PathCauseRows,
-        VectorCapacityBytes( m_causeTree.rows ) );
+        VectorCapacityBytes( m_authoring.CauseTree().rows ) );
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::TrajectoryStore,
@@ -3294,7 +3305,7 @@ SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() 
         SkullbonezCore::Core::MainMemoryReplayByteCategory::RenderGhostRequests );
     stats.pathNodes =
         m_visualPresentation.PathVisualizer().futureNodes.size() + m_prediction.futureNodeCache.futureNodes.size();
-    stats.causeRows = m_causeTree.rows.size();
+    stats.causeRows = m_authoring.CauseTree().rows.size();
 
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         stats.categoryBytes,
@@ -3353,7 +3364,7 @@ void ReplayRuntime::RecordEvent( ReplayEventKind kind,
 
     ReplayEventInput input;
     input.frameIndex = frameIndex;
-    input.branch = m_timeline.Branch();
+    input.branch = m_authoring.Branch();
     input.kind = kind;
     input.flags = flags;
     input.value0 = value0;

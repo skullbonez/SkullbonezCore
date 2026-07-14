@@ -1,17 +1,19 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayAuthoring.h
 Purpose:
-  Defines replay velocity-edit and causal-authoring values.
+  Owns replay velocity-edit, causal-authoring, and branch-provenance state.
 
 Summary:
-  ReplayAuthoring owns operator edits and cause-tree selection; M2 moves definitions only.
+  ReplayAuthoring retains operator edits and cause-tree selection, then publishes
+  value requests when those edits require prediction to refresh.
 
 Glossary:
   Cause row: One replay explanation row.
 
 Invariants:
   - Cause rows retain ReplayBodyId as identity and dense rows only as hints.
-  - M2 preserves the moved definition bodies verbatim.
+  - Authoring never reaches into prediction state; the composition root consumes
+    queued value requests in frame order.
 
 Related:
   - ReplayRuntime.h
@@ -97,6 +99,79 @@ struct RunReplayVelocityEditState
     float dragStartAngle = 0.0f;
     Math::Vector::Vector3 dragStartLinearVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 dragStartAngularVelocity = Math::Vector::ZERO_VECTOR;
+};
+
+struct ReplayAuthoringPredictionRequest
+{
+    bool enablePrediction = false;
+    bool refreshPrediction = false;
+};
+
+class ReplayAuthoring
+{
+  public:
+    RunReplayCauseTreeState& CauseTree() noexcept
+    {
+        return m_causeTree;
+    }
+    const RunReplayCauseTreeState& CauseTree() const noexcept
+    {
+        return m_causeTree;
+    }
+    RunReplayVelocityEditState& VelocityEdit() noexcept
+    {
+        return m_velocityEdit;
+    }
+    const RunReplayVelocityEditState& VelocityEdit() const noexcept
+    {
+        return m_velocityEdit;
+    }
+    ReplayBranchInfo& Branch() noexcept
+    {
+        return m_branch;
+    }
+    const ReplayBranchInfo& Branch() const noexcept
+    {
+        return m_branch;
+    }
+
+    bool SetVelocityEditEnabled( bool enabled ) noexcept
+    {
+        if ( m_velocityEdit.enabled == enabled )
+        {
+            return false;
+        }
+        m_velocityEdit.enabled = enabled;
+        m_velocityEdit.hotLinearAxis = -1;
+        m_velocityEdit.hotAngularAxis = -1;
+        if ( enabled )
+        {
+            QueuePredictionRefresh( true );
+        }
+        return true;
+    }
+
+    // Concept: authoring publishes a value command instead of holding a
+    // prediction pointer or callback. Multiple edits before consumption fold
+    // into one newest-state refresh request.
+    void QueuePredictionRefresh( bool enablePrediction = false ) noexcept
+    {
+        m_pendingPrediction.enablePrediction |= enablePrediction;
+        m_pendingPrediction.refreshPrediction = true;
+    }
+
+    ReplayAuthoringPredictionRequest TakePredictionRequest() noexcept
+    {
+        const ReplayAuthoringPredictionRequest request = m_pendingPrediction;
+        m_pendingPrediction = ReplayAuthoringPredictionRequest{};
+        return request;
+    }
+
+  private:
+    RunReplayCauseTreeState m_causeTree;
+    RunReplayVelocityEditState m_velocityEdit;
+    ReplayBranchInfo m_branch;
+    ReplayAuthoringPredictionRequest m_pendingPrediction;
 };
 
 } // namespace Runtime

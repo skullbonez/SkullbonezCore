@@ -193,8 +193,8 @@ bool ReplayInteractionController::ApplyVelocityEditToBody( const ReplayVelocityE
 {
     PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Apply" );
     // Invariant: replay velocity edit mutates live physics state deliberately,
-    // then marks prediction dirty so retained and predicted overlays do not
-    // present stale paths for the edited body.
+    // then publishes an authoring refresh request so retained and predicted
+    // overlays do not present stale paths for the edited body.
     if ( !context.body.IsValid() )
     {
         return false;
@@ -213,7 +213,7 @@ bool ReplayInteractionController::ApplyVelocityEditToBody( const ReplayVelocityE
     {
         return false;
     }
-    context.replayRuntime.MarkPredictionDirty();
+    context.replayRuntime.NotifyVelocityEditApplied();
     context.replayRuntime.Scrubber().visibleUntil = context.visibleUntil;
     context.replayRuntime.Scrubber().visible = true;
     return true;
