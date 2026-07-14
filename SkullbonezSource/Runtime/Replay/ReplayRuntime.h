@@ -187,10 +187,8 @@ class ReplayRuntime
     RunReplayCauseTreeState& CauseTree();
     const RunReplayCauseTreeState& CauseTree() const;
 
-    RunReplayVelocityEditState& VelocityEdit();
     const RunReplayVelocityEditState& VelocityEdit() const;
     bool SetVelocityEditEnabled( bool enabled );
-    void SetVelocityEditAltKeyDown( bool isDown );
     ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input );
     float TrackPosition( RunReplayTrack track ) const;
     void SetTrackPosition( RunReplayTrack track, float position );

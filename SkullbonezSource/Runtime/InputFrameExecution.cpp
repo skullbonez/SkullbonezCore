@@ -788,7 +788,10 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
 
     if ( m_runtimeTools.Editor().editorModeEnabled )
     {
-        m_replayRuntime.SetVelocityEditAltKeyDown( keyboardEditorToolShortcut.altDown );
+        (void)m_replayRuntime.ApplyKeyboardVelocityEdit( { keyboardEditorToolShortcut.altDown,
+                                                           false,
+                                                           m_interaction.Owner(),
+                                                           m_timers.simulationTimer.GetTotalTime() } );
         if ( keyboardEditorToolShortcut.togglePlacementMode )
         {
             applyEditorPlacementModeToggle( RuntimeInputActionSource::Keyboard );
@@ -796,8 +799,11 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     }
     else
     {
-        const ReplayKeyboardVelocityEditResult velocityEditResult = m_replayRuntime.ApplyKeyboardVelocityEdit(
-            { keyboardEditorToolShortcut.altDown, m_interaction.Owner(), m_timers.simulationTimer.GetTotalTime() } );
+        const ReplayKeyboardVelocityEditResult velocityEditResult =
+            m_replayRuntime.ApplyKeyboardVelocityEdit( { keyboardEditorToolShortcut.altDown,
+                                                         true,
+                                                         m_interaction.Owner(),
+                                                         m_timers.simulationTimer.GetTotalTime() } );
         if ( velocityEditResult.cancelToolDrag )
         {
             m_replayRuntime.CancelToolDragState( m_interaction, m_inputRouter );

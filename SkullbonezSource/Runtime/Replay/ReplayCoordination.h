@@ -229,6 +229,7 @@ struct ReplaySceneTimelineResetOwners
 struct ReplayKeyboardVelocityEditInput
 {
     bool altDown = false;
+    bool toggleAllowed = true; // False records the key edge while the editor owns Alt.
     WorldInteractionOwner currentWorldOwner = WorldInteractionOwner::None;
     double now = 0.0;
 };

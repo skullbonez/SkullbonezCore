@@ -132,10 +132,6 @@ class ReplayAuthoring
     {
         return m_causeTree;
     }
-    RunReplayVelocityEditState& VelocityEdit() noexcept
-    {
-        return m_velocityEdit;
-    }
     const RunReplayVelocityEditState& VelocityEdit() const noexcept
     {
         return m_velocityEdit;
@@ -192,6 +188,16 @@ class ReplayAuthoring
         m_velocityEdit.keyboardAltWasDown = false;
         m_velocityEdit.hotLinearAxis = -1;
         m_velocityEdit.hotAngularAxis = -1;
+    }
+
+    void ResetVelocityEdit() noexcept
+    {
+        m_velocityEdit = RunReplayVelocityEditState{};
+    }
+
+    void ObserveVelocityEditAltKey( bool isDown ) noexcept
+    {
+        m_velocityEdit.keyboardAltWasDown = isDown;
     }
 
     void SetVelocityEditHoverAxes( int linearAxis, int angularAxis ) noexcept

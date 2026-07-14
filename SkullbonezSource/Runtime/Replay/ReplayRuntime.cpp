@@ -1630,7 +1630,7 @@ bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionCont
     ClearPathVisualizerState();
     m_predictionOwner.State().enabled = false;
     m_predictionOwner.ClearCache();
-    m_authoring.VelocityEdit() = RunReplayVelocityEditState{};
+    m_authoring.ResetVelocityEdit();
     m_authoring.CauseTree().selectedRow = -1;
     m_authoring.CauseTree().scrollY = 0.0f;
     m_authoring.CauseTree().rows.clear();
@@ -1645,11 +1645,6 @@ RunReplayCauseTreeState& ReplayRuntime::CauseTree()
 const RunReplayCauseTreeState& ReplayRuntime::CauseTree() const
 {
     return m_authoring.CauseTree();
-}
-
-RunReplayVelocityEditState& ReplayRuntime::VelocityEdit()
-{
-    return m_authoring.VelocityEdit();
 }
 
 const RunReplayVelocityEditState& ReplayRuntime::VelocityEdit() const
@@ -1668,17 +1663,11 @@ bool ReplayRuntime::SetVelocityEditEnabled( bool enabled )
     return true;
 }
 
-void ReplayRuntime::SetVelocityEditAltKeyDown( bool isDown )
-{
-    m_authoring.VelocityEdit().keyboardAltWasDown = isDown;
-}
-
-
 ReplayKeyboardVelocityEditResult
 ReplayRuntime::ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input )
 {
     ReplayKeyboardVelocityEditResult result;
-    if ( input.altDown && !m_authoring.VelocityEdit().keyboardAltWasDown )
+    if ( input.toggleAllowed && input.altDown && !m_authoring.VelocityEdit().keyboardAltWasDown )
     {
         const bool enableVelocityEdit = !m_authoring.VelocityEdit().enabled;
         if ( SetVelocityEditEnabled( enableVelocityEdit ) )
@@ -1705,7 +1694,7 @@ ReplayRuntime::ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput&
         m_scrubberOwner.State().visibleUntil = input.now + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
         m_scrubberOwner.State().visible = true;
     }
-    m_authoring.VelocityEdit().keyboardAltWasDown = input.altDown;
+    m_authoring.ObserveVelocityEditAltKey( input.altDown );
     return result;
 }
 
@@ -1856,7 +1845,7 @@ bool ReplayRuntime::ArmLoadedPresentationScrubber( float normalized, double now 
 
     ClearPathVisualizerState();
     m_predictionOwner.State().enabled = false;
-    m_authoring.VelocityEdit() = RunReplayVelocityEditState{};
+    m_authoring.ResetVelocityEdit();
     m_scrubberOwner.State().activeTrack = RunReplayTrack::Presentation;
     SetTrackPosition( RunReplayTrack::Presentation, normalized );
     m_scrubberOwner.State().solverPosition = 1.0f;
@@ -2034,7 +2023,7 @@ ReplaySceneTimelineResetResult ReplayRuntime::FinishSceneTimelineReset( const Re
     ClearCameraFocusForRestore();
     result.exitInspectionCamera = true;
     ClearPathVisualizerState();
-    m_authoring.VelocityEdit() = RunReplayVelocityEditState{};
+    m_authoring.ResetVelocityEdit();
     if ( !IsPresentationEnabled() )
     {
         return result;
