@@ -49,7 +49,7 @@ int ReplayCauseWindowMinY( int screenH )
 //
 // A replay control is only usable if the mouse hit box and drawn pixels agree.
 // Keep derived rectangles here instead of duplicating layout math in
-// ReplayPredictionPresentation and ReplayOverlayRenderer.
+// ReplayPredictionDrawing and ReplayOverlayRenderer.
 UI::UIRect ReplayScrubberPanelRect( int screenW, int screenH )
 {
     const float width =

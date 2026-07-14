@@ -145,7 +145,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             interactionOwners,
             sceneOwners,
             presentationOwners,
-            NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ) );
+            NormalizeCameraModeForCurrentScene( m_replayRuntime.ReplayRestoreCameraMode() ) );
     };
     const auto DrainCaptureRequests = [&]()
     {
@@ -299,7 +299,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             m_sceneController,
             m_sceneController.Physics(),
             m_camera,
-            NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+            NormalizeCameraModeForCurrentScene( m_replayRuntime.ReplayRestoreCameraMode() ),
             m_attachedCamera.State().activeFollow,
             m_camera.director.grabbed );
         if ( m_inputRouter.ReleasePointerToUi(
@@ -827,7 +827,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                 &m_sceneController.Cameras(),
                 m_sceneController.Terrain().Get(),
                 m_camera,
-                NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+                NormalizeCameraModeForCurrentScene( m_replayRuntime.ReplayRestoreCameraMode() ),
                 m_attachedCamera.State().activeFollow,
                 m_camera.director.grabbed,
                 m_interaction,
@@ -846,7 +846,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                 m_sceneController,
                 m_sceneController.Physics(),
                 m_camera,
-                NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+                NormalizeCameraModeForCurrentScene( m_replayRuntime.ReplayRestoreCameraMode() ),
                 m_attachedCamera.State().activeFollow,
                 m_camera.director.grabbed );
         }
@@ -858,7 +858,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                                    replayPointerRay.rayDirection );
     const RuntimeInputFrameFacts uiSamplingFacts{
         NormalizeCameraModeForCurrentScene( m_camera.mode ),
-        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+        NormalizeCameraModeForCurrentScene( m_replayRuntime.ReplayRestoreCameraMode() ),
         CameraModeEnabledMask(),
         UIBlocksKeyboardBeforeInput,
         m_startup.gameModelCapacity };
@@ -888,7 +888,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     }
     const RuntimeInputFrameFacts commandFacts{
         NormalizeCameraModeForCurrentScene( m_camera.mode ),
-        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+        NormalizeCameraModeForCurrentScene( m_replayRuntime.ReplayRestoreCameraMode() ),
         CameraModeEnabledMask(),
         uiFrameResult.suppressWorldActionThisFrame,
         m_startup.gameModelCapacity };
@@ -931,7 +931,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             &m_sceneController.Cameras(),
             m_sceneController.Terrain().Get(),
             m_camera,
-            NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+            NormalizeCameraModeForCurrentScene( m_replayRuntime.ReplayRestoreCameraMode() ),
             m_attachedCamera.State().activeFollow,
             m_camera.director.grabbed };
         const ReplayRestoreTransaction transaction{ sampleOwners, m_diagnosticsRuntime, timelineReset, timelineOwners };
@@ -1022,7 +1022,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         m_assets,
         m_sceneController.Cameras(),
         m_camera,
-        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ),
+        NormalizeCameraModeForCurrentScene( m_replayRuntime.ReplayRestoreCameraMode() ),
         m_attachedCamera.State().activeFollow,
         m_camera.director.grabbed );
     if ( pointerResult.enteredInteractiveScene )

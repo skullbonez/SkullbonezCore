@@ -2446,10 +2446,7 @@ ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& tr
             m_predictionOwner.SetVerificationRevealFrame( expected.revealFrame );
             tracer.Clear();
             PreparePredictionPresentation( transaction.sampleOwners.physics, sceneController.Entities() );
-            RenderPathVisualizer( transaction.sampleOwners.physics,
-                                  sceneController.Entities(),
-                                  tracer,
-                                  transaction.sampleOwners.scene.currentFrame );
+            RenderPathVisualizer( transaction.sampleOwners.physics, sceneController.Entities(), tracer );
             (void)BuildPredictionGhostDrawRequests( sceneController.RenderPresentationRecords(),
                                                     sceneController.BodyStore() );
             ReplayVisualPacket rebuilt = tracer.BuildReplayVisualPacket( expected.cameraEye, expected.cameraUp );

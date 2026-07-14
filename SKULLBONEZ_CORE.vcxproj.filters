@@ -370,7 +370,10 @@
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderer.cpp">
       <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionPresentation.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPrediction.cpp">
+      <Filter>Source Files\Runtime\Replay</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionDrawing.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayAuthoringVelocity.cpp">

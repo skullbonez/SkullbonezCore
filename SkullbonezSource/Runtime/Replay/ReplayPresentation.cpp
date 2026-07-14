@@ -22,7 +22,7 @@ Invariants:
 Related:
   - ReplayPresentation.h
   - ReplayVisualPacket.h
-  - ReplayPredictionPresentation.cpp
+  - ReplayPredictionDrawing.cpp
 */
 #include "ReplayPresentation.h"
 #include "../RuntimePickService.h"
@@ -41,6 +41,11 @@ namespace SkullbonezCore::Runtime
 namespace
 {
 constexpr int REPLAY_TRAJECTORY_SUBMISSION_STEADY_FRAME_TARGET = 120;
+
+template <typename T> uint64_t ReplayPresentationVectorCapacityBytes( const std::vector<T>& values )
+{
+    return static_cast<uint64_t>( values.capacity() * sizeof( T ) );
+}
 
 float ReplayQueryColliderRadiusForModelIndex( const Physics::ColliderStore& colliderStore, int modelIndex )
 {
@@ -132,11 +137,148 @@ ReplayPresentation::ReplayPresentation()
 }
 
 
+RunReplayCameraState ReplayPresentation::CameraView() const noexcept
+{
+    return m_camera;
+}
+
+
+SkullbonezCore::Core::MainMemoryReplayTrajectoryStats ReplayPresentation::TrajectoryVisualStatsSnapshot() const noexcept
+{
+    return m_trajectoryVisualStats;
+}
+
+
+ReplayTrajectorySubmissionProbeStats ReplayPresentation::TrajectorySubmissionProbeSnapshot() const noexcept
+{
+    return m_trajectorySubmissionProbe;
+}
+
+
+ReplayVisualPacket ReplayPresentation::PublishedVisualPacketView() const noexcept
+{
+    return m_publishedVisualPacket;
+}
+
+
+std::span<const ReplayPredictionGhostDrawRequest> ReplayPresentation::PredictionGhostDrawRequestsView() const noexcept
+{
+    return m_predictionGhostDrawRequests;
+}
+
+
+const std::vector<uint8_t>& ReplayPresentation::FocusModelMaskView() const noexcept
+{
+    return m_focusModelMask;
+}
+
+
+ReplayPresentationMemoryStats ReplayPresentation::CollectMemoryStats() const noexcept
+{
+    ReplayPresentationMemoryStats stats;
+    stats.ghostRequestCapacityBytes = ReplayPresentationVectorCapacityBytes( m_predictionGhostDrawRequests );
+    stats.focusModelMaskCapacityBytes = ReplayPresentationVectorCapacityBytes( m_focusModelMask );
+    stats.launcherVisualBytes = static_cast<uint64_t>( sizeof( m_launcherVisualBackup ) ) +
+                                ReplayPresentationVectorCapacityBytes( m_launcherVisualBackup.rayLines ) +
+                                ReplayPresentationVectorCapacityBytes( m_launcherVisualBackup.laserShots );
+    stats.ghostRequestCount = static_cast<uint64_t>( m_predictionGhostDrawRequests.size() );
+    stats.trajectory = m_trajectoryVisualStats;
+    return stats;
+}
+
+
+bool ReplayPresentation::HasLauncherVisualBackup() const noexcept
+{
+    return m_launcherVisualBackupActive;
+}
+
+
 void ReplayPresentation::ReserveRecordingBuffers()
 {
     // Runtime allocation policy: ghost requests are replay-only overlay data.
     // Reserve during startup replay configuration, before steady interaction.
     m_predictionGhostDrawRequests.reserve( REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY );
+}
+
+
+void ReplayPresentation::BeginCameraInspection( RunCameraMode restoreMode,
+                                                uint32_t restoreCameraHash,
+                                                const Math::Vector::Vector3& restoreEye,
+                                                const Math::Vector::Vector3& restoreView,
+                                                const Math::Vector::Vector3& restoreUp ) noexcept
+{
+    m_camera.restoreCameraMode = restoreMode;
+    m_camera.restoreCameraHash = restoreCameraHash;
+    m_camera.restoreEye = restoreEye;
+    m_camera.restoreView = restoreView;
+    m_camera.restoreUp = restoreUp;
+    m_camera.hasRestorePose = true;
+    m_camera.active = true;
+}
+
+
+void ReplayPresentation::EndCameraInspection() noexcept
+{
+    m_camera.active = false;
+    m_camera.focusKind = RunReplayCameraFocusKind::None;
+    m_camera.focusedRow = -1;
+    m_camera.hasRestorePose = false;
+    m_camera.ownsSimulationPause = false;
+    m_camera.restoreCameraMode = RunCameraMode::Demo;
+}
+
+
+void ReplayPresentation::SetCameraPauseOwnership( bool ownsPause ) noexcept
+{
+    m_camera.ownsSimulationPause = ownsPause;
+}
+
+
+void ReplayPresentation::ApplyCameraFocus( const ReplayCameraFocusRequest& request ) noexcept
+{
+    m_camera.focusKind = request.focusKind;
+    m_camera.focusedId = request.focusedId;
+    m_camera.counterpartId = request.counterpartId;
+    m_camera.focusedRow = request.focusedRow;
+    m_camera.focusRowKind = request.focusRowKind;
+    m_camera.focusModelRow = request.focusModelRow;
+    m_camera.focusCounterpartModelRow = request.focusCounterpartModelRow;
+    m_camera.focusContactIndex = request.focusContactIndex;
+    m_camera.focusSolverRowIndex = request.focusSolverRowIndex;
+    m_camera.focusFeatureId = request.focusFeatureId;
+    m_camera.focusTerrain = request.focusTerrain;
+    m_camera.targetPoint = request.targetPoint;
+    m_camera.targetNormal = request.targetNormal;
+    m_camera.impulseVector = request.impulseVector;
+    m_camera.targetRadius = request.targetRadius;
+}
+
+
+void ReplayPresentation::SetCameraFocusedRow( int row ) noexcept
+{
+    m_camera.focusedRow = row;
+}
+
+
+bool ReplayPresentation::ClearCameraFocus() noexcept
+{
+    const bool ownedPause = m_camera.ownsSimulationPause;
+    m_camera.focusKind = RunReplayCameraFocusKind::None;
+    m_camera.focusedId = ReplayBodyId{};
+    m_camera.counterpartId = ReplayBodyId{};
+    m_camera.focusedRow = -1;
+    m_camera.focusRowKind = RunReplayCauseTreeRowKind::Body;
+    m_camera.focusModelRow.value = -1;
+    m_camera.focusCounterpartModelRow.value = -1;
+    m_camera.focusContactIndex = -1;
+    m_camera.focusSolverRowIndex = -1;
+    m_camera.focusFeatureId = 0;
+    m_camera.focusTerrain = false;
+    m_camera.targetPoint = Math::Vector::ZERO_VECTOR;
+    m_camera.targetNormal = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
+    m_camera.impulseVector = Math::Vector::ZERO_VECTOR;
+    m_camera.ownsSimulationPause = false;
+    return ownedPause;
 }
 
 
@@ -149,6 +291,100 @@ void ReplayPresentation::ClearPathState()
     m_pathVisualizer.futureNodes.clear();
     m_pathVisualizer.targets.clear();
     m_pathVisualizer.pastTrajectory = RunReplayPastTrajectoryBuildState{};
+}
+
+
+void ReplayPresentation::PreparePathDrawing( const Physics::PhysicsBodyStore& bodyStore )
+{
+    // The legacy report vector is intentionally empty: the prediction owner
+    // publishes its immutable future-node view, while the presentation owner
+    // retains only selected past-path targets.
+    m_pathVisualizer.futureNodes.clear();
+    if ( !m_pathVisualizer.hasTarget || !m_pathVisualizer.pastPathVisible || m_pathVisualizer.targetId.value == 0 )
+    {
+        return;
+    }
+
+    if ( m_pathVisualizer.targets.empty() )
+    {
+        RunReplayPathTarget target;
+        target.id = m_pathVisualizer.targetId;
+        target.modelRow = m_pathVisualizer.targetModelRow;
+        if ( m_pathVisualizer.targetName[0] != '\0' )
+        {
+            strncpy_s( target.name, sizeof( target.name ), m_pathVisualizer.targetName, _TRUNCATE );
+        }
+        m_pathVisualizer.targets.push_back( target );
+    }
+
+    for ( RunReplayPathTarget& target : m_pathVisualizer.targets )
+    {
+        const Physics::PhysicsBodyHandle handle =
+            bodyStore.HandleForReplayBodyId( target.id.value, target.modelRow.value );
+        const int modelIndex = bodyStore.ModelIndexForHandle( handle );
+        if ( modelIndex < 0 )
+        {
+            continue;
+        }
+        target.modelRow.value = modelIndex;
+        if ( target.id.value == m_pathVisualizer.targetId.value )
+        {
+            m_pathVisualizer.targetModelRow.value = modelIndex;
+        }
+    }
+}
+
+
+void ReplayPresentation::SetPathTargetModelRow( Physics::ModelRowHint modelRow ) noexcept
+{
+    m_pathVisualizer.targetModelRow = modelRow;
+}
+
+
+void ReplayPresentation::ApplyArchivePathState( const RunReplayPathVisualizerState& archiveState )
+{
+    m_pathVisualizer.hasTarget = archiveState.hasTarget;
+    m_pathVisualizer.pastPathVisible = archiveState.pastPathVisible;
+    m_pathVisualizer.targetId = archiveState.targetId;
+    m_pathVisualizer.targetModelRow = archiveState.targetModelRow;
+    strncpy_s( m_pathVisualizer.targetName, sizeof( m_pathVisualizer.targetName ), archiveState.targetName, _TRUNCATE );
+    m_pathVisualizer.futureNodes.clear();
+    m_pathVisualizer.targets.clear();
+    m_pathVisualizer.pastTrajectory = RunReplayPastTrajectoryBuildState{};
+}
+
+
+void ReplayPresentation::ApplyPastTrajectoryUpdate( ReplayBodyId targetId,
+                                                    ReplayFrameIndex firstFrame,
+                                                    ReplayFrameIndex builtThroughFrame,
+                                                    uint64_t totalFramesEvicted,
+                                                    uint64_t fullRebuildCount,
+                                                    uint64_t incrementalTrimCount,
+                                                    bool valid,
+                                                    Physics::ModelRowHint targetModelRow,
+                                                    bool targetModelRowRepaired )
+{
+    m_pathVisualizer.pastTrajectory.targetId = targetId;
+    m_pathVisualizer.pastTrajectory.firstFrame = firstFrame;
+    m_pathVisualizer.pastTrajectory.builtThroughFrame = builtThroughFrame;
+    m_pathVisualizer.pastTrajectory.totalFramesEvicted = totalFramesEvicted;
+    m_pathVisualizer.pastTrajectory.fullRebuildCount = fullRebuildCount;
+    m_pathVisualizer.pastTrajectory.incrementalTrimCount = incrementalTrimCount;
+    m_pathVisualizer.pastTrajectory.valid = valid;
+    if ( targetModelRowRepaired )
+    {
+        m_pathVisualizer.targetModelRow = targetModelRow;
+    }
+}
+
+
+void ReplayPresentation::TogglePastPathVisible()
+{
+    m_pathVisualizer.pastPathVisible = !m_pathVisualizer.pastPathVisible;
+    if ( !m_pathVisualizer.pastPathVisible )
+    {
+        m_pathVisualizer.futureNodes.clear();
+    }
 }
 
 
@@ -382,10 +618,61 @@ bool ReplayPresentation::BuildFocusModelMask( const Physics::PhysicsBodyStore& b
 }
 
 
-void ReplayPresentation::StoreLauncherVisualBackup( const ReplayLauncherVisualSample& sample )
+void ReplayPresentation::ClearPredictionGhostDrawRequests() noexcept
 {
-    m_launcherVisualBackup = sample;
-    m_launcherVisualBackupActive = true;
+    m_predictionGhostDrawRequests.clear();
+}
+
+
+bool ReplayPresentation::CanAppendPredictionGhostDrawRequests( std::size_t count ) const noexcept
+{
+    return m_predictionGhostDrawRequests.size() + count <= m_predictionGhostDrawRequests.capacity();
+}
+
+
+void ReplayPresentation::AppendPredictionGhostDrawRequest( const ReplayPredictionGhostDrawRequest& request )
+{
+    // Invariant: callers prove capacity before the bounded presentation pass;
+    // replay steady-state rendering must never grow this vector.
+    if ( m_predictionGhostDrawRequests.size() < m_predictionGhostDrawRequests.capacity() )
+    {
+        m_predictionGhostDrawRequests.push_back( request );
+    }
+}
+
+
+bool ReplayPresentation::HasPredictionGhostDrawRequests() const noexcept
+{
+    return !m_predictionGhostDrawRequests.empty();
+}
+
+
+bool ReplayPresentation::PrepareRenderPoseBodyMatch( int modelCount ) noexcept
+{
+    if ( modelCount < 0 || modelCount > SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
+    {
+        return false;
+    }
+    std::fill( m_renderPoseBodyMatched.begin(),
+               m_renderPoseBodyMatched.begin() + static_cast<std::size_t>( modelCount ),
+               uint8_t{ 0 } );
+    return true;
+}
+
+
+void ReplayPresentation::MarkRenderPoseBodyMatched( int modelIndex ) noexcept
+{
+    if ( modelIndex >= 0 && modelIndex < SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
+    {
+        m_renderPoseBodyMatched[static_cast<std::size_t>( modelIndex )] = 1;
+    }
+}
+
+
+bool ReplayPresentation::RenderPoseBodyMatched( int modelIndex ) const noexcept
+{
+    return modelIndex >= 0 && modelIndex < SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS &&
+           m_renderPoseBodyMatched[static_cast<std::size_t>( modelIndex )] != 0;
 }
 
 
@@ -393,6 +680,12 @@ void ReplayPresentation::ClearLauncherVisualBackup()
 {
     m_launcherVisualBackup = ReplayLauncherVisualSample{};
     m_launcherVisualBackupActive = false;
+}
+
+
+void ReplayPresentation::ResetTrajectoryVisualStats() noexcept
+{
+    m_trajectoryVisualStats = {};
 }
 
 

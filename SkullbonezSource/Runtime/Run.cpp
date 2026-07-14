@@ -209,9 +209,7 @@ bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
     // Runtime allocation policy: launcher replay visuals are copied every
     // captured physics tick, so keep their scratch vectors reserved before the
     // replay phase begins.
-    ReplayLauncherVisualSample& launcherVisualScratch = replayRuntime.LauncherVisualCaptureScratch();
-    launcherVisualScratch.rayLines.reserve( RunRayCastTestState::MAX_LINES );
-    launcherVisualScratch.laserShots.reserve( REPLAY_LAUNCHER_LASER_SHOT_CAPACITY );
+    replayRuntime.ReserveLauncherVisualCaptureBuffers();
 
     const ReplayRecordingConfigResult replayConfig = replayRuntime.ConfigureRecording( overrides.replayRecordingEnabled,
                                                                                        overrides.replayRetentionSeconds,
@@ -467,7 +465,7 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
             &m_sceneController.Cameras(),
             m_sceneController.Terrain().Get(),
             m_camera,
-            NormalizeRuntimeCameraMode( m_replayRuntime.Camera().restoreCameraMode,
+            NormalizeRuntimeCameraMode( m_replayRuntime.ReplayRestoreCameraMode(),
                                         m_sceneController.State().isSceneMode,
                                         RuntimeCameraModeEnabledMask( m_sceneController ) ),
             m_attachedCamera.State().activeFollow,
@@ -646,7 +644,7 @@ void Run::Initialise()
         &m_sceneController.Cameras(),
         m_sceneController.Terrain().Get(),
         m_camera,
-        NormalizeRuntimeCameraMode( m_replayRuntime.Camera().restoreCameraMode,
+        NormalizeRuntimeCameraMode( m_replayRuntime.ReplayRestoreCameraMode(),
                                     m_sceneController.State().isSceneMode,
                                     RuntimeCameraModeEnabledMask( m_sceneController ) ),
         m_attachedCamera.State().activeFollow,

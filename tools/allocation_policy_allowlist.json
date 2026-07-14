@@ -95,7 +95,7 @@
       "removal_or_wrapper_plan": "Keep prediction growth behind RequestReplayPredictionReserveGrowth/ReserveReplayPredictionVector or replace the working set with a fixed prediction arena."
     },
     {
-      "path": "SkullbonezSource/Runtime/Replay/ReplayPredictionPresentation.cpp",
+      "path": "SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp",
       "patterns": [
         "std::make_unique<PhysicsEngine>"
       ],
@@ -106,7 +106,7 @@
       "removal_or_wrapper_plan": "Replace with a dedicated replay prediction arena/object factory if runtime allocation policy gains typed owner allocators; do not construct the private engine at startup."
     },
     {
-      "path": "SkullbonezSource/Runtime/Replay/ReplayPredictionPresentation.cpp",
+      "path": "SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp",
       "patterns": [
         "std::make_unique<ReplayPredictionAmortizedTask>"
       ],
@@ -853,6 +853,18 @@
       "removal_or_wrapper_plan": "Move archive byte and decode scratch storage behind the cold replay artifact reader/writer wrappers when artifact IO ownership is consolidated."
     },
     {
+      "path": "SkullbonezSource/Runtime/Replay/ReplayAuthoring.h",
+      "patterns": [
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "ReplayAuthoring cause-tree rows",
+      "phase": "startup_replay_and_capacity_bounded_interaction",
+      "reason": "ReplayAuthoring reserves its bounded cause-tree row table before live selection and appends only within that owner-approved capacity.",
+      "cap": "Rows are bounded by the cause-tree capacity supplied during replay initialization; AppendCauseTreeRow rejects additions at capacity.",
+      "removal_or_wrapper_plan": "Replace the row vector with fixed replay-authoring storage when the cause-tree UI adopts a compile-time row budget."
+    },
+    {
       "path": "SkullbonezSource/Runtime/Replay/ReplayPresentation.cpp",
       "patterns": [
         ".assign(",
@@ -879,7 +891,6 @@
     {
       "path": "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp",
       "patterns": [
-        ".push_back(",
         ".reserve(",
         ".resize("
       ],
@@ -927,7 +938,7 @@
       "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
     },
     {
-      "path": "SkullbonezSource/Runtime/Replay/ReplayPredictionPresentation.cpp",
+      "path": "SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp",
       "patterns": [
         ".push_back(",
         ".reserve(",
@@ -951,17 +962,6 @@
       "reason": "Replay is the only approved runtime growth exception; these existing recorder, prediction, query, artifact, and trajectory buffers remain reviewed while runtime reserve owners and validation guard actual gameplay growth.",
       "cap": "Replay hard caps and artifact sizes remain enforced by the replay reserve owners and validation gates.",
       "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
-    },
-    {
-      "path": "SkullbonezSource/Runtime/Run.cpp",
-      "patterns": [
-        ".reserve("
-      ],
-      "owner": "Runtime orchestration preallocation surface",
-      "phase": "startup_scene_load_diagnostics",
-      "reason": "Runtime orchestration, automation, demo, and pass setup vectors grow while preparing startup, scene, diagnostics, or bounded command data.",
-      "cap": "Bounded by startup arguments, scene/model counts, render pass counts, or automation script sizes.",
-      "removal_or_wrapper_plan": "Move runtime orchestration storage to typed fixed buffers or owner wrappers as each subsystem is decomposed."
     },
     {
       "path": "SkullbonezSource/Runtime/InteractionAutomationController.cpp",

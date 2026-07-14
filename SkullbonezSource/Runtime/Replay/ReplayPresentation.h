@@ -63,6 +63,7 @@ namespace Runtime
 {
 class SceneEntityStore;
 class InputRouter;
+class RuntimeTools;
 struct RunCameraState;
 
 // Value-only per-frame publication for replay diagnostics drawn by the late
@@ -224,96 +225,88 @@ struct ReplayTrajectorySubmissionProbeStats
     uint64_t reserveGrowthEventsAtEnd = 0;
 };
 
+// Value-only selection applied by the presentation owner after cause-tree hit
+// testing. Restore-camera state remains private and cannot be overwritten by a
+// focus command.
+struct ReplayCameraFocusRequest
+{
+    RunReplayCameraFocusKind focusKind = RunReplayCameraFocusKind::None;
+    ReplayBodyId focusedId;
+    ReplayBodyId counterpartId;
+    int focusedRow = -1;
+    RunReplayCauseTreeRowKind focusRowKind = RunReplayCauseTreeRowKind::Body;
+    Physics::ModelRowHint focusModelRow;
+    Physics::ModelRowHint focusCounterpartModelRow;
+    int focusContactIndex = -1;
+    int focusSolverRowIndex = -1;
+    int focusFeatureId = 0;
+    bool focusTerrain = false;
+    Math::Vector::Vector3 targetPoint = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 targetNormal = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
+    Math::Vector::Vector3 impulseVector = Math::Vector::ZERO_VECTOR;
+    float targetRadius = 1.0f;
+};
+
+struct ReplayPresentationMemoryStats
+{
+    uint64_t ghostRequestCapacityBytes = 0;
+    uint64_t focusModelMaskCapacityBytes = 0;
+    uint64_t launcherVisualBytes = 0;
+    uint64_t ghostRequestCount = 0;
+    SkullbonezCore::Core::MainMemoryReplayTrajectoryStats trajectory;
+};
+
 // Concept: presentation is a concrete owner, not a collection of fields on
-// ReplayRuntime. Its accessors are the temporary migration surface used while
-// M3 moves drawing operations; consumers cannot substitute another state bag.
+// ReplayRuntime. Mutation is expressed as bounded commands; consumers receive
+// only value snapshots or read-only frame spans.
 class ReplayPresentation
 {
   public:
     ReplayPresentation();
 
-    RunReplayCameraState& Camera() noexcept
-    {
-        return m_camera;
-    }
-    const RunReplayCameraState& Camera() const noexcept
-    {
-        return m_camera;
-    }
-    RunReplayPathVisualizerState& PathVisualizer() noexcept
-    {
-        return m_pathVisualizer;
-    }
+    RunReplayCameraState CameraView() const noexcept;
     const RunReplayPathVisualizerState& PathVisualizer() const noexcept
     {
         return m_pathVisualizer;
     }
-    SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& TrajectoryVisualStats() noexcept
-    {
-        return m_trajectoryVisualStats;
-    }
-    const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& TrajectoryVisualStats() const noexcept
-    {
-        return m_trajectoryVisualStats;
-    }
-    ReplayTrajectorySubmissionProbeStats& TrajectorySubmissionProbe() noexcept
-    {
-        return m_trajectorySubmissionProbe;
-    }
-    const ReplayTrajectorySubmissionProbeStats& TrajectorySubmissionProbe() const noexcept
-    {
-        return m_trajectorySubmissionProbe;
-    }
-    ReplayVisualPacket& PublishedVisualPacket() noexcept
-    {
-        return m_publishedVisualPacket;
-    }
-    const ReplayVisualPacket& PublishedVisualPacket() const noexcept
-    {
-        return m_publishedVisualPacket;
-    }
-    std::vector<ReplayPredictionGhostDrawRequest>& PredictionGhostDrawRequests() noexcept
-    {
-        return m_predictionGhostDrawRequests;
-    }
-    const std::vector<ReplayPredictionGhostDrawRequest>& PredictionGhostDrawRequests() const noexcept
-    {
-        return m_predictionGhostDrawRequests;
-    }
-    std::vector<uint8_t>& FocusModelMask() noexcept
-    {
-        return m_focusModelMask;
-    }
-    const std::vector<uint8_t>& FocusModelMask() const noexcept
-    {
-        return m_focusModelMask;
-    }
-    ReplayLauncherVisualSample& LauncherVisualBackup() noexcept
-    {
-        return m_launcherVisualBackup;
-    }
-    const ReplayLauncherVisualSample& LauncherVisualBackup() const noexcept
-    {
-        return m_launcherVisualBackup;
-    }
-    ReplayLauncherVisualSample& LauncherVisualCaptureScratch() noexcept
-    {
-        return m_launcherVisualCaptureScratch;
-    }
-    std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>& RenderPoseBodyMatched() noexcept
-    {
-        return m_renderPoseBodyMatched;
-    }
-    bool& LauncherVisualBackupActive() noexcept
-    {
-        return m_launcherVisualBackupActive;
-    }
-    bool LauncherVisualBackupActive() const noexcept
-    {
-        return m_launcherVisualBackupActive;
-    }
+    SkullbonezCore::Core::MainMemoryReplayTrajectoryStats TrajectoryVisualStatsSnapshot() const noexcept;
+    ReplayTrajectorySubmissionProbeStats TrajectorySubmissionProbeSnapshot() const noexcept;
+    ReplayVisualPacket PublishedVisualPacketView() const noexcept;
+    std::span<const ReplayPredictionGhostDrawRequest> PredictionGhostDrawRequestsView() const noexcept;
+    const std::vector<uint8_t>& FocusModelMaskView() const noexcept;
+    ReplayPresentationMemoryStats CollectMemoryStats() const noexcept;
+    bool HasLauncherVisualBackup() const noexcept;
     void ReserveRecordingBuffers();
+    void ReserveLauncherVisualCaptureBuffers();
+    void PopulateLauncherVisualCapture( ReplayCaptureInput& input, RuntimeTools& runtimeTools );
+    void StoreLauncherVisualBackupFrom( RuntimeTools& runtimeTools );
+    void RestoreAndClearLauncherVisualBackup( RuntimeTools& runtimeTools );
+    void BeginCameraInspection( RunCameraMode restoreMode,
+                                uint32_t restoreCameraHash,
+                                const Math::Vector::Vector3& restoreEye,
+                                const Math::Vector::Vector3& restoreView,
+                                const Math::Vector::Vector3& restoreUp ) noexcept;
+    void EndCameraInspection() noexcept;
+    void SetCameraPauseOwnership( bool ownsPause ) noexcept;
+    void ApplyCameraFocus( const ReplayCameraFocusRequest& request ) noexcept;
+    void SetCameraFocusedRow( int row ) noexcept;
+    bool ClearCameraFocus() noexcept;
     void ClearPathState();
+    // Publishes the selected-target rows needed by read-only path drawing.
+    // Model rows are repairable hints; stable ReplayBodyId remains authority.
+    void PreparePathDrawing( const Physics::PhysicsBodyStore& bodyStore );
+    void SetPathTargetModelRow( Physics::ModelRowHint modelRow ) noexcept;
+    void ApplyArchivePathState( const RunReplayPathVisualizerState& archiveState );
+    void ApplyPastTrajectoryUpdate( ReplayBodyId targetId,
+                                    ReplayFrameIndex firstFrame,
+                                    ReplayFrameIndex builtThroughFrame,
+                                    uint64_t totalFramesEvicted,
+                                    uint64_t fullRebuildCount,
+                                    uint64_t incrementalTrimCount,
+                                    bool valid,
+                                    Physics::ModelRowHint targetModelRow,
+                                    bool targetModelRowRepaired );
+    void TogglePastPathVisible();
     bool SetPathTarget( const char* name, int modelIndex, const Physics::PhysicsBodyStore& bodyStore );
     ReplayPathPickResult
     TryPickPathTarget( const ReplayPathPickInput& input,
@@ -325,8 +318,15 @@ class ReplayPresentation
     bool BuildFocusModelMask( const Physics::PhysicsBodyStore& bodyStore,
                               int modelCount,
                               std::span<const RunReplayPathTraceNode> futureNodes );
-    void StoreLauncherVisualBackup( const ReplayLauncherVisualSample& sample );
+    void ClearPredictionGhostDrawRequests() noexcept;
+    bool CanAppendPredictionGhostDrawRequests( std::size_t count ) const noexcept;
+    void AppendPredictionGhostDrawRequest( const ReplayPredictionGhostDrawRequest& request );
+    bool HasPredictionGhostDrawRequests() const noexcept;
+    bool PrepareRenderPoseBodyMatch( int modelCount ) noexcept;
+    void MarkRenderPoseBodyMatched( int modelIndex ) noexcept;
+    bool RenderPoseBodyMatched( int modelIndex ) const noexcept;
     void ClearLauncherVisualBackup();
+    void ResetTrajectoryVisualStats() noexcept;
     void RecordTrajectoryFrameStats( const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& frameStats );
     void PublishVisualPacket( ReplayVisualPacket packet );
     void RecordTrajectorySubmissionFrame(

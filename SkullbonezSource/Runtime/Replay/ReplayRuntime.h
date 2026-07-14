@@ -44,7 +44,8 @@ Invariants:
     or private-engine state are cleared.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayPredictionPresentation.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayPredictionDrawing.cpp
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
 */
 #pragma once
@@ -156,10 +157,11 @@ class ReplayRuntime
 
     ReplayScrubberView ScrubberView() const noexcept;
 
-    RunReplayCameraState& Camera();
-    const RunReplayCameraState& Camera() const;
+    RunCameraMode ReplayRestoreCameraMode() const noexcept;
+    bool ReplayCameraActive() const noexcept;
+    void SetCameraPauseOwnership( bool ownsPause ) noexcept;
+    void ApplyCameraFocus( const ReplayCameraFocusRequest& request ) noexcept;
 
-    RunReplayPathVisualizerState& PathVisualizer();
     const RunReplayPathVisualizerState& PathVisualizer() const;
 
     const RunReplayPredictionState& Prediction() const;
@@ -302,7 +304,7 @@ class ReplayRuntime
     // Refreshes the selected past-root trajectory from retained solver samples.
     // The method is cheap when the cursor already matches the recorder window.
     void RefreshPastTrajectoryStoreFromSolverSamples();
-    void CaptureFrame( ReplayCaptureInput input );
+    void CaptureFrame( ReplayCaptureInput input, RuntimeTools& runtimeTools );
     bool ApplyPresentationSampleForRender( Rendering::RenderInstanceStore& renderInstances,
                                            const Physics::PhysicsBodyStore& bodyStore,
                                            const Physics::ColliderStore& colliderStore,
@@ -338,25 +340,23 @@ class ReplayRuntime
     BuildPredictionGhostDrawRequests( std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
                                       const Physics::PhysicsBodyStore& bodyStore );
     bool BuildFocusModelMask( const Physics::PhysicsBodyStore& bodyStore, int modelCount );
-    std::vector<uint8_t>& FocusModelMask();
-    const std::vector<uint8_t>& FocusModelMask() const;
+    const std::vector<uint8_t>& FocusModelMaskView() const noexcept;
     bool HasLauncherVisualBackup() const;
-    void StoreLauncherVisualBackup( const ReplayLauncherVisualSample& sample );
-    const ReplayLauncherVisualSample& LauncherVisualBackup() const;
-    ReplayLauncherVisualSample& LauncherVisualCaptureScratch();
-    void ClearLauncherVisualBackup();
+    void ReserveLauncherVisualCaptureBuffers();
+    void StoreLauncherVisualBackupFrom( RuntimeTools& runtimeTools );
+    void RestoreAndClearLauncherVisualBackup( RuntimeTools& runtimeTools );
     // Accumulates one rendered replay overlay pass into the repro-session
     // trajectory counters exposed through memory diagnostics.
     void RecordReplayTrajectoryFrameStats( const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& frameStats );
     // Publishes the tracer's borrowed buffer spans with replay-owned identity,
     // reveal, topology, and ghost metadata for this render frame.
     void PublishReplayVisualPacket( ReplayVisualPacket packet, uint64_t replayReserveGrowthEvents );
-    const ReplayVisualPacket& PublishedReplayVisualPacket() const;
+    ReplayVisualPacket PublishedReplayVisualPacket() const noexcept;
     void RecordReplayTrajectorySubmissionFrame(
         const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& submissionStats,
         int frameNumber,
         uint64_t reserveGrowthEventCount );
-    const ReplayTrajectorySubmissionProbeStats& ReplayTrajectorySubmissionProbe() const;
+    ReplayTrajectorySubmissionProbeStats ReplayTrajectorySubmissionProbe() const noexcept;
     void RecordReplayTrajectoryBudgetExpiry( SkullbonezCore::Core::MainMemoryReplayBudgetPass pass );
     void RecordReplayTrajectoryRebuildCause( SkullbonezCore::Core::MainMemoryReplayRebuildCause cause );
     SkullbonezCore::Core::MainMemoryReplayStats CollectMemoryStats() const;
@@ -456,10 +456,8 @@ class ReplayRuntime
                              const ReplayOverlayBuildInput& input );
     // Emits replay-owned fixed-capacity tracer records; Run/RuntimeRenderer
     // only sequence the completed record buffer into render submission.
-    void RenderPathVisualizer( Physics::PhysicsEngine& physics,
-                               const SceneEntityStore& entities,
-                               RunEditorTracer& tracer,
-                               int currentFrame );
+    void
+    RenderPathVisualizer( Physics::PhysicsEngine& physics, const SceneEntityStore& entities, RunEditorTracer& tracer );
     void RenderCauseFocusOverlay( const Physics::PhysicsBodyStore& bodyStore,
                                   const Physics::ColliderStore& colliderStore,
                                   const SceneEntityStore& entities,
@@ -577,6 +575,7 @@ class ReplayRuntime
   private:
     void ApplyAuthoringPredictionRequest();
     void ApplyPredictionUpdateResult( const ReplayPredictionUpdateResult& result );
+    void ApplyPastTrajectoryUpdate( const ReplayPastTrajectoryUpdate& update );
     void ReportLatestCaptureMismatch();
     void AppendSolverTrajectorySampleToStore( const ReplaySolverFrameSample& sample );
     bool RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransaction& transaction,

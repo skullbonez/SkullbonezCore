@@ -21,7 +21,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
-  - SkullbonezSource/Runtime/Replay/ReplayPredictionPresentation.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp
 */
 #pragma once
 

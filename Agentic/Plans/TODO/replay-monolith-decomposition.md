@@ -711,6 +711,39 @@ Fifteenth ownership-remediation checkpoint after that review:
   unchecked. M3-M7 remain open for the physical prediction/presentation split,
   presentation/root accessors, and external frame/probe root closure.
 
+Sixteenth ownership-remediation checkpoint after that review:
+
+- The former mixed prediction/presentation implementation is physically split.
+  `ReplayPrediction.cpp` owns scheduling, private-engine capture, worker
+  publication, and trajectory preparation; `ReplayPredictionDrawing.cpp` owns
+  read-only trajectory/marker drawing. Root scheduling methods moved to the
+  composition TU, the drawing context no longer carries `ReplayRuntime&`, and
+  path/prediction inputs are const published values.
+- `ReplayPresentation` and `ReplayRuntime` no longer expose mutable camera,
+  path, ghost-request, focus-mask, render-pose mask, launcher scratch, visual
+  packet, trajectory-stat, or submission-probe storage. Camera focus and
+  launcher capture/restore are typed commands; renderer/probe consumers receive
+  value snapshots or read-only spans. Cause-focus drawing no longer repairs
+  camera model-row hints during traversal.
+- Project/filter metadata names both owner TUs. Allocation-policy rows now name
+  `ReplayPrediction`, `ReplayPresentation`, and the existing bounded
+  `ReplayAuthoring` cause-row owner; stale root/startup patterns were removed.
+  Formatting, 678/678 project/filter entries, allocation-policy self-test and
+  repository scan, and the 75.3-second fast gate passed.
+- The unchanged one-process oracle passed in 465.0 seconds with 2,401 exact
+  ticks, 200 moved bricks, 187 strict grounded sleepers, 199 causal nodes, one
+  generation, one presentation, durable reconstruction, zero reserve growth,
+  and every false-pass control. The 102.2-second full gate passed every CPU/
+  Profile/Debug/DX12/physics lane with zero warnings, zero DX12 validation
+  errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. The 61.9-second performance gate passed allocation guard and
+  performance evidence. No baseline changed. The touched-source comment audit
+  inspected 27/27 files with zero deferred or unchecked.
+- M3-M7 remain unchecked pending closure of the external frame/probe root seam
+  and the repeated independent ownership review; this checkpoint does not
+  waive the remaining `RuntimeFrameInteractionView`, renderer/input, workspace
+  packet, or validation-context findings.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |

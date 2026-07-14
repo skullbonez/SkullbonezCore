@@ -20,7 +20,7 @@ Invariants:
 
 Related:
   - ReplayRuntime.h stores the scheduling state.
-  - ReplayPredictionPresentation.cpp applies these decisions on the frame thread.
+  - ReplayPrediction.cpp applies these decisions on the frame thread.
 */
 #pragma once
 

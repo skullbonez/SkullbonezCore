@@ -288,7 +288,8 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\LiveStyleController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderer.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionPresentation.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPrediction.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionDrawing.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayAuthoringVelocity.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeTools.cpp" />

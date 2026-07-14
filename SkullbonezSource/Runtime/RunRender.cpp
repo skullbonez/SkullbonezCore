@@ -47,7 +47,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     m_camera.UpdateViewingOrientation( m_timers,
                                        m_sceneController.Cameras(),
                                        m_sceneController,
-                                       m_replayRuntime.Camera().active,
+                                       m_replayRuntime.ReplayCameraActive(),
                                        m_sceneController.State().isSceneMode,
                                        m_attachedCamera.State().activeFollow,
                                        m_interaction.PointerCapture() == RuntimePointerCaptureOwner::CameraLook,

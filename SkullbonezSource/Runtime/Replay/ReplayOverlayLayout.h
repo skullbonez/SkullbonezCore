@@ -24,7 +24,7 @@ Invariants:
     mutate replay state.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayPredictionPresentation.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayPredictionDrawing.cpp
   - SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.h
 */
 #pragma once

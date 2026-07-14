@@ -20,7 +20,7 @@ Invariants:
   - Focus changes hold live replay advance so selected historical rows remain visible.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayPredictionPresentation.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayPredictionDrawing.cpp
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
 */
 #include "ReplayAuthoring.h"
@@ -256,7 +256,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         }
 
         outEnterInteractive = true;
-        const bool hadReplayCameraFocus = m_replayRuntime.Camera().focusKind != RunReplayCameraFocusKind::None;
+        const bool hadReplayCameraFocus = m_replayRuntime.HasCameraFocus();
         if ( !m_replayRuntime.ScrubberView().liveAdvanceHeld )
         {
             if ( m_replayRuntime.SetLiveAdvanceHeld( true ) && !IsReplayCauseTreeToolOwner( m_interaction.Owner() ) )
@@ -265,29 +265,31 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
                                                                  WorldInteractionOwner::ReplayScrub,
                                                                  InteractionExitReason::EnterReplay );
             }
-            m_replayRuntime.Camera().ownsSimulationPause = true;
+            m_replayRuntime.SetCameraPauseOwnership( true );
         }
         else if ( !hadReplayCameraFocus )
         {
-            m_replayRuntime.Camera().ownsSimulationPause = false;
+            m_replayRuntime.SetCameraPauseOwnership( false );
         }
         enterInspectionCamera();
 
-        m_replayRuntime.Camera().focusKind = focusKind;
-        m_replayRuntime.Camera().focusedId = row.id;
-        m_replayRuntime.Camera().counterpartId = row.counterpartId;
-        m_replayRuntime.Camera().focusedRow = rowIndex;
-        m_replayRuntime.Camera().focusRowKind = row.kind;
-        m_replayRuntime.Camera().focusModelRow.value = row.modelRow.value;
-        m_replayRuntime.Camera().focusCounterpartModelRow.value = row.counterpartModelRow.value;
-        m_replayRuntime.Camera().focusContactIndex = row.contactIndex;
-        m_replayRuntime.Camera().focusSolverRowIndex = row.solverRowIndex;
-        m_replayRuntime.Camera().focusFeatureId = row.featureId;
-        m_replayRuntime.Camera().focusTerrain = row.terrain;
-        m_replayRuntime.Camera().targetPoint = targetPosition;
-        m_replayRuntime.Camera().targetNormal = ReplayCauseTreeNormalizeOr( row.normal, Vector3( 0.0f, 1.0f, 0.0f ) );
-        m_replayRuntime.Camera().impulseVector = row.impulse;
-        m_replayRuntime.Camera().targetRadius = targetRadius;
+        ReplayCameraFocusRequest focus;
+        focus.focusKind = focusKind;
+        focus.focusedId = row.id;
+        focus.counterpartId = row.counterpartId;
+        focus.focusedRow = rowIndex;
+        focus.focusRowKind = row.kind;
+        focus.focusModelRow = row.modelRow;
+        focus.focusCounterpartModelRow = row.counterpartModelRow;
+        focus.focusContactIndex = row.contactIndex;
+        focus.focusSolverRowIndex = row.solverRowIndex;
+        focus.focusFeatureId = row.featureId;
+        focus.focusTerrain = row.terrain;
+        focus.targetPoint = targetPosition;
+        focus.targetNormal = ReplayCauseTreeNormalizeOr( row.normal, Vector3( 0.0f, 1.0f, 0.0f ) );
+        focus.impulseVector = row.impulse;
+        focus.targetRadius = targetRadius;
+        m_replayRuntime.ApplyCameraFocus( focus );
         m_authoring.SetCauseTreeFocus( rowIndex, row.id );
 
         if ( cameras )

@@ -1843,7 +1843,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
         return replayRuntime.BuildFocusModelMask( *frame.bodyStore, frame.modelCount );
     }();
     const std::vector<uint8_t>* replayFocusModelMask =
-        replayFocusFadeActive ? &replayRuntime.FocusModelMask() : nullptr;
+        replayFocusFadeActive ? &replayRuntime.FocusModelMaskView() : nullptr;
     const bool transparentBodyPass = debugTransparentBodyPass || replayFocusFadeActive;
     const float bodyRenderAlpha = debugTransparentBodyPass ? policy.physicsDebugAlpha : 1.0f;
     const float collisionVisualizerAlphaOverride = debugTransparentBodyPass ? bodyRenderAlpha : -1.0f;
@@ -2320,8 +2320,7 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
             return;
         }
 
-        runtimeTools.RestoreReplayLauncherVisualSample( replayRuntime.LauncherVisualBackup() );
-        replayRuntime.ClearLauncherVisualBackup();
+        replayRuntime.RestoreAndClearLauncherVisualBackup( runtimeTools );
     };
 
     const auto applyReplayLauncherVisualSampleForRender = [&]( const ReplayLauncherVisualSample& sample )
@@ -2331,9 +2330,7 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
             return;
         }
 
-        ReplayLauncherVisualSample liveSample;
-        runtimeTools.BuildReplayLauncherVisualSample( liveSample );
-        replayRuntime.StoreLauncherVisualBackup( liveSample );
+        replayRuntime.StoreLauncherVisualBackupFrom( runtimeTools );
         runtimeTools.RestoreReplayLauncherVisualSample( sample );
     };
 

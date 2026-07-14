@@ -72,15 +72,21 @@ struct ReplayPathVisualizerRenderContext
     // pass. Prediction scheduling and presentation-cache preparation have
     // already published for this frame, so drawing receives prediction as a
     // read-only borrow and cannot reach worker or reveal-clock authority.
-    ReplayRuntime& replayRuntime;
     const RunReplayPredictionState& prediction;
+    const RunReplayPathVisualizerState& pathVisualizer;
     SkullbonezCore::Physics::PhysicsEngine& physics;
     const SceneEntityStore& entities;
     RunEditorTracer& tracer;
-    int sceneCurrentFrame = 0;
+    ReplayFrameIndex presentFrame = 0;
+    bool hasPresentSample = false;
+};
+
+struct ReplayPathVisualizerRenderResult
+{
+    bool retainedRefreshBudgetExpired = false;
 };
 
 void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context );
 void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context );
-void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context );
+ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context );
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

@@ -2572,7 +2572,7 @@ bool VerifyReplayVisualOfflineProjection( InteractionAutomationController& state
         PublishReplayDeterministicReveal( replay, expected.revealFrame, true );
         tracer.Clear();
         replay.PreparePredictionPresentation( scene.Physics(), scene.Entities() );
-        replay.RenderPathVisualizer( scene.Physics(), scene.Entities(), tracer, tick.sceneFrame );
+        replay.RenderPathVisualizer( scene.Physics(), scene.Entities(), tracer );
         (void)replay.BuildPredictionGhostDrawRequests( scene.RenderPresentationRecords(), scene.BodyStore() );
         ReplayVisualPacket rebuilt = tracer.BuildReplayVisualPacket( expected.cameraEye, expected.cameraUp );
         replay.PublishReplayVisualPacket( rebuilt, expected.replayReserveGrowthEvents );
@@ -2975,7 +2975,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                         scene,
                         scene.Physics(),
                         camera,
-                        NormalizeRuntimeCameraMode( replayRuntime.Camera().restoreCameraMode,
+                        NormalizeRuntimeCameraMode( replayRuntime.ReplayRestoreCameraMode(),
                                                     scene.State().isSceneMode,
                                                     RuntimeCameraModeEnabledMask( scene ) ),
                         attachedCamera.State().activeFollow,

@@ -304,7 +304,7 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayOverlayRenderer",
     "ReplayPredictionArchive",
     "ReplayPrediction",
-    "ReplayPredictionPresentation",
+    "ReplayPredictionDrawing",
     "ReplayPredictionReserve",
     "ReplayPredictionScheduling",
     "ReplayRetainedMemory",

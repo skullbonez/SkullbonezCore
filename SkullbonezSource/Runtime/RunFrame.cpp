@@ -473,9 +473,6 @@ void CaptureReplayPostStep( RuntimeFrameInteractionView& interactionOwners, Runt
     const SceneEntityStore& entities = models.Entities();
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Replay );
     PROFILE_SCOPED( "Frame/Physics/Step/ReplayCapture" );
-    ReplayLauncherVisualSample& launcherVisual = replayRuntime.LauncherVisualCaptureScratch();
-    runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
-
     ReplayCaptureInput input;
     input.sceneFrame = scene.currentFrame;
     input.simulationSeconds = timers.simulationTimer.GetTimeSinceLastStart();
@@ -491,8 +488,7 @@ void CaptureReplayPostStep( RuntimeFrameInteractionView& interactionOwners, Runt
     input.entities = &entities;
     input.bodyStore = &models.BodyStore();
     input.colliderStore = &models.Colliders();
-    input.launcherVisual = &launcherVisual;
-    replayRuntime.CaptureFrame( input );
+    replayRuntime.CaptureFrame( input, runtimeTools );
 }
 
 } // namespace
@@ -993,7 +989,7 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners, Runt
             &m_sceneController.Cameras(),
             m_sceneController.Terrain().Get(),
             m_camera,
-            NormalizeRuntimeCameraMode( m_replayRuntime.Camera().restoreCameraMode,
+            NormalizeRuntimeCameraMode( m_replayRuntime.ReplayRestoreCameraMode(),
                                         m_sceneController.State().isSceneMode,
                                         RuntimeCameraModeEnabledMask( m_sceneController ) ),
             m_attachedCamera.State().activeFollow,

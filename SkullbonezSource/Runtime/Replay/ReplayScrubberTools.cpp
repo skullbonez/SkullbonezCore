@@ -25,7 +25,7 @@ Invariants:
     not recreate per-button rectangles or fall-through exclusions.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayPredictionPresentation.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
 */
 #include "ReplayScrubber.h"
@@ -192,11 +192,10 @@ void ReplayRuntime::EnterInspectionCamera( Environment::CameraCollection* camera
         return;
     }
 
-    const bool enteringInspectionCamera = !Camera().active;
-    if ( !Camera().active )
+    const bool enteringInspectionCamera = !m_visualPresentation.CameraView().active;
+    if ( enteringInspectionCamera )
     {
-        Camera().restoreCameraMode = normalizedCurrentMode;
-        Camera().restoreCameraHash = cameras->GetSelectedCameraName();
+        const uint32_t restoreCameraHash = cameras->GetSelectedCameraName();
 
         auto magnitudeSquared = []( const Vector3& value ) -> float
         { return value.x * value.x + value.y * value.y + value.z * value.z; };
@@ -219,13 +218,9 @@ void ReplayRuntime::EnterInspectionCamera( Environment::CameraCollection* camera
             up = Vector3( 0.0f, 1.0f, 0.0f );
         }
 
-        Camera().restoreEye = eye;
-        Camera().restoreView = view;
-        Camera().restoreUp = up;
-        Camera().hasRestorePose = true;
+        m_visualPresentation.BeginCameraInspection( normalizedCurrentMode, restoreCameraHash, eye, view, up );
         cameras->SelectCamera( CAMERA_FREE, false );
         cameras->TweenPrimaryToPose( eye, view, up );
-        Camera().active = true;
     }
 
     XZBounds unbounded;
@@ -270,12 +265,12 @@ void ReplayRuntime::ExitInspectionCamera( Environment::CameraCollection* cameras
                                           RuntimeInteractionController& interaction,
                                           InputRouter& inputRouter )
 {
-    if ( !Camera().active )
+    const RunReplayCameraState replayCamera = m_visualPresentation.CameraView();
+    if ( !replayCamera.active )
     {
         return;
     }
 
-    Camera().active = false;
     camera.mode = normalizedRestoreMode;
     if ( VelocityEdit().enabled )
     {
@@ -293,7 +288,7 @@ void ReplayRuntime::ExitInspectionCamera( Environment::CameraCollection* cameras
         // and before authored/generated cameras are registered. A replay
         // restore hash from the old scene must not be looked up until a matching
         // camera exists.
-        uint32_t restoreCameraHash = Camera().restoreCameraHash;
+        uint32_t restoreCameraHash = replayCamera.restoreCameraHash;
         bool restoreCameraAvailable = cameras->HasCamera( restoreCameraHash );
         if ( !restoreCameraAvailable && cameras->HasCamera( CAMERA_FREE ) )
         {
@@ -303,9 +298,11 @@ void ReplayRuntime::ExitInspectionCamera( Environment::CameraCollection* cameras
         if ( restoreCameraAvailable )
         {
             cameras->SelectCamera( restoreCameraHash, false );
-            if ( Camera().hasRestorePose )
+            if ( replayCamera.hasRestorePose )
             {
-                cameras->TweenPrimaryToPose( Camera().restoreEye, Camera().restoreView, Camera().restoreUp );
+                cameras->TweenPrimaryToPose( replayCamera.restoreEye,
+                                             replayCamera.restoreView,
+                                             replayCamera.restoreUp );
             }
             if ( terrain )
             {
@@ -326,11 +323,7 @@ void ReplayRuntime::ExitInspectionCamera( Environment::CameraCollection* cameras
             }
         }
     }
-    Camera().focusKind = RunReplayCameraFocusKind::None;
-    Camera().focusedRow = -1;
-    Camera().hasRestorePose = false;
-    Camera().ownsSimulationPause = false;
-    Camera().restoreCameraMode = RunCameraMode::Demo;
+    m_visualPresentation.EndCameraInspection();
     inputRouter.RequestCursorVisible( true );
     InputController::ResetMouseLook( camera );
 }
@@ -559,8 +552,7 @@ void ApplyReplayLiveAdvanceAction( ReplayRuntime& replayRuntime,
                                                          WorldInteractionOwner::ReplayVelocityEdit,
                                                          InteractionExitReason::EnterReplay );
     }
-    else if ( !scrubber.View().historicalSamplePaused &&
-              replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::None )
+    else if ( !scrubber.View().historicalSamplePaused && !replayRuntime.HasCameraFocus() )
     {
         interaction.EnterCameraMode( camera.mode );
     }
@@ -627,14 +619,9 @@ void HandleReplayVelocityEditPressed( ReplayRuntime& replayRuntime,
 }
 
 
-void HandleReplayPastPathPressed( ReplayRuntime& replayRuntime, ReplayScrubber& scrubber, double now )
+void HandleReplayPastPathPressed( ReplayPresentation& presentation, ReplayScrubber& scrubber, double now )
 {
-    RunReplayPathVisualizerState& pathVisualizer = replayRuntime.PathVisualizer();
-    pathVisualizer.pastPathVisible = !pathVisualizer.pastPathVisible;
-    if ( !pathVisualizer.pastPathVisible )
-    {
-        pathVisualizer.futureNodes.clear();
-    }
+    presentation.TogglePastPathVisible();
     KeepReplayScrubberVisible( scrubber, now );
 }
 
@@ -1152,7 +1139,7 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
         consumesMouse = true;
         break;
     case ReplayScrubberAction::TogglePastPath:
-        HandleReplayPastPathPressed( *this, m_scrubberOwner, now );
+        HandleReplayPastPathPressed( m_visualPresentation, m_scrubberOwner, now );
         consumesMouse = true;
         break;
     case ReplayScrubberAction::ToggleRagdollVisuals:
