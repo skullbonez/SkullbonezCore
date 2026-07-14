@@ -184,7 +184,6 @@ class ReplayRuntime
     void ResetPredictionPresentationVerification();
     void ClearPathVisualizerState();
 
-    RunReplayCauseTreeState& CauseTree();
     const RunReplayCauseTreeState& CauseTree() const;
 
     const RunReplayVelocityEditState& VelocityEdit() const;
@@ -197,7 +196,6 @@ class ReplayRuntime
     bool ResetScrubberState();
     ReplayScrubberInputFrame BeginReplayScrubberInputFrame( bool leftPressed, bool leftReleased, bool restoreDown );
     ReplayScrubberUnavailableResult ResetUnavailableScrubberSurface( bool loadedPresentation );
-    ReplayPointerButtonEdges BeginCauseTreeInputFrame( bool leftPressed, bool leftReleased );
     void ClearCauseTreeFocusSelection();
     bool SetLiveAdvanceHeld( bool held );
     // Concept: Render/input code asks replay-owned state for intent-level

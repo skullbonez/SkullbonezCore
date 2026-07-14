@@ -819,10 +819,8 @@ void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context )
         return;
     }
 
-    // Invariant: row generation, scrolling, and drawing use the same mutable
-    // cause-tree state. Clamp window geometry before deriving visible rows so
-    // scroll offsets cannot point outside the rendered content.
-    EnsureReplayCauseWindowPlacement( replayRuntime.CauseTree(), screenW, screenH );
+    // Invariant: input clamps the authoring-owned window before publication;
+    // drawing consumes that const state and never repairs layout as a side effect.
     ReplayCauseWindowSurface surface;
     BuildReplayCauseWindowSurface( replayRuntime.CauseTree(), surface );
     surface.ResolvePointer( replayRuntime.CauseTree().mouseX,

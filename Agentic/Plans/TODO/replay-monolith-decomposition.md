@@ -558,6 +558,25 @@ Eighth ownership-remediation checkpoint after that review:
   cause-tree, scrubber, prediction, and presentation surfaces plus the mixed
   prediction/presentation translation unit.
 
+Ninth ownership-remediation checkpoint after that review:
+
+- `ReplayAuthoring` and `ReplayRuntime` no longer return mutable cause-tree
+  state. Bounded row rebuild, focus/selection, pointer, placement, drag,
+  resize, and scroll mutation now execute through authoring-owned commands;
+  the obsolete pointer-edge forwarding value was deleted. The overlay consumes
+  the published const state and no longer repairs cause-window placement while
+  drawing.
+- Final formatted source passed a zero-warning Profile build, the unchanged
+  one-process mega oracle at 2,401 exact ticks, 200 moved bricks, 187 strict
+  grounded sleepers, 199 causal nodes, one generation, one presentation, and
+  every false-pass control. The broad CPU/Profile/Debug/DX12/physics gate also
+  passed with zero DX12 validation errors and the 44,401-line byte-exact varied
+  baseline. No baseline changed. The touched-source comment audit inspected
+  6/6 files with zero deferred or unchecked. M3-M7 remain open because cause-
+  tree business operations still pass through the root, scrubber/prediction/
+  presentation mutable surfaces remain, and prediction scheduling still shares
+  a translation unit with presentation work.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |

@@ -133,11 +133,6 @@ struct ReplayWorldPointerInput
     InputRouter& inputRouter;
 };
 
-struct ReplayPointerButtonEdges
-{
-    bool leftPressed = false;
-    bool leftReleased = false;
-};
 struct RunReplayPathTarget
 {
     ReplayBodyId id;

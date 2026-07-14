@@ -124,14 +124,72 @@ struct ReplayVelocityEditDragStart
 class ReplayAuthoring
 {
   public:
-    RunReplayCauseTreeState& CauseTree() noexcept
-    {
-        return m_causeTree;
-    }
     const RunReplayCauseTreeState& CauseTree() const noexcept
     {
         return m_causeTree;
     }
+
+    // Clears generated explanation rows and their selection while preserving
+    // the operator's window placement.
+    void ResetCauseTreeRows() noexcept
+    {
+        m_causeTree.rows.clear();
+        m_causeTree.selectedRow = -1;
+        m_causeTree.scrollY = 0.0f;
+    }
+
+    void ClearCauseTreeFocus() noexcept
+    {
+        m_causeTree.focusedId = ReplayBodyId{};
+        m_causeTree.selectedRow = -1;
+    }
+
+    void ReserveCauseTreeRows( std::size_t capacity )
+    {
+        m_causeTree.rows.reserve( capacity );
+    }
+
+    // Starts a bounded, allocation-free rebuild. Append returns false instead
+    // of growing beyond the startup reserve.
+    void BeginCauseTreeRowBuild() noexcept
+    {
+        m_causeTree.rows.clear();
+    }
+    bool CauseTreeRowCapacityCovers( std::size_t count ) const noexcept
+    {
+        return count <= m_causeTree.rows.capacity();
+    }
+    bool AppendCauseTreeRow( const RunReplayCauseTreeRow& row )
+    {
+        if ( m_causeTree.rows.size() >= m_causeTree.rows.capacity() )
+        {
+            return false;
+        }
+        m_causeTree.rows.push_back( row );
+        return true;
+    }
+    void FailCauseTreeRowBuild() noexcept
+    {
+        m_causeTree.rows.clear();
+        m_causeTree.selectedRow = -1;
+    }
+    void SetCauseTreeSelectedRow( int rowIndex ) noexcept
+    {
+        m_causeTree.selectedRow = rowIndex;
+    }
+
+    // Cause-window commands retain layout mutation inside the authoring owner;
+    // input and rendering consume only the published const state.
+    void BeginCauseTreeInputFrame() noexcept;
+    void EnsureCauseTreeWindowPlacement( int screenWidth, int screenHeight ) noexcept;
+    void SetCauseTreePointer( int mouseX, int mouseY, bool blocked ) noexcept;
+    void MoveCauseTreeWindow( int mouseX, int mouseY, int screenWidth, int screenHeight ) noexcept;
+    void ResizeCauseTreeWindow( int mouseX, int mouseY, int screenWidth, int screenHeight ) noexcept;
+    void ScrollCauseTreeWindow( float delta, int screenWidth, int screenHeight ) noexcept;
+    void BeginCauseTreeResize( int mouseX, int mouseY ) noexcept;
+    void BeginCauseTreeMove( int mouseX, int mouseY ) noexcept;
+    bool TryGetCauseTreeRow( int rowIndex, RunReplayCauseTreeRow& outRow ) const noexcept;
+    void SetCauseTreeFocus( int rowIndex, ReplayBodyId focusedId ) noexcept;
     const RunReplayVelocityEditState& VelocityEdit() const noexcept
     {
         return m_velocityEdit;

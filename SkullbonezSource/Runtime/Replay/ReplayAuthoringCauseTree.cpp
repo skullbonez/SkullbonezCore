@@ -66,6 +66,83 @@ Vector3 ReplayCauseTreeNormalizeOr( Vector3 value, const Vector3& fallback )
 } // namespace
 
 
+void ReplayAuthoring::BeginCauseTreeInputFrame() noexcept
+{
+    m_causeTree.pointerBlocked = true;
+}
+
+
+void ReplayAuthoring::EnsureCauseTreeWindowPlacement( int screenWidth, int screenHeight ) noexcept
+{
+    EnsureReplayCauseWindowPlacement( m_causeTree, screenWidth, screenHeight );
+}
+
+
+void ReplayAuthoring::SetCauseTreePointer( int mouseX, int mouseY, bool blocked ) noexcept
+{
+    m_causeTree.mouseX = mouseX;
+    m_causeTree.mouseY = mouseY;
+    m_causeTree.pointerBlocked = blocked;
+}
+
+
+void ReplayAuthoring::MoveCauseTreeWindow( int mouseX, int mouseY, int screenWidth, int screenHeight ) noexcept
+{
+    m_causeTree.x = mouseX - m_causeTree.dragOffsetX;
+    m_causeTree.y = mouseY - m_causeTree.dragOffsetY;
+    ClampReplayCauseWindow( m_causeTree, screenWidth, screenHeight );
+}
+
+
+void ReplayAuthoring::ResizeCauseTreeWindow( int mouseX, int mouseY, int screenWidth, int screenHeight ) noexcept
+{
+    m_causeTree.width = m_causeTree.resizeStartWidth + ( mouseX - m_causeTree.resizeStartMouseX );
+    m_causeTree.height = m_causeTree.resizeStartHeight + ( mouseY - m_causeTree.resizeStartMouseY );
+    ClampReplayCauseWindow( m_causeTree, screenWidth, screenHeight );
+}
+
+
+void ReplayAuthoring::ScrollCauseTreeWindow( float delta, int screenWidth, int screenHeight ) noexcept
+{
+    m_causeTree.scrollY += delta;
+    ClampReplayCauseWindow( m_causeTree, screenWidth, screenHeight );
+}
+
+
+void ReplayAuthoring::BeginCauseTreeResize( int mouseX, int mouseY ) noexcept
+{
+    m_causeTree.resizeStartMouseX = mouseX;
+    m_causeTree.resizeStartMouseY = mouseY;
+    m_causeTree.resizeStartWidth = m_causeTree.width;
+    m_causeTree.resizeStartHeight = m_causeTree.height;
+}
+
+
+void ReplayAuthoring::BeginCauseTreeMove( int mouseX, int mouseY ) noexcept
+{
+    m_causeTree.dragOffsetX = mouseX - m_causeTree.x;
+    m_causeTree.dragOffsetY = mouseY - m_causeTree.y;
+}
+
+
+bool ReplayAuthoring::TryGetCauseTreeRow( int rowIndex, RunReplayCauseTreeRow& outRow ) const noexcept
+{
+    if ( rowIndex < 0 || rowIndex >= static_cast<int>( m_causeTree.rows.size() ) )
+    {
+        return false;
+    }
+    outRow = m_causeTree.rows[static_cast<std::size_t>( rowIndex )];
+    return true;
+}
+
+
+void ReplayAuthoring::SetCauseTreeFocus( int rowIndex, ReplayBodyId focusedId ) noexcept
+{
+    m_causeTree.selectedRow = rowIndex;
+    m_causeTree.focusedId = focusedId;
+}
+
+
 bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
                                         int wheelDelta,
                                         InputRouter& inputRouter,
@@ -106,11 +183,9 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
     // Concept: Cause-tree input owns the explanatory replay window state while
     // delegating body/sample interpretation to ReplayRuntime queries.
     const RuntimeMouseEdges& pointer = m_inputRouter.UiSnapshot().mouse;
-    const ReplayPointerButtonEdges inputEdges =
-        m_replayRuntime.BeginCauseTreeInputFrame( pointer.leftPressed, pointer.leftReleased );
-    const bool leftPressed = inputEdges.leftPressed;
-    const bool leftReleased = inputEdges.leftReleased;
-    m_replayRuntime.CauseTree().pointerBlocked = true;
+    const bool leftPressed = pointer.leftPressed;
+    const bool leftReleased = pointer.leftReleased;
+    m_authoring.BeginCauseTreeInputFrame();
 
     const auto activateReplayCameraForCauseRow = [&]( const RunReplayCauseTreeRow& row, int rowIndex )
     {
@@ -213,8 +288,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         m_replayRuntime.Camera().targetNormal = ReplayCauseTreeNormalizeOr( row.normal, Vector3( 0.0f, 1.0f, 0.0f ) );
         m_replayRuntime.Camera().impulseVector = row.impulse;
         m_replayRuntime.Camera().targetRadius = targetRadius;
-        m_replayRuntime.CauseTree().focusedId = row.id;
-        m_replayRuntime.CauseTree().selectedRow = rowIndex;
+        m_authoring.SetCauseTreeFocus( rowIndex, row.id );
 
         if ( cameras )
         {
@@ -257,7 +331,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         return false;
     }
 
-    EnsureReplayCauseWindowPlacement( m_replayRuntime.CauseTree(), screenW, screenH );
+    m_authoring.EnsureCauseTreeWindowPlacement( screenW, screenH );
     const RuntimePointerEvent& runtimePointer = m_inputRouter.RuntimeSnapshot().pointer;
     if ( !runtimePointer.hasClientPosition )
     {
@@ -265,9 +339,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         return false;
     }
     const POINT mouse{ runtimePointer.clientX, runtimePointer.clientY };
-    m_replayRuntime.CauseTree().mouseX = mouse.x;
-    m_replayRuntime.CauseTree().mouseY = mouse.y;
-    m_replayRuntime.CauseTree().pointerBlocked = uiBlocksMouse;
+    m_authoring.SetCauseTreePointer( mouse.x, mouse.y, uiBlocksMouse );
     ReplayCauseWindowSurface surface;
     BuildReplayCauseWindowSurface( m_replayRuntime.CauseTree(), surface );
     surface.ResolvePointer( mouse.x, mouse.y, uiBlocksMouse );
@@ -283,9 +355,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
 
     if ( causeTreeDragMode() == 0 )
     {
-        m_replayRuntime.CauseTree().x = mouse.x - m_replayRuntime.CauseTree().dragOffsetX;
-        m_replayRuntime.CauseTree().y = mouse.y - m_replayRuntime.CauseTree().dragOffsetY;
-        ClampReplayCauseWindow( m_replayRuntime.CauseTree(), screenW, screenH );
+        m_authoring.MoveCauseTreeWindow( mouse.x, mouse.y, screenW, screenH );
         if ( leftReleased )
         {
             m_inputRouter.ReleaseNativeCapture();
@@ -296,11 +366,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
 
     if ( causeTreeDragMode() == 1 )
     {
-        m_replayRuntime.CauseTree().width =
-            m_replayRuntime.CauseTree().resizeStartWidth + ( mouse.x - m_replayRuntime.CauseTree().resizeStartMouseX );
-        m_replayRuntime.CauseTree().height =
-            m_replayRuntime.CauseTree().resizeStartHeight + ( mouse.y - m_replayRuntime.CauseTree().resizeStartMouseY );
-        ClampReplayCauseWindow( m_replayRuntime.CauseTree(), screenW, screenH );
+        m_authoring.ResizeCauseTreeWindow( mouse.x, mouse.y, screenW, screenH );
         if ( leftReleased )
         {
             m_inputRouter.ReleaseNativeCapture();
@@ -320,8 +386,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
                                                          WorldInteractionOwner::ReplayCauseTree,
                                                          InteractionExitReason::EnterReplay );
         const float wheelRows = static_cast<float>( wheelDelta ) / 120.0f;
-        m_replayRuntime.CauseTree().scrollY -= wheelRows * REPLAY_CAUSE_WINDOW_ROW_HEIGHT * 3.0f;
-        ClampReplayCauseWindow( m_replayRuntime.CauseTree(), screenW, screenH );
+        m_authoring.ScrollCauseTreeWindow( -wheelRows * REPLAY_CAUSE_WINDOW_ROW_HEIGHT * 3.0f, screenW, screenH );
         return true;
     }
 
@@ -338,10 +403,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         {
             return false;
         }
-        m_replayRuntime.CauseTree().resizeStartMouseX = mouse.x;
-        m_replayRuntime.CauseTree().resizeStartMouseY = mouse.y;
-        m_replayRuntime.CauseTree().resizeStartWidth = m_replayRuntime.CauseTree().width;
-        m_replayRuntime.CauseTree().resizeStartHeight = m_replayRuntime.CauseTree().height;
+        m_authoring.BeginCauseTreeResize( mouse.x, mouse.y );
         m_inputRouter.RequestNativeCapture();
         return true;
     }
@@ -359,8 +421,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         {
             return false;
         }
-        m_replayRuntime.CauseTree().dragOffsetX = mouse.x - m_replayRuntime.CauseTree().x;
-        m_replayRuntime.CauseTree().dragOffsetY = mouse.y - m_replayRuntime.CauseTree().y;
+        m_authoring.BeginCauseTreeMove( mouse.x, mouse.y );
         m_inputRouter.RequestNativeCapture();
         return true;
     }
@@ -369,15 +430,15 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
     {
         const float localY = static_cast<float>( mouse.y ) - content.y + m_replayRuntime.CauseTree().scrollY;
         const int rowIndex = static_cast<int>( floorf( localY / REPLAY_CAUSE_WINDOW_ROW_HEIGHT ) );
-        if ( rowIndex >= 0 && rowIndex < static_cast<int>( m_replayRuntime.CauseTree().rows.size() ) )
+        RunReplayCauseTreeRow selectedRow;
+        if ( m_authoring.TryGetCauseTreeRow( rowIndex, selectedRow ) )
         {
             if ( leftPressed )
             {
                 interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
                                                                  WorldInteractionOwner::ReplayCauseTree,
                                                                  InteractionExitReason::EnterReplay );
-                activateReplayCameraForCauseRow( m_replayRuntime.CauseTree().rows[static_cast<std::size_t>( rowIndex )],
-                                                 rowIndex );
+                activateReplayCameraForCauseRow( selectedRow, rowIndex );
             }
         }
         else if ( leftPressed )

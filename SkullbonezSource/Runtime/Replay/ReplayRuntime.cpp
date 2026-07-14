@@ -1431,9 +1431,7 @@ void ReplayRuntime::ResetPredictionPresentationVerification()
 void ReplayRuntime::ClearPathVisualizerState()
 {
     m_visualPresentation.ClearPathState();
-    m_authoring.CauseTree().rows.clear();
-    m_authoring.CauseTree().selectedRow = -1;
-    m_authoring.CauseTree().scrollY = 0.0f;
+    m_authoring.ResetCauseTreeRows();
     m_predictionOwner.ClearCache();
     m_predictionOwner.MarkDirty();
 }
@@ -1631,15 +1629,8 @@ bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionCont
     m_predictionOwner.State().enabled = false;
     m_predictionOwner.ClearCache();
     m_authoring.ResetVelocityEdit();
-    m_authoring.CauseTree().selectedRow = -1;
-    m_authoring.CauseTree().scrollY = 0.0f;
-    m_authoring.CauseTree().rows.clear();
+    m_authoring.ResetCauseTreeRows();
     return exitInspectionCamera;
-}
-
-RunReplayCauseTreeState& ReplayRuntime::CauseTree()
-{
-    return m_authoring.CauseTree();
 }
 
 const RunReplayCauseTreeState& ReplayRuntime::CauseTree() const
@@ -1734,15 +1725,6 @@ ReplayRuntime::BeginReplayScrubberInputFrame( bool leftPressed, bool leftRelease
 ReplayScrubberUnavailableResult ReplayRuntime::ResetUnavailableScrubberSurface( bool loadedPresentation )
 {
     return m_scrubberOwner.ResetUnavailableSurface( loadedPresentation, m_visualPresentation.Camera().active );
-}
-
-
-ReplayPointerButtonEdges ReplayRuntime::BeginCauseTreeInputFrame( bool leftPressed, bool leftReleased )
-{
-    ReplayPointerButtonEdges edges;
-    edges.leftPressed = leftPressed;
-    edges.leftReleased = leftReleased;
-    return edges;
 }
 
 
@@ -1871,8 +1853,7 @@ void ReplayRuntime::ClearCameraFocusForRestore()
     m_visualPresentation.Camera().targetPoint = Math::Vector::ZERO_VECTOR;
     m_visualPresentation.Camera().targetNormal = Vector3( 0.0f, 1.0f, 0.0f );
     m_visualPresentation.Camera().impulseVector = Math::Vector::ZERO_VECTOR;
-    m_authoring.CauseTree().focusedId = ReplayBodyId{};
-    m_authoring.CauseTree().selectedRow = -1;
+    m_authoring.ClearCauseTreeFocus();
 
     if ( m_visualPresentation.Camera().ownsSimulationPause && m_scrubberOwner.State().liveAdvanceHeld &&
          !m_scrubberOwner.State().historicalSamplePaused )
@@ -1918,7 +1899,7 @@ ReplayRecordingConfigResult ReplayRuntime::ConfigureRecording( bool enabled,
         // replay-only overlay buffers. Reserve them at startup replay
         // configuration, not in the always-constructed runtime, so non-replay perf
         // scenes do not carry 49 MB of dormant visualization capacity.
-        m_authoring.CauseTree().rows.reserve( REPLAY_CAUSE_TREE_ROW_CAPACITY );
+        m_authoring.ReserveCauseTreeRows( REPLAY_CAUSE_TREE_ROW_CAPACITY );
         m_visualPresentation.ReserveRecordingBuffers();
     }
 
@@ -2751,7 +2732,7 @@ bool ReplayRuntime::BuildCauseTreeRows(
     const PhysicsBodyStore& bodyStore )
 {
     PROFILE_SCOPED( "Frame/Replay/CauseTree/BuildRows" );
-    m_authoring.CauseTree().rows.clear();
+    m_authoring.BeginCauseTreeRowBuild();
 
     if ( !m_visualPresentation.PathVisualizer().hasTarget || m_visualPresentation.PathVisualizer().targetId.value == 0 )
     {
@@ -2774,23 +2755,22 @@ bool ReplayRuntime::BuildCauseTreeRows(
     const std::size_t solverContactCount =
         solverSample ? solverSample->worldSnapshot.persistentContacts.size() : static_cast<std::size_t>( 0 );
     const std::size_t estimatedRows = 1 + nodes.size() + solverContactCount * 3;
-    if ( estimatedRows > m_authoring.CauseTree().rows.capacity() )
+    if ( !m_authoring.CauseTreeRowCapacityCovers( estimatedRows ) )
     {
         // Hazard: this path runs from input/render. If a future scene exceeds
         // the preallocated explanation budget, hide the overlay for the frame
         // instead of growing row storage on the hot path.
-        m_authoring.CauseTree().selectedRow = -1;
+        m_authoring.SetCauseTreeSelectedRow( -1 );
         return false;
     }
     bool rowOverflow = false;
     auto appendCauseTreeRow = [&]( const RunReplayCauseTreeRow& row ) -> bool
     {
-        if ( m_authoring.CauseTree().rows.size() >= m_authoring.CauseTree().rows.capacity() )
+        if ( !m_authoring.AppendCauseTreeRow( row ) )
         {
             rowOverflow = true;
             return false;
         }
-        m_authoring.CauseTree().rows.push_back( row );
         return true;
     };
 
@@ -3163,7 +3143,7 @@ bool ReplayRuntime::BuildCauseTreeRows(
         {
             return false;
         }
-        appendSolverRowsForBody( m_authoring.CauseTree().rows.back() );
+        appendSolverRowsForBody( row );
         return !rowOverflow;
     };
 
@@ -3174,8 +3154,7 @@ bool ReplayRuntime::BuildCauseTreeRows(
                       m_visualPresentation.PathVisualizer().targetModelRow.value,
                       m_visualPresentation.PathVisualizer().targetName ) )
     {
-        m_authoring.CauseTree().rows.clear();
-        m_authoring.CauseTree().selectedRow = -1;
+        m_authoring.FailCauseTreeRowBuild();
         return false;
     }
 
@@ -3202,17 +3181,17 @@ bool ReplayRuntime::BuildCauseTreeRows(
     addChildren( addChildren, m_visualPresentation.PathVisualizer().targetId, 1 );
     if ( rowOverflow )
     {
-        m_authoring.CauseTree().rows.clear();
-        m_authoring.CauseTree().selectedRow = -1;
+        m_authoring.FailCauseTreeRowBuild();
         return false;
     }
 
-    m_authoring.CauseTree().selectedRow = -1;
+    m_authoring.SetCauseTreeSelectedRow( -1 );
+    const RunReplayCauseTreeState& causeTree = m_authoring.CauseTree();
     if ( m_visualPresentation.Camera().focusKind != RunReplayCameraFocusKind::None )
     {
-        for ( int i = 0; i < static_cast<int>( m_authoring.CauseTree().rows.size() ); ++i )
+        for ( int i = 0; i < static_cast<int>( causeTree.rows.size() ); ++i )
         {
-            const RunReplayCauseTreeRow& row = m_authoring.CauseTree().rows[static_cast<std::size_t>( i )];
+            const RunReplayCauseTreeRow& row = causeTree.rows[static_cast<std::size_t>( i )];
             if ( row.kind != m_visualPresentation.Camera().focusRowKind ||
                  row.id.value != m_visualPresentation.Camera().focusedId.value ||
                  row.modelRow.value != m_visualPresentation.Camera().focusModelRow.value ||
@@ -3227,7 +3206,7 @@ bool ReplayRuntime::BuildCauseTreeRows(
                      ( row.featureId == m_visualPresentation.Camera().focusFeatureId &&
                        row.solverRowIndex == m_visualPresentation.Camera().focusSolverRowIndex ) ) ) )
             {
-                m_authoring.CauseTree().selectedRow = i;
+                m_authoring.SetCauseTreeSelectedRow( i );
                 m_visualPresentation.Camera().focusedRow = i;
                 break;
             }
@@ -3235,7 +3214,7 @@ bool ReplayRuntime::BuildCauseTreeRows(
     }
     if ( m_authoring.CauseTree().selectedRow >= static_cast<int>( m_authoring.CauseTree().rows.size() ) )
     {
-        m_authoring.CauseTree().selectedRow = -1;
+        m_authoring.SetCauseTreeSelectedRow( -1 );
     }
     return !m_authoring.CauseTree().rows.empty();
 }

@@ -15,7 +15,7 @@ plan inventory.
 | Current objective | Reclose replay M3-M7 ownership findings from mandatory M8 review, with the unchanged frame-exact 200-box gate after every task |
 | Portfolio progress | 322 / 336 tasks = 96% rounded overall |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-14: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | M3-M7 remain reopened by M8 review. The eighth remediation checkpoint removed mutable velocity-edit access and the root Alt-edge forwarding setter. A zero-warning Profile build, the exact one-process 200-box oracle (2,401 ticks, 200 moved, 187 strict topples, 199 causal nodes, one generation, one presentation, all controls), and the broad CPU/Profile/Debug/DX12/physics gate passed. No baseline changed. |
+| Validation for current edits | M3-M7 remain reopened by M8 review. The ninth remediation checkpoint removed mutable cause-tree access, contained bounded row/window mutation in `ReplayAuthoring`, deleted the obsolete pointer-edge forwarding value, and made cause-tree drawing const-only. A zero-warning Profile build, the exact one-process 200-box oracle (2,401 ticks, 200 moved, 187 strict topples, 199 causal nodes, one generation, one presentation, all controls), and the broad CPU/Profile/Debug/DX12/physics gate passed. No baseline changed. |
 
 ## Live Queue
 
