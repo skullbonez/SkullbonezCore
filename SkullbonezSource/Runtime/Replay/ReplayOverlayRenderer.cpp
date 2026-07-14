@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.cpp
 Purpose:
   Draws replay scrubber and cause-tree overlays from replay-owned state.
 
-Summary:
+Mental model:
   Replay overlay rendering is a late UI pass. Keep the same screen-space layout
   and pointer eligibility as replay input by rebuilding the same fixed-capacity
   surfaces from ReplayOverlayLayout.
@@ -540,6 +540,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     const bool pastPathToolsEnabled = solverToolsEnabled && context.pathVisualizer.hasTarget;
     const bool pastPathEnabled = pastPathToolsEnabled && context.pathVisualizer.pastPathVisible;
     const bool predictionContactsIncomplete = ReplayPredictionContactsIncomplete( context.prediction );
+    const char* colorModeLabel = ReplayPathColorModeName( context.pathVisualizer.colorMode );
     const float predictSeconds =
         std::clamp( context.prediction.horizonSeconds, REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS );
     const UI::Style::UIColor predictFill =
@@ -774,11 +775,12 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
         const char* modeLabel = prediction.buildMode == ReplayPredictionBuildMode::Instant     ? "Instant"
                                 : prediction.buildMode == ReplayPredictionBuildMode::Amortized ? "Amortized"
                                                                                                : "Measuring";
-        char schedulingLabel[96] = {};
+        char schedulingLabel[128] = {};
         sprintf_s( schedulingLabel,
                    sizeof( schedulingLabel ),
-                   "Prediction: %s | %.0f ticks/ms | %.1f ms rebuild",
+                   "Prediction: %s | Color: %s | %.0f ticks/ms | %.1f ms rebuild",
                    modeLabel,
+                   colorModeLabel,
                    prediction.measuredTicksPerMs,
                    prediction.lastBuildWallMs );
         drawText( predict.x,
@@ -789,10 +791,21 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                   palette.textSecondary.b,
                   schedulingLabel );
     }
+    // This row is display-only: the comma binding owns mutation, so replay UI
+    // hit testing does not gain a second command path for the same value.
+    char colorOptionLabel[64] = {};
+    sprintf_s( colorOptionLabel, sizeof( colorOptionLabel ), "COLOR [,]: %s", colorModeLabel );
+    drawText( predict.x,
+              predict.y + 38.0f,
+              8.0f,
+              predictionToolsEnabled ? palette.accentStrong.r : palette.textMuted.r,
+              predictionToolsEnabled ? palette.accentStrong.g : palette.textMuted.g,
+              predictionToolsEnabled ? palette.accentStrong.b : palette.textMuted.b,
+              colorOptionLabel );
     if ( predictionContactsIncomplete )
     {
         drawText( predict.x,
-                  predict.y + 38.0f,
+                  predict.y + 49.0f,
                   8.0f,
                   palette.warningAccent.r,
                   palette.warningAccent.g,

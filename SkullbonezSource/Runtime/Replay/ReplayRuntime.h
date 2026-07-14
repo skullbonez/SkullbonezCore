@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayRuntime.h
 Purpose:
   Composes replay's timeline, scrubber, presentation, prediction, and authoring owners.
 
-Summary:
+Mental model:
   ReplayRuntime sequences owner-to-owner work. The application shell exchanges
   typed commands and read-only published views; concrete replay owners retain
   their own state and implement their domain transitions.
@@ -211,6 +211,9 @@ class ReplayRuntime
     // RenderPathVisualizer remains read-only and must follow this command.
     void PreparePredictionPresentation( Physics::PhysicsEngine& physics, const SceneEntityStore& entities );
     void ClearPathVisualizerState();
+    // Forwards the presentation-only palette command; prediction/capture state
+    // and published trajectory records are not rebuilt.
+    ReplayPathColorMode CyclePathColorMode() noexcept;
 
     ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input );
 

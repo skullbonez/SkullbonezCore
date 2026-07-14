@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp
 Purpose:
   Implements runtime editor overlay tracer primitives and draw submission.
 
-Summary:
+Mental model:
   The tracer turns editor/replay tool state into transient colored lines and replay
   ribbons. It observes state prepared elsewhere and should not mutate selection,
   physics, or replay ownership.
@@ -17,8 +17,9 @@ Glossary:
     body-store pose and collider-store shape/radius values.
   Replay future marker: Shape-accurate downstream collision outline drawn at
     the latest visible predicted/retained pose, never from a broadphase radius substitute.
-  Replay ribbon: Screen-space-width strip generated from replay path segments
-    and the yellow causal entry marker so the shader can apply smooth glow.
+  Replay ribbon: Screen-space-width strip generated from replay path segments;
+    its pixel shader gives every path an analytic edge and only selected paths
+    an emphasis halo.
   FNV (Fowler-Noll-Vo): Small deterministic byte-stream hash used here for
     validation evidence, not for security.
   Placement ghost: Preview outline drawn before an editor placement commit; it
@@ -150,7 +151,7 @@ void AppendReplayRibbonVertex( std::vector<float>& vertexData,
                                float alpha,
                                float width,
                                float edgeFeather,
-                               float hdrScale )
+                               float emphasis )
 {
     vertexData.push_back( start.x );
     vertexData.push_back( start.y );
@@ -164,7 +165,7 @@ void AppendReplayRibbonVertex( std::vector<float>& vertexData,
     vertexData.push_back( b );
     vertexData.push_back( alpha );
     vertexData.push_back( edgeFeather );
-    vertexData.push_back( hdrScale );
+    vertexData.push_back( emphasis );
     vertexData.push_back( previous.x );
     vertexData.push_back( previous.y );
     vertexData.push_back( previous.z );
@@ -177,10 +178,6 @@ void AppendReplayRibbonVertex( std::vector<float>& vertexData,
 
 RunEditorTracer::RunEditorTracer()
 {
-    m_replayRibbonAuthoringLook.path = { 1.15f, 0.86f, 0.36f, 2.65f };
-    m_replayRibbonAuthoringLook.causal = { 1.55f, 0.92f, 0.34f, 3.25f };
-    m_replayRibbonAuthoringLook.baseline = { 1.05f, 0.62f, 0.42f, 2.20f };
-    m_replayRibbonAuthoringLook.marker = { 2.10f, 1.0f, 0.72f, 3.75f };
     // Runtime allocation policy: overlay line storage is paid once during tool
     // construction. EmitLine refuses overflow so replay prediction, gizmos, and
     // target markers cannot grow this vector while render builds the frame.
@@ -191,325 +188,6 @@ RunEditorTracer::RunEditorTracer()
     m_priorityReplayRibbonSegments.reserve( RUN_EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_FLOAT_CAPACITY );
     m_replayRibbonVertexData.reserve( RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTEX_FLOAT_CAPACITY );
 }
-
-void RunEditorTracer::CycleReplayPredictionAuthoringLook( SkullbonezCore::Core::CinematicRenderConfig& cinematic )
-{
-    // TEMPORARY DEBUG AUTHORING. Owner: RunEditorTracer. Reason: this deliberate
-    // cross-domain authoring boundary searches the complete prediction/cinematic
-    // design space in the real scene. Deletion condition: remove this method,
-    // action, and binding when the chosen preset is baked in. Review evidence is
-    // the copy/paste-ready TEMP_PREDICTION_* and TEMP_REPLAY_LOOK record set below.
-#if defined( _DEBUG )
-    uint32_t state = m_replayRibbonAuthoringLook.seed + 0x9e3779b9u;
-    if ( state == 0u )
-    {
-        state = 0x6d2b79f5u;
-    }
-    auto random01 = [&state]()
-    {
-        state ^= state << 13u;
-        state ^= state >> 17u;
-        state ^= state << 5u;
-        return static_cast<float>( state & 0x00ffffffu ) / 16777215.0f;
-    };
-    auto range = [&random01]( float lo, float hi ) { return lo + ( hi - lo ) * random01(); };
-    auto style = [&range]( float widthLo, float widthHi )
-    {
-        return ReplayRibbonStyle{ range( widthLo, widthHi ),
-                                  range( 0.42f, 1.0f ),
-                                  range( 0.10f, 1.05f ),
-                                  range( 0.75f, 4.8f ) };
-    };
-    m_replayRibbonAuthoringLook.path = style( 0.22f, 2.4f );
-    m_replayRibbonAuthoringLook.causal = style( 0.28f, 2.8f );
-    m_replayRibbonAuthoringLook.baseline = style( 0.18f, 2.0f );
-    m_replayRibbonAuthoringLook.marker = style( 0.65f, 3.2f );
-    m_replayRibbonAuthoringLook.opacity = range( 0.38f, 1.0f );
-    m_replayRibbonAuthoringLook.saturation = range( 0.35f, 1.8f );
-    m_replayRibbonAuthoringLook.colorGain = range( 0.65f, 1.8f );
-    m_replayRibbonAuthoringLook.seed = state;
-
-    struct AuthoringPalette
-    {
-        const char* name;
-        int skyMode;
-        int terrainMode;
-        int objectStyle;
-        float sun[3];
-        float horizon[3];
-        float zenith[3];
-        float terrain[3];
-        float accent[3];
-        float fog[3];
-    };
-    // TEMPORARY DEBUG AUTHORING: curated mode/palette families keep the random
-    // search broad without producing unrelated RGB soup. Scalar jitter below
-    // explores exposure, grading, atmosphere, glow, and material response.
-    static constexpr AuthoringPalette palettes[] = {
-        { "neon_noir",
-          SkullbonezCore::Core::CinematicStyleMode::Sky::NeonCyberpunk,
-          SkullbonezCore::Core::CinematicStyleMode::Terrain::NeonGrid,
-          SkullbonezCore::Core::CinematicStyleMode::Object::Emissive,
-          { 1.7f, 0.25f, 1.5f },
-          { 0.22f, 0.03f, 0.38f },
-          { 0.01f, 0.08f, 0.30f },
-          { 0.025f, 0.035f, 0.065f },
-          { 0.05f, 0.75f, 1.35f },
-          { 0.10f, 0.02f, 0.19f } },
-        { "alien_aurora",
-          SkullbonezCore::Core::CinematicStyleMode::Sky::AlienPlanet,
-          SkullbonezCore::Core::CinematicStyleMode::Terrain::AlienVeins,
-          SkullbonezCore::Core::CinematicStyleMode::Object::Fresnel,
-          { 0.38f, 1.65f, 0.72f },
-          { 0.18f, 0.58f, 0.32f },
-          { 0.16f, 0.02f, 0.42f },
-          { 0.06f, 0.16f, 0.09f },
-          { 0.62f, 0.08f, 0.92f },
-          { 0.11f, 0.28f, 0.18f } },
-        { "desert_epic",
-          SkullbonezCore::Core::CinematicStyleMode::Sky::DesertStorm,
-          SkullbonezCore::Core::CinematicStyleMode::Terrain::DesertSlope,
-          SkullbonezCore::Core::CinematicStyleMode::Object::Matte,
-          { 1.75f, 0.88f, 0.28f },
-          { 1.15f, 0.42f, 0.18f },
-          { 0.12f, 0.16f, 0.30f },
-          { 0.42f, 0.18f, 0.07f },
-          { 0.95f, 0.48f, 0.11f },
-          { 0.62f, 0.31f, 0.16f } },
-        { "painted_story",
-          SkullbonezCore::Core::CinematicStyleMode::Sky::Painterly,
-          SkullbonezCore::Core::CinematicStyleMode::Terrain::Posterized,
-          SkullbonezCore::Core::CinematicStyleMode::Object::ToonBands,
-          { 1.25f, 0.68f, 0.50f },
-          { 0.75f, 0.40f, 0.58f },
-          { 0.18f, 0.42f, 0.82f },
-          { 0.20f, 0.34f, 0.16f },
-          { 0.70f, 0.52f, 0.18f },
-          { 0.42f, 0.38f, 0.52f } },
-        { "retro_chrome",
-          SkullbonezCore::Core::CinematicStyleMode::Sky::RetroFuture,
-          SkullbonezCore::Core::CinematicStyleMode::Terrain::ChromaticBands,
-          SkullbonezCore::Core::CinematicStyleMode::Object::Metal,
-          { 1.42f, 0.36f, 0.62f },
-          { 0.54f, 0.18f, 0.48f },
-          { 0.03f, 0.22f, 0.52f },
-          { 0.10f, 0.06f, 0.16f },
-          { 0.15f, 0.72f, 1.15f },
-          { 0.25f, 0.08f, 0.24f } },
-        { "fog_thriller",
-          SkullbonezCore::Core::CinematicStyleMode::Sky::AtmosphericFog,
-          SkullbonezCore::Core::CinematicStyleMode::Terrain::CoolStone,
-          SkullbonezCore::Core::CinematicStyleMode::Object::DarkRim,
-          { 0.72f, 0.82f, 1.12f },
-          { 0.38f, 0.46f, 0.58f },
-          { 0.06f, 0.10f, 0.18f },
-          { 0.12f, 0.15f, 0.18f },
-          { 0.34f, 0.42f, 0.52f },
-          { 0.24f, 0.30f, 0.38f } },
-        { "nordic_clean",
-          SkullbonezCore::Core::CinematicStyleMode::Sky::NordicWinter,
-          SkullbonezCore::Core::CinematicStyleMode::Terrain::NordicSnow,
-          SkullbonezCore::Core::CinematicStyleMode::Object::Matte,
-          { 0.92f, 1.08f, 1.35f },
-          { 0.62f, 0.78f, 0.96f },
-          { 0.12f, 0.24f, 0.48f },
-          { 0.48f, 0.58f, 0.64f },
-          { 0.22f, 0.38f, 0.56f },
-          { 0.50f, 0.62f, 0.74f } },
-        { "abstract_stage",
-          SkullbonezCore::Core::CinematicStyleMode::Sky::AbstractRender,
-          SkullbonezCore::Core::CinematicStyleMode::Terrain::SolidStudio,
-          SkullbonezCore::Core::CinematicStyleMode::Object::Emissive,
-          { 1.30f, 1.30f, 1.30f },
-          { 0.16f, 0.16f, 0.18f },
-          { 0.01f, 0.01f, 0.02f },
-          { 0.035f, 0.035f, 0.04f },
-          { 0.95f, 0.15f, 0.12f },
-          { 0.08f, 0.08f, 0.09f } },
-        { "soft_animation",
-          SkullbonezCore::Core::CinematicStyleMode::Sky::PixarInspired,
-          SkullbonezCore::Core::CinematicStyleMode::Terrain::SoftIllustrated,
-          SkullbonezCore::Core::CinematicStyleMode::Object::ToonBands,
-          { 1.38f, 0.92f, 0.58f },
-          { 0.82f, 0.58f, 0.62f },
-          { 0.24f, 0.52f, 0.92f },
-          { 0.24f, 0.44f, 0.18f },
-          { 0.78f, 0.56f, 0.20f },
-          { 0.52f, 0.48f, 0.62f } },
-        { "tron_precision",
-          SkullbonezCore::Core::CinematicStyleMode::Sky::TronGrid,
-          SkullbonezCore::Core::CinematicStyleMode::Terrain::SciFiGrid,
-          SkullbonezCore::Core::CinematicStyleMode::Object::Emissive,
-          { 0.28f, 1.35f, 1.65f },
-          { 0.02f, 0.14f, 0.22f },
-          { 0.0f, 0.015f, 0.05f },
-          { 0.012f, 0.025f, 0.04f },
-          { 0.08f, 0.85f, 1.25f },
-          { 0.02f, 0.08f, 0.13f } },
-    };
-    constexpr std::size_t paletteCount = sizeof( palettes ) / sizeof( palettes[0] );
-    const std::size_t paletteIndex =
-        static_cast<std::size_t>( random01() * static_cast<float>( paletteCount ) ) % paletteCount;
-    const AuthoringPalette& palette = palettes[paletteIndex];
-    const auto jitterColor = [&range]( const float color[3], float& r, float& g, float& b )
-    {
-        r = color[0] * range( 0.78f, 1.28f );
-        g = color[1] * range( 0.78f, 1.28f );
-        b = color[2] * range( 0.78f, 1.28f );
-    };
-    const auto chance = [&random01]( float probability ) { return random01() < probability; };
-
-    cinematic.enabled = true;
-    cinematic.skyMode = palette.skyMode;
-    cinematic.terrainMode = palette.terrainMode;
-    cinematic.objectStyle = palette.objectStyle;
-    cinematic.skyAtmosphereEnabled = chance( 0.90f );
-    cinematic.cloudsEnabled = chance( 0.65f );
-    cinematic.godRaysEnabled = chance( 0.55f );
-    cinematic.volumetricLightingEnabled = chance( 0.70f );
-    cinematic.bloomEnabled = chance( 0.88f );
-    cinematic.fogEnabled = chance( 0.72f );
-    cinematic.terrainReliefEnabled = chance( 0.42f );
-    cinematic.exposure = range( 0.68f, 1.62f );
-    cinematic.gamma = range( 1.15f, 2.15f );
-    cinematic.sunAzimuth = range( 0.05f, 0.95f );
-    cinematic.sunElevation = range( 0.12f, 0.88f );
-    jitterColor( palette.sun, cinematic.sunColorR, cinematic.sunColorG, cinematic.sunColorB );
-    jitterColor( palette.horizon, cinematic.skyHorizonR, cinematic.skyHorizonG, cinematic.skyHorizonB );
-    jitterColor( palette.zenith, cinematic.skyZenithR, cinematic.skyZenithG, cinematic.skyZenithB );
-    jitterColor( palette.terrain, cinematic.terrainTintR, cinematic.terrainTintG, cinematic.terrainTintB );
-    jitterColor( palette.accent, cinematic.terrainAccentR, cinematic.terrainAccentG, cinematic.terrainAccentB );
-    jitterColor( palette.fog, cinematic.fogColorR, cinematic.fogColorG, cinematic.fogColorB );
-    cinematic.sunIntensity = range( 2.5f, 18.0f );
-    cinematic.skyGlowStrength = range( 0.05f, 1.15f );
-    cinematic.cloudCoverage = range( 0.15f, 0.82f );
-    cinematic.cloudSoftness = range( 0.08f, 0.55f );
-    cinematic.cloudScale = range( 1.5f, 9.0f );
-    cinematic.cloudIntensity = range( 0.25f, 1.45f );
-    cinematic.sunShaftStrength = range( 0.05f, 0.75f );
-    cinematic.sunShaftFalloff = range( 1.1f, 4.2f );
-    cinematic.volumetricStrength = range( 0.03f, 0.48f );
-    cinematic.volumetricDensity = range( 0.25f, 1.15f );
-    cinematic.volumetricDecay = range( 0.91f, 0.985f );
-    cinematic.bloomThreshold = range( 0.45f, 1.75f );
-    cinematic.bloomKnee = range( 0.15f, 0.85f );
-    cinematic.bloomStrength = range( 0.05f, 0.85f );
-    cinematic.bloomRadius = range( 1.0f, 7.5f );
-    cinematic.fogStart = range( 35.0f, 520.0f );
-    cinematic.fogEnd = cinematic.fogStart + range( 320.0f, 1900.0f );
-    cinematic.fogDensity = range( 0.00005f, 0.0018f );
-    cinematic.fogMaxOpacity = range( 0.04f, 0.62f );
-    cinematic.styleSaturation = range( 0.22f, 2.15f );
-    cinematic.styleContrast = range( 0.72f, 1.85f );
-    cinematic.styleVignette = range( 0.0f, 0.68f );
-    cinematic.terrainGridScale = range( 12.0f, 90.0f );
-    cinematic.terrainGridStrength = chance( 0.55f ) ? range( 0.08f, 1.0f ) : 0.0f;
-    cinematic.terrainRelief = chance( 0.42f ) ? range( 0.0f, 0.75f ) : 0.0f;
-
-    fprintf( stderr,
-             "TEMP_PREDICTION_LOOK theme=%s seed=%u modes={sky=%d terrain=%d object=%d} passes={sky=%d clouds=%d "
-             "rays=%d volumetric=%d bloom=%d fog=%d relief=%d}\n",
-             palette.name,
-             state,
-             cinematic.skyMode,
-             cinematic.terrainMode,
-             cinematic.objectStyle,
-             cinematic.skyAtmosphereEnabled,
-             cinematic.cloudsEnabled,
-             cinematic.godRaysEnabled,
-             cinematic.volumetricLightingEnabled,
-             cinematic.bloomEnabled,
-             cinematic.fogEnabled,
-             cinematic.terrainReliefEnabled );
-    fprintf( stderr,
-             "TEMP_PREDICTION_VIEW exposure=%.3f gamma=%.3f saturation=%.3f contrast=%.3f vignette=%.3f "
-             "sun={azimuth=%.3f elevation=%.3f rgb=%.3f,%.3f,%.3f intensity=%.3f} "
-             "sky={horizon=%.3f,%.3f,%.3f zenith=%.3f,%.3f,%.3f glow=%.3f}\n",
-             cinematic.exposure,
-             cinematic.gamma,
-             cinematic.styleSaturation,
-             cinematic.styleContrast,
-             cinematic.styleVignette,
-             cinematic.sunAzimuth,
-             cinematic.sunElevation,
-             cinematic.sunColorR,
-             cinematic.sunColorG,
-             cinematic.sunColorB,
-             cinematic.sunIntensity,
-             cinematic.skyHorizonR,
-             cinematic.skyHorizonG,
-             cinematic.skyHorizonB,
-             cinematic.skyZenithR,
-             cinematic.skyZenithG,
-             cinematic.skyZenithB,
-             cinematic.skyGlowStrength );
-    fprintf( stderr,
-             "TEMP_PREDICTION_FX clouds={coverage=%.3f softness=%.3f scale=%.3f intensity=%.3f} "
-             "shafts={strength=%.3f falloff=%.3f} volumetric={strength=%.3f density=%.3f decay=%.3f} "
-             "bloom={threshold=%.3f knee=%.3f strength=%.3f radius=%.3f} "
-             "fog={rgb=%.3f,%.3f,%.3f start=%.3f end=%.3f density=%.6f maxOpacity=%.3f}\n",
-             cinematic.cloudCoverage,
-             cinematic.cloudSoftness,
-             cinematic.cloudScale,
-             cinematic.cloudIntensity,
-             cinematic.sunShaftStrength,
-             cinematic.sunShaftFalloff,
-             cinematic.volumetricStrength,
-             cinematic.volumetricDensity,
-             cinematic.volumetricDecay,
-             cinematic.bloomThreshold,
-             cinematic.bloomKnee,
-             cinematic.bloomStrength,
-             cinematic.bloomRadius,
-             cinematic.fogColorR,
-             cinematic.fogColorG,
-             cinematic.fogColorB,
-             cinematic.fogStart,
-             cinematic.fogEnd,
-             cinematic.fogDensity,
-             cinematic.fogMaxOpacity );
-    fprintf( stderr,
-             "TEMP_PREDICTION_TERRAIN tint=%.3f,%.3f,%.3f accent=%.3f,%.3f,%.3f gridScale=%.3f "
-             "gridStrength=%.3f relief=%.3f\n",
-             cinematic.terrainTintR,
-             cinematic.terrainTintG,
-             cinematic.terrainTintB,
-             cinematic.terrainAccentR,
-             cinematic.terrainAccentG,
-             cinematic.terrainAccentB,
-             cinematic.terrainGridScale,
-             cinematic.terrainGridStrength,
-             cinematic.terrainRelief );
-    fprintf( stderr,
-             "TEMP_REPLAY_LOOK seed=%u opacity=%.3f saturation=%.3f colorGain=%.3f path={width=%.3f alpha=%.3f "
-             "feather=%.3f hdr=%.3f} causal={width=%.3f alpha=%.3f feather=%.3f hdr=%.3f} baseline={width=%.3f "
-             "alpha=%.3f feather=%.3f hdr=%.3f} marker={width=%.3f alpha=%.3f feather=%.3f hdr=%.3f}\n",
-             m_replayRibbonAuthoringLook.seed,
-             m_replayRibbonAuthoringLook.opacity,
-             m_replayRibbonAuthoringLook.saturation,
-             m_replayRibbonAuthoringLook.colorGain,
-             m_replayRibbonAuthoringLook.path.width,
-             m_replayRibbonAuthoringLook.path.alpha,
-             m_replayRibbonAuthoringLook.path.edgeFeather,
-             m_replayRibbonAuthoringLook.path.hdrScale,
-             m_replayRibbonAuthoringLook.causal.width,
-             m_replayRibbonAuthoringLook.causal.alpha,
-             m_replayRibbonAuthoringLook.causal.edgeFeather,
-             m_replayRibbonAuthoringLook.causal.hdrScale,
-             m_replayRibbonAuthoringLook.baseline.width,
-             m_replayRibbonAuthoringLook.baseline.alpha,
-             m_replayRibbonAuthoringLook.baseline.edgeFeather,
-             m_replayRibbonAuthoringLook.baseline.hdrScale,
-             m_replayRibbonAuthoringLook.marker.width,
-             m_replayRibbonAuthoringLook.marker.alpha,
-             m_replayRibbonAuthoringLook.marker.edgeFeather,
-             m_replayRibbonAuthoringLook.marker.hdrScale );
-    fflush( stderr );
-#else
-    static_cast<void>( cinematic );
-#endif
-}
-
 
 void RunEditorTracer::Clear()
 {
@@ -842,22 +520,6 @@ void RunEditorTracer::EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData,
         ++m_replayTrajectoryStats.emittedSegments[laneIndex];
     }
 
-    // TEMPORARY DEBUG AUTHORING: saturation and gain are deliberately applied
-    // at the final ribbon boundary so every replay lane shares the logged view.
-    const float luminance = r * 0.2126f + g * 0.7152f + bl * 0.0722f;
-    r = std::clamp( ( luminance + ( r - luminance ) * m_replayRibbonAuthoringLook.saturation ) *
-                        m_replayRibbonAuthoringLook.colorGain,
-                    0.0f,
-                    8.0f );
-    g = std::clamp( ( luminance + ( g - luminance ) * m_replayRibbonAuthoringLook.saturation ) *
-                        m_replayRibbonAuthoringLook.colorGain,
-                    0.0f,
-                    8.0f );
-    bl = std::clamp( ( luminance + ( bl - luminance ) * m_replayRibbonAuthoringLook.saturation ) *
-                         m_replayRibbonAuthoringLook.colorGain,
-                     0.0f,
-                     8.0f );
-
     // Invariant: replay ribbon storage is reserved during tracer construction.
     // Explicit appends keep the steady-gameplay path inside that fixed budget.
     ribbonData.push_back( a.x );
@@ -872,7 +534,7 @@ void RunEditorTracer::EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData,
     ribbonData.push_back( style.width );
     ribbonData.push_back( style.alpha );
     ribbonData.push_back( style.edgeFeather );
-    ribbonData.push_back( style.hdrScale );
+    ribbonData.push_back( style.emphasis );
 }
 
 
@@ -886,13 +548,14 @@ void RunEditorTracer::EmitReplayRibbonGlowPairTo( std::vector<float>& ribbonData
                                                   const ReplayRibbonStyle& core,
                                                   SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
 {
-    // Why: trajectory ribbons own their glow in one pixel shader pass. Keep the
-    // wider glow width, but carry the stronger core alpha so each logical path
-    // segment consumes one fixed-budget ribbon record.
+    // Why: legacy callers still supply two style records, but the vector ribbon
+    // owns edge coverage and optional selection halo in one pixel-shader pass.
+    // Merge the strongest hints so each logical segment consumes one fixed-
+    // budget ribbon record.
     ReplayRibbonStyle singlePass = glow;
     singlePass.alpha = (std::max)( glow.alpha, core.alpha );
     singlePass.edgeFeather = (std::max)( glow.edgeFeather, core.edgeFeather );
-    singlePass.hdrScale = (std::max)( glow.hdrScale, core.hdrScale );
+    singlePass.emphasis = (std::max)( glow.emphasis, core.emphasis );
     EmitReplayRibbonSegmentTo( ribbonData, a, b, r, g, bl, singlePass, lane );
 }
 
@@ -1032,7 +695,7 @@ void RunEditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const
             const float width = (std::max)( 0.02f, ribbonData[i + 9] );
             const float alpha = std::clamp( ribbonData[i + 10], 0.0f, 1.0f );
             const float edgeFeather = std::clamp( ribbonData[i + 11], 0.02f, 1.25f );
-            const float hdrScale = (std::max)( 0.0f, ribbonData[i + 12] );
+            const float emphasis = std::clamp( ribbonData[i + 12], 0.0f, 1.0f );
 
             Vector3 previous = a;
             Vector3 next = b;
@@ -1089,7 +752,7 @@ void RunEditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const
                                           alpha,
                                           width,
                                           edgeFeather,
-                                          hdrScale );
+                                          emphasis );
             }
         }
     };
@@ -1352,19 +1015,18 @@ void RunEditorTracer::AddReplayPathSegment( const Vector3& start,
                                             float r,
                                             float g,
                                             float b,
-                                            SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
+                                            SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
+                                            float emphasis )
 {
-    const ReplayRibbonStyle glow = m_replayRibbonAuthoringLook.path;
-    const ReplayRibbonStyle core = m_replayRibbonAuthoringLook.path;
-    EmitReplayRibbonGlowPairTo( m_replayRibbonSegments,
-                                start,
-                                end,
-                                r * m_replayRibbonAuthoringLook.opacity,
-                                g * m_replayRibbonAuthoringLook.opacity,
-                                b * m_replayRibbonAuthoringLook.opacity,
-                                glow,
-                                core,
-                                lane );
+    ReplayRibbonStyle glow = REPLAY_PATH_STYLE;
+    ReplayRibbonStyle core = REPLAY_PATH_STYLE;
+    // Invariant: only the replay presentation owner may opt a segment into the
+    // shader's halo and bloom-feed branch. All generic editor and non-selected
+    // replay paths arrive through the zero-emphasis default.
+    const float boundedEmphasis = std::clamp( emphasis, 0.0f, 1.0f );
+    glow.emphasis = boundedEmphasis;
+    core.emphasis = boundedEmphasis;
+    EmitReplayRibbonGlowPairTo( m_replayRibbonSegments, start, end, r, g, b, glow, core, lane );
 }
 
 
@@ -1373,30 +1035,34 @@ void RunEditorTracer::AddReplayCausalTrailSegment( const Vector3& start, const V
     // Why: retained causal trails are the evidence attached to yellow/grey/ghost
     // boxes. They live with the priority ribbons so overflow in ordinary root
     // path rendering cannot leave a marker without its sampled route.
-    const ReplayRibbonStyle glow = m_replayRibbonAuthoringLook.causal;
-    const ReplayRibbonStyle core = m_replayRibbonAuthoringLook.causal;
+    const ReplayRibbonStyle glow = REPLAY_CAUSAL_STYLE;
+    const ReplayRibbonStyle core = REPLAY_CAUSAL_STYLE;
     EmitReplayRibbonGlowPairTo( m_priorityReplayRibbonSegments,
                                 start,
                                 end,
-                                r * m_replayRibbonAuthoringLook.opacity,
-                                g * m_replayRibbonAuthoringLook.opacity,
-                                b * m_replayRibbonAuthoringLook.opacity,
+                                r,
+                                g,
+                                b,
                                 glow,
                                 core,
                                 SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::RetainedTrail );
 }
 
 
-void RunEditorTracer::AddReplayBaselinePathSegment( const Vector3& start, const Vector3& end )
+void RunEditorTracer::AddReplayBaselinePathSegment( const Vector3& start,
+                                                    const Vector3& end,
+                                                    float r,
+                                                    float g,
+                                                    float b )
 {
-    const ReplayRibbonStyle glow = m_replayRibbonAuthoringLook.baseline;
-    const ReplayRibbonStyle core = m_replayRibbonAuthoringLook.baseline;
+    const ReplayRibbonStyle glow = REPLAY_BASELINE_STYLE;
+    const ReplayRibbonStyle core = REPLAY_BASELINE_STYLE;
     EmitReplayRibbonGlowPairTo( m_replayRibbonSegments,
                                 start,
                                 end,
-                                0.34f,
-                                0.82f,
-                                0.95f,
+                                r,
+                                g,
+                                b,
                                 glow,
                                 core,
                                 SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::BaselineRoot );
@@ -1452,7 +1118,7 @@ void RunEditorTracer::AddReplayCausalEntryMarker( const Vector3& position,
     // Why: yellow always means "joined the causal tree here". Keep it as the
     // only marker on the ribbon shader, but emit one logical segment style so
     // marker outlines do not double the retained ribbon budget.
-    const ReplayRibbonStyle singlePass = m_replayRibbonAuthoringLook.marker;
+    const ReplayRibbonStyle singlePass = REPLAY_MARKER_STYLE;
     EmitReplayRibbonShapeOutlineTo( m_priorityReplayRibbonSegments,
                                     position,
                                     orientation,
@@ -1489,7 +1155,7 @@ void RunEditorTracer::AddReplayBaselineEntryMarker( const Vector3& position,
                                                     const CollisionShape& shape )
 {
     // Concept: cold baseline markers are the old future's footprint. They stay
-    // on the wire path so cyan boxes do not compete with trajectory glow.
+    // on the wire path so cyan boxes do not compete with selected-path halos.
     EmitShapeOutline( position, orientation, shape, 0.26f, 0.78f, 0.95f );
 }
 

@@ -3,7 +3,7 @@ File: InputFrameExecution.cpp
 Purpose:
   Executes the stateless once-per-frame input turn across concrete owners.
 
-Summary:
+Mental model:
   This file composes device capture, semantic routing, UI application, pointer
   ownership, and the final owner-specific request checkpoint in one fixed order.
   Scene requests are submitted and executed by SceneController; this file only
@@ -719,13 +719,10 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             }
             break;
         }
-        case RuntimeInputAction::CycleReplayPredictionAuthoringLook:
-            // TEMPORARY DEBUG AUTHORING: this cold shortcut changes the complete
-            // prediction composition; simulation and replay data stay intact.
-#if defined( _DEBUG )
-            m_runtimeTools.EditorTracer().CycleReplayPredictionAuthoringLook(
-                ActiveSceneCinematicConfig( m_sceneController.State(), m_config ) );
-#endif
+        case RuntimeInputAction::CycleReplayPathColorMode:
+            // Concept: comma changes a presentation value only. Existing
+            // trajectory samples remain immutable and are recolored next draw.
+            m_replayRuntime.CyclePathColorMode();
             break;
         case RuntimeInputAction::ToggleCrossScenePause:
             // P locks scene automation without turning the run interactive;

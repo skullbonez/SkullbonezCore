@@ -4,7 +4,7 @@ Purpose:
   Owns bounded dynamic/instanced geometry registries, warmed overlay pipelines,
   and their DX12 create/upload/draw/destroy lifecycle.
 
-Summary:
+Mental model:
   Dx12GeometryOwner retains geometry handles and warmed overlay resources.
   RenderBackendDX12 establishes a valid command epoch and lends per-operation
   values; the owner records geometry work without retaining the coordinator.
@@ -423,19 +423,17 @@ void Dx12GeometryOwner::DrawTransientColoredTriangles( const float* data,
     shader->SetMat4( "uViewProj", Matrix4( viewProjMatrix16 ) );
     if ( IsTrajectoryRibbonStyle( style ) )
     {
-        // Concept: the trajectory shader expands segment payloads in clip space.
-        // The viewport lets it translate pixel width into stable NDC offsets.
+        // Concept: the trajectory shader expands each compact segment into a
+        // screen-space vector spline. The viewport converts the authored full
+        // width and analytic anti-aliasing overhang from pixels to
+        // normalized-device-coordinate offsets.
         shader->SetVec4( "uViewportPixels",
                          static_cast<float>( viewportWidth ),
                          static_cast<float>( viewportHeight ),
                          0.0f,
                          0.0f );
         const bool depthHint = style == TransientTriangleStyle::TrajectoryRibbonDepthHint;
-        shader->SetVec4( "uRibbonStyle",
-                         depthHint ? 0.20f : 1.0f,
-                         depthHint ? 0.36f : 1.0f,
-                         depthHint ? 1.25f : 1.0f,
-                         0.0f );
+        shader->SetVec4( "uRibbonStyle", depthHint ? 0.16f : 1.0f, depthHint ? 0.70f : 1.0f, 1.0f, 0.0f );
     }
 
     DynamicVBDX12 vertexLayout = {};

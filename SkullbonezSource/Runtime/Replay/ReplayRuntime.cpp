@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp
 Purpose:
   Sequences replay owners across recording, workspace, restore, prediction, and probes.
 
-Summary:
+Mental model:
   ReplayRuntime is the composition boundary between concrete replay owners. The
   application shell supplies value commands and explicit synchronous owners;
   this file orders workspace input, transactional restore, prediction,
@@ -697,6 +697,12 @@ void ReplayRuntime::ClearPathVisualizerState()
     m_authoring.ResetCauseTreeRows();
     m_predictionOwner.ClearCache();
     m_predictionOwner.MarkDirty();
+}
+
+
+ReplayPathColorMode ReplayRuntime::CyclePathColorMode() noexcept
+{
+    return m_visualPresentation.CyclePathColorMode();
 }
 
 ReplayPathPickResult

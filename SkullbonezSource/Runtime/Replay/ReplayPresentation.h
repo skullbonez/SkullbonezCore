@@ -3,12 +3,14 @@ File: SkullbonezSource/Runtime/Replay/ReplayPresentation.h
 Purpose:
   Owns replay path, camera, overlay, render-pose, and published visual state.
 
-Summary:
+Mental model:
   ReplayPresentation is the mutable authority for everything replay renders.
   ReplayRuntime sequences the owner but does not retain parallel visual state.
 
 Glossary:
   Path target: Stable replay body selected for visualization.
+  Path color mode: Value-only rule that recolors published trajectory segments
+    at draw time without changing replay capture or prediction storage.
   HUD (Heads-Up Display): Value-only replay diagnostics sampled once for the
     late UI/text pass.
 
@@ -265,6 +267,17 @@ struct RunReplayCameraState
     bool focusTerrain = false;
 };
 
+enum class ReplayPathColorMode : uint8_t
+{
+    LaneFlat,
+    VelocityHeat,
+    TimeGradient,
+    PerObjectHue,
+    CausalDepth
+};
+
+const char* ReplayPathColorModeName( ReplayPathColorMode mode ) noexcept;
+
 struct RunReplayPathVisualizerState
 {
     // Concept: the retained/past lane is an operator-visible overlay choice.
@@ -273,6 +286,9 @@ struct RunReplayPathVisualizerState
     // frame.
     bool hasTarget = false;
     bool pastPathVisible = true;
+    // Invariant: the presentation owner retains a deterministic value-only
+    // mode. Draw code reads it without mutating trajectory capture or storage.
+    ReplayPathColorMode colorMode = ReplayPathColorMode::LaneFlat;
     ReplayBodyId targetId;
     Physics::ModelRowHint targetModelRow;
     char targetName[64] = {};
@@ -386,6 +402,9 @@ class ReplayPresentation
                                     Physics::ModelRowHint targetModelRow,
                                     bool targetModelRowRepaired );
     void TogglePastPathVisible();
+    // Advances the value-only path palette in its stable UI order. Existing
+    // trajectory records remain unchanged and are recolored on the next draw.
+    ReplayPathColorMode CyclePathColorMode() noexcept;
     bool SetPathTarget( const char* name, int modelIndex, const Physics::PhysicsBodyStore& bodyStore );
     bool SetPathTarget( ReplayBodyId id, Physics::ModelRowHint modelRow, const char* name );
     ReplayPathPickResult

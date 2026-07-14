@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayPredictionDrawing.cpp
 Purpose:
   Draws immutable replay prediction and retained-path publication as overlay geometry.
 
-Summary:
+Mental model:
   ReplayPrediction publishes frame, trajectory, marker, and reveal values before
   rendering. This unit consumes those const values and emits fixed-capacity tracer
   ribbons and markers without scheduling work or mutating replay owners.
@@ -34,6 +34,7 @@ Related:
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
+#include "../../Physics/PhysicsTimestep.h"
 
 #include <algorithm>
 #include <array>
@@ -58,6 +59,14 @@ constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
 constexpr std::size_t REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT = 1;
 constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
 constexpr float REPLAY_PREDICTION_CHILD_LINEAR_SPEED_SQ = 8.0f * 8.0f;
+// Units: simulation distance per second. This presentation-only tuning point
+// puts ordinary launched bodies near the middle of the heat ramp while leaving
+// high-energy impacts visibly red.
+constexpr float REPLAY_PATH_VELOCITY_HEAT_MAX_SPEED = 80.0f;
+// Why: selection emphasis is presentation-only and fixed. Keeping one bounded
+// value here makes the root-path privilege explicit while every sibling lane
+// continues through the tracer's zero-emphasis default.
+constexpr float REPLAY_SELECTED_PATH_EMPHASIS = 0.75f;
 constexpr uint16_t REPLAY_TRAJECTORY_COMMITTED_BRANCH = 0;
 constexpr uint16_t REPLAY_TRAJECTORY_BUILD_BRANCH = 1;
 bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
@@ -129,8 +138,8 @@ bool TryAddReplayTargetMarkerFromStores( RunEditorTracer& tracer,
 
 struct ReplayRibbonDrawQuota
 {
-    // Counts internal ribbon records, not logical trajectory lines. The
-    // trajectory shader folds glow and core into one record per path segment.
+    // Counts internal ribbon records, not logical trajectory lines. The tracer
+    // merges legacy two-style inputs into one record per path segment.
     std::size_t remainingRibbonSegments = 0;
 };
 
@@ -167,7 +176,8 @@ void AddOrAccountReplayPathSegment( RunEditorTracer& tracer,
                                     float r,
                                     float g,
                                     float b,
-                                    SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
+                                    SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
+                                    float emphasis = 0.0f )
 {
     if ( tracer.ReplayPathRibbonSegmentCapacityRemaining() < REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT )
     {
@@ -184,13 +194,16 @@ void AddOrAccountReplayPathSegment( RunEditorTracer& tracer,
         return;
     }
 
-    tracer.AddReplayPathSegment( start, end, r, g, b, lane );
+    tracer.AddReplayPathSegment( start, end, r, g, b, lane, emphasis );
 }
 
 void AddOrAccountReplayBaselinePathSegment( RunEditorTracer& tracer,
                                             ReplayRibbonDrawQuota* quota,
                                             const Vector3& start,
-                                            const Vector3& end )
+                                            const Vector3& end,
+                                            float r,
+                                            float g,
+                                            float b )
 {
     if ( tracer.ReplayPathRibbonSegmentCapacityRemaining() < REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT )
     {
@@ -207,7 +220,7 @@ void AddOrAccountReplayBaselinePathSegment( RunEditorTracer& tracer,
         return;
     }
 
-    tracer.AddReplayBaselinePathSegment( start, end );
+    tracer.AddReplayBaselinePathSegment( start, end, r, g, b );
 }
 
 double ReplayPredictionElapsedMilliseconds( const std::chrono::steady_clock::time_point& start )
@@ -354,23 +367,6 @@ float ReplayColorLerp( float a, float b, float t )
     return a + ( b - a ) * std::clamp( t, 0.0f, 1.0f );
 }
 
-void ReplayPastRootColor( float t, float& r, float& g, float& b )
-{
-    const float ageT = std::clamp( t, 0.0f, 1.0f );
-    const float ageFade = 0.34f + ageT * 0.66f;
-    r = std::clamp( ReplayColorLerp( 0.76f, 1.00f, ageT ) * ageFade, 0.0f, 1.0f );
-    g = std::clamp( ReplayColorLerp( 0.18f, 0.92f, ageT ) * ageFade, 0.0f, 1.0f );
-    b = std::clamp( ReplayColorLerp( 0.28f, 0.96f, ageT ) * ageFade, 0.0f, 1.0f );
-}
-
-void ReplayFutureRootColor( float t, float& r, float& g, float& b )
-{
-    const float futureT = std::clamp( t, 0.0f, 1.0f );
-    r = std::clamp( ReplayColorLerp( 0.88f, 0.38f, futureT ), 0.0f, 1.0f );
-    g = std::clamp( ReplayColorLerp( 1.00f, 0.94f, futureT ), 0.0f, 1.0f );
-    b = std::clamp( ReplayColorLerp( 0.72f, 0.92f, futureT ), 0.0f, 1.0f );
-}
-
 void ReplayDepthPalette( int depth, float& r, float& g, float& b )
 {
     // Concept: child depth is encoded as hue first and brightness second. This
@@ -409,6 +405,175 @@ void ReplayDepthPalette( int depth, float& r, float& g, float& b )
     r = std::clamp( r * ( 1.0f - depthDim ) + 0.18f * depthDim, 0.0f, 1.0f );
     g = std::clamp( g * ( 1.0f - depthDim ) + 0.20f * depthDim, 0.0f, 1.0f );
     b = std::clamp( b * ( 1.0f - depthDim ) + 0.24f * depthDim, 0.0f, 1.0f );
+}
+
+void ReplayLaneFlatColor( ReplayTrajectoryLane lane, float& r, float& g, float& b )
+{
+    // Concept: lane-flat is intentionally categorical. A segment's position in
+    // time or its body speed cannot change its lane identity.
+    switch ( lane )
+    {
+    case ReplayTrajectoryLane::PastRoot:
+        r = 0.96f;
+        g = 0.34f;
+        b = 0.50f;
+        break;
+    case ReplayTrajectoryLane::FutureRoot:
+        r = 0.46f;
+        g = 0.96f;
+        b = 0.88f;
+        break;
+    case ReplayTrajectoryLane::FutureChildIncoming:
+        r = 1.00f;
+        g = 0.66f;
+        b = 0.20f;
+        break;
+    case ReplayTrajectoryLane::FutureChildOutgoing:
+        r = 0.58f;
+        g = 0.68f;
+        b = 1.00f;
+        break;
+    case ReplayTrajectoryLane::RetainedTrail:
+        r = 0.96f;
+        g = 0.78f;
+        b = 0.34f;
+        break;
+    case ReplayTrajectoryLane::BaselineRoot:
+        r = 0.34f;
+        g = 0.82f;
+        b = 0.95f;
+        break;
+    }
+}
+
+void ReplayVelocityHeatColor( float speed, float& r, float& g, float& b )
+{
+    const float heat = std::clamp( speed / REPLAY_PATH_VELOCITY_HEAT_MAX_SPEED, 0.0f, 1.0f );
+    if ( heat < 1.0f / 3.0f )
+    {
+        const float t = heat * 3.0f;
+        r = 0.08f;
+        g = ReplayColorLerp( 0.28f, 0.95f, t );
+        b = 1.00f;
+        return;
+    }
+    if ( heat < 2.0f / 3.0f )
+    {
+        const float t = ( heat - 1.0f / 3.0f ) * 3.0f;
+        r = ReplayColorLerp( 0.08f, 1.00f, t );
+        g = 0.95f;
+        b = ReplayColorLerp( 1.00f, 0.10f, t );
+        return;
+    }
+
+    const float t = ( heat - 2.0f / 3.0f ) * 3.0f;
+    r = 1.00f;
+    g = ReplayColorLerp( 0.95f, 0.12f, t );
+    b = 0.10f;
+}
+
+void ReplayTimeGradientColor( float pathT, float& r, float& g, float& b )
+{
+    const float horizonT = std::clamp( pathT, 0.0f, 1.0f );
+    r = ReplayColorLerp( 0.28f, 0.94f, horizonT );
+    g = ReplayColorLerp( 1.00f, 0.34f, horizonT );
+    b = ReplayColorLerp( 0.78f, 1.00f, horizonT );
+}
+
+void ReplayHueColor( ReplayBodyId bodyId, float& r, float& g, float& b )
+{
+    // Why: multiplying stable object identity by the golden-ratio conjugate
+    // spreads adjacent ids around the hue wheel without retained palette state.
+    constexpr double goldenRatioConjugate = 0.6180339887498948482;
+    const double hue = std::fmod( static_cast<double>( bodyId.value ) * goldenRatioConjugate, 1.0 );
+    const float sector = static_cast<float>( hue * 6.0 );
+    const int sectorIndex = static_cast<int>( std::floor( sector ) ) % 6;
+    const float fraction = sector - std::floor( sector );
+    constexpr float saturation = 0.72f;
+    constexpr float value = 1.00f;
+    constexpr float low = value * ( 1.0f - saturation );
+    const float falling = value * ( 1.0f - saturation * fraction );
+    const float rising = value * ( 1.0f - saturation * ( 1.0f - fraction ) );
+    switch ( sectorIndex )
+    {
+    case 0:
+        r = value;
+        g = rising;
+        b = low;
+        break;
+    case 1:
+        r = falling;
+        g = value;
+        b = low;
+        break;
+    case 2:
+        r = low;
+        g = value;
+        b = rising;
+        break;
+    case 3:
+        r = low;
+        g = falling;
+        b = value;
+        break;
+    case 4:
+        r = rising;
+        g = low;
+        b = value;
+        break;
+    default:
+        r = value;
+        g = low;
+        b = falling;
+        break;
+    }
+}
+
+void ResolveReplayPathColor( ReplayPathColorMode mode,
+                             ReplayTrajectoryLane lane,
+                             ReplayBodyId bodyId,
+                             int causalDepth,
+                             float pathT,
+                             float speed,
+                             float& r,
+                             float& g,
+                             float& b )
+{
+    // Invariant: this resolver consumes only values already available at draw
+    // time. It cannot allocate, mutate captured trajectories, or affect replay
+    // simulation/determinism.
+    switch ( mode )
+    {
+    case ReplayPathColorMode::VelocityHeat:
+        ReplayVelocityHeatColor( speed, r, g, b );
+        break;
+    case ReplayPathColorMode::TimeGradient:
+        ReplayTimeGradientColor( pathT, r, g, b );
+        break;
+    case ReplayPathColorMode::PerObjectHue:
+        ReplayHueColor( bodyId, r, g, b );
+        break;
+    case ReplayPathColorMode::CausalDepth:
+        ReplayDepthPalette( causalDepth, r, g, b );
+        break;
+    case ReplayPathColorMode::LaneFlat:
+    default:
+        ReplayLaneFlatColor( lane, r, g, b );
+        break;
+    }
+}
+
+float ReplayTrajectorySegmentSpeed( const ReplayTrajectoryPoint& previous, const ReplayTrajectoryPoint& current )
+{
+    // Units: simulation distance per second. Stored path points deliberately do
+    // not retain velocity, so color derives it from the fixed-timestep frame
+    // delta without changing trajectory storage or allocating draw-time state.
+    if ( current.frameIndex <= previous.frameIndex )
+    {
+        return 0.0f;
+    }
+    const float elapsedSeconds = static_cast<float>( current.frameIndex - previous.frameIndex ) * PHYSICS_FIXED_DT;
+    return std::sqrt( VectorMagSquared( current.position - previous.position ) ) / elapsedSeconds;
 }
 
 std::size_t ReplayPathStrideForSampleCount( std::size_t sampleCount )
@@ -454,6 +619,7 @@ PublishedReplayPredictionDrawFrameWindow( const ReplayPredictionPresentationView
 }
 
 void DrawReplayPredictionBaselineSnapshot( const ReplayPredictionPresentationView& prediction,
+                                           ReplayPathColorMode colorMode,
                                            const ColliderStore& colliderStore,
                                            RunEditorTracer& tracer,
                                            ReplayRibbonDrawQuota& ribbonQuota )
@@ -469,17 +635,39 @@ void DrawReplayPredictionBaselineSnapshot( const ReplayPredictionPresentationVie
                                                                                REPLAY_TRAJECTORY_COMMITTED_BRANCH ) )
     {
         const std::size_t pointCount = ReplayTrajectoryPublishedPointCount( *record );
-        bool hasPrevious = false;
-        Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-        for ( std::size_t i = 0; i < pointCount; ++i )
+        if ( pointCount >= 2u )
         {
-            const ReplayTrajectoryPoint& point = record->points[i];
-            if ( hasPrevious && VectorMagSquared( point.position - previous ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
+            const ReplayTrajectoryPoint* previous = nullptr;
+            const ReplayFrameIndex firstFrame = record->points.front().frameIndex;
+            const ReplayFrameIndex lastFrame = record->points[pointCount - 1u].frameIndex;
+            for ( std::size_t i = 0; i < pointCount; ++i )
             {
-                AddOrAccountReplayBaselinePathSegment( tracer, &ribbonQuota, previous, point.position );
+                const ReplayTrajectoryPoint& point = record->points[i];
+                if ( previous &&
+                     VectorMagSquared( point.position - previous->position ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
+                {
+                    float r = 1.0f;
+                    float g = 1.0f;
+                    float b = 1.0f;
+                    ResolveReplayPathColor( colorMode,
+                                            ReplayTrajectoryLane::BaselineRoot,
+                                            record->key.bodyId,
+                                            record->depth,
+                                            ReplayPathFrameT( point.frameIndex, firstFrame, lastFrame ),
+                                            ReplayTrajectorySegmentSpeed( *previous, point ),
+                                            r,
+                                            g,
+                                            b );
+                    AddOrAccountReplayBaselinePathSegment( tracer,
+                                                           &ribbonQuota,
+                                                           previous->position,
+                                                           point.position,
+                                                           r,
+                                                           g,
+                                                           b );
+                }
+                previous = &point;
             }
-            previous = point.position;
-            hasPrevious = true;
         }
     }
 
@@ -542,7 +730,8 @@ void DrawReplayTrajectoryRecordSegments( const ReplayTrajectoryRecord& record,
                                          RunEditorTracer& tracer,
                                          ReplayRibbonDrawQuota& ribbonQuota,
                                          SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
-                                         ColorForFrame colorForFrame )
+                                         ColorForFrame colorForFrame,
+                                         float emphasis = 0.0f )
 {
     pointCount = (std::min)( pointCount, record.points.size() );
     if ( pointCount < 2 || rangeEnd < rangeStart )
@@ -550,8 +739,7 @@ void DrawReplayTrajectoryRecordSegments( const ReplayTrajectoryRecord& record,
         return;
     }
 
-    bool hasPrevious = false;
-    Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    const ReplayTrajectoryPoint* previous = nullptr;
     for ( std::size_t i = 0; i < pointCount; ++i )
     {
 
@@ -571,16 +759,23 @@ void DrawReplayTrajectoryRecordSegments( const ReplayTrajectoryRecord& record,
             continue;
         }
 
-        if ( hasPrevious && VectorMagSquared( point.position - previous ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
+        if ( previous && VectorMagSquared( point.position - previous->position ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
         {
             float r = 1.0f;
             float g = 1.0f;
             float b = 1.0f;
-            colorForFrame( point.frameIndex, r, g, b );
-            AddOrAccountReplayPathSegment( tracer, &ribbonQuota, previous, point.position, r, g, b, lane );
+            colorForFrame( *previous, point, r, g, b );
+            AddOrAccountReplayPathSegment( tracer,
+                                           &ribbonQuota,
+                                           previous->position,
+                                           point.position,
+                                           r,
+                                           g,
+                                           b,
+                                           lane,
+                                           emphasis );
         }
-        previous = point.position;
-        hasPrevious = true;
+        previous = &point;
     }
 }
 
@@ -613,27 +808,6 @@ std::size_t ReplayRetainedMarkerTrailStrideForFrameCount( std::size_t frameCount
     return ( frameCount + retainedTrailMaxSegments - 1 ) / retainedTrailMaxSegments;
 }
 
-void ReplayRetainedMarkerTrailColor( std::size_t trailOrdinal,
-                                     float t,
-                                     bool horizonGhost,
-                                     float& r,
-                                     float& g,
-                                     float& b )
-{
-    const float laneOffset = std::clamp( static_cast<float>( trailOrdinal % 8u ) * 0.016f, 0.0f, 0.10f );
-    if ( horizonGhost )
-    {
-        r = std::clamp( 0.42f + t * 0.20f + laneOffset, 0.38f, 0.74f );
-        g = std::clamp( 0.78f + t * 0.16f, 0.72f, 1.0f );
-        b = std::clamp( 0.95f + laneOffset * 0.30f, 0.86f, 1.0f );
-        return;
-    }
-
-    r = std::clamp( 0.86f - t * 0.28f - laneOffset, 0.50f, 0.92f );
-    g = std::clamp( 0.84f - t * 0.20f - laneOffset, 0.50f, 0.90f );
-    b = std::clamp( 0.90f - t * 0.10f, 0.62f, 0.96f );
-}
-
 const ReplayTrajectoryRecord* FindReplayPredictionMarkerTrailRecord( const ReplayPredictionPresentationView& prediction,
                                                                      ReplayBodyId id,
                                                                      bool usingBuildFrames )
@@ -654,10 +828,10 @@ const ReplayTrajectoryRecord* FindReplayPredictionMarkerTrailRecord( const Repla
 
 void DrawReplayPredictionRetainedMarkerTrailFromStore( const ReplayPredictionPresentationView& prediction,
                                                        const ReplayPredictionRetainedMarker& marker,
+                                                       ReplayPathColorMode colorMode,
                                                        bool usingBuildFrames,
                                                        ReplayFrameIndex revealFrame,
                                                        ReplayFrameIndex lastFrame,
-                                                       std::size_t trailOrdinal,
                                                        RunEditorTracer& tracer )
 {
     const ReplayTrajectoryRecord* record =
@@ -673,10 +847,8 @@ void DrawReplayPredictionRetainedMarkerTrailFromStore( const ReplayPredictionPre
         return;
     }
 
-    const bool horizonGhost = marker.hasHorizonPose && !marker.hasRestPose;
     const std::size_t sampleStride = ReplayRetainedMarkerTrailStrideForFrameCount( pointCount );
-    bool hasPrevious = false;
-    Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    const ReplayTrajectoryPoint* previous = nullptr;
     for ( std::size_t i = 0; i < pointCount; ++i )
     {
         const ReplayTrajectoryPoint& point = record->points[i];
@@ -691,21 +863,29 @@ void DrawReplayPredictionRetainedMarkerTrailFromStore( const ReplayPredictionPre
             continue;
         }
 
-        if ( hasPrevious && VectorMagSquared( point.position - previous ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
+        if ( previous && VectorMagSquared( point.position - previous->position ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
         {
             const float t = ReplayPathFrameT( point.frameIndex, 0, lastFrame );
             float r = 0.82f;
             float g = 0.82f;
             float b = 0.88f;
-            ReplayRetainedMarkerTrailColor( trailOrdinal, t, horizonGhost, r, g, b );
-            tracer.AddReplayCausalTrailSegment( previous, point.position, r, g, b );
+            ResolveReplayPathColor( colorMode,
+                                    ReplayTrajectoryLane::RetainedTrail,
+                                    marker.id,
+                                    record->depth,
+                                    t,
+                                    ReplayTrajectorySegmentSpeed( *previous, point ),
+                                    r,
+                                    g,
+                                    b );
+            tracer.AddReplayCausalTrailSegment( previous->position, point.position, r, g, b );
         }
-        previous = point.position;
-        hasPrevious = true;
+        previous = &point;
     }
 }
 
 void DrawReplayPredictionRetainedMarkers( const ReplayPredictionPresentationView& prediction,
+                                          ReplayPathColorMode colorMode,
                                           bool usingBuildFrames,
                                           ReplayFrameIndex revealFrame,
                                           ReplayFrameIndex lastFrame,
@@ -725,10 +905,10 @@ void DrawReplayPredictionRetainedMarkers( const ReplayPredictionPresentationView
         }
         DrawReplayPredictionRetainedMarkerTrailFromStore( prediction,
                                                           marker,
+                                                          colorMode,
                                                           usingBuildFrames,
                                                           revealFrame,
                                                           lastFrame,
-                                                          i,
                                                           tracer );
         if ( marker.hasEntryPose )
         {
@@ -745,34 +925,6 @@ void DrawReplayPredictionRetainedMarkers( const ReplayPredictionPresentationView
     }
 }
 
-void ReplayChildIncomingColor( int depth, float t, float& r, float& g, float& b )
-{
-    float baseR = 1.0f;
-    float baseG = 1.0f;
-    float baseB = 1.0f;
-    ReplayDepthPalette( depth, baseR, baseG, baseB );
-    const float arrivalT = std::clamp( t, 0.0f, 1.0f );
-    const float lift = 0.16f * ( 1.0f - arrivalT );
-    const float emphasis = 0.62f + arrivalT * 0.38f;
-    r = std::clamp( baseR * emphasis + lift, 0.10f, 1.0f );
-    g = std::clamp( baseG * emphasis + lift * 0.75f, 0.10f, 1.0f );
-    b = std::clamp( baseB * emphasis + lift * 0.55f, 0.10f, 1.0f );
-}
-
-void ReplayChildFutureColor( int depth, float t, float& r, float& g, float& b )
-{
-    float baseR = 1.0f;
-    float baseG = 1.0f;
-    float baseB = 1.0f;
-    ReplayDepthPalette( depth, baseR, baseG, baseB );
-    const float horizonT = std::clamp( t, 0.0f, 1.0f );
-    const float dim = 0.42f + horizonT * 0.24f;
-    const float grey = 0.18f + horizonT * 0.10f;
-    r = std::clamp( baseR * dim + grey, 0.12f, 0.92f );
-    g = std::clamp( baseG * dim + grey, 0.12f, 0.94f );
-    b = std::clamp( baseB * dim + grey + 0.04f, 0.16f, 0.98f );
-}
-
 uint16_t ReplayPredictionDrawBranch( bool usingBuildFrames )
 {
     return usingBuildFrames ? REPLAY_TRAJECTORY_BUILD_BRANCH : REPLAY_TRAJECTORY_COMMITTED_BRANCH;
@@ -780,6 +932,7 @@ uint16_t ReplayPredictionDrawBranch( bool usingBuildFrames )
 
 void DrawReplayPredictionRootTrajectoryFromStore( const ReplayPredictionPresentationView& prediction,
                                                   ReplayBodyId rootId,
+                                                  ReplayPathColorMode colorMode,
                                                   bool usingBuildFrames,
                                                   ReplayFrameIndex lastFrame,
                                                   ReplayFrameIndex revealFrame,
@@ -799,25 +952,35 @@ void DrawReplayPredictionRootTrajectoryFromStore( const ReplayPredictionPresenta
 
     const std::size_t pointCount =
         usingBuildFrames ? prediction.frames.size() : ReplayTrajectoryPublishedPointCount( *record );
-    DrawReplayTrajectoryRecordSegments( *record,
-                                        pointCount,
-                                        0,
-                                        revealFrame,
-                                        revealFrame,
-                                        sampleStride,
-                                        tracer,
-                                        ribbonQuota,
-                                        SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot,
-                                        [&]( ReplayFrameIndex frameIndex, float& r, float& g, float& b )
-                                        {
-                                            const float t = ReplayPathFrameT( frameIndex, 0, lastFrame );
-                                            ReplayFutureRootColor( t, r, g, b );
-                                        } );
+    DrawReplayTrajectoryRecordSegments(
+        *record,
+        pointCount,
+        0,
+        revealFrame,
+        revealFrame,
+        sampleStride,
+        tracer,
+        ribbonQuota,
+        SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot,
+        [&]( const ReplayTrajectoryPoint& previous, const ReplayTrajectoryPoint& point, float& r, float& g, float& b )
+        {
+            ResolveReplayPathColor( colorMode,
+                                    ReplayTrajectoryLane::FutureRoot,
+                                    rootId,
+                                    record->depth,
+                                    ReplayPathFrameT( point.frameIndex, 0, lastFrame ),
+                                    ReplayTrajectorySegmentSpeed( previous, point ),
+                                    r,
+                                    g,
+                                    b );
+        },
+        REPLAY_SELECTED_PATH_EMPHASIS );
 }
 
 void DrawReplayPredictionSmallSceneBodyTrajectories( std::span<const RunReplayPredictionFrame> frames,
                                                      std::size_t frameCount,
                                                      ReplayBodyId selectedId,
+                                                     ReplayPathColorMode colorMode,
                                                      ReplayFrameIndex revealFrame,
                                                      std::size_t requestedStride,
                                                      RunEditorTracer& tracer,
@@ -838,6 +1001,7 @@ void DrawReplayPredictionSmallSceneBodyTrajectories( std::span<const RunReplayPr
     // sample stride as bodies/horizon grow instead of increasing runtime storage.
     const std::size_t quotaStride = ( frameCount + segmentsPerBody - 1u ) / segmentsPerBody;
     const std::size_t sampleStride = (std::max)( requestedStride, quotaStride );
+    const ReplayFrameIndex lastFrame = frames[frameCount - 1u].frameIndex;
 
     for ( std::size_t bodyIndex = 0; bodyIndex < frames[0].bodies.size(); ++bodyIndex )
     {
@@ -880,7 +1044,15 @@ void DrawReplayPredictionSmallSceneBodyTrajectories( std::span<const RunReplayPr
                 float r = 1.0f;
                 float g = 1.0f;
                 float b = 1.0f;
-                ReplayDepthPalette( static_cast<int>( bodyIndex ) + 1, r, g, b );
+                ResolveReplayPathColor( colorMode,
+                                        ReplayTrajectoryLane::FutureRoot,
+                                        body->id,
+                                        0,
+                                        ReplayPathFrameT( frame.frameIndex, 0, lastFrame ),
+                                        std::sqrt( VectorMagSquared( body->linearVelocity ) ),
+                                        r,
+                                        g,
+                                        b );
                 AddOrAccountReplayPathSegment( tracer,
                                                &ribbonQuota,
                                                previous,
@@ -899,6 +1071,7 @@ void DrawReplayPredictionSmallSceneBodyTrajectories( std::span<const RunReplayPr
 void DrawReplayPredictionChildTrajectoryRecord( const ReplayPredictionPresentationView& prediction,
                                                 const RunReplayPathTraceNode& node,
                                                 std::size_t nodeIndex,
+                                                ReplayPathColorMode colorMode,
                                                 bool usingBuildFrames,
                                                 ReplayTrajectoryLane lane,
                                                 ReplayFrameIndex revealFrame,
@@ -929,10 +1102,22 @@ void DrawReplayPredictionChildTrajectoryRecord( const ReplayPredictionPresentati
                                             tracer,
                                             ribbonQuota,
                                             SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureChildIncoming,
-                                            [&]( ReplayFrameIndex frameIndex, float& r, float& g, float& b )
+                                            [&]( const ReplayTrajectoryPoint& previous,
+                                                 const ReplayTrajectoryPoint& point,
+                                                 float& r,
+                                                 float& g,
+                                                 float& b )
                                             {
-                                                const float t = ReplayPathFrameT( frameIndex, 0, node.firstFrame );
-                                                ReplayChildIncomingColor( node.depth, t, r, g, b );
+                                                ResolveReplayPathColor(
+                                                    colorMode,
+                                                    ReplayTrajectoryLane::FutureChildIncoming,
+                                                    node.id,
+                                                    node.depth,
+                                                    ReplayPathFrameT( point.frameIndex, 0, node.firstFrame ),
+                                                    ReplayTrajectorySegmentSpeed( previous, point ),
+                                                    r,
+                                                    g,
+                                                    b );
                                             } );
         return;
     }
@@ -943,16 +1128,14 @@ void DrawReplayPredictionChildTrajectoryRecord( const ReplayPredictionPresentati
         return;
     }
 
-    bool hasPrevious = false;
-    Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    const ReplayTrajectoryPoint* previous = nullptr;
     for ( std::size_t i = 0; i < pointCount; ++i )
     {
 
         const ReplayTrajectoryPoint& point = record->points[i];
         if ( point.frameIndex < node.firstFrame )
         {
-            previous = point.position;
-            hasPrevious = true;
+            previous = &point;
             continue;
         }
         if ( point.frameIndex > revealFrame )
@@ -969,28 +1152,36 @@ void DrawReplayPredictionChildTrajectoryRecord( const ReplayPredictionPresentati
         {
             continue;
         }
-        if ( hasPrevious && VectorMagSquared( point.position - previous ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
+        if ( previous && VectorMagSquared( point.position - previous->position ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
         {
             const float t = ReplayPathFrameT( point.frameIndex, node.firstFrame, lastFrame );
             float r = 0.5f;
             float g = 0.5f;
             float b = 0.56f;
-            ReplayChildFutureColor( node.depth, t, r, g, b );
+            ResolveReplayPathColor( colorMode,
+                                    ReplayTrajectoryLane::FutureChildOutgoing,
+                                    node.id,
+                                    node.depth,
+                                    t,
+                                    ReplayTrajectorySegmentSpeed( *previous, point ),
+                                    r,
+                                    g,
+                                    b );
             AddOrAccountReplayPathSegment( tracer,
                                            &ribbonQuota,
-                                           previous,
+                                           previous->position,
                                            point.position,
                                            r,
                                            g,
                                            b,
                                            SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureChildOutgoing );
         }
-        previous = point.position;
-        hasPrevious = true;
+        previous = &point;
     }
 }
 
 void DrawReplayPredictionChildTrajectoriesFromStore( const ReplayPredictionPresentationView& prediction,
+                                                     ReplayPathColorMode colorMode,
                                                      bool usingBuildFrames,
                                                      ReplayFrameIndex revealFrame,
                                                      ReplayFrameIndex lastFrame,
@@ -1005,6 +1196,7 @@ void DrawReplayPredictionChildTrajectoriesFromStore( const ReplayPredictionPrese
         DrawReplayPredictionChildTrajectoryRecord( prediction,
                                                    node,
                                                    i,
+                                                   colorMode,
                                                    usingBuildFrames,
                                                    ReplayTrajectoryLane::FutureChildIncoming,
                                                    revealFrame,
@@ -1015,6 +1207,7 @@ void DrawReplayPredictionChildTrajectoriesFromStore( const ReplayPredictionPrese
         DrawReplayPredictionChildTrajectoryRecord( prediction,
                                                    node,
                                                    i,
+                                                   colorMode,
                                                    usingBuildFrames,
                                                    ReplayTrajectoryLane::FutureChildOutgoing,
                                                    revealFrame,
@@ -1027,6 +1220,7 @@ void DrawReplayPredictionChildTrajectoriesFromStore( const ReplayPredictionPrese
 
 void DrawReplayPastRootTrajectoryFromStore( const ReplayPredictionPresentationView& prediction,
                                             ReplayBodyId rootId,
+                                            ReplayPathColorMode colorMode,
                                             ReplayFrameIndex presentFrame,
                                             RunEditorTracer& tracer,
                                             ReplayRibbonDrawQuota& ribbonQuota )
@@ -1053,38 +1247,57 @@ void DrawReplayPastRootTrajectoryFromStore( const ReplayPredictionPresentationVi
     // Concept: a single PastRoot store record contains the retained solver
     // window. Draw-time presentFrame only recolors the already-published prefix
     // into "history" and "recorded future" halves; it never rebuilds samples.
-    DrawReplayTrajectoryRecordSegments( *record,
-                                        pointCount,
-                                        firstFrame,
-                                        clampedPresent,
-                                        clampedPresent,
-                                        sampleStride,
-                                        tracer,
-                                        ribbonQuota,
-                                        SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::PastRoot,
-                                        [&]( ReplayFrameIndex frameIndex, float& r, float& g, float& b )
-                                        {
-                                            const float t = ReplayPathFrameT( frameIndex, firstFrame, clampedPresent );
-                                            ReplayPastRootColor( t, r, g, b );
-                                        } );
-    DrawReplayTrajectoryRecordSegments( *record,
-                                        pointCount,
-                                        clampedPresent,
-                                        lastFrame,
-                                        lastFrame,
-                                        sampleStride,
-                                        tracer,
-                                        ribbonQuota,
-                                        SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot,
-                                        [&]( ReplayFrameIndex frameIndex, float& r, float& g, float& b )
-                                        {
-                                            const float t = ReplayPathFrameT( frameIndex, clampedPresent, lastFrame );
-                                            ReplayFutureRootColor( t, r, g, b );
-                                        } );
+    DrawReplayTrajectoryRecordSegments(
+        *record,
+        pointCount,
+        firstFrame,
+        clampedPresent,
+        clampedPresent,
+        sampleStride,
+        tracer,
+        ribbonQuota,
+        SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::PastRoot,
+        [&]( const ReplayTrajectoryPoint& previous, const ReplayTrajectoryPoint& point, float& r, float& g, float& b )
+        {
+            ResolveReplayPathColor( colorMode,
+                                    ReplayTrajectoryLane::PastRoot,
+                                    rootId,
+                                    record->depth,
+                                    ReplayPathFrameT( point.frameIndex, firstFrame, clampedPresent ),
+                                    ReplayTrajectorySegmentSpeed( previous, point ),
+                                    r,
+                                    g,
+                                    b );
+        },
+        REPLAY_SELECTED_PATH_EMPHASIS );
+    DrawReplayTrajectoryRecordSegments(
+        *record,
+        pointCount,
+        clampedPresent,
+        lastFrame,
+        lastFrame,
+        sampleStride,
+        tracer,
+        ribbonQuota,
+        SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot,
+        [&]( const ReplayTrajectoryPoint& previous, const ReplayTrajectoryPoint& point, float& r, float& g, float& b )
+        {
+            ResolveReplayPathColor( colorMode,
+                                    ReplayTrajectoryLane::FutureRoot,
+                                    rootId,
+                                    record->depth,
+                                    ReplayPathFrameT( point.frameIndex, clampedPresent, lastFrame ),
+                                    ReplayTrajectorySegmentSpeed( previous, point ),
+                                    r,
+                                    g,
+                                    b );
+        },
+        REPLAY_SELECTED_PATH_EMPHASIS );
 }
 
 void DrawReplayPredictionRagdollTorsoTrails( std::span<const RunReplayPredictionFrame> frames,
                                              std::size_t frameCount,
+                                             ReplayPathColorMode colorMode,
                                              ReplayFrameIndex revealFrame,
                                              const SceneEntityStore& collection,
                                              RunEditorTracer& tracer,
@@ -1135,13 +1348,25 @@ void DrawReplayPredictionRagdollTorsoTrails( std::span<const RunReplayPrediction
             if ( hasPrevious && VectorMagSquared( body->position - previous ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
             {
                 const float t = ReplayPathFrameT( frame.frameIndex, 0, lastFrame );
+                float r = 1.0f;
+                float g = 1.0f;
+                float b = 1.0f;
+                ResolveReplayPathColor( colorMode,
+                                        ReplayTrajectoryLane::FutureChildOutgoing,
+                                        body->id,
+                                        1,
+                                        t,
+                                        std::sqrt( VectorMagSquared( body->linearVelocity ) ),
+                                        r,
+                                        g,
+                                        b );
                 AddOrAccountReplayPathSegment( tracer,
                                                &ribbonQuota,
                                                previous,
                                                body->position,
-                                               0.50f + 0.28f * ( 1.0f - t ),
-                                               0.96f,
-                                               0.92f,
+                                               r,
+                                               g,
+                                               b,
                                                SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::AuxiliaryTrail );
             }
             previous = body->position;
@@ -1156,6 +1381,7 @@ struct ReplayPredictionAffectedBodyTrail
     ModelRowHint modelRow;
     std::size_t firstFrameSlot = 0;
     ReplayFrameIndex firstFrame = 0;
+    int causalDepth = 1;
     // Concept: same two-box causal story as ReplayPathChildDrawState. Entry is
     // the body's in-place pose from prediction frame 0 (yellow, fixed);
     // lastMotionFrame times when the grey resting box may pop in. The grey
@@ -1176,14 +1402,6 @@ bool ReplayPredictionIdInFutureNodes( std::span<const RunReplayPathTraceNode> no
         }
     }
     return false;
-}
-
-void ReplayAffectedBodyTrailColor( std::size_t trailOrdinal, float t, float& r, float& g, float& b )
-{
-    const float laneOffset = std::clamp( static_cast<float>( trailOrdinal % 6u ) * 0.025f, 0.0f, 0.125f );
-    r = std::clamp( 1.00f - t * 0.32f - laneOffset * 0.40f, 0.55f, 1.00f );
-    g = std::clamp( 0.58f + t * 0.28f + laneOffset, 0.48f, 0.94f );
-    b = std::clamp( 0.14f + t * 0.42f + laneOffset * 0.50f, 0.10f, 0.72f );
 }
 
 std::size_t BuildReplayPredictionAffectedBodyTrails(
@@ -1270,6 +1488,7 @@ std::size_t BuildReplayPredictionAffectedBodyTrails(
 
 void DrawReplayPredictionAffectedBodyTrails( std::span<const RunReplayPredictionFrame> frames,
                                              std::size_t frameCount,
+                                             ReplayPathColorMode colorMode,
                                              ReplayFrameIndex revealFrame,
                                              ReplayBodyId rootId,
                                              int rootModelIndex,
@@ -1325,7 +1544,15 @@ void DrawReplayPredictionAffectedBodyTrails( std::span<const RunReplayPrediction
                 float r = 1.0f;
                 float g = 0.65f;
                 float b = 0.18f;
-                ReplayAffectedBodyTrailColor( trailIndex, t, r, g, b );
+                ResolveReplayPathColor( colorMode,
+                                        ReplayTrajectoryLane::FutureChildOutgoing,
+                                        trail.id,
+                                        trail.causalDepth,
+                                        t,
+                                        std::sqrt( VectorMagSquared( body->linearVelocity ) ),
+                                        r,
+                                        g,
+                                        b );
                 AddOrAccountReplayPathSegment( tracer,
                                                &ribbonQuota,
                                                trail.previous,
@@ -1367,7 +1594,7 @@ bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisual
     // drawing when the cursor passes the frame where its cause happened.
     const ReplayPredictionDrawFrameWindow drawWindow =
         PublishedReplayPredictionDrawFrameWindow( prediction, activePredictionFrames, activePredictionFrameCount );
-    DrawReplayPredictionBaselineSnapshot( prediction, colliderStore, tracer, ribbonQuota );
+    DrawReplayPredictionBaselineSnapshot( prediction, pathVisualizer.colorMode, colliderStore, tracer, ribbonQuota );
 
     if ( !pathVisualizer.hasTarget || pathVisualizer.targetId.value == 0 )
     {
@@ -1375,6 +1602,7 @@ bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisual
         {
             DrawReplayPredictionRagdollTorsoTrails( activePredictionFrames,
                                                     activePredictionFrameCount,
+                                                    pathVisualizer.colorMode,
                                                     drawWindow.revealFrame,
                                                     modelCollection,
                                                     tracer,
@@ -1387,6 +1615,7 @@ bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisual
         PROFILE_SCOPED( "Frame/Replay/Prediction/DrawRoot" );
         DrawReplayPredictionRootTrajectoryFromStore( prediction,
                                                      pathVisualizer.targetId,
+                                                     pathVisualizer.colorMode,
                                                      usingBuildFrames,
                                                      drawWindow.lastFrame,
                                                      drawWindow.revealFrame,
@@ -1396,6 +1625,7 @@ bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisual
         DrawReplayPredictionSmallSceneBodyTrajectories( activePredictionFrames,
                                                         activePredictionFrameCount,
                                                         pathVisualizer.targetId,
+                                                        pathVisualizer.colorMode,
                                                         drawWindow.revealFrame,
                                                         drawWindow.sampleStride,
                                                         tracer,
@@ -1409,6 +1639,7 @@ bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisual
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/DrawChildren" );
         DrawReplayPredictionChildTrajectoriesFromStore( prediction,
+                                                        pathVisualizer.colorMode,
                                                         usingBuildFrames,
                                                         drawWindow.revealFrame,
                                                         drawWindow.lastFrame,
@@ -1421,6 +1652,7 @@ bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisual
         PROFILE_SCOPED( "Frame/Replay/Prediction/DrawAffectedBodies" );
         DrawReplayPredictionAffectedBodyTrails( activePredictionFrames,
                                                 activePredictionFrameCount,
+                                                pathVisualizer.colorMode,
                                                 drawWindow.revealFrame,
                                                 pathVisualizer.targetId,
                                                 pathVisualizer.targetModelRow.value,
@@ -1434,12 +1666,14 @@ bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisual
     {
         DrawReplayPredictionRagdollTorsoTrails( activePredictionFrames,
                                                 activePredictionFrameCount,
+                                                pathVisualizer.colorMode,
                                                 drawWindow.revealFrame,
                                                 modelCollection,
                                                 tracer,
                                                 ribbonQuota );
     }
     DrawReplayPredictionRetainedMarkers( prediction,
+                                         pathVisualizer.colorMode,
                                          usingBuildFrames,
                                          drawWindow.revealFrame,
                                          drawWindow.lastFrame,
@@ -1614,6 +1848,7 @@ ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVis
             PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget/DrawRoot" );
             DrawReplayPastRootTrajectoryFromStore( prediction,
                                                    target.id,
+                                                   pathVisualizer.colorMode,
                                                    context.presentFrame,
                                                    context.tracer,
                                                    ribbonQuota );

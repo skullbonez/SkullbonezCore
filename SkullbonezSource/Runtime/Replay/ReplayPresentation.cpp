@@ -41,6 +41,25 @@ Related:
 namespace SkullbonezCore::Runtime
 {
 
+const char* ReplayPathColorModeName( ReplayPathColorMode mode ) noexcept
+{
+    switch ( mode )
+    {
+    case ReplayPathColorMode::LaneFlat:
+        return "Lane flat";
+    case ReplayPathColorMode::VelocityHeat:
+        return "Velocity heat";
+    case ReplayPathColorMode::TimeGradient:
+        return "Time gradient";
+    case ReplayPathColorMode::PerObjectHue:
+        return "Per-object hue";
+    case ReplayPathColorMode::CausalDepth:
+        return "Causal depth";
+    default:
+        return "Lane flat";
+    }
+}
+
 ReplayPastTrajectoryView ReplayPresentation::PastTrajectoryView() const noexcept
 {
     ReplayPastTrajectoryView view;
@@ -505,6 +524,15 @@ void ReplayPresentation::TogglePastPathVisible()
     {
         m_pathVisualizer.futureNodes.clear();
     }
+}
+
+
+ReplayPathColorMode ReplayPresentation::CyclePathColorMode() noexcept
+{
+    constexpr uint8_t modeCount = static_cast<uint8_t>( ReplayPathColorMode::CausalDepth ) + 1u;
+    const uint8_t next = ( static_cast<uint8_t>( m_pathVisualizer.colorMode ) + 1u ) % modeCount;
+    m_pathVisualizer.colorMode = static_cast<ReplayPathColorMode>( next );
+    return m_pathVisualizer.colorMode;
 }
 
 

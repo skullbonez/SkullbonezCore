@@ -3,7 +3,7 @@ File: SkullbonezTests/TestRuntimeInputBindings.cpp
 Purpose:
   Locks the runtime keyboard shortcut table as observable data.
 
-Summary:
+Mental model:
   These tests do not press keys or construct Run. They inspect the shared
   key/action/context rows that RunInput dispatches, so a shortcut regression
   fails before it reaches an interaction or DX12 launch test.
@@ -77,7 +77,8 @@ TEST_CASE( "Runtime input bindings: core keyboard shortcuts map to actions" )
     CheckExactBinding( 'N', keyboard, RuntimeInputAction::ToggleLauncher );
     CheckExactBinding( '0', keyboard, RuntimeInputAction::ToggleUIVisibility );
     CheckExactBinding( VK_F9, keyboard, RuntimeInputAction::ReloadShadersFromSource );
-    CheckExactBinding( VK_OEM_PERIOD, keyboard, RuntimeInputAction::CycleReplayPredictionAuthoringLook );
+    CheckExactBinding( VK_OEM_COMMA, keyboard, RuntimeInputAction::CycleReplayPathColorMode );
+    CHECK( FindExactBinding( VK_OEM_PERIOD, keyboard ) == nullptr );
     CheckExactBinding( VK_LEFT, keyboard, RuntimeInputAction::NavigateScenePrevious );
     CheckExactBinding( VK_RIGHT, keyboard, RuntimeInputAction::NavigateSceneNext );
     CheckExactBinding( 'Z', keyboard | RuntimeInputBindingContext::Editor, RuntimeInputAction::UndoEditor );

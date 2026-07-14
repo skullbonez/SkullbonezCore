@@ -97,8 +97,8 @@ number measures remaining executable work instead of lifetime repository work.
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | replay-monolith-decomposition | 9 | 9 | 100% |
-| future-path-vector-splines | 0 | 7 | 0% |
-| **Active/future total** | **9** | **16** | **56%** |
+| future-path-vector-splines | 7 | 7 | 100% |
+| **Active/future total** | **16** | **16** | **100%** |
 
 ## Current Execution Priority
 
@@ -150,7 +150,7 @@ validation-gate V3 remains externally blocked.
    all 64 root methods across three TUs as one logical type. The root retains
    only six cohesive replay owners with no reach-back or authority escape; the
    unchanged oracle and full final gates passed with no baseline refresh.
-3. **Future-path vector splines — live independent presentation lane
+3. **Future-path vector splines — complete independent presentation lane
    (2026-07-14 owner request).** `TODO/future-path-vector-splines.md` (T1→T7)
    restyles the prediction view: near-black sky, thin anti-aliased
    vector-spline ribbons, comma-cycled color modes with UI reflection,
@@ -162,7 +162,23 @@ validation-gate V3 remains externally blocked.
    inventory rule 11 and must be sequenced with the decomposition lane's
    unchanged-golden requirement (restyle lands only with owner sign-off on the
    new golden, or after decomposition tasks that depend on the current golden
-   are closed).
+   are closed). T1 is complete: prediction now fades to a near-black dome with
+   a faint horizon and no cloud/sun/shaft energy, then restores the authored
+   sky on exit. T2 replaced glow bands with literal-pixel analytic-AA vector
+   coverage and an emphasis-only halo/HDR branch. T3 deleted the random look
+   explorer, period action, logs, mutable style state, and final color mutation;
+   ordinary paths now use immutable zero-emphasis styles. T4-T5 add five
+   deterministic allocation-free color modes across all path lanes, a comma
+   cycle action, and matching HUD/option-row state. The 1,485-frame multi-level
+   visual run passed with stable submissions, zero dropped segments, and no
+   steady-state reserve growth. T6 routes the halo/HDR emphasis only through
+   the selected future/past root and leaves every sibling lane on the flat
+   default; the post-critique 1,485-frame focused run passed with 1,578 stable
+   segments, zero drops, and no steady-state reserve growth. T7 final-source
+   full, renderer, stress, and scrub-propagation gates pass. The owner-approved
+   golden refresh used one authoritative engine process and one prediction
+   generation; the refreshed 2,401-tick comparison, causal/durable checks, and
+   every offline false-pass control pass.
 4. **Adversarial-review round 3 — locally complete.** All ten tasks and the
    final independent review are closed; evidence lives in
    `../Reports/2026-07-13/adversarial-review-round-3-closure.md`.
@@ -187,7 +203,7 @@ validation-gate V3 remains externally blocked.
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs merge-group proof, required branch protection, and trusted/ephemeral DX12 runner administration |
 | [replay-visual-fidelity-mega-probe](TODO/replay-visual-fidelity-mega-probe.md) | Complete | 7/7 | One engine, one prediction, 2,401 exact ticks, 187 grounded sleepers, durable CPU-only reconstruction, and adversarial closure approved |
 | [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Complete on `nightrunner-14th-july` | 9/9 | Retain as closure evidence while the active/future portfolio continues with the spline plan |
-| [future-path-vector-splines](TODO/future-path-vector-splines.md) | Live — independent presentation lane | 0/7 | Start T1 (near-black prediction sky) and T2 (thin AA vector-spline ribbon shader); owner decisions 2026-07-14 are recorded in the plan; golden-manifest refresh needs owner approval |
+| [future-path-vector-splines](TODO/future-path-vector-splines.md) | Complete on `nightrunner-14th-july` | 7/7 | Owner-approved golden reconciled; one-process 2,401-tick oracle and all final gates passed |
 
 ## Planned Architecture Work (2026-07-11 gap review)
 
