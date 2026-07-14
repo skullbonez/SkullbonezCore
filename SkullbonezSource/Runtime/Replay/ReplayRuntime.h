@@ -162,9 +162,14 @@ class ReplayRuntime
     RunReplayPathVisualizerState& PathVisualizer();
     const RunReplayPathVisualizerState& PathVisualizer() const;
 
-    RunReplayPredictionState& Prediction();
     const RunReplayPredictionState& Prediction() const;
     ReplayPredictionPresentationView PredictionPresentationView() const;
+    // Publishes Director's normalized reveal input without exposing its mutable
+    // clock; returns false until a visible prediction horizon exists.
+    bool PredictionRevealProgress01( float& outProgress ) const noexcept;
+    // Applies a presentation-only Director command while preserving the
+    // already revealed prediction cursor.
+    void ApplyPredictionRevealRate( double revealRate ) noexcept;
     // Lifetime: the view borrows the active retained prediction buffer and is
     // valid only until replay prediction state mutates.
     std::span<const RunReplayPredictionFrame> ActivePredictionFrames() const;

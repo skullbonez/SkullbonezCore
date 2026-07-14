@@ -39,7 +39,20 @@ namespace SkullbonezCore
 namespace Runtime
 {
 struct SceneRuntimeStyleContext;
-struct RunReplayPredictionState;
+
+// Concept: Director consumes a value-only reveal sample and returns a command.
+// It never borrows the prediction owner or its mutable reveal clock.
+struct DemoDirectorPredictionView
+{
+    float revealProgress = 0.0f;
+    bool revealAvailable = false;
+};
+
+struct DemoDirectorTickResult
+{
+    float requestedRevealRate = 1.0f;
+    bool applyRevealRate = false;
+};
 
 namespace DemoDirectorPlayback
 {
@@ -52,11 +65,11 @@ bool SetCurrentPhasePose( RunCameraState& camera, Environment::CameraCollection&
 bool SetCurrentPhaseStyle( RunCameraState& camera, const char* stylePath );
 bool SelectNextPhaseForAuthoring( RunCameraState& camera, Environment::CameraCollection& cameras );
 bool SaveShotList( const RunCameraState& camera );
-void Tick( RunCameraState& camera,
-           Environment::CameraCollection& cameras,
-           RunReplayPredictionState& prediction,
-           SceneRuntimeStyleContext styleContext,
-           float cameraDt );
+DemoDirectorTickResult Tick( RunCameraState& camera,
+                             Environment::CameraCollection& cameras,
+                             DemoDirectorPredictionView prediction,
+                             SceneRuntimeStyleContext styleContext,
+                             float cameraDt );
 } // namespace DemoDirectorPlayback
 } // namespace Runtime
 } // namespace SkullbonezCore

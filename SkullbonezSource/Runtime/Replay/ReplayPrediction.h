@@ -434,6 +434,8 @@ class ReplayPrediction
         m_state.enabled = false;
     }
     void SetHorizonSeconds( float horizonSeconds ) noexcept;
+    bool RevealProgress01( float& outProgress ) const noexcept;
+    void SetRevealRatePreservingCursor( double revealRate ) noexcept;
     bool PrepareVelocityMutationBaseline() noexcept;
     void CommitVelocityMutation() noexcept;
     bool ReadyForDeterministicReveal() const noexcept;

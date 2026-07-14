@@ -618,17 +618,14 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
 
     const auto armBaselineComparisonForDrag = [&]()
     {
-        RunReplayPredictionState& prediction = m_replayRuntime.Prediction();
-        if ( prediction.build.complete && prediction.simulation.frames.size() >= 2 &&
-             m_replayRuntime.PathVisualizer().hasTarget )
+        if ( m_replayRuntime.HasPathVisualizerTarget() )
         {
             // Why: the old future must be retained before the first drag tick
             // dirties prediction. The visualizer owns the actual capture so it
             // can reuse the same rest-pose and replay-reserve rules as drawing.
-            prediction.baseline.valid = false;
-            prediction.baseline.comparisonActive = true;
-            prediction.baseline.divergenceValid = false;
-            prediction.baseline.divergenceUnits = 0.0f;
+            ReplayFrameIntent intent;
+            intent.prepareVelocityMutationBaseline = true;
+            (void)m_replayRuntime.ApplyFrameIntent( intent );
         }
     };
 

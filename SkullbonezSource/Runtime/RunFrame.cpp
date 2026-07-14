@@ -918,10 +918,13 @@ void Run::TickPhysics( double secondsPerFrame,
         // Why: Scene-mode, no-physics harnesses intentionally skip simulation
         // UpdateLogic, but Director is presentation state. It still needs phase
         // style/camera entry work so authored show decks behave in static scenes.
-        DemoDirectorPlayback::Tick(
+        DemoDirectorPredictionView directorPrediction;
+        directorPrediction.revealAvailable =
+            m_replayRuntime.PredictionRevealProgress01( directorPrediction.revealProgress );
+        const DemoDirectorTickResult directorResult = DemoDirectorPlayback::Tick(
             m_camera,
             m_sceneController.Cameras(),
-            m_replayRuntime.Prediction(),
+            directorPrediction,
             SceneRuntimeStyleContext{ m_launchOptions,
                                       m_sceneController.State(),
                                       m_sceneController.Browser(),
@@ -931,6 +934,10 @@ void Run::TickPhysics( double secondsPerFrame,
                                       ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
                                       m_renderDefaults.CinematicBaseline() },
             static_cast<float>( secondsPerFrame ) );
+        if ( directorResult.applyRevealRate )
+        {
+            m_replayRuntime.ApplyPredictionRevealRate( directorResult.requestedRevealRate );
+        }
     }
 }
 
@@ -1274,10 +1281,13 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
                            m_sceneController.State().isSceneMode,
                            cameraDt,
                            PresentationAlphaForFrame() );
-    DemoDirectorPlayback::Tick(
+    DemoDirectorPredictionView directorPrediction;
+    directorPrediction.revealAvailable =
+        m_replayRuntime.PredictionRevealProgress01( directorPrediction.revealProgress );
+    const DemoDirectorTickResult directorResult = DemoDirectorPlayback::Tick(
         m_camera,
         m_sceneController.Cameras(),
-        m_replayRuntime.Prediction(),
+        directorPrediction,
         SceneRuntimeStyleContext{ m_launchOptions,
                                   m_sceneController.State(),
                                   m_sceneController.Browser(),
@@ -1287,6 +1297,10 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
                                   ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
                                   m_renderDefaults.CinematicBaseline() },
         cameraDt );
+    if ( directorResult.applyRevealRate )
+    {
+        m_replayRuntime.ApplyPredictionRevealRate( directorResult.requestedRevealRate );
+    }
 
     m_sceneController.ApplyWaterHeightControl( m_inputRouter.RuntimeSnapshot().pageDown,
                                                m_inputRouter.RuntimeSnapshot().pageUp,

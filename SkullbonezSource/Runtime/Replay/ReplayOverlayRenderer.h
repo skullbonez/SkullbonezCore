@@ -69,9 +69,11 @@ struct ReplayOverlayRenderContext
 struct ReplayPathVisualizerRenderContext
 {
     // Lifetime: every reference is a frame-local borrow from the render-tool
-    // pass. Prediction scheduling has already published for this frame; this
-    // context carries only presentation operands and retains nothing.
+    // pass. Prediction scheduling has already published for this frame; the
+    // mutable prediction borrow is limited to reveal/marker presentation-cache
+    // preparation and must never schedule private-engine work.
     ReplayRuntime& replayRuntime;
+    RunReplayPredictionState& prediction;
     SkullbonezCore::Physics::PhysicsEngine& physics;
     const SceneEntityStore& entities;
     RunEditorTracer& tracer;

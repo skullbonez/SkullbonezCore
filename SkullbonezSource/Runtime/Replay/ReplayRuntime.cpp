@@ -982,6 +982,56 @@ void ReplayPrediction::SetHorizonSeconds( float horizonSeconds ) noexcept
 }
 
 
+bool ReplayPrediction::RevealProgress01( float& outProgress ) const noexcept
+{
+    const bool usingBuildFrames = m_state.BuildPrefixShouldBePresented();
+    const std::vector<RunReplayPredictionFrame>& frames =
+        usingBuildFrames ? m_state.build.buildFrames : m_state.simulation.frames;
+    const std::size_t frameCount = usingBuildFrames ? m_state.PublishedBuildFrameCount() : frames.size();
+    if ( frameCount < 2u || !m_state.revealClock.anchorValid )
+    {
+        outProgress = 0.0f;
+        return false;
+    }
+
+    const ReplayFrameIndex lastFrame = frames[frameCount - 1u].frameIndex;
+    if ( lastFrame == 0 )
+    {
+        outProgress = 0.0f;
+        return false;
+    }
+
+    const double availableSeconds = static_cast<double>( lastFrame ) * PHYSICS_FIXED_DT;
+    const auto now = std::chrono::steady_clock::now();
+    const double elapsedSeconds =
+        (std::max)( 0.0, std::chrono::duration<double>( now - m_state.revealClock.anchor ).count() );
+    const double revealRate = m_state.revealClock.secondsPerSecond > 0.0 ? m_state.revealClock.secondsPerSecond : 1.0;
+    const double revealedSeconds = (std::min)( availableSeconds, elapsedSeconds * revealRate );
+    const double revealFrame = revealedSeconds / static_cast<double>( PHYSICS_FIXED_DT );
+    outProgress = std::clamp( static_cast<float>( revealFrame / static_cast<double>( lastFrame ) ), 0.0f, 1.0f );
+    return true;
+}
+
+
+void ReplayPrediction::SetRevealRatePreservingCursor( double revealRate ) noexcept
+{
+    const double normalizedRevealRate = revealRate > 0.0 ? revealRate : 1.0;
+    const double previousRevealRate =
+        m_state.revealClock.secondsPerSecond > 0.0 ? m_state.revealClock.secondsPerSecond : 1.0;
+    if ( m_state.revealClock.anchorValid )
+    {
+        const auto now = std::chrono::steady_clock::now();
+        const double elapsedSeconds =
+            (std::max)( 0.0, std::chrono::duration<double>( now - m_state.revealClock.anchor ).count() );
+        const double revealedSeconds = elapsedSeconds * previousRevealRate;
+        m_state.revealClock.anchor =
+            now - std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                      std::chrono::duration<double>( revealedSeconds / normalizedRevealRate ) );
+    }
+    m_state.revealClock.secondsPerSecond = normalizedRevealRate;
+}
+
+
 bool ReplayPrediction::PrepareVelocityMutationBaseline() noexcept
 {
     if ( ( !m_state.build.complete || m_state.simulation.frames.size() < 2u ) && !m_state.baseline.comparisonActive )
@@ -1322,11 +1372,6 @@ const RunReplayPathVisualizerState& ReplayRuntime::PathVisualizer() const
     return m_visualPresentation.PathVisualizer();
 }
 
-RunReplayPredictionState& ReplayRuntime::Prediction()
-{
-    return m_predictionOwner.State();
-}
-
 const RunReplayPredictionState& ReplayRuntime::Prediction() const
 {
     return m_predictionOwner.State();
@@ -1335,6 +1380,18 @@ const RunReplayPredictionState& ReplayRuntime::Prediction() const
 ReplayPredictionPresentationView ReplayRuntime::PredictionPresentationView() const
 {
     return m_predictionOwner.PresentationView();
+}
+
+
+bool ReplayRuntime::PredictionRevealProgress01( float& outProgress ) const noexcept
+{
+    return m_predictionOwner.RevealProgress01( outProgress );
+}
+
+
+void ReplayRuntime::ApplyPredictionRevealRate( double revealRate ) noexcept
+{
+    m_predictionOwner.SetRevealRatePreservingCursor( revealRate );
 }
 
 std::span<const RunReplayPredictionFrame> ReplayRuntime::ActivePredictionFrames() const

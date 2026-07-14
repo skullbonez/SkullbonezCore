@@ -39,14 +39,11 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
 */
 #include "RunDemoDirector.h"
-#include "Replay/ReplayRuntime.h"
 #include "Scene/SceneRuntimeStyle.h"
 
-#include "../Physics/PhysicsTimestep.h"
 #include "../Scene/TestScene.h"
 
 #include <algorithm>
-#include <chrono>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
@@ -163,82 +160,7 @@ void ResetPhaseEntryApplications( DemoDirectorPlaybackState& director )
     director.appliedRevealRatePhaseIndex = -1;
 }
 
-void SetPredictionRevealRatePreservingCursor( RunReplayPredictionState& prediction, double revealRate )
-{
-    const double normalizedRevealRate = revealRate > 0.0 ? revealRate : 1.0;
-    const double previousRevealRate =
-        prediction.revealClock.secondsPerSecond > 0.0 ? prediction.revealClock.secondsPerSecond : 1.0;
-    if ( prediction.revealClock.anchorValid )
-    {
-        const auto now = std::chrono::steady_clock::now();
-        const double elapsedSeconds =
-            (std::max)( 0.0, std::chrono::duration<double>( now - prediction.revealClock.anchor ).count() );
-        const double revealedSeconds = elapsedSeconds * previousRevealRate;
-        prediction.revealClock.anchor =
-            now - std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-                      std::chrono::duration<double>( revealedSeconds / normalizedRevealRate ) );
-    }
-    prediction.revealClock.secondsPerSecond = normalizedRevealRate;
-}
-
-bool ActivePredictionLastFrame( const RunReplayPredictionState& prediction, ReplayFrameIndex& outLastFrame )
-{
-    const bool usingBuildFrames = prediction.BuildPrefixShouldBePresented();
-    const auto& activeFrames = usingBuildFrames ? prediction.build.buildFrames : prediction.simulation.frames;
-    const std::size_t activeFrameCount = usingBuildFrames ? prediction.PublishedBuildFrameCount() : activeFrames.size();
-    if ( activeFrameCount < 2 )
-    {
-        outLastFrame = 0;
-        return false;
-    }
-
-    outLastFrame = activeFrames[activeFrameCount - 1].frameIndex;
-    return outLastFrame > 0;
-}
-
-ReplayFrameIndex PredictionRevealFrameForAdvance( const RunReplayPredictionState& prediction,
-                                                  ReplayFrameIndex lastAvailableFrame )
-{
-    if ( !prediction.revealClock.anchorValid || lastAvailableFrame == 0 )
-    {
-        return 0;
-    }
-
-    const double availableSeconds = static_cast<double>( lastAvailableFrame ) * PHYSICS_FIXED_DT;
-    if ( availableSeconds <= 0.0 )
-    {
-        return 0;
-    }
-
-    const auto now = std::chrono::steady_clock::now();
-    const double elapsedSeconds =
-        (std::max)( 0.0, std::chrono::duration<double>( now - prediction.revealClock.anchor ).count() );
-    const double revealSecondsPerSecond =
-        prediction.revealClock.secondsPerSecond > 0.0 ? prediction.revealClock.secondsPerSecond : 1.0;
-    const double revealedSeconds = (std::min)( availableSeconds, elapsedSeconds * revealSecondsPerSecond );
-    const double revealFrame = revealedSeconds / static_cast<double>( PHYSICS_FIXED_DT );
-    return (std::min)( lastAvailableFrame, static_cast<ReplayFrameIndex>( revealFrame ) );
-}
-
-bool PredictionRevealProgress01( const RunReplayPredictionState& prediction, float& outProgress )
-{
-    ReplayFrameIndex lastFrame = 0;
-    if ( !ActivePredictionLastFrame( prediction, lastFrame ) )
-    {
-        outProgress = 0.0f;
-        return false;
-    }
-
-    const ReplayFrameIndex revealFrame = PredictionRevealFrameForAdvance( prediction, lastFrame );
-    // Concept: RevealAtLeast is keyed to the same frame cursor that gates the
-    // visible causal overlay. It reads presentation state only; advancing a
-    // director phase must never dirty prediction or mutate solver samples.
-    outProgress = std::clamp( static_cast<float>( revealFrame ) / static_cast<float>( lastFrame ), 0.0f, 1.0f );
-    return true;
-}
-
-bool CurrentPhaseRequestsAdvance( const DemoDirectorPlaybackState& director,
-                                  const RunReplayPredictionState& prediction )
+bool CurrentPhaseRequestsAdvance( const DemoDirectorPlaybackState& director, DemoDirectorPredictionView prediction )
 {
     if ( !IsCurrentPhaseValid( director ) )
     {
@@ -253,16 +175,15 @@ bool CurrentPhaseRequestsAdvance( const DemoDirectorPlaybackState& director,
     case PhaseAdvance::Timer:
         return director.phaseElapsedSeconds >= (std::max)( 0.0f, phase.timerSeconds );
     case PhaseAdvance::RevealAtLeast:
-    {
-        float revealProgress = 0.0f;
-        return PredictionRevealProgress01( prediction, revealProgress ) &&
-               revealProgress >= std::clamp( phase.revealThreshold, 0.0f, 1.0f );
-    }
+        // Concept: RevealAtLeast consumes a value sampled from the prediction
+        // owner. Director never borrows or mutates the reveal clock itself.
+        return prediction.revealAvailable &&
+               prediction.revealProgress >= std::clamp( phase.revealThreshold, 0.0f, 1.0f );
     }
     return false;
 }
 
-void ApplyPhaseRevealRateIfNeeded( DemoDirectorPlaybackState& director, RunReplayPredictionState& prediction )
+void ApplyPhaseRevealRateIfNeeded( DemoDirectorPlaybackState& director, DemoDirectorTickResult& result )
 {
     if ( !IsCurrentPhaseValid( director ) )
     {
@@ -279,7 +200,8 @@ void ApplyPhaseRevealRateIfNeeded( DemoDirectorPlaybackState& director, RunRepla
     // Why: changing rate mid-prediction should alter only future pacing.
     // Re-anchoring preserves already revealed prediction seconds so the causal
     // tree never snaps backward when a director phase slows the unfold.
-    SetPredictionRevealRatePreservingCursor( prediction, static_cast<double>( revealRate ) );
+    result.requestedRevealRate = revealRate;
+    result.applyRevealRate = true;
     director.appliedRevealRatePhaseIndex = director.currentPhaseIndex;
     director.appliedRevealRate = revealRate;
     ++director.appliedRevealRateCount;
@@ -506,16 +428,17 @@ bool SaveShotList( const RunCameraState& camera )
     return saved;
 }
 
-void Tick( RunCameraState& camera,
-           Environment::CameraCollection& cameras,
-           RunReplayPredictionState& prediction,
-           SceneRuntimeStyleContext styleContext,
-           float cameraDt )
+DemoDirectorTickResult Tick( RunCameraState& camera,
+                             Environment::CameraCollection& cameras,
+                             DemoDirectorPredictionView prediction,
+                             SceneRuntimeStyleContext styleContext,
+                             float cameraDt )
 {
+    DemoDirectorTickResult result;
     DemoDirectorPlaybackState& director = camera.director;
     if ( camera.mode != RunCameraMode::Director || !HasPlayableShotList( director ) )
     {
-        return;
+        return result;
     }
 
     if ( director.currentPhaseIndex < 0 || director.currentPhaseIndex >= director.activeShotList.phaseCount )
@@ -530,10 +453,10 @@ void Tick( RunCameraState& camera,
     // and path keeps it out of the per-frame camera blend unless the phase or
     // authored style path actually changes.
     ApplyPhaseStyleIfNeeded( director, styleContext );
-    ApplyPhaseRevealRateIfNeeded( director, prediction );
+    ApplyPhaseRevealRateIfNeeded( director, result );
     if ( director.grabbed )
     {
-        return;
+        return result;
     }
 
     const DemoPhase& phase = CurrentPhase( director );
@@ -547,6 +470,7 @@ void Tick( RunCameraState& camera,
     {
         AdvancePhase( camera, cameras );
     }
+    return result;
 }
 } // namespace DemoDirectorPlayback
 } // namespace Runtime

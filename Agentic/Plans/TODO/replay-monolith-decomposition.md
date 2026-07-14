@@ -643,6 +643,28 @@ Twelfth ownership-remediation checkpoint after that review:
   the root's mutable prediction-state overload, the physical TU split, and the
   remaining external root/presentation seams.
 
+Thirteenth ownership-remediation checkpoint after that review:
+
+- `ReplayRuntime` no longer returns mutable prediction state. Scheduling owns
+  explicit `ReplayPrediction&`/state borrows internally, velocity authoring
+  requests baseline preparation through `ReplayFrameIntent`, and draw-time
+  reveal/marker preparation receives its mutable state only from the composing
+  `RenderPathVisualizer` member rather than reopening the root accessor.
+- Demo Director no longer includes replay runtime/prediction internals. It
+  consumes a value-only normalized reveal sample and returns a reveal-rate
+  command; `ReplayPrediction` applies that command while re-anchoring its own
+  clock so the already-visible cursor cannot jump.
+- The unchanged one-process oracle passed at 2,401 exact ticks, 200 moved
+  bricks, 187 strict grounded sleepers, 199 causal nodes, one generation, one
+  presentation, and every false-pass control. The full gate passed every CPU/
+  Profile/Debug/DX12/physics lane with zero warnings, zero DX12 validation
+  errors, matching screenshots, and the 44,401-line byte-exact varied baseline.
+  No baseline changed. The touched-source comment audit inspected 9/9 files
+  with zero deferred or unchecked. M3-M7 remain open: `ReplayPrediction::State`
+  is still mutable inside the mixed prediction/presentation implementation,
+  presentation state/root accessors remain, and the external frame/probe root
+  seam plus physical TU split still require closure.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |

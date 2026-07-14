@@ -3889,12 +3889,12 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayRuntime& replayRuntime,
                                                ReplayPrediction& predictionOwner,
                                                double simulationTotalSeconds )
 {
-    RunReplayPredictionState& prediction = replayRuntime.Prediction();
+    RunReplayPredictionState& prediction = predictionOwner.State();
     if ( prediction.build.workerFailed.load( std::memory_order_acquire ) )
     {
         const bool preserveCommittedFuture = prediction.simulation.frames.size() >= 2u;
         predictionOwner.CancelJob( !preserveCommittedFuture );
-        replayRuntime.Prediction().build.dirty = true;
+        prediction.build.dirty = true;
         return false;
     }
 
@@ -3976,7 +3976,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         // Invariant: artifact verification is load-only. Returning before any
         // snapshot, reserve, worker, or trajectory mutation makes a second
         // visual prediction impossible in that process.
-        replayRuntime.Prediction().build.dirty = false;
+        predictionOwner.State().build.dirty = false;
         return false;
     }
     // Hazard: begin captures the initial prediction snapshot. Budget may stop
@@ -3991,7 +3991,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         return false;
     }
 
-    RunReplayPredictionState& prediction = replayRuntime.Prediction();
+    RunReplayPredictionState& prediction = predictionOwner.State();
     const ReplayBodyId requestedTargetId = replayRuntime.PathVisualizer().targetId;
     const ReplayFrameIndex previousSourceFrameIndex = prediction.simulation.sourceFrameIndex;
     const uint64_t previousSourceSolverHash = prediction.simulation.sourceSolverHash;
@@ -4203,13 +4203,13 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
         return false;
     }
 
-    RunReplayPredictionState& prediction = replayRuntime.Prediction();
+    RunReplayPredictionState& prediction = predictionOwner.State();
     if ( !prediction.simulation.predictionEngineReady || !prediction.simulation.predictionEngine ||
          !prediction.build.workerTask )
     {
         const bool preserveCommittedFuture = prediction.simulation.frames.size() >= 2u;
         predictionOwner.CancelJob( !preserveCommittedFuture );
-        replayRuntime.Prediction().build.dirty = true;
+        prediction.build.dirty = true;
         return false;
     }
 
@@ -4259,9 +4259,10 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
 
 
 void RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( ReplayRuntime& replayRuntime,
+                                                                ReplayPrediction& predictionOwner,
                                                                 const SceneEntityStore& modelCollection )
 {
-    RunReplayPredictionState& prediction = replayRuntime.Prediction();
+    RunReplayPredictionState& prediction = predictionOwner.State();
     const ReplayBodyId rootId = replayRuntime.PathVisualizer().targetId;
     if ( rootId.value == 0 || prediction.simulation.frames.size() < 2u )
     {
@@ -4291,13 +4292,13 @@ void RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( ReplayRuntime& r
 
 
 bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
+                                  RunReplayPredictionState& prediction,
                                   const SceneEntityStore& modelCollection,
                                   const ColliderStore& colliderStore,
                                   RunEditorTracer& tracer,
                                   ReplayRibbonDrawQuota& ribbonQuota,
                                   double budgetMilliseconds )
 {
-    const RunReplayPredictionState& prediction = replayRuntime.Prediction();
     const bool usingBuildFrames = prediction.BuildPrefixShouldBePresented();
     const std::vector<RunReplayPredictionFrame>& activePredictionFrames =
         usingBuildFrames ? prediction.build.buildFrames : prediction.simulation.frames;
@@ -4312,17 +4313,16 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
     // cursor. That single clamp is what turns a finished prediction buffer into
     // an unfolding animation: the root line grows first, and each child starts
     // drawing when the cursor passes the frame where its cause happened.
-    const ReplayPredictionDrawFrameWindow drawWindow = ReplayPredictionDrawFrameWindowFor( replayRuntime.Prediction(),
-                                                                                           activePredictionFrames,
-                                                                                           activePredictionFrameCount );
+    const ReplayPredictionDrawFrameWindow drawWindow =
+        ReplayPredictionDrawFrameWindowFor( prediction, activePredictionFrames, activePredictionFrameCount );
     // Why: while the job is still building there is no authoritative ending,
     // so no grey resting box may be derived from the growing prefix.
     const bool bufferComplete = !usingBuildFrames;
-    DrawReplayPredictionBaselineSnapshot( replayRuntime.Prediction(), colliderStore, tracer, ribbonQuota );
+    DrawReplayPredictionBaselineSnapshot( prediction, colliderStore, tracer, ribbonQuota );
 
     if ( !replayRuntime.PathVisualizer().hasTarget || replayRuntime.PathVisualizer().targetId.value == 0 )
     {
-        if ( replayRuntime.Prediction().ragdollVisualsEnabled )
+        if ( prediction.ragdollVisualsEnabled )
         {
             DrawReplayPredictionRagdollTorsoTrails( activePredictionFrames,
                                                     activePredictionFrameCount,
@@ -4336,7 +4336,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
 
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/DrawRoot" );
-        DrawReplayPredictionRootTrajectoryFromStore( replayRuntime.Prediction(),
+        DrawReplayPredictionRootTrajectoryFromStore( prediction,
                                                      replayRuntime.PathVisualizer().targetId,
                                                      usingBuildFrames,
                                                      drawWindow.lastFrame,
@@ -4359,7 +4359,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
         // watched the root stop moving.
         if ( bufferComplete )
         {
-            RetainReplayPredictionRootRestMarker( replayRuntime.Prediction(),
+            RetainReplayPredictionRootRestMarker( prediction,
                                                   activePredictionFrames,
                                                   activePredictionFrameCount,
                                                   drawWindow.revealFrame,
@@ -4372,12 +4372,12 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
     bool drawFutureTree = false;
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/BuildTree" );
-        if ( replayRuntime.Prediction().enabled )
+        if ( prediction.enabled )
         {
             // Why: downstream child paths must advance with the same populated
             // prediction prefix as the root line. The cache builder accepts growing
             // buildFrames and only publishes coherent node prefixes.
-            UpdateReplayPredictionFutureNodeCache( replayRuntime.Prediction(),
+            UpdateReplayPredictionFutureNodeCache( prediction,
                                                    activePredictionFrames,
                                                    activePredictionFrameCount,
                                                    usingBuildFrames,
@@ -4389,7 +4389,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
             // populated build prefix as the root. Waiting for the complete
             // buffer makes the striker cross an obstacle alone, then reveals
             // every impacted body's future in one visually false batch.
-            UpdateReplayPredictionTrajectoryStore( replayRuntime.Prediction(),
+            UpdateReplayPredictionTrajectoryStore( prediction,
                                                    activePredictionFrames,
                                                    activePredictionFrameCount,
                                                    usingBuildFrames,
@@ -4399,7 +4399,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                 SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBuildTree,
                 buildBudgetStart,
                 budgetMilliseconds );
-            drawFutureTree = ReplayPredictionFutureTreeReadyForDraw( replayRuntime.Prediction(),
+            drawFutureTree = ReplayPredictionFutureTreeReadyForDraw( prediction,
                                                                      replayRuntime.PathVisualizer().targetId,
                                                                      usingBuildFrames,
                                                                      activePredictionFrameCount );
@@ -4409,7 +4409,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
             // Why: live play freezes prediction visualization. Keep drawing the
             // committed topology, but do not discover new child nodes while the
             // real simulation advances underneath the overlay.
-            drawFutureTree = ReplayPredictionFutureTreeReadyForDraw( replayRuntime.Prediction(),
+            drawFutureTree = ReplayPredictionFutureTreeReadyForDraw( prediction,
                                                                      replayRuntime.PathVisualizer().targetId,
                                                                      usingBuildFrames,
                                                                      activePredictionFrameCount );
@@ -4419,7 +4419,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/DrawChildren" );
         ReplayPathChildDrawContext childDraw;
-        DrawReplayPredictionChildTrajectoriesFromStore( replayRuntime.Prediction(),
+        DrawReplayPredictionChildTrajectoriesFromStore( prediction,
                                                         usingBuildFrames,
                                                         drawWindow.revealFrame,
                                                         drawWindow.lastFrame,
@@ -4427,12 +4427,12 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                                                         tracer,
                                                         ribbonQuota );
         BuildReplayPredictionChildMarkerContext( childDraw,
-                                                 replayRuntime.Prediction(),
+                                                 prediction,
                                                  activePredictionFrames,
                                                  activePredictionFrameCount,
                                                  drawWindow.revealFrame );
 
-        DrawReplayPredictionCausalMarkers( replayRuntime.Prediction(),
+        DrawReplayPredictionCausalMarkers( prediction,
                                            childDraw,
                                            drawWindow.revealFrame,
                                            bufferComplete ? &activePredictionFrames : nullptr,
@@ -4443,19 +4443,19 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
         PROFILE_SCOPED( "Frame/Replay/Prediction/DrawAffectedBodies" );
         DrawReplayPredictionAffectedBodyTrails( activePredictionFrames,
                                                 activePredictionFrameCount,
-                                                replayRuntime.Prediction(),
+                                                prediction,
                                                 drawWindow.revealFrame,
                                                 bufferComplete,
                                                 replayRuntime.PathVisualizer().targetId,
                                                 replayRuntime.PathVisualizer().targetModelRow.value,
-                                                replayRuntime.Prediction().futureNodeCache.futureNodes,
+                                                prediction.futureNodeCache.futureNodes,
                                                 modelCollection,
                                                 colliderStore,
                                                 tracer,
                                                 ribbonQuota );
     }
 
-    if ( replayRuntime.Prediction().ragdollVisualsEnabled )
+    if ( prediction.ragdollVisualsEnabled )
     {
         DrawReplayPredictionRagdollTorsoTrails( activePredictionFrames,
                                                 activePredictionFrameCount,
@@ -4466,12 +4466,12 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
     }
     if ( bufferComplete )
     {
-        RetainReplayPredictionEndStateMarkers( replayRuntime.Prediction(),
+        RetainReplayPredictionEndStateMarkers( prediction,
                                                drawWindow.revealFrame,
                                                activePredictionFrames,
                                                activePredictionFrameCount );
     }
-    DrawReplayPredictionRetainedMarkers( replayRuntime.Prediction(),
+    DrawReplayPredictionRetainedMarkers( prediction,
                                          usingBuildFrames,
                                          drawWindow.revealFrame,
                                          drawWindow.lastFrame,
@@ -4512,8 +4512,8 @@ void UpdateReplayPrediction( ReplayRuntime& replayRuntime,
         // Probe assertion lane: the archive may remain visually enabled, but
         // this branch draws only restored values and never reaches a snapshot,
         // reserve, worker, or future-simulation path.
-        replayRuntime.Prediction().build.dirty = false;
-        replayRuntime.Prediction().build.pendingLatestRestart = false;
+        predictionOwner.State().build.dirty = false;
+        predictionOwner.State().build.pendingLatestRestart = false;
         // Invariant: EnterOfflinePredictionVerification already joined and
         // retired the worker. Cancelling here would invalidate the restored
         // complete/build and trajectory state before the CPU projection reads
@@ -4537,7 +4537,7 @@ void UpdateReplayPrediction( ReplayRuntime& replayRuntime,
     // but must not redraw the preview; explicit dirty events such as branch,
     // target, horizon, or predict toggles are the only rebuild triggers.
     const bool allowAutomaticRefresh = !replayRuntime.ScrubberView().liveAdvanceHeld && !hasCommittedPrediction;
-    RunReplayPredictionState& prediction = replayRuntime.Prediction();
+    RunReplayPredictionState& prediction = predictionOwner.State();
     const ReplayPredictionCoalescerAction coalescerAction =
         ChooseReplayPredictionCoalescerAction( prediction.build.dirty,
                                                prediction.build.building,
@@ -4657,12 +4657,13 @@ void UpdateReplayPrediction( ReplayRuntime& replayRuntime,
     }
     if ( predictionCompletedThisPass )
     {
-        RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( replayRuntime, entities );
+        RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( replayRuntime, predictionOwner, entities );
     }
 }
 
 
 void DrawReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
+                                     RunReplayPredictionState& prediction,
                                      PhysicsEngine& physicsEngine,
                                      const SceneEntityStore& entities,
                                      RunEditorTracer& tracer,
@@ -4671,7 +4672,13 @@ void DrawReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
 {
     PROFILE_SCOPED( "Frame/Replay/PathVisualizer/Prediction" );
     const ColliderStore& colliderStore = PhysicsEngine::ReadColliders( physicsEngine );
-    DrawReplayPredictionOverlay( replayRuntime, entities, colliderStore, tracer, ribbonQuota, budgetMilliseconds );
+    DrawReplayPredictionOverlay( replayRuntime,
+                                 prediction,
+                                 entities,
+                                 colliderStore,
+                                 tracer,
+                                 ribbonQuota,
+                                 budgetMilliseconds );
 }
 
 } // namespace
@@ -4689,6 +4696,7 @@ void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& contex
     const auto visualizerStart = std::chrono::steady_clock::now();
     ReplayRibbonDrawQuota ribbonQuota = BeginReplayRibbonDrawQuota( context.tracer );
     DrawReplayPredictionVisualizer( context.replayRuntime,
+                                    context.prediction,
                                     context.physics,
                                     context.entities,
                                     context.tracer,
@@ -4856,6 +4864,7 @@ void ReplayRuntime::RenderPathVisualizer( PhysicsEngine& physics,
 {
     tracer.ClearReplayTrajectoryStats();
     const SkullbonezCore::Runtime::ReplayOverlay::ReplayPathVisualizerRenderContext context{ *this,
+                                                                                             m_predictionOwner.State(),
                                                                                              physics,
                                                                                              entities,
                                                                                              tracer,
