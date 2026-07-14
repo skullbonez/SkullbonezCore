@@ -46,20 +46,20 @@ using SkullbonezCore::Runtime::ReplayGrowthExhaustionRule;
 using SkullbonezCore::Runtime::ReplayMemoryPolicy;
 using SkullbonezCore::Runtime::ReplayMemoryPolicyRequest;
 using SkullbonezCore::Runtime::ReplayMemoryPreset;
-using SkullbonezCore::Runtime::ReplayMemoryPresetPolicy;
+using SkullbonezCore::Runtime::ReplayTimelineOperations::ReplayMemoryPresetPolicy;
 using SkullbonezCore::Runtime::ReplayPresentationSample;
 using SkullbonezCore::Runtime::ReplayRecorder;
 using SkullbonezCore::Runtime::ReplayRecorderConfig;
 using SkullbonezCore::Runtime::ReplayRecorderStats;
 using SkullbonezCore::Runtime::ReplayRetainedDataOwner;
 using SkullbonezCore::Runtime::ReplaySceneTimelineResetInput;
-using SkullbonezCore::Runtime::SceneTimelineGeneratedConfigFlags;
-using SkullbonezCore::Runtime::SceneTimelineRecordsGeneratedConfig;
-using SkullbonezCore::Runtime::SceneTimelineResetClearsBranch;
+using SkullbonezCore::Runtime::ReplayTimelineOperations::SceneTimelineGeneratedConfigFlags;
+using SkullbonezCore::Runtime::ReplayTimelineOperations::SceneTimelineRecordsGeneratedConfig;
+using SkullbonezCore::Runtime::ReplayTimelineOperations::SceneTimelineResetClearsBranch;
 using SkullbonezCore::Runtime::ReplaySolverBodySample;
 using SkullbonezCore::Runtime::ReplaySolverFrameSample;
 using SkullbonezCore::Runtime::ReplaySolverRecorder;
-using SkullbonezCore::Runtime::ResolveReplayMemoryPolicy;
+using SkullbonezCore::Runtime::ReplayTimelineOperations::ResolveReplayMemoryPolicy;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace

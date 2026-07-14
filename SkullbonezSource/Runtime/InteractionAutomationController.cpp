@@ -72,6 +72,9 @@ Related:
 #include <sstream>
 
 using namespace SkullbonezCore::Runtime;
+using namespace SkullbonezCore::Runtime::ReplayPredictionArchiveOperations;
+using namespace SkullbonezCore::Runtime::ReplayScrubberOperations;
+using namespace SkullbonezCore::Runtime::ReplayVisualPacketFingerprintOperations;
 using namespace SkullbonezCore::Runtime::RunInternal;
 using namespace SkullbonezCore::Runtime::ReplayOverlay;
 using namespace SkullbonezCore::GameObjects;

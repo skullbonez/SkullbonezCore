@@ -1510,16 +1510,16 @@ uint64_t HashSolverWorldSnapshot( uint64_t hash, const ReplaySolverWorldSnapshot
 }
 } // namespace
 
-ReplayEventCommand SkullbonezCore::Runtime::BuildReplayEventCommand( ReplayEventKind kind,
-                                                                     ReplayFrameIndex frameIndex,
-                                                                     bool useNextFrame,
-                                                                     uint32_t flags,
-                                                                     int32_t value0,
-                                                                     int32_t value1,
-                                                                     int32_t value2,
-                                                                     int32_t value3,
-                                                                     uint64_t data0,
-                                                                     const char* text )
+ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildCommand( ReplayEventKind kind,
+                                                                                        ReplayFrameIndex frameIndex,
+                                                                                        bool useNextFrame,
+                                                                                        uint32_t flags,
+                                                                                        int32_t value0,
+                                                                                        int32_t value1,
+                                                                                        int32_t value2,
+                                                                                        int32_t value3,
+                                                                                        uint64_t data0,
+                                                                                        const char* text )
 {
     ReplayEventCommand command;
     command.frameIndex = frameIndex;
@@ -1538,7 +1538,8 @@ ReplayEventCommand SkullbonezCore::Runtime::BuildReplayEventCommand( ReplayEvent
     return command;
 }
 
-ReplayEventCommand SkullbonezCore::Runtime::BuildReplayGeneratedSceneConfigEvent( uint32_t flags,
+ReplayEventCommand
+SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildGeneratedSceneConfig( uint32_t flags,
                                                                                   int modelCount,
                                                                                   int solverBallCount,
                                                                                   int solverBoxCount,
@@ -1553,19 +1554,20 @@ ReplayEventCommand SkullbonezCore::Runtime::BuildReplayGeneratedSceneConfigEvent
     hash = HashInt( hash, static_cast<int32_t>( rngSeed ) );
     hash = HashInt( hash, gameModelCapacity );
     hash = HashInt( hash, static_cast<int32_t>( generatedObjectTypeOverride ) );
-    return BuildReplayEventCommand( ReplayEventKind::GeneratedSceneConfig,
-                                    0,
-                                    false,
-                                    flags,
-                                    modelCount,
-                                    solverBallCount,
-                                    solverBoxCount,
-                                    static_cast<int32_t>( rngSeed ),
-                                    hash,
-                                    "generated_scene_config" );
+    return BuildCommand( ReplayEventKind::GeneratedSceneConfig,
+                         0,
+                         false,
+                         flags,
+                         modelCount,
+                         solverBallCount,
+                         solverBoxCount,
+                         static_cast<int32_t>( rngSeed ),
+                         hash,
+                         "generated_scene_config" );
 }
 
-ReplayEventCommand SkullbonezCore::Runtime::BuildReplayWorldOverrideEvent( float previousGravity,
+ReplayEventCommand
+SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildWorldOverride( float previousGravity,
                                                                            float previousFluidHeight,
                                                                            float previousFluidDensity,
                                                                            float gravity,
@@ -1584,21 +1586,21 @@ ReplayEventCommand SkullbonezCore::Runtime::BuildReplayWorldOverrideEvent( float
     hash = HashFloat( hash, gravity );
     hash = HashFloat( hash, fluidHeight );
     hash = HashFloat( hash, fluidDensity );
-    return BuildReplayEventCommand( ReplayEventKind::WorldOverride,
-                                    0,
-                                    true,
-                                    flags,
-                                    SignedFloatBits( gravity ),
-                                    SignedFloatBits( fluidHeight ),
-                                    SignedFloatBits( fluidDensity ),
-                                    0,
-                                    hash,
-                                    "world_override" );
+    return BuildCommand( ReplayEventKind::WorldOverride,
+                         0,
+                         true,
+                         flags,
+                         SignedFloatBits( gravity ),
+                         SignedFloatBits( fluidHeight ),
+                         SignedFloatBits( fluidDensity ),
+                         0,
+                         hash,
+                         "world_override" );
 }
 
-ReplayEventCommand SkullbonezCore::Runtime::BuildReplayLauncherConfigEvent( uint32_t changedFlags,
-                                                                            float impulseStrength,
-                                                                            float projectileSpeed )
+ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildLauncherConfig( uint32_t changedFlags,
+                                                                                               float impulseStrength,
+                                                                                               float projectileSpeed )
 {
     if ( changedFlags == 0 )
     {
@@ -1607,19 +1609,20 @@ ReplayEventCommand SkullbonezCore::Runtime::BuildReplayLauncherConfigEvent( uint
     uint64_t hash = FNV64_OFFSET;
     hash = HashFloat( hash, impulseStrength );
     hash = HashFloat( hash, projectileSpeed );
-    return BuildReplayEventCommand( ReplayEventKind::LauncherConfig,
-                                    0,
-                                    true,
-                                    changedFlags,
-                                    SignedFloatBits( impulseStrength ),
-                                    SignedFloatBits( projectileSpeed ),
-                                    0,
-                                    0,
-                                    hash,
-                                    "launcher_config" );
+    return BuildCommand( ReplayEventKind::LauncherConfig,
+                         0,
+                         true,
+                         changedFlags,
+                         SignedFloatBits( impulseStrength ),
+                         SignedFloatBits( projectileSpeed ),
+                         0,
+                         0,
+                         hash,
+                         "launcher_config" );
 }
 
-ReplayEventCommand SkullbonezCore::Runtime::BuildReplayLauncherFireEvent( const Vector3& rayOrigin,
+ReplayEventCommand
+SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildLauncherFire( const Vector3& rayOrigin,
                                                                           const Vector3& rayDirection,
                                                                           const Vector3& cameraUp,
                                                                           bool projectile,
@@ -1646,19 +1649,20 @@ ReplayEventCommand SkullbonezCore::Runtime::BuildReplayLauncherFireEvent( const 
     hash = HashVector( hash, rayOrigin );
     hash = HashVector( hash, rayDirection );
     hash = HashVector( hash, cameraUp );
-    return BuildReplayEventCommand( ReplayEventKind::LauncherFire,
-                                    0,
-                                    true,
-                                    projectile ? REPLAY_LAUNCHER_FIRE_PROJECTILE : 0u,
-                                    projectile ? 1 : 0,
-                                    SignedFloatBits( impulseStrength ),
-                                    SignedFloatBits( projectileSpeed ),
-                                    modelCount,
-                                    hash,
-                                    payload );
+    return BuildCommand( ReplayEventKind::LauncherFire,
+                         0,
+                         true,
+                         projectile ? REPLAY_LAUNCHER_FIRE_PROJECTILE : 0u,
+                         projectile ? 1 : 0,
+                         SignedFloatBits( impulseStrength ),
+                         SignedFloatBits( projectileSpeed ),
+                         modelCount,
+                         hash,
+                         payload );
 }
 
-ReplayEventCommand SkullbonezCore::Runtime::BuildReplayEditorPlaceEvent( int objectType,
+ReplayEventCommand
+SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildEditorPlace( int objectType,
                                                                          bool fixedObject,
                                                                          bool terrainAlign,
                                                                          int modelCountBefore,
@@ -1692,19 +1696,19 @@ ReplayEventCommand SkullbonezCore::Runtime::BuildReplayEditorPlaceEvent( int obj
     uint32_t flags = 0;
     flags |= fixedObject ? REPLAY_EDITOR_PLACE_FIXED : 0u;
     flags |= terrainAlign ? REPLAY_EDITOR_PLACE_TERRAIN_ALIGN : 0u;
-    return BuildReplayEventCommand( ReplayEventKind::EditorPlace,
-                                    0,
-                                    true,
-                                    flags,
-                                    objectType,
-                                    fixedObject ? 1 : 0,
-                                    terrainAlign ? 1 : 0,
-                                    modelCountBefore,
-                                    hash,
-                                    payload );
+    return BuildCommand( ReplayEventKind::EditorPlace,
+                         0,
+                         true,
+                         flags,
+                         objectType,
+                         fixedObject ? 1 : 0,
+                         terrainAlign ? 1 : 0,
+                         modelCountBefore,
+                         hash,
+                         payload );
 }
 
-ReplayEventCommand SkullbonezCore::Runtime::BuildReplayEditorTransformEvent(
+ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildEditorTransform(
     int modelIndex,
     uint32_t changedFlags,
     uint32_t replayBodyId,
@@ -1765,19 +1769,20 @@ ReplayEventCommand SkullbonezCore::Runtime::BuildReplayEditorTransformEvent(
     hash = HashFloat( hash, qz );
     hash = HashFloat( hash, qw );
     hash = HashFloat( hash, scaleFactor );
-    return BuildReplayEventCommand( ReplayEventKind::EditorTransform,
-                                    0,
-                                    true,
-                                    changedFlags,
-                                    modelIndex,
-                                    static_cast<int32_t>( replayBodyId ),
-                                    modelCount,
-                                    scaleAxis,
-                                    hash,
-                                    payload );
+    return BuildCommand( ReplayEventKind::EditorTransform,
+                         0,
+                         true,
+                         changedFlags,
+                         modelIndex,
+                         static_cast<int32_t>( replayBodyId ),
+                         modelCount,
+                         scaleAxis,
+                         hash,
+                         payload );
 }
 
-uint64_t SkullbonezCore::Runtime::ComputeReplayPresentationStateHash( const ReplayPresentationSample& sample ) noexcept
+uint64_t SkullbonezCore::Runtime::ReplayRecorderOperations::ComputePresentationStateHash(
+    const ReplayPresentationSample& sample ) noexcept
 {
     uint64_t hash = FNV64_OFFSET;
     hash = HashWorld( hash, sample.world );

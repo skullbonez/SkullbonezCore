@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayAuthoringVelocity.cpp
 Purpose:
-  Implements replay velocity-edit picking, dragging, mutation, and overlay drawing.
+  Implements replay velocity-edit keyboard policy, picking, dragging, mutation, and overlay drawing.
 
 Summary:
   Velocity edit is a replay-owned interaction mode. It turns mouse rays into linear or angular
@@ -27,7 +27,9 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "ReplayAuthoring.h"
-#include "ReplayRuntime.h"
+#include "ReplayCoordination.h"
+#include "ReplayPresentation.h"
+#include "ReplayScrubber.h"
 #include "../../Assets/AssetKeys.h"
 #include "../Editor/EditorTools.h"
 #include "../Tools/RuntimeTools.h"
@@ -439,6 +441,46 @@ bool TryReplayVelocityAngularRayAngle( const ReplayVelocityBodyView& body,
 }
 } // namespace
 
+ReplayKeyboardVelocityEditResult
+ReplayAuthoring::ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input,
+                                            ReplayScrubber& scrubberOwner,
+                                            const ReplayPresentation& presentationOwner )
+{
+    ReplayKeyboardVelocityEditResult result;
+    if ( input.toggleAllowed && input.altDown && !VelocityEdit().keyboardAltWasDown )
+    {
+        const bool enableVelocityEdit = !VelocityEdit().enabled;
+        PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Toggle" );
+        if ( SetVelocityEditEnabled( enableVelocityEdit ) )
+        {
+            result.cancelToolDrag = true;
+            if ( enableVelocityEdit )
+            {
+                result.enterInteractive = true;
+                if ( scrubberOwner.SetLiveAdvanceHeld( true ) )
+                {
+                    const ReplayScrubberView scrubber = scrubberOwner.View();
+                    const bool useInspectionCamera =
+                        scrubber.historicalSamplePaused || scrubber.liveAdvanceHeld ||
+                        presentationOwner.CameraView().focusKind != RunReplayCameraFocusKind::None;
+                    result.cameraAction = useInspectionCamera ? ReplayKeyboardVelocityEditCameraAction::EnterInspection
+                                                              : ReplayKeyboardVelocityEditCameraAction::ExitInspection;
+                }
+                result.setWorldOwner = true;
+                result.worldOwner = WorldInteractionOwner::ReplayVelocityEdit;
+            }
+            else if ( input.currentWorldOwner == WorldInteractionOwner::ReplayVelocityEdit )
+            {
+                result.setWorldOwner = true;
+                result.worldOwner = WorldInteractionOwner::ReplayScrub;
+            }
+        }
+        scrubberOwner.KeepVisible( input.now, ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS );
+    }
+    ObserveVelocityEditAltKey( input.altDown );
+    return result;
+}
+
 
 bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwner,
                                              ReplayScrubber& scrubberOwner,
@@ -469,26 +511,26 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
     RuntimeInteractionController& m_interaction = interaction;
     const auto enterInspectionCamera = [&]()
     {
-        EnterReplayInspectionCamera( presentationOwner,
-                                     cameras,
-                                     camera,
-                                     normalizedCurrentMode,
-                                     m_interaction,
-                                     m_inputRouter,
-                                     mousePickup );
+        ReplayPresentationOperations::EnterInspectionCamera( presentationOwner,
+                                                             cameras,
+                                                             camera,
+                                                             normalizedCurrentMode,
+                                                             m_interaction,
+                                                             m_inputRouter,
+                                                             mousePickup );
     };
     const auto exitInspectionCamera = [&]()
     {
-        ExitReplayInspectionCamera( presentationOwner,
-                                    *this,
-                                    cameras,
-                                    terrain,
-                                    camera,
-                                    normalizedRestoreMode,
-                                    attachedFollow,
-                                    directorGrabbed,
-                                    m_interaction,
-                                    m_inputRouter );
+        ReplayPresentationOperations::ExitInspectionCamera( presentationOwner,
+                                                            *this,
+                                                            cameras,
+                                                            terrain,
+                                                            camera,
+                                                            normalizedRestoreMode,
+                                                            attachedFollow,
+                                                            directorGrabbed,
+                                                            m_interaction,
+                                                            m_inputRouter );
     };
     PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Input" );
     const RuntimeMouseEdges& pointer = m_inputRouter.UiSnapshot().mouse;

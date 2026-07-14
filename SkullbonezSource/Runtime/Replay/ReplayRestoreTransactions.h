@@ -1,10 +1,10 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplayRuntimeOwnerViews.h
+File: SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h
 Purpose:
-  Defines frame-scoped owner views used by replay startup and restore.
+  Defines frame-scoped transactions used by replay startup and restore.
 
 Summary:
-  These values are short-lived borrow packets assembled at the application
+  These operation-specific values are short-lived borrow packets assembled at the application
   composition boundary. They expose only the owners required by one replay
   operation and are never stored.
 

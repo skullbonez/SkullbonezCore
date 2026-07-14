@@ -39,6 +39,8 @@ namespace SkullbonezCore::Runtime
 struct RunReplayPathVisualizerState;
 struct RunReplayPredictionState;
 
+namespace ReplayPredictionArchiveOperations
+{
 bool BuildReplayPredictionArchive( const RunReplayPathVisualizerState& pathVisualizer,
                                    const RunReplayPredictionState& prediction,
                                    std::vector<uint8_t>& outBytes );
@@ -50,4 +52,5 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes,
                                   std::size_t reasonSize );
 
 bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, char* outReason, std::size_t reasonSize );
+} // namespace ReplayPredictionArchiveOperations
 } // namespace SkullbonezCore::Runtime

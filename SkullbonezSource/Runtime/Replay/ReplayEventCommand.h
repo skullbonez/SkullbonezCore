@@ -99,53 +99,55 @@ struct ReplayEventCommandBatch
     std::size_t count = 0;
 };
 
-ReplayEventCommand BuildReplayEventCommand( ReplayEventKind kind,
-                                            ReplayFrameIndex frameIndex,
-                                            bool useNextFrame,
-                                            uint32_t flags,
-                                            int32_t value0,
-                                            int32_t value1,
-                                            int32_t value2,
-                                            int32_t value3,
-                                            uint64_t data0,
-                                            const char* text );
-ReplayEventCommand BuildReplayGeneratedSceneConfigEvent( uint32_t flags,
-                                                         int modelCount,
-                                                         int solverBallCount,
-                                                         int solverBoxCount,
-                                                         uint32_t rngSeed,
-                                                         int gameModelCapacity,
-                                                         uint32_t generatedObjectTypeOverride );
-ReplayEventCommand BuildReplayWorldOverrideEvent( float previousGravity,
-                                                  float previousFluidHeight,
-                                                  float previousFluidDensity,
-                                                  float gravity,
-                                                  float fluidHeight,
-                                                  float fluidDensity );
-ReplayEventCommand
-BuildReplayLauncherConfigEvent( uint32_t changedFlags, float impulseStrength, float projectileSpeed );
-ReplayEventCommand BuildReplayLauncherFireEvent( const Math::Vector::Vector3& rayOrigin,
-                                                 const Math::Vector::Vector3& rayDirection,
-                                                 const Math::Vector::Vector3& cameraUp,
-                                                 bool projectile,
-                                                 float impulseStrength,
-                                                 float projectileSpeed,
-                                                 int modelCount );
-ReplayEventCommand BuildReplayEditorPlaceEvent( int objectType,
-                                                bool fixedObject,
-                                                bool terrainAlign,
-                                                int modelCountBefore,
-                                                const Math::Vector::Vector3& terrainPoint,
-                                                const Math::Vector::Vector3& placementScale,
-                                                float placementYawRadians );
-ReplayEventCommand BuildReplayEditorTransformEvent( int modelIndex,
-                                                    uint32_t changedFlags,
-                                                    uint32_t replayBodyId,
-                                                    const Math::Vector::Vector3& position,
-                                                    const Math::Orientation::Quaternion& orientation,
-                                                    int modelCount,
-                                                    int scaleAxis,
-                                                    float scaleFactor );
+namespace ReplayEventCommandOperations
+{
+ReplayEventCommand BuildCommand( ReplayEventKind kind,
+                                 ReplayFrameIndex frameIndex,
+                                 bool useNextFrame,
+                                 uint32_t flags,
+                                 int32_t value0,
+                                 int32_t value1,
+                                 int32_t value2,
+                                 int32_t value3,
+                                 uint64_t data0,
+                                 const char* text );
+ReplayEventCommand BuildGeneratedSceneConfig( uint32_t flags,
+                                              int modelCount,
+                                              int solverBallCount,
+                                              int solverBoxCount,
+                                              uint32_t rngSeed,
+                                              int gameModelCapacity,
+                                              uint32_t generatedObjectTypeOverride );
+ReplayEventCommand BuildWorldOverride( float previousGravity,
+                                       float previousFluidHeight,
+                                       float previousFluidDensity,
+                                       float gravity,
+                                       float fluidHeight,
+                                       float fluidDensity );
+ReplayEventCommand BuildLauncherConfig( uint32_t changedFlags, float impulseStrength, float projectileSpeed );
+ReplayEventCommand BuildLauncherFire( const Math::Vector::Vector3& rayOrigin,
+                                      const Math::Vector::Vector3& rayDirection,
+                                      const Math::Vector::Vector3& cameraUp,
+                                      bool projectile,
+                                      float impulseStrength,
+                                      float projectileSpeed,
+                                      int modelCount );
+ReplayEventCommand BuildEditorPlace( int objectType,
+                                     bool fixedObject,
+                                     bool terrainAlign,
+                                     int modelCountBefore,
+                                     const Math::Vector::Vector3& terrainPoint,
+                                     const Math::Vector::Vector3& placementScale,
+                                     float placementYawRadians );
+ReplayEventCommand BuildEditorTransform( int modelIndex,
+                                         uint32_t changedFlags,
+                                         uint32_t replayBodyId,
+                                         const Math::Vector::Vector3& position,
+                                         const Math::Orientation::Quaternion& orientation,
+                                         int modelCount,
+                                         int scaleAxis,
+                                         float scaleFactor );
+} // namespace ReplayEventCommandOperations
 
 } // namespace Runtime
 } // namespace SkullbonezCore

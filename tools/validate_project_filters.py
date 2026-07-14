@@ -315,7 +315,7 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayProbeState",
     "ReplayRestoreService",
     "ReplayRuntime",
-    "ReplayRuntimeOwnerViews",
+    "ReplayRestoreTransactions",
     "ReplayScrubber",
     "ReplayScrubberTools",
     "ReplayTimeline",

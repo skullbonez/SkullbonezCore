@@ -40,7 +40,7 @@ Related:
 #include "InputController.h"
 #include "Replay/ReplayOverlayLayout.h"
 #include "Replay/ReplayRestoreService.h"
-#include "Replay/ReplayRuntimeOwnerViews.h"
+#include "Replay/ReplayRestoreTransactions.h"
 #include "RunDemoDirector.h"
 #include "GraphicsStressController.h"
 #include "RenderDefaultsStore.h"
@@ -75,6 +75,7 @@ Related:
 #include <cstring>
 
 using namespace SkullbonezCore::Runtime;
+using namespace SkullbonezCore::Runtime::ReplayTimelineOperations;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
@@ -170,17 +171,17 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         }
         for ( std::size_t index = 0; index < batch.savedCount; ++index )
         {
-            m_replayRuntime.SubmitEvent(
-                BuildReplayEventCommand( ReplayEventKind::OwnerAction,
-                                         0,
-                                         true,
-                                         0,
-                                         static_cast<int32_t>( ReplayOwnerEventCode::CaptureScreenshot ),
-                                         0,
-                                         0,
-                                         0,
-                                         0,
-                                         batch.saved[index].path ) );
+            m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand(
+                ReplayEventKind::OwnerAction,
+                0,
+                true,
+                0,
+                static_cast<int32_t>( ReplayOwnerEventCode::CaptureScreenshot ),
+                0,
+                0,
+                0,
+                0,
+                batch.saved[index].path ) );
         }
         return true;
     };
@@ -203,16 +204,16 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             const ReplayOwnerEventCode code = batch.saved[index] == RenderDefaultsRequestType::Ordinary
                                                   ? ReplayOwnerEventCode::RenderSaveOrdinaryDefaults
                                                   : ReplayOwnerEventCode::RenderSaveCinematicDefaults;
-            m_replayRuntime.SubmitEvent( BuildReplayEventCommand( ReplayEventKind::OwnerAction,
-                                                                  0,
-                                                                  true,
-                                                                  0,
-                                                                  static_cast<int32_t>( code ),
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  ReplayOwnerEventName( code ) ) );
+            m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand( ReplayEventKind::OwnerAction,
+                                                                                     0,
+                                                                                     true,
+                                                                                     0,
+                                                                                     static_cast<int32_t>( code ),
+                                                                                     0,
+                                                                                     0,
+                                                                                     0,
+                                                                                     0,
+                                                                                     ReplayOwnerEventName( code ) ) );
         }
         return true;
     };
@@ -826,7 +827,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                          m_timers.simulationTimer.GetTotalTime() } );
         if ( velocityEditResult.cancelToolDrag )
         {
-            m_replayRuntime.CancelToolDragState( m_interaction, m_inputRouter );
+            ReplayInteractionOperations::CancelToolDragState( m_interaction, m_inputRouter );
         }
         if ( velocityEditResult.enterInteractive )
         {

@@ -38,6 +38,8 @@ namespace Runtime
 inline constexpr float REPLAY_SCRUBBER_LIVE_THRESHOLD = 0.995f;
 inline constexpr float REPLAY_SCRUBBER_PRESENT_EPSILON = 0.0035f;
 
+namespace ReplayScrubberOperations
+{
 inline bool ReplayTimelineHasFuture( float presentT ) noexcept
 {
     return presentT < REPLAY_SCRUBBER_LIVE_THRESHOLD;
@@ -74,6 +76,7 @@ inline float ReplayPredictionNormalizedFromTrack( float position, float presentT
     }
     return std::clamp( ( position - presentT ) / ( 1.0f - presentT ), 0.0f, 1.0f );
 }
+} // namespace ReplayScrubberOperations
 
 enum class RunReplayTrack
 {

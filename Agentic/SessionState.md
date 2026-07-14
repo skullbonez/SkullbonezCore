@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-14th-july` |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Run replay M8's mandatory logical-type ownership, honest-rename, and comment review against the reclosed M3-M7 owners, then rerun the unchanged frame-exact 200-box gate |
-| Active/future progress | 8 / 16 tasks = 50% overall (decomposition + spline plans only; completed past plans and externally blocked work are excluded) |
+| Current objective | Start future-path vector-splines T1 from the completed replay-decomposition boundary; do not refresh the golden manifest without explicit owner approval |
+| Active/future progress | 9 / 16 tasks = 56% overall (decomposition + spline plans only; completed past plans and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | M7 reclosure moved probe decisions into `ReplayProbeRunner`, unified production/probe loaded activation, returned bounded tool/editor event values, and reduced the root class to 299 lines. Comment audit 25/25; project/filter 681/681; unchanged replay oracle 493.6s; `validate_fast` 67.0s with 196/196 tests and 4,152/4,152 assertions; scrub exit-37 propagation 0.1s; full gate 113.4s with zero warnings, zero DX12 errors, matching screenshots, and byte-exact physics. No baseline changed. |
+| Validation for current edits | Replay M8 closed at 9/9: no tracked `RunReplay*` files, six concrete root owners, owner-namespaced helpers, and 42/42 touched-source comment audit. Settled-source replay oracle passed in ~8m28s with 2,401 ticks and all false-pass controls; `validate_fast` passed 196/196 tests and 4,152 assertions; filters 681/681; scrub propagated exit 37; `validate_full` passed in 1m39s with zero warnings, zero DX12 errors, matching screenshots, and byte-exact physics. No baseline changed. |
 
 ## Live Queue
 
@@ -25,7 +25,7 @@ plan inventory.
    `Toppled` now means more than half the wall is directly grounded and sleeping;
    the approved base has 187/200 through the final second. Independent V6 review
    found no blocking issue.
-2. `replay-monolith-decomposition` is active at 8/9 after the mandatory M8
+2. `replay-monolith-decomposition` is complete at 9/9 after the mandatory M8
    ownership review reopened M3-M7 and remediation reclosed M3-M6. M0 certified the exact
    starting tree; M1 bound all 55 current header type definitions/aliases and
    212 free functions to named owners; M2 mechanically split the six owner/value
@@ -44,8 +44,11 @@ plan inventory.
    diagnostics traversal, root-owned cause/velocity authoring input, and the
    stale root allocation exception. M7 is now reclosed: probes own their
    workflow decisions, loaded activation is shared with production, tool/editor
-   events cross a bounded value seam, and the root class is 299 lines. M8's
-   mandatory independent logical-type review is the remaining decomposition task.
+   events cross a bounded value seam, and the root class is 299 lines. M8
+   removed the final `RunReplay*` names, placed helpers in owner namespaces,
+   renamed the narrow restore transaction header, audited 42/42 touched source
+   files, and reviewed every root method across all three implementation TUs.
+   No credible authority, reach-back, forwarding, or next-god-object finding remains.
    Every M0-M8 task,
    including inventory documentation, must run the
    unchanged 200-box gate before it can be checked or committed.
@@ -136,15 +139,10 @@ plan inventory.
 ## Next Handoff
 
 Run the repository-local orchestrator against
-`Plans/TODO/replay-monolith-decomposition.md` reopened M3-M7. M3-M7 are now
-reclosed. Prediction and
-drawing are physically separate, prediction state is private, presentation
-mutation is command-only, frame views carry no replay root, and the workspace
-input plus save-probe output are value-only. Shutdown stats are one value
-report, velocity-gizmo drawing is authoring-owned, launcher capture lives in
-the presentation TU, and world tuning publishes values without replay access.
-Next run M8's independent logical-type ownership review, honest owner-TU/
-namespace rename pass, and touched-file comment audit. Any credible authority,
-reach-back, forwarding, or next-god-object finding reopens its owner task and
-must be fixed before the unchanged one-presentation 200-box oracle and final
-full/scrub gates run again.
+`Plans/TODO/future-path-vector-splines.md`. Replay decomposition is complete at
+9/9 with its unchanged oracle and final full/scrub gates green. Start spline T1
+(near-black prediction sky), preserve prediction simulation/capture behavior,
+and follow the plan's render/shader validation map. The active/future portfolio
+is 9/16 = 56%; this percentage includes only decomposition plus spline tasks and
+excludes completed past plans and externally blocked work. Any golden-manifest
+refresh remains owner-gated and requires explicit approval.

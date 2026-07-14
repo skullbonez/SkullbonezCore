@@ -76,6 +76,7 @@ Related:
 #pragma warning( pop )
 
 using namespace SkullbonezCore::Runtime;
+using namespace SkullbonezCore::Runtime::ReplayTimelineOperations;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
@@ -731,12 +732,12 @@ SceneController::Load( const SceneLoadRequest& request,
                                                                      resetSnapshot.worldGravity,
                                                                      resetSnapshot.worldFluidHeight,
                                                                      resetSnapshot.worldFluidDensity );
-            m_replayRuntime.SubmitEvent( BuildReplayWorldOverrideEvent( change.previousGravity,
-                                                                        change.previousFluidHeight,
-                                                                        change.previousFluidDensity,
-                                                                        change.gravity,
-                                                                        change.fluidHeight,
-                                                                        change.fluidDensity ) );
+            m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity,
+                                                                                           change.previousFluidHeight,
+                                                                                           change.previousFluidDensity,
+                                                                                           change.gravity,
+                                                                                           change.fluidHeight,
+                                                                                           change.fluidDensity ) );
         }
 
         SceneState().isSceneMode = false;
@@ -947,12 +948,12 @@ SceneController::Load( const SceneLoadRequest& request,
                                                                      resetSnapshot.worldGravity,
                                                                      resetSnapshot.worldFluidHeight,
                                                                      resetSnapshot.worldFluidDensity );
-            m_replayRuntime.SubmitEvent( BuildReplayWorldOverrideEvent( change.previousGravity,
-                                                                        change.previousFluidHeight,
-                                                                        change.previousFluidDensity,
-                                                                        change.gravity,
-                                                                        change.fluidHeight,
-                                                                        change.fluidDensity ) );
+            m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity,
+                                                                                           change.previousFluidHeight,
+                                                                                           change.previousFluidDensity,
+                                                                                           change.gravity,
+                                                                                           change.fluidHeight,
+                                                                                           change.fluidDensity ) );
         }
 
         SceneAuthoredSetup::SetUpCameras(

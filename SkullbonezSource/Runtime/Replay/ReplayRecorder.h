@@ -202,7 +202,10 @@ struct ReplayPresentationSample
 // Recomputes the durable presentation digest from values owned by a fully
 // resolved sample. Artifact readers use it to reject any v3 visual-state row
 // that cannot reproduce the writer's exact delta/hash contract.
-uint64_t ComputeReplayPresentationStateHash( const ReplayPresentationSample& sample ) noexcept;
+namespace ReplayRecorderOperations
+{
+uint64_t ComputePresentationStateHash( const ReplayPresentationSample& sample ) noexcept;
+} // namespace ReplayRecorderOperations
 
 struct ReplaySolverBodySample
 {

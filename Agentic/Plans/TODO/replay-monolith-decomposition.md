@@ -1,7 +1,7 @@
 # Replay Monolith Decomposition — Owner Boundaries Inside The Replay Subsystem
 
 Date: 2026-07-13
-Status: Live — 8/9 tasks complete; M3-M7 reclosed, mandatory M8 ownership review remains
+Status: Complete — 9/9 tasks; M3-M7 reclosed and M8 ownership closure passed
 Branch: `nightrunner-14th-july`
 Impact area: `SkullbonezSource/Runtime/Replay/*` (26,060 lines), the two
 external consumers `Runtime/Run.cpp` and `Runtime/RunUiTextPass.cpp`, project
@@ -35,13 +35,14 @@ The replay subsystem is externally contained but internally undifferentiated:
 
 What is NOT broken and must not be redesigned: the prediction single-writer /
 published-prefix protocol, the recorder ring/eviction design, the
-`ReplayRuntimeOwnerViews.h` never-stored borrow-view idiom, and the artifact
-V2 format. This plan moves them intact behind owners.
+the never-stored borrow-view idiom (then in `ReplayRuntimeOwnerViews.h`, renamed
+to `ReplayRestoreTransactions.h` at M8), and the artifact V2 format. This plan
+moves them intact behind owners.
 
 ## Goal
 
 `ReplayRuntime` becomes a thin composition root (the same closure `Run`
-received): it constructs five concrete owners, sequences per-frame order
+received): it constructs six concrete replay owners, sequences per-frame order
 (record → scrub-or-predict → present), and holds no business state. Each owner
 has its own header; tool TUs include only the slice they use; Run consumes a
 per-frame value snapshot instead of `ReplayRuntime&`.
@@ -102,8 +103,10 @@ known-good golden manifest.
   plus the shared value header per M1's map; move type definitions without
   editing their bodies; `ReplayRuntime.h` shrinks to the composition root
   declaration and owner includes. Update includes in every replay TU so each
-  tool includes only its slice; `ReplayRuntimeOwnerViews.h` keeps working
-  against the new headers. Mechanical only — no member moves yet, no renames.
+  tool includes only its slice; the then-named `ReplayRuntimeOwnerViews.h`
+  keeps working against the new headers (it becomes
+  `ReplayRestoreTransactions.h` at M8). Mechanical only — no member moves yet,
+  no renames.
   Acceptance: the current header has no concrete top-level owner type body;
   every split TU names only the owner slices it uses before the temporary root
   include; zero warnings. The final sub-300-line composition root is measured at
@@ -179,7 +182,7 @@ known-good golden manifest.
   `tools\validate_replay_visual_fidelity.bat` first,
   `tools\validate_replay_scrub.bat`, and `tools\validate_full.bat` at the PR
   gate.
-- [ ] **M8 — Honest renames, comment audit, and mandatory closure review.**
+- [x] **M8 — Honest renames, comment audit, and mandatory closure review.**
   Rename `RunReplay*.cpp` to owner-named files (`ReplayPresentation.cpp`,
   `ReplayScrubberTools` content merged into its owner TU, etc.); update
   `.vcxproj`/`.filters` (`tools\validate_project_filters` clean); free
@@ -1382,6 +1385,51 @@ Thirty-fifth ownership-remediation checkpoint and M6 closure:
   credible finding. Active/future portfolio progress is now 8/16, or 50%; this
   percentage covers active and future decomposition plus spline work only and
   excludes completed past plans and externally blocked work.
+
+## M8 Closure Checkpoint — 2026-07-15
+
+- The final tracked inventory contains no `RunReplay*.cpp` or `RunReplay*.h`
+  files. Cause-tree construction now lives in `ReplayAuthoringCauseTree.cpp`,
+  keyboard velocity policy lives in `ReplayAuthoringVelocity.cpp`, and public
+  replay helpers are owned by explicit `Replay*Operations` namespaces or remain
+  file-local. Project and filter metadata name the surviving owner files.
+- The vague `ReplayRuntimeOwnerViews.h` migration name was retired in favor of
+  `ReplayRestoreTransactions.h`. Its startup, sample-restore, and topology
+  values are operation-specific synchronous borrow packets assembled at three
+  application composition sites; none is stored and none can reach back into
+  `Run` or `ReplayRuntime`.
+- The mandatory logical-type review inspected all 64 `ReplayRuntime` methods
+  across `ReplayRuntime.cpp`, `ReplayScrubberTools.cpp`, and
+  `ReplayValidation.cpp` as one surface. The root retains exactly six cohesive
+  replay owners and no host pointer/reference, callback pack, friend escape,
+  `void*` authority, broad mutable context, or owner back-reference. Thin
+  methods either compose multiple owners or publish bounded commands/views;
+  no unrelated responsibility or next-god-object finding remained.
+- The dedicated read-only rubber-duck pass
+  `replay-monolith-decomposition-duck-03-local` found and drove three final
+  corrections before its clean rerun: the transaction-header rename, removal
+  of stale `ReplayRuntime` ownership claims, and owner namespaces for externally
+  visible replay helpers. The review was run locally because this execution did
+  not have authority to delegate to a subagent.
+- The M8 touched-source comment checklist is the reconciled diff inventory:
+  42/42 source-bearing files inspected against the comment-style guide, with
+  zero deferred and zero unchecked. Dense moved code retains nearby concept,
+  invariant, lifetime, and hazard teaching where required.
+- From the settled formatted source, the unchanged replay visual-fidelity oracle
+  passed in approximately 8m28s: 15/15 CPU controls (67 assertions), one engine
+  and one prediction generation, 2,401 exact ticks, all 200 bricks moved, 187
+  toppled/grounded sleepers, 199 causal nodes, one presented cascade, 62
+  saved/loaded ticks, and every injected false-pass control detected.
+  `validate_fast` passed with 196/196 tests and 4,152/4,152 assertions;
+  `validate_project_filters` passed 681/681 entries; `validate_full` passed in
+  1m39s with all CPU lanes, zero warnings, zero DX12 errors, matching screenshots,
+  standalone physics, and the 44,401-line byte-exact varied baseline. The scrub
+  failure-propagation probe returned the required exit 37 without launching an
+  engine. No approved baseline changed.
+- Replay decomposition is complete at 9/9. Active/future portfolio progress is
+  now 9/16, or 56% rounded. This percentage covers only the active/future replay
+  decomposition and spline plans; completed past plans and externally blocked
+  work are excluded from both numerator and denominator.
 
 ## M1 Binding Type Inventory
 

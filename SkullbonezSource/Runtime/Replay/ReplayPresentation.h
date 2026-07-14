@@ -144,29 +144,29 @@ struct ReplayPathPickResult
     bool exitInspectionCamera = false;
 };
 
+namespace ReplayPresentationOperations
+{
 // Stateless host-camera transitions shared by scrubber and authoring tools.
 // Every owner reference is a synchronous borrow; neither operation stores host
 // or replay authority after returning.
-void EnterReplayInspectionCamera( ReplayPresentation& presentation,
-                                  Environment::CameraCollection* cameras,
-                                  RunCameraState& camera,
-                                  RunCameraMode normalizedCurrentMode,
-                                  RuntimeInteractionController& interaction,
-                                  InputRouter& inputRouter,
-                                  RunMousePickupState& mousePickup );
-void ExitReplayInspectionCamera( ReplayPresentation& presentation,
-                                 const ReplayAuthoring& authoring,
-                                 Environment::CameraCollection* cameras,
-                                 Geometry::Terrain* terrain,
-                                 RunCameraState& camera,
-                                 RunCameraMode normalizedRestoreMode,
-                                 bool attachedFollow,
-                                 bool directorGrabbed,
-                                 RuntimeInteractionController& interaction,
-                                 InputRouter& inputRouter );
+void EnterInspectionCamera( ReplayPresentation& presentation,
+                            Environment::CameraCollection* cameras,
+                            RunCameraState& camera,
+                            RunCameraMode normalizedCurrentMode,
+                            RuntimeInteractionController& interaction,
+                            InputRouter& inputRouter,
+                            RunMousePickupState& mousePickup );
+void ExitInspectionCamera( ReplayPresentation& presentation,
+                           const ReplayAuthoring& authoring,
+                           Environment::CameraCollection* cameras,
+                           Geometry::Terrain* terrain,
+                           RunCameraState& camera,
+                           RunCameraMode normalizedRestoreMode,
+                           bool attachedFollow,
+                           bool directorGrabbed,
+                           RuntimeInteractionController& interaction,
+                           InputRouter& inputRouter );
 
-namespace ReplayPresentationOperations
-{
 // Applies the replay-owner and host-camera reaction after ReplayTimeline has
 // committed a presentation artifact. Production startup and Debug probes share
 // this operation so validation cannot drift from the operator-visible path.

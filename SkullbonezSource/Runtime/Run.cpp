@@ -32,7 +32,7 @@ Related:
 #include "WindowConstants.h"
 #include "Replay/ReplayOverlayLayout.h"
 #include "Replay/ReplayRestoreService.h"
-#include "Replay/ReplayRuntimeOwnerViews.h"
+#include "Replay/ReplayRestoreTransactions.h"
 #include "Replay/ReplayV2Artifact.h"
 #include "RuntimeFileWriter.h"
 #include "Allocation/RuntimeAllocationTracker.h"
@@ -50,6 +50,7 @@ Related:
 #include <cstring>
 
 using namespace SkullbonezCore::Runtime;
+using namespace SkullbonezCore::Runtime::ReplayTimelineOperations;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;

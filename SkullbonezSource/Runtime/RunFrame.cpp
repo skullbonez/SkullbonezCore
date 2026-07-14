@@ -43,7 +43,7 @@ Related:
 #include "../Core/WorkerPool.h"
 #include "RuntimeStressController.h"
 #include "InputFrame.h"
-#include "Replay/ReplayRuntimeOwnerViews.h"
+#include "Replay/ReplayRestoreTransactions.h"
 #include "Replay/ReplayOverlayRenderer.h"
 #include "Replay/ReplayRestoreService.h"
 #include "RunDemoDirector.h"
@@ -78,6 +78,7 @@ Related:
 #include <vector>
 
 using namespace SkullbonezCore::Runtime;
+using namespace SkullbonezCore::Runtime::ReplayTimelineOperations;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;

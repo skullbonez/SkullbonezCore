@@ -43,7 +43,7 @@ Related:
 #include "../../Physics/PhysicsEngine.h"
 #include "../InputController.h"
 #include "ReplayOverlayLayout.h"
-#include "ReplayRuntimeOwnerViews.h"
+#include "ReplayRestoreTransactions.h"
 #include "../../World/Terrain.h"
 
 #include <algorithm>
@@ -54,6 +54,7 @@ Related:
 #include <commdlg.h>
 
 using namespace SkullbonezCore::Runtime;
+using namespace SkullbonezCore::Runtime::ReplayScrubberOperations;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Runtime::ReplayOverlay;
 using SkullbonezCore::Geometry::XZBounds;
@@ -177,14 +178,48 @@ bool IsReplayScrubberToolOwner( WorldInteractionOwner owner )
 }
 } // namespace
 
+void SkullbonezCore::Runtime::ReplayInteractionOperations::CancelToolGesture(
+    RuntimeInteractionController& interaction )
+{
+    switch ( interaction.Gesture().kind )
+    {
+    case RuntimeInteractionGestureKind::ReplayScrubDrag:
+    case RuntimeInteractionGestureKind::ReplayVelocityDrag:
+    case RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag:
+    case RuntimeInteractionGestureKind::ReplayCauseTreeDrag:
+        interaction.EndGestureIfKind( interaction.Gesture().kind );
+        break;
+    default:
+        break;
+    }
+}
 
-void SkullbonezCore::Runtime::EnterReplayInspectionCamera( ReplayPresentation& presentation,
-                                                           Environment::CameraCollection* cameras,
-                                                           RunCameraState& camera,
-                                                           RunCameraMode normalizedCurrentMode,
-                                                           RuntimeInteractionController& interaction,
-                                                           InputRouter& inputRouter,
-                                                           RunMousePickupState& mousePickup )
+void SkullbonezCore::Runtime::ReplayInteractionOperations::CancelToolDragState(
+    RuntimeInteractionController& interaction,
+    InputRouter& inputRouter )
+{
+    const RuntimeInteractionGestureKind gesture = interaction.Gesture().kind;
+    const bool ownsReplayCapture = interaction.PointerCapture() == RuntimePointerCaptureOwner::ToolGesture &&
+                                   ( gesture == RuntimeInteractionGestureKind::ReplayScrubDrag ||
+                                     gesture == RuntimeInteractionGestureKind::ReplayVelocityDrag ||
+                                     gesture == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag ||
+                                     gesture == RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
+    CancelToolGesture( interaction );
+    if ( ownsReplayCapture )
+    {
+        inputRouter.ReleaseNativeCapture();
+    }
+}
+
+
+void SkullbonezCore::Runtime::ReplayPresentationOperations::EnterInspectionCamera(
+    ReplayPresentation& presentation,
+    Environment::CameraCollection* cameras,
+    RunCameraState& camera,
+    RunCameraMode normalizedCurrentMode,
+    RuntimeInteractionController& interaction,
+    InputRouter& inputRouter,
+    RunMousePickupState& mousePickup )
 {
     // Lifetime: Replay camera activation captures the current camera/mode so
     // exiting scrub/velocity/cause inspection can restore the operator's view.
@@ -257,16 +292,17 @@ void SkullbonezCore::Runtime::EnterReplayInspectionCamera( ReplayPresentation& p
 }
 
 
-void SkullbonezCore::Runtime::ExitReplayInspectionCamera( ReplayPresentation& presentation,
-                                                          const ReplayAuthoring& authoring,
-                                                          Environment::CameraCollection* cameras,
-                                                          Geometry::Terrain* terrain,
-                                                          RunCameraState& camera,
-                                                          RunCameraMode normalizedRestoreMode,
-                                                          bool attachedFollow,
-                                                          bool directorGrabbed,
-                                                          RuntimeInteractionController& interaction,
-                                                          InputRouter& inputRouter )
+void SkullbonezCore::Runtime::ReplayPresentationOperations::ExitInspectionCamera(
+    ReplayPresentation& presentation,
+    const ReplayAuthoring& authoring,
+    Environment::CameraCollection* cameras,
+    Geometry::Terrain* terrain,
+    RunCameraState& camera,
+    RunCameraMode normalizedRestoreMode,
+    bool attachedFollow,
+    bool directorGrabbed,
+    RuntimeInteractionController& interaction,
+    InputRouter& inputRouter )
 {
     const RunReplayCameraState replayCamera = presentation.CameraView();
     if ( !replayCamera.active )
@@ -378,16 +414,16 @@ bool SkullbonezCore::Runtime::ReplayPresentationOperations::ActivateLoadedPresen
 
     (void)presentation.ClearCameraFocus();
     authoring.ClearCauseTreeFocus();
-    ExitReplayInspectionCamera( presentation,
-                                authoring,
-                                cameras,
-                                terrain,
-                                camera,
-                                normalizedRestoreMode,
-                                attachedFollow,
-                                directorGrabbed,
-                                interaction,
-                                inputRouter );
+    ExitInspectionCamera( presentation,
+                          authoring,
+                          cameras,
+                          terrain,
+                          camera,
+                          normalizedRestoreMode,
+                          attachedFollow,
+                          directorGrabbed,
+                          interaction,
+                          inputRouter );
 
     presentation.ClearPathState();
     authoring.ResetCauseTreeRows();
@@ -399,13 +435,13 @@ bool SkullbonezCore::Runtime::ReplayPresentationOperations::ActivateLoadedPresen
     interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
                                                      WorldInteractionOwner::ReplayScrub,
                                                      InteractionExitReason::EnterReplay );
-    EnterReplayInspectionCamera( presentation,
-                                 cameras,
-                                 camera,
-                                 normalizedCurrentMode,
-                                 interaction,
-                                 inputRouter,
-                                 mousePickup );
+    EnterInspectionCamera( presentation,
+                           cameras,
+                           camera,
+                           normalizedCurrentMode,
+                           interaction,
+                           inputRouter,
+                           mousePickup );
     return true;
 }
 
@@ -416,13 +452,13 @@ void ReplayRuntime::EnterInspectionCamera( Environment::CameraCollection* camera
                                            InputRouter& inputRouter,
                                            RunMousePickupState& mousePickup )
 {
-    EnterReplayInspectionCamera( m_visualPresentation,
-                                 cameras,
-                                 camera,
-                                 normalizedCurrentMode,
-                                 interaction,
-                                 inputRouter,
-                                 mousePickup );
+    ReplayPresentationOperations::EnterInspectionCamera( m_visualPresentation,
+                                                         cameras,
+                                                         camera,
+                                                         normalizedCurrentMode,
+                                                         interaction,
+                                                         inputRouter,
+                                                         mousePickup );
 }
 
 void ReplayRuntime::ExitInspectionCamera( Environment::CameraCollection* cameras,
@@ -434,16 +470,16 @@ void ReplayRuntime::ExitInspectionCamera( Environment::CameraCollection* cameras
                                           RuntimeInteractionController& interaction,
                                           InputRouter& inputRouter )
 {
-    ExitReplayInspectionCamera( m_visualPresentation,
-                                m_authoring,
-                                cameras,
-                                terrain,
-                                camera,
-                                normalizedRestoreMode,
-                                attachedFollow,
-                                directorGrabbed,
-                                interaction,
-                                inputRouter );
+    ReplayPresentationOperations::ExitInspectionCamera( m_visualPresentation,
+                                                        m_authoring,
+                                                        cameras,
+                                                        terrain,
+                                                        camera,
+                                                        normalizedRestoreMode,
+                                                        attachedFollow,
+                                                        directorGrabbed,
+                                                        interaction,
+                                                        inputRouter );
 }
 
 bool ReplayRuntime::SavePresentationFromScrubber( double now )
@@ -609,35 +645,35 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input,
 void ReplayRuntime::ResetSceneTimeline( const ReplaySceneTimelineResetInput& input,
                                         const ReplaySceneTimelineResetOwners& owners )
 {
-    CancelToolDragState( owners.interaction, owners.inputRouter );
+    ReplayInteractionOperations::CancelToolDragState( owners.interaction, owners.inputRouter );
     const ReplaySceneTimelineResetResult begin = BeginSceneTimelineReset( input );
     if ( begin.exitInspectionCamera )
     {
-        ExitReplayInspectionCamera( m_visualPresentation,
-                                    m_authoring,
-                                    owners.cameras,
-                                    owners.terrain,
-                                    owners.camera,
-                                    owners.normalizedRestoreMode,
-                                    owners.attachedFollow,
-                                    owners.directorGrabbed,
-                                    owners.interaction,
-                                    owners.inputRouter );
+        ReplayPresentationOperations::ExitInspectionCamera( m_visualPresentation,
+                                                            m_authoring,
+                                                            owners.cameras,
+                                                            owners.terrain,
+                                                            owners.camera,
+                                                            owners.normalizedRestoreMode,
+                                                            owners.attachedFollow,
+                                                            owners.directorGrabbed,
+                                                            owners.interaction,
+                                                            owners.inputRouter );
     }
 
     const ReplaySceneTimelineResetResult finish = FinishSceneTimelineReset( input );
     if ( finish.exitInspectionCamera )
     {
-        ExitReplayInspectionCamera( m_visualPresentation,
-                                    m_authoring,
-                                    owners.cameras,
-                                    owners.terrain,
-                                    owners.camera,
-                                    owners.normalizedRestoreMode,
-                                    owners.attachedFollow,
-                                    owners.directorGrabbed,
-                                    owners.interaction,
-                                    owners.inputRouter );
+        ReplayPresentationOperations::ExitInspectionCamera( m_visualPresentation,
+                                                            m_authoring,
+                                                            owners.cameras,
+                                                            owners.terrain,
+                                                            owners.camera,
+                                                            owners.normalizedRestoreMode,
+                                                            owners.attachedFollow,
+                                                            owners.directorGrabbed,
+                                                            owners.interaction,
+                                                            owners.inputRouter );
     }
 }
 
@@ -1302,26 +1338,26 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
     outRestoreRequest = ReplayLiveRestoreRequest{};
     const auto enterInspectionCamera = [&]()
     {
-        EnterReplayInspectionCamera( m_visualPresentation,
-                                     cameras,
-                                     camera,
-                                     normalizedCurrentMode,
-                                     m_interaction,
-                                     m_inputRouter,
-                                     mousePickup );
+        ReplayPresentationOperations::EnterInspectionCamera( m_visualPresentation,
+                                                             cameras,
+                                                             camera,
+                                                             normalizedCurrentMode,
+                                                             m_interaction,
+                                                             m_inputRouter,
+                                                             mousePickup );
     };
     const auto exitInspectionCamera = [&]()
     {
-        ExitReplayInspectionCamera( m_visualPresentation,
-                                    m_authoring,
-                                    cameras,
-                                    terrain,
-                                    camera,
-                                    normalizedRestoreMode,
-                                    attachedFollow,
-                                    directorGrabbed,
-                                    m_interaction,
-                                    m_inputRouter );
+        ReplayPresentationOperations::ExitInspectionCamera( m_visualPresentation,
+                                                            m_authoring,
+                                                            cameras,
+                                                            terrain,
+                                                            camera,
+                                                            normalizedRestoreMode,
+                                                            attachedFollow,
+                                                            directorGrabbed,
+                                                            m_interaction,
+                                                            m_inputRouter );
     };
     PROFILE_SCOPED( "Frame/Replay/ScrubberInput" );
     const bool loadedPresentation = HasLoadedPresentation();

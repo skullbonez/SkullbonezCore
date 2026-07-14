@@ -96,9 +96,9 @@ number measures remaining executable work instead of lifetime repository work.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| replay-monolith-decomposition | 8 | 9 | 89% |
+| replay-monolith-decomposition | 9 | 9 | 100% |
 | future-path-vector-splines | 0 | 7 | 0% |
-| **Active/future total** | **8** | **16** | **50%** |
+| **Active/future total** | **9** | **16** | **56%** |
 
 ## Current Execution Priority
 
@@ -118,7 +118,7 @@ validation-gate V3 remains externally blocked.
    `Toppled` means at least 101 of 200 bricks are directly grounded and
    engine-sleeping throughout the final second; the approved base records 187.
    Every V0-V6 task ends with that command passing.
-2. **Replay monolith decomposition — active.** Execute M0-M8 on
+2. **Replay monolith decomposition — complete.** M0-M8 executed on
    `nightrunner-14th-july`. Every task,
    including documentation inventory, reruns the unchanged 200-box gate before
    it may be checked or committed. Remediation checkpoint 25 has moved all
@@ -128,7 +128,7 @@ validation-gate V3 remains externally blocked.
    the presentation TU consumes only the value-only `ReplayPredictionView.h`,
    not private prediction-owner internals. Destination-branch provenance and
    every per-checkpoint gate passed on `nightrunner-14th-july`. The ledger is
-   8/9. M4 checkpoints 27-32 moved scrubber hit testing, visibility, and
+   9/9. M4 checkpoints 27-32 moved scrubber hit testing, visibility, and
    semantic pointer-action selection into `ReplayScrubber`, deleted six raw
    root cursor-forwarding APIs, moved typed replay gesture begin/end ownership
    into `RuntimeInteractionController`, and deleted root live-advance/velocity
@@ -144,9 +144,12 @@ validation-gate V3 remains externally blocked.
    and deleted the now-stale `ReplayRuntime.cpp` allocation exception. M6 is
    reclosed. M7 moved probe decisions into `ReplayProbeRunner`, unified loaded
    presentation activation, introduced bounded tool/editor event outputs, and
-   deleted private root forwarding relays. The replay root is 299 lines and M7
-   is reclosed. M8's mandatory independent logical-type review remains and may
-   reopen any credible owner-boundary finding.
+   deleted private root forwarding relays. M8 removed the final `RunReplay*`
+   file names, placed public helpers in owner namespaces, renamed the narrow
+   restore transaction header, audited 42/42 touched source files, and reviewed
+   all 64 root methods across three TUs as one logical type. The root retains
+   only six cohesive replay owners with no reach-back or authority escape; the
+   unchanged oracle and full final gates passed with no baseline refresh.
 3. **Future-path vector splines — live independent presentation lane
    (2026-07-14 owner request).** `TODO/future-path-vector-splines.md` (T1→T7)
    restyles the prediction view: near-black sky, thin anti-aliased
@@ -183,7 +186,7 @@ validation-gate V3 remains externally blocked.
 |---|---|---:|---|
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs merge-group proof, required branch protection, and trusted/ephemeral DX12 runner administration |
 | [replay-visual-fidelity-mega-probe](TODO/replay-visual-fidelity-mega-probe.md) | Complete | 7/7 | One engine, one prediction, 2,401 exact ticks, 187 grounded sleepers, durable CPU-only reconstruction, and adversarial closure approved |
-| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Active on `nightrunner-14th-july` | 8/9 | Run the mandatory M8 ownership/comment/rename review; any credible finding reopens its owner task, then rerun the unchanged final gates |
+| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Complete on `nightrunner-14th-july` | 9/9 | Retain as closure evidence while the active/future portfolio continues with the spline plan |
 | [future-path-vector-splines](TODO/future-path-vector-splines.md) | Live — independent presentation lane | 0/7 | Start T1 (near-black prediction sky) and T2 (thin AA vector-spline ribbon shader); owner decisions 2026-07-14 are recorded in the plan; golden-manifest refresh needs owner approval |
 
 ## Planned Architecture Work (2026-07-11 gap review)

@@ -33,6 +33,7 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
+using namespace ReplayPredictionReserveOperations;
 namespace
 {
 template <typename T> bool CapacityBytesForCount( std::size_t capacity, uint64_t& outBytes ) noexcept

@@ -68,6 +68,8 @@ inline constexpr int REPLAY_MEMORY_POLICY_MAX_SECONDS = 600;
 inline constexpr int REPLAY_MEMORY_POLICY_MIN_BUDGET_MIB = 32;
 inline constexpr int REPLAY_MEMORY_POLICY_MAX_BUDGET_MIB = 512;
 
+namespace ReplayTimelineOperations
+{
 inline ReplayMemoryPreset ReplayMemoryPresetFromIndex( int presetIndex )
 {
     switch ( presetIndex )
@@ -151,6 +153,7 @@ inline ReplayMemoryPolicy ResolveReplayMemoryPolicy( ReplayMemoryPolicy policy )
         policy.solverWindowReduced || policy.presentationRetentionSeconds < policy.requestedRetentionSeconds;
     return policy;
 }
+} // namespace ReplayTimelineOperations
 
 struct RunLoadedReplayPresentationState
 {

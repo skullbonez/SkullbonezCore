@@ -40,7 +40,7 @@ Related:
 #include "../RuntimeTuning.h"
 #include "../Editor/EditorTools.h"
 #include "ReplayRestoreService.h"
-#include "ReplayRuntimeOwnerViews.h"
+#include "ReplayRestoreTransactions.h"
 #include "ReplayPredictionArchive.h"
 #include "ReplayVisualPacketFingerprint.h"
 #include "ReplayV2Artifact.h"
@@ -64,6 +64,8 @@ Related:
 #include <vector>
 
 using namespace SkullbonezCore::Runtime;
+using namespace SkullbonezCore::Runtime::ReplayScrubberOperations;
+using namespace SkullbonezCore::Runtime::ReplayVisualPacketFingerprintOperations;
 using namespace SkullbonezCore::Math::CollisionDetection;
 
 using namespace SkullbonezCore::Math::Orientation;
@@ -2497,26 +2499,26 @@ ReplayProbeTickResult ReplayRuntime::TickProbes( const ReplayRestoreTransaction&
             // sequence numbers and artifact bytes remain unchanged.
             if ( commands.recordWorldOverride )
             {
-                SubmitEvent( BuildReplayWorldOverrideEvent( commands.previousGravity,
-                                                            commands.previousFluidHeight,
-                                                            commands.previousFluidDensity,
-                                                            commands.gravity,
-                                                            commands.fluidHeight,
-                                                            commands.fluidDensity ) );
+                SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( commands.previousGravity,
+                                                                               commands.previousFluidHeight,
+                                                                               commands.previousFluidDensity,
+                                                                               commands.gravity,
+                                                                               commands.fluidHeight,
+                                                                               commands.fluidDensity ) );
             }
             if ( commands.recordEditorPlace )
             {
-                SubmitEvent( BuildReplayEditorPlaceEvent( commands.placedObjectType,
-                                                          commands.placedFixedObject,
-                                                          commands.placedAutoTerrainAlign,
-                                                          commands.placedModelCountBefore,
-                                                          commands.placedTerrainPoint,
-                                                          commands.placedScale,
-                                                          commands.placedYawRadians ) );
+                SubmitEvent( ReplayEventCommandOperations::BuildEditorPlace( commands.placedObjectType,
+                                                                             commands.placedFixedObject,
+                                                                             commands.placedAutoTerrainAlign,
+                                                                             commands.placedModelCountBefore,
+                                                                             commands.placedTerrainPoint,
+                                                                             commands.placedScale,
+                                                                             commands.placedYawRadians ) );
             }
             if ( commands.recordEditorTransform )
             {
-                SubmitEvent( BuildReplayEditorTransformEvent(
+                SubmitEvent( ReplayEventCommandOperations::BuildEditorTransform(
                     commands.transformedModelIndex,
                     REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE,
                     commands.transformedReplayBodyId,
@@ -2528,19 +2530,19 @@ ReplayProbeTickResult ReplayRuntime::TickProbes( const ReplayRestoreTransaction&
             }
             if ( commands.recordLauncherConfig )
             {
-                SubmitEvent( BuildReplayLauncherConfigEvent( 2u,
-                                                             commands.launcherImpulseStrength,
-                                                             commands.launcherProjectileSpeed ) );
+                SubmitEvent( ReplayEventCommandOperations::BuildLauncherConfig( 2u,
+                                                                                commands.launcherImpulseStrength,
+                                                                                commands.launcherProjectileSpeed ) );
             }
             if ( commands.recordLauncherFire )
             {
-                SubmitEvent( BuildReplayLauncherFireEvent( commands.launcherRayOrigin,
-                                                           commands.launcherRayDirection,
-                                                           commands.launcherCameraUp,
-                                                           commands.launcherProjectile,
-                                                           commands.launcherImpulseStrength,
-                                                           commands.launcherProjectileSpeed,
-                                                           commands.launcherModelCount ) );
+                SubmitEvent( ReplayEventCommandOperations::BuildLauncherFire( commands.launcherRayOrigin,
+                                                                              commands.launcherRayDirection,
+                                                                              commands.launcherCameraUp,
+                                                                              commands.launcherProjectile,
+                                                                              commands.launcherImpulseStrength,
+                                                                              commands.launcherProjectileSpeed,
+                                                                              commands.launcherModelCount ) );
             }
             break;
         }
@@ -3440,16 +3442,16 @@ bool ReplayRuntime::RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransac
         ReplaySceneTimelineResetInput reset = transaction.timelineReset;
         reset.preserveBranchMetadata = true;
         ResetSceneTimeline( reset, transaction.timelineOwners );
-        SubmitEvent( BuildReplayEventCommand( ReplayEventKind::BranchRestore,
-                                              0,
-                                              false,
-                                              0,
-                                              static_cast<int32_t>( parentBranchId ),
-                                              target->sceneFrame,
-                                              0,
-                                              0,
-                                              target->solverHash,
-                                              "hash-verified v2 file restore" ) );
+        SubmitEvent( ReplayEventCommandOperations::BuildCommand( ReplayEventKind::BranchRestore,
+                                                                 0,
+                                                                 false,
+                                                                 0,
+                                                                 static_cast<int32_t>( parentBranchId ),
+                                                                 target->sceneFrame,
+                                                                 0,
+                                                                 0,
+                                                                 target->solverHash,
+                                                                 "hash-verified v2 file restore" ) );
         outResult.branchId = m_authoring.Branch().branchId;
         outResult.parentBranchId = parentBranchId;
         outResult.madeLiveBranch = true;

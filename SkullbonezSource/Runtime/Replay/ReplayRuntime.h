@@ -139,8 +139,6 @@ class RuntimeRenderer;
 struct RunSceneState;
 struct ReplayV2SaveResult;
 struct ReplaySolverSampleRestoreContext;
-#ifdef _DEBUG
-#endif
 
 
 class ReplayRuntime
@@ -311,9 +309,6 @@ class ReplayRuntime
                             RunCameraState& camera,
                             RuntimeInteractionController& interaction,
                             InputRouter& inputRouter );
-    bool SetPathTarget( const char* name, int modelIndex, const Physics::PhysicsBodyStore& bodyStore );
-    void CancelToolGesture( RuntimeInteractionController& interaction );
-    void CancelToolDragState( RuntimeInteractionController& interaction, InputRouter& inputRouter );
     bool HasActiveInteractionState() const;
     // Applies one typed leave-replay command. External camera/input owners are
     // synchronous operands and are never retained by ReplayRuntime.
@@ -339,9 +334,9 @@ class ReplayRuntime
     // Clears replay-owned transient state and reports whether the camera owner
     // must execute an inspection-camera exit after the state transition.
     bool ClearInteractionForRuntimeTransition( RuntimeInteractionController& interaction, InputRouter& inputRouter );
-    // Application-shell camera relays. Replay-internal tools call the stateless
-    // presentation helpers directly; M7 removes these when the remaining input
-    // consumers stop taking ReplayRuntime.
+    // Application-shell camera composition. The root supplies its private
+    // presentation/authoring owners to stateless presentation operations; host
+    // camera and input owners remain synchronous operands and are not retained.
     void EnterInspectionCamera( Environment::CameraCollection* cameras,
                                 RunCameraState& camera,
                                 RunCameraMode normalizedCurrentMode,

@@ -289,6 +289,8 @@ bool ReadBoundedCount( ArchiveReader& reader, uint32_t maximum, uint32_t& count 
 }
 } // namespace
 
+namespace ReplayPredictionArchiveOperations
+{
 bool BuildReplayPredictionArchive( const RunReplayPathVisualizerState& pathVisualizer,
                                    const RunReplayPredictionState& prediction,
                                    std::vector<uint8_t>& outBytes )
@@ -701,4 +703,5 @@ bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, cha
     }
     return true;
 }
+} // namespace ReplayPredictionArchiveOperations
 } // namespace SkullbonezCore::Runtime

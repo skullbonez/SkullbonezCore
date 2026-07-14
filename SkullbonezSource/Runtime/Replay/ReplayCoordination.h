@@ -23,7 +23,7 @@ Invariants:
 
 Related:
   - ReplayRuntime.h
-  - ReplayRuntimeOwnerViews.h
+  - ReplayRestoreTransactions.h
 */
 #pragma once
 
@@ -64,6 +64,14 @@ struct ReplayStartupLoadInput;
 struct RunCameraState;
 struct RunMousePickupState;
 struct RunSceneState;
+
+namespace ReplayInteractionOperations
+{
+// Ends replay-owned tool capture without borrowing the replay composition root.
+// Gesture and native-capture authority remain with their concrete input owners.
+void CancelToolGesture( RuntimeInteractionController& interaction );
+void CancelToolDragState( RuntimeInteractionController& interaction, InputRouter& inputRouter );
+} // namespace ReplayInteractionOperations
 
 // Value-only facts sampled by the input turn. Mutable domain owners are passed
 // explicitly to the synchronous composition operation instead of being hidden
@@ -258,6 +266,8 @@ struct ReplaySceneTimelineResetInput
     bool hasUiSolverCountOverride = false;
 };
 
+namespace ReplayTimelineOperations
+{
 inline bool SceneTimelineResetClearsBranch( const ReplaySceneTimelineResetInput& input ) noexcept
 {
     return !input.preserveBranchMetadata;
@@ -284,6 +294,7 @@ ReplaySceneTimelineResetInput DescribeReplaySceneTimeline( const SceneController
                                                            const RunSceneState& scene,
                                                            int gameModelCapacity,
                                                            uint32_t generatedObjectTypeOverride );
+} // namespace ReplayTimelineOperations
 
 struct ReplaySceneTimelineResetResult
 {

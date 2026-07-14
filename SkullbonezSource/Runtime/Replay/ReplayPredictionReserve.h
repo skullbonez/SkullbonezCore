@@ -32,6 +32,8 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
+namespace ReplayPredictionReserveOperations
+{
 Runtime::Allocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner() noexcept;
 bool RequestReplayPredictionReserveGrowth( const char* targetName,
                                            int frameNumber,
@@ -39,4 +41,5 @@ bool RequestReplayPredictionReserveGrowth( const char* targetName,
                                            int requestedCapacityBytes,
                                            int elementSizeBytes,
                                            Runtime::Allocation::RuntimeReserveGrowthResult& outResult ) noexcept;
+} // namespace ReplayPredictionReserveOperations
 } // namespace SkullbonezCore::Runtime

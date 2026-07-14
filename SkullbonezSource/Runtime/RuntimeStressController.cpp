@@ -59,6 +59,7 @@ Related:
 #include <cstdio>
 
 using namespace SkullbonezCore::Runtime;
+using namespace SkullbonezCore::Runtime::ReplayTimelineOperations;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
@@ -293,12 +294,12 @@ void ApplyUIStressAction( RuntimeFrameInteractionView& interactionOwners,
         if ( allowRuntimeChurn )
         {
             const WorldOverrideChange change = ApplyUIWorldOverride( world, gravity, fluidHeight, fluidDensity );
-            replayRuntime.SubmitEvent( BuildReplayWorldOverrideEvent( change.previousGravity,
-                                                                      change.previousFluidHeight,
-                                                                      change.previousFluidDensity,
-                                                                      change.gravity,
-                                                                      change.fluidHeight,
-                                                                      change.fluidDensity ) );
+            replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity,
+                                                                                         change.previousFluidHeight,
+                                                                                         change.previousFluidDensity,
+                                                                                         change.gravity,
+                                                                                         change.fluidHeight,
+                                                                                         change.fluidDensity ) );
         }
         break;
     }
@@ -471,12 +472,12 @@ void ApplyGraphicsStressAction( RuntimeFrameHostView& host,
                                                                  -stress.NextFloat( 0.0f, 80.0f ),
                                                                  stress.NextFloat( -80.0f, 160.0f ),
                                                                  stress.NextFloat( 0.0f, 5.0f ) );
-        replayRuntime.SubmitEvent( BuildReplayWorldOverrideEvent( change.previousGravity,
-                                                                  change.previousFluidHeight,
-                                                                  change.previousFluidDensity,
-                                                                  change.gravity,
-                                                                  change.fluidHeight,
-                                                                  change.fluidDensity ) );
+        replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity,
+                                                                                     change.previousFluidHeight,
+                                                                                     change.previousFluidDensity,
+                                                                                     change.gravity,
+                                                                                     change.fluidHeight,
+                                                                                     change.fluidDensity ) );
         break;
     }
     case 17:

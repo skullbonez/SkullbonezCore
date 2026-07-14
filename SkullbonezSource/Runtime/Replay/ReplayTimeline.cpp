@@ -38,6 +38,7 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
+using namespace ReplayTimelineOperations;
 namespace
 {
 template <typename T> uint64_t ReplayTimelineVectorCapacityBytes( const std::vector<T>& values )

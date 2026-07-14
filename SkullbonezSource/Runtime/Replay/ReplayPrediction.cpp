@@ -79,6 +79,10 @@ Related:
 #include <thread>
 
 using namespace SkullbonezCore::Runtime;
+using namespace SkullbonezCore::Runtime::ReplayPredictionArchiveOperations;
+using namespace SkullbonezCore::Runtime::ReplayPredictionReserveOperations;
+using namespace SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations;
+using namespace SkullbonezCore::Runtime::ReplayScrubberOperations;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;

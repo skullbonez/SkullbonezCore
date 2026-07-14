@@ -46,6 +46,7 @@ Related:
 
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
+using namespace ReplayScrubberOperations;
 using Text::Text2d;
 
 namespace

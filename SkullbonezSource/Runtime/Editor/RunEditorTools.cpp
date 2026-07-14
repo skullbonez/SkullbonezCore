@@ -149,14 +149,14 @@ bool RecordEditorTransformEventFromBodyStore( ReplayEventCommandBatch& replayEve
         return false;
     }
 
-    if ( !replayEvents.Append( BuildReplayEditorTransformEvent( modelIndex,
-                                                                changedFlags,
-                                                                body->replayBodyId,
-                                                                body->position,
-                                                                body->orientation,
-                                                                collection.SceneEntityCount(),
-                                                                scaleAxis,
-                                                                scaleFactor ) ) )
+    if ( !replayEvents.Append( ReplayEventCommandOperations::BuildEditorTransform( modelIndex,
+                                                                                   changedFlags,
+                                                                                   body->replayBodyId,
+                                                                                   body->position,
+                                                                                   body->orientation,
+                                                                                   collection.SceneEntityCount(),
+                                                                                   scaleAxis,
+                                                                                   scaleFactor ) ) )
     {
         SB_FATAL( "Runtime/EditorTools", "Replay editor-event batch capacity exhausted." );
     }
@@ -1206,13 +1206,14 @@ RuntimeTools::RouteEditorPlacementScalePointer( bool leftReleased,
                 RecordEditorPlacementHistory( collection,
                                               placementResult.modelCountBefore,
                                               placementResult.modelCountAfter );
-                result.replayEvent = BuildReplayEditorPlaceEvent( placementResult.objectType,
-                                                                  placementResult.fixedObject,
-                                                                  placementResult.autoTerrainAlign,
-                                                                  placementResult.modelCountBefore,
-                                                                  placementResult.terrainPoint,
-                                                                  placementResult.placementScale,
-                                                                  placementResult.placementYawRadians );
+                result.replayEvent =
+                    ReplayEventCommandOperations::BuildEditorPlace( placementResult.objectType,
+                                                                    placementResult.fixedObject,
+                                                                    placementResult.autoTerrainAlign,
+                                                                    placementResult.modelCountBefore,
+                                                                    placementResult.terrainPoint,
+                                                                    placementResult.placementScale,
+                                                                    placementResult.placementYawRadians );
                 result.recordReplayEvent = true;
 
                 RuntimeInteractionCommand command;
