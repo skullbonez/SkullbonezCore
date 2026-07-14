@@ -15,7 +15,7 @@ plan inventory.
 | Current objective | Reclose replay M4-M7 ownership findings from mandatory M8 review, with the unchanged frame-exact 200-box gate after every task |
 | Active/future progress | 4 / 16 tasks = 25% rounded overall (decomposition + spline plans only; completed past plans and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-14: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | M4 checkpoint 28 deleted six root scrubber forwarding APIs and folded startup cursor reset into value-only `ReplayRecordingActivationResult`; internal composition now commands `ReplayScrubber` directly. Profile build (31.3s), formatting, the unchanged replay oracle (471.7s), scrub exit-37 propagation, and the full CPU/Profile/Debug/DX12/physics gate (169.0s) passed with zero warnings/DX12 errors and byte-exact physics. M4-M7 remain open; no baseline changed. |
+| Validation for current edits | M4 checkpoint 29 deleted the replay root's behavior-free gesture begin/end APIs; scrubber, cause-tree, and velocity handlers now command `RuntimeInteractionController` through typed gesture values. The final Profile build (32.6s), formatting, the unchanged replay oracle (470.4s), scrub exit-37 propagation, and the full CPU/Profile/Debug/DX12/physics gate (203.0s) passed with zero warnings/DX12 errors and byte-exact physics. Comment audit: 7/7, zero deferred. M4-M7 remain open; no baseline changed. |
 
 ## Live Queue
 

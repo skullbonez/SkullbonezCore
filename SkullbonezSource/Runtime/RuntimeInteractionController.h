@@ -253,6 +253,15 @@ class RuntimeInteractionController
     // Commands are accepted only by the current owner; events publish the
     // resulting state after a successful mutation.
     bool ApplyGestureCommand( const RuntimeGestureCommand& command, RuntimeGestureEvent& outEvent );
+    // Claims the workspace/owner, clears any previous interaction, and begins
+    // one typed tool drag. A false result means the gesture/owner pairing is
+    // invalid; the requested workspace and owner remain active.
+    bool BeginOwnedToolGesture( RuntimeWorkspace workspace,
+                                WorldInteractionOwner owner,
+                                const RuntimeInteractionGesture& gesture );
+    // Ends only the named active gesture so stale release events cannot cancel
+    // a newer tool that already owns pointer capture.
+    void EndGestureIfKind( RuntimeInteractionGestureKind kind );
     // Camera-look gesture ownership is interaction policy, not Run routing.
     // Sync begins only from an idle pointer owner and cancels on focus/policy exit.
     void SyncCameraLookGesture( const RuntimeInputSnapshot& input,

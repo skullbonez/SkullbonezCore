@@ -375,16 +375,6 @@ class ReplayRuntime
                             RuntimeInteractionController& interaction,
                             InputRouter& inputRouter );
     bool SetPathTarget( const char* name, int modelIndex, const Physics::PhysicsBodyStore& bodyStore );
-    bool BeginToolGesture( RuntimeInteractionController& interaction,
-                           RuntimeInteractionGestureKind kind,
-                           WorldInteractionOwner owner,
-                           RuntimePointerButton button,
-                           int startX,
-                           int startY,
-                           Physics::PhysicsBodyHandle body = {},
-                           int axis = -1,
-                           bool angular = false );
-    void EndToolGesture( RuntimeInteractionController& interaction, RuntimeInteractionGestureKind kind );
     void CancelToolGesture( RuntimeInteractionController& interaction );
     void CancelToolDragState( RuntimeInteractionController& interaction, InputRouter& inputRouter );
     bool HasActiveInteractionState() const;

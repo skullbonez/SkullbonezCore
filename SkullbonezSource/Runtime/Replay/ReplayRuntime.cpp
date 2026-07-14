@@ -1043,46 +1043,6 @@ bool ReplayRuntime::RouteWorldPointer( const ReplayWorldPointerInput& input,
     return true;
 }
 
-bool ReplayRuntime::BeginToolGesture( RuntimeInteractionController& interaction,
-                                      RuntimeInteractionGestureKind kind,
-                                      WorldInteractionOwner owner,
-                                      RuntimePointerButton button,
-                                      int startX,
-                                      int startY,
-                                      PhysicsBodyHandle body,
-                                      int axis,
-                                      bool angular )
-{
-    interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
-                                                     owner,
-                                                     InteractionExitReason::BeginGesture );
-    RuntimeInteractionGesture gesture;
-    gesture.kind = kind;
-    gesture.button = button;
-    gesture.startX = startX;
-    gesture.startY = startY;
-    gesture.body = body;
-    gesture.axis = axis;
-    gesture.angular = angular;
-    RuntimeGestureCommand command;
-    command.gesture = gesture;
-    RuntimeGestureEvent event;
-    return interaction.ApplyGestureCommand( command, event );
-}
-
-void ReplayRuntime::EndToolGesture( RuntimeInteractionController& interaction, RuntimeInteractionGestureKind kind )
-{
-    if ( interaction.Gesture().kind == kind )
-    {
-        RuntimeGestureCommand command;
-        command.action = RuntimeGestureCommandAction::End;
-        command.gesture.kind = kind;
-        command.reason = InteractionExitReason::EndGesture;
-        RuntimeGestureEvent event;
-        (void)interaction.ApplyGestureCommand( command, event );
-    }
-}
-
 void ReplayRuntime::CancelToolGesture( RuntimeInteractionController& interaction )
 {
     switch ( interaction.Gesture().kind )
@@ -1092,12 +1052,7 @@ void ReplayRuntime::CancelToolGesture( RuntimeInteractionController& interaction
     case RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag:
     case RuntimeInteractionGestureKind::ReplayCauseTreeDrag:
     {
-        RuntimeGestureCommand command;
-        command.action = RuntimeGestureCommandAction::End;
-        command.gesture.kind = interaction.Gesture().kind;
-        command.reason = InteractionExitReason::EndGesture;
-        RuntimeGestureEvent event;
-        (void)interaction.ApplyGestureCommand( command, event );
+        interaction.EndGestureIfKind( interaction.Gesture().kind );
         break;
     }
     default:

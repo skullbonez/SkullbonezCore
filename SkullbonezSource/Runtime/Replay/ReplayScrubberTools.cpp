@@ -491,8 +491,7 @@ ReplayLiveRestoreOutcome ReplayRuntime::ApplyLiveRestoreRequest( const ReplayRes
 
 namespace
 {
-void EndReplayScrubberGesture( ReplayRuntime& replayRuntime,
-                               InputRouter& inputRouter,
+void EndReplayScrubberGesture( InputRouter& inputRouter,
                                RuntimeInteractionController& interaction,
                                RuntimeInteractionGestureKind kind );
 
@@ -529,8 +528,7 @@ void ApplyReplayLiveAdvanceAction( ReplayRuntime& replayRuntime,
         predictionOwner.DisableForLiveAdvance();
         if ( interaction.Gesture().kind == RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag )
         {
-            EndReplayScrubberGesture( replayRuntime,
-                                      inputRouter,
+            EndReplayScrubberGesture( inputRouter,
                                       interaction,
                                       RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag );
         }
@@ -716,15 +714,19 @@ void HandleReplaySavePressed( ReplayRuntime& replayRuntime, double now, bool& ou
 }
 
 
-bool BeginReplayScrubberGesture( ReplayRuntime& replayRuntime,
-                                 InputRouter& inputRouter,
+bool BeginReplayScrubberGesture( InputRouter& inputRouter,
                                  RuntimeInteractionController& interaction,
                                  RuntimeInteractionGestureKind kind,
                                  WorldInteractionOwner owner,
                                  int mouseX,
                                  int mouseY )
 {
-    if ( !replayRuntime.BeginToolGesture( interaction, kind, owner, RuntimePointerButton::Left, mouseX, mouseY ) )
+    RuntimeInteractionGesture gesture;
+    gesture.kind = kind;
+    gesture.button = RuntimePointerButton::Left;
+    gesture.startX = mouseX;
+    gesture.startY = mouseY;
+    if ( !interaction.BeginOwnedToolGesture( RuntimeWorkspace::Replay, owner, gesture ) )
     {
         return false;
     }
@@ -733,12 +735,11 @@ bool BeginReplayScrubberGesture( ReplayRuntime& replayRuntime,
 }
 
 
-void EndReplayScrubberGesture( ReplayRuntime& replayRuntime,
-                               InputRouter& inputRouter,
+void EndReplayScrubberGesture( InputRouter& inputRouter,
                                RuntimeInteractionController& interaction,
                                RuntimeInteractionGestureKind kind )
 {
-    replayRuntime.EndToolGesture( interaction, kind );
+    interaction.EndGestureIfKind( kind );
     inputRouter.ReleaseNativeCapture();
 }
 
@@ -818,8 +819,7 @@ void HandleReplayLoadPressed( ReplayRuntime& replayRuntime,
 }
 
 
-bool HandleReplayPredictionHorizonPressed( ReplayRuntime& replayRuntime,
-                                           ReplayPrediction& predictionOwner,
+bool HandleReplayPredictionHorizonPressed( ReplayPrediction& predictionOwner,
                                            ReplayScrubber& scrubber,
                                            InputRouter& inputRouter,
                                            RuntimeInteractionController& interaction,
@@ -829,8 +829,7 @@ bool HandleReplayPredictionHorizonPressed( ReplayRuntime& replayRuntime,
                                            double now,
                                            bool& outEnterInteractive )
 {
-    if ( !BeginReplayScrubberGesture( replayRuntime,
-                                      inputRouter,
+    if ( !BeginReplayScrubberGesture( inputRouter,
                                       interaction,
                                       RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag,
                                       WorldInteractionOwner::ReplayPrediction,
@@ -851,8 +850,7 @@ bool HandleReplayPredictionHorizonPressed( ReplayRuntime& replayRuntime,
 }
 
 
-bool HandleReplayScrubPressed( ReplayRuntime& replayRuntime,
-                               ReplayScrubber& scrubber,
+bool HandleReplayScrubPressed( ReplayScrubber& scrubber,
                                InputRouter& inputRouter,
                                RuntimeInteractionController& interaction,
                                RunReplayTrack track,
@@ -861,8 +859,7 @@ bool HandleReplayScrubPressed( ReplayRuntime& replayRuntime,
                                bool& outEnterInteractive )
 {
     outEnterInteractive = true;
-    if ( !BeginReplayScrubberGesture( replayRuntime,
-                                      inputRouter,
+    if ( !BeginReplayScrubberGesture( inputRouter,
                                       interaction,
                                       RuntimeInteractionGestureKind::ReplayScrubDrag,
                                       WorldInteractionOwner::ReplayScrub,
@@ -916,10 +913,7 @@ bool TickReplayScrubberGesture( ReplayRuntime& replayRuntime,
         }
         if ( leftReleased )
         {
-            EndReplayScrubberGesture( replayRuntime,
-                                      inputRouter,
-                                      interaction,
-                                      RuntimeInteractionGestureKind::ReplayScrubDrag );
+            EndReplayScrubberGesture( inputRouter, interaction, RuntimeInteractionGestureKind::ReplayScrubDrag );
         }
         return true;
     }
@@ -934,8 +928,7 @@ bool TickReplayScrubberGesture( ReplayRuntime& replayRuntime,
                                                outEnterInteractive );
         if ( leftReleased )
         {
-            EndReplayScrubberGesture( replayRuntime,
-                                      inputRouter,
+            EndReplayScrubberGesture( inputRouter,
                                       interaction,
                                       RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag );
         }
@@ -1207,8 +1200,7 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
         consumesMouse = true;
         break;
     case ReplayScrubberAction::SetPredictionHorizon:
-        if ( !HandleReplayPredictionHorizonPressed( *this,
-                                                    m_predictionOwner,
+        if ( !HandleReplayPredictionHorizonPressed( m_predictionOwner,
                                                     m_scrubberOwner,
                                                     m_inputRouter,
                                                     m_interaction,
@@ -1253,8 +1245,7 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
         consumesMouse = true;
         break;
     case ReplayScrubberAction::Scrub:
-        if ( !HandleReplayScrubPressed( *this,
-                                        m_scrubberOwner,
+        if ( !HandleReplayScrubPressed( m_scrubberOwner,
                                         m_inputRouter,
                                         m_interaction,
                                         scrubTrack,

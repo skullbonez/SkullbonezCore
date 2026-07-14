@@ -318,7 +318,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         if ( leftReleased && causeTreeDragMode() >= 0 )
         {
             m_inputRouter.ReleaseNativeCapture();
-            m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
+            m_interaction.EndGestureIfKind( RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
         }
     };
     if ( editorModeEnabled || screenW <= 0 || screenH <= 0 )
@@ -361,7 +361,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         if ( leftReleased )
         {
             m_inputRouter.ReleaseNativeCapture();
-            m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
+            m_interaction.EndGestureIfKind( RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
         }
         return true;
     }
@@ -372,7 +372,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         if ( leftReleased )
         {
             m_inputRouter.ReleaseNativeCapture();
-            m_replayRuntime.EndToolGesture( m_interaction, RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
+            m_interaction.EndGestureIfKind( RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
         }
         return true;
     }
@@ -394,14 +394,15 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
 
     if ( leftPressed && isHotControl( ReplayCauseWindowControl::Resize ) )
     {
-        if ( !m_replayRuntime.BeginToolGesture( m_interaction,
-                                                RuntimeInteractionGestureKind::ReplayCauseTreeDrag,
-                                                WorldInteractionOwner::ReplayCauseTree,
-                                                RuntimePointerButton::Left,
-                                                mouse.x,
-                                                mouse.y,
-                                                PhysicsBodyHandle{},
-                                                1 ) )
+        RuntimeInteractionGesture gesture;
+        gesture.kind = RuntimeInteractionGestureKind::ReplayCauseTreeDrag;
+        gesture.button = RuntimePointerButton::Left;
+        gesture.startX = mouse.x;
+        gesture.startY = mouse.y;
+        gesture.axis = 1;
+        if ( !m_interaction.BeginOwnedToolGesture( RuntimeWorkspace::Replay,
+                                                   WorldInteractionOwner::ReplayCauseTree,
+                                                   gesture ) )
         {
             return false;
         }
@@ -412,14 +413,15 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
 
     if ( leftPressed && isHotControl( ReplayCauseWindowControl::Title ) )
     {
-        if ( !m_replayRuntime.BeginToolGesture( m_interaction,
-                                                RuntimeInteractionGestureKind::ReplayCauseTreeDrag,
-                                                WorldInteractionOwner::ReplayCauseTree,
-                                                RuntimePointerButton::Left,
-                                                mouse.x,
-                                                mouse.y,
-                                                PhysicsBodyHandle{},
-                                                0 ) )
+        RuntimeInteractionGesture gesture;
+        gesture.kind = RuntimeInteractionGestureKind::ReplayCauseTreeDrag;
+        gesture.button = RuntimePointerButton::Left;
+        gesture.startX = mouse.x;
+        gesture.startY = mouse.y;
+        gesture.axis = 0;
+        if ( !m_interaction.BeginOwnedToolGesture( RuntimeWorkspace::Replay,
+                                                   WorldInteractionOwner::ReplayCauseTree,
+                                                   gesture ) )
         {
             return false;
         }

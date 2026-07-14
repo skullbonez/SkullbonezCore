@@ -1110,6 +1110,36 @@ Twenty-eighth ownership-remediation checkpoint after M3 closure:
   future plans only and excludes completed past plans and externally blocked
   work.
 
+Twenty-ninth ownership-remediation checkpoint after M3 closure:
+
+- Moved replay tool gesture ownership into `RuntimeInteractionController`.
+  Scrubber, cause-tree, and velocity handlers now publish a typed gesture value
+  through `BeginOwnedToolGesture` and end only the matching active gesture
+  through `EndGestureIfKind`; they no longer route either transition through
+  `ReplayRuntime`.
+- Deleted the root's behavior-free `BeginToolGesture` and `EndToolGesture`
+  APIs. The remaining replay cancellation path also commands the interaction
+  owner directly, so gesture kind, capture, and workspace ownership have one
+  authoritative controller boundary instead of a replay-root forwarding seam.
+- Formatting passed. The first focused Profile build correctly rejected two
+  obsolete scrubber handler parameters as zero-warning violations; after those
+  root parameters were removed, the final Profile build passed in 32.6 seconds
+  with zero warnings and zero errors. The touched-source comment audit
+  inspected 7/7 files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 470.4 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 203.0-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M4 remains open for semantic action dispatch and restore/camera reactions;
+  M5-M7 and the final M8 review also remain open. Active/future portfolio
+  progress therefore remains 4/16, or 25%; this percentage covers active and
+  future plans only and excludes completed past plans and externally blocked
+  work.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |
