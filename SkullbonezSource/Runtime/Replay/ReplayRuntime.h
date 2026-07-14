@@ -236,9 +236,7 @@ class ReplayRuntime
     bool ApplyMemoryPolicyRequest( const ReplayMemoryPolicyRequest& request );
     // Exposes the resolved policy for diagnostics/UI; callers must not infer
     // recorder capacity from raw requested fields.
-    const ReplayMemoryPolicy& MemoryPolicy() const;
-    void FlushHashLogs();
-    void ResetTimeline( const char* sceneLabel );
+    ReplayShutdownReport FinishShutdown();
     ReplaySceneTimelineResetResult BeginSceneTimelineReset( const ReplaySceneTimelineResetInput& input );
     ReplaySceneTimelineResetResult FinishSceneTimelineReset( const ReplaySceneTimelineResetInput& input );
     void ResetSceneTimeline( const ReplaySceneTimelineResetInput& input, const ReplaySceneTimelineResetOwners& owners );
@@ -286,11 +284,6 @@ class ReplayRuntime
 
   public:
 #endif
-    bool IsPresentationEnabled() const;
-    bool IsCaptureEnabled() const;
-    ReplayRecorderStats PresentationStats() const;
-    ReplayRecorderStats SolverStats() const;
-    ReplayEventRecorderStats EventStats() const;
     ReplayFrameIndex NextEventFrameIndex() const;
     // Refreshes the selected past-root trajectory from retained solver samples.
     // The method is cheap when the cursor already matches the recorder window.
@@ -305,7 +298,6 @@ class ReplayRuntime
                                        float* outRadius ) const;
     // Resolves the current velocity-edit target to live physics authority. The
     // stored model index is a staleable hint, not identity.
-    Physics::PhysicsBodyHandle ResolveVelocityEditBodyHandle( const Physics::PhysicsBodyStore& bodyStore ) const;
     bool BuildCauseTreeRows( std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
                              const Physics::PhysicsBodyStore& bodyStore );
     SkullbonezCore::Core::MainMemoryReplayStats CollectMemoryStats() const;
@@ -413,10 +405,6 @@ class ReplayRuntime
                              const SceneEntityStore& entities,
                              RunEditorTracer& tracer,
                              const ReplayOverlayBuildInput& input );
-    void RenderVelocityEditOverlay( Physics::PhysicsEngine& physics,
-                                    bool editorModeEnabled,
-                                    const RuntimeInteractionGesture& gesture,
-                                    RunEditorTracer& tracer );
     // Routes value-only pointer facts through replay path selection. Store and
     // camera owners are explicit one-call borrows, not fields in the command.
     bool RouteWorldPointer( const ReplayWorldPointerInput& input,

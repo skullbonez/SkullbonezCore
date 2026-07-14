@@ -1313,7 +1313,13 @@ void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics,
                                                   colliderStore,
                                                   entities,
                                                   tracer );
-    RenderVelocityEditOverlay( physics, input.editorModeEnabled, input.gesture, tracer );
+    const RunReplayPathVisualizerState& path = m_visualPresentation.PathVisualizer();
+    m_authoring.AppendVelocityEditOverlay( path.targetId,
+                                           path.targetModelRow,
+                                           physics,
+                                           input.editorModeEnabled,
+                                           input.gesture,
+                                           tracer );
 }
 
 
@@ -1363,7 +1369,7 @@ ReplayInputView ReplayRuntime::BuildInputView() const noexcept
     view.liveAdvanceHeld = scrubber.liveAdvanceHeld;
     view.velocityEditEnabled = m_authoring.VelocityEdit().enabled;
     view.predictionEnabled = m_predictionOwner.State().enabled;
-    view.captureEnabled = IsCaptureEnabled();
+    view.captureEnabled = m_timeline.Presentation().IsEnabled() || m_timeline.Solver().IsEnabled();
     view.hasPathTarget = path.hasTarget;
     view.hasCameraFocus = camera.focusKind != RunReplayCameraFocusKind::None;
     view.restoreCameraMode = camera.restoreCameraMode;
@@ -2168,21 +2174,14 @@ bool ReplayRuntime::ApplyMemoryPolicyRequest( const ReplayMemoryPolicyRequest& r
     return result.changed;
 }
 
-const ReplayMemoryPolicy& ReplayRuntime::MemoryPolicy() const
-{
-    return m_timeline.MemoryPolicy();
-}
-
-void ReplayRuntime::FlushHashLogs()
+ReplayShutdownReport ReplayRuntime::FinishShutdown()
 {
     m_timeline.FlushHashLogs();
+    ReplayShutdownReport report;
+    report.presentation = m_timeline.Presentation().GetStats();
+    report.solver = m_timeline.Solver().GetStats();
+    return report;
 }
-
-void ReplayRuntime::ResetTimeline( const char* sceneLabel )
-{
-    m_timeline.Reset( sceneLabel );
-}
-
 
 ReplaySceneTimelineResetResult ReplayRuntime::BeginSceneTimelineReset( const ReplaySceneTimelineResetInput& input )
 {
@@ -2215,13 +2214,13 @@ ReplaySceneTimelineResetResult ReplayRuntime::FinishSceneTimelineReset( const Re
     result.exitInspectionCamera = true;
     ClearPathVisualizerState();
     m_authoring.ResetVelocityEdit();
-    if ( !IsPresentationEnabled() )
+    if ( !m_timeline.Presentation().IsEnabled() )
     {
         return result;
     }
 
     const char* sceneLabel = input.sceneLabel && input.sceneLabel[0] != '\0' ? input.sceneLabel : "generated";
-    ResetTimeline( sceneLabel );
+    m_timeline.Reset( sceneLabel );
     RecordEvent( ReplayEventKind::TimelineStart, 0, 0, 0, 0, 0, 0, 0, sceneLabel );
     result.timelineStarted = true;
     // Why: mismatch diagnostics are scoped to the active replay timeline so a
@@ -2253,31 +2252,6 @@ ReplaySceneTimelineResetResult ReplayRuntime::FinishSceneTimelineReset( const Re
     return result;
 }
 
-
-bool ReplayRuntime::IsPresentationEnabled() const
-{
-    return m_timeline.Presentation().IsEnabled();
-}
-
-bool ReplayRuntime::IsCaptureEnabled() const
-{
-    return m_timeline.Presentation().IsEnabled() || m_timeline.Solver().IsEnabled();
-}
-
-ReplayRecorderStats ReplayRuntime::PresentationStats() const
-{
-    return m_timeline.Presentation().GetStats();
-}
-
-ReplayRecorderStats ReplayRuntime::SolverStats() const
-{
-    return m_timeline.Solver().GetStats();
-}
-
-ReplayEventRecorderStats ReplayRuntime::EventStats() const
-{
-    return m_timeline.Events().GetStats();
-}
 
 ReplayFrameIndex ReplayRuntime::NextEventFrameIndex() const
 {
@@ -2914,18 +2888,6 @@ bool ReplayRuntime::ResolveCauseTreeBodyPosition( ReplayBodyId id,
         }
     }
     return false;
-}
-
-
-PhysicsBodyHandle ReplayRuntime::ResolveVelocityEditBodyHandle( const PhysicsBodyStore& bodyStore ) const
-{
-    if ( !m_visualPresentation.PathVisualizer().hasTarget || m_visualPresentation.PathVisualizer().targetId.value == 0 )
-    {
-        return PhysicsBodyHandle{};
-    }
-
-    return bodyStore.HandleForReplayBodyId( m_visualPresentation.PathVisualizer().targetId.value,
-                                            m_visualPresentation.PathVisualizer().targetModelRow.value );
 }
 
 

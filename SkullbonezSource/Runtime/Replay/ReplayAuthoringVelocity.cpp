@@ -252,13 +252,18 @@ struct ReplayVelocityBodyView
 };
 
 
-static bool TryResolveReplayVelocityBodyView( const ReplayRuntime& replayRuntime,
+static bool TryResolveReplayVelocityBodyView( ReplayBodyId targetId,
+                                              ModelRowHint targetModelRow,
                                               const PhysicsBodyStore& bodyStore,
                                               const ColliderStore& colliderStore,
                                               ReplayVelocityBodyView& outView )
 {
     outView = ReplayVelocityBodyView{};
-    const PhysicsBodyHandle bodyHandle = replayRuntime.ResolveVelocityEditBodyHandle( bodyStore );
+    if ( targetId.value == 0 )
+    {
+        return false;
+    }
+    const PhysicsBodyHandle bodyHandle = bodyStore.HandleForReplayBodyId( targetId.value, targetModelRow.value );
     const int modelIndex = bodyStore.ModelIndexForHandle( bodyHandle );
     if ( !bodyHandle.IsValid() )
     {
@@ -513,10 +518,15 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
     const ColliderStore& velocityColliders = PhysicsEngine::ReadColliders( velocityPhysics );
     const bool velocityStoresReady =
         velocityBodies.Count() == velocityColliders.Count() && velocityBodies.Count() == entities.Count();
+    const RunReplayPathVisualizerState& path = m_visualPresentation.PathVisualizer();
     const auto tryResolveVelocityBody = [&]( ReplayVelocityBodyView& outBody )
     {
-        return velocityStoresReady &&
-               TryResolveReplayVelocityBodyView( m_replayRuntime, velocityBodies, velocityColliders, outBody );
+        return velocityStoresReady && path.hasTarget &&
+               TryResolveReplayVelocityBodyView( path.targetId,
+                                                 path.targetModelRow,
+                                                 velocityBodies,
+                                                 velocityColliders,
+                                                 outBody );
     };
 
     const auto applyReplayVelocityEditDrag = [&]( const Vector3& dragRayOrigin, const Vector3& dragRayDirection )
@@ -761,19 +771,22 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
 }
 
 
-void ReplayRuntime::RenderVelocityEditOverlay( PhysicsEngine& velocityPhysics,
-                                               bool editorModeEnabled,
-                                               const RuntimeInteractionGesture& gesture,
-                                               RunEditorTracer& tracer )
+void ReplayAuthoring::AppendVelocityEditOverlay( ReplayBodyId targetId,
+                                                 ModelRowHint targetModelRow,
+                                                 PhysicsEngine& velocityPhysics,
+                                                 bool editorModeEnabled,
+                                                 const RuntimeInteractionGesture& gesture,
+                                                 RunEditorTracer& tracer ) const
 {
     PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Overlay" );
-    if ( !VelocityEdit().enabled || editorModeEnabled )
+    if ( !m_velocityEdit.enabled || editorModeEnabled )
     {
         return;
     }
 
     ReplayVelocityBodyView body;
-    if ( !TryResolveReplayVelocityBodyView( *this,
+    if ( !TryResolveReplayVelocityBodyView( targetId,
+                                            targetModelRow,
                                             SkullbonezCore::Physics::PhysicsEngine::ReadBodies( velocityPhysics ),
                                             SkullbonezCore::Physics::PhysicsEngine::ReadColliders( velocityPhysics ),
                                             body ) ||
@@ -788,8 +801,8 @@ void ReplayRuntime::RenderVelocityEditOverlay( PhysicsEngine& velocityPhysics,
         body.radius,
         body.linearVelocity,
         body.angularVelocity,
-        VelocityEdit().hotLinearAxis,
-        VelocityEdit().hotAngularAxis,
+        m_velocityEdit.hotLinearAxis,
+        m_velocityEdit.hotAngularAxis,
         gesture.kind == RuntimeInteractionGestureKind::ReplayVelocityDrag ? gesture.axis : -1,
         gesture.kind == RuntimeInteractionGestureKind::ReplayVelocityDrag && gesture.angular );
 }

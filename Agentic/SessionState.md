@@ -15,7 +15,7 @@ plan inventory.
 | Current objective | Reclose replay M3-M7 ownership findings from mandatory M8 review, with the unchanged frame-exact 200-box gate after every task |
 | Active/future progress | 3 / 16 tasks = 19% rounded overall (decomposition + spline plans only; completed past plans and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-14: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | The eighteenth remediation checkpoint deleted the broad save-probe context bag and split fixture work into three explicit synchronous actions. Profile build (20.2s), formatting, the unchanged replay oracle (482.1s), scrub exit-37 propagation, and the full CPU/Profile/Debug/DX12/physics gate (119.5s) passed with zero warnings/DX12 errors and byte-exact physics. Second ownership review still blocks M3-M7 on root business APIs, external seams, probe execution, TU honesty, and root-wide diagnostics. No baseline changed. |
+| Validation for current edits | The nineteenth remediation checkpoint replaced shutdown-time timeline relays with one value report and moved velocity-gizmo resolution/drawing behind `ReplayAuthoring`; the root header is now 599 lines. Profile build (20.3s), formatting, the unchanged replay oracle (478.6s), scrub exit-37 propagation, and the full CPU/Profile/Debug/DX12/physics gate (118.6s) passed with zero warnings/DX12 errors and byte-exact physics. M3-M7 remain open; no baseline changed. |
 
 ## Live Queue
 
@@ -136,8 +136,9 @@ Run the repository-local orchestrator against
 `Plans/TODO/replay-monolith-decomposition.md` reopened M3-M7. Prediction and
 drawing are physically separate, prediction state is private, presentation
 mutation is command-only, frame views carry no replay root, and the workspace
-input plus save-probe output are value-only. Next move single-owner timeline/
-event/stat relays, authoring and scrubber input algorithms, probe verification,
+input plus save-probe output are value-only. Shutdown stats are one value
+report, and velocity-gizmo drawing is authoring-owned. Next move timeline event
+encoding, cause-tree/velocity/scrubber input algorithms, probe verification,
 and owner memory contributions out of `ReplayRuntime`; replace the remaining
 external root parameters with typed intents/results assembled only by `Run`.
 Reclose each task only after its unchanged one-presentation 200-box oracle,

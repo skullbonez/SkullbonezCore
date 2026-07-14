@@ -192,6 +192,14 @@ struct ReplayStartupResult
     bool skipExecute = false;
 };
 
+// Value-only terminal publication sampled after replay flushes its cold hash
+// logs. Run may print these facts but cannot reopen timeline owner state.
+struct ReplayShutdownReport
+{
+    ReplayRecorderStats presentation;
+    ReplayRecorderStats solver;
+};
+
 // Concept: external automation publishes replay intent as values. The replay
 // composition boundary applies each requested transition through the owning
 // scrubber or prediction API; no caller receives a mutable owner reference.

@@ -30,8 +30,14 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Physics
+{
+class PhysicsEngine;
+}
 namespace Runtime
 {
+class RunEditorTracer;
+struct RuntimeInteractionGesture;
 // Invariant: replay input clamping and editor visualization share these scales
 // so the velocity gizmo cannot advertise values that authoring rejects.
 inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_MAX = 140.0f;
@@ -271,6 +277,15 @@ class ReplayAuthoring
         m_velocityEdit.dragStartLinearVelocity = start.linearVelocity;
         m_velocityEdit.dragStartAngularVelocity = start.angularVelocity;
     }
+
+    // Appends the authoring-owned velocity gizmo from value-selected replay
+    // identity. Presentation supplies the target but cannot mutate edit state.
+    void AppendVelocityEditOverlay( ReplayBodyId targetId,
+                                    Physics::ModelRowHint targetModelRow,
+                                    Physics::PhysicsEngine& physics,
+                                    bool editorModeEnabled,
+                                    const RuntimeInteractionGesture& gesture,
+                                    RunEditorTracer& tracer ) const;
 
     // Concept: authoring publishes a value command instead of holding a
     // prediction pointer or callback. Multiple edits before consumption fold

@@ -815,6 +815,37 @@ Eighteenth ownership-remediation checkpoint after the first review:
 - M3-M7 remain open for the other second-review findings. This checkpoint
   corrects the context-bag regression and does not claim task progress.
 
+Nineteenth ownership-remediation checkpoint after the first review:
+
+- Replaced four shutdown-time root relays with one value-only
+  `ReplayShutdownReport`. `ReplayRuntime::FinishShutdown` now performs the
+  legitimate terminal composition step—flush timeline hash logs, then publish
+  presentation and solver recorder facts—while `Run` prints that immutable
+  report without reopening timeline storage. Unused root relays for memory
+  policy, timeline reset, capture enabled state, and event stats were deleted;
+  internal composition now calls the concrete timeline owner directly.
+- Velocity-gizmo target resolution and drawing moved from
+  `ReplayRuntime::RenderVelocityEditOverlay` to
+  `ReplayAuthoring::AppendVelocityEditOverlay`. Presentation supplies only the
+  selected replay identity/model-row values; the authoring owner reads its own
+  edit state and appends the gizmo. The obsolete root body-resolution wrapper
+  was deleted. `ReplayRuntime.h` fell from 611 to 599 lines.
+- A focused Profile build passed in 20.3 seconds with zero warnings and zero
+  errors. Formatting passed, and the touched-source comment audit inspected
+  6/6 files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 478.6 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 118.6-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M3-M7 remain open for the larger cause-tree/velocity/scrubber input root
+  algorithms, timeline event encoding, probe execution, owner-TU honesty,
+  root-wide diagnostics traversal, and remaining external root parameters.
+  This checkpoint removes verified relays but does not claim task progress.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |

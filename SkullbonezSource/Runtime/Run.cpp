@@ -386,10 +386,10 @@ Run::~Run()
                                                   m_timers.simulationTimer.GetTotalTime() );
     }
     m_diagnosticsRuntime.ClosePerfLog();
-    m_replayRuntime.FlushHashLogs();
-    if ( m_replayRuntime.IsPresentationEnabled() )
+    const ReplayShutdownReport replayShutdown = m_replayRuntime.FinishShutdown();
+    if ( replayShutdown.presentation.enabled )
     {
-        const ReplayRecorderStats replayStats = m_replayRuntime.PresentationStats();
+        const ReplayRecorderStats& replayStats = replayShutdown.presentation;
         printf( "[replay] Captured %llu physics samples, retained %llu/%llu, checkpoints %llu/%llu, "
                 "latest_hash=0x%016llX\n",
                 static_cast<unsigned long long>( replayStats.totalFramesCaptured ),
@@ -399,9 +399,9 @@ Run::~Run()
                 static_cast<unsigned long long>( replayStats.checkpointCapacity ),
                 static_cast<unsigned long long>( replayStats.latestStateHash ) );
     }
-    if ( m_replayRuntime.SolverStats().enabled )
+    if ( replayShutdown.solver.enabled )
     {
-        const ReplayRecorderStats replayStats = m_replayRuntime.SolverStats();
+        const ReplayRecorderStats& replayStats = replayShutdown.solver;
         printf( "[replay] Solver track captured %llu physics samples, retained %llu/%llu, checkpoints %llu/%llu, "
                 "latest_solver_hash=0x%016llX\n",
                 static_cast<unsigned long long>( replayStats.totalFramesCaptured ),
