@@ -1022,8 +1022,15 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         executeSceneGeneratedControlAction( solverBoxCountCommand.action );
         recordUIAction( RuntimeInputAction::SetSolverCounts );
     }
-    if ( ApplyWorldWaterUICommands( sceneController.World(), replayRuntime, uiCommands.water ) )
+    WorldOverrideChange worldOverride;
+    if ( ApplyWorldWaterUICommands( sceneController.World(), uiCommands.water, worldOverride ) )
     {
+        replayRuntime.RecordWorldOverrideEvent( worldOverride.previousGravity,
+                                                worldOverride.previousFluidHeight,
+                                                worldOverride.previousFluidDensity,
+                                                worldOverride.gravity,
+                                                worldOverride.fluidHeight,
+                                                worldOverride.fluidDensity );
         recordUIAction( RuntimeInputAction::ApplyWorldWaterSettings );
     }
     SkullbonezCore::Core::CinematicRenderConfig& activeCinematic =

@@ -846,6 +846,34 @@ Nineteenth ownership-remediation checkpoint after the first review:
   root-wide diagnostics traversal, and remaining external root parameters.
   This checkpoint removes verified relays but does not claim task progress.
 
+Twentieth ownership-remediation checkpoint after the first review:
+
+- Launcher visual capture reserve, population, backup, and restore methods now
+  live in `ReplayPresentation.cpp`, beside their concrete presentation owner,
+  rather than in the composition-root TU. The owner implementation accepts the
+  same synchronous `RuntimeTools` borrow; no header dependency or behavior
+  changed.
+- `RuntimeTuning` no longer names, includes, or receives `ReplayRuntime`.
+  World mutation publishes a plain `WorldOverrideChange` containing the exact
+  previous/new gravity and fluid values. Input, scene reset, and stress callers
+  record those values at the original call boundary, preserving replay event
+  order while removing replay authority from the world-tuning owner.
+- A focused Profile build passed in 15.2 seconds with zero warnings and zero
+  errors. Formatting passed, and the touched-source comment audit inspected
+  7/7 files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 477.7 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 110.9-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M3-M7 remain open for the remaining owner methods in `ReplayRuntime.cpp`,
+  root-owned input/probe/event/diagnostics algorithms, and external root seams.
+  This checkpoint removes one owner-TU leak and one external dependency without
+  claiming task progress.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |

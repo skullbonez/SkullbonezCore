@@ -27,6 +27,7 @@ Related:
 #include "ReplayPresentation.h"
 #include "../RuntimePickService.h"
 #include "../Scene/SceneEntityStore.h"
+#include "../Tools/RuntimeTools.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Rendering/RenderInstanceStore.h"
@@ -38,6 +39,36 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
+
+void ReplayPresentation::PopulateLauncherVisualCapture( ReplayCaptureInput& input, RuntimeTools& runtimeTools )
+{
+    runtimeTools.BuildReplayLauncherVisualSample( m_launcherVisualCaptureScratch );
+    input.launcherVisual = &m_launcherVisualCaptureScratch;
+}
+
+void ReplayPresentation::ReserveLauncherVisualCaptureBuffers()
+{
+    constexpr std::size_t launcherLaserShotCapacity = 32;
+    m_launcherVisualCaptureScratch.rayLines.reserve( RunRayCastTestState::MAX_LINES );
+    m_launcherVisualCaptureScratch.laserShots.reserve( launcherLaserShotCapacity );
+}
+
+void ReplayPresentation::StoreLauncherVisualBackupFrom( RuntimeTools& runtimeTools )
+{
+    runtimeTools.BuildReplayLauncherVisualSample( m_launcherVisualBackup );
+    m_launcherVisualBackupActive = true;
+}
+
+void ReplayPresentation::RestoreAndClearLauncherVisualBackup( RuntimeTools& runtimeTools )
+{
+    if ( !m_launcherVisualBackupActive )
+    {
+        return;
+    }
+    runtimeTools.RestoreReplayLauncherVisualSample( m_launcherVisualBackup );
+    ClearLauncherVisualBackup();
+}
+
 namespace
 {
 constexpr int REPLAY_TRAJECTORY_SUBMISSION_STEADY_FRAME_TARGET = 120;
