@@ -212,7 +212,6 @@ class ReplayRuntime
     void ClearPathVisualizerState();
 
     ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input );
-    void ClearCauseTreeFocusSelection();
 
     // Configures bounded recorder storage. runtimeBodyCapacity must be the
     // scene/run body cap known before capture so replay frames do not allocate.
@@ -499,12 +498,8 @@ class ReplayRuntime
     const RunReplayPredictionState& Prediction() const;
     ReplayPredictionPresentationView PredictionPresentationView() const;
     std::span<const RunReplayPredictionFrame> ActivePredictionFrames() const;
-    const RunReplayCauseTreeState& CauseTree() const;
-    const RunReplayVelocityEditState& VelocityEdit() const;
     float TrackPosition( RunReplayTrack track ) const;
     bool LiveAdvanceHeld() const;
-    bool HasPathVisualizerTarget() const;
-    bool HasCameraFocus() const;
     bool VelocityEditActive() const;
     float SolverPresentTrackPosition() const;
     bool ShouldRenderScrubber( bool editorModeEnabled,

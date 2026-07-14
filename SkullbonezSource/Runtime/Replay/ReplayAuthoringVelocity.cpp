@@ -462,7 +462,6 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
                                            double now,
                                            bool& outEnterInteractive )
 {
-    ReplayRuntime& m_replayRuntime = *this;
     InputRouter& m_inputRouter = inputRouter;
     RuntimeInteractionController& m_interaction = interaction;
     const auto enterInspectionCamera = [&]()
@@ -486,7 +485,7 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
     const auto velocityDragActive = [&]()
     { return m_interaction.Gesture().kind == RuntimeInteractionGestureKind::ReplayVelocityDrag; };
 
-    if ( !m_replayRuntime.VelocityEdit().enabled || editorModeEnabled || !scenePhysicsEnabled || screenWidth <= 0 ||
+    if ( !m_authoring.VelocityEdit().enabled || editorModeEnabled || !scenePhysicsEnabled || screenWidth <= 0 ||
          screenHeight <= 0 )
     {
         const bool endDragGesture = velocityDragActive();
@@ -544,8 +543,8 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
             return;
         }
 
-        Vector3 linearVelocity = m_replayRuntime.VelocityEdit().dragStartLinearVelocity;
-        Vector3 angularVelocity = m_replayRuntime.VelocityEdit().dragStartAngularVelocity;
+        Vector3 linearVelocity = m_authoring.VelocityEdit().dragStartLinearVelocity;
+        Vector3 angularVelocity = m_authoring.VelocityEdit().dragStartAngularVelocity;
         if ( gesture.angular )
         {
             float currentAngle = 0.0f;
@@ -557,10 +556,9 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
             {
                 return;
             }
-            const float angleDelta =
-                WrapEditorAngleDelta( currentAngle - m_replayRuntime.VelocityEdit().dragStartAngle );
+            const float angleDelta = WrapEditorAngleDelta( currentAngle - m_authoring.VelocityEdit().dragStartAngle );
             const float component =
-                ReplayVelocityAxisComponent( m_replayRuntime.VelocityEdit().dragStartAngularVelocity, gesture.axis ) +
+                ReplayVelocityAxisComponent( m_authoring.VelocityEdit().dragStartAngularVelocity, gesture.axis ) +
                 angleDelta * ( REPLAY_VELOCITY_EDIT_ANGULAR_MAX / _PI );
             ReplayVelocitySetAxisComponent(
                 angularVelocity,
@@ -575,8 +573,8 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
                 return;
             }
             const float component =
-                ReplayVelocityAxisComponent( m_replayRuntime.VelocityEdit().dragStartLinearVelocity, gesture.axis ) +
-                ( axisT - m_replayRuntime.VelocityEdit().dragStartAxisT ) * ReplayVelocityLinearUnitsPerWorld();
+                ReplayVelocityAxisComponent( m_authoring.VelocityEdit().dragStartLinearVelocity, gesture.axis ) +
+                ( axisT - m_authoring.VelocityEdit().dragStartAxisT ) * ReplayVelocityLinearUnitsPerWorld();
             ReplayVelocitySetAxisComponent(
                 linearVelocity,
                 gesture.axis,
@@ -629,14 +627,14 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
 
     const auto armBaselineComparisonForDrag = [&]()
     {
-        if ( m_replayRuntime.HasPathVisualizerTarget() )
+        if ( m_visualPresentation.PathVisualizer().hasTarget )
         {
             // Why: the old future must be retained before the first drag tick
             // dirties prediction. The visualizer owns the actual capture so it
             // can reuse the same rest-pose and replay-reserve rules as drawing.
             ReplayFrameIntent intent;
             intent.prepareVelocityMutationBaseline = true;
-            (void)m_replayRuntime.ApplyFrameIntent( intent );
+            (void)ApplyFrameIntent( intent );
         }
     };
 
@@ -647,11 +645,11 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
         if ( runtimePointer.hasClientPosition && tryResolveVelocityBody( body ) && !body.fixed )
         {
             const POINT mouse{ runtimePointer.clientX, runtimePointer.clientY };
-            if ( m_replayRuntime.VelocityEdit().hotAngularAxis >= 0 )
+            if ( m_authoring.VelocityEdit().hotAngularAxis >= 0 )
             {
                 float startAngle = 0.0f;
                 if ( TryReplayVelocityAngularRayAngle( body,
-                                                       m_replayRuntime.VelocityEdit().hotAngularAxis,
+                                                       m_authoring.VelocityEdit().hotAngularAxis,
                                                        rayOrigin,
                                                        rayDirection,
                                                        startAngle ) )
@@ -663,7 +661,7 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
                                                                          WorldInteractionOwner::ReplayScrub,
                                                                          InteractionExitReason::EnterReplay );
                     }
-                    if ( m_replayRuntime.ShouldUseInspectionCamera() )
+                    if ( ShouldUseInspectionCamera() )
                     {
                         enterInspectionCamera();
                     }
@@ -677,7 +675,7 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
                     gesture.startX = mouse.x;
                     gesture.startY = mouse.y;
                     gesture.body = body.body;
-                    gesture.axis = m_replayRuntime.VelocityEdit().hotAngularAxis;
+                    gesture.axis = m_authoring.VelocityEdit().hotAngularAxis;
                     gesture.angular = true;
                     if ( !m_interaction.BeginOwnedToolGesture( RuntimeWorkspace::Replay,
                                                                WorldInteractionOwner::ReplayVelocityEdit,
@@ -696,11 +694,11 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
                     return true;
                 }
             }
-            else if ( m_replayRuntime.VelocityEdit().hotLinearAxis >= 0 )
+            else if ( m_authoring.VelocityEdit().hotLinearAxis >= 0 )
             {
                 float axisT = 0.0f;
                 if ( TryReplayVelocityAxisRayParameter( body,
-                                                        m_replayRuntime.VelocityEdit().hotLinearAxis,
+                                                        m_authoring.VelocityEdit().hotLinearAxis,
                                                         rayOrigin,
                                                         rayDirection,
                                                         axisT ) )
@@ -712,7 +710,7 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
                                                                          WorldInteractionOwner::ReplayScrub,
                                                                          InteractionExitReason::EnterReplay );
                     }
-                    if ( m_replayRuntime.ShouldUseInspectionCamera() )
+                    if ( ShouldUseInspectionCamera() )
                     {
                         enterInspectionCamera();
                     }
@@ -726,7 +724,7 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
                     gesture.startX = mouse.x;
                     gesture.startY = mouse.y;
                     gesture.body = body.body;
-                    gesture.axis = m_replayRuntime.VelocityEdit().hotLinearAxis;
+                    gesture.axis = m_authoring.VelocityEdit().hotLinearAxis;
                     gesture.angular = false;
                     if ( !m_interaction.BeginOwnedToolGesture( RuntimeWorkspace::Replay,
                                                                WorldInteractionOwner::ReplayVelocityEdit,
@@ -754,11 +752,11 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
         pickInput.hasWorldRay = pointerRay.hasWorldRay;
         pickInput.rayOrigin = rayOrigin;
         pickInput.rayDirection = rayDirection;
-        (void)m_replayRuntime.ApplyPathPick( pickInput, entities, velocityBodies, velocityColliders, presentation );
-        if ( m_replayRuntime.PathVisualizer().hasTarget )
+        (void)ApplyPathPick( pickInput, entities, velocityBodies, velocityColliders, presentation );
+        if ( m_visualPresentation.PathVisualizer().hasTarget )
         {
             outEnterInteractive = true;
-            if ( m_scrubberOwner.SetLiveAdvanceHeld( true ) && m_replayRuntime.ShouldUseInspectionCamera() )
+            if ( m_scrubberOwner.SetLiveAdvanceHeld( true ) && ShouldUseInspectionCamera() )
             {
                 enterInspectionCamera();
             }
@@ -771,7 +769,7 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
         return true;
     }
 
-    return m_replayRuntime.VelocityEdit().hotLinearAxis >= 0 || m_replayRuntime.VelocityEdit().hotAngularAxis >= 0;
+    return m_authoring.VelocityEdit().hotLinearAxis >= 0 || m_authoring.VelocityEdit().hotAngularAxis >= 0;
 }
 
 

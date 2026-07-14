@@ -1232,6 +1232,31 @@ Thirty-second ownership-remediation checkpoint and M4 closure:
   and future plans only and excludes completed past plans and externally
   blocked work.
 
+Thirty-third ownership-remediation checkpoint after M4 closure:
+
+- Deleted the `ReplayRuntime& = *this` aliases from both authoring input
+  translation units. Velocity and cause-tree input now read the concrete
+  `ReplayAuthoring`, `ReplayScrubber`, and `ReplayPresentation` owners directly
+  instead of routing those reads back through the root.
+- Removed five root-only authoring relays: the cause-tree and velocity-state
+  accessors, path-target and camera-focus predicates, and combined cause-focus
+  cleanup. The two authoring operations still remain root members, so this
+  checkpoint does not reclose M5.
+- Formatting passed, the focused Profile build passed with zero warnings and
+  zero errors, and the touched-source comment audit inspected 5/5 files with
+  zero deferred or unchecked.
+- The unchanged one-process oracle passed in 474.6 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, 62 saved/loaded ticks, durable
+  reconstruction, zero reserve growth, and every false-pass control. The scrub
+  alias propagated delegated exit 37 in 0.1 seconds without launching an
+  engine. The 199.5-second full gate passed all CPU, Profile, Debug, DX12, and
+  physics lanes with zero warnings, zero DX12 errors, matching screenshots,
+  and the 44,401-line byte-exact varied baseline. No baseline changed.
+- M5-M7 and the final M8 review remain open. Active/future portfolio progress
+  remains 5/16, or 31% rounded; this percentage covers active and future plans
+  only and excludes completed past plans and externally blocked work.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |

@@ -163,7 +163,6 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
                                         int screenHeight,
                                         bool& outEnterInteractive )
 {
-    ReplayRuntime& m_replayRuntime = *this;
     InputRouter& m_inputRouter = inputRouter;
     RuntimeInteractionController& m_interaction = interaction;
     const auto enterInspectionCamera = [&]()
@@ -200,11 +199,8 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         {
         case RunReplayCauseTreeRowKind::Body:
         {
-            const bool bodyResolved = m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
-                                                                                    bodyStore,
-                                                                                    colliderStore,
-                                                                                    targetPosition,
-                                                                                    &targetRadius );
+            const bool bodyResolved =
+                ResolveCauseTreeBodyPosition( row.id, bodyStore, colliderStore, targetPosition, &targetRadius );
             if ( !bodyResolved )
             {
                 return;
@@ -213,32 +209,20 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
             break;
         }
         case RunReplayCauseTreeRowKind::Manifold:
-            m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
-                                                          bodyStore,
-                                                          colliderStore,
-                                                          targetPosition,
-                                                          &targetRadius );
+            ResolveCauseTreeBodyPosition( row.id, bodyStore, colliderStore, targetPosition, &targetRadius );
             targetPosition = row.point;
             targetRadius = (std::max)( targetRadius * 0.55f, 2.0f );
             focusKind = RunReplayCameraFocusKind::Manifold;
             break;
         case RunReplayCauseTreeRowKind::SolverRow:
-            m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
-                                                          bodyStore,
-                                                          colliderStore,
-                                                          targetPosition,
-                                                          &targetRadius );
+            ResolveCauseTreeBodyPosition( row.id, bodyStore, colliderStore, targetPosition, &targetRadius );
             targetPosition = row.point;
             targetRadius = (std::max)( targetRadius * 0.45f, 1.5f );
             focusKind = RunReplayCameraFocusKind::SolverRow;
             break;
         case RunReplayCauseTreeRowKind::PredictionContact:
         case RunReplayCauseTreeRowKind::PredictionMotion:
-            m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
-                                                          bodyStore,
-                                                          colliderStore,
-                                                          targetPosition,
-                                                          &targetRadius );
+            ResolveCauseTreeBodyPosition( row.id, bodyStore, colliderStore, targetPosition, &targetRadius );
             targetPosition = row.point;
             targetRadius = (std::max)( targetRadius * 0.45f, 1.5f );
             focusKind = row.kind == RunReplayCauseTreeRowKind::PredictionContact
@@ -256,8 +240,8 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         }
 
         outEnterInteractive = true;
-        const bool hadReplayCameraFocus = m_replayRuntime.HasCameraFocus();
-        if ( !m_replayRuntime.ScrubberView().liveAdvanceHeld )
+        const bool hadReplayCameraFocus = m_visualPresentation.CameraView().focusKind != RunReplayCameraFocusKind::None;
+        if ( !m_scrubberOwner.View().liveAdvanceHeld )
         {
             if ( m_scrubberOwner.SetLiveAdvanceHeld( true ) && !IsReplayCauseTreeToolOwner( m_interaction.Owner() ) )
             {
@@ -327,7 +311,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         return false;
     }
 
-    if ( !m_replayRuntime.BuildCauseTreeRows( presentation, bodyStore ) )
+    if ( !BuildCauseTreeRows( presentation, bodyStore ) )
     {
         endCauseTreeDragIfReleased();
         return false;
@@ -343,7 +327,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
     const POINT mouse{ runtimePointer.clientX, runtimePointer.clientY };
     m_authoring.SetCauseTreePointer( mouse.x, mouse.y, uiBlocksMouse );
     ReplayCauseWindowSurface surface;
-    BuildReplayCauseWindowSurface( m_replayRuntime.CauseTree(), surface );
+    BuildReplayCauseWindowSurface( m_authoring.CauseTree(), surface );
     surface.ResolvePointer( mouse.x, mouse.y, uiBlocksMouse );
     const auto isHotControl = [&]( ReplayCauseWindowControl control )
     { return surface.hasHotControl && surface.hotControl == ReplayCauseWindowControlId( control ); };
@@ -432,7 +416,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
 
     if ( isHotControl( ReplayCauseWindowControl::Content ) )
     {
-        const float localY = static_cast<float>( mouse.y ) - content.y + m_replayRuntime.CauseTree().scrollY;
+        const float localY = static_cast<float>( mouse.y ) - content.y + m_authoring.CauseTree().scrollY;
         const int rowIndex = static_cast<int>( floorf( localY / REPLAY_CAUSE_WINDOW_ROW_HEIGHT ) );
         RunReplayCauseTreeRow selectedRow;
         if ( m_authoring.TryGetCauseTreeRow( rowIndex, selectedRow ) )
@@ -447,7 +431,8 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         }
         else if ( leftPressed )
         {
-            m_replayRuntime.ClearCauseTreeFocusSelection();
+            ClearCameraFocusForRestore();
+            ClearPathVisualizerState();
             exitInspectionCamera();
         }
     }

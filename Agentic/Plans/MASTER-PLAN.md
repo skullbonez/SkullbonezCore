@@ -137,7 +137,9 @@ validation-gate V3 remains externally blocked.
    save/load composition is deleted or private, loaded-track activation is an
    explicit no-I/O cross-owner operation, and M4 is reclosed. M5-M7 still
    require authoring/startup-probe execution, external input routing, and broad
-   root API closure.
+   root API closure. M5 checkpoint 33 deleted both authoring self-aliases and
+   five root-only state/query relays; the two authoring input algorithms still
+   need to leave the root before M5 can be reclosed.
 3. **Future-path vector splines — live independent presentation lane
    (2026-07-14 owner request).** `TODO/future-path-vector-splines.md` (T1→T7)
    restyles the prediction view: near-black sky, thin anti-aliased

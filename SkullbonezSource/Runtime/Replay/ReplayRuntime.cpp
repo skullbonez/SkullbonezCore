@@ -1183,16 +1183,6 @@ bool ReplayRuntime::ClearInteractionForRuntimeTransition( RuntimeInteractionCont
     return exitInspectionCamera;
 }
 
-const RunReplayCauseTreeState& ReplayRuntime::CauseTree() const
-{
-    return m_authoring.CauseTree();
-}
-
-const RunReplayVelocityEditState& ReplayRuntime::VelocityEdit() const
-{
-    return m_authoring.VelocityEdit();
-}
-
 ReplayKeyboardVelocityEditResult
 ReplayRuntime::ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input )
 {
@@ -1234,26 +1224,9 @@ float ReplayRuntime::TrackPosition( RunReplayTrack track ) const
     return m_scrubberOwner.TrackPosition( track );
 }
 
-void ReplayRuntime::ClearCauseTreeFocusSelection()
-{
-    ClearCameraFocusForRestore();
-    ClearPathVisualizerState();
-}
-
-
 bool ReplayRuntime::LiveAdvanceHeld() const
 {
     return m_scrubberOwner.LiveAdvanceHeld();
-}
-
-bool ReplayRuntime::HasPathVisualizerTarget() const
-{
-    return m_visualPresentation.PathVisualizer().hasTarget;
-}
-
-bool ReplayRuntime::HasCameraFocus() const
-{
-    return m_visualPresentation.CameraView().focusKind != RunReplayCameraFocusKind::None;
 }
 
 bool ReplayRuntime::VelocityEditActive() const

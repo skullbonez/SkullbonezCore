@@ -272,7 +272,7 @@ void ReplayRuntime::ExitInspectionCamera( Environment::CameraCollection* cameras
     }
 
     camera.mode = normalizedRestoreMode;
-    if ( VelocityEdit().enabled )
+    if ( m_authoring.VelocityEdit().enabled )
     {
         interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
                                                          WorldInteractionOwner::ReplayVelocityEdit,

@@ -15,7 +15,7 @@ plan inventory.
 | Current objective | Reclose replay M5-M7 ownership findings from mandatory M8 review, with the unchanged frame-exact 200-box gate after every task |
 | Active/future progress | 5 / 16 tasks = 31% rounded overall (decomposition + spline plans only; completed past plans and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | M4 checkpoint 32 deleted the combined root artifact-load operation, separated timeline load from no-I/O scrubber activation, moved cold save/activation into scrubber tools, privatized internal scrub/camera helpers, and deleted dead root queries/self-aliasing. Formatting (11.4s), Profile build (32.6s), the unchanged replay oracle (473.0s), scrub exit-37 propagation (0.1s), and the full CPU/Profile/Debug/DX12/physics gate (173.1s) passed with zero warnings/DX12 errors and byte-exact physics. Comment audit: 4/4, zero deferred. M4 is reclosed; no baseline changed. |
+| Validation for current edits | M5 checkpoint 33 deleted both authoring `ReplayRuntime& = *this` aliases and five root-only authoring state/query relays. Formatting and the focused Profile build passed with zero warnings/errors; the unchanged replay oracle (474.6s), scrub exit-37 propagation (0.1s), and the full CPU/Profile/Debug/DX12/physics gate (199.5s) passed with zero DX12 errors, matching screenshots, and byte-exact physics. Comment audit: 5/5, zero deferred. M5 remains open because both input algorithms are still root members; no baseline changed. |
 
 ## Live Queue
 
