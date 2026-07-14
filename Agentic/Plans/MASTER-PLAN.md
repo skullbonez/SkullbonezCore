@@ -110,7 +110,8 @@ concrete plan rows and counting it would duplicate tasks.
 | adversarial-review-round-3 | 10 | 10 | 100% |
 | replay-prediction-fidelity-probe | 0 | 5 | 0% |
 | replay-monolith-decomposition | 0 | 8 | 0% |
-| **Portfolio total** | **312** | **326** | **96%** |
+| future-path-vector-splines | 0 | 7 | 0% |
+| **Portfolio total** | **312** | **333** | **94%** |
 
 ## Current Execution Priority
 
@@ -122,6 +123,10 @@ For maximum impact with minimal rework, use this binding critical path:
    `TODO/replay-prediction-fidelity-probe.md` (F1→F5) first; it is the binding
    prerequisite and divergence detector for
    `TODO/replay-monolith-decomposition.md` (M0→M8), which follows it.
+   `TODO/future-path-vector-splines.md` (T1→T7) is an independent
+   presentation-only lane (2026-07-14 owner request) and may run in parallel;
+   it touches no prediction simulation or capture code and does not cross the
+   replay-lane dependency barrier.
 1. **Validation-gate V3 — blocked external lane.** Repository implementation is
    complete. Remaining work requires a real `merge_group` proof, required CPU
    branch protection, and trusted/ephemeral DX12 runner administration.
@@ -149,6 +154,7 @@ For maximum impact with minimal rework, use this binding critical path:
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs merge-group proof, required branch protection, and trusted/ephemeral DX12 runner administration |
 | [replay-prediction-fidelity-probe](TODO/replay-prediction-fidelity-probe.md) | Live | 0/5 | Start F1 (engine-level snapshot completeness doctest); F2-F4 add the predicted-vs-actual-future hash gate to `validate_replay_scrub` |
 | [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Blocked on fidelity probe | 0/8 | M0 gates on `replay-prediction-fidelity-probe` closing; then M1 type inventory and the five-owner extraction (presentation → timeline/scrubber → authoring → prediction) behind a thin `ReplayRuntime` composition root |
+| [future-path-vector-splines](TODO/future-path-vector-splines.md) | Live — independent presentation lane | 0/7 | Start T1 (near-black prediction sky) and T2 (thin AA vector-spline ribbon shader); owner decisions 2026-07-14 are recorded in the plan |
 
 ## Planned Architecture Work (2026-07-11 gap review)
 

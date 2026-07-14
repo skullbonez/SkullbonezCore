@@ -13,7 +13,7 @@ plan inventory.
 | Branch | `nightrunner-12th-july` |
 | Current baseline | Adversarial-review round 3 is complete at 10/10; R10 runs three frames in flight with SM6.6 bindless raster texture access |
 | Current objective | Execute the replay architecture lane: `Plans/TODO/replay-prediction-fidelity-probe.md` (F1→F5), then `Plans/TODO/replay-monolith-decomposition.md` (M0→M8); validation-gate V3 remains externally blocked |
-| Portfolio progress | 312 / 326 tasks = 96% rounded overall |
+| Portfolio progress | 312 / 333 tasks = 94% rounded overall |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-13 in 114.5s: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots/InfoQueue, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
 | Validation for current edits | R10 final: three consecutive DX12 passes 53.5/53.8/53.6s plus post-review passes, final perf 66.1s, final stress 61.6s with +0.70 MiB warmed working-set delta, and 179/179 unit tests. |
 
@@ -39,7 +39,13 @@ plan inventory.
    actual future) is the binding prerequisite, then the replay monolith
    decomposition (8 tasks — five owners behind a thin ReplayRuntime
    composition root). Both plans live in `Plans/TODO/` and are registered in
-   the MASTER ledger at 312/326.
+   the MASTER ledger.
+6. Future-path presentation lane is registered (2026-07-14 owner request):
+   `Plans/TODO/future-path-vector-splines.md` (7 tasks — near-black prediction
+   sky, thin anti-aliased vector-spline trajectory ribbons, comma-cycled color
+   modes with UI reflection, selected-object-only glow, and deletion of the
+   temporary authoring-look cycler). Independent of the replay architecture
+   lane; presentation surfaces only.
 
 ## Current Plan Decisions
 
