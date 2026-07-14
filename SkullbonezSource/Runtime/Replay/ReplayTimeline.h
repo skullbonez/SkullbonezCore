@@ -231,12 +231,9 @@ class ReplayTimeline
     void FlushHashLogs();
     void Reset( const char* sceneLabel );
     void ClearLoadedPresentation();
-    void InstallLoadedPresentation( const char* path,
-                                    std::vector<ReplayPresentationSample>& samples,
-                                    std::size_t bodyDictionaryCount,
-                                    std::size_t fileBytes,
-                                    ReplayFrameIndex firstFrame,
-                                    ReplayFrameIndex lastFrame );
+    // Cold-I/O command: decode and install one retained presentation without
+    // exposing temporary sample storage to the composition root.
+    bool LoadPresentationArtifact( const char* path );
     bool NextPresentationSavePath( char* outPath, std::size_t outPathSize );
     ReplayTimelineCaptureResult CaptureFrame( ReplayCaptureInput input );
     void RecordEvent( const ReplayEventInput& input );
@@ -245,6 +242,12 @@ class ReplayTimeline
     void ResetCaptureMismatchDiagnostics() noexcept;
 
   private:
+    void InstallLoadedPresentation( const char* path,
+                                    std::vector<ReplayPresentationSample>& samples,
+                                    std::size_t bodyDictionaryCount,
+                                    std::size_t fileBytes,
+                                    ReplayFrameIndex firstFrame,
+                                    ReplayFrameIndex lastFrame );
     void ReportLatestCaptureMismatch();
     ReplayRecorder m_presentation;
     ReplaySolverRecorder m_solver;

@@ -2433,23 +2433,10 @@ bool ReplayRuntime::LoadPresentationArtifact( const char* path,
                                               bool attachedFollow,
                                               bool directorGrabbed )
 {
-    if ( !path || path[0] == '\0' )
+    if ( !m_timeline.LoadPresentationArtifact( path ) )
     {
         return false;
     }
-    std::vector<ReplayPresentationSample> samples;
-    ReplayV2LoadResult result;
-    if ( !ReplayV2Artifact::LoadPresentation( path, samples, &result ) || samples.size() < 2 )
-    {
-        return false;
-    }
-
-    m_timeline.InstallLoadedPresentation( path,
-                                          samples,
-                                          result.bodyDictionaryCount,
-                                          result.fileBytes,
-                                          result.firstFrame,
-                                          result.lastFrame );
 
     if ( activateScrubber )
     {
@@ -2475,14 +2462,6 @@ bool ReplayRuntime::LoadPresentationArtifact( const char* path,
         }
     }
 
-    printf( "[replay] Loaded v2 presentation artifact: path=%s samples=%llu bodies=%llu first_frame=%llu "
-            "last_frame=%llu bytes=%llu\n",
-            m_timeline.LoadedPresentation().path,
-            static_cast<unsigned long long>( m_timeline.LoadedPresentation().samples.size() ),
-            static_cast<unsigned long long>( m_timeline.LoadedPresentation().bodyDictionaryCount ),
-            static_cast<unsigned long long>( m_timeline.LoadedPresentation().firstFrame ),
-            static_cast<unsigned long long>( m_timeline.LoadedPresentation().lastFrame ),
-            static_cast<unsigned long long>( m_timeline.LoadedPresentation().fileBytes ) );
     return true;
 }
 void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics,

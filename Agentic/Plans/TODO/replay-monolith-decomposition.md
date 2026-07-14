@@ -1171,6 +1171,36 @@ Thirtieth ownership-remediation checkpoint after M3 closure:
   therefore remains 4/16, or 25%; this percentage covers active and future
   plans only and excludes completed past plans and externally blocked work.
 
+Thirty-first ownership-remediation checkpoint after M3 closure:
+
+- `ReplayTimeline` now owns cold presentation-artifact decoding, validation,
+  and atomic installation. A failed load preserves the previously published
+  track; temporary sample storage and decoded metadata no longer cross into
+  `ReplayRuntime`, and the timeline's raw install operation is private.
+- The native file picker and load-result feedback remain cold scrubber UI
+  helpers, but neither receives `ReplayRuntime`. Save dispatch is composed
+  directly inside the root member, while save/load artifact methods are now
+  private implementation details rather than public business APIs.
+- `ReplayRuntime` still sequences the explicit camera, interaction, and
+  scrubber reactions after a successful timeline load. That cross-owner
+  activation transaction is visible and remains the next M4 seam; it was not
+  hidden in a callback, stored host reference, or broad context bag.
+- Formatting passed in 11.3 seconds. The focused Profile build passed in 32.6
+  seconds with zero warnings and zero errors, and the touched-source comment
+  audit inspected 5/5 files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 469.9 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 172.0-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M4 remains open for camera/restore activation reactions; M5-M7 and the final
+  M8 review also remain open. Active/future portfolio progress therefore
+  remains 4/16, or 25%; this percentage covers active and future plans only and
+  excludes completed past plans and externally blocked work.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |

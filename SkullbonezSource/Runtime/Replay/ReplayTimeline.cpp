@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayTimeline.cpp
 Purpose:
   Implements retained replay recording, loading, event, and memory-policy state.
 
-Mental model:
+Summary:
   ReplayTimeline is one bounded history book with presentation, solver, and
   event columns. A frame advances those columns together; retention changes
   resize their windows together, and loaded artifacts occupy a separate cold
@@ -27,6 +27,8 @@ Related:
   - ReplayRuntime.cpp
 */
 #include "ReplayTimeline.h"
+
+#include "ReplayV2Artifact.h"
 
 #include "../RuntimeFileWriter.h"
 
@@ -161,6 +163,40 @@ void ReplayTimeline::Reset( const char* sceneLabel )
 void ReplayTimeline::ClearLoadedPresentation()
 {
     m_loadedPresentation = RunLoadedReplayPresentationState{};
+}
+
+bool ReplayTimeline::LoadPresentationArtifact( const char* path )
+{
+    if ( !path || path[0] == '\0' )
+    {
+        return false;
+    }
+
+    // Why: decode into cold temporary storage and publish it atomically only
+    // after validation, so a failed picker load preserves the previous track.
+    std::vector<ReplayPresentationSample> samples;
+    ReplayV2LoadResult result;
+    if ( !ReplayV2Artifact::LoadPresentation( path, samples, &result ) || samples.size() < 2 )
+    {
+        return false;
+    }
+
+    InstallLoadedPresentation( path,
+                               samples,
+                               result.bodyDictionaryCount,
+                               result.fileBytes,
+                               result.firstFrame,
+                               result.lastFrame );
+
+    printf( "[replay] Loaded v2 presentation artifact: path=%s samples=%llu bodies=%llu first_frame=%llu "
+            "last_frame=%llu bytes=%llu\n",
+            m_loadedPresentation.path,
+            static_cast<unsigned long long>( m_loadedPresentation.samples.size() ),
+            static_cast<unsigned long long>( m_loadedPresentation.bodyDictionaryCount ),
+            static_cast<unsigned long long>( m_loadedPresentation.firstFrame ),
+            static_cast<unsigned long long>( m_loadedPresentation.lastFrame ),
+            static_cast<unsigned long long>( m_loadedPresentation.fileBytes ) );
+    return true;
 }
 
 void ReplayTimeline::InstallLoadedPresentation( const char* path,

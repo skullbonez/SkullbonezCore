@@ -762,13 +762,6 @@ void HandleReplayBranchPressed( ReplayScrubber& scrubber,
 }
 
 
-void HandleReplaySavePressed( ReplayRuntime& replayRuntime, double now, bool& outEnterInteractive )
-{
-    outEnterInteractive = true;
-    replayRuntime.SavePresentationFromScrubber( now );
-}
-
-
 bool BeginReplayScrubberGesture( InputRouter& inputRouter,
                                  RuntimeInteractionController& interaction,
                                  RuntimeInteractionGestureKind kind,
@@ -799,30 +792,16 @@ void EndReplayScrubberGesture( InputRouter& inputRouter,
 }
 
 
-void HandleReplayLoadPressed( ReplayRuntime& replayRuntime,
-                              ReplayScrubber& scrubber,
-                              HWND window,
-                              double now,
-                              InputRouter& inputRouter,
-                              RuntimeInteractionController& interaction,
-                              SkullbonezCore::Environment::CameraCollection* cameras,
-                              SkullbonezCore::Geometry::Terrain* terrain,
-                              RunCameraState& camera,
-                              RunMousePickupState& mousePickup,
-                              RunCameraMode normalizedCurrentMode,
-                              RunCameraMode normalizedRestoreMode,
-                              bool attachedFollow,
-                              bool directorGrabbed )
+bool SelectReplayPresentationArtifact( ReplayScrubber& scrubber, HWND window, double now, char ( &outPath )[MAX_PATH] )
 {
     // Why: the native picker is cold UI. It runs only after typed Load dispatch
     // and never becomes a stored callback or per-frame service dependency.
-    char path[MAX_PATH] = {};
     OPENFILENAMEA openFile = {};
     openFile.lStructSize = sizeof( openFile );
     openFile.hwndOwner = window;
     openFile.lpstrFilter = "Skullbonez replay (*.skreplay)\0*.skreplay\0All files (*.*)\0*.*\0";
-    openFile.lpstrFile = path;
-    openFile.nMaxFile = sizeof( path );
+    openFile.lpstrFile = outPath;
+    openFile.nMaxFile = MAX_PATH;
     openFile.lpstrInitialDir = "replays";
     openFile.lpstrTitle = "Load Skullbonez replay v2 artifact";
     openFile.lpstrDefExt = "skreplay";
@@ -835,22 +814,13 @@ void HandleReplayLoadPressed( ReplayRuntime& replayRuntime,
             scrubber.PublishFeedback( RunReplayTrack::Presentation, "REPLAY PICKER FAILED", now, 2.5 );
             KeepReplayScrubberVisible( scrubber, now );
         }
-        return;
+        return false;
     }
+    return true;
+}
 
-    const bool loaded = replayRuntime.LoadPresentationArtifact( path,
-                                                                true,
-                                                                now,
-                                                                inputRouter,
-                                                                interaction,
-                                                                cameras,
-                                                                terrain,
-                                                                camera,
-                                                                mousePickup,
-                                                                normalizedCurrentMode,
-                                                                normalizedRestoreMode,
-                                                                attachedFollow,
-                                                                directorGrabbed );
+void PublishReplayLoadResult( ReplayScrubber& scrubber, const char* path, bool loaded, double now )
+{
     const char* fileName = strrchr( path, '\\' );
     if ( !fileName )
     {
@@ -1286,26 +1256,33 @@ bool ReplayRuntime::TickScrubberInput( HWND hwnd,
         consumesMouse = true;
         break;
     case ReplayScrubberAction::Save:
-        HandleReplaySavePressed( *this, now, outEnterInteractive );
+        outEnterInteractive = true;
+        SavePresentationFromScrubber( now );
         consumesMouse = true;
         break;
     case ReplayScrubberAction::Load:
-        HandleReplayLoadPressed( *this,
-                                 m_scrubberOwner,
-                                 hwnd,
-                                 now,
-                                 m_inputRouter,
-                                 m_interaction,
-                                 cameras,
-                                 terrain,
-                                 camera,
-                                 mousePickup,
-                                 normalizedCurrentMode,
-                                 normalizedRestoreMode,
-                                 attachedFollow,
-                                 directorGrabbed );
+    {
+        char path[MAX_PATH] = {};
+        if ( SelectReplayPresentationArtifact( m_scrubberOwner, hwnd, now, path ) )
+        {
+            const bool loaded = LoadPresentationArtifact( path,
+                                                          true,
+                                                          now,
+                                                          m_inputRouter,
+                                                          m_interaction,
+                                                          cameras,
+                                                          terrain,
+                                                          camera,
+                                                          mousePickup,
+                                                          normalizedCurrentMode,
+                                                          normalizedRestoreMode,
+                                                          attachedFollow,
+                                                          directorGrabbed );
+            PublishReplayLoadResult( m_scrubberOwner, path, loaded, now );
+        }
         consumesMouse = true;
         break;
+    }
     case ReplayScrubberAction::Scrub:
         if ( !HandleReplayScrubPressed( m_scrubberOwner,
                                         m_inputRouter,

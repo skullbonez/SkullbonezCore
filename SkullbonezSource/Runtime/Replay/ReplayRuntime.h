@@ -299,28 +299,6 @@ class ReplayRuntime
     // value. Hashing and payload construction belong to ReplayRecorder domain
     // builders, leaving this boundary as composition only.
     void SubmitEvent( const ReplayEventCommand& command );
-    // Writes the current presentation, solver hashes/checkpoints, and event
-    // stream to an explicit cold-I/O binary v2 path.
-    bool SavePresentationWithSolverHashes( const char* path,
-                                           ReplayV2SaveResult* result = nullptr,
-                                           std::span<const ReplayVisualArchiveSample> visualPackets = {},
-                                           std::span<const uint8_t> visualPredictionState = {} ) const;
-    // Owns scrubber save path sequencing and status publication so Run does not
-    // retain a behavior-free import/export forwarding module.
-    bool SavePresentationFromScrubber( double now );
-    bool LoadPresentationArtifact( const char* path,
-                                   bool activateScrubber,
-                                   double now,
-                                   InputRouter& inputRouter,
-                                   RuntimeInteractionController& interaction,
-                                   Environment::CameraCollection* cameras,
-                                   Geometry::Terrain* terrain,
-                                   RunCameraState& camera,
-                                   RunMousePickupState& mousePickup,
-                                   RunCameraMode normalizedCurrentMode,
-                                   RunCameraMode normalizedRestoreMode,
-                                   bool attachedFollow,
-                                   bool directorGrabbed );
     void TickWorkspace( const ReplayWorkspaceFrameInput& input,
                         InputRouter& inputRouter,
                         RuntimeInteractionController& interaction,
@@ -402,6 +380,28 @@ class ReplayRuntime
     bool ClearInteractionForRuntimeTransition( RuntimeInteractionController& interaction, InputRouter& inputRouter );
 
   private:
+    // Writes the current presentation, solver hashes/checkpoints, and event
+    // stream to an explicit cold-I/O binary v2 path.
+    bool SavePresentationWithSolverHashes( const char* path,
+                                           ReplayV2SaveResult* result = nullptr,
+                                           std::span<const ReplayVisualArchiveSample> visualPackets = {},
+                                           std::span<const uint8_t> visualPredictionState = {} ) const;
+    // Owns scrubber save sequencing and status publication; file decode and
+    // loaded-track state belong to ReplayTimeline.
+    bool SavePresentationFromScrubber( double now );
+    bool LoadPresentationArtifact( const char* path,
+                                   bool activateScrubber,
+                                   double now,
+                                   InputRouter& inputRouter,
+                                   RuntimeInteractionController& interaction,
+                                   Environment::CameraCollection* cameras,
+                                   Geometry::Terrain* terrain,
+                                   RunCameraState& camera,
+                                   RunMousePickupState& mousePickup,
+                                   RunCameraMode normalizedCurrentMode,
+                                   RunCameraMode normalizedRestoreMode,
+                                   bool attachedFollow,
+                                   bool directorGrabbed );
     ReplayPathPickResult ApplyPathPick( const ReplayPathPickInput& input,
                                         const SceneEntityStore& entities,
                                         const Physics::PhysicsBodyStore& bodyStore,

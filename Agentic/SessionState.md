@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-14
+Date: 2026-07-15
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -14,8 +14,8 @@ plan inventory.
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
 | Current objective | Reclose replay M4-M7 ownership findings from mandatory M8 review, with the unchanged frame-exact 200-box gate after every task |
 | Active/future progress | 4 / 16 tasks = 25% rounded overall (decomposition + spline plans only; completed past plans and externally blocked work are excluded) |
-| Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-14: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | M4 checkpoint 30 removed `ReplayRuntime` from hot scrubber semantic handlers and deleted root live-advance/velocity-toggle APIs in favor of explicit scrubber, authoring, prediction, presentation, and interaction commands. Profile build (32.2s), formatting, the unchanged replay oracle (472.1s), scrub exit-37 propagation, and the full CPU/Profile/Debug/DX12/physics gate (170.6s) passed with zero warnings/DX12 errors and byte-exact physics. Comment audit: 6/6, zero deferred. M4-M7 remain open; no baseline changed. |
+| Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
+| Validation for current edits | M4 checkpoint 31 moved cold presentation-artifact decode/validation/atomic install into `ReplayTimeline`, made its raw install private, removed `ReplayRuntime` from native picker/feedback helpers, and made root save/load composition methods private. Profile build (32.6s), formatting (11.3s), the unchanged replay oracle (469.9s), scrub exit-37 propagation, and the full CPU/Profile/Debug/DX12/physics gate (172.0s) passed with zero warnings/DX12 errors and byte-exact physics. Comment audit: 5/5, zero deferred. M4-M7 remain open; no baseline changed. |
 
 ## Live Queue
 
