@@ -65,9 +65,12 @@ namespace Runtime
 {
 class SceneEntityStore;
 class InputRouter;
+class ReplayAuthoring;
+class ReplayPresentation;
 class RuntimeTools;
 class RunEditorTracer;
 struct RunCameraState;
+struct RunMousePickupState;
 struct RunReplayCauseTreeState;
 struct RunReplayPredictionFrame;
 struct ReplayPastTrajectoryView;
@@ -138,6 +141,27 @@ struct ReplayPathPickResult
     bool picked = false;
     bool exitInspectionCamera = false;
 };
+
+// Stateless host-camera transitions shared by scrubber and authoring tools.
+// Every owner reference is a synchronous borrow; neither operation stores host
+// or replay authority after returning.
+void EnterReplayInspectionCamera( ReplayPresentation& presentation,
+                                  Environment::CameraCollection* cameras,
+                                  RunCameraState& camera,
+                                  RunCameraMode normalizedCurrentMode,
+                                  RuntimeInteractionController& interaction,
+                                  InputRouter& inputRouter,
+                                  RunMousePickupState& mousePickup );
+void ExitReplayInspectionCamera( ReplayPresentation& presentation,
+                                 const ReplayAuthoring& authoring,
+                                 Environment::CameraCollection* cameras,
+                                 Geometry::Terrain* terrain,
+                                 RunCameraState& camera,
+                                 RunCameraMode normalizedRestoreMode,
+                                 bool attachedFollow,
+                                 bool directorGrabbed,
+                                 RuntimeInteractionController& interaction,
+                                 InputRouter& inputRouter );
 
 struct ReplayWorldPointerInput
 {

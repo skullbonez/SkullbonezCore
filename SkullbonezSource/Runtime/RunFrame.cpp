@@ -153,7 +153,9 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
         replayRuntime.BuildOverlayStateView( runtimeTools.Editor().editorModeEnabled,
                                              ui.IsVisible(),
                                              ui.IsMinimized(),
-                                             facts.interactionGesture.kind );
+                                             facts.interactionGesture.kind,
+                                             renderModels.presentationRecords,
+                                             renderModels.bodyStore );
     const UiTextPassState uiTextState{ debug,
                                        sceneController.CrossScenePauseLocked(),
                                        scene,
@@ -200,7 +202,6 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
             renderer.BuildRenderTargetPreviewSnapshot( shadowsAvailable,
                                                        uiCinematicRendering,
                                                        uiCinematicRendering && uiCinematic.volumetricLightingEnabled );
-        (void)replayRuntime.BuildCauseTreeRows( renderModels.presentationRecords, renderModels.bodyStore );
         const ReplayOverlay::ReplayOverlayRenderContext replayOverlayContext{ *uiRender.commands,
                                                                               replayOverlay.scrubber,
                                                                               replayOverlay.prediction,

@@ -96,9 +96,9 @@ number measures remaining executable work instead of lifetime repository work.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| replay-monolith-decomposition | 5 | 9 | 56% |
+| replay-monolith-decomposition | 6 | 9 | 67% |
 | future-path-vector-splines | 0 | 7 | 0% |
-| **Active/future total** | **5** | **16** | **31%** |
+| **Active/future total** | **6** | **16** | **38%** |
 
 ## Current Execution Priority
 
@@ -128,18 +128,19 @@ validation-gate V3 remains externally blocked.
    the presentation TU consumes only the value-only `ReplayPredictionView.h`,
    not private prediction-owner internals. Destination-branch provenance and
    every per-checkpoint gate passed on `nightrunner-14th-july`. The ledger is
-   5/9. M4 checkpoints 27-32 moved scrubber hit testing, visibility, and
+   6/9. M4 checkpoints 27-32 moved scrubber hit testing, visibility, and
    semantic pointer-action selection into `ReplayScrubber`, deleted six raw
    root cursor-forwarding APIs, moved typed replay gesture begin/end ownership
    into `RuntimeInteractionController`, and deleted root live-advance/velocity
    toggle forwarding in favor of explicit owner commands. `ReplayTimeline` now
    owns cold artifact decoding and atomic loaded-track installation. Root
    save/load composition is deleted or private, loaded-track activation is an
-   explicit no-I/O cross-owner operation, and M4 is reclosed. M5-M7 still
-   require authoring/startup-probe execution, external input routing, and broad
-   root API closure. M5 checkpoint 33 deleted both authoring self-aliases and
-   five root-only state/query relays; the two authoring input algorithms still
-   need to leave the root before M5 can be reclosed.
+   explicit no-I/O cross-owner operation, and M4 is reclosed. M5 checkpoints
+   33-34 deleted the authoring self-aliases and root-only state/query relays,
+   moved cause-tree construction plus cause/velocity input execution behind
+   `ReplayAuthoring`, and replaced prediction reach-back with queued value
+   requests. M5 is reclosed. M6-M7 still require prediction/startup-probe
+   closure, external input routing, and the remaining broad root API cleanup.
 3. **Future-path vector splines — live independent presentation lane
    (2026-07-14 owner request).** `TODO/future-path-vector-splines.md` (T1→T7)
    restyles the prediction view: near-black sky, thin anti-aliased
@@ -176,7 +177,7 @@ validation-gate V3 remains externally blocked.
 |---|---|---:|---|
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs merge-group proof, required branch protection, and trusted/ephemeral DX12 runner administration |
 | [replay-visual-fidelity-mega-probe](TODO/replay-visual-fidelity-mega-probe.md) | Complete | 7/7 | One engine, one prediction, 2,401 exact ticks, 187 grounded sleepers, durable CPU-only reconstruction, and adversarial closure approved |
-| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Active on `nightrunner-14th-july` | 5/9 | Remove authoring/startup-probe root dependencies and remaining root forwarding; then rerun the mandatory M8 ownership review and unchanged per-task mega gate |
+| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Active on `nightrunner-14th-july` | 6/9 | Close prediction/startup-probe ownership and remaining external root forwarding in M6-M7; then rerun the mandatory M8 ownership review and unchanged per-task mega gate |
 | [future-path-vector-splines](TODO/future-path-vector-splines.md) | Live — independent presentation lane | 0/7 | Start T1 (near-black prediction sky) and T2 (thin AA vector-spline ribbon shader); owner decisions 2026-07-14 are recorded in the plan; golden-manifest refresh needs owner approval |
 
 ## Planned Architecture Work (2026-07-11 gap review)

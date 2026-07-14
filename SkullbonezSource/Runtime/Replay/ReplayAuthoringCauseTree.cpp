@@ -6,8 +6,8 @@ Purpose:
 Summary:
   The cause tree is an explanatory replay UI over retained solver contacts and
   predicted movement. It owns window placement and drag/resize state, derives
-  row hover from a disposable shared surface, and asks ReplayRuntime to resolve
-  body positions for camera focus.
+  row hover from a disposable shared surface, and resolves camera focus from
+  explicit prediction, solver, and live-store views.
 
 Glossary:
   Cause tree: Contact, solver-row, and predicted-motion graph explaining replay
@@ -62,6 +62,120 @@ Vector3 ReplayCauseTreeNormalizeOr( Vector3 value, const Vector3& fallback )
     }
     value /= sqrtf( magSq );
     return value;
+}
+
+float ReplayCauseTreeColliderRadius( const ColliderRecord& collider )
+{
+    return (std::max)( collider.boundingRadius, 1.0f );
+}
+
+float ReplayCauseTreeColliderRadiusForModelRow( const ColliderStore& colliderStore, int modelRow )
+{
+    const PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelRow );
+    if ( const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle ) )
+    {
+        return ReplayCauseTreeColliderRadius( *collider );
+    }
+
+    const auto colliders = colliderStore.Records();
+    if ( modelRow < 0 || modelRow >= static_cast<int>( colliders.size() ) )
+    {
+        return 1.0f;
+    }
+    return ReplayCauseTreeColliderRadius( colliders[static_cast<std::size_t>( modelRow )] );
+}
+
+float ReplayCauseTreeColliderRadiusForBody( const ColliderStore& colliderStore,
+                                            const PhysicsBodyRecord& body,
+                                            int fallbackModelRow )
+{
+    const PhysicsColliderHandle colliderHandle = colliderStore.HandleForBodyHandle( body.handle );
+    if ( const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle ) )
+    {
+        return ReplayCauseTreeColliderRadius( *collider );
+    }
+    return ReplayCauseTreeColliderRadiusForModelRow( colliderStore, fallbackModelRow );
+}
+
+// Concept: focus pose lookup is authoring interpretation over immutable replay
+// publications plus live physics rows. Dense model rows remain radius hints;
+// ReplayBodyId is the identity check in every source.
+// Invariant: this helper stores no view and never repairs topology while input
+// is active. The frame boundary prepared paired body/collider stores first.
+bool ResolveReplayCauseTreeBodyPosition( ReplayBodyId id,
+                                         bool predictionEnabled,
+                                         ReplayBodyId predictionTargetId,
+                                         ReplayBodyId pathTargetId,
+                                         std::span<const RunReplayPredictionFrame> activePredictionFrames,
+                                         const ReplaySolverFrameSample* solverSample,
+                                         const PhysicsBodyStore& bodyStore,
+                                         const ColliderStore& colliderStore,
+                                         Vector3& outPosition,
+                                         float* outRadius )
+{
+    if ( id.value == 0 )
+    {
+        return false;
+    }
+
+    if ( outRadius )
+    {
+        *outRadius = 1.0f;
+    }
+
+    const auto publishSampleRadius = [&]( ModelRowHint modelRow )
+    {
+        if ( !outRadius )
+        {
+            return;
+        }
+        const PhysicsBodyHandle liveBody = bodyStore.HandleForReplayBodyId( id.value, modelRow.value );
+        const PhysicsBodyRecord* liveBodyRecord = bodyStore.RecordForHandle( liveBody );
+        *outRadius = liveBodyRecord
+                         ? ReplayCauseTreeColliderRadiusForBody( colliderStore, *liveBodyRecord, modelRow.value )
+                         : ReplayCauseTreeColliderRadiusForModelRow( colliderStore, modelRow.value );
+    };
+
+    if ( predictionEnabled && !activePredictionFrames.empty() && predictionTargetId.value == pathTargetId.value )
+    {
+        for ( const RunReplayPredictionBodySample& body : activePredictionFrames.front().bodies )
+        {
+            if ( body.id.value == id.value )
+            {
+                outPosition = body.position;
+                publishSampleRadius( body.modelRow );
+                return true;
+            }
+        }
+    }
+
+    if ( solverSample )
+    {
+        for ( const ReplaySolverBodySample& body : solverSample->bodies )
+        {
+            if ( body.id.value == id.value )
+            {
+                outPosition = body.position;
+                publishSampleRadius( body.modelRow );
+                return true;
+            }
+        }
+    }
+
+    for ( const PhysicsBodyRecord& body : bodyStore.Records() )
+    {
+        if ( body.replayBodyId == id.value )
+        {
+            outPosition = body.position;
+            if ( outRadius )
+            {
+                const int fallbackModelRow = bodyStore.ModelIndexForHandle( body.handle );
+                *outRadius = ReplayCauseTreeColliderRadiusForBody( colliderStore, body, fallbackModelRow );
+            }
+            return true;
+        }
+    }
+    return false;
 }
 } // namespace
 
@@ -143,48 +257,78 @@ void ReplayAuthoring::SetCauseTreeFocus( int rowIndex, ReplayBodyId focusedId ) 
 }
 
 
-bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
-                                        int wheelDelta,
-                                        InputRouter& inputRouter,
-                                        RuntimeInteractionController& interaction,
-                                        const PhysicsBodyStore& bodyStore,
-                                        const ColliderStore& colliderStore,
-                                        std::span<const Rendering::RenderInstancePresentationRecord> presentation,
-                                        Environment::CameraCollection* cameras,
-                                        Geometry::Terrain* terrain,
-                                        RunCameraState& camera,
-                                        RunMousePickupState& mousePickup,
-                                        RunCameraMode normalizedCurrentMode,
-                                        RunCameraMode normalizedRestoreMode,
-                                        bool attachedFollow,
-                                        bool directorGrabbed,
-                                        bool editorModeEnabled,
-                                        int screenWidth,
-                                        int screenHeight,
-                                        bool& outEnterInteractive )
+bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
+                                          ReplayScrubber& scrubberOwner,
+                                          const RunReplayPredictionState& prediction,
+                                          std::span<const RunReplayPredictionFrame> activePredictionFrames,
+                                          const ReplaySolverFrameSample* currentSolverSample,
+                                          bool uiBlocksMouse,
+                                          int wheelDelta,
+                                          InputRouter& inputRouter,
+                                          RuntimeInteractionController& interaction,
+                                          const PhysicsBodyStore& bodyStore,
+                                          const ColliderStore& colliderStore,
+                                          std::span<const Rendering::RenderInstancePresentationRecord> presentation,
+                                          Environment::CameraCollection* cameras,
+                                          Geometry::Terrain* terrain,
+                                          RunCameraState& camera,
+                                          RunMousePickupState& mousePickup,
+                                          RunCameraMode normalizedCurrentMode,
+                                          RunCameraMode normalizedRestoreMode,
+                                          bool attachedFollow,
+                                          bool directorGrabbed,
+                                          bool editorModeEnabled,
+                                          int screenWidth,
+                                          int screenHeight,
+                                          bool& outEnterInteractive )
 {
     InputRouter& m_inputRouter = inputRouter;
     RuntimeInteractionController& m_interaction = interaction;
     const auto enterInspectionCamera = [&]()
-    { EnterInspectionCamera( cameras, camera, normalizedCurrentMode, m_interaction, m_inputRouter, mousePickup ); };
+    {
+        EnterReplayInspectionCamera( presentationOwner,
+                                     cameras,
+                                     camera,
+                                     normalizedCurrentMode,
+                                     m_interaction,
+                                     m_inputRouter,
+                                     mousePickup );
+    };
     const auto exitInspectionCamera = [&]()
     {
-        ExitInspectionCamera( cameras,
-                              terrain,
-                              camera,
-                              normalizedRestoreMode,
-                              attachedFollow,
-                              directorGrabbed,
-                              m_interaction,
-                              m_inputRouter );
+        ExitReplayInspectionCamera( presentationOwner,
+                                    *this,
+                                    cameras,
+                                    terrain,
+                                    camera,
+                                    normalizedRestoreMode,
+                                    attachedFollow,
+                                    directorGrabbed,
+                                    m_interaction,
+                                    m_inputRouter );
     };
     PROFILE_SCOPED( "Frame/Replay/CauseTree/Input" );
     // Concept: Cause-tree input owns the explanatory replay window state while
-    // delegating body/sample interpretation to ReplayRuntime queries.
+    // body focus resolves from explicit prediction, solver, and live-store
+    // views captured for this input turn.
     const RuntimeMouseEdges& pointer = m_inputRouter.UiSnapshot().mouse;
     const bool leftPressed = pointer.leftPressed;
     const bool leftReleased = pointer.leftReleased;
-    m_authoring.BeginCauseTreeInputFrame();
+    BeginCauseTreeInputFrame();
+    const ReplayBodyId pathTargetId = presentationOwner.PathVisualizer().targetId;
+    const auto resolveCauseTreeBody = [&]( ReplayBodyId id, Vector3& outPosition, float* outRadius )
+    {
+        return ResolveReplayCauseTreeBodyPosition( id,
+                                                   prediction.enabled,
+                                                   prediction.simulation.targetId,
+                                                   pathTargetId,
+                                                   activePredictionFrames,
+                                                   currentSolverSample,
+                                                   bodyStore,
+                                                   colliderStore,
+                                                   outPosition,
+                                                   outRadius );
+    };
 
     const auto activateReplayCameraForCauseRow = [&]( const RunReplayCauseTreeRow& row, int rowIndex )
     {
@@ -199,8 +343,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         {
         case RunReplayCauseTreeRowKind::Body:
         {
-            const bool bodyResolved =
-                ResolveCauseTreeBodyPosition( row.id, bodyStore, colliderStore, targetPosition, &targetRadius );
+            const bool bodyResolved = resolveCauseTreeBody( row.id, targetPosition, &targetRadius );
             if ( !bodyResolved )
             {
                 return;
@@ -209,20 +352,20 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
             break;
         }
         case RunReplayCauseTreeRowKind::Manifold:
-            ResolveCauseTreeBodyPosition( row.id, bodyStore, colliderStore, targetPosition, &targetRadius );
+            resolveCauseTreeBody( row.id, targetPosition, &targetRadius );
             targetPosition = row.point;
             targetRadius = (std::max)( targetRadius * 0.55f, 2.0f );
             focusKind = RunReplayCameraFocusKind::Manifold;
             break;
         case RunReplayCauseTreeRowKind::SolverRow:
-            ResolveCauseTreeBodyPosition( row.id, bodyStore, colliderStore, targetPosition, &targetRadius );
+            resolveCauseTreeBody( row.id, targetPosition, &targetRadius );
             targetPosition = row.point;
             targetRadius = (std::max)( targetRadius * 0.45f, 1.5f );
             focusKind = RunReplayCameraFocusKind::SolverRow;
             break;
         case RunReplayCauseTreeRowKind::PredictionContact:
         case RunReplayCauseTreeRowKind::PredictionMotion:
-            ResolveCauseTreeBodyPosition( row.id, bodyStore, colliderStore, targetPosition, &targetRadius );
+            resolveCauseTreeBody( row.id, targetPosition, &targetRadius );
             targetPosition = row.point;
             targetRadius = (std::max)( targetRadius * 0.45f, 1.5f );
             focusKind = row.kind == RunReplayCauseTreeRowKind::PredictionContact
@@ -240,20 +383,20 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         }
 
         outEnterInteractive = true;
-        const bool hadReplayCameraFocus = m_visualPresentation.CameraView().focusKind != RunReplayCameraFocusKind::None;
-        if ( !m_scrubberOwner.View().liveAdvanceHeld )
+        const bool hadReplayCameraFocus = presentationOwner.CameraView().focusKind != RunReplayCameraFocusKind::None;
+        if ( !scrubberOwner.View().liveAdvanceHeld )
         {
-            if ( m_scrubberOwner.SetLiveAdvanceHeld( true ) && !IsReplayCauseTreeToolOwner( m_interaction.Owner() ) )
+            if ( scrubberOwner.SetLiveAdvanceHeld( true ) && !IsReplayCauseTreeToolOwner( m_interaction.Owner() ) )
             {
                 interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
                                                                  WorldInteractionOwner::ReplayScrub,
                                                                  InteractionExitReason::EnterReplay );
             }
-            m_visualPresentation.SetCameraPauseOwnership( true );
+            presentationOwner.SetCameraPauseOwnership( true );
         }
         else if ( !hadReplayCameraFocus )
         {
-            m_visualPresentation.SetCameraPauseOwnership( false );
+            presentationOwner.SetCameraPauseOwnership( false );
         }
         enterInspectionCamera();
 
@@ -273,8 +416,8 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         focus.targetNormal = ReplayCauseTreeNormalizeOr( row.normal, Vector3( 0.0f, 1.0f, 0.0f ) );
         focus.impulseVector = row.impulse;
         focus.targetRadius = targetRadius;
-        m_visualPresentation.ApplyCameraFocus( focus );
-        m_authoring.SetCauseTreeFocus( rowIndex, row.id );
+        presentationOwner.ApplyCameraFocus( focus );
+        SetCauseTreeFocus( rowIndex, row.id );
 
         if ( cameras )
         {
@@ -311,13 +454,25 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         return false;
     }
 
-    if ( !BuildCauseTreeRows( presentation, bodyStore ) )
+    int focusedCameraRow = -1;
+    if ( !BuildCauseTreeRows( presentationOwner.PathVisualizer(),
+                              prediction,
+                              activePredictionFrames,
+                              currentSolverSample,
+                              presentation,
+                              bodyStore,
+                              presentationOwner.CameraView(),
+                              focusedCameraRow ) )
     {
         endCauseTreeDragIfReleased();
         return false;
     }
+    if ( focusedCameraRow >= 0 )
+    {
+        presentationOwner.SetCameraFocusedRow( focusedCameraRow );
+    }
 
-    m_authoring.EnsureCauseTreeWindowPlacement( screenW, screenH );
+    EnsureCauseTreeWindowPlacement( screenW, screenH );
     const RuntimePointerEvent& runtimePointer = m_inputRouter.RuntimeSnapshot().pointer;
     if ( !runtimePointer.hasClientPosition )
     {
@@ -325,9 +480,9 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         return false;
     }
     const POINT mouse{ runtimePointer.clientX, runtimePointer.clientY };
-    m_authoring.SetCauseTreePointer( mouse.x, mouse.y, uiBlocksMouse );
+    SetCauseTreePointer( mouse.x, mouse.y, uiBlocksMouse );
     ReplayCauseWindowSurface surface;
-    BuildReplayCauseWindowSurface( m_authoring.CauseTree(), surface );
+    BuildReplayCauseWindowSurface( CauseTree(), surface );
     surface.ResolvePointer( mouse.x, mouse.y, uiBlocksMouse );
     const auto isHotControl = [&]( ReplayCauseWindowControl control )
     { return surface.hasHotControl && surface.hotControl == ReplayCauseWindowControlId( control ); };
@@ -341,7 +496,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
 
     if ( causeTreeDragMode() == 0 )
     {
-        m_authoring.MoveCauseTreeWindow( mouse.x, mouse.y, screenW, screenH );
+        MoveCauseTreeWindow( mouse.x, mouse.y, screenW, screenH );
         if ( leftReleased )
         {
             m_inputRouter.ReleaseNativeCapture();
@@ -352,7 +507,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
 
     if ( causeTreeDragMode() == 1 )
     {
-        m_authoring.ResizeCauseTreeWindow( mouse.x, mouse.y, screenW, screenH );
+        ResizeCauseTreeWindow( mouse.x, mouse.y, screenW, screenH );
         if ( leftReleased )
         {
             m_inputRouter.ReleaseNativeCapture();
@@ -372,7 +527,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
                                                          WorldInteractionOwner::ReplayCauseTree,
                                                          InteractionExitReason::EnterReplay );
         const float wheelRows = static_cast<float>( wheelDelta ) / 120.0f;
-        m_authoring.ScrollCauseTreeWindow( -wheelRows * REPLAY_CAUSE_WINDOW_ROW_HEIGHT * 3.0f, screenW, screenH );
+        ScrollCauseTreeWindow( -wheelRows * REPLAY_CAUSE_WINDOW_ROW_HEIGHT * 3.0f, screenW, screenH );
         return true;
     }
 
@@ -390,7 +545,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         {
             return false;
         }
-        m_authoring.BeginCauseTreeResize( mouse.x, mouse.y );
+        BeginCauseTreeResize( mouse.x, mouse.y );
         m_inputRouter.RequestNativeCapture();
         return true;
     }
@@ -409,17 +564,17 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         {
             return false;
         }
-        m_authoring.BeginCauseTreeMove( mouse.x, mouse.y );
+        BeginCauseTreeMove( mouse.x, mouse.y );
         m_inputRouter.RequestNativeCapture();
         return true;
     }
 
     if ( isHotControl( ReplayCauseWindowControl::Content ) )
     {
-        const float localY = static_cast<float>( mouse.y ) - content.y + m_authoring.CauseTree().scrollY;
+        const float localY = static_cast<float>( mouse.y ) - content.y + CauseTree().scrollY;
         const int rowIndex = static_cast<int>( floorf( localY / REPLAY_CAUSE_WINDOW_ROW_HEIGHT ) );
         RunReplayCauseTreeRow selectedRow;
-        if ( m_authoring.TryGetCauseTreeRow( rowIndex, selectedRow ) )
+        if ( TryGetCauseTreeRow( rowIndex, selectedRow ) )
         {
             if ( leftPressed )
             {
@@ -431,8 +586,16 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         }
         else if ( leftPressed )
         {
-            ClearCameraFocusForRestore();
-            ClearPathVisualizerState();
+            const bool ownedSimulationPause = presentationOwner.ClearCameraFocus();
+            ClearCauseTreeFocus();
+            const ReplayScrubberView scrubber = scrubberOwner.View();
+            if ( ownedSimulationPause && scrubber.liveAdvanceHeld && !scrubber.historicalSamplePaused )
+            {
+                scrubberOwner.SetLiveAdvanceHeld( false );
+            }
+            presentationOwner.ClearPathState();
+            ResetCauseTreeRows();
+            QueuePredictionCacheReset();
             exitInspectionCamera();
         }
     }

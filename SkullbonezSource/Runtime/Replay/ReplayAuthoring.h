@@ -12,8 +12,8 @@ Glossary:
 
 Invariants:
   - Cause rows retain ReplayBodyId as identity and dense rows only as hints.
-  - Authoring never reaches into prediction state; the composition root consumes
-    queued value requests in frame order.
+  - Authoring receives prediction only as a read-only frame-local publication;
+    the composition root consumes queued mutation requests in frame order.
 
 Related:
   - ReplayRuntime.h
@@ -27,16 +27,46 @@ Related:
 #include "../../Physics/PhysicsHandles.h"
 
 #include <vector>
+#include <span>
 
 namespace SkullbonezCore
 {
+namespace Environment
+{
+class CameraCollection;
+}
+namespace Geometry
+{
+class Terrain;
+}
+namespace Rendering
+{
+struct RenderInstancePresentationRecord;
+}
 namespace Physics
 {
 class PhysicsEngine;
-}
+class PhysicsBodyStore;
+class ColliderStore;
+} // namespace Physics
 namespace Runtime
 {
+class InputRouter;
+class ReplayPresentation;
+class ReplayScrubber;
 class RunEditorTracer;
+class RuntimeInteractionController;
+class SceneEntityStore;
+struct ReplayPathPickInput;
+struct ReplayKeyboardVelocityEditInput;
+struct ReplayKeyboardVelocityEditResult;
+struct RunReplayCameraState;
+struct RunReplayPathVisualizerState;
+struct RunReplayPredictionFrame;
+struct RunReplayPredictionState;
+struct RunCameraState;
+struct RunMousePickupState;
+enum class RunCameraMode;
 struct RuntimeInteractionGesture;
 // Invariant: replay input clamping and editor visualization share these scales
 // so the velocity gizmo cannot advertise values that authoring rejects.
@@ -117,6 +147,8 @@ struct ReplayAuthoringPredictionRequest
 {
     bool enablePrediction = false;
     bool refreshPrediction = false;
+    bool clearPredictionCache = false;
+    bool prepareVelocityMutationBaseline = false;
 };
 
 struct ReplayVelocityEditDragStart
@@ -213,6 +245,68 @@ class ReplayAuthoring
     void BeginCauseTreeMove( int mouseX, int mouseY ) noexcept;
     bool TryGetCauseTreeRow( int rowIndex, RunReplayCauseTreeRow& outRow ) const noexcept;
     void SetCauseTreeFocus( int rowIndex, ReplayBodyId focusedId ) noexcept;
+    // Builds the bounded explanatory row publication from read-only owner
+    // views. Camera synchronization is returned as a value so authoring never
+    // reaches into presentation authority.
+    bool BuildCauseTreeRows( const RunReplayPathVisualizerState& path,
+                             const RunReplayPredictionState& prediction,
+                             std::span<const RunReplayPredictionFrame> activePredictionFrames,
+                             const ReplaySolverFrameSample* solverSample,
+                             std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
+                             const Physics::PhysicsBodyStore& bodyStore,
+                             const RunReplayCameraState& camera,
+                             int& outCameraFocusedRow );
+    bool TickCauseTreeInput( ReplayPresentation& presentationOwner,
+                             ReplayScrubber& scrubberOwner,
+                             const RunReplayPredictionState& prediction,
+                             std::span<const RunReplayPredictionFrame> activePredictionFrames,
+                             const ReplaySolverFrameSample* currentSolverSample,
+                             bool uiBlocksMouse,
+                             int wheelDelta,
+                             InputRouter& inputRouter,
+                             RuntimeInteractionController& interaction,
+                             const Physics::PhysicsBodyStore& bodyStore,
+                             const Physics::ColliderStore& colliderStore,
+                             std::span<const Rendering::RenderInstancePresentationRecord> presentation,
+                             Environment::CameraCollection* cameras,
+                             Geometry::Terrain* terrain,
+                             RunCameraState& camera,
+                             RunMousePickupState& mousePickup,
+                             RunCameraMode normalizedCurrentMode,
+                             RunCameraMode normalizedRestoreMode,
+                             bool attachedFollow,
+                             bool directorGrabbed,
+                             bool editorModeEnabled,
+                             int screenWidth,
+                             int screenHeight,
+                             bool& outEnterInteractive );
+    bool TickVelocityEditInput( ReplayPresentation& presentationOwner,
+                                ReplayScrubber& scrubberOwner,
+                                const ReplaySolverFrameSample* currentSolverSample,
+                                bool uiBlocksMouse,
+                                const ReplayPathPickInput& pointerRay,
+                                InputRouter& inputRouter,
+                                RuntimeInteractionController& interaction,
+                                Physics::PhysicsEngine& physics,
+                                const SceneEntityStore& entities,
+                                std::span<const Rendering::RenderInstancePresentationRecord> presentation,
+                                Environment::CameraCollection* cameras,
+                                Geometry::Terrain* terrain,
+                                RunCameraState& camera,
+                                RunMousePickupState& mousePickup,
+                                RunCameraMode normalizedCurrentMode,
+                                RunCameraMode normalizedRestoreMode,
+                                bool attachedFollow,
+                                bool directorGrabbed,
+                                bool editorModeEnabled,
+                                bool scenePhysicsEnabled,
+                                int screenWidth,
+                                int screenHeight,
+                                double now,
+                                bool& outEnterInteractive );
+    ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input,
+                                                                ReplayScrubber& scrubberOwner,
+                                                                const ReplayPresentation& presentationOwner );
     const RunReplayVelocityEditState& VelocityEdit() const noexcept
     {
         return m_velocityEdit;
@@ -311,6 +405,17 @@ class ReplayAuthoring
     {
         m_pendingPrediction.enablePrediction |= enablePrediction;
         m_pendingPrediction.refreshPrediction = true;
+    }
+
+    void QueuePredictionCacheReset() noexcept
+    {
+        m_pendingPrediction.clearPredictionCache = true;
+        m_pendingPrediction.refreshPrediction = true;
+    }
+
+    void QueueVelocityMutationBaselinePreparation() noexcept
+    {
+        m_pendingPrediction.prepareVelocityMutationBaseline = true;
     }
 
     ReplayAuthoringPredictionRequest TakePredictionRequest() noexcept

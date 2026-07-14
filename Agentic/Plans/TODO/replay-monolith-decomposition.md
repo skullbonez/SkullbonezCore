@@ -1,7 +1,7 @@
 # Replay Monolith Decomposition — Owner Boundaries Inside The Replay Subsystem
 
 Date: 2026-07-13
-Status: Live — 5/9 tasks complete; M3-M4 reclosed, M5-M7 remain open after mandatory M8 ownership review
+Status: Live — 6/9 tasks complete; M3-M5 reclosed, M6-M7 remain open after mandatory M8 ownership review
 Branch: `nightrunner-14th-july`
 Impact area: `SkullbonezSource/Runtime/Replay/*` (26,060 lines), the two
 external consumers `Runtime/Run.cpp` and `Runtime/RunUiTextPass.cpp`, project
@@ -138,7 +138,7 @@ known-good golden manifest.
   `tools\validate_replay_visual_fidelity.bat` first,
   `tools\validate_replay_scrub.bat`, and `tools\validate_full.bat` at the PR
   gate.
-- [ ] **M5 — Extract `ReplayAuthoring`.** Velocity edit, branch provenance,
+- [x] **M5 — Extract `ReplayAuthoring`.** Velocity edit, branch provenance,
   cause-tree tools move behind the owner; the velocity-edit "dirty
   prediction" side effect becomes an explicit request to `ReplayPrediction`
   (queued value command, consistent with the repo's one-frame command-packet
@@ -1256,6 +1256,45 @@ Thirty-third ownership-remediation checkpoint after M4 closure:
 - M5-M7 and the final M8 review remain open. Active/future portfolio progress
   remains 5/16, or 31% rounded; this percentage covers active and future plans
   only and excludes completed past plans and externally blocked work.
+
+Thirty-fourth ownership-remediation checkpoint and M5 closure:
+
+- `ReplayAuthoring::BuildCauseTreeRows` now owns bounded cause-row construction
+  and the scene-object focus lookup from explicit read-only prediction, solver,
+  camera, body-store, and collider-store views. It returns the focused camera
+  row as a value for root publication; authoring no longer mutates presentation.
+  The former root builder, focus resolver, and radius helpers are deleted.
+- Cause-tree and velocity-edit input algorithms are concrete
+  `ReplayAuthoring` operations. They borrow the scrubber, presentation, host
+  input, and scene owners synchronously and queue typed prediction requests for
+  baseline preparation, enablement, cache clearing, and refresh. Root applies
+  baseline preparation before edit/enable publication, preserving the old
+  mutation order without an owner-to-root reach-back.
+- Keyboard velocity-edit policy is authoring-owned. The remaining public root
+  keyboard shell only bridges an external M7 consumer and immediately consumes
+  the queued prediction request. Path picking is presentation-owned, branch
+  provenance remains authoring-owned, and the dead root branch accessor is
+  deleted.
+- Replay camera transitions are stateless presentation helpers with explicit
+  synchronous host borrows. Internal replay tools call them directly; the two
+  root camera shells remain only for external input consumers tracked by M7.
+  `ReplayRuntime` stores no parallel cause-tree, velocity-edit, or branch state.
+- Formatting passed in 11.4 seconds and the focused Profile build passed in
+  13.3 seconds with zero warnings and zero errors. The touched-source comment
+  audit inspected 9/9 files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 471.5 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, 62 saved/loaded ticks, durable
+  reconstruction, zero reserve growth, and every false-pass control. The scrub
+  alias propagated delegated exit 37 in 0.1 seconds without launching an
+  engine. The 170.8-second full gate passed all CPU, Profile, Debug, DX12, and
+  physics lanes with zero warnings, zero DX12 errors, matching screenshots,
+  and the 44,401-line byte-exact varied baseline. No baseline changed.
+- The conditional interaction-click gate was not run because the existing
+  click scripts do not cover velocity editing. M5 is reclosed; M6-M7 and the
+  final M8 review remain open. Active/future portfolio progress is now 6/16,
+  or 38% rounded; this percentage covers active and future plans only and
+  excludes completed past plans and externally blocked work.
 
 ## M1 Binding Type Inventory
 

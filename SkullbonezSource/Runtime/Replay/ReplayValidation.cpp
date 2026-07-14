@@ -2565,23 +2565,26 @@ ReplayRuntime::VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& tr
     }
     const auto enterInspectionCamera = [&]()
     {
-        EnterInspectionCamera( &transaction.sampleOwners.sceneController.Cameras(),
-                               transaction.timelineOwners.camera,
-                               normalizedCurrentMode,
-                               transaction.timelineOwners.interaction,
-                               transaction.timelineOwners.inputRouter,
-                               mousePickup );
+        EnterReplayInspectionCamera( m_visualPresentation,
+                                     &transaction.sampleOwners.sceneController.Cameras(),
+                                     transaction.timelineOwners.camera,
+                                     normalizedCurrentMode,
+                                     transaction.timelineOwners.interaction,
+                                     transaction.timelineOwners.inputRouter,
+                                     mousePickup );
     };
     const auto exitInspectionCamera = [&]()
     {
-        ExitInspectionCamera( &transaction.sampleOwners.sceneController.Cameras(),
-                              transaction.timelineOwners.terrain,
-                              transaction.timelineOwners.camera,
-                              transaction.timelineOwners.normalizedRestoreMode,
-                              transaction.timelineOwners.attachedFollow,
-                              transaction.timelineOwners.directorGrabbed,
-                              transaction.timelineOwners.interaction,
-                              transaction.timelineOwners.inputRouter );
+        ExitReplayInspectionCamera( m_visualPresentation,
+                                    m_authoring,
+                                    &transaction.sampleOwners.sceneController.Cameras(),
+                                    transaction.timelineOwners.terrain,
+                                    transaction.timelineOwners.camera,
+                                    transaction.timelineOwners.normalizedRestoreMode,
+                                    transaction.timelineOwners.attachedFollow,
+                                    transaction.timelineOwners.directorGrabbed,
+                                    transaction.timelineOwners.interaction,
+                                    transaction.timelineOwners.inputRouter );
     };
     auto distanceSquared = []( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b ) -> float
     {
