@@ -161,8 +161,6 @@ class ReplayRuntime
 
     RunReplayScrubberState& Scrubber();
     const RunReplayScrubberState& Scrubber() const;
-    ReplayScrubber& ScrubberOwner() noexcept;
-    const ReplayScrubber& ScrubberOwner() const noexcept;
 
     RunReplayCameraState& Camera();
     const RunReplayCameraState& Camera() const;
@@ -266,8 +264,6 @@ class ReplayRuntime
                                                       const ReplayArtifactTopologyOwners& topologyOwners,
                                                       const ReplayLiveRestoreRequest& request );
 #ifdef _DEBUG
-    ReplayProbeState& Probes();
-    const ReplayProbeState& Probes() const;
     // Debug probes compose the same restore transaction and topology operands
     // as production restore. No whole-runtime probe fixture or Run backdoor is accepted.
     ReplayProbeTickResult TickProbes( const ReplayRestoreTransaction& transaction,
@@ -436,6 +432,7 @@ class ReplayRuntime
                                    bool directorGrabbed );
     void TickWorkspace( const ReplayWorkspaceInput& input, ReplayWorkspaceOutput& output );
     void ConfigureStartupWorkflows( const ReplayStartupRequest& request );
+    ReplayFrameIntentResult ApplyFrameIntent( const ReplayFrameIntent& intent );
     ReplayStartupResult RunStartupWorkflows( const ReplayStartupLoadInput& loadInput
 #ifdef _DEBUG
                                              ,

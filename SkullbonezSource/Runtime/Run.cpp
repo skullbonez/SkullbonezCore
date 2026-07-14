@@ -239,41 +239,6 @@ bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
 }
 
 
-#ifdef _DEBUG
-void ApplyReplayProbeStartup( const RunStartupOverrides& overrides, ReplayProbeState& probes )
-{
-    if ( overrides.replayScrubProbe )
-    {
-        probes.scrub.enabled = true;
-        probes.scrub.completed = false;
-        probes.scrub.normalized = std::clamp( overrides.replayScrubProbeNormalized, 0.0f, 0.99f );
-        printf( "[replay] Scrub probe enabled: normalized=%.3f\n", probes.scrub.normalized );
-    }
-    if ( overrides.replayRestoreProbe )
-    {
-        probes.restore.enabled = true;
-        probes.restore.completed = false;
-        probes.restore.normalized = std::clamp( overrides.replayRestoreProbeNormalized, 0.0f, 0.99f );
-        printf( "[replay] Restore probe enabled: normalized=%.3f\n", probes.restore.normalized );
-    }
-    if ( overrides.replaySaveProbe )
-    {
-        if ( !overrides.replaySaveProbePath || overrides.replaySaveProbePath[0] == '\0' )
-        {
-            probes.RecordFailure(
-                SkullbonezCore::Core::SbResult::Failure( "ReplayProbe", "replay save probe requires an output path" ) );
-            return;
-        }
-
-        probes.save.enabled = true;
-        probes.save.completed = false;
-        strcpy_s( probes.save.path, sizeof( probes.save.path ), overrides.replaySaveProbePath );
-        printf( "[replay] Save probe enabled: path=%s\n", probes.save.path );
-    }
-}
-#endif
-
-
 void ApplyStartupPresentationPolicy( const RunStartupOverrides& overrides,
                                      RunLaunchOptions& launchOptions,
                                      RunDebugState& debug,
@@ -516,12 +481,15 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
                                                                      overrides.replayRestoreFileProbePath,
                                                                      overrides.replayRestoreTargetFileProbePath,
                                                                      overrides.replayRestoreBranchFileProbePath,
-                                                                     overrides.replayRestoreFailureFileProbePath
+                                                                     overrides.replayRestoreFailureFileProbePath,
+                                                                     overrides.replayScrubProbe,
+                                                                     overrides.replayScrubProbeNormalized,
+                                                                     overrides.replayRestoreProbe,
+                                                                     overrides.replayRestoreProbeNormalized,
+                                                                     overrides.replaySaveProbe,
+                                                                     overrides.replaySaveProbePath
 #endif
     } );
-#ifdef _DEBUG
-    ApplyReplayProbeStartup( overrides, m_replayRuntime.Probes() );
-#endif
     ApplyStartupPresentationPolicy( overrides, m_launchOptions, m_debug, m_UI );
 #ifdef _DEBUG
     ApplyStartupDiagnosticsPolicy( overrides, m_diagnosticsRuntime, m_sceneController );

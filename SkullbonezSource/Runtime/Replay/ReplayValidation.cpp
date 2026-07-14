@@ -64,18 +64,6 @@ Related:
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 
-#ifdef _DEBUG
-ReplayProbeState& ReplayRuntime::Probes()
-{
-    return m_probes;
-}
-
-
-const ReplayProbeState& ReplayRuntime::Probes() const
-{
-    return m_probes;
-}
-#endif
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
@@ -1993,6 +1981,37 @@ void ReplayRuntime::ConfigureStartupWorkflows( const ReplayStartupRequest& reque
     copyPath( m_startupWorkflows.failureProbePath,
               sizeof( m_startupWorkflows.failureProbePath ),
               request.failureProbePath );
+    // Probe assertion lane: launch configuration is an owner command. Run
+    // supplies value-only CLI facts and cannot mutate completion/failure state.
+    if ( request.scrubProbe )
+    {
+        m_probes.scrub.enabled = true;
+        m_probes.scrub.completed = false;
+        m_probes.scrub.normalized = std::clamp( request.scrubProbeNormalized, 0.0f, 0.99f );
+        printf( "[replay] Scrub probe enabled: normalized=%.3f\n", m_probes.scrub.normalized );
+    }
+    if ( request.restoreProbe )
+    {
+        m_probes.restore.enabled = true;
+        m_probes.restore.completed = false;
+        m_probes.restore.normalized = std::clamp( request.restoreProbeNormalized, 0.0f, 0.99f );
+        printf( "[replay] Restore probe enabled: normalized=%.3f\n", m_probes.restore.normalized );
+    }
+    if ( request.saveProbe )
+    {
+        if ( !request.saveProbePath || request.saveProbePath[0] == '\0' )
+        {
+            m_probes.RecordFailure(
+                SkullbonezCore::Core::SbResult::Failure( "ReplayProbe", "replay save probe requires an output path" ) );
+        }
+        else
+        {
+            m_probes.save.enabled = true;
+            m_probes.save.completed = false;
+            strcpy_s( m_probes.save.path, sizeof( m_probes.save.path ), request.saveProbePath );
+            printf( "[replay] Save probe enabled: path=%s\n", m_probes.save.path );
+        }
+    }
 #endif
 }
 

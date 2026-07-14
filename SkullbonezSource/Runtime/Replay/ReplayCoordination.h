@@ -112,6 +112,12 @@ struct ReplayStartupRequest
     const char* targetProbePath = nullptr;
     const char* branchProbePath = nullptr;
     const char* failureProbePath = nullptr;
+    bool scrubProbe = false;
+    float scrubProbeNormalized = 0.25f;
+    bool restoreProbe = false;
+    float restoreProbeNormalized = 0.25f;
+    bool saveProbe = false;
+    const char* saveProbePath = nullptr;
 #endif
 };
 
@@ -119,6 +125,33 @@ struct ReplayStartupResult
 {
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
     bool skipExecute = false;
+};
+
+// Concept: external automation publishes replay intent as values. The replay
+// composition boundary applies each requested transition through the owning
+// scrubber or prediction API; no caller receives a mutable owner reference.
+struct ReplayFrameIntent
+{
+    bool setScrubberVisibility = false;
+    bool scrubberVisible = false;
+    double scrubberNow = 0.0;
+    double scrubberHoldSeconds = 0.0;
+    bool setPredictionEnabled = false;
+    bool predictionEnabled = false;
+    bool setPredictionHorizon = false;
+    float predictionHorizonSeconds = 0.0f;
+    bool prepareVelocityMutationBaseline = false;
+    bool commitVelocityMutation = false;
+    bool queryDeterministicRevealReady = false;
+    bool armDeterministicReveal = false;
+    ReplayFrameIndex revealFrame = 0;
+    bool resetPresentedRevealFrame = false;
+};
+
+struct ReplayFrameIntentResult
+{
+    bool velocityMutationBaselinePrepared = false;
+    bool deterministicRevealReady = false;
 };
 
 struct ReplayRecordingConfigResult

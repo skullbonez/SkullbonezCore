@@ -15,7 +15,7 @@ plan inventory.
 | Current objective | Reclose replay M3-M7 ownership findings from mandatory M8 review, with the unchanged frame-exact 200-box gate after every task |
 | Portfolio progress | 322 / 336 tasks = 96% rounded overall |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-14: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | M8 review `replay-monolith-decomposition-duck-01` blocked architectural closure and reopened M3-M7. The first remediation checkpoint passed the exact one-process 200-box oracle (2,401 ticks, 187 strict topples, one generation), full CPU/Profile/Debug/DX12/physics validation, 679/679 project metadata, allocation-policy checks, and the no-engine scrub failure-propagation proof; no baseline changed. |
+| Validation for current edits | M3-M7 remain reopened by M8 review. The second remediation checkpoint removed external scrubber/prediction owner getters and mutable probe-startup access; its final source passed a zero-warning Profile build and the exact one-process 200-box oracle (2,401 ticks, 187 strict topples, 199 causal nodes, one generation, one presentation, all controls). No baseline changed. |
 
 ## Live Queue
 

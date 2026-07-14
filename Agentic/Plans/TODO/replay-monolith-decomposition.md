@@ -447,6 +447,22 @@ First ownership-remediation checkpoint after that review:
   deferred and zero unchecked. M3-M7 remain open; this evidence records a safe
   remediation boundary and does not claim ownership closure.
 
+Second ownership-remediation checkpoint after that review:
+
+- External automation no longer receives `ReplayScrubber&` or
+  `ReplayPrediction&`. It publishes a reference-free `ReplayFrameIntent`; the
+  replay composition boundary sequences the requested scrubber visibility,
+  prediction configuration, velocity-baseline, and deterministic-reveal owner
+  commands. The unused public scrubber-owner escape hatch was deleted.
+- Debug probe startup is now part of the value-only startup request. `Run.cpp`
+  no longer receives mutable `ReplayProbeState`, so completion and failure
+  authority remain internal to replay validation.
+- The final source for this checkpoint passed a zero-warning Profile build and
+  the unchanged one-process mega oracle: 2,401 exact ticks, all 200 wall bricks
+  moved, 187 directly grounded and solver-sleeping throughout the final 121
+  samples, 199 causal nodes, one generation, one presentation, and every
+  deliberate false-pass control. No baseline changed. M3-M7 remain open.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |

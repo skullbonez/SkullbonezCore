@@ -1026,6 +1026,41 @@ void ReplayPrediction::ArmDeterministicReveal( ReplayFrameIndex frame, bool rese
 ReplayRuntime::ReplayRuntime() = default;
 
 
+ReplayFrameIntentResult ReplayRuntime::ApplyFrameIntent( const ReplayFrameIntent& intent )
+{
+    ReplayFrameIntentResult result;
+    if ( intent.setScrubberVisibility )
+    {
+        m_scrubberOwner.SetVisible( intent.scrubberVisible, intent.scrubberNow, intent.scrubberHoldSeconds );
+    }
+    if ( intent.setPredictionEnabled )
+    {
+        m_predictionOwner.SetEnabled( intent.predictionEnabled );
+    }
+    if ( intent.setPredictionHorizon )
+    {
+        m_predictionOwner.SetHorizonSeconds( intent.predictionHorizonSeconds );
+    }
+    if ( intent.prepareVelocityMutationBaseline )
+    {
+        result.velocityMutationBaselinePrepared = m_predictionOwner.PrepareVelocityMutationBaseline();
+    }
+    if ( intent.commitVelocityMutation )
+    {
+        m_predictionOwner.CommitVelocityMutation();
+    }
+    if ( intent.queryDeterministicRevealReady )
+    {
+        result.deterministicRevealReady = m_predictionOwner.ReadyForDeterministicReveal();
+    }
+    if ( intent.armDeterministicReveal )
+    {
+        m_predictionOwner.ArmDeterministicReveal( intent.revealFrame, intent.resetPresentedRevealFrame );
+    }
+    return result;
+}
+
+
 ReplaySceneTimelineResetInput DescribeReplaySceneTimeline( const SceneController& sceneController,
                                                            const RunSceneState& scene,
                                                            int gameModelCapacity,
@@ -1311,16 +1346,6 @@ RunReplayScrubberState& ReplayRuntime::Scrubber()
 const RunReplayScrubberState& ReplayRuntime::Scrubber() const
 {
     return m_scrubberOwner.State();
-}
-
-ReplayScrubber& ReplayRuntime::ScrubberOwner() noexcept
-{
-    return m_scrubberOwner;
-}
-
-const ReplayScrubber& ReplayRuntime::ScrubberOwner() const noexcept
-{
-    return m_scrubberOwner;
 }
 
 RunReplayCameraState& ReplayRuntime::Camera()
