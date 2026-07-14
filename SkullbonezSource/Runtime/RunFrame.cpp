@@ -44,6 +44,7 @@ Related:
 #include "RuntimeStressController.h"
 #include "InputFrame.h"
 #include "Replay/ReplayRuntimeOwnerViews.h"
+#include "Replay/ReplayOverlayRenderer.h"
 #include "Replay/ReplayRestoreService.h"
 #include "RunDemoDirector.h"
 #include "Scene/SceneRuntimeLoad.h"
@@ -120,6 +121,7 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                RuntimeFrameInteractionView& interactionOwners,
                                RuntimeFrameSceneView& sceneOwners,
                                RuntimeFramePresentationView& presentationOwners,
+                               ReplayRuntime& replayRuntime,
                                const RuntimeUiTextFrameFacts& facts,
                                SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics,
                                const SkullbonezCore::UI::UIRenderContext& uiRender,
@@ -127,7 +129,6 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
 {
     RuntimeRenderer& renderer = presentationOwners.renderer;
     DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
-    ReplayRuntime& replayRuntime = interactionOwners.replayRuntime;
     RunTimerState& timers = sceneOwners.timers;
     RunDebugState& debug = sceneOwners.debug;
     SceneController& sceneController = sceneOwners.sceneController;
@@ -148,6 +149,11 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
     const std::string* uiScenePath = sceneController.CurrentPath();
     RuntimeViewModel runtimeViewModel;
     RuntimeRenderTargetPreviewSnapshot renderTargetPreviews;
+    const ReplayOverlay::ReplayOverlayStateView replayOverlay =
+        replayRuntime.BuildOverlayStateView( runtimeTools.Editor().editorModeEnabled,
+                                             ui.IsVisible(),
+                                             ui.IsMinimized(),
+                                             facts.interactionGesture.kind );
     const UiTextPassState uiTextState{ debug,
                                        sceneController.CrossScenePauseLocked(),
                                        scene,
@@ -173,11 +179,8 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                        facts.cameraModeLabel,
                                        facts.launcherFireModeLabel,
                                        facts.isLauncherCameraMode,
-                                       replayRuntime.ShouldRenderScrubber( runtimeTools.Editor().editorModeEnabled,
-                                                                           ui.IsVisible(),
-                                                                           ui.IsMinimized(),
-                                                                           facts.interactionGesture.kind ),
-                                       replayRuntime.HasPathVisualizerTarget() };
+                                       replayOverlay.shouldRenderScrubber,
+                                       replayRuntime.BuildInputView().hasPathTarget };
 
     if ( renderer.ShouldRenderUiText( uiTextState, ui ) )
     {
@@ -197,14 +200,33 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
             renderer.BuildRenderTargetPreviewSnapshot( shadowsAvailable,
                                                        uiCinematicRendering,
                                                        uiCinematicRendering && uiCinematic.volumetricLightingEnabled );
-        const ReplayOverlayFrameState replayOverlay{ runtimeTools.Editor().editorModeEnabled,
-                                                     ui.IsVisible(),
-                                                     ui.IsMinimized(),
-                                                     scene.isScenePhysics,
-                                                     facts.interactionGesture.kind,
-                                                     window.ClientWidth(),
-                                                     window.ClientHeight(),
-                                                     timers.simulationTimer.GetTotalTime() };
+        (void)replayRuntime.BuildCauseTreeRows( renderModels.presentationRecords, renderModels.bodyStore );
+        const ReplayOverlay::ReplayOverlayRenderContext replayOverlayContext{ *uiRender.commands,
+                                                                              replayOverlay.scrubber,
+                                                                              replayOverlay.prediction,
+                                                                              replayOverlay.pathVisualizer,
+                                                                              replayOverlay.velocityEdit,
+                                                                              replayOverlay.causeTree,
+                                                                              replayOverlay.solverStats,
+                                                                              replayOverlay.selectedPresentation,
+                                                                              replayOverlay.latestPresentation,
+                                                                              replayOverlay.selectedSolver,
+                                                                              replayOverlay.latestSolver,
+                                                                              replayOverlay.selectedPrediction,
+                                                                              replayOverlay.currentPresentation,
+                                                                              replayOverlay.currentSolver,
+                                                                              replayOverlay.solverPresentTrackPosition,
+                                                                              replayOverlay.loadedPresentation,
+                                                                              replayOverlay.predictionTimelineAvailable,
+                                                                              replayOverlay.shouldRenderScrubber,
+                                                                              runtimeTools.Editor().editorModeEnabled,
+                                                                              ui.IsVisible(),
+                                                                              ui.IsMinimized(),
+                                                                              scene.isScenePhysics,
+                                                                              facts.interactionGesture.kind,
+                                                                              window.ClientWidth(),
+                                                                              window.ClientHeight(),
+                                                                              timers.simulationTimer.GetTotalTime() };
         const int uiDrawCallStart = renderDiagnostics.GetFrameDrawCallCount();
         const bool replayMemoryStatsRequested =
             ui.IsVisible() && !ui.IsMinimized() && ui.GetActiveTab() == SkullbonezCore::UI::InGameUITab::Memory;
@@ -222,8 +244,7 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                    renderModels,
                                    diagnosticsRuntime,
                                    replayHud,
-                                   replayRuntime,
-                                   replayOverlay,
+                                   replayOverlayContext,
                                    uiCinematic,
                                    uiCinematicRendering,
                                    facts.secondsPerFrame );
@@ -459,9 +480,10 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
     }
 }
 
-void CaptureReplayPostStep( RuntimeFrameInteractionView& interactionOwners, RuntimeFrameSceneView& sceneOwners )
+void CaptureReplayPostStep( RuntimeFrameInteractionView& interactionOwners,
+                            RuntimeFrameSceneView& sceneOwners,
+                            ReplayRuntime& replayRuntime )
 {
-    ReplayRuntime& replayRuntime = interactionOwners.replayRuntime;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     SkullbonezCore::Runtime::SceneController& models = sceneOwners.sceneController;
     const RunSceneState& scene = models.State();
@@ -560,7 +582,6 @@ SkullbonezCore::Core::SbResult Run::Execute()
             RuntimeFrameInteractionView frameInteraction{ m_inputRouter,
                                                           m_interaction,
                                                           m_attachedCamera,
-                                                          m_replayRuntime,
                                                           m_UI,
                                                           m_runtimeTools,
                                                           m_camera };
@@ -580,11 +601,49 @@ SkullbonezCore::Core::SbResult Run::Execute()
             frameRenderDiagnostics.ResetFrameDrawCalls();
 
             PROFILE_BEGIN( "Frame/Input" );
+            const ReplayAutomationView automationReplayView = m_replayRuntime.BuildAutomationView();
+            const ReplayInputView automationReplayInput = automationReplayView.input;
             const InteractionAutomationFrameResult automationBeforeInput =
                 TickInteractionAutomationBeforeInput( m_interactionAutomation,
                                                       frameHost,
                                                       frameInteraction,
-                                                      frameScene );
+                                                      frameScene,
+                                                      automationReplayView );
+            if ( automationBeforeInput.applyCameraMode )
+            {
+                m_inputRouter.ApplyCameraMode( m_camera,
+                                               automationBeforeInput.cameraMode,
+                                               RuntimeInputActionSource::Runtime,
+                                               m_inputRouter.RuntimeContext(),
+                                               m_interaction,
+                                               m_runtimeTools,
+                                               m_replayRuntime,
+                                               m_attachedCamera,
+                                               m_sceneController );
+            }
+            // Automation publishes replay mutations as a value packet. Apply
+            // it once at the frame composition boundary before normal input
+            // observes the resulting replay state.
+            (void)m_replayRuntime.ApplyFrameIntent( automationBeforeInput.replayIntent );
+            if ( automationBeforeInput.setWorldInteractionOwner )
+            {
+                m_inputRouter.SetWorldInteractionOwner(
+                    automationBeforeInput.worldInteractionOwner,
+                    automationBeforeInput.worldInteractionReason,
+                    m_replayRuntime,
+                    m_runtimeTools,
+                    m_interaction,
+                    m_sceneController.Cameras(),
+                    m_sceneController.Terrain().Get(),
+                    m_sceneController,
+                    m_sceneController.Physics(),
+                    m_camera,
+                    NormalizeRuntimeCameraMode( automationReplayInput.restoreCameraMode,
+                                                m_sceneController.State().isSceneMode,
+                                                RuntimeCameraModeEnabledMask( m_sceneController ) ),
+                    m_attachedCamera.State().activeFollow,
+                    m_camera.director.grabbed );
+            }
             if ( !automationBeforeInput.status.ok )
             {
                 m_applicationExit.RequestOwnedFailure( automationBeforeInput.status );
@@ -593,7 +652,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             {
                 PostQuitMessage( 0 );
             }
-            ProcessInputFrame( frameHost, frameInteraction, frameScene, framePresentation );
+            ProcessInputFrame( frameHost, frameInteraction, frameScene, framePresentation, m_replayRuntime );
             m_liveStyle.Tick(
                 SceneRuntimeStyleContext{ m_launchOptions,
                                           m_sceneController.State(),
@@ -662,6 +721,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                         frameInteraction,
                                         frameScene,
                                         framePresentation,
+                                        m_replayRuntime,
                                         frameRenderDiagnostics );
 
             if ( m_renderer.PipelineSyncEnabled() )
@@ -711,6 +771,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                       frameInteraction,
                                       frameScene,
                                       framePresentation,
+                                      m_replayRuntime,
                                       uiTextFacts,
                                       frameRenderDiagnostics,
                                       uiRender,
@@ -730,6 +791,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 TickInteractionAutomationAfterRender( m_interactionAutomation,
                                                       frameInteraction,
                                                       frameScene,
+                                                      m_replayRuntime.BuildAutomationView(),
                                                       m_diagnosticsRuntime.Capture(),
                                                       m_renderBackendView.RequireCaptureBackend() );
             if ( !automationAfterRender.status.ok )
@@ -816,7 +878,8 @@ void Run::TickPhysics( double secondsPerFrame,
                        RuntimeFrameInteractionView& interactionOwners,
                        RuntimeFrameSceneView& sceneOwners )
 {
-    if ( m_replayRuntime.IsScrubPaused() )
+    const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
+    if ( replayInput.scrubPaused )
     {
         m_presentationAlpha = 1.0f;
         PROFILE_SCOPED( "Frame/Replay/ScrubCamera" );
@@ -824,10 +887,10 @@ void Run::TickPhysics( double secondsPerFrame,
         return;
     }
 
-    const bool replayLiveAdvanceHeld = m_replayRuntime.ScrubberView().liveAdvanceHeld;
+    const bool replayLiveAdvanceHeld = replayInput.liveAdvanceHeld;
     const RuntimeInputSnapshot& inputSnapshot = m_inputRouter.RuntimeSnapshot();
     const bool stepRequested = inputSnapshot.frameInput.stepHeld;
-    const bool replayCapture = m_replayRuntime.IsCaptureEnabled();
+    const bool replayCapture = replayInput.captureEnabled;
 #ifdef _DEBUG
     const bool physicsCapture = m_diagnosticsRuntime.PerfLog().physicsRegressionLogOverride[0] != '\0' ||
                                 m_diagnosticsRuntime.PerfLog().physicsCollisionTimeLogOverride[0] != '\0' ||
@@ -914,9 +977,10 @@ void Run::TickPhysics( double secondsPerFrame,
         // Why: Scene-mode, no-physics harnesses intentionally skip simulation
         // UpdateLogic, but Director is presentation state. It still needs phase
         // style/camera entry work so authored show decks behave in static scenes.
+        const ReplayInputView directorReplayInput = m_replayRuntime.BuildInputView();
         DemoDirectorPredictionView directorPrediction;
-        directorPrediction.revealAvailable =
-            m_replayRuntime.PredictionRevealProgress01( directorPrediction.revealProgress );
+        directorPrediction.revealAvailable = directorReplayInput.predictionRevealAvailable;
+        directorPrediction.revealProgress = directorReplayInput.predictionRevealProgress;
         const DemoDirectorTickResult directorResult = DemoDirectorPlayback::Tick(
             m_camera,
             m_sceneController.Cameras(),
@@ -932,7 +996,10 @@ void Run::TickPhysics( double secondsPerFrame,
             static_cast<float>( secondsPerFrame ) );
         if ( directorResult.applyRevealRate )
         {
-            m_replayRuntime.ApplyPredictionRevealRate( directorResult.requestedRevealRate );
+            ReplayFrameIntent intent;
+            intent.applyPredictionRevealRate = true;
+            intent.predictionRevealRate = directorResult.requestedRevealRate;
+            (void)m_replayRuntime.ApplyFrameIntent( intent );
         }
     }
 }
@@ -964,10 +1031,10 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners, Runt
                                      listenerPosition,
                                      m_sceneController );
     }
-    const bool replayCaptured = m_replayRuntime.IsCaptureEnabled();
+    const bool replayCaptured = m_replayRuntime.BuildInputView().captureEnabled;
     if ( replayCaptured )
     {
-        CaptureReplayPostStep( interactionOwners, sceneOwners );
+        CaptureReplayPostStep( interactionOwners, sceneOwners, m_replayRuntime );
     }
 #ifdef _DEBUG
     if ( replayCaptured )
@@ -989,7 +1056,7 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners, Runt
             &m_sceneController.Cameras(),
             m_sceneController.Terrain().Get(),
             m_camera,
-            NormalizeRuntimeCameraMode( m_replayRuntime.ReplayRestoreCameraMode(),
+            NormalizeRuntimeCameraMode( m_replayRuntime.BuildInputView().restoreCameraMode,
                                         m_sceneController.State().isSceneMode,
                                         RuntimeCameraModeEnabledMask( m_sceneController ) ),
             m_attachedCamera.State().activeFollow,
@@ -1278,8 +1345,9 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
                            cameraDt,
                            PresentationAlphaForFrame() );
     DemoDirectorPredictionView directorPrediction;
-    directorPrediction.revealAvailable =
-        m_replayRuntime.PredictionRevealProgress01( directorPrediction.revealProgress );
+    const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
+    directorPrediction.revealAvailable = replayInput.predictionRevealAvailable;
+    directorPrediction.revealProgress = replayInput.predictionRevealProgress;
     const DemoDirectorTickResult directorResult = DemoDirectorPlayback::Tick(
         m_camera,
         m_sceneController.Cameras(),
@@ -1295,7 +1363,10 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
         cameraDt );
     if ( directorResult.applyRevealRate )
     {
-        m_replayRuntime.ApplyPredictionRevealRate( directorResult.requestedRevealRate );
+        ReplayFrameIntent intent;
+        intent.applyPredictionRevealRate = true;
+        intent.predictionRevealRate = directorResult.requestedRevealRate;
+        (void)m_replayRuntime.ApplyFrameIntent( intent );
     }
 
     m_sceneController.ApplyWaterHeightControl( m_inputRouter.RuntimeSnapshot().pageDown,

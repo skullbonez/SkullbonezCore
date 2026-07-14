@@ -155,7 +155,7 @@ ReplayTrajectorySubmissionProbeStats ReplayPresentation::TrajectorySubmissionPro
 }
 
 
-ReplayVisualPacket ReplayPresentation::PublishedVisualPacketView() const noexcept
+const ReplayVisualPacket& ReplayPresentation::PublishedVisualPacketView() const noexcept
 {
     return m_publishedVisualPacket;
 }
@@ -400,9 +400,20 @@ bool ReplayPresentation::SetPathTarget( const char* name, int modelIndex, const 
         return false;
     }
 
+    return SetPathTarget( ReplayBodyId{ body->replayBodyId }, Physics::ModelRowHint{ modelIndex }, name );
+}
+
+
+bool ReplayPresentation::SetPathTarget( ReplayBodyId id, Physics::ModelRowHint modelRow, const char* name )
+{
+    if ( id.value == 0 || modelRow.value < 0 )
+    {
+        return false;
+    }
+
     m_pathVisualizer.hasTarget = true;
-    m_pathVisualizer.targetId.value = body->replayBodyId;
-    m_pathVisualizer.targetModelRow.value = modelIndex;
+    m_pathVisualizer.targetId = id;
+    m_pathVisualizer.targetModelRow = modelRow;
     m_pathVisualizer.targetName[0] = '\0';
     if ( name && name[0] != '\0' )
     {

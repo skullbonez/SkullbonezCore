@@ -45,7 +45,8 @@ Related:
 #include "../Debug/CollisionVisualizer.h"
 #include "../Debug/PhysicsDebugVisualizer.h"
 #include "../Debug/BroadphaseVisualizer.h"
-#include "../Replay/ReplayRuntime.h"
+#include "../Replay/ReplayVisualPacket.h"
+#include "../Replay/ReplayPrediction.h"
 #include "../Tools/RuntimeTools.h"
 #include "../Scene/SceneTerrain.h"
 #include "../RuntimeTuning.h"
@@ -1862,14 +1863,14 @@ bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
 }
 
 
-void DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
+bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
 {
     // Debug overlays intentionally stay out of the object/material pass. They
     // draw diagnostic geometry over the final world view and should not inherit
     // production material binding assumptions.
     if ( !HasOverlayWork( inputs ) )
     {
-        return;
+        return false;
     }
 
     const bool detailMarkers = SkullbonezCore::Core::PlatformProfiler::AreDetailedRangesEnabled();
@@ -1913,13 +1914,9 @@ void DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
     }
 
     RunEditorTracer& tracer = inputs.runtimeTools.EditorTracer();
-    const ReplayVisualPacket& publishedPacket = inputs.replayRuntime.PublishedReplayVisualPacket();
     // Invariant: production submission and validation observe this same
     // replay-owned packet; neither may rebuild geometry from tracer internals.
-    tracer.Render( publishedPacket, inputs.frame.viewProjection, RenderCommands( inputs.frame ) );
-    inputs.replayRuntime.RecordReplayTrajectorySubmissionFrame( publishedPacket.submission,
-                                                                inputs.replaySceneFrame,
-                                                                inputs.replayGrowthEventCount );
+    tracer.Render( inputs.replayVisualPacket, inputs.frame.viewProjection, RenderCommands( inputs.frame ) );
     inputs.runtimeTools.Laser().Render( inputs.frame.viewProjection,
                                         inputs.frame.eye,
                                         inputs.frame.up,
@@ -1957,6 +1954,7 @@ void DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
     {
         PROFILE_GPU_END( "Frame/Render/DebugOverlay" );
     }
+    return true;
 }
 
 

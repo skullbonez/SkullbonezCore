@@ -131,7 +131,7 @@ RuntimeInputModeState BuildRuntimeInputModeState( RunCameraMode mode,
                                                   bool directorGrabbed );
 PointerPresentationPolicy EvaluateRuntimePointerPresentation( const InputRouter& inputRouter,
                                                               const RunEditorPlacementState& editor,
-                                                              const ReplayRuntime& replayRuntime );
+                                                              const ReplayInputView& replayInput );
 RunCameraMode NormalizeRuntimeCameraMode( RunCameraMode mode, bool authoredScene, uint32_t enabledMask );
 uint32_t RuntimeCameraModeEnabledMask( const SceneController& sceneController );
 void EnterFlyModeCamera( InputRouter& inputRouter,
@@ -139,7 +139,7 @@ void EnterFlyModeCamera( InputRouter& inputRouter,
                          Environment::CameraCollection& cameras,
                          bool authoredScene,
                          const RunEditorPlacementState& editor,
-                         const ReplayRuntime& replayRuntime );
+                         const ReplayInputView& replayInput );
 void ExitFlyModeCamera( InputRouter& inputRouter,
                         RunCameraState& camera,
                         Environment::CameraCollection& cameras,
@@ -155,6 +155,7 @@ void ReportRuntimeInputFailure( const SkullbonezCore::Core::SbResult& result );
 RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
                                           RuntimeFrameInteractionView& interactionOwners,
                                           RuntimeFrameSceneView& sceneOwners,
+                                          ReplayRuntime& replayRuntime,
                                           const ReplayPathPickInput& replayPointerRay,
                                           const RuntimeInputFrameFacts& facts );
 RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
@@ -163,10 +164,12 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                   RuntimeFrameInteractionView& interactionOwners,
                                                   RuntimeFrameSceneView& sceneOwners,
                                                   RuntimeFramePresentationView& presentationOwners,
+                                                  ReplayRuntime& replayRuntime,
                                                   const RuntimeInputFrameFacts& facts );
 RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
                                                   RuntimeFrameInteractionView& interactionOwners,
                                                   RuntimeFrameSceneView& sceneOwners,
+                                                  ReplayRuntime& replayRuntime,
                                                   RunCameraMode replayCurrentCameraMode );
 
 // Executes one input turn through synchronous concrete-owner borrows. This is
@@ -174,6 +177,7 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
 void ProcessInputFrame( RuntimeFrameHostView& host,
                         RuntimeFrameInteractionView& interactionOwners,
                         RuntimeFrameSceneView& sceneOwners,
-                        RuntimeFramePresentationView& presentationOwners );
+                        RuntimeFramePresentationView& presentationOwners,
+                        ReplayRuntime& replayRuntime );
 } // namespace Runtime
 } // namespace SkullbonezCore

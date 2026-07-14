@@ -655,7 +655,7 @@ SceneController::Load( const SceneLoadRequest& request,
             &m_sceneController.Cameras(),
             m_sceneController.Terrain().Get(),
             m_camera,
-            NormalizeCameraModeForCurrentScene( m_replayRuntime.ReplayRestoreCameraMode() ),
+            NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ),
             m_attachedCamera.activeFollow,
             m_camera.director.grabbed } );
         afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
@@ -1217,14 +1217,15 @@ SceneController::Load( const SceneLoadRequest& request,
                                      static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
     m_replayRuntime.ResetSceneTimeline(
         replayReset,
-        ReplaySceneTimelineResetOwners{ m_inputRouter,
-                                        m_interaction,
-                                        &m_sceneController.Cameras(),
-                                        m_sceneController.Terrain().Get(),
-                                        m_camera,
-                                        NormalizeCameraModeForCurrentScene( m_replayRuntime.ReplayRestoreCameraMode() ),
-                                        m_attachedCamera.activeFollow,
-                                        m_camera.director.grabbed } );
+        ReplaySceneTimelineResetOwners{
+            m_inputRouter,
+            m_interaction,
+            &m_sceneController.Cameras(),
+            m_sceneController.Terrain().Get(),
+            m_camera,
+            NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ),
+            m_attachedCamera.activeFollow,
+            m_camera.director.grabbed } );
     afterActivationConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
 
     const SkullbonezCore::Core::SbResult rayTracingResult =

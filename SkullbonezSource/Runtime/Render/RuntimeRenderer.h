@@ -81,13 +81,6 @@ class RuntimeRenderer
     {
         RuntimeRenderBackendView backend;
         const RuntimeRenderModelFrameView& renderModels;
-        // Owner: RuntimeRenderer. Reason: render-instance preparation must stay
-        // after backend readiness and before replay render overrides until model
-        // presentation prep has its own renderer snapshot owner. Deletion
-        // condition: remove this borrow when model prep moves behind that owner.
-        // Checker budget: RenderFrameEntry may use it only for PrepareRenderInstances().
-        Runtime::SceneController& renderModelOwner;
-        Physics::PhysicsEngine& physics;
         UI::InGameUI& ui;
         RuntimeRenderFramePolicy framePolicy;
         const RenderReplayOverlayView& replayOverlay;
@@ -126,8 +119,8 @@ class RuntimeRenderer
                                                      Physics::PhysicsEngine& physics,
                                                      Threading::WorkerPool& workerPool,
                                                      const SkullbonezCore::Core::EngineConfig& config ) const;
-    void RenderFrameEntry( const FrameEntryContext& context );
-    void RenderFrame( const RuntimeRenderInputs& renderInputs );
+    bool RenderFrameEntry( const FrameEntryContext& context );
+    bool RenderFrame( const RuntimeRenderInputs& renderInputs );
     void ReleaseBackendOwnedResources( Rendering::IRenderResourceFactory* renderResources );
     SkullbonezCore::Core::SbResult ReleaseBackendOwnedRuntimeResources( const BackendResourceReleaseContext& context );
     SkullbonezCore::Core::SbResult InitialiseProcessResources( Rendering::IRenderResourceFactory& renderResources,
@@ -169,8 +162,7 @@ class RuntimeRenderer
                        const RuntimeRenderModelFrameView& models,
                        DiagnosticsRuntime& diagnosticsRuntime,
                        const ReplayHudStatus& replayHud,
-                       ReplayRuntime& replayRuntime,
-                       const ReplayOverlayFrameState& replayOverlay,
+                       const ReplayOverlay::ReplayOverlayRenderContext& replayOverlayContext,
                        const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                        bool cinematicRendering,
                        double dSecondsPerFrame );
@@ -271,13 +263,13 @@ class RuntimeRenderer
     DebugOverlaySnapshot BuildDebugOverlaySnapshot( const RenderFrameContext& frame,
                                                     const RuntimeRenderServices& services ) const;
     bool ExecuteReplayGhostsThroughRenderGraph( const RenderFrameContext& frame,
-                                                ReplayRuntime& replayRuntime,
+                                                const ReplayVisualPacket& replayVisualPacket,
                                                 bool useCinematicTarget,
                                                 const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic,
                                                 const Rendering::ShadowFrameData* objectShadow );
-    bool ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame,
-                                                const RuntimeRenderServices& services,
-                                                bool useCinematicTarget );
+    GraphPassResult ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame,
+                                                           const RuntimeRenderServices& services,
+                                                           bool useCinematicTarget );
     CinematicPostGraphResult ExecuteCinematicPostThroughRenderGraph( const RenderFrameContext& frame );
     bool ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,
                                           const UI::UIRenderContext& uiRender,
@@ -287,8 +279,7 @@ class RuntimeRenderer
                                           const RuntimeRenderModelFrameView& models,
                                           DiagnosticsRuntime& diagnosticsRuntime,
                                           const ReplayHudStatus& replayHud,
-                                          ReplayRuntime& replayRuntime,
-                                          const ReplayOverlayFrameState& replayOverlay,
+                                          const ReplayOverlay::ReplayOverlayRenderContext& replayOverlayContext,
                                           const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                           bool cinematicRendering,
                                           Rendering::IRenderRayTracing* renderRayTracing,
@@ -312,8 +303,6 @@ class RuntimeRenderer
     Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
     SkullbonezCore::Core::Profiler* m_profiler = nullptr; // Startup-bound diagnostics source; null in non-profile builds.
-    int m_toolOverlaySceneFrame = 0;                      // Scene frame paired with the prepared fixed-capacity overlay records.
-    uint64_t m_toolOverlayGrowthEventCount = 0;           // Replay reserve counter sampled by the composition root.
     float m_consequenceGradeStrength = 0.0f;              // Render-owned fade strength for the frame-local consequence grade.
     std::chrono::steady_clock::time_point
         m_consequenceGradeLastTick;                       // Wall-clock anchor for the grade crossfade; zero means uninitialized.

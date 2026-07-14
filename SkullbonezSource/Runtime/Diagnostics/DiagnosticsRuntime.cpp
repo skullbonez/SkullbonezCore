@@ -30,13 +30,12 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h
   - SkullbonezSource/Runtime/DiagnosticsController.cpp
-  - SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayPresentation.cpp
 */
 #include "DiagnosticsRuntime.h"
 
 #include "../Allocation/RuntimeAllocationTracker.h"
 #include "../InputController.h"
-#include "../Replay/ReplayRuntime.h"
 #include "../RunDebugState.h"
 #include "../Scene/SceneRuntime.h"
 #include "../Scene/SceneController.h"
@@ -819,41 +818,6 @@ RuntimeProfilerFrameTimes DiagnosticsRuntime::SampleProfilerFrameTimes() const
 
 
 const SkullbonezCore::Core::MainMemoryStats&
-DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayRuntime& replay,
-                                            const Runtime::SceneController& models,
-                                            double nowSeconds,
-                                            bool force,
-                                            bool includePrivateWorkingSet )
-{
-    SkullbonezCore::Runtime::Allocation::RuntimeAllocationScope allocationScope(
-        SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase::Diagnostics );
-    return RefreshMainMemoryStats( replay, models.CollectMemoryStats(), nowSeconds, force, includePrivateWorkingSet );
-}
-
-
-const SkullbonezCore::Core::MainMemoryStats&
-DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayRuntime& replay,
-                                            const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
-                                            double nowSeconds,
-                                            bool force,
-                                            bool includePrivateWorkingSet )
-{
-    const bool sampleDue = m_lastMainMemorySampleSeconds < 0.0 ||
-                           nowSeconds - m_lastMainMemorySampleSeconds >= MAIN_MEMORY_SAMPLE_INTERVAL_SECONDS;
-    const bool deepSampleDue = includePrivateWorkingSet && !m_lastMainMemorySampleUsedPrivateWorkingSetQuery;
-    if ( !force && !sampleDue && !deepSampleDue )
-    {
-        return m_mainMemoryStats;
-    }
-    return RefreshMainMemoryStats( replay.CollectMemoryStats(),
-                                   gameObjects,
-                                   nowSeconds,
-                                   force,
-                                   includePrivateWorkingSet );
-}
-
-
-const SkullbonezCore::Core::MainMemoryStats&
 DiagnosticsRuntime::RefreshMainMemoryStats( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
                                             const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
                                             double nowSeconds,
@@ -941,7 +905,7 @@ bool DiagnosticsRuntime::MainMemoryDumpRequested() const
 }
 
 
-bool DiagnosticsRuntime::WriteMainMemoryDump( const ReplayRuntime& replay,
+bool DiagnosticsRuntime::WriteMainMemoryDump( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
                                               const Runtime::SceneController& models,
                                               const RunSceneState& scene,
                                               const char* checkpoint,
@@ -953,7 +917,7 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const ReplayRuntime& replay,
     }
 
     const SkullbonezCore::Core::MainMemoryStats& stats =
-        RefreshMainMemoryStats( replay, models, nowSeconds, true, true );
+        RefreshMainMemoryStats( replay, models.CollectMemoryStats(), nowSeconds, true, true );
     FILE* file = nullptr;
     if ( fopen_s( &file, m_mainMemoryDumpPath, "wb" ) != 0 || !file )
     {

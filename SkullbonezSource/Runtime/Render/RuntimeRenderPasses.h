@@ -146,8 +146,8 @@ struct ShadowPassResources;
 struct SkyPassResources;
 struct TonemapPassResources;
 struct VolumetricLightPassResources;
-class ReplayRuntime;
 struct ReplayHudStatus;
+struct ReplayVisualPacket;
 namespace ReplayOverlay
 {
 struct ReplayOverlayRenderContext;
@@ -359,21 +359,6 @@ struct WaterPassInputs
     float liveWaterTime;                                // Current simulation time used when water animation is not frozen.
 };
 
-struct ReplayOverlayFrameState
-{
-    // Replay overlay draw code needs UI/window policy, not the full runtime host.
-    // Run samples these values once for the late UI frame so scrubber rendering
-    // cannot observe a different scene/UI state from the rest of the pass.
-    bool editorModeEnabled = false;
-    bool uiVisible = false;
-    bool uiMinimized = false;
-    bool scenePhysicsEnabled = false;
-    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
-    int screenW = 1;
-    int screenH = 1;
-    double nowSeconds = 0.0;
-};
-
 struct RuntimeRenderTargetPreview
 {
     const char* label = "";
@@ -510,9 +495,7 @@ struct DebugOverlayPassInputs
     const RenderFrameContext& frame;
     const DebugOverlaySnapshot& snapshot;
     RuntimeTools& runtimeTools;
-    ReplayRuntime& replayRuntime;
-    int replaySceneFrame = 0;
-    uint64_t replayGrowthEventCount = 0;
+    const ReplayVisualPacket& replayVisualPacket;
 };
 
 struct ShadowPassInputs
@@ -837,7 +820,7 @@ class DebugOverlayPass
 
     void EnsureGpuResources( const RenderResourceContext& resources );
     void ReleaseGpuResources();
-    void Render( const DebugOverlayPassInputs& inputs );
+    bool Render( const DebugOverlayPassInputs& inputs );
 
   private:
     bool HasOverlayWork( const DebugOverlayPassInputs& inputs ) const;

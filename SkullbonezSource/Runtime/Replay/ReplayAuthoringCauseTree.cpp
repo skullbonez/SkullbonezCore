@@ -265,11 +265,11 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
                                                                  WorldInteractionOwner::ReplayScrub,
                                                                  InteractionExitReason::EnterReplay );
             }
-            m_replayRuntime.SetCameraPauseOwnership( true );
+            m_visualPresentation.SetCameraPauseOwnership( true );
         }
         else if ( !hadReplayCameraFocus )
         {
-            m_replayRuntime.SetCameraPauseOwnership( false );
+            m_visualPresentation.SetCameraPauseOwnership( false );
         }
         enterInspectionCamera();
 
@@ -289,7 +289,7 @@ bool ReplayRuntime::TickCauseTreeInput( bool uiBlocksMouse,
         focus.targetNormal = ReplayCauseTreeNormalizeOr( row.normal, Vector3( 0.0f, 1.0f, 0.0f ) );
         focus.impulseVector = row.impulse;
         focus.targetRadius = targetRadius;
-        m_replayRuntime.ApplyCameraFocus( focus );
+        m_visualPresentation.ApplyCameraFocus( focus );
         m_authoring.SetCauseTreeFocus( rowIndex, row.id );
 
         if ( cameras )

@@ -5,17 +5,20 @@ Purpose:
 
 Summary:
   Replay owners retain state; the composition root receives short-lived values
-  and borrowed references describing one operation. None of these packets is
-  stored after the synchronous call that consumes it.
+  and publishes immutable evidence views. Explicit owner borrows remain
+  synchronous and none of these packets is retained.
 
 Glossary:
   Workspace tick: One input-frame pass through replay scrub, authoring, and path tools.
   Timeline reset: Scene-boundary command that restarts retained replay history.
   Startup workflow: Cold command-line replay load or validation operation.
+  Published view: Read-only, frame-scoped evidence that exposes no mutation
+    path back into a replay owner.
 
 Invariants:
   - Borrowed owner references remain valid only for the consuming call.
   - Values publish cross-owner effects; they do not provide callbacks into Run.
+  - Automation and input views contain no mutable replay owner reference.
   - Scene reset facts contain no mutable scene or physics authority.
 
 Related:
@@ -25,6 +28,7 @@ Related:
 #pragma once
 
 #include "ReplayAuthoring.h"
+#include "ReplayPrediction.h"
 #include "ReplayPresentation.h"
 #include "ReplayScrubber.h"
 #include "ReplayTimeline.h"
@@ -61,21 +65,15 @@ struct RunCameraState;
 struct RunMousePickupState;
 struct RunSceneState;
 
-struct ReplayWorkspaceInput
+// Value-only facts sampled by the input turn. Mutable domain owners are passed
+// explicitly to the synchronous composition operation instead of being hidden
+// in this packet.
+struct ReplayWorkspaceFrameInput
 {
     HWND window = nullptr;
     bool uiBlocksMouse = false;
     int wheelDelta = 0;
     ReplayPathPickInput pointerRay;
-    InputRouter& inputRouter;
-    RuntimeInteractionController& interaction;
-    Physics::PhysicsEngine& physics;
-    const SceneEntityStore& entities;
-    std::span<const Rendering::RenderInstancePresentationRecord> presentation;
-    Environment::CameraCollection* cameras = nullptr;
-    Geometry::Terrain* terrain = nullptr;
-    RunCameraState& camera;
-    RunMousePickupState& mousePickup;
     RunCameraMode normalizedCurrentMode = RunCameraMode::Demo;
     RunCameraMode normalizedRestoreMode = RunCameraMode::Demo;
     bool attachedFollow = false;
@@ -94,6 +92,71 @@ struct ReplayWorkspaceOutput
     ReplayLiveRestoreRequest restoreRequest;
     bool consumesMouse = false;
     bool enterInteractive = false;
+};
+
+// Concept: generic input routing consumes one immutable replay publication.
+// It contains only decisions already owned by replay; no recorder, prediction,
+// presentation, or authoring storage is reachable through this value.
+struct ReplayInputView
+{
+    bool activeInteraction = false;
+    bool inspectionActive = false;
+    bool inspectionCameraActive = false;
+    bool restoreConsumedThisFrame = false;
+    bool scrubPaused = false;
+    bool liveAdvanceHeld = false;
+    bool velocityEditEnabled = false;
+    bool predictionEnabled = false;
+    bool captureEnabled = false;
+    bool hasPathTarget = false;
+    bool hasCameraFocus = false;
+    RunCameraMode restoreCameraMode = RunCameraMode::Demo;
+    int pathTargetModelRow = -1;
+    float solverPresentTrackPosition = 1.0f;
+    float predictionRevealProgress = 0.0f;
+    bool predictionRevealAvailable = false;
+};
+
+// Value command emitted when generic input leaves replay ownership. Replay
+// decides whether durable replay state needs clearing; camera/input owners are
+// explicit synchronous operands on the consuming operation.
+struct ReplayInteractionExitInput
+{
+    bool leavingReplayWorkspace = false;
+    bool previousOwnerWasReplay = false;
+    RunCameraMode normalizedRestoreMode = RunCameraMode::Demo;
+    bool attachedFollow = false;
+    bool directorGrabbed = false;
+};
+
+// Lifetime: validation borrows this immutable publication only for the call
+// that requested it. Spans and references point into replay-owned storage and
+// cannot be retained across the next replay update.
+//
+// Why: the automation harness needs rich evidence to prove visual fidelity,
+// but it must not regain the mutable recorder/prediction/presentation authority
+// removed from the replay root. This is a read-only evidence surface.
+struct ReplayAutomationView
+{
+    const RunReplayPredictionState& prediction;
+    const RunReplayPathVisualizerState& path;
+    // Cold artifact writers borrow recorder owners only for the synchronous
+    // report write. The view is never retained across a replay mutation.
+    const ReplayRecorder& presentationRecorder;
+    const ReplaySolverRecorder& solverRecorder;
+    const ReplayEventRecorder& eventRecorder;
+    std::span<const RunReplayPredictionFrame> activePredictionFrames;
+    ReplayScrubberView scrubber;
+    ReplayRecorderStats solverStats;
+    const ReplaySolverFrameSample* latestSolverSample = nullptr;
+    const ReplaySolverFrameSample* currentSolverSample = nullptr;
+    const RunReplayPredictionFrame* currentPredictionFrame = nullptr;
+    ReplayVisualPacket visualPacket;
+    ReplayTrajectorySubmissionProbeStats trajectorySubmission;
+    SkullbonezCore::Core::MainMemoryReplayStats memoryStats;
+    ReplayInputView input;
+    float solverTrackPosition = 0.0f;
+    float solverPresentTrackPosition = 0.0f;
 };
 
 struct ReplayLiveRestoreOutcome
@@ -149,21 +212,18 @@ struct ReplayFrameIntent
     bool armDeterministicReveal = false;
     ReplayFrameIndex revealFrame = 0;
     bool resetPresentedRevealFrame = false;
+    bool applyPredictionRevealRate = false;
+    double predictionRevealRate = 1.0;
+    bool setPathTarget = false;
+    ReplayBodyId pathTargetId;
+    Physics::ModelRowHint pathTargetModelRow;
+    char pathTargetName[64] = {};
 };
 
 struct ReplayFrameIntentResult
 {
     bool velocityMutationBaselinePrepared = false;
     bool deterministicRevealReady = false;
-};
-
-struct ReplayRecordingConfigResult
-{
-    ReplayRecorderConfig presentationConfig;
-    ReplayRecorderConfig solverConfig;
-    ReplayRecorderStats presentationStats;
-    ReplayRecorderStats solverStats;
-    ReplayEventRecorderStats eventStats;
 };
 
 struct ReplaySceneTimelineResetInput

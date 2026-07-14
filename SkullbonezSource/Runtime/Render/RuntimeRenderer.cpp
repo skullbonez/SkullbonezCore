@@ -24,8 +24,9 @@ Glossary:
   before reflection rays are dispatched.
 
 Invariants:
-  - RuntimeRenderer::RenderFrame() owns pass order. Pass classes may bind targets and
-    restore local render state, but they must not present or advance the frame.
+  - RuntimeRenderer::RenderFrameEntry() owns pass order. Pass classes may bind
+    targets and restore local render state, but they must not present or advance
+    the frame.
   - Pass resource reset hooks run while the renderer backend is alive, because
     framebuffers, shaders, and dynamic vertex buffers can own backend objects.
   - Pass input/output structs borrow data for one frame only. Do not cache
@@ -248,9 +249,8 @@ struct DebugOverlayGraphCallbackData
     const RenderFrameContext* frame = nullptr;
     const DebugOverlaySnapshot* snapshot = nullptr;
     RuntimeTools* runtimeTools = nullptr;
-    ReplayRuntime* replayRuntime = nullptr;
-    int replaySceneFrame = 0;
-    uint64_t replayGrowthEventCount = 0;
+    const ReplayVisualPacket* replayVisualPacket = nullptr;
+    bool rendered = false;
 };
 
 struct SceneTargetGraphCallbackData
@@ -278,8 +278,7 @@ struct UiTextGraphCallbackData
     const RuntimeRenderModelFrameView* models = nullptr;
     DiagnosticsRuntime* diagnosticsRuntime = nullptr;
     const ReplayHudStatus* replayHud = nullptr;
-    ReplayRuntime* replayRuntime = nullptr;
-    const ReplayOverlayFrameState* replayOverlay = nullptr;
+    const ReplayOverlay::ReplayOverlayRenderContext* replayOverlayContext = nullptr;
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
     bool cinematicRendering = false;
     SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing = nullptr;
@@ -296,7 +295,7 @@ struct TornadoVisualGraphCallbackData
 
 struct ReplayGhostGraphCallbackData
 {
-    ReplayRuntime* replayRuntime = nullptr;
+    const ReplayVisualPacket* replayVisualPacket = nullptr;
     const RenderFrameContext* frame = nullptr;
     const SkullbonezCore::Core::EngineConfig* config = nullptr;
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
@@ -399,26 +398,21 @@ void ExecuteDebugOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGr
 {
     auto* data = static_cast<DebugOverlayGraphCallbackData*>( userData );
     if ( !data || !data->debugOverlayPass || !data->frame || !data->snapshot || !data->runtimeTools ||
-         !data->replayRuntime )
+         !data->replayVisualPacket )
     {
         SB_FATAL( "RunRender", "DebugOverlayPass graph callback missing execution data." );
     }
-    data->debugOverlayPass->Render( { *data->frame,
-                                      *data->snapshot,
-                                      *data->runtimeTools,
-                                      *data->replayRuntime,
-                                      data->replaySceneFrame,
-                                      data->replayGrowthEventCount } );
+    data->rendered = data->debugOverlayPass->Render(
+        { *data->frame, *data->snapshot, *data->runtimeTools, *data->replayVisualPacket } );
 }
 
-void RenderReplayPredictionGhosts( ReplayRuntime& replayRuntime,
+void RenderReplayPredictionGhosts( const ReplayVisualPacket& visualPacket,
                                    const RenderFrameContext& frame,
                                    const SkullbonezCore::Core::EngineConfig& config,
                                    const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                    const Rendering::ShadowFrameData* shadow )
 {
     PROFILE_SCOPED( "Frame/Render/ReplayPredictionGhosts" );
-    const ReplayVisualPacket& visualPacket = replayRuntime.PublishedReplayVisualPacket();
     if ( visualPacket.ghostRequests.empty() )
     {
         return;
@@ -501,11 +495,15 @@ void ExecuteReplayGhostGraphCallback( const SkullbonezCore::Rendering::RenderGra
                                       void* userData )
 {
     auto* data = static_cast<ReplayGhostGraphCallbackData*>( userData );
-    if ( !data || !data->replayRuntime || !data->frame || !data->config )
+    if ( !data || !data->replayVisualPacket || !data->frame || !data->config )
     {
         SB_FATAL( "RunRender", "ReplayPredictionGhostPass graph callback missing execution data." );
     }
-    RenderReplayPredictionGhosts( *data->replayRuntime, *data->frame, *data->config, data->cinematic, data->shadow );
+    RenderReplayPredictionGhosts( *data->replayVisualPacket,
+                                  *data->frame,
+                                  *data->config,
+                                  data->cinematic,
+                                  data->shadow );
 }
 
 void ExecuteSceneTargetGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
@@ -533,24 +531,11 @@ void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
 {
     auto* data = static_cast<UiTextGraphCallbackData*>( userData );
     if ( !data || !data->uiTextPass || !data->renderDiagnostics || !data->uiRender || !data->state || !data->timers ||
-         !data->ui || !data->models || !data->diagnosticsRuntime || !data->replayHud || !data->replayRuntime ||
-         !data->replayOverlay || !data->cinematic || !data->uiRender->IsReady() )
+         !data->ui || !data->models || !data->diagnosticsRuntime || !data->replayHud || !data->replayOverlayContext ||
+         !data->cinematic || !data->uiRender->IsReady() )
     {
         SB_FATAL( "RunRender", "UiTextPass graph callback missing execution data." );
     }
-    const ReplayOverlayFrameState& overlay = *data->replayOverlay;
-    const ReplayOverlay::ReplayOverlayRenderContext overlayContext{ *data->uiRender->commands,
-                                                                    *data->replayRuntime,
-                                                                    data->models->presentationRecords,
-                                                                    data->models->bodyStore,
-                                                                    overlay.editorModeEnabled,
-                                                                    overlay.uiVisible,
-                                                                    overlay.uiMinimized,
-                                                                    overlay.scenePhysicsEnabled,
-                                                                    overlay.gesture,
-                                                                    overlay.screenW,
-                                                                    overlay.screenH,
-                                                                    overlay.nowSeconds };
     data->uiTextPass->Render( { *data->state,
                                 *data->timers,
                                 *data->ui,
@@ -560,7 +545,7 @@ void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
                                 *data->models,
                                 *data->diagnosticsRuntime,
                                 *data->replayHud,
-                                overlayContext,
+                                *data->replayOverlayContext,
                                 *data->cinematic,
                                 data->cinematicRendering,
                                 data->renderRayTracing,
@@ -642,7 +627,7 @@ RuntimeRenderInputs BuildRuntimeRenderInputs( SkullbonezCore::Assets::AssetSyste
                                               SkullbonezCore::Environment::WorldEnvironment& world,
                                               SkullbonezCore::UI::InGameUI& ui,
                                               RuntimeTools& runtimeTools,
-                                              ReplayRuntime& replayRuntime,
+                                              const ReplayRenderFrameView& replayFrame,
                                               const RenderToolOverlayView& toolOverlay,
                                               const RuntimeRenderFramePolicy& framePolicy,
                                               SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
@@ -655,7 +640,7 @@ RuntimeRenderInputs BuildRuntimeRenderInputs( SkullbonezCore::Assets::AssetSyste
 {
     return RuntimeRenderInputs{ RuntimeRenderServices{
         assets,           textures,   models,           world,          terrain,         cameras,
-        window,           ui,         runtimeTools,     replayRuntime,  toolOverlay,     framePolicy,
+        window,           ui,         runtimeTools,     replayFrame,    toolOverlay,     framePolicy,
         skyBox,           cinematic,  cinematicEnabled, renderCommands, renderResources, renderDiagnostics,
         renderRayTracing, renderReady } };
 }
@@ -1128,20 +1113,16 @@ RuntimeRenderer::ExecuteTornadoVisualThroughRenderGraph( const RenderFrameContex
 TornadoVisualSnapshot RuntimeRenderer::BuildTornadoVisualSnapshot( const RenderFrameContext& frame,
                                                                    const RuntimeRenderServices& services ) const
 {
-    ReplayRuntime& replayRuntime = services.replayRuntime;
-    const ReplayPresentationSample* replaySample = replayRuntime.CurrentScrubSample();
-    const ReplaySolverFrameSample* solverSample = replaySample ? nullptr : replayRuntime.CurrentSolverScrubSample();
-    const RunReplayPredictionFrame* predictionFrame =
-        ( replaySample || solverSample ) ? nullptr : replayRuntime.CurrentPredictionScrubFrame();
+    const ReplayRenderFrameView& replayFrame = services.replayFrame;
 
     TornadoVisualSnapshot snapshot;
     snapshot.visual = &m_presentationSettings.tornadoVisual;
     snapshot.tornadoSystem = frame.physicsEngine ? &frame.physicsEngine->GetTornadoSystemConfig() : nullptr;
     snapshot.tornadoField = frame.physicsEngine ? &frame.physicsEngine->GetTornadoFieldConfig() : nullptr;
-    snapshot.replaySample = replaySample;
-    snapshot.solverSample = solverSample;
-    snapshot.predictionFrame = predictionFrame;
-    snapshot.replayLiveAdvanceHeld = replayRuntime.LiveAdvanceHeld();
+    snapshot.replaySample = replayFrame.presentationSample;
+    snapshot.solverSample = replayFrame.solverSample;
+    snapshot.predictionFrame = replayFrame.predictionFrame;
+    snapshot.replayLiveAdvanceHeld = replayFrame.liveAdvanceHeld;
     snapshot.simulationSourceSeconds = services.framePolicy.simulationSeconds;
     return snapshot;
 }
@@ -1149,7 +1130,7 @@ TornadoVisualSnapshot RuntimeRenderer::BuildTornadoVisualSnapshot( const RenderF
 
 bool RuntimeRenderer::ExecuteReplayGhostsThroughRenderGraph(
     const RenderFrameContext& frame,
-    ReplayRuntime& replayRuntime,
+    const ReplayVisualPacket& replayVisualPacket,
     bool useCinematicTarget,
     const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic,
     const Rendering::ShadowFrameData* objectShadow )
@@ -1172,7 +1153,7 @@ bool RuntimeRenderer::ExecuteReplayGhostsThroughRenderGraph(
     AddFrameTargetWrites( graph, replayPass, useCinematicTarget );
 
     ReplayGhostGraphCallbackData callbackData;
-    callbackData.replayRuntime = &replayRuntime;
+    callbackData.replayVisualPacket = &replayVisualPacket;
     callbackData.frame = &frame;
     callbackData.config = &m_config;
     callbackData.cinematic = activeCinematic;
@@ -1195,9 +1176,10 @@ bool RuntimeRenderer::ExecuteReplayGhostsThroughRenderGraph(
 }
 
 
-bool RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame,
-                                                             const RuntimeRenderServices& services,
-                                                             bool useCinematicTarget )
+RuntimeRenderer::GraphPassResult
+RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame,
+                                                        const RuntimeRenderServices& services,
+                                                        bool useCinematicTarget )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     const DebugOverlaySnapshot snapshot = BuildDebugOverlaySnapshot( frame, services );
@@ -1219,9 +1201,7 @@ bool RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const RenderFrameCo
     callbackData.frame = &frame;
     callbackData.snapshot = &snapshot;
     callbackData.runtimeTools = &services.runtimeTools;
-    callbackData.replayRuntime = &services.replayRuntime;
-    callbackData.replaySceneFrame = m_toolOverlaySceneFrame;
-    callbackData.replayGrowthEventCount = m_toolOverlayGrowthEventCount;
+    callbackData.replayVisualPacket = services.replayFrame.visualPacket;
     graph.SetPassCallback( debugPass,
                            ExecuteDebugOverlayGraphCallback,
                            &callbackData,
@@ -1235,7 +1215,10 @@ bool RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const RenderFrameCo
     graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
     const Rendering::RenderGraphCallbackExecutionResult executed =
         graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
-    return executed.executedPassCount == 1u;
+    GraphPassResult result;
+    result.rendered = callbackData.rendered;
+    result.callbackOwned = executed.executedPassCount == 1u;
+    return result;
 }
 
 
@@ -1376,20 +1359,20 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
 }
 
 
-bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,
-                                                       const UI::UIRenderContext& uiRender,
-                                                       const UiTextPassState& state,
-                                                       RunTimerState& timers,
-                                                       UI::InGameUI& ui,
-                                                       const RuntimeRenderModelFrameView& models,
-                                                       DiagnosticsRuntime& diagnosticsRuntime,
-                                                       const ReplayHudStatus& replayHud,
-                                                       ReplayRuntime& replayRuntime,
-                                                       const ReplayOverlayFrameState& replayOverlay,
-                                                       const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                                                       bool cinematicRendering,
-                                                       Rendering::IRenderRayTracing* renderRayTracing,
-                                                       double secondsPerFrame )
+bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph(
+    Rendering::IRenderDiagnostics& renderDiagnostics,
+    const UI::UIRenderContext& uiRender,
+    const UiTextPassState& state,
+    RunTimerState& timers,
+    UI::InGameUI& ui,
+    const RuntimeRenderModelFrameView& models,
+    DiagnosticsRuntime& diagnosticsRuntime,
+    const ReplayHudStatus& replayHud,
+    const ReplayOverlay::ReplayOverlayRenderContext& replayOverlayContext,
+    const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
+    bool cinematicRendering,
+    Rendering::IRenderRayTracing* renderRayTracing,
+    double secondsPerFrame )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     const Rendering::RenderGraphResourceHandle backbuffer =
@@ -1411,8 +1394,7 @@ bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnos
     callbackData.models = &models;
     callbackData.diagnosticsRuntime = &diagnosticsRuntime;
     callbackData.replayHud = &replayHud;
-    callbackData.replayRuntime = &replayRuntime;
-    callbackData.replayOverlay = &replayOverlay;
+    callbackData.replayOverlayContext = &replayOverlayContext;
     callbackData.cinematic = &cinematic;
     callbackData.cinematicRendering = cinematicRendering;
     callbackData.renderRayTracing = renderRayTracing;
@@ -1737,11 +1719,11 @@ void RuntimeRenderer::EnsureFrameResources( const RenderResourceContext& resourc
 }
 
 
-void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
+bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
 {
     const RuntimeRenderServices& services = renderInputs.services;
     const RuntimeRenderFramePolicy& policy = services.framePolicy;
-    ReplayRuntime& replayRuntime = services.replayRuntime;
+    const ReplayRenderFrameView& replayFrame = services.replayFrame;
     m_uiTextRayTracing = services.renderRayTracing;
     const bool cinematicRender = services.cinematicEnabled;
     const SkullbonezCore::Core::CinematicRenderConfig& renderConfig = services.cinematic;
@@ -1826,24 +1808,8 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
 
     const bool collisionStateColorsVisible = policy.collisionVisualizer;
     const bool debugTransparentBodyPass = policy.physicsDebugTransparent && policy.physicsDebugAlpha < 1.0f;
-    const bool replayPredictionOverlayActive = replayRuntime.Prediction().enabled;
-    const bool replayFocusFadeActive = [&]()
-    {
-        if ( replayPredictionOverlayActive || collisionStateColorsVisible || debugTransparentBodyPass )
-        {
-            return false;
-        }
-
-        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::Replay );
-        if ( !frame.bodyStore )
-        {
-            return false;
-        }
-        return replayRuntime.BuildFocusModelMask( *frame.bodyStore, frame.modelCount );
-    }();
-    const std::vector<uint8_t>* replayFocusModelMask =
-        replayFocusFadeActive ? &replayRuntime.FocusModelMaskView() : nullptr;
+    const bool replayFocusFadeActive = replayFrame.focusFadeActive;
+    const std::vector<uint8_t>* replayFocusModelMask = replayFocusFadeActive ? replayFrame.focusModelMask : nullptr;
     const bool transparentBodyPass = debugTransparentBodyPass || replayFocusFadeActive;
     const float bodyRenderAlpha = debugTransparentBodyPass ? policy.physicsDebugAlpha : 1.0f;
     const float collisionVisualizerAlphaOverride = debugTransparentBodyPass ? bodyRenderAlpha : -1.0f;
@@ -1971,13 +1937,14 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
         RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
             RuntimeAllocation::RuntimeAllocationPhase::Replay );
         replayGhostCallbackOwned = ExecuteReplayGhostsThroughRenderGraph( frame,
-                                                                          replayRuntime,
+                                                                          *replayFrame.visualPacket,
                                                                           useCinematicTarget,
                                                                           activeCinematic,
                                                                           objectShadowFrame );
     }
 
-    const bool debugOverlayCallbackOwned = ExecuteDebugOverlayThroughRenderGraph( frame, services, useCinematicTarget );
+    const GraphPassResult debugOverlayGraph =
+        ExecuteDebugOverlayThroughRenderGraph( frame, services, useCinematicTarget );
 
     bool volumetricReady = false;
     bool volumetricCallbackOwned = false;
@@ -2015,7 +1982,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     frameSnapshot.tornadoVisualRendered = tornadoVisualGraph.rendered;
     frameSnapshot.tornadoVisualCallbackOwned = tornadoVisualGraph.callbackOwned;
     frameSnapshot.replayGhostCallbackOwned = replayGhostCallbackOwned;
-    frameSnapshot.debugOverlayCallbackOwned = debugOverlayCallbackOwned;
+    frameSnapshot.debugOverlayCallbackOwned = debugOverlayGraph.callbackOwned;
     frameSnapshot.volumetricCallbackOwned = volumetricCallbackOwned;
     frameSnapshot.volumetricReady = volumetricReady;
     frameSnapshot.tonemapCallbackOwned = tonemapCallbackOwned;
@@ -2030,6 +1997,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
             RuntimeAllocation::RuntimeAllocationPhase::Diagnostics );
         Rendering::RenderPipeline::DumpExecutedFrameGraphIfChanged( frameSnapshot );
     }
+    return debugOverlayGraph.rendered;
 }
 
 
@@ -2255,8 +2223,7 @@ void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnos
                                     const RuntimeRenderModelFrameView& models,
                                     DiagnosticsRuntime& diagnosticsRuntime,
                                     const ReplayHudStatus& replayHud,
-                                    ReplayRuntime& replayRuntime,
-                                    const ReplayOverlayFrameState& replayOverlay,
+                                    const ReplayOverlay::ReplayOverlayRenderContext& replayOverlayContext,
                                     const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                     bool cinematicRendering,
                                     double dSecondsPerFrame )
@@ -2269,8 +2236,7 @@ void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnos
                                            models,
                                            diagnosticsRuntime,
                                            replayHud,
-                                           replayRuntime,
-                                           replayOverlay,
+                                           replayOverlayContext,
                                            cinematic,
                                            cinematicRendering,
                                            m_uiTextRayTracing,
@@ -2306,65 +2272,16 @@ RuntimeRenderer::BuildModelFrameView( SkullbonezCore::Runtime::SceneController& 
 }
 
 
-void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
+bool RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
 {
     m_uiTextRayTracing = nullptr;
-    ReplayRuntime& replayRuntime = context.replayOverlay.replayRuntime;
+    const ReplayRenderFrameView& replayFrame = context.replayOverlay.replayFrame;
     RuntimeTools& runtimeTools = context.toolOverlay.tools;
     const RuntimeRenderFramePolicy& policy = context.framePolicy;
 
-    const auto restoreReplayLauncherVisualForRender = [&]()
-    {
-        if ( !replayRuntime.HasLauncherVisualBackup() )
-        {
-            return;
-        }
-
-        replayRuntime.RestoreAndClearLauncherVisualBackup( runtimeTools );
-    };
-
-    const auto applyReplayLauncherVisualSampleForRender = [&]( const ReplayLauncherVisualSample& sample )
-    {
-        if ( replayRuntime.HasLauncherVisualBackup() )
-        {
-            return;
-        }
-
-        replayRuntime.StoreLauncherVisualBackupFrom( runtimeTools );
-        runtimeTools.RestoreReplayLauncherVisualSample( sample );
-    };
-
-    const auto applyReplayRenderStateForFrame = [&]()
-    {
-        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::Replay );
-        if ( const RunReplayPredictionFrame* predictionFrame = replayRuntime.CurrentPredictionScrubFrame() )
-        {
-            replayRuntime.ApplyPredictionFrameForRender( context.renderModelOwner.MutableRenderInstances(),
-                                                         context.renderModelOwner.BodyStore(),
-                                                         context.renderModelOwner.Colliders(),
-                                                         *predictionFrame );
-        }
-        else if ( const ReplayPresentationSample* replaySample = replayRuntime.CurrentScrubSample() )
-        {
-            replayRuntime.ApplyPresentationSampleForRender( context.renderModelOwner.MutableRenderInstances(),
-                                                            context.renderModelOwner.BodyStore(),
-                                                            context.renderModelOwner.Colliders(),
-                                                            *replaySample );
-        }
-        else if ( const ReplaySolverFrameSample* solverSample = replayRuntime.CurrentSolverScrubSample() )
-        {
-            replayRuntime.ApplySolverSampleForRender( context.renderModelOwner.MutableRenderInstances(),
-                                                      context.renderModelOwner.BodyStore(),
-                                                      context.renderModelOwner.Colliders(),
-                                                      *solverSample );
-            applyReplayLauncherVisualSampleForRender( solverSample->launcherVisual );
-        }
-    };
-
     if ( policy.textOnly )
     {
-        return;
+        return false;
     }
 
     SkullbonezCore::Rendering::IRenderCommandContext* renderCommands = context.backend.renderCommands;
@@ -2373,46 +2290,9 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
     const bool renderReady = renderCommands != nullptr && renderResources != nullptr && renderDiagnostics != nullptr;
     if ( !renderReady )
     {
-        restoreReplayLauncherVisualForRender();
-        return;
+        return false;
     }
-
-    // Invariant: backend readiness gates model prep and replay render overrides.
-    // Missing renderer facets should leave live render state untouched.
     SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing = context.backend.rayTracingBackend;
-    PROFILE_BEGIN( "Frame/Render/PrepareModels" );
-    context.renderModelOwner.PrepareRenderInstances( context.presentationAlpha );
-    PROFILE_END( "Frame/Render/PrepareModels" );
-    applyReplayRenderStateForFrame();
-
-    // Invariant: replay launcher/model overrides are active before the concrete
-    // owners build overlay records, matching the state submitted below.
-    runtimeTools.PrepareOverlayTrace( context.renderModelOwner,
-                                      m_assets,
-                                      ToolOverlayBuildInput{ policy.physicsDebugContactLinger,
-                                                             context.toolOverlay.inspectGizmoInteractionActive,
-                                                             context.toolOverlay.controlDown,
-                                                             context.replayOverlay.gesture,
-                                                             context.toolOverlay.attachedTargetIndex,
-                                                             context.toolOverlay.attachedFollow } );
-    replayRuntime.AppendOverlayTrace( context.physics,
-                                      context.replayOverlay.entities,
-                                      runtimeTools.EditorTracer(),
-                                      ReplayOverlayBuildInput{ runtimeTools.Editor().editorModeEnabled,
-                                                               context.replayOverlay.gesture,
-                                                               context.replayOverlay.sceneFrame } );
-    m_toolOverlaySceneFrame = context.replayOverlay.sceneFrame;
-    m_toolOverlayGrowthEventCount = RuntimeAllocation::RuntimeReserveAllocator::GrowthEventCount();
-    // Invariant: replay publishes once after every producer has finished and
-    // before the graph executes either ghost or debug-overlay consumers. This
-    // prevents a render pass and the fidelity probe from observing different
-    // frame-local request/buffer sets.
-    (void)replayRuntime.BuildPredictionGhostDrawRequests( context.renderModelOwner.RenderPresentationRecords(),
-                                                          context.renderModelOwner.BodyStore() );
-    ReplayVisualPacket replayVisualPacket =
-        runtimeTools.EditorTracer().BuildReplayVisualPacket( m_cameras.GetRenderCameraTranslation(),
-                                                             m_cameras.GetRenderCameraUp() );
-    replayRuntime.PublishReplayVisualPacket( replayVisualPacket, m_toolOverlayGrowthEventCount );
 
     const auto gradeNow = std::chrono::steady_clock::now();
     float gradeDtSeconds = 0.0f;
@@ -2431,25 +2311,24 @@ void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
 
     const bool cinematicRender =
         ( context.cinematicRequested || m_consequenceGradeStrength > 0.01f ) && renderReady && !policy.textOnly;
-    RenderFrame( BuildRuntimeRenderInputs( m_assets,
-                                           m_textures,
-                                           m_terrain.Get(),
-                                           m_cameras,
-                                           m_window,
-                                           m_skyBox.get(),
-                                           context.renderModels,
-                                           m_world,
-                                           context.ui,
-                                           runtimeTools,
-                                           replayRuntime,
-                                           context.toolOverlay,
-                                           policy,
-                                           *renderCommands,
-                                           *renderResources,
-                                           *renderDiagnostics,
-                                           renderRayTracing,
-                                           frameCinematic,
-                                           cinematicRender,
-                                           renderReady ) );
-    restoreReplayLauncherVisualForRender();
+    return RenderFrame( BuildRuntimeRenderInputs( m_assets,
+                                                  m_textures,
+                                                  m_terrain.Get(),
+                                                  m_cameras,
+                                                  m_window,
+                                                  m_skyBox.get(),
+                                                  context.renderModels,
+                                                  m_world,
+                                                  context.ui,
+                                                  runtimeTools,
+                                                  replayFrame,
+                                                  context.toolOverlay,
+                                                  policy,
+                                                  *renderCommands,
+                                                  *renderResources,
+                                                  *renderDiagnostics,
+                                                  renderRayTracing,
+                                                  frameCinematic,
+                                                  cinematicRender,
+                                                  renderReady ) );
 }

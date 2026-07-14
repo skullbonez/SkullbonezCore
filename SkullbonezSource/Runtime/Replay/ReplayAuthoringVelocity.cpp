@@ -587,7 +587,8 @@ bool ReplayRuntime::TickVelocityEditInput( bool uiBlocksMouse,
             std::clamp( angularVelocity.z, -REPLAY_VELOCITY_EDIT_ANGULAR_MAX, REPLAY_VELOCITY_EDIT_ANGULAR_MAX );
         if ( velocityPhysics.SetBodyVelocity( body.body, linearVelocity, angularVelocity, true ) )
         {
-            m_replayRuntime.NotifyVelocityEditApplied();
+            m_authoring.QueuePredictionRefresh();
+            ApplyAuthoringPredictionRequest();
             m_scrubberOwner.SetVisible( true, now, REPLAY_SCRUBBER_VISIBLE_SECONDS );
         }
     };

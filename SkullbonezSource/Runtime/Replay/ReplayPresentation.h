@@ -45,12 +45,14 @@ namespace SkullbonezCore
 namespace Physics
 {
 class ColliderStore;
+class PhysicsEngine;
 class PhysicsBodyStore;
 } // namespace Physics
 namespace Rendering
 {
+class RenderInstanceStore;
 struct RenderInstancePresentationRecord;
-}
+} // namespace Rendering
 namespace Environment
 {
 class CameraCollection;
@@ -64,7 +66,37 @@ namespace Runtime
 class SceneEntityStore;
 class InputRouter;
 class RuntimeTools;
+class RunEditorTracer;
 struct RunCameraState;
+struct RunReplayCauseTreeState;
+struct RunReplayPredictionFrame;
+struct ReplayPredictionPresentationView;
+
+// Read-only publication consumed by world render passes after Run has prepared
+// replay render poses, overlay records, ghosts, and focus masks. The pointers
+// and spans borrow owner storage for this render call only; passes cannot reach
+// replay mutation or scheduling authority through this value.
+struct ReplayRenderFrameView
+{
+    const ReplayPresentationSample* presentationSample = nullptr;
+    const ReplaySolverFrameSample* solverSample = nullptr;
+    const RunReplayPredictionFrame* predictionFrame = nullptr;
+    const ReplayVisualPacket* visualPacket = nullptr;
+    const std::vector<uint8_t>* focusModelMask = nullptr;
+    bool predictionEnabled = false;
+    bool liveAdvanceHeld = false;
+    bool focusFadeActive = false;
+};
+
+// Lifetime: selected replay rows are frame-local borrows. The render
+// composition shell must consume them before replay input or prediction update
+// mutates the owning timeline.
+struct ReplayRenderSelectionView
+{
+    const ReplayPresentationSample* presentationSample = nullptr;
+    const ReplaySolverFrameSample* solverSample = nullptr;
+    const RunReplayPredictionFrame* predictionFrame = nullptr;
+};
 
 // Value-only per-frame publication for replay diagnostics drawn by the late
 // UI/text pass. It borrows no owner, and memoryStats is populated only while
@@ -108,8 +140,8 @@ struct ReplayPathPickResult
 
 struct ReplayWorldPointerInput
 {
-    // Lifetime: one routed pointer gesture. Every reference is borrowed for
-    // the synchronous pick/optional camera-exit operation and is never stored.
+    // Value-only facts for one routed pointer gesture. Mutable and store owners
+    // are explicit operands on ReplayRuntime::RouteWorldPointer.
     bool leftPressed = false;
     bool suppressWorldAction = false;
     bool editorMode = false;
@@ -117,18 +149,9 @@ struct ReplayWorldPointerInput
     bool controlDown = false;
     bool launcherMode = false;
     ReplayPathPickInput pick;
-    const SceneEntityStore& entities;
-    const Physics::PhysicsBodyStore& bodyStore;
-    const Physics::ColliderStore& colliderStore;
-    std::span<const Rendering::RenderInstancePresentationRecord> presentation;
-    Environment::CameraCollection* cameras = nullptr;
-    Geometry::Terrain* terrain = nullptr;
-    RunCameraState& camera;
     RunCameraMode restoreCameraMode = RunCameraMode::Inspect;
     bool attachedCameraFollow = false;
     bool directorGrabbed = false;
-    RuntimeInteractionController& interaction;
-    InputRouter& inputRouter;
 };
 
 struct RunReplayPathTarget
@@ -271,7 +294,7 @@ class ReplayPresentation
     }
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats TrajectoryVisualStatsSnapshot() const noexcept;
     ReplayTrajectorySubmissionProbeStats TrajectorySubmissionProbeSnapshot() const noexcept;
-    ReplayVisualPacket PublishedVisualPacketView() const noexcept;
+    const ReplayVisualPacket& PublishedVisualPacketView() const noexcept;
     std::span<const ReplayPredictionGhostDrawRequest> PredictionGhostDrawRequestsView() const noexcept;
     const std::vector<uint8_t>& FocusModelMaskView() const noexcept;
     ReplayPresentationMemoryStats CollectMemoryStats() const noexcept;
@@ -308,6 +331,7 @@ class ReplayPresentation
                                     bool targetModelRowRepaired );
     void TogglePastPathVisible();
     bool SetPathTarget( const char* name, int modelIndex, const Physics::PhysicsBodyStore& bodyStore );
+    bool SetPathTarget( ReplayBodyId id, Physics::ModelRowHint modelRow, const char* name );
     ReplayPathPickResult
     TryPickPathTarget( const ReplayPathPickInput& input,
                        const SceneEntityStore& entities,
@@ -335,6 +359,38 @@ class ReplayPresentation
         uint64_t reserveGrowthEventCount );
     void RecordTrajectoryBudgetExpiry( SkullbonezCore::Core::MainMemoryReplayBudgetPass pass );
     void RecordTrajectoryRebuildCause( SkullbonezCore::Core::MainMemoryReplayRebuildCause cause );
+    bool ApplyPresentationSampleForRender( Rendering::RenderInstanceStore& renderInstances,
+                                           const Physics::PhysicsBodyStore& bodyStore,
+                                           const Physics::ColliderStore& colliderStore,
+                                           const ReplayPresentationSample& sample );
+    bool ApplySolverSampleForRender( Rendering::RenderInstanceStore& renderInstances,
+                                     const Physics::PhysicsBodyStore& bodyStore,
+                                     const Physics::ColliderStore& colliderStore,
+                                     const ReplaySolverFrameSample& sample );
+    bool ApplyPredictionFrameForRender( Rendering::RenderInstanceStore& renderInstances,
+                                        const Physics::PhysicsBodyStore& bodyStore,
+                                        const Physics::ColliderStore& colliderStore,
+                                        const RunReplayPredictionFrame& frame );
+    bool
+    BuildPredictionGhostDrawRequests( const ReplayPredictionPresentationView& prediction,
+                                      std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
+                                      const Physics::PhysicsBodyStore& bodyStore );
+    void PublishVisualPacket( ReplayVisualPacket packet,
+                              const ReplayPredictionPresentationView& prediction,
+                              const ReplaySolverFrameSample* latestSolver,
+                              uint64_t replayReserveGrowthEvents );
+    void RenderPathVisualizer( const ReplayPredictionPresentationView& prediction,
+                               const ReplaySolverFrameSample* presentSample,
+                               Physics::PhysicsEngine& physics,
+                               const SceneEntityStore& entities,
+                               RunEditorTracer& tracer );
+    void RenderCauseFocusOverlay( const RunReplayCauseTreeState& causeTree,
+                                  const ReplayPredictionPresentationView& prediction,
+                                  const ReplaySolverFrameSample* currentSolverSample,
+                                  const Physics::PhysicsBodyStore& bodyStore,
+                                  const Physics::ColliderStore& colliderStore,
+                                  const SceneEntityStore& entities,
+                                  RunEditorTracer& tracer );
 
   private:
     RunReplayCameraState m_camera;

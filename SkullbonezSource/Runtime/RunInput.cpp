@@ -89,21 +89,21 @@ void InputRouter::ApplyInteractionTransitionCleanup( const RuntimeInteractionTra
                                                 ( transition.previousOwner == WorldInteractionOwner::None ||
                                                   transition.previousOwner == WorldInteractionOwner::InspectGizmo );
 
-    if ( !enteringReplay &&
-         ( replayRuntime.HasActiveInteractionState() || IsReplayWorldOwner( transition.previousOwner ) ) )
+    const bool replayInteractionCleared =
+        replayRuntime.ApplyInteractionExit( ReplayInteractionExitInput{ !enteringReplay,
+                                                                        IsReplayWorldOwner( transition.previousOwner ),
+                                                                        replayRestoreCameraMode,
+                                                                        attachedCameraFollow,
+                                                                        directorGrabbed },
+                                            &cameras,
+                                            terrain,
+                                            camera,
+                                            interaction,
+                                            *this );
+    if ( replayInteractionCleared )
     {
-        if ( replayRuntime.ClearInteractionForRuntimeTransition( interaction, *this ) )
-        {
-            replayRuntime.ExitInspectionCamera( &cameras,
-                                                terrain,
-                                                camera,
-                                                replayRestoreCameraMode,
-                                                attachedCameraFollow,
-                                                directorGrabbed,
-                                                interaction,
-                                                *this );
-        }
-        ApplyPointerPresentation( EvaluateRuntimePointerPresentation( *this, runtimeTools.Editor(), replayRuntime ) );
+        ApplyPointerPresentation(
+            EvaluateRuntimePointerPresentation( *this, runtimeTools.Editor(), replayRuntime.BuildInputView() ) );
     }
 
     if ( transition.previousOwner == WorldInteractionOwner::Manipulator &&
@@ -125,11 +125,13 @@ void InputRouter::ApplyInteractionTransitionCleanup( const RuntimeInteractionTra
                                                           models,
                                                           physics,
                                                           interaction );
-        if ( ReleasePointerToUi( EvaluateRuntimePointerPresentation( *this, runtimeTools.Editor(), replayRuntime ) ) )
+        if ( ReleasePointerToUi(
+                 EvaluateRuntimePointerPresentation( *this, runtimeTools.Editor(), replayRuntime.BuildInputView() ) ) )
         {
             InputController::ResetMouseLook( camera );
         }
-        ApplyPointerPresentation( EvaluateRuntimePointerPresentation( *this, runtimeTools.Editor(), replayRuntime ) );
+        ApplyPointerPresentation(
+            EvaluateRuntimePointerPresentation( *this, runtimeTools.Editor(), replayRuntime.BuildInputView() ) );
         if ( runtimeTools.Editor().editorModeEnabled && !enteringEdit )
         {
             runtimeTools.Editor().editorModeEnabled = false;
@@ -365,7 +367,7 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
             command.claimSelectionOwner = false;
             runtimeTools.ApplySelectionCommand( command, models );
             ApplyPointerPresentation(
-                EvaluateRuntimePointerPresentation( *this, runtimeTools.Editor(), replayRuntime ) );
+                EvaluateRuntimePointerPresentation( *this, runtimeTools.Editor(), replayRuntime.BuildInputView() ) );
         }
         result.enteredInteractiveScene = true;
         appendModeAction( RuntimeInputAction::SetCameraMode );
@@ -388,18 +390,18 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
                                                                       input.controlDown,
                                                                       RunCameraModeUsesLauncher( input.cameraMode ),
                                                                       pickInput,
-                                                                      entities,
-                                                                      models.BodyStore(),
-                                                                      models.Colliders(),
-                                                                      models.RenderPresentationRecords(),
-                                                                      &cameras,
-                                                                      terrain,
-                                                                      camera,
                                                                       replayRestoreCameraMode,
                                                                       attachedCameraFollow,
-                                                                      directorGrabbed,
-                                                                      interaction,
-                                                                      *this } );
+                                                                      directorGrabbed },
+                                             entities,
+                                             models.BodyStore(),
+                                             models.Colliders(),
+                                             models.RenderPresentationRecords(),
+                                             &cameras,
+                                             terrain,
+                                             camera,
+                                             interaction,
+                                             *this );
     }
 
     if ( !consumed )
@@ -494,7 +496,7 @@ void InputRouter::ApplyCameraMode( RunCameraState& camera,
         m_sceneController,
         m_sceneController.Physics(),
         m_camera,
-        NormalizeRuntimeCameraMode( m_replayRuntime.ReplayRestoreCameraMode(), authoredScene, enabledMask ),
+        NormalizeRuntimeCameraMode( m_replayRuntime.BuildInputView().restoreCameraMode, authoredScene, enabledMask ),
         m_attachedCamera.State().activeFollow,
         m_camera.director.grabbed );
 
@@ -534,7 +536,7 @@ void InputRouter::ApplyCameraMode( RunCameraState& camera,
                                 m_sceneController.Cameras(),
                                 authoredScene,
                                 m_runtimeTools.Editor(),
-                                m_replayRuntime );
+                                m_replayRuntime.BuildInputView() );
         }
         else
         {
@@ -549,17 +551,19 @@ void InputRouter::ApplyCameraMode( RunCameraState& camera,
     {
         InputController::ResetMouseLook( m_camera );
         m_inputRouter.ApplyPointerPresentation(
-            EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) );
+            EvaluateRuntimePointerPresentation( m_inputRouter,
+                                                m_runtimeTools.Editor(),
+                                                m_replayRuntime.BuildInputView() ) );
     }
     if ( mode == RunCameraMode::Attach )
     {
         int seedIndex = -1;
-        const RunReplayPathVisualizerState& path = m_replayRuntime.PathVisualizer();
         const PhysicsBodyStore& bodyStore = m_sceneController.BodyStore();
         const int modelCount = bodyStore.Count();
-        if ( path.hasTarget && path.targetModelRow.value >= 0 && path.targetModelRow.value < modelCount )
+        const int replayTargetRow = m_replayRuntime.BuildInputView().pathTargetModelRow;
+        if ( replayTargetRow >= 0 && replayTargetRow < modelCount )
         {
-            seedIndex = path.targetModelRow.value;
+            seedIndex = replayTargetRow;
         }
         else
         {
@@ -586,7 +590,9 @@ void InputRouter::ApplyCameraMode( RunCameraState& camera,
         if ( seedResult != AttachedCameraSeedResult::Failed )
         {
             m_inputRouter.ApplyPointerPresentation(
-                EvaluateRuntimePointerPresentation( m_inputRouter, m_runtimeTools.Editor(), m_replayRuntime ) );
+                EvaluateRuntimePointerPresentation( m_inputRouter,
+                                                    m_runtimeTools.Editor(),
+                                                    m_replayRuntime.BuildInputView() ) );
         }
     }
     InputController::ApplyModeAction(
@@ -679,25 +685,17 @@ bool InputRouter::HandleUnfocusedFrame( RuntimeInputContext& runtimeInput,
     // Invariant: focus loss releases every active tool capture and refreshes
     // action memory so refocus cannot replay stale drag/key edges.
     interaction.CancelCameraLookGesture();
-    replayRuntime.CancelToolDragState( interaction, *this );
+    replayRuntime.ApplyInputFocusLoss( &sceneController.Cameras(),
+                                       sceneController.Terrain().Get(),
+                                       camera,
+                                       NormalizeRuntimeCameraMode( replayRuntime.BuildInputView().restoreCameraMode,
+                                                                   sceneController.State().isSceneMode,
+                                                                   RuntimeCameraModeEnabledMask( sceneController ) ),
+                                       attachedCamera.State().activeFollow,
+                                       camera.director.grabbed,
+                                       interaction,
+                                       *this );
     CancelPointerPresentation();
-    if ( replayRuntime.ResetScrubberState() )
-    {
-        replayRuntime.ExitInspectionCamera(
-            &sceneController.Cameras(),
-            sceneController.Terrain().Get(),
-            camera,
-            NormalizeRuntimeCameraMode( replayRuntime.ReplayRestoreCameraMode(),
-                                        sceneController.State().isSceneMode,
-                                        RuntimeCameraModeEnabledMask( sceneController ) ),
-            attachedCamera.State().activeFollow,
-            camera.director.grabbed,
-            interaction,
-            *this );
-    }
-    ReplayFrameIntent replayIntent;
-    replayIntent.clearVelocityEditInputState = true;
-    (void)replayRuntime.ApplyFrameIntent( replayIntent );
     runtimeTools.CancelMousePickup( *this, interaction );
     RunInternal::ResetEditorUnfocusedInputState(
         { runtimeTools.Editor(), sceneController, sceneController.Physics(), interaction } );
@@ -719,7 +717,7 @@ bool InputRouter::HandleUnfocusedFrame( RuntimeInputContext& runtimeInput,
 void InputRouter::DispatchCaptureActions( InputActions& actions,
                                           const RunCameraState& camera,
                                           const AttachedCameraController& attachedCamera,
-                                          const ReplayRuntime& replayRuntime,
+                                          const ReplayInputView& replayInput,
                                           SceneController& sceneController,
                                           DiagnosticsRuntime& diagnosticsRuntime,
                                           const SkullbonezCore::UI::InGameUI& ui )
@@ -736,7 +734,7 @@ void InputRouter::DispatchCaptureActions( InputActions& actions,
                                              camera.mode == RunCameraMode::Director,
                                              camera.mode == RunCameraMode::Director || flyCamera,
                                              false,
-                                             !replayRuntime.ScrubberView().restoreConsumedThisFrame,
+                                             !replayInput.restoreConsumedThisFrame,
                                              false };
     const RuntimeInputKeyBindingView bindings = TakeInputKeyboardBindings();
     RoutePhase( bindings, InputActionPhase::Capture, BuildKeyboardContextMask( contextFacts ), actions );
@@ -791,7 +789,7 @@ bool InputRouter::DispatchAfterUiDismiss( InputActions& actions,
                                           RunCameraState& camera,
                                           AttachedCameraController& attachedCamera,
                                           RuntimeTools& runtimeTools,
-                                          ReplayRuntime& replayRuntime,
+                                          const ReplayInputView& replayInput,
                                           SceneController& sceneController,
                                           DiagnosticsRuntime& diagnosticsRuntime,
                                           RunDebugState& debug,
@@ -808,7 +806,7 @@ bool InputRouter::DispatchAfterUiDismiss( InputActions& actions,
                                              camera.mode == RunCameraMode::Director,
                                              camera.mode == RunCameraMode::Director || flyCamera,
                                              runtimeTools.Editor().editorModeEnabled,
-                                             !replayRuntime.ScrubberView().restoreConsumedThisFrame,
+                                             !replayInput.restoreConsumedThisFrame,
                                              !uiUserInteracted };
     const RuntimeInputKeyBindingView bindings = TakeInputKeyboardBindings();
     RoutePhase( bindings, InputActionPhase::AfterUi, BuildKeyboardContextMask( contextFacts ), actions );
@@ -841,10 +839,8 @@ bool InputRouter::DispatchAfterUiDismiss( InputActions& actions,
             ui.ToggleVisible( nowSeconds );
             debug.overlayMode = OverlayMode::None;
             RecordTap( event.action, nowSeconds );
-            ApplyPointerPresentation(
-                EvaluateRuntimePointerPresentation( *this, runtimeTools.Editor(), replayRuntime ) );
-            if ( ReleasePointerToUi(
-                     EvaluateRuntimePointerPresentation( *this, runtimeTools.Editor(), replayRuntime ) ) )
+            ApplyPointerPresentation( EvaluateRuntimePointerPresentation( *this, runtimeTools.Editor(), replayInput ) );
+            if ( ReleasePointerToUi( EvaluateRuntimePointerPresentation( *this, runtimeTools.Editor(), replayInput ) ) )
             {
                 InputController::ResetMouseLook( camera );
             }

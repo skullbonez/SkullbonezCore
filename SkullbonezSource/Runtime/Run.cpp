@@ -209,7 +209,6 @@ bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
     // Runtime allocation policy: launcher replay visuals are copied every
     // captured physics tick, so keep their scratch vectors reserved before the
     // replay phase begins.
-    replayRuntime.ReserveLauncherVisualCaptureBuffers();
 
     const ReplayRecordingConfigResult replayConfig = replayRuntime.ConfigureRecording( overrides.replayRecordingEnabled,
                                                                                        overrides.replayRetentionSeconds,
@@ -380,7 +379,7 @@ Run::~Run()
 
     if ( m_diagnosticsRuntime.MainMemoryDumpRequested() )
     {
-        m_diagnosticsRuntime.WriteMainMemoryDump( m_replayRuntime,
+        m_diagnosticsRuntime.WriteMainMemoryDump( m_replayRuntime.CollectMemoryStats(),
                                                   m_sceneController,
                                                   m_sceneController.State(),
                                                   "shutdown",
@@ -465,7 +464,7 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
             &m_sceneController.Cameras(),
             m_sceneController.Terrain().Get(),
             m_camera,
-            NormalizeRuntimeCameraMode( m_replayRuntime.ReplayRestoreCameraMode(),
+            NormalizeRuntimeCameraMode( m_replayRuntime.BuildInputView().restoreCameraMode,
                                         m_sceneController.State().isSceneMode,
                                         RuntimeCameraModeEnabledMask( m_sceneController ) ),
             m_attachedCamera.State().activeFollow,
@@ -504,7 +503,7 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
         (void)WriteInteractionAutomationReport( m_interactionAutomation,
                                                 m_sceneController,
                                                 m_runtimeTools,
-                                                m_replayRuntime,
+                                                m_replayRuntime.BuildAutomationView(),
                                                 m_interaction,
                                                 m_camera,
                                                 m_UI );
@@ -644,7 +643,7 @@ void Run::Initialise()
         &m_sceneController.Cameras(),
         m_sceneController.Terrain().Get(),
         m_camera,
-        NormalizeRuntimeCameraMode( m_replayRuntime.ReplayRestoreCameraMode(),
+        NormalizeRuntimeCameraMode( m_replayRuntime.BuildInputView().restoreCameraMode,
                                     m_sceneController.State().isSceneMode,
                                     RuntimeCameraModeEnabledMask( m_sceneController ) ),
         m_attachedCamera.State().activeFollow,

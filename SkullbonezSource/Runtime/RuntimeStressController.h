@@ -83,12 +83,14 @@ SkullbonezCore::Core::SbResult RunUIStressActions( RuntimeFrameHostView& host,
                                                    RuntimeFrameInteractionView& interactionOwners,
                                                    RuntimeFrameSceneView& sceneOwners,
                                                    RuntimeFramePresentationView& presentationOwners,
+                                                   ReplayRuntime& replayRuntime,
                                                    RunCameraMode replayRestoreCameraMode );
 
 void ExecuteGraphicsStressFrame( RuntimeFrameHostView& host,
                                  RuntimeFrameInteractionView& interactionOwners,
                                  RuntimeFrameSceneView& sceneOwners,
                                  RuntimeFramePresentationView& presentationOwners,
+                                 ReplayRuntime& replayRuntime,
                                  const Rendering::IRenderDiagnostics& renderDiagnostics );
 } // namespace Runtime
 } // namespace SkullbonezCore

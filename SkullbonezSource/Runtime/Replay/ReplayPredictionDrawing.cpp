@@ -25,6 +25,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "ReplayOverlayRenderer.h"
+#include "ReplayAuthoring.h"
 #include "ReplayPrediction.h"
 #include "ReplayPresentation.h"
 #include "../Editor/EditorTools.h"
@@ -46,7 +47,6 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Runtime::RunInternal;
 using namespace SkullbonezCore::Runtime::ReplayOverlay;
 using SkullbonezCore::Math::Vector::Vector3;
 
@@ -316,20 +316,17 @@ uint16_t ReplayPredictionChildTrajectoryBranch( std::size_t nodeIndex, bool usin
         (std::min)( branchBase + nodeIndex, static_cast<std::size_t>( ( std::numeric_limits<uint16_t>::max )() ) ) );
 }
 
-bool ReplayPredictionFutureTreeReadyForDraw( const RunReplayPredictionState& prediction,
+bool ReplayPredictionFutureTreeReadyForDraw( const ReplayPredictionPresentationView& prediction,
                                              ReplayBodyId rootId,
                                              bool usingBuildFrames,
                                              std::size_t frameCount )
 {
-    const std::size_t nodeCount =
-        (std::min)( prediction.futureNodeCache.futureNodes.size(), REPLAY_PATH_MAX_FUTURE_NODES );
-    return nodeCount > 0 && prediction.futureNodeCache.futureNodesCacheValid &&
-           prediction.futureNodeCache.futureNodesTopologyVersion != 0 && prediction.trajectoryBuild.valid &&
-           prediction.trajectoryBuild.rootId.value == rootId.value &&
-           prediction.trajectoryBuild.usingBuildFrames == usingBuildFrames &&
-           prediction.trajectoryBuild.topologyVersion == prediction.futureNodeCache.futureNodesTopologyVersion &&
-           prediction.trajectoryBuild.builtNodeCount == nodeCount &&
-           prediction.trajectoryBuild.childFrameCount >= frameCount;
+    const std::size_t nodeCount = (std::min)( prediction.futureNodes.size(), REPLAY_PATH_MAX_FUTURE_NODES );
+    return nodeCount > 0 && prediction.futureNodesCacheValid && prediction.topologyVersion != 0 &&
+           prediction.trajectoryBuildValid && prediction.trajectoryBuildRootId.value == rootId.value &&
+           prediction.trajectoryBuildUsingBuildFrames == usingBuildFrames &&
+           prediction.trajectoryBuildTopologyVersion == prediction.topologyVersion &&
+           prediction.trajectoryBuiltNodeCount == nodeCount && prediction.trajectoryChildFrameCount >= frameCount;
 }
 
 bool ReplayPredictionBodyHasVisibleLinearMotion( const RunReplayPredictionBodySample& body )
@@ -431,7 +428,7 @@ struct ReplayPredictionDrawFrameWindow
 };
 
 std::size_t ReplayTrajectoryPublishedPointCount( const ReplayTrajectoryRecord& record );
-const ReplayTrajectoryRecord* ReplayTrajectoryRecordForDraw( const ReplayTrajectoryStore& store,
+const ReplayTrajectoryRecord* ReplayTrajectoryRecordForDraw( std::span<const ReplayTrajectoryRecord> records,
                                                              ReplayBodyId id,
                                                              ReplayTrajectoryLane lane,
                                                              uint16_t branchOrdinal );
@@ -439,8 +436,8 @@ const ColliderRecord* ReplayColliderRecordForModelIndex( const ColliderStore* co
 
 
 ReplayPredictionDrawFrameWindow
-PublishedReplayPredictionDrawFrameWindow( const RunReplayPredictionState& prediction,
-                                          const std::vector<RunReplayPredictionFrame>& frames,
+PublishedReplayPredictionDrawFrameWindow( const ReplayPredictionPresentationView& prediction,
+                                          std::span<const RunReplayPredictionFrame> frames,
                                           std::size_t frameCount )
 {
     ReplayPredictionDrawFrameWindow window;
@@ -451,24 +448,23 @@ PublishedReplayPredictionDrawFrameWindow( const RunReplayPredictionState& predic
     }
 
     window.lastFrame = frames[frameCount - 1].frameIndex;
-    window.revealFrame = (std::min)( window.lastFrame, prediction.revealClock.presentedFrame );
+    window.revealFrame = (std::min)( window.lastFrame, prediction.revealFrame );
     window.sampleStride = ReplayPathStrideForSampleCount( frameCount );
     return window;
 }
 
-void DrawReplayPredictionBaselineSnapshot( const RunReplayPredictionState& prediction,
+void DrawReplayPredictionBaselineSnapshot( const ReplayPredictionPresentationView& prediction,
                                            const ColliderStore& colliderStore,
                                            RunEditorTracer& tracer,
                                            ReplayRibbonDrawQuota& ribbonQuota )
 {
-    const ReplayPredictionBaselineSnapshot& baseline = prediction.baseline;
-    if ( !baseline.valid )
+    if ( !prediction.baselineValid )
     {
         return;
     }
 
-    if ( const ReplayTrajectoryRecord* record = ReplayTrajectoryRecordForDraw( prediction.trajectoryStore,
-                                                                               baseline.rootId,
+    if ( const ReplayTrajectoryRecord* record = ReplayTrajectoryRecordForDraw( prediction.trajectoryRecords,
+                                                                               prediction.baselineRootId,
                                                                                ReplayTrajectoryLane::BaselineRoot,
                                                                                REPLAY_TRAJECTORY_COMMITTED_BRANCH ) )
     {
@@ -487,7 +483,7 @@ void DrawReplayPredictionBaselineSnapshot( const RunReplayPredictionState& predi
         }
     }
 
-    for ( const ReplayPredictionBaselineBodyPose& pose : baseline.bodyPoses )
+    for ( const ReplayPredictionBaselineBodyPose& pose : prediction.baselineBodyPoses )
     {
         const ColliderRecord* collider = ReplayColliderRecordForModelIndex( &colliderStore, pose.modelRow.value );
         if ( !collider )
@@ -515,7 +511,7 @@ std::size_t ReplayTrajectoryPublishedPointCount( const ReplayTrajectoryRecord& r
     return (std::min)( record.publishedPointCount, record.points.size() );
 }
 
-const ReplayTrajectoryRecord* ReplayTrajectoryRecordForDraw( const ReplayTrajectoryStore& store,
+const ReplayTrajectoryRecord* ReplayTrajectoryRecordForDraw( std::span<const ReplayTrajectoryRecord> records,
                                                              ReplayBodyId id,
                                                              ReplayTrajectoryLane lane,
                                                              uint16_t branchOrdinal )
@@ -525,7 +521,15 @@ const ReplayTrajectoryRecord* ReplayTrajectoryRecordForDraw( const ReplayTraject
         return nullptr;
     }
 
-    return store.FindRecord( ReplayTrajectoryKey( id, lane, branchOrdinal ) );
+    const ReplayTrajectoryRecordKey key = ReplayTrajectoryKey( id, lane, branchOrdinal );
+    for ( const ReplayTrajectoryRecord& record : records )
+    {
+        if ( record.key == key )
+        {
+            return &record;
+        }
+    }
+    return nullptr;
 }
 
 template <typename ColorForFrame>
@@ -630,14 +634,14 @@ void ReplayRetainedMarkerTrailColor( std::size_t trailOrdinal,
     b = std::clamp( 0.90f - t * 0.10f, 0.62f, 0.96f );
 }
 
-const ReplayTrajectoryRecord* FindReplayPredictionMarkerTrailRecord( const RunReplayPredictionState& prediction,
+const ReplayTrajectoryRecord* FindReplayPredictionMarkerTrailRecord( const ReplayPredictionPresentationView& prediction,
                                                                      ReplayBodyId id,
                                                                      bool usingBuildFrames )
 {
     const uint16_t branchBase = usingBuildFrames ? static_cast<uint16_t>( REPLAY_PATH_MAX_FUTURE_NODES ) : 0u;
     const uint16_t branchEnd =
         static_cast<uint16_t>( branchBase + static_cast<uint16_t>( REPLAY_PATH_MAX_FUTURE_NODES ) );
-    for ( const ReplayTrajectoryRecord& record : prediction.trajectoryStore.records )
+    for ( const ReplayTrajectoryRecord& record : prediction.trajectoryRecords )
     {
         if ( record.key.bodyId.value == id.value && record.key.lane == ReplayTrajectoryLane::FutureChildOutgoing &&
              record.key.branchOrdinal >= branchBase && record.key.branchOrdinal < branchEnd )
@@ -648,7 +652,7 @@ const ReplayTrajectoryRecord* FindReplayPredictionMarkerTrailRecord( const RunRe
     return nullptr;
 }
 
-void DrawReplayPredictionRetainedMarkerTrailFromStore( const RunReplayPredictionState& prediction,
+void DrawReplayPredictionRetainedMarkerTrailFromStore( const ReplayPredictionPresentationView& prediction,
                                                        const ReplayPredictionRetainedMarker& marker,
                                                        bool usingBuildFrames,
                                                        ReplayFrameIndex revealFrame,
@@ -701,7 +705,7 @@ void DrawReplayPredictionRetainedMarkerTrailFromStore( const RunReplayPrediction
     }
 }
 
-void DrawReplayPredictionRetainedMarkers( const RunReplayPredictionState& prediction,
+void DrawReplayPredictionRetainedMarkers( const ReplayPredictionPresentationView& prediction,
                                           bool usingBuildFrames,
                                           ReplayFrameIndex revealFrame,
                                           ReplayFrameIndex lastFrame,
@@ -711,9 +715,9 @@ void DrawReplayPredictionRetainedMarkers( const RunReplayPredictionState& predic
     // Invariant: marker emission is bounded by SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS and independent
     // of the visualizer budget. Lines may degrade under load; already-revealed
     // yellow/grey boxes must not.
-    for ( std::size_t i = 0; i < prediction.futureNodeCache.retainedMarkerCount; ++i )
+    for ( std::size_t i = 0; i < prediction.retainedMarkers.size(); ++i )
     {
-        const ReplayPredictionRetainedMarker& marker = prediction.futureNodeCache.retainedMarkers[i];
+        const ReplayPredictionRetainedMarker& marker = prediction.retainedMarkers[i];
         const ColliderRecord* collider = ReplayColliderRecordForModelIndex( &colliderStore, marker.modelRow.value );
         if ( !collider )
         {
@@ -774,7 +778,7 @@ uint16_t ReplayPredictionDrawBranch( bool usingBuildFrames )
     return usingBuildFrames ? REPLAY_TRAJECTORY_BUILD_BRANCH : REPLAY_TRAJECTORY_COMMITTED_BRANCH;
 }
 
-void DrawReplayPredictionRootTrajectoryFromStore( const RunReplayPredictionState& prediction,
+void DrawReplayPredictionRootTrajectoryFromStore( const ReplayPredictionPresentationView& prediction,
                                                   ReplayBodyId rootId,
                                                   bool usingBuildFrames,
                                                   ReplayFrameIndex lastFrame,
@@ -784,7 +788,7 @@ void DrawReplayPredictionRootTrajectoryFromStore( const RunReplayPredictionState
                                                   ReplayRibbonDrawQuota& ribbonQuota )
 {
     const ReplayTrajectoryRecord* record =
-        ReplayTrajectoryRecordForDraw( prediction.trajectoryStore,
+        ReplayTrajectoryRecordForDraw( prediction.trajectoryRecords,
                                        rootId,
                                        ReplayTrajectoryLane::FutureRoot,
                                        ReplayPredictionDrawBranch( usingBuildFrames ) );
@@ -794,7 +798,7 @@ void DrawReplayPredictionRootTrajectoryFromStore( const RunReplayPredictionState
     }
 
     const std::size_t pointCount =
-        usingBuildFrames ? prediction.PublishedBuildFrameCount() : ReplayTrajectoryPublishedPointCount( *record );
+        usingBuildFrames ? prediction.frames.size() : ReplayTrajectoryPublishedPointCount( *record );
     DrawReplayTrajectoryRecordSegments( *record,
                                         pointCount,
                                         0,
@@ -811,7 +815,7 @@ void DrawReplayPredictionRootTrajectoryFromStore( const RunReplayPredictionState
                                         } );
 }
 
-void DrawReplayPredictionSmallSceneBodyTrajectories( const std::vector<RunReplayPredictionFrame>& frames,
+void DrawReplayPredictionSmallSceneBodyTrajectories( std::span<const RunReplayPredictionFrame> frames,
                                                      std::size_t frameCount,
                                                      ReplayBodyId selectedId,
                                                      ReplayFrameIndex revealFrame,
@@ -892,7 +896,7 @@ void DrawReplayPredictionSmallSceneBodyTrajectories( const std::vector<RunReplay
     }
 }
 
-void DrawReplayPredictionChildTrajectoryRecord( const RunReplayPredictionState& prediction,
+void DrawReplayPredictionChildTrajectoryRecord( const ReplayPredictionPresentationView& prediction,
                                                 const RunReplayPathTraceNode& node,
                                                 std::size_t nodeIndex,
                                                 bool usingBuildFrames,
@@ -904,7 +908,7 @@ void DrawReplayPredictionChildTrajectoryRecord( const RunReplayPredictionState& 
                                                 ReplayRibbonDrawQuota& ribbonQuota )
 {
     const ReplayTrajectoryRecord* record =
-        ReplayTrajectoryRecordForDraw( prediction.trajectoryStore,
+        ReplayTrajectoryRecordForDraw( prediction.trajectoryRecords,
                                        node.id,
                                        lane,
                                        ReplayPredictionChildTrajectoryBranch( nodeIndex, usingBuildFrames ) );
@@ -986,7 +990,7 @@ void DrawReplayPredictionChildTrajectoryRecord( const RunReplayPredictionState& 
     }
 }
 
-void DrawReplayPredictionChildTrajectoriesFromStore( const RunReplayPredictionState& prediction,
+void DrawReplayPredictionChildTrajectoriesFromStore( const ReplayPredictionPresentationView& prediction,
                                                      bool usingBuildFrames,
                                                      ReplayFrameIndex revealFrame,
                                                      ReplayFrameIndex lastFrame,
@@ -994,11 +998,10 @@ void DrawReplayPredictionChildTrajectoriesFromStore( const RunReplayPredictionSt
                                                      RunEditorTracer& tracer,
                                                      ReplayRibbonDrawQuota& ribbonQuota )
 {
-    const std::size_t nodeCount =
-        (std::min)( prediction.futureNodeCache.futureNodes.size(), REPLAY_PATH_MAX_FUTURE_NODES );
+    const std::size_t nodeCount = (std::min)( prediction.futureNodes.size(), REPLAY_PATH_MAX_FUTURE_NODES );
     for ( std::size_t i = 0; i < nodeCount; ++i )
     {
-        const RunReplayPathTraceNode& node = prediction.futureNodeCache.futureNodes[i];
+        const RunReplayPathTraceNode& node = prediction.futureNodes[i];
         DrawReplayPredictionChildTrajectoryRecord( prediction,
                                                    node,
                                                    i,
@@ -1022,13 +1025,13 @@ void DrawReplayPredictionChildTrajectoriesFromStore( const RunReplayPredictionSt
     }
 }
 
-void DrawReplayPastRootTrajectoryFromStore( const RunReplayPredictionState& prediction,
+void DrawReplayPastRootTrajectoryFromStore( const ReplayPredictionPresentationView& prediction,
                                             ReplayBodyId rootId,
                                             ReplayFrameIndex presentFrame,
                                             RunEditorTracer& tracer,
                                             ReplayRibbonDrawQuota& ribbonQuota )
 {
-    const ReplayTrajectoryRecord* record = ReplayTrajectoryRecordForDraw( prediction.trajectoryStore,
+    const ReplayTrajectoryRecord* record = ReplayTrajectoryRecordForDraw( prediction.trajectoryRecords,
                                                                           rootId,
                                                                           ReplayTrajectoryLane::PastRoot,
                                                                           REPLAY_TRAJECTORY_COMMITTED_BRANCH );
@@ -1080,7 +1083,7 @@ void DrawReplayPastRootTrajectoryFromStore( const RunReplayPredictionState& pred
                                         } );
 }
 
-void DrawReplayPredictionRagdollTorsoTrails( const std::vector<RunReplayPredictionFrame>& frames,
+void DrawReplayPredictionRagdollTorsoTrails( std::span<const RunReplayPredictionFrame> frames,
                                              std::size_t frameCount,
                                              ReplayFrameIndex revealFrame,
                                              const SceneEntityStore& collection,
@@ -1163,7 +1166,7 @@ struct ReplayPredictionAffectedBodyTrail
     Quaternion entryOrientation = IDENTITY_QUATERNION;
 };
 
-bool ReplayPredictionIdInFutureNodes( const std::vector<RunReplayPathTraceNode>& nodes, ReplayBodyId id )
+bool ReplayPredictionIdInFutureNodes( std::span<const RunReplayPathTraceNode> nodes, ReplayBodyId id )
 {
     for ( const RunReplayPathTraceNode& node : nodes )
     {
@@ -1184,12 +1187,12 @@ void ReplayAffectedBodyTrailColor( std::size_t trailOrdinal, float t, float& r, 
 }
 
 std::size_t BuildReplayPredictionAffectedBodyTrails(
-    const std::vector<RunReplayPredictionFrame>& frames,
+    std::span<const RunReplayPredictionFrame> frames,
     std::size_t frameCount,
     ReplayFrameIndex revealFrame,
     ReplayBodyId rootId,
     int rootModelIndex,
-    const std::vector<RunReplayPathTraceNode>& futureNodes,
+    std::span<const RunReplayPathTraceNode> futureNodes,
     const SceneEntityStore& collection,
     std::array<ReplayPredictionAffectedBodyTrail, REPLAY_PATH_MAX_FUTURE_NODES>& trails )
 {
@@ -1265,12 +1268,12 @@ std::size_t BuildReplayPredictionAffectedBodyTrails(
     return trailCount;
 }
 
-void DrawReplayPredictionAffectedBodyTrails( const std::vector<RunReplayPredictionFrame>& frames,
+void DrawReplayPredictionAffectedBodyTrails( std::span<const RunReplayPredictionFrame> frames,
                                              std::size_t frameCount,
                                              ReplayFrameIndex revealFrame,
                                              ReplayBodyId rootId,
                                              int rootModelIndex,
-                                             const std::vector<RunReplayPathTraceNode>& futureNodes,
+                                             std::span<const RunReplayPathTraceNode> futureNodes,
                                              const SceneEntityStore& collection,
                                              RunEditorTracer& tracer,
                                              ReplayRibbonDrawQuota& ribbonQuota )
@@ -1344,17 +1347,15 @@ void DrawReplayPredictionAffectedBodyTrails( const std::vector<RunReplayPredicti
 }
 
 bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisualizer,
-                                  const RunReplayPredictionState& prediction,
+                                  const ReplayPredictionPresentationView& prediction,
                                   const SceneEntityStore& modelCollection,
                                   const ColliderStore& colliderStore,
                                   RunEditorTracer& tracer,
                                   ReplayRibbonDrawQuota& ribbonQuota )
 {
-    const bool usingBuildFrames = prediction.BuildPrefixShouldBePresented();
-    const std::vector<RunReplayPredictionFrame>& activePredictionFrames =
-        usingBuildFrames ? prediction.build.buildFrames : prediction.simulation.frames;
-    const std::size_t activePredictionFrameCount =
-        usingBuildFrames ? prediction.PublishedBuildFrameCount() : activePredictionFrames.size();
+    const bool usingBuildFrames = prediction.usingBuildFrames;
+    const std::span<const RunReplayPredictionFrame> activePredictionFrames = prediction.frames;
+    const std::size_t activePredictionFrameCount = activePredictionFrames.size();
     if ( activePredictionFrameCount < 2 )
     {
         return false;
@@ -1423,7 +1424,7 @@ bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisual
                                                 drawWindow.revealFrame,
                                                 pathVisualizer.targetId,
                                                 pathVisualizer.targetModelRow.value,
-                                                prediction.futureNodeCache.futureNodes,
+                                                prediction.futureNodes,
                                                 modelCollection,
                                                 tracer,
                                                 ribbonQuota );
@@ -1448,7 +1449,7 @@ bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisual
 }
 
 void DrawReplayPredictionVisualizer( const RunReplayPathVisualizerState& pathVisualizer,
-                                     const RunReplayPredictionState& prediction,
+                                     const ReplayPredictionPresentationView& prediction,
                                      PhysicsEngine& physicsEngine,
                                      const SceneEntityStore& entities,
                                      RunEditorTracer& tracer,
@@ -1558,10 +1559,10 @@ ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVis
                                     context.entities,
                                     context.tracer,
                                     ribbonQuota );
-    const RunReplayPredictionState& prediction = context.prediction;
+    const ReplayPredictionPresentationView& prediction = context.prediction;
     const RunReplayPathVisualizerState& pathVisualizer = context.pathVisualizer;
-    if ( !prediction.enabled && prediction.simulation.frames.size() >= 2 && pathVisualizer.hasTarget &&
-         !pathVisualizer.pastPathVisible && prediction.simulation.targetId.value == pathVisualizer.targetId.value )
+    if ( !prediction.enabled && prediction.frames.size() >= 2 && pathVisualizer.hasTarget &&
+         !pathVisualizer.pastPathVisible && prediction.targetId.value == pathVisualizer.targetId.value )
     {
         // Why: Play disables prediction but keeps the committed path preview;
         // when the user has hidden the past lane, do not refresh retained store
@@ -1569,7 +1570,7 @@ ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVis
         return result;
     }
     const bool deterministicFidelityReveal =
-        prediction.revealClock.deterministicFrameEnabled && prediction.build.complete && !prediction.build.building;
+        prediction.deterministicRevealEnabled && prediction.complete && !prediction.building;
     // Invariant: the frame-exact fidelity lane pins presentation scheduling.
     // A wall-clock overrun may defer retained-cache work during interactive
     // play, but it must not delete the striker trail and target marker from an
@@ -1634,45 +1635,36 @@ ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVis
     return result;
 }
 } // namespace SkullbonezCore::Runtime::ReplayOverlay
-void ReplayRuntime::RenderPathVisualizer( PhysicsEngine& physics,
-                                          const SceneEntityStore& entities,
-                                          RunEditorTracer& tracer )
+void ReplayPresentation::RenderPathVisualizer( const ReplayPredictionPresentationView& prediction,
+                                               const ReplaySolverFrameSample* presentSample,
+                                               PhysicsEngine& physics,
+                                               const SceneEntityStore& entities,
+                                               RunEditorTracer& tracer )
 {
     tracer.ClearReplayTrajectoryStats();
-    const ReplayPredictionPresentationView predictionView = m_predictionOwner.PresentationView();
-    const ReplaySolverFrameSample* presentSample = CurrentSolverScrubSample();
-    if ( !presentSample )
-    {
-        presentSample = m_timeline.Solver().LatestSample();
-    }
-    const ReplayFrameIndex presentFrame = predictionView.generationPermitted && presentSample
-                                              ? presentSample->frameIndex
-                                              : m_predictionOwner.State().simulation.sourceFrameIndex;
-    const SkullbonezCore::Runtime::ReplayOverlay::ReplayPathVisualizerRenderContext context{
-        m_predictionOwner.State(),
-        m_visualPresentation.PathVisualizer(),
-        physics,
-        entities,
-        tracer,
-        presentFrame,
-        presentSample != nullptr };
+    const ReplayFrameIndex presentFrame =
+        prediction.generationPermitted && presentSample ? presentSample->frameIndex : prediction.sourceFrame;
+    const SkullbonezCore::Runtime::ReplayOverlay::ReplayPathVisualizerRenderContext
+        context{ prediction, m_pathVisualizer, physics, entities, tracer, presentFrame, presentSample != nullptr };
     const SkullbonezCore::Runtime::ReplayOverlay::ReplayPathVisualizerRenderResult result =
         SkullbonezCore::Runtime::ReplayOverlay::RenderReplayPathVisualizer( context );
     if ( result.retainedRefreshBudgetExpired )
     {
-        m_visualPresentation.RecordTrajectoryBudgetExpiry(
-            SkullbonezCore::Core::MainMemoryReplayBudgetPass::RetainedRefresh );
+        RecordTrajectoryBudgetExpiry( SkullbonezCore::Core::MainMemoryReplayBudgetPass::RetainedRefresh );
     }
-    RecordReplayTrajectoryFrameStats( tracer.ReplayTrajectoryStats() );
+    RecordTrajectoryFrameStats( tracer.ReplayTrajectoryStats() );
 }
 
 
-void ReplayRuntime::RenderCauseFocusOverlay( const PhysicsBodyStore& bodyStore,
-                                             const ColliderStore& colliderStore,
-                                             const SceneEntityStore& entities,
-                                             RunEditorTracer& tracer )
+void ReplayPresentation::RenderCauseFocusOverlay( const RunReplayCauseTreeState& causeTree,
+                                                  const ReplayPredictionPresentationView& prediction,
+                                                  const ReplaySolverFrameSample* currentSolverSample,
+                                                  const PhysicsBodyStore& bodyStore,
+                                                  const ColliderStore& colliderStore,
+                                                  const SceneEntityStore& entities,
+                                                  RunEditorTracer& tracer )
 {
-    const RunReplayCameraState camera = m_visualPresentation.CameraView();
+    const RunReplayCameraState camera = CameraView();
     if ( camera.focusKind == RunReplayCameraFocusKind::None )
     {
         return;
@@ -1700,7 +1692,7 @@ void ReplayRuntime::RenderCauseFocusOverlay( const PhysicsBodyStore& bodyStore,
     {
         if ( camera.focusKind == RunReplayCameraFocusKind::Manifold )
         {
-            const ReplaySolverFrameSample* sample = CurrentSolverScrubSample();
+            const ReplaySolverFrameSample* sample = currentSolverSample;
             if ( sample )
             {
                 const ReplaySolverBodySample* focusedBody = FindReplayBodyById( *sample, camera.focusedId );
@@ -1747,7 +1739,6 @@ void ReplayRuntime::RenderCauseFocusOverlay( const PhysicsBodyStore& bodyStore,
             int focusedModelIndex = camera.focusModelRow.value;
             int counterpartModelIndex = camera.focusCounterpartModelRow.value;
 
-            const RunReplayCauseTreeState& causeTree = CauseTree();
             if ( causeTree.selectedRow >= 0 && causeTree.selectedRow < static_cast<int>( causeTree.rows.size() ) )
             {
                 const RunReplayCauseTreeRow& row = causeTree.rows[static_cast<std::size_t>( causeTree.selectedRow )];
@@ -1760,10 +1751,10 @@ void ReplayRuntime::RenderCauseFocusOverlay( const PhysicsBodyStore& bodyStore,
                 }
             }
             else if ( camera.focusContactIndex >= 0 &&
-                      camera.focusContactIndex < static_cast<int>( Prediction().futureNodeCache.futureNodes.size() ) )
+                      camera.focusContactIndex < static_cast<int>( prediction.futureNodes.size() ) )
             {
                 const RunReplayPathTraceNode& node =
-                    Prediction().futureNodeCache.futureNodes[static_cast<std::size_t>( camera.focusContactIndex )];
+                    prediction.futureNodes[static_cast<std::size_t>( camera.focusContactIndex )];
                 if ( node.id.value == camera.focusedId.value && node.contactDerived )
                 {
                     focusFrame = node.firstFrame;
@@ -1773,8 +1764,7 @@ void ReplayRuntime::RenderCauseFocusOverlay( const PhysicsBodyStore& bodyStore,
             }
 
             bool drewPredictionManifold = false;
-            const std::span<const RunReplayPredictionFrame> frames = ActivePredictionFrames();
-            for ( const RunReplayPredictionFrame& frame : frames )
+            for ( const RunReplayPredictionFrame& frame : prediction.frames )
             {
                 if ( frame.frameIndex != focusFrame )
                 {

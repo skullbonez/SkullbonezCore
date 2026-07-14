@@ -36,7 +36,7 @@ Related:
 #include "../../Maths/Vector3.h"
 #include "../../Rendering/Shadow.h"
 #include "../../UI/UI.h"
-#include "../Replay/ReplayRuntime.h"
+#include "../Replay/ReplayPresentation.h"
 #include "../Tools/RuntimeTools.h"
 
 #include <array>
@@ -111,7 +111,6 @@ struct RunSceneBrowserState;
 struct RunSceneState;
 struct RunTimerState;
 struct RuntimeRenderModelFrameView;
-class ReplayRuntime;
 struct RuntimeViewModel;
 
 // Concept: RuntimeRenderer retains this immutable-at-the-boundary world view.
@@ -139,13 +138,7 @@ struct RenderSceneView
 
 struct RenderReplayOverlayView
 {
-    ReplayRuntime& replayRuntime;
-    const SceneEntityStore& entities;
-    bool scenePhysicsEnabled = false;
-    RuntimeInteractionGesture gesture;
-    int sceneFrame = 0;
-    double frameSeconds = 0.0;
-    double totalSeconds = 0.0;
+    const ReplayRenderFrameView& replayFrame;
 };
 
 struct RenderToolOverlayView

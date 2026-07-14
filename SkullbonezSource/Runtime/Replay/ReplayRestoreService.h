@@ -46,6 +46,7 @@ Related:
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsHandles.h"
+#include "../../Physics/PhysicsTimestep.h"
 #include "../../World/WorldEnvironment.h"
 
 #include <cstddef>
@@ -212,6 +213,72 @@ class ReplayRestoreService
 
         context.runtimeTools.RestoreReplayLauncherVisualSample( sample.launcherVisual );
         WriteReason( outReason, reasonSize, "applied" );
+        return true;
+    }
+
+    // Captures the live stores through a one-frame verifier recorder so hash
+    // calculation uses the exact same field order as normal replay capture.
+    static bool CaptureCurrentSolverSample( const ReplaySolverSampleRestoreContext& context,
+                                            const ReplaySolverFrameSample& reference,
+                                            ReplaySolverFrameSample& outSample )
+    {
+        ReplayRecorderConfig config;
+        config.enabled = true;
+        config.retentionSeconds = 1;
+        config.checkpointIntervalFrames = 1;
+
+        ReplaySolverRecorder verifier;
+        if ( !verifier.Configure( config ) )
+        {
+            return false;
+        }
+
+        ReplayLauncherVisualSample launcherVisual;
+        context.runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
+
+        ReplayCaptureInput input;
+        input.branch = reference.branch;
+        input.eventCursor = reference.eventCursor;
+        input.sceneFrame = reference.sceneFrame;
+        input.simulationSeconds = reference.simulationSeconds;
+        input.physicsDt = reference.physicsDt > 0.0f ? reference.physicsDt : PHYSICS_FIXED_DT;
+        input.fixedStep = context.scene.isFixedStep;
+        input.scenePhysicsEnabled = context.scene.isScenePhysics;
+        input.sceneTextEnabled = context.scene.isSceneText;
+        input.waterHidden = context.debug.isWaterHidden;
+        input.terrainHidden = context.debug.isTerrainHidden;
+        input.cameras = &context.sceneController.Cameras();
+        input.world = &context.sceneController.World();
+        input.physics = &context.physics;
+        input.entities = &context.sceneController.Entities();
+        input.bodyStore = &Physics::PhysicsEngine::ReadBodies( context.physics );
+        input.colliderStore = &Physics::PhysicsEngine::ReadColliders( context.physics );
+        input.launcherVisual = &launcherVisual;
+        verifier.CaptureFrame( input );
+
+        const ReplaySolverFrameSample* verified = verifier.LatestSample();
+        if ( !verified )
+        {
+            return false;
+        }
+        outSample = *verified;
+        return true;
+    }
+
+    static bool CaptureCurrentSolverHash( const ReplaySolverSampleRestoreContext& context,
+                                          const ReplaySolverFrameSample& reference,
+                                          uint64_t& outSolverHash,
+                                          uint64_t& outPresentationHash,
+                                          std::size_t& outBodyCount )
+    {
+        ReplaySolverFrameSample verified;
+        if ( !CaptureCurrentSolverSample( context, reference, verified ) )
+        {
+            return false;
+        }
+        outSolverHash = verified.solverHash;
+        outPresentationHash = verified.presentationHash;
+        outBodyCount = verified.bodies.size();
         return true;
     }
 

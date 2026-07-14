@@ -327,15 +327,30 @@ struct ReplayPredictionPresentationView
     std::span<const ReplayTrajectoryRecord> trajectoryRecords;
     std::span<const ReplayPredictionRetainedMarker> retainedMarkers;
     std::span<const ReplayPredictionBaselineBodyPose> baselineBodyPoses;
+    ReplayBodyId targetId;
+    ReplayBodyId baselineRootId;
+    ReplayBodyId trajectoryBuildRootId;
     ReplayFrameIndex sourceFrame = 0;
     ReplayFrameIndex revealFrame = 0;
     uint32_t topologyVersion = 0;
+    uint32_t trajectoryBuildTopologyVersion = 0;
+    std::size_t trajectoryBuiltNodeCount = 0;
+    std::size_t trajectoryChildFrameCount = 0;
+    ReplayPredictionBuildMode buildMode = ReplayPredictionBuildMode::Undecided;
+    float horizonSeconds = 0.0f;
+    double measuredTicksPerMs = 0.0;
+    double lastBuildWallMs = 0.0;
     bool enabled = false;
     bool building = false;
     bool complete = false;
+    bool usingBuildFrames = false;
+    bool futureNodesCacheValid = false;
+    bool trajectoryBuildValid = false;
+    bool trajectoryBuildUsingBuildFrames = false;
     bool ragdollVisualsEnabled = false;
     bool baselineValid = false;
     bool baselineComparisonActive = false;
+    bool deterministicRevealEnabled = false;
     bool generationPermitted = true;
 };
 
@@ -387,21 +402,43 @@ class ReplayPrediction
     ReplayPredictionPresentationView PresentationView() const noexcept
     {
         ReplayPredictionPresentationView view;
-        view.frames = ActiveFrames();
+        view.usingBuildFrames = m_state.BuildPrefixShouldBePresented();
+        if ( view.usingBuildFrames )
+        {
+            view.frames = { m_state.build.buildFrames.data(), m_state.PublishedBuildFrameCount() };
+        }
+        else
+        {
+            view.frames = m_state.simulation.frames;
+        }
         view.futureNodes = m_state.futureNodeCache.futureNodes;
         view.trajectoryRecords = m_state.trajectoryStore.records;
         view.retainedMarkers = { m_state.futureNodeCache.retainedMarkers.data(),
                                  m_state.futureNodeCache.retainedMarkerCount };
         view.baselineBodyPoses = m_state.baseline.bodyPoses;
+        view.targetId = m_state.simulation.targetId;
+        view.baselineRootId = m_state.baseline.rootId;
+        view.trajectoryBuildRootId = m_state.trajectoryBuild.rootId;
         view.sourceFrame = m_state.simulation.sourceFrameIndex;
         view.revealFrame = m_state.revealClock.presentedFrame;
         view.topologyVersion = m_state.futureNodeCache.futureNodesTopologyVersion;
+        view.trajectoryBuildTopologyVersion = m_state.trajectoryBuild.topologyVersion;
+        view.trajectoryBuiltNodeCount = m_state.trajectoryBuild.builtNodeCount;
+        view.trajectoryChildFrameCount = m_state.trajectoryBuild.childFrameCount;
+        view.buildMode = m_state.build.buildMode;
+        view.horizonSeconds = m_state.simulation.horizonSeconds;
+        view.measuredTicksPerMs = m_state.simulation.measuredTicksPerMs.load( std::memory_order_acquire );
+        view.lastBuildWallMs = m_state.build.lastBuildWallMs;
         view.enabled = m_state.enabled;
         view.building = m_state.build.building;
         view.complete = m_state.build.complete;
+        view.futureNodesCacheValid = m_state.futureNodeCache.futureNodesCacheValid;
+        view.trajectoryBuildValid = m_state.trajectoryBuild.valid;
+        view.trajectoryBuildUsingBuildFrames = m_state.trajectoryBuild.usingBuildFrames;
         view.ragdollVisualsEnabled = m_state.ragdollVisualsEnabled;
         view.baselineValid = m_state.baseline.valid;
         view.baselineComparisonActive = m_state.baseline.comparisonActive;
+        view.deterministicRevealEnabled = m_state.revealClock.deterministicFrameEnabled;
         view.generationPermitted = m_generationPermitted;
         return view;
     }

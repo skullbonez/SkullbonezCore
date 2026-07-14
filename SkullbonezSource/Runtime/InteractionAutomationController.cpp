@@ -23,13 +23,15 @@ Glossary:
 Invariants:
   - Scripts must exercise normal runtime routing, not bypass tool ownership or
     replay state with hidden direct mutations.
-  - Reported samples are snapshots of already-owned runtime state; this file
-    must not become a second owner for replay or picker lifetimes.
+  - Assertions and reports consume ReplayAutomationView; replay mutation uses
+    named owner commands and never a mutable prediction/recorder reference.
+  - Published samples are frame-local; this file must not retain their spans or
+    pointers beyond the synchronous automation turn.
 
 Related:
   - SkullbonezSource/Runtime/RuntimePickService.h
   - SkullbonezSource/Runtime/RuntimeInteractionController.h
-  - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
+  - SkullbonezSource/Runtime/Replay/ReplayCoordination.h
 */
 #include "InteractionAutomationController.h"
 #include "AttachedCameraController.h"
@@ -43,7 +45,6 @@ Related:
 #include "Window.h"
 #include "Scene/SceneController.h"
 #include "Scene/SceneRuntime.h"
-#include "Replay/ReplayRuntime.h"
 #include "Replay/ReplayPredictionArchive.h"
 #include "Replay/ReplayV2Artifact.h"
 #include "InputFrame.h"
@@ -301,10 +302,10 @@ std::string FormatPredictionHash( uint64_t hash )
     return buffer;
 }
 
-PredictionTrajectoryFingerprint BuildPredictionTrajectoryFingerprint( const ReplayRuntime& replayRuntime )
+PredictionTrajectoryFingerprint BuildPredictionTrajectoryFingerprint( const ReplayAutomationView& replay )
 {
     PredictionTrajectoryFingerprint fingerprint;
-    const ReplayTrajectoryStore& store = replayRuntime.Prediction().trajectoryStore;
+    const ReplayTrajectoryStore& store = replay.prediction.trajectoryStore;
     for ( const ReplayTrajectoryRecord& record : store.records )
     {
         const std::size_t publishedPointCount = (std::min)( record.publishedPointCount, record.points.size() );
@@ -350,7 +351,7 @@ const RunReplayPredictionBodySample* FindPredictionBodyById( const RunReplayPred
     return nullptr;
 }
 
-bool TryPredictionTargetDisplacement( const ReplayRuntime& replayRuntime,
+bool TryPredictionTargetDisplacement( const ReplayAutomationView& replay,
                                       float& outDisplacement,
                                       Vector3* outFirst = nullptr,
                                       Vector3* outLast = nullptr )
@@ -358,15 +359,15 @@ bool TryPredictionTargetDisplacement( const ReplayRuntime& replayRuntime,
     // Concept: automation reports compare the first and last prediction sample
     // for the selected replay body. Missing target data is a clean "not ready",
     // not an error state for the running scene.
-    const RunReplayPredictionState& prediction = replayRuntime.Prediction();
-    std::span<const RunReplayPredictionFrame> activePredictionFrames = replayRuntime.ActivePredictionFrames();
+    const RunReplayPredictionState& prediction = replay.prediction;
+    std::span<const RunReplayPredictionFrame> activePredictionFrames = replay.activePredictionFrames;
     std::size_t activeFrameCount = activePredictionFrames.size();
     if ( activeFrameCount < 2 && prediction.BuildPrefixShouldBePresented() )
     {
         activeFrameCount = prediction.PublishedBuildFrameCount();
         activePredictionFrames = { prediction.build.buildFrames.data(), activeFrameCount };
     }
-    const ReplayBodyId targetId = replayRuntime.PathVisualizer().targetId;
+    const ReplayBodyId targetId = replay.path.targetId;
     if ( targetId.value == 0 || activeFrameCount < 2 )
     {
         return false;
@@ -392,10 +393,10 @@ bool TryPredictionTargetDisplacement( const ReplayRuntime& replayRuntime,
     return true;
 }
 
-std::size_t VisiblePredictionFrameCount( const ReplayRuntime& replayRuntime )
+std::size_t VisiblePredictionFrameCount( const ReplayAutomationView& replay )
 {
-    const RunReplayPredictionState& prediction = replayRuntime.Prediction();
-    const std::span<const RunReplayPredictionFrame> activePredictionFrames = replayRuntime.ActivePredictionFrames();
+    const RunReplayPredictionState& prediction = replay.prediction;
+    const std::span<const RunReplayPredictionFrame> activePredictionFrames = replay.activePredictionFrames;
     if ( activePredictionFrames.size() >= 2 )
     {
         return activePredictionFrames.size();
@@ -407,23 +408,22 @@ std::size_t VisiblePredictionFrameCount( const ReplayRuntime& replayRuntime )
     return activePredictionFrames.size();
 }
 
-bool ReplayPredictionPathVisible( const ReplayRuntime& replayRuntime )
+bool ReplayPredictionPathVisible( const ReplayAutomationView& replay )
 {
     // Concept: long prediction jobs expose a populated build prefix before the
     // final frame vector is swapped in. Automation should agree with the overlay
     // and count that prefix as visible once it can draw at least one segment.
-    return replayRuntime.PathVisualizer().hasTarget &&
-           ( !replayRuntime.PathVisualizer().futureNodes.empty() || VisiblePredictionFrameCount( replayRuntime ) >= 2 ||
-             !replayRuntime.Prediction().futureNodeCache.futureNodes.empty() );
+    return replay.path.hasTarget && ( !replay.path.futureNodes.empty() || VisiblePredictionFrameCount( replay ) >= 2 ||
+                                      !replay.prediction.futureNodeCache.futureNodes.empty() );
 }
 
-std::size_t ReplayPastTrajectoryPublishedPointCount( const ReplayRuntime& replayRuntime )
+std::size_t ReplayPastTrajectoryPublishedPointCount( const ReplayAutomationView& replay )
 {
     // Concept: this is a structural performance/flicker probe. The selected
     // path must retain a published drawable prefix while its recorder ring
     // advances, independent of machine-specific frame timing.
-    const RunReplayPathVisualizerState& visualizer = replayRuntime.PathVisualizer();
-    for ( const ReplayTrajectoryRecord& record : replayRuntime.Prediction().trajectoryStore.records )
+    const RunReplayPathVisualizerState& visualizer = replay.path;
+    for ( const ReplayTrajectoryRecord& record : replay.prediction.trajectoryStore.records )
     {
         if ( record.key.lane == ReplayTrajectoryLane::PastRoot && record.key.bodyId.value == visualizer.targetId.value )
         {
@@ -433,12 +433,12 @@ std::size_t ReplayPastTrajectoryPublishedPointCount( const ReplayRuntime& replay
     return 0u;
 }
 
-bool ReplayPredictionContactsIncomplete( const ReplayRuntime& replayRuntime )
+bool ReplayPredictionContactsIncomplete( const ReplayAutomationView& replay )
 {
     // Concept: automation reports should distinguish a valid root prediction
     // from a partial contact-derived tree, because contact reserve failures are
     // intentionally non-fatal to prediction drawing.
-    const RunReplayPredictionState& prediction = replayRuntime.Prediction();
+    const RunReplayPredictionState& prediction = replay.prediction;
     const std::vector<RunReplayPredictionFrame>* frames = &prediction.simulation.frames;
     std::size_t frameCount = frames->size();
     if ( prediction.BuildPrefixShouldBePresented() )
@@ -471,15 +471,15 @@ const DemoPhase* ActiveDirectorPhase( const RunCameraState& camera )
     return &director.activeShotList.phases[static_cast<std::size_t>( director.currentPhaseIndex )];
 }
 
-bool LiveSolverHashStableAcrossPrediction( const ReplayRuntime& replayRuntime,
+bool LiveSolverHashStableAcrossPrediction( const ReplayAutomationView& replay,
                                            uint64_t* outSourceHash = nullptr,
                                            uint64_t* outLiveHash = nullptr )
 {
     // Concept: prediction isolation proof. The source hash is captured before
     // the private prediction engine starts stepping; the live latest hash should
     // still match after prediction has produced visible frames.
-    const ReplaySolverFrameSample* latest = replayRuntime.Solver().LatestSample();
-    const uint64_t sourceHash = replayRuntime.Prediction().simulation.sourceSolverHash;
+    const ReplaySolverFrameSample* latest = replay.latestSolverSample;
+    const uint64_t sourceHash = replay.prediction.simulation.sourceSolverHash;
     const uint64_t liveHash = latest ? latest->solverHash : 0;
     if ( outSourceHash )
     {
@@ -1130,73 +1130,64 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
     }
 }
 
-void PublishReplayScrubberVisibility( ReplayRuntime& replayRuntime, bool visible, double now, double holdSeconds )
+void PublishReplayScrubberVisibility( ReplayFrameIntent& intent, bool visible, double now, double holdSeconds )
 {
-    ReplayFrameIntent intent;
     intent.setScrubberVisibility = true;
     intent.scrubberVisible = visible;
     intent.scrubberNow = now;
     intent.scrubberHoldSeconds = holdSeconds;
-    (void)replayRuntime.ApplyFrameIntent( intent );
 }
 
 
-void PublishReplayPredictionEnabled( ReplayRuntime& replayRuntime, bool enabled )
+void PublishReplayPredictionEnabled( ReplayFrameIntent& intent, bool enabled )
 {
-    ReplayFrameIntent intent;
     intent.setPredictionEnabled = true;
     intent.predictionEnabled = enabled;
-    (void)replayRuntime.ApplyFrameIntent( intent );
 }
 
 
-void PublishReplayPredictionHorizon( ReplayRuntime& replayRuntime, float horizonSeconds )
+void PublishReplayPredictionHorizon( ReplayFrameIntent& intent, float horizonSeconds )
 {
-    ReplayFrameIntent intent;
     intent.setPredictionHorizon = true;
     intent.predictionHorizonSeconds = horizonSeconds;
-    (void)replayRuntime.ApplyFrameIntent( intent );
 }
 
 
-bool PrepareReplayVelocityMutationBaseline( ReplayRuntime& replayRuntime )
+bool PrepareReplayVelocityMutationBaseline( const ReplayAutomationView& replay, ReplayFrameIntent& intent )
 {
-    ReplayFrameIntent intent;
+    const bool prepared = ( replay.prediction.build.complete && replay.activePredictionFrames.size() >= 2u ) ||
+                          replay.prediction.baseline.comparisonActive;
     intent.prepareVelocityMutationBaseline = true;
-    return replayRuntime.ApplyFrameIntent( intent ).velocityMutationBaselinePrepared;
+    return prepared;
 }
 
 
-void CommitReplayVelocityMutation( ReplayRuntime& replayRuntime )
+void CommitReplayVelocityMutation( ReplayFrameIntent& intent )
 {
-    ReplayFrameIntent intent;
     intent.commitVelocityMutation = true;
-    (void)replayRuntime.ApplyFrameIntent( intent );
 }
 
 
-bool ReplayDeterministicRevealReady( ReplayRuntime& replayRuntime )
+bool ReplayDeterministicRevealReady( const ReplayAutomationView& replay )
 {
-    ReplayFrameIntent intent;
-    intent.queryDeterministicRevealReady = true;
-    return replayRuntime.ApplyFrameIntent( intent ).deterministicRevealReady;
+    return !replay.prediction.build.building && replay.activePredictionFrames.size() >= 2u &&
+           replay.prediction.build.complete;
 }
 
 
-void PublishReplayDeterministicReveal( ReplayRuntime& replayRuntime, ReplayFrameIndex frame, bool resetPresentedFrame )
+void PublishReplayDeterministicReveal( ReplayFrameIntent& intent, ReplayFrameIndex frame, bool resetPresentedFrame )
 {
-    ReplayFrameIntent intent;
     intent.armDeterministicReveal = true;
     intent.revealFrame = frame;
     intent.resetPresentedRevealFrame = resetPresentedFrame;
-    (void)replayRuntime.ApplyFrameIntent( intent );
 }
 
 
 template <typename TrySetReplayPathTarget, typename SetWorldInteractionOwnerAfterTransition>
 void ApplyInteractionAutomationReplayStateAction( InteractionAutomationController& state,
                                                   RunTimerState& timers,
-                                                  ReplayRuntime& replayRuntime,
+                                                  ReplayFrameIntent& replayIntent,
+                                                  const ReplayAutomationView& replay,
                                                   Physics::PhysicsEngine& physics,
                                                   RunInteractionAutomationAction& action,
                                                   int frame,
@@ -1209,11 +1200,11 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
     switch ( action.type )
     {
     case RunInteractionAutomationActionType::ShowReplayScrubber:
-        PublishReplayScrubberVisibility( replayRuntime, action.boolValue, timers.simulationTimer.GetTotalTime(), 5.0 );
+        PublishReplayScrubberVisibility( replayIntent, action.boolValue, timers.simulationTimer.GetTotalTime(), 5.0 );
         AppendReportAction( state, frame, action.type, "", nullptr, true, action.boolValue ? "visible" : "hidden" );
         break;
     case RunInteractionAutomationActionType::SetReplayPredictionEnabled:
-        PublishReplayPredictionEnabled( replayRuntime, action.boolValue );
+        PublishReplayPredictionEnabled( replayIntent, action.boolValue );
         setWorldInteractionOwner(
             action.boolValue ? WorldInteractionOwner::ReplayPrediction : WorldInteractionOwner::None,
             InteractionExitReason::EnterReplay );
@@ -1248,7 +1239,7 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
         // Why: automation should use the same bounded horizon value the replay UI
         // exposes, while still forcing a rebuild when a script changes it before
         // a proof.
-        PublishReplayPredictionHorizon( replayRuntime, horizonSeconds );
+        PublishReplayPredictionHorizon( replayIntent, horizonSeconds );
         std::ostringstream detail;
         detail << "prediction horizon set to " << horizonSeconds << "s";
         AppendReportAction( state, frame, action.type, "", nullptr, true, detail.str().c_str() );
@@ -1257,14 +1248,14 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
     case RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity:
     {
         const Physics::PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics );
-        const Physics::PhysicsBodyHandle body = replayRuntime.ResolveVelocityEditBodyHandle( bodyStore );
+        const Physics::PhysicsBodyHandle body =
+            bodyStore.HandleForReplayBodyId( replay.path.targetId.value, replay.path.targetModelRow.value );
         const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
-        const bool hasTarget =
-            replayRuntime.PathVisualizer().hasTarget && replayRuntime.PathVisualizer().targetId.value != 0;
+        const bool hasTarget = replay.path.hasTarget && replay.path.targetId.value != 0;
         bool applied = false;
         if ( hasTarget && record )
         {
-            if ( !PrepareReplayVelocityMutationBaseline( replayRuntime ) )
+            if ( !PrepareReplayVelocityMutationBaseline( replay, replayIntent ) )
             {
                 FailAutomation( state, "replay path target velocity nudge requires a completed prediction baseline" );
             }
@@ -1277,8 +1268,8 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
                 applied = physics.SetBodyVelocity( body, nextLinearVelocity, record->angularVelocity, true );
                 if ( applied )
                 {
-                    CommitReplayVelocityMutation( replayRuntime );
-                    PublishReplayScrubberVisibility( replayRuntime,
+                    CommitReplayVelocityMutation( replayIntent );
+                    PublishReplayScrubberVisibility( replayIntent,
                                                      true,
                                                      timers.simulationTimer.GetTotalTime(),
                                                      REPLAY_SCRUBBER_VISIBLE_SECONDS );
@@ -1309,9 +1300,9 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
     }
 }
 
-void ShowInteractionAutomationReplayScrubber( RunTimerState& timers, ReplayRuntime& replayRuntime )
+void ShowInteractionAutomationReplayScrubber( RunTimerState& timers, ReplayFrameIntent& replayIntent )
 {
-    PublishReplayScrubberVisibility( replayRuntime,
+    PublishReplayScrubberVisibility( replayIntent,
                                      true,
                                      timers.simulationTimer.GetTotalTime(),
                                      REPLAY_SCRUBBER_VISIBLE_SECONDS );
@@ -1329,14 +1320,14 @@ void AppendInteractionAutomationReplayControlFailure( InteractionAutomationContr
 
 void InjectInteractionAutomationReplayControlClick( InteractionAutomationController& state,
                                                     RunTimerState& timers,
-                                                    ReplayRuntime& replayRuntime,
+                                                    ReplayFrameIntent& replayIntent,
                                                     RunInteractionAutomationAction& action,
                                                     int frame,
                                                     const SkullbonezCore::UI::UIRect& rect,
                                                     const char* detail )
 {
     InjectAutomationLeftMousePress( state, action, frame, rect );
-    ShowInteractionAutomationReplayScrubber( timers, replayRuntime );
+    ShowInteractionAutomationReplayScrubber( timers, replayIntent );
     AppendReportAction( state, frame, action.type, action.text, &action.mouse, true, detail );
 }
 
@@ -1345,7 +1336,8 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
                                                    const SkullbonezCore::Core::EngineConfig& config,
                                                    const RunSceneState& scene,
                                                    RunTimerState& timers,
-                                                   ReplayRuntime& replayRuntime,
+                                                   ReplayFrameIntent& replayIntent,
+                                                   const ReplayAutomationView& replay,
                                                    RunInteractionAutomationAction& action,
                                                    int frame )
 {
@@ -1356,7 +1348,7 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
     {
         const int screenW = window ? window->ClientWidth() : config.window.screenX;
         const int screenH = window ? window->ClientHeight() : config.window.screenY;
-        const ReplayRecorderStats solverReplayStats = replayRuntime.Solver().GetStats();
+        const ReplayRecorderStats solverReplayStats = replay.solverStats;
         // Why: interaction scripts should match the real UI: Predict can branch
         // from the current live solver state even before a paused scene has
         // accumulated two retained solver samples.
@@ -1365,7 +1357,7 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
         {
             InjectInteractionAutomationReplayControlClick( state,
                                                            timers,
-                                                           replayRuntime,
+                                                           replayIntent,
                                                            action,
                                                            frame,
                                                            ReplayScrubberPredictToggleRect( screenW, screenH ),
@@ -1386,14 +1378,14 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
     {
         const int screenW = window ? window->ClientWidth() : config.window.screenX;
         const int screenH = window ? window->ClientHeight() : config.window.screenY;
-        const ReplayRecorderStats solverReplayStats = replayRuntime.Solver().GetStats();
+        const ReplayRecorderStats solverReplayStats = replay.solverStats;
         const bool pastPathControlEnabled =
-            solverReplayStats.enabled && solverReplayStats.sampleCount >= 2 && replayRuntime.PathVisualizer().hasTarget;
+            solverReplayStats.enabled && solverReplayStats.sampleCount >= 2 && replay.path.hasTarget;
         if ( screenW > 0 && screenH > 0 && pastPathControlEnabled )
         {
             InjectInteractionAutomationReplayControlClick( state,
                                                            timers,
-                                                           replayRuntime,
+                                                           replayIntent,
                                                            action,
                                                            frame,
                                                            ReplayScrubberPastPathToggleRect( screenW, screenH ),
@@ -1414,7 +1406,7 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
     {
         const int screenW = window ? window->ClientWidth() : config.window.screenX;
         const int screenH = window ? window->ClientHeight() : config.window.screenY;
-        const ReplayRecorderStats solverReplayStats = replayRuntime.Solver().GetStats();
+        const ReplayRecorderStats solverReplayStats = replay.solverStats;
         const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
         if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
         {
@@ -1424,7 +1416,7 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
             // prediction-freeze work.
             InjectInteractionAutomationReplayControlClick( state,
                                                            timers,
-                                                           replayRuntime,
+                                                           replayIntent,
                                                            action,
                                                            frame,
                                                            ReplayScrubberPauseButtonRect( screenW, screenH ),
@@ -1445,7 +1437,7 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
     {
         const int screenW = window ? window->ClientWidth() : config.window.screenX;
         const int screenH = window ? window->ClientHeight() : config.window.screenY;
-        const ReplayRecorderStats solverReplayStats = replayRuntime.Solver().GetStats();
+        const ReplayRecorderStats solverReplayStats = replay.solverStats;
         const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
         if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
         {
@@ -1454,7 +1446,7 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
             // targeting through normal input ownership.
             InjectInteractionAutomationReplayControlClick( state,
                                                            timers,
-                                                           replayRuntime,
+                                                           replayIntent,
                                                            action,
                                                            frame,
                                                            ReplayScrubberVelocityEditToggleRect( screenW, screenH ),
@@ -1475,11 +1467,10 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
     {
         const int screenW = window ? window->ClientWidth() : config.window.screenX;
         const int screenH = window ? window->ClientHeight() : config.window.screenY;
-        const ReplayRecorderStats solverReplayStats = replayRuntime.Solver().GetStats();
-        const bool branchTargetAvailable = replayRuntime.ScrubberView().historicalSamplePaused &&
-                                           replayRuntime.ScrubberView().activeTrack == RunReplayTrack::Solver &&
-                                           solverReplayStats.enabled && solverReplayStats.sampleCount >= 2 &&
-                                           replayRuntime.CurrentSolverScrubSample() != nullptr;
+        const ReplayRecorderStats solverReplayStats = replay.solverStats;
+        const bool branchTargetAvailable =
+            replay.scrubber.historicalSamplePaused && replay.scrubber.activeTrack == RunReplayTrack::Solver &&
+            solverReplayStats.enabled && solverReplayStats.sampleCount >= 2 && replay.currentSolverSample != nullptr;
         if ( screenW > 0 && screenH > 0 && branchTargetAvailable )
         {
             // Why: branch-restore proof clicks the visible Branch rectangle
@@ -1487,7 +1478,7 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
             // owner of the restore.
             InjectInteractionAutomationReplayControlClick( state,
                                                            timers,
-                                                           replayRuntime,
+                                                           replayIntent,
                                                            action,
                                                            frame,
                                                            ReplayScrubberBranchButtonRect( screenW, screenH ),
@@ -1515,13 +1506,14 @@ void ApplyInteractionAutomationSolverTrackScrub( InteractionAutomationController
                                                  Window* window,
                                                  const SkullbonezCore::Core::EngineConfig& config,
                                                  RunTimerState& timers,
-                                                 ReplayRuntime& replayRuntime,
+                                                 ReplayFrameIntent& replayIntent,
+                                                 const ReplayAutomationView& replay,
                                                  RunInteractionAutomationAction& action,
                                                  int frame )
 {
     const int screenW = window ? window->ClientWidth() : config.window.screenX;
     const int screenH = window ? window->ClientHeight() : config.window.screenY;
-    const ReplayRecorderStats solverReplayStats = replayRuntime.Solver().GetStats();
+    const ReplayRecorderStats solverReplayStats = replay.solverStats;
     const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
     if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
     {
@@ -1534,7 +1526,7 @@ void ApplyInteractionAutomationSolverTrackScrub( InteractionAutomationController
         target.w = 1.0f;
         InjectInteractionAutomationReplayControlClick( state,
                                                        timers,
-                                                       replayRuntime,
+                                                       replayIntent,
                                                        action,
                                                        frame,
                                                        target,
@@ -2138,7 +2130,7 @@ template <typename InspectGizmoInteractionActive>
 InteractionAutomationAssertionEvaluation
 EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
                                         const InteractionAutomationController& automation,
-                                        ReplayRuntime& replayRuntime,
+                                        const ReplayAutomationView& replay,
                                         RuntimeInteractionController& interaction,
                                         const InputRouter& inputRouter,
                                         RunCameraState& camera,
@@ -2206,17 +2198,17 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     }
     case RunInteractionAutomationAssertKind::ReplayPredictionEnabled:
         evaluation.expected = BoolString( action.boolValue );
-        evaluation.actual = BoolString( replayRuntime.Prediction().enabled );
-        evaluation.passed = replayRuntime.Prediction().enabled == action.boolValue;
+        evaluation.actual = BoolString( replay.prediction.enabled );
+        evaluation.passed = replay.prediction.enabled == action.boolValue;
         break;
     case RunInteractionAutomationAssertKind::ReplayPathTarget:
         evaluation.expected = action.text;
-        evaluation.actual = replayRuntime.PathVisualizer().hasTarget ? replayRuntime.PathVisualizer().targetName : "";
+        evaluation.actual = replay.path.hasTarget ? replay.path.targetName : "";
         evaluation.passed = evaluation.actual == evaluation.expected;
         break;
     case RunInteractionAutomationAssertKind::ReplayPastTrajectoryFullRebuildCountMax:
     {
-        const uint64_t rebuildCount = replayRuntime.PathVisualizer().pastTrajectory.fullRebuildCount;
+        const uint64_t rebuildCount = replay.path.pastTrajectory.fullRebuildCount;
         evaluation.expected = "<=" + std::to_string( static_cast<uint64_t>( action.numberValue ) );
         evaluation.actual = std::to_string( rebuildCount );
         evaluation.passed = rebuildCount <= static_cast<uint64_t>( action.numberValue );
@@ -2224,7 +2216,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     }
     case RunInteractionAutomationAssertKind::ReplayPastTrajectoryIncrementalTrimCountMin:
     {
-        const uint64_t trimCount = replayRuntime.PathVisualizer().pastTrajectory.incrementalTrimCount;
+        const uint64_t trimCount = replay.path.pastTrajectory.incrementalTrimCount;
         evaluation.expected = ">=" + std::to_string( static_cast<uint64_t>( action.numberValue ) );
         evaluation.actual = std::to_string( trimCount );
         evaluation.passed = trimCount >= static_cast<uint64_t>( action.numberValue );
@@ -2232,7 +2224,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     }
     case RunInteractionAutomationAssertKind::ReplayPastTrajectoryPublishedPointCountMin:
     {
-        const std::size_t pointCount = ReplayPastTrajectoryPublishedPointCount( replayRuntime );
+        const std::size_t pointCount = ReplayPastTrajectoryPublishedPointCount( replay );
         evaluation.expected = ">=" + std::to_string( static_cast<std::size_t>( action.numberValue ) );
         evaluation.actual = std::to_string( pointCount );
         evaluation.passed = pointCount >= static_cast<std::size_t>( action.numberValue );
@@ -2240,7 +2232,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     }
     case RunInteractionAutomationAssertKind::PredictionPathVisible:
     {
-        const bool visible = ReplayPredictionPathVisible( replayRuntime );
+        const bool visible = ReplayPredictionPathVisible( replay );
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( visible );
         evaluation.passed = visible == action.boolValue;
@@ -2248,7 +2240,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     }
     case RunInteractionAutomationAssertKind::PredictionFullHorizonComplete:
     {
-        const RunReplayPredictionState& prediction = replayRuntime.Prediction();
+        const RunReplayPredictionState& prediction = replay.prediction;
         const std::size_t expectedFrameCount =
             static_cast<std::size_t>( std::ceil( prediction.simulation.horizonSeconds / PHYSICS_FIXED_DT ) ) + 1u;
         const bool complete = prediction.build.complete && !prediction.build.building &&
@@ -2260,7 +2252,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     }
     case RunInteractionAutomationAssertKind::PredictionBuildMode:
     {
-        const char* actualMode = ReplayPredictionBuildModeName( replayRuntime.Prediction().build.buildMode );
+        const char* actualMode = ReplayPredictionBuildModeName( replay.prediction.build.buildMode );
         evaluation.expected = action.text;
         evaluation.actual = actualMode;
         evaluation.passed = evaluation.expected == evaluation.actual;
@@ -2268,7 +2260,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     }
     case RunInteractionAutomationAssertKind::PredictionSupersededRestartCountMin:
     {
-        const uint32_t count = replayRuntime.Prediction().build.supersededRestartCount;
+        const uint32_t count = replay.prediction.build.supersededRestartCount;
         evaluation.expected = ">=" + std::to_string( static_cast<uint32_t>( action.numberValue ) );
         evaluation.actual = std::to_string( count );
         evaluation.passed = count >= static_cast<uint32_t>( action.numberValue );
@@ -2276,7 +2268,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     }
     case RunInteractionAutomationAssertKind::PredictionBaselineVisible:
     {
-        const ReplayPredictionBaselineSnapshot& baseline = replayRuntime.Prediction().baseline;
+        const ReplayPredictionBaselineSnapshot& baseline = replay.prediction.baseline;
         const bool visible = baseline.valid && baseline.comparisonActive;
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( visible );
@@ -2285,7 +2277,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     }
     case RunInteractionAutomationAssertKind::PredictionDivergenceMin:
     {
-        const ReplayPredictionBaselineSnapshot& baseline = replayRuntime.Prediction().baseline;
+        const ReplayPredictionBaselineSnapshot& baseline = replay.prediction.baseline;
         {
             std::ostringstream stream;
             stream << ">=" << action.numberValue;
@@ -2301,8 +2293,8 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     }
     case RunInteractionAutomationAssertKind::ReplaySolverTrackAtPresent:
     {
-        const float solverPosition = replayRuntime.TrackPosition( RunReplayTrack::Solver );
-        const float presentT = replayRuntime.SolverPresentTrackPosition();
+        const float solverPosition = replay.solverTrackPosition;
+        const float presentT = replay.solverPresentTrackPosition;
         const bool atPresent = ReplayAtPresentTrackPosition( solverPosition, presentT );
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( atPresent );
@@ -2311,7 +2303,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     }
     case RunInteractionAutomationAssertKind::PredictionScrubFrameActive:
     {
-        const bool active = replayRuntime.CurrentPredictionScrubFrame() != nullptr;
+        const bool active = replay.currentPredictionFrame != nullptr;
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( active );
         evaluation.passed = active == action.boolValue;
@@ -2320,7 +2312,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     case RunInteractionAutomationAssertKind::PredictionTargetDisplacementMin:
     {
         float displacement = 0.0f;
-        const bool valid = TryPredictionTargetDisplacement( replayRuntime, displacement );
+        const bool valid = TryPredictionTargetDisplacement( replay, displacement );
         {
             std::ostringstream stream;
             stream << ">=" << action.numberValue;
@@ -2336,7 +2328,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     }
     case RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction:
     {
-        const bool stable = LiveSolverHashStableAcrossPrediction( replayRuntime );
+        const bool stable = LiveSolverHashStableAcrossPrediction( replay );
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( stable );
         evaluation.passed = stable == action.boolValue;
@@ -2344,7 +2336,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     }
     case RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady:
     {
-        const PredictionTrajectoryFingerprint fingerprint = BuildPredictionTrajectoryFingerprint( replayRuntime );
+        const PredictionTrajectoryFingerprint fingerprint = BuildPredictionTrajectoryFingerprint( replay );
         const bool ready = fingerprint.Ready();
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( ready );
@@ -2415,12 +2407,12 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     }
     case RunInteractionAutomationAssertKind::ReplayActiveTrack:
         evaluation.expected = action.text;
-        evaluation.actual = ReplayTrackName( replayRuntime.ScrubberView().activeTrack );
+        evaluation.actual = ReplayTrackName( replay.scrubber.activeTrack );
         evaluation.passed = evaluation.actual == evaluation.expected;
         break;
     case RunInteractionAutomationAssertKind::ReplayHistoricalSamplePaused:
     {
-        const bool paused = replayRuntime.ScrubberView().historicalSamplePaused;
+        const bool paused = replay.scrubber.historicalSamplePaused;
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( paused );
         evaluation.passed = paused == action.boolValue;
@@ -2529,7 +2521,8 @@ ReplayVisualArchiveSample BuildReplayVisualArchiveSample( const ReplayVisualFide
 
 bool VerifyReplayVisualOfflineProjection( InteractionAutomationController& state,
                                           RuntimeFrameInteractionView& interactionOwners,
-                                          RuntimeFrameSceneView& sceneOwners )
+                                          RuntimeFrameSceneView& sceneOwners,
+                                          const ReplaySolverFrameSample* latestSolverSample )
 {
     if ( state.replayVisualOfflineProjectionComplete )
     {
@@ -2541,12 +2534,16 @@ bool VerifyReplayVisualOfflineProjection( InteractionAutomationController& state
         return false;
     }
 
-    ReplayRuntime& replay = interactionOwners.replayRuntime;
-    replay.EnterOfflinePredictionVerification();
+    ReplayPrediction offlinePrediction;
+    ReplayPresentation offlinePresentation;
+    offlinePrediction.EnterOfflineVerification();
+    offlinePresentation.ResetTrajectoryVisualStats();
     char archiveReason[192] = {};
-    if ( !replay.LoadPredictionArchiveForVerification( state.replayVisualPredictionArchive,
-                                                       archiveReason,
-                                                       sizeof( archiveReason ) ) )
+    RunReplayPathVisualizerState archivePath;
+    if ( !offlinePrediction.LoadArchive( state.replayVisualPredictionArchive,
+                                         archivePath,
+                                         archiveReason,
+                                         sizeof( archiveReason ) ) )
     {
         char message[320] = {};
         sprintf_s( message,
@@ -2556,27 +2553,68 @@ bool VerifyReplayVisualOfflineProjection( InteractionAutomationController& state
         FailAutomation( state, message );
         return false;
     }
+    offlinePresentation.ApplyArchivePathState( archivePath );
 
     // The archived value retains the final marker prefix. CPU projection starts
     // at reveal zero and rebuilds first appearance exactly as the sole presented
     // run did. No renderer/backend method is reachable from this function.
-    replay.ResetPredictionPresentationVerification();
+    offlinePresentation.ResetTrajectoryVisualStats();
+    offlinePrediction.ResetVerificationMarkers();
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     RunEditorTracer& tracer = runtimeTools.EditorTracer();
     SceneController& scene = sceneOwners.sceneController;
     std::vector<ReplayVisualTrajectoryDigestState> trajectoryDigests;
-    trajectoryDigests.reserve( replay.Prediction().trajectoryStore.RecordCount() );
+    trajectoryDigests.reserve( offlinePrediction.State().trajectoryStore.RecordCount() );
     for ( const ReplayVisualFidelityReportTick& tick : state.replayVisualFidelityTicks )
     {
         const ReplayVisualArchiveSample expected = BuildReplayVisualArchiveSample( tick );
-        PublishReplayDeterministicReveal( replay, expected.revealFrame, true );
+        offlinePrediction.SetVerificationRevealFrame( expected.revealFrame );
         tracer.Clear();
-        replay.PreparePredictionPresentation( scene.Physics(), scene.Entities() );
-        replay.RenderPathVisualizer( scene.Physics(), scene.Entities(), tracer );
-        (void)replay.BuildPredictionGhostDrawRequests( scene.RenderPresentationRecords(), scene.BodyStore() );
-        ReplayVisualPacket rebuilt = tracer.BuildReplayVisualPacket( expected.cameraEye, expected.cameraUp );
-        replay.PublishReplayVisualPacket( rebuilt, expected.replayReserveGrowthEvents );
-        const ReplayVisualPacket& projected = replay.PublishedReplayVisualPacket();
+        const RunReplayPathVisualizerState& path = offlinePresentation.PathVisualizer();
+        ReplayPredictionUpdateResult update;
+        offlinePrediction.PreparePresentation( scene.Entities(),
+                                               Physics::PhysicsEngine::ReadColliders( scene.Physics() ),
+                                               path.targetId,
+                                               path.targetModelRow,
+                                               path.hasTarget,
+                                               5.0,
+                                               update );
+        if ( update.targetModelRowRepaired )
+        {
+            offlinePresentation.SetPathTargetModelRow( update.repairedTargetModelRow );
+        }
+        for ( std::size_t passIndex = 0; passIndex < update.budgetExpiries.size(); ++passIndex )
+        {
+            for ( uint32_t count = 0; count < update.budgetExpiries[passIndex]; ++count )
+            {
+                offlinePresentation.RecordTrajectoryBudgetExpiry(
+                    static_cast<SkullbonezCore::Core::MainMemoryReplayBudgetPass>( passIndex ) );
+            }
+        }
+        for ( std::size_t causeIndex = 0; causeIndex < update.rebuildCauses.size(); ++causeIndex )
+        {
+            for ( uint32_t count = 0; count < update.rebuildCauses[causeIndex]; ++count )
+            {
+                offlinePresentation.RecordTrajectoryRebuildCause(
+                    static_cast<SkullbonezCore::Core::MainMemoryReplayRebuildCause>( causeIndex ) );
+            }
+        }
+        offlinePresentation.PreparePathDrawing( scene.BodyStore() );
+        const ReplayPredictionPresentationView prediction = offlinePrediction.PresentationView();
+        offlinePresentation.RenderPathVisualizer( prediction,
+                                                  latestSolverSample,
+                                                  scene.Physics(),
+                                                  scene.Entities(),
+                                                  tracer );
+        (void)offlinePresentation.BuildPredictionGhostDrawRequests( prediction,
+                                                                    scene.RenderPresentationRecords(),
+                                                                    scene.BodyStore() );
+        ReplayVisualPacket projected = tracer.BuildReplayVisualPacket( expected.cameraEye, expected.cameraUp );
+        offlinePresentation.PublishVisualPacket( projected,
+                                                 prediction,
+                                                 latestSolverSample,
+                                                 expected.replayReserveGrowthEvents );
+        projected = offlinePresentation.PublishedVisualPacketView();
         const ReplayVisualPacketFingerprint fingerprint =
             BuildReplayVisualPacketFingerprint( projected, trajectoryDigests );
         char difference[192] = {};
@@ -2806,24 +2844,24 @@ InteractionAutomationFrameResult
 SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state,
                                                                RuntimeFrameHostView& host,
                                                                RuntimeFrameInteractionView& interactionOwners,
-                                                               RuntimeFrameSceneView& sceneOwners )
+                                                               RuntimeFrameSceneView& sceneOwners,
+                                                               const ReplayAutomationView& replayView )
 {
     Window* window = &host.window;
     const SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
     SceneController& scene = sceneOwners.sceneController;
     RunTimerState& timers = sceneOwners.timers;
-    ReplayRuntime& replayRuntime = interactionOwners.replayRuntime;
     RunCameraState& camera = interactionOwners.camera;
     InputRouter& inputRouter = interactionOwners.inputRouter;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     UI::InGameUI& ui = interactionOwners.ui;
     InteractionAutomationFrameResult result;
     if ( !state.enabled || state.finished )
     {
         return result;
     }
+    const ReplayInputView replayInput = replayView.input;
     if ( !state.scriptLoaded && !LoadScript( state ) )
     {
         state.finished = true;
@@ -2833,7 +2871,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         // the earlier script failure if both operations fail.
         result.status = InteractionAutomationResult( state );
         const SkullbonezCore::Core::SbResult reportResult =
-            WriteInteractionAutomationReport( state, scene, runtimeTools, replayRuntime, interaction, camera, ui );
+            WriteInteractionAutomationReport( state, scene, runtimeTools, replayView, interaction, camera, ui );
         if ( result.status.ok )
         {
             result.status = reportResult;
@@ -2848,13 +2886,13 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         // Invariant: the mega probe is one presented cascade. Advancing the
         // authoritative scene after the reveal would show a second, unrelated
         // wall fall and make a visually broken run appear to be test coverage.
-        if ( replayRuntime.ScrubberView().liveAdvanceHeld )
+        if ( replayInput.liveAdvanceHeld )
         {
             FailAutomation( state, "replay visual fidelity probe entered a second live playback pass" );
         }
         if ( state.replayVisualFidelityStartFrame < 0 && frame == REPLAY_VISUAL_FIDELITY_START_FRAME )
         {
-            if ( !ReplayDeterministicRevealReady( replayRuntime ) )
+            if ( !ReplayDeterministicRevealReady( replayView ) )
             {
                 FailAutomation( state,
                                 "replay visual fidelity prediction was not fully published before fixed reveal start" );
@@ -2862,7 +2900,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
             else
             {
                 state.replayVisualFidelityStartFrame = frame;
-                PublishReplayDeterministicReveal( replayRuntime, 0, true );
+                PublishReplayDeterministicReveal( result.replayIntent, 0, true );
             }
         }
         else if ( state.replayVisualFidelityStartFrame < 0 && frame > REPLAY_VISUAL_FIDELITY_START_FRAME )
@@ -2872,7 +2910,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         if ( state.replayVisualFidelityStartFrame >= 0 )
         {
             PublishReplayDeterministicReveal(
-                replayRuntime,
+                result.replayIntent,
                 static_cast<ReplayFrameIndex>( (std::max)( 0, frame - state.replayVisualFidelityStartFrame ) ),
                 false );
         }
@@ -2911,16 +2949,9 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                 action.type == RunInteractionAutomationActionType::DirectorPlay
                     ? ( action.boolValue ? RunCameraMode::Director : RunCameraMode::Inspect )
                     : action.cameraMode;
-            inputRouter.ApplyCameraMode( camera,
-                                         targetMode,
-                                         RuntimeInputActionSource::Runtime,
-                                         inputRouter.RuntimeContext(),
-                                         interaction,
-                                         runtimeTools,
-                                         replayRuntime,
-                                         attachedCamera,
-                                         scene );
-            const bool applied = camera.mode == targetMode;
+            result.applyCameraMode = true;
+            result.cameraMode = targetMode;
+            const bool applied = true;
             if ( !applied )
             {
                 FailAutomation( state, "failed to apply automated camera mode" );
@@ -2952,34 +2983,37 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
             ApplyInteractionAutomationReplayStateAction(
                 state,
                 timers,
-                replayRuntime,
+                result.replayIntent,
+                replayView,
                 scene.Physics(),
                 action,
                 frame,
                 [&]( const char* name )
                 {
                     int modelIndex = -1;
-                    return TryFindInteractionAutomationModel( scene, name, modelIndex ) &&
-                           replayRuntime.SetPathTarget( name, modelIndex, scene.BodyStore() );
+                    if ( !TryFindInteractionAutomationModel( scene, name, modelIndex ) )
+                    {
+                        return false;
+                    }
+                    const Physics::PhysicsBodyRecord* body = scene.BodyStore().RecordForModelIndex( modelIndex );
+                    if ( !body || body->replayBodyId == 0 )
+                    {
+                        return false;
+                    }
+                    result.replayIntent.setPathTarget = true;
+                    result.replayIntent.pathTargetId.value = body->replayBodyId;
+                    result.replayIntent.pathTargetModelRow.value = modelIndex;
+                    strncpy_s( result.replayIntent.pathTargetName,
+                               sizeof( result.replayIntent.pathTargetName ),
+                               name,
+                               _TRUNCATE );
+                    return true;
                 },
                 [&]( WorldInteractionOwner owner, InteractionExitReason reason )
                 {
-                    inputRouter.SetWorldInteractionOwner(
-                        owner,
-                        reason,
-                        replayRuntime,
-                        runtimeTools,
-                        interaction,
-                        scene.Cameras(),
-                        scene.Terrain().Get(),
-                        scene,
-                        scene.Physics(),
-                        camera,
-                        NormalizeRuntimeCameraMode( replayRuntime.ReplayRestoreCameraMode(),
-                                                    scene.State().isSceneMode,
-                                                    RuntimeCameraModeEnabledMask( scene ) ),
-                        attachedCamera.State().activeFollow,
-                        camera.director.grabbed );
+                    result.setWorldInteractionOwner = true;
+                    result.worldInteractionOwner = owner;
+                    result.worldInteractionReason = reason;
                 } );
             action.processed = true;
             break;
@@ -3005,7 +3039,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
             // and the sole Predict click. Letting wall-clock reveal run first
             // would retain markers, then rewinding to zero would create a
             // broken second presentation pass.
-            PublishReplayDeterministicReveal( replayRuntime, 0, true );
+            PublishReplayDeterministicReveal( result.replayIntent, 0, true );
             AppendReportAction( state,
                                 frame,
                                 action.type,
@@ -3060,13 +3094,21 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                                                           config,
                                                           scene.State(),
                                                           timers,
-                                                          replayRuntime,
+                                                          result.replayIntent,
+                                                          replayView,
                                                           action,
                                                           frame );
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::ScrubReplaySolverTrack:
-            ApplyInteractionAutomationSolverTrackScrub( state, window, config, timers, replayRuntime, action, frame );
+            ApplyInteractionAutomationSolverTrackScrub( state,
+                                                        window,
+                                                        config,
+                                                        timers,
+                                                        result.replayIntent,
+                                                        replayView,
+                                                        action,
+                                                        frame );
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::ClickObject:
@@ -3159,12 +3201,12 @@ InteractionAutomationFrameResult
 SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutomationController& state,
                                                                RuntimeFrameInteractionView& interactionOwners,
                                                                RuntimeFrameSceneView& sceneOwners,
+                                                               const ReplayAutomationView& replayView,
                                                                CaptureController& capture,
                                                                Rendering::IRenderCaptureBackend& captureBackend )
 {
     SceneController& scene = sceneOwners.sceneController;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    ReplayRuntime& replayRuntime = interactionOwners.replayRuntime;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     InputRouter& inputRouter = interactionOwners.inputRouter;
     RunCameraState& camera = interactionOwners.camera;
@@ -3225,7 +3267,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
         const InteractionAutomationAssertionEvaluation evaluation = EvaluateInteractionAutomationAssertion(
             runtimeTools,
             state,
-            replayRuntime,
+            replayView,
             interaction,
             inputRouter,
             camera,
@@ -3234,7 +3276,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
             ui,
             action,
             [&]()
-            { return runtimeTools.InspectGizmoInteractionActive( camera.mode, replayRuntime.InspectionActive() ); } );
+            { return runtimeTools.InspectGizmoInteractionActive( camera.mode, replayView.input.inspectionActive ); } );
 
         strcpy_s( assertion.expected, sizeof( assertion.expected ), evaluation.expected.c_str() );
         strcpy_s( assertion.actual, sizeof( assertion.actual ), evaluation.actual.c_str() );
@@ -3254,7 +3296,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
         action.processed = true;
     }
 
-    if ( state.replayVisualFidelityCaptureEnabled && replayRuntime.Prediction().build.generationBeginCount > 1u )
+    if ( state.replayVisualFidelityCaptureEnabled && replayView.prediction.build.generationBeginCount > 1u )
     {
         // Probe assertion lane: setup changes must be coalesced before the
         // sole Predict action. Stop immediately if a later target, horizon, or
@@ -3264,17 +3306,17 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
         return result;
     }
     if ( state.replayVisualFidelityCaptureEnabled && state.replayVisualFidelityStartFrame >= 0 &&
-         state.replayVisualFidelityTicks.size() < replayRuntime.Prediction().simulation.frames.size() )
+         state.replayVisualFidelityTicks.size() < replayView.prediction.simulation.frames.size() )
     {
         const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& submission =
-            replayRuntime.PublishedReplayVisualPacket().submission;
-        const ReplayVisualPacket& packet = replayRuntime.PublishedReplayVisualPacket();
+            replayView.visualPacket.submission;
+        const ReplayVisualPacket& packet = replayView.visualPacket;
         const ReplayVisualPacketFingerprint packetFingerprint =
             BuildReplayVisualPacketFingerprint( packet, state.replayVisualTrajectoryDigests );
         const ReplayVisualPacketBufferFacts bufferFacts = BuildReplayVisualPacketBufferFacts( packet );
         ReplayVisualFidelityReportTick tick;
         tick.sceneFrame = frame;
-        tick.revealFrame = replayRuntime.Prediction().revealClock.presentedFrame;
+        tick.revealFrame = replayView.prediction.revealClock.presentedFrame;
         tick.sourceFrame = packet.header.sourceFrame;
         tick.semanticHash = packetFingerprint.semanticHash;
         tick.headerStateHash = packetFingerprint.headerStateHash;
@@ -3355,20 +3397,19 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
         tick.ordinaryVertexCount = submission.ordinaryVertexCount;
         tick.segmentCount = submission.segmentCount;
         state.replayVisualFidelityTicks.push_back( tick );
-        state.replayCausalProofTicks.push_back(
-            BuildReplayCausalProofTick( replayRuntime.PublishedReplayVisualPacket() ) );
+        state.replayCausalProofTicks.push_back( BuildReplayCausalProofTick( replayView.visualPacket ) );
 
-        const std::vector<RunReplayPredictionFrame>& predictionFrames = replayRuntime.Prediction().simulation.frames;
+        const std::vector<RunReplayPredictionFrame>& predictionFrames = replayView.prediction.simulation.frames;
         if ( state.replayVisualFidelityTicks.size() == predictionFrames.size() && !predictionFrames.empty() )
         {
             const PredictionTrajectoryFingerprint revealFingerprint =
-                BuildPredictionTrajectoryFingerprint( replayRuntime );
+                BuildPredictionTrajectoryFingerprint( replayView );
             state.replayVisualFidelityTrajectoryHash = revealFingerprint.hash;
             state.replayVisualFidelityTrajectoryRecordCount = revealFingerprint.recordCount;
             state.replayVisualFidelityTrajectoryPointCount = revealFingerprint.pointCount;
             state.replayVisualFidelityTrajectoryCaptured = revealFingerprint.Ready();
-            if ( !BuildReplayPredictionArchive( replayRuntime.PathVisualizer(),
-                                                replayRuntime.Prediction(),
+            if ( !BuildReplayPredictionArchive( replayView.path,
+                                                replayView.prediction,
                                                 state.replayVisualPredictionArchive ) )
             {
                 FailAutomation( state, "replay visual fidelity probe could not freeze prediction presentation state" );
@@ -3400,15 +3441,18 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
             // This is after the final reveal screenshot while live physics still
             // holds the seed pose used by root markers. The CPU-only loop cannot
             // become a second presented visual pass.
-            (void)VerifyReplayVisualOfflineProjection( state, interactionOwners, sceneOwners );
+            (void)VerifyReplayVisualOfflineProjection( state,
+                                                       interactionOwners,
+                                                       sceneOwners,
+                                                       replayView.latestSolverSample );
         }
         if ( !state.failed && state.replayVisualFidelityCaptureEnabled &&
-             state.replayVisualFidelityTicks.size() != replayRuntime.Prediction().simulation.frames.size() )
+             state.replayVisualFidelityTicks.size() != replayView.prediction.simulation.frames.size() )
         {
             ClearInteractionAutomationInput( state );
             return result;
         }
-        if ( !state.failed && replayRuntime.Prediction().build.building )
+        if ( !state.failed && replayView.prediction.build.building )
         {
             // Why: prediction reports read committed topology, frame counts,
             // and trajectory hashes. Let the normal render-frame replay path
@@ -3422,7 +3466,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
         // Invariant: assertion failure retains precedence over report IO.
         result.status = InteractionAutomationResult( state );
         const SkullbonezCore::Core::SbResult reportResult =
-            WriteInteractionAutomationReport( state, scene, runtimeTools, replayRuntime, interaction, camera, ui );
+            WriteInteractionAutomationReport( state, scene, runtimeTools, replayView, interaction, camera, ui );
         if ( result.status.ok )
         {
             result.status = reportResult;
@@ -3455,7 +3499,7 @@ SkullbonezCore::Core::SbResult
 SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomationController& state,
                                                            const SceneController& scene,
                                                            const RuntimeTools& runtimeTools,
-                                                           const ReplayRuntime& replayRuntime,
+                                                           const ReplayAutomationView& replay,
                                                            const RuntimeInteractionController& interaction,
                                                            const RunCameraState& camera,
                                                            const UI::InGameUI& ui )
@@ -3466,7 +3510,6 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
     {
         return InteractionAutomationResult( state );
     }
-
     std::string replayArtifactPath;
     ReplayV2SaveResult replayArtifactResult;
     bool replayArtifactSaved = false;
@@ -3501,10 +3544,14 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
         }
         if ( !state.failed )
         {
-            replayArtifactSaved = replayRuntime.SavePresentationWithSolverHashes( replayArtifactPath.c_str(),
-                                                                                  &replayArtifactResult,
-                                                                                  visualPackets,
-                                                                                  state.replayVisualPredictionArchive );
+            replayArtifactSaved =
+                ReplayV2Artifact::SavePresentationWithSolverHashes( replay.presentationRecorder,
+                                                                    replay.solverRecorder,
+                                                                    replay.eventRecorder,
+                                                                    visualPackets,
+                                                                    state.replayVisualPredictionArchive,
+                                                                    replayArtifactPath.c_str(),
+                                                                    &replayArtifactResult );
         }
         if ( replayArtifactSaved )
         {
@@ -3658,30 +3705,29 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
     const bool gizmoVisible =
         selectedIndex >= 0 &&
         ( runtimeTools.Editor().editorModeEnabled ||
-          runtimeTools.InspectGizmoInteractionActive( camera.mode, replayRuntime.InspectionActive() ) );
-    const bool replayPastPathVisible =
-        replayRuntime.PathVisualizer().hasTarget && replayRuntime.PathVisualizer().pastPathVisible;
-    const std::size_t predictionVisibleFrameCount = VisiblePredictionFrameCount( replayRuntime );
-    const bool predictionPathVisible = ReplayPredictionPathVisible( replayRuntime );
-    const bool predictionContactsIncomplete = ReplayPredictionContactsIncomplete( replayRuntime );
+          runtimeTools.InspectGizmoInteractionActive( camera.mode, replay.input.inspectionActive ) );
+    const bool replayPastPathVisible = replay.path.hasTarget && replay.path.pastPathVisible;
+    const std::size_t predictionVisibleFrameCount = VisiblePredictionFrameCount( replay );
+    const bool predictionPathVisible = ReplayPredictionPathVisible( replay );
+    const bool predictionContactsIncomplete = ReplayPredictionContactsIncomplete( replay );
     uint64_t predictionSourceSolverHash = 0;
     uint64_t liveSolverHash = 0;
     const bool liveSolverHashStableAcrossPrediction =
-        LiveSolverHashStableAcrossPrediction( replayRuntime, &predictionSourceSolverHash, &liveSolverHash );
-    const float replaySolverTrackPosition = replayRuntime.TrackPosition( RunReplayTrack::Solver );
-    const float replaySolverPresentTrackPosition = replayRuntime.SolverPresentTrackPosition();
+        LiveSolverHashStableAcrossPrediction( replay, &predictionSourceSolverHash, &liveSolverHash );
+    const float replaySolverTrackPosition = replay.solverTrackPosition;
+    const float replaySolverPresentTrackPosition = replay.solverPresentTrackPosition;
     const bool replaySolverTrackAtPresent =
         ReplayAtPresentTrackPosition( replaySolverTrackPosition, replaySolverPresentTrackPosition );
-    const bool predictionScrubFrameActive = replayRuntime.CurrentPredictionScrubFrame() != nullptr;
+    const bool predictionScrubFrameActive = replay.currentPredictionFrame != nullptr;
     bool predictionTargetDisplacementValid = false;
     Vector3 predictionTargetFirst = ZERO_VECTOR;
     Vector3 predictionTargetLast = ZERO_VECTOR;
     float predictionTargetDisplacement = 0.0f;
-    predictionTargetDisplacementValid = TryPredictionTargetDisplacement( replayRuntime,
+    predictionTargetDisplacementValid = TryPredictionTargetDisplacement( replay,
                                                                          predictionTargetDisplacement,
                                                                          &predictionTargetFirst,
                                                                          &predictionTargetLast );
-    const RunReplayPredictionState& predictionState = replayRuntime.Prediction();
+    const RunReplayPredictionState& predictionState = replay.prediction;
     const ReplayPredictionBaselineSnapshot& predictionBaseline = predictionState.baseline;
     const bool predictionBaselineVisible = predictionBaseline.valid && predictionBaseline.comparisonActive;
     int predictionAuthoredWallBrickCount = 0;
@@ -3809,8 +3855,7 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
         predictionSustainedToppledWallBrickCount += toppledThroughoutFinalSecond ? 1 : 0;
         predictionSettledWallBrickCount += settledThroughoutFinalSecond ? 1 : 0;
     }
-    PredictionTrajectoryFingerprint predictionTrajectoryFingerprint =
-        BuildPredictionTrajectoryFingerprint( replayRuntime );
+    PredictionTrajectoryFingerprint predictionTrajectoryFingerprint = BuildPredictionTrajectoryFingerprint( replay );
     if ( state.replayVisualFidelityTrajectoryCaptured )
     {
         // The V0 oracle describes the completed prediction reveal. Report the
@@ -3822,8 +3867,7 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
         predictionTrajectoryFingerprint.pointCount =
             static_cast<std::size_t>( state.replayVisualFidelityTrajectoryPointCount );
     }
-    const ReplayTrajectorySubmissionProbeStats& predictionSubmissionProbe =
-        replayRuntime.ReplayTrajectorySubmissionProbe();
+    const ReplayTrajectorySubmissionProbeStats& predictionSubmissionProbe = replay.trajectorySubmission;
     std::size_t predictionRetainedEntryMarkerCount = 0;
     std::size_t predictionRetainedRestMarkerCount = 0;
     std::size_t predictionRetainedHorizonMarkerCount = 0;
@@ -3866,7 +3910,7 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
     }
 
     const std::string* scenePath = scene.CurrentPath();
-    const SkullbonezCore::Core::MainMemoryReplayStats replayMemoryStats = replayRuntime.CollectMemoryStats();
+    const SkullbonezCore::Core::MainMemoryReplayStats replayMemoryStats = replay.memoryStats;
     uint64_t trajectoryDroppedTotal = 0;
     for ( std::size_t laneIndex = 0; laneIndex < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT;
           ++laneIndex )
@@ -3886,15 +3930,14 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
                                            { "tickCount", state.replayVisualFidelityTicks.size() },
                                            { "offlineProjectionComplete", state.replayVisualOfflineProjectionComplete },
                                            { "ticks", replayVisualFidelityTicks } };
-    report["replayCausalProof"] =
-        Json{ { "schemaVersion", 2 },
-              { "singleRevealGeneration", true },
-              { "singlePresentedCascade", true },
-              { "targetId", replayRuntime.PublishedReplayVisualPacket().header.targetId.value },
-              { "tickCount", state.replayCausalProofTicks.size() },
-              { "topologyCount", state.replayCausalTopology.size() },
-              { "topology", replayCausalTopology },
-              { "ticks", replayCausalTicks } };
+    report["replayCausalProof"] = Json{ { "schemaVersion", 2 },
+                                        { "singleRevealGeneration", true },
+                                        { "singlePresentedCascade", true },
+                                        { "targetId", replay.visualPacket.header.targetId.value },
+                                        { "tickCount", state.replayCausalProofTicks.size() },
+                                        { "topologyCount", state.replayCausalTopology.size() },
+                                        { "topology", replayCausalTopology },
+                                        { "ticks", replayCausalTicks } };
     report["replayArtifact"] =
         Json{ { "schemaVersion", 4 },
               { "saved", replayArtifactSaved },
@@ -3946,14 +3989,12 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
         { "predictionPendingLatestRestart", predictionState.build.pendingLatestRestart },
         { "predictionSupersededRestartCount", predictionState.build.supersededRestartCount },
         { "predictionLatestRestartBeginCount", predictionState.build.latestRestartBeginCount },
-        { "replayPathTarget",
-          replayRuntime.PathVisualizer().hasTarget ? replayRuntime.PathVisualizer().targetName : "" },
-        { "replayPathTargetCount", static_cast<int>( replayRuntime.PathVisualizer().targets.size() ) },
-        { "replayPastTrajectoryFullRebuildCount", replayRuntime.PathVisualizer().pastTrajectory.fullRebuildCount },
-        { "replayPastTrajectoryIncrementalTrimCount",
-          replayRuntime.PathVisualizer().pastTrajectory.incrementalTrimCount },
+        { "replayPathTarget", replay.path.hasTarget ? replay.path.targetName : "" },
+        { "replayPathTargetCount", static_cast<int>( replay.path.targets.size() ) },
+        { "replayPastTrajectoryFullRebuildCount", replay.path.pastTrajectory.fullRebuildCount },
+        { "replayPastTrajectoryIncrementalTrimCount", replay.path.pastTrajectory.incrementalTrimCount },
         { "replayPastTrajectoryPublishedPointCount",
-          static_cast<int>( ReplayPastTrajectoryPublishedPointCount( replayRuntime ) ) },
+          static_cast<int>( ReplayPastTrajectoryPublishedPointCount( replay ) ) },
         { "replayPastPathVisible", replayPastPathVisible },
         { "predictionPathVisible", predictionPathVisible },
         { "predictionContactsIncomplete", predictionContactsIncomplete },
@@ -4027,13 +4068,13 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
         { "predictionRetainedEntryMarkerCount", static_cast<int>( predictionRetainedEntryMarkerCount ) },
         { "predictionRetainedRestMarkerCount", static_cast<int>( predictionRetainedRestMarkerCount ) },
         { "predictionRetainedHorizonMarkerCount", static_cast<int>( predictionRetainedHorizonMarkerCount ) },
-        { "replayActiveTrack", ReplayTrackName( replayRuntime.ScrubberView().activeTrack ) },
-        { "replayHistoricalSamplePaused", replayRuntime.ScrubberView().historicalSamplePaused },
+        { "replayActiveTrack", ReplayTrackName( replay.scrubber.activeTrack ) },
+        { "replayHistoricalSamplePaused", replay.scrubber.historicalSamplePaused },
         { "replaySolverTrackPosition", replaySolverTrackPosition },
         { "replaySolverPresentTrackPosition", replaySolverPresentTrackPosition },
         { "replaySolverTrackAtPresent", replaySolverTrackAtPresent },
         { "predictionScrubFrameActive", predictionScrubFrameActive },
-        { "replayFutureNodeCount", static_cast<int>( replayRuntime.PathVisualizer().futureNodes.size() ) } };
+        { "replayFutureNodeCount", static_cast<int>( replay.path.futureNodes.size() ) } };
 
     std::ofstream output;
     if ( !RuntimeFileWriter::OpenTextFile( state.reportPath, output ) )

@@ -36,6 +36,7 @@ Related:
 #include "../Maths/Vector3.h"
 #include "DemoDirector.h"
 #include "RuntimeCameraMode.h"
+#include "Replay/ReplayCoordination.h"
 #include "Replay/ReplayVisualPacketFingerprint.h"
 
 #include <string>
@@ -60,7 +61,6 @@ namespace Runtime
 class AttachedCameraController;
 class CaptureController;
 class InputRouter;
-class ReplayRuntime;
 class RuntimeInteractionController;
 class RuntimeTools;
 class SceneController;
@@ -314,6 +314,14 @@ struct InteractionAutomationFrameResult
 {
     bool requestQuit = false;
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
+    // Value-only replay mutations are applied once by the frame composition
+    // boundary after automation has finished producing its synthetic input.
+    ReplayFrameIntent replayIntent;
+    bool applyCameraMode = false;
+    RunCameraMode cameraMode = RunCameraMode::Demo;
+    bool setWorldInteractionOwner = false;
+    WorldInteractionOwner worldInteractionOwner = WorldInteractionOwner::None;
+    InteractionExitReason worldInteractionReason = InteractionExitReason::EnterReplay;
 };
 
 SkullbonezCore::Core::SbResult ConfigureInteractionAutomation( InteractionAutomationController& state,
@@ -324,18 +332,20 @@ void ClearInteractionAutomationInput( InteractionAutomationController& state );
 InteractionAutomationFrameResult TickInteractionAutomationBeforeInput( InteractionAutomationController& state,
                                                                        RuntimeFrameHostView& host,
                                                                        RuntimeFrameInteractionView& interactionOwners,
-                                                                       RuntimeFrameSceneView& sceneOwners );
+                                                                       RuntimeFrameSceneView& sceneOwners,
+                                                                       const ReplayAutomationView& replayView );
 InteractionAutomationFrameResult
 TickInteractionAutomationAfterRender( InteractionAutomationController& state,
                                       RuntimeFrameInteractionView& interactionOwners,
                                       RuntimeFrameSceneView& sceneOwners,
+                                      const ReplayAutomationView& replayView,
                                       CaptureController& capture,
                                       Rendering::IRenderCaptureBackend& captureBackend );
 bool InteractionAutomationWillCaptureAfterRender( const InteractionAutomationController& state, int frame );
 SkullbonezCore::Core::SbResult WriteInteractionAutomationReport( InteractionAutomationController& state,
                                                                  const SceneController& scene,
                                                                  const RuntimeTools& runtimeTools,
-                                                                 const ReplayRuntime& replayRuntime,
+                                                                 const ReplayAutomationView& replay,
                                                                  const RuntimeInteractionController& interaction,
                                                                  const RunCameraState& camera,
                                                                  const UI::InGameUI& ui );

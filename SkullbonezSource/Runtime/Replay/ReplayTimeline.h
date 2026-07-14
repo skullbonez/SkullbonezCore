@@ -163,91 +163,78 @@ struct RunLoadedReplayPresentationState
     char path[260] = {};
 };
 
+struct ReplayRecordingConfigResult
+{
+    ReplayRecorderConfig presentationConfig;
+    ReplayRecorderConfig solverConfig;
+    ReplayRecorderStats presentationStats;
+    ReplayRecorderStats solverStats;
+    ReplayEventRecorderStats eventStats;
+};
+
+struct ReplayMemoryPolicyApplyResult
+{
+    bool changed = false;
+    bool recordersReset = false;
+};
+
+struct ReplayTimelineCaptureResult
+{
+    const ReplaySolverFrameSample* solverSample = nullptr;
+};
+
 class ReplayTimeline
 {
   public:
-    ReplayRecorder& Presentation() noexcept
-    {
-        return m_presentation;
-    }
     const ReplayRecorder& Presentation() const noexcept
     {
         return m_presentation;
-    }
-    ReplaySolverRecorder& Solver() noexcept
-    {
-        return m_solver;
     }
     const ReplaySolverRecorder& Solver() const noexcept
     {
         return m_solver;
     }
-    ReplayEventRecorder& Events() noexcept
-    {
-        return m_events;
-    }
     const ReplayEventRecorder& Events() const noexcept
     {
         return m_events;
-    }
-    ReplayMemoryPolicy& MemoryPolicy() noexcept
-    {
-        return m_memoryPolicy;
     }
     const ReplayMemoryPolicy& MemoryPolicy() const noexcept
     {
         return m_memoryPolicy;
     }
-    RunLoadedReplayPresentationState& LoadedPresentation() noexcept
-    {
-        return m_loadedPresentation;
-    }
     const RunLoadedReplayPresentationState& LoadedPresentation() const noexcept
     {
         return m_loadedPresentation;
     }
-    std::string& RecordingHashLogPath() noexcept
-    {
-        return m_recordingHashLogPath;
-    }
-    const std::string& RecordingHashLogPath() const noexcept
-    {
-        return m_recordingHashLogPath;
-    }
-    int& PresentationSaveSequence() noexcept
-    {
-        return m_presentationSaveSequence;
-    }
-    int& RecordingRuntimeBodyCapacity() noexcept
-    {
-        return m_recordingRuntimeBodyCapacity;
-    }
-    uint32_t& CaptureMismatchReports() noexcept
-    {
-        return m_captureMismatchReports;
-    }
-    bool& CaptureMismatchSuppressed() noexcept
-    {
-        return m_captureMismatchSuppressed;
-    }
-    bool& RecordingConfigured() noexcept
-    {
-        return m_recordingConfigured;
-    }
     bool RecordingConfigured() const noexcept
     {
         return m_recordingConfigured;
-    }
-    bool& RecordingEnabled() noexcept
-    {
-        return m_recordingEnabled;
     }
     bool RecordingEnabled() const noexcept
     {
         return m_recordingEnabled;
     }
 
+    ReplayRecordingConfigResult
+    ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath, int runtimeBodyCapacity );
+    ReplayMemoryPolicyApplyResult ApplyMemoryPolicyRequest( const ReplayMemoryPolicyRequest& request );
+    void FlushHashLogs();
+    void Reset( const char* sceneLabel );
+    void ClearLoadedPresentation();
+    void InstallLoadedPresentation( const char* path,
+                                    std::vector<ReplayPresentationSample>& samples,
+                                    std::size_t bodyDictionaryCount,
+                                    std::size_t fileBytes,
+                                    ReplayFrameIndex firstFrame,
+                                    ReplayFrameIndex lastFrame );
+    bool NextPresentationSavePath( char* outPath, std::size_t outPathSize );
+    ReplayTimelineCaptureResult CaptureFrame( ReplayCaptureInput input );
+    void RecordEvent( const ReplayEventInput& input );
+    void CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const;
+    void ResetCaptureMismatchDiagnostics() noexcept;
+
   private:
+    void ReportLatestCaptureMismatch();
     ReplayRecorder m_presentation;
     ReplaySolverRecorder m_solver;
     ReplayEventRecorder m_events;

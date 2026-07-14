@@ -1,12 +1,12 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayProbeState.h
 Purpose:
-  Groups debug-only CLI replay probe state owned by ReplayRuntime.
+  Owns cold startup workflow configuration and debug-only replay probe state.
 
 Summary:
   These probes are launch-requested diagnostics that drive replay scrub,
   restore, and save coverage after the scene has enough captured samples. They
-  share ReplayRuntime's lifecycle so configuration, one-shot completion, and
+  share one probe runner lifecycle so configuration, one-shot completion, and
   bounded failure reporting stay beside the workflows they control.
 
 Glossary:
@@ -39,6 +39,24 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+struct ReplayStartupRequest;
+struct ReplayRestoreTransaction;
+class ReplayPresentation;
+class ReplayTimeline;
+struct ReplaySolverFrameSample;
+
+struct ReplayStartupWorkflowState
+{
+    char loadPath[260] = {};
+    bool loadProbe = false;
+#ifdef _DEBUG
+    char checkpointProbePath[260] = {};
+    char targetProbePath[260] = {};
+    char branchProbePath[260] = {};
+    char failureProbePath[260] = {};
+#endif
+};
+
 #ifdef _DEBUG
 struct RunReplayScrubProbeState
 {
@@ -112,6 +130,59 @@ struct ReplayProbeState
     RunReplaySaveProbeState save;
     RunReplayProbeFailureState failure;
 };
+
+struct ReplayProbeRestoreRequest
+{
+    SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
+    const ReplaySolverFrameSample* sample = nullptr;
+    uint64_t selectedFrame = 0;
+    uint64_t latestFrame = 0;
+    uint64_t selectedHash = 0;
+};
+
+enum class ReplayProbeSaveAction
+{
+    None,
+    ResetScene,
+    InjectEventCoverage,
+    ValidateArtifact
+};
+
+struct ReplayProbeSaveRequest
+{
+    ReplayProbeSaveAction action = ReplayProbeSaveAction::None;
+    char path[260] = {};
+};
 #endif
+
+class ReplayProbeRunner
+{
+  public:
+    // Returns whether live prediction generation remains permitted after the
+    // startup capability request is installed.
+    bool Configure( const ReplayStartupRequest& request );
+    const ReplayStartupWorkflowState& Startup() const noexcept
+    {
+        return m_startup;
+    }
+#ifdef _DEBUG
+    SkullbonezCore::Core::SbResult TickScrubProbe( const ReplayRestoreTransaction& transaction,
+                                                   const ReplayTimeline& timeline,
+                                                   ReplayPresentation& presentation );
+    ReplayProbeRestoreRequest PrepareRestoreProbe( const ReplayTimeline& timeline );
+    SkullbonezCore::Core::SbResult
+    CompleteRestoreProbe( const ReplayProbeRestoreRequest& request, bool restored, const char* reason );
+    ReplayProbeSaveRequest PrepareSaveProbe( const ReplayTimeline& timeline );
+    void CompleteSaveProbe( const ReplayProbeSaveRequest& request, const SkullbonezCore::Core::SbResult& result );
+    SkullbonezCore::Core::SbResult CurrentFailure() const;
+    void RecordFailure( const SkullbonezCore::Core::SbResult& result );
+#endif
+
+  private:
+    ReplayStartupWorkflowState m_startup;
+#ifdef _DEBUG
+    ReplayProbeState m_probes;
+#endif
+};
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -129,6 +129,7 @@ class StressHarness
 void ApplyUIStressAction( RuntimeFrameInteractionView& interactionOwners,
                           RuntimeFrameSceneView& sceneOwners,
                           RuntimeFramePresentationView& presentationOwners,
+                          ReplayRuntime& replayRuntime,
                           UIStressState& stress,
                           bool allowRuntimeChurn )
 {
@@ -141,7 +142,6 @@ void ApplyUIStressAction( RuntimeFrameInteractionView& interactionOwners,
     RunTimerState& timers = sceneOwners.timers;
     SimulationSystem& simulation = sceneOwners.simulation;
     SkullbonezCore::Environment::WorldEnvironment& world = sceneController.World();
-    ReplayRuntime& replayRuntime = interactionOwners.replayRuntime;
     switch ( StressHarness::NextAction( stress ) )
     {
     case 0:
@@ -329,7 +329,8 @@ BuildGraphicsStressStyleContext( RunLaunchOptions& launchOptions,
 void ApplyGraphicsStressAction( RuntimeFrameHostView& host,
                                 RuntimeFrameInteractionView& interactionOwners,
                                 RuntimeFrameSceneView& sceneOwners,
-                                RuntimeFramePresentationView& presentationOwners )
+                                RuntimeFramePresentationView& presentationOwners,
+                                ReplayRuntime& replayRuntime )
 {
     RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
     SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
@@ -346,7 +347,6 @@ void ApplyGraphicsStressAction( RuntimeFrameHostView& host,
     SimulationSystem& simulation = sceneOwners.simulation;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     SkullbonezCore::Environment::WorldEnvironment& world = sceneController.World();
-    ReplayRuntime& replayRuntime = interactionOwners.replayRuntime;
     SkullbonezCore::Runtime::SceneController& models = sceneController;
     GraphicsStressController& stress = presentationOwners.graphicsStress;
     switch ( stress.NextAction() )
@@ -868,6 +868,7 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
                                              RuntimeFrameInteractionView& interactionOwners,
                                              RuntimeFrameSceneView& sceneOwners,
                                              RuntimeFramePresentationView& presentationOwners,
+                                             ReplayRuntime& replayRuntime,
                                              RunCameraMode replayRestoreCameraMode )
 {
     DiagnosticsRuntime& m_diagnosticsRuntime = host.diagnosticsRuntime;
@@ -882,7 +883,7 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
     RuntimeTools& m_runtimeTools = interactionOwners.runtimeTools;
     const RunLaunchOptions& m_launchOptions = sceneOwners.launchOptions;
     const RunStartupState& m_startup = sceneOwners.startup;
-    ReplayRuntime& m_replayRuntime = interactionOwners.replayRuntime;
+    ReplayRuntime& m_replayRuntime = replayRuntime;
     InputRouter& m_inputRouter = interactionOwners.inputRouter;
     RuntimeInteractionController& m_interaction = interactionOwners.interaction;
     AttachedCameraController& m_attachedCamera = interactionOwners.attachedCamera;
@@ -983,7 +984,12 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
     const int actionCount = StressHarness::ActionCount( stress );
     for ( int i = 0; i < actionCount; ++i )
     {
-        ApplyUIStressAction( interactionOwners, sceneOwners, presentationOwners, stress, allowRuntimeChurn );
+        ApplyUIStressAction( interactionOwners,
+                             sceneOwners,
+                             presentationOwners,
+                             m_replayRuntime,
+                             stress,
+                             allowRuntimeChurn );
     }
     return SkullbonezCore::Core::SbResult::Success();
 }
@@ -993,6 +999,7 @@ void SkullbonezCore::Runtime::ExecuteGraphicsStressFrame( RuntimeFrameHostView& 
                                                           RuntimeFrameInteractionView& interactionOwners,
                                                           RuntimeFrameSceneView& sceneOwners,
                                                           RuntimeFramePresentationView& presentationOwners,
+                                                          ReplayRuntime& replayRuntime,
                                                           const Rendering::IRenderDiagnostics& renderDiagnostics )
 {
     GraphicsStressController& stress = presentationOwners.graphicsStress;
@@ -1011,7 +1018,6 @@ void SkullbonezCore::Runtime::ExecuteGraphicsStressFrame( RuntimeFrameHostView& 
     RunCameraState& camera = interactionOwners.camera;
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     SimulationSystem& simulation = sceneOwners.simulation;
-    ReplayRuntime& replayRuntime = interactionOwners.replayRuntime;
     Runtime::Audio::ContactAudioService& contactAudio = sceneOwners.contactAudio;
     UI::InGameUI& ui = interactionOwners.ui;
     RunDebugState& debug = sceneOwners.debug;
@@ -1189,7 +1195,7 @@ void SkullbonezCore::Runtime::ExecuteGraphicsStressFrame( RuntimeFrameHostView& 
     // not manufacture impossible physics or render data.
     for ( int i = 0; i < actionCount; ++i )
     {
-        ApplyGraphicsStressAction( host, interactionOwners, sceneOwners, presentationOwners );
+        ApplyGraphicsStressAction( host, interactionOwners, sceneOwners, presentationOwners, replayRuntime );
     }
 
     if ( stress.ShouldPrintFrameSummary() )
@@ -1207,8 +1213,8 @@ void SkullbonezCore::Runtime::ExecuteGraphicsStressFrame( RuntimeFrameHostView& 
         // process is killed after a climb, this stdout line survives with the
         // same seed/frame/scene-load position as the repro log.
         const SkullbonezCore::Core::MainMemoryStats& memoryStats =
-            diagnosticsRuntime.RefreshMainMemoryStats( replayRuntime,
-                                                       sceneController,
+            diagnosticsRuntime.RefreshMainMemoryStats( replayRuntime.CollectMemoryStats(),
+                                                       sceneController.CollectMemoryStats(),
                                                        timers.simulationTimer.GetTotalTime(),
                                                        true );
         const SkullbonezCore::Rendering::RenderMemoryStats renderStats = renderDiagnostics.GetRenderMemoryStats();
