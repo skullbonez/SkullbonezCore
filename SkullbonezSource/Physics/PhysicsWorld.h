@@ -22,10 +22,14 @@ Glossary:
   Sleep island: Connected body group that may deactivate only as a unit.
   Underwater sleep lock: Sleep policy that keeps fully submerged balls dormant
     so buoyancy jitter does not repeatedly wake them.
+  Mutual-gravity pair scratch: Preallocated triangular force table whose unique
+    slots let workers compute pairs without racing or regrouping additions.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
     are the validation contract.
+  - Body and pair force scratch capacity is established during scene load and
+    may not grow while fixed ticks are running.
 
 Related:
   - SkullbonezSource/Physics/PhysicsWorld.cpp
@@ -105,7 +109,9 @@ class PhysicsWorld
     Math::CollisionDetection::SpatialGrid m_spatialGrid;
     std::vector<std::pair<int, int>> m_candidatePairs;
     std::vector<float> m_timeRemaining;
-    std::vector<Math::Vector::Vector3> m_mutualGravityForces; // Model-order scratch forces, reserved before gameplay.
+    std::vector<Math::Vector::Vector3> m_mutualGravityForces;     // Model-order reduced forces, reserved before gameplay.
+    std::vector<Math::Vector::Vector3> m_mutualGravityPairForces; // Triangular pair scratch, reserved before gameplay.
+    std::size_t m_mutualGravityPairHighWater = 0;
 
     // Sleep policy working state.
     //
@@ -420,7 +426,9 @@ class PhysicsWorld
                            Threading::WorkerPool& workerPool );
     const Math::Vector::Vector3* PrepareMutualGravityForces( std::span<const PhysicsBodyRecord> bodyRecords,
                                                              int modelCount,
-                                                             const PhysicsWorldForces& worldForces );
+                                                             const PhysicsWorldForces& worldForces,
+                                                             const SkullbonezCore::Core::EngineConfig& config,
+                                                             Threading::WorkerPool& workerPool );
     void EmitPhysicsCollisionTime( const char* type, int bodyA, int bodyB, float collisionTime, float availableTime );
     PersistentContactSolverContext
     CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,

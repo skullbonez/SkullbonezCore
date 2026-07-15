@@ -10,11 +10,14 @@
 #   Native stamp: The integer version field/directive owned by one file format.
 #   Check mode: Read-only CI/editor probe that reports files needing migration.
 #   Legacy v0: An asset library or engine config written before version stamps.
+#   Config v2: Adds the enabled-by-default deterministic mutual-gravity worker
+#     key after the sibling apply-forces execution key.
 #
 # Invariants:
 #   - Rewriting an already-current file is byte-idempotent.
 #   - Future versions fail and are never downgraded.
 #   - Scene/style JSON is outside this tool; its v1->v2 path remains parser-owned.
+#   - Config v1->v2 inserts one key and preserves all existing row bytes/order.
 #
 # Related:
 #   - tools/bake_hulls.py
@@ -34,7 +37,7 @@ import bake_hulls
 
 
 ASSET_LIBRARY_VERSION = 1
-CONFIG_VERSION = 1
+CONFIG_VERSION = 2
 ASSET_FORMAT = "skullbonez.asset_library.json"
 CONFIG_VERSION_RE = re.compile(r"^(?P<indent>\s*)format_version\s*=\s*(?P<version>[^#\s]+)(?P<tail>\s*(?:#.*)?)$")
 
@@ -92,12 +95,25 @@ def migrate_config_text(text: str, path: Path) -> str:
             raise MigrationError(f"{path}: format_version must be non-negative")
         if version > CONFIG_VERSION:
             raise MigrationError(f"{path}: config version {version} is newer than current version {CONFIG_VERSION}")
+        source_version = version
         lines[index] = f"{match.group('indent')}format_version = {CONFIG_VERSION}{match.group('tail')}"
     else:
         # Named v0->v1 step: preserve the established key/value grammar and
         # place the stamp after the introductory comment block.
+        source_version = 0
         insert_at = next((index for index, line in enumerate(lines) if not line.startswith("#")), len(lines))
         lines.insert(insert_at, f"format_version = {CONFIG_VERSION}")
+
+    # Named v1->v2 step: make the new worker lane explicit while preserving the
+    # v1 runtime default. Place it beside the existing physics execution keys.
+    mutual_gravity_key = "physics_parallel_mutual_gravity"
+    if source_version < 2 and not any(line.partition("=")[0].strip() == mutual_gravity_key for line in lines):
+        apply_forces_row = next(
+            (index for index, line in enumerate(lines) if line.partition("=")[0].strip() == "physics_parallel_apply_forces"),
+            None,
+        )
+        insert_at = apply_forces_row + 1 if apply_forces_row is not None else len(lines)
+        lines.insert(insert_at, f"{mutual_gravity_key} = 1")
 
     return "\n".join(lines) + "\n"
 
@@ -153,12 +169,13 @@ def self_test() -> None:
 
     config_path = Path("engine.cfg")
     config = migrate_config_text("# config\nscreen_x = 1\n", config_path)
-    assert "format_version = 1\n" in config
+    assert "format_version = 2\n" in config
+    assert "physics_parallel_mutual_gravity = 1\n" in config
     assert migrate_config_text(config, config_path) == config
     try:
-        migrate_config_text("format_version = 2\n", config_path)
+        migrate_config_text("format_version = 3\n", config_path)
     except MigrationError as exc:
-        assert "newer than current version 1" in str(exc)
+        assert "newer than current version 2" in str(exc)
     else:
         raise AssertionError("future config version must fail")
 

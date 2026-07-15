@@ -26,6 +26,8 @@
 //     an explicit wake path receives motion again.
 //   Terrain manifold: Contact-point report between a body and the flat test
 //     terrain, sampled here as diagnostics rather than as the byte oracle.
+//   Parallel gravity field: Forty-body fixture above the worker threshold whose
+//     exact kinematics are compared at 0, 1, and 4 worker threads.
 //
 // Invariants:
 //   - The micro-world stays serial; worker fan-out starts far above this body count.
@@ -34,6 +36,7 @@
 //   - Invariant checks use explicit tolerances because they assert physical
 //     policy, not serialized replay bytes.
 //   - Terrain queries are real flat-plane queries; render resources must stay unused.
+//   - Mutual-gravity worker scheduling must not change any kinematic byte.
 //
 // Related:
 //   - SkullbonezSource/Physics/PhysicsEngine.h
@@ -90,6 +93,7 @@ using SkullbonezCore::Threading::WorkerPool;
 namespace
 {
 constexpr int kMicroBodyCount = 3;
+constexpr int kParallelMutualGravityBodyCount = 40;
 constexpr int kSnapshotFrame = 120;
 constexpr int kReplayWindowTicks = 60;
 constexpr int kReplaySampleSnapshotFrame = 30;
@@ -124,6 +128,7 @@ SkullbonezCore::Core::EngineConfig MakeDeterministicConfig()
     SkullbonezCore::Core::EngineConfig config;
     config.physicsExecution.parallel = false;
     config.physicsExecution.parallelApplyForces = false;
+    config.physicsExecution.parallelMutualGravity = false;
     config.physicsExecution.parallelTornadoField = false;
     config.physicsExecution.parallelNarrowphase = false;
     config.physicsExecution.parallelTerrainDetect = false;
@@ -338,9 +343,14 @@ void SeedTwoBodyGravityWorld( PhysicsEngine& engine,
 void StepMicroWorldWith( PhysicsEngine& engine,
                          int ticks,
                          const SkullbonezCore::Core::EngineConfig& config,
-                         const PhysicsWorldForces& forces )
+                         const PhysicsWorldForces& forces,
+                         int workerThreadCount = 0 )
 {
     WorkerPool workerPool;
+    if ( workerThreadCount > 0 )
+    {
+        workerPool.Initialise( workerThreadCount );
+    }
     for ( int tick = 0; tick < ticks; ++tick )
     {
         engine.Step( PHYSICS_FIXED_DT,
@@ -911,6 +921,59 @@ TEST_CASE( "PhysicsEngine mutual gravity: chaotic triple is deterministic" )
     StepMicroWorldWith( first, 240, config, forces );
     StepMicroWorldWith( second, 240, config, forces );
     CheckEngineKinematicsEqual( first, second );
+}
+
+
+TEST_CASE( "PhysicsEngine mutual gravity: parallel pair build is exact across worker counts" )
+{
+    // Lifetime: these large fixed-store engines are cold test owners. Heap
+    // ownership keeps their storage out of the executable image while all
+    // three worlds remain alive for the exact comparison below.
+    auto serial = std::make_unique<PhysicsEngine>();
+    auto oneWorker = std::make_unique<PhysicsEngine>();
+    auto fourWorkers = std::make_unique<PhysicsEngine>();
+
+    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
+    config.physicsExecution.parallel = true;
+    config.physicsExecution.parallelMutualGravity = true;
+    config.worldForces.gravity = 0.0f;
+
+    auto seedField = [&config]( PhysicsEngine& engine )
+    {
+        engine.Clear();
+        engine.ApplyRuntimeConfig( config );
+        engine.SetSleepEnabled( false );
+        engine.ReserveAuthoredBodyCapacity( kParallelMutualGravityBodyCount );
+        for ( int index = 0; index < kParallelMutualGravityBodyCount; ++index )
+        {
+            const int column = index % 8;
+            const int row = index / 8;
+            AddMutualGravityBody( engine,
+                                  static_cast<uint32_t>( 300u + index ),
+                                  Vector3( static_cast<float>( column * 20 - 70 ),
+                                           static_cast<float>( 100 + row * 17 ),
+                                           static_cast<float>( ( index * 13 ) % 29 - 14 ) ),
+                                  Vector3( static_cast<float>( ( index % 5 ) - 2 ) * 0.03f,
+                                           static_cast<float>( ( index % 3 ) - 1 ) * 0.02f,
+                                           static_cast<float>( ( index % 7 ) - 3 ) * 0.01f ),
+                                  1.0f + static_cast<float>( index % 11 ) * 0.25f,
+                                  0.5f );
+        }
+        REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Count() ==
+                 kParallelMutualGravityBodyCount );
+    };
+
+    seedField( *serial );
+    seedField( *oneWorker );
+    seedField( *fourWorkers );
+    const PhysicsWorldForces forces = MutualGravityForces( 45.0f, 0.35f );
+
+    StepMicroWorldWith( *serial, 20, config, forces, 0 );
+    StepMicroWorldWith( *oneWorker, 20, config, forces, 1 );
+    StepMicroWorldWith( *fourWorkers, 20, config, forces, 4 );
+
+    CheckEngineKinematicsEqual( *serial, *oneWorker );
+    CheckEngineKinematicsEqual( *serial, *fourWorkers );
 }
 
 

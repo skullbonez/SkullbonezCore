@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `15th-of-July-Night-Runner` (created from current `origin/main` at `b2d085f9c`) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Continue the remaining two round-4 remediation plans in binding order: deterministic parallel mutual gravity, runtime signature decomposition |
-| Active/future progress | 13 / 22 tasks = 59% overall (round-4 remediation plans only; completed past plans and externally blocked work are excluded) |
+| Current objective | Complete the final round-4 remediation plan: runtime signature decomposition |
+| Active/future progress | 17 / 22 tasks = 77% overall (round-4 remediation plans only; completed past plans and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | Math-fatal-removal T1-T4 closed at 4/4. `validate_tests` passed 200/200 cases and 4,178 assertions in 15.2s. `validate_physics` passed in 83.3s with zero warnings/errors, matching standalone hashes, and all 44,401 physics lines byte-exact without a baseline refresh. `SB_FATAL` is absent from `SkullbonezSource/Maths`; touched-source comment audit passed 9/9, zero deferred. |
+| Validation for current edits | Deterministic-parallel-mutual-gravity T1-T4 closed at 4/4. The 200-body 360-frame CSV is byte-identical at 0/1/4 workers (10,245,023 bytes; SHA-256 `97E28A55AC36F461BD87F2AC4430DFBA49CC2C60CE85010369C126D51C5E90B5`). Pair-build profiling over 7,140 ticks improved from 0.1155 ms average at 0 workers to 0.0603 ms at 4. `validate_fast` passed in 57.1s, `validate_physics` passed the unchanged 44,401-row baseline in 57.2s, and `validate_perf` completed with no regression in 86.2s. Migration and allocation checks passed; touched-source comment audit passed 8/8, zero deferred. |
 
 ## Live Queue
 
@@ -44,6 +44,11 @@ plan inventory.
    cover reachable degeneracy, plain operators retain Debug-only assertions,
    deterministic caller fallbacks are classified, Maths has zero `SB_FATAL`,
    and the physics baseline remains byte-exact.
+   `deterministic-parallel-mutual-gravity` is complete at 4/4: fixed row
+   chunks compute unique triangular pair slots on workers, the owner replays
+   those slots in the original serial order, 0/1/4-worker CSVs are byte-exact,
+   pair construction is about 48% faster with four workers, and all mapped
+   gates pass without a baseline refresh.
 1. `replay-visual-fidelity-mega-probe` is complete at 7/7 on
    `nightrunner-13th-july`. It uses one generation and one presented reveal,
    then only non-presenting CPU/artifact verification.
@@ -163,10 +168,10 @@ plan inventory.
 
 ## Next Handoff
 
-Round 4 is 13/22 after closing message-pump, shadow-stream, Vector3, and
-math-fatal-removal plans on
+Round 4 is 17/22 after closing message-pump, shadow-stream, Vector3,
+math-fatal-removal, and deterministic-parallel-mutual-gravity plans on
 `15th-of-July-Night-Runner`. Continue with
-`Plans/TODO/deterministic-parallel-mutual-gravity.md`; every remaining plan carries the same
+`Plans/TODO/runtime-signature-decomposition.md`; it carries the same
 zero-baseline-refresh requirement. The externally administered
 validation-gate V3 lane remains blocked and is excluded from the executable
 portfolio ledger.

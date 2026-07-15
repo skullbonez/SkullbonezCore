@@ -14,12 +14,16 @@ Glossary:
     range and the destination inside EngineConfig.
   - Configuration registry: The single table that keeps file parsing,
     command-line overrides, validation, and compatibility spellings aligned.
+  - Mutual-gravity worker toggle: Version-2 execution key that enables the
+    deterministic pair-build worker stage without changing force semantics.
 
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
   surface.
   - Domain tables own key/type/range/destination facts. kConfigSettingOrder is
     the single lookup and Dump order; neither path may invent a second sequence.
+  - Version-1 config files omit the mutual-gravity worker key and therefore
+    retain its enabled default; the migration tool materializes the same value.
 
 Related:
   - SkullbonezSource/Core/Config.h
@@ -376,6 +380,7 @@ static const ConfigSetting kRuntimeCapacitySettings[] = {
 static const ConfigSetting kPhysicsExecutionSettings[] = {
     CONFIG_BOOL( "physics_parallel", physicsExecution.parallel ),
     CONFIG_BOOL( "physics_parallel_apply_forces", physicsExecution.parallelApplyForces ),
+    CONFIG_BOOL( "physics_parallel_mutual_gravity", physicsExecution.parallelMutualGravity ),
     CONFIG_BOOL( "physics_parallel_tornado_field", physicsExecution.parallelTornadoField ),
     CONFIG_BOOL( "physics_parallel_narrowphase", physicsExecution.parallelNarrowphase ),
     CONFIG_BOOL( "physics_parallel_terrain_detect", physicsExecution.parallelTerrainDetect ),
@@ -627,7 +632,7 @@ static const ConfigSetting kContactAudioSettings[] = {
     CONFIG_BOOL( "contact_audio_debug_counters", contactAudio.debugCounters ),
 };
 
-constexpr size_t kExpectedConfigSettingCount = 219;
+constexpr size_t kExpectedConfigSettingCount = 220;
 static_assert( ArrayCount( kWindowSettings ) + ArrayCount( kCameraSettings ) + ArrayCount( kTerrainGeometrySettings ) +
                        ArrayCount( kSkyboxSettings ) + ArrayCount( kRuntimeCapacitySettings ) +
                        ArrayCount( kPhysicsExecutionSettings ) + ArrayCount( kRuntimeRenderSettings ) +
@@ -862,8 +867,9 @@ SbResult ReadConfigFormatVersion( const char* path, unsigned int& outVersion )
                                   ENGINE_CONFIG_FORMAT_VERSION,
                                   path );
     }
-    // Version 0 is the deterministic legacy step: the original key/value
-    // grammar already has v1 semantics, so upgrading requires no field rewrite.
+    // Versions 0 and 1 share the key/value grammar. The v1->v2 mutual-gravity
+    // worker key is optional, so absence deterministically selects its true
+    // built-in default while the migration tool materializes that value.
     return SbResult::Success();
 }
 } // anonymous namespace

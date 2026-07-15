@@ -29,6 +29,8 @@ Glossary:
   PhysicsScene: Step owner that supplies stores and handles model-order
     writeback after compact physics work finishes.
   Lane F: Fatal invariant lane for should-never-happen engine state.
+  Mutual-gravity pair scratch: Triangular array with one force value for every
+    `(i,j)` body pair, populated in parallel and replayed in serial model order.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -36,6 +38,8 @@ Invariants:
   - Fixed-capacity physics scratch buffers must not grow during gameplay; an
     exhausted reserve is a Lane F failure because continuing would either
     allocate on a hot path or silently drop deterministic side effects.
+  - Mutual-gravity chunk scheduling may vary, but pair slots and the final
+    triangular replay order never depend on worker count.
 
 Related:
   - SkullbonezSource/Physics/PhysicsWorld.h
@@ -99,6 +103,11 @@ constexpr int PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS = 16;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MAX_AVG_PAIRS_PER_ISLAND = 4;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MAX_PAIRS_PER_BODY = 2;
 constexpr bool PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED = true;
+constexpr int MUTUAL_GRAVITY_MAX_BODIES = 512;
+constexpr int MUTUAL_GRAVITY_ROWS_PER_CHUNK = 8;
+constexpr int MUTUAL_GRAVITY_MAX_CHUNKS =
+    ( MUTUAL_GRAVITY_MAX_BODIES + MUTUAL_GRAVITY_ROWS_PER_CHUNK - 1 ) / MUTUAL_GRAVITY_ROWS_PER_CHUNK;
+constexpr int MUTUAL_GRAVITY_PARALLEL_MIN_BODIES = 32;
 constexpr float PHYSICS_OBJECT_CCD_RADIUS_FRACTION = 0.25f;
 constexpr float PHYSICS_OBJECT_CCD_SKIN_SCALE = 4.0f;
 constexpr float PHYSICS_FAST_SWEEP_MAX_RADIUS = 1.0f;
@@ -126,6 +135,16 @@ constexpr uint32_t PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH =
     HashStr( "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands" );
 constexpr uint32_t PHYSICS_TERRAIN_DETECT_WORKER_HASH = HashStr( "Frame/Physics/Terrain/Detect/WorkerBodies" );
 constexpr uint32_t PHYSICS_INTEGRATE_WORKER_HASH = HashStr( "Frame/Physics/Integrate/WorkerBodies" );
+
+constexpr std::size_t MutualGravityPairCount( std::size_t bodyCount )
+{
+    return bodyCount > 1 ? bodyCount * ( bodyCount - 1 ) / 2 : 0;
+}
+
+constexpr std::size_t MutualGravityRowOffset( int row, int bodyCount )
+{
+    return static_cast<std::size_t>( row ) * static_cast<std::size_t>( 2 * bodyCount - row - 1 ) / 2;
+}
 
 template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
 {
@@ -980,6 +999,7 @@ void PhysicsWorld::Clear()
 {
     m_timeRemaining.clear();
     m_mutualGravityForces.clear();
+    m_mutualGravityPairForces.clear();
     m_candidatePairs.clear();
     m_sleepSupportedThisFrame.clear();
     m_sleepInhibitedThisFrame.clear();
@@ -1029,6 +1049,8 @@ void PhysicsWorld::Clear()
 void PhysicsWorld::ReserveBodyScratchCapacity( std::size_t capacity )
 {
     m_mutualGravityForces.reserve( capacity );
+    const std::size_t pairBodyCapacity = (std::min)( capacity, static_cast<std::size_t>( MUTUAL_GRAVITY_MAX_BODIES ) );
+    m_mutualGravityPairForces.reserve( MutualGravityPairCount( pairBodyCapacity ) );
 }
 
 
@@ -3469,7 +3491,9 @@ void PhysicsWorld::ApplySleepIslandTransitions( PhysicsBodyStore& bodyStore,
 
 const Vector3* PhysicsWorld::PrepareMutualGravityForces( std::span<const PhysicsBodyRecord> bodyRecords,
                                                          int modelCount,
-                                                         const PhysicsWorldForces& worldForces )
+                                                         const PhysicsWorldForces& worldForces,
+                                                         const SkullbonezCore::Core::EngineConfig& config,
+                                                         Threading::WorkerPool& workerPool )
 {
     const MutualGravitySettings& settings = worldForces.mutualGravity;
     if ( !settings.enabled || settings.gravitationalConstant <= 0.0f || modelCount <= 0 )
@@ -3477,24 +3501,101 @@ const Vector3* PhysicsWorld::PrepareMutualGravityForces( std::span<const Physics
         return nullptr;
     }
 
-    const std::size_t requiredCapacity = static_cast<std::size_t>( modelCount );
-    if ( m_mutualGravityForces.capacity() < requiredCapacity )
+    const std::size_t requiredBodyCapacity = static_cast<std::size_t>( modelCount );
+    const std::size_t requiredPairCapacity = MutualGravityPairCount( requiredBodyCapacity );
+    if ( modelCount > MUTUAL_GRAVITY_MAX_BODIES || m_mutualGravityForces.capacity() < requiredBodyCapacity ||
+         m_mutualGravityPairForces.capacity() < requiredPairCapacity )
     {
         SB_FATAL( "Physics/MutualGravity",
-                  "Mutual gravity scratch capacity exhausted. capacity=%zu required=%zu",
+                  "Mutual gravity scratch capacity exhausted: owner=Physics/MutualGravity phase=steady_gameplay "
+                  "body_capacity=%zu pair_capacity=%zu required_bodies=%zu required_pairs=%zu max_bodies=%d "
+                  "pair_high_water=%zu.",
                   m_mutualGravityForces.capacity(),
-                  requiredCapacity );
+                  m_mutualGravityPairForces.capacity(),
+                  requiredBodyCapacity,
+                  requiredPairCapacity,
+                  MUTUAL_GRAVITY_MAX_BODIES,
+                  m_mutualGravityPairHighWater );
     }
 
-    // Concept: this serial pre-pass accumulates Newton-pair forces in model
-    // order before the ordinary per-body force stage. The triangular loop keeps
-    // equal-and-opposite forces bitwise paired and avoids worker scheduling
-    // becoming part of deterministic physics state.
-    m_mutualGravityForces.assign( requiredCapacity, ZERO_VECTOR );
+    m_mutualGravityPairHighWater = (std::max)( m_mutualGravityPairHighWater, requiredPairCapacity );
+    m_mutualGravityForces.assign( requiredBodyCapacity, ZERO_VECTOR );
+    m_mutualGravityPairForces.assign( requiredPairCapacity, ZERO_VECTOR );
     const float softeningLength = (std::max)( settings.softeningLength, TOLERANCE );
     const float softenedDistanceSq = softeningLength * softeningLength;
     const float gravitationalConstant = settings.gravitationalConstant;
 
+    Threading::WorkerChunkRange chunks[MUTUAL_GRAVITY_MAX_CHUNKS] = {};
+    int chunkCount = 0;
+    for ( int rowBegin = 0; rowBegin < modelCount; rowBegin += MUTUAL_GRAVITY_ROWS_PER_CHUNK )
+    {
+        const int rowEnd = (std::min)( modelCount, rowBegin + MUTUAL_GRAVITY_ROWS_PER_CHUNK );
+        chunks[chunkCount] = { chunkCount, rowBegin, rowEnd };
+        ++chunkCount;
+    }
+
+    // Invariant: row boundaries are a pure function of modelCount and the
+    // compile-time row size. Worker count changes scheduling only; every pair
+    // writes one unique flat slot and cannot race with another chunk.
+    const auto buildPairForces = [&]( int, int rowBegin, int rowEnd )
+    {
+        PROFILE_WORKER_SCOPED( "Frame/Physics/MutualGravity/PairBuildWorker" );
+        for ( int i = rowBegin; i < rowEnd; ++i )
+        {
+            const PhysicsBodyRecord& bodyA = bodyRecords[static_cast<std::size_t>( i )];
+            if ( bodyA.mass <= TOLERANCE )
+            {
+                continue;
+            }
+
+            const bool bodyAReceives = !bodyA.isFixed && bodyA.invMass > 0.0f &&
+                                       ( i >= static_cast<int>( m_sleepState.size() ) || m_sleepState[i] == 0 );
+            const std::size_t rowOffset = MutualGravityRowOffset( i, modelCount );
+            for ( int j = i + 1; j < modelCount; ++j )
+            {
+                const PhysicsBodyRecord& bodyB = bodyRecords[static_cast<std::size_t>( j )];
+                if ( bodyB.mass <= TOLERANCE )
+                {
+                    continue;
+                }
+
+                const bool bodyBReceives = !bodyB.isFixed && bodyB.invMass > 0.0f &&
+                                           ( j >= static_cast<int>( m_sleepState.size() ) || m_sleepState[j] == 0 );
+                if ( !bodyAReceives && !bodyBReceives )
+                {
+                    continue;
+                }
+
+                const Vector3 displacement = bodyB.position - bodyA.position;
+                const float distanceSq = Vector::VectorMagSquared( displacement ) + softenedDistanceSq;
+                const float invDistance = 1.0f / sqrtf( distanceSq );
+                const float invDistanceCubed = invDistance * invDistance * invDistance;
+                m_mutualGravityPairForces[rowOffset + static_cast<std::size_t>( j - i - 1 )] =
+                    displacement * ( gravitationalConstant * bodyA.mass * bodyB.mass * invDistanceCubed );
+            }
+        }
+    };
+
+    const bool runParallel = config.physicsExecution.parallel && config.physicsExecution.parallelMutualGravity &&
+                             modelCount >= MUTUAL_GRAVITY_PARALLEL_MIN_BODIES && workerPool.GetThreadCount() > 0;
+    PROFILE_BEGIN( "Frame/Physics/MutualGravity/PairBuild" );
+    if ( runParallel )
+    {
+        workerPool.ParallelForChunksNoAlloc( chunks, chunkCount, buildPairForces );
+    }
+    else
+    {
+        for ( int chunkIndex = 0; chunkIndex < chunkCount; ++chunkIndex )
+        {
+            const Threading::WorkerChunkRange& chunk = chunks[chunkIndex];
+            buildPairForces( chunk.chunkIndex, chunk.begin, chunk.end );
+        }
+    }
+    PROFILE_END( "Frame/Physics/MutualGravity/PairBuild" );
+
+    // Invariant: replay the original triangular pair order exactly. Chunk
+    // partial-body reduction would regroup additions and change float bits;
+    // storing pair forces makes scheduling invisible to accumulation order.
     for ( int i = 0; i < modelCount; ++i )
     {
         const PhysicsBodyRecord& bodyA = bodyRecords[static_cast<std::size_t>( i )];
@@ -3505,6 +3606,7 @@ const Vector3* PhysicsWorld::PrepareMutualGravityForces( std::span<const Physics
 
         const bool bodyAReceives = !bodyA.isFixed && bodyA.invMass > 0.0f &&
                                    ( i >= static_cast<int>( m_sleepState.size() ) || m_sleepState[i] == 0 );
+        const std::size_t rowOffset = MutualGravityRowOffset( i, modelCount );
         for ( int j = i + 1; j < modelCount; ++j )
         {
             const PhysicsBodyRecord& bodyB = bodyRecords[static_cast<std::size_t>( j )];
@@ -3512,19 +3614,13 @@ const Vector3* PhysicsWorld::PrepareMutualGravityForces( std::span<const Physics
             {
                 continue;
             }
-
             const bool bodyBReceives = !bodyB.isFixed && bodyB.invMass > 0.0f &&
                                        ( j >= static_cast<int>( m_sleepState.size() ) || m_sleepState[j] == 0 );
             if ( !bodyAReceives && !bodyBReceives )
             {
                 continue;
             }
-
-            const Vector3 displacement = bodyB.position - bodyA.position;
-            const float distanceSq = Vector::VectorMagSquared( displacement ) + softenedDistanceSq;
-            const float invDistance = 1.0f / sqrtf( distanceSq );
-            const float invDistanceCubed = invDistance * invDistance * invDistance;
-            const Vector3 force = displacement * ( gravitationalConstant * bodyA.mass * bodyB.mass * invDistanceCubed );
+            const Vector3& force = m_mutualGravityPairForces[rowOffset + static_cast<std::size_t>( j - i - 1 )];
 
             if ( bodyAReceives )
             {
@@ -3581,7 +3677,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     // Sleeping bodies keep cached state until a contact or scene change wakes
     // them, so force integration only runs for awake rows.
-    const Vector3* mutualGravityForces = PrepareMutualGravityForces( bodyRecords, modelCount, worldForces );
+    const Vector3* mutualGravityForces =
+        PrepareMutualGravityForces( bodyRecords, modelCount, worldForces, config, workerPool );
     PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
     ApplyForcesStageContext applyForcesStage{
         bodyStore,
@@ -3830,6 +3927,7 @@ uint64_t PhysicsWorld::CollectMemoryBytes() const
     bytes += VectorCapacityBytes( m_candidatePairs );
     bytes += VectorCapacityBytes( m_timeRemaining );
     bytes += VectorCapacityBytes( m_mutualGravityForces );
+    bytes += VectorCapacityBytes( m_mutualGravityPairForces );
     bytes += VectorCapacityBytes( m_sleepSupportedThisFrame );
     bytes += VectorCapacityBytes( m_sleepInhibitedThisFrame );
     bytes += VectorCapacityBytes( m_sleepState );

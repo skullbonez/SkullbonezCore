@@ -405,10 +405,10 @@
         ".reserve(",
         ".resize("
       ],
-      "owner": "Physics preallocated/replay static STL surface",
+      "owner": "PhysicsWorld bounded scratch and replay vectors",
       "phase": "startup_preallocation_scene_load_replay",
-      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
-      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
+      "reason": "PhysicsWorld reserves model/contact/replay vectors before steady gameplay. Mutual-gravity pair forces use the same scene-load reserve boundary, then assign only within retained capacity during fixed ticks; the runtime allocation guard rejects accidental growth.",
+      "cap": "Mutual gravity is capped at 512 bodies: 130,816 pair Vector3 rows (1,569,792 bytes) plus 512 reduced-force rows. Other vectors remain bounded by scene model/body/contact capacities or replay snapshot hard caps.",
       "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
     },
     {
@@ -416,10 +416,10 @@
       "patterns": [
         "std::vector<"
       ],
-      "owner": "Physics preallocated/replay static STL surface",
+      "owner": "PhysicsWorld bounded scratch and replay vectors",
       "phase": "startup_preallocation_scene_load_replay",
-      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
-      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
+      "reason": "PhysicsWorld owns preallocated model/contact/replay arrays and the triangular mutual-gravity pair-force scratch. No vector member is allowed to grow after its scene-load/replay reserve boundary.",
+      "cap": "Mutual gravity is capped at 512 bodies: 130,816 pair Vector3 rows (1,569,792 bytes) plus 512 reduced-force rows. Other vectors remain bounded by scene model/body/contact capacities or replay snapshot hard caps.",
       "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
     },
     {
