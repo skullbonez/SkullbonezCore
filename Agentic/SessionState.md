@@ -10,16 +10,30 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `15th-of-July-Night-Runner` (created from current `origin/main` at `b2d085f9c`) |
+| Branch | `claude/night-runner-code-review-8gw5g6` (fast-forwarded onto the `15th-of-July-Night-Runner` round-4 tip `2da6b219`) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Round-4 remediation complete; no executable active/future plan remains |
-| Active/future progress | 22 / 22 tasks = 100% overall (round-4 remediation plans only; externally blocked work is excluded) |
+| Current objective | Execute the three round-5 plans from the 2026-07-15 review of round-4 claims: mutual-gravity large-scene fallback (removes a reachable Release fatal), FP envelope hardening (diagnose the inline flip, pin contraction, re-scope determinism docs), and math-fatal survey restoration |
+| Active/future progress | 0 / 10 tasks = 0% overall (round-5 plans only; completed rounds and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
 | Validation for current edits | Runtime-signature-decomposition T1-T5 closed at 5/5. Eleven owner-plumbing calls now take stack-only host/interaction/scene views and have 4–6 arguments. The persistent survey records 208 unique wide invocation names with individual dispositions. Independent review found no authority bag, callbacks, retained views, or reach-back. `tools\validate_full.bat` passed in 170.7s: zero-warning builds, CPU lanes, five engine processes, zero DX12 InfoQueue errors, matching screenshots, and the unchanged 44,401-line byte-exact physics baseline. Touched-source comment audit passed 6/6, zero deferred. |
 
 ## Live Queue
 
-0. Round-4 adversarial-review remediation is the active lane (2026-07-15).
+00. Round-5 adversarial-review remediation is the active lane (2026-07-15,
+    from the owner-commissioned review of round-4 claims). Binding order:
+    `mutual-gravity-large-scene-fallback` → `fp-envelope-hardening` →
+    `math-fatal-survey-restoration` (the last two are mutually independent;
+    the survey waits on FP hardening only if both touch the same Maths
+    files). Owner rulings: FP work is layers 1-3 only — diagnose the
+    ff6e780e inline knife-edge flip, pin `/fp:contract-`/`fp_contract(off)`
+    across all four projects, and re-scope the determinism docs to the
+    certified binary+envelope+content contract; manifold hysteresis is
+    deferred to the future SIMD lane. Gravity restores the pre-round-4
+    8,192-body envelope with an exact serial fallback above the 512-body
+    pair-scratch cap. The survey plan retro-commits the missing round-4
+    math-fatal T2 classification evidence. Zero baseline refresh is
+    authorized anywhere in this round.
+1. Round-4 adversarial-review remediation completed 22/22 (2026-07-15).
    Six plans registered in MASTER with a binding order: `win32-message-pump-
    drain` → `data-driven-shadow-caster-streams` → `vector3-inline-hot-math` →
    `math-fatal-removal` → `deterministic-parallel-mutual-gravity` →
@@ -172,8 +186,13 @@ plan inventory.
 
 ## Next Handoff
 
-Round 4 is complete at 22/22 on `15th-of-July-Night-Runner`; there is no
-remaining executable plan in the active/future portfolio. The externally
-administered validation-gate V3 lane remains blocked on merge-group proof,
-required `main` branch protection, and trusted/ephemeral DX12 runner
-administration, and is excluded from the executable portfolio ledger.
+The 2026-07-15 adversarial review of the round-4 claims produced three
+round-5 plans, registered in MASTER with a 0/10 ledger. Start with
+`Plans/TODO/mutual-gravity-large-scene-fallback.md` — it removes a reachable
+Release process kill (>512 gravity bodies now fatal where 8,192 previously
+worked). No source changes have been made yet for this round; zero baseline
+refresh is authorized. Documentation-honesty findings from the same review
+(pine "as material data" framing, dropped `std::floor` transcription,
+boilerplate inventory keep-reasons, report-path convention) are recorded in
+MASTER round 5 without plans. The externally administered validation-gate V3
+lane remains blocked and excluded from the ledger.

@@ -89,30 +89,35 @@ Rules:
 ### Portfolio Progress Ledger
 
 Scope: active and future implementation work only. Per the 2026-07-15 owner
-decision, the active portfolio is the six round-4 adversarial-review
-remediation plans below. Replay monolith decomposition (9/9) and future-path
-vector splines (7/7) completed on `nightrunner-14th-july` and left the ledger
-as historical work per commit-contract rule 4. Completed past plans and the
-externally blocked validation lane are deliberately excluded, so this number
-measures remaining executable work instead of lifetime repository work.
+decision after the round-4 claims review, the active portfolio is the three
+round-5 plans below. The six round-4 plans completed at 22/22 on
+`15th-of-July-Night-Runner` and leave the ledger as historical work per
+commit-contract rule 4; two of their closures are partially reopened by
+round-5 rows (`deterministic-parallel-mutual-gravity` by the large-scene
+fallback, `math-fatal-removal` T2 by the survey restoration). Completed past
+plans and the externally blocked validation lane are deliberately excluded,
+so this number measures remaining executable work instead of lifetime
+repository work.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| win32-message-pump-drain | 3 | 3 | 100% |
-| data-driven-shadow-caster-streams | 3 | 3 | 100% |
-| vector3-inline-hot-math | 3 | 3 | 100% |
-| math-fatal-removal | 4 | 4 | 100% |
-| deterministic-parallel-mutual-gravity | 4 | 4 | 100% |
-| runtime-signature-decomposition | 5 | 5 | 100% |
-| **Active/future total** | **22** | **22** | **100%** |
+| fp-envelope-hardening | 0 | 4 | 0% |
+| mutual-gravity-large-scene-fallback | 0 | 3 | 0% |
+| math-fatal-survey-restoration | 0 | 3 | 0% |
+| **Active/future total** | **0** | **10** | **0%** |
 
 ## Current Execution Priority
 
-All six 2026-07-15 round-4 remediation plans are complete at 22/22. There is
-no remaining executable plan in the active/future portfolio. Validation-gate
-V3 remains externally blocked and deliberately excluded from this ledger. The
-previous critical path (`replay visual-fidelity mega probe → replay monolith
-decomposition`) completed on `nightrunner-14th-july`.
+The binding critical path is the 2026-07-15 round-5 lane:
+`mutual-gravity-large-scene-fallback → fp-envelope-hardening →
+math-fatal-survey-restoration`. The gravity fallback goes first because it
+removes a reachable Release process kill; the FP and survey plans are
+independent of it and of each other (the survey runs after FP hardening only
+if both touch the same Maths files). All six round-4 plans completed at 22/22
+on `15th-of-July-Night-Runner`; validation-gate V3 remains externally blocked
+and deliberately excluded from this ledger. The previous critical path
+(`replay visual-fidelity mega probe → replay monolith decomposition`)
+completed on `nightrunner-14th-july`.
 
 0. **Validation-gate V3 — blocked external lane.** Repository implementation is
    complete. Remaining work requires a real `merge_group` proof, required CPU
@@ -332,6 +337,27 @@ against unchanged committed baselines. Gravity satisfies the bitwise-identity
 obligation with one unique slot per pair and serial replay in the original
 triangular order; chunk-local body sums were rejected because they regroup
 floating-point additions.
+
+## Adversarial Review Remediation Round 5 (2026-07-15)
+
+Source: 2026-07-15 owner-commissioned adversarial review of the round-4
+claims and diffs on `15th-of-July-Night-Runner`. Two findings reopen round-4
+closures (per the review-finding rule, a credible finding reopens the owning
+checklist item); one hardens the FP envelope that the Vector3 inlining flip
+exposed. Owner rulings 2026-07-15: FP work is layers 1-3 only (diagnose, pin
+contraction, re-scope contract docs) with manifold hysteresis explicitly
+deferred to the future SIMD lane; the gravity fix restores the old envelope
+via an exact serial fallback rather than growing scratch or approximating.
+Findings ruled documentation-honesty only (the "as material data" framing of
+the pine relocation, the dropped `std::floor` transcription note, boilerplate
+keep-reasons in the 208-row inventory, and the report-path convention miss)
+are recorded here without plans; re-litigation requires new evidence.
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [mutual-gravity-large-scene-fallback](TODO/mutual-gravity-large-scene-fallback.md) | Active | 0/3 | Reopens round-4 gravity closure: >512-body scenes must run the exact serial path instead of a Release fatal |
+| [fp-envelope-hardening](TODO/fp-envelope-hardening.md) | Active | 0/4 | Diagnose the ff6e780e inline flip, pin `/fp:contract-` everywhere, re-scope determinism docs to the certified envelope |
+| [math-fatal-survey-restoration](TODO/math-fatal-survey-restoration.md) | Active | 0/3 | Reopens round-4 math-fatal T2: regenerate and commit the call-site classification survey; close any gaps it finds |
 
 ## Features
 
