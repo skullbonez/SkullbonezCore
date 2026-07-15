@@ -319,3 +319,27 @@ T1 is documentation-only; no repository validation is required. T4 will rerun
 the balanced-token scan after the conversions, update the surviving exact
 counts, and verify that every remaining >=12 row has the individual reason
 recorded here rather than an old category boilerplate.
+
+### T2 render conversion evidence
+
+`BuildRuntimeRenderInputs` is deleted. `RuntimeRenderer::RenderFrameEntry`
+now designated-initializes the existing `RuntimeRenderInputs` and nested
+`RuntimeRenderServices` directly at the single call site, preserving the exact
+20 source expressions and declaration order while labeling every borrow. No
+second desc type, extra copy, stored frame value, or owner boundary was added.
+
+Evidence on 2026-07-16:
+
+- targeted `Profile|x64` build: passed in 11.50 s with zero warnings/errors;
+- `tools\\validate_format.bat`: passed for all implementations and 251 headers;
+- `tools\\validate_dx12_renderer.bat`: exited `0` in 51.94 s with zero-warning
+  Profile/Debug builds, zero DX12 InfoQueue errors, and all committed screenshot
+  comparisons passing;
+- `tools\\run_graphics_stress.bat 1`: exited `0` in 62.72 s after the bounded
+  one-minute PID-scoped run (PID 32932), with empty stderr, tracked overshoot
+  `0`, and memory reconciliation delta `0`.
+
+Comment-quality audit: 1/1 touched source file inspected, zero deferred. The
+renderer retains its full learning header and the new local `Why:` comment
+states the field-label and one-frame lifetime contract. No baseline, screenshot,
+golden, scene, or authored-data file changed.

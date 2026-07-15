@@ -1,7 +1,7 @@
 # Wide-Call Desc-Struct Pass — Retire The 12-To-20 Argument Tail
 
 Date: 2026-07-15
-Status: Active — 1/5 tasks complete
+Status: Active — 2/5 tasks complete
 Impact area: `Runtime/Render/RuntimeRenderer`, `Runtime/Replay/*` call sites,
 `Runtime/Editor/RunEditorTracer`, the wide-invocation inventory report
 Owner: runtime shell / replay presentation
@@ -65,11 +65,17 @@ no behavior, ordering, or float change; all baselines and goldens unchanged.
       normalization-factory reasons. Current count shifts from the Run shrink
       are reconciled (`ExecutePending` 22, `Load` 23). Documentation-only; no
       repository validation required.
-- [ ] T2 — Render side: replace the `BuildRuntimeRenderInputs` 20-arg call
+- [x] T2 — Render side: replace the `BuildRuntimeRenderInputs` 20-arg call
       with direct designated-initializer construction (or a desc struct if
       derivation logic exists inside the builder — record which). Mapped
       gate: this is render-stream code ⇒ `tools\validate_dx12_renderer.bat`
       + `tools\run_graphics_stress.bat 1`.
+      Evidence: the restating builder is deleted and the existing nested
+      render records are designated directly with all 20 original expressions
+      and no new type/copy. Profile build and formatting passed; the DX12 gate
+      exited 0 in 51.94 s with zero InfoQueue errors and matching screenshots;
+      graphics stress exited 0 in 62.72 s with empty stderr and zero memory
+      reconciliation delta. Comment audit 1/1; no baseline refresh.
 - [ ] T3 — Replay/editor side: convert the ≥12-arg replay/editor rows to desc
       structs with designated initializers, byte-identical argument values.
       Mapped gate: `Runtime/Replay/*` changes ⇒

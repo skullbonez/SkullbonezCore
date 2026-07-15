@@ -634,34 +634,6 @@ void WriteCinematicPostGraphEvidence(
     }
 }
 
-RuntimeRenderInputs BuildRuntimeRenderInputs( SkullbonezCore::Assets::AssetSystem& assets,
-                                              SkullbonezCore::Textures::TextureCollection& textures,
-                                              SkullbonezCore::Geometry::Terrain* terrain,
-                                              SkullbonezCore::Environment::CameraCollection& cameras,
-                                              Window& window,
-                                              SkullbonezCore::Geometry::SkyBox* skyBox,
-                                              const RuntimeRenderModelFrameView& models,
-                                              SkullbonezCore::Environment::WorldEnvironment& world,
-                                              SkullbonezCore::UI::InGameUI& ui,
-                                              RuntimeTools& runtimeTools,
-                                              const ReplayRenderFrameView& replayFrame,
-                                              const RenderToolOverlayView& toolOverlay,
-                                              const RuntimeRenderFramePolicy& framePolicy,
-                                              SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
-                                              SkullbonezCore::Rendering::IRenderResourceFactory& renderResources,
-                                              SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics,
-                                              SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing,
-                                              const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                                              bool cinematicEnabled,
-                                              bool renderReady )
-{
-    return RuntimeRenderInputs{ RuntimeRenderServices{
-        assets,           textures,   models,           world,          terrain,         cameras,
-        window,           ui,         runtimeTools,     replayFrame,    toolOverlay,     framePolicy,
-        skyBox,           cinematic,  cinematicEnabled, renderCommands, renderResources, renderDiagnostics,
-        renderRayTracing, renderReady } };
-}
-
 SkullbonezCore::Rendering::RenderGraphResourceHandle AddFrameColorTarget( SkullbonezCore::Rendering::RenderGraph& graph,
                                                                           bool useCinematicTarget )
 {
@@ -2329,24 +2301,27 @@ bool RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
 
     const bool cinematicRender =
         ( context.cinematicRequested || m_consequenceGradeStrength > 0.01f ) && renderReady && !policy.textOnly;
-    return RenderFrame( BuildRuntimeRenderInputs( m_assets,
-                                                  m_textures,
-                                                  m_terrain.Get(),
-                                                  m_cameras,
-                                                  m_window,
-                                                  m_skyBox.get(),
-                                                  context.renderModels,
-                                                  m_world,
-                                                  context.ui,
-                                                  runtimeTools,
-                                                  replayFrame,
-                                                  context.toolOverlay,
-                                                  policy,
-                                                  *renderCommands,
-                                                  *renderResources,
-                                                  *renderDiagnostics,
-                                                  renderRayTracing,
-                                                  frameCinematic,
-                                                  cinematicRender,
-                                                  renderReady ) );
+    // Why: this call constructs the one-frame render record directly. Field
+    // labels keep every live borrow visible and prevent positional drift when
+    // RuntimeRenderServices changes; RenderFrame does not retain the record.
+    return RenderFrame( RuntimeRenderInputs{ .services = RuntimeRenderServices{ .assets = m_assets,
+                                                                                .textures = m_textures,
+                                                                                .models = context.renderModels,
+                                                                                .world = m_world,
+                                                                                .terrain = m_terrain.Get(),
+                                                                                .cameras = m_cameras,
+                                                                                .window = m_window,
+                                                                                .ui = context.ui,
+                                                                                .runtimeTools = runtimeTools,
+                                                                                .replayFrame = replayFrame,
+                                                                                .toolOverlay = context.toolOverlay,
+                                                                                .framePolicy = policy,
+                                                                                .skyBox = m_skyBox.get(),
+                                                                                .cinematic = frameCinematic,
+                                                                                .cinematicEnabled = cinematicRender,
+                                                                                .renderCommands = *renderCommands,
+                                                                                .renderResources = *renderResources,
+                                                                                .renderDiagnostics = *renderDiagnostics,
+                                                                                .renderRayTracing = renderRayTracing,
+                                                                                .renderReady = renderReady } } );
 }
