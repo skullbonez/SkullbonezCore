@@ -525,11 +525,19 @@ SkullbonezCore::Core::SbResult Run::Execute()
     }
     MSG msg;
     int messageExitCode = 0;
+    constexpr int kMaxMessagesPerFrame = 256;
 
     for ( ;; )
     {
-        if ( PeekMessage( &msg, nullptr, 0, 0, PM_REMOVE ) )
+        bool quitRequested = false;
+        int messagesDrained = 0;
+        // Hazard: a device or window can flood the thread queue faster than
+        // frame work consumes it. The cap keeps rendering responsive by
+        // deferring excess messages to the next frame; reaching it is not an
+        // error and preserves FIFO order in the Win32 queue.
+        while ( messagesDrained < kMaxMessagesPerFrame && PeekMessage( &msg, nullptr, 0, 0, PM_REMOVE ) )
         {
+            ++messagesDrained;
             if ( msg.message == WM_QUIT )
             {
                 if ( m_graphicsStress.IsEnabled() )
@@ -545,12 +553,17 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 // one already exists; otherwise translate the posted integer.
                 m_applicationExit.RequestNormalExit();
                 messageExitCode = static_cast<int>( msg.wParam );
+                quitRequested = true;
                 break;
             }
             TranslateMessage( &msg );
             DispatchMessage( &msg );
         }
-        else
+        if ( quitRequested )
+        {
+            break;
+        }
+
         {
             RuntimeAllocation::RuntimeAllocationScope frameAllocationScope(
                 RuntimeAllocation::RuntimeAllocationPhase::SteadyGameplay );

@@ -98,25 +98,25 @@ measures remaining executable work instead of lifetime repository work.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| win32-message-pump-drain | 0 | 3 | 0% |
+| win32-message-pump-drain | 3 | 3 | 100% |
 | data-driven-shadow-caster-streams | 0 | 3 | 0% |
 | vector3-inline-hot-math | 0 | 3 | 0% |
 | math-fatal-removal | 0 | 4 | 0% |
 | deterministic-parallel-mutual-gravity | 0 | 4 | 0% |
 | runtime-signature-decomposition | 0 | 5 | 0% |
-| **Active/future total** | **0** | **22** | **0%** |
+| **Active/future total** | **3** | **22** | **14%** |
 
 ## Current Execution Priority
 
 For maximum impact with minimal rework, use this binding critical path:
 
-`win32-message-pump-drain → data-driven-shadow-caster-streams →
-vector3-inline-hot-math → math-fatal-removal →
+`data-driven-shadow-caster-streams → vector3-inline-hot-math →
+math-fatal-removal →
 deterministic-parallel-mutual-gravity → runtime-signature-decomposition`
-(the 2026-07-15 round-4 remediation lane), while validation-gate V3 remains
-externally blocked. Plans 1-2 and 3-5 touch disjoint files and may run as
-parallel lanes if desired; the ordering within 3→4→5 and pump→signatures is
-binding. The previous critical path
+(the remaining 2026-07-15 round-4 remediation lane), while validation-gate V3
+remains externally blocked. The message-pump plan is complete. Plans 1-2 and
+3-5 touch disjoint files and may run as parallel lanes if desired; the ordering
+within 3→4→5 and pump→signatures is binding. The previous critical path
 (`replay visual-fidelity mega probe → replay monolith decomposition`)
 completed on `nightrunner-14th-july`.
 
@@ -325,7 +325,7 @@ Binding execution order — small isolated wins first, shared-file work last:
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [win32-message-pump-drain](TODO/win32-message-pump-drain.md) | Active | 0/3 | Restructure `Run::Execute` to drain the queue then run one frame |
+| `win32-message-pump-drain` | Complete | 3/3 | Bounded drain-then-frame loop, interactive input/quit smoke, and unchanged full gate passed |
 | [data-driven-shadow-caster-streams](TODO/data-driven-shadow-caster-streams.md) | Active | 0/3 | Move stream selection to registration-time data; delete `IsPineVisualMaterial` |
 | [vector3-inline-hot-math](TODO/vector3-inline-hot-math.md) | Active | 0/3 | Header-inline all Vector3 ops; default copy/assign; keep 12-byte layout |
 | [math-fatal-removal](TODO/math-fatal-removal.md) | Active | 0/4 | After vector3 inlining: Try-APIs, debug asserts, call-site survey |
