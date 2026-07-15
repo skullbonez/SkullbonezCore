@@ -2,7 +2,7 @@
 
 Date: 2026-07-15
 Status: Active — registered in `MASTER-PLAN.md` by the 2026-07-15 activation
-governance commit. 0/11 tasks complete. P0's original registration sub-step
+governance commit. 1/11 tasks complete. P0's original registration sub-step
 (a) is already satisfied by that commit; P0 now covers certification, the
 frozen ownership map, and the recorded delegation ruling only.
 Impact area: `Physics/PhysicsWorld.{h,cpp}`, new `Physics/Stages/*` owners,
@@ -103,7 +103,7 @@ remain byte-exact throughout — zero refresh authorized at any task.
 
 ## Task Checklist
 
-- [ ] **P0 — Certification, ownership map, and delegation ruling.**
+- [x] **P0 — Certification, ownership map, and delegation ruling.**
       (a) MASTER/SessionState registration — ALREADY DONE by the 2026-07-15
       activation governance commit; verify the ledger row reads 0/11 and do
       not re-register. (b) Certify the starting tree: run

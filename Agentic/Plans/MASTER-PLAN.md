@@ -101,8 +101,8 @@ repository work.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| physicsworld-stage-owner-decomposition | 0 | 11 | 0% |
-| **Active/future total** | **0** | **11** | **0%** |
+| physicsworld-stage-owner-decomposition | 1 | 11 | 9% |
+| **Active/future total** | **1** | **11** | **9%** |
 
 The three round-5 plans (fp-envelope-hardening 4/4,
 mutual-gravity-large-scene-fallback 3/3, math-fatal-survey-restoration 3/3)
@@ -386,7 +386,7 @@ certification numbers.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physicsworld-stage-owner-decomposition](TODO/physicsworld-stage-owner-decomposition.md) | Active | 0/11 | P0: certify the starting tree under the pinned FP envelope and commit the frozen ownership map |
+| [physicsworld-stage-owner-decomposition](TODO/physicsworld-stage-owner-decomposition.md) | Active | 1/11 | P1: move stage contexts and functors into `Physics/Stages/` headers without moving behavior |
 
 ## Features
 
