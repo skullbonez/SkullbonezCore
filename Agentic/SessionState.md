@@ -10,12 +10,12 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `15th-of-July-Night-Runner` (synced through mutual-gravity closure commit `83ed08fb6`) |
+| Branch | `15th-of-July-Night-Runner` (synced through FP-envelope closure commit `6c5b4d3ea`) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Execute the final round-5 plan: regenerate the math-fatal call-site survey, close any gaps it finds, and restore the missing round-4 classification evidence |
-| Active/future progress | 7 / 10 tasks = 70% overall (round-5 plans only; completed rounds and externally blocked work are excluded) |
+| Current objective | Round-5 adversarial-review remediation is complete; preserve the closed 10/10 ledger and hand off the externally administered validation-gate V3 lane separately |
+| Active/future progress | 10 / 10 tasks = 100% overall (round-5 plans only; completed rounds and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | FP-envelope hardening T1-T4 closed at 4/4. The old fixture flips only in Profile across ff6e780e; bounded disassembly attributes it to the inline/packed-SSE optimizer boundary, not FMA, AVX, or x87 precision. All four projects force-include `FloatingPointContract.h`; an AVX2 compiler probe proves its pragma suppresses FMA contraction. `tools\validate_full.bat` passed in 330.3s with zero-warning builds, zero DX12 InfoQueue messages, and the unchanged 44,401-line physics baseline; `tools\validate_perf.bat` passed in 77.4s with zero allocation violations or performance regressions. Independent review found no remaining material issue. Touched-source comment audit passed 2/2, zero deferred. |
+| Validation for current edits | Math-fatal survey restoration T1-T3 closed at 3/3. The dated report reconciles 23 Vector3 named calls, 52 Vector3 division calls, and 24 Quaternion `Normalise` calls; zero reachable-degenerate rows remain on a plain Vector3 API without a row-specific guard/invariant, and `Maths/` still has zero `SB_FATAL`. Independent review found and then verified correction of one omitted bare Quaternion call. The diff is documentation-only with no source or baseline changes, so no repository validation was required. |
 
 ## Live Queue
 
@@ -42,6 +42,10 @@ plan inventory.
     change; all four projects force contraction off, the certified determinism
     envelope is documented honestly, and full/perf gates passed with the
     44,401-line physics baseline unchanged.
+    `math-fatal-survey-restoration` is complete at 3/3: the fresh report
+    reconciles every Vector3 named/division call and every Quaternion spelling
+    match, finds no migration gap, and closes documentation-only after an
+    independent completeness review.
 1. Round-4 adversarial-review remediation completed 22/22 (2026-07-15).
    Six plans registered in MASTER with a binding order: `win32-message-pump-
    drain` → `data-driven-shadow-caster-streams` → `vector3-inline-hot-math` →
@@ -195,9 +199,9 @@ plan inventory.
 
 ## Next Handoff
 
-Round 5 is 7/10 complete. The mutual-gravity large-scene fallback and FP
-envelope hardening passed all mapped gates without a baseline refresh. Continue
-with `Plans/TODO/math-fatal-survey-restoration.md`. Documentation-honesty findings
-from the same review remain recorded in MASTER without plans. The externally
+Round 5 is complete at 10/10. All three remediation plans closed without a
+baseline refresh; no active/future implementation plan remains in the ledger.
+Documentation-honesty findings from the same review remain recorded in MASTER
+without plans. The externally
 administered validation-gate V3 lane remains blocked and excluded from the
 ledger.

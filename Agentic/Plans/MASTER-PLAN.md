@@ -103,14 +103,14 @@ repository work.
 |---|---:|---:|---:|
 | fp-envelope-hardening | 4 | 4 | 100% |
 | mutual-gravity-large-scene-fallback | 3 | 3 | 100% |
-| math-fatal-survey-restoration | 0 | 3 | 0% |
-| **Active/future total** | **7** | **10** | **70%** |
+| math-fatal-survey-restoration | 3 | 3 | 100% |
+| **Active/future total** | **10** | **10** | **100%** |
 
 ## Current Execution Priority
 
-The binding critical path is the 2026-07-15 round-5 lane. The mutual-gravity
-large-scene fallback and FP-envelope hardening are complete; execute
-`math-fatal-survey-restoration` next. All six round-4 plans completed at 22/22 on
+The 2026-07-15 round-5 lane is complete at 10/10. The mutual-gravity
+large-scene fallback, FP-envelope hardening, and math-fatal survey restoration
+all closed without a baseline refresh. All six round-4 plans completed at 22/22 on
 `15th-of-July-Night-Runner`; validation-gate V3 remains externally blocked and
 deliberately excluded from this ledger. The previous critical path
 (`replay visual-fidelity mega probe → replay monolith decomposition`)
@@ -354,7 +354,7 @@ are recorded here without plans; re-litigation requires new evidence.
 |---|---|---:|---|
 | `mutual-gravity-large-scene-fallback` | Complete | 3/3 | Above 512 bodies, the original exact serial triangular loop bypasses pair scratch and workers; tests, allocation checks, and unchanged physics baseline passed |
 | [fp-envelope-hardening](../Reports/2026-07-15/fp-envelope-hardening-diagnosis.md) | Complete | 4/4 | The Profile-only ff6e780e inline flip is diagnosed as an inlining/packed-SSE optimizer-boundary change; forced `fp_contract(off)` now covers all four projects, the certified envelope is documented honestly, and full/perf gates passed without a baseline refresh |
-| [math-fatal-survey-restoration](TODO/math-fatal-survey-restoration.md) | Active | 0/3 | Reopens round-4 math-fatal T2: regenerate and commit the call-site classification survey; close any gaps it finds |
+| [math-fatal-survey-restoration](../Reports/2026-07-15/math-fatal-call-site-survey.md) | Complete | 3/3 | The regenerated survey reconciles 23 Vector3 named calls, 52 Vector3 divisions, and 24 Quaternion spelling matches; no migration gap remains, so closure is documentation-only |
 
 ## Features
 
