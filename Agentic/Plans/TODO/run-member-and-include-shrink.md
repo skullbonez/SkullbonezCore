@@ -1,7 +1,7 @@
 # Run Member And Include Shrink — Presentation/Diagnostics Owners Out Of The Composition Root
 
 Date: 2026-07-15
-Status: Active — 0/6 tasks complete
+Status: Active — 1/6 tasks complete
 Impact area: `Runtime/Run.h`, `Run.cpp`, `RunFrame.cpp`, `RunRender.cpp`,
 frame views, new mid-level owner(s), compile-time include graph
 Owner: runtime shell
@@ -52,7 +52,7 @@ No behavior change; all baselines unchanged.
 
 ## Tasks
 
-- [ ] T1 — Grouping proposal, committed before code moves to
+- [x] T1 — Grouping proposal, committed before code moves to
       `Agentic/Reports/2026-07-15/run-member-shrink-map.md`. Proposed split
       (adjust with evidence, record the final ruling): owner A
       `RuntimeOverlayDiagnostics` = three debug visualizers + `m_debug`
@@ -63,6 +63,14 @@ No behavior change; all baselines unchanged.
       one paragraph and name each moved member's tick/render call sites; if a
       member doesn't fit either owner cohesively, it stays on `Run` with a
       recorded reason rather than being forced in.
+      Evidence: `Agentic/Reports/2026-07-15/run-member-shrink-map.md` records
+      the final ruling. Owner A keeps UI/debug/three visualizers; owner B is
+      narrowed to live-style plus graphics-stress validation workflows;
+      contact audio stays on `Run` because its physics-post-step audio domain
+      fits neither owner and a third owner is disallowed. Every current
+      construction, launch, scene, frame-view, toggle, render, capture, and
+      post-step call position is mapped. Current measurements are 198 lines,
+      46 includes, and 31 ordinary member rows plus the Automation-only row.
 - [ ] T2 — Extract owner A with its constructor wiring, tick/render
       delegation at the exact existing call positions, and input-toggle
       routing (G/V key visualizer toggles etc.) unchanged. Frame views that

@@ -98,9 +98,9 @@ rule 4. The externally blocked validation lane remains deliberately excluded.
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | init-startup-decomposition | 5 | 5 | 100% |
-| run-member-and-include-shrink | 0 | 6 | 0% |
+| run-member-and-include-shrink | 1 | 6 | 17% |
 | wide-call-desc-struct-pass | 0 | 5 | 0% |
-| **Active/future total** | **5** | **16** | **31%** |
+| **Active/future total** | **6** | **16** | **38%** |
 
 The three round-5 plans (fp-envelope-hardening 4/4,
 mutual-gravity-large-scene-fallback 3/3, math-fatal-survey-restoration 3/3)
@@ -411,7 +411,7 @@ ownership review; replay-touching wide-call work runs the one-invocation
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | `init-startup-decomposition` | Complete | 5/5 | Init is a 453-line process orchestrator; four focused Startup owners, exact CLI proofs, independent ownership review, final full gate, and both manual exit-code probes are closed in `../Reports/2026-07-15/init-startup-decomposition-map.md` |
-| [run-member-and-include-shrink](TODO/run-member-and-include-shrink.md) | Active | 0/6 | After Init settles constructor wiring: T1 grouping proposal, then extract the two presentation/diagnostics owners and shrink Run.h's 46 includes |
+| [run-member-and-include-shrink](TODO/run-member-and-include-shrink.md) | Active | 1/6 | T2: extract `RuntimeOverlayDiagnostics` with UI/debug/three visualizers; contact audio remains on `Run` by recorded owner ruling |
 | [wide-call-desc-struct-pass](TODO/wide-call-desc-struct-pass.md) | Active | 0/5 | T1: re-resolve the ≥12-arg inventory rows post-PhysicsWorld, then desc-struct conversions with designated initializers |
 
 ## Features
