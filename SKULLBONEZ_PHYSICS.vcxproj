@@ -215,6 +215,9 @@
     <ClInclude Include="SkullbonezSource\Physics\SleepIslandSystem.h" />
     <ClInclude Include="SkullbonezSource\Physics\SolverBroadphaseStage.h" />
     <ClInclude Include="SkullbonezSource\Physics\SpatialGrid.h" />
+    <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseDispatch.inl" />
+    <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsStageContexts.h" />
+    <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsTerrainDispatch.inl" />
     <ClInclude Include="SkullbonezSource\Physics\TerrainContactManifold.h" />
     <ClInclude Include="SkullbonezSource\Physics\TornadoField.h" />
     <ClInclude Include="SkullbonezSource\Physics\TornadoGameplay.h" />

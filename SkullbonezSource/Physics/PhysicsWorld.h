@@ -54,6 +54,7 @@ Related:
 #include "../Runtime/Replay/ReplaySolverSnapshot.h"
 #include "SleepIslandSystem.h"
 #include "SpatialGrid.h"
+#include "Stages/PhysicsStageContexts.h"
 #include "TerrainContactManifold.h"
 #include "TornadoGameplay.h"
 
@@ -224,46 +225,8 @@ class PhysicsWorld
     };
 
   private:
-    struct TerrainDetectionCandidate
-    {
-        float availableTime = 0.0f;
-        TerrainContactSweepResult sweep;
-        uint8_t tested = 0;
-    };
-    struct TerrainDetectionStageContext
-    {
-        // Lifetime: terrain detection may run in worker callbacks, but it only
-        // borrows the current solver pass records and writes one candidate row
-        // per body index.
-        std::span<const PhysicsBodyRecord> bodyRecords;
-        std::span<const ColliderRecord> colliderRecords;
-        const SkullbonezCore::Core::EngineConfig& config;
-        const std::vector<uint8_t>& sleepState;
-        const std::vector<float>& timeRemaining;
-        std::vector<TerrainDetectionCandidate>& candidates;
-    };
+#include "Stages/PhysicsTerrainDispatch.inl"
     static void DetectTerrainAt( const TerrainDetectionStageContext& context, int bodyIndex );
-    struct TerrainDetectionStage
-    {
-        const TerrainDetectionStageContext& context;
-
-        void operator()( int bodyIndex ) const;
-    };
-    struct TerrainCandidateCommitContext
-    {
-        // Lifetime: terrain candidate commits run serially after detection, while
-        // the borrowed solver records and side-effect arrays still describe the
-        // current fixed-step terrain phase.
-        PhysicsBodyStore& bodyStore;
-        const ColliderStore& colliderStore;
-        std::span<const PhysicsBodyRecord> bodyRecords;
-        std::span<const ColliderRecord> colliderRecords;
-        const SkullbonezCore::Core::EngineConfig& config;
-        std::vector<TerrainContactManifold>& terrainContactManifolds;
-        std::vector<uint8_t>& sleepSupportedThisFrame;
-        std::vector<uint8_t>& sleepInhibitedThisFrame;
-        std::vector<float>& timeRemaining;
-    };
     void CommitTerrainCandidate( const TerrainCandidateCommitContext& context,
                                  int bodyIndex,
                                  float availableTime,
@@ -292,31 +255,6 @@ class PhysicsWorld
                                       int modelCount,
                                       uint8_t sleepFrames );
 
-    enum class ObjectNarrowphaseEventKind : uint8_t
-    {
-        None,
-        SweptObjectHit,
-        SweptObjectMiss,
-        WakeDecision
-    };
-
-    struct ObjectNarrowphaseEvent
-    {
-        ObjectNarrowphaseEventKind kind = ObjectNarrowphaseEventKind::None;
-        PhysicsPipelineRecord pipelineRecord;
-        int collisionTimeBodyA = -1;
-        int collisionTimeBodyB = -1;
-        float collisionTime = 0.0f;
-        float availableTime = 0.0f;
-        int visualBodyA = -1;
-        int visualBodyB = -1;
-        int64_t collisionCellKey = 0;
-        uint8_t hasPipelineRecord = 0;
-        uint8_t emitCollisionTime = 0;
-        uint8_t markVisualContact = 0;
-        uint8_t hasCollisionCellKey = 0;
-    };
-
     static void RecordObjectNarrowphaseEvent( ObjectNarrowphaseEvent& event,
                                               ObjectNarrowphaseEventKind kind,
                                               const PhysicsPipelineRecord& record );
@@ -333,31 +271,6 @@ class PhysicsWorld
                                                float invCellSize );
     void CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& event );
 
-    struct ObjectNarrowphasePairStageContext
-    {
-        // Lifetime: this context borrows RunSolverPhysics inputs and scratch
-        // arrays only for the serial loop or the bounded worker dispatch that
-        // owns the current fixed-step narrowphase pass.
-        PhysicsBodyStore& bodyStore;
-        const ColliderStore& colliderStore;
-        const PhysicsWorldForces& worldForces;
-        std::span<PhysicsBodyRecord> bodyRecords;
-        std::span<const ColliderRecord> colliderRecords;
-        const std::vector<std::pair<int, int>>& candidatePairs;
-        std::vector<uint8_t>& sleepState;
-        std::vector<uint8_t>& sleepCounter;
-        std::vector<int>& sleepIslandVisualId;
-        std::vector<float>& timeRemaining;
-        const std::vector<uint8_t>& underwaterSleepLocked;
-        const std::vector<PersistentContactCacheEntry>& persistentContactCache;
-        int modelCount = 0;
-        float sleepLinearSq = 0.0f;
-        float sleepAngularSq = 0.0f;
-        float contactSkin = 0.0f;
-        float contactEpsilon = 0.0f;
-        float invCellSize = 0.0f;
-        float dt = 0.0f;
-    };
     void ProcessObjectNarrowphasePair( const ObjectNarrowphasePairStageContext& context,
                                        int pairIndex,
                                        ObjectNarrowphaseEvent& event );
@@ -367,20 +280,7 @@ class PhysicsWorld
     void BuildObjectNarrowphaseIslands( const std::vector<std::pair<int, int>>& candidatePairs,
                                         int candidatePairCount,
                                         int modelCount );
-    struct ObjectNarrowphaseIslandStage
-    {
-        PhysicsWorld& world;
-        const ObjectNarrowphasePairStageContext& pairContext;
-
-        void operator()( int islandIndex ) const;
-    };
-
-    struct ObjectNarrowphaseIsland
-    {
-        int minPairIndex = 0;
-        size_t firstPairOffset = 0;
-        size_t pairCount = 0;
-    };
+#include "Stages/PhysicsNarrowphaseDispatch.inl"
     static bool ObjectNarrowphaseIslandPrecedesByMinPairIndex( const ObjectNarrowphaseIsland& a,
                                                                const ObjectNarrowphaseIsland& b );
 

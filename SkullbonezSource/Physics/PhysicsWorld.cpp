@@ -698,34 +698,6 @@ void ApplyForcesForSolverBody( PhysicsBodyStore& bodyStore,
     (void)bodyStore.ApplyForces( worldForces, colliderStore, bodyIndex, dt, mutualGravityForce );
 }
 
-struct ApplyForcesStageContext
-{
-    // Lifetime: WorkerPool only borrows this callable during ParallelForNoAlloc.
-    // The references below are RunSolverPhysics inputs and scratch arrays whose
-    // lifetimes cover both the serial and worker-dispatch loops.
-    PhysicsBodyStore& bodyStore;
-    const ColliderStore& colliderStore;
-    const PhysicsWorldForces& worldForces;
-    std::span<const PhysicsBodyRecord> bodyRecords;
-    std::vector<uint8_t>& sleepState;
-    std::vector<float>& timeRemaining;
-    const Vector3* mutualGravityForces = nullptr;
-    float dt = 0.0f;
-
-    void operator()( int bodyIndex ) const
-    {
-        ApplyForcesForSolverBody( bodyStore,
-                                  colliderStore,
-                                  worldForces,
-                                  bodyRecords,
-                                  sleepState,
-                                  timeRemaining,
-                                  mutualGravityForces,
-                                  bodyIndex,
-                                  dt );
-    }
-};
-
 void IntegrateRemainingSolverBody( PhysicsBodyStore& bodyStore,
                                    const ColliderStore& colliderStore,
                                    std::span<const PhysicsBodyRecord> bodyRecords,
@@ -747,22 +719,6 @@ void IntegrateRemainingSolverBody( PhysicsBodyStore& bodyStore,
         (void)bodyStore.IntegrateBodyPose( colliderStore, bodyIndex, timeRemaining[bodyIndex] );
     }
 }
-
-struct IntegrateRemainingStageContext
-{
-    // Lifetime: this callable borrows solver records for the final pose
-    // integration dispatch only; it owns no persistent body state.
-    PhysicsBodyStore& bodyStore;
-    const ColliderStore& colliderStore;
-    std::span<const PhysicsBodyRecord> bodyRecords;
-    const std::vector<uint8_t>& sleepState;
-    const std::vector<float>& timeRemaining;
-
-    void operator()( int bodyIndex ) const
-    {
-        IntegrateRemainingSolverBody( bodyStore, colliderStore, bodyRecords, sleepState, timeRemaining, bodyIndex );
-    }
-};
 
 RuntimeAllocation::RuntimeReserveOwnerHandle ReplaySolverSnapshotReserveOwner()
 {
@@ -843,6 +799,26 @@ void ReserveReplaySolverSnapshotVector( std::vector<T>& values, std::size_t requ
 }
 
 } // namespace
+
+
+void ApplyForcesStageContext::operator()( int bodyIndex ) const
+{
+    ApplyForcesForSolverBody( bodyStore,
+                              colliderStore,
+                              worldForces,
+                              bodyRecords,
+                              sleepState,
+                              timeRemaining,
+                              mutualGravityForces,
+                              bodyIndex,
+                              dt );
+}
+
+
+void IntegrateRemainingStageContext::operator()( int bodyIndex ) const
+{
+    IntegrateRemainingSolverBody( bodyStore, colliderStore, bodyRecords, sleepState, timeRemaining, bodyIndex );
+}
 
 // Invariant: replay solver state fields live in these X-macro lists so capture
 // clear/reserve/copy and restore copy cannot silently drift apart when solver

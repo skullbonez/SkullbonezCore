@@ -161,6 +161,15 @@
     <ClInclude Include="SkullbonezSource\Physics\SpatialGrid.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseDispatch.inl">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsStageContexts.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsTerrainDispatch.inl">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\TerrainContactManifold.h">
       <Filter>Header Files</Filter>
     </ClInclude>

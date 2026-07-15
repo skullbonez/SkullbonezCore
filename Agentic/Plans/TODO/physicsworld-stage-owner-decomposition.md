@@ -2,7 +2,7 @@
 
 Date: 2026-07-15
 Status: Active — registered in `MASTER-PLAN.md` by the 2026-07-15 activation
-governance commit. 1/11 tasks complete. P0's original registration sub-step
+governance commit. 2/11 tasks complete. P0's original registration sub-step
 (a) is already satisfied by that commit; P0 now covers certification, the
 frozen ownership map, and the recorded delegation ruling only.
 Impact area: `Physics/PhysicsWorld.{h,cpp}`, new `Physics/Stages/*` owners,
@@ -130,7 +130,7 @@ remain byte-exact throughout — zero refresh authorized at any task.
       | `PhysicsStepDiagnostics` | `m_collisionVisualContacts`, `m_collisionVisualFrameActive`, `m_sleepIslandVisualId` mirror duties as mapped, `m_physicsDebugContacts`, `m_physicsPipelineTrace` (wraps existing `m_diagnostics`) | `EmitPhysicsCollisionTime`, `EmitStepDiagnostics` plumbing, `CanRecord/RecordPhysicsPipelineStage`, `EnsureCollisionVisualBuffers`, `MarkCollisionVisualContact`, `BeginEndCollisionVisualFrame` internals |
       | stays on `PhysicsWorld` | `m_timeRemaining`, `m_tornadoGameplay`, `m_pointJointConstraints`, `m_restingWake*Scratch` (P7 may claim), `m_diagnosticsSuppressed` | `RunPhysics`, `RunSolverPhysics` (sequencer), public façade API, `ApplyRuntimeConfig`, `Clear`, `ReserveBodyScratchCapacity` (delegates per-owner reserves) |
 
-- [ ] **P1 — Mechanical seam preparation (no ownership moves).** Create
+- [x] **P1 — Mechanical seam preparation (no ownership moves).** Create
       `SkullbonezSource/Physics/Stages/` and move the stage *context structs
       and functors* currently declared in `PhysicsWorld.h`'s private section
       (`ApplyForcesStageContext`, `ObjectNarrowphasePairStageContext`,
@@ -143,6 +143,13 @@ remain byte-exact throughout — zero refresh authorized at any task.
       tasks move code between files that already exist, keeping every
       ownership diff small and reviewable.
       Gate: `tools\validate_physics.bat` byte-exact.
+
+      Layout recorded 2026-07-15: shared borrowed value records live in
+      `Stages/PhysicsStageContexts.h`. The two callables that still require
+      private facade access are declared through the class-nested
+      `PhysicsNarrowphaseDispatch.inl` and `PhysicsTerrainDispatch.inl` seams;
+      their deletion conditions are P4 and P5 respectively, avoiding new
+      friend access or public business methods during P1.
 
 - [ ] **P2 — Extract `PhysicsBroadphaseStage`.** New owner holds the spatial
       grid, candidate-pair vector, and cell-key scratch;
