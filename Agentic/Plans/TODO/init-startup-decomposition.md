@@ -1,7 +1,7 @@
 # Init Startup Decomposition — Split The 3,495-Line Startup File By Responsibility
 
 Date: 2026-07-15
-Status: Active — 0/5 tasks complete
+Status: Active — 1/5 tasks complete
 Impact area: `Runtime/Init.cpp`, new `Runtime/Startup/*` translation units,
 project/filter files, startup CLI behavior (must not change)
 Owner: runtime shell
@@ -55,7 +55,7 @@ every CLI flag, error message, exit code, and probe output is byte-identical.
 
 ## Tasks
 
-- [ ] T1 — Inventory and target map. Enumerate every free function in
+- [x] T1 — Inventory and target map. Enumerate every free function in
       `Init.cpp` with `rg -n '^[A-Za-z].*\('` plus manual reconciliation, and
       commit the assignment table (function → target unit or stays) to
       `Agentic/Reports/2026-07-15/init-startup-decomposition-map.md`. Four
@@ -64,6 +64,9 @@ every CLI flag, error message, exit code, and probe output is byte-identical.
       `Startup/StartupProbeHarnesses.{h,cpp}`,
       `Startup/StartupLaunchResolution.{h,cpp}`. The map marks which
       functions become header API vs anonymous-namespace internals.
+      Evidence: the report reconciles CodeGraph's 99 symbols with the 87
+      regex-matched free functions, assigns all 87 in source order, records all
+      supporting type/global placement, and fixes the header/internal seams.
 - [ ] T2 — Extract crash logging + CLI parsing units (verbatim moves, headers
       per the map, vcxproj/filters in the same commit, learning headers per
       the comment guide). `Init.cpp` includes the new headers; no logic edits.
