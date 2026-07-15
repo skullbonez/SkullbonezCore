@@ -7,222 +7,267 @@
     <Filter Include="Header Files">
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Core">
+      <UniqueIdentifier>{C7D695A4-B4B3-452A-BEB6-6C6A9B90EE79}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Core">
+      <UniqueIdentifier>{C1770488-511D-4BC1-B4FB-92943260A73F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Bodies">
+      <UniqueIdentifier>{6555DAE9-122B-44D4-9E5E-F4AF770B5A56}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Bodies">
+      <UniqueIdentifier>{B5855BA1-FFFA-4AB1-B4BD-555C8BF2BF66}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Collision">
+      <UniqueIdentifier>{1D9D6F1E-213C-4755-B0C6-847D51835F13}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Collision">
+      <UniqueIdentifier>{053AD645-D9FA-4FE0-AAAC-517D97C35B82}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Forces">
+      <UniqueIdentifier>{3E5E00F9-DFB3-4169-866A-0480D36F959E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Forces">
+      <UniqueIdentifier>{8CF46C44-1C0F-46A4-918B-C8407441381F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Solver">
+      <UniqueIdentifier>{19F60F8F-DF4D-4B47-8286-2E274C068BA1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Solver">
+      <UniqueIdentifier>{F4A30DD8-ECDD-466B-8397-AE45ED6A5EEA}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Stages">
+      <UniqueIdentifier>{49558E1E-67A6-4A24-B437-2EAADB90BCA7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Stages">
+      <UniqueIdentifier>{258BC05B-8CC8-4EA9-9FCB-41AE91752FAD}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Diagnostics">
+      <UniqueIdentifier>{1452A179-529B-481A-9937-FB4FF6300A68}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Diagnostics">
+      <UniqueIdentifier>{913532C0-00F9-4B82-99A7-1112E6E637C8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Support">
+      <UniqueIdentifier>{F55420AE-37D1-458D-A2F1-44C1F80C51D1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SkullbonezSource\Physics\BoundingBox.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Collision</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\BoundingSphere.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Collision</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\BuoyancySystem.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Forces</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\ColliderStore.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Collision</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\ConvexHullShape.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Collision</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\ObjectContactManifold.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Collision</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PersistentContactSolver.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Solver</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PhysicsApi.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Bodies</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Diagnostics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PhysicsEngine.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PhysicsObjectPolicy.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Bodies</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PhysicsScene.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PhysicsWorld.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsBroadphaseStage.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Stages</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsContactSolverStage.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Stages</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsSleepController.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Stages</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsSleepController.State.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Stages</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsSleepController.Wake.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Stages</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsStepDiagnostics.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Stages</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsForceStage.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Stages</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Stages</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.Execution.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Stages</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsTerrainStage.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Stages</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Ragdoll.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Bodies</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\SleepIslandSystem.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Solver</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\SpatialGrid.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Collision</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\TerrainContactManifold.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Collision</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\TornadoField.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Forces</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\TornadoGameplay.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Forces</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\Physics\BoundingBox.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Collision</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\BoundingSphere.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Collision</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\BuoyancySystem.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Forces</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\ColliderStore.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Collision</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\CollisionShape.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Collision</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\ContactSolverCommon.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Solver</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\ConvexHullShape.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Collision</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\DisjointSet.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Solver</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\ObjectContactManifold.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Collision</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PersistentContactSolver.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Solver</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsApi.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsBodyStore.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Bodies</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDebugData.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Diagnostics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsModel.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Diagnostics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Diagnostics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsEngine.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsFixedList.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Support</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsHandles.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Bodies</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Bodies</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsObjectPolicy.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Bodies</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsScene.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsTimestep.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Support</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsWorld.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsWorldForces.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Forces</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Ragdoll.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Bodies</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\SimulationSystem.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\SleepIslandSystem.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Solver</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\SolverBroadphaseStage.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Solver</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\SpatialGrid.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Collision</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsBroadphaseStage.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Stages</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsContactSolverStage.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Stages</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsSleepController.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Stages</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsStepDiagnostics.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Stages</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsForceStage.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Stages</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Stages</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsStageContexts.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Stages</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsTerrainStage.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Stages</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\TerrainContactManifold.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Collision</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\TornadoField.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Forces</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\TornadoGameplay.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Forces</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

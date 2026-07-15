@@ -34,6 +34,27 @@
     <Filter Include="Source Files\Runtime\Allocation">
       <UniqueIdentifier>{D8F59F97-F421-4B8B-AD58-274C63075BB0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\Lifecycle">
+      <UniqueIdentifier>{7E50E168-B6A0-41DB-A215-88D30BE362B3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Runtime\Capture">
+      <UniqueIdentifier>{1F21D6AD-7717-4526-85EC-409E2B572108}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Runtime\Demo">
+      <UniqueIdentifier>{285C4869-AF70-40B2-B686-8DFF49368D15}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Runtime\Input">
+      <UniqueIdentifier>{2CE81346-557B-4D79-B553-7F1DAB9BF29F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Runtime\Render">
+      <UniqueIdentifier>{BDDE69D6-F660-4474-9BE8-0666D06D289E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Runtime\Tools">
+      <UniqueIdentifier>{3182C7E3-3124-4D9E-9160-F5D082491CF0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Physics\Core">
+      <UniqueIdentifier>{D22051DA-1CAC-4D89-95BC-FD3C606A4664}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Runtime\Replay">
       <UniqueIdentifier>{B75CFE80-5DE1-4FA6-B50A-6450A7E0A819}</UniqueIdentifier>
     </Filter>
@@ -205,31 +226,31 @@
       <Filter>Source Files\Runtime\Allocation</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Demo</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp">
-      <Filter>Source Files\Physics</Filter>
+      <Filter>Source Files\Physics\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\ApplicationExitState.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Lifecycle</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\InputController.Bindings.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Input</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\InputRouter.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Input</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\CaptureController.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Capture</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\CaptureSystem.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Capture</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RenderDefaultsStore.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
@@ -241,7 +262,7 @@
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeFileWriter.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Tools</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
