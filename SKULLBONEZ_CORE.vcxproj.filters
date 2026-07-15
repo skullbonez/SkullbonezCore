@@ -689,6 +689,9 @@
     <ClInclude Include="SkullbonezSource\Core\Common.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Core\FloatingPointContract.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\PlatformWin32.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>

@@ -234,6 +234,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup>
+    <!-- fp-envelope-hardening: force contraction off in every TU before future AVX2/FMA work. -->
+    <ClCompile>
+      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\FloatingPointContract.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
+    </ClCompile>
     <PreBuildEvent>
       <Command>call "$(ProjectDir)tools\bake_shaders.bat"
 if errorlevel 1 exit /b %errorlevel%</Command>
@@ -437,6 +441,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Editor\LauncherLaser.h" />
     <ClInclude Include="SkullbonezSource\Core\AmortizedTask.h" />
     <ClInclude Include="SkullbonezSource\Core\Common.h" />
+    <ClInclude Include="SkullbonezSource\Core\FloatingPointContract.h" />
     <ClInclude Include="SkullbonezSource\Core\PlatformWin32.h" />
     <ClInclude Include="SkullbonezSource\Core\FatalError.h" />
     <ClInclude Include="SkullbonezSource\Core\MainMemoryStats.h" />

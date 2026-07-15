@@ -10,12 +10,12 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `15th-of-July-Night-Runner` (synced through round-5 registration commit `9158e4de1`) |
+| Branch | `15th-of-July-Night-Runner` (synced through mutual-gravity closure commit `83ed08fb6`) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Execute the remaining round-5 plans: FP envelope hardening (diagnose the inline flip, pin contraction, re-scope determinism docs), then math-fatal survey restoration |
-| Active/future progress | 3 / 10 tasks = 30% overall (round-5 plans only; completed rounds and externally blocked work are excluded) |
+| Current objective | Execute the final round-5 plan: regenerate the math-fatal call-site survey, close any gaps it finds, and restore the missing round-4 classification evidence |
+| Active/future progress | 7 / 10 tasks = 70% overall (round-5 plans only; completed rounds and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | Mutual-gravity large-scene fallback T1-T3 closed at 3/3. Above 512 bodies, the original exact serial triangular loop uses only body-count scratch and ignores workers; the pair-scratch path remains capped at 512. `tools\validate_tests.bat` passed 202/202 cases and 12,595 assertions in 10.6s; `tools\validate_fast.bat` passed in 59.6s with zero warnings/errors; allocation-policy self/repo checks passed in 8.3s; `tools\validate_physics.bat` passed in 56.4s against the unchanged 44,401-line baseline. Independent review found no material issue. Touched-source comment audit passed 2/2, zero deferred. |
+| Validation for current edits | FP-envelope hardening T1-T4 closed at 4/4. The old fixture flips only in Profile across ff6e780e; bounded disassembly attributes it to the inline/packed-SSE optimizer boundary, not FMA, AVX, or x87 precision. All four projects force-include `FloatingPointContract.h`; an AVX2 compiler probe proves its pragma suppresses FMA contraction. `tools\validate_full.bat` passed in 330.3s with zero-warning builds, zero DX12 InfoQueue messages, and the unchanged 44,401-line physics baseline; `tools\validate_perf.bat` passed in 77.4s with zero allocation violations or performance regressions. Independent review found no remaining material issue. Touched-source comment audit passed 2/2, zero deferred. |
 
 ## Live Queue
 
@@ -37,6 +37,11 @@ plan inventory.
     above 512 bypass triangular pair scratch and run the pre-parallel exact
     serial accumulation; a 520-body fixture is byte-identical across 0/1/4
     workers, and the unchanged physics baseline passed.
+    `fp-envelope-hardening` is complete at 4/4: the historical fixture's
+    Profile-only flip is diagnosed as an inline/packed-SSE optimizer-boundary
+    change; all four projects force contraction off, the certified determinism
+    envelope is documented honestly, and full/perf gates passed with the
+    44,401-line physics baseline unchanged.
 1. Round-4 adversarial-review remediation completed 22/22 (2026-07-15).
    Six plans registered in MASTER with a binding order: `win32-message-pump-
    drain` → `data-driven-shadow-caster-streams` → `vector3-inline-hot-math` →
@@ -190,11 +195,9 @@ plan inventory.
 
 ## Next Handoff
 
-Round 5 is 3/10 complete. The mutual-gravity large-scene fallback restored the
-8,192-body capability with an exact serial path above the 512-body pair-scratch
-threshold and passed all mapped gates without a baseline refresh. Continue with
-`Plans/TODO/fp-envelope-hardening.md`, then
-`Plans/TODO/math-fatal-survey-restoration.md`. Documentation-honesty findings
+Round 5 is 7/10 complete. The mutual-gravity large-scene fallback and FP
+envelope hardening passed all mapped gates without a baseline refresh. Continue
+with `Plans/TODO/math-fatal-survey-restoration.md`. Documentation-honesty findings
 from the same review remain recorded in MASTER without plans. The externally
 administered validation-gate V3 lane remains blocked and excluded from the
 ledger.

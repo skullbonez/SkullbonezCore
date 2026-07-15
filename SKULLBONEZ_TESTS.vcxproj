@@ -189,6 +189,12 @@
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup>
+    <!-- fp-envelope-hardening: force contraction off in every TU before future AVX2/FMA work. -->
+    <ClCompile>
+      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\FloatingPointContract.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="SkullbonezTests\TestAssetSystem.cpp" />
     <ClCompile Include="SkullbonezTests\TestBounds.cpp" />
