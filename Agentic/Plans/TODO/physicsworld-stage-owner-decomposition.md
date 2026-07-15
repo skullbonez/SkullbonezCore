@@ -1,9 +1,10 @@
 # PhysicsWorld Stage-Owner Decomposition — Concrete Stage Owners, Zero Behavior Change
 
 Date: 2026-07-15
-Status: Draft — NOT yet registered in `MASTER-PLAN.md` (owner decision 2026-07-15:
-plan written without modifying MASTER; task P0 performs registration when the
-runner activates this plan). 0/11 tasks complete.
+Status: Active — registered in `MASTER-PLAN.md` by the 2026-07-15 activation
+governance commit. 0/11 tasks complete. P0's original registration sub-step
+(a) is already satisfied by that commit; P0 now covers certification, the
+frozen ownership map, and the recorded delegation ruling only.
 Impact area: `Physics/PhysicsWorld.{h,cpp}`, new `Physics/Stages/*` owners,
 allocation-policy allowlist rows, physics determinism gates
 Owner: physics
@@ -102,10 +103,10 @@ remain byte-exact throughout — zero refresh authorized at any task.
 
 ## Task Checklist
 
-- [ ] **P0 — Certification, ownership map, and MASTER registration.**
-      (a) Register this plan in `MASTER-PLAN.md`: ledger row (0/11), round/
-      section entry, and critical-path placement after the round-5 lane;
-      update `SessionState.md`. (b) Certify the starting tree: run
+- [ ] **P0 — Certification, ownership map, and delegation ruling.**
+      (a) MASTER/SessionState registration — ALREADY DONE by the 2026-07-15
+      activation governance commit; verify the ledger row reads 0/11 and do
+      not re-register. (b) Certify the starting tree: run
       `tools\validate_physics.bat` and `tools\validate_perf.bat` on the
       unmodified tip and record outputs (P10 compares against these).
       (c) Commit the frozen ownership map as

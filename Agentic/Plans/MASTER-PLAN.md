@@ -101,20 +101,27 @@ repository work.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| fp-envelope-hardening | 4 | 4 | 100% |
-| mutual-gravity-large-scene-fallback | 3 | 3 | 100% |
-| math-fatal-survey-restoration | 3 | 3 | 100% |
-| **Active/future total** | **10** | **10** | **100%** |
+| physicsworld-stage-owner-decomposition | 0 | 11 | 0% |
+| **Active/future total** | **0** | **11** | **0%** |
+
+The three round-5 plans (fp-envelope-hardening 4/4,
+mutual-gravity-large-scene-fallback 3/3, math-fatal-survey-restoration 3/3)
+completed at 10/10 on `15th-of-July-Night-Runner` and leave the ledger as
+historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
-The 2026-07-15 round-5 lane is complete at 10/10. The mutual-gravity
-large-scene fallback, FP-envelope hardening, and math-fatal survey restoration
-all closed without a baseline refresh. All six round-4 plans completed at 22/22 on
-`15th-of-July-Night-Runner`; validation-gate V3 remains externally blocked and
-deliberately excluded from this ledger. The previous critical path
-(`replay visual-fidelity mega probe → replay monolith decomposition`)
-completed on `nightrunner-14th-july`.
+The binding critical path is the activated god-object campaign:
+`physicsworld-stage-owner-decomposition` (P0 → P10, strictly in order — the
+plan's binding design rules forbid reordering or combining stage
+extractions). Its P0 certification runs under the now-pinned FP envelope, and
+its P3 force-stage extraction moves the post-fallback mutual-gravity code, so
+both round-5 prerequisites are already satisfied. The 2026-07-15 round-5 lane
+is complete at 10/10 (gravity fallback, FP-envelope hardening, survey
+restoration — all without baseline refresh), and all six round-4 plans
+completed at 22/22, both on `15th-of-July-Night-Runner`. Validation-gate V3
+remains externally blocked and deliberately excluded from this ledger. The
+previous replay critical path completed on `nightrunner-14th-july`.
 
 0. **Validation-gate V3 — blocked external lane.** Repository implementation is
    complete. Remaining work requires a real `merge_group` proof, required CPU
@@ -355,6 +362,31 @@ are recorded here without plans; re-litigation requires new evidence.
 | `mutual-gravity-large-scene-fallback` | Complete | 3/3 | Above 512 bodies, the original exact serial triangular loop bypasses pair scratch and workers; tests, allocation checks, and unchanged physics baseline passed |
 | [fp-envelope-hardening](../Reports/2026-07-15/fp-envelope-hardening-diagnosis.md) | Complete | 4/4 | The Profile-only ff6e780e inline flip is diagnosed as an inlining/packed-SSE optimizer-boundary change; forced `fp_contract(off)` now covers all four projects, the certified envelope is documented honestly, and full/perf gates passed without a baseline refresh |
 | [math-fatal-survey-restoration](../Reports/2026-07-15/math-fatal-call-site-survey.md) | Complete | 3/3 | The regenerated survey reconciles 23 Vector3 named calls, 52 Vector3 divisions, and 24 Quaternion spelling matches; no migration gap remains, so closure is documentation-only |
+
+## PhysicsWorld Stage-Owner Decomposition Campaign (2026-07-15)
+
+Source: the 2026-07-15 god-object review named `PhysicsWorld.cpp` (3,954
+lines, ~45 flat `m_*` members spanning seven concerns, one continuous step
+path) the largest remaining mass after the round-4 signature work. The owner
+activated the campaign on 2026-07-15; registration was performed by this
+governance commit, so the plan's P0 task is scoped to certification, the
+frozen ownership map, and the recorded delegation ruling (its original
+registration sub-step is already satisfied).
+
+Binding campaign rules (from the plan, restated here because they gate every
+commit): concrete stage owners under `Physics/Stages/` with value-context
+inputs and no reach-back — never a TU split of the `PhysicsWorld` class; one
+owner extraction per task per commit; byte-exact `validate_physics` after
+every task with revert-on-diff (never fix forward a float difference); zero
+baseline refresh for the entire campaign; allocation-allowlist rows move with
+their vectors in the same commit; P7 (sleep controller) adds one
+`validate_physics_deep`; P10 is a mandatory independent ownership review over
+the whole logical module with full closure gates compared against P0
+certification numbers.
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [physicsworld-stage-owner-decomposition](TODO/physicsworld-stage-owner-decomposition.md) | Active | 0/11 | P0: certify the starting tree under the pinned FP envelope and commit the frozen ownership map |
 
 ## Features
 

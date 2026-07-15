@@ -10,16 +10,31 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `15th-of-July-Night-Runner` (synced through FP-envelope closure commit `6c5b4d3ea`) |
+| Branch | `claude/night-runner-code-review-8gw5g6` (merge `a60bb4a0`: round-5 closures from `15th-of-July-Night-Runner` + the activated PhysicsWorld campaign plan) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Round-5 adversarial-review remediation is complete; preserve the closed 10/10 ledger and hand off the externally administered validation-gate V3 lane separately |
-| Active/future progress | 10 / 10 tasks = 100% overall (round-5 plans only; completed rounds and externally blocked work are excluded) |
+| Current objective | Execute the activated `physicsworld-stage-owner-decomposition` campaign (P0 → P10 strictly in order): concrete stage owners under `Physics/Stages/`, byte-exact `validate_physics` after every task, zero baseline refresh, mandatory P10 independent ownership review |
+| Active/future progress | 0 / 11 tasks = 0% overall (PhysicsWorld campaign only; completed rounds and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
 | Validation for current edits | Math-fatal survey restoration T1-T3 closed at 3/3. The dated report reconciles 23 Vector3 named calls, 52 Vector3 division calls, and 24 Quaternion `Normalise` calls; zero reachable-degenerate rows remain on a plain Vector3 API without a row-specific guard/invariant, and `Maths/` still has zero `SB_FATAL`. Independent review found and then verified correction of one omitted bare Quaternion call. The diff is documentation-only with no source or baseline changes, so no repository validation was required. |
 
 ## Live Queue
 
-00. Round-5 adversarial-review remediation is the active lane (2026-07-15,
+000. `physicsworld-stage-owner-decomposition` is the active campaign
+     (activated 2026-07-15 after the round-5 validation review; registered in
+     MASTER at 0/11). Start at P0: certify the starting tree with
+     `validate_physics`/`validate_perf` under the pinned FP envelope, and
+     commit the frozen ownership map to
+     `Agentic/Reports/2026-07-15/physicsworld-ownership-map.md` — the
+     MASTER/SessionState registration sub-step of P0 is already done; do not
+     re-register. Binding rules: stage owners with value contexts and no
+     reach-back (never a `PhysicsWorld` TU split), one owner per task per
+     commit, byte-exact physics gate after every task with revert-on-diff,
+     zero baseline refresh campaign-wide, allowlist rows move with their
+     vectors, P7 adds one `validate_physics_deep`, P10 is the mandatory
+     independent ownership review. The narrowphase commit loop stays with the
+     sequencer until P7; terrain sleep-support outputs stay façade-owned
+     until P7.
+0. Round-5 adversarial-review remediation completed 10/10 (2026-07-15,
     from the owner-commissioned review of round-4 claims). Binding order:
     `mutual-gravity-large-scene-fallback` → `fp-envelope-hardening` →
     `math-fatal-survey-restoration` (the last two are mutually independent;
@@ -199,9 +214,12 @@ plan inventory.
 
 ## Next Handoff
 
-Round 5 is complete at 10/10. All three remediation plans closed without a
-baseline refresh; no active/future implementation plan remains in the ledger.
-Documentation-honesty findings from the same review remain recorded in MASTER
-without plans. The externally
-administered validation-gate V3 lane remains blocked and excluded from the
-ledger.
+Round 5 closed at 10/10 without a baseline refresh and passed the 2026-07-15
+owner-commissioned validation review (spot-checked fallback math, FP
+diagnosis/disassembly evidence, forced-include scope, survey completeness,
+ledger arithmetic, and the locally runnable allocation/filter/migration
+checks). The active work is now the `physicsworld-stage-owner-decomposition`
+campaign at 0/11 — begin at P0 certification per the Live Queue entry above.
+Documentation-honesty findings from the round-4 review remain recorded in
+MASTER without plans. The externally administered validation-gate V3 lane
+remains blocked and excluded from the ledger.
