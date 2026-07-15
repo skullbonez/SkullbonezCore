@@ -1,7 +1,8 @@
 /*
 File: StartupLaunchResolution.h
 Purpose:
-  Publishes scene/suite, physics-debug, and final Run launch-policy resolution.
+  Publishes scene/suite, physics-debug, run-value, and final Run launch-policy
+  resolution.
 
 Summary:
   The command-line owner delegates path/policy resolution here, then WinMain
@@ -12,6 +13,8 @@ Glossary:
     repository/file path and startup policy used by Run.
   Physics-debug override: Visualization-only startup request that must not alter
     solver state.
+  Run-value directive: Value-bearing Run, replay, UI-stress, or graphics-stress
+    option whose result belongs to the launch-policy packet.
 
 Invariants:
   - Scene/suite paths, diagnostics, defaults, and physics-debug messages remain
@@ -21,7 +24,7 @@ Invariants:
 Related:
   - StartupCommandLine.h
   - StartupLaunchResolution.cpp
-  - Agentic/Plans/TODO/init-startup-decomposition.md
+  - Agentic/Reports/2026-07-15/init-startup-decomposition-map.md
 */
 #pragma once
 

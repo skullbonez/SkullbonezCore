@@ -6,8 +6,8 @@ Purpose:
 
 Summary:
   The parser preserves the historical table order and exact diagnostics. It
-  delegates only scene/suite and physics-debug launch policy to the launch
-  resolution unit.
+  delegates scene/suite, physics-debug, and run-value launch policy to the
+  launch-resolution unit while retaining generic option validation and flags.
 
 Glossary:
   Directive row: Fixed parser-table entry mapping an option spelling to a
@@ -30,7 +30,6 @@ Related:
 */
 #include "StartupCommandLine.h"
 #include "StartupLaunchResolution.h"
-#include "StartupProbeHarnesses.h"
 #include "../../Core/Common.h"
 #include "../../Core/PlatformProfiler.h"
 #include "../../Core/WorkerPool.h"
@@ -42,7 +41,6 @@ Related:
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Threading;
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
@@ -55,12 +53,6 @@ namespace Startup
 namespace
 {
 char g_commandLineError[512] = {};
-struct CliValueDirective
-{
-    const char* name;
-    const char* alias;
-    bool ( *apply )( const char* value, ParsedArgs& args );
-};
 struct ConfigCliValueDirective
 {
     // Why: startup config options mutate the loaded SkullbonezCore::Core::EngineConfig before any
@@ -76,6 +68,340 @@ struct GeneratedObjectOverrideDirective
     GeneratedObjectTypeOverride objectType;
     const char* message;
 };
+struct CliFlagDirective
+{
+    // Table-driven flag parsing keeps aliases beside the canonical spelling.
+    // That matters because command-line options are user-facing compatibility
+    // surface, not private implementation detail.
+    const char* name;
+    const char* alias;
+    void ( *apply )( ParsedArgs& args );
+    const char* message;
+};
+bool HasFlagDirective( const CommandLineView& commandLine, const CliFlagDirective& directive )
+{
+    return HasOption( commandLine, directive.name ) || ( directive.alias && HasOption( commandLine, directive.alias ) );
+}
+bool ValidatePhysicsRegressionLog( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--physics-regression-log" ) )
+    {
+        return true;
+    }
+#ifndef _DEBUG
+    return FailCommandLineParse( "--physics-regression-log is only supported in Debug builds. Recompile with the Debug "
+                                 "configuration to use physics regression logging." );
+#else
+    return true;
+#endif
+}
+bool ValidatePhysicsCollisionTimeLog( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--physics-collision-time-log" ) )
+    {
+        return true;
+    }
+#ifndef _DEBUG
+    return FailCommandLineParse( "--physics-collision-time-log is only supported in Debug builds. Recompile with the "
+                                 "Debug configuration to use collision-time logging." );
+#else
+    return true;
+#endif
+}
+bool ValidatePhysicsDiagnostics( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--physics-diag" ) && !HasOption( commandLine, "--physics-diagnostics" ) )
+    {
+        return true;
+    }
+#ifndef _DEBUG
+    return FailCommandLineParse( "--physics-diag is only supported in Debug builds. Recompile with the Debug "
+                                 "configuration to use queryable physics diagnostics." );
+#else
+    return true;
+#endif
+}
+bool ValidateReplayScrubProbe( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--replay-scrub-test" ) && !HasOption( commandLine, "--replay_scrub_test" ) &&
+         !HasOption( commandLine, "--replay-scrub-probe" ) && !HasOption( commandLine, "--replay_scrub_probe" ) )
+    {
+        return true;
+    }
+#ifndef _DEBUG
+    return FailCommandLineParse(
+        "--replay-scrub-probe is only supported in Debug builds with SkullScope diagnostics." );
+#else
+    return true;
+#endif
+}
+bool ValidateReplayRestoreProbe( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--replay-restore-test" ) && !HasOption( commandLine, "--replay_restore_test" ) &&
+         !HasOption( commandLine, "--replay-restore-probe" ) && !HasOption( commandLine, "--replay_restore_probe" ) )
+    {
+        return true;
+    }
+#ifndef _DEBUG
+    return FailCommandLineParse(
+        "--replay-restore-probe is only supported in Debug builds with SkullScope diagnostics." );
+#else
+    return true;
+#endif
+}
+bool ValidateReplaySaveProbe( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--replay-save-probe" ) && !HasOption( commandLine, "--replay_save_probe" ) )
+    {
+        return true;
+    }
+#ifndef _DEBUG
+    return FailCommandLineParse( "--replay-save-probe is only supported in Debug builds." );
+#else
+    return true;
+#endif
+}
+bool ValidateReplayLoadProbe( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--replay-load-probe" ) && !HasOption( commandLine, "--replay_load_probe" ) )
+    {
+        return true;
+    }
+#ifndef _DEBUG
+    return FailCommandLineParse( "--replay-load-probe is only supported in Debug builds." );
+#else
+    return true;
+#endif
+}
+bool ValidateReplayRestoreFileProbe( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--replay-restore-file-probe" ) &&
+         !HasOption( commandLine, "--replay_restore_file_probe" ) )
+    {
+        return true;
+    }
+#ifndef _DEBUG
+    return FailCommandLineParse( "--replay-restore-file-probe is only supported in Debug builds." );
+#else
+    return true;
+#endif
+}
+bool ValidateReplayRestoreTargetFileProbe( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--replay-restore-target-file-probe" ) &&
+         !HasOption( commandLine, "--replay_restore_target_file_probe" ) )
+    {
+        return true;
+    }
+#ifndef _DEBUG
+    return FailCommandLineParse( "--replay-restore-target-file-probe is only supported in Debug builds." );
+#else
+    return true;
+#endif
+}
+bool ValidateReplayRestoreBranchFileProbe( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--replay-restore-branch-file-probe" ) &&
+         !HasOption( commandLine, "--replay_restore_branch_file_probe" ) )
+    {
+        return true;
+    }
+#ifndef _DEBUG
+    return FailCommandLineParse( "--replay-restore-branch-file-probe is only supported in Debug builds." );
+#else
+    return true;
+#endif
+}
+bool ValidateReplayRestoreFailureFileProbe( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--replay-restore-failure-file-probe" ) &&
+         !HasOption( commandLine, "--replay_restore_failure_file_probe" ) )
+    {
+        return true;
+    }
+#ifndef _DEBUG
+    return FailCommandLineParse( "--replay-restore-failure-file-probe is only supported in Debug builds." );
+#else
+    if ( !HasOption( commandLine, "--physics-diag" ) && !HasOption( commandLine, "--physics-diagnostics" ) )
+    {
+        return FailCommandLineParse(
+            "--replay-restore-failure-file-probe requires --physics-diag so SkullScope can query the failure row." );
+    }
+    return true;
+#endif
+}
+bool ParsePhysicsRegressionLogOverride( const CommandLineView& commandLine, char ( &outPath )[256] )
+{
+    outPath[0] = '\0';
+    const char* physLogArg = FindOptionValue( commandLine, "--physics-regression-log" );
+    if ( !physLogArg )
+    {
+        return true;
+    }
+    if ( !CopyCommandLinePath( physLogArg, "--physics-regression-log", outPath, sizeof( outPath ) ) )
+    {
+        return false;
+    }
+    fprintf( stdout, "[physics-regression-log] Output: %s\n", outPath );
+    return true;
+}
+bool ParsePhysicsCollisionTimeLogOverride( const CommandLineView& commandLine, char ( &outPath )[256] )
+{
+    outPath[0] = '\0';
+    const char* collisionLogArg = FindOptionValue( commandLine, "--physics-collision-time-log" );
+    if ( !collisionLogArg )
+    {
+        return true;
+    }
+    if ( !CopyCommandLinePath( collisionLogArg, "--physics-collision-time-log", outPath, sizeof( outPath ) ) )
+    {
+        return false;
+    }
+    fprintf( stdout, "[physics-collision-time-log] Output: %s\n", outPath );
+    return true;
+}
+bool ParsePhysicsDiagnosticsPath( const CommandLineView& commandLine, char ( &outPath )[256] )
+{
+    outPath[0] = '\0';
+    const char* diagArg = FindOptionValue( commandLine, "--physics-diag" );
+    if ( !diagArg )
+    {
+        diagArg = FindOptionValue( commandLine, "--physics-diagnostics" );
+    }
+    if ( !diagArg )
+    {
+        return true;
+    }
+    return CopyCommandLinePath( diagArg, "--physics-diag", outPath, sizeof( outPath ) );
+}
+void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out )
+{
+    static const CliFlagDirective kFlags[] = {
+        { "--fixed-step",
+          nullptr,
+          []( ParsedArgs& args ) { args.fixedStep = true; },
+          "[fixed-step] Forced via command line." },
+        { "--no-water",
+          nullptr,
+          []( ParsedArgs& args ) { args.noWater = true; },
+          "[water] Fluid surface starts below terrain." },
+        { "--no-sleep",
+          nullptr,
+          []( ParsedArgs& args ) { args.noSleep = true; },
+          "[physics] Sleep disabled via command line." },
+        { "--no-contact-audio",
+          "--mute-contact-audio",
+          []( ParsedArgs& args ) { args.noContactAudio = true; },
+          "[audio] Contact impact audio disabled." },
+        { "--contact-audio-smoke",
+          "--audio-smoke",
+          []( ParsedArgs& args )
+          {
+              args.contactAudioSmoke = true;
+              args.suppressExitDialog = true;
+          },
+          "[audio] Contact audio standalone smoke requested." },
+        { "--scene-load-only",
+          "--load-scenes-only",
+          []( ParsedArgs& args )
+          {
+              args.sceneLoadOnly = true;
+              args.suppressExitDialog = true;
+          },
+          "[scene-load-only] Load queued scenes without running frames." },
+        { "--demohero",
+          "--demo-hero",
+          []( ParsedArgs& args )
+          {
+              args.demoHeroStyle = true;
+              args.suppressExitDialog = true;
+          },
+          "[scene] Generated demo scene will use the low-poly hero rendering mode." },
+        { "--profiler",
+          "--show-profiler",
+          []( ParsedArgs& args ) { args.showProfiler = true; },
+          "[overlay] SkullbonezCore::Core::Profiler HUD enabled at startup." },
+        { "--platform-profiler-markers",
+          "--platform-profiler",
+          []( ParsedArgs& args )
+          {
+              args.platformProfilerMarkers = true;
+              args.platformProfilerMarkersExplicit = true;
+          },
+          "[platform-profiler] Platform profiler marker emission requested." },
+        { "--pix-markers",
+          "--pix",
+          []( ParsedArgs& args )
+          {
+              args.platformProfilerMarkers = true;
+              args.platformProfilerMarkersExplicit = true;
+          },
+          "[platform-profiler] PIX marker compatibility alias requested." },
+        { "--hide-top-text",
+          "--no-top-text",
+          []( ParsedArgs& args ) { args.hideTopText = true; },
+          "[overlay] Top HUD text hidden." },
+        { "--automation-hidden-window",
+          nullptr,
+          []( ParsedArgs& args )
+          {
+              args.automationWindowHidden = true;
+              args.suppressExitDialog = true;
+          },
+          "[automation] Native window hidden; DX12 rendering and capture remain active." },
+        { "--broadphase-visualizer",
+          "--broadphase-overlay",
+          []( ParsedArgs& args ) { args.showBroadphaseVisualizer = true; },
+          "[overlay] Broadphase visualizer enabled at startup." },
+        { "--dump-config", nullptr, []( ParsedArgs& args ) { args.dumpConfig = true; }, nullptr },
+        { "--dump-assets", nullptr, []( ParsedArgs& args ) { args.dumpAssets = true; }, nullptr },
+        { "--replay-scrub-test",
+          "--replay_scrub_test",
+          []( ParsedArgs& args )
+          {
+              args.replayScrubProbe = true;
+              args.replayScrubProbeNormalized = 0.25f;
+              args.replayRecording = true;
+              args.replayExplicit = true;
+              args.replaySeconds = 1;
+              args.fixedStep = true;
+              args.suppressExitDialog = true;
+          },
+          "[replay] Scrub SkullScope probe enabled." },
+        { "--replay-restore-test",
+          "--replay_restore_test",
+          []( ParsedArgs& args )
+          {
+              args.replayRestoreProbe = true;
+              args.replayRestoreProbeNormalized = 0.25f;
+              args.replayRecording = true;
+              args.replayExplicit = true;
+              args.replaySeconds = 1;
+              args.fixedStep = true;
+              args.suppressExitDialog = true;
+          },
+          "[replay] Restore hash SkullScope probe enabled." },
+        { "--worker-self-test",
+          "--workers-self-test",
+          []( ParsedArgs& args )
+          {
+              args.workerSelfTest = true;
+              args.suppressExitDialog = true;
+          },
+          "[workers] Self-test requested." },
+    };
+    for ( const CliFlagDirective& flag : kFlags )
+    {
+        if ( HasFlagDirective( commandLine, flag ) )
+        {
+            flag.apply( out );
+            if ( flag.message )
+            {
+                fprintf( stdout, "%s\n", flag.message );
+            }
+        }
+    }
+}
 } // anonymous namespace
 bool FailCommandLineParse( const char* fmt, ... )
 {
@@ -290,15 +616,6 @@ bool CopyOptionPath( const char* value, const char* optionName, char* outPath, s
     strcpy_s( outPath, outPathSize, value );
     return true;
 }
-const char* FindValueDirective( const CommandLineView& commandLine, const CliValueDirective& directive )
-{
-    const char* value = FindOptionValue( commandLine, directive.name );
-    if ( value || !directive.alias )
-    {
-        return value;
-    }
-    return FindOptionValue( commandLine, directive.alias );
-}
 const char* FindValueDirective( const CommandLineView& commandLine, const ConfigCliValueDirective& directive )
 {
     const char* value = FindOptionValue( commandLine, directive.name );
@@ -307,21 +624,6 @@ const char* FindValueDirective( const CommandLineView& commandLine, const Config
         return value;
     }
     return FindOptionValue( commandLine, directive.alias );
-}
-template <size_t N>
-bool ApplyCliValueDirectives( const CommandLineView& commandLine,
-                              ParsedArgs& out,
-                              const CliValueDirective ( &directives )[N] )
-{
-    for ( const CliValueDirective& directive : directives )
-    {
-        const char* value = FindValueDirective( commandLine, directive );
-        if ( value && !directive.apply( value, out ) )
-        {
-            return false;
-        }
-    }
-    return true;
 }
 template <size_t N>
 bool ApplyConfigCliValueDirectives( const CommandLineView& commandLine,
@@ -702,15 +1004,70 @@ bool ParseCommandLine( const CommandLineView& commandLine, SkullbonezCore::Core:
     {
         return false;
     }
-    if ( !ValidateProbeCommandLineOptions( commandLine, out ) )
+    if ( !ValidatePhysicsRegressionLog( commandLine ) )
     {
         return false;
     }
+    if ( !ValidatePhysicsCollisionTimeLog( commandLine ) )
+    {
+        return false;
+    }
+    if ( !ValidatePhysicsDiagnostics( commandLine ) )
+    {
+        return false;
+    }
+    if ( !ValidateReplayScrubProbe( commandLine ) )
+    {
+        return false;
+    }
+    if ( !ValidateReplayRestoreProbe( commandLine ) )
+    {
+        return false;
+    }
+    if ( !ValidateReplaySaveProbe( commandLine ) )
+    {
+        return false;
+    }
+    if ( !ValidateReplayLoadProbe( commandLine ) )
+    {
+        return false;
+    }
+    if ( !ValidateReplayRestoreFileProbe( commandLine ) )
+    {
+        return false;
+    }
+    if ( !ValidateReplayRestoreTargetFileProbe( commandLine ) )
+    {
+        return false;
+    }
+    if ( !ValidateReplayRestoreBranchFileProbe( commandLine ) )
+    {
+        return false;
+    }
+    if ( !ValidateReplayRestoreFailureFileProbe( commandLine ) )
+    {
+        return false;
+    }
+#ifdef _DEBUG
+    if ( !ParsePhysicsRegressionLogOverride( commandLine, out.physicsRegressionLogOverride ) )
+    {
+        return false;
+    }
+    if ( !ParsePhysicsCollisionTimeLogOverride( commandLine, out.physicsCollisionTimeLogOverride ) )
+    {
+        return false;
+    }
+    if ( !ParsePhysicsDiagnosticsPath( commandLine, out.physicsDiagnosticsPath ) )
+    {
+        return false;
+    }
+    out.physicsDiagnosticsRequested = out.physicsDiagnosticsPath[0] != '\0';
+#endif
     if ( !ApplyStartupCliValueDirectives( commandLine, out, config ) )
     {
         return false;
     }
-    ApplyProbeFlagDirectives( commandLine, out );
+    ApplyCliFlagDirectives( commandLine, out );
     bool envPlatformProfilerMarkers = false;
     char* envPlatformProfilerValue = nullptr;
     size_t envPlatformProfilerValueLen = 0;

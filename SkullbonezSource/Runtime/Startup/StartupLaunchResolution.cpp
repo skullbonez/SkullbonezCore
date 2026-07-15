@@ -5,13 +5,15 @@ Purpose:
 
 Summary:
   This unit resolves authored launch tokens, visualization-only physics-debug
-  overrides, suite JSON, and the final RunStartupOverrides value without
-  retaining command-line storage.
+  overrides, suite JSON, run/replay/stress value directives, and the final
+  RunStartupOverrides value without retaining command-line storage.
 
 Glossary:
   Launch token: CLI value naming a scene, suite, built-in hero, or generated
     demo mode.
   Launch policy: Caller-owned values that configure Run before its first frame.
+  Run-value directive: Value-bearing launch option for Run, replay, UI stress,
+    or graphics stress; generic presence-only flags remain parser-owned.
   Physics-debug override: Visualization-only startup request that must not alter
     solver state.
 
