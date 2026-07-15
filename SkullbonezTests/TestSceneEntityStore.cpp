@@ -17,6 +17,7 @@ Invariants:
   - Successful commits retain exact identity, material, affiliation, and group values.
   - Clear and commit reuse the pre-scene reservation without growing storage.
   - Render creation publishes presentation, instance, and handle rows together.
+  - Owner-prepared shadow stream identity survives render-row publication.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneEntityStore.h
@@ -131,6 +132,7 @@ TEST_CASE( "RenderInstanceStore: preflighted creation publishes every render row
     RenderInstanceStore renderStore;
     RenderInstancePresentationRecord presentation;
     presentation.material.baseColor[0] = 0.25f;
+    presentation.shadowCasterStream = ShadowCasterStream::Pine;
     strcpy_s( presentation.displayName, "transaction_entity" );
 
     PhysicsBodyRecord body;
@@ -156,6 +158,7 @@ TEST_CASE( "RenderInstanceStore: preflighted creation publishes every render row
     CHECK( renderStore.HandleForModelIndex( 0 ).IsValid() );
     CHECK( renderStore.Records()[0].replayBodyId == 77u );
     CHECK( renderStore.Records()[0].material.baseColor[0] == doctest::Approx( 0.25f ) );
+    CHECK( renderStore.Records()[0].shadowCasterStream == ShadowCasterStream::Pine );
     CHECK_FALSE( renderStore.CanAppendCreationRow( 0 ) );
 }
 

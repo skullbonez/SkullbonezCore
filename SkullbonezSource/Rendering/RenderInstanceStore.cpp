@@ -17,6 +17,8 @@ Glossary:
   Replay body id: Stable per-scene id shared with physics/replay records.
   Contact highlight: Render-only feedback alpha copied from presentation state
     after gameplay/physics feedback has advanced.
+  Shadow caster stream: Scene-owner bin copied unchanged into the draw record so
+    render submission does not reinterpret material content.
 
 Invariants:
   - Records stay in scene model order and render handles mirror model indices
@@ -198,6 +200,7 @@ void RenderInstanceStore::CommitCreationRow( const RenderInstancePresentationRec
     record.material = presentation.material;
     record.boundingRadius = collider.boundingRadius;
     record.shapeKind = ShapeKindFromCollider( collider.shapeKind );
+    record.shadowCasterStream = presentation.shadowCasterStream;
     record.isFixed = body.isFixed;
     record.fixedContactAlpha = presentation.fixedContactAlpha;
     record.audioContactAlpha = presentation.audioContactAlpha;
@@ -456,6 +459,7 @@ void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* prese
         record.material = presentationRecord.material;
         record.boundingRadius = collider.boundingRadius;
         record.shapeKind = ShapeKindFromCollider( collider.shapeKind );
+        record.shadowCasterStream = presentationRecord.shadowCasterStream;
         record.isFixed = body.isFixed;
         record.fixedContactAlpha = presentationRecord.fixedContactAlpha;
         record.audioContactAlpha = presentationRecord.audioContactAlpha;

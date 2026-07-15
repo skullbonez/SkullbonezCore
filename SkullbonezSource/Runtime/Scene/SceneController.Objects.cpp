@@ -29,6 +29,8 @@ Glossary:
     when a related fixed part is hit strongly enough.
   Replay body id: PhysicsBodyStore-owned identity saved in replay samples so
     restore paths can reject stale model slots.
+  Shadow caster stream: Opaque render bin resolved while scene material and
+    collider facts are both available at the instance-build boundary.
 
 Invariants:
   - SceneEntityStore order remains the scene alignment key for physics stores,
@@ -75,6 +77,7 @@ using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
+using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::MakeModelRowHint;
 using SkullbonezCore::Physics::MakePhysicsAuthoredBodyCountFromNonNegativeInt;
@@ -94,10 +97,37 @@ using SkullbonezCore::Physics::PhysicsColliderCount;
 using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
+using SkullbonezCore::Rendering::RenderMaterial;
+using SkullbonezCore::Rendering::RenderMaterialKind;
+using SkullbonezCore::Rendering::ShadowCasterStream;
 
 namespace
 {
 constexpr const char* SCENE_ENTITY_CREATION_OWNER = "Scene/EntityCreation";
+constexpr int PINE_VISUAL_MATERIAL_MODE = 13;
+
+ShadowCasterStream ResolveRegisteredShadowCasterStream( const ColliderRecord& collider, const RenderMaterial& material )
+{
+    switch ( collider.shapeKind )
+    {
+    case ColliderShapeKind::Sphere:
+        return ShadowCasterStream::Sphere;
+    case ColliderShapeKind::ConvexHull:
+        return ShadowCasterStream::ConvexHull;
+    case ColliderShapeKind::Box:
+        // Why: the data-driven-shadow-caster-streams plan confines legacy pine
+        // content knowledge to this scene-owner instance-build boundary. Frame
+        // submission consumes only the resulting opaque stream id.
+        if ( material.kind == RenderMaterialKind::Pine ||
+             ( material.textureMode > 1.25f &&
+               static_cast<int>( material.textureMode + 0.5f ) == PINE_VISUAL_MATERIAL_MODE ) )
+        {
+            return ShadowCasterStream::Pine;
+        }
+        return ShadowCasterStream::Box;
+    }
+    return ShadowCasterStream::None;
+}
 
 template <typename T> uint64_t VectorCapacityBytes( const T& values )
 {
@@ -341,6 +371,8 @@ SceneEntityCreateResult SceneController::TryCreateSceneEntity( SceneEntityCreate
         // preflight and cannot safely enter physics or render snapshots.
         SB_FATAL( "GameObjects/SceneController", "Failed to register newly authored physics collider record." );
     }
+    renderPresentation.shadowCasterStream =
+        ResolveRegisteredShadowCasterStream( *colliderRecord, renderPresentation.material );
     SceneEntities().CommitAppend( entity, bodyHandle );
     m_renderInstanceStore.CommitCreationRow( renderPresentation, *bodyRecord, *colliderRecord, modelIndex );
     AssertSceneCreationTopology( modelIndex + 1 );
@@ -848,6 +880,7 @@ void SceneController::RefreshRenderInstances( float presentationAlpha )
     // Owner boundary: model material and highlight values still live in
     // SceneController, but the render-facing presentation rows belong to
     // RenderInstanceStore before store projection creates draw records.
+    const auto colliderRecords = Colliders().Records();
     for ( int i = 0; i < modelCount; ++i )
     {
         Rendering::RenderInstancePresentationRecord* presentation =
@@ -859,6 +892,9 @@ void SceneController::RefreshRenderInstances( float presentationAlpha )
         }
         const SceneEntityRecord& entity = SceneEntities().At( i );
         presentation->material = entity.renderMaterial;
+        presentation->shadowCasterStream =
+            ResolveRegisteredShadowCasterStream( colliderRecords[static_cast<std::size_t>( i )],
+                                                 presentation->material );
         strncpy_s( presentation->displayName, sizeof( presentation->displayName ), entity.displayName, _TRUNCATE );
         presentation->simpleRagdollPart = IsSimpleRagdollPart( i );
     }

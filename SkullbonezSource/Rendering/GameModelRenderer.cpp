@@ -19,6 +19,8 @@ Glossary:
     hull vertices instead of the sphere or box instance streams.
   Contact-audio flash: Short render-only white tint applied after a contact
     sound actually submits, independent of physics state.
+  Shadow caster stream: Owner-prepared opaque bin selecting one primitive
+    submission path without inspecting material or asset content here.
 
 Invariants:
   - GameModelRenderer consumes prepared render instances and collider rows; the
@@ -64,22 +66,13 @@ using SkullbonezCore::Rendering::RenderMaterial;
 using SkullbonezCore::Rendering::RenderMaterialKind;
 using SkullbonezCore::Rendering::ShadowCasterBatches;
 using SkullbonezCore::Rendering::ShadowCasterInstance;
+using SkullbonezCore::Rendering::ShadowCasterStream;
 using SkullbonezCore::Rendering::ShadowFrameData;
 
 namespace
 {
-constexpr int PINE_VISUAL_MATERIAL_MODE = 13;
 constexpr int SHADOW_PARALLEL_PREP_MIN_CASTERS = 512;
 constexpr bool SHADOW_PARALLEL_PREP_WORKER_ENABLED = true;
-
-enum class ShadowCasterStream : uint8_t
-{
-    None,
-    Sphere,
-    Box,
-    Pine,
-    ConvexHull
-};
 
 struct ShadowCasterStreamCounts
 {
@@ -89,41 +82,29 @@ struct ShadowCasterStreamCounts
     int convexHulls = 0;
 };
 
-bool IsPineVisualMaterial( const RenderMaterial& material )
-{
-    return material.kind == RenderMaterialKind::Pine ||
-           ( material.textureMode > 1.25f &&
-             static_cast<int>( std::floor( material.textureMode + 0.5f ) ) == PINE_VISUAL_MATERIAL_MODE );
-}
-
 ShadowCasterStream ResolveShadowCasterStream( const RenderInstanceRecord& instance,
                                               int modelIndex,
                                               std::span<const ColliderRecord> colliders,
                                               const ConvexHullShape*& outHull )
 {
     outHull = nullptr;
-    if ( instance.shapeKind == RenderInstanceShapeKind::Sphere )
+    if ( instance.shadowCasterStream != ShadowCasterStream::ConvexHull )
     {
-        return ShadowCasterStream::Sphere;
+        return instance.shadowCasterStream;
     }
 
-    if ( instance.shapeKind == RenderInstanceShapeKind::ConvexHull )
+    if ( modelIndex < 0 || static_cast<std::size_t>( modelIndex ) >= colliders.size() )
     {
-        if ( modelIndex < 0 || static_cast<std::size_t>( modelIndex ) >= colliders.size() )
-        {
-            return ShadowCasterStream::None;
-        }
-        const ColliderRecord& collider = colliders[static_cast<std::size_t>( modelIndex )];
-        const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &collider.shape );
-        if ( hull )
-        {
-            outHull = hull;
-            return ShadowCasterStream::ConvexHull;
-        }
         return ShadowCasterStream::None;
     }
-
-    return IsPineVisualMaterial( instance.material ) ? ShadowCasterStream::Pine : ShadowCasterStream::Box;
+    const ColliderRecord& collider = colliders[static_cast<std::size_t>( modelIndex )];
+    const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &collider.shape );
+    if ( !hull )
+    {
+        return ShadowCasterStream::None;
+    }
+    outHull = hull;
+    return ShadowCasterStream::ConvexHull;
 }
 
 void IncrementShadowCasterCount( ShadowCasterStreamCounts& counts, ShadowCasterStream stream )
@@ -463,7 +444,7 @@ void GameModelRenderer::RenderModels( const PrimitiveRenderContext& primitiveCon
             if ( instance.shapeKind == RenderInstanceShapeKind::Box )
             {
                 RenderMaterial material = MaterialWithContactHighlights( instance, true );
-                const bool isPineVisual = IsPineVisualMaterial( material );
+                const bool isPineVisual = instance.shadowCasterStream == ShadowCasterStream::Pine;
                 if ( isPineVisual )
                 {
                     hasPineVisualModels = true;
