@@ -1,7 +1,7 @@
 # FP Envelope Hardening Diagnosis
 
-Date: 2026-07-15  
-Plan: `fp-envelope-hardening` T1-T2  
+Date: 2026-07-15
+Plan: `fp-envelope-hardening` T1-T2
 Historical change: `ff6e780e` (`vector3-inline-hot-math`)
 
 ## Verdict
