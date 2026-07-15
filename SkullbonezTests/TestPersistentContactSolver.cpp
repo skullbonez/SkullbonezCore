@@ -58,10 +58,10 @@ using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::BuildObjectContactManifold;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderRecordList;
 using SkullbonezCore::Physics::ColliderShapeKind;
-using SkullbonezCore::Physics::BuildObjectContactManifold;
 using SkullbonezCore::Physics::ObjectContactBodyView;
 using SkullbonezCore::Physics::ObjectContactManifold;
 using SkullbonezCore::Physics::PersistentContactCacheEntry;
@@ -307,14 +307,15 @@ TEST_CASE( "Persistent contact solver: restitution creates separating terrain ve
 
 TEST_CASE( "Persistent contact solver: a box gains sleep support only after toppling from its edge" )
 {
-    constexpr float edgeRotation = 0.70f;
+    constexpr float edgeRotation = 0.75f;
     constexpr float contactOverlap = 0.02f;
-    constexpr float edgeContactHeight = 1.5f;
+    const float edgeContactHeight = 1.0f + cosf( edgeRotation ) + sinf( edgeRotation ) - contactOverlap;
 
     SolverFixture edge;
     edge.AddBox( Vector3( 0.0f, 0.0f, 0.0f ), 0.0f, true );
-    // Why: a deliberate overlap keeps this regression away from clipped-manifold
-    // floating-point boundaries while retaining the two-row edge footprint.
+    // Why: derive the center height from the tilted cube's vertical support so
+    // the requested overlap is real; a fixed low center deeply interpenetrates
+    // the boxes and lets tiny code-generation shifts select a four-point face.
     edge.AddBox( Vector3( 0.0f, edgeContactHeight, -0.5f ), edgeRotation, false );
     ObjectContactBodyView lowerView;
     lowerView.position = edge.bodyRecords[0].position;

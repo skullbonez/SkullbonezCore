@@ -98,7 +98,6 @@
     <ClCompile Include="..\..\..\SkullbonezSource\Maths\Matrix4.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Maths\Quaternion.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Maths\RotationMatrix.cpp" />
-    <ClCompile Include="..\..\..\SkullbonezSource\Maths\Vector3.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Physics\BoundingBox.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Physics\BoundingSphere.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Physics\ConvexHullShape.cpp" />

@@ -162,7 +162,6 @@
     <ClCompile Include="SkullbonezSource\Maths\Matrix4.cpp" />
     <ClCompile Include="SkullbonezSource\Maths\Quaternion.cpp" />
     <ClCompile Include="SkullbonezSource\Maths\RotationMatrix.cpp" />
-    <ClCompile Include="SkullbonezSource\Maths\Vector3.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\Maths\GeometricMath.h" />

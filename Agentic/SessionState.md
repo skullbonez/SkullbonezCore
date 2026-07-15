@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `15th-of-July-Night-Runner` (created from current `origin/main` at `b2d085f9c`) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Continue the remaining four round-4 remediation plans in binding order: Vector3 inlining, math fatal removal, deterministic parallel mutual gravity, runtime signature decomposition |
-| Active/future progress | 6 / 22 tasks = 27% overall (round-4 remediation plans only; completed past plans and externally blocked work are excluded) |
+| Current objective | Continue the remaining three round-4 remediation plans in binding order: math fatal removal, deterministic parallel mutual gravity, runtime signature decomposition |
+| Active/future progress | 9 / 22 tasks = 41% overall (round-4 remediation plans only; completed past plans and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | Shadow-stream T1-T3 closed at 3/3. `validate_tests` passed 196/196 cases and 4,154 assertions. `validate_dx12_renderer` passed zero-warning Profile/Debug builds, zero InfoQueue errors, and unchanged committed screenshots. `run_graphics_stress.bat 1` exited 0 after 12,664 frames/348 scene loads with 131/131 descriptor turnovers, empty stderr, zero upload drops/flushes, and exact memory reconciliation. Touched-file comment audit passed 5/5, zero deferred. |
+| Validation for current edits | Vector3 T1-T3 closed at 3/3. `validate_full` passed in 200.0s with zero warnings/errors, zero DX12 InfoQueue errors, unchanged screenshots, and all 44,401 physics lines byte-exact without a baseline refresh. `validate_perf` passed in 77.3s with no DX12/physics regressions; physics-step average improved 16.6%. Touched-source comment audit passed 3/3, zero deferred. |
 
 ## Live Queue
 
@@ -36,6 +36,10 @@ plan inventory.
    `data-driven-shadow-caster-streams` is complete at 3/3: scene-owner instance
    build resolves one opaque stream id, render submission no longer inspects
    pine material content, and unchanged renderer baselines plus stress passed.
+   `vector3-inline-hot-math` is complete at 3/3: all member operations are
+   header-inline, copy/assignment are trivial, the ABI remains 12 bytes, the
+   44,401-line physics baseline is unchanged, and the perf gate found no
+   regression.
 1. `replay-visual-fidelity-mega-probe` is complete at 7/7 on
    `nightrunner-13th-july`. It uses one generation and one presented reveal,
    then only non-presenting CPU/artifact verification.
@@ -155,9 +159,9 @@ plan inventory.
 
 ## Next Handoff
 
-Round 4 is 6/22 after closing message-pump and shadow-stream plans on
+Round 4 is 9/22 after closing message-pump, shadow-stream, and Vector3 plans on
 `15th-of-July-Night-Runner`. Continue with
-`Plans/TODO/vector3-inline-hot-math.md`; every remaining plan carries the same
+`Plans/TODO/math-fatal-removal.md`; every remaining plan carries the same
 zero-baseline-refresh requirement. The externally administered
 validation-gate V3 lane remains blocked and is excluded from the executable
 portfolio ledger.

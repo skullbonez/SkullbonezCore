@@ -15,6 +15,7 @@
 //   - Vector3::Normalise() is only called on non-zero vectors in this runner.
 //   - Dot/cross/magnitude identities should stay stable across math library
 //     extraction and future standalone physics builds.
+//   - Defaulted copies retain all three components independently of the source.
 //
 // Related:
 //   - SkullbonezSource/Maths/Vector3.h
@@ -83,4 +84,17 @@ TEST_CASE( "Vector3: magnitude and squared magnitude are consistent" )
 
     CHECK( VectorMagSquared( value ) == doctest::Approx( 49.0f ) );
     CHECK( magnitude * magnitude == doctest::Approx( VectorMagSquared( value ) ).epsilon( kEpsilon ) );
+}
+
+
+TEST_CASE( "Vector3: defaulted copy construction and assignment preserve components" )
+{
+    Vector3 source( 1.25f, -2.5f, 7.75f );
+    const Vector3 constructed( source );
+    Vector3 assigned( 0.0f, 0.0f, 0.0f );
+    assigned = source;
+
+    source.SetAll( 9.0f, 8.0f, 7.0f );
+    CheckVectorNear( constructed, Vector3( 1.25f, -2.5f, 7.75f ) );
+    CheckVectorNear( assigned, Vector3( 1.25f, -2.5f, 7.75f ) );
 }
