@@ -146,6 +146,12 @@
     <Filter Include="Header Files\Runtime\Lifecycle">
       <UniqueIdentifier>{1335C2CA-AFB9-4F5D-ACB1-627997512618}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\Startup">
+      <UniqueIdentifier>{8E2590BE-216D-49E6-B0C8-15DB26EDC7F2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Runtime\Startup">
+      <UniqueIdentifier>{60BB2815-8CE7-46D3-A44C-351DA261890D}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Runtime\Camera">
       <UniqueIdentifier>{23B562F1-2F3E-4805-AF2A-F56D7BC55440}</UniqueIdentifier>
     </Filter>
@@ -321,6 +327,12 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Init.cpp">
       <Filter>Source Files\Runtime\Lifecycle</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.cpp">
+      <Filter>Source Files\Runtime\Startup</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCrashLogging.cpp">
+      <Filter>Source Files\Runtime\Startup</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Input.cpp">
       <Filter>Source Files\Runtime\Input</Filter>
@@ -838,6 +850,15 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RunLaunchOptions.h">
       <Filter>Header Files\Runtime\Lifecycle</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.h">
+      <Filter>Header Files\Runtime\Startup</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupCrashLogging.h">
+      <Filter>Header Files\Runtime\Startup</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupLaunchResolution.h">
+      <Filter>Header Files\Runtime\Startup</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayProbeState.h">
       <Filter>Header Files\Runtime\Replay</Filter>

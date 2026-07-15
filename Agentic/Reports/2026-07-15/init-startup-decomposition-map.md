@@ -182,3 +182,23 @@ file-scope symbol so extraction cannot create an unplanned shared-state bag.
   this map.
 
 Validation: documentation-only inventory; no repository validation required.
+
+## T2 Extraction Evidence
+
+- `StartupCrashLogging`: 4/4 mapped definitions moved; 231 lines after format.
+- `StartupCommandLine`: 60/60 mapped definitions moved; 1,873 lines after
+  format. T4 must redistribute the launch/probe-owned directive families so
+  the final four-unit `~900`-line acceptance bound remains honest.
+- `Init.cpp`: 1,530 lines after T2; the launch-resolution header is an explicit
+  temporary seam until its mapped bodies move in T3.
+- Behavior proof: the ordered 319-string literal inventory in the moved CLI
+  definitions is identical to the pre-move source, and the extracted function
+  names reconcile 60/60 against this report.
+- Registration proof: `tools\validate_project_filters.bat` passed with 704
+  project items and 704 filter items across the production projects.
+- Gate: `tools\validate_full.bat` passed in 314.66 s with zero-warning
+  Profile/Automation/Debug builds, all CPU suites and runtime lanes, zero DX12
+  validation errors, committed screenshot matches, and a 44,401-line
+  byte-exact physics baseline match.
+- Comment audit: 7/7 touched source-bearing files inspected, 0 deferred.
+  No baseline or golden refresh.

@@ -261,6 +261,16 @@ RUNTIME_LIFECYCLE_PREFIXES = (
     "WindowConstants",
 )
 
+# Startup units are process-entry policy owners rather than Run lifecycle
+# implementations. Keep their physical directory and Solution Explorer filter
+# aligned as the Init decomposition adds each planned unit.
+RUNTIME_STARTUP_PREFIXES = (
+    "StartupCommandLine",
+    "StartupCrashLogging",
+    "StartupLaunchResolution",
+    "StartupProbeHarnesses",
+)
+
 RUNTIME_CAMERA_PREFIXES = (
     "AttachedCameraController",
     "Camera",
@@ -458,6 +468,7 @@ AREA_PREFIXES = (
     ("Runtime\\Debug", RUNTIME_DEBUG_PREFIXES),
     ("Runtime\\UI", RUNTIME_UI_PREFIXES),
     ("Runtime\\Lifecycle", RUNTIME_LIFECYCLE_PREFIXES),
+    ("Runtime\\Startup", RUNTIME_STARTUP_PREFIXES),
     ("Runtime\\Camera", RUNTIME_CAMERA_PREFIXES),
     ("Runtime\\Capture", RUNTIME_CAPTURE_PREFIXES),
     ("Runtime\\Demo", RUNTIME_DEMO_PREFIXES),

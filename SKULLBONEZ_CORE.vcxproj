@@ -308,6 +308,8 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\ApplicationExitState.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Init.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCrashLogging.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Input.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\InputController.Bindings.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\InputController.cpp" />
@@ -475,6 +477,9 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\RunDebugState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\InteractionAutomationController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunLaunchOptions.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupCrashLogging.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupLaunchResolution.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayProbeState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RenderPresentationSettings.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunStartupState.h" />

@@ -97,10 +97,10 @@ rule 4. The externally blocked validation lane remains deliberately excluded.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| init-startup-decomposition | 1 | 5 | 20% |
+| init-startup-decomposition | 2 | 5 | 40% |
 | run-member-and-include-shrink | 0 | 6 | 0% |
 | wide-call-desc-struct-pass | 0 | 5 | 0% |
-| **Active/future total** | **1** | **16** | **6%** |
+| **Active/future total** | **2** | **16** | **13%** |
 
 The three round-5 plans (fp-envelope-hardening 4/4,
 mutual-gravity-large-scene-fallback 3/3, math-fatal-survey-restoration 3/3)
@@ -411,7 +411,7 @@ ownership review; replay-touching wide-call work runs the one-invocation
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [init-startup-decomposition](TODO/init-startup-decomposition.md) | Active | 1/5 | T2: extract crash logging and CLI parsing verbatim, with mapped header seams and project/filter registration |
+| [init-startup-decomposition](TODO/init-startup-decomposition.md) | Active | 2/5 | T3: extract probe harnesses and launch resolution verbatim, preserving every output string, exit code, and call position |
 | [run-member-and-include-shrink](TODO/run-member-and-include-shrink.md) | Active | 0/6 | After Init settles constructor wiring: T1 grouping proposal, then extract the two presentation/diagnostics owners and shrink Run.h's 46 includes |
 | [wide-call-desc-struct-pass](TODO/wide-call-desc-struct-pass.md) | Active | 0/5 | T1: re-resolve the ≥12-arg inventory rows post-PhysicsWorld, then desc-struct conversions with designated initializers |
 

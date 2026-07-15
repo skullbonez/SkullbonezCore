@@ -1,7 +1,7 @@
 # Init Startup Decomposition — Split The 3,495-Line Startup File By Responsibility
 
 Date: 2026-07-15
-Status: Active — 1/5 tasks complete
+Status: Active — 2/5 tasks complete
 Impact area: `Runtime/Init.cpp`, new `Runtime/Startup/*` translation units,
 project/filter files, startup CLI behavior (must not change)
 Owner: runtime shell
@@ -67,9 +67,17 @@ every CLI flag, error message, exit code, and probe output is byte-identical.
       Evidence: the report reconciles CodeGraph's 99 symbols with the 87
       regex-matched free functions, assigns all 87 in source order, records all
       supporting type/global placement, and fixes the header/internal seams.
-- [ ] T2 — Extract crash logging + CLI parsing units (verbatim moves, headers
+- [x] T2 — Extract crash logging + CLI parsing units (verbatim moves, headers
       per the map, vcxproj/filters in the same commit, learning headers per
       the comment guide). `Init.cpp` includes the new headers; no logic edits.
+      Evidence: all 60 mapped CLI definitions moved, the ordered 319-string
+      literal inventory matched the pre-move source, and the crash logger's
+      four mapped definitions moved behind its owner header. Project/filter
+      validation reconciled 704/704 items. `tools\validate_full.bat` passed in
+      314.66 s with zero-warning builds, all CPU and runtime lanes, zero DX12
+      validation errors, committed screenshot matches, and the 44,401-line
+      byte-exact physics baseline. Touched-file comment audit: 7/7 inspected,
+      0 deferred. No baseline or golden refresh.
 - [ ] T3 — Extract probe harnesses + launch resolution units the same way.
       The probe harnesses keep their exact output strings and exit codes;
       grep-proof the moved string literals are unchanged.

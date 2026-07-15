@@ -13,16 +13,16 @@ plan inventory.
 | Branch | `nightrunner-15th-july` (runtime mass-reduction campaign) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
 | Current objective | Execute the runtime mass-reduction campaign: `init-startup-decomposition` → `run-member-and-include-shrink` → `wide-call-desc-struct-pass` (wide-call may run as a parallel lane; its T2 rebases on the Run shrink's RunRender edits if both are in flight) |
-| Active/future progress | 1 / 16 tasks = 6% overall (mass-reduction plans only; completed campaigns and externally blocked work are excluded) |
-| Last broad local gate | `tools\\validate_full.bat` passed in 279.29 s on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | P10 remediation deleted the prohibited World TU split, replaced concrete sibling references with opaque owner-minted capabilities, moved sleep policy to its owner, and moved integration dispatch to `PhysicsForceStage`. Repeat independent review found zero credible blocking ownership findings. `tools\\validate_perf.bat` passed in 79.43 s with no regressions or gameplay allocation violations; final allocation scans covered 355 files with 0 allowlist errors; comment audit inspected 27/27 source-bearing files with 0 deferred. No baseline refresh. |
+| Active/future progress | 2 / 16 tasks = 13% overall (mass-reduction plans only; completed campaigns and externally blocked work are excluded) |
+| Last broad local gate | `tools\\validate_full.bat` passed in 314.66 s on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
+| Validation for current edits | Init T2 moved the four crash and 60 CLI definitions behind responsibility headers without changing call order or strings; the ordered 319-string inventory matched. Project/filter validation reconciled 704/704 items; the full gate passed; comment audit inspected 7/7 touched source-bearing files with 0 deferred. No baseline or golden refresh. |
 
 ## Live Queue
 
 0000. Runtime mass-reduction campaign is the active lane (activated
-      2026-07-15; registered in MASTER at 1/16). Binding order:
-      `init-startup-decomposition` (1/5; T1 function→unit map complete,
-      continue with T2 crash/CLI extraction)
+      2026-07-15; registered in MASTER at 2/16). Binding order:
+      `init-startup-decomposition` (2/5; T2 crash/CLI extraction complete,
+      continue with T3 probe/launch extraction)
       → `run-member-and-include-shrink` (6 tasks) →
       `wide-call-desc-struct-pass` (5 tasks, may run parallel to the first
       two; T2 rebases on Run-shrink RunRender edits if concurrent). Owner
@@ -241,8 +241,8 @@ lifetime check, sequencer inspection, ledger arithmetic, per-task byte-exact
 claims, and the locally runnable allocation/filter/migration checks; the P10
 review's three caught-and-remediated blockers and two recorded residuals are
 in the closure report). The active work is now the runtime mass-reduction
-campaign at 1/16 — continue with `Plans/TODO/init-startup-decomposition.md`
-T2 per the Live Queue entry above. Documentation-honesty findings from the
+campaign at 2/16 — continue with `Plans/TODO/init-startup-decomposition.md`
+T3 per the Live Queue entry above. Documentation-honesty findings from the
 round-4 review remain recorded in MASTER without plans. The externally
 administered validation-gate V3 lane remains blocked and excluded from the
 ledger.
