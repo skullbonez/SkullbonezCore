@@ -400,16 +400,40 @@
       "path": "SkullbonezSource/Physics/PhysicsWorld.cpp",
       "patterns": [
         ".assign(",
-        ".emplace_back(",
         ".push_back(",
-        ".reserve(",
-        ".resize("
+        ".reserve("
       ],
       "owner": "PhysicsWorld bounded scratch and replay vectors",
       "phase": "startup_preallocation_scene_load_replay",
       "reason": "PhysicsWorld reserves its remaining model/contact/replay vectors before steady gameplay; the runtime allocation guard rejects accidental growth after the owning setup or replay boundary.",
       "cap": "Remaining vectors are bounded by scene model/body/contact capacities or replay snapshot hard caps.",
       "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+    },
+    {
+      "path": "SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp",
+      "patterns": [
+        ".assign(",
+        ".emplace_back(",
+        ".push_back(",
+        ".reserve(",
+        ".resize("
+      ],
+      "owner": "PhysicsSleepController bounded sleep state and scratch",
+      "phase": "startup_preallocation_scene_load_replay",
+      "reason": "The extracted sleep owner preserves the former PhysicsWorld model-order arrays and bounded graph scratch; construction reserves scene capacity and the runtime allocation guard rejects growth after setup.",
+      "cap": "All arrays are bounded by the configured scene body capacity; support edges reserve four rows per body and pipeline output retains its existing fixed cap.",
+      "removal_or_wrapper_plan": "Replace model-order sleep vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+    },
+    {
+      "path": "SkullbonezSource/Physics/Stages/PhysicsSleepController.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "PhysicsSleepController bounded sleep state and scratch",
+      "phase": "startup_preallocation_scene_load_replay",
+      "reason": "The controller owns the preallocated sleep, island, wake, and replay rows moved intact from PhysicsWorld; no vector may grow beyond its setup boundary during steady gameplay.",
+      "cap": "All owned vectors are bounded by scene body capacity or the existing four-support-edge-per-body reserve.",
+      "removal_or_wrapper_plan": "Replace model-order sleep vectors with fixed stores or bounded scratch arrays, then remove this row."
     },
     {
       "path": "SkullbonezSource/Physics/PhysicsWorld.h",

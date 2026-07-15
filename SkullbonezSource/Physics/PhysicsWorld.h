@@ -57,6 +57,7 @@ Related:
 #include "Stages/PhysicsNarrowphaseStage.h"
 #include "Stages/PhysicsStageContexts.h"
 #include "Stages/PhysicsTerrainStage.h"
+#include "Stages/PhysicsSleepController.h"
 #include "TerrainContactManifold.h"
 #include "TornadoGameplay.h"
 
@@ -113,84 +114,22 @@ class PhysicsWorld
     // cross-stage CCD clock, so it deliberately remains on the sequencer.
     std::vector<float> m_timeRemaining;
 
-    // Sleep policy working state.
-    //
-    // Sleeping is a performance and stability optimization: bodies that are
-    // supported and quiet can stop integrating until something wakes them. The
-    // "supported" and "inhibited" arrays are rebuilt each frame from contacts.
-    // PhysicsBodyStore owns the persisted sleep flag; m_sleepState is the
-    // solver's model-indexed working copy for existing diagnostics and sleep
-    // algorithms. A fully submerged sleeping sphere also gets a one-way
-    // lock so water-floor balls behave like static rocks instead of rejoining
-    // buoyancy/contact churn.
-    std::vector<uint8_t> m_sleepSupportedThisFrame;
-    std::vector<uint8_t> m_sleepInhibitedThisFrame;
-    std::vector<uint8_t> m_sleepState;
-    std::vector<uint8_t> m_sleepCounter;
-    std::vector<uint8_t> m_underwaterSleepLocked;
+    // Sleep state, wake propagation, and island transitions have one concrete
+    // owner. PhysicsWorld only sequences its typed fixed-step operations.
+    PhysicsSleepController m_sleepController;
     // Debug visualization state. These arrays intentionally mirror scene/model
     // slot order so render/debug code can look up one byte/id without map
     // lookups in the overlay path.
     std::vector<uint8_t> m_collisionVisualContacts;
-    std::vector<int> m_sleepIslandVisualId;
-    std::vector<int> m_sleepIslandAssignedVisualId;
-    int m_nextSleepIslandVisualId = 1;
-    bool m_sleepEnabled = true;
-    uint8_t m_seedSleepFrameCount = 30;
     bool m_collisionVisualFrameActive = false;
 
-    // Sleep islands are connected components of "this body is safely supported
-    // by that body" edges. If an entire island is quiet and has a stable anchor,
-    // all of it may sleep together; if one member wakes, the island should not
-    // leave neighbors suspended in mid-air.
-    std::vector<std::pair<int, int>> m_sleepSupportEdges;
-    std::vector<int> m_sleepIslandParent;
-    std::vector<uint8_t> m_sleepIslandRank;
-    std::vector<uint8_t> m_sleepIslandHasAwake;
-    std::vector<uint8_t> m_sleepIslandHasSupportAnchor;
-    std::vector<uint8_t> m_sleepIslandEligible;
-    std::vector<uint8_t> m_sleepIslandCanSleep;
-
-    // Point-joint sleep metadata is rebuilt during the sleep pass. It treats
-    // ragdoll joints as connectivity/support edges while still leaving contacts
-    // as the source of collision impulses. The same shape can later host a
-    // generic constraint graph without changing the public sleep API.
-    std::vector<uint8_t> m_sleepPointJointBody;
-    std::vector<uint8_t> m_sleepIslandHasPointJoint;
-    std::vector<uint8_t> m_sleepIslandPointJointsRelaxed;
-
-    // Scratch index for persisted sleep island ids. Contacts are intentionally
-    // pruned for sleeping bodies, so this reconnects a resting pile from its
-    // sleep identity without storing extra prediction state.
-    std::vector<int> m_sleepVisualIslandIds;
-    std::vector<int> m_sleepVisualIslandBodies;
-
   private:
-    void RunSleepIslandStage( PhysicsBodyStore& bodyStore,
-                              const ColliderStore& colliderStore,
-                              const PhysicsWorldForces& worldForces,
-                              std::span<PhysicsBodyRecord> bodyRecords,
-                              int modelCount,
-                              float sleepLinearSq,
-                              float sleepAngularSq,
-                              uint8_t sleepFrames );
-    void ApplySleepIslandTransitions( PhysicsBodyStore& bodyStore,
-                                      const ColliderStore& colliderStore,
-                                      const PhysicsWorldForces& worldForces,
-                                      std::span<PhysicsBodyRecord> bodyRecords,
-                                      DisjointSet& sleepIslands,
-                                      int modelCount,
-                                      uint8_t sleepFrames );
-
     void CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& event );
 
     std::vector<PhysicsDebugContact> m_physicsDebugContacts;
     std::vector<PhysicsPipelineRecord> m_physicsPipelineTrace;
-    std::vector<uint8_t> m_restingWakeVisitedScratch;
-    std::vector<int> m_restingWakeQueueScratch;
     std::vector<PointJointConstraint> m_pointJointConstraints;
     TornadoGameplay m_tornadoGameplay;
-    SleepIslandSystem m_sleepIslandSystem;
     PhysicsDiagnosticsSink m_diagnostics;
 #ifdef _DEBUG
     bool m_diagnosticsSuppressed = false;
@@ -206,16 +145,9 @@ class PhysicsWorld
     void CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
                                           const ColliderStore& colliderStore,
                                           const PhysicsWorldForces& worldForces );
-    SleepSupportPropagationContext CreateSleepSupportPropagationContext();
     bool CanRecordPhysicsPipelineStage() const;
     void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record );
     void EnsureCollisionVisualBuffers( int modelCount );
-    void EnsureUnderwaterSleepLockBuffer( int modelCount );
-    void LockUnderwaterSleeperIfReady( const PhysicsWorldForces& worldForces,
-                                       PhysicsBodyStore& bodyStore,
-                                       const ColliderStore& colliderStore,
-                                       int index );
-    bool IsUnderwaterSleepLocked( int bodyCount, int index );
     void MarkCollisionVisualContact( int index );
     void ApplyTornadoGameplay( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
@@ -223,52 +155,6 @@ class PhysicsWorld
                                float dt,
                                const SkullbonezCore::Core::EngineConfig& runtimeConfig,
                                Threading::WorkerPool& workerPool );
-    void PropagateSleepSupport( std::span<const PhysicsBodyRecord> bodyRecords );
-    void AppendPointJointSupportEdges( const PhysicsBodyStore& bodyStore, int modelCount );
-    void WakeModel( int bodyCount,
-                    std::span<const PhysicsBodyRecord> bodyRecords,
-                    PhysicsBodyStore* bodyStore,
-                    const ColliderStore* colliderStore,
-                    const PhysicsWorldForces* worldForces,
-                    int index );
-    void SeedModelAsleep( int bodyCount, std::span<const PhysicsBodyRecord> bodyRecords, int index );
-    bool WakeDynamicBodyState( int bodyCount,
-                               std::span<const PhysicsBodyRecord> bodyRecords,
-                               PhysicsBodyStore* bodyStore,
-                               int index,
-                               float dt,
-                               bool applyForces,
-                               const PhysicsWorldForces* worldForces = nullptr,
-                               const ColliderStore* colliderStore = nullptr );
-    void WakeSleepVisualIsland( int bodyCount,
-                                std::span<const PhysicsBodyRecord> bodyRecords,
-                                PhysicsBodyStore* bodyStore,
-                                int index,
-                                float dt,
-                                bool applyForces,
-                                const PhysicsWorldForces* worldForces = nullptr,
-                                const ColliderStore* colliderStore = nullptr );
-    void WakePointJointIsland( int bodyCount,
-                               std::span<const PhysicsBodyRecord> bodyRecords,
-                               PhysicsBodyStore* bodyStore,
-                               int index,
-                               float dt,
-                               bool applyForces,
-                               const PhysicsWorldForces* worldForces = nullptr,
-                               const ColliderStore* colliderStore = nullptr );
-    void WakeRestingContactIsland( int bodyCount,
-                                   std::span<const PhysicsBodyRecord> bodyRecords,
-                                   PhysicsBodyStore* bodyStore,
-                                   int index,
-                                   float dt,
-                                   bool applyForces,
-                                   const PhysicsWorldForces* worldForces = nullptr,
-                                   const ColliderStore* colliderStore = nullptr );
-    bool IsPointJointPair( const PhysicsBodyStore& bodyStore, int bodyA, int bodyB ) const;
-    void WakePointJointConnectedBodies( PhysicsBodyStore& bodyStore,
-                                        const ColliderStore& colliderStore,
-                                        const PhysicsWorldForces& worldForces,
-                                        float dt );
 
   public:
     PhysicsWorld();
@@ -367,11 +253,5 @@ struct PhysicsDiagnosticsView
     const std::vector<TerrainContactManifold>& terrainContactManifolds;
 };
 
-struct SleepSupportPropagationContext
-{
-    std::span<uint8_t> sleepState;
-    std::span<const std::pair<int, int>> sleepSupportEdges;
-    std::span<uint8_t> sleepSupportedThisFrame;
-};
 } // namespace Physics
 } // namespace SkullbonezCore

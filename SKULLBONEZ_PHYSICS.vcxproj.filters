@@ -57,6 +57,9 @@
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsContactSolverStage.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsSleepController.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsForceStage.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -180,6 +183,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsContactSolverStage.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsSleepController.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsForceStage.h">

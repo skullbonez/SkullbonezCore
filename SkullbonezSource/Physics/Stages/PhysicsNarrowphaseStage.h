@@ -55,6 +55,7 @@ namespace Physics
 {
 class ColliderStore;
 class PhysicsBodyStore;
+class PhysicsSleepController;
 struct ColliderRecord;
 struct PhysicsBodyRecord;
 struct PhysicsWorldForces;
@@ -96,11 +97,10 @@ struct ObjectNarrowphasePairStageContext
     std::span<PhysicsBodyRecord> bodyRecords;
     std::span<const ColliderRecord> colliderRecords;
     std::span<const std::pair<int, int>> candidatePairs;
-    std::vector<uint8_t>& sleepState;
-    std::vector<uint8_t>& sleepCounter;
-    std::vector<int>& sleepIslandVisualId;
-    std::vector<float>& timeRemaining;
-    const std::vector<uint8_t>& underwaterSleepLocked;
+    PhysicsSleepController& sleepController;
+    std::span<const uint8_t> sleepState;
+    std::span<float> timeRemaining;
+    std::span<const uint8_t> underwaterSleepLocked;
     const std::vector<PersistentContactCacheEntry>& persistentContactCache;
     int modelCount = 0;
     float sleepLinearSq = 0.0f;

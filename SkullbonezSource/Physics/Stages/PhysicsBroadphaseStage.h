@@ -62,7 +62,7 @@ struct PhysicsBroadphaseStageContext
     std::span<const ColliderRecord> colliderRecords;
     const SkullbonezCore::Core::EngineConfig& config;
     const std::vector<PointJointConstraint>& pointJointConstraints;
-    const std::vector<uint8_t>& sleepState;
+    std::span<const uint8_t> sleepState;
     std::vector<PhysicsPipelineRecord>& physicsPipelineTrace;
     int modelCount = 0;
     float dt = 0.0f;

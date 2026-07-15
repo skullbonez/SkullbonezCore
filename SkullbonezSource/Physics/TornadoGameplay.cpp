@@ -28,6 +28,7 @@ Related:
   - SkullbonezSource/Physics/TornadoField.cpp
 */
 #include "TornadoGameplay.h"
+#include "Stages/PhysicsSleepController.h"
 
 #include "../Core/Config.h"
 #include "../Core/Profiler.h"
@@ -72,7 +73,7 @@ Vector3 ClampVectorMagnitude( const Vector3& value, float maxMagnitude )
     return value * ( maxMagnitude / sqrtf( magSq ) );
 }
 
-bool IsUnderwaterSleepLocked( const std::vector<uint8_t>& underwaterSleepLocked, int bodyCount, int index )
+bool IsUnderwaterSleepLocked( std::span<const uint8_t> underwaterSleepLocked, int bodyCount, int index )
 {
     if ( index < 0 || index >= bodyCount || index >= static_cast<int>( underwaterSleepLocked.size() ) )
     {
@@ -287,12 +288,14 @@ void TornadoGameplay::ApplyBodyForces( const TornadoGameplayStepState& stepState
 
         if ( context.sleepState[i] )
         {
-            context.sleepState[i] = 0;
-            context.sleepCounter[i] = 0;
-            context.sleepIslandVisualId[i] = 0;
-            context.timeRemaining[i] = context.dt;
-            bodyRecord.isSleeping = false;
-            (void)context.bodyStore.ApplyForces( context.worldForces, context.colliderStore, i, context.dt );
+            context.sleepController.WakeNarrowphaseBody( context.bodyStore,
+                                                         context.colliderStore,
+                                                         context.worldForces,
+                                                         bodyRecords,
+                                                         context.timeRemaining,
+                                                         modelCount,
+                                                         i,
+                                                         context.dt );
         }
 
         Vector3 velocity = bodyRecord.linearVelocity;

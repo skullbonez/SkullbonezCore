@@ -263,7 +263,7 @@ remain byte-exact throughout — zero refresh authorized at any task.
       byte-exact baseline with zero Debug/Profile warnings or errors. No
       baseline refresh.
 
-- [ ] **P7 — Extract `PhysicsSleepController` (the big one — budget it as the
+- [x] **P7 — Extract `PhysicsSleepController` (the big one — budget it as the
       longest task).** All ~20 sleep vectors, the island system wrapper, wake/
       seed internals, underwater locks, point-joint sleep metadata, and
       support propagation move behind one owner with explicit APIs:
@@ -281,6 +281,22 @@ remain byte-exact throughout — zero refresh authorized at any task.
       `tools\validate_physics_deep.bat` once (sleep/island behavior is the
       highest-risk move; the deep gate's sleep-sensitive scenes are the extra
       tripwire).
+      Completed 2026-07-15: `PhysicsSleepController` now owns all model-order
+      sleep rows, wake/seed fan-out, underwater locks, support propagation,
+      point-joint sleep metadata, island transitions, and resting-wake scratch.
+      Force, broadphase, narrowphase, terrain, contact, joint, integration,
+      tornado, diagnostics, replay, and public façade consumers use typed
+      controller APIs or const spans; no callback or `PhysicsWorld` back-reference
+      crosses the boundary. The deferred synchronous narrowphase/tornado wake
+      mutations now call the controller in their original pair/body positions.
+      Comment audit inspected 16/16 touched source-bearing files with zero
+      deferred. Allocation-policy self/repository scans passed (350 files, 39
+      direct-heap findings, 139 dynamic-STL findings, 656 STL-growth findings,
+      zero allowlist errors). `tools\validate_physics.bat` passed both smoke
+      lanes, zero-warning Debug/Profile builds, and the 44,401-line varied
+      baseline byte-exact. The one required `tools\validate_physics_deep.bat`
+      run passed all deep CSV/signature/SkullScope comparisons and zero-warning
+      Debug/Profile builds. No baseline refresh.
 
 - [ ] **P8 — Extract `PhysicsStepDiagnostics`.** Collision-visual buffers and
       frame flag, debug contacts, pipeline trace, and the emit/record helpers

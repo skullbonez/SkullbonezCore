@@ -122,7 +122,7 @@ struct PersistentContactSolverContext
     // Lifetime: every span/reference is borrowed for one synchronous call to
     // PersistentContactSolver::Solve and is never retained.
     std::span<const std::pair<int, int>> candidatePairs;
-    std::span<uint8_t> sleepState;
+    std::span<const uint8_t> sleepState;
     std::vector<std::pair<int, int>>& sleepSupportEdges;
     std::vector<PersistentContact>& persistentContacts;
     std::vector<PersistentContactCacheEntry>& persistentContactCache;
@@ -152,7 +152,7 @@ struct PhysicsContactSolverStageContext
     const Core::EngineConfig& config;
     const PhysicsWorldForces& worldForces;
     std::span<const std::pair<int, int>> candidatePairs;
-    std::span<uint8_t> sleepState;
+    std::span<const uint8_t> sleepState;
     std::vector<std::pair<int, int>>& sleepSupportEdges;
     std::vector<PhysicsDebugContact>& physicsDebugContacts;
     std::vector<TerrainContactManifold>& terrainContactManifolds;

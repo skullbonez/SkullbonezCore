@@ -217,7 +217,7 @@ struct PointJointCandidatePairPredicate
     }
 };
 
-bool IsSleepPrunedCandidatePair( const std::vector<uint8_t>& sleepState, const std::pair<int, int>& pair )
+bool IsSleepPrunedCandidatePair( std::span<const uint8_t> sleepState, const std::pair<int, int>& pair )
 {
     const int a = pair.first;
     const int b = pair.second;
@@ -250,7 +250,7 @@ void TryRecordSleepPrunedCandidatePair( std::vector<Physics::PhysicsPipelineReco
 // only for a pair that remove_if erases.
 struct SleepPrunedCandidatePairPredicate
 {
-    const std::vector<uint8_t>& sleepState;
+    std::span<const uint8_t> sleepState;
     std::span<const Physics::PhysicsBodyRecord> bodyRecords;
     std::vector<Physics::PhysicsPipelineRecord>& physicsPipelineTrace;
 

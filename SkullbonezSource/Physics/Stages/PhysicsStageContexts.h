@@ -50,7 +50,7 @@ struct ApplyForcesStageContext
     const ColliderStore& colliderStore;
     const PhysicsWorldForces& worldForces;
     std::span<const PhysicsBodyRecord> bodyRecords;
-    std::vector<uint8_t>& sleepState;
+    std::span<const uint8_t> sleepState;
     std::vector<float>& timeRemaining;
     const Math::Vector::Vector3* mutualGravityForces = nullptr;
     float dt = 0.0f;
@@ -65,8 +65,8 @@ struct IntegrateRemainingStageContext
     PhysicsBodyStore& bodyStore;
     const ColliderStore& colliderStore;
     std::span<const PhysicsBodyRecord> bodyRecords;
-    const std::vector<uint8_t>& sleepState;
-    const std::vector<float>& timeRemaining;
+    std::span<const uint8_t> sleepState;
+    std::span<const float> timeRemaining;
 
     void operator()( int bodyIndex ) const;
 };

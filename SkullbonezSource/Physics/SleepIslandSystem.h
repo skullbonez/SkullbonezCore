@@ -33,12 +33,20 @@ Related:
 
 #include "PhysicsBodyStore.h"
 
+#include <utility>
+#include <vector>
+
 namespace SkullbonezCore
 {
 namespace Physics
 {
 struct PhysicsBodyRecord;
-struct SleepSupportPropagationContext;
+struct SleepSupportPropagationContext
+{
+    std::span<uint8_t> sleepState;
+    std::span<const std::pair<int, int>> sleepSupportEdges;
+    std::span<uint8_t> sleepSupportedThisFrame;
+};
 
 class SleepIslandSystem
 {

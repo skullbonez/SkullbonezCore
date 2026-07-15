@@ -198,7 +198,7 @@ void ApplyConstraintImpulse( PhysicsBodyRecord& a,
 }
 
 
-bool IsBodySleeping( int bodyIndex, const std::vector<uint8_t>& sleepState )
+bool IsBodySleeping( int bodyIndex, std::span<const uint8_t> sleepState )
 {
     return bodyIndex >= 0 && bodyIndex < static_cast<int>( sleepState.size() ) && sleepState[bodyIndex] != 0;
 }
@@ -206,7 +206,7 @@ bool IsBodySleeping( int bodyIndex, const std::vector<uint8_t>& sleepState )
 
 bool ApplyNeckSwingLimits( PhysicsBodyStore& bodyStore,
                            const std::vector<PointJointConstraint>& constraints,
-                           const std::vector<uint8_t>& sleepState )
+                           std::span<const uint8_t> sleepState )
 {
     const auto bodyRecords = bodyStore.MutableRecords();
     const int modelCount = bodyStore.Count();
@@ -464,7 +464,7 @@ void Ragdoll::AddPreviewLines( std::vector<float>& lineData,
 
 bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore,
                                 const std::vector<PointJointConstraint>& constraints,
-                                const std::vector<uint8_t>& sleepState,
+                                std::span<const uint8_t> sleepState,
                                 float dt )
 {
     if ( constraints.empty() || dt <= TOLERANCE )

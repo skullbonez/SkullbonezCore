@@ -101,8 +101,8 @@ repository work.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| physicsworld-stage-owner-decomposition | 7 | 11 | 64% |
-| **Active/future total** | **7** | **11** | **64%** |
+| physicsworld-stage-owner-decomposition | 8 | 11 | 73% |
+| **Active/future total** | **8** | **11** | **73%** |
 
 The three round-5 plans (fp-envelope-hardening 4/4,
 mutual-gravity-large-scene-fallback 3/3, math-fatal-survey-restoration 3/3)
@@ -386,7 +386,7 @@ certification numbers.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physicsworld-stage-owner-decomposition](TODO/physicsworld-stage-owner-decomposition.md) | Active | 7/11 | P7: extract `PhysicsSleepController`, including wake/seed, support, island, underwater-lock, and deferred commit ownership |
+| [physicsworld-stage-owner-decomposition](TODO/physicsworld-stage-owner-decomposition.md) | Active | 8/11 | P8: extract `PhysicsStepDiagnostics`, preserving emission order and Debug/Profile boundaries |
 
 ## Features
 
