@@ -1,6 +1,6 @@
 # MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-07-14
+Date: 2026-07-15
 Status: Authoritative inventory of every live repository plan
 
 ## Inventory Rules
@@ -88,24 +88,37 @@ Rules:
 
 ### Portfolio Progress Ledger
 
-Scope: active and future implementation work only. Per the 2026-07-14 owner
-decision, the current execution percentage is the combined completion of replay
-monolith decomposition and future-path vector splines. Completed past plans and
-the externally blocked validation lane are deliberately excluded, so this
-number measures remaining executable work instead of lifetime repository work.
+Scope: active and future implementation work only. Per the 2026-07-15 owner
+decision, the active portfolio is the six round-4 adversarial-review
+remediation plans below. Replay monolith decomposition (9/9) and future-path
+vector splines (7/7) completed on `nightrunner-14th-july` and left the ledger
+as historical work per commit-contract rule 4. Completed past plans and the
+externally blocked validation lane are deliberately excluded, so this number
+measures remaining executable work instead of lifetime repository work.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| replay-monolith-decomposition | 9 | 9 | 100% |
-| future-path-vector-splines | 7 | 7 | 100% |
-| **Active/future total** | **16** | **16** | **100%** |
+| win32-message-pump-drain | 0 | 3 | 0% |
+| data-driven-shadow-caster-streams | 0 | 3 | 0% |
+| vector3-inline-hot-math | 0 | 3 | 0% |
+| math-fatal-removal | 0 | 4 | 0% |
+| deterministic-parallel-mutual-gravity | 0 | 4 | 0% |
+| runtime-signature-decomposition | 0 | 5 | 0% |
+| **Active/future total** | **0** | **22** | **0%** |
 
 ## Current Execution Priority
 
 For maximum impact with minimal rework, use this binding critical path:
 
-`replay visual-fidelity mega probe → replay monolith decomposition`, while
-validation-gate V3 remains externally blocked.
+`win32-message-pump-drain → data-driven-shadow-caster-streams →
+vector3-inline-hot-math → math-fatal-removal →
+deterministic-parallel-mutual-gravity → runtime-signature-decomposition`
+(the 2026-07-15 round-4 remediation lane), while validation-gate V3 remains
+externally blocked. Plans 1-2 and 3-5 touch disjoint files and may run as
+parallel lanes if desired; the ordering within 3→4→5 and pump→signatures is
+binding. The previous critical path
+(`replay visual-fidelity mega probe → replay monolith decomposition`)
+completed on `nightrunner-14th-july`.
 
 0. **Validation-gate V3 — blocked external lane.** Repository implementation is
    complete. Remaining work requires a real `merge_group` proof, required CPU
@@ -288,6 +301,41 @@ depth expansion, sleep parallel-array consolidation, `Init.cpp` decomposition,
 and any `RenderBackendDX12` re-partitioning beyond the bindless/frame-headroom
 task. The unpinned-`/fp` finding was already closed by
 `determinism-contract-hardening`.
+
+## Adversarial Review Remediation Round 4 (2026-07-15)
+
+Source: 2026-07-15 owner-commissioned hostile review of the full tree at the
+`nightrunner-14th-july` merge (PR #120). The owner ruled six findings into
+scope on 2026-07-15 and selected the approach for each (recorded per plan
+under Dependencies And Decisions): drain-per-frame message pump; data-driven
+shadow caster streams; Vector3 inline-only (padded-SIMD and SoA deferred);
+math Try-APIs plus debug assert; deterministic parallel exact-sum mutual
+gravity (approximation rejected); and signature decomposition only from the
+god-object finding (PhysicsWorld/Init TU splits and Run member shrink
+deliberately deferred).
+
+Binding execution order — small isolated wins first, shared-file work last:
+
+1. `win32-message-pump-drain` (isolated frame-loop fix)
+2. `data-driven-shadow-caster-streams` (isolated renderer fix)
+3. `vector3-inline-hot-math` (header-wide, must precede the math API change)
+4. `math-fatal-removal` (same function bodies as 3; runs after it)
+5. `deterministic-parallel-mutual-gravity` (perf evidence lands on inlined ops)
+6. `runtime-signature-decomposition` (rebases on 1's `RunFrame.cpp` changes)
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [win32-message-pump-drain](TODO/win32-message-pump-drain.md) | Active | 0/3 | Restructure `Run::Execute` to drain the queue then run one frame |
+| [data-driven-shadow-caster-streams](TODO/data-driven-shadow-caster-streams.md) | Active | 0/3 | Move stream selection to registration-time data; delete `IsPineVisualMaterial` |
+| [vector3-inline-hot-math](TODO/vector3-inline-hot-math.md) | Active | 0/3 | Header-inline all Vector3 ops; default copy/assign; keep 12-byte layout |
+| [math-fatal-removal](TODO/math-fatal-removal.md) | Active | 0/4 | After vector3 inlining: Try-APIs, debug asserts, call-site survey |
+| [deterministic-parallel-mutual-gravity](TODO/deterministic-parallel-mutual-gravity.md) | Active | 0/4 | Fixed-chunk parallel exact sum, ascending-order reduce, zero baseline refresh |
+| [runtime-signature-decomposition](TODO/runtime-signature-decomposition.md) | Active | 0/5 | After the pump plan: inventory ≥7-arg calls, migrate to frame views |
+
+Every plan in this round carries a zero-baseline-refresh requirement: pump,
+streams, inlining, fatal removal, and gravity must all pass their mapped gates
+against unchanged committed baselines, and the gravity plan's bitwise-identity
+reduction order is the recorded proof obligation.
 
 ## Features
 
