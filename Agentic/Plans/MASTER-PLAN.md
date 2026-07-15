@@ -102,20 +102,19 @@ repository work.
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | fp-envelope-hardening | 0 | 4 | 0% |
-| mutual-gravity-large-scene-fallback | 0 | 3 | 0% |
+| mutual-gravity-large-scene-fallback | 3 | 3 | 100% |
 | math-fatal-survey-restoration | 0 | 3 | 0% |
-| **Active/future total** | **0** | **10** | **0%** |
+| **Active/future total** | **3** | **10** | **30%** |
 
 ## Current Execution Priority
 
-The binding critical path is the 2026-07-15 round-5 lane:
-`mutual-gravity-large-scene-fallback → fp-envelope-hardening →
-math-fatal-survey-restoration`. The gravity fallback goes first because it
-removes a reachable Release process kill; the FP and survey plans are
-independent of it and of each other (the survey runs after FP hardening only
-if both touch the same Maths files). All six round-4 plans completed at 22/22
-on `15th-of-July-Night-Runner`; validation-gate V3 remains externally blocked
-and deliberately excluded from this ledger. The previous critical path
+The binding critical path is the 2026-07-15 round-5 lane. The mutual-gravity
+large-scene fallback is complete; execute `fp-envelope-hardening →
+math-fatal-survey-restoration` next. The FP and survey plans are independent
+except that the survey runs after FP hardening if both touch the same Maths
+files. All six round-4 plans completed at 22/22 on
+`15th-of-July-Night-Runner`; validation-gate V3 remains externally blocked and
+deliberately excluded from this ledger. The previous critical path
 (`replay visual-fidelity mega probe → replay monolith decomposition`)
 completed on `nightrunner-14th-july`.
 
@@ -355,7 +354,7 @@ are recorded here without plans; re-litigation requires new evidence.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [mutual-gravity-large-scene-fallback](TODO/mutual-gravity-large-scene-fallback.md) | Active | 0/3 | Reopens round-4 gravity closure: >512-body scenes must run the exact serial path instead of a Release fatal |
+| `mutual-gravity-large-scene-fallback` | Complete | 3/3 | Above 512 bodies, the original exact serial triangular loop bypasses pair scratch and workers; tests, allocation checks, and unchanged physics baseline passed |
 | [fp-envelope-hardening](TODO/fp-envelope-hardening.md) | Active | 0/4 | Diagnose the ff6e780e inline flip, pin `/fp:contract-` everywhere, re-scope determinism docs to the certified envelope |
 | [math-fatal-survey-restoration](TODO/math-fatal-survey-restoration.md) | Active | 0/3 | Reopens round-4 math-fatal T2: regenerate and commit the call-site classification survey; close any gaps it finds |
 
