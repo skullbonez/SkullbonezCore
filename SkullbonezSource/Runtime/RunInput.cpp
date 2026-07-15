@@ -31,6 +31,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Run.h"
+#include "RuntimeOverlayDiagnostics.h"
 #include "InputFrame.h"
 #include "RuntimeFrameViews.h"
 #include "AttachedCameraController.h"
@@ -646,7 +647,7 @@ bool InputRouter::HandleUnfocusedFrame( RuntimeFrameInteractionView& interaction
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     RunCameraState& camera = interactionOwners.camera;
     SceneController& sceneController = sceneOwners.sceneController;
-    UI::InGameUI& ui = interactionOwners.ui;
+    UI::InGameUI& ui = interactionOwners.overlays.OperatorUi();
     if ( AppFocused() )
     {
         return false;
@@ -694,7 +695,7 @@ void InputRouter::DispatchCaptureActions( InputActions& actions,
     const AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     SceneController& sceneController = sceneOwners.sceneController;
     DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
-    const UI::InGameUI& ui = interactionOwners.ui;
+    const UI::InGameUI& ui = interactionOwners.overlays.OperatorUi();
     // Why: capture/reset shortcuts run after UI input so focused controls and
     // panels get first refusal on keyboard ownership.
     const bool flyCamera =
@@ -771,8 +772,8 @@ bool InputRouter::DispatchAfterUiDismiss( InputActions& actions,
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     SceneController& sceneController = sceneOwners.sceneController;
     DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
-    RunDebugState& debug = sceneOwners.debug;
-    UI::InGameUI& ui = interactionOwners.ui;
+    RunDebugState& debug = sceneOwners.overlays.PresentationState();
+    UI::InGameUI& ui = interactionOwners.overlays.OperatorUi();
     const bool flyCamera =
         RunCameraModeUsesFlyControls( camera.mode, attachedCamera.State().activeFollow, camera.director.grabbed );
     const KeyboardContextFacts contextFacts{ !ui.BlocksKeyboard(),

@@ -3,7 +3,7 @@
 Date: 2026-07-16
 Branch: `nightrunner-15th-july`
 Owner: runtime shell
-Task: `run-member-and-include-shrink` T1
+Task: `run-member-and-include-shrink` T1-T2
 
 ## Current Measurements
 
@@ -92,8 +92,11 @@ without reopening this two-owner campaign.
 
 ## Boundary And Allocation Rules
 
-- Both owners are by-value members with concrete state and sequencing. No
-  startup-phase heap allocation or allocation-policy exception is introduced.
+- Owner A is opaque to `Run.h` through one `unique_ptr`; its five heavyweight
+  values remain by-value inside the owner. Construction runs under an explicit
+  Startup allocation scope and the one process-lifetime allocation has a
+  complete owner/phase/reason/cap/wrapper-plan allowlist row. Owner B remains
+  subject to the same rule when T3 chooses its final storage.
 - Neither owner stores `Run*`, a host reference, callbacks, `void*`, a services
   bag, or a whole-frame view.
 - Frame views replace moved member references with one owner reference
@@ -107,3 +110,53 @@ without reopening this two-owner campaign.
 ## T1 Validation
 
 Documentation-only grouping proposal. No repository validation required.
+
+## T2 Extraction Evidence
+
+`RuntimeOverlayDiagnostics` now owns `InGameUI`, `RunDebugState`, and the
+broadphase, collision, and physics debug visualizers. It owns real domain
+operations rather than only storing fields:
+
+- startup overlay/physics-debug launch policy;
+- post-physics refresh of all three visualizers plus their matching scene
+  validation gates;
+- immutable render-frame policy sampling;
+- named UI, presentation-state, and renderer visualizer borrows at the narrow
+  scene/replay/render boundaries that require the concrete type.
+
+The renderer is declared after the opaque owner and therefore releases all
+borrowed resources before owner destruction. Interaction, scene, and
+presentation frame views each replace their old direct UI/debug/physics-
+visualizer slot with the same owner-A reference. Scene loading similarly
+receives the cohesive owner and derives its three synchronous sub-borrows
+inside the cold load operation. No `Run*`, callback pack, services bag, or
+retained frame view was introduced.
+
+Formal evidence on 2026-07-16:
+
+- targeted Profile build: passed, zero warnings;
+- `python tools/check_allocation_policy.py --self-test`: passed in 0.61 s;
+- `python tools/check_allocation_policy.py --repo .`: passed in approximately
+  9.8 s (`365` files, `0` allowlist errors); the same edit corrected startup
+  allowlist paths left stale by the preceding Init split;
+- `python tools/validate_project_filters.py`: passed in approximately 2.0 s,
+  `709` project/filter items and `0` errors;
+- final `tools\\validate_full.bat`: passed in 207.64 s, with all CPU lanes,
+  zero-warning
+  Profile/Automation/Debug builds, Automation replay/prediction smoke, DX12
+  InfoQueue errors `0`, all three screenshot comparisons passing against the
+  committed baselines, standalone/runtime-handle physics smoke, and the
+  44,401-line varied physics CSV byte-exact.
+
+Two earlier broad-gate attempts stopped before runtime validation: formatting
+preflight named four changed files, then project-filter policy named the two
+new owner files. A later build attempt found two stale stress-path aliases.
+All three findings were corrected before the successful final gate; no
+baseline, screenshot, golden, or authored-data file was refreshed.
+
+Comment-quality audit: touched-file scope, 16/16 source-bearing files inspected
+(15 C++ headers/implementations plus `tools/validate_project_filters.py`), zero
+deferred or unchecked files, and no separate subsystem checklist required.
+The two legacy `Mental model` headings in touched files were normalized to the
+required `Summary` section; the new owner files include the full learning
+header and nearby allocation/lifetime/invariant comments.

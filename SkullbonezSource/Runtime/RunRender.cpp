@@ -28,6 +28,7 @@ Related:
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "Run.h"
+#include "RuntimeOverlayDiagnostics.h"
 #include "../Core/Profiler.h"
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "Allocation/RuntimeReserveAllocator.h"
@@ -41,10 +42,11 @@ namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 void Run::Render( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha )
 {
+    const RunDebugState& debug = m_overlayDiagnostics->PresentationState();
     m_renderer.SetUiTextRayTracingCapability( nullptr );
 
     // In text_only mode all 3D rendering is skipped. UiTextPass handles the display.
-    if ( m_debug.isTextOnly )
+    if ( debug.isTextOnly )
     {
         return;
     }
@@ -68,13 +70,13 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     const SkullbonezCore::Core::CinematicRenderConfig& activeCinematic =
         ActiveSceneCinematicConfig( m_sceneController.State(), m_config );
     const bool cinematicRequested =
-        IsSceneCinematicRenderingEnabled( m_sceneController.State(), m_config, m_launchOptions, m_debug, true );
+        IsSceneCinematicRenderingEnabled( m_sceneController.State(), m_config, m_launchOptions, debug, true );
     int attachedTargetIndex = -1;
     if ( RunCameraModeIsAttached( m_camera.mode ) )
     {
         (void)m_attachedCamera.ResolveTargetIdentity( m_sceneController, attachedTargetIndex );
     }
-    const float rayLinger = (std::max)( 0.0f, m_debug.physicsDebugContactLinger );
+    const float rayLinger = (std::max)( 0.0f, debug.physicsDebugContactLinger );
     const bool editorOverlayWorkVisible =
         m_runtimeTools.HasLingeredRayCastLine( rayLinger ) ||
         m_runtimeTools.HasSelectionOverlayWork( renderModels.modelCount, m_camera.mode ) ||
@@ -89,24 +91,9 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
         m_inputRouter.RuntimeSnapshot().pointer.controlDown,
         attachedTargetIndex,
         m_attachedCamera.State().activeFollow };
-    RuntimeRenderFramePolicy framePolicy;
-    framePolicy.textOnly = m_debug.isTextOnly;
-    framePolicy.terrainHidden = m_debug.isTerrainHidden;
-    framePolicy.collisionVisualizer = m_debug.isCollisionVisualizer;
-    framePolicy.physicsDebugTransparent = m_debug.isPhysicsDebugTransparent;
-    framePolicy.physicsDebugAlpha = m_debug.physicsDebugAlpha;
-    framePolicy.waterHidden = m_debug.isWaterHidden;
-    framePolicy.waterFlatDebug = m_debug.isWaterFlatDebug;
-    framePolicy.waterNoReflect = m_debug.isWaterNoReflect;
-    framePolicy.waterRTReflect = m_debug.isWaterRTReflect;
-    framePolicy.waterFreezeDebug = m_debug.isWaterFreezeDebug;
-    framePolicy.frozenWaterTime = m_debug.frozenWaterTime;
-    framePolicy.broadphaseOverlay = m_debug.isBroadphaseOverlay;
-    framePolicy.physicsDebugFlags = m_debug.physicsDebugFlags;
-    framePolicy.physicsDebugPipelineStageCursor = m_debug.physicsDebugPipelineStageCursor;
-    framePolicy.physicsDebugContactLinger = m_debug.physicsDebugContactLinger;
-    framePolicy.simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
-    framePolicy.totalSimulationSeconds = m_timers.simulationTimer.GetTotalTime();
+    const RuntimeRenderFramePolicy framePolicy =
+        m_overlayDiagnostics->BuildFramePolicy( m_timers.simulationTimer.GetTimeSinceLastStart(),
+                                                m_timers.simulationTimer.GetTotalTime() );
 
     const bool renderReady = m_renderBackendView.renderCommands && m_renderBackendView.renderResources &&
                              m_renderBackendView.renderDiagnostics;
@@ -132,7 +119,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
                                                                toolOverlay.attachedTargetIndex,
                                                                toolOverlay.attachedFollow } );
     const uint64_t replayGrowthEventCount = RuntimeAllocation::RuntimeReserveAllocator::GrowthEventCount();
-    const bool debugTransparentBodyPass = m_debug.isPhysicsDebugTransparent && m_debug.physicsDebugAlpha < 1.0f;
+    const bool debugTransparentBodyPass = debug.isPhysicsDebugTransparent && debug.physicsDebugAlpha < 1.0f;
     const ReplayRenderFrameView replayFrame =
         m_replayRuntime.PrepareRenderFrame( m_sceneController.MutableRenderInstances(),
                                             m_sceneController.RenderPresentationRecords(),
@@ -144,7 +131,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
                                             m_runtimeTools.Editor().editorModeEnabled,
                                             m_interaction.Gesture(),
                                             m_sceneController.State().currentFrame,
-                                            m_debug.isCollisionVisualizer,
+                                            debug.isCollisionVisualizer,
                                             debugTransparentBodyPass,
                                             m_sceneController.Cameras().GetRenderCameraTranslation(),
                                             m_sceneController.Cameras().GetRenderCameraUp(),
@@ -154,7 +141,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     const bool replaySubmissionRendered =
         m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext{ m_renderBackendView,
                                                                          renderModels,
-                                                                         m_UI,
+                                                                         m_overlayDiagnostics->OperatorUi(),
                                                                          framePolicy,
                                                                          replayOverlay,
                                                                          toolOverlay,

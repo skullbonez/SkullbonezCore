@@ -34,6 +34,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SceneController.h"
+#include "../RuntimeOverlayDiagnostics.h"
 #include "../WindowConstants.h"
 #include "../Allocation/RuntimeAllocationTracker.h"
 #include "../RuntimeTuning.h"
@@ -536,14 +537,15 @@ SceneController::Load( const SceneLoadRequest& request,
                        SimulationSystem& m_simulation,
                        ReplayRuntime& m_replayRuntime,
                        SkullbonezCore::Runtime::Audio::ContactAudioService& m_contactAudio,
-                       SkullbonezCore::UI::InGameUI& m_UI,
-                       RunDebugState& m_debug,
+                       RuntimeOverlayDiagnostics& overlays,
                        GraphicsStressController& m_graphicsStress,
                        RuntimeTools& m_runtimeTools,
-                       Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer,
                        const RuntimeRenderBackendView& m_renderBackendView,
                        RuntimeRenderer& m_renderer )
 {
+    UI::InGameUI& m_UI = overlays.OperatorUi();
+    RunDebugState& m_debug = overlays.PresentationState();
+    Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer = overlays.PhysicsDebugOverlay();
     // Operator sleep policy is physics-owned and survives ordinary scene
     // changes. The scene reset snapshot restores the same owner explicitly.
     const bool retainedPhysicsSleepEnabled = Physics().IsSleepEnabled();

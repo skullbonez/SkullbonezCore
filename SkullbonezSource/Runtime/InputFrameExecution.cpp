@@ -3,7 +3,7 @@ File: InputFrameExecution.cpp
 Purpose:
   Executes the stateless once-per-frame input turn across concrete owners.
 
-Mental model:
+Summary:
   This file composes device capture, semantic routing, UI application, pointer
   ownership, and the final owner-specific request checkpoint in one fixed order.
   Scene requests are submitted and executed by SceneController; this file only
@@ -31,6 +31,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "InputFrame.h"
+#include "RuntimeOverlayDiagnostics.h"
 #include "RuntimeStressController.h"
 #include "AttachedCameraController.h"
 #include "ApplicationExitState.h"
@@ -104,7 +105,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     const RunStartupState& m_startup = sceneOwners.startup;
     RunTimerState& m_timers = sceneOwners.timers;
     RunCameraState& m_camera = interactionOwners.camera;
-    RunDebugState& m_debug = sceneOwners.debug;
+    RunDebugState& m_debug = sceneOwners.overlays.PresentationState();
     ApplicationExitState& m_applicationExit = host.applicationExit;
     RenderDefaultsStore& m_renderDefaults = presentationOwners.renderDefaults;
     DiagnosticsRuntime& m_diagnosticsRuntime = host.diagnosticsRuntime;
@@ -116,10 +117,9 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     SimulationSystem& m_simulation = sceneOwners.simulation;
     ReplayRuntime& m_replayRuntime = replayRuntime;
     SkullbonezCore::Runtime::Audio::ContactAudioService& m_contactAudio = sceneOwners.contactAudio;
-    SkullbonezCore::UI::InGameUI& m_UI = interactionOwners.ui;
+    SkullbonezCore::UI::InGameUI& m_UI = interactionOwners.overlays.OperatorUi();
     GraphicsStressController& m_graphicsStress = presentationOwners.graphicsStress;
     RuntimeTools& m_runtimeTools = interactionOwners.runtimeTools;
-    Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer = presentationOwners.physicsDebugVisualizer;
     RuntimeRenderBackendView& m_renderBackendView = presentationOwners.renderBackendView;
     RuntimeRenderer& m_renderer = presentationOwners.renderer;
     SceneController& m_sceneController = sceneOwners.sceneController;
@@ -363,11 +363,9 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                    m_simulation,
                    m_replayRuntime,
                    m_contactAudio,
-                   m_UI,
-                   m_debug,
+                   interactionOwners.overlays,
                    m_graphicsStress,
                    m_runtimeTools,
-                   m_physicsDebugVisualizer,
                    m_renderBackendView,
                    m_renderer )
             .ok;
@@ -1030,11 +1028,9 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                                       m_simulation,
                                                                       m_replayRuntime,
                                                                       m_contactAudio,
-                                                                      m_UI,
-                                                                      m_debug,
+                                                                      interactionOwners.overlays,
                                                                       m_graphicsStress,
                                                                       m_runtimeTools,
-                                                                      m_physicsDebugVisualizer,
                                                                       m_renderBackendView,
                                                                       m_renderer );
         if ( processedCapture || processedDefaults || processedScene )

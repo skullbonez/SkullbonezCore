@@ -43,6 +43,7 @@ Related:
 
 
 #include <cstddef>
+#include <memory>
 #include <string>
 #include <vector>
 #include "../Core/Common.h"
@@ -63,7 +64,6 @@ Related:
 #include "Render/RuntimeRenderHost.h"
 #include "Render/RuntimeRenderInputs.h"
 #include "Render/RuntimeRenderer.h"
-#include "RunDebugState.h"
 #include "RunLaunchOptions.h"
 #include "RunCameraState.h"
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
@@ -85,11 +85,7 @@ Related:
 #include "../World/SkyBox.h"
 #include "../Maths/GeometricMath.h"
 #include "../Scene/TestScene.h"
-#include "Debug/BroadphaseVisualizer.h"
-#include "Debug/CollisionVisualizer.h"
-#include "Debug/PhysicsDebugVisualizer.h"
 #include "Tools/RuntimeTools.h"
-#include "../UI/UI.h"
 
 
 namespace SkullbonezCore
@@ -106,6 +102,7 @@ namespace Runtime
 {
 struct RuntimeInteractionCommand;
 struct RuntimeInteractionEvent;
+class RuntimeOverlayDiagnostics;
 
 /* -- Skullbonez Run
 ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -149,14 +146,11 @@ class Run
     ReplayRuntime m_replayRuntime;                             // Constructs and sequences the concrete replay domain owners.
     Runtime::Audio::ContactAudioService m_contactAudio;        // Presentation-only material impact playback sink.
     LiveStyleController m_liveStyle;                           // Owns live style tweak/capture harness file-watching state.
-    UI::InGameUI m_UI;                                         // Encapsulated in-game diagnostics window
-    RunDebugState m_debug;                                     // Runtime debug/overlay toggles
     GraphicsStressController m_graphicsStress;                 // Deterministic graphics fuzzer state for overnight DX12 runs.
     RuntimeTools m_runtimeTools;                               // Launcher, editor, manipulator state, and transient render feedback.
-    Physics::BroadphaseVisualizer m_broadphaseVisualizer;      // Spatial grid debug overlay (G key toggle)
-    Physics::CollisionVisualizer m_collisionVisualizer;        // Solid collision/sleep model visualizer (V key toggle)
-    Physics::PhysicsDebugVisualizer
-        m_physicsDebugVisualizer;                              // Line overlay for object axes, contact manifolds, and sleep state
+    // Lifetime: the renderer borrows visualizers and UI resources from this
+    // startup-created owner, so declaration order destroys the renderer first.
+    std::unique_ptr<RuntimeOverlayDiagnostics> m_overlayDiagnostics;
     RuntimeRenderBackendView m_renderBackendView;              // Borrowed active renderer capabilities for renderer users.
     RuntimeRenderer m_renderer;                                // Owns runtime render passes and frame render ordering.
 

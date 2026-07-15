@@ -257,6 +257,7 @@ RUNTIME_LIFECYCLE_PREFIXES = (
     "RunStartupState",
     "RunTimerState",
     "RuntimeFrameViews",
+    "RuntimeOverlayDiagnostics",
     "Window",
     "WindowConstants",
 )

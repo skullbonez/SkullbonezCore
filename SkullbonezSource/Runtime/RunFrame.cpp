@@ -40,6 +40,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Run.h"
+#include "RuntimeOverlayDiagnostics.h"
 #include "../Core/WorkerPool.h"
 #include "RuntimeStressController.h"
 #include "InputFrame.h"
@@ -131,13 +132,13 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
     RuntimeRenderer& renderer = presentationOwners.renderer;
     DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
     RunTimerState& timers = sceneOwners.timers;
-    RunDebugState& debug = sceneOwners.debug;
+    RunDebugState& debug = sceneOwners.overlays.PresentationState();
     SceneController& sceneController = sceneOwners.sceneController;
     RunSceneState& scene = sceneController.State();
     SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
     SkullbonezCore::Environment::WorldEnvironment& worldEnvironment = sceneController.World();
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    SkullbonezCore::UI::InGameUI& ui = interactionOwners.ui;
+    SkullbonezCore::UI::InGameUI& ui = interactionOwners.overlays.OperatorUi();
     RuntimeInputContext& runtimeInput = interactionOwners.inputRouter.RuntimeContext();
     RunCameraState& camera = interactionOwners.camera;
     SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio = sceneOwners.contactAudio;
@@ -259,79 +260,6 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
     {
         timers.lastUIDrawCalls = 0;
     }
-}
-
-
-template <typename UpdateRequiredBroadphaseXCells, typename UpdateRequiredContacts>
-void TickExecutePostPhysicsVisualizers( RunDebugState& debug,
-                                        SkullbonezCore::Runtime::SceneController& models,
-                                        BroadphaseVisualizer& broadphaseVisualizer,
-                                        CollisionVisualizer& collisionVisualizer,
-                                        PhysicsDebugVisualizer& physicsDebugVisualizer,
-                                        double secondsPerFrame,
-                                        UpdateRequiredBroadphaseXCells updateRequiredBroadphaseXCells,
-                                        UpdateRequiredContacts updateRequiredContacts )
-{
-    PROFILE_BEGIN( "Frame/PostPhysics" );
-
-    PROFILE_BEGIN( "Frame/PostPhysics/BroadphaseVisualizer" );
-    // Why: broadphase visualizer state runs even when the overlay is hidden so
-    // cell fades and scene-gate checks stay coherent across toggles.
-    {
-        broadphaseVisualizer.SetEnabled( debug.isBroadphaseOverlay );
-        PhysicsEngine& physics = models.Physics();
-        const SpatialGrid& grid = PhysicsEngine::ReadSpatialGrid( physics );
-        broadphaseVisualizer.SetCellSize( grid.GetCellSize() );
-        SpatialGrid::ActiveCell activeCellBuf[SpatialGrid::MAX_BUCKETS];
-        int activeCellCount = grid.GetActiveCellCount();
-        grid.GetActiveCells( activeCellBuf, SpatialGrid::MAX_BUCKETS );
-        const std::vector<int64_t>& collisionKeys = PhysicsEngine::ReadCollisionCellKeys( physics );
-        broadphaseVisualizer.Update( static_cast<float>( secondsPerFrame ),
-                                     activeCellBuf,
-                                     activeCellCount,
-                                     collisionKeys.data(),
-                                     static_cast<int>( collisionKeys.size() ) );
-        updateRequiredBroadphaseXCells( activeCellBuf, (std::min)( activeCellCount, SpatialGrid::MAX_BUCKETS ) );
-    }
-    PROFILE_END( "Frame/PostPhysics/BroadphaseVisualizer" );
-
-    PROFILE_BEGIN( "Frame/PostPhysics/CollisionVisualizer" );
-    collisionVisualizer.SetEnabled( debug.isCollisionVisualizer );
-    const CollisionVisualizerFrameView collisionView{
-        models.BodyStore(),
-        models.Colliders(),
-        models.RenderInstances(),
-        PhysicsEngine::ReadCollisionVisualContacts( models.Physics() ),
-        PhysicsEngine::ReadSleepStates( models.Physics() ),
-        PhysicsEngine::ReadSleepIslandVisualIds( models.Physics() ),
-        models.BodyStore().Count(),
-    };
-    collisionVisualizer.Update( static_cast<float>( secondsPerFrame ), collisionView );
-    PROFILE_END( "Frame/PostPhysics/CollisionVisualizer" );
-
-    PROFILE_BEGIN( "Frame/PostPhysics/PhysicsDebugVisualizer" );
-    physicsDebugVisualizer.SetFlags( debug.physicsDebugFlags );
-    physicsDebugVisualizer.SetContactLingerSeconds( debug.physicsDebugContactLinger );
-    physicsDebugVisualizer.SetPipelineStageCursor( debug.physicsDebugPipelineStageCursor );
-    const PhysicsDebugFrameView physicsDebugView{
-        models.BodyStore(),
-        models.Colliders(),
-        PhysicsEngine::ReadSleepStates( models.Physics() ),
-        PhysicsEngine::ReadSleepSupportedStates( models.Physics() ),
-        PhysicsEngine::ReadSleepInhibitedStates( models.Physics() ),
-        PhysicsEngine::ReadDebugContacts( models.Physics() ),
-        PhysicsEngine::ReadPipelineTrace( models.Physics() ),
-        models.BodyStore().Count(),
-    };
-    physicsDebugVisualizer.Update( static_cast<float>( secondsPerFrame ), physicsDebugView );
-    updateRequiredContacts();
-    PROFILE_END( "Frame/PostPhysics/PhysicsDebugVisualizer" );
-
-    PROFILE_BEGIN( "Frame/PostPhysics/EndCollisionVisualFrame" );
-    models.Physics().EndCollisionVisualFrame();
-    PROFILE_END( "Frame/PostPhysics/EndCollisionVisualFrame" );
-
-    PROFILE_END( "Frame/PostPhysics" );
 }
 
 
@@ -490,7 +418,7 @@ void CaptureReplayPostStep( RuntimeFrameInteractionView& interactionOwners,
     SkullbonezCore::Runtime::SceneController& models = sceneOwners.sceneController;
     const RunSceneState& scene = models.State();
     RunTimerState& timers = sceneOwners.timers;
-    const RunDebugState& debug = sceneOwners.debug;
+    const RunDebugState& debug = sceneOwners.overlays.PresentationState();
     SkullbonezCore::Environment::CameraCollection& cameras = models.Cameras();
     SkullbonezCore::Environment::WorldEnvironment& world = models.World();
     PhysicsEngine& physics = models.Physics();
@@ -597,20 +525,20 @@ SkullbonezCore::Core::SbResult Run::Execute()
             RuntimeFrameInteractionView frameInteraction{ m_inputRouter,
                                                           m_interaction,
                                                           m_attachedCamera,
-                                                          m_UI,
+                                                          *m_overlayDiagnostics,
                                                           m_runtimeTools,
                                                           m_camera };
             RuntimeFrameSceneView frameScene{ m_config,
                                               m_launchOptions,
                                               m_startup,
                                               m_timers,
-                                              m_debug,
+                                              *m_overlayDiagnostics,
                                               m_simulation,
                                               m_contactAudio,
                                               m_sceneController };
             RuntimeFramePresentationView framePresentation{ m_renderDefaults,
                                                             m_graphicsStress,
-                                                            m_physicsDebugVisualizer,
+                                                            *m_overlayDiagnostics,
                                                             m_renderBackendView,
                                                             m_renderer };
             frameRenderDiagnostics.ResetFrameDrawCalls();
@@ -711,16 +639,9 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                   m_timers.simulationTimer.GetTotalTime() );
             }
 
-            TickExecutePostPhysicsVisualizers(
-                m_debug,
-                m_sceneController,
-                m_broadphaseVisualizer,
-                m_collisionVisualizer,
-                m_physicsDebugVisualizer,
-                secondsPerFrame,
-                [this]( const SpatialGrid::ActiveCell* activeCells, int activeCellCount )
-                { m_sceneController.UpdateRequiredBroadphaseXCells( activeCells, activeCellCount ); },
-                [this]() { m_sceneController.UpdateRequiredContacts( m_config.bodySimulation.contactEpsilon ); } );
+            m_overlayDiagnostics->UpdatePostPhysics( m_sceneController,
+                                                     m_config.bodySimulation.contactEpsilon,
+                                                     secondsPerFrame );
 
             // Concept: graphics stress is render/runtime churn, not UI command
             // processing. Tick it once per rendered frame so headless and
@@ -1059,7 +980,7 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners, Runt
                                                       m_sceneController,
                                                       m_sceneController.State(),
                                                       m_renderer,
-                                                      m_debug,
+                                                      m_overlayDiagnostics->PresentationState(),
                                                       m_runtimeTools };
         const ReplaySceneTimelineResetOwners timelineOwners{
             m_inputRouter,
@@ -1187,11 +1108,9 @@ bool Run::TickScreenshots()
                                                               m_simulation,
                                                               m_replayRuntime,
                                                               m_contactAudio,
-                                                              m_UI,
-                                                              m_debug,
+                                                              *m_overlayDiagnostics,
                                                               m_graphicsStress,
                                                               m_runtimeTools,
-                                                              m_physicsDebugVisualizer,
                                                               m_renderBackendView,
                                                               m_renderer )
                                                        .ok;
@@ -1317,11 +1236,9 @@ bool Run::TickSceneAdvance()
                                    m_simulation,
                                    m_replayRuntime,
                                    m_contactAudio,
-                                   m_UI,
-                                   m_debug,
+                                   *m_overlayDiagnostics,
                                    m_graphicsStress,
                                    m_runtimeTools,
-                                   m_physicsDebugVisualizer,
                                    m_renderBackendView,
                                    m_renderer )
                             .ok;

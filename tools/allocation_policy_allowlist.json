@@ -2,7 +2,7 @@
   "schema": 1,
   "allowed": [
     {
-      "path": "SkullbonezSource/Runtime/Init.cpp",
+      "path": "SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.cpp",
       "patterns": [
         "std::make_unique<SkullbonezCore::Runtime::SceneController>",
         "std::make_unique<PhysicsBodyStore>"
@@ -24,6 +24,17 @@
       "reason": "WinMain creates the DX12 backend and Run composition root before steady gameplay begins.",
       "cap": "One backend and one Run allocation per process launch.",
       "removal_or_wrapper_plan": "Leave as startup composition-root ownership unless process bootstrap moves to arena-backed lifetime storage."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/RuntimeOverlayDiagnostics.cpp",
+      "patterns": [
+        "std::make_unique<RuntimeOverlayDiagnostics>"
+      ],
+      "owner": "RuntimeOverlayDiagnostics process-lifetime presentation owner",
+      "phase": "startup",
+      "reason": "Run keeps the heavyweight UI and debug visualizer owner behind a forward declaration while RuntimeRenderer borrows its stable process-lifetime resources.",
+      "cap": "One RuntimeOverlayDiagnostics allocation per process launch.",
+      "removal_or_wrapper_plan": "Replace with composition-root arena storage if process-lifetime runtime owners move to a typed startup allocator."
     },
     {
       "path": "SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp",
@@ -139,7 +150,7 @@
       "removal_or_wrapper_plan": "Replace snapshot vectors with an arena-backed snapshot record if replay solver storage is flattened."
     },
     {
-      "path": "SkullbonezSource/Runtime/Init.cpp",
+      "path": "SkullbonezSource/Runtime/Startup/StartupCommandLine.cpp",
       "patterns": [
         "free( envPlatformProfilerValue )",
         "free( envPixValue )"
@@ -971,15 +982,37 @@
       "removal_or_wrapper_plan": "Move editor staging to fixed tool buffers when editor runtime allocation policy is tightened."
     },
     {
-      "path": "SkullbonezSource/Runtime/Init.cpp",
+      "path": "SkullbonezSource/Runtime/Startup/StartupCommandLine.cpp",
       "patterns": [
         ".push_back("
       ],
-      "owner": "Runtime orchestration preallocation surface",
-      "phase": "startup_scene_load_diagnostics",
-      "reason": "Runtime orchestration, automation, demo, and pass setup vectors grow while preparing startup, scene, diagnostics, or bounded command data.",
-      "cap": "Bounded by startup arguments, scene/model counts, render pass counts, or automation script sizes.",
-      "removal_or_wrapper_plan": "Move runtime orchestration storage to typed fixed buffers or owner wrappers as each subsystem is decomposed."
+      "owner": "Startup command-line tokenization",
+      "phase": "startup",
+      "reason": "The command-line owner builds bounded token values before runtime process owners are constructed.",
+      "cap": "Bounded by the process command-line length and token count.",
+      "removal_or_wrapper_plan": "Replace startup token vectors with a bounded parser buffer if process bootstrap adopts fixed storage."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Startup/StartupLaunchResolution.cpp",
+      "patterns": [
+        ".push_back("
+      ],
+      "owner": "Startup scene launch resolution",
+      "phase": "startup",
+      "reason": "Launch resolution assembles the requested scene queue before Run construction and steady gameplay.",
+      "cap": "Bounded by authored scene-list entries or command-line scene arguments.",
+      "removal_or_wrapper_plan": "Move the cold scene launch queue to fixed startup storage if composition-root allocation becomes arena-backed."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.cpp",
+      "patterns": [
+        ".push_back("
+      ],
+      "owner": "Standalone startup validation harness",
+      "phase": "startup_validation",
+      "reason": "The cold physics handle probe assembles two test descriptors before any steady gameplay begins.",
+      "cap": "Two physics body descriptors for the standalone reorder probe.",
+      "removal_or_wrapper_plan": "Use a fixed two-element descriptor array when the validation harness next changes."
     },
     {
       "path": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h",

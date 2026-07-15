@@ -24,6 +24,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RuntimeStressController.h"
+#include "RuntimeOverlayDiagnostics.h"
 #include "AttachedCameraController.h"
 #include "GraphicsStressController.h"
 #include "InputFrame.h"
@@ -134,10 +135,10 @@ void ApplyUIStressAction( RuntimeFrameInteractionView& interactionOwners,
                           UIStressState& stress,
                           bool allowRuntimeChurn )
 {
-    SkullbonezCore::UI::InGameUI& ui = interactionOwners.ui;
+    SkullbonezCore::UI::InGameUI& ui = interactionOwners.overlays.OperatorUi();
+    RunDebugState& debug = sceneOwners.overlays.PresentationState();
     RuntimeRenderer& renderer = presentationOwners.renderer;
     RuntimeRenderBackendView& renderBackendView = presentationOwners.renderBackendView;
-    RunDebugState& debug = sceneOwners.debug;
     SceneController& sceneController = sceneOwners.sceneController;
     RunSceneState& scene = sceneController.State();
     RunTimerState& timers = sceneOwners.timers;
@@ -342,12 +343,12 @@ void ApplyGraphicsStressAction( RuntimeFrameHostView& host,
     RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
     SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
     RuntimeRenderer& renderer = presentationOwners.renderer;
-    RunDebugState& debug = sceneOwners.debug;
+    RunDebugState& debug = sceneOwners.overlays.PresentationState();
     SceneController& sceneController = sceneOwners.sceneController;
     RunSceneState& scene = sceneController.State();
     RunTimerState& timers = sceneOwners.timers;
     RunCameraState& camera = interactionOwners.camera;
-    SkullbonezCore::UI::InGameUI& ui = interactionOwners.ui;
+    SkullbonezCore::UI::InGameUI& ui = interactionOwners.overlays.OperatorUi();
     const SkullbonezCore::Assets::AssetSystem& assets = host.assets;
     const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender =
         presentationOwners.renderDefaults.CinematicBaseline();
@@ -888,7 +889,7 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
     DiagnosticsRuntime& m_diagnosticsRuntime = host.diagnosticsRuntime;
     Window* window = &host.window;
     RunTimerState& m_timers = sceneOwners.timers;
-    SkullbonezCore::UI::InGameUI& m_UI = interactionOwners.ui;
+    SkullbonezCore::UI::InGameUI& m_UI = interactionOwners.overlays.OperatorUi();
     RuntimeRenderBackendView& m_renderBackendView = presentationOwners.renderBackendView;
     SceneController& m_sceneController = sceneOwners.sceneController;
     RunCameraState& m_camera = interactionOwners.camera;
@@ -1033,10 +1034,8 @@ void SkullbonezCore::Runtime::ExecuteGraphicsStressFrame( RuntimeFrameHostView& 
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     SimulationSystem& simulation = sceneOwners.simulation;
     Runtime::Audio::ContactAudioService& contactAudio = sceneOwners.contactAudio;
-    UI::InGameUI& ui = interactionOwners.ui;
-    RunDebugState& debug = sceneOwners.debug;
+    UI::InGameUI& ui = interactionOwners.overlays.OperatorUi();
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    Physics::PhysicsDebugVisualizer& physicsDebugVisualizer = presentationOwners.physicsDebugVisualizer;
     RuntimeRenderBackendView& renderBackendView = presentationOwners.renderBackendView;
     RuntimeRenderer& renderer = presentationOwners.renderer;
     SceneController& sceneController = sceneOwners.sceneController;
@@ -1083,11 +1082,9 @@ void SkullbonezCore::Runtime::ExecuteGraphicsStressFrame( RuntimeFrameHostView& 
                    simulation,
                    replayRuntime,
                    contactAudio,
-                   ui,
-                   debug,
+                   interactionOwners.overlays,
                    stress,
                    runtimeTools,
-                   physicsDebugVisualizer,
                    renderBackendView,
                    renderer )
             .ok;

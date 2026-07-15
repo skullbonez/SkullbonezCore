@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/InteractionAutomationController.cpp
 Purpose:
   Drives deterministic runtime interaction scripts through the normal input path.
 
-Mental model:
+Summary:
   Interaction automation is a validation driver. It asks the same picking,
   replay, camera, director-shot, and world-input code that an operator would
   use, then writes a compact JSON report for the test harness.
@@ -34,6 +34,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayCoordination.h
 */
 #include "InteractionAutomationController.h"
+#include "RuntimeOverlayDiagnostics.h"
 #include "AttachedCameraController.h"
 #include "CaptureController.h"
 #include "InputRouter.h"
@@ -2859,7 +2860,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
     InputRouter& inputRouter = interactionOwners.inputRouter;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    UI::InGameUI& ui = interactionOwners.ui;
+    UI::InGameUI& ui = interactionOwners.overlays.OperatorUi();
     InteractionAutomationFrameResult result;
     if ( !state.enabled || state.finished )
     {
@@ -3214,7 +3215,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     InputRouter& inputRouter = interactionOwners.inputRouter;
     RunCameraState& camera = interactionOwners.camera;
-    UI::InGameUI& ui = interactionOwners.ui;
+    UI::InGameUI& ui = interactionOwners.overlays.OperatorUi();
     InteractionAutomationFrameResult result;
     if ( !state.enabled || state.finished )
     {

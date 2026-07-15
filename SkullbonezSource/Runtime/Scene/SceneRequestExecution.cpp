@@ -29,6 +29,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SceneController.h"
+#include "../RuntimeOverlayDiagnostics.h"
 #include "../InputFrame.h"
 #include "SceneRuntimeCreate.h"
 
@@ -60,15 +61,14 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_conf
                                       SimulationSystem& m_simulation,
                                       ReplayRuntime& m_replayRuntime,
                                       SkullbonezCore::Runtime::Audio::ContactAudioService& m_contactAudio,
-                                      SkullbonezCore::UI::InGameUI& m_UI,
-                                      RunDebugState& m_debug,
+                                      RuntimeOverlayDiagnostics& overlays,
                                       GraphicsStressController& m_graphicsStress,
                                       RuntimeTools& m_runtimeTools,
-                                      Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer,
                                       const RuntimeRenderBackendView& m_renderBackendView,
                                       RuntimeRenderer& m_renderer )
 {
     SceneController& m_sceneController = *this;
+    RunDebugState& m_debug = overlays.PresentationState();
     const auto executeSceneLoadRequest = [&]( const SceneLoadRequest& request )
     {
         if ( !request.accepted )
@@ -93,11 +93,9 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_conf
                    m_simulation,
                    m_replayRuntime,
                    m_contactAudio,
-                   m_UI,
-                   m_debug,
+                   overlays,
                    m_graphicsStress,
                    m_runtimeTools,
-                   m_physicsDebugVisualizer,
                    m_renderBackendView,
                    m_renderer )
             .ok;

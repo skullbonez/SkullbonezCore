@@ -351,6 +351,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\RunCameraState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\RunScene.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeStressController.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\RuntimeOverlayDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunUiTextPass.cpp" />
     <ClCompile Include="SkullbonezSource\World\SkyBox.cpp" />
     <ClCompile Include="SkullbonezSource\World\Terrain.cpp" />
@@ -459,6 +460,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\GraphicsStressController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeStressController.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\RuntimeOverlayDiagnostics.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeFrameViews.h" />
     <ClInclude Include="SkullbonezSource\Runtime\ApplicationExitState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Input.h" />

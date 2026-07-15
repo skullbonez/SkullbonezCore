@@ -1,7 +1,7 @@
 # Run Member And Include Shrink — Presentation/Diagnostics Owners Out Of The Composition Root
 
 Date: 2026-07-15
-Status: Active — 1/6 tasks complete
+Status: Active — 2/6 tasks complete
 Impact area: `Runtime/Run.h`, `Run.cpp`, `RunFrame.cpp`, `RunRender.cpp`,
 frame views, new mid-level owner(s), compile-time include graph
 Owner: runtime shell
@@ -71,10 +71,18 @@ No behavior change; all baselines unchanged.
       construction, launch, scene, frame-view, toggle, render, capture, and
       post-step call position is mapped. Current measurements are 198 lines,
       46 includes, and 31 ordinary member rows plus the Automation-only row.
-- [ ] T2 — Extract owner A with its constructor wiring, tick/render
+- [x] T2 — Extract owner A with its constructor wiring, tick/render
       delegation at the exact existing call positions, and input-toggle
       routing (G/V key visualizer toggles etc.) unchanged. Frame views that
       carried the moved members now carry owner A.
+      Evidence: `RuntimeOverlayDiagnostics` owns UI/debug/three visualizers,
+      applies startup policy, samples render policy, and refreshes all three
+      visualizers after committed physics. Scene-load and frame-view boundaries
+      carry the owner one-for-one; renderer borrows remain lifetime ordered.
+      Its one opaque allocation is explicitly scoped/allowlisted to Startup.
+      Allocation self-test/repository scan and the final broad gate passed with
+      zero warnings, zero DX12 errors, unchanged screenshots, and byte-exact
+      physics.
 - [ ] T3 — Extract owner B the same way (stress controller CLI wiring,
       live-style tick, contact-audio step ordering all position-identical).
 - [ ] T4 — Include-graph shrink: `Run.h` moves to forward declarations +

@@ -27,6 +27,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Run.h"
+#include "RuntimeOverlayDiagnostics.h"
 #include "RuntimeCameraMode.h"
 #include "InputFrame.h"
 #include "WindowConstants.h"
@@ -238,73 +239,6 @@ bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
 }
 
 
-void ApplyStartupPresentationPolicy( const RunStartupOverrides& overrides,
-                                     RunLaunchOptions& launchOptions,
-                                     RunDebugState& debug,
-                                     SkullbonezCore::UI::InGameUI& ui )
-{
-    const RunLaunchOptions& launch = overrides.launch;
-    if ( overrides.hasInitialOverlayMode )
-    {
-        debug.overlayMode = overrides.initialOverlayMode;
-        if ( overrides.initialOverlayMode != OverlayMode::None )
-        {
-            ui.SetVisible( true );
-        }
-        switch ( overrides.initialOverlayMode )
-        {
-        case OverlayMode::SceneStats:
-            ui.SetActiveTab( InGameUITab::Scene );
-            break;
-        case OverlayMode::Keys:
-            ui.SetActiveTab( InGameUITab::Keys );
-            break;
-        case OverlayMode::BarsNormalized:
-        case OverlayMode::BarsAbsolute:
-        case OverlayMode::Timers:
-            ui.SetActiveTab( InGameUITab::Profiler );
-            break;
-        default:
-            break;
-        }
-    }
-    if ( overrides.hideTopText )
-    {
-        debug.isTopTextHidden = true;
-    }
-    if ( overrides.showBroadphaseVisualizer )
-    {
-        debug.isBroadphaseOverlay = true;
-    }
-    if ( launch.generatedObjectTypeOverride != GeneratedObjectTypeOverride::Mixed )
-    {
-        launchOptions.generatedObjectTypeOverride = launch.generatedObjectTypeOverride;
-    }
-    if ( launch.hasPhysicsDebugFlagsOverride )
-    {
-        launchOptions.hasPhysicsDebugFlagsOverride = true;
-        launchOptions.physicsDebugFlagsOverride = launch.physicsDebugFlagsOverride & PHYSICS_DEBUG_ALL;
-    }
-    if ( launch.hasPhysicsDebugTransparentOverride )
-    {
-        launchOptions.hasPhysicsDebugTransparentOverride = true;
-        launchOptions.physicsDebugTransparentOverride = launch.physicsDebugTransparentOverride;
-    }
-    if ( launch.hasPhysicsDebugAlphaOverride )
-    {
-        launchOptions.hasPhysicsDebugAlphaOverride = true;
-        launchOptions.physicsDebugAlphaOverride =
-            (std::max)( 0.05f, (std::min)( launch.physicsDebugAlphaOverride, 1.0f ) );
-    }
-    if ( launch.hasPhysicsDebugContactLingerOverride )
-    {
-        launchOptions.hasPhysicsDebugContactLingerOverride = true;
-        launchOptions.physicsDebugContactLingerOverride =
-            (std::max)( 0.0f, (std::min)( launch.physicsDebugContactLingerOverride, 5.0f ) );
-    }
-}
-
-
 #ifdef _DEBUG
 void ApplyStartupDiagnosticsPolicy( const RunStartupOverrides& overrides,
                                     DiagnosticsRuntime& diagnosticsRuntime,
@@ -345,7 +279,7 @@ Run::Run( Window& window,
           SkullbonezCore::Core::Profiler* profiler,
           RuntimeRenderBackendView renderBackendView )
     : m_window( window ), m_workerPool( workerPool ), m_config( config ), m_sceneController( std::move( sceneQueue ) ),
-      m_renderBackendView( renderBackendView ),
+      m_overlayDiagnostics( RuntimeOverlayDiagnostics::CreateForStartup() ), m_renderBackendView( renderBackendView ),
       m_renderer( m_renderBackendView,
                   RenderWorldView{ m_assets,
                                    m_sceneController.Cameras(),
@@ -353,9 +287,9 @@ Run::Run( Window& window,
                                    window,
                                    m_config,
                                    m_sceneController.World(),
-                                   m_collisionVisualizer,
-                                   m_broadphaseVisualizer,
-                                   m_physicsDebugVisualizer,
+                                   m_overlayDiagnostics->CollisionOverlay(),
+                                   m_overlayDiagnostics->BroadphaseOverlay(),
+                                   m_overlayDiagnostics->PhysicsDebugOverlay(),
                                    profiler },
                   RenderSceneView{ m_sceneController, m_sceneController.Browser() } )
 {
@@ -421,7 +355,7 @@ Run::~Run()
         RuntimeRenderer::BackendResourceReleaseContext{ "shutdown_release",
                                                         m_renderBackendView.deviceLifecycle,
                                                         m_renderBackendView.renderResources,
-                                                        m_UI,
+                                                        m_overlayDiagnostics->OperatorUi(),
                                                         m_runtimeTools } );
     if ( !releaseResult.ok )
     {
@@ -489,7 +423,7 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
                                                                      overrides.replaySaveProbePath
 #endif
     } );
-    ApplyStartupPresentationPolicy( overrides, m_launchOptions, m_debug, m_UI );
+    m_overlayDiagnostics->ApplyStartupPolicy( overrides, m_launchOptions );
 #ifdef _DEBUG
     ApplyStartupDiagnosticsPolicy( overrides, m_diagnosticsRuntime, m_sceneController );
 #endif
@@ -509,7 +443,7 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
                                                 m_replayRuntime.BuildAutomationView(),
                                                 m_interaction,
                                                 m_camera,
-                                                m_UI );
+                                                m_overlayDiagnostics->OperatorUi() );
     }
     return result;
 #else
@@ -630,11 +564,9 @@ void Run::Initialise()
                                                     m_simulation,
                                                     m_replayRuntime,
                                                     m_contactAudio,
-                                                    m_UI,
-                                                    m_debug,
+                                                    *m_overlayDiagnostics,
                                                     m_graphicsStress,
                                                     m_runtimeTools,
-                                                    m_physicsDebugVisualizer,
                                                     m_renderBackendView,
                                                     m_renderer );
     if ( !m_lastSceneLoadResult.ok )
@@ -671,7 +603,7 @@ void Run::Initialise()
                                                   m_sceneController,
                                                   m_sceneController.State(),
                                                   m_renderer,
-                                                  m_debug,
+                                                  m_overlayDiagnostics->PresentationState(),
                                                   m_runtimeTools };
     const ReplayRestoreTransaction probeTransaction{ probeSample, m_diagnosticsRuntime, timelineReset, timelineOwners };
     const ReplayArtifactTopologyOwners probeTopology{ m_simulation,
@@ -753,8 +685,8 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
                                             m_sceneController.State().isSceneText,
                                             m_sceneController.State().isEditableScene,
                                             m_sceneController.State().isFixedStep,
-                                            m_debug.isWaterHidden,
-                                            m_debug.isTerrainHidden,
+                                            m_overlayDiagnostics->PresentationState().isWaterHidden,
+                                            m_overlayDiagnostics->PresentationState().isTerrainHidden,
                                             m_sceneController.State().hasFlatSlope,
                                             m_sceneController.State().flatBaseY,
                                             m_sceneController.State().flatSlopeX,
@@ -786,11 +718,9 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
                                     m_simulation,
                                     m_replayRuntime,
                                     m_contactAudio,
-                                    m_UI,
-                                    m_debug,
+                                    *m_overlayDiagnostics,
                                     m_graphicsStress,
                                     m_runtimeTools,
-                                    m_physicsDebugVisualizer,
                                     m_renderBackendView,
                                     m_renderer );
         if ( !loadResult.ok )
