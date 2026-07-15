@@ -10,15 +10,30 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `15th-of-July-Night-Runner` (PhysicsWorld P0-P10 complete; closure commit is the current tip) |
+| Branch | `claude/night-runner-code-review-8gw5g6` (PhysicsWorld campaign validated by the 2026-07-15 owner review; runtime mass-reduction campaign activated) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | No active implementation plan; PhysicsWorld stage-owner decomposition is closed at P0-P10 |
-| Active/future progress | 0 / 0 live tasks = 100% complete by closed-portfolio convention (completed plans and externally blocked work are excluded) |
+| Current objective | Execute the runtime mass-reduction campaign: `init-startup-decomposition` → `run-member-and-include-shrink` → `wide-call-desc-struct-pass` (wide-call may run as a parallel lane; its T2 rebases on the Run shrink's RunRender edits if both are in flight) |
+| Active/future progress | 0 / 16 tasks = 0% overall (mass-reduction plans only; completed campaigns and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed in 279.29 s on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
 | Validation for current edits | P10 remediation deleted the prohibited World TU split, replaced concrete sibling references with opaque owner-minted capabilities, moved sleep policy to its owner, and moved integration dispatch to `PhysicsForceStage`. Repeat independent review found zero credible blocking ownership findings. `tools\\validate_perf.bat` passed in 79.43 s with no regressions or gameplay allocation violations; final allocation scans covered 355 files with 0 allowlist errors; comment audit inspected 27/27 source-bearing files with 0 deferred. No baseline refresh. |
 
 ## Live Queue
 
+0000. Runtime mass-reduction campaign is the active lane (activated
+      2026-07-15; registered in MASTER at 0/16). Binding order:
+      `init-startup-decomposition` (5 tasks, start at T1 function→unit map)
+      → `run-member-and-include-shrink` (6 tasks) →
+      `wide-call-desc-struct-pass` (5 tasks, may run parallel to the first
+      two; T2 rebases on Run-shrink RunRender edits if concurrent). Owner
+      rulings: Init's round-3 parking is lifted and a free-function file
+      split by responsibility is the approved shape; the Run shrink allows
+      at most two cohesive owners, bans a services bag, and requires one
+      end-of-plan independent ownership review; wide-call conversion applies
+      only to ≥12-argument rows using designated-initializer desc structs,
+      and replay-touching work runs the one-invocation 200-box mega gate per
+      MASTER rule 11. Zero baseline, golden, or screenshot refresh anywhere
+      in the campaign; move-only semantics with identical strings, exit
+      codes, and call positions.
 000. `physicsworld-stage-owner-decomposition` completed at 11/11.
      Broadphase owns its grid/candidate/diagnostic storage;
      force owns exact mutual-gravity preparation, bounded gravity scratch, and
@@ -219,15 +234,14 @@ plan inventory.
 
 ## Next Handoff
 
-Round 5 closed at 10/10 without a baseline refresh and passed the 2026-07-15
-owner-commissioned validation review (spot-checked fallback math, FP
-diagnosis/disassembly evidence, forced-include scope, survey completeness,
-ledger arithmetic, and the locally runnable allocation/filter/migration
-checks). The active work is now the `physicsworld-stage-owner-decomposition`
-campaign at 8/11 — P0 certification/map, P1 seam preparation, P2 broadphase,
-P3 force-owner extraction, P4 narrowphase extraction, and P5 terrain
-extraction, P6 contact-solver extraction, and P7 sleep-controller extraction are complete; begin the P8 diagnostics-owner extraction
-per the Live Queue entry above.
-Documentation-honesty findings from the round-4 review remain recorded in
-MASTER without plans. The externally administered validation-gate V3 lane
-remains blocked and excluded from the ledger.
+The PhysicsWorld campaign closed at 11/11 and passed the 2026-07-15
+owner-commissioned validation review (reach-back greps, capability-token
+lifetime check, sequencer inspection, ledger arithmetic, per-task byte-exact
+claims, and the locally runnable allocation/filter/migration checks; the P10
+review's three caught-and-remediated blockers and two recorded residuals are
+in the closure report). The active work is now the runtime mass-reduction
+campaign at 0/16 — start with `Plans/TODO/init-startup-decomposition.md` T1
+per the Live Queue entry above. Documentation-honesty findings from the
+round-4 review remain recorded in MASTER without plans. The externally
+administered validation-gate V3 lane remains blocked and excluded from the
+ledger.

@@ -88,15 +88,19 @@ Rules:
 
 ### Portfolio Progress Ledger
 
-Scope: active and future implementation work only. The PhysicsWorld campaign
-completed at 11/11 on `15th-of-July-Night-Runner`; all earlier round-4 and
-round-5 plans are historical work per commit-contract rule 4. The externally
-blocked validation lane remains deliberately excluded. With no live executable
-implementation plan, the portfolio is closed at 100% by convention.
+Scope: active and future implementation work only. Per the 2026-07-15 owner
+decision, the active portfolio is the three runtime mass-reduction plans
+below — the remaining items from the 2026-07-15 god-object review now that
+the PhysicsWorld campaign is closed. The PhysicsWorld campaign (11/11) and
+all earlier round-4/round-5 plans are historical work per commit-contract
+rule 4. The externally blocked validation lane remains deliberately excluded.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| **Active/future total** | **0** | **0** | **100%** |
+| init-startup-decomposition | 0 | 5 | 0% |
+| run-member-and-include-shrink | 0 | 6 | 0% |
+| wide-call-desc-struct-pass | 0 | 5 | 0% |
+| **Active/future total** | **0** | **16** | **0%** |
 
 The three round-5 plans (fp-envelope-hardening 4/4,
 mutual-gravity-large-scene-fallback 3/3, math-fatal-survey-restoration 3/3)
@@ -105,13 +109,24 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
-No active or future implementation plan remains. The PhysicsWorld campaign
-completed P0-P10 in strict order at 11/11 with zero baseline refresh, a clear
-independent ownership review, and passing full/performance/allocation gates.
-The 2026-07-15 round-5 lane is complete at 10/10 and all six round-4 plans are
-complete at 22/22, all on `15th-of-July-Night-Runner`. Validation-gate V3
-remains externally blocked and deliberately excluded from this ledger. The
-previous replay critical path completed on `nightrunner-14th-july`.
+The binding critical path is the 2026-07-15 runtime mass-reduction lane:
+`init-startup-decomposition → run-member-and-include-shrink →
+wide-call-desc-struct-pass`. Init goes first (cold path, no determinism
+exposure, and it settles `Run` constructor wiring before the member shrink
+touches the same seams). The wide-call pass is file-independent of the other
+two and may run as a parallel lane, but its T2 rebases on the Run shrink's
+`RunRender.cpp` edits if both are in flight. Every plan carries a
+zero-baseline/zero-golden-refresh requirement; the wide-call plan's replay
+task is additionally bound by inventory rule 11 (one mega-gate invocation,
+one engine process, no golden refresh).
+
+The PhysicsWorld campaign completed P0-P10 in strict order at 11/11 with zero
+baseline refresh, a clear independent ownership review, and passing
+full/performance/allocation gates. The 2026-07-15 round-5 lane is complete at
+10/10 and all six round-4 plans are complete at 22/22, all on
+`15th-of-July-Night-Runner`. Validation-gate V3 remains externally blocked
+and deliberately excluded from this ledger. The previous replay critical path
+completed on `nightrunner-14th-july`.
 
 0. **Validation-gate V3 — blocked external lane.** Repository implementation is
    complete. Remaining work requires a real `merge_group` proof, required CPU
@@ -375,6 +390,30 @@ certification numbers.
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | [physicsworld-stage-owner-decomposition](../Reports/2026-07-15/physicsworld-stage-owner-decomposition-closure.md) | Complete | 11/11 | Seven concrete owners, zero credible final ownership findings, full/perf/allocation gates passed, and no baseline refresh |
+
+## Runtime Mass Reduction Campaign (2026-07-15)
+
+Source: the remaining unaddressed items from the 2026-07-15 god-object
+review, activated by the owner on 2026-07-15 after the PhysicsWorld campaign
+validated clean. Owner rulings recorded per plan: the round-3 parking of
+Init.cpp decomposition is lifted; the Run shrink allows at most two new
+cohesive owners and forbids a services bag (a member fitting neither owner
+stays on `Run` with a reason); the wide-call conversion threshold is ≥12
+arguments, with 7-11-arg rows keeping their existing inventory dispositions.
+
+Standing hazards binding every plan in this campaign: zero baseline, golden,
+or screenshot refresh; move-only semantics with identical call positions,
+strings, and exit codes; the Init split is a free-function file split (the
+class-TU-split prohibition does not apply there, but cross-module internal
+reach is banned); the Run shrink requires a single end-of-plan independent
+ownership review; replay-touching wide-call work runs the one-invocation
+200-box mega gate per inventory rule 11.
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [init-startup-decomposition](TODO/init-startup-decomposition.md) | Active | 0/5 | T1: commit the function→unit assignment map, then verbatim extraction of crash/CLI/probe/resolution units |
+| [run-member-and-include-shrink](TODO/run-member-and-include-shrink.md) | Active | 0/6 | After Init settles constructor wiring: T1 grouping proposal, then extract the two presentation/diagnostics owners and shrink Run.h's 46 includes |
+| [wide-call-desc-struct-pass](TODO/wide-call-desc-struct-pass.md) | Active | 0/5 | T1: re-resolve the ≥12-arg inventory rows post-PhysicsWorld, then desc-struct conversions with designated initializers |
 
 ## Features
 
