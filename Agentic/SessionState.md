@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-15th-july` (runtime mass-reduction campaign) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Execute the runtime mass-reduction campaign: Init startup and Run member/include shrink are complete; finish `wide-call-desc-struct-pass` at 0/5. |
-| Active/future progress | 11 / 16 tasks = 69% overall (mass-reduction plans only; completed campaigns and externally blocked work are excluded) |
+| Current objective | Execute the runtime mass-reduction campaign: Init startup and Run member/include shrink are complete; finish `wide-call-desc-struct-pass` at 1/5. |
+| Active/future progress | 12 / 16 tasks = 75% overall (mass-reduction plans only; completed campaigns and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed in 110.45 s on 2026-07-16: mandatory CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | Run member/include shrink is complete at 6/6. The clean T5 tip passed full (110.45 s), explicit DX12 (50.66 s), and one-minute graphics stress (62.33 s, exit 0, empty stderr, zero reconciliation delta) with no baseline refresh. |
+| Validation for current edits | Wide-call T1 re-resolved 41 current ≥12-argument invoked names: ten record-construction conversions and 31 individually justified keeps. Documentation-only; no validation required. |
 
 ## Live Queue
 
@@ -25,7 +25,9 @@ plan inventory.
       remediation restored generic CLI policy to its parser owner. Continue with
       `run-member-and-include-shrink` is complete at 6/6 after its clear repeat
       ownership review and full/DX12/stress closure gates. Continue with
-      `wide-call-desc-struct-pass` (5 tasks). Owner
+      `wide-call-desc-struct-pass` is active at 1/5: the current ≥12-argument
+      inventory is reconciled; continue with T2's render-input designated
+      construction and DX12/stress gates. Owner
       rulings: Init's round-3 parking is lifted and a free-function file
       split by responsibility is the approved shape; the Run shrink allows
       at most two cohesive owners, bans a services bag, and requires one
@@ -235,7 +237,7 @@ plan inventory.
 
 ## Next Handoff
 
-The runtime mass-reduction campaign is at 11/16. Continue with
-`Plans/TODO/wide-call-desc-struct-pass.md` T1 at 0/5. The externally
+The runtime mass-reduction campaign is at 12/16. Continue with
+`Plans/TODO/wide-call-desc-struct-pass.md` T2 at 1/5. The externally
 administered validation-gate V3 lane remains blocked and excluded from the
 ledger.

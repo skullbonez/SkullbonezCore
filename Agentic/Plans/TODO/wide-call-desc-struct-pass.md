@@ -1,7 +1,7 @@
 # Wide-Call Desc-Struct Pass — Retire The 12-To-20 Argument Tail
 
 Date: 2026-07-15
-Status: Active — 0/5 tasks complete
+Status: Active — 1/5 tasks complete
 Impact area: `Runtime/Render/RuntimeRenderer`, `Runtime/Replay/*` call sites,
 `Runtime/Editor/RunEditorTracer`, the wide-invocation inventory report
 Owner: runtime shell / replay presentation
@@ -49,7 +49,7 @@ no behavior, ordering, or float change; all baselines and goldens unchanged.
 
 ## Tasks
 
-- [ ] T1 — Re-resolve the ≥12-arg rows against the post-PhysicsWorld tip
+- [x] T1 — Re-resolve the ≥12-arg rows against the post-PhysicsWorld tip
       (line numbers moved), confirm each row's classification
       (record-construction vs hot-loop), and define the desc structs adjacent
       to their owners (`RuntimeRenderInputsDesc` is likely just direct
@@ -57,6 +57,14 @@ no behavior, ordering, or float change; all baselines and goldens unchanged.
       `ReplayPredictionJobDesc` etc.). Commit the target table as an addendum
       section in the wide-invocation inventory report (same file, dated
       section — the report stays the single arity ledger).
+      Evidence: the dated addendum reruns the balanced-token scan over the
+      current tip and records 41 invoked names at ≥12 arguments. Ten are true
+      record construction: one render row for T2 and nine UI/replay/editor
+      rows for T3, each with its final adjacent record placement. The other 31
+      rows have individual hot-path, live-owner boundary, diagnostic API, or
+      normalization-factory reasons. Current count shifts from the Run shrink
+      are reconciled (`ExecutePending` 22, `Load` 23). Documentation-only; no
+      repository validation required.
 - [ ] T2 — Render side: replace the `BuildRuntimeRenderInputs` 20-arg call
       with direct designated-initializer construction (or a desc struct if
       derivation logic exists inside the builder — record which). Mapped

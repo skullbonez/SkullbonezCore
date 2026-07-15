@@ -99,8 +99,8 @@ rule 4. The externally blocked validation lane remains deliberately excluded.
 |---|---:|---:|---:|
 | init-startup-decomposition | 5 | 5 | 100% |
 | run-member-and-include-shrink | 6 | 6 | 100% |
-| wide-call-desc-struct-pass | 0 | 5 | 0% |
-| **Active/future total** | **11** | **16** | **69%** |
+| wide-call-desc-struct-pass | 1 | 5 | 20% |
+| **Active/future total** | **12** | **16** | **75%** |
 
 The three round-5 plans (fp-envelope-hardening 4/4,
 mutual-gravity-large-scene-fallback 3/3, math-fatal-survey-restoration 3/3)
@@ -411,7 +411,7 @@ ownership review; replay-touching wide-call work runs the one-invocation
 |---|---|---:|---|
 | `init-startup-decomposition` | Complete | 5/5 | Init is a 453-line process orchestrator; four focused Startup owners, exact CLI proofs, independent ownership review, final full gate, and both manual exit-code probes are closed in `../Reports/2026-07-15/init-startup-decomposition-map.md` |
 | `run-member-and-include-shrink` | Complete | 6/6 | Run.h has 23 direct includes and none of the four named heavy transitive headers; two cohesive owners, recorded UI/audio stays, clear independent review, and full/DX12/stress closure evidence are recorded in `../Reports/2026-07-15/run-member-shrink-map.md` |
-| [wide-call-desc-struct-pass](TODO/wide-call-desc-struct-pass.md) | Active | 0/5 | T1: re-resolve the ≥12-arg inventory rows post-PhysicsWorld, then desc-struct conversions with designated initializers |
+| [wide-call-desc-struct-pass](TODO/wide-call-desc-struct-pass.md) | Active | 1/5 | T2: replace the 20-argument render-input builder with direct designated construction, then run DX12 and one-minute stress gates |
 
 ## Features
 

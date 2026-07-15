@@ -229,3 +229,93 @@ values; runtime frame views do not carry them.
 
 Inventory total: **208 distinct invoked names** (11 migrated, 197 retained
 with an individual reason).
+
+## 2026-07-16 Post-PhysicsWorld >=12-Argument Addendum
+
+T1 of `wide-call-desc-struct-pass` reran the same read-only lexical method over
+the current `SkullbonezSource/Runtime/**/*.cpp` tip. Comments and literals were
+masked without changing line positions; parentheses, brackets, and braces were
+balanced; definitions and constructor initializers were excluded; and commas
+were counted only at the invocation's top level. The scan found **41 current
+invoked names with a maximum of at least 12 arguments**. This addendum
+supersedes the older line/count/disposition cells for that tail; the full
+7-argument inventory above remains historical T0 evidence until T4 regenerates
+all touched rows.
+
+Classification is intentionally narrower than "could be wrapped in a struct":
+`convert` means the call is chiefly constructing one value/payload and labels
+improve the boundary. `keep` means the call performs an operation over live
+owners, is a per-item hot-path primitive, is an exact diagnostic/platform
+schema, or already is the normalization factory for the output descriptor.
+
+| Current invoked name | Current call site(s), max args | T1 classification and concrete disposition |
+|---|---|---|
+| `addMarkerOption` | `RunUiTextPass.cpp:649,668`; 12 | **Convert (UI record):** both calls populate one `UIProfilerMarkerOption`; pass that existing record with designated fields. |
+| `AddReplayFutureNodeToNodes` | `Replay/ReplayPrediction.cpp:2458`; 12 | **Convert (replay record):** introduce `ReplayFutureNodeDesc` beside the future-node helpers; keep the node container as the operation-specific argument. |
+| `AppendReplayRibbonVertex` | `Editor/RunEditorTracer.cpp:744`; 12 | **Convert (editor record):** introduce `ReplayRibbonVertexDesc` beside the fixed tracer vertex encoder; its value fields are one encoded ribbon vertex payload. |
+| `ApplyReplayRestoreEditorPlaceEvent` | `Replay/ReplayValidation.cpp:1355`; 12 | **Convert (replay record):** introduce `ReplayRestoreEditorPlaceEventDesc` beside the restore operation; keep the output reason as the operation result boundary. |
+| `BeginReplayPredictionJob` | `Replay/ReplayPrediction.cpp:3752`; 19 | **Convert (replay record):** introduce `ReplayPredictionJobDesc` beside the prediction job owner with designated owner/value borrows. |
+| `BuildReplayProbeVisualProjection` | `Replay/ReplayValidation.cpp:2928`; 13 | **Convert (replay record):** introduce `ReplayProbeVisualProjectionDesc` beside the cold probe projection. |
+| `BuildRuntimeRenderInputs` | `Render/RuntimeRenderer.cpp:2332`; 20 | **Convert (render record):** delete the restating builder and directly designated-initialize the existing `RuntimeRenderInputs`/`RuntimeRenderServices`; no second desc type is needed. |
+| `DescribeReplayScrubberSurface` | `Replay/ReplayOverlayRenderer.cpp:118`; `Replay/ReplayScrubberTools.cpp:1223`; 12 | **Convert (replay record):** introduce `ReplayScrubberSurfaceDesc` adjacent to `ReplayScrubberSurfaceInput` in `ReplayOverlayLayout.h`; the function derives the latter from the labeled request. |
+| `DispatchReflectionRays` | `Render/RuntimeRenderPasses.cpp:1237`; 17 | **Keep (hot render operation):** one immediate ray-dispatch API call binds live command/resource state; another aggregate would duplicate the backend binding contract rather than construct an owned record. |
+| `EmitFxQuad` | `Render/RuntimeRenderPasses.cpp:1723,1775,1812`; 14 | **Keep (per-quad hot primitive):** called for each emitted effect quad; an aggregate adds a per-item copy while the positional groups are fixed geometry/color scalars consumed immediately. |
+| `ExecutePending` | `InputFrameExecution.cpp:1029`; 22 (was 23) | **Keep (cold composition boundary):** explicitly names scene/host/interaction owners for command execution; a desc would be a multi-domain services bag, not record construction. |
+| `ExecuteUiTextThroughRenderGraph` | `Render/RuntimeRenderer.cpp:2249`; 13 | **Keep (render scheduling operation):** values are immediately copied into the existing `UiTextGraphCallbackData`; a second desc would duplicate that callback record and add another per-frame copy. |
+| `fprintf` | `Diagnostics/DiagnosticsRuntime.cpp:264,286,932,1003`; `Startup/StartupProbeHarnesses.cpp:381,406`; 34 | **Keep (external diagnostic API):** variadic fields are governed by six exact format strings; replacing the C boundary would neither label nor construct an engine record. |
+| `GameObjects::GameModelRenderer::RenderModels` | `Render/RuntimeRenderPasses.cpp:1320,1392`; 13 | **Keep (hot render operation):** invoked directly in object/reflection passes over live render resources; a record would be copied per pass and own no state. |
+| `Load` | `InputFrameExecution.cpp:354`; `Run.cpp:526,683`; `RunFrame.cpp:1102,1231`; `RuntimeStressController.cpp:1070`; `Scene/SceneRequestExecution.cpp:80`; 23 (was 24) | **Keep (cold scene-owner boundary):** the explicit owner list prevents `SceneController` reach-back; wrapping it recreates the broad scene/runtime context prohibited by the ownership rules. |
+| `LogReplayRestoreResult` | `Replay/ReplayValidation.cpp:973`; `RuntimeDiagnostics.cpp:640`; 20 | **Keep (diagnostic schema):** exact restore outcome fields feed stable logging/report text at two boundaries; they are emitted, not retained as a record. |
+| `LogReplayScrubProbe` | `Replay/ReplayValidation.cpp:2708`; 12 | **Keep (diagnostic schema):** exact probe fields are serialized once in compatibility-sensitive order; no record consumer exists. |
+| `LogReplayV2TargetRestoreDiagnostic` | `Replay/ReplayValidation.cpp:1923,3214`; 15 | **Keep (diagnostic schema):** the call emits bounded target-restore evidence directly and owns no constructed value. |
+| `MakeEditorHousePart` | `Editor/RunEditorPlacementAssets.cpp:1097..1625` (34 constexpr table rows); 16 | **Convert (editor record):** designated-initialize the existing `EditorHousePartDefinition`; the helper only restates its field order. |
+| `MakeEditorTreePart` | `Editor/RunEditorPlacementAssets.cpp:721,740,760,781,795,809,823,852,866,880,894,921,935,949,963`; 17 | **Convert (editor record):** add `EditorTreePartDesc` beside the definition so designated inputs remain labeled while the helper preserves contact-release derivation. |
+| `MakePhysicsBodyCreateDesc` | `Scene/SceneAuthoredSetup.cpp:144`; `Startup/StartupProbeHarnesses.cpp:107,141`; 12 | **Keep (normalization factory):** this is already the single `PhysicsBodyCreateDesc` factory and computes shape metrics/world-inertia policy; another input desc would duplicate the output descriptor and widen this runtime-only plan into Physics API policy. |
+| `MakeSceneBodyDesc` | `Scene/SceneAuthoredSetup.cpp:233,510,553,598,633,701,759`; 12 | **Keep (scene normalization factory):** converts authored `fixed` policy into the physics motion enum before delegating to the derived-metric factory; a second scene record would only mirror that existing output boundary. |
+| `Physics::MakePhysicsBodyCreateDesc` | `Tools/RuntimeTools.cpp:817`; 12 | **Keep (normalization factory):** same Physics API derivation contract as the unqualified calls; one cold tool call does not justify a duplicate input descriptor. |
+| `PrepareEditorGizmoGesture` | `Editor/RunEditorTools.cpp:1734`; 12 | **Keep (editor operation):** reads live scene/physics/interaction owners and writes an `EditorGizmoGesturePlan`; wrapping those owners would broaden authority rather than construct the output plan. |
+| `PrepareRenderFrame` | `RunRender.cpp:125`; 15 | **Keep (frame sequencing boundary):** combines existing narrow frame views at one composition-root checkpoint; a new aggregate would recreate a complete-frame authority bag. |
+| `printf` | `Replay/ReplayValidation.cpp:3478,3674`; `RuntimeStressController.cpp:1235`; 44 | **Keep (external diagnostic API):** three fixed format strings own their positional fields; no engine record crosses this C variadic boundary. |
+| `RenderShadowMap` | `Render/RuntimeRenderPasses.cpp:1028,1052`; 12 | **Keep (hot render operation):** runs for terrain/object shadow passes over live pass resources; an aggregate would add two per-frame copies without becoming owned data. |
+| `RenderUiText` | `RunFrame.cpp:258`; 12 | **Keep (frame sequencing boundary):** consumes existing UI/render/replay owners in final frame order; bundling them would create a UI services bag. |
+| `ReplayPresentationOperations::ActivateLoadedPresentation` | `Replay/ReplayScrubberTools.cpp:528`; `Replay/ReplayValidation.cpp:2961,3621`; 17 | **Keep (replay owner operation):** coordinates timeline, scrubber, presentation, prediction, authoring, and optional diagnostics atomically; a desc would retain no value and obscure the multi-owner transaction. |
+| `RuntimeDiagnostics::LogReplayRestoreResult` | `Diagnostics/DiagnosticsRuntime.cpp:1208`; 20 | **Keep (diagnostic schema):** member sink for the same exact restore-report fields; converting only this layer creates a redundant transient record. |
+| `RuntimeDiagnostics::LogReplayScrubProbe` | `Diagnostics/DiagnosticsRuntime.cpp:1146`; 13 | **Keep (diagnostic schema):** member sink serializes fixed scrub-probe evidence and does not construct reusable state. |
+| `sprintf_s` | `Replay/ReplayAuthoringCauseTree.cpp:705`; `Replay/ReplayRecorder.cpp:3325`; `Replay/ReplayValidation.cpp:1612`; 28 | **Keep (external formatting API):** three bounded buffers have independent exact format schemas; the variadic C call is the final serialization boundary. |
+| `std::fprintf` | `Allocation/RuntimeReserveAllocator.cpp:307,454,669,705`; 19 | **Keep (allocation diagnostics):** four cold fatal/report rows serialize allocator-policy evidence directly; a record would add code on the failure path without a consumer. |
+| `TickCauseTreeInput` | `Replay/ReplayScrubberTools.cpp:587`; 24 | **Keep (input operation):** mutates cause-tree/interaction state once per input frame across existing owners; a desc would be a mutable replay services bag. |
+| `TickReplayScrubberGesture` | `Replay/ReplayScrubberTools.cpp:1543`; 13 | **Keep (input operation):** gesture state and live replay owners are consumed synchronously once per input frame, not assembled into a record. |
+| `TickScrubberInput` | `Replay/ReplayScrubberTools.cpp:563`; 21 | **Keep (input operation):** top-level replay input sequencer over live owners; wrapping it would duplicate the existing frame boundary and broaden authority. |
+| `TickVelocityEditInput` | `Replay/ReplayScrubberTools.cpp:614`; 24 | **Keep (input operation):** edits authoring/physics/interaction state synchronously; a desc would collect mutable cross-domain owners. |
+| `UpdateFrame` | `Replay/ReplayRuntime.cpp:1402`; 18 | **Keep (replay owner operation):** per-frame replay coordinator over timeline/presentation owners; a struct would be a retained-looking whole-replay bag with no record semantics. |
+| `UpdateInput` | `InputFrame.cpp:522`; 15 | **Keep (frame sequencing boundary):** consumes the four existing narrow frame views once; another aggregate would recreate the complete-frame bag the signature plan removed. |
+| `UpdateReplayPrediction` | `Replay/ReplayPrediction.cpp:3857`; 21 | **Keep (prediction owner operation):** schedules live physics/worker/presentation state once per frame; wrapping mutable owners would obscure authority and add no constructed value. |
+| `Writef` | `RuntimeDiagnostics.cpp:527,592,691,747,832`; 46 | **Keep (diagnostic API):** five fixed bounded log schemas terminate at the variadic writer; there is no common record shape or downstream record consumer. |
+
+### T2/T3 conversion set and placement
+
+The conversion set is therefore ten invoked names: one render row for T2 and
+nine UI/replay/editor rows for T3. Structures stay adjacent to the operation or
+existing output record, and every construction site uses designated fields:
+
+- T2 directly constructs existing `RuntimeRenderInputs` and nested
+  `RuntimeRenderServices` in `RuntimeRenderer.cpp`; the restating
+  `BuildRuntimeRenderInputs` function is deleted.
+- `ReplayPredictionJobDesc` and `ReplayFutureNodeDesc` stay in
+  `ReplayPrediction.cpp`; neither is retained by prediction owners or workers.
+- `ReplayProbeVisualProjectionDesc` and
+  `ReplayRestoreEditorPlaceEventDesc` stay in `ReplayValidation.cpp` as cold
+  stack-only request values.
+- `ReplayScrubberSurfaceDesc` is public beside `ReplayScrubberSurfaceInput` in
+  `ReplayOverlayLayout.h` because overlay rendering and input resolution are
+  its two synchronous consumers.
+- `ReplayRibbonVertexDesc` stays in `RunEditorTracer.cpp` beside the encoder.
+- `EditorTreePartDesc` stays beside `EditorTreePartDefinition`; house rows use
+  direct designated initialization of `EditorHousePartDefinition`.
+- profiler marker calls directly designate the existing
+  `UIProfilerMarkerOption` passed to the local bounded append lambda.
+
+T1 is documentation-only; no repository validation is required. T4 will rerun
+the balanced-token scan after the conversions, update the surviving exact
+counts, and verify that every remaining >=12 row has the individual reason
+recorded here rather than an old category boilerplate.
