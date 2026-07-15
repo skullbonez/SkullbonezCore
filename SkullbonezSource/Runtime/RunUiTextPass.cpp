@@ -30,6 +30,8 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Run.h"
+#include "RuntimeFrameViews.h"
+#include "RuntimeViewModel.h"
 #include "Scene/SceneRuntime.h"
 #include "Allocation/RuntimeReserveAllocator.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
@@ -40,6 +42,8 @@ Related:
 #include "../Core/Profiler.h"
 #include "../Rendering/IRenderDiagnostics.h"
 #include "../Rendering/IRenderRayTracing.h"
+#include "../Rendering/Text.h"
+#include "../UI/UI.h"
 #include "../UI/UIDraw.h"
 #include "../UI/UIStyle.h"
 

@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp
 Purpose:
   Coordinates render passes for the active scene.
 
-Mental model:
+Summary:
   Renderer-facing code builds one frame context and runs named passes in
   the same order the image is produced.
 
@@ -66,6 +66,7 @@ Related:
 #include "../../Rendering/RenderInstanceStore.h"
 #include "../../Rendering/RenderGraph.h"
 #include "../../Rendering/RenderPipeline.h"
+#include "../../UI/UI.h"
 #include "../../World/SkyBox.h"
 #include "../../World/WorldEnvironment.h"
 

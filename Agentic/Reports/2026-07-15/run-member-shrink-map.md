@@ -215,3 +215,48 @@ Comment-quality audit: touched-file scope, 12/12 source-bearing files inspected
 deferred or unchecked files. The two new owner files have the full learning
 header and local allocation/order invariants; existing touched files retain
 their complete headers and relevant lifetime/checkpoint comments.
+
+## T4 Include-Graph Shrink Evidence
+
+`Run.h` now includes only headers required to lay out its remaining value
+members and opaque owners. Implementation files directly include the complete
+types they use instead of relying on the composition-root header to publish
+them transitively. No owner, heap allocation, call position, or runtime
+behavior changed in this task.
+
+Measured results on 2026-07-16:
+
+- original plan baseline: 46 direct includes; immediate pre-T4 commit:
+  40 direct includes; final: 23 direct includes (exactly half the original,
+  and 17 fewer than the task-start state);
+- a temporary MSVC `/showIncludes /Zs` translation-unit probe of `Run.h`
+  reported 451 dependency rows at commit `4931f6473` and 424 after the edit,
+  a reduction of 27 rows (6.0%);
+- exact probe matches for `UI.h`, `Text.h`, `SkyBox.h`, and `TestScene.h`
+  fell from four to zero;
+- matched clean `Profile|x64` builds measured 31.19 s at the detached
+  pre-T4 commit and 31.37 s after the final edit, a +0.18 s (+0.6%) delta
+  that is within single-run timing noise. Both builds had zero warnings and
+  zero errors.
+
+The probe source existed only for the measurement and was removed before the
+diff. The detached baseline worktree was verified clean and removed. Early
+targeted builds correctly exposed implementation files that had depended on
+the old transitive graph; those files now name their `Window`, frame-view,
+view-model, UI, and text dependencies directly. A later targeted build exposed
+the `EngineConfig` forward declaration previously supplied by `UI.h`; the
+render-host header now declares that borrow explicitly.
+
+Formal evidence: `tools\\validate_full.bat` passed in 209.75 s. All mandatory
+CPU lanes passed; Profile, Automation, and Debug builds completed with zero
+warnings and zero errors; the Automation replay/prediction smoke passed; DX12
+reported zero InfoQueue validation errors and all three screenshots matched
+the committed baselines; standalone and runtime-handle physics smokes passed;
+and `physics_regression_varied.csv` matched the committed 44,401-line baseline
+byte-exactly. No baseline, screenshot, golden, authored-data, or allocation
+allowlist file changed.
+
+Comment-quality audit: touched-file scope, 6/6 C++ source-bearing files
+inspected, zero deferred or unchecked. All retain the required learning-header
+sections and relevant local ownership/lifetime comments; the touched renderer
+implementation's legacy `Mental model` heading was normalized to `Summary`.

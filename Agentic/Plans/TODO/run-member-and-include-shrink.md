@@ -1,7 +1,7 @@
 # Run Member And Include Shrink — Presentation/Diagnostics Owners Out Of The Composition Root
 
 Date: 2026-07-15
-Status: Active — 3/6 tasks complete
+Status: Active — 4/6 tasks complete
 Impact area: `Runtime/Run.h`, `Run.cpp`, `RunFrame.cpp`, `RunRender.cpp`,
 frame views, new mid-level owner(s), compile-time include graph
 Owner: runtime shell
@@ -92,12 +92,21 @@ No behavior change; all baselines unchanged.
       narrow controller borrow. Contact audio remains direct and its step/reset
       order is unchanged. Allocation policy, project filters, and the broad
       gate passed with no baseline refresh.
-- [ ] T4 — Include-graph shrink: `Run.h` moves to forward declarations +
+- [x] T4 — Include-graph shrink: `Run.h` moves to forward declarations +
       `unique_ptr`/value members as ownership requires (allocation policy: any
       new heap member must route through the approved startup-phase path or
       stay by-value; prefer by-value members inside the new owners' own
       headers so `Run.h` only forward-declares the owners). Record
       before/after include counts and a build-time sample in the map report.
+      Evidence: the original plan baseline falls from 46 direct includes to
+      23; the immediate pre-task header falls from 40 to 23. An MSVC
+      `/showIncludes /Zs` probe falls from 451 dependency rows to 424, with
+      `UI.h`, `Text.h`, `SkyBox.h`, and `TestScene.h` falling from four exact
+      matches to zero. Matched clean Profile builds are effectively flat:
+      31.19 s before versus 31.37 s after (+0.18 s, +0.6%). Direct
+      implementation includes replace the removed transitive dependencies.
+      The final broad gate passed in 209.75 s with zero warnings, zero DX12
+      validation errors, unchanged screenshots, and byte-exact physics.
 - [ ] T5 — Independent ownership review (single, end-of-plan): confirms
       neither owner is a bag (each owns state + sequencing with domain APIs),
       no reach-back into `Run`, no new forwarding relays, and `Run`'s

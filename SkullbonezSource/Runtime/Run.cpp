@@ -31,6 +31,7 @@ Related:
 #include "RuntimeValidationHarness.h"
 #include "RuntimeCameraMode.h"
 #include "InputFrame.h"
+#include "Window.h"
 #include "WindowConstants.h"
 #include "Replay/ReplayOverlayLayout.h"
 #include "Replay/ReplayRestoreService.h"
@@ -61,7 +62,6 @@ using SkullbonezCore::Environment::WorldEnvironment;
 using SkullbonezCore::GameObjects::SceneSaveRequest;
 using SkullbonezCore::GameObjects::SceneSaveView;
 using SkullbonezCore::GameObjects::SceneSnapshotWriter;
-using SkullbonezCore::Geometry::SkyBox;
 using SkullbonezCore::Geometry::Terrain;
 using SkullbonezCore::Geometry::XZBounds;
 using SkullbonezCore::UI::InGameUITab;

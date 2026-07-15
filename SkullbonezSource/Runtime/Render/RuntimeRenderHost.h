@@ -35,7 +35,6 @@ Related:
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Vector3.h"
 #include "../../Rendering/Shadow.h"
-#include "../../UI/UI.h"
 #include "../Replay/ReplayPresentation.h"
 #include "../Tools/RuntimeTools.h"
 
@@ -48,6 +47,7 @@ namespace SkullbonezCore
 namespace Core
 {
 class Profiler;
+class EngineConfig;
 struct CinematicRenderConfig;
 } // namespace Core
 namespace Assets
