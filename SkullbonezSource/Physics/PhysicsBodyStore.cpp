@@ -29,6 +29,8 @@ Invariants:
     the last row to close a hole without changing live handles.
   - Pending impulses and sleep state are preserved across descriptor refresh
     by handle identity, even if a descriptor refresh reorders slots.
+  - Impulse application is all-or-nothing per linear/angular component; invalid
+    zero mass or inertia absorbs that component rather than publishing NaNs.
 
 Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.h
@@ -741,11 +743,21 @@ Vector3 CalculateBuoyancyRightingTorque( const PhysicsBodyRecord& record,
 
 void ApplyWorldImpulse( PhysicsBodyRecord& record, const Vector3& worldImpulse, const Vector3& worldTorqueImpulse )
 {
-    record.linearVelocity += worldImpulse / record.mass;
-
+    // Why: malformed zero mass/inertia is caller-reachable authored data, not
+    // lane F. On failure the invalid component absorbs the impulse, and no
+    // partial velocity write escapes.
+    Vector3 linearImpulseDelta;
+    if ( worldImpulse.TryDivided( record.mass, linearImpulseDelta ) )
+    {
+        record.linearVelocity += linearImpulseDelta;
+    }
     const RotationMatrix orientation = record.orientation.GetOrientationMatrix();
-    const Vector3 localAngularImpulse = orientation.TransposeMultiply( worldTorqueImpulse ) / record.rotationalInertia;
-    record.angularVelocity += orientation * localAngularImpulse;
+    Vector3 localAngularImpulse;
+    if ( orientation.TransposeMultiply( worldTorqueImpulse )
+             .TryDivided( record.rotationalInertia, localAngularImpulse ) )
+    {
+        record.angularVelocity += orientation * localAngularImpulse;
+    }
 }
 
 void ApplyPendingImpulse( PhysicsBodyRecord& record )
@@ -755,9 +767,19 @@ void ApplyPendingImpulse( PhysicsBodyRecord& record )
         return;
     }
 
-    record.linearVelocity += record.pendingImpulse / record.mass;
+    // Why: pending impulses use the same all-or-nothing fallback as immediate
+    // impulses; zero mass or inertia consumes that invalid component.
+    Vector3 linearImpulseDelta;
+    if ( record.pendingImpulse.TryDivided( record.mass, linearImpulseDelta ) )
+    {
+        record.linearVelocity += linearImpulseDelta;
+    }
     const Vector3 torque = CrossProduct( record.pendingImpulseApplicationPoint, record.pendingImpulse );
-    record.angularVelocity += torque / record.rotationalInertia;
+    Vector3 angularImpulseDelta;
+    if ( torque.TryDivided( record.rotationalInertia, angularImpulseDelta ) )
+    {
+        record.angularVelocity += angularImpulseDelta;
+    }
     record.pendingImpulse = ZERO_VECTOR;
     record.pendingImpulseApplicationPoint = ZERO_VECTOR;
     record.hasPendingImpulse = false;

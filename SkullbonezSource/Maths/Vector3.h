@@ -24,6 +24,9 @@ Invariants:
     construction/assignment remain trivial.
   - Debug default construction poisons components with NaN; callers must assign
     a value before reading them.
+  - Try normalization/division leaves the source and any output untouched on
+    failure; plain operations assert only in Debug and propagate IEEE values in
+    Release.
   - ZERO_VECTOR is a shared value sentinel, not mutable global state.
 
 Related:
@@ -34,8 +37,7 @@ Related:
 #pragma once
 
 #include "MathsCommon.h"
-#include "../Core/FatalError.h"
-
+#include <cassert>
 #include <limits>
 #include <type_traits>
 
@@ -77,17 +79,42 @@ class Vector3
         x = y = z = 0.0f;
     }
 
-    void Normalise()                                          // Fatal if zero; scales direction vectors to unit length.
+    void Normalise()                                          // Debug-asserts on zero; Release propagates IEEE inf/NaN.
     {
         float magSq = x * x + y * y + z * z;
-        if ( !magSq )
+        // Why: a zero direction is a caller-reachable numeric edge, not a
+        // lane-F engine invariant. TryNormalise reports it; the plain hot API
+        // keeps only a Debug misuse tripwire and Release IEEE propagation.
+        assert( magSq != 0.0f && "Vector3::Normalise requires a non-zero vector" );
+        const float oneOverMag = 1.0f / sqrtf( magSq );
+        x *= oneOverMag;
+        y *= oneOverMag;
+        z *= oneOverMag;
+    }
+
+    bool TryNormalise()
+    {
+        const float magSq = x * x + y * y + z * z;
+        if ( magSq == 0.0f )
         {
-            SB_FATAL( "Vector3", "Normalise requires a non-zero vector." );
+            return false;
         }
         const float oneOverMag = 1.0f / sqrtf( magSq );
         x *= oneOverMag;
         y *= oneOverMag;
         z *= oneOverMag;
+        return true;
+    }
+
+    bool TryNormalised( Vector3& out ) const
+    {
+        Vector3 candidate = *this;
+        if ( !candidate.TryNormalise() )
+        {
+            return false;
+        }
+        out = candidate;
+        return true;
     }
 
     void Absolute()                                           // Component-wise absolute value; mutates this vector.
@@ -154,10 +181,7 @@ class Vector3
 
     Vector3& operator/=( float f )
     {
-        if ( !f )
-        {
-            SB_FATAL( "Vector3", "Scalar divide-assign requires a non-zero divisor." );
-        }
+        assert( f != 0.0f && "Vector3 scalar divide-assign requires a non-zero divisor" );
         const float oneOverA = 1.0f / f;
         x *= oneOverA;
         y *= oneOverA;
@@ -167,18 +191,37 @@ class Vector3
 
     Vector3& operator/=( const Vector3& v )
     {
-        if ( !v.x || !v.y || !v.z )
-        {
-            SB_FATAL( "Vector3",
-                      "Component-wise divide-assign requires non-zero divisors. x=%f y=%f z=%f",
-                      v.x,
-                      v.y,
-                      v.z );
-        }
+        assert( v.x != 0.0f && v.y != 0.0f && v.z != 0.0f &&
+                "Vector3 component divide-assign requires non-zero divisors" );
         x /= v.x;
         y /= v.y;
         z /= v.z;
         return *this;
+    }
+
+    bool TryDivide( float f )
+    {
+        if ( f == 0.0f )
+        {
+            return false;
+        }
+        const float oneOverA = 1.0f / f;
+        x *= oneOverA;
+        y *= oneOverA;
+        z *= oneOverA;
+        return true;
+    }
+
+    bool TryDivide( const Vector3& v )
+    {
+        if ( v.x == 0.0f || v.y == 0.0f || v.z == 0.0f )
+        {
+            return false;
+        }
+        x /= v.x;
+        y /= v.y;
+        z /= v.z;
+        return true;
     }
 
     Vector3 operator-() const
@@ -203,21 +246,36 @@ class Vector3
 
     Vector3 operator/( float f ) const
     {
-        if ( !f )
-        {
-            SB_FATAL( "Vector3", "Scalar division requires a non-zero divisor." );
-        }
+        assert( f != 0.0f && "Vector3 scalar division requires a non-zero divisor" );
         const float oneOverA = 1.0f / f;
         return Vector3( x * oneOverA, y * oneOverA, z * oneOverA );
     }
 
     Vector3 operator/( const Vector3& v ) const
     {
-        if ( !v.x || !v.y || !v.z )
-        {
-            SB_FATAL( "Vector3", "Component-wise division requires non-zero divisors. x=%f y=%f z=%f", v.x, v.y, v.z );
-        }
+        assert( v.x != 0.0f && v.y != 0.0f && v.z != 0.0f && "Vector3 component division requires non-zero divisors" );
         return Vector3( x / v.x, y / v.y, z / v.z );
+    }
+
+    bool TryDivided( float f, Vector3& out ) const
+    {
+        if ( f == 0.0f )
+        {
+            return false;
+        }
+        const float oneOverA = 1.0f / f;
+        out = Vector3( x * oneOverA, y * oneOverA, z * oneOverA );
+        return true;
+    }
+
+    bool TryDivided( const Vector3& v, Vector3& out ) const
+    {
+        if ( v.x == 0.0f || v.y == 0.0f || v.z == 0.0f )
+        {
+            return false;
+        }
+        out = Vector3( x / v.x, y / v.y, z / v.z );
+        return true;
     }
 
     bool operator==( const Vector3& v ) const

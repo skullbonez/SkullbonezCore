@@ -4,9 +4,9 @@
 //   Lock the first pure-math unit contracts for Vector3.
 //
 // Summary:
-//   These tests describe engine math behavior. Fatal-only preconditions are
-//   source-documented and tested through caller-detectable guard states rather
-//   than in-process fatal assertions.
+//   These tests describe engine math behavior. Plain operations retain Debug
+//   misuse assertions, while Try operations make caller-reachable degeneracy
+//   testable without process termination.
 //
 // Glossary:
 //   Basis vector: Unit-length axis vector such as +X, +Y, or +Z.
@@ -16,6 +16,7 @@
 //   - Dot/cross/magnitude identities should stay stable across math library
 //     extraction and future standalone physics builds.
 //   - Defaulted copies retain all three components independently of the source.
+//   - Try operations leave their input and output values untouched on failure.
 //
 // Related:
 //   - SkullbonezSource/Maths/Vector3.h
@@ -44,7 +45,7 @@ void CheckVectorNear( const Vector3& value, const Vector3& expected )
 } // namespace
 
 
-TEST_CASE( "Vector3: zero vector is detectable before fatal-only normalise" )
+TEST_CASE( "Vector3: zero vector is detectable before plain normalise" )
 {
     Vector3 zero( 0.0f, 0.0f, 0.0f );
 
@@ -97,4 +98,47 @@ TEST_CASE( "Vector3: defaulted copy construction and assignment preserve compone
     source.SetAll( 9.0f, 8.0f, 7.0f );
     CheckVectorNear( constructed, Vector3( 1.25f, -2.5f, 7.75f ) );
     CheckVectorNear( assigned, Vector3( 1.25f, -2.5f, 7.75f ) );
+}
+
+
+TEST_CASE( "Vector3: TryNormalise reports zero without modifying values" )
+{
+    Vector3 zero( 0.0f, 0.0f, 0.0f );
+    Vector3 output( 8.0f, 9.0f, 10.0f );
+
+    CHECK_FALSE( zero.TryNormalise() );
+    CHECK( zero == Vector3( 0.0f, 0.0f, 0.0f ) );
+    CHECK_FALSE( zero.TryNormalised( output ) );
+    CHECK( output == Vector3( 8.0f, 9.0f, 10.0f ) );
+}
+
+
+TEST_CASE( "Vector3: TryNormalise accepts a non-zero value below the engine tolerance" )
+{
+    Vector3 small( TOLERANCE * 0.5f, 0.0f, 0.0f );
+
+    REQUIRE( small.TryNormalise() );
+    CHECK( small == Vector3( 1.0f, 0.0f, 0.0f ) );
+}
+
+
+TEST_CASE( "Vector3: Try divide APIs reject zero divisors without partial writes" )
+{
+    Vector3 scalarValue( 2.0f, 4.0f, 6.0f );
+    Vector3 componentValue = scalarValue;
+    Vector3 output( 7.0f, 8.0f, 9.0f );
+
+    CHECK_FALSE( scalarValue.TryDivide( 0.0f ) );
+    CHECK( scalarValue == Vector3( 2.0f, 4.0f, 6.0f ) );
+    CHECK_FALSE( componentValue.TryDivide( Vector3( 1.0f, 0.0f, 3.0f ) ) );
+    CHECK( componentValue == Vector3( 2.0f, 4.0f, 6.0f ) );
+    CHECK_FALSE( scalarValue.TryDivided( 0.0f, output ) );
+    CHECK( output == Vector3( 7.0f, 8.0f, 9.0f ) );
+    CHECK_FALSE( scalarValue.TryDivided( Vector3( 1.0f, 2.0f, 0.0f ), output ) );
+    CHECK( output == Vector3( 7.0f, 8.0f, 9.0f ) );
+
+    REQUIRE( scalarValue.TryDivide( 2.0f ) );
+    CHECK( scalarValue == Vector3( 1.0f, 2.0f, 3.0f ) );
+    REQUIRE( componentValue.TryDivided( Vector3( 2.0f, 2.0f, 2.0f ), output ) );
+    CHECK( output == Vector3( 1.0f, 2.0f, 3.0f ) );
 }

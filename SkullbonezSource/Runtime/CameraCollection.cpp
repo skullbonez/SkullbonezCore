@@ -18,6 +18,8 @@ Invariants:
     register a camera before selecting it by hash.
   - m_renderCamera is a frame snapshot and may differ from the primary camera
     while a tween is active.
+  - Zero or cancelled up vectors fall back to world +Y at the collection
+    boundary before a render pose is published.
 
 Related:
   - SkullbonezSource/Runtime/CameraCollection.h
@@ -268,7 +270,12 @@ void CameraCollection::SetPrimaryPosition( const Vector3& vPos )
 void CameraCollection::SetPrimaryUp( const Vector3& vUp )
 {
     m_cameraArray[m_selectedCamera].m_upVector = vUp;
-    m_cameraArray[m_selectedCamera].m_upVector.Normalise();
+    if ( !m_cameraArray[m_selectedCamera].m_upVector.TryNormalise() )
+    {
+        // Fallback: external/editor camera input with no up direction uses the
+        // world-up basis shared by default cameras.
+        m_cameraArray[m_selectedCamera].m_upVector = Vector3( 0.0f, 1.0f, 0.0f );
+    }
 }
 
 
@@ -470,8 +477,11 @@ void CameraCollection::SetCamera()
 
         m_tweenCamera += m_tweenPath * m_tweenProgress;
 
-        // normalise the up vector now it has been played around with
-        m_tweenCamera.m_upVector.Normalise();
+        // Opposed endpoint up vectors can cancel at the tween midpoint.
+        if ( !m_tweenCamera.m_upVector.TryNormalise() )
+        {
+            m_tweenCamera.m_upVector = Vector3( 0.0f, 1.0f, 0.0f );
+        }
 
         // avoid going through the m_terrain during tweens
         if ( m_terrain )
