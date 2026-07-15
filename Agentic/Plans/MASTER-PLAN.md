@@ -97,10 +97,10 @@ rule 4. The externally blocked validation lane remains deliberately excluded.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| init-startup-decomposition | 3 | 5 | 60% |
+| init-startup-decomposition | 4 | 5 | 80% |
 | run-member-and-include-shrink | 0 | 6 | 0% |
 | wide-call-desc-struct-pass | 0 | 5 | 0% |
-| **Active/future total** | **3** | **16** | **19%** |
+| **Active/future total** | **4** | **16** | **25%** |
 
 The three round-5 plans (fp-envelope-hardening 4/4,
 mutual-gravity-large-scene-fallback 3/3, math-fatal-survey-restoration 3/3)
@@ -411,7 +411,7 @@ ownership review; replay-touching wide-call work runs the one-invocation
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [init-startup-decomposition](TODO/init-startup-decomposition.md) | Active | 3/5 | T4: remove extraction residue, shrink owner-local includes, redistribute CLI-owned directive families to meet final line bounds, and record boundary proof |
+| [init-startup-decomposition](TODO/init-startup-decomposition.md) | Active | 4/5 | T5: run the final full gate, one standalone-physics probe, one bad-flag error case, and the whole-plan comment audit |
 | [run-member-and-include-shrink](TODO/run-member-and-include-shrink.md) | Active | 0/6 | After Init settles constructor wiring: T1 grouping proposal, then extract the two presentation/diagnostics owners and shrink Run.h's 46 includes |
 | [wide-call-desc-struct-pass](TODO/wide-call-desc-struct-pass.md) | Active | 0/5 | T1: re-resolve the ≥12-arg inventory rows post-PhysicsWorld, then desc-struct conversions with designated initializers |
 

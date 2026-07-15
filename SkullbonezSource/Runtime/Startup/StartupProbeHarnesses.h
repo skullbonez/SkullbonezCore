@@ -39,6 +39,13 @@ namespace Startup
 struct CommandLineView;
 struct ParsedArgs;
 
+// Applies the fixed flag-directive table in compatibility order.
+void ApplyProbeFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out );
+
+// Validates build-lane probe options and resolves Debug-only output paths in
+// the same order used by the original top-level parser.
+bool ValidateProbeCommandLineOptions( const CommandLineView& commandLine, ParsedArgs& out );
+
 // True means atlas generation claimed startup and outExitCode is final.
 bool HandleGenAtlas( const CommandLineView& commandLine, int& outExitCode );
 

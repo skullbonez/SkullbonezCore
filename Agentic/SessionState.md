@@ -13,16 +13,16 @@ plan inventory.
 | Branch | `nightrunner-15th-july` (runtime mass-reduction campaign) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
 | Current objective | Execute the runtime mass-reduction campaign: `init-startup-decomposition` → `run-member-and-include-shrink` → `wide-call-desc-struct-pass` (wide-call may run as a parallel lane; its T2 rebases on the Run shrink's RunRender edits if both are in flight) |
-| Active/future progress | 3 / 16 tasks = 19% overall (mass-reduction plans only; completed campaigns and externally blocked work are excluded) |
-| Last broad local gate | `tools\\validate_full.bat` passed in 311.71 s on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | Init T3 moved all 4 probe and 12 launch-resolution functions; a mechanical comparison covered 16/16 definitions and 146 string literals with zero mismatches. Project/filter validation reconciled 707/707 items; the full gate passed; comment audit inspected 5/5 touched source-bearing files with 0 deferred. No baseline or golden refresh. |
+| Active/future progress | 4 / 16 tasks = 25% overall (mass-reduction plans only; completed campaigns and externally blocked work are excluded) |
+| Last broad local gate | `tools\\validate_full.bat` passed in 284.47 s on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
+| Validation for current edits | Init T4 closed residue at 453 lines and final Startup implementation counts of 824/231/960/880. Mechanical comparison covered 29 redistributed functions and 210 ordered literals with zero mismatches; the complete runtime-literal multiset remained 473/473. Project/filter validation reconciled 707/707 items; the full gate passed; comment audit inspected 7/7 touched source-bearing files with 0 deferred. No baseline or golden refresh. |
 
 ## Live Queue
 
 0000. Runtime mass-reduction campaign is the active lane (activated
       2026-07-15; registered in MASTER at 3/16). Binding order:
-      `init-startup-decomposition` (3/5; T3 probe/launch extraction complete,
-      continue with T4 residue/include/line-bound closure)
+      `init-startup-decomposition` (4/5; T4 residue/include/line-bound closure
+      complete, continue with T5 final probes, gate, audit, and review)
       → `run-member-and-include-shrink` (6 tasks) →
       `wide-call-desc-struct-pass` (5 tasks, may run parallel to the first
       two; T2 rebases on Run-shrink RunRender edits if concurrent). Owner
@@ -241,8 +241,8 @@ lifetime check, sequencer inspection, ledger arithmetic, per-task byte-exact
 claims, and the locally runnable allocation/filter/migration checks; the P10
 review's three caught-and-remediated blockers and two recorded residuals are
 in the closure report). The active work is now the runtime mass-reduction
-campaign at 3/16 — continue with `Plans/TODO/init-startup-decomposition.md`
-T4 per the Live Queue entry above. Documentation-honesty findings from the
+campaign at 4/16 — continue with `Plans/TODO/init-startup-decomposition.md`
+T5 per the Live Queue entry above. Documentation-honesty findings from the
 round-4 review remain recorded in MASTER without plans. The externally
 administered validation-gate V3 lane remains blocked and excluded from the
 ledger.

@@ -163,6 +163,13 @@ bool HasOption( const CommandLineView& commandLine, const char* optionName );
 bool ParseFloatToken( const char* value, float& out );
 bool ParseOptionalOnOffValue( const char* value, bool& out );
 
+// Pure token/path helpers shared by responsibility owners. They retain no
+// command-line pointers and report errors through FailCommandLineParse.
+bool CopyCommandLinePath( const char* value, const char* optionName, char* outPath, size_t outPathSize );
+bool ParseIntCommandLineToken( const char* value, int& out );
+bool ParseUnsignedCommandLineToken( const char* value, unsigned int& out );
+bool ParseAllocationGuardCommandLineToken( const char* value, Allocation::RuntimeAllocationGuardMode& out );
+
 // Fills caller-owned config/argument state synchronously. False means WinMain
 // must report GetCommandLineError and stop before constructing runtime owners.
 bool ParseCommandLine( const CommandLineView& commandLine, Core::EngineConfig& config, ParsedArgs& out );

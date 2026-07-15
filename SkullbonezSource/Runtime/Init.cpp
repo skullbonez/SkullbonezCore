@@ -1,33 +1,24 @@
 /*
 File: SkullbonezSource/Runtime/Init.cpp
 Purpose:
-  Bootstraps the Windows process, parses command-line options, and starts the run loop.
+  Owns process-level startup sequencing after focused startup owners resolve
+  command-line, launch, probe, and crash-reporting concerns.
 
 Summary:
-  Init.cpp bootstraps the Windows process, parses command-line options, and
-  starts the run loop. As an implementation unit, keep edits anchored on local
-  owner boundaries and call direction and on the glossary/invariants below.
+  Init.cpp establishes the Windows process environment, delegates early-exit
+  startup work, constructs the window and DX12 backend, and starts the run loop.
 
 Glossary:
-  DX11/OpenGL: Retired runtime renderer choices. The parser names them only to
-  explain why old command lines are rejected.
   COM (Component Object Model): Windows interface lifetime model used by DX12
   and platform APIs through reference-counted objects.
-  SDF (Signed Distance Field): Texture representation used for crisp scalable
-  text rendering.
-  Standalone physics smoke: Early-exit validation mode that exercises public
-    physics API construction without runtime/window/renderer ownership.
-  Runtime handle smoke: Early-exit validation mode that uses runtime
-    SceneController construction but proves returned physics handles stay
-    aligned with body, collider, constraint, and render mirrors.
+  Startup owner: A focused helper unit that parses options, resolves launch
+    policy, runs an early probe, or installs crash diagnostics before Run exists.
   Lane R result: Recoverable CLI/startup failure that returns a process exit
     code with owner/message diagnostics instead of using a fatal exception.
 
 Invariants:
-  - DX12 is the only runtime renderer; retired renderer flags are parsed only
-    to produce clear failures for old command lines.
-  - Startup options are resolved before Run owns subsystems so validation
-    launches are deterministic from their CLI.
+  - Startup owners finish option resolution before Run owns subsystems, keeping
+    validation launches deterministic from their command line.
   - Early-exit smoke modes must return before worker, window, renderer, or Run
     startup if their evidence claims subsystem isolation.
 
@@ -35,62 +26,32 @@ Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
-#include "../Core/Common.h"
-#include "WindowConstants.h"
 #include "../Core/Log.h"
-#include "Audio/ContactAudioService.h"
-#include "Run.h"
-#include "Allocation/RuntimeAllocationTracker.h"
-#include "../Rendering/Text.h"
-#include "Window.h"
-#include "Input.h"
-#include "../Core/Timer.h"
+#include "../Core/Profiler.h"
+#include "../Core/WorkerPool.h"
 #include "../Rendering/DX12/RenderBackendDX12.h"
-#include "RunLaunchOptions.Renderer.h"
+#include "Allocation/RuntimeAllocationTracker.h"
+#include "Input.h"
+#include "Run.h"
 #include "Startup/StartupCommandLine.h"
 #include "Startup/StartupCrashLogging.h"
 #include "Startup/StartupLaunchResolution.h"
 #include "Startup/StartupProbeHarnesses.h"
-#include "Scene/SceneController.h"
-#include "../Physics/ColliderStore.h"
-#include "../Physics/PhysicsBodyStore.h"
-#include "../Physics/PhysicsApi.h"
-#include "../Rendering/RenderInstanceStore.h"
-#include "../World/WorldEnvironment.h"
-#include "../Core/PlatformProfiler.h"
-#include "../Core/Profiler.h"
-#include "../Core/WorkerPool.h"
-#include <cerrno>
-#include <float.h>
-#include <climits>
-#include <cstdlib>
+#include "Window.h"
+#include "WindowConstants.h"
+#include <cstdio>
 #include <cstring>
-#include <cstdarg>
-#include <cstdint>
-#include <exception>
-#include <fstream>
-#include <stdexcept>
-#include <vector>
+#include <memory>
 #include <string>
-#include <io.h>
+#include <utility>
+#include <vector>
+#include <windows.h>
 #include <objbase.h>
-
-#pragma warning( push, 0 )
-#include "../../ThirdPtySource/nlohmann/json.hpp"
-#pragma warning( pop )
-
-#ifdef _DEBUG
-#include <dbghelp.h>
-#pragma comment( lib, "dbghelp.lib" )
-#endif
 
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::Startup;
-using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Rendering;
-using namespace SkullbonezCore::Math::Transformation;
-using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Threading;
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
@@ -120,7 +81,7 @@ void ReportStartupFailure( const SkullbonezCore::Core::SbResult& result, const c
 // Console
 // ---------------------------------------------------------------------------
 
-// GUI apps have no console by default â€” attach to the parent terminal so
+// GUI apps have no console by default; attach to the parent terminal so
 // fprintf(stderr/stdout) is visible when launched from cmd/PowerShell.
 bool IsStandardHandleRedirected( DWORD standardHandle )
 {
@@ -152,75 +113,6 @@ void AttachParentConsole()
         }
     }
 }
-
-
-// ---------------------------------------------------------------------------
-// --gen-atlas early exit
-// SDF font atlas file generation path: exits before GPU context setup.
-// True means the flag was present; outExitCode is 0 on success, 1 on failure.
-// ---------------------------------------------------------------------------
-
-
-// ---------------------------------------------------------------------------
-// Command-line parsing
-// ---------------------------------------------------------------------------
-
-
-} // anonymous namespace
-
-
-namespace SkullbonezCore
-{
-namespace Runtime
-{
-namespace Startup
-{
-// Build the ordered list of scene paths from --suite or --scene.
-// Falls back to a single empty string (generated demo mode) when neither flag is given.
-
-// --vsync on|off patches the already-loaded startup config.
-
-
-} // namespace Startup
-} // namespace Runtime
-} // namespace SkullbonezCore
-
-
-namespace
-{
-
-// Guards --physics-regression-log against use in non-Debug builds.
-// False means startup should abort.
-
-
-// Guards --physics-collision-time-log against use in non-Debug builds.
-// False means startup should abort.
-
-
-// Guards --physics-diag / --physics-diagnostics against use in non-Debug builds.
-// Diagnostics traces are model-facing debug artifacts and are not a Profile/Release dependency.
-
-
-// Guards the replay scrub SkullScope probe against use in non-Debug builds.
-
-// Guards the replay restore hash SkullScope probe against use in non-Debug builds.
-
-// Guards the replay v2 save probe against use in non-Debug builds.
-
-// Guards the replay v2 load probe against use in non-Debug builds.
-
-// Guards the saved replay checkpoint restore probe against use in non-Debug builds.
-
-// Guards the saved replay checkpoint-plus-event target restore probe against use in non-Debug builds.
-
-// Guards the saved replay checkpoint-plus-event branch-from-file probe against use in non-Debug builds.
-
-// Guards the saved replay expected-failure probe against use without SkullScope diagnostics.
-
-
-// ParsedArgs owns all command-line option state after this pass.
-// Also loads engine.cfg and applies any overrides to the passed startup config.
-// False means startup should abort, such as --physics-regression-log in Release.
 
 // ---------------------------------------------------------------------------
 // Render backend
@@ -260,15 +152,6 @@ SkullbonezCore::Core::SbResult InitRenderBackend( Window* window,
     return SkullbonezCore::Core::SbResult::Success();
 }
 
-// ---------------------------------------------------------------------------
-// Main run
-// Run is scoped here so its destructor releases render-owned resources
-// before the DX12 backend and the Win32 window are torn down.
-// ---------------------------------------------------------------------------
-
-
-// ---------------------------------------------------------------------------
-
 int RunApp( Window* window,
             ParsedArgs& args,
             SkullbonezCore::Core::EngineConfig& cfg,
@@ -276,6 +159,8 @@ int RunApp( Window* window,
             SkullbonezCore::Core::Profiler* profiler,
             RuntimeRenderBackendView renderBackendView )
 {
+    // Lifetime: Run releases all render-owned resources before its borrowed
+    // DX12 backend and Win32 window are torn down by the process owner.
     {
         std::unique_ptr<Run> cRun =
             std::make_unique<Run>( *window, std::move( args.sceneList ), cfg, workerPool, profiler, renderBackendView );
@@ -387,9 +272,9 @@ void CleanupWindow( Window* window, HINSTANCE hInstance, std::unique_ptr<RenderB
     const HWND windowHandle = window->NativeWindowHandle();
     if ( windowHandle )
     {
-        Input::UnbindCallbackBridge( windowHandle );
+        SkullbonezCore::Hardware::Input::UnbindCallbackBridge( windowHandle );
     }
-    Input::UnbindWindow( *window );
+    SkullbonezCore::Hardware::Input::UnbindWindow( *window );
     window->SetResizeRenderLifecycle( nullptr );
     renderBackend.reset();
 
@@ -398,7 +283,7 @@ void CleanupWindow( Window* window, HINSTANCE hInstance, std::unique_ptr<RenderB
     if ( window->IsFullScreenMode() )
     {
         ChangeDisplaySettings( nullptr, 0 ); // Restore desktop mode
-        Input::SetSystemCursorVisible( true );
+        SkullbonezCore::Hardware::Input::SetSystemCursorVisible( true );
     }
 
     UnregisterClass( WINDOW_NAME, hInstance );
@@ -436,7 +321,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
 #endif
 
     // Initialize COM on the main thread (multi-threaded apartment). Required before any
-    // WinRT/COM activation occurs â€” without this, MSCTF.dll throws 0x800401F0 during
+    // WinRT/COM activation occurs; without this, MSCTF.dll reports 0x800401F0 during
     // text/input service initialization triggered by window creation.
     CoInitializeEx( nullptr, COINIT_MULTITHREADED );
 

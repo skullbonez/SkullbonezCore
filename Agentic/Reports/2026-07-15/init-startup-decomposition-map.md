@@ -221,3 +221,35 @@ Validation: documentation-only inventory; no repository validation required.
   byte-exact physics baseline match.
 - Comment audit: 5/5 touched source-bearing files inspected, 0 deferred.
   No baseline or golden refresh.
+
+## T4 Residue And Boundary Evidence
+
+- Final implementation line counts: `Init.cpp` **453**,
+  `StartupCommandLine.cpp` **824**, `StartupCrashLogging.cpp` **231**,
+  `StartupLaunchResolution.cpp` **960**, and
+  `StartupProbeHarnesses.cpp` **880**. The approximate 600/900 owner bounds
+  are satisfied without introducing a fifth unit or a shared services bag.
+- `Init.cpp` retains the Windows entry point, process console/COM sequencing,
+  worker/config bring-up, window and DX12 construction, `Run` lifetime,
+  startup failure reporting, and shutdown order. Parser, probe, path/suite,
+  and crash implementation residue is absent.
+- Cross-unit proof: an implementation-include search under `Runtime/Startup`
+  found no `.cpp` or `.inl` include. Units communicate only through the four
+  focused owner headers; directive tables and validation helpers remain
+  translation-unit private.
+- Behavior proof against T3 commit `0c90c928`: 29 redistributed functions and
+  210 ordered string literals compared with zero sequence mismatches. After
+  excluding preprocessor include names, the complete command/launch/probe
+  runtime-literal multiset is unchanged at 473/473 with zero differences.
+- Focused Profile build passed in 13.39 s with zero warnings and zero errors
+  after explicit qualification replaced the former transitive `Hardware`
+  namespace reach.
+- Gate history: the first `tools\validate_full.bat` attempt stopped after
+  13.18 s at the header-format post-pass, before compilation or runtime lanes.
+  After the targeted header alignment fix, the retry passed in 284.47 s with
+  707/707 project/filter items, zero-warning Profile/Automation/Debug builds,
+  all CPU and runtime lanes, zero DX12 validation errors, committed screenshot
+  matches, and the 44,401-line byte-exact physics baseline.
+- Comment audit: 7/7 T4 source-bearing files inspected, 0 deferred. Learning
+  headers name each owner and local lifetime/order comments guard the narrow
+  seams. No baseline or golden refresh.

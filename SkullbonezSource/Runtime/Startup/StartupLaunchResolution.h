@@ -39,6 +39,9 @@ namespace Startup
 struct CommandLineView;
 struct ParsedArgs;
 
+// Applies run/replay/stress value directives in frozen table order.
+bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out );
+
 // Applies visualization-only physics-debug tokens to caller-owned parsed state.
 bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs& out );
 

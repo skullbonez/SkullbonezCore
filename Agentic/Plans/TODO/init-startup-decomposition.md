@@ -1,7 +1,7 @@
 # Init Startup Decomposition — Split The 3,495-Line Startup File By Responsibility
 
 Date: 2026-07-15
-Status: Active — 3/5 tasks complete
+Status: Active — 4/5 tasks complete
 Impact area: `Runtime/Init.cpp`, new `Runtime/Startup/*` translation units,
 project/filter files, startup CLI behavior (must not change)
 Owner: runtime shell
@@ -90,10 +90,22 @@ every CLI flag, error message, exit code, and probe output is byte-identical.
       DX12 validation errors, committed screenshot matches, and the 44,401-line
       byte-exact physics baseline. Touched-file comment audit: 5/5 inspected,
       0 deferred. No baseline or golden refresh.
-- [ ] T4 — Residue pass: `Init.cpp` retains entry point, argument
+- [x] T4 — Residue pass: `Init.cpp` retains entry point, argument
       orchestration, worker-pool/config bring-up, and startup failure
       reporting; record the final line counts in the map report. Confirm no
       new unit includes another new unit's internals (headers only).
+      Evidence: `Init.cpp` is 453 lines. Startup implementation units are
+      command line 824, crash logging 231, launch resolution 960, and probe
+      harnesses 880 lines. All new cross-unit dependencies are headers; no
+      `.cpp`/`.inl` internal include exists. Mechanical comparison against T3
+      covered 29 redistributed functions and 210 ordered literals with zero
+      mismatches; the complete three-unit runtime-literal multiset remained
+      473/473. `tools\validate_full.bat` passed in 284.47 s after a 13.18 s
+      formatting-only stop was corrected, with 707/707 project/filter items,
+      zero-warning builds, all CPU/runtime lanes, zero DX12 validation errors,
+      committed screenshot matches, and the 44,401-line byte-exact physics
+      baseline. Touched-file comment audit: 7/7 inspected, 0 deferred. No
+      baseline or golden refresh.
 - [ ] T5 — Final gate. `Init*` maps to `tools\validate_full.bat`. Because the
       broad gate exercises the CLI paths (scene load, probes, automation
       smoke), it doubles as the behavior proof; additionally run one manual

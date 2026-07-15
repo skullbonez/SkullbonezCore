@@ -28,26 +28,22 @@ Related:
   - Agentic/Reports/2026-07-15/init-startup-decomposition-map.md
 */
 #include "StartupLaunchResolution.h"
-
 #include "StartupCommandLine.h"
-
 #include "../../Core/Common.h"
 #include "../RunLaunchOptions.h"
 #include "../WindowConstants.h"
-
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
 #include <io.h>
 #include <string>
 #include <vector>
-
 using namespace SkullbonezCore::Physics;
-
+namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 #pragma warning( push, 0 )
 #include "../../../ThirdPtySource/nlohmann/json.hpp"
 #pragma warning( pop )
-
 namespace SkullbonezCore
 {
 namespace Runtime
@@ -57,14 +53,12 @@ namespace Startup
 namespace
 {
 using Json = nlohmann::ordered_json;
-
 struct PhysicsDebugComponentDirective
 {
     const char* dashedName;
     const char* underscoredName;
     uint32_t flag;
 };
-
 struct PhysicsDebugFloatDirective
 {
     const char* dashedName;
@@ -76,30 +70,25 @@ struct PhysicsDebugFloatDirective
     const char* errorMessage;
     bool enableTransparentBodies;
 };
-
 bool SceneArgHasPathSyntax( const std::string& sceneArg )
 {
     return sceneArg.find( '/' ) != std::string::npos || sceneArg.find( '\\' ) != std::string::npos ||
            sceneArg.find( ':' ) != std::string::npos;
 }
-
 bool SceneArgHasExtension( const std::string& sceneArg )
 {
     const size_t slash = sceneArg.find_last_of( "/\\" );
     const size_t dot = sceneArg.find_last_of( '.' );
     return dot != std::string::npos && ( slash == std::string::npos || dot > slash );
 }
-
 bool FileExistsForLaunch( const std::string& path )
 {
     return _access( path.c_str(), 0 ) == 0;
 }
-
 std::string HeroSceneLaunchPath()
 {
     return std::string( DATA_ROOT ) + "scenes/concept_12_low_poly_art_style.scene.json";
 }
-
 std::string ResolveSceneLaunchPath( const char* rawSceneArg )
 {
     std::string sceneArg( rawSceneArg );
@@ -107,13 +96,11 @@ std::string ResolveSceneLaunchPath( const char* rawSceneArg )
     {
         return sceneArg;
     }
-
     if ( _stricmp( sceneArg.c_str(), "hero" ) == 0 || _stricmp( sceneArg.c_str(), "low_poly_hero" ) == 0 ||
          _stricmp( sceneArg.c_str(), "low-poly-hero" ) == 0 )
     {
         return HeroSceneLaunchPath();
     }
-
     const std::string sceneDir = std::string( DATA_ROOT ) + "scenes/";
     if ( !SceneArgHasExtension( sceneArg ) )
     {
@@ -123,16 +110,13 @@ std::string ResolveSceneLaunchPath( const char* rawSceneArg )
             return sceneCandidate;
         }
     }
-
     const std::string directCandidate = sceneDir + sceneArg;
     if ( FileExistsForLaunch( directCandidate ) )
     {
         return directCandidate;
     }
-
     return sceneArg;
 }
-
 std::string ResolveSuiteLaunchPath( const char* rawSuiteArg )
 {
     std::string suiteArg( rawSuiteArg );
@@ -140,7 +124,6 @@ std::string ResolveSuiteLaunchPath( const char* rawSuiteArg )
     {
         return suiteArg;
     }
-
     const std::string sceneDir = std::string( DATA_ROOT ) + "scenes/";
     if ( !SceneArgHasExtension( suiteArg ) )
     {
@@ -150,16 +133,13 @@ std::string ResolveSuiteLaunchPath( const char* rawSuiteArg )
             return suiteCandidate;
         }
     }
-
     const std::string directCandidate = sceneDir + suiteArg;
     if ( FileExistsForLaunch( directCandidate ) )
     {
         return directCandidate;
     }
-
     return suiteArg;
 }
-
 bool ParsePhysicsDebugMode( const char* value, uint32_t& outFlags )
 {
     if ( IsOptionValueMissing( value ) )
@@ -205,7 +185,6 @@ bool ParsePhysicsDebugMode( const char* value, uint32_t& outFlags )
     }
     return false;
 }
-
 bool ApplyPhysicsDebugComponentOverride( const CommandLineView& commandLine,
                                          const char* dashedName,
                                          const char* underscoredName,
@@ -217,13 +196,11 @@ bool ApplyPhysicsDebugComponentOverride( const CommandLineView& commandLine,
     {
         return true;
     }
-
     bool enabled = false;
     if ( !ParseOptionalOnOffValue( value, enabled ) )
     {
         return FailCommandLineParse( "%s expects optional on|off.", dashedName );
     }
-
     if ( !out.hasPhysicsDebugFlagsOverride )
     {
         out.physicsDebugFlagsOverride = PHYSICS_DEBUG_NONE;
@@ -239,7 +216,6 @@ bool ApplyPhysicsDebugComponentOverride( const CommandLineView& commandLine,
     }
     return true;
 }
-
 bool ApplyPhysicsDebugFloatOverride( const CommandLineView& commandLine,
                                      const PhysicsDebugFloatDirective& directive,
                                      ParsedArgs& out )
@@ -249,13 +225,11 @@ bool ApplyPhysicsDebugFloatOverride( const CommandLineView& commandLine,
     {
         return true;
     }
-
     float parsed = 0.0f;
     if ( !ParseFloatToken( value, parsed ) || parsed < directive.minValue || parsed > directive.maxValue )
     {
         return FailCommandLineParse( directive.errorMessage );
     }
-
     out.*( directive.hasOverride ) = true;
     out.*( directive.value ) = parsed;
     if ( directive.enableTransparentBodies && !out.hasPhysicsDebugTransparentOverride )
@@ -265,9 +239,216 @@ bool ApplyPhysicsDebugFloatOverride( const CommandLineView& commandLine,
     }
     return true;
 }
-
+struct RunCliValueDirective
+{
+    const char* name;
+    const char* alias;
+    bool ( *apply )( const char* value, ParsedArgs& args );
+};
+bool ApplyLiveStyleControlDir( const char* value, ParsedArgs& args )
+{
+    if ( IsOptionValueMissing( value ) )
+    {
+        return FailCommandLineParse( "--live-style-control expects a directory path." );
+    }
+    if ( strlen( value ) >= sizeof( args.liveStyleControlDir ) )
+    {
+        return FailCommandLineParse( "--live-style-control path is too long." );
+    }
+    strcpy_s( args.liveStyleControlDir, sizeof( args.liveStyleControlDir ), value );
+    args.interactiveRun = true;
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[style-harness] Live style control directory: %s\n", args.liveStyleControlDir );
+    return true;
+}
+bool ApplySceneSnapshotOutPath( const char* value, ParsedArgs& args )
+{
+    if ( IsOptionValueMissing( value ) )
+    {
+        return FailCommandLineParse( "--scene-snapshot-out expects a file path." );
+    }
+    if ( strlen( value ) >= sizeof( args.sceneSnapshotOutPath ) )
+    {
+        return FailCommandLineParse( "--scene-snapshot-out path is too long." );
+    }
+    strcpy_s( args.sceneSnapshotOutPath, sizeof( args.sceneSnapshotOutPath ), value );
+    args.sceneLoadOnly = true;
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[scene-load-only] Snapshot output: %s\n", args.sceneSnapshotOutPath );
+    return true;
+}
+bool ApplyMemoryDumpPath( const char* value, ParsedArgs& args )
+{
+    if ( !CopyCommandLinePath( value, "--memory-dump", args.memoryDumpPath, sizeof( args.memoryDumpPath ) ) )
+    {
+        return false;
+    }
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[memory] Dump output: %s\n", args.memoryDumpPath );
+    return true;
+}
+bool ApplyInteractionScriptPath( const char* value, ParsedArgs& args )
+{
+    if ( !CopyCommandLinePath( value,
+                               "--interaction-script",
+                               args.interactionScriptPath,
+                               sizeof( args.interactionScriptPath ) ) )
+    {
+        return false;
+    }
+    args.interactiveRun = true;
+    args.suppressExitDialog = true;
+    args.replayRecording = true;
+    fprintf( stdout, "[interaction] Script input: %s\n", args.interactionScriptPath );
+    return true;
+}
+bool ApplyInteractionReportPath( const char* value, ParsedArgs& args )
+{
+    if ( !CopyCommandLinePath( value,
+                               "--interaction-report",
+                               args.interactionReportPath,
+                               sizeof( args.interactionReportPath ) ) )
+    {
+        return false;
+    }
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[interaction] Report output: %s\n", args.interactionReportPath );
+    return true;
+}
+bool ApplyReplayHashLogPath( const char* value, ParsedArgs& args )
+{
+    if ( IsOptionValueMissing( value ) )
+    {
+        return FailCommandLineParse( "--replay-hashes expects a file path." );
+    }
+    if ( strlen( value ) >= sizeof( args.replayHashLogPath ) )
+    {
+        return FailCommandLineParse( "--replay-hashes path is too long." );
+    }
+    strcpy_s( args.replayHashLogPath, sizeof( args.replayHashLogPath ), value );
+    args.replayRecording = true;
+    args.replayExplicit = true;
+    fprintf( stdout, "[replay] Hash log: %s\n", args.replayHashLogPath );
+    return true;
+}
+bool ApplyReplaySaveProbePath( const char* value, ParsedArgs& args )
+{
+    if ( IsOptionValueMissing( value ) )
+    {
+        return FailCommandLineParse( "--replay-save-probe expects a file path." );
+    }
+    if ( strlen( value ) >= sizeof( args.replaySaveProbePath ) )
+    {
+        return FailCommandLineParse( "--replay-save-probe path is too long." );
+    }
+    strcpy_s( args.replaySaveProbePath, sizeof( args.replaySaveProbePath ), value );
+    args.replaySaveProbe = true;
+    args.replayRecording = true;
+    args.replayExplicit = true;
+    args.replaySeconds = (std::max)( 1, args.replaySeconds );
+    args.fixedStep = true;
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[replay] Save probe output: %s\n", args.replaySaveProbePath );
+    return true;
+}
+bool ApplyReplayLoadPath( const char* value, ParsedArgs& args )
+{
+    if ( IsOptionValueMissing( value ) )
+    {
+        return FailCommandLineParse( "--replay-load expects a file path." );
+    }
+    if ( strlen( value ) >= sizeof( args.replayLoadPath ) )
+    {
+        return FailCommandLineParse( "--replay-load path is too long." );
+    }
+    strcpy_s( args.replayLoadPath, sizeof( args.replayLoadPath ), value );
+    args.replayLoad = true;
+    args.interactiveRun = true;
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[replay] Load artifact: %s\n", args.replayLoadPath );
+    return true;
+}
+bool ApplyReplayLoadProbePath( const char* value, ParsedArgs& args )
+{
+    if ( !ApplyReplayLoadPath( value, args ) )
+    {
+        return false;
+    }
+    args.replayLoadProbe = true;
+    args.fixedStep = true;
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[replay] Load probe input: %s\n", args.replayLoadPath );
+    return true;
+}
+bool ApplyReplayRestoreFileProbePath( const char* value, ParsedArgs& args )
+{
+    if ( IsOptionValueMissing( value ) )
+    {
+        return FailCommandLineParse( "--replay-restore-file-probe expects a file path." );
+    }
+    if ( strlen( value ) >= sizeof( args.replayRestoreFileProbePath ) )
+    {
+        return FailCommandLineParse( "--replay-restore-file-probe path is too long." );
+    }
+    strcpy_s( args.replayRestoreFileProbePath, sizeof( args.replayRestoreFileProbePath ), value );
+    args.replayRestoreFileProbe = true;
+    args.fixedStep = true;
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[replay] Restore file probe input: %s\n", args.replayRestoreFileProbePath );
+    return true;
+}
+bool ApplyReplayRestoreTargetFileProbePath( const char* value, ParsedArgs& args )
+{
+    if ( IsOptionValueMissing( value ) )
+    {
+        return FailCommandLineParse( "--replay-restore-target-file-probe expects a file path." );
+    }
+    if ( strlen( value ) >= sizeof( args.replayRestoreTargetFileProbePath ) )
+    {
+        return FailCommandLineParse( "--replay-restore-target-file-probe path is too long." );
+    }
+    strcpy_s( args.replayRestoreTargetFileProbePath, sizeof( args.replayRestoreTargetFileProbePath ), value );
+    args.replayRestoreTargetFileProbe = true;
+    args.fixedStep = true;
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[replay] Restore target probe input: %s\n", args.replayRestoreTargetFileProbePath );
+    return true;
+}
+bool ApplyReplayRestoreBranchFileProbePath( const char* value, ParsedArgs& args )
+{
+    if ( IsOptionValueMissing( value ) )
+    {
+        return FailCommandLineParse( "--replay-restore-branch-file-probe expects a file path." );
+    }
+    if ( strlen( value ) >= sizeof( args.replayRestoreBranchFileProbePath ) )
+    {
+        return FailCommandLineParse( "--replay-restore-branch-file-probe path is too long." );
+    }
+    strcpy_s( args.replayRestoreBranchFileProbePath, sizeof( args.replayRestoreBranchFileProbePath ), value );
+    args.replayRestoreBranchFileProbe = true;
+    args.fixedStep = true;
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[replay] Restore branch probe input: %s\n", args.replayRestoreBranchFileProbePath );
+    return true;
+}
+bool ApplyReplayRestoreFailureFileProbePath( const char* value, ParsedArgs& args )
+{
+    if ( IsOptionValueMissing( value ) )
+    {
+        return FailCommandLineParse( "--replay-restore-failure-file-probe expects a file path." );
+    }
+    if ( strlen( value ) >= sizeof( args.replayRestoreFailureFileProbePath ) )
+    {
+        return FailCommandLineParse( "--replay-restore-failure-file-probe path is too long." );
+    }
+    strcpy_s( args.replayRestoreFailureFileProbePath, sizeof( args.replayRestoreFailureFileProbePath ), value );
+    args.replayRestoreFailureFileProbe = true;
+    args.fixedStep = true;
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[replay] Restore failure probe input: %s\n", args.replayRestoreFailureFileProbePath );
+    return true;
+}
 } // anonymous namespace
-
 bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs& out )
 {
     const char* modeValue = FindOptionValue( commandLine, "--physics-debug", "--physics_debug" );
@@ -280,7 +461,6 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
         }
         out.hasPhysicsDebugFlagsOverride = true;
     }
-
     static const PhysicsDebugComponentDirective kComponentOverrides[] = {
         { "--physics-debug-axes", "--physics_debug_axes", PHYSICS_DEBUG_AXES },
         { "--physics-debug-contacts", "--physics_debug_contacts", PHYSICS_DEBUG_CONTACTS },
@@ -299,7 +479,6 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
             return false;
         }
     }
-
     const char* transparentValue =
         FindOptionValue( commandLine, "--physics-debug-transparent", "--physics_debug_transparent" );
     if ( transparentValue )
@@ -310,7 +489,6 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
         }
         out.hasPhysicsDebugTransparentOverride = true;
     }
-
     static const PhysicsDebugFloatDirective kFloatOverrides[] = {
         { "--physics-debug-alpha",
           "--physics_debug_alpha",
@@ -336,7 +514,6 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
             return false;
         }
     }
-
     if ( out.hasPhysicsDebugFlagsOverride )
     {
         fprintf( stdout, "[physics-debug] Flags override: 0x%02x\n", out.physicsDebugFlagsOverride );
@@ -355,23 +532,19 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
     {
         fprintf( stdout, "[physics-debug] Contact linger: %.3fs\n", out.physicsDebugContactLingerOverride );
     }
-
     return true;
 }
-
 bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string>& sceneList, bool& isSuiteOrSceneMode )
 {
     const char* suiteArg = FindOptionValue( commandLine, "--suite" );
     const char* sceneArg = FindOptionValue( commandLine, "--scene" );
     const bool heroArg = HasOption( commandLine, "--hero" );
     const bool demoHeroArg = HasOption( commandLine, "--demohero" ) || HasOption( commandLine, "--demo-hero" );
-
     if ( ( suiteArg && sceneArg ) || ( heroArg && ( suiteArg || sceneArg ) ) ||
          ( demoHeroArg && ( suiteArg || sceneArg || heroArg ) ) )
     {
         return FailCommandLineParse( "--demohero, --hero, --suite, and --scene are mutually exclusive." );
     }
-
     if ( heroArg )
     {
         sceneList.push_back( HeroSceneLaunchPath() );
@@ -384,22 +557,18 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
         {
             return FailCommandLineParse( "--suite requires a path." );
         }
-
         // Resolve a suite JSON path from either a file token or a repository-relative path.
         const std::string suitePath = ResolveSuiteLaunchPath( suiteArg );
-
         std::ifstream suiteFile( suitePath );
         if ( !suiteFile )
         {
             return FailCommandLineParse( "--suite could not open '%s'.", suitePath.c_str() );
         }
-
         Json suite = Json::parse( suiteFile, nullptr, false );
         if ( suite.is_discarded() )
         {
             return FailCommandLineParse( "--suite invalid JSON in '%s'.", suitePath.c_str() );
         }
-
         if ( !suite.is_object() )
         {
             return FailCommandLineParse( "--suite '%s' root must be an object.", suitePath.c_str() );
@@ -431,7 +600,6 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
         {
             return FailCommandLineParse( "--scene requires a path." );
         }
-
         if ( *sceneArg != '\0' )
         {
             // Support both quoted ("path with spaces") and unquoted tokens.
@@ -441,19 +609,16 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
             isSuiteOrSceneMode = true;
         }
     }
-
     if ( sceneList.empty() )
     {
         sceneList.push_back( "" ); // generated demo mode
     }
     return true;
 }
-
 RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
 {
     RunStartupOverrides overrides;
     RunLaunchOptions& launch = overrides.launch;
-
     launch.timeScaleOverride = args.timeScaleOverride;
     launch.fixedStep = args.fixedStep;
     launch.seedOverride = args.seedOverride;
@@ -489,12 +654,10 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     launch.physicsDebugAlphaOverride = args.physicsDebugAlphaOverride;
     launch.hasPhysicsDebugContactLingerOverride = args.hasPhysicsDebugContactLingerOverride;
     launch.physicsDebugContactLingerOverride = args.physicsDebugContactLingerOverride;
-
     overrides.liveStyleControlDirectory = args.liveStyleControlDir[0] != '\0' ? args.liveStyleControlDir : nullptr;
     overrides.mainMemoryDumpPath = args.memoryDumpPath[0] != '\0' ? args.memoryDumpPath : nullptr;
     overrides.interactionScriptPath = args.interactionScriptPath[0] != '\0' ? args.interactionScriptPath : nullptr;
     overrides.interactionReportPath = args.interactionReportPath[0] != '\0' ? args.interactionReportPath : nullptr;
-
     const bool replayDefaultAllowed =
         !args.isSuiteOrSceneMode || args.interactiveRun || args.liveStyleControlDir[0] != '\0';
     const bool replayEnabled =
@@ -505,12 +668,10 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     overrides.replayHashLogPath = args.replayHashLogPath[0] != '\0' ? args.replayHashLogPath : nullptr;
     overrides.replayLoadPath = args.replayLoad ? args.replayLoadPath : nullptr;
     overrides.replayLoadProbe = args.replayLoadProbe;
-
     overrides.hasInitialOverlayMode = args.showProfiler;
     overrides.initialOverlayMode = args.showProfiler ? OverlayMode::Timers : OverlayMode::None;
     overrides.hideTopText = args.hideTopText;
     overrides.showBroadphaseVisualizer = args.showBroadphaseVisualizer;
-
 #ifdef _DEBUG
     overrides.replayScrubProbe = args.replayScrubProbe;
     overrides.replayScrubProbeNormalized = args.replayScrubProbeNormalized;
@@ -532,10 +693,268 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     overrides.physicsDiagnosticsPath = args.physicsDiagnosticsPath[0] != '\0' ? args.physicsDiagnosticsPath : nullptr;
     overrides.physicsDiagnosticsFixedStepForced = args.fixedStepForcedByPhysicsDiagnostics;
 #endif
-
     return overrides;
 }
-
+bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out )
+{
+    // clang-format off
+    // Keep the compatibility inventory compact: row order is behavior-bearing,
+    // and each option remains visually adjacent to its exact callback.
+    static const RunCliValueDirective kValues[] = {
+        { "--seed",
+          nullptr,
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              unsigned int seed = 0;
+              if ( !ParseUnsignedCommandLineToken( value, seed ) || seed == 0 )
+              {
+                  return FailCommandLineParse( "--seed expects a positive 32-bit integer." );
+              }
+              args.seedOverride = seed;
+              fprintf( stdout, "[seed] Override: %u\n", args.seedOverride );
+              return true;
+          } },
+        { "--frames",
+          nullptr,
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              int frames = 0;
+              if ( !ParseIntCommandLineToken( value, frames ) || frames <= 0 )
+              {
+                  return FailCommandLineParse( "--frames expects a positive integer." );
+              }
+              args.frameCountOverride = frames;
+              args.suppressExitDialog = true;
+              fprintf( stdout, "[frames] Exit after %d frames.\n", args.frameCountOverride );
+              return true;
+          } },
+        { "--allocation-guard",
+          "--allocation_guard",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              RuntimeAllocation::RuntimeAllocationGuardMode mode = RuntimeAllocation::RuntimeAllocationGuardMode::Off;
+              if ( !ParseAllocationGuardCommandLineToken( value, mode ) )
+              {
+                  return FailCommandLineParse( "--allocation-guard expects off|measure|gameplay." );
+              }
+              args.allocationGuardMode = mode;
+              fprintf( stdout, "[allocation-guard] Requested mode: %s\n", RuntimeAllocation::RuntimeAllocationGuardModeName( mode ) );
+              return true;
+          } },
+        { "--live-style-control", "--style-harness", ApplyLiveStyleControlDir },
+        { "--live_style_control", "--style_harness", ApplyLiveStyleControlDir },
+        { "--scene-snapshot-out", "--scene_snapshot_out", ApplySceneSnapshotOutPath },
+        { "--memory-dump", "--memory_dump", ApplyMemoryDumpPath },
+        { "--interaction-script", "--interaction_script", ApplyInteractionScriptPath },
+        { "--interaction-report", "--interaction_report", ApplyInteractionReportPath },
+        { "--replay",
+          nullptr,
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              bool enabled = false;
+              if ( !ParseOptionalOnOffValue( value, enabled ) )
+              {
+                  return FailCommandLineParse( "--replay expects optional on|off." );
+              }
+              args.replayRecording = enabled;
+              args.replayExplicit = true;
+              fprintf( stdout, "[replay] Capture %s via command line.\n", enabled ? "enabled" : "disabled" );
+              return true;
+          } },
+        { "--replay-seconds",
+          "--replay_seconds",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              int seconds = 0;
+              if ( !ParseIntCommandLineToken( value, seconds ) || seconds < 1 || seconds > 600 )
+              {
+                  return FailCommandLineParse( "--replay-seconds expects 1..600." );
+              }
+              args.replaySeconds = seconds;
+              args.replayExplicit = true;
+              fprintf( stdout, "[replay] Retention window: %d seconds.\n", args.replaySeconds );
+              return true;
+          } },
+        { "--replay-scrub-probe",
+          "--replay_scrub_probe",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              float normalized = 0.0f;
+              if ( !ParseFloatToken( value, normalized ) || normalized < 0.0f || normalized >= 0.995f )
+              {
+                  return FailCommandLineParse( "--replay-scrub-probe expects a normalized position in the range 0..0.995." );
+              }
+              args.replayScrubProbe = true;
+              args.replayScrubProbeNormalized = normalized;
+              args.replayRecording = true;
+              args.replayExplicit = true;
+              args.replaySeconds = (std::max)( 1, args.replaySeconds );
+              args.fixedStep = true;
+              args.suppressExitDialog = true;
+              fprintf( stdout, "[replay] Scrub probe normalized position: %.3f\n", args.replayScrubProbeNormalized );
+              return true;
+          } },
+        { "--replay-restore-probe",
+          "--replay_restore_probe",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              float normalized = 0.0f;
+              if ( !ParseFloatToken( value, normalized ) || normalized < 0.0f || normalized >= 0.995f )
+              {
+                  return FailCommandLineParse( "--replay-restore-probe expects a normalized position in the range 0..0.995." );
+              }
+              args.replayRestoreProbe = true;
+              args.replayRestoreProbeNormalized = normalized;
+              args.replayRecording = true;
+              args.replayExplicit = true;
+              args.replaySeconds = (std::max)( 1, args.replaySeconds );
+              args.fixedStep = true;
+              args.suppressExitDialog = true;
+              fprintf( stdout, "[replay] Restore probe normalized position: %.3f\n", args.replayRestoreProbeNormalized );
+              return true;
+          } },
+        // Invariant: each replay workflow has one semantic flag. The underscore
+        // spelling remains the command-line parser's universal syntax alias;
+        // deleted save-test/play synonyms carried no distinct behavior.
+        { "--replay-save-probe", "--replay_save_probe", ApplyReplaySaveProbePath },
+        { "--replay-load", "--replay_load", ApplyReplayLoadPath },
+        { "--replay-load-probe", "--replay_load_probe", ApplyReplayLoadProbePath },
+        { "--replay-restore-file-probe", "--replay_restore_file_probe", ApplyReplayRestoreFileProbePath },
+        { "--replay-restore-target-file-probe", "--replay_restore_target_file_probe", ApplyReplayRestoreTargetFileProbePath },
+        { "--replay-restore-branch-file-probe", "--replay_restore_branch_file_probe", ApplyReplayRestoreBranchFileProbePath },
+        { "--replay-restore-failure-file-probe", "--replay_restore_failure_file_probe", ApplyReplayRestoreFailureFileProbePath },
+        { "--replay-hashes", "--replay_hashes", ApplyReplayHashLogPath },
+        { "--ui-stress",
+          "--ui_stress",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              bool enabled = false;
+              if ( !ParseOptionalOnOffValue( value, enabled ) )
+              {
+                  return FailCommandLineParse( "--ui-stress expects optional on|off." );
+              }
+              args.uiStress = enabled;
+              args.suppressExitDialog = args.suppressExitDialog || enabled;
+              return true;
+          } },
+        { "--ui-stress-seed",
+          "--ui_stress_seed",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              unsigned int seed = 0;
+              if ( !ParseUnsignedCommandLineToken( value, seed ) || seed == 0 )
+              {
+                  return FailCommandLineParse( "--ui-stress-seed expects a positive 32-bit integer." );
+              }
+              args.uiStress = true;
+              args.uiStressSeed = seed;
+              args.suppressExitDialog = true;
+              return true;
+          } },
+        { "--ui-stress-actions",
+          "--ui_stress_actions",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              int actions = 0;
+              if ( !ParseIntCommandLineToken( value, actions ) || actions <= 0 || actions > 32 )
+              {
+                  return FailCommandLineParse( "--ui-stress-actions expects 1..32." );
+              }
+              args.uiStress = true;
+              args.uiStressActions = actions;
+              args.suppressExitDialog = true;
+              return true;
+          } },
+        { "--graphics-stress",
+          "--graphics_stress",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              bool enabled = false;
+              if ( !ParseOptionalOnOffValue( value, enabled ) )
+              {
+                  return FailCommandLineParse( "--graphics-stress expects optional on|off." );
+              }
+              args.graphicsStress = enabled;
+              args.interactiveRun = args.interactiveRun || enabled;
+              args.suppressExitDialog = args.suppressExitDialog || enabled;
+              return true;
+          } },
+        { "--graphics-stress-seed",
+          "--graphics_stress_seed",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              unsigned int seed = 0;
+              if ( !ParseUnsignedCommandLineToken( value, seed ) || seed == 0 )
+              {
+                  return FailCommandLineParse( "--graphics-stress-seed expects a positive 32-bit integer." );
+              }
+              args.graphicsStress = true;
+              args.graphicsStressSeed = seed;
+              args.interactiveRun = true;
+              args.suppressExitDialog = true;
+              return true;
+          } },
+        { "--graphics-stress-actions",
+          "--graphics_stress_actions",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              int actions = 0;
+              if ( !ParseIntCommandLineToken( value, actions ) || actions <= 0 || actions > 64 )
+              {
+                  return FailCommandLineParse( "--graphics-stress-actions expects 1..64." );
+              }
+              args.graphicsStress = true;
+              args.graphicsStressActions = actions;
+              args.interactiveRun = true;
+              args.suppressExitDialog = true;
+              return true;
+          } },
+        { "--graphics-stress-scene-interval",
+          "--graphics_stress_scene_interval",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              int frames = 0;
+              if ( !ParseIntCommandLineToken( value, frames ) || frames <= 0 || frames > 600 )
+              {
+                  return FailCommandLineParse( "--graphics-stress-scene-interval expects 1..600 frames." );
+              }
+              args.graphicsStress = true;
+              args.graphicsStressSceneIntervalFrames = frames;
+              args.interactiveRun = true;
+              args.suppressExitDialog = true;
+              return true;
+          } },
+        { "--graphics-stress-memory-interval",
+          "--graphics_stress_memory_interval",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              int frames = 0;
+              if ( !ParseIntCommandLineToken( value, frames ) || frames < 0 || frames > 36000 )
+              {
+                  return FailCommandLineParse( "--graphics-stress-memory-interval expects 0..36000 frames." );
+              }
+              args.graphicsStress = true;
+              args.graphicsStressMemoryIntervalFrames = frames;
+              args.interactiveRun = true;
+              args.suppressExitDialog = true;
+              return true;
+          } },
+    };
+    // clang-format on
+    for ( const RunCliValueDirective& directive : kValues )
+    {
+        const char* value = FindOptionValue( commandLine, directive.name );
+        if ( !value && directive.alias )
+        {
+            value = FindOptionValue( commandLine, directive.alias );
+        }
+        if ( value && !directive.apply( value, out ) )
+        {
+            return false;
+        }
+    }
+    return true;
+}
 } // namespace Startup
 } // namespace Runtime
 } // namespace SkullbonezCore

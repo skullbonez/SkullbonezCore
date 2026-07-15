@@ -28,9 +28,7 @@ Related:
   - Agentic/Reports/2026-07-15/init-startup-decomposition-map.md
 */
 #include "StartupProbeHarnesses.h"
-
 #include "StartupCommandLine.h"
-
 #include "../../Assets/AssetKeys.h"
 #include "../../Core/Common.h"
 #include "../../Core/Config.h"
@@ -43,17 +41,14 @@ Related:
 #include "../Audio/ContactAudioService.h"
 #include "../Scene/SceneController.h"
 #include "../WindowConstants.h"
-
 #include <cstdio>
 #include <cstring>
 #include <memory>
 #include <string>
 #include <vector>
 #include <windows.h>
-
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Physics;
-
 namespace SkullbonezCore
 {
 namespace Runtime
@@ -80,7 +75,6 @@ struct PhysicsRuntimeHandleSmokeResult
     PhysicsBodyHandle bodyA;
     std::string errorMessage;
 };
-
 PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
 {
     // Why: this smoke proves runtime-created bodies keep their returned physics
@@ -96,7 +90,6 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     SkullbonezCore::Runtime::SceneEntityStore& sceneEntities = collection->Entities();
     PhysicsRuntimeHandleSmokeResult result;
     PhysicsBodyHandle createdBodies[2];
-
     for ( int i = 0; i < 2; ++i )
     {
         SkullbonezCore::Runtime::SceneEntityCreateDesc model;
@@ -132,7 +125,6 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         }
         createdBodies[i] = appendResult.body;
     }
-
     const int entityCountBeforeFailure = sceneEntities.Count();
     const int bodyCountBeforeFailure = collection->BodyStore().Count();
     const int colliderCountBeforeFailure = collection->Colliders().Count();
@@ -165,17 +157,14 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                         collection->Colliders().Count() == colliderCountBeforeFailure &&
                                         collection->GetRenderInstanceStore().Count() == renderCountBeforeFailure &&
                                         physics.AuthoredBodyDescriptorCount().value == descriptorCountBeforeFailure;
-
     const PhysicsBodyHandle bodyA = createdBodies[0];
     const PhysicsBodyHandle bodyB = createdBodies[1];
-
     PhysicsPointJointCreateDesc jointDesc;
     jointDesc.bodyA = bodyA;
     jointDesc.bodyB = bodyB;
     jointDesc.localAnchorA = SkullbonezCore::Math::Vector::Vector3( 0.25f, 0.0f, 0.0f );
     jointDesc.localAnchorB = SkullbonezCore::Math::Vector::Vector3( -0.25f, 0.0f, 0.0f );
     const PhysicsConstraintHandle jointHandle = physics.CreatePointJoint( jointDesc );
-
     const PhysicsBodyStore& bodyStore = collection->BodyStore();
     const ColliderStore& colliderStore = collection->Colliders();
     const RenderInstanceStore& renderStore = collection->GetRenderInstanceStore();
@@ -183,7 +172,6 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         PhysicsEngine::ReadPointJointConstraints( collection->Physics() );
     const size_t initialColliderCount = colliderStore.Count();
     const ColliderRecord initialCollider = colliderStore.Records()[0];
-
     const SkullbonezCore::Math::Vector::Vector3 editedHalfExtents( 0.25f, 1.25f, 0.5f );
     constexpr float EDITED_RESTITUTION = 0.42f;
     PhysicsBodyUpdateDesc colliderUpdate;
@@ -210,7 +198,6 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         fabsf( refreshedCollider.dragCoefficient - initialCollider.dragCoefficient ) > 0.0001f &&
         refreshedCollider.handle == initialCollider.handle && refreshedCollider.body == initialCollider.body &&
         refreshedColliderStore.Count() == initialColliderCount;
-
     const PhysicsBodyRecord* bodyARecord = bodyStore.RecordForModelIndex( 0 );
     const PhysicsBodyRecord* bodyBRecord = bodyStore.RecordForModelIndex( 1 );
     const RenderInstanceHandle renderHandleA = renderStore.HandleForModelIndex( 0 );
@@ -225,7 +212,6 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     const bool jointUsesHandles = jointHandle.IsValid() && pointJoints.size() == 1 && pointJoints[0].bodyA == bodyA &&
                                   pointJoints[0].bodyB == bodyB && pointJoints[0].BodyAIndex( bodyStore ) == 0 &&
                                   pointJoints[0].BodyBIndex( bodyStore ) == 1;
-
     constexpr uint32_t REORDER_BODY_A_REPLAY_ID = 100u;
     constexpr uint32_t REORDER_BODY_B_REPLAY_ID = 101u;
     // Why: PhysicsBodyStore owns SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS fixed arrays. Keep this cold
@@ -274,7 +260,6 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         reorderedBodyARecord->isSleeping &&
         fabsf( reorderedBodyARecord->pendingImpulse.y - pendingImpulse.y ) < 0.0001f &&
         fabsf( reorderedBodyARecord->pendingImpulseApplicationPoint.x - pendingImpulsePoint.x ) < 0.0001f;
-
     const PhysicsBodyRecord* bodyBBeforeDelete = collection->BodyStore().RecordForHandle( bodyB );
     const SkullbonezCore::Math::Vector::Vector3 liveOnlyPosition( 42.0f, 17.0f, -3.0f );
     const bool seededLiveOnlyState =
@@ -303,7 +288,6 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                   fabsf( survivingBody->position.x - liveOnlyPosition.x ) < 0.0001f &&
                                   fabsf( survivingBody->position.y - liveOnlyPosition.y ) < 0.0001f &&
                                   fabsf( survivingBody->position.z - liveOnlyPosition.z ) < 0.0001f;
-
     PhysicsBodyUpdateDesc staleUpdate;
     staleUpdate.body = bodyA;
     staleUpdate.updateMask = PHYSICS_BODY_UPDATE_POSE;
@@ -322,7 +306,6 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                           fabsf( survivingBody->mass - 7.0f ) < 0.0001f &&
                                           fabsf( survivingBody->linearVelocity.x - 2.0f ) < 0.0001f &&
                                           fabsf( survivingBody->angularVelocity.y - 0.5f ) < 0.0001f;
-
     result.handlesMatchStores = handlesMatchStores;
     result.renderMirrorMatches = renderMirrorMatches;
     result.jointUsesHandles = jointUsesHandles;
@@ -341,16 +324,225 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                     mutationUsesStableHandle;
     return result;
 }
-
+struct CliFlagDirective
+{
+    // Table-driven flag parsing keeps aliases beside the canonical spelling.
+    // That matters because command-line options are user-facing compatibility
+    // surface, not private implementation detail.
+    const char* name;
+    const char* alias;
+    void ( *apply )( ParsedArgs& args );
+    const char* message;
+};
+struct CliValueDirective
+{
+    const char* name;
+    const char* alias;
+    bool ( *apply )( const char* value, ParsedArgs& args );
+};
+bool HasFlagDirective( const CommandLineView& commandLine, const CliFlagDirective& directive )
+{
+    return HasOption( commandLine, directive.name ) || ( directive.alias && HasOption( commandLine, directive.alias ) );
+}
+bool ValidatePhysicsRegressionLog( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--physics-regression-log" ) )
+    {
+        return true;
+    }
+#ifndef _DEBUG
+    return FailCommandLineParse( "--physics-regression-log is only supported in Debug builds. Recompile with the Debug "
+                                 "configuration to use physics regression logging." );
+#else
+    return true;
+#endif
+}
+bool ValidatePhysicsCollisionTimeLog( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--physics-collision-time-log" ) )
+    {
+        return true;
+    }
+#ifndef _DEBUG
+    return FailCommandLineParse( "--physics-collision-time-log is only supported in Debug builds. Recompile with the "
+                                 "Debug configuration to use collision-time logging." );
+#else
+    return true;
+#endif
+}
+bool ValidatePhysicsDiagnostics( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--physics-diag" ) && !HasOption( commandLine, "--physics-diagnostics" ) )
+    {
+        return true;
+    }
+#ifndef _DEBUG
+    return FailCommandLineParse( "--physics-diag is only supported in Debug builds. Recompile with the Debug "
+                                 "configuration to use queryable physics diagnostics." );
+#else
+    return true;
+#endif
+}
+bool ValidateReplayScrubProbe( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--replay-scrub-test" ) && !HasOption( commandLine, "--replay_scrub_test" ) &&
+         !HasOption( commandLine, "--replay-scrub-probe" ) && !HasOption( commandLine, "--replay_scrub_probe" ) )
+    {
+        return true;
+    }
+#ifndef _DEBUG
+    return FailCommandLineParse(
+        "--replay-scrub-probe is only supported in Debug builds with SkullScope diagnostics." );
+#else
+    return true;
+#endif
+}
+bool ValidateReplayRestoreProbe( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--replay-restore-test" ) && !HasOption( commandLine, "--replay_restore_test" ) &&
+         !HasOption( commandLine, "--replay-restore-probe" ) && !HasOption( commandLine, "--replay_restore_probe" ) )
+    {
+        return true;
+    }
+#ifndef _DEBUG
+    return FailCommandLineParse(
+        "--replay-restore-probe is only supported in Debug builds with SkullScope diagnostics." );
+#else
+    return true;
+#endif
+}
+bool ValidateReplaySaveProbe( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--replay-save-probe" ) && !HasOption( commandLine, "--replay_save_probe" ) )
+    {
+        return true;
+    }
+#ifndef _DEBUG
+    return FailCommandLineParse( "--replay-save-probe is only supported in Debug builds." );
+#else
+    return true;
+#endif
+}
+bool ValidateReplayLoadProbe( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--replay-load-probe" ) && !HasOption( commandLine, "--replay_load_probe" ) )
+    {
+        return true;
+    }
+#ifndef _DEBUG
+    return FailCommandLineParse( "--replay-load-probe is only supported in Debug builds." );
+#else
+    return true;
+#endif
+}
+bool ValidateReplayRestoreFileProbe( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--replay-restore-file-probe" ) &&
+         !HasOption( commandLine, "--replay_restore_file_probe" ) )
+    {
+        return true;
+    }
+#ifndef _DEBUG
+    return FailCommandLineParse( "--replay-restore-file-probe is only supported in Debug builds." );
+#else
+    return true;
+#endif
+}
+bool ValidateReplayRestoreTargetFileProbe( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--replay-restore-target-file-probe" ) &&
+         !HasOption( commandLine, "--replay_restore_target_file_probe" ) )
+    {
+        return true;
+    }
+#ifndef _DEBUG
+    return FailCommandLineParse( "--replay-restore-target-file-probe is only supported in Debug builds." );
+#else
+    return true;
+#endif
+}
+bool ValidateReplayRestoreBranchFileProbe( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--replay-restore-branch-file-probe" ) &&
+         !HasOption( commandLine, "--replay_restore_branch_file_probe" ) )
+    {
+        return true;
+    }
+#ifndef _DEBUG
+    return FailCommandLineParse( "--replay-restore-branch-file-probe is only supported in Debug builds." );
+#else
+    return true;
+#endif
+}
+bool ValidateReplayRestoreFailureFileProbe( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--replay-restore-failure-file-probe" ) &&
+         !HasOption( commandLine, "--replay_restore_failure_file_probe" ) )
+    {
+        return true;
+    }
+#ifndef _DEBUG
+    return FailCommandLineParse( "--replay-restore-failure-file-probe is only supported in Debug builds." );
+#else
+    if ( !HasOption( commandLine, "--physics-diag" ) && !HasOption( commandLine, "--physics-diagnostics" ) )
+    {
+        return FailCommandLineParse(
+            "--replay-restore-failure-file-probe requires --physics-diag so SkullScope can query the failure row." );
+    }
+    return true;
+#endif
+}
+bool ParsePhysicsRegressionLogOverride( const CommandLineView& commandLine, char ( &outPath )[256] )
+{
+    outPath[0] = '\0';
+    const char* physLogArg = FindOptionValue( commandLine, "--physics-regression-log" );
+    if ( !physLogArg )
+    {
+        return true;
+    }
+    if ( !CopyCommandLinePath( physLogArg, "--physics-regression-log", outPath, sizeof( outPath ) ) )
+    {
+        return false;
+    }
+    fprintf( stdout, "[physics-regression-log] Output: %s\n", outPath );
+    return true;
+}
+bool ParsePhysicsCollisionTimeLogOverride( const CommandLineView& commandLine, char ( &outPath )[256] )
+{
+    outPath[0] = '\0';
+    const char* collisionLogArg = FindOptionValue( commandLine, "--physics-collision-time-log" );
+    if ( !collisionLogArg )
+    {
+        return true;
+    }
+    if ( !CopyCommandLinePath( collisionLogArg, "--physics-collision-time-log", outPath, sizeof( outPath ) ) )
+    {
+        return false;
+    }
+    fprintf( stdout, "[physics-collision-time-log] Output: %s\n", outPath );
+    return true;
+}
+bool ParsePhysicsDiagnosticsPath( const CommandLineView& commandLine, char ( &outPath )[256] )
+{
+    outPath[0] = '\0';
+    const char* diagArg = FindOptionValue( commandLine, "--physics-diag" );
+    if ( !diagArg )
+    {
+        diagArg = FindOptionValue( commandLine, "--physics-diagnostics" );
+    }
+    if ( !diagArg )
+    {
+        return true;
+    }
+    return CopyCommandLinePath( diagArg, "--physics-diag", outPath, sizeof( outPath ) );
+}
 } // anonymous namespace
-
 bool HandleGenAtlas( const CommandLineView& commandLine, int& outExitCode )
 {
     if ( !HasOption( commandLine, "--gen-atlas" ) )
     {
         return false;
     }
-
     char outPath[MAX_PATH];
     const char* atlasArg = FindOptionValue( commandLine, "--gen-atlas" );
     if ( atlasArg && *atlasArg != '\0' )
@@ -367,7 +559,6 @@ bool HandleGenAtlas( const CommandLineView& commandLine, int& outExitCode )
     {
         strcpy_s( outPath, "SkullbonezData/font_atlas.sdf" );
     }
-
     fprintf( stdout, "[gen-atlas] Generating SDF font atlas: %s\n", outPath );
     if ( SkullbonezCore::Text::Text2d::GenerateSdfAtlasToFile( "Verdana", outPath ) )
     {
@@ -381,7 +572,6 @@ bool HandleGenAtlas( const CommandLineView& commandLine, int& outExitCode )
     }
     return true;
 }
-
 bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outExitCode )
 {
     if ( !HasOption( commandLine, "--physics-standalone-smoke" ) &&
@@ -389,7 +579,6 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
     {
         return false;
     }
-
     // Why: this option runs before WorkerPool, Window, renderer, Run, or scene
     // setup so it proves the public physics API and runtime handle alignment can
     // be constructed without renderer/window services.
@@ -450,9 +639,7 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
         }
         fflush( stream );
     };
-
     writeReport( stdout );
-
     const char* reportPath =
         FindOptionValue( commandLine, "--physics-standalone-smoke-log", "--physics_standalone_smoke_log" );
     if ( reportPath && !IsOptionValueMissing( reportPath ) )
@@ -464,7 +651,6 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
             fclose( reportFile );
         }
     }
-
     if ( !result.passed || !runtimeMirror.passed )
     {
         fprintf( stderr,
@@ -473,19 +659,16 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
         outExitCode = 1;
         return true;
     }
-
     fprintf( stdout, "PASS: standalone physics and runtime handle mirror smoke matched expected state.\n" );
     outExitCode = 0;
     return true;
 }
-
 bool HandleContactAudioSmoke( const ParsedArgs& args, const SkullbonezCore::Core::EngineConfig& cfg, int& outExitCode )
 {
     if ( !args.contactAudioSmoke )
     {
         return false;
     }
-
     // Concept: this smoke path proves decode, voice submission, and counters
     // without creating a window, renderer, worker pool, or physics world.
     SkullbonezCore::Runtime::Audio::ContactAudioService audio;
@@ -540,7 +723,158 @@ bool HandleContactAudioSmoke( const ParsedArgs& args, const SkullbonezCore::Core
     outExitCode = submitted ? 0 : 1;
     return true;
 }
-
+void ApplyProbeFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out )
+{
+    static const CliFlagDirective kFlags[] = {
+        { "--fixed-step",
+          nullptr,
+          []( ParsedArgs& args ) { args.fixedStep = true; },
+          "[fixed-step] Forced via command line." },
+        { "--no-water",
+          nullptr,
+          []( ParsedArgs& args ) { args.noWater = true; },
+          "[water] Fluid surface starts below terrain." },
+        { "--no-sleep",
+          nullptr,
+          []( ParsedArgs& args ) { args.noSleep = true; },
+          "[physics] Sleep disabled via command line." },
+        { "--no-contact-audio",
+          "--mute-contact-audio",
+          []( ParsedArgs& args ) { args.noContactAudio = true; },
+          "[audio] Contact impact audio disabled." },
+        { "--contact-audio-smoke",
+          "--audio-smoke",
+          []( ParsedArgs& args )
+          {
+              args.contactAudioSmoke = true;
+              args.suppressExitDialog = true;
+          },
+          "[audio] Contact audio standalone smoke requested." },
+        { "--scene-load-only",
+          "--load-scenes-only",
+          []( ParsedArgs& args )
+          {
+              args.sceneLoadOnly = true;
+              args.suppressExitDialog = true;
+          },
+          "[scene-load-only] Load queued scenes without running frames." },
+        { "--demohero",
+          "--demo-hero",
+          []( ParsedArgs& args )
+          {
+              args.demoHeroStyle = true;
+              args.suppressExitDialog = true;
+          },
+          "[scene] Generated demo scene will use the low-poly hero rendering mode." },
+        { "--profiler",
+          "--show-profiler",
+          []( ParsedArgs& args ) { args.showProfiler = true; },
+          "[overlay] SkullbonezCore::Core::Profiler HUD enabled at startup." },
+        { "--platform-profiler-markers",
+          "--platform-profiler",
+          []( ParsedArgs& args )
+          {
+              args.platformProfilerMarkers = true;
+              args.platformProfilerMarkersExplicit = true;
+          },
+          "[platform-profiler] Platform profiler marker emission requested." },
+        { "--pix-markers",
+          "--pix",
+          []( ParsedArgs& args )
+          {
+              args.platformProfilerMarkers = true;
+              args.platformProfilerMarkersExplicit = true;
+          },
+          "[platform-profiler] PIX marker compatibility alias requested." },
+        { "--hide-top-text",
+          "--no-top-text",
+          []( ParsedArgs& args ) { args.hideTopText = true; },
+          "[overlay] Top HUD text hidden." },
+        { "--automation-hidden-window",
+          nullptr,
+          []( ParsedArgs& args )
+          {
+              args.automationWindowHidden = true;
+              args.suppressExitDialog = true;
+          },
+          "[automation] Native window hidden; DX12 rendering and capture remain active." },
+        { "--broadphase-visualizer",
+          "--broadphase-overlay",
+          []( ParsedArgs& args ) { args.showBroadphaseVisualizer = true; },
+          "[overlay] Broadphase visualizer enabled at startup." },
+        { "--dump-config", nullptr, []( ParsedArgs& args ) { args.dumpConfig = true; }, nullptr },
+        { "--dump-assets", nullptr, []( ParsedArgs& args ) { args.dumpAssets = true; }, nullptr },
+        { "--replay-scrub-test",
+          "--replay_scrub_test",
+          []( ParsedArgs& args )
+          {
+              args.replayScrubProbe = true;
+              args.replayScrubProbeNormalized = 0.25f;
+              args.replayRecording = true;
+              args.replayExplicit = true;
+              args.replaySeconds = 1;
+              args.fixedStep = true;
+              args.suppressExitDialog = true;
+          },
+          "[replay] Scrub SkullScope probe enabled." },
+        { "--replay-restore-test",
+          "--replay_restore_test",
+          []( ParsedArgs& args )
+          {
+              args.replayRestoreProbe = true;
+              args.replayRestoreProbeNormalized = 0.25f;
+              args.replayRecording = true;
+              args.replayExplicit = true;
+              args.replaySeconds = 1;
+              args.fixedStep = true;
+              args.suppressExitDialog = true;
+          },
+          "[replay] Restore hash SkullScope probe enabled." },
+        { "--worker-self-test",
+          "--workers-self-test",
+          []( ParsedArgs& args )
+          {
+              args.workerSelfTest = true;
+              args.suppressExitDialog = true;
+          },
+          "[workers] Self-test requested." },
+    };
+    for ( const CliFlagDirective& flag : kFlags )
+    {
+        if ( HasFlagDirective( commandLine, flag ) )
+        {
+            flag.apply( out );
+            if ( flag.message )
+            {
+                fprintf( stdout, "%s\n", flag.message );
+            }
+        }
+    }
+}
+bool ValidateProbeCommandLineOptions( const CommandLineView& commandLine, ParsedArgs& out )
+{
+    if ( !ValidatePhysicsRegressionLog( commandLine ) || !ValidatePhysicsCollisionTimeLog( commandLine ) ||
+         !ValidatePhysicsDiagnostics( commandLine ) || !ValidateReplayScrubProbe( commandLine ) ||
+         !ValidateReplayRestoreProbe( commandLine ) || !ValidateReplaySaveProbe( commandLine ) ||
+         !ValidateReplayLoadProbe( commandLine ) || !ValidateReplayRestoreFileProbe( commandLine ) ||
+         !ValidateReplayRestoreTargetFileProbe( commandLine ) || !ValidateReplayRestoreBranchFileProbe( commandLine ) ||
+         !ValidateReplayRestoreFailureFileProbe( commandLine ) )
+    {
+        return false;
+    }
+#ifdef _DEBUG
+    if ( !ParsePhysicsRegressionLogOverride( commandLine, out.physicsRegressionLogOverride ) ||
+         !ParsePhysicsCollisionTimeLogOverride( commandLine, out.physicsCollisionTimeLogOverride ) ||
+         !ParsePhysicsDiagnosticsPath( commandLine, out.physicsDiagnosticsPath ) )
+    {
+        return false;
+    }
+    out.physicsDiagnosticsRequested = out.physicsDiagnosticsPath[0] != '\0';
+#else
+    (void)out;
+#endif
+    return true;
+}
 } // namespace Startup
 } // namespace Runtime
 } // namespace SkullbonezCore
