@@ -54,6 +54,7 @@ Related:
 #include "../Runtime/Replay/ReplaySolverSnapshot.h"
 #include "SleepIslandSystem.h"
 #include "SpatialGrid.h"
+#include "Stages/PhysicsBroadphaseStage.h"
 #include "Stages/PhysicsStageContexts.h"
 #include "TerrainContactManifold.h"
 #include "TornadoGameplay.h"
@@ -102,13 +103,11 @@ struct PersistentContactSolverSideEffects
 class PhysicsWorld
 {
   private:
-    // Broadphase output for the current fixed tick.
-    //
-    // SpatialGrid bins objects into cells, m_candidatePairs stores object pairs
-    // that might collide, and m_timeRemaining tracks how much of the fixed step
-    // each body still has after swept movement/impact handling.
-    Math::CollisionDetection::SpatialGrid m_spatialGrid;
-    std::vector<std::pair<int, int>> m_candidatePairs;
+    // Concrete broadphase owner retains the grid, pair output, and diagnostic
+    // cell keys. The facade borrows its candidate span for the remaining stages.
+    PhysicsBroadphaseStage m_broadphase;
+    // Invariant: narrowphase, terrain, and final integration all write this
+    // cross-stage CCD clock, so it deliberately remains on the sequencer.
     std::vector<float> m_timeRemaining;
     std::vector<Math::Vector::Vector3> m_mutualGravityForces;     // Model-order reduced forces, reserved before gameplay.
     std::vector<Math::Vector::Vector3> m_mutualGravityPairForces; // Triangular pair scratch, reserved before gameplay.
@@ -231,14 +230,6 @@ class PhysicsWorld
                                  int bodyIndex,
                                  float availableTime,
                                  const TerrainContactSweepResult& sweep );
-    void BuildSolverBroadphaseCandidatePairs( const PhysicsBodyStore& bodyStore,
-                                              std::span<const PhysicsBodyRecord> bodyRecords,
-                                              std::span<const ColliderRecord> colliderRecords,
-                                              const SkullbonezCore::Core::EngineConfig& config,
-                                              int modelCount,
-                                              float dt,
-                                              float contactSkin,
-                                              std::vector<std::pair<int, int>>& candidatePairs );
     void RunSleepIslandStage( PhysicsBodyStore& bodyStore,
                               const ColliderStore& colliderStore,
                               const PhysicsWorldForces& worldForces,
@@ -277,7 +268,7 @@ class PhysicsWorld
     void ProcessObjectNarrowphaseIsland( const ObjectNarrowphasePairStageContext& context, int islandIndex );
     void ProcessObjectNarrowphasePairsSerial( const ObjectNarrowphasePairStageContext& context,
                                               int candidatePairCount );
-    void BuildObjectNarrowphaseIslands( const std::vector<std::pair<int, int>>& candidatePairs,
+    void BuildObjectNarrowphaseIslands( std::span<const std::pair<int, int>> candidatePairs,
                                         int candidatePairCount,
                                         int modelCount );
 #include "Stages/PhysicsNarrowphaseDispatch.inl"
@@ -308,7 +299,6 @@ class PhysicsWorld
     std::vector<uint8_t> m_restingWakeVisitedScratch;
     std::vector<int> m_restingWakeQueueScratch;
     std::vector<PointJointConstraint> m_pointJointConstraints;
-    std::vector<int64_t> m_collisionCellKeys;
     std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_terrainRestApplied = {};
     TornadoGameplay m_tornadoGameplay;
     PersistentContactSolver m_contactSolver;
@@ -493,7 +483,7 @@ struct PhysicsDiagnosticsView
     const std::vector<uint8_t>& sleepIslandCanSleep;
     const std::vector<PointJointConstraint>& pointJointConstraints;
     const Math::CollisionDetection::SpatialGrid& spatialGrid;
-    const std::vector<std::pair<int, int>>& candidatePairs;
+    std::span<const std::pair<int, int>> candidatePairs;
     const std::vector<int64_t>& collisionCellKeys;
     const std::vector<std::pair<int, int>>& sleepSupportEdges;
     const std::vector<int>& sleepIslandVisualId;

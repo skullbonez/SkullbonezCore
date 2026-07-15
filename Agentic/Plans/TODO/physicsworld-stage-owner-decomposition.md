@@ -2,7 +2,7 @@
 
 Date: 2026-07-15
 Status: Active — registered in `MASTER-PLAN.md` by the 2026-07-15 activation
-governance commit. 2/11 tasks complete. P0's original registration sub-step
+governance commit. 3/11 tasks complete. P0's original registration sub-step
 (a) is already satisfied by that commit; P0 now covers certification, the
 frozen ownership map, and the recorded delegation ruling only.
 Impact area: `Physics/PhysicsWorld.{h,cpp}`, new `Physics/Stages/*` owners,
@@ -151,7 +151,7 @@ remain byte-exact throughout — zero refresh authorized at any task.
       their deletion conditions are P4 and P5 respectively, avoiding new
       friend access or public business methods during P1.
 
-- [ ] **P2 — Extract `PhysicsBroadphaseStage`.** New owner holds the spatial
+- [x] **P2 — Extract `PhysicsBroadphaseStage`.** New owner holds the spatial
       grid, candidate-pair vector, and cell-key scratch;
       `Run( bodyStore, bodyRecords, colliderRecords, config, modelCount, dt, contactSkin )`
       returns `std::span<const std::pair<int,int>>` over its own storage,
@@ -164,6 +164,13 @@ remain byte-exact throughout — zero refresh authorized at any task.
       Hazard: `SpatialGrid` files themselves are NOT edited (their mapped
       gate adds `validate_perf`; avoid triggering it in this task).
       Gate: `tools\validate_physics.bat` byte-exact.
+
+      Boundary recorded 2026-07-15: `Run` consumes one stack-only
+      `PhysicsBroadphaseStageContext` so point-joint, sleep, trace, store, and
+      config borrows are explicit at the seam. It retains none of those
+      inputs. The returned candidate span and replay/diagnostic collision-key
+      views borrow only stage-owned storage and remain valid until the next
+      mutating stage call.
 
 - [ ] **P3 — Extract `PhysicsForceStage`.** Owns the mutual-gravity buffers
       and high-water counter; entry points

@@ -101,8 +101,8 @@ repository work.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| physicsworld-stage-owner-decomposition | 2 | 11 | 18% |
-| **Active/future total** | **2** | **11** | **18%** |
+| physicsworld-stage-owner-decomposition | 3 | 11 | 27% |
+| **Active/future total** | **3** | **11** | **27%** |
 
 The three round-5 plans (fp-envelope-hardening 4/4,
 mutual-gravity-large-scene-fallback 3/3, math-fatal-survey-restoration 3/3)
@@ -386,7 +386,7 @@ certification numbers.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physicsworld-stage-owner-decomposition](TODO/physicsworld-stage-owner-decomposition.md) | Active | 2/11 | P2: extract `PhysicsBroadphaseStage` and move its three owned fields plus broadphase build method |
+| [physicsworld-stage-owner-decomposition](TODO/physicsworld-stage-owner-decomposition.md) | Active | 3/11 | P3: extract `PhysicsForceStage` and move the post-fallback mutual-gravity implementation plus owned buffers |
 
 ## Features
 

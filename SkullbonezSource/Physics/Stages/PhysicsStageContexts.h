@@ -153,7 +153,7 @@ struct ObjectNarrowphasePairStageContext
     const PhysicsWorldForces& worldForces;
     std::span<PhysicsBodyRecord> bodyRecords;
     std::span<const ColliderRecord> colliderRecords;
-    const std::vector<std::pair<int, int>>& candidatePairs;
+    std::span<const std::pair<int, int>> candidatePairs;
     std::vector<uint8_t>& sleepState;
     std::vector<uint8_t>& sleepCounter;
     std::vector<int>& sleepIslandVisualId;
