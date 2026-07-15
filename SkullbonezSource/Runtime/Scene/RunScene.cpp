@@ -35,12 +35,12 @@ Related:
 */
 #include "SceneController.h"
 #include "../RuntimeOverlayDiagnostics.h"
+#include "../RuntimeValidationHarness.h"
 #include "../WindowConstants.h"
 #include "../Allocation/RuntimeAllocationTracker.h"
 #include "../RuntimeTuning.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../AttachedCameraController.h"
-#include "../GraphicsStressController.h"
 #include "../InputRouter.h"
 #include "../Replay/ReplayRuntime.h"
 #include "../Audio/ContactAudioService.h"
@@ -538,7 +538,7 @@ SceneController::Load( const SceneLoadRequest& request,
                        ReplayRuntime& m_replayRuntime,
                        SkullbonezCore::Runtime::Audio::ContactAudioService& m_contactAudio,
                        RuntimeOverlayDiagnostics& overlays,
-                       GraphicsStressController& m_graphicsStress,
+                       RuntimeValidationHarness& validationHarness,
                        RuntimeTools& m_runtimeTools,
                        const RuntimeRenderBackendView& m_renderBackendView,
                        RuntimeRenderer& m_renderer )
@@ -1155,9 +1155,7 @@ SceneController::Load( const SceneLoadRequest& request,
         // Invariant: scene reloads reset authored scene automation, but a
         // graphics-stress run is operator-owned and must keep running until the
         // launcher or timeout stops the process.
-        m_graphicsStress.ResumeAfterSceneLoad( m_launchOptions.graphicsStressSeed,
-                                               m_launchOptions.graphicsStressActions,
-                                               m_launchOptions.graphicsStressSceneIntervalFrames );
+        validationHarness.ResumeGraphicsStressAfterSceneLoad( m_launchOptions );
         SceneState().isInteractiveRun = true;
         SceneState().targetFrameCount = 0;
         SceneState().isTestComplete = false;

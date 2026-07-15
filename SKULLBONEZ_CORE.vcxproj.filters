@@ -454,6 +454,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeOverlayDiagnostics.cpp">
       <Filter>Source Files\Runtime\Lifecycle</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\RuntimeValidationHarness.cpp">
+      <Filter>Source Files\Runtime\Automation</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeTuning.cpp">
       <Filter>Source Files\Runtime\Settings</Filter>
     </ClCompile>
@@ -790,6 +793,9 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeOverlayDiagnostics.h">
       <Filter>Header Files\Runtime\Lifecycle</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\RuntimeValidationHarness.h">
+      <Filter>Header Files\Runtime\Automation</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeFrameViews.h">
       <Filter>Header Files\Runtime\Lifecycle</Filter>

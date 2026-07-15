@@ -13,9 +13,9 @@ plan inventory.
 | Branch | `nightrunner-15th-july` (runtime mass-reduction campaign) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
 | Current objective | Execute the runtime mass-reduction campaign: `init-startup-decomposition` → `run-member-and-include-shrink` → `wide-call-desc-struct-pass` (wide-call may run as a parallel lane; its T2 rebases on the Run shrink's RunRender edits if both are in flight) |
-| Active/future progress | 7 / 16 tasks = 44% overall (mass-reduction plans only; completed campaigns and externally blocked work are excluded) |
-| Last broad local gate | `tools\\validate_full.bat` passed in 207.64 s on 2026-07-16: mandatory CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | Run member-shrink T2 extracted `RuntimeOverlayDiagnostics`; allocation self-test/repository scan, project-filter validation, and the broad gate passed. Screenshots/baselines are unchanged. |
+| Active/future progress | 8 / 16 tasks = 50% overall (mass-reduction plans only; completed campaigns and externally blocked work are excluded) |
+| Last broad local gate | `tools\\validate_full.bat` passed in 200.61 s on 2026-07-16: mandatory CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
+| Validation for current edits | Run member-shrink T3 extracted `RuntimeValidationHarness`; allocation self-test/repository scan, project-filter validation, and the broad gate passed. Screenshots/baselines are unchanged. |
 
 ## Live Queue
 
@@ -23,8 +23,8 @@ plan inventory.
       2026-07-15; registered in MASTER at 3/16). Binding order:
       `init-startup-decomposition` is complete at 5/5 after independent review
       remediation restored generic CLI policy to its parser owner. Continue with
-      `run-member-and-include-shrink` (2/6; overlay owner extracted, continue
-      with T3 `RuntimeValidationHarness`) →
+      `run-member-and-include-shrink` (3/6; both planned owners extracted,
+      continue with T4 include-graph shrink) →
       `wide-call-desc-struct-pass` (5 tasks, may run parallel to the first
       two; T2 rebases on Run-shrink RunRender edits if concurrent). Owner
       rulings: Init's round-3 parking is lifted and a free-function file

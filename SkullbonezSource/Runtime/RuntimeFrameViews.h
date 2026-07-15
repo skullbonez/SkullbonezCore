@@ -58,11 +58,11 @@ namespace Runtime
 class ApplicationExitState;
 class AttachedCameraController;
 class DiagnosticsRuntime;
-class GraphicsStressController;
 class InputRouter;
 class RenderDefaultsStore;
 class RuntimeInteractionController;
 class RuntimeOverlayDiagnostics;
+class RuntimeValidationHarness;
 class RuntimeRenderer;
 class RuntimeTools;
 class SceneController;
@@ -166,17 +166,17 @@ struct RuntimeFrameSceneView
 struct RuntimeFramePresentationView
 {
     RenderDefaultsStore& renderDefaults;
-    GraphicsStressController& graphicsStress;
+    RuntimeValidationHarness& validationHarness;
     RuntimeOverlayDiagnostics& overlays;
     RuntimeRenderBackendView& renderBackendView;
     RuntimeRenderer& renderer;
 
     RuntimeFramePresentationView( RenderDefaultsStore& renderDefaultsValue,
-                                  GraphicsStressController& graphicsStressValue,
+                                  RuntimeValidationHarness& validationHarnessValue,
                                   RuntimeOverlayDiagnostics& overlaysValue,
                                   RuntimeRenderBackendView& renderBackendViewValue,
                                   RuntimeRenderer& rendererValue )
-        : renderDefaults( renderDefaultsValue ), graphicsStress( graphicsStressValue ), overlays( overlaysValue ),
+        : renderDefaults( renderDefaultsValue ), validationHarness( validationHarnessValue ), overlays( overlaysValue ),
           renderBackendView( renderBackendViewValue ), renderer( rendererValue )
     {
     }

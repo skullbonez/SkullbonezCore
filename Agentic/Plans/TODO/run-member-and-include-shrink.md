@@ -1,7 +1,7 @@
 # Run Member And Include Shrink — Presentation/Diagnostics Owners Out Of The Composition Root
 
 Date: 2026-07-15
-Status: Active — 2/6 tasks complete
+Status: Active — 3/6 tasks complete
 Impact area: `Runtime/Run.h`, `Run.cpp`, `RunFrame.cpp`, `RunRender.cpp`,
 frame views, new mid-level owner(s), compile-time include graph
 Owner: runtime shell
@@ -83,8 +83,15 @@ No behavior change; all baselines unchanged.
       Allocation self-test/repository scan and the final broad gate passed with
       zero warnings, zero DX12 errors, unchanged screenshots, and byte-exact
       physics.
-- [ ] T3 — Extract owner B the same way (stress controller CLI wiring,
+- [x] T3 — Extract owner B the same way (stress controller CLI wiring,
       live-style tick, contact-audio step ordering all position-identical).
+      Evidence: `RuntimeValidationHarness` owns live-style and graphics-stress
+      state plus startup normalization, live-style poll/capture, scene-load
+      stress resume, and exit diagnostics. Frame presentation views and cold
+      scene-load boundaries carry the owner; stress execution receives its
+      narrow controller borrow. Contact audio remains direct and its step/reset
+      order is unchanged. Allocation policy, project filters, and the broad
+      gate passed with no baseline refresh.
 - [ ] T4 — Include-graph shrink: `Run.h` moves to forward declarations +
       `unique_ptr`/value members as ownership requires (allocation policy: any
       new heap member must route through the approved startup-phase path or

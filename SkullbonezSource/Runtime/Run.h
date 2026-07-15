@@ -51,10 +51,8 @@ Related:
 #include "ApplicationExitState.h"
 #include "AttachedCameraController.h"
 #include "CameraCollection.h"
-#include "GraphicsStressController.h"
 #include "InputController.h"
 #include "InputRouter.h"
-#include "LiveStyleController.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
 #include "RenderDefaultsStore.h"
 #include "RuntimeInteractionController.h"
@@ -103,6 +101,7 @@ namespace Runtime
 struct RuntimeInteractionCommand;
 struct RuntimeInteractionEvent;
 class RuntimeOverlayDiagnostics;
+class RuntimeValidationHarness;
 
 /* -- Skullbonez Run
 ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -116,60 +115,59 @@ class Run
     // Concept: Run is the process composition root. It constructs concrete
     // subsystem owners and retains only the process borrows and launch/result
     // values needed to sequence startup, frame order, and shutdown.
-    Window& m_window;                                          // Startup-owned native window borrowed for process lifetime.
-    Threading::WorkerPool& m_workerPool;                       // Startup-owned worker service borrowed for process lifetime.
-    SkullbonezCore::Core::EngineConfig& m_config;              // Borrowed process config loaded and CLI-patched by Runtime/Init.cpp.
-    Assets::AssetSystem m_assets;                              // Process source-asset registry shared by scene and renderer owners.
-    SceneController m_sceneController;                         // Owns scene queue, cameras, world, entities, physics, and models.
-    SkullbonezCore::Core::SbResult m_lastSceneLoadResult;      // Last queue load outcome observed by startup/load-only paths.
-    bool m_skipExecute = false;                                // Startup-only probes can complete without entering the frame loop.
-    RunLaunchOptions m_launchOptions;                          // CLI/startup policy reapplied across scene loads.
-    ApplicationExitState m_applicationExit;                    // First-failure exit latch resolved by the platform message loop.
-    RenderDefaultsStore m_renderDefaults;                      // Deferred ordinary/cinematic engine.cfg persistence owner.
-    RunStartupState m_startup;                                 // engine.cfg startup capacity/thread defaults restored by demo resets.
+    Window& m_window;                                              // Startup-owned native window borrowed for process lifetime.
+    Threading::WorkerPool& m_workerPool;                           // Startup-owned worker service borrowed for process lifetime.
+    SkullbonezCore::Core::EngineConfig& m_config;                  // Borrowed process config loaded and CLI-patched by Runtime/Init.cpp.
+    Assets::AssetSystem m_assets;                                  // Process source-asset registry shared by scene and renderer owners.
+    SceneController m_sceneController;                             // Owns scene queue, cameras, world, entities, physics, and models.
+    SkullbonezCore::Core::SbResult m_lastSceneLoadResult;          // Last queue load outcome observed by startup/load-only paths.
+    bool m_skipExecute = false;                                    // Startup-only probes can complete without entering the frame loop.
+    RunLaunchOptions m_launchOptions;                              // CLI/startup policy reapplied across scene loads.
+    ApplicationExitState m_applicationExit;                        // First-failure exit latch resolved by the platform message loop.
+    RenderDefaultsStore m_renderDefaults;                          // Deferred ordinary/cinematic engine.cfg persistence owner.
+    RunStartupState m_startup;                                     // engine.cfg startup capacity/thread defaults restored by demo resets.
 
     // Subsystem owners below are ordered by lifetime dependency. Render-host
     // bindings borrow from these objects; they do not own them.
-    DiagnosticsRuntime m_diagnosticsRuntime;                   // Capture, perf, and queryable physics diagnostics owner.
-    RunTimerState m_timers;                                    // Frame/simulation timers and rolling timing values
-    InputRouter m_inputRouter;                                 // Owns keyboard/pointer edge memory and binding-context enforcement.
-    RuntimeInteractionController m_interaction;                // Authoritative runtime workspace and world-input owner.
+    DiagnosticsRuntime m_diagnosticsRuntime;                       // Capture, perf, and queryable physics diagnostics owner.
+    RunTimerState m_timers;                                        // Frame/simulation timers and rolling timing values
+    InputRouter m_inputRouter;                                     // Owns keyboard/pointer edge memory and binding-context enforcement.
+    RuntimeInteractionController m_interaction;                    // Authoritative runtime workspace and world-input owner.
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     InteractionAutomationController
-        m_interactionAutomation;                               // Automation-build CLI harness that injects runtime mouse input for regression tests.
+        m_interactionAutomation;                                   // Automation-build CLI harness that injects runtime mouse input for regression tests.
 #endif
-    RunCameraState m_camera;                                   // Camera/input state and ball-tracking settings
-    AttachedCameraController m_attachedCamera;                 // Owns non-serialized Attach target/orbit/follow state.
-    SimulationSystem m_simulation;                             // Simulation timestep policy and physics accumulators
-    float m_presentationAlpha = 1.0f;                          // Live leftover fixed-tick fraction for render interpolation.
-    bool m_capturePresentationPinned = false;                  // Due captures force exact current solver poses for this frame.
-    ReplayRuntime m_replayRuntime;                             // Constructs and sequences the concrete replay domain owners.
-    Runtime::Audio::ContactAudioService m_contactAudio;        // Presentation-only material impact playback sink.
-    LiveStyleController m_liveStyle;                           // Owns live style tweak/capture harness file-watching state.
-    GraphicsStressController m_graphicsStress;                 // Deterministic graphics fuzzer state for overnight DX12 runs.
-    RuntimeTools m_runtimeTools;                               // Launcher, editor, manipulator state, and transient render feedback.
+    RunCameraState m_camera;                                       // Camera/input state and ball-tracking settings
+    AttachedCameraController m_attachedCamera;                     // Owns non-serialized Attach target/orbit/follow state.
+    SimulationSystem m_simulation;                                 // Simulation timestep policy and physics accumulators
+    float m_presentationAlpha = 1.0f;                              // Live leftover fixed-tick fraction for render interpolation.
+    bool m_capturePresentationPinned = false;                      // Due captures force exact current solver poses for this frame.
+    ReplayRuntime m_replayRuntime;                                 // Constructs and sequences the concrete replay domain owners.
+    Runtime::Audio::ContactAudioService m_contactAudio;            // Presentation-only material impact playback sink.
+    RuntimeTools m_runtimeTools;                                   // Launcher, editor, manipulator state, and transient render feedback.
     // Lifetime: the renderer borrows visualizers and UI resources from this
     // startup-created owner, so declaration order destroys the renderer first.
     std::unique_ptr<RuntimeOverlayDiagnostics> m_overlayDiagnostics;
-    RuntimeRenderBackendView m_renderBackendView;              // Borrowed active renderer capabilities for renderer users.
-    RuntimeRenderer m_renderer;                                // Owns runtime render passes and frame render ordering.
+    std::unique_ptr<RuntimeValidationHarness> m_validationHarness; // Owns opt-in live-style and graphics-stress controls.
+    RuntimeRenderBackendView m_renderBackendView;                  // Borrowed active renderer capabilities for renderer users.
+    RuntimeRenderer m_renderer;                                    // Owns runtime render passes and frame render ordering.
 
     void
     Render( const RuntimeRenderModelFrameView& renderModels,
-            float presentationAlpha );                         // Skips 3D in text-only runs, then records passes for the current camera state.
-    float PresentationAlphaForFrame() const;                   // Applies config and capture determinism policy to the live fraction.
-    void UpdateLogic( float simulationDt, float cameraDt );    // simulationDt drives physics; cameraDt is unscaled wall time.
+            float presentationAlpha );                             // Skips 3D in text-only runs, then records passes for the current camera state.
+    float PresentationAlphaForFrame() const;                       // Applies config and capture determinism policy to the live fraction.
+    void UpdateLogic( float simulationDt, float cameraDt );        // simulationDt drives physics; cameraDt is unscaled wall time.
     void
     AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners,
-                      RuntimeFrameSceneView& sceneOwners );    // Post-step hooks that must see committed physics state.
+                      RuntimeFrameSceneView& sceneOwners );        // Post-step hooks that must see committed physics state.
     // --- Per-frame tick helpers (called from Execute()) ---
     void
     TickPhysics( double dt,
                  RuntimeFrameInteractionView& interactionOwners,
-                 RuntimeFrameSceneView& sceneOwners );         // Physics dispatch: fixed-step and variable-step accumulator
-    bool TickScreenshots();                                    // Screenshot triggers; returns true when frame should restart (continue)
-    void TickAutoCycle();                                      // Auto-cycle ball capture; posts WM_QUIT when all balls captured
-    bool TickSceneAdvance();                                   // Frame count, exit/hold on completion, restarts; returns true to continue
+                 RuntimeFrameSceneView& sceneOwners );             // Physics dispatch: fixed-step and variable-step accumulator
+    bool TickScreenshots();                                        // Screenshot triggers; returns true when frame should restart (continue)
+    void TickAutoCycle();                                          // Auto-cycle ball capture; posts WM_QUIT when all balls captured
+    bool TickSceneAdvance();                                       // Frame count, exit/hold on completion, restarts; returns true to continue
 
   public:
     Run( Window& window,
@@ -177,16 +175,16 @@ class Run
          SkullbonezCore::Core::EngineConfig& config,
          Threading::WorkerPool& workerPool,
          SkullbonezCore::Core::Profiler* profiler,
-         RuntimeRenderBackendView renderBackendView );         // sceneQueue empty string selects generated demo mode.
+         RuntimeRenderBackendView renderBackendView );             // sceneQueue empty string selects generated demo mode.
     ~Run();
-    void Initialise();                                         // Initialises shared resources and loads first scene
+    void Initialise();                                             // Initialises shared resources and loads first scene
     const SkullbonezCore::Core::SbResult&
-    LastSceneLoadResult() const;                               // Initialise scene-load result for CLI startup checks.
+    LastSceneLoadResult() const;                                   // Initialise scene-load result for CLI startup checks.
     SkullbonezCore::Core::SbResult ApplyStartupOverrides(
-        const RunStartupOverrides& overrides );                // Apply parsed CLI/startup policy before Initialise().
+        const RunStartupOverrides& overrides );                    // Apply parsed CLI/startup policy before Initialise().
     SkullbonezCore::Core::SbResult
-    RunSceneLoadOnly( const char* snapshotOutPath = nullptr ); // Scene-load smoke path; skips the frame loop.
-    SkullbonezCore::Core::SbResult Execute();                  // Main message loop; returns recoverable runtime failures.
+    RunSceneLoadOnly( const char* snapshotOutPath = nullptr );     // Scene-load smoke path; skips the frame loop.
+    SkullbonezCore::Core::SbResult Execute();                      // Main message loop; returns recoverable runtime failures.
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -303,6 +303,7 @@ RUNTIME_AUTOMATION_PREFIXES = (
     "GraphicsStressController",
     "InteractionAutomationController",
     "RuntimeStressController",
+    "RuntimeValidationHarness",
 )
 
 RUNTIME_INTERACTION_PREFIXES = (

@@ -41,6 +41,7 @@ Related:
 */
 #include "Run.h"
 #include "RuntimeOverlayDiagnostics.h"
+#include "RuntimeValidationHarness.h"
 #include "../Core/WorkerPool.h"
 #include "RuntimeStressController.h"
 #include "InputFrame.h"
@@ -468,14 +469,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             ++messagesDrained;
             if ( msg.message == WM_QUIT )
             {
-                if ( m_graphicsStress.IsEnabled() )
-                {
-                    printf( "[graphics-stress] WM_QUIT received at frame=%d scene_frame=%d scene_loads=%d\n",
-                            m_graphicsStress.FramesRun(),
-                            m_sceneController.State().currentFrame,
-                            m_graphicsStress.SceneLoadsRequested() );
-                    fflush( stdout );
-                }
+                m_validationHarness->PrintGraphicsStressExitSummary( m_sceneController.State().currentFrame );
                 // Concept: WM_QUIT is the platform's stop notification, not the
                 // process result by itself. Preserve a Run-owned failure when
                 // one already exists; otherwise translate the posted integer.
@@ -537,7 +531,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                               m_contactAudio,
                                               m_sceneController };
             RuntimeFramePresentationView framePresentation{ m_renderDefaults,
-                                                            m_graphicsStress,
+                                                            *m_validationHarness,
                                                             *m_overlayDiagnostics,
                                                             m_renderBackendView,
                                                             m_renderer };
@@ -588,7 +582,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             }
 #endif
             ProcessInputFrame( frameHost, frameInteraction, frameScene, framePresentation, m_replayRuntime );
-            m_liveStyle.Tick(
+            m_validationHarness->TickLiveStyle(
                 SceneRuntimeStyleContext{ m_launchOptions,
                                           m_sceneController.State(),
                                           m_sceneController.Browser(),
@@ -611,7 +605,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
             // current solver poses even when live presentation interpolation is on.
             m_capturePresentationPinned =
                 m_diagnosticsRuntime.Capture().RequiresDeterministicPresentation( captureContext ) ||
-                ( captureContext.isSceneMode && m_camera.autoCycleInterval > 0.0f ) || m_liveStyle.HasPendingCapture()
+                ( captureContext.isSceneMode && m_camera.autoCycleInterval > 0.0f ) ||
+                m_validationHarness->HasPendingLiveStyleCapture()
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
                 || InteractionAutomationWillCaptureAfterRender( m_interactionAutomation,
                                                                 m_sceneController.State().currentFrame )
@@ -711,8 +706,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
             {
                 RuntimeAllocation::RuntimeAllocationScope allocationScope(
                     RuntimeAllocation::RuntimeAllocationPhase::Capture );
-                m_liveStyle.SavePendingCapture( m_diagnosticsRuntime.Capture(),
-                                                m_renderBackendView.RequireCaptureBackend() );
+                m_validationHarness->SavePendingLiveStyleCapture( m_diagnosticsRuntime.Capture(),
+                                                                  m_renderBackendView.RequireCaptureBackend() );
             }
             PROFILE_END( "Frame/PostDraw/LiveStyleCapture" );
 
@@ -1109,7 +1104,7 @@ bool Run::TickScreenshots()
                                                               m_replayRuntime,
                                                               m_contactAudio,
                                                               *m_overlayDiagnostics,
-                                                              m_graphicsStress,
+                                                              *m_validationHarness,
                                                               m_runtimeTools,
                                                               m_renderBackendView,
                                                               m_renderer )
@@ -1237,7 +1232,7 @@ bool Run::TickSceneAdvance()
                                    m_replayRuntime,
                                    m_contactAudio,
                                    *m_overlayDiagnostics,
-                                   m_graphicsStress,
+                                   *m_validationHarness,
                                    m_runtimeTools,
                                    m_renderBackendView,
                                    m_renderer )

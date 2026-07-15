@@ -3,7 +3,7 @@
 Date: 2026-07-16
 Branch: `nightrunner-15th-july`
 Owner: runtime shell
-Task: `run-member-and-include-shrink` T1-T2
+Task: `run-member-and-include-shrink` T1-T3
 
 ## Current Measurements
 
@@ -160,3 +160,58 @@ deferred or unchecked files, and no separate subsystem checklist required.
 The two legacy `Mental model` headings in touched files were normalized to the
 required `Summary` section; the new owner files include the full learning
 header and nearby allocation/lifetime/invariant comments.
+
+## T3 Extraction Evidence
+
+`RuntimeValidationHarness` now owns `LiveStyleController` and
+`GraphicsStressController`. Its domain operations preserve the former shell
+checkpoints:
+
+- startup control-directory configuration plus UI/graphics-stress launch
+  normalization;
+- live-style polling in the input phase and pending-capture sampling before
+  physics fixes presentation to current solver poses;
+- live-style screenshot consumption after render and UI submission;
+- graphics-stress resume inside cold scene load without resetting its random
+  stream or persistent counters;
+- deterministic stress execution through the presentation capability slice and
+  the final WM_QUIT counter summary.
+
+The presentation frame view and cold scene-load APIs carry the cohesive owner,
+while the stress executor takes the controller through one named narrow borrow.
+Run has no direct live-style or graphics-stress member. Contact audio remains a
+direct Run owner by the T1 ruling, and its scene-reset and post-physics step
+positions are unchanged. The owner retains no Run pointer, callback pack,
+services bag, or frame view.
+
+Migration-name record: the runtime-shell plan owns `RuntimeValidationHarness`;
+the name is required because both members are process-level CLI validation
+controls rather than gameplay services. Delete or split this type only when
+live-style and graphics-stress no longer share process startup/frame/exit
+lifetime. Review evidence is the T3 call-position audit and broad gate below;
+the plan-wide independent ownership review remains T5.
+
+Formal evidence on 2026-07-16:
+
+- targeted Profile build: passed in 12.85 s, zero warnings;
+- `python tools/check_allocation_policy.py --self-test`: passed in 0.13 s;
+- `python tools/check_allocation_policy.py --repo .`: passed in 8.56 s
+  (`367` files, `0` allowlist errors);
+- `python tools/validate_project_filters.py`: passed in 1.56 s with `711`
+  project/filter items and `0` errors;
+- `tools\\validate_full.bat`: passed in 200.61 s with all CPU lanes,
+  zero-warning Profile/Automation/Debug builds, Automation replay/prediction
+  smoke, DX12 InfoQueue errors `0`, all three screenshot comparisons passing,
+  standalone/runtime-handle physics smoke, and the 44,401-line varied physics
+  CSV byte-exact.
+
+One targeted-build attempt found the final stress-driven scene-load call still
+passing the nested controller instead of its owner. The compiler finding was
+corrected before the successful build and formal gate. No baseline, screenshot,
+golden, or authored-data file was refreshed.
+
+Comment-quality audit: touched-file scope, 12/12 source-bearing files inspected
+(11 C++ headers/implementations plus `tools/validate_project_filters.py`), zero
+deferred or unchecked files. The two new owner files have the full learning
+header and local allocation/order invariants; existing touched files retain
+their complete headers and relevant lifetime/checkpoint comments.

@@ -32,6 +32,7 @@ Related:
 */
 #include "InputFrame.h"
 #include "RuntimeOverlayDiagnostics.h"
+#include "RuntimeValidationHarness.h"
 #include "RuntimeStressController.h"
 #include "AttachedCameraController.h"
 #include "ApplicationExitState.h"
@@ -43,7 +44,6 @@ Related:
 #include "Replay/ReplayRestoreService.h"
 #include "Replay/ReplayRestoreTransactions.h"
 #include "RunDemoDirector.h"
-#include "GraphicsStressController.h"
 #include "RenderDefaultsStore.h"
 #include "Render/RuntimeRenderer.h"
 #include "RunDebugState.h"
@@ -118,7 +118,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     ReplayRuntime& m_replayRuntime = replayRuntime;
     SkullbonezCore::Runtime::Audio::ContactAudioService& m_contactAudio = sceneOwners.contactAudio;
     SkullbonezCore::UI::InGameUI& m_UI = interactionOwners.overlays.OperatorUi();
-    GraphicsStressController& m_graphicsStress = presentationOwners.graphicsStress;
+    RuntimeValidationHarness& m_validationHarness = presentationOwners.validationHarness;
     RuntimeTools& m_runtimeTools = interactionOwners.runtimeTools;
     RuntimeRenderBackendView& m_renderBackendView = presentationOwners.renderBackendView;
     RuntimeRenderer& m_renderer = presentationOwners.renderer;
@@ -364,7 +364,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                    m_replayRuntime,
                    m_contactAudio,
                    interactionOwners.overlays,
-                   m_graphicsStress,
+                   m_validationHarness,
                    m_runtimeTools,
                    m_renderBackendView,
                    m_renderer )
@@ -1029,7 +1029,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                                       m_replayRuntime,
                                                                       m_contactAudio,
                                                                       interactionOwners.overlays,
-                                                                      m_graphicsStress,
+                                                                      m_validationHarness,
                                                                       m_runtimeTools,
                                                                       m_renderBackendView,
                                                                       m_renderer );

@@ -98,11 +98,11 @@ class InGameUI;
 namespace Runtime
 {
 class DiagnosticsRuntime;
-class GraphicsStressController;
 class InputRouter;
 class ReplayRuntime;
 class RuntimeInteractionController;
 class RuntimeOverlayDiagnostics;
+class RuntimeValidationHarness;
 class RuntimeRenderer;
 class RuntimeTools;
 class SimulationSystem;
@@ -236,7 +236,7 @@ class SceneController
                                          ReplayRuntime& m_replayRuntime,
                                          Runtime::Audio::ContactAudioService& m_contactAudio,
                                          RuntimeOverlayDiagnostics& overlays,
-                                         GraphicsStressController& m_graphicsStress,
+                                         RuntimeValidationHarness& validationHarness,
                                          RuntimeTools& m_runtimeTools,
                                          const RuntimeRenderBackendView& m_renderBackendView,
                                          RuntimeRenderer& m_renderer );
@@ -259,7 +259,7 @@ class SceneController
                          ReplayRuntime& m_replayRuntime,
                          Runtime::Audio::ContactAudioService& m_contactAudio,
                          RuntimeOverlayDiagnostics& overlays,
-                         GraphicsStressController& m_graphicsStress,
+                         RuntimeValidationHarness& validationHarness,
                          RuntimeTools& m_runtimeTools,
                          const RuntimeRenderBackendView& m_renderBackendView,
                          RuntimeRenderer& m_renderer );

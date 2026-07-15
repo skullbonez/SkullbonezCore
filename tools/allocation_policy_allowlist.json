@@ -37,6 +37,17 @@
       "removal_or_wrapper_plan": "Replace with composition-root arena storage if process-lifetime runtime owners move to a typed startup allocator."
     },
     {
+      "path": "SkullbonezSource/Runtime/RuntimeValidationHarness.cpp",
+      "patterns": [
+        "std::make_unique<RuntimeValidationHarness>"
+      ],
+      "owner": "RuntimeValidationHarness process-lifetime validation owner",
+      "phase": "startup",
+      "reason": "Run keeps the cold live-style and graphics-stress controllers behind a forward declaration while frame and scene operations borrow the stable process-lifetime owner.",
+      "cap": "One RuntimeValidationHarness allocation per process launch.",
+      "removal_or_wrapper_plan": "Replace with composition-root arena storage if process-lifetime runtime owners move to a typed startup allocator."
+    },
+    {
       "path": "SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp",
       "patterns": [
         "std::make_unique<Geometry::SkyBox>"

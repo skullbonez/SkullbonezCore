@@ -28,6 +28,7 @@ Related:
 */
 #include "Run.h"
 #include "RuntimeOverlayDiagnostics.h"
+#include "RuntimeValidationHarness.h"
 #include "RuntimeCameraMode.h"
 #include "InputFrame.h"
 #include "WindowConstants.h"
@@ -169,36 +170,6 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
 }
 
 
-void ApplyStressLaunchPolicy( const RunLaunchOptions& launch,
-                              RunLaunchOptions& target,
-                              GraphicsStressController& graphicsStress )
-{
-    if ( launch.uiStress )
-    {
-        target.uiStress = true;
-        target.uiStressSeed = launch.uiStressSeed > 0 ? launch.uiStressSeed : 0x7F4A7C15u;
-        target.uiStressActions = std::clamp( launch.uiStressActions, 1, 32 );
-    }
-    if ( !launch.graphicsStress )
-    {
-        return;
-    }
-
-    const unsigned int resolvedSeed = launch.graphicsStressSeed > 0 ? launch.graphicsStressSeed : 0xC11E2026u;
-    target.graphicsStress = true;
-    target.graphicsStressSeed = resolvedSeed;
-    target.graphicsStressActions = std::clamp( launch.graphicsStressActions, 1, 64 );
-    target.graphicsStressSceneIntervalFrames = std::clamp( launch.graphicsStressSceneIntervalFrames, 1, 600 );
-    target.graphicsStressMemoryIntervalFrames = std::clamp( launch.graphicsStressMemoryIntervalFrames, 0, 36000 );
-    target.interactiveSceneRun = true;
-
-    graphicsStress.Configure( resolvedSeed,
-                              target.graphicsStressActions,
-                              target.graphicsStressSceneIntervalFrames,
-                              target.graphicsStressMemoryIntervalFrames );
-}
-
-
 bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
                                       ReplayRuntime& replayRuntime,
                                       int gameModelCapacity )
@@ -279,7 +250,8 @@ Run::Run( Window& window,
           SkullbonezCore::Core::Profiler* profiler,
           RuntimeRenderBackendView renderBackendView )
     : m_window( window ), m_workerPool( workerPool ), m_config( config ), m_sceneController( std::move( sceneQueue ) ),
-      m_overlayDiagnostics( RuntimeOverlayDiagnostics::CreateForStartup() ), m_renderBackendView( renderBackendView ),
+      m_overlayDiagnostics( RuntimeOverlayDiagnostics::CreateForStartup() ),
+      m_validationHarness( RuntimeValidationHarness::CreateForStartup() ), m_renderBackendView( renderBackendView ),
       m_renderer( m_renderBackendView,
                   RenderWorldView{ m_assets,
                                    m_sceneController.Cameras(),
@@ -379,17 +351,13 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     const RunLaunchOptions& launch = overrides.launch;
 
     ApplyRuntimeLaunchPolicy( launch, m_launchOptions, m_renderer, m_sceneController, m_contactAudio );
-    if ( overrides.liveStyleControlDirectory && overrides.liveStyleControlDirectory[0] != '\0' )
+    if ( m_validationHarness->ConfigureStartup( overrides, m_launchOptions ) )
     {
-        if ( m_liveStyle.ConfigureDirectory( overrides.liveStyleControlDirectory ) )
-        {
-            m_launchOptions.interactiveSceneRun = true;
-            m_sceneController.EnterInteractiveRun();
-            m_diagnosticsRuntime.Capture().DisableAutomationExit();
-            m_liveStyle.MarkReady();
-        }
+        m_launchOptions.interactiveSceneRun = true;
+        m_sceneController.EnterInteractiveRun();
+        m_diagnosticsRuntime.Capture().DisableAutomationExit();
+        m_validationHarness->MarkLiveStyleReady();
     }
-    ApplyStressLaunchPolicy( launch, m_launchOptions, m_graphicsStress );
     if ( overrides.mainMemoryDumpPath && overrides.mainMemoryDumpPath[0] != '\0' )
     {
         m_diagnosticsRuntime.SetMainMemoryDumpPath( overrides.mainMemoryDumpPath );
@@ -565,7 +533,7 @@ void Run::Initialise()
                                                     m_replayRuntime,
                                                     m_contactAudio,
                                                     *m_overlayDiagnostics,
-                                                    m_graphicsStress,
+                                                    *m_validationHarness,
                                                     m_runtimeTools,
                                                     m_renderBackendView,
                                                     m_renderer );
@@ -719,7 +687,7 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
                                     m_replayRuntime,
                                     m_contactAudio,
                                     *m_overlayDiagnostics,
-                                    m_graphicsStress,
+                                    *m_validationHarness,
                                     m_runtimeTools,
                                     m_renderBackendView,
                                     m_renderer );

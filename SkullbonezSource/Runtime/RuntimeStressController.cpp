@@ -25,8 +25,8 @@ Related:
 */
 #include "RuntimeStressController.h"
 #include "RuntimeOverlayDiagnostics.h"
+#include "RuntimeValidationHarness.h"
 #include "AttachedCameraController.h"
-#include "GraphicsStressController.h"
 #include "InputFrame.h"
 #include "InputRouter.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
@@ -356,7 +356,7 @@ void ApplyGraphicsStressAction( RuntimeFrameHostView& host,
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     SkullbonezCore::Environment::WorldEnvironment& world = sceneController.World();
     SkullbonezCore::Runtime::SceneController& models = sceneController;
-    GraphicsStressController& stress = presentationOwners.graphicsStress;
+    GraphicsStressController& stress = presentationOwners.validationHarness.GraphicsStress();
     switch ( stress.NextAction() )
     {
     case 0:
@@ -1017,7 +1017,7 @@ void SkullbonezCore::Runtime::ExecuteGraphicsStressFrame( RuntimeFrameHostView& 
                                                           ReplayRuntime& replayRuntime,
                                                           const Rendering::IRenderDiagnostics& renderDiagnostics )
 {
-    GraphicsStressController& stress = presentationOwners.graphicsStress;
+    GraphicsStressController& stress = presentationOwners.validationHarness.GraphicsStress();
     Window* window = &host.window;
     SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
     RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
@@ -1083,7 +1083,7 @@ void SkullbonezCore::Runtime::ExecuteGraphicsStressFrame( RuntimeFrameHostView& 
                    replayRuntime,
                    contactAudio,
                    interactionOwners.overlays,
-                   stress,
+                   presentationOwners.validationHarness,
                    runtimeTools,
                    renderBackendView,
                    renderer )

@@ -30,6 +30,7 @@ Related:
 */
 #include "SceneController.h"
 #include "../RuntimeOverlayDiagnostics.h"
+#include "../RuntimeValidationHarness.h"
 #include "../InputFrame.h"
 #include "SceneRuntimeCreate.h"
 
@@ -62,7 +63,7 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_conf
                                       ReplayRuntime& m_replayRuntime,
                                       SkullbonezCore::Runtime::Audio::ContactAudioService& m_contactAudio,
                                       RuntimeOverlayDiagnostics& overlays,
-                                      GraphicsStressController& m_graphicsStress,
+                                      RuntimeValidationHarness& validationHarness,
                                       RuntimeTools& m_runtimeTools,
                                       const RuntimeRenderBackendView& m_renderBackendView,
                                       RuntimeRenderer& m_renderer )
@@ -94,7 +95,7 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_conf
                    m_replayRuntime,
                    m_contactAudio,
                    overlays,
-                   m_graphicsStress,
+                   validationHarness,
                    m_runtimeTools,
                    m_renderBackendView,
                    m_renderer )
