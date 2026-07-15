@@ -28,7 +28,6 @@ Related:
 #include "SceneRuntimeReset.h"
 #include "SceneController.h"
 #include "SceneRuntime.h"
-#include "../Debug/PhysicsDebugVisualizer.h"
 #include "../Render/RuntimeRenderer.h"
 #include "../../World/WorldEnvironment.h"
 
@@ -87,7 +86,6 @@ void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
                                        RuntimeRenderer& renderer,
                                        RunDebugState& debug,
                                        RunCameraState& camera,
-                                       Physics::PhysicsDebugVisualizer& physicsDebugVisualizer,
                                        const SceneRuntimeResetSnapshot& snapshot,
                                        bool suppressExitOnComplete )
 {
@@ -126,8 +124,6 @@ void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
     camera.autoCycleInterval = snapshot.autoCycleInterval;
     camera.autoCycleAccum = snapshot.autoCycleAccum;
     camera.autoCycleShotsTaken = snapshot.autoCycleShotsTaken;
-    physicsDebugVisualizer.SetFlags( debug.physicsDebugFlags );
-    physicsDebugVisualizer.SetContactLingerSeconds( debug.physicsDebugContactLinger );
 }
 
 

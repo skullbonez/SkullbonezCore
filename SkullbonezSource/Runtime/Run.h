@@ -83,6 +83,10 @@ namespace Threading
 {
 class WorkerPool;
 }
+namespace UI
+{
+class InGameUI;
+}
 namespace Runtime
 {
 class Window;
@@ -129,13 +133,14 @@ class Run
     RunCameraState m_camera;                                       // Camera/input state and ball-tracking settings
     AttachedCameraController m_attachedCamera;                     // Owns non-serialized Attach target/orbit/follow state.
     SimulationSystem m_simulation;                                 // Simulation timestep policy and physics accumulators
-    float m_presentationAlpha = 1.0f;                              // Live leftover fixed-tick fraction for render interpolation.
-    bool m_capturePresentationPinned = false;                      // Due captures force exact current solver poses for this frame.
     ReplayRuntime m_replayRuntime;                                 // Constructs and sequences the concrete replay domain owners.
     Runtime::Audio::ContactAudioService m_contactAudio;            // Presentation-only material impact playback sink.
     RuntimeTools m_runtimeTools;                                   // Launcher, editor, manipulator state, and transient render feedback.
-    // Lifetime: the renderer borrows visualizers and UI resources from this
-    // startup-created owner, so declaration order destroys the renderer first.
+    // Lifetime: renderer and frame helpers borrow this cohesive UI owner; the
+    // opaque allocation keeps UI.h out of the composition-root header.
+    std::unique_ptr<UI::InGameUI> m_operatorUi;
+    // Lifetime: the renderer borrows visualizers from this startup-created
+    // owner, so declaration order destroys the renderer first.
     std::unique_ptr<RuntimeOverlayDiagnostics> m_overlayDiagnostics;
     std::unique_ptr<RuntimeValidationHarness> m_validationHarness; // Owns opt-in live-style and graphics-stress controls.
     RuntimeRenderBackendView m_renderBackendView;                  // Borrowed active renderer capabilities for renderer users.
@@ -144,16 +149,17 @@ class Run
     void
     Render( const RuntimeRenderModelFrameView& renderModels,
             float presentationAlpha );                             // Skips 3D in text-only runs, then records passes for the current camera state.
-    float PresentationAlphaForFrame() const;                       // Applies config and capture determinism policy to the live fraction.
-    void UpdateLogic( float simulationDt, float cameraDt );        // simulationDt drives physics; cameraDt is unscaled wall time.
-    void
-    AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners,
-                      RuntimeFrameSceneView& sceneOwners );        // Post-step hooks that must see committed physics state.
+    void UpdateLogic( float simulationDt,
+                      float cameraDt,
+                      float presentationAlpha );                   // simulationDt drives physics; cameraDt is unscaled wall time.
+    void AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners,
+                           RuntimeFrameSceneView& sceneOwners,
+                           float presentationAlpha );              // Post-step hooks that must see committed physics state.
     // --- Per-frame tick helpers (called from Execute()) ---
-    void
-    TickPhysics( double dt,
-                 RuntimeFrameInteractionView& interactionOwners,
-                 RuntimeFrameSceneView& sceneOwners );             // Physics dispatch: fixed-step and variable-step accumulator
+    float TickPhysics( double dt,
+                       RuntimeFrameInteractionView& interactionOwners,
+                       RuntimeFrameSceneView& sceneOwners,
+                       bool capturePresentationPinned );           // Returns the live fixed-tick interpolation fraction.
     bool TickScreenshots();                                        // Screenshot triggers; returns true when frame should restart (continue)
     void TickAutoCycle();                                          // Auto-cycle ball capture; posts WM_QUIT when all balls captured
     bool TickSceneAdvance();                                       // Frame count, exit/hold on completion, restarts; returns true to continue

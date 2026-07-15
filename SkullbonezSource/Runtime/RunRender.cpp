@@ -33,6 +33,7 @@ Related:
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "Allocation/RuntimeReserveAllocator.h"
 #include "RuntimeTuning.h"
+#include "../UI/UI.h"
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::RunInternal;
@@ -42,7 +43,7 @@ namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 void Run::Render( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha )
 {
-    const RunDebugState& debug = m_overlayDiagnostics->PresentationState();
+    const RunDebugState debug = m_overlayDiagnostics->PresentationSnapshot();
     m_renderer.SetUiTextRayTracingCapability( nullptr );
 
     // In text_only mode all 3D rendering is skipped. UiTextPass handles the display.
@@ -141,7 +142,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     const bool replaySubmissionRendered =
         m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext{ m_renderBackendView,
                                                                          renderModels,
-                                                                         m_overlayDiagnostics->OperatorUi(),
+                                                                         *m_operatorUi,
                                                                          framePolicy,
                                                                          replayOverlay,
                                                                          toolOverlay,

@@ -26,13 +26,24 @@
       "removal_or_wrapper_plan": "Leave as startup composition-root ownership unless process bootstrap moves to arena-backed lifetime storage."
     },
     {
+      "path": "SkullbonezSource/Runtime/Run.cpp",
+      "patterns": [
+        "std::make_unique<SkullbonezCore::UI::InGameUI>"
+      ],
+      "owner": "InGameUI process-lifetime operator interface owner",
+      "phase": "startup",
+      "reason": "Run keeps the cohesive operator UI behind a forward declaration so Run.h does not republish the heavyweight UI include graph.",
+      "cap": "One InGameUI allocation per process launch.",
+      "removal_or_wrapper_plan": "Replace with composition-root arena storage if process-lifetime runtime owners move to a typed startup allocator."
+    },
+    {
       "path": "SkullbonezSource/Runtime/RuntimeOverlayDiagnostics.cpp",
       "patterns": [
         "std::make_unique<RuntimeOverlayDiagnostics>"
       ],
       "owner": "RuntimeOverlayDiagnostics process-lifetime presentation owner",
       "phase": "startup",
-      "reason": "Run keeps the heavyweight UI and debug visualizer owner behind a forward declaration while RuntimeRenderer borrows its stable process-lifetime resources.",
+      "reason": "Run keeps debug presentation policy and its visualizer resources behind a forward declaration while RuntimeRenderer borrows one opaque stable resource capability.",
       "cap": "One RuntimeOverlayDiagnostics allocation per process launch.",
       "removal_or_wrapper_plan": "Replace with composition-root arena storage if process-lifetime runtime owners move to a typed startup allocator."
     },

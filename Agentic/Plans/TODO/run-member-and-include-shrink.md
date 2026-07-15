@@ -1,7 +1,7 @@
 # Run Member And Include Shrink — Presentation/Diagnostics Owners Out Of The Composition Root
 
 Date: 2026-07-15
-Status: Active — 4/6 tasks complete
+Status: Active — 5/6 tasks complete
 Impact area: `Runtime/Run.h`, `Run.cpp`, `RunFrame.cpp`, `RunRender.cpp`,
 frame views, new mid-level owner(s), compile-time include graph
 Owner: runtime shell
@@ -64,10 +64,11 @@ No behavior change; all baselines unchanged.
       member doesn't fit either owner cohesively, it stays on `Run` with a
       recorded reason rather than being forced in.
       Evidence: `Agentic/Reports/2026-07-15/run-member-shrink-map.md` records
-      the final ruling. Owner A keeps UI/debug/three visualizers; owner B is
-      narrowed to live-style plus graphics-stress validation workflows;
-      contact audio stays on `Run` because its physics-post-step audio domain
-      fits neither owner and a third owner is disallowed. Every current
+      the final ruling. Owner A keeps debug policy plus three visualizers;
+      owner B is narrowed to live-style plus graphics-stress validation
+      workflows. Contact audio and opaque UI stay on `Run` because their
+      cohesive domains fit neither owner without creating a component bag.
+      Every current
       construction, launch, scene, frame-view, toggle, render, capture, and
       post-step call position is mapped. Current measurements are 198 lines,
       46 includes, and 31 ordinary member rows plus the Automation-only row.
@@ -75,11 +76,13 @@ No behavior change; all baselines unchanged.
       delegation at the exact existing call positions, and input-toggle
       routing (G/V key visualizer toggles etc.) unchanged. Frame views that
       carried the moved members now carry owner A.
-      Evidence: `RuntimeOverlayDiagnostics` owns UI/debug/three visualizers,
-      applies startup policy, samples render policy, and refreshes all three
-      visualizers after committed physics. Scene-load and frame-view boundaries
-      carry the owner one-for-one; renderer borrows remain lifetime ordered.
-      Its one opaque allocation is explicitly scoped/allowlisted to Startup.
+      Evidence: `RuntimeOverlayDiagnostics` owns debug policy plus three
+      visualizers, applies startup policy, samples render policy, and refreshes
+      all three visualizers after committed physics. UI remains a separate
+      opaque cohesive owner after T5 remediation; scene and frame boundaries
+      use copied presentation transactions, narrow UI borrows, and one private
+      renderer-resource capability. Startup allocations are explicitly scoped
+      and allowlisted.
       Allocation self-test/repository scan and the final broad gate passed with
       zero warnings, zero DX12 errors, unchanged screenshots, and byte-exact
       physics.
@@ -107,11 +110,21 @@ No behavior change; all baselines unchanged.
       implementation includes replace the removed transitive dependencies.
       The final broad gate passed in 209.75 s with zero warnings, zero DX12
       validation errors, unchanged screenshots, and byte-exact physics.
-- [ ] T5 — Independent ownership review (single, end-of-plan): confirms
+- [x] T5 — Independent ownership review (single, end-of-plan): confirms
       neither owner is a bag (each owns state + sequencing with domain APIs),
       no reach-back into `Run`, no new forwarding relays, and `Run`'s
       remaining members are all process-lifecycle or cohesive domain owners.
       A credible finding reopens T2/T3.
+      Evidence: the first fresh review found three credible blockers: raw UI/
+      visualizer access made the overlay owner a component bag, graphics-stress
+      sequencing escaped the validation owner, and presentation alpha/capture
+      pinning remained persistent `Run` policy. Remediation retained opaque UI
+      as a cohesive direct owner, introduced copied presentation transactions
+      plus one private renderer-resource capability, moved stress execution
+      behind the harness API, and made presentation values frame-local. The
+      same reviewer repeated the full logical-surface review and found zero
+      credible blockers. Allocation checks, `validate_fast`, `validate_full`,
+      and the 22/22 touched-source comment audit passed with no baseline refresh.
 - [ ] T6 — Final gates: `Run*`/`Runtime/*` maps to `tools\validate_full.bat`;
       moved systems touch render submission and UI, so also
       `tools\validate_dx12_renderer.bat` + `tools\run_graphics_stress.bat 1`

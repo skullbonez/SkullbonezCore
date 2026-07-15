@@ -512,7 +512,7 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
     RunTimerState& timers = sceneOwners.timers;
     SceneController& sceneController = sceneOwners.sceneController;
     Window& window = host.window;
-    SkullbonezCore::UI::InGameUI& ui = interactionOwners.overlays.OperatorUi();
+    SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
     RuntimeUIFrameResult result;
     result.suppressWorldActionThisFrame = facts.suppressWorldActionThisFrame;
     result.frameActive = true;
@@ -618,7 +618,8 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     RunTimerState& timers = sceneOwners.timers;
-    RunDebugState& debug = sceneOwners.overlays.PresentationState();
+    RuntimeOverlayPresentationEdit presentationEdit = sceneOwners.overlays.EditPresentation();
+    RunDebugState& debug = presentationEdit.State();
     RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
     SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
     SceneController& sceneController = sceneOwners.sceneController;
@@ -1047,7 +1048,7 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     SceneController& sceneController = sceneOwners.sceneController;
-    SkullbonezCore::UI::InGameUI& ui = interactionOwners.overlays.OperatorUi();
+    SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
     // Invariant: pointer ownership is finalized only after UI mutations and
     // stress actions succeed; failure leaves later world routing untouched.
     if ( !result.frameActive || !result.status.ok )

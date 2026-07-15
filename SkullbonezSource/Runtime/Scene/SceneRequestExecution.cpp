@@ -62,6 +62,7 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_conf
                                       SimulationSystem& m_simulation,
                                       ReplayRuntime& m_replayRuntime,
                                       SkullbonezCore::Runtime::Audio::ContactAudioService& m_contactAudio,
+                                      UI::InGameUI& operatorUi,
                                       RuntimeOverlayDiagnostics& overlays,
                                       RuntimeValidationHarness& validationHarness,
                                       RuntimeTools& m_runtimeTools,
@@ -69,7 +70,6 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_conf
                                       RuntimeRenderer& m_renderer )
 {
     SceneController& m_sceneController = *this;
-    RunDebugState& m_debug = overlays.PresentationState();
     const auto executeSceneLoadRequest = [&]( const SceneLoadRequest& request )
     {
         if ( !request.accepted )
@@ -94,6 +94,7 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_conf
                    m_simulation,
                    m_replayRuntime,
                    m_contactAudio,
+                   operatorUi,
                    overlays,
                    validationHarness,
                    m_runtimeTools,
@@ -143,8 +144,9 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_conf
         case SceneRequestType::SaveCurrentDefaults:
             eventCode = ReplayOwnerEventCode::SceneSaveDefaults;
             {
-                const SkullbonezCore::Core::SbResult saveResult =
-                    m_sceneController.SaveCurrentDefaults( SceneDefaultsSaveView{ m_debug, m_renderer, m_camera } );
+                const RunDebugState presentation = overlays.PresentationSnapshot();
+                const SkullbonezCore::Core::SbResult saveResult = m_sceneController.SaveCurrentDefaults(
+                    SceneDefaultsSaveView{ presentation, m_renderer, m_camera } );
                 if ( !saveResult.ok )
                 {
                     std::fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );

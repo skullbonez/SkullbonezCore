@@ -135,8 +135,9 @@ void ApplyUIStressAction( RuntimeFrameInteractionView& interactionOwners,
                           UIStressState& stress,
                           bool allowRuntimeChurn )
 {
-    SkullbonezCore::UI::InGameUI& ui = interactionOwners.overlays.OperatorUi();
-    RunDebugState& debug = sceneOwners.overlays.PresentationState();
+    SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
+    RuntimeOverlayPresentationEdit presentationEdit = sceneOwners.overlays.EditPresentation();
+    RunDebugState& debug = presentationEdit.State();
     RuntimeRenderer& renderer = presentationOwners.renderer;
     RuntimeRenderBackendView& renderBackendView = presentationOwners.renderBackendView;
     SceneController& sceneController = sceneOwners.sceneController;
@@ -338,17 +339,19 @@ void ApplyGraphicsStressAction( RuntimeFrameHostView& host,
                                 RuntimeFrameInteractionView& interactionOwners,
                                 RuntimeFrameSceneView& sceneOwners,
                                 RuntimeFramePresentationView& presentationOwners,
-                                ReplayRuntime& replayRuntime )
+                                ReplayRuntime& replayRuntime,
+                                GraphicsStressController& stress )
 {
     RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
     SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
     RuntimeRenderer& renderer = presentationOwners.renderer;
-    RunDebugState& debug = sceneOwners.overlays.PresentationState();
+    RuntimeOverlayPresentationEdit presentationEdit = sceneOwners.overlays.EditPresentation();
+    RunDebugState& debug = presentationEdit.State();
     SceneController& sceneController = sceneOwners.sceneController;
     RunSceneState& scene = sceneController.State();
     RunTimerState& timers = sceneOwners.timers;
     RunCameraState& camera = interactionOwners.camera;
-    SkullbonezCore::UI::InGameUI& ui = interactionOwners.overlays.OperatorUi();
+    SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
     const SkullbonezCore::Assets::AssetSystem& assets = host.assets;
     const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender =
         presentationOwners.renderDefaults.CinematicBaseline();
@@ -356,7 +359,6 @@ void ApplyGraphicsStressAction( RuntimeFrameHostView& host,
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     SkullbonezCore::Environment::WorldEnvironment& world = sceneController.World();
     SkullbonezCore::Runtime::SceneController& models = sceneController;
-    GraphicsStressController& stress = presentationOwners.validationHarness.GraphicsStress();
     switch ( stress.NextAction() )
     {
     case 0:
@@ -889,7 +891,7 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
     DiagnosticsRuntime& m_diagnosticsRuntime = host.diagnosticsRuntime;
     Window* window = &host.window;
     RunTimerState& m_timers = sceneOwners.timers;
-    SkullbonezCore::UI::InGameUI& m_UI = interactionOwners.overlays.OperatorUi();
+    SkullbonezCore::UI::InGameUI& m_UI = interactionOwners.operatorUi;
     RuntimeRenderBackendView& m_renderBackendView = presentationOwners.renderBackendView;
     SceneController& m_sceneController = sceneOwners.sceneController;
     RunCameraState& m_camera = interactionOwners.camera;
@@ -1010,14 +1012,14 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
 }
 
 
-void SkullbonezCore::Runtime::ExecuteGraphicsStressFrame( RuntimeFrameHostView& host,
-                                                          RuntimeFrameInteractionView& interactionOwners,
-                                                          RuntimeFrameSceneView& sceneOwners,
-                                                          RuntimeFramePresentationView& presentationOwners,
-                                                          ReplayRuntime& replayRuntime,
-                                                          const Rendering::IRenderDiagnostics& renderDiagnostics )
+void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView& host,
+                                                           RuntimeFrameInteractionView& interactionOwners,
+                                                           RuntimeFrameSceneView& sceneOwners,
+                                                           RuntimeFramePresentationView& presentationOwners,
+                                                           ReplayRuntime& replayRuntime,
+                                                           const Rendering::IRenderDiagnostics& renderDiagnostics )
 {
-    GraphicsStressController& stress = presentationOwners.validationHarness.GraphicsStress();
+    GraphicsStressController& stress = m_graphicsStress;
     Window* window = &host.window;
     SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
     RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
@@ -1034,7 +1036,7 @@ void SkullbonezCore::Runtime::ExecuteGraphicsStressFrame( RuntimeFrameHostView& 
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     SimulationSystem& simulation = sceneOwners.simulation;
     Runtime::Audio::ContactAudioService& contactAudio = sceneOwners.contactAudio;
-    UI::InGameUI& ui = interactionOwners.overlays.OperatorUi();
+    UI::InGameUI& ui = interactionOwners.operatorUi;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     RuntimeRenderBackendView& renderBackendView = presentationOwners.renderBackendView;
     RuntimeRenderer& renderer = presentationOwners.renderer;
@@ -1082,7 +1084,8 @@ void SkullbonezCore::Runtime::ExecuteGraphicsStressFrame( RuntimeFrameHostView& 
                    simulation,
                    replayRuntime,
                    contactAudio,
-                   interactionOwners.overlays,
+                   interactionOwners.operatorUi,
+                   sceneOwners.overlays,
                    presentationOwners.validationHarness,
                    runtimeTools,
                    renderBackendView,
@@ -1206,7 +1209,7 @@ void SkullbonezCore::Runtime::ExecuteGraphicsStressFrame( RuntimeFrameHostView& 
     // not manufacture impossible physics or render data.
     for ( int i = 0; i < actionCount; ++i )
     {
-        ApplyGraphicsStressAction( host, interactionOwners, sceneOwners, presentationOwners, replayRuntime );
+        ApplyGraphicsStressAction( host, interactionOwners, sceneOwners, presentationOwners, replayRuntime, stress );
     }
 
     if ( stress.ShouldPrintFrameSummary() )

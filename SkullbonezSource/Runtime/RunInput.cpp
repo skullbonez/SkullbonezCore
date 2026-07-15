@@ -51,6 +51,7 @@ Related:
 #include "../Core/Log.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsBodyStore.h"
+#include "../UI/UI.h"
 #include "../UI/UILayout.h"
 
 #include <cstddef>
@@ -647,7 +648,7 @@ bool InputRouter::HandleUnfocusedFrame( RuntimeFrameInteractionView& interaction
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     RunCameraState& camera = interactionOwners.camera;
     SceneController& sceneController = sceneOwners.sceneController;
-    UI::InGameUI& ui = interactionOwners.overlays.OperatorUi();
+    UI::InGameUI& ui = interactionOwners.operatorUi;
     if ( AppFocused() )
     {
         return false;
@@ -695,7 +696,7 @@ void InputRouter::DispatchCaptureActions( InputActions& actions,
     const AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     SceneController& sceneController = sceneOwners.sceneController;
     DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
-    const UI::InGameUI& ui = interactionOwners.overlays.OperatorUi();
+    const UI::InGameUI& ui = interactionOwners.operatorUi;
     // Why: capture/reset shortcuts run after UI input so focused controls and
     // panels get first refusal on keyboard ownership.
     const bool flyCamera =
@@ -772,8 +773,9 @@ bool InputRouter::DispatchAfterUiDismiss( InputActions& actions,
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     SceneController& sceneController = sceneOwners.sceneController;
     DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
-    RunDebugState& debug = sceneOwners.overlays.PresentationState();
-    UI::InGameUI& ui = interactionOwners.overlays.OperatorUi();
+    RuntimeOverlayPresentationEdit presentationEdit = sceneOwners.overlays.EditPresentation();
+    RunDebugState& debug = presentationEdit.State();
+    UI::InGameUI& ui = interactionOwners.operatorUi;
     const bool flyCamera =
         RunCameraModeUsesFlyControls( camera.mode, attachedCamera.State().activeFollow, camera.director.grabbed );
     const KeyboardContextFacts contextFacts{ !ui.BlocksKeyboard(),

@@ -2860,7 +2860,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
     InputRouter& inputRouter = interactionOwners.inputRouter;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    UI::InGameUI& ui = interactionOwners.overlays.OperatorUi();
+    UI::InGameUI& ui = interactionOwners.operatorUi;
     InteractionAutomationFrameResult result;
     if ( !state.enabled || state.finished )
     {
@@ -3215,7 +3215,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     InputRouter& inputRouter = interactionOwners.inputRouter;
     RunCameraState& camera = interactionOwners.camera;
-    UI::InGameUI& ui = interactionOwners.overlays.OperatorUi();
+    UI::InGameUI& ui = interactionOwners.operatorUi;
     InteractionAutomationFrameResult result;
     if ( !state.enabled || state.finished )
     {

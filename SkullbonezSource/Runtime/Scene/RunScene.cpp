@@ -51,7 +51,6 @@ Related:
 #include "../Render/RuntimeRenderer.h"
 #include "SceneRuntimeCoordinator.h"
 #include "../../Physics/SimulationSystem.h"
-#include "../Debug/PhysicsDebugVisualizer.h"
 #include "SceneRuntimeLoad.h"
 #include "SceneRuntimeReset.h"
 #include "SceneRuntimeStyle.h"
@@ -68,6 +67,7 @@ Related:
 #include "../../Rendering/IRenderDiagnostics.h"
 #include "../../Rendering/IRenderResourceFactory.h"
 #include "../../Scene/SceneSnapshotWriter.h"
+#include "../../UI/UI.h"
 #include "../../Scene/TestScene.h"
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
@@ -537,15 +537,15 @@ SceneController::Load( const SceneLoadRequest& request,
                        SimulationSystem& m_simulation,
                        ReplayRuntime& m_replayRuntime,
                        SkullbonezCore::Runtime::Audio::ContactAudioService& m_contactAudio,
+                       UI::InGameUI& m_UI,
                        RuntimeOverlayDiagnostics& overlays,
                        RuntimeValidationHarness& validationHarness,
                        RuntimeTools& m_runtimeTools,
                        const RuntimeRenderBackendView& m_renderBackendView,
                        RuntimeRenderer& m_renderer )
 {
-    UI::InGameUI& m_UI = overlays.OperatorUi();
-    RunDebugState& m_debug = overlays.PresentationState();
-    Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer = overlays.PhysicsDebugOverlay();
+    RuntimeOverlayPresentationEdit presentationEdit = overlays.EditPresentation();
+    RunDebugState& m_debug = presentationEdit.State();
     // Operator sleep policy is physics-owned and survives ordinary scene
     // changes. The scene reset snapshot restores the same owner explicitly.
     const bool retainedPhysicsSleepEnabled = Physics().IsSleepEnabled();
@@ -674,7 +674,6 @@ SceneController::Load( const SceneLoadRequest& request,
     m_runtimeTools.ClearRayCastTestLines();
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Tools );
     m_debug.ResetForSceneLoad();
-    m_physicsDebugVisualizer.SetFlags( PHYSICS_DEBUG_NONE );
     // overlayMode intentionally preserved — the user's HUD state persists across scene reloads.
     m_timers.ResetSceneMeasurements();
 
@@ -1068,7 +1067,6 @@ SceneController::Load( const SceneLoadRequest& request,
                                           m_renderer,
                                           m_debug,
                                           m_camera,
-                                          m_physicsDebugVisualizer,
                                           resetSnapshot,
                                           suppressExitOnComplete );
     }

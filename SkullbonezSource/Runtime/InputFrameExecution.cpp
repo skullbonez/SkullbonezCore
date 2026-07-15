@@ -105,7 +105,8 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     const RunStartupState& m_startup = sceneOwners.startup;
     RunTimerState& m_timers = sceneOwners.timers;
     RunCameraState& m_camera = interactionOwners.camera;
-    RunDebugState& m_debug = sceneOwners.overlays.PresentationState();
+    RuntimeOverlayPresentationEdit presentationEdit = sceneOwners.overlays.EditPresentation();
+    RunDebugState& m_debug = presentationEdit.State();
     ApplicationExitState& m_applicationExit = host.applicationExit;
     RenderDefaultsStore& m_renderDefaults = presentationOwners.renderDefaults;
     DiagnosticsRuntime& m_diagnosticsRuntime = host.diagnosticsRuntime;
@@ -117,7 +118,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     SimulationSystem& m_simulation = sceneOwners.simulation;
     ReplayRuntime& m_replayRuntime = replayRuntime;
     SkullbonezCore::Runtime::Audio::ContactAudioService& m_contactAudio = sceneOwners.contactAudio;
-    SkullbonezCore::UI::InGameUI& m_UI = interactionOwners.overlays.OperatorUi();
+    SkullbonezCore::UI::InGameUI& m_UI = interactionOwners.operatorUi;
     RuntimeValidationHarness& m_validationHarness = presentationOwners.validationHarness;
     RuntimeTools& m_runtimeTools = interactionOwners.runtimeTools;
     RuntimeRenderBackendView& m_renderBackendView = presentationOwners.renderBackendView;
@@ -142,13 +143,16 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     };
     const auto RunUIStressActions = [&]()
     {
-        return SkullbonezCore::Runtime::RunUIStressActions(
+        presentationEdit.Commit();
+        const SkullbonezCore::Core::SbResult result = SkullbonezCore::Runtime::RunUIStressActions(
             host,
             interactionOwners,
             sceneOwners,
             presentationOwners,
             m_replayRuntime,
             NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ) );
+        presentationEdit.Refresh();
+        return result;
     };
     const auto DrainCaptureRequests = [&]()
     {
@@ -345,30 +349,34 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         {
             return false;
         }
-        return m_sceneController
-            .Load( request,
-                   m_config,
-                   m_launchOptions,
-                   m_renderDefaults.CinematicBaseline(),
-                   m_startup,
-                   m_diagnosticsRuntime,
-                   m_timers,
-                   m_assets,
-                   m_workerPool,
-                   m_window,
-                   m_inputRouter,
-                   m_interaction,
-                   m_camera,
-                   m_attachedCamera.State(),
-                   m_simulation,
-                   m_replayRuntime,
-                   m_contactAudio,
-                   interactionOwners.overlays,
-                   m_validationHarness,
-                   m_runtimeTools,
-                   m_renderBackendView,
-                   m_renderer )
-            .ok;
+        presentationEdit.Commit();
+        const bool loaded = m_sceneController
+                                .Load( request,
+                                       m_config,
+                                       m_launchOptions,
+                                       m_renderDefaults.CinematicBaseline(),
+                                       m_startup,
+                                       m_diagnosticsRuntime,
+                                       m_timers,
+                                       m_assets,
+                                       m_workerPool,
+                                       m_window,
+                                       m_inputRouter,
+                                       m_interaction,
+                                       m_camera,
+                                       m_attachedCamera.State(),
+                                       m_simulation,
+                                       m_replayRuntime,
+                                       m_contactAudio,
+                                       interactionOwners.operatorUi,
+                                       sceneOwners.overlays,
+                                       m_validationHarness,
+                                       m_runtimeTools,
+                                       m_renderBackendView,
+                                       m_renderer )
+                                .ok;
+        presentationEdit.Refresh();
+        return loaded;
     };
 
     // Invariant: pre-UI consumers receive the router's fixed ordered events.
@@ -806,13 +814,16 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             EnterInteractiveSceneRun();
             uiFrameResult.enterInteractiveScene = false;
         }
-        if ( m_inputRouter.DispatchAfterUiDismiss(
-                 m_inputActions,
-                 { uiFrameResult.commands.ui.userInteracted, m_timers.simulationTimer.GetTotalTime() },
-                 host,
-                 interactionOwners,
-                 sceneOwners,
-                 m_replayRuntime.BuildInputView() ) )
+        presentationEdit.Commit();
+        const bool quitRequested = m_inputRouter.DispatchAfterUiDismiss(
+            m_inputActions,
+            { uiFrameResult.commands.ui.userInteracted, m_timers.simulationTimer.GetTotalTime() },
+            host,
+            interactionOwners,
+            sceneOwners,
+            m_replayRuntime.BuildInputView() );
+        presentationEdit.Refresh();
+        if ( quitRequested )
         {
             PostQuitMessage( 0 );
         }
@@ -823,6 +834,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         CameraModeEnabledMask(),
         uiFrameResult.suppressWorldActionThisFrame,
         m_startup.gameModelCapacity };
+    presentationEdit.Commit();
     uiFrameResult = ApplyRuntimeUIFrameCommands( uiFrameResult,
                                                  keyboardToggleEditorMode,
                                                  host,
@@ -831,6 +843,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                  presentationOwners,
                                                  m_replayRuntime,
                                                  commandFacts );
+    presentationEdit.Refresh();
     if ( uiFrameResult.status.ok && uiFrameResult.frameActive )
     {
         uiFrameResult.status = RunUIStressActions();
@@ -1012,6 +1025,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         // historical pre-render input checkpoint; automation remains post-render.
         const bool processedDefaults = DrainRenderDefaultRequests();
         const bool processedCapture = DrainCaptureRequests();
+        presentationEdit.Commit();
         const bool processedScene = m_sceneController.ExecutePending( m_config,
                                                                       m_launchOptions,
                                                                       m_renderDefaults.CinematicBaseline(),
@@ -1028,11 +1042,13 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                                       m_simulation,
                                                                       m_replayRuntime,
                                                                       m_contactAudio,
-                                                                      interactionOwners.overlays,
+                                                                      interactionOwners.operatorUi,
+                                                                      sceneOwners.overlays,
                                                                       m_validationHarness,
                                                                       m_runtimeTools,
                                                                       m_renderBackendView,
                                                                       m_renderer );
+        presentationEdit.Refresh();
         if ( processedCapture || processedDefaults || processedScene )
         {
         }

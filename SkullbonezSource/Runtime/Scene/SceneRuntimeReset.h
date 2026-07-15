@@ -41,10 +41,6 @@ namespace Environment
 {
 class WorldEnvironment;
 }
-namespace Physics
-{
-class PhysicsDebugVisualizer;
-}
 namespace Runtime
 {
 class SceneController;
@@ -101,7 +97,6 @@ void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
                                        RuntimeRenderer& renderer,
                                        RunDebugState& debug,
                                        RunCameraState& camera,
-                                       Physics::PhysicsDebugVisualizer& physicsDebugVisualizer,
                                        const SceneRuntimeResetSnapshot& snapshot,
                                        bool suppressExitOnComplete );
 void ClearSceneRuntimeUIOverrides( SceneController& controller );

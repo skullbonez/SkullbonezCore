@@ -133,9 +133,3 @@ void RuntimeValidationHarness::PrintGraphicsStressExitSummary( int currentSceneF
                  m_graphicsStress.SceneLoadsRequested() );
     std::fflush( stdout );
 }
-
-
-GraphicsStressController& RuntimeValidationHarness::GraphicsStress()
-{
-    return m_graphicsStress;
-}

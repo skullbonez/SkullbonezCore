@@ -34,11 +34,11 @@ Related:
 #include "Scene/SceneController.h"
 #include "../Core/Profiler.h"
 #include "../Physics/PhysicsApi.h"
+#include "../UI/UI.h"
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Math::CollisionDetection::SpatialGrid;
-namespace SBPhysics = SkullbonezCore::Physics;
 namespace SBUI = SkullbonezCore::UI;
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
@@ -53,7 +53,8 @@ std::unique_ptr<RuntimeOverlayDiagnostics> RuntimeOverlayDiagnostics::CreateForS
 
 
 void RuntimeOverlayDiagnostics::ApplyStartupPolicy( const RunStartupOverrides& overrides,
-                                                    RunLaunchOptions& launchOptions )
+                                                    RunLaunchOptions& launchOptions,
+                                                    UI::InGameUI& operatorUi )
 {
     const RunLaunchOptions& launch = overrides.launch;
     if ( overrides.hasInitialOverlayMode )
@@ -61,20 +62,20 @@ void RuntimeOverlayDiagnostics::ApplyStartupPolicy( const RunStartupOverrides& o
         m_presentationState.overlayMode = overrides.initialOverlayMode;
         if ( overrides.initialOverlayMode != OverlayMode::None )
         {
-            m_ui.SetVisible( true );
+            operatorUi.SetVisible( true );
         }
         switch ( overrides.initialOverlayMode )
         {
         case OverlayMode::SceneStats:
-            m_ui.SetActiveTab( SBUI::InGameUITab::Scene );
+            operatorUi.SetActiveTab( SBUI::InGameUITab::Scene );
             break;
         case OverlayMode::Keys:
-            m_ui.SetActiveTab( SBUI::InGameUITab::Keys );
+            operatorUi.SetActiveTab( SBUI::InGameUITab::Keys );
             break;
         case OverlayMode::BarsNormalized:
         case OverlayMode::BarsAbsolute:
         case OverlayMode::Timers:
-            m_ui.SetActiveTab( SBUI::InGameUITab::Profiler );
+            operatorUi.SetActiveTab( SBUI::InGameUITab::Profiler );
             break;
         default:
             break;
@@ -126,24 +127,24 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneController& scene,
     PROFILE_BEGIN( "Frame/PostPhysics/BroadphaseVisualizer" );
     // Why: hidden broadphase state still advances so cell fades and validation
     // gates remain coherent when the operator toggles the overlay.
-    m_broadphaseOverlay.SetEnabled( m_presentationState.isBroadphaseOverlay );
+    m_renderResources.m_broadphaseOverlay.SetEnabled( m_presentationState.isBroadphaseOverlay );
     PhysicsEngine& physics = scene.Physics();
     const SpatialGrid& grid = PhysicsEngine::ReadSpatialGrid( physics );
-    m_broadphaseOverlay.SetCellSize( grid.GetCellSize() );
+    m_renderResources.m_broadphaseOverlay.SetCellSize( grid.GetCellSize() );
     SpatialGrid::ActiveCell activeCells[SpatialGrid::MAX_BUCKETS];
     const int activeCellCount = grid.GetActiveCellCount();
     grid.GetActiveCells( activeCells, SpatialGrid::MAX_BUCKETS );
     const std::vector<int64_t>& collisionKeys = PhysicsEngine::ReadCollisionCellKeys( physics );
-    m_broadphaseOverlay.Update( static_cast<float>( secondsPerFrame ),
-                                activeCells,
-                                activeCellCount,
-                                collisionKeys.data(),
-                                static_cast<int>( collisionKeys.size() ) );
+    m_renderResources.m_broadphaseOverlay.Update( static_cast<float>( secondsPerFrame ),
+                                                  activeCells,
+                                                  activeCellCount,
+                                                  collisionKeys.data(),
+                                                  static_cast<int>( collisionKeys.size() ) );
     scene.UpdateRequiredBroadphaseXCells( activeCells, (std::min)( activeCellCount, SpatialGrid::MAX_BUCKETS ) );
     PROFILE_END( "Frame/PostPhysics/BroadphaseVisualizer" );
 
     PROFILE_BEGIN( "Frame/PostPhysics/CollisionVisualizer" );
-    m_collisionOverlay.SetEnabled( m_presentationState.isCollisionVisualizer );
+    m_renderResources.m_collisionOverlay.SetEnabled( m_presentationState.isCollisionVisualizer );
     const CollisionVisualizerFrameView collisionView{ scene.BodyStore(),
                                                       scene.Colliders(),
                                                       scene.RenderInstances(),
@@ -151,13 +152,14 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneController& scene,
                                                       PhysicsEngine::ReadSleepStates( physics ),
                                                       PhysicsEngine::ReadSleepIslandVisualIds( physics ),
                                                       scene.BodyStore().Count() };
-    m_collisionOverlay.Update( static_cast<float>( secondsPerFrame ), collisionView );
+    m_renderResources.m_collisionOverlay.Update( static_cast<float>( secondsPerFrame ), collisionView );
     PROFILE_END( "Frame/PostPhysics/CollisionVisualizer" );
 
     PROFILE_BEGIN( "Frame/PostPhysics/PhysicsDebugVisualizer" );
-    m_physicsDebugOverlay.SetFlags( m_presentationState.physicsDebugFlags );
-    m_physicsDebugOverlay.SetContactLingerSeconds( m_presentationState.physicsDebugContactLinger );
-    m_physicsDebugOverlay.SetPipelineStageCursor( m_presentationState.physicsDebugPipelineStageCursor );
+    m_renderResources.m_physicsDebugOverlay.SetFlags( m_presentationState.physicsDebugFlags );
+    m_renderResources.m_physicsDebugOverlay.SetContactLingerSeconds( m_presentationState.physicsDebugContactLinger );
+    m_renderResources.m_physicsDebugOverlay.SetPipelineStageCursor(
+        m_presentationState.physicsDebugPipelineStageCursor );
     const PhysicsDebugFrameView physicsDebugView{ scene.BodyStore(),
                                                   scene.Colliders(),
                                                   PhysicsEngine::ReadSleepStates( physics ),
@@ -166,7 +168,7 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneController& scene,
                                                   PhysicsEngine::ReadDebugContacts( physics ),
                                                   PhysicsEngine::ReadPipelineTrace( physics ),
                                                   scene.BodyStore().Count() };
-    m_physicsDebugOverlay.Update( static_cast<float>( secondsPerFrame ), physicsDebugView );
+    m_renderResources.m_physicsDebugOverlay.Update( static_cast<float>( secondsPerFrame ), physicsDebugView );
     scene.UpdateRequiredContacts( contactEpsilon );
     PROFILE_END( "Frame/PostPhysics/PhysicsDebugVisualizer" );
 
@@ -202,43 +204,61 @@ RuntimeRenderFramePolicy RuntimeOverlayDiagnostics::BuildFramePolicy( double sim
 }
 
 
-SBUI::InGameUI& RuntimeOverlayDiagnostics::OperatorUi()
+RuntimeOverlayPresentationEdit::RuntimeOverlayPresentationEdit( RuntimeOverlayDiagnostics& owner,
+                                                                const RunDebugState& state )
+    : m_owner( owner ), m_state( state )
 {
-    return m_ui;
 }
 
 
-const SBUI::InGameUI& RuntimeOverlayDiagnostics::OperatorUi() const
+RuntimeOverlayPresentationEdit::~RuntimeOverlayPresentationEdit()
 {
-    return m_ui;
+    m_owner.CommitPresentation( m_state );
 }
 
 
-RunDebugState& RuntimeOverlayDiagnostics::PresentationState()
+RunDebugState& RuntimeOverlayPresentationEdit::State()
+{
+    return m_state;
+}
+
+
+void RuntimeOverlayPresentationEdit::Commit()
+{
+    m_owner.CommitPresentation( m_state );
+}
+
+
+void RuntimeOverlayPresentationEdit::Refresh()
+{
+    m_state = m_owner.PresentationSnapshot();
+}
+
+
+RunDebugState RuntimeOverlayDiagnostics::PresentationSnapshot() const
 {
     return m_presentationState;
 }
 
 
-const RunDebugState& RuntimeOverlayDiagnostics::PresentationState() const
+RuntimeOverlayPresentationEdit RuntimeOverlayDiagnostics::EditPresentation()
 {
-    return m_presentationState;
+    return RuntimeOverlayPresentationEdit( *this, m_presentationState );
 }
 
 
-SBPhysics::BroadphaseVisualizer& RuntimeOverlayDiagnostics::BroadphaseOverlay()
+RuntimeOverlayRenderResources& RuntimeOverlayDiagnostics::RenderResources()
 {
-    return m_broadphaseOverlay;
+    return m_renderResources;
 }
 
 
-SBPhysics::CollisionVisualizer& RuntimeOverlayDiagnostics::CollisionOverlay()
+void RuntimeOverlayDiagnostics::CommitPresentation( const RunDebugState& state )
 {
-    return m_collisionOverlay;
-}
-
-
-SBPhysics::PhysicsDebugVisualizer& RuntimeOverlayDiagnostics::PhysicsDebugOverlay()
-{
-    return m_physicsDebugOverlay;
+    m_presentationState = state;
+    // Invariant: cold scene/reset edits become visible before a no-physics
+    // scene's next render, rather than waiting for post-physics refresh.
+    m_renderResources.m_physicsDebugOverlay.SetFlags( state.physicsDebugFlags );
+    m_renderResources.m_physicsDebugOverlay.SetContactLingerSeconds( state.physicsDebugContactLinger );
+    m_renderResources.m_physicsDebugOverlay.SetPipelineStageCursor( state.physicsDebugPipelineStageCursor );
 }

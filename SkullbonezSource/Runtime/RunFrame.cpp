@@ -46,7 +46,6 @@ Related:
 #include "RuntimeViewModel.h"
 #include "Window.h"
 #include "../Core/WorkerPool.h"
-#include "RuntimeStressController.h"
 #include "InputFrame.h"
 #include "Replay/ReplayRestoreTransactions.h"
 #include "Replay/ReplayOverlayRenderer.h"
@@ -72,6 +71,7 @@ Related:
 #include "../Rendering/RenderInstanceStore.h"
 #include "../Rendering/IRenderDiagnostics.h"
 #include "../Rendering/IRenderDeviceLifecycle.h"
+#include "../UI/UI.h"
 
 #include <cmath>
 #include <cstdarg>
@@ -102,6 +102,17 @@ void PrintRuntimeExitReason( const char* reason )
 {
     printf( "[runtime-exit] %s\n", reason );
     fflush( stdout );
+}
+
+float ResolvePresentationAlpha( const SkullbonezCore::Core::EngineConfig& config,
+                                bool capturePresentationPinned,
+                                float simulationPresentationAlpha )
+{
+    if ( !config.runtimeRender.presentationInterpolation || capturePresentationPinned )
+    {
+        return 1.0f;
+    }
+    return std::clamp( simulationPresentationAlpha, 0.0f, 1.0f );
 }
 
 bool ShouldFlashContactAudioDecision( ContactAudioFlashMode mode,
@@ -136,13 +147,14 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
     RuntimeRenderer& renderer = presentationOwners.renderer;
     DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
     RunTimerState& timers = sceneOwners.timers;
-    RunDebugState& debug = sceneOwners.overlays.PresentationState();
+    RuntimeOverlayPresentationEdit presentationEdit = sceneOwners.overlays.EditPresentation();
+    RunDebugState& debug = presentationEdit.State();
     SceneController& sceneController = sceneOwners.sceneController;
     RunSceneState& scene = sceneController.State();
     SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
     SkullbonezCore::Environment::WorldEnvironment& worldEnvironment = sceneController.World();
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    SkullbonezCore::UI::InGameUI& ui = interactionOwners.overlays.OperatorUi();
+    SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
     RuntimeInputContext& runtimeInput = interactionOwners.inputRouter.RuntimeContext();
     RunCameraState& camera = interactionOwners.camera;
     SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio = sceneOwners.contactAudio;
@@ -422,7 +434,7 @@ void CaptureReplayPostStep( RuntimeFrameInteractionView& interactionOwners,
     SkullbonezCore::Runtime::SceneController& models = sceneOwners.sceneController;
     const RunSceneState& scene = models.State();
     RunTimerState& timers = sceneOwners.timers;
-    const RunDebugState& debug = sceneOwners.overlays.PresentationState();
+    const RunDebugState debug = sceneOwners.overlays.PresentationSnapshot();
     SkullbonezCore::Environment::CameraCollection& cameras = models.Cameras();
     SkullbonezCore::Environment::WorldEnvironment& world = models.World();
     PhysicsEngine& physics = models.Physics();
@@ -522,7 +534,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             RuntimeFrameInteractionView frameInteraction{ m_inputRouter,
                                                           m_interaction,
                                                           m_attachedCamera,
-                                                          *m_overlayDiagnostics,
+                                                          *m_operatorUi,
                                                           m_runtimeTools,
                                                           m_camera };
             RuntimeFrameSceneView frameScene{ m_config,
@@ -535,7 +547,6 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                               m_sceneController };
             RuntimeFramePresentationView framePresentation{ m_renderDefaults,
                                                             *m_validationHarness,
-                                                            *m_overlayDiagnostics,
                                                             m_renderBackendView,
                                                             m_renderer };
             frameRenderDiagnostics.ResetFrameDrawCalls();
@@ -606,7 +617,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             // Invariant: decide capture determinism before physics/camera update.
             // The frame rendered for a scheduled screenshot must use exact
             // current solver poses even when live presentation interpolation is on.
-            m_capturePresentationPinned =
+            const bool capturePresentationPinned =
                 m_diagnosticsRuntime.Capture().RequiresDeterministicPresentation( captureContext ) ||
                 ( captureContext.isSceneMode && m_camera.autoCycleInterval > 0.0f ) ||
                 m_validationHarness->HasPendingLiveStyleCapture()
@@ -615,10 +626,12 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                                 m_sceneController.State().currentFrame )
 #endif
                 ;
+            float simulationPresentationAlpha = 1.0f;
             {
                 RuntimeAllocation::RuntimeAllocationScope allocationScope(
                     RuntimeAllocation::RuntimeAllocationPhase::Physics );
-                TickPhysics( secondsPerFrame, frameInteraction, frameScene );
+                simulationPresentationAlpha =
+                    TickPhysics( secondsPerFrame, frameInteraction, frameScene, capturePresentationPinned );
             }
 
             {
@@ -645,12 +658,14 @@ SkullbonezCore::Core::SbResult Run::Execute()
             // processing. Tick it once per rendered frame so headless and
             // overnight launches keep mutating DX12 state even when the UI
             // command panel is not producing control messages.
-            ExecuteGraphicsStressFrame( frameHost,
-                                        frameInteraction,
-                                        frameScene,
-                                        framePresentation,
-                                        m_replayRuntime,
-                                        frameRenderDiagnostics );
+            m_validationHarness->ExecuteGraphicsStressFrame( frameHost,
+                                                             frameInteraction,
+                                                             frameScene,
+                                                             framePresentation,
+                                                             m_replayRuntime,
+                                                             frameRenderDiagnostics );
+            const float presentationAlpha =
+                ResolvePresentationAlpha( m_config, capturePresentationPinned, simulationPresentationAlpha );
 
             if ( m_renderer.PipelineSyncEnabled() )
             {
@@ -681,7 +696,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 RuntimeAllocation::RuntimeAllocationScope allocationScope(
                     RuntimeAllocation::RuntimeAllocationPhase::Render );
                 DRAW_CALL_TRACE_SCOPE( frameRenderDiagnostics, "Frame/Render" );
-                Render( renderModels, PresentationAlphaForFrame() );
+                Render( renderModels, presentationAlpha );
             }
             PROFILE_END( "Frame/Render" );
 
@@ -692,8 +707,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                        m_runtimeTools.LauncherFireModeLabel(),
                                                        RunCameraModeUsesLauncher( m_camera.mode ),
                                                        m_interaction.Gesture(),
-                                                       PresentationAlphaForFrame(),
-                                                       m_capturePresentationPinned,
+                                                       presentationAlpha,
+                                                       capturePresentationPinned,
                                                        secondsPerFrame };
             RenderExecuteUiTextFrame( frameHost,
                                       frameInteraction,
@@ -794,27 +809,17 @@ SkullbonezCore::Core::SbResult Run::Execute()
 }
 
 
-float Run::PresentationAlphaForFrame() const
-{
-    if ( !m_config.runtimeRender.presentationInterpolation || m_capturePresentationPinned )
-    {
-        return 1.0f;
-    }
-    return std::clamp( m_presentationAlpha, 0.0f, 1.0f );
-}
-
-
-void Run::TickPhysics( double secondsPerFrame,
-                       RuntimeFrameInteractionView& interactionOwners,
-                       RuntimeFrameSceneView& sceneOwners )
+float Run::TickPhysics( double secondsPerFrame,
+                        RuntimeFrameInteractionView& interactionOwners,
+                        RuntimeFrameSceneView& sceneOwners,
+                        bool capturePresentationPinned )
 {
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
     if ( replayInput.scrubPaused )
     {
-        m_presentationAlpha = 1.0f;
         PROFILE_SCOPED( "Frame/Replay/ScrubCamera" );
-        UpdateLogic( 0.0f, static_cast<float>( secondsPerFrame ) );
-        return;
+        UpdateLogic( 0.0f, static_cast<float>( secondsPerFrame ), 1.0f );
+        return 1.0f;
     }
 
     const bool replayLiveAdvanceHeld = replayInput.liveAdvanceHeld;
@@ -861,7 +866,8 @@ void Run::TickPhysics( double secondsPerFrame,
                                                                               policy.physicsAdvance,
                                                                               stepRequested,
                                                                               canStepPhysics } );
-    m_presentationAlpha = tick.presentationAlpha;
+    const float presentationAlpha =
+        ResolvePresentationAlpha( m_config, capturePresentationPinned, tick.presentationAlpha );
     if ( tick.committedPhysicsTicks > 0 && canStepPhysics )
     {
         PROFILE_BEGIN( "Frame/Physics" );
@@ -891,7 +897,7 @@ void Run::TickPhysics( double secondsPerFrame,
 
             if ( manipulatorPhysics || replayCapture || contactAudioStep )
             {
-                AfterPhysicsStep( interactionOwners, sceneOwners );
+                AfterPhysicsStep( interactionOwners, sceneOwners, presentationAlpha );
             }
         }
         PROFILE_END( "Frame/Physics" );
@@ -900,7 +906,7 @@ void Run::TickPhysics( double secondsPerFrame,
     m_runtimeTools.Laser().Update( static_cast<float>( secondsPerFrame ) );
     if ( tick.shouldUpdateLogic )
     {
-        UpdateLogic( tick.simulationDt, tick.cameraDt );
+        UpdateLogic( tick.simulationDt, tick.cameraDt, presentationAlpha );
     }
     else
     {
@@ -932,10 +938,13 @@ void Run::TickPhysics( double secondsPerFrame,
             (void)m_replayRuntime.ApplyFrameIntent( intent );
         }
     }
+    return tick.presentationAlpha;
 }
 
 
-void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners, RuntimeFrameSceneView& sceneOwners )
+void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners,
+                            RuntimeFrameSceneView& sceneOwners,
+                            float presentationAlpha )
 {
     m_runtimeTools.RestoreMousePickupAngularVelocity( m_sceneController,
                                                       m_sceneController.Physics(),
@@ -951,7 +960,7 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners, Runt
         {
             (void)m_attachedCamera.TryGetPresentationListenerPosition( m_sceneController,
                                                                        m_sceneController.Cameras(),
-                                                                       PresentationAlphaForFrame(),
+                                                                       presentationAlpha,
                                                                        listenerPosition );
         }
         ExecuteContactAudioPostStep( m_contactAudio,
@@ -969,6 +978,7 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners, Runt
 #ifdef _DEBUG
     if ( replayCaptured )
     {
+        RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
         const ReplaySceneTimelineResetInput timelineReset =
             DescribeReplaySceneTimeline( m_sceneController,
                                          m_sceneController.State(),
@@ -978,7 +988,7 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners, Runt
                                                       m_sceneController,
                                                       m_sceneController.State(),
                                                       m_renderer,
-                                                      m_overlayDiagnostics->PresentationState(),
+                                                      presentationEdit.State(),
                                                       m_runtimeTools };
         const ReplaySceneTimelineResetOwners timelineOwners{
             m_inputRouter,
@@ -1106,6 +1116,7 @@ bool Run::TickScreenshots()
                                                               m_simulation,
                                                               m_replayRuntime,
                                                               m_contactAudio,
+                                                              *m_operatorUi,
                                                               *m_overlayDiagnostics,
                                                               *m_validationHarness,
                                                               m_runtimeTools,
@@ -1234,6 +1245,7 @@ bool Run::TickSceneAdvance()
                                    m_simulation,
                                    m_replayRuntime,
                                    m_contactAudio,
+                                   *m_operatorUi,
                                    *m_overlayDiagnostics,
                                    *m_validationHarness,
                                    m_runtimeTools,
@@ -1257,7 +1269,7 @@ bool Run::TickSceneAdvance()
 }
 
 
-void Run::UpdateLogic( float simulationDt, float cameraDt )
+void Run::UpdateLogic( float simulationDt, float cameraDt, float presentationAlpha )
 {
     m_camera.AdvanceAutoCycleClock( m_sceneController.State().isSceneMode, simulationDt );
     m_camera.TickControls( m_sceneController.Cameras(),
@@ -1269,7 +1281,7 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
                            m_runtimeTools.Editor().viewportLookActive,
                            m_sceneController.State().isSceneMode,
                            cameraDt,
-                           PresentationAlphaForFrame() );
+                           presentationAlpha );
     DemoDirectorPredictionView directorPrediction;
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
     directorPrediction.revealAvailable = replayInput.predictionRevealAvailable;

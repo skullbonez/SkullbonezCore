@@ -44,6 +44,7 @@ Related:
 #include "../RunCameraState.h"
 #include "../RunTimerState.h"
 #include "../RuntimeDiagnostics.h"
+#include "../RuntimeOverlayDiagnostics.h"
 #include "../Window.h"
 #include "../Scene/SceneController.h"
 #include "../Tools/RuntimeTools.h"
@@ -1516,8 +1517,9 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend,
     : m_lifecycleLog( backend.deviceLifecycle, scene.sceneController.State() ), m_assets( world.assets ),
       m_cameras( world.cameras ), m_terrain( world.terrain ), m_window( world.window ), m_config( world.config ),
       m_world( world.worldEnvironment ), m_primitiveBatches( std::in_place, backend.renderResources ),
-      m_collisionVisualizer( world.collisionVisualizer ), m_broadphaseVisualizer( world.broadphaseVisualizer ),
-      m_physicsDebugVisualizer( world.physicsDebugVisualizer ), m_profiler( world.profiler ),
+      m_collisionVisualizer( world.overlayResources.m_collisionOverlay ),
+      m_broadphaseVisualizer( world.overlayResources.m_broadphaseOverlay ),
+      m_physicsDebugVisualizer( world.overlayResources.m_physicsDebugOverlay ), m_profiler( world.profiler ),
       m_fullscreenQuadPass( m_passResources.fullscreen ),
       m_skyPass( m_passResources.sky, m_passResources.fullscreen, m_skyBox, m_config ),
       m_sceneTargetPass( m_passResources.cinematicScene ),

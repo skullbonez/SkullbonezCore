@@ -42,10 +42,16 @@ namespace SkullbonezCore
 namespace Rendering
 {
 class IRenderCaptureBackend;
-}
+class IRenderDiagnostics;
+} // namespace Rendering
 namespace Runtime
 {
 class CaptureController;
+class ReplayRuntime;
+struct RuntimeFrameHostView;
+struct RuntimeFrameInteractionView;
+struct RuntimeFramePresentationView;
+struct RuntimeFrameSceneView;
 struct RunLaunchOptions;
 struct RunStartupOverrides;
 struct SceneRuntimeStyleContext;
@@ -63,7 +69,12 @@ class RuntimeValidationHarness
 
     void ResumeGraphicsStressAfterSceneLoad( const RunLaunchOptions& launchOptions );
     void PrintGraphicsStressExitSummary( int currentSceneFrame ) const;
-    GraphicsStressController& GraphicsStress();
+    void ExecuteGraphicsStressFrame( RuntimeFrameHostView& host,
+                                     RuntimeFrameInteractionView& interactionOwners,
+                                     RuntimeFrameSceneView& sceneOwners,
+                                     RuntimeFramePresentationView& presentationOwners,
+                                     ReplayRuntime& replayRuntime,
+                                     const Rendering::IRenderDiagnostics& renderDiagnostics );
 
   private:
     LiveStyleController m_liveStyle;

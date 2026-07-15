@@ -22,31 +22,30 @@ through `Run.h`, not merely remove their direct spelling.
 
 ### Owner A: `RuntimeOverlayDiagnostics`
 
-Members: `m_UI`, `m_debug`, `m_broadphaseVisualizer`,
-`m_collisionVisualizer`, and `m_physicsDebugVisualizer`.
+Members: `m_debug`, `m_broadphaseVisualizer`, `m_collisionVisualizer`, and
+`m_physicsDebugVisualizer`.
 
-These values form one operator-facing overlay domain. `RunDebugState` is the
-single presentation policy record for HUD selection, visibility flags, and
-physics-debug drawing; the UI displays and mutates that policy; the three
-visualizers render the selected spatial-grid, collision/sleep, and physics
-pipeline views. Their shared invariants are presentation-only behavior,
-scene-reset policy, input-toggle routing, and renderer-resource lifetime. The
-owner must provide domain operations for startup/scene policy, input toggles,
-frame-policy construction, scene reset, and post-physics visualizer updates.
-Renderer construction may receive one typed overlay-render binding value, but
-the owner must not expose a broad services bag or retain a back-reference to
-`Run`.
+These values form one debug-presentation domain. `RunDebugState` is the single
+presentation policy record for HUD selection, visibility flags, and physics-
+debug drawing; the three visualizers render the selected spatial-grid,
+collision/sleep, and physics pipeline views. Their shared invariants are
+presentation-only behavior, scene-reset policy, input-toggle routing, and
+renderer-resource lifetime. The owner provides domain operations for startup/
+scene policy, input toggles, frame-policy construction, scene reset, and post-
+physics visualizer updates. Renderer construction receives one typed opaque
+resource capability; the owner exposes neither individual visualizers nor its
+mutable policy record and retains no back-reference to `Run`.
 
 Current call positions that T2 must preserve:
 
 | Member(s) | Current call sites | Required ordering |
 |---|---|---|
 | three visualizers | `Run.cpp:356-358` | Borrowed while `RuntimeRenderer` is constructed; owner must outlive renderer. |
-| UI | `Run.cpp:424`, `492`, `512` | Backend release, startup presentation policy, then Automation binding remain in their existing startup/shutdown positions. |
-| UI, debug, physics visualizer | `Run.cpp:632-637`, `788-793`; `RunFrame.cpp:1189-1194`, `1319-1324` | Scene load/advance/reset receives the same overlay state at the same call positions. |
-| UI/debug/physics visualizer | `RunFrame.cpp:600`, `607`, `613` | Existing interaction, scene, and presentation frame-view slots become one-for-one owner-A borrows; no new universal frame bag. |
+| operator UI | `Run.cpp:424`, `492`, `512` | The UI remains an opaque cohesive `Run` owner; backend release, startup presentation policy, and Automation binding remain in their existing startup/shutdown positions. |
+| UI, presentation policy, physics visualizer | `Run.cpp:632-637`, `788-793`; `RunFrame.cpp:1189-1194`, `1319-1324` | Scene load/advance/reset receives the same UI and overlay policy at the same call positions through separate cohesive owners. |
+| UI/presentation policy/physics visualizer | `RunFrame.cpp:600`, `607`, `613` | Existing interaction, scene, and presentation frame-view slots carry only the narrow owner or value needed at each checkpoint; no new universal frame bag. |
 | debug + three visualizers | `RunFrame.cpp:714-719` | Post-physics visualizer refresh remains after physics and before rendering. G/V/physics-debug toggle routing remains inside the existing input turn. |
-| debug + UI | `RunRender.cpp:47-157` | Text-only early exit, render-frame policy, replay collision policy, and final UI render submission keep exact order. |
+| presentation policy + UI | `RunRender.cpp:47-157` | Text-only early exit, render-frame policy, replay collision policy, and final UI render submission keep exact order across separate owners. |
 | debug | `Run.cpp:674`, `756-757`; `RunFrame.cpp:1062` | Replay restore/timeline and snapshot facts remain read-only presentation borrows. |
 
 ### Owner B: `RuntimeValidationHarness`
@@ -90,20 +89,37 @@ physics-step enable policy (`RunFrame.cpp:934`), and committed post-step audio
 submission (`RunFrame.cpp:1025-1038`). A future audio-owner plan may extract it
 without reopening this two-owner campaign.
 
+### Recorded Stay: `m_operatorUi`
+
+`InGameUI` stays directly on `Run` as an opaque cohesive UI owner. The first
+T5 review found that storing it inside `RuntimeOverlayDiagnostics` forced the
+overlay owner to publish raw UI access to interaction, scene, automation, and
+render clients, turning that owner into a component bag. Keeping UI separate
+preserves its existing domain API and lets the overlay owner enforce its own
+transaction and resource-capability boundaries. `Run.h` still sees only an
+opaque `unique_ptr`, so the include-graph result is unchanged.
+
+Its retained positions are startup construction/policy/automation binding,
+interaction input, scene-load synchronization, final render submission, and
+backend release. The UI's one process-lifetime allocation is explicitly
+Startup-scoped and allowlisted. This is not a third extracted mid-level owner:
+it is the pre-existing cohesive UI domain object retained by the composition
+root because placing it in either new owner violated the no-bag rule.
+
 ## Boundary And Allocation Rules
 
-- Owner A is opaque to `Run.h` through one `unique_ptr`; its five heavyweight
-  values remain by-value inside the owner. Construction runs under an explicit
-  Startup allocation scope and the one process-lifetime allocation has a
-  complete owner/phase/reason/cap/wrapper-plan allowlist row. Owner B remains
-  subject to the same rule when T3 chooses its final storage.
+- Owner A and the operator UI are each opaque to `Run.h` through one
+  `unique_ptr`; owner A's debug policy and three visualizers remain by-value.
+  Construction runs under an explicit Startup allocation scope, and each
+  process-lifetime allocation has a complete owner/phase/reason/cap/wrapper-
+  plan allowlist row. Owner B follows the same rule.
 - Neither owner stores `Run*`, a host reference, callbacks, `void*`, a services
   bag, or a whole-frame view.
 - Frame views replace moved member references with one owner reference
   one-for-one; they remain stack-only and non-retained.
-- Renderer wiring uses a typed overlay-render binding assembled during
-  construction. Runtime work crosses domain APIs, not `Run::*` forwarding
-  methods or raw member getters.
+- Renderer wiring uses one typed opaque overlay-resource capability assembled
+  during construction. Runtime work crosses domain APIs and stack-only value
+  transactions, not `Run::*` forwarding methods or raw member getters.
 - Contact audio remains an explicit, documented remainder rather than being
   forced into an unrelated owner to satisfy a member-count metric.
 
@@ -113,24 +129,26 @@ Documentation-only grouping proposal. No repository validation required.
 
 ## T2 Extraction Evidence
 
-`RuntimeOverlayDiagnostics` now owns `InGameUI`, `RunDebugState`, and the
-broadphase, collision, and physics debug visualizers. It owns real domain
-operations rather than only storing fields:
+`RuntimeOverlayDiagnostics` initially owned `InGameUI`, `RunDebugState`, and
+the broadphase, collision, and physics debug visualizers. The T5 review later
+corrected that provisional shape: UI is an opaque direct `Run` owner, while
+`RuntimeOverlayDiagnostics` exclusively owns debug presentation policy and
+the three matching visualizers. It owns real domain operations rather than
+only storing fields:
 
 - startup overlay/physics-debug launch policy;
 - post-physics refresh of all three visualizers plus their matching scene
   validation gates;
 - immutable render-frame policy sampling;
-- named UI, presentation-state, and renderer visualizer borrows at the narrow
-  scene/replay/render boundaries that require the concrete type.
+- stack-only copied presentation edits and one opaque renderer-resource
+  capability at the narrow scene/replay/render boundaries.
 
-The renderer is declared after the opaque owner and therefore releases all
-borrowed resources before owner destruction. Interaction, scene, and
-presentation frame views each replace their old direct UI/debug/physics-
-visualizer slot with the same owner-A reference. Scene loading similarly
-receives the cohesive owner and derives its three synchronous sub-borrows
-inside the cold load operation. No `Run*`, callback pack, services bag, or
-retained frame view was introduced.
+The renderer is declared after UI, overlays, and validation owners and
+therefore releases all borrowed resources before owner destruction. Frame
+views carry separate narrow UI, overlay-owner, or sampled-value boundaries as
+needed. Scene loading receives UI separately and mutates overlay policy through
+a copied transaction. No `Run*`, callback pack, services bag, raw component
+getter, or retained frame view was introduced.
 
 Formal evidence on 2026-07-16:
 
@@ -260,3 +278,54 @@ Comment-quality audit: touched-file scope, 6/6 C++ source-bearing files
 inspected, zero deferred or unchecked. All retain the required learning-header
 sections and relevant local ownership/lifetime comments; the touched renderer
 implementation's legacy `Mental model` heading was normalized to `Summary`.
+
+## T5 Independent Ownership Review
+
+The mandatory fresh review first found three credible closure blockers in
+185.52 s:
+
+1. `RuntimeOverlayDiagnostics` exposed raw UI and individual visualizer
+   getters, so callers treated it as a component bag instead of a domain owner.
+2. `RuntimeValidationHarness` exposed its graphics-stress controller and left
+   stress-frame sequencing outside the owner.
+3. `Run` still owned mutable presentation alpha and capture-pin policy across
+   frames.
+
+The reopened T2/T3 boundaries were corrected before closure. `InGameUI` now
+remains an opaque cohesive `Run` owner with the recorded stay reason above.
+Overlay mutation crosses a stack-only copied presentation transaction whose
+commit publishes policy atomically; rendering receives one private typed
+resource capability that only `RuntimeRenderer` can unpack. The validation
+harness now executes its private graphics-stress controller through a named
+domain operation. Presentation alpha and capture pinning are frame-local values
+resolved explicitly and threaded through physics, audio, camera, and render
+checkpoints rather than persistent `Run` policy.
+
+The same independent reviewer repeated the whole logical-surface review after
+remediation in 219.50 s and reported zero credible ownership blockers. It
+verified that the presentation transaction's explicit commit/refresh points
+protect every current nested edit site, the renderer capability cannot be used
+as a general services bag, stress sequencing is harness-owned, and `Run` has no
+new pointer/callback/`void*` reach-back or forwarding relay. The residual
+non-blocking maintenance risk is that any future nested presentation edit must
+follow the same commit/refresh protocol; the transaction intentionally carries
+no version token because all current edits are synchronous on one thread.
+
+Formal T5 remediation evidence on 2026-07-16:
+
+- targeted Profile builds passed in 18.16 s and, after the transaction-order
+  correction, 13.51 s, both with zero warnings and zero errors;
+- allocation-policy self-test passed in 0.12 s and the repository scan passed
+  in 8.64 s over 367 files with zero allowlist errors;
+- `tools\\validate_fast.bat` passed in 53.33 s: formatting and project-filter
+  checks, 202/202 doctests with 12,595/12,595 assertions, and zero-warning
+  Profile/Debug builds;
+- `tools\\validate_full.bat` passed in 116.00 s: all CPU lanes, zero-warning
+  Profile/Automation/Debug builds, Automation replay/prediction smoke, zero
+  DX12 InfoQueue errors, all three committed screenshot comparisons, both
+  physics smoke lanes, and the 44,401-line varied physics CSV byte-exact.
+
+Comment-quality audit: touched-file scope, 22/22 C++ source-bearing files
+inspected, zero deferred or unchecked. Every file retains the required learning
+sections and the edited owner/transaction/lifetime comments match the reviewed
+boundaries. No baseline, screenshot, golden, or authored-data file changed.

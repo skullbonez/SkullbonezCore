@@ -49,6 +49,10 @@ namespace Threading
 {
 class WorkerPool;
 }
+namespace UI
+{
+class InGameUI;
+}
 namespace Runtime::Audio
 {
 class ContactAudioService;
@@ -111,18 +115,18 @@ struct RuntimeFrameInteractionView
     InputRouter& inputRouter;
     RuntimeInteractionController& interaction;
     AttachedCameraController& attachedCamera;
-    RuntimeOverlayDiagnostics& overlays;
+    UI::InGameUI& operatorUi;
     RuntimeTools& runtimeTools;
     RunCameraState& camera;
 
     RuntimeFrameInteractionView( InputRouter& inputRouterValue,
                                  RuntimeInteractionController& interactionValue,
                                  AttachedCameraController& attachedCameraValue,
-                                 RuntimeOverlayDiagnostics& overlaysValue,
+                                 UI::InGameUI& operatorUiValue,
                                  RuntimeTools& runtimeToolsValue,
                                  RunCameraState& cameraValue )
         : inputRouter( inputRouterValue ), interaction( interactionValue ), attachedCamera( attachedCameraValue ),
-          overlays( overlaysValue ), runtimeTools( runtimeToolsValue ), camera( cameraValue )
+          operatorUi( operatorUiValue ), runtimeTools( runtimeToolsValue ), camera( cameraValue )
     {
     }
     RuntimeFrameInteractionView( const RuntimeFrameInteractionView& ) = delete;
@@ -167,16 +171,14 @@ struct RuntimeFramePresentationView
 {
     RenderDefaultsStore& renderDefaults;
     RuntimeValidationHarness& validationHarness;
-    RuntimeOverlayDiagnostics& overlays;
     RuntimeRenderBackendView& renderBackendView;
     RuntimeRenderer& renderer;
 
     RuntimeFramePresentationView( RenderDefaultsStore& renderDefaultsValue,
                                   RuntimeValidationHarness& validationHarnessValue,
-                                  RuntimeOverlayDiagnostics& overlaysValue,
                                   RuntimeRenderBackendView& renderBackendViewValue,
                                   RuntimeRenderer& rendererValue )
-        : renderDefaults( renderDefaultsValue ), validationHarness( validationHarnessValue ), overlays( overlaysValue ),
+        : renderDefaults( renderDefaultsValue ), validationHarness( validationHarnessValue ),
           renderBackendView( renderBackendViewValue ), renderer( rendererValue )
     {
     }

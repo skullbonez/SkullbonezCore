@@ -46,6 +46,7 @@ Related:
 #include "../Core/Log.h"
 #include "../Physics/PhysicsTimestep.h"
 #include "../Rendering/IRenderDiagnostics.h"
+#include "../UI/UI.h"
 #include "../World/Terrain.h"
 
 #include <cmath>
@@ -71,6 +72,14 @@ namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 namespace
 {
 constexpr std::size_t REPLAY_LAUNCHER_LASER_SHOT_CAPACITY = 32;
+
+std::unique_ptr<SkullbonezCore::UI::InGameUI> CreateOperatorUiForStartup()
+{
+    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Startup );
+    // Allocation policy: the cohesive UI owner must remain opaque to Run.h so
+    // the public composition-root header does not republish the UI graph.
+    return std::make_unique<SkullbonezCore::UI::InGameUI>();
+}
 
 SkullbonezCore::Environment::CameraMovementSettings
 BuildCameraMovementSettings( const SkullbonezCore::Core::EngineConfig& cfg )
@@ -250,6 +259,7 @@ Run::Run( Window& window,
           SkullbonezCore::Core::Profiler* profiler,
           RuntimeRenderBackendView renderBackendView )
     : m_window( window ), m_workerPool( workerPool ), m_config( config ), m_sceneController( std::move( sceneQueue ) ),
+      m_operatorUi( CreateOperatorUiForStartup() ),
       m_overlayDiagnostics( RuntimeOverlayDiagnostics::CreateForStartup() ),
       m_validationHarness( RuntimeValidationHarness::CreateForStartup() ), m_renderBackendView( renderBackendView ),
       m_renderer( m_renderBackendView,
@@ -259,9 +269,7 @@ Run::Run( Window& window,
                                    window,
                                    m_config,
                                    m_sceneController.World(),
-                                   m_overlayDiagnostics->CollisionOverlay(),
-                                   m_overlayDiagnostics->BroadphaseOverlay(),
-                                   m_overlayDiagnostics->PhysicsDebugOverlay(),
+                                   m_overlayDiagnostics->RenderResources(),
                                    profiler },
                   RenderSceneView{ m_sceneController, m_sceneController.Browser() } )
 {
@@ -327,7 +335,7 @@ Run::~Run()
         RuntimeRenderer::BackendResourceReleaseContext{ "shutdown_release",
                                                         m_renderBackendView.deviceLifecycle,
                                                         m_renderBackendView.renderResources,
-                                                        m_overlayDiagnostics->OperatorUi(),
+                                                        *m_operatorUi,
                                                         m_runtimeTools } );
     if ( !releaseResult.ok )
     {
@@ -391,7 +399,7 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
                                                                      overrides.replaySaveProbePath
 #endif
     } );
-    m_overlayDiagnostics->ApplyStartupPolicy( overrides, m_launchOptions );
+    m_overlayDiagnostics->ApplyStartupPolicy( overrides, m_launchOptions, *m_operatorUi );
 #ifdef _DEBUG
     ApplyStartupDiagnosticsPolicy( overrides, m_diagnosticsRuntime, m_sceneController );
 #endif
@@ -411,7 +419,7 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
                                                 m_replayRuntime.BuildAutomationView(),
                                                 m_interaction,
                                                 m_camera,
-                                                m_overlayDiagnostics->OperatorUi() );
+                                                *m_operatorUi );
     }
     return result;
 #else
@@ -532,6 +540,7 @@ void Run::Initialise()
                                                     m_simulation,
                                                     m_replayRuntime,
                                                     m_contactAudio,
+                                                    *m_operatorUi,
                                                     *m_overlayDiagnostics,
                                                     *m_validationHarness,
                                                     m_runtimeTools,
@@ -567,11 +576,12 @@ void Run::Initialise()
                                     RuntimeCameraModeEnabledMask( m_sceneController ) ),
         timelineOwners };
 #ifdef _DEBUG
+    RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
     ReplaySolverSampleRestoreContext probeSample{ m_sceneController.Physics(),
                                                   m_sceneController,
                                                   m_sceneController.State(),
                                                   m_renderer,
-                                                  m_overlayDiagnostics->PresentationState(),
+                                                  presentationEdit.State(),
                                                   m_runtimeTools };
     const ReplayRestoreTransaction probeTransaction{ probeSample, m_diagnosticsRuntime, timelineReset, timelineOwners };
     const ReplayArtifactTopologyOwners probeTopology{ m_simulation,
@@ -645,6 +655,7 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
                                       m_sceneController.World().GetFluidSurfaceHeight(),
                                       m_sceneController.World().GetFluidDensity(),
                                       m_sceneController.World().GetMutualGravitySettings() };
+        const RunDebugState presentation = m_overlayDiagnostics->PresentationSnapshot();
         const SceneSaveRequest saveRequest{ snapshotOutPath,
                                             m_sceneController.Cameras().GetCameraTranslation(),
                                             m_sceneController.Cameras().GetCameraView(),
@@ -653,8 +664,8 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
                                             m_sceneController.State().isSceneText,
                                             m_sceneController.State().isEditableScene,
                                             m_sceneController.State().isFixedStep,
-                                            m_overlayDiagnostics->PresentationState().isWaterHidden,
-                                            m_overlayDiagnostics->PresentationState().isTerrainHidden,
+                                            presentation.isWaterHidden,
+                                            presentation.isTerrainHidden,
                                             m_sceneController.State().hasFlatSlope,
                                             m_sceneController.State().flatBaseY,
                                             m_sceneController.State().flatSlopeX,
@@ -686,6 +697,7 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
                                     m_simulation,
                                     m_replayRuntime,
                                     m_contactAudio,
+                                    *m_operatorUi,
                                     *m_overlayDiagnostics,
                                     *m_validationHarness,
                                     m_runtimeTools,

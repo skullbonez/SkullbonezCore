@@ -411,7 +411,7 @@ ownership review; replay-touching wide-call work runs the one-invocation
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | `init-startup-decomposition` | Complete | 5/5 | Init is a 453-line process orchestrator; four focused Startup owners, exact CLI proofs, independent ownership review, final full gate, and both manual exit-code probes are closed in `../Reports/2026-07-15/init-startup-decomposition-map.md` |
-| [run-member-and-include-shrink](TODO/run-member-and-include-shrink.md) | Active | 4/6 | T5: run the single independent end-of-plan ownership review across the logical Run surface and both extracted owners |
+| [run-member-and-include-shrink](TODO/run-member-and-include-shrink.md) | Active | 5/6 | T6: run full, explicit DX12 renderer, and one-minute graphics-stress closure gates with unchanged baselines |
 | [wide-call-desc-struct-pass](TODO/wide-call-desc-struct-pass.md) | Active | 0/5 | T1: re-resolve the ≥12-arg inventory rows post-PhysicsWorld, then desc-struct conversions with designated initializers |
 
 ## Features
