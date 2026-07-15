@@ -407,8 +407,8 @@
       ],
       "owner": "PhysicsWorld bounded scratch and replay vectors",
       "phase": "startup_preallocation_scene_load_replay",
-      "reason": "PhysicsWorld reserves model/contact/replay vectors before steady gameplay. Mutual-gravity pair forces use the same scene-load reserve boundary, then assign only within retained capacity during fixed ticks; the runtime allocation guard rejects accidental growth.",
-      "cap": "The mutual-gravity parallel path is capped at 512 bodies: 130,816 pair Vector3 rows (1,569,792 bytes). Larger fields through the 8,192-body scene limit use exact serial accumulation into body-count scratch. Other vectors remain bounded by scene model/body/contact capacities or replay snapshot hard caps.",
+      "reason": "PhysicsWorld reserves its remaining model/contact/replay vectors before steady gameplay; the runtime allocation guard rejects accidental growth after the owning setup or replay boundary.",
+      "cap": "Remaining vectors are bounded by scene model/body/contact capacities or replay snapshot hard caps.",
       "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
     },
     {
@@ -418,9 +418,32 @@
       ],
       "owner": "PhysicsWorld bounded scratch and replay vectors",
       "phase": "startup_preallocation_scene_load_replay",
-      "reason": "PhysicsWorld owns the remaining preallocated model/contact/replay arrays and the triangular mutual-gravity pair-force scratch after broadphase storage moved to its concrete stage owner. No vector member is allowed to grow after its scene-load/replay reserve boundary.",
-      "cap": "The mutual-gravity parallel path is capped at 512 bodies: 130,816 pair Vector3 rows (1,569,792 bytes). Larger fields through the 8,192-body scene limit use exact serial accumulation into body-count scratch. Other vectors remain bounded by scene model/body/contact capacities or replay snapshot hard caps.",
+      "reason": "PhysicsWorld owns the remaining preallocated model/contact/replay arrays after broadphase and force scratch moved to their concrete stage owners. No vector member is allowed to grow after its scene-load/replay reserve boundary.",
+      "cap": "Remaining vectors are bounded by scene model/body/contact capacities or replay snapshot hard caps.",
       "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+    },
+    {
+      "path": "SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp",
+      "patterns": [
+        ".assign(",
+        ".reserve("
+      ],
+      "owner": "PhysicsForceStage bounded mutual-gravity scratch",
+      "phase": "startup_preallocation_scene_load",
+      "reason": "The force owner reserves model-order and triangular pair-force storage before steady gameplay, then assigns only within retained capacity during fixed ticks; the runtime allocation guard rejects accidental growth.",
+      "cap": "The parallel path is capped at 512 bodies: 130,816 pair Vector3 rows (1,569,792 bytes). Larger fields through the 8,192-body scene limit use exact serial accumulation into body-count scratch.",
+      "removal_or_wrapper_plan": "Replace both vectors with fixed-capacity arrays owned by PhysicsForceStage, then remove this row."
+    },
+    {
+      "path": "SkullbonezSource/Physics/Stages/PhysicsForceStage.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "PhysicsForceStage bounded mutual-gravity scratch",
+      "phase": "startup_preallocation_scene_load",
+      "reason": "The force owner retains one model-order force vector and one capped triangular pair-force vector; both establish capacity before steady gameplay.",
+      "cap": "The body vector is capped at 8,192 rows and the pair vector at 130,816 rows for 512 bodies.",
+      "removal_or_wrapper_plan": "Replace both vectors with fixed-capacity arrays owned by PhysicsForceStage, then remove this row."
     },
     {
       "path": "SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp",

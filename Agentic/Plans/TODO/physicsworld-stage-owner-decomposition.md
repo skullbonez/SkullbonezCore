@@ -2,7 +2,7 @@
 
 Date: 2026-07-15
 Status: Active — registered in `MASTER-PLAN.md` by the 2026-07-15 activation
-governance commit. 3/11 tasks complete. P0's original registration sub-step
+governance commit. 4/11 tasks complete. P0's original registration sub-step
 (a) is already satisfied by that commit; P0 now covers certification, the
 frozen ownership map, and the recorded delegation ruling only.
 Impact area: `Physics/PhysicsWorld.{h,cpp}`, new `Physics/Stages/*` owners,
@@ -172,7 +172,7 @@ remain byte-exact throughout — zero refresh authorized at any task.
       views borrow only stage-owned storage and remain valid until the next
       mutating stage call.
 
-- [ ] **P3 — Extract `PhysicsForceStage`.** Owns the mutual-gravity buffers
+- [x] **P3 — Extract `PhysicsForceStage`.** Owns the mutual-gravity buffers
       and high-water counter; entry points
       `PrepareMutualGravityForces(...)` (same signature shape, minus `this`)
       and `ApplyForces( const ApplyForcesStageContext&, WorkerPool&, const ExecutionToggles& )`
@@ -185,6 +185,14 @@ remain byte-exact throughout — zero refresh authorized at any task.
       serial >512-body path moves with it). Move the gravity allowlist rows.
       Gate: `tools\validate_physics.bat` byte-exact; also rerun the 0/1/4-worker
       mutual-gravity determinism test target.
+
+      Boundary recorded 2026-07-15: the owner retains only the model-order
+      gravity vector, capped triangular pair vector, and pair high-water mark.
+      Sleep flags, remaining time, stores, world-force values, execution
+      toggles, and the worker pool are synchronous borrows. Tornado gameplay
+      remains the existing sibling owner on `PhysicsWorld`. Mechanical source
+      comparison confirmed the gravity body, per-body force body, and dispatch
+      are verbatim after boundary-name substitutions.
 
 - [ ] **P4 — Extract `PhysicsNarrowphaseStage`.** Owns all seven
       `m_objectNarrowphase*` buffers plus island build/dispatch. Critical

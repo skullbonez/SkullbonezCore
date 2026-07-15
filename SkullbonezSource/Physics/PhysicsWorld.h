@@ -55,6 +55,7 @@ Related:
 #include "SleepIslandSystem.h"
 #include "SpatialGrid.h"
 #include "Stages/PhysicsBroadphaseStage.h"
+#include "Stages/PhysicsForceStage.h"
 #include "Stages/PhysicsStageContexts.h"
 #include "TerrainContactManifold.h"
 #include "TornadoGameplay.h"
@@ -103,15 +104,13 @@ struct PersistentContactSolverSideEffects
 class PhysicsWorld
 {
   private:
+    PhysicsForceStage m_forceStage;
     // Concrete broadphase owner retains the grid, pair output, and diagnostic
     // cell keys. The facade borrows its candidate span for the remaining stages.
     PhysicsBroadphaseStage m_broadphase;
     // Invariant: narrowphase, terrain, and final integration all write this
     // cross-stage CCD clock, so it deliberately remains on the sequencer.
     std::vector<float> m_timeRemaining;
-    std::vector<Math::Vector::Vector3> m_mutualGravityForces;     // Model-order reduced forces, reserved before gameplay.
-    std::vector<Math::Vector::Vector3> m_mutualGravityPairForces; // Triangular pair scratch, reserved before gameplay.
-    std::size_t m_mutualGravityPairHighWater = 0;
 
     // Sleep policy working state.
     //
@@ -314,11 +313,6 @@ class PhysicsWorld
                            const SkullbonezCore::Core::EngineConfig& config,
                            const PhysicsWorldForces& worldForces,
                            Threading::WorkerPool& workerPool );
-    const Math::Vector::Vector3* PrepareMutualGravityForces( std::span<const PhysicsBodyRecord> bodyRecords,
-                                                             int modelCount,
-                                                             const PhysicsWorldForces& worldForces,
-                                                             const SkullbonezCore::Core::EngineConfig& config,
-                                                             Threading::WorkerPool& workerPool );
     void EmitPhysicsCollisionTime( const char* type, int bodyA, int bodyB, float collisionTime, float availableTime );
     PersistentContactSolverContext
     CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,
