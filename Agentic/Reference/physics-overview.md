@@ -36,14 +36,14 @@ mirror sleep flags
   -> terrain detection and ordered commit
   -> persistent contact solver
   -> point-joint solve
-  -> integrate remaining CCD time
+  -> force-stage integration of remaining CCD time
   -> sleep-island transitions
   -> diagnostic views/output at the caller boundary
 ```
 
 | Owner | Retained authority |
 |---|---|
-| `PhysicsForceStage` | Bounded mutual-gravity rows and force dispatch |
+| `PhysicsForceStage` | Bounded mutual-gravity rows, force dispatch, and remaining-time integration |
 | `PhysicsBroadphaseStage` | Spatial grid, candidate-pair order, and collision-cell keys |
 | `PhysicsNarrowphaseStage` | Pair/island scratch and typed ordered events |
 | `PhysicsTerrainStage` | Detection candidates, terrain manifolds, and rest-policy rows |
@@ -58,6 +58,13 @@ a top-level constraint lane borrowed by contact/sleep sequencing.
 The Debug-only suppression flag is a scoped facade override; it owns no
 diagnostic rows. Public forwarding is accepted only where it terminates at one
 of these concrete owners.
+
+Immediate wake-up cannot be deferred out of narrowphase because a later pair
+in the same deterministic pass must observe the newly awake body. Narrowphase
+and tornado therefore receive a scoped `PhysicsNarrowphaseWakeAccess` value
+containing only the body/sleep rows required for that transition. Sleep receives
+a similarly narrow contact-cache invalidation capability. Neither value exposes
+or retains a concrete sibling owner.
 
 ## Time Step
 

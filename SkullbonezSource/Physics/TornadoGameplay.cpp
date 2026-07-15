@@ -288,14 +288,7 @@ void TornadoGameplay::ApplyBodyForces( const TornadoGameplayStepState& stepState
 
         if ( context.sleepState[i] )
         {
-            context.sleepController.WakeNarrowphaseBody( context.bodyStore,
-                                                         context.colliderStore,
-                                                         context.worldForces,
-                                                         bodyRecords,
-                                                         context.timeRemaining,
-                                                         modelCount,
-                                                         i,
-                                                         context.dt );
+            context.wakeAccess.WakeBody( i );
         }
 
         Vector3 velocity = bodyRecord.linearVelocity;

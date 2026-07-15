@@ -55,7 +55,8 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
 }
 } // namespace
 
-void PhysicsNarrowphaseStage::ProcessObjectNarrowphaseIsland( const ObjectNarrowphasePairStageContext& context, int islandIndex )
+void PhysicsNarrowphaseStage::ProcessObjectNarrowphaseIsland( const ObjectNarrowphasePairStageContext& context,
+                                                              int islandIndex )
 {
     const ObjectNarrowphaseIsland& island = m_objectNarrowphaseIslands[static_cast<size_t>( islandIndex )];
     const size_t pairEnd = island.firstPairOffset + island.pairCount;
@@ -67,15 +68,15 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphaseIsland( const ObjectNarrow
 }
 
 bool PhysicsNarrowphaseStage::ObjectNarrowphaseIslandPrecedesByMinPairIndex( const ObjectNarrowphaseIsland& a,
-                                                                  const ObjectNarrowphaseIsland& b )
+                                                                             const ObjectNarrowphaseIsland& b )
 {
     return a.minPairIndex < b.minPairIndex;
 }
 
 
 void PhysicsNarrowphaseStage::BuildObjectNarrowphaseIslands( std::span<const std::pair<int, int>> candidatePairs,
-                                                  int candidatePairCount,
-                                                  int modelCount )
+                                                             int candidatePairCount,
+                                                             int modelCount )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/BuildIslands" );
     m_objectNarrowphaseParent.resize( static_cast<size_t>( modelCount ) );
@@ -208,10 +209,10 @@ void PhysicsNarrowphaseStage::ObjectNarrowphaseIslandStage::operator()( int isla
 }
 
 bool PhysicsNarrowphaseStage::TryRunParallel( const ObjectNarrowphasePairStageContext& context,
-                                               int candidatePairCount,
-                                               int modelCount,
-                                               const Core::PhysicsExecutionConfig& execution,
-                                               Threading::WorkerPool& workerPool )
+                                              int candidatePairCount,
+                                              int modelCount,
+                                              const Core::PhysicsExecutionConfig& execution,
+                                              Threading::WorkerPool& workerPool )
 {
     m_objectNarrowphaseIslands.clear();
     m_objectNarrowphaseIslandPairIndices.clear();
@@ -231,8 +232,7 @@ bool PhysicsNarrowphaseStage::TryRunParallel( const ObjectNarrowphasePairStageCo
 
     const int islandCount = static_cast<int>( m_objectNarrowphaseIslands.size() );
     const bool hasSpreadOutNarrowphaseIslands =
-        islandCount > 0 &&
-        candidatePairCount <= islandCount * PHYSICS_NARROWPHASE_PARALLEL_MAX_AVG_PAIRS_PER_ISLAND;
+        islandCount > 0 && candidatePairCount <= islandCount * PHYSICS_NARROWPHASE_PARALLEL_MAX_AVG_PAIRS_PER_ISLAND;
     if ( islandCount < PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS || !hasSpreadOutNarrowphaseIslands )
     {
         return false;

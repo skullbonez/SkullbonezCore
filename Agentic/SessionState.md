@@ -10,17 +10,17 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `15th-of-July-Night-Runner` (P0-P8 pushed through `e60495cdd`; P9 sequencer cleanup pending commit) |
+| Branch | `15th-of-July-Night-Runner` (PhysicsWorld P0-P10 complete; closure commit is the current tip) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Execute P10 of `physicsworld-stage-owner-decomposition`: independent ownership review and full closure gates |
-| Active/future progress | 10 / 11 tasks = 91% overall (PhysicsWorld campaign only; completed rounds and externally blocked work are excluded) |
-| Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | P9 reduced `PhysicsWorld.cpp` to 936 lines and every stage implementation unit to 626 lines or fewer, reconciled all eleven facade members, documented the stage sequence, and found no reach-back or authority bag. Touched-source comment audit inspected 8/8 files with 0 deferred. Allocation scans passed across 355 files with 0 allowlist errors. `tools\validate_physics.bat` passed in 77.81 s: both smoke lanes, 0-warning Debug/Profile builds, and the 44,401-line varied baseline byte-exact. No baseline refresh. |
+| Current objective | No active implementation plan; PhysicsWorld stage-owner decomposition is closed at P0-P10 |
+| Active/future progress | 0 / 0 live tasks = 100% complete by closed-portfolio convention (completed plans and externally blocked work are excluded) |
+| Last broad local gate | `tools\\validate_full.bat` passed in 279.29 s on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
+| Validation for current edits | P10 remediation deleted the prohibited World TU split, replaced concrete sibling references with opaque owner-minted capabilities, moved sleep policy to its owner, and moved integration dispatch to `PhysicsForceStage`. Repeat independent review found zero credible blocking ownership findings. `tools\\validate_perf.bat` passed in 79.43 s with no regressions or gameplay allocation violations; final allocation scans covered 355 files with 0 allowlist errors; comment audit inspected 27/27 source-bearing files with 0 deferred. No baseline refresh. |
 
 ## Live Queue
 
-000. `physicsworld-stage-owner-decomposition` is the active campaign at 10/11.
-     P0-P9 are complete. Broadphase owns its grid/candidate/diagnostic storage;
+000. `physicsworld-stage-owner-decomposition` completed at 11/11.
+     Broadphase owns its grid/candidate/diagnostic storage;
      force owns exact mutual-gravity preparation, bounded gravity scratch, and
      force dispatch without retaining borrowed frame state. Narrowphase owns
      bounded pair/island scratch and terrain owns detection/manifold/rest rows.
@@ -28,9 +28,10 @@ plan inventory.
      replay transfer, and typed consequence queues;
      sleep ownership now includes all wake/seed/support/island/underwater rows
      and scratch. Diagnostics owns collision visuals, debug contacts, pipeline
-     trace, and cold sink output. P9 reconciled the final sequencer/residue and
-     line-count/overview audit. Continue at P10 with the mandatory independent
-     whole-module ownership review and full closure gates.
+     trace, and cold sink output. P10's first independent review found three
+     blockers; remediation removed the forbidden TU split, concrete sibling
+     references, and facade-owned sleep policy. Repeat review found zero
+     credible blockers and all full/perf/allocation/comment gates passed.
      Binding rules:
      stage owners with value contexts and no
      reach-back (never a `PhysicsWorld` TU split), one owner per task per

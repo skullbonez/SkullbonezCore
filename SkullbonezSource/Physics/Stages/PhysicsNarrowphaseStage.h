@@ -38,6 +38,7 @@ Related:
 
 #include "../PersistentContactSolver.h"
 #include "../PhysicsDebugData.h"
+#include "PhysicsSleepController.h"
 
 namespace SkullbonezCore
 {
@@ -55,7 +56,6 @@ namespace Physics
 {
 class ColliderStore;
 class PhysicsBodyStore;
-class PhysicsSleepController;
 struct ColliderRecord;
 struct PhysicsBodyRecord;
 struct PhysicsWorldForces;
@@ -97,7 +97,7 @@ struct ObjectNarrowphasePairStageContext
     std::span<PhysicsBodyRecord> bodyRecords;
     std::span<const ColliderRecord> colliderRecords;
     std::span<const std::pair<int, int>> candidatePairs;
-    PhysicsSleepController& sleepController;
+    PhysicsNarrowphaseWakeAccess wakeAccess;
     std::span<const uint8_t> sleepState;
     std::span<float> timeRemaining;
     std::span<const uint8_t> underwaterSleepLocked;

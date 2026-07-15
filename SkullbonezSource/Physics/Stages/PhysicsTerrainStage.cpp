@@ -43,8 +43,7 @@ namespace
 {
 constexpr int TERRAIN_BODY_INDEX = -1;
 constexpr int PHYSICS_PARALLEL_MIN_BODIES = 512;
-constexpr uint32_t PHYSICS_TERRAIN_DETECT_WORKER_HASH =
-    HashStr( "Frame/Physics/Terrain/Detect/WorkerBodies" );
+constexpr uint32_t PHYSICS_TERRAIN_DETECT_WORKER_HASH = HashStr( "Frame/Physics/Terrain/Detect/WorkerBodies" );
 
 template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
 {

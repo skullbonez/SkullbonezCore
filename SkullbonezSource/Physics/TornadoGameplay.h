@@ -5,7 +5,7 @@ Purpose:
 
 Summary:
   Tornado gameplay is a deterministic force/ejection layer that runs before
-  broadphase. PhysicsWorld still owns sleep and contact wake propagation, while
+  broadphase. A narrow value capability performs immediate sleep wake-up while
   this component owns tornado configs, capture timers, cooldown timers, and the
   release decisions that produce an ordered wake list.
 
@@ -24,6 +24,8 @@ Invariants:
     must apply wake propagation before running the per-body tornado force pass.
   - Capture and cooldown arrays are model-indexed and must be sized to the live
     solver model count before per-body force application.
+  - The force context borrows a scoped wake capability, never a concrete sleep
+    owner or PhysicsWorld reference.
 
 Related:
   - SkullbonezSource/Physics/TornadoGameplay.cpp
@@ -32,6 +34,7 @@ Related:
 #pragma once
 
 #include "TornadoField.h"
+#include "Stages/PhysicsSleepController.h"
 
 #include <cstdint>
 #include <span>
@@ -56,7 +59,6 @@ namespace Physics
 {
 class ColliderStore;
 class PhysicsBodyStore;
-class PhysicsSleepController;
 struct PhysicsWorldForces;
 
 struct TornadoGameplayStepState
@@ -68,12 +70,12 @@ struct TornadoGameplayStepState
 
 struct TornadoBodyForceContext
 {
-    // Lifetime: all references are borrowed from PhysicsWorld::RunSolverPhysics
-    // for one fixed tick. TornadoGameplay does not retain them after the call.
+    // Lifetime: all references and the wake capability are borrowed from
+    // PhysicsWorld::RunSolverPhysics for one fixed tick and are never retained.
     PhysicsBodyStore& bodyStore;
     const ColliderStore& colliderStore;
     const PhysicsWorldForces& worldForces;
-    PhysicsSleepController& sleepController;
+    PhysicsNarrowphaseWakeAccess wakeAccess;
     std::span<const uint8_t> sleepState;
     std::span<float> timeRemaining;
     std::span<const uint8_t> underwaterSleepLocked;

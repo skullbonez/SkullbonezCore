@@ -51,9 +51,6 @@
     <ClCompile Include="SkullbonezSource\Physics\PhysicsWorld.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Physics\PhysicsWorldFacade.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsBroadphaseStage.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -61,6 +58,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsSleepController.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsSleepController.State.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsSleepController.Wake.cpp">

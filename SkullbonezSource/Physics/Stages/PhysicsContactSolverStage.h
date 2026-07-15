@@ -14,6 +14,8 @@ Glossary:
     contact feature on the next fixed tick.
   Consequence batch: Bounded post-solve records and body indices whose foreign
     owner-side effects are committed after the hot solver pass.
+  Wake access: Narrow synchronous capability that can invalidate cache rows
+    without exposing the contact-solver owner to the sleep subsystem.
   Warm start: Reuse of last tick's accumulated contact impulses.
 
 Invariants:
@@ -21,6 +23,8 @@ Invariants:
     during steady gameplay.
   - Solve prepares a fresh consequence batch before invoking the row solver.
   - The stage retains no pointer or reference to PhysicsWorld or borrowed rows.
+  - Wake propagation receives only a cache-invalidation capability, never the
+    concrete contact-solver owner.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp
@@ -164,6 +168,20 @@ struct PhysicsContactSolverStageContext
     int pipelineRecordCapacity = 0;
 };
 
+class PhysicsContactCacheWakeAccess
+{
+  private:
+    std::vector<PersistentContactCacheEntry>& m_cache;
+
+  public:
+    // Lifetime: this narrow capability borrows the contact owner's cache only
+    // for the synchronous wake operation that requested it.
+    explicit PhysicsContactCacheWakeAccess( std::vector<PersistentContactCacheEntry>& cache ) : m_cache( cache )
+    {
+    }
+    void ForgetBody( int bodyIndex ) const;
+};
+
 class PhysicsContactSolverStage
 {
   private:
@@ -183,7 +201,7 @@ class PhysicsContactSolverStage
 
     void Clear();
     void Solve( const PhysicsContactSolverStageContext& context, float dt );
-    void ForgetPersistentContactCacheForBody( int bodyIndex );
+    PhysicsContactCacheWakeAccess CreateWakeAccess();
 
     void CaptureReplayState( Runtime::ReplaySolverWorldSnapshot& outSnapshot ) const;
     void RestoreReplayState( const Runtime::ReplaySolverWorldSnapshot& snapshot );

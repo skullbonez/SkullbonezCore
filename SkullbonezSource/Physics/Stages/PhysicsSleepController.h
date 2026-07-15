@@ -17,8 +17,9 @@ Glossary:
 Invariants:
   - All model-order rows are construction-reserved to scene capacity.
   - Read-only pipeline stages receive const spans; wake mutations use explicit
-    controller APIs.
-  - No callback, host pointer, or PhysicsWorld reference crosses this boundary.
+    scoped capability values.
+  - No callback, host pointer, PhysicsWorld reference, or concrete sibling
+    owner crosses this boundary.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp
@@ -35,6 +36,7 @@ Related:
 #include "../PhysicsDebugData.h"
 #include "../Ragdoll.h"
 #include "../SleepIslandSystem.h"
+#include "PhysicsContactSolverStage.h"
 #include "../../Runtime/Replay/ReplaySolverSnapshot.h"
 
 namespace SkullbonezCore
@@ -42,26 +44,71 @@ namespace SkullbonezCore
 namespace Core
 {
 class EngineConfig;
+struct PhysicsSleepConfig;
 } // namespace Core
 
 namespace Physics
 {
 class ColliderStore;
 class PhysicsBodyStore;
-class PhysicsContactSolverStage;
 struct PersistentContact;
 struct PhysicsBodyRecord;
 struct PhysicsWorldForces;
+class PhysicsSleepController;
+
+class PhysicsNarrowphaseWakeAccess
+{
+  private:
+    // Lifetime: mutable sleep rows and body stores are borrowed only for one
+    // synchronous wake pass. Private fields prevent consumers from acquiring
+    // raw mutation authority over the sleep owner's rows.
+    PhysicsBodyStore& m_bodyStore;
+    const ColliderStore& m_colliderStore;
+    const PhysicsWorldForces& m_worldForces;
+    std::span<PhysicsBodyRecord> m_bodyRecords;
+    std::span<float> m_timeRemaining;
+    std::span<uint8_t> m_sleepState;
+    std::span<uint8_t> m_sleepCounter;
+    std::span<int> m_sleepIslandVisualId;
+    std::span<const uint8_t> m_underwaterSleepLocked;
+    int m_modelCount = 0;
+    float m_dt = 0.0f;
+
+    PhysicsNarrowphaseWakeAccess( PhysicsBodyStore& bodyStore,
+                                  const ColliderStore& colliderStore,
+                                  const PhysicsWorldForces& worldForces,
+                                  std::span<PhysicsBodyRecord> bodyRecords,
+                                  std::span<float> timeRemaining,
+                                  std::span<uint8_t> sleepState,
+                                  std::span<uint8_t> sleepCounter,
+                                  std::span<int> sleepIslandVisualId,
+                                  std::span<const uint8_t> underwaterSleepLocked,
+                                  int modelCount,
+                                  float dt );
+    friend class PhysicsSleepController;
+
+  public:
+    void WakeBody( int sleepingIndex ) const;
+};
+
+struct PhysicsSleepStepPolicy
+{
+    float linearSpeedSquared = 0.0f;
+    float angularSpeedSquared = 0.0f;
+    uint8_t frameCount = 1;
+};
 
 struct PhysicsSleepWakeContext
 {
+    // Lifetime: all rows and the cache capability are consumed synchronously;
+    // the sleep owner never retains a sibling owner or borrowed frame state.
     int bodyCount = 0;
     std::span<const PhysicsBodyRecord> bodyRecords;
     PhysicsBodyStore* bodyStore = nullptr;
     const ColliderStore* colliderStore = nullptr;
     const PhysicsWorldForces* worldForces = nullptr;
     std::span<float> timeRemaining;
-    PhysicsContactSolverStage& contactSolverStage;
+    PhysicsContactCacheWakeAccess contactCache;
     std::span<const PersistentContact> persistentContacts;
     const std::vector<PointJointConstraint>& pointJointConstraints;
 };
@@ -125,17 +172,17 @@ class PhysicsSleepController
 
     void Clear();
     void ApplyRuntimeConfig( const Core::EngineConfig& config );
+    PhysicsSleepStepPolicy ResolveStepPolicy( const Core::PhysicsSleepConfig& config ) const;
     void MirrorFlagsFrom( PhysicsBodyStore& bodyStore, std::span<const PhysicsBodyRecord> bodyRecords, int modelCount );
     void EnsureVisualIdSize( int modelCount );
     void WakeModel( const PhysicsSleepWakeContext& context, int index );
-    void WakeNarrowphaseBody( PhysicsBodyStore& bodyStore,
-                              const ColliderStore& colliderStore,
-                              const PhysicsWorldForces& worldForces,
-                              std::span<PhysicsBodyRecord> bodyRecords,
-                              std::span<float> timeRemaining,
-                              int modelCount,
-                              int sleepingIndex,
-                              float dt );
+    PhysicsNarrowphaseWakeAccess CreateNarrowphaseWakeAccess( PhysicsBodyStore& bodyStore,
+                                                              const ColliderStore& colliderStore,
+                                                              const PhysicsWorldForces& worldForces,
+                                                              std::span<PhysicsBodyRecord> bodyRecords,
+                                                              std::span<float> timeRemaining,
+                                                              int modelCount,
+                                                              float dt );
     void SeedModelAsleep( int bodyCount, std::span<const PhysicsBodyRecord> bodyRecords, int index );
     void SetPhysicsSleepEnabled( bool enabled );
     bool IsPhysicsSleepEnabled() const;
@@ -152,7 +199,8 @@ class PhysicsSleepController
                                         const ColliderStore& colliderStore,
                                         const PhysicsWorldForces& worldForces,
                                         std::span<float> timeRemaining,
-                                        PhysicsContactSolverStage& contactSolverStage,
+                                        PhysicsContactCacheWakeAccess contactCache,
+                                        std::span<const PersistentContact> persistentContacts,
                                         const std::vector<PointJointConstraint>& pointJointConstraints,
                                         float dt );
     void RunIslandStage( const PhysicsSleepIslandStageContext& context );
@@ -170,6 +218,8 @@ class PhysicsSleepController
     std::span<const uint8_t> GetSleepSupportedStates() const;
     std::span<const uint8_t> GetSleepInhibitedStates() const;
     std::span<const std::pair<int, int>> GetSleepSupportEdges() const;
+    // Lifetime: contact/terrain stages borrow these bounded rows only for one
+    // synchronous pass; capacity and semantic ownership remain here.
     std::vector<std::pair<int, int>>& MutableSupportEdgesForContactSolver();
     std::span<uint8_t> MutableSupportedStatesForTerrain();
     std::span<uint8_t> MutableInhibitedStatesForTerrain();

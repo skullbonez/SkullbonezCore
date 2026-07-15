@@ -129,11 +129,10 @@ class PhysicsTerrainStage
                  const Core::PhysicsExecutionConfig& execution,
                  Threading::WorkerPool& workerPool );
     PreparedTerrainCandidateCommit PrepareCandidateCommit( const TerrainCandidateCommitContext& context,
-                                                            int bodyIndex,
-                                                            float availableTime,
-                                                            const TerrainContactSweepResult& sweep );
-    void CommitCandidate( const TerrainCandidateCommitContext& context,
-                          const PreparedTerrainCandidateCommit& commit );
+                                                           int bodyIndex,
+                                                           float availableTime,
+                                                           const TerrainContactSweepResult& sweep );
+    void CommitCandidate( const TerrainCandidateCommitContext& context, const PreparedTerrainCandidateCommit& commit );
 
     std::span<const TerrainDetectionCandidate> GetDetectionCandidates() const;
     std::vector<TerrainContactManifold>& GetContactManifolds();

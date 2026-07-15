@@ -182,7 +182,7 @@ void PhysicsContactSolverStage::Solve( const PhysicsContactSolverStageContext& c
     m_contactSolver.Solve( solverContext, dt );
 }
 
-void PhysicsContactSolverStage::ForgetPersistentContactCacheForBody( int bodyIndex )
+void PhysicsContactCacheWakeAccess::ForgetBody( int bodyIndex ) const
 {
     const auto cacheEntryReferencesBody = []( const PersistentContactCacheEntry& entry, int index ) -> bool
     {
@@ -199,12 +199,16 @@ void PhysicsContactSolverStage::ForgetPersistentContactCacheForBody( int bodyInd
         return lowBody == static_cast<uint32_t>( index ) || objectHighBody == static_cast<uint32_t>( index );
     };
 
-    m_persistentContactCache.erase(
-        std::remove_if( m_persistentContactCache.begin(),
-                        m_persistentContactCache.end(),
-                        [bodyIndex, &cacheEntryReferencesBody]( const PersistentContactCacheEntry& entry )
-                        { return cacheEntryReferencesBody( entry, bodyIndex ); } ),
-        m_persistentContactCache.end() );
+    m_cache.erase( std::remove_if( m_cache.begin(),
+                                   m_cache.end(),
+                                   [bodyIndex, &cacheEntryReferencesBody]( const PersistentContactCacheEntry& entry )
+                                   { return cacheEntryReferencesBody( entry, bodyIndex ); } ),
+                   m_cache.end() );
+}
+
+PhysicsContactCacheWakeAccess PhysicsContactSolverStage::CreateWakeAccess()
+{
+    return PhysicsContactCacheWakeAccess( m_persistentContactCache );
 }
 
 void PhysicsContactSolverStage::CaptureReplayState( Runtime::ReplaySolverWorldSnapshot& outSnapshot ) const

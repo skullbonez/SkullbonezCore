@@ -89,6 +89,8 @@ class PhysicsBroadphaseStage
     std::span<const std::pair<int, int>> GetCandidatePairs() const;
     const std::vector<int64_t>& GetCollisionCellKeys() const;
     const std::vector<int64_t>& CollisionCellKeysForReplay() const;
+    // Lifetime: replay restore mutates this construction-reserved buffer only
+    // during the synchronous owner restore sequence; the reference is not retained.
     std::vector<int64_t>& CollisionCellKeysForReplay();
     void AppendCollisionCellKey( int64_t collisionCellKey );
 

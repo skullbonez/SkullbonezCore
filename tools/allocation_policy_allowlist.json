@@ -400,6 +400,7 @@
       "path": "SkullbonezSource/Physics/PhysicsWorld.cpp",
       "patterns": [
         ".assign(",
+        ".push_back(",
         ".reserve("
       ],
       "owner": "PhysicsWorld bounded scratch and replay vectors",
@@ -407,17 +408,6 @@
       "reason": "PhysicsWorld reserves its remaining model/contact/replay vectors before steady gameplay; the runtime allocation guard rejects accidental growth after the owning setup or replay boundary.",
       "cap": "Remaining vectors are bounded by scene model/body/contact capacities or replay snapshot hard caps.",
       "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
-    },
-    {
-      "path": "SkullbonezSource/Physics/PhysicsWorldFacade.cpp",
-      "patterns": [
-        ".push_back("
-      ],
-      "owner": "PhysicsWorld point-joint facade",
-      "phase": "startup_preallocation_scene_load",
-      "reason": "Point-joint rows append only within the scene-capacity reserve established by PhysicsWorld construction; the runtime guard rejects capacity growth during steady gameplay.",
-      "cap": "The point-joint collection is capped at the configured scene body capacity of 8,192 rows.",
-      "removal_or_wrapper_plan": "Replace the point-joint vector with a fixed-capacity constraint store, then remove this row."
     },
     {
       "path": "SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp",

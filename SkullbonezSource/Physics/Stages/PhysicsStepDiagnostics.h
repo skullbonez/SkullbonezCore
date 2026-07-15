@@ -89,6 +89,8 @@ class PhysicsStepDiagnostics
     void CaptureReplayState( Runtime::ReplaySolverWorldSnapshot& snapshot ) const;
     void RestoreReplayState( const Runtime::ReplaySolverWorldSnapshot& snapshot );
     const std::vector<uint8_t>& GetCollisionVisualContacts() const;
+    // Lifetime: these mutable buffers are borrowed only by the synchronous
+    // producing stage and remain capacity-governed by this diagnostics owner.
     std::vector<PhysicsDebugContact>& MutableDebugContacts();
     const std::vector<PhysicsDebugContact>& GetDebugContacts() const;
     std::vector<PhysicsPipelineRecord>& MutablePipelineTrace();

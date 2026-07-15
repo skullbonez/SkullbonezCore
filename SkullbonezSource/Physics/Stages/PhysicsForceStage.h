@@ -1,13 +1,14 @@
 /*
 File: SkullbonezSource/Physics/Stages/PhysicsForceStage.h
 Purpose:
-  Owns bounded mutual-gravity scratch and fixed-step body-force dispatch.
+  Owns bounded mutual-gravity scratch, body-force dispatch, and integration.
 
 Summary:
   PhysicsForceStage prepares deterministic model-order gravity forces, retains
   the capped triangular pair table used by worker dispatch, and applies all
-  per-body forces through one explicit borrowed context. Large scenes retain
-  the exact serial fallback without allocating pair scratch beyond 512 bodies.
+  per-body forces and remaining-time integration through explicit borrowed
+  contexts. Large scenes retain the exact serial fallback without allocating
+  pair scratch beyond 512 bodies.
 
 Glossary:
   Pair table: Triangular array with one force value for each `(i,j)` body pair.
@@ -15,6 +16,8 @@ Glossary:
     loop order so worker scheduling cannot change floating-point additions.
   Large-scene fallback: Exact serial pair accumulation used above the bounded
     parallel pair-table limit.
+  Remaining-time integration: Final model-order advance after all CCD lanes
+    have consumed their portion of the shared tick clock.
 
 Invariants:
   - Worker chunks write disjoint pair-table slots and never reduce forces.
@@ -22,6 +25,8 @@ Invariants:
     thresholds, and worker hashes match the certified P2 implementation.
   - Borrowed contexts and returned force pointers are valid only during the
     enclosing fixed step; the force pointer expires on the next prepare/clear.
+  - Integration borrows the facade-owned CCD clock and mutates no retained
+    stage state.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp
@@ -52,6 +57,7 @@ class WorkerPool;
 namespace Physics
 {
 struct ApplyForcesStageContext;
+struct IntegrateRemainingStageContext;
 struct PhysicsBodyRecord;
 struct PhysicsWorldForces;
 
@@ -67,17 +73,20 @@ class PhysicsForceStage
 
     void Clear();
     void ReserveBodyScratchCapacity( std::size_t capacity );
-    const Math::Vector::Vector3* PrepareMutualGravityForces(
-        std::span<const PhysicsBodyRecord> bodyRecords,
-        std::span<const uint8_t> sleepState,
-        int modelCount,
-        const PhysicsWorldForces& worldForces,
-        const Core::PhysicsExecutionConfig& execution,
-        Threading::WorkerPool& workerPool );
+    const Math::Vector::Vector3* PrepareMutualGravityForces( std::span<const PhysicsBodyRecord> bodyRecords,
+                                                             std::span<const uint8_t> sleepState,
+                                                             int modelCount,
+                                                             const PhysicsWorldForces& worldForces,
+                                                             const Core::PhysicsExecutionConfig& execution,
+                                                             Threading::WorkerPool& workerPool );
     void ApplyForces( const ApplyForcesStageContext& context,
                       int modelCount,
                       Threading::WorkerPool& workerPool,
                       const Core::PhysicsExecutionConfig& execution ) const;
+    void IntegrateRemaining( const IntegrateRemainingStageContext& context,
+                             int modelCount,
+                             Threading::WorkerPool& workerPool,
+                             const Core::PhysicsExecutionConfig& execution ) const;
 
     uint64_t CollectDynamicMemoryBytes() const;
 };

@@ -55,6 +55,7 @@ constexpr int MUTUAL_GRAVITY_MAX_CHUNKS =
     ( MUTUAL_GRAVITY_MAX_BODIES + MUTUAL_GRAVITY_ROWS_PER_CHUNK - 1 ) / MUTUAL_GRAVITY_ROWS_PER_CHUNK;
 constexpr int MUTUAL_GRAVITY_PARALLEL_MIN_BODIES = 32;
 constexpr uint32_t PHYSICS_APPLY_FORCES_WORKER_HASH = HashStr( "Frame/Physics/ApplyForces/WorkerBodies" );
+constexpr uint32_t PHYSICS_INTEGRATE_WORKER_HASH = HashStr( "Frame/Physics/Integrate/WorkerBodies" );
 
 constexpr std::size_t MutualGravityPairCount( std::size_t bodyCount )
 {
@@ -101,6 +102,23 @@ void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore,
     const Vector3* mutualGravityForce = mutualGravityForces ? &mutualGravityForces[bodyIndex] : nullptr;
     (void)bodyStore.ApplyForces( worldForces, colliderStore, bodyIndex, dt, mutualGravityForce );
 }
+
+void IntegrateRemainingSolverBody( Physics::PhysicsBodyStore& bodyStore,
+                                   const Physics::ColliderStore& colliderStore,
+                                   std::span<const Physics::PhysicsBodyRecord> bodyRecords,
+                                   std::span<const uint8_t> sleepState,
+                                   std::span<const float> timeRemaining,
+                                   int bodyIndex )
+{
+    if ( IsSolverBodyFixed( bodyRecords, bodyIndex ) || sleepState[bodyIndex] )
+    {
+        return;
+    }
+    if ( timeRemaining[bodyIndex] > 0.0f )
+    {
+        (void)bodyStore.IntegrateBodyPose( colliderStore, bodyIndex, timeRemaining[bodyIndex] );
+    }
+}
 } // namespace
 
 namespace SkullbonezCore
@@ -118,6 +136,11 @@ void ApplyForcesStageContext::operator()( int bodyIndex ) const
                               mutualGravityForces,
                               bodyIndex,
                               dt );
+}
+
+void IntegrateRemainingStageContext::operator()( int bodyIndex ) const
+{
+    IntegrateRemainingSolverBody( bodyStore, colliderStore, bodyRecords, sleepState, timeRemaining, bodyIndex );
 }
 
 PhysicsForceStage::PhysicsForceStage()
@@ -369,6 +392,29 @@ void PhysicsForceStage::ApplyForces( const ApplyForcesStageContext& context,
         }
     }
     PROFILE_END( "Frame/Physics/ApplyForces" );
+}
+
+void PhysicsForceStage::IntegrateRemaining( const IntegrateRemainingStageContext& context,
+                                            int modelCount,
+                                            Threading::WorkerPool& workerPool,
+                                            const Core::PhysicsExecutionConfig& execution ) const
+{
+    if ( execution.parallel && execution.parallelIntegrate )
+    {
+        workerPool.ParallelForNoAlloc( 0,
+                                       modelCount,
+                                       context,
+                                       PHYSICS_PARALLEL_MIN_BODIES,
+                                       "Frame/Physics/Integrate/WorkerBodies",
+                                       PHYSICS_INTEGRATE_WORKER_HASH );
+    }
+    else
+    {
+        for ( int x = 0; x < modelCount; ++x )
+        {
+            context( x );
+        }
+    }
 }
 
 uint64_t PhysicsForceStage::CollectDynamicMemoryBytes() const

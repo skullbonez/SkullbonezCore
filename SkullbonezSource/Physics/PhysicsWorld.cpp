@@ -102,7 +102,6 @@ constexpr std::size_t REPLAY_SOLVER_SNAPSHOT_VECTOR_GROWTH_CHUNK = 4096u;
 constexpr int REPLAY_SOLVER_SNAPSHOT_RESERVE_GROWTH_LIMIT =
     RuntimeAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
 constexpr uint32_t PHYSICS_TORNADO_WORKER_HASH = HashStr( "Frame/Physics/TornadoField/WorkerBodies" );
-constexpr uint32_t PHYSICS_INTEGRATE_WORKER_HASH = HashStr( "Frame/Physics/Integrate/WorkerBodies" );
 
 template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
 {
@@ -157,30 +156,6 @@ bool IsPointJointBodyPair( const PhysicsBodyStore& bodyStore,
     return false;
 }
 
-
-
-
-void IntegrateRemainingSolverBody( PhysicsBodyStore& bodyStore,
-                                   const ColliderStore& colliderStore,
-                                   std::span<const PhysicsBodyRecord> bodyRecords,
-                                   std::span<const uint8_t> sleepState,
-                                   std::span<const float> timeRemaining,
-                                   int bodyIndex )
-{
-    if ( IsSolverBodyFixed( bodyRecords, bodyIndex ) )
-    {
-        return;
-    }
-    if ( sleepState[bodyIndex] )
-    {
-        return;
-    }
-
-    if ( timeRemaining[bodyIndex] > 0.0f )
-    {
-        (void)bodyStore.IntegrateBodyPose( colliderStore, bodyIndex, timeRemaining[bodyIndex] );
-    }
-}
 
 RuntimeAllocation::RuntimeReserveOwnerHandle ReplaySolverSnapshotReserveOwner()
 {
@@ -263,11 +238,6 @@ void ReserveReplaySolverSnapshotVector( std::vector<T>& values, std::size_t requ
 } // namespace
 
 
-void IntegrateRemainingStageContext::operator()( int bodyIndex ) const
-{
-    IntegrateRemainingSolverBody( bodyStore, colliderStore, bodyRecords, sleepState, timeRemaining, bodyIndex );
-}
-
 // Invariant: replay solver state fields live in these X-macro lists so capture
 // clear/reserve/copy and restore copy cannot silently drift apart when solver
 // state grows.
@@ -276,8 +246,8 @@ void IntegrateRemainingStageContext::operator()( int bodyIndex ) const
     VISIT( collisionCellKeys, m_broadphase.CollisionCellKeysForReplay(), "collisionCellKeys" )
 
 #define SB_REPLAY_SOLVER_DIAGNOSTIC_VECTOR_FIELDS( VISIT )                                                             \
-    VISIT( collisionVisualContacts, m_stepDiagnostics.GetCollisionVisualContacts(), "collisionVisualContacts" )       \
-    VISIT( debugContacts, m_stepDiagnostics.GetDebugContacts(), "debugContacts" )                                     \
+    VISIT( collisionVisualContacts, m_stepDiagnostics.GetCollisionVisualContacts(), "collisionVisualContacts" )        \
+    VISIT( debugContacts, m_stepDiagnostics.GetDebugContacts(), "debugContacts" )                                      \
     VISIT( pipelineTrace, m_stepDiagnostics.GetPipelineTrace(), "pipelineTrace" )
 
 #define SB_REPLAY_SOLVER_SLEEP_VECTOR_FIELDS( VISIT )                                                                  \
@@ -285,19 +255,19 @@ void IntegrateRemainingStageContext::operator()( int bodyIndex ) const
     VISIT( sleepInhibitedThisFrame, m_sleepController.GetSleepInhibitedVector(), "sleepInhibitedThisFrame" )           \
     VISIT( sleepState, m_sleepController.GetSleepStateVector(), "sleepState" )                                         \
     VISIT( sleepCounter, m_sleepController.GetSleepCounters(), "sleepCounter" )                                        \
-    VISIT( underwaterSleepLocked, m_sleepController.GetUnderwaterSleepLockVector(), "underwaterSleepLocked" )         \
-    VISIT( sleepIslandVisualId, m_sleepController.GetSleepIslandVisualIdVector(), "sleepIslandVisualId" )             \
+    VISIT( underwaterSleepLocked, m_sleepController.GetUnderwaterSleepLockVector(), "underwaterSleepLocked" )          \
+    VISIT( sleepIslandVisualId, m_sleepController.GetSleepIslandVisualIdVector(), "sleepIslandVisualId" )              \
     VISIT( sleepIslandAssignedVisualId,                                                                                \
            m_sleepController.GetSleepIslandAssignedVisualIds(),                                                        \
-           "sleepIslandAssignedVisualId" )                                                                            \
-    VISIT( sleepSupportEdges, m_sleepController.GetSleepSupportEdgeVector(), "sleepSupportEdges" )                   \
-    VISIT( sleepIslandParent, m_sleepController.GetSleepIslandParents(), "sleepIslandParent" )                       \
-    VISIT( sleepIslandRank, m_sleepController.GetSleepIslandRanks(), "sleepIslandRank" )                             \
-    VISIT( sleepIslandHasAwake, m_sleepController.GetSleepIslandHasAwake(), "sleepIslandHasAwake" )                 \
+           "sleepIslandAssignedVisualId" )                                                                             \
+    VISIT( sleepSupportEdges, m_sleepController.GetSleepSupportEdgeVector(), "sleepSupportEdges" )                     \
+    VISIT( sleepIslandParent, m_sleepController.GetSleepIslandParents(), "sleepIslandParent" )                         \
+    VISIT( sleepIslandRank, m_sleepController.GetSleepIslandRanks(), "sleepIslandRank" )                               \
+    VISIT( sleepIslandHasAwake, m_sleepController.GetSleepIslandHasAwake(), "sleepIslandHasAwake" )                    \
     VISIT( sleepIslandHasSupportAnchor,                                                                                \
-           m_sleepController.GetSleepIslandHasSupportAnchor(),                                                        \
-           "sleepIslandHasSupportAnchor" )                                                                            \
-    VISIT( sleepIslandEligible, m_sleepController.GetSleepIslandEligible(), "sleepIslandEligible" )                 \
+           m_sleepController.GetSleepIslandHasSupportAnchor(),                                                         \
+           "sleepIslandHasSupportAnchor" )                                                                             \
+    VISIT( sleepIslandEligible, m_sleepController.GetSleepIslandEligible(), "sleepIslandEligible" )                    \
     VISIT( sleepIslandCanSleep, m_sleepController.GetSleepIslandCanSleep(), "sleepIslandCanSleep" )
 
 #define SB_REPLAY_SOLVER_TORNADO_VECTOR_FIELDS( VISIT )                                                                \
@@ -308,8 +278,8 @@ void IntegrateRemainingStageContext::operator()( int bodyIndex ) const
     VISIT( persistentContactCounts, m_contactSolverStage.GetPersistentContactCounts(), "persistentContactCounts" )     \
     VISIT( persistentRestingContactCounts,                                                                             \
            m_contactSolverStage.GetPersistentRestingContactCounts(),                                                   \
-           "persistentRestingContactCounts" )                                                                         \
-    VISIT( persistentContacts, m_contactSolverStage.GetPersistentContacts(), "persistentContacts" )                   \
+           "persistentRestingContactCounts" )                                                                          \
+    VISIT( persistentContacts, m_contactSolverStage.GetPersistentContacts(), "persistentContacts" )                    \
     VISIT( persistentContactCache, m_contactSolverStage.GetPersistentContactCache(), "persistentContactCache" )
 
 #define SB_REPLAY_SOLVER_VECTOR_FIELDS( VISIT )                                                                        \
@@ -493,8 +463,6 @@ void PhysicsWorld::CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
 }
 
 
-
-
 void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                float fChangeInTime,
@@ -526,8 +494,6 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
 }
 
 
-
-
 void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore, int index )
 {
     PhysicsSleepWakeContext context{ bodyStore.Count(),
@@ -536,7 +502,7 @@ void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore, int index )
                                      nullptr,
                                      nullptr,
                                      m_timeRemaining,
-                                     m_contactSolverStage,
+                                     m_contactSolverStage.CreateWakeAccess(),
                                      m_contactSolverStage.GetPersistentContacts(),
                                      m_pointJointConstraints };
     m_sleepController.WakeModel( context, index );
@@ -554,7 +520,7 @@ void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore,
                                      &colliderStore,
                                      &worldForces,
                                      m_timeRemaining,
-                                     m_contactSolverStage,
+                                     m_contactSolverStage.CreateWakeAccess(),
                                      m_contactSolverStage.GetPersistentContacts(),
                                      m_pointJointConstraints };
     m_sleepController.WakeModel( context, index );
@@ -599,19 +565,26 @@ void PhysicsWorld::ApplyTornadoGameplay( PhysicsBodyStore& bodyStore,
         WakeModel( bodyStore, colliderStore, worldForces, releasedIndex );
     }
 
-    TornadoBodyForceContext tornadoBodyForceContext{ bodyStore,
-                                                     colliderStore,
-                                                     worldForces,
-                                                     m_sleepController,
-                                                     m_sleepController.GetSleepStates(),
-                                                     m_timeRemaining,
-                                                     m_sleepController.GetUnderwaterSleepLocks(),
-                                                     dt,
-                                                     runtimeConfig,
-                                                     workerPool,
-                                                     PHYSICS_PARALLEL_MIN_BODIES,
-                                                     "Frame/Physics/TornadoField/WorkerBodies",
-                                                     PHYSICS_TORNADO_WORKER_HASH };
+    TornadoBodyForceContext tornadoBodyForceContext{
+        bodyStore,
+        colliderStore,
+        worldForces,
+        m_sleepController.CreateNarrowphaseWakeAccess( bodyStore,
+                                                       colliderStore,
+                                                       worldForces,
+                                                       bodyStore.MutableRecords(),
+                                                       m_timeRemaining,
+                                                       bodyStore.Count(),
+                                                       dt ),
+        m_sleepController.GetSleepStates(),
+        m_timeRemaining,
+        m_sleepController.GetUnderwaterSleepLocks(),
+        dt,
+        runtimeConfig,
+        workerPool,
+        PHYSICS_PARALLEL_MIN_BODIES,
+        "Frame/Physics/TornadoField/WorkerBodies",
+        PHYSICS_TORNADO_WORKER_HASH };
     m_tornadoGameplay.ApplyBodyForces( stepState, tornadoBodyForceContext );
 }
 
@@ -646,8 +619,6 @@ float PhysicsWorld::GetTornadoSystemElapsedSeconds() const
 }
 
 
-
-
 void PhysicsWorld::CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& event )
 {
     if ( event.hasPipelineRecord )
@@ -680,10 +651,6 @@ void PhysicsWorld::CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& e
 }
 
 
-
-
-
-
 void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      const ColliderStore& colliderStore,
                                      float dt,
@@ -698,36 +665,27 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                          static_cast<int>( colliderRecords.size() ) } );
     const std::span<const uint8_t> sleepStates = m_sleepController.GetSleepStates();
 
-    // Sleep thresholds are config-backed because they directly trade CPU cost
-    // against visible settling behavior. Higher thresholds keep bodies awake
-    // longer, which is useful while validating the solver but expensive in
-    // sleeping-heavy scenes. Lower thresholds save broadphase/narrowphase work
-    // sooner, but if set too aggressively they can freeze objects before the
-    // persistent contact solver has converged to a stable support impulse.
-    //
-    // The counter storage is still uint8_t, so physics_sleep_frames is clamped
-    // to 1..255 here. Widening that storage is a separate data-layout change and
-    // should be measured before doing it in a hot per-body array.
-    const float sleepLinear = (std::max)( 0.0f, config.physicsSleep.linearSpeed );
-    const float sleepAngular = (std::max)( 0.0f, config.physicsSleep.angularSpeed );
-    const float SLEEP_LINEAR_SQ = sleepLinear * sleepLinear;
-    const float SLEEP_ANGULAR_SQ = sleepAngular * sleepAngular;
-    const uint8_t SLEEP_FRAMES = static_cast<uint8_t>( (std::max)( 1, (std::min)( config.physicsSleep.frames, 255 ) ) );
+    // Sleep owns threshold interpretation and returns the exact squared-speed
+    // and counter values consumed by narrowphase and island transitions. The
+    // facade only sequences that typed policy across the two consumers.
+    const PhysicsSleepStepPolicy sleepPolicy = m_sleepController.ResolveStepPolicy( config.physicsSleep );
 
     for ( int x = 0; x < modelCount; ++x )
     {
         if ( sleepStates[x] )
         {
-            m_sleepController.LockUnderwaterSleeperIfReady(
-                worldForces, bodyStore, colliderStore, m_timeRemaining, x );
+            m_sleepController.LockUnderwaterSleeperIfReady( worldForces, bodyStore, colliderStore, m_timeRemaining, x );
         }
     }
 
     // Sleeping bodies keep cached state until a contact or scene change wakes
     // them, so force integration only runs for awake rows.
-    const Vector3* mutualGravityForces =
-        m_forceStage.PrepareMutualGravityForces(
-            bodyRecords, sleepStates, modelCount, worldForces, config.physicsExecution, workerPool );
+    const Vector3* mutualGravityForces = m_forceStage.PrepareMutualGravityForces( bodyRecords,
+                                                                                  sleepStates,
+                                                                                  modelCount,
+                                                                                  worldForces,
+                                                                                  config.physicsExecution,
+                                                                                  workerPool );
     ApplyForcesStageContext applyForcesStage{
         bodyStore,
         colliderStore,
@@ -762,30 +720,37 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     float invCellSize = 1.0f / m_broadphase.GetCellSize();
     const int candidatePairCount = static_cast<int>( candidatePairs.size() );
 
-    ObjectNarrowphasePairStageContext objectNarrowphasePairContext{ bodyStore,
-                                                                    colliderStore,
-                                                                    worldForces,
-                                                                    bodyRecords,
-                                                                    colliderRecords,
-                                                                    candidatePairs,
-                                                                    m_sleepController,
-                                                                    sleepStates,
-                                                                    m_timeRemaining,
-                                                                    m_sleepController.GetUnderwaterSleepLocks(),
-                                                                    m_contactSolverStage.GetPersistentContactCache(),
-                                                                    modelCount,
-                                                                    SLEEP_LINEAR_SQ,
-                                                                    SLEEP_ANGULAR_SQ,
-                                                                    contactSkin,
-                                                                    config.bodySimulation.contactEpsilon,
-                                                                    invCellSize,
-                                                                    dt };
+    ObjectNarrowphasePairStageContext objectNarrowphasePairContext{
+        bodyStore,
+        colliderStore,
+        worldForces,
+        bodyRecords,
+        colliderRecords,
+        candidatePairs,
+        m_sleepController.CreateNarrowphaseWakeAccess( bodyStore,
+                                                       colliderStore,
+                                                       worldForces,
+                                                       bodyRecords,
+                                                       m_timeRemaining,
+                                                       modelCount,
+                                                       dt ),
+        sleepStates,
+        m_timeRemaining,
+        m_sleepController.GetUnderwaterSleepLocks(),
+        m_contactSolverStage.GetPersistentContactCache(),
+        modelCount,
+        sleepPolicy.linearSpeedSquared,
+        sleepPolicy.angularSpeedSquared,
+        contactSkin,
+        config.bodySimulation.contactEpsilon,
+        invCellSize,
+        dt };
 
     const bool ranParallelNarrowphase = m_narrowphase.TryRunParallel( objectNarrowphasePairContext,
-                                                                     candidatePairCount,
-                                                                     modelCount,
-                                                                     config.physicsExecution,
-                                                                     workerPool );
+                                                                      candidatePairCount,
+                                                                      modelCount,
+                                                                      config.physicsExecution,
+                                                                      workerPool );
     if ( ranParallelNarrowphase )
     {
         PROFILE_SCOPED( "Frame/Physics/Narrowphase/CommitEvents" );
@@ -838,11 +803,11 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         const TerrainDetectionCandidate& candidate = terrainCandidates[static_cast<size_t>( x )];
         if ( candidate.tested )
         {
-            const PreparedTerrainCandidateCommit commit = m_terrain.PrepareCandidateCommit(
-                terrainCandidateCommitContext,
-                x,
-                candidate.availableTime,
-                candidate.sweep );
+            const PreparedTerrainCandidateCommit commit =
+                m_terrain.PrepareCandidateCommit( terrainCandidateCommitContext,
+                                                  x,
+                                                  candidate.availableTime,
+                                                  candidate.sweep );
             if ( commit.hit )
             {
                 m_stepDiagnostics.RecordPipelineStage( commit.pipelineRecord );
@@ -852,7 +817,11 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 #else
                     false,
 #endif
-                    "terrain", x, -1, commit.collisionTime, commit.availableTime );
+                    "terrain",
+                    x,
+                    -1,
+                    commit.collisionTime,
+                    commit.availableTime );
                 m_terrain.CommitCandidate( terrainCandidateCommitContext, commit );
                 m_stepDiagnostics.MarkCollisionVisualContact( x );
                 m_timeRemaining[x] = commit.remainingTime;
@@ -884,7 +853,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                      colliderStore,
                                                      worldForces,
                                                      m_timeRemaining,
-                                                     m_contactSolverStage,
+                                                     m_contactSolverStage.CreateWakeAccess(),
+                                                     m_contactSolverStage.GetPersistentContacts(),
                                                      m_pointJointConstraints,
                                                      dt );
     (void)Ragdoll::SolvePointJoints( bodyStore, m_pointJointConstraints, m_sleepController.GetSleepStates(), dt );
@@ -893,7 +863,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     // response has had a chance to seed true support for this frame.
     m_sleepController.PropagateSupport( bodyStore.Records() );
 
-    // Integrate remaining time for awake models
+    // Integrate remaining time for awake models.
     PROFILE_BEGIN( "Frame/Physics/Integrate" );
     IntegrateRemainingStageContext integrateRemainingStage{ bodyStore,
                                                             colliderStore,
@@ -901,22 +871,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                             m_sleepController.GetSleepStates(),
                                                             m_timeRemaining };
 
-    if ( config.physicsExecution.parallel && config.physicsExecution.parallelIntegrate )
-    {
-        workerPool.ParallelForNoAlloc( 0,
-                                       modelCount,
-                                       integrateRemainingStage,
-                                       PHYSICS_PARALLEL_MIN_BODIES,
-                                       "Frame/Physics/Integrate/WorkerBodies",
-                                       PHYSICS_INTEGRATE_WORKER_HASH );
-    }
-    else
-    {
-        for ( int x = 0; x < modelCount; ++x )
-        {
-            integrateRemainingStage( x );
-        }
-    }
+    m_forceStage.IntegrateRemaining( integrateRemainingStage, modelCount, workerPool, config.physicsExecution );
 
     const PhysicsSleepIslandStageContext sleepIslandContext{ bodyStore,
                                                              colliderStore,
@@ -928,9 +883,280 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                              m_pointJointConstraints,
                                                              m_stepDiagnostics.MutablePipelineTrace(),
                                                              modelCount,
-                                                             SLEEP_LINEAR_SQ,
-                                                             SLEEP_ANGULAR_SQ,
-                                                             SLEEP_FRAMES };
+                                                             sleepPolicy.linearSpeedSquared,
+                                                             sleepPolicy.angularSpeedSquared,
+                                                             sleepPolicy.frameCount };
     m_sleepController.RunIslandStage( sleepIslandContext );
     PROFILE_END( "Frame/Physics/Integrate" );
+}
+
+void PhysicsWorld::BeginCollisionVisualFrame( int modelCount )
+{
+    m_stepDiagnostics.BeginCollisionVisualFrame( modelCount );
+    m_sleepController.EnsureVisualIdSize( modelCount );
+}
+
+
+void PhysicsWorld::EndCollisionVisualFrame()
+{
+    m_stepDiagnostics.EndCollisionVisualFrame();
+}
+
+
+void PhysicsWorld::ClearPointJointConstraints()
+{
+    m_pointJointConstraints.clear();
+}
+
+
+void PhysicsWorld::DestroyPointJointsForBody( PhysicsBodyHandle body )
+{
+    // Invariant: remove every joint that names the retiring handle before the
+    // body slot can be reused. Runtime joint rows are dense and are not retained
+    // as stable identity outside the physics owner.
+    for ( std::size_t index = 0; index < m_pointJointConstraints.size(); )
+    {
+        const PointJointConstraint& constraint = m_pointJointConstraints[index];
+        if ( constraint.bodyA != body && constraint.bodyB != body )
+        {
+            ++index;
+            continue;
+        }
+
+        if ( index + 1u != m_pointJointConstraints.size() )
+        {
+            m_pointJointConstraints[index] = m_pointJointConstraints.back();
+        }
+        m_pointJointConstraints.pop_back();
+    }
+}
+
+
+PhysicsConstraintHandle PhysicsWorld::CreatePointJoint( const PhysicsPointJointCreateDesc& desc )
+{
+    if ( !desc.bodyA.IsValid() || !desc.bodyB.IsValid() || desc.bodyA == desc.bodyB )
+    {
+        return PhysicsConstraintHandle{};
+    }
+
+    // Why: callers create constraints with handle-keyed descriptors, while the
+    // solver still iterates dense PointJointConstraint rows without indirection.
+    PointJointConstraint constraint;
+    constraint.SetBodies( desc.bodyA, desc.bodyB );
+    constraint.localAnchorA = desc.localAnchorA;
+    constraint.localAnchorB = desc.localAnchorB;
+    constraint.slack = desc.slack;
+    constraint.stiffness = desc.stiffness;
+    constraint.damping = desc.damping;
+    constraint.groupId = desc.groupId;
+    constraint.flags = desc.flags;
+
+    PhysicsConstraintHandle handle;
+    handle.index = static_cast<uint32_t>( m_pointJointConstraints.size() );
+    handle.generation = PHYSICS_HANDLE_INITIAL_GENERATION;
+    m_pointJointConstraints.push_back( constraint );
+    return handle;
+}
+
+
+const std::vector<PointJointConstraint>& PhysicsWorld::GetPointJointConstraints() const
+{
+    return m_pointJointConstraints;
+}
+
+
+bool PhysicsWorld::ShouldEmitStepDiagnostics() const
+{
+#ifdef _DEBUG
+    return m_stepDiagnostics.ShouldEmitStepDiagnostics( m_diagnosticsSuppressed );
+#else
+    return false;
+#endif
+}
+
+
+bool PhysicsWorld::ShouldEmitCollisionTimeDiagnostics() const
+{
+#ifdef _DEBUG
+    return m_stepDiagnostics.ShouldEmitCollisionTimeDiagnostics( m_diagnosticsSuppressed );
+#else
+    return false;
+#endif
+}
+
+
+void PhysicsWorld::EmitStepDiagnostics( const PhysicsBodyStore& bodyStore,
+                                        const ColliderStore& colliderStore,
+                                        float fChangeInTime,
+                                        const char* const* diagnosticNames,
+                                        int diagnosticNameCount,
+                                        const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
+{
+#ifdef _DEBUG
+    const PhysicsDiagnosticsView diagnosticsView = GetDiagnosticsView();
+    m_stepDiagnostics.EmitStepDiagnostics( m_diagnosticsSuppressed,
+                                           diagnosticsView,
+                                           bodyStore,
+                                           colliderStore,
+                                           fChangeInTime,
+                                           diagnosticNames,
+                                           diagnosticNameCount,
+                                           diagnosticsCsvWriter );
+#else
+    (void)bodyStore;
+    (void)colliderStore;
+    (void)fChangeInTime;
+    (void)diagnosticNames;
+    (void)diagnosticNameCount;
+    (void)diagnosticsCsvWriter;
+#endif
+}
+
+
+#ifdef _DEBUG
+void PhysicsWorld::SetPhysicsRegressionLogPath( const char* path )
+{
+    m_stepDiagnostics.SetPhysicsRegressionLogPath( path );
+}
+
+
+void PhysicsWorld::SetPhysicsCollisionTimeLogPath( const char* path )
+{
+    m_stepDiagnostics.SetPhysicsCollisionTimeLogPath( path );
+}
+
+
+void PhysicsWorld::SetPhysicsDiagnosticsPath( const char* path )
+{
+    m_stepDiagnostics.SetPhysicsDiagnosticsPath( path );
+}
+
+
+void PhysicsWorld::SetPhysicsDiagnosticsRunId( const char* runId )
+{
+    m_stepDiagnostics.SetPhysicsDiagnosticsRunId( runId );
+}
+
+
+bool PhysicsWorld::SetDiagnosticsSuppressed( bool suppressed )
+{
+    const bool previous = m_diagnosticsSuppressed;
+    m_diagnosticsSuppressed = suppressed;
+    return previous;
+}
+
+
+#endif
+
+
+PhysicsDiagnosticsView PhysicsWorld::GetDiagnosticsView() const
+{
+    return PhysicsDiagnosticsView{ m_contactSolverStage.GetPersistentContacts(),
+                                   m_contactSolverStage.GetStats(),
+                                   m_sleepController.GetSleepIslandParents(),
+                                   m_sleepController.GetSleepSupportedVector(),
+                                   m_sleepController.GetSleepInhibitedVector(),
+                                   m_sleepController.GetSleepStateVector(),
+                                   m_sleepController.GetSleepCounters(),
+                                   m_sleepController.GetSleepIslandEligible(),
+                                   m_sleepController.GetSleepIslandCanSleep(),
+                                   m_pointJointConstraints,
+                                   m_broadphase.GetSpatialGrid(),
+                                   m_broadphase.GetCandidatePairs(),
+                                   m_broadphase.GetCollisionCellKeys(),
+                                   m_sleepController.GetSleepSupportEdgeVector(),
+                                   m_sleepController.GetSleepIslandVisualIdVector(),
+                                   m_stepDiagnostics.GetPipelineTrace(),
+                                   m_terrain.GetContactManifolds() };
+}
+
+uint64_t PhysicsWorld::CollectMemoryBytes() const
+{
+    uint64_t bytes = static_cast<uint64_t>( sizeof( *this ) );
+    bytes += m_forceStage.CollectDynamicMemoryBytes();
+    bytes += m_broadphase.CollectDynamicMemoryBytes();
+    bytes += VectorCapacityBytes( m_timeRemaining );
+    bytes += m_sleepController.CollectDynamicMemoryBytes();
+    bytes += m_stepDiagnostics.CollectDynamicMemoryBytes();
+    bytes += m_contactSolverStage.CollectDynamicMemoryBytes();
+    bytes += m_terrain.CollectDynamicMemoryBytes();
+    bytes += m_narrowphase.CollectDynamicMemoryBytes();
+    bytes += VectorCapacityBytes( m_pointJointConstraints );
+    bytes += m_tornadoGameplay.CollectMemoryBytes();
+    return bytes;
+}
+
+uint64_t PhysicsWorld::CollectDebugAndBroadphaseMemoryBytes() const
+{
+    uint64_t bytes = m_broadphase.CollectDebugAndBroadphaseMemoryBytes();
+    bytes += m_stepDiagnostics.CollectDebugMemoryBytes();
+    bytes += VectorCapacityBytes( m_sleepController.GetSleepIslandVisualIdVector() );
+    bytes += m_tornadoGameplay.CollectDebugMemoryBytes();
+    return bytes;
+}
+
+
+const Math::CollisionDetection::SpatialGrid& PhysicsWorld::GetSpatialGrid() const
+{
+    return m_broadphase.GetSpatialGrid();
+}
+
+
+const std::vector<int64_t>& PhysicsWorld::GetCollisionCellKeys() const
+{
+    return m_broadphase.GetCollisionCellKeys();
+}
+
+
+const std::vector<uint8_t>& PhysicsWorld::GetCollisionVisualContacts() const
+{
+    return m_stepDiagnostics.GetCollisionVisualContacts();
+}
+
+
+std::span<const int> PhysicsWorld::GetFixedContactHighlightBodies() const
+{
+    return m_contactSolverStage.GetSideEffects().fixedContactBodies;
+}
+
+
+std::span<const PhysicsFixedTreeReleaseEvent> PhysicsWorld::GetFixedTreeReleaseEvents() const
+{
+    return m_contactSolverStage.GetSideEffects().fixedTreeReleases;
+}
+
+
+std::span<const uint8_t> PhysicsWorld::GetSleepStates() const
+{
+    return m_sleepController.GetSleepStates();
+}
+
+
+std::span<const int> PhysicsWorld::GetSleepIslandVisualIds() const
+{
+    return m_sleepController.GetSleepIslandVisualIds();
+}
+
+
+std::span<const uint8_t> PhysicsWorld::GetSleepSupportedStates() const
+{
+    return m_sleepController.GetSleepSupportedStates();
+}
+
+
+std::span<const uint8_t> PhysicsWorld::GetSleepInhibitedStates() const
+{
+    return m_sleepController.GetSleepInhibitedStates();
+}
+
+
+const std::vector<PhysicsDebugContact>& PhysicsWorld::GetPhysicsDebugContacts() const
+{
+    return m_stepDiagnostics.GetDebugContacts();
+}
+
+
+const std::vector<PhysicsPipelineRecord>& PhysicsWorld::GetPhysicsPipelineTrace() const
+{
+    return m_stepDiagnostics.GetPipelineTrace();
 }

@@ -60,8 +60,8 @@ float SolverBodyRadius( std::span<const ColliderRecord> colliderRecords, int bod
 // context. Reading here must never trigger owner-side capacity work.
 bool IsUnderwaterSleepLocked( std::span<const uint8_t> underwaterSleepLocked, int modelCount, int bodyIndex )
 {
-    return bodyIndex >= 0 && bodyIndex < modelCount &&
-           bodyIndex < static_cast<int>( underwaterSleepLocked.size() ) && underwaterSleepLocked[bodyIndex] != 0;
+    return bodyIndex >= 0 && bodyIndex < modelCount && bodyIndex < static_cast<int>( underwaterSleepLocked.size() ) &&
+           underwaterSleepLocked[bodyIndex] != 0;
 }
 
 // Concept: wake energy uses the same quietness thresholds as sleep eligibility.
@@ -304,8 +304,8 @@ bool ObjectPairNeedsSweptCcd( std::span<const PhysicsBodyRecord> bodyRecords,
 } // namespace
 
 void PhysicsNarrowphaseStage::RecordObjectNarrowphaseEvent( ObjectNarrowphaseEvent& event,
-                                                 ObjectNarrowphaseEventKind kind,
-                                                 const Physics::PhysicsPipelineRecord& record )
+                                                            ObjectNarrowphaseEventKind kind,
+                                                            const Physics::PhysicsPipelineRecord& record )
 {
     event.kind = kind;
     event.pipelineRecord = record;
@@ -313,10 +313,10 @@ void PhysicsNarrowphaseStage::RecordObjectNarrowphaseEvent( ObjectNarrowphaseEve
 }
 
 void PhysicsNarrowphaseStage::EmitObjectCollisionTimeEvent( ObjectNarrowphaseEvent& event,
-                                                 int bodyA,
-                                                 int bodyB,
-                                                 float collisionTime,
-                                                 float availableTime )
+                                                            int bodyA,
+                                                            int bodyB,
+                                                            float collisionTime,
+                                                            float availableTime )
 {
     event.emitCollisionTime = 1;
     event.collisionTimeBodyA = bodyA;
@@ -333,10 +333,10 @@ void PhysicsNarrowphaseStage::MarkObjectVisualEvent( ObjectNarrowphaseEvent& eve
 }
 
 void PhysicsNarrowphaseStage::WriteObjectCollisionCellEvent( ObjectNarrowphaseEvent& event,
-                                                  std::span<const PhysicsBodyRecord> bodyRecords,
-                                                  int bodyA,
-                                                  int bodyB,
-                                                  float invCellSize )
+                                                             std::span<const PhysicsBodyRecord> bodyRecords,
+                                                             int bodyA,
+                                                             int bodyB,
+                                                             float invCellSize )
 {
     const Vector3 midpoint =
         ( bodyRecords[static_cast<size_t>( bodyA )].position + bodyRecords[static_cast<size_t>( bodyB )].position ) *
@@ -349,8 +349,8 @@ void PhysicsNarrowphaseStage::WriteObjectCollisionCellEvent( ObjectNarrowphaseEv
 }
 
 void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( const ObjectNarrowphasePairStageContext& context,
-                                                 int pairIndex,
-                                                 ObjectNarrowphaseEvent& event )
+                                                            int pairIndex,
+                                                            ObjectNarrowphaseEvent& event )
 {
     const auto& cp = context.candidatePairs[static_cast<size_t>( pairIndex )];
     const int x = cp.first;
@@ -408,14 +408,7 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( const ObjectNarrowph
                     context.timeRemaining[y] = (std::max)( 0.0f, context.timeRemaining[y] - colTime );
                     if ( !sleepingLocked )
                     {
-                        context.sleepController.WakeNarrowphaseBody( context.bodyStore,
-                                                                       context.colliderStore,
-                                                                       context.worldForces,
-                                                                       context.bodyRecords,
-                                                                       context.timeRemaining,
-                                                                       context.modelCount,
-                                                                       x,
-                                                                       context.dt );
+                        context.wakeAccess.WakeBody( x );
                     }
                     wokeBySweptImpact = true;
                     MarkObjectVisualEvent( event, x, y );
@@ -440,14 +433,7 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( const ObjectNarrowph
 
                 if ( !sleepingLocked )
                 {
-                    context.sleepController.WakeNarrowphaseBody( context.bodyStore,
-                                                                   context.colliderStore,
-                                                                   context.worldForces,
-                                                                   context.bodyRecords,
-                                                                   context.timeRemaining,
-                                                                   context.modelCount,
-                                                                   x,
-                                                                   context.dt );
+                    context.wakeAccess.WakeBody( x );
                 }
                 MarkObjectVisualEvent( event, x, y );
                 WriteObjectCollisionCellEvent( event, context.bodyRecords, x, y, context.invCellSize );
@@ -498,14 +484,7 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( const ObjectNarrowph
                     context.timeRemaining[x] = (std::max)( 0.0f, context.timeRemaining[x] - colTime );
                     if ( !sleepingLocked )
                     {
-                        context.sleepController.WakeNarrowphaseBody( context.bodyStore,
-                                                                       context.colliderStore,
-                                                                       context.worldForces,
-                                                                       context.bodyRecords,
-                                                                       context.timeRemaining,
-                                                                       context.modelCount,
-                                                                       y,
-                                                                       context.dt );
+                        context.wakeAccess.WakeBody( y );
                     }
                     wokeBySweptImpact = true;
                     MarkObjectVisualEvent( event, x, y );
@@ -530,14 +509,7 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( const ObjectNarrowph
 
                 if ( !sleepingLocked )
                 {
-                    context.sleepController.WakeNarrowphaseBody( context.bodyStore,
-                                                                   context.colliderStore,
-                                                                   context.worldForces,
-                                                                   context.bodyRecords,
-                                                                   context.timeRemaining,
-                                                                   context.modelCount,
-                                                                   y,
-                                                                   context.dt );
+                    context.wakeAccess.WakeBody( y );
                 }
                 MarkObjectVisualEvent( event, x, y );
                 WriteObjectCollisionCellEvent( event, context.bodyRecords, x, y, context.invCellSize );

@@ -275,8 +275,7 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
-PhysicsBroadphaseStage::PhysicsBroadphaseStage()
-    : m_spatialGrid( DEFAULT_BROADPHASE_CELL )
+PhysicsBroadphaseStage::PhysicsBroadphaseStage() : m_spatialGrid( DEFAULT_BROADPHASE_CELL )
 {
     // Runtime allocation policy: both outputs are fully reserved before the
     // fixed-step pass and fail fatally rather than growing during gameplay.
@@ -377,8 +376,10 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
                                                       context.dt,
                                                       context.config.bodySimulation.contactEpsilon ) )
                 {
-                    AppendCandidatePairIfMissing(
-                        m_candidatePairs, broadphaseCandidateFilterContext, movingIndex, targetIndex );
+                    AppendCandidatePairIfMissing( m_candidatePairs,
+                                                  broadphaseCandidateFilterContext,
+                                                  movingIndex,
+                                                  targetIndex );
                 }
             }
         }
@@ -412,7 +413,8 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
                 break;
             }
 
-            if ( pair.first < 0 || pair.second < 0 || pair.first >= context.modelCount || pair.second >= context.modelCount )
+            if ( pair.first < 0 || pair.second < 0 || pair.first >= context.modelCount ||
+                 pair.second >= context.modelCount )
             {
                 continue;
             }
@@ -434,12 +436,12 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
     }
     {
         PROFILE_SCOPED( "Frame/Physics/Broadphase/PruneSleepPairs" );
-        m_candidatePairs.erase(
-            std::remove_if( m_candidatePairs.begin(),
-                            m_candidatePairs.end(),
-                            SleepPrunedCandidatePairPredicate{
-                                context.sleepState, context.bodyRecords, context.physicsPipelineTrace } ),
-            m_candidatePairs.end() );
+        m_candidatePairs.erase( std::remove_if( m_candidatePairs.begin(),
+                                                m_candidatePairs.end(),
+                                                SleepPrunedCandidatePairPredicate{ context.sleepState,
+                                                                                   context.bodyRecords,
+                                                                                   context.physicsPipelineTrace } ),
+                                m_candidatePairs.end() );
     }
     PROFILE_END( "Frame/Physics/Broadphase" );
     return m_candidatePairs;

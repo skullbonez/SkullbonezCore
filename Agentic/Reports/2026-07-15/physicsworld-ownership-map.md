@@ -119,28 +119,41 @@ final source and header review found no `PhysicsWorld*`, `PhysicsWorld&`,
 | `m_tornadoGameplay` | Existing cohesive sibling owner; the facade only sequences its force application beside `PhysicsForceStage`. |
 | Debug-only `m_diagnosticsSuppressed` | Scoped facade policy override; diagnostic storage and output remain entirely inside `PhysicsStepDiagnostics`. |
 
-Final implementation line counts are below. The physical splits preserve one
-logical owner per stage and do not claim a new ownership boundary.
+P10's first independent review rejected the temporary sibling
+`PhysicsWorldFacade.cpp` split because the plan required concrete owners rather
+than a translation-unit split of the class. Remediation reunited the logical
+class in `PhysicsWorld.cpp`, moved remaining-time dispatch into
+`PhysicsForceStage`, replaced cross-stage concrete references with scoped wake
+capabilities, and moved sleep-threshold policy into `PhysicsSleepController`.
+The facade remains physically large because its remaining methods are the
+stable public API, composition/sequencing, replay aggregation, or one of the
+four mapped stay-behind values; splitting it again would conceal rather than
+transfer authority.
+
+Final remediated implementation line counts are below.
 
 | Implementation unit | Lines |
 |---|---:|
-| `PhysicsWorld.cpp` | 936 |
-| `PhysicsWorldFacade.cpp` | 310 |
-| `PhysicsBroadphaseStage.cpp` | 509 |
-| `PhysicsContactSolverStage.cpp` | 315 |
-| `PhysicsForceStage.cpp` | 379 |
-| `PhysicsNarrowphaseStage.cpp` | 626 |
+| `PhysicsWorld.cpp` | 1,162 |
+| `PhysicsBroadphaseStage.cpp` | 511 |
+| `PhysicsContactSolverStage.cpp` | 319 |
+| `PhysicsForceStage.cpp` | 425 |
+| `PhysicsNarrowphaseStage.cpp` | 598 |
 | `PhysicsNarrowphaseStage.Execution.cpp` | 271 |
-| `PhysicsSleepController.cpp` | 598 |
-| `PhysicsSleepController.Wake.cpp` | 357 |
-| `PhysicsStepDiagnostics.cpp` | 226 |
-| `PhysicsTerrainStage.cpp` | 241 |
+| `PhysicsSleepController.cpp` | 585 |
+| `PhysicsSleepController.State.cpp` | 196 |
+| `PhysicsSleepController.Wake.cpp` | 466 |
+| `PhysicsStepDiagnostics.cpp` | 264 |
+| `PhysicsTerrainStage.cpp` | 240 |
 
 The fixed-step sequence now reads: sleep mirror/underwater lock, force and
 tornado, broadphase, narrowphase plus ordered commit, terrain plus ordered
-commit, persistent contacts, point joints/support, remaining-time integration,
-sleep-island transition, and caller-boundary diagnostics. Every unit is below
-the P9 approximate size target (facade core below 1,000; stage units below 700).
+commit, persistent contacts, point joints/support, force-owned remaining-time
+integration, sleep-island transition, and caller-boundary diagnostics. Every
+stage unit is below the target of 700 lines. `PhysicsWorld.cpp` exceeds P9's approximate
+1,000-line physical target, but the prohibited sibling split is gone and the
+repeat independent review confirmed the remaining cohesive facade is an
+ownership closure rather than relying on line count alone.
 
 ## Required Extraction Order
 
