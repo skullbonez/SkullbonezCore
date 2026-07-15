@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-15th-july` (runtime mass-reduction campaign) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Execute the runtime mass-reduction campaign: `init-startup-decomposition` → `run-member-and-include-shrink` → `wide-call-desc-struct-pass` (wide-call may run as a parallel lane; its T2 rebases on the Run shrink's RunRender edits if both are in flight) |
-| Active/future progress | 10 / 16 tasks = 63% overall (mass-reduction plans only; completed campaigns and externally blocked work are excluded) |
-| Last broad local gate | `tools\\validate_full.bat` passed in 116.00 s on 2026-07-16: mandatory CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | Run member-shrink T5 remediated all three first-review ownership blockers; the repeat independent review is clear. Allocation checks, `validate_fast`, `validate_full`, and a 22/22 touched-source comment audit passed with no baseline refresh. |
+| Current objective | Execute the runtime mass-reduction campaign: Init startup and Run member/include shrink are complete; finish `wide-call-desc-struct-pass` at 0/5. |
+| Active/future progress | 11 / 16 tasks = 69% overall (mass-reduction plans only; completed campaigns and externally blocked work are excluded) |
+| Last broad local gate | `tools\\validate_full.bat` passed in 110.45 s on 2026-07-16: mandatory CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
+| Validation for current edits | Run member/include shrink is complete at 6/6. The clean T5 tip passed full (110.45 s), explicit DX12 (50.66 s), and one-minute graphics stress (62.33 s, exit 0, empty stderr, zero reconciliation delta) with no baseline refresh. |
 
 ## Live Queue
 
@@ -23,11 +23,9 @@ plan inventory.
       2026-07-15; registered in MASTER at 3/16). Binding order:
       `init-startup-decomposition` is complete at 5/5 after independent review
       remediation restored generic CLI policy to its parser owner. Continue with
-      `run-member-and-include-shrink` (5/6; the include graph is halved and the
-      remediated independent ownership review is clear; continue with T6 final
-      closure gates) →
-      `wide-call-desc-struct-pass` (5 tasks, may run parallel to the first
-      two; T2 rebases on Run-shrink RunRender edits if concurrent). Owner
+      `run-member-and-include-shrink` is complete at 6/6 after its clear repeat
+      ownership review and full/DX12/stress closure gates. Continue with
+      `wide-call-desc-struct-pass` (5 tasks). Owner
       rulings: Init's round-3 parking is lifted and a free-function file
       split by responsibility is the approved shape; the Run shrink allows
       at most two cohesive owners, bans a services bag, and requires one
@@ -237,8 +235,7 @@ plan inventory.
 
 ## Next Handoff
 
-The runtime mass-reduction campaign is at 10/16. Run T6's full, explicit DX12,
-and one-minute graphics-stress closure gates in
-`Plans/TODO/run-member-and-include-shrink.md`. The wide-call desc-struct pass
-follows at 0/5. The externally administered validation-gate V3 lane remains
-blocked and excluded from the ledger.
+The runtime mass-reduction campaign is at 11/16. Continue with
+`Plans/TODO/wide-call-desc-struct-pass.md` T1 at 0/5. The externally
+administered validation-gate V3 lane remains blocked and excluded from the
+ledger.

@@ -98,9 +98,9 @@ rule 4. The externally blocked validation lane remains deliberately excluded.
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | init-startup-decomposition | 5 | 5 | 100% |
-| run-member-and-include-shrink | 4 | 6 | 67% |
+| run-member-and-include-shrink | 6 | 6 | 100% |
 | wide-call-desc-struct-pass | 0 | 5 | 0% |
-| **Active/future total** | **9** | **16** | **56%** |
+| **Active/future total** | **11** | **16** | **69%** |
 
 The three round-5 plans (fp-envelope-hardening 4/4,
 mutual-gravity-large-scene-fallback 3/3, math-fatal-survey-restoration 3/3)
@@ -111,10 +111,9 @@ historical work per commit-contract rule 4.
 
 The binding critical path is the 2026-07-15 runtime mass-reduction lane:
 `init-startup-decomposition → run-member-and-include-shrink →
-wide-call-desc-struct-pass`. Init startup decomposition is complete; the Run
-member/include shrink is now the active serial step. The wide-call pass is
-file-independent of the other two and may run as a parallel lane, but its T2
-rebases on the Run shrink's `RunRender.cpp` edits if both are in flight. Every plan carries a
+wide-call-desc-struct-pass`. Init startup decomposition and the Run member/
+include shrink are complete; the wide-call desc-struct pass is now the active
+serial step. Every plan carries a
 zero-baseline/zero-golden-refresh requirement; the wide-call plan's replay
 task is additionally bound by inventory rule 11 (one mega-gate invocation,
 one engine process, no golden refresh).
@@ -411,7 +410,7 @@ ownership review; replay-touching wide-call work runs the one-invocation
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | `init-startup-decomposition` | Complete | 5/5 | Init is a 453-line process orchestrator; four focused Startup owners, exact CLI proofs, independent ownership review, final full gate, and both manual exit-code probes are closed in `../Reports/2026-07-15/init-startup-decomposition-map.md` |
-| [run-member-and-include-shrink](TODO/run-member-and-include-shrink.md) | Active | 5/6 | T6: run full, explicit DX12 renderer, and one-minute graphics-stress closure gates with unchanged baselines |
+| `run-member-and-include-shrink` | Complete | 6/6 | Run.h has 23 direct includes and none of the four named heavy transitive headers; two cohesive owners, recorded UI/audio stays, clear independent review, and full/DX12/stress closure evidence are recorded in `../Reports/2026-07-15/run-member-shrink-map.md` |
 | [wide-call-desc-struct-pass](TODO/wide-call-desc-struct-pass.md) | Active | 0/5 | T1: re-resolve the ≥12-arg inventory rows post-PhysicsWorld, then desc-struct conversions with designated initializers |
 
 ## Features

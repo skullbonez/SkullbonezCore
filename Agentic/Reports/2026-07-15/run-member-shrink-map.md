@@ -3,7 +3,7 @@
 Date: 2026-07-16
 Branch: `nightrunner-15th-july`
 Owner: runtime shell
-Task: `run-member-and-include-shrink` T1-T3
+Task: `run-member-and-include-shrink` T1-T6
 
 ## Current Measurements
 
@@ -329,3 +329,26 @@ Comment-quality audit: touched-file scope, 22/22 C++ source-bearing files
 inspected, zero deferred or unchecked. Every file retains the required learning
 sections and the edited owner/transaction/lifetime comments match the reviewed
 boundaries. No baseline, screenshot, golden, or authored-data file changed.
+
+## T6 Final Closure Gates
+
+The final sequence ran from the clean committed T5 tip without intervening
+source edits:
+
+- `tools\\validate_full.bat` exited `0` in 110.45 s. All CPU lanes passed;
+  Profile, Automation, and Debug builds were warning-free; Automation replay/
+  prediction smoke passed; DX12 reported zero InfoQueue validation errors and
+  all three screenshots matched; both physics smoke lanes passed; and the
+  44,401-line varied physics CSV matched byte-exactly.
+- `tools\\validate_dx12_renderer.bat` exited `0` in 50.66 s. Profile and Debug
+  builds completed with zero warnings/errors, DX12 InfoQueue errors were zero,
+  and every committed screenshot comparison passed.
+- `tools\\run_graphics_stress.bat 1` exited `0` in 62.33 s. PID 4312 completed
+  the bounded one-minute run and was stopped by the PID-scoped timeout;
+  `latest_stderr.txt` was empty, the shutdown memory JSON was written, tracked
+  overshoot was zero, and memory reconciliation delta was zero.
+
+The final repository diff contains no baseline, screenshot, golden, scene, or
+authored-data refresh. With the T5 repeat review clear, 23 direct `Run.h`
+includes, zero named heavy transitive headers, recorded stay reasons for UI and
+contact audio, and all closure gates passing, the plan is complete at 6/6.
