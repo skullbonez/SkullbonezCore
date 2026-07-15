@@ -627,15 +627,12 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                       automationReplayView );
             if ( automationBeforeInput.applyCameraMode )
             {
-                m_inputRouter.ApplyCameraMode( m_camera,
-                                               automationBeforeInput.cameraMode,
+                m_inputRouter.ApplyCameraMode( automationBeforeInput.cameraMode,
                                                RuntimeInputActionSource::Runtime,
-                                               m_inputRouter.RuntimeContext(),
-                                               m_interaction,
-                                               m_runtimeTools,
+                                               frameInteraction,
+                                               frameScene,
                                                m_replayRuntime,
-                                               m_attachedCamera,
-                                               m_sceneController );
+                                               m_inputRouter.RuntimeContext() );
             }
             // Automation publishes replay mutations as a value packet. Apply
             // it once at the frame composition boundary before normal input
@@ -646,19 +643,12 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 m_inputRouter.SetWorldInteractionOwner(
                     automationBeforeInput.worldInteractionOwner,
                     automationBeforeInput.worldInteractionReason,
+                    frameInteraction,
+                    frameScene,
                     m_replayRuntime,
-                    m_runtimeTools,
-                    m_interaction,
-                    m_sceneController.Cameras(),
-                    m_sceneController.Terrain().Get(),
-                    m_sceneController,
-                    m_sceneController.Physics(),
-                    m_camera,
                     NormalizeRuntimeCameraMode( automationReplayInput.restoreCameraMode,
                                                 m_sceneController.State().isSceneMode,
-                                                RuntimeCameraModeEnabledMask( m_sceneController ) ),
-                    m_attachedCamera.State().activeFollow,
-                    m_camera.director.grabbed );
+                                                RuntimeCameraModeEnabledMask( m_sceneController ) ) );
             }
             if ( !automationBeforeInput.status.ok )
             {

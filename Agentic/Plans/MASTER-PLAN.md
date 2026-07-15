@@ -103,20 +103,16 @@ measures remaining executable work instead of lifetime repository work.
 | vector3-inline-hot-math | 3 | 3 | 100% |
 | math-fatal-removal | 4 | 4 | 100% |
 | deterministic-parallel-mutual-gravity | 4 | 4 | 100% |
-| runtime-signature-decomposition | 0 | 5 | 0% |
-| **Active/future total** | **17** | **22** | **77%** |
+| runtime-signature-decomposition | 5 | 5 | 100% |
+| **Active/future total** | **22** | **22** | **100%** |
 
 ## Current Execution Priority
 
-For maximum impact with minimal rework, use this binding critical path:
-
-`runtime-signature-decomposition` (the remaining 2026-07-15 round-4
-remediation lane), while validation-gate V3 remains externally blocked. The
-message-pump, shadow-stream, Vector3, math-fatal, and deterministic gravity
-plans are complete. The gravity and pump dependencies for signature work are
-satisfied. The previous critical path
-(`replay visual-fidelity mega probe → replay monolith decomposition`)
-completed on `nightrunner-14th-july`.
+All six 2026-07-15 round-4 remediation plans are complete at 22/22. There is
+no remaining executable plan in the active/future portfolio. Validation-gate
+V3 remains externally blocked and deliberately excluded from this ledger. The
+previous critical path (`replay visual-fidelity mega probe → replay monolith
+decomposition`) completed on `nightrunner-14th-july`.
 
 0. **Validation-gate V3 — blocked external lane.** Repository implementation is
    complete. Remaining work requires a real `merge_group` proof, required CPU
@@ -328,7 +324,7 @@ Binding execution order — small isolated wins first, shared-file work last:
 | `vector3-inline-hot-math` | Complete | 3/3 | Header-inline operations, trivial copy/assign, 12-byte ABI, unchanged byte-exact physics baseline, and no perf regression proved |
 | `math-fatal-removal` | Complete | 4/4 | Try normalization/division APIs, classified callers, deterministic fallbacks, zero Maths fatals, and unchanged physics baseline proved |
 | `deterministic-parallel-mutual-gravity` | Complete | 4/4 | Fixed chunks build unique pair slots; original-order replay is byte-exact across 0/1/4 workers and scales pair construction by about 48% |
-| [runtime-signature-decomposition](TODO/runtime-signature-decomposition.md) | Active | 0/5 | After the pump plan: inventory ≥7-arg calls, migrate to frame views |
+| `runtime-signature-decomposition` | Complete | 5/5 | Eleven owner-plumbing calls now use stack-only frame views at 4–6 arguments; the 208-row inventory, independent review, and unchanged full gate passed |
 
 Every plan in this round carries a zero-baseline-refresh requirement: pump,
 streams, inlining, fatal removal, and gravity must all pass their mapped gates

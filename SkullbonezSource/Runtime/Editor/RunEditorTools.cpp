@@ -36,6 +36,7 @@ Related:
 #include "EditorHullAssets.h"
 #include "../Tools/RuntimeTools.h"
 #include "../InputRouter.h"
+#include "../RuntimeFrameViews.h"
 #include "../CameraCollection.h"
 #include "../Window.h"
 #include "../../Assets/AssetSystem.h"
@@ -1605,15 +1606,18 @@ RuntimeTools::BeginEditorPlacementScalePointer( bool inspectGizmoActive,
 
 
 EditorPointerRouteResult InputRouter::RouteEditorPointer( const EditorPointerRouteInput& input,
-                                                          RuntimeTools& runtimeTools,
-                                                          RuntimeInteractionController& interaction,
-                                                          Runtime::SceneController& models,
-                                                          PhysicsEngine& physics,
-                                                          RunSceneState& scene,
-                                                          Environment::WorldEnvironment& world,
-                                                          Geometry::Terrain* terrain,
-                                                          Assets::AssetSystem& assets )
+                                                          RuntimeFrameHostView& host,
+                                                          RuntimeFrameInteractionView& interactionOwners,
+                                                          RuntimeFrameSceneView& sceneOwners )
 {
+    RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
+    RuntimeInteractionController& interaction = interactionOwners.interaction;
+    SceneController& models = sceneOwners.sceneController;
+    PhysicsEngine& physics = models.Physics();
+    RunSceneState& scene = models.State();
+    Environment::WorldEnvironment& world = models.World();
+    Geometry::Terrain* terrain = models.Terrain().Get();
+    Assets::AssetSystem& assets = host.assets;
     EditorPointerRouteResult routeResult;
     auto appendModeAction = [&routeResult]( RuntimeInputAction action )
     {

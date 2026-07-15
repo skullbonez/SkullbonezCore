@@ -660,17 +660,10 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                    : RunInternal::SetEditorPlacementMode( editorContext, true, false );
         inputRouter.SetWorldInteractionOwner( placementMode.worldOwner,
                                               InteractionExitReason::EnterEdit,
+                                              interactionOwners,
+                                              sceneOwners,
                                               replayRuntime,
-                                              runtimeTools,
-                                              interaction,
-                                              sceneController.Cameras(),
-                                              sceneController.Terrain().Get(),
-                                              sceneController,
-                                              sceneController.Physics(),
-                                              camera,
-                                              facts.replayRestoreCameraMode,
-                                              attachedCamera.State().activeFollow,
-                                              camera.director.grabbed );
+                                              facts.replayRestoreCameraMode );
         if ( inputRouter.ReleasePointerToUi( EvaluateRuntimePointerPresentation( inputRouter,
                                                                                  runtimeTools.Editor(),
                                                                                  replayRuntime.BuildInputView() ) ) )
@@ -689,17 +682,10 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         {
             const RuntimeInteractionTransition editorTransition = interaction.EnterEdit();
             inputRouter.ApplyInteractionTransition( editorTransition,
+                                                    interactionOwners,
+                                                    sceneOwners,
                                                     replayRuntime,
-                                                    runtimeTools,
-                                                    interaction,
-                                                    sceneController.Cameras(),
-                                                    sceneController.Terrain().Get(),
-                                                    sceneController,
-                                                    sceneController.Physics(),
-                                                    camera,
-                                                    facts.replayRestoreCameraMode,
-                                                    attachedCamera.State().activeFollow,
-                                                    camera.director.grabbed );
+                                                    facts.replayRestoreCameraMode );
             const bool wasFlyMode = RunCameraModeUsesFlyControls( camera.mode,
                                                                   attachedCamera.State().activeFollow,
                                                                   camera.director.grabbed );
@@ -732,17 +718,10 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                             facts.cameraModeEnabledMask );
             const RuntimeInteractionTransition restoreTransition = interaction.EnterCameraMode( restoreMode );
             inputRouter.ApplyInteractionTransition( restoreTransition,
+                                                    interactionOwners,
+                                                    sceneOwners,
                                                     replayRuntime,
-                                                    runtimeTools,
-                                                    interaction,
-                                                    sceneController.Cameras(),
-                                                    sceneController.Terrain().Get(),
-                                                    sceneController,
-                                                    sceneController.Physics(),
-                                                    camera,
-                                                    facts.replayRestoreCameraMode,
-                                                    attachedCamera.State().activeFollow,
-                                                    camera.director.grabbed );
+                                                    facts.replayRestoreCameraMode );
             const bool wasFlyMode = RunCameraModeUsesFlyControls( camera.mode,
                                                                   attachedCamera.State().activeFollow,
                                                                   camera.director.grabbed );
@@ -777,15 +756,12 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     const RunCameraModeUICommandResult cameraModeCommand = DecodeRunCameraModeUICommand( uiCommands.run );
     if ( cameraModeCommand.accepted )
     {
-        inputRouter.ApplyCameraMode( camera,
-                                     cameraModeCommand.mode,
+        inputRouter.ApplyCameraMode( cameraModeCommand.mode,
                                      RuntimeInputActionSource::UI,
-                                     runtimeInput,
-                                     interaction,
-                                     runtimeTools,
+                                     interactionOwners,
+                                     sceneOwners,
                                      replayRuntime,
-                                     attachedCamera,
-                                     sceneController );
+                                     runtimeInput );
     }
     const RunInternal::EditorGizmoContext editorGizmoContext{ runtimeTools.Editor(),
                                                               sceneController,

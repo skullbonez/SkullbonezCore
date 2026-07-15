@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `15th-of-July-Night-Runner` (created from current `origin/main` at `b2d085f9c`) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Complete the final round-4 remediation plan: runtime signature decomposition |
-| Active/future progress | 17 / 22 tasks = 77% overall (round-4 remediation plans only; completed past plans and externally blocked work are excluded) |
+| Current objective | Round-4 remediation complete; no executable active/future plan remains |
+| Active/future progress | 22 / 22 tasks = 100% overall (round-4 remediation plans only; externally blocked work is excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | Deterministic-parallel-mutual-gravity T1-T4 closed at 4/4. The 200-body 360-frame CSV is byte-identical at 0/1/4 workers (10,245,023 bytes; SHA-256 `97E28A55AC36F461BD87F2AC4430DFBA49CC2C60CE85010369C126D51C5E90B5`). Pair-build profiling over 7,140 ticks improved from 0.1155 ms average at 0 workers to 0.0603 ms at 4. `validate_fast` passed in 57.1s, `validate_physics` passed the unchanged 44,401-row baseline in 57.2s, and `validate_perf` completed with no regression in 86.2s. Migration and allocation checks passed; touched-source comment audit passed 8/8, zero deferred. |
+| Validation for current edits | Runtime-signature-decomposition T1-T5 closed at 5/5. Eleven owner-plumbing calls now take stack-only host/interaction/scene views and have 4–6 arguments. The persistent survey records 208 unique wide invocation names with individual dispositions. Independent review found no authority bag, callbacks, retained views, or reach-back. `tools\validate_full.bat` passed in 170.7s: zero-warning builds, CPU lanes, five engine processes, zero DX12 InfoQueue errors, matching screenshots, and the unchanged 44,401-line byte-exact physics baseline. Touched-source comment audit passed 6/6, zero deferred. |
 
 ## Live Queue
 
@@ -49,6 +49,10 @@ plan inventory.
    those slots in the original serial order, 0/1/4-worker CSVs are byte-exact,
    pair construction is about 48% faster with four workers, and all mapped
    gates pass without a baseline refresh.
+   `runtime-signature-decomposition` is complete at 5/5: eleven repeated-owner
+   calls now use the existing stack-only frame views at 4–6 arguments; a
+   208-row persistent inventory gives every remaining wide call an individual
+   keep reason; independent review is clear; and the unchanged full gate passed.
 1. `replay-visual-fidelity-mega-probe` is complete at 7/7 on
    `nightrunner-13th-july`. It uses one generation and one presented reveal,
    then only non-presenting CPU/artifact verification.
@@ -168,10 +172,8 @@ plan inventory.
 
 ## Next Handoff
 
-Round 4 is 17/22 after closing message-pump, shadow-stream, Vector3,
-math-fatal-removal, and deterministic-parallel-mutual-gravity plans on
-`15th-of-July-Night-Runner`. Continue with
-`Plans/TODO/runtime-signature-decomposition.md`; it carries the same
-zero-baseline-refresh requirement. The externally administered
-validation-gate V3 lane remains blocked and is excluded from the executable
-portfolio ledger.
+Round 4 is complete at 22/22 on `15th-of-July-Night-Runner`; there is no
+remaining executable plan in the active/future portfolio. The externally
+administered validation-gate V3 lane remains blocked on merge-group proof,
+required `main` branch protection, and trusted/ephemeral DX12 runner
+administration, and is excluded from the executable portfolio ledger.
