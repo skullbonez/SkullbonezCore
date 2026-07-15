@@ -334,6 +334,12 @@
     <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCrashLogging.cpp">
       <Filter>Source Files\Runtime\Startup</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupLaunchResolution.cpp">
+      <Filter>Source Files\Runtime\Startup</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupProbeHarnesses.cpp">
+      <Filter>Source Files\Runtime\Startup</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Input.cpp">
       <Filter>Source Files\Runtime\Input</Filter>
     </ClCompile>
@@ -858,6 +864,9 @@
       <Filter>Header Files\Runtime\Startup</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupLaunchResolution.h">
+      <Filter>Header Files\Runtime\Startup</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupProbeHarnesses.h">
       <Filter>Header Files\Runtime\Startup</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayProbeState.h">

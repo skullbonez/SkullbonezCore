@@ -1,7 +1,7 @@
 # Init Startup Decomposition — Split The 3,495-Line Startup File By Responsibility
 
 Date: 2026-07-15
-Status: Active — 2/5 tasks complete
+Status: Active — 3/5 tasks complete
 Impact area: `Runtime/Init.cpp`, new `Runtime/Startup/*` translation units,
 project/filter files, startup CLI behavior (must not change)
 Owner: runtime shell
@@ -78,9 +78,18 @@ every CLI flag, error message, exit code, and probe output is byte-identical.
       validation errors, committed screenshot matches, and the 44,401-line
       byte-exact physics baseline. Touched-file comment audit: 7/7 inspected,
       0 deferred. No baseline or golden refresh.
-- [ ] T3 — Extract probe harnesses + launch resolution units the same way.
+- [x] T3 — Extract probe harnesses + launch resolution units the same way.
       The probe harnesses keep their exact output strings and exit codes;
-      grep-proof the moved string literals are unchanged.
+      grep-proof the moved string literals are unchanged. Evidence: all 4
+      mapped probe functions and all 12 mapped launch functions moved behind
+      their responsibility headers. Mechanical old-vs-new comparison covered
+      16/16 functions and 146 string literals with zero mismatches. Final T3
+      line counts are `Init.cpp` 568, launch resolution 541, and probe
+      harnesses 546. `tools\validate_full.bat` passed in 311.71 s with 707/707
+      project/filter items, zero-warning builds, all CPU/runtime lanes, zero
+      DX12 validation errors, committed screenshot matches, and the 44,401-line
+      byte-exact physics baseline. Touched-file comment audit: 5/5 inspected,
+      0 deferred. No baseline or golden refresh.
 - [ ] T4 — Residue pass: `Init.cpp` retains entry point, argument
       orchestration, worker-pool/config bring-up, and startup failure
       reporting; record the final line counts in the map report. Confirm no

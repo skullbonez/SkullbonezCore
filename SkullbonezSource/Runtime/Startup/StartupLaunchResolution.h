@@ -1,13 +1,11 @@
 /*
 File: StartupLaunchResolution.h
 Purpose:
-  Publishes scene/suite and physics-debug launch-policy parsing to the top-level
-  command-line pass.
+  Publishes scene/suite, physics-debug, and final Run launch-policy resolution.
 
 Summary:
-  During T2 the existing implementations remain in Init.cpp so the CLI owner can
-  call their final header seam. T3 moves those bodies verbatim into the matching
-  StartupLaunchResolution.cpp owner.
+  The command-line owner delegates path/policy resolution here, then WinMain
+  converts the completed ParsedArgs packet into the value passed to Run.
 
 Glossary:
   Launch resolution: Conversion of a CLI scene or suite token into the exact
@@ -16,8 +14,9 @@ Glossary:
     solver state.
 
 Invariants:
-  - Scene/suite paths, diagnostics, and physics-debug messages remain identical.
-  - These functions mutate only the caller-owned ParsedArgs and scene list.
+  - Scene/suite paths, diagnostics, defaults, and physics-debug messages remain
+    byte-identical to the pre-split Init.cpp.
+  - Functions mutate only caller-owned values and retain no token references.
 
 Related:
   - StartupCommandLine.h
@@ -33,19 +32,24 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+struct RunStartupOverrides;
+
 namespace Startup
 {
 struct CommandLineView;
 struct ParsedArgs;
 
-// Applies visualization-only physics debug options to caller-owned ParsedArgs.
+// Applies visualization-only physics-debug tokens to caller-owned parsed state.
 bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs& out );
 
-// Resolves the mutually exclusive generated/hero/scene/suite launch choice and
-// appends owned paths to sceneList without retaining the token view.
+// Resolves one mutually exclusive generated/hero/scene/suite choice into owned
+// scene paths without retaining pointers into commandLine.
 bool ParseSceneArgs( const CommandLineView& commandLine,
                      std::vector<std::string>& sceneList,
                      bool& isSuiteOrSceneMode );
+
+// Converts parsed policy into the value consumed synchronously by RunApp.
+RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args );
 
 } // namespace Startup
 } // namespace Runtime

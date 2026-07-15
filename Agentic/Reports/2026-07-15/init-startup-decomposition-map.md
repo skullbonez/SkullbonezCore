@@ -202,3 +202,22 @@ Validation: documentation-only inventory; no repository validation required.
   byte-exact physics baseline match.
 - Comment audit: 7/7 touched source-bearing files inspected, 0 deferred.
   No baseline or golden refresh.
+
+## T3 Extraction Evidence
+
+- `StartupProbeHarnesses`: 4/4 mapped functions moved; 546 implementation
+  lines after formatting and public-contract comments.
+- `StartupLaunchResolution`: 12/12 mapped functions moved; 541 implementation
+  lines after formatting and public-contract comments.
+- `Init.cpp`: 568 lines after T3, already inside the final `~600` bound.
+- Behavior proof: mechanical comparison against commit `07350f4d` covered all
+  16 moved definitions and their 146 string literals in order with zero
+  mismatches.
+- Registration proof: the broad gate reconciled 707 project items with 707
+  filter items across the production projects.
+- Gate: `tools\validate_full.bat` passed in 311.71 s with zero-warning
+  Profile/Automation/Debug builds, all CPU suites and runtime lanes, zero DX12
+  validation errors, committed screenshot matches, and a 44,401-line
+  byte-exact physics baseline match.
+- Comment audit: 5/5 touched source-bearing files inspected, 0 deferred.
+  No baseline or golden refresh.
