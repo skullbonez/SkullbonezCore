@@ -10,15 +10,26 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-14th-july` |
+| Branch | `claude/night-runner-code-review-8gw5g6` (from the `nightrunner-14th-july` merge, PR #120) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Replay decomposition and future-path vector-spline implementation are complete; retain their closure evidence while the external validation-administration lane remains separately blocked |
-| Active/future progress | 16 / 16 tasks = 100% overall (decomposition + spline plans only; completed past plans and externally blocked work are excluded) |
+| Current objective | Execute the six round-4 adversarial-review remediation plans (2026-07-15 owner rulings): message-pump drain, data-driven shadow streams, Vector3 inlining, math fatal removal, deterministic parallel mutual gravity, runtime signature decomposition |
+| Active/future progress | 0 / 22 tasks = 0% overall (round-4 remediation plans only; completed past plans and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
 | Validation for current edits | Spline T1-T7 closed at 7/7. Focused T1-T6 build/test/visual evidence passed, including five-mode stability, zero drops, no steady-state reserve growth, and selected-root-only glow. After the final critique reset generic marker emphasis to zero, the rebuilt 1,485-frame visual passed in 9.22 s with 1,578 stable segments, zero drops, and reserve growth 224 -> 224. From that final source, T7 `validate_full` passed in 123.31 s; `validate_dx12_renderer` passed in 56.60 s with zero errors and matching baselines; one-minute graphics stress passed in 62.14 s with 12,818 frames, 352 scene loads, empty stderr, zero upload drops/flushes, and reconciled memory; scrub failure propagation returned required exit 37 in 0.06 s without an engine. Comment audit is 18/18 checked, zero deferred. Owner-approved replay golden reconciliation used one engine / one prediction in 453.03 s; refreshed comparison passed at 2,401 ticks and all offline false-pass/determinism controls passed in 39.68 s. |
 
 ## Live Queue
 
+0. Round-4 adversarial-review remediation is the active lane (2026-07-15).
+   Six plans registered in MASTER with a binding order: `win32-message-pump-
+   drain` → `data-driven-shadow-caster-streams` → `vector3-inline-hot-math` →
+   `math-fatal-removal` → `deterministic-parallel-mutual-gravity` →
+   `runtime-signature-decomposition` (plans 1-2 and 3-5 may run as parallel
+   lanes; 3→4→5 and pump→signatures ordering is binding). Owner rulings per
+   plan: inline-only Vector3 (padded-SIMD/SoA deferred), Try-APIs + debug
+   assert, exact-sum parallel gravity (approximation rejected), signatures
+   only from the god-object finding (PhysicsWorld/Init splits and Run member
+   shrink deferred). Every plan requires unchanged committed baselines — no
+   refresh is authorized by this round.
 1. `replay-visual-fidelity-mega-probe` is complete at 7/7 on
    `nightrunner-13th-july`. It uses one generation and one presented reveal,
    then only non-presenting CPU/artifact verification.
@@ -138,9 +149,10 @@ plan inventory.
 
 ## Next Handoff
 
-Replay decomposition is complete at 9/9 and future-path vector splines are
-complete at 7/7 on `nightrunner-14th-july`. The active/future portfolio is
-16/16 = 100%; this percentage includes only decomposition plus spline tasks and
-excludes completed past plans and externally blocked work. Preserve the final
-gate logs, approved replay golden provenance, and one-process oracle evidence
-through commit/push handoff.
+The 2026-07-15 hostile review of the `nightrunner-14th-july` merge produced
+six owner-ruled remediation plans, registered in MASTER as round 4 with a
+binding execution order and a 0/22 ledger. Start with
+`Plans/TODO/win32-message-pump-drain.md`. No source changes have been made
+yet for this round; every plan carries a zero-baseline-refresh requirement.
+Prior decomposition/spline closure evidence from `nightrunner-14th-july`
+remains preserved in git history and the reports listed above.
