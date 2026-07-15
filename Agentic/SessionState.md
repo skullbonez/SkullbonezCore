@@ -10,21 +10,23 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `15th-of-July-Night-Runner` (P0-P2 pushed through `6d3b3996`; P3 force extraction pending commit) |
+| Branch | `15th-of-July-Night-Runner` (P0-P3 pushed through `2d3724e5`; P4 narrowphase extraction pending commit) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Execute P4 of `physicsworld-stage-owner-decomposition`: extract `PhysicsNarrowphaseStage` while retaining the pair-order cross-domain commit loop on the sequencer |
-| Active/future progress | 4 / 11 tasks = 36% overall (PhysicsWorld campaign only; completed rounds and externally blocked work are excluded) |
+| Current objective | Execute P5 of `physicsworld-stage-owner-decomposition`: extract `PhysicsTerrainStage` while retaining sleep-support outputs on the sequencer until P7 |
+| Active/future progress | 5 / 11 tasks = 45% overall (PhysicsWorld campaign only; completed rounds and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | P3 moved exact mutual-gravity preparation, the >512-body serial fallback, two bounded buffers/high-water state, and apply-forces dispatch into `PhysicsForceStage`; tornado gameplay remains a sibling owner. Mechanical source comparison passed for the gravity body, per-body force body, and dispatch after boundary renames. `tools\validate_build.bat Debug` passed in 21.96 s with 0 warnings/0 errors. The focused 0/1/4-worker gravity filter passed 2/2 cases and 8,410/8,410 assertions in 4.09 s. Touched-source comment audit inspected 4/4 files with 0 deferred. Allocation policy self-test passed and repository scan reported 344 files, 39 direct-heap findings, 139 dynamic-STL findings, 658 STL-growth findings, and 0 allowlist errors. `tools\validate_physics.bat` passed in 68.9 s with standalone/runtime-handle smokes, 0-warning Debug/Profile builds, and the 44,401-line varied baseline byte-exact. No baseline refresh. |
+| Validation for current edits | P4 moved the seven bounded object-narrowphase event/island/disjoint-set vectors plus exact pair processing and island dispatch into `PhysicsNarrowphaseStage`; the serial immediate-commit loop and parallel pair-order commit remain on the sequencer. Mechanical source comparison matched all 18 moved helper/method bodies after boundary substitutions. `tools\validate_build.bat Debug` passed in 24.46 s with 0 warnings/0 errors. Touched-source comment audit inspected 5/5 files with 0 deferred. Allocation policy self-test passed and repository scan reported 345 files, 39 direct-heap findings, 139 dynamic-STL findings, 658 STL-growth findings, and 0 allowlist errors. `tools\validate_physics.bat` passed in about 65 s with standalone/runtime-handle smokes, 0-warning Debug/Profile builds, and the 44,401-line varied baseline byte-exact. No baseline refresh. |
 
 ## Live Queue
 
-000. `physicsworld-stage-owner-decomposition` is the active campaign at 4/11.
-     P0-P3 are complete. Broadphase owns its grid/candidate/diagnostic storage;
+000. `physicsworld-stage-owner-decomposition` is the active campaign at 5/11.
+     P0-P4 are complete. Broadphase owns its grid/candidate/diagnostic storage;
      force owns exact mutual-gravity preparation, bounded gravity scratch, and
      force dispatch without retaining borrowed frame state. Continue at P4:
      extract `PhysicsNarrowphaseStage`, but keep the pair-order cross-domain
-     event commit loop on the sequencer until P7. Binding rules:
+     event commit loop on the sequencer until P7. P5 extracts terrain
+     detection/manifold state while sleep-support outputs stay on the
+     sequencer until P7. Binding rules:
      stage owners with value contexts and no
      reach-back (never a `PhysicsWorld` TU split), one owner per task per
      commit, byte-exact physics gate after every task with revert-on-diff,
@@ -218,8 +220,9 @@ owner-commissioned validation review (spot-checked fallback math, FP
 diagnosis/disassembly evidence, forced-include scope, survey completeness,
 ledger arithmetic, and the locally runnable allocation/filter/migration
 checks). The active work is now the `physicsworld-stage-owner-decomposition`
-campaign at 4/11 — P0 certification/map, P1 seam preparation, P2 broadphase,
-and P3 force-owner extraction are complete; begin P4 narrowphase extraction
+campaign at 5/11 — P0 certification/map, P1 seam preparation, P2 broadphase,
+P3 force-owner extraction, and P4 narrowphase extraction are complete; begin
+P5 terrain extraction
 per the Live Queue entry above.
 Documentation-honesty findings from the round-4 review remain recorded in
 MASTER without plans. The externally administered validation-gate V3 lane

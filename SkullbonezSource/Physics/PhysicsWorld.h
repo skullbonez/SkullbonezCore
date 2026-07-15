@@ -56,6 +56,7 @@ Related:
 #include "SpatialGrid.h"
 #include "Stages/PhysicsBroadphaseStage.h"
 #include "Stages/PhysicsForceStage.h"
+#include "Stages/PhysicsNarrowphaseStage.h"
 #include "Stages/PhysicsStageContexts.h"
 #include "TerrainContactManifold.h"
 #include "TornadoGameplay.h"
@@ -108,6 +109,9 @@ class PhysicsWorld
     // Concrete broadphase owner retains the grid, pair output, and diagnostic
     // cell keys. The facade borrows its candidate span for the remaining stages.
     PhysicsBroadphaseStage m_broadphase;
+    // Narrowphase owns bounded pair/island scratch; event commit remains on
+    // this sequencer until diagnostics and presentation ownership move in P7.
+    PhysicsNarrowphaseStage m_narrowphase;
     // Invariant: narrowphase, terrain, and final integration all write this
     // cross-stage CCD clock, so it deliberately remains on the sequencer.
     std::vector<float> m_timeRemaining;
@@ -245,34 +249,7 @@ class PhysicsWorld
                                       int modelCount,
                                       uint8_t sleepFrames );
 
-    static void RecordObjectNarrowphaseEvent( ObjectNarrowphaseEvent& event,
-                                              ObjectNarrowphaseEventKind kind,
-                                              const PhysicsPipelineRecord& record );
-    static void EmitObjectCollisionTimeEvent( ObjectNarrowphaseEvent& event,
-                                              int bodyA,
-                                              int bodyB,
-                                              float collisionTime,
-                                              float availableTime );
-    static void MarkObjectVisualEvent( ObjectNarrowphaseEvent& event, int bodyA, int bodyB );
-    static void WriteObjectCollisionCellEvent( ObjectNarrowphaseEvent& event,
-                                               std::span<const PhysicsBodyRecord> bodyRecords,
-                                               int bodyA,
-                                               int bodyB,
-                                               float invCellSize );
     void CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& event );
-
-    void ProcessObjectNarrowphasePair( const ObjectNarrowphasePairStageContext& context,
-                                       int pairIndex,
-                                       ObjectNarrowphaseEvent& event );
-    void ProcessObjectNarrowphaseIsland( const ObjectNarrowphasePairStageContext& context, int islandIndex );
-    void ProcessObjectNarrowphasePairsSerial( const ObjectNarrowphasePairStageContext& context,
-                                              int candidatePairCount );
-    void BuildObjectNarrowphaseIslands( std::span<const std::pair<int, int>> candidatePairs,
-                                        int candidatePairCount,
-                                        int modelCount );
-#include "Stages/PhysicsNarrowphaseDispatch.inl"
-    static bool ObjectNarrowphaseIslandPrecedesByMinPairIndex( const ObjectNarrowphaseIsland& a,
-                                                               const ObjectNarrowphaseIsland& b );
 
     // Persistent rows and diagnostics produced during the current fixed tick.
     // Terrain manifolds are appended into the same row solver as object/object
@@ -288,13 +265,6 @@ class PhysicsWorld
     PersistentContactSolverSideEffects m_persistentContactSideEffects;
     std::vector<TerrainContactManifold> m_terrainContactManifolds;
     std::vector<TerrainDetectionCandidate> m_terrainDetectionCandidates;
-    std::vector<ObjectNarrowphaseEvent> m_objectNarrowphaseEvents;
-    std::vector<ObjectNarrowphaseIsland> m_objectNarrowphaseIslands;
-    std::vector<int> m_objectNarrowphaseIslandPairIndices;
-    std::vector<size_t> m_objectNarrowphaseIslandWriteOffsets;
-    std::vector<int> m_objectNarrowphaseParent;
-    std::vector<uint8_t> m_objectNarrowphaseRank;
-    std::vector<int> m_objectNarrowphaseRootToIsland;
     std::vector<uint8_t> m_restingWakeVisitedScratch;
     std::vector<int> m_restingWakeQueueScratch;
     std::vector<PointJointConstraint> m_pointJointConstraints;

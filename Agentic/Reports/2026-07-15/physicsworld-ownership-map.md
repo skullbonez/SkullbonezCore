@@ -67,11 +67,18 @@ them.
 |---|---|---|
 | `PhysicsBroadphaseStage` | `BuildSolverBroadphaseCandidatePairs` | none |
 | `PhysicsForceStage` | `PrepareMutualGravityForces`; `ApplyTornadoGameplay` | force-stage dispatch contexts/functors currently local to `PhysicsWorld.cpp` move in P1/P3 |
-| `PhysicsNarrowphaseStage` | `RecordObjectNarrowphaseEvent`; `EmitObjectCollisionTimeEvent`; `MarkObjectVisualEvent`; `WriteObjectCollisionCellEvent`; `CommitObjectNarrowphaseEvent`; `ProcessObjectNarrowphasePair`; `ProcessObjectNarrowphaseIsland`; `ProcessObjectNarrowphasePairsSerial`; `BuildObjectNarrowphaseIslands`; `ObjectNarrowphaseIslandStage::operator()`; `ObjectNarrowphaseIslandPrecedesByMinPairIndex` | `ObjectNarrowphaseEventKind`; `ObjectNarrowphaseEvent`; `ObjectNarrowphasePairStageContext`; `ObjectNarrowphaseIslandStage`; `ObjectNarrowphaseIsland` |
+| `PhysicsNarrowphaseStage` | `RecordObjectNarrowphaseEvent`; `EmitObjectCollisionTimeEvent`; `MarkObjectVisualEvent`; `WriteObjectCollisionCellEvent`; `ProcessObjectNarrowphasePair`; `ProcessObjectNarrowphaseIsland`; `BuildObjectNarrowphaseIslands`; `ObjectNarrowphaseIslandStage::operator()`; `ObjectNarrowphaseIslandPrecedesByMinPairIndex` | `ObjectNarrowphaseEventKind`; `ObjectNarrowphaseEvent`; `ObjectNarrowphasePairStageContext`; `ObjectNarrowphaseIslandStage`; `ObjectNarrowphaseIsland` |
 | `PhysicsTerrainStage` | `DetectTerrainAt`; `TerrainDetectionStage::operator()`; `CommitTerrainCandidate` | `TerrainDetectionCandidate`; `TerrainDetectionStageContext`; `TerrainDetectionStage`; `TerrainCandidateCommitContext` |
 | `PhysicsContactSolverStage` | `CreatePersistentContactSolverContext`; `PreparePersistentContactSideEffects`; `ApplyPersistentContactSideEffects`; `ForgetPersistentContactCacheForBody` | solver context/side-effect seam types move out of the facade in P1/P6 |
 | `PhysicsSleepController` | `RunSleepIslandStage`; `ApplySleepIslandTransitions`; `CreateSleepSupportPropagationContext`; `EnsureUnderwaterSleepLockBuffer`; `LockUnderwaterSleeperIfReady`; `IsUnderwaterSleepLocked`; `PropagateSleepSupport`; `AppendPointJointSupportEdges`; private six-argument `WakeModel`; `SeedModelAsleep`; `WakeDynamicBodyState`; `WakeSleepVisualIsland`; `WakePointJointIsland`; `WakeRestingContactIsland`; `IsPointJointPair`; `WakePointJointConnectedBodies` | sleep propagation seam types move out of the facade in P1/P7 |
 | `PhysicsStepDiagnostics` | `EmitPhysicsCollisionTime`; `CanRecordPhysicsPipelineStage`; `RecordPhysicsPipelineStage`; `EnsureCollisionVisualBuffers`; `MarkCollisionVisualContact` | diagnostics contexts remain typed values/borrows |
+
+P4 amendment: `CommitObjectNarrowphaseEvent` and the serial pair-order commit
+loop remain on the `PhysicsWorld` sequencer until P7. Serial processing commits
+each event immediately before the next pair, while parallel processing commits
+completed pair slots in ascending candidate order. Moving that cross-domain
+diagnostics/presentation commit into the stage now would either alter observable
+timing or give the stage authority over owners scheduled for later extraction.
 | stays on `PhysicsWorld` | `RunSolverPhysics` | top-level fixed-step sequencer only |
 
 Reconciliation: 43 private method/callable declarations mapped; 43 unique

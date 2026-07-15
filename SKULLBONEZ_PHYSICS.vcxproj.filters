@@ -57,6 +57,9 @@
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsForceStage.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Ragdoll.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -173,7 +176,7 @@
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsForceStage.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseDispatch.inl">
+    <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsStageContexts.h">

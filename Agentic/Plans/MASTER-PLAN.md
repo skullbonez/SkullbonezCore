@@ -101,8 +101,8 @@ repository work.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| physicsworld-stage-owner-decomposition | 4 | 11 | 36% |
-| **Active/future total** | **4** | **11** | **36%** |
+| physicsworld-stage-owner-decomposition | 5 | 11 | 45% |
+| **Active/future total** | **5** | **11** | **45%** |
 
 The three round-5 plans (fp-envelope-hardening 4/4,
 mutual-gravity-large-scene-fallback 3/3, math-fatal-survey-restoration 3/3)
@@ -386,7 +386,7 @@ certification numbers.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physicsworld-stage-owner-decomposition](TODO/physicsworld-stage-owner-decomposition.md) | Active | 4/11 | P4: extract `PhysicsNarrowphaseStage`, retaining the pair-order commit loop on the sequencer |
+| [physicsworld-stage-owner-decomposition](TODO/physicsworld-stage-owner-decomposition.md) | Active | 5/11 | P5: extract `PhysicsTerrainStage`, retaining sleep-support outputs on the sequencer until P7 |
 
 ## Features
 

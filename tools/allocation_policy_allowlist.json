@@ -446,6 +446,31 @@
       "removal_or_wrapper_plan": "Replace both vectors with fixed-capacity arrays owned by PhysicsForceStage, then remove this row."
     },
     {
+      "path": "SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp",
+      "patterns": [
+        ".assign(",
+        ".push_back(",
+        ".reserve(",
+        ".resize("
+      ],
+      "owner": "PhysicsNarrowphaseStage bounded island and pair-event scratch",
+      "phase": "startup_preallocation_scene_load",
+      "reason": "The narrowphase owner reserves all seven pair-event, island, disjoint-set, and compaction vectors at construction. Fixed-tick assignments and appends remain within scene and candidate-pair capacity, and the runtime allocation guard rejects accidental growth.",
+      "cap": "Body/island/disjoint-set vectors are capped at 8,192 rows; pair-index and event vectors are capped at four rows per scene body (32,768).",
+      "removal_or_wrapper_plan": "Replace the seven vectors with fixed-capacity stores owned by PhysicsNarrowphaseStage, then remove this row."
+    },
+    {
+      "path": "SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "PhysicsNarrowphaseStage bounded island and pair-event scratch",
+      "phase": "startup_preallocation_scene_load",
+      "reason": "The concrete narrowphase owner retains seven bounded vectors between fixed ticks; pair-processing contexts only borrow store and sequencer rows synchronously.",
+      "cap": "Body/island/disjoint-set vectors are capped at 8,192 rows; pair-index and event vectors are capped at 32,768 rows.",
+      "removal_or_wrapper_plan": "Replace the seven vectors with fixed-capacity stores owned by PhysicsNarrowphaseStage, then remove this row."
+    },
+    {
       "path": "SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp",
       "patterns": [
         ".emplace_back(",

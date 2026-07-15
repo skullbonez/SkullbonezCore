@@ -179,6 +179,7 @@
     <ClCompile Include="SkullbonezSource\Physics\PhysicsWorld.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsBroadphaseStage.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsForceStage.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Ragdoll.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\SleepIslandSystem.cpp" />
@@ -219,7 +220,7 @@
     <ClInclude Include="SkullbonezSource\Physics\SpatialGrid.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsBroadphaseStage.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsForceStage.h" />
-    <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseDispatch.inl" />
+    <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsStageContexts.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsTerrainDispatch.inl" />
     <ClInclude Include="SkullbonezSource\Physics\TerrainContactManifold.h" />

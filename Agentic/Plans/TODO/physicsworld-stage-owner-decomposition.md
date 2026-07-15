@@ -194,7 +194,7 @@ remain byte-exact throughout — zero refresh authorized at any task.
       comparison confirmed the gravity body, per-body force body, and dispatch
       are verbatim after boundary-name substitutions.
 
-- [ ] **P4 — Extract `PhysicsNarrowphaseStage`.** Owns all seven
+- [x] **P4 — Extract `PhysicsNarrowphaseStage`.** Owns all seven
       `m_objectNarrowphase*` buffers plus island build/dispatch. Critical
       boundary: `CommitObjectNarrowphaseEvent` currently mutates sleep/wake
       and visual state — that is cross-domain output, not narrowphase scratch.
@@ -207,6 +207,16 @@ remain byte-exact throughout — zero refresh authorized at any task.
       min/max pair thresholds, and the min-pair-index ordering predicate move
       verbatim. Serial fallback path preserved.
       Gate: `tools\validate_physics.bat` byte-exact.
+
+      Boundary recorded 2026-07-15: the stage owns all seven bounded
+      event/island/disjoint-set vectors and borrows stores, sleep rows,
+      persistent-cache rows, the cross-stage CCD clock, execution toggles, and
+      the worker pool only for the synchronous pass. Workers still fill one
+      event per pair slot. `PhysicsWorld` commits parallel slots in ascending
+      pair order and serial events immediately before the next pair. The P1
+      facade-borrowing dispatch shim was deleted. Mechanical comparison matched
+      all 18 moved helper/method bodies after owner and explicit-borrow
+      substitutions.
 
 - [ ] **P5 — Extract `PhysicsTerrainStage`.** Owns detection candidates,
       terrain manifolds, and `m_terrainRestApplied`; `Detect(...)` runs the
