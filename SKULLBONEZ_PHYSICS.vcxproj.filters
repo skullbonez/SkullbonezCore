@@ -60,6 +60,9 @@
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsTerrainStage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Ragdoll.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -182,7 +185,7 @@
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsStageContexts.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsTerrainDispatch.inl">
+    <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsTerrainStage.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\TerrainContactManifold.h">

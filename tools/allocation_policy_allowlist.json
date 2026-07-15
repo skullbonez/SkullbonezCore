@@ -418,7 +418,7 @@
       ],
       "owner": "PhysicsWorld bounded scratch and replay vectors",
       "phase": "startup_preallocation_scene_load_replay",
-      "reason": "PhysicsWorld owns the remaining preallocated model/contact/replay arrays after broadphase and force scratch moved to their concrete stage owners. No vector member is allowed to grow after its scene-load/replay reserve boundary.",
+      "reason": "PhysicsWorld owns the remaining preallocated model/contact/replay arrays after broadphase, force, narrowphase, and terrain scratch moved to their concrete stage owners. No vector member is allowed to grow after its scene-load/replay reserve boundary.",
       "cap": "Remaining vectors are bounded by scene model/body/contact capacities or replay snapshot hard caps.",
       "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
     },
@@ -469,6 +469,30 @@
       "reason": "The concrete narrowphase owner retains seven bounded vectors between fixed ticks; pair-processing contexts only borrow store and sequencer rows synchronously.",
       "cap": "Body/island/disjoint-set vectors are capped at 8,192 rows; pair-index and event vectors are capped at 32,768 rows.",
       "removal_or_wrapper_plan": "Replace the seven vectors with fixed-capacity stores owned by PhysicsNarrowphaseStage, then remove this row."
+    },
+    {
+      "path": "SkullbonezSource/Physics/Stages/PhysicsTerrainStage.cpp",
+      "patterns": [
+        ".assign(",
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "PhysicsTerrainStage bounded detection and manifold scratch",
+      "phase": "startup_preallocation_scene_load",
+      "reason": "The terrain owner reserves one candidate and one manifold row per scene body at construction. Fixed-tick detection assigns within candidate capacity and serial commit appends manifolds within the same scene bound; the runtime allocation guard rejects accidental growth.",
+      "cap": "Each vector is capped at the 8,192-body scene limit; the rest-applied rows use an inline fixed-size array.",
+      "removal_or_wrapper_plan": "Replace the candidate and manifold vectors with fixed-capacity stores owned by PhysicsTerrainStage, then remove this row."
+    },
+    {
+      "path": "SkullbonezSource/Physics/Stages/PhysicsTerrainStage.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "PhysicsTerrainStage bounded detection and manifold scratch",
+      "phase": "startup_preallocation_scene_load",
+      "reason": "The concrete terrain owner retains candidate and manifold vectors between fixed ticks; stage contexts borrow store, sleep-support, and cross-stage clock rows synchronously.",
+      "cap": "Candidate and manifold vectors are each capped at 8,192 rows.",
+      "removal_or_wrapper_plan": "Replace the two vectors with fixed-capacity stores owned by PhysicsTerrainStage, then remove this row."
     },
     {
       "path": "SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp",

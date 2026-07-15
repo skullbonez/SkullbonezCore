@@ -60,7 +60,6 @@ Related:
 #include "PhysicsWorldForces.h"
 #include "ColliderStore.h"
 #include "ObjectContactManifold.h"
-#include "TerrainContactManifold.h"
 #include "../Core/Profiler.h"
 #include "../Core/WorkerPool.h"
 #include "../Runtime/Allocation/RuntimeAllocationTracker.h"
@@ -91,7 +90,6 @@ namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 namespace
 {
 constexpr size_t MAX_PIPELINE_TRACE_RECORDS = 4096;
-constexpr int TERRAIN_BODY_INDEX = -1;
 constexpr float EXPLICIT_WAKE_NEIGHBOR_SLOP = 0.50f;
 constexpr float EXPLICIT_WAKE_VERTICAL_SLOP = 0.25f;
 // Why: worker fan-out is more expensive than the work for the validation-sized
@@ -113,7 +111,6 @@ constexpr std::size_t REPLAY_SOLVER_SNAPSHOT_VECTOR_GROWTH_CHUNK = 4096u;
 constexpr int REPLAY_SOLVER_SNAPSHOT_RESERVE_GROWTH_LIMIT =
     RuntimeAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
 constexpr uint32_t PHYSICS_TORNADO_WORKER_HASH = HashStr( "Frame/Physics/TornadoField/WorkerBodies" );
-constexpr uint32_t PHYSICS_TERRAIN_DETECT_WORKER_HASH = HashStr( "Frame/Physics/Terrain/Detect/WorkerBodies" );
 constexpr uint32_t PHYSICS_INTEGRATE_WORKER_HASH = HashStr( "Frame/Physics/Integrate/WorkerBodies" );
 
 template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
@@ -170,23 +167,6 @@ bool IsPointJointBodyPair( const PhysicsBodyStore& bodyStore,
 }
 
 
-TerrainContactBodyView TerrainContactBodyViewForIndex( std::span<const PhysicsBodyRecord> bodyRecords,
-                                                       const SkullbonezCore::Core::EngineConfig& config,
-                                                       int index )
-{
-    const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( index )];
-    TerrainContactBodyView body;
-    body.position = record.position;
-    body.orientation = record.orientation;
-    body.linearVelocity = record.linearVelocity;
-    body.terrain = record.terrain;
-    body.boundingRadius = record.boundingRadius;
-    body.contactEpsilon = record.contactEpsilon;
-    body.terrainContactThreshold = config.terrainContact.threshold;
-    body.restitutionThreshold = config.bodySimulation.contactRestitutionThreshold;
-    body.isFixed = record.isFixed;
-    return body;
-}
 
 
 void IntegrateRemainingSolverBody( PhysicsBodyStore& bodyStore,
@@ -419,8 +399,6 @@ PhysicsWorld::PhysicsWorld()
     m_persistentContactSideEffects.fixedContactBodies.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     m_persistentContactSideEffects.releaseWakeBodies.reserve( 8 );
     m_persistentContactSideEffects.fixedTreeReleases.reserve( 8 );
-    m_terrainContactManifolds.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
-    m_terrainDetectionCandidates.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     m_restingWakeVisitedScratch.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     m_restingWakeQueueScratch.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     m_pointJointConstraints.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
@@ -470,8 +448,7 @@ void PhysicsWorld::Clear()
     m_solverBodies.clear();
     m_physicsDebugContacts.clear();
     m_physicsPipelineTrace.clear();
-    m_terrainContactManifolds.clear();
-    m_terrainDetectionCandidates.clear();
+    m_terrain.Clear();
     m_narrowphase.Clear();
     m_pointJointConstraints.clear();
 }
@@ -635,8 +612,7 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot&
 #undef RESTORE_REPLAY_SOLVER_STAT_FIELD
 
     m_solverBodies.clear();
-    m_terrainContactManifolds.clear();
-    m_terrainDetectionCandidates.clear();
+    m_terrain.Clear();
     m_narrowphase.Clear();
     m_broadphase.ResetTransientAfterReplayRestore();
     return true;
@@ -769,8 +745,8 @@ PhysicsWorld::CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,
                                            m_persistentRestingContactCounts,
                                            m_solverBodies,
                                            m_physicsDebugContacts,
-                                           m_terrainContactManifolds,
-                                           m_terrainRestApplied,
+                                           m_terrain.GetContactManifolds(),
+                                           m_terrain.GetRestApplied(),
                                            m_sleepSupportedThisFrame,
                                            m_persistentContactSideEffects,
                                            bodyStore.MutableRecords(),
@@ -952,7 +928,7 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
     m_sleepInhibitedThisFrame.assign( modelCount, 0 );
     m_physicsDebugContacts.clear();
     m_physicsPipelineTrace.clear();
-    m_terrainContactManifolds.clear();
+    m_terrain.BeginFrame();
     m_sleepSupportEdges.clear();
     m_diagnostics.BeginCollisionTimeFrame();
 
@@ -1790,90 +1766,6 @@ void PhysicsWorld::CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& e
 
 
 
-void PhysicsWorld::DetectTerrainAt( const TerrainDetectionStageContext& context, int bodyIndex )
-{
-    TerrainDetectionCandidate& candidate = context.candidates[static_cast<size_t>( bodyIndex )];
-    if ( IsSolverBodyFixed( context.bodyRecords, bodyIndex ) )
-    {
-        return;
-    }
-    if ( context.sleepState[bodyIndex] || context.timeRemaining[bodyIndex] <= 0.0f )
-    {
-        return;
-    }
-    if ( bodyIndex >= static_cast<int>( context.bodyRecords.size() ) ||
-         bodyIndex >= static_cast<int>( context.colliderRecords.size() ) )
-    {
-        return;
-    }
-
-    candidate.availableTime = context.timeRemaining[bodyIndex];
-    candidate.sweep =
-        SweepTerrainContact( TerrainContactBodyViewForIndex( context.bodyRecords, context.config, bodyIndex ),
-                             context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
-                             candidate.availableTime );
-    candidate.tested = 1;
-}
-
-
-void PhysicsWorld::TerrainDetectionStage::operator()( int bodyIndex ) const
-{
-    DetectTerrainAt( context, bodyIndex );
-}
-
-
-void PhysicsWorld::CommitTerrainCandidate( const TerrainCandidateCommitContext& context,
-                                           int bodyIndex,
-                                           float availableTime,
-                                           const TerrainContactSweepResult& sweep )
-{
-    if ( sweep.hit )
-    {
-        const float colTime = sweep.collisionTime;
-        (void)context.bodyStore.IntegrateBodyPose( context.colliderStore, bodyIndex, colTime );
-        const float remainingTime = (std::max)( 0.0f, availableTime - colTime );
-        Physics::TerrainContactManifold manifold;
-        const bool hasManifold = Physics::BuildTerrainContactManifold(
-            TerrainContactBodyViewForIndex( context.bodyRecords, context.config, bodyIndex ),
-            context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
-            bodyIndex,
-            sweep,
-            availableTime,
-            manifold );
-
-        Physics::PhysicsPipelineRecord record;
-        record.stage = Physics::PhysicsPipelineStage::TerrainHit;
-        record.bodyA = bodyIndex;
-        record.bodyB = TERRAIN_BODY_INDEX;
-        record.point =
-            hasManifold ? manifold.points[0].point : context.bodyRecords[static_cast<size_t>( bodyIndex )].position;
-        record.normal = hasManifold ? manifold.normal : ZERO_VECTOR;
-        record.scalarA = colTime;
-        record.scalarB = hasManifold && manifold.supportsRestingPolicy ? 1.0f : 0.0f;
-        record.scalarC = hasManifold ? static_cast<float>( manifold.pointCount ) : 0.0f;
-        RecordPhysicsPipelineStage( record );
-        EmitPhysicsCollisionTime( "terrain", bodyIndex, -1, colTime, availableTime );
-
-        if ( hasManifold )
-        {
-            context.terrainContactManifolds.push_back( manifold );
-            if ( manifold.supportsRestingPolicy )
-            {
-                context.sleepSupportedThisFrame[bodyIndex] = 1;
-            }
-            else
-            {
-                context.sleepInhibitedThisFrame[bodyIndex] = 1;
-            }
-        }
-        else
-        {
-            context.sleepInhibitedThisFrame[bodyIndex] = 1;
-        }
-        MarkCollisionVisualContact( bodyIndex );
-        context.timeRemaining[bodyIndex] = remainingTime;
-    }
-}
 
 
 void PhysicsWorld::RunSleepIslandStage( PhysicsBodyStore& bodyStore,
@@ -2389,46 +2281,39 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     //      the shared persistent contact rows below.
     PROFILE_BEGIN( "Frame/Physics/Terrain" );
     PROFILE_BEGIN( "Frame/Physics/Terrain/Detect" );
-    m_terrainDetectionCandidates.assign( static_cast<size_t>( modelCount ), TerrainDetectionCandidate() );
     TerrainDetectionStageContext terrainDetectionContext{ bodyRecords,
                                                           colliderRecords,
                                                           config,
                                                           m_sleepState,
-                                                          m_timeRemaining,
-                                                          m_terrainDetectionCandidates };
-    TerrainDetectionStage terrainDetectionStage{ terrainDetectionContext };
+                                                          m_timeRemaining };
     TerrainCandidateCommitContext terrainCandidateCommitContext{ bodyStore,
                                                                  colliderStore,
                                                                  bodyRecords,
                                                                  colliderRecords,
                                                                  config,
-                                                                 m_terrainContactManifolds,
                                                                  m_sleepSupportedThisFrame,
-                                                                 m_sleepInhibitedThisFrame,
-                                                                 m_timeRemaining };
-    if ( config.physicsExecution.parallel && config.physicsExecution.parallelTerrainDetect )
-    {
-        workerPool.ParallelForNoAlloc( 0,
-                                       modelCount,
-                                       terrainDetectionStage,
-                                       PHYSICS_PARALLEL_MIN_BODIES,
-                                       "Frame/Physics/Terrain/Detect/WorkerBodies",
-                                       PHYSICS_TERRAIN_DETECT_WORKER_HASH );
-    }
-    else
-    {
-        for ( int x = 0; x < modelCount; ++x )
-        {
-            terrainDetectionStage( x );
-        }
-    }
+                                                                 m_sleepInhibitedThisFrame };
+    m_terrain.Detect( terrainDetectionContext, modelCount, config.physicsExecution, workerPool );
 
+    const std::span<const TerrainDetectionCandidate> terrainCandidates = m_terrain.GetDetectionCandidates();
     for ( int x = 0; x < modelCount; ++x )
     {
-        const TerrainDetectionCandidate& candidate = m_terrainDetectionCandidates[static_cast<size_t>( x )];
+        const TerrainDetectionCandidate& candidate = terrainCandidates[static_cast<size_t>( x )];
         if ( candidate.tested )
         {
-            CommitTerrainCandidate( terrainCandidateCommitContext, x, candidate.availableTime, candidate.sweep );
+            const PreparedTerrainCandidateCommit commit = m_terrain.PrepareCandidateCommit(
+                terrainCandidateCommitContext,
+                x,
+                candidate.availableTime,
+                candidate.sweep );
+            if ( commit.hit )
+            {
+                RecordPhysicsPipelineStage( commit.pipelineRecord );
+                EmitPhysicsCollisionTime( "terrain", x, -1, commit.collisionTime, commit.availableTime );
+                m_terrain.CommitCandidate( terrainCandidateCommitContext, commit );
+                MarkCollisionVisualContact( x );
+                m_timeRemaining[x] = commit.remainingTime;
+            }
         }
     }
     PROFILE_END( "Frame/Physics/Terrain/Detect" );
@@ -2501,7 +2386,7 @@ PhysicsDiagnosticsView PhysicsWorld::GetDiagnosticsView() const
                                    m_sleepSupportEdges,
                                    m_sleepIslandVisualId,
                                    m_physicsPipelineTrace,
-                                   m_terrainContactManifolds };
+                                   m_terrain.GetContactManifolds() };
 }
 
 uint64_t PhysicsWorld::CollectMemoryBytes() const
@@ -2537,8 +2422,7 @@ uint64_t PhysicsWorld::CollectMemoryBytes() const
     bytes += VectorCapacityBytes( m_solverBodies );
     bytes += VectorCapacityBytes( m_physicsDebugContacts );
     bytes += VectorCapacityBytes( m_physicsPipelineTrace );
-    bytes += VectorCapacityBytes( m_terrainContactManifolds );
-    bytes += VectorCapacityBytes( m_terrainDetectionCandidates );
+    bytes += m_terrain.CollectDynamicMemoryBytes();
     bytes += m_narrowphase.CollectDynamicMemoryBytes();
     bytes += VectorCapacityBytes( m_restingWakeVisitedScratch );
     bytes += VectorCapacityBytes( m_restingWakeQueueScratch );

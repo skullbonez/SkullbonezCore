@@ -218,7 +218,7 @@ remain byte-exact throughout — zero refresh authorized at any task.
       all 18 moved helper/method bodies after owner and explicit-borrow
       substitutions.
 
-- [ ] **P5 — Extract `PhysicsTerrainStage`.** Owns detection candidates,
+- [x] **P5 — Extract `PhysicsTerrainStage`.** Owns detection candidates,
       terrain manifolds, and `m_terrainRestApplied`; `Detect(...)` runs the
       parallel/serial candidate pass, `Commit(...)` runs the serial
       model-order commit producing manifolds and sleep-support marks. The
@@ -226,6 +226,15 @@ remain byte-exact throughout — zero refresh authorized at any task.
       are NOT terrain state — they remain `PhysicsWorld`-owned until P7, and
       the commit context keeps referencing them exactly as today.
       Gate: `tools\validate_physics.bat` byte-exact.
+
+      Boundary recorded 2026-07-15: the stage retains candidate/manifold
+      vectors and the fixed rest-applied rows. Detection borrows body, collider,
+      sleep, clock, config, execution, and worker values synchronously. A typed
+      prepared commit preserves the original model-order sequence: integrate
+      and build manifold, emit sequencer-owned diagnostics, append the
+      stage-owned manifold and write borrowed sleep-support rows, mark visual
+      contact, then finish the cross-stage clock. The P1 terrain dispatch shim
+      was deleted; no callback or facade back-reference was introduced.
 
 - [ ] **P6 — Extract `PhysicsContactSolverStage`.** Wraps the existing
       `PersistentContactSolver` with its feeding state: persistent rows,

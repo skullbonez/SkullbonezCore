@@ -38,14 +38,12 @@ Related:
 */
 #pragma once
 
-#include <array>
 #include <cstdint>
 #include <span>
 #include <utility>
 #include <vector>
 
 #include "ColliderStore.h"
-#include "../Runtime/Scene/SceneCapacity.h"
 #include "PersistentContactSolver.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsDiagnosticsSink.h"
@@ -58,6 +56,7 @@ Related:
 #include "Stages/PhysicsForceStage.h"
 #include "Stages/PhysicsNarrowphaseStage.h"
 #include "Stages/PhysicsStageContexts.h"
+#include "Stages/PhysicsTerrainStage.h"
 #include "TerrainContactManifold.h"
 #include "TornadoGameplay.h"
 
@@ -112,6 +111,9 @@ class PhysicsWorld
     // Narrowphase owns bounded pair/island scratch; event commit remains on
     // this sequencer until diagnostics and presentation ownership move in P7.
     PhysicsNarrowphaseStage m_narrowphase;
+    // Terrain owns detection candidates, committed manifolds, and solver rest
+    // rows. Sleep-support and remaining-time outputs are synchronous borrows.
+    PhysicsTerrainStage m_terrain;
     // Invariant: narrowphase, terrain, and final integration all write this
     // cross-stage CCD clock, so it deliberately remains on the sequencer.
     std::vector<float> m_timeRemaining;
@@ -227,12 +229,6 @@ class PhysicsWorld
     };
 
   private:
-#include "Stages/PhysicsTerrainDispatch.inl"
-    static void DetectTerrainAt( const TerrainDetectionStageContext& context, int bodyIndex );
-    void CommitTerrainCandidate( const TerrainCandidateCommitContext& context,
-                                 int bodyIndex,
-                                 float availableTime,
-                                 const TerrainContactSweepResult& sweep );
     void RunSleepIslandStage( PhysicsBodyStore& bodyStore,
                               const ColliderStore& colliderStore,
                               const PhysicsWorldForces& worldForces,
@@ -263,12 +259,9 @@ class PhysicsWorld
     std::vector<PhysicsDebugContact> m_physicsDebugContacts;
     std::vector<PhysicsPipelineRecord> m_physicsPipelineTrace;
     PersistentContactSolverSideEffects m_persistentContactSideEffects;
-    std::vector<TerrainContactManifold> m_terrainContactManifolds;
-    std::vector<TerrainDetectionCandidate> m_terrainDetectionCandidates;
     std::vector<uint8_t> m_restingWakeVisitedScratch;
     std::vector<int> m_restingWakeQueueScratch;
     std::vector<PointJointConstraint> m_pointJointConstraints;
-    std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_terrainRestApplied = {};
     TornadoGameplay m_tornadoGameplay;
     PersistentContactSolver m_contactSolver;
     SleepIslandSystem m_sleepIslandSystem;
