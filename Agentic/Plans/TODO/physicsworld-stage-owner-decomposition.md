@@ -298,7 +298,7 @@ remain byte-exact throughout — zero refresh authorized at any task.
       run passed all deep CSV/signature/SkullScope comparisons and zero-warning
       Debug/Profile builds. No baseline refresh.
 
-- [ ] **P8 — Extract `PhysicsStepDiagnostics`.** Collision-visual buffers and
+- [x] **P8 — Extract `PhysicsStepDiagnostics`.** Collision-visual buffers and
       frame flag, debug contacts, pipeline trace, and the emit/record helpers
       move behind the diagnostics owner (absorbing or wrapping the existing
       `PhysicsDiagnosticsSink`). Emission call sites in the stages/sequencer
@@ -308,6 +308,18 @@ remain byte-exact throughout — zero refresh authorized at any task.
       verbatim).
       Gate: `tools\validate_physics.bat` byte-exact (Debug artifacts included —
       the CSV writer path runs in Debug).
+      Completed 2026-07-15: `PhysicsStepDiagnostics` now owns collision-visual
+      rows/frame state, debug contacts, the bounded pipeline trace, and the
+      existing `PhysicsDiagnosticsSink`. Sequencer emission sites retain their
+      order, replay and public reads use owner APIs, and the façade retains only
+      the Debug suppression switch passed as a bool. Original `_DEBUG` emission
+      boundaries remain intact. Comment audit inspected 4/4 touched
+      source-bearing files with zero deferred. Allocation-policy self/repository
+      scans passed (352 files, 39 direct-heap findings, 139 dynamic-STL
+      findings, 656 STL-growth findings, zero allowlist errors).
+      `tools\validate_physics.bat` passed both smoke lanes, zero-warning
+      Debug/Profile builds, and the 44,401-line varied baseline byte-exact. No
+      baseline refresh.
 
 - [ ] **P9 — Sequencer cleanup and residue audit.** `RunSolverPhysics` now
       reads as: mirror sleep flags → force stage → broadphase → narrowphase

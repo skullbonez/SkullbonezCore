@@ -10,24 +10,26 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `15th-of-July-Night-Runner` (P0-P6 pushed through `47c578edd`; P7 sleep-controller extraction pending commit) |
+| Branch | `15th-of-July-Night-Runner` (P0-P7 pushed through `da18a4af4`; P8 diagnostics-owner extraction pending commit) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Execute P8 of `physicsworld-stage-owner-decomposition`: extract the complete `PhysicsStepDiagnostics` ownership boundary |
-| Active/future progress | 8 / 11 tasks = 73% overall (PhysicsWorld campaign only; completed rounds and externally blocked work are excluded) |
+| Current objective | Execute P9 of `physicsworld-stage-owner-decomposition`: clean the sequencer, audit stay-behind residue, and update the physics overview |
+| Active/future progress | 9 / 11 tasks = 82% overall (PhysicsWorld campaign only; completed rounds and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | P7 moved all sleep rows, wake/seed fan-out, underwater locks, support propagation, point-joint metadata, island transitions, and resting-wake scratch into `PhysicsSleepController`; all consumers now use typed controller APIs or const spans and replay/memory/public façade access delegates. Touched-source comment audit inspected 16/16 files with 0 deferred. Allocation self/repository scans passed (350 files, 39 direct-heap, 139 dynamic-STL, 656 STL-growth, 0 allowlist errors). `tools\validate_build.bat Debug` passed with 0 warnings/0 errors. `tools\validate_physics.bat` passed both smoke lanes, 0-warning Debug/Profile builds, and the 44,401-line varied baseline byte-exact. The one required `tools\validate_physics_deep.bat` run passed all deep CSV/signature/SkullScope comparisons and 0-warning Debug/Profile builds. No baseline refresh. |
+| Validation for current edits | P8 moved collision visuals/frame state, debug contacts, bounded pipeline trace, and `PhysicsDiagnosticsSink` behind `PhysicsStepDiagnostics`; replay/public/memory access delegates and the façade retains only Debug suppression passed as a bool. Original `_DEBUG` boundaries and emission order remain intact. Touched-source comment audit inspected 4/4 files with 0 deferred. Allocation self/repository scans passed (352 files, 39 direct-heap, 139 dynamic-STL, 656 STL-growth, 0 allowlist errors). `tools\validate_build.bat Debug` passed with 0 warnings/0 errors. `tools\validate_physics.bat` passed both smoke lanes, 0-warning Debug/Profile builds, and the 44,401-line varied baseline byte-exact. No baseline refresh. |
 
 ## Live Queue
 
-000. `physicsworld-stage-owner-decomposition` is the active campaign at 8/11.
-     P0-P7 are complete. Broadphase owns its grid/candidate/diagnostic storage;
+000. `physicsworld-stage-owner-decomposition` is the active campaign at 9/11.
+     P0-P8 are complete. Broadphase owns its grid/candidate/diagnostic storage;
      force owns exact mutual-gravity preparation, bounded gravity scratch, and
      force dispatch without retaining borrowed frame state. Narrowphase owns
      bounded pair/island scratch and terrain owns detection/manifold/rest rows.
      The contact-solver stage owns persistent state, bounded solve scratch,
      replay transfer, and typed consequence queues;
      sleep ownership now includes all wake/seed/support/island/underwater rows
-     and scratch. Continue at P8 with `PhysicsStepDiagnostics`.
+     and scratch. Diagnostics owns collision visuals, debug contacts, pipeline
+     trace, and cold sink output. Continue at P9 with sequencer cleanup and the
+     stay-behind residue/line-count/overview audit.
      Binding rules:
      stage owners with value contexts and no
      reach-back (never a `PhysicsWorld` TU split), one owner per task per

@@ -89,7 +89,6 @@ namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace
 {
-constexpr size_t MAX_PIPELINE_TRACE_RECORDS = 4096;
 // Why: worker fan-out is more expensive than the work for the validation-sized
 // 300-body scenes. Keep all-body jobs inline until there is enough work per
 // chunk for the persistent worker pool to pay for itself.
@@ -275,10 +274,12 @@ void IntegrateRemainingStageContext::operator()( int bodyIndex ) const
 // state grows.
 #define SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( VISIT )                                                                 \
     VISIT( timeRemaining, m_timeRemaining, "timeRemaining" )                                                           \
-    VISIT( collisionVisualContacts, m_collisionVisualContacts, "collisionVisualContacts" )                             \
-    VISIT( debugContacts, m_physicsDebugContacts, "debugContacts" )                                                    \
-    VISIT( pipelineTrace, m_physicsPipelineTrace, "pipelineTrace" )                                                    \
     VISIT( collisionCellKeys, m_broadphase.CollisionCellKeysForReplay(), "collisionCellKeys" )
+
+#define SB_REPLAY_SOLVER_DIAGNOSTIC_VECTOR_FIELDS( VISIT )                                                             \
+    VISIT( collisionVisualContacts, m_stepDiagnostics.GetCollisionVisualContacts(), "collisionVisualContacts" )       \
+    VISIT( debugContacts, m_stepDiagnostics.GetDebugContacts(), "debugContacts" )                                     \
+    VISIT( pipelineTrace, m_stepDiagnostics.GetPipelineTrace(), "pipelineTrace" )
 
 #define SB_REPLAY_SOLVER_SLEEP_VECTOR_FIELDS( VISIT )                                                                  \
     VISIT( sleepSupportedThisFrame, m_sleepController.GetSleepSupportedVector(), "sleepSupportedThisFrame" )           \
@@ -315,6 +316,7 @@ void IntegrateRemainingStageContext::operator()( int bodyIndex ) const
 #define SB_REPLAY_SOLVER_VECTOR_FIELDS( VISIT )                                                                        \
     SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( VISIT )                                                                     \
     SB_REPLAY_SOLVER_SLEEP_VECTOR_FIELDS( VISIT )                                                                      \
+    SB_REPLAY_SOLVER_DIAGNOSTIC_VECTOR_FIELDS( VISIT )                                                                 \
     SB_REPLAY_SOLVER_TORNADO_VECTOR_FIELDS( VISIT )                                                                    \
     SB_REPLAY_SOLVER_CONTACT_STAGE_VECTOR_FIELDS( VISIT )
 
@@ -322,9 +324,6 @@ void IntegrateRemainingStageContext::operator()( int bodyIndex ) const
 PhysicsWorld::PhysicsWorld()
 {
     m_timeRemaining.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
-    m_collisionVisualContacts.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
-    m_physicsDebugContacts.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 4 );
-    m_physicsPipelineTrace.reserve( MAX_PIPELINE_TRACE_RECORDS );
     m_pointJointConstraints.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
 }
 
@@ -343,11 +342,8 @@ void PhysicsWorld::Clear()
     m_broadphase.Clear();
     m_sleepController.Clear();
     m_tornadoGameplay.Clear();
-    m_collisionVisualContacts.clear();
-    m_collisionVisualFrameActive = false;
+    m_stepDiagnostics.Clear();
     m_contactSolverStage.Clear();
-    m_physicsDebugContacts.clear();
-    m_physicsPipelineTrace.clear();
     m_terrain.Clear();
     m_narrowphase.Clear();
     m_pointJointConstraints.clear();
@@ -372,7 +368,6 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
 
     outSnapshot.version = 2;
     outSnapshot.modelCount = modelCount;
-    outSnapshot.collisionVisualFrameActive = m_collisionVisualFrameActive;
     outSnapshot.tornadoConfig = m_tornadoGameplay.GetFieldConfig();
     outSnapshot.tornadoSystemConfig = m_tornadoGameplay.GetSystemConfig();
     outSnapshot.tornadoSystemElapsedSeconds = m_tornadoGameplay.GetSystemElapsedSeconds();
@@ -440,6 +435,7 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
 #undef CAPTURE_REPLAY_SOLVER_VECTOR_FIELD
 
     m_sleepController.CaptureReplayState( outSnapshot );
+    m_stepDiagnostics.CaptureReplayState( outSnapshot );
     m_contactSolverStage.CaptureReplayState( outSnapshot );
 }
 
@@ -454,7 +450,6 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot&
 #define RESTORE_REPLAY_SOLVER_VECTOR_FIELD( snapshotField, worldValues, label ) worldValues = snapshot.snapshotField;
     SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( RESTORE_REPLAY_SOLVER_VECTOR_FIELD )
 #undef RESTORE_REPLAY_SOLVER_VECTOR_FIELD
-    m_collisionVisualFrameActive = snapshot.collisionVisualFrameActive;
     m_tornadoGameplay.SetReplayState( snapshot.tornadoCaptureSeconds,
                                       snapshot.tornadoEjectCooldownSeconds,
                                       snapshot.tornadoConfig,
@@ -462,6 +457,7 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot&
                                       snapshot.tornadoSystemElapsedSeconds );
 
     m_sleepController.RestoreReplayState( snapshot );
+    m_stepDiagnostics.RestoreReplayState( snapshot );
     m_contactSolverStage.RestoreReplayState( snapshot );
     m_terrain.Clear();
     m_narrowphase.Clear();
@@ -471,44 +467,10 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot&
 
 #undef SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS
 #undef SB_REPLAY_SOLVER_SLEEP_VECTOR_FIELDS
+#undef SB_REPLAY_SOLVER_DIAGNOSTIC_VECTOR_FIELDS
 #undef SB_REPLAY_SOLVER_TORNADO_VECTOR_FIELDS
 #undef SB_REPLAY_SOLVER_CONTACT_STAGE_VECTOR_FIELDS
 #undef SB_REPLAY_SOLVER_VECTOR_FIELDS
-
-
-void PhysicsWorld::EnsureCollisionVisualBuffers( int modelCount )
-{
-    if ( static_cast<int>( m_collisionVisualContacts.size() ) != modelCount )
-    {
-        m_collisionVisualContacts.assign( modelCount, 0 );
-    }
-    m_sleepController.EnsureVisualIdSize( modelCount );
-}
-
-
-void PhysicsWorld::MarkCollisionVisualContact( int index )
-{
-    if ( index < 0 || index >= static_cast<int>( m_collisionVisualContacts.size() ) )
-    {
-        return;
-    }
-    m_collisionVisualContacts[index] = 1;
-}
-
-
-void PhysicsWorld::RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record )
-{
-    if ( m_physicsPipelineTrace.size() < MAX_PIPELINE_TRACE_RECORDS )
-    {
-        m_physicsPipelineTrace.push_back( record );
-    }
-}
-
-
-bool PhysicsWorld::CanRecordPhysicsPipelineStage() const
-{
-    return m_physicsPipelineTrace.size() < MAX_PIPELINE_TRACE_RECORDS;
-}
 
 
 void PhysicsWorld::CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
@@ -518,11 +480,11 @@ void PhysicsWorld::CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
     const PersistentContactSolverSideEffects& effects = m_contactSolverStage.GetSideEffects();
     for ( const PhysicsPipelineRecord& record : effects.pipelineRecords )
     {
-        RecordPhysicsPipelineStage( record );
+        m_stepDiagnostics.RecordPipelineStage( record );
     }
     for ( int index : effects.collisionVisualBodies )
     {
-        MarkCollisionVisualContact( index );
+        m_stepDiagnostics.MarkCollisionVisualContact( index );
     }
 
     for ( int index : effects.releaseWakeBodies )
@@ -534,15 +496,14 @@ void PhysicsWorld::CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
 
 void PhysicsWorld::BeginCollisionVisualFrame( int modelCount )
 {
-    m_collisionVisualContacts.assign( modelCount, 0 );
+    m_stepDiagnostics.BeginCollisionVisualFrame( modelCount );
     m_sleepController.EnsureVisualIdSize( modelCount );
-    m_collisionVisualFrameActive = true;
 }
 
 
 void PhysicsWorld::EndCollisionVisualFrame()
 {
-    m_collisionVisualFrameActive = false;
+    m_stepDiagnostics.EndCollisionVisualFrame();
 }
 
 
@@ -629,16 +590,9 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
     // baselines even when the final scene "looks" similar.
     const int modelCount = bodyStore.Count();
     const auto bodyRecords = bodyStore.Records();
-    EnsureCollisionVisualBuffers( modelCount );
-    if ( !m_collisionVisualFrameActive )
-    {
-        m_collisionVisualContacts.assign( modelCount, 0 );
-    }
     m_timeRemaining.assign( modelCount, fChangeInTime );
-    m_physicsDebugContacts.clear();
-    m_physicsPipelineTrace.clear();
+    m_stepDiagnostics.BeginStep( modelCount );
     m_terrain.BeginFrame();
-    m_diagnostics.BeginCollisionTimeFrame();
     m_sleepController.MirrorFlagsFrom( bodyStore, bodyRecords, modelCount );
 
     RunSolverPhysics( bodyStore, colliderStore, fChangeInTime, config, worldForces, workerPool );
@@ -649,7 +603,7 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
 bool PhysicsWorld::ShouldEmitStepDiagnostics() const
 {
 #ifdef _DEBUG
-    return !m_diagnosticsSuppressed && ( m_diagnostics.IsRegressionLogEnabled() || m_diagnostics.IsFrameLogEnabled() );
+    return m_stepDiagnostics.ShouldEmitStepDiagnostics( m_diagnosticsSuppressed );
 #else
     return false;
 #endif
@@ -659,7 +613,7 @@ bool PhysicsWorld::ShouldEmitStepDiagnostics() const
 bool PhysicsWorld::ShouldEmitCollisionTimeDiagnostics() const
 {
 #ifdef _DEBUG
-    return !m_diagnosticsSuppressed && m_diagnostics.IsCollisionTimeLogEnabled();
+    return m_stepDiagnostics.ShouldEmitCollisionTimeDiagnostics( m_diagnosticsSuppressed );
 #else
     return false;
 #endif
@@ -674,32 +628,15 @@ void PhysicsWorld::EmitStepDiagnostics( const PhysicsBodyStore& bodyStore,
                                         const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
 {
 #ifdef _DEBUG
-    if ( !m_diagnosticsSuppressed )
-    {
-        const bool regressionLogEnabled = m_diagnostics.IsRegressionLogEnabled();
-        const bool frameLogEnabled = m_diagnostics.IsFrameLogEnabled();
-        if ( regressionLogEnabled || frameLogEnabled )
-        {
-            const PhysicsDiagnosticsNameView names{ diagnosticNames, diagnosticNameCount };
-            const PhysicsDiagnosticsView diagnosticsView = GetDiagnosticsView();
-            const PhysicsDiagnosticsFrameInput frame{ diagnosticsView,
-                                                      bodyStore,
-                                                      colliderStore,
-                                                      names,
-                                                      diagnosticsCsvWriter,
-                                                      fChangeInTime };
-            if ( regressionLogEnabled )
-            {
-                m_diagnostics.EmitRegressionLog( frame );
-            }
-            if ( frameLogEnabled )
-            {
-                m_diagnostics.EmitFrame( frame );
-            }
-        }
-        m_diagnostics.FlushCollisionTimes( diagnosticNames, diagnosticNameCount, diagnosticsCsvWriter );
-        m_diagnostics.IncrementCollisionTimeFrameIfEnabled();
-    }
+    const PhysicsDiagnosticsView diagnosticsView = GetDiagnosticsView();
+    m_stepDiagnostics.EmitStepDiagnostics( m_diagnosticsSuppressed,
+                                           diagnosticsView,
+                                           bodyStore,
+                                           colliderStore,
+                                           fChangeInTime,
+                                           diagnosticNames,
+                                           diagnosticNameCount,
+                                           diagnosticsCsvWriter );
 #else
     (void)bodyStore;
     (void)colliderStore;
@@ -832,25 +769,25 @@ float PhysicsWorld::GetTornadoSystemElapsedSeconds() const
 #ifdef _DEBUG
 void PhysicsWorld::SetPhysicsRegressionLogPath( const char* path )
 {
-    m_diagnostics.SetPhysicsRegressionLogPath( path );
+    m_stepDiagnostics.SetPhysicsRegressionLogPath( path );
 }
 
 
 void PhysicsWorld::SetPhysicsCollisionTimeLogPath( const char* path )
 {
-    m_diagnostics.SetPhysicsCollisionTimeLogPath( path );
+    m_stepDiagnostics.SetPhysicsCollisionTimeLogPath( path );
 }
 
 
 void PhysicsWorld::SetPhysicsDiagnosticsPath( const char* path )
 {
-    m_diagnostics.SetPhysicsDiagnosticsPath( path );
+    m_stepDiagnostics.SetPhysicsDiagnosticsPath( path );
 }
 
 
 void PhysicsWorld::SetPhysicsDiagnosticsRunId( const char* runId )
 {
-    m_diagnostics.SetPhysicsDiagnosticsRunId( runId );
+    m_stepDiagnostics.SetPhysicsDiagnosticsRunId( runId );
 }
 
 
@@ -865,40 +802,30 @@ bool PhysicsWorld::SetDiagnosticsSuppressed( bool suppressed )
 #endif
 
 
-void PhysicsWorld::EmitPhysicsCollisionTime( const char* type,
-                                             int bodyA,
-                                             int bodyB,
-                                             float collisionTime,
-                                             float availableTime )
-{
-#ifdef _DEBUG
-    if ( m_diagnosticsSuppressed )
-    {
-        return;
-    }
-#endif
-    m_diagnostics.QueueCollisionTime( type, bodyA, bodyB, collisionTime, availableTime );
-}
-
-
 void PhysicsWorld::CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& event )
 {
     if ( event.hasPipelineRecord )
     {
-        RecordPhysicsPipelineStage( event.pipelineRecord );
+        m_stepDiagnostics.RecordPipelineStage( event.pipelineRecord );
     }
     if ( event.emitCollisionTime )
     {
-        EmitPhysicsCollisionTime( "object",
-                                  event.collisionTimeBodyA,
-                                  event.collisionTimeBodyB,
-                                  event.collisionTime,
-                                  event.availableTime );
+        m_stepDiagnostics.EmitCollisionTime(
+#ifdef _DEBUG
+            m_diagnosticsSuppressed,
+#else
+            false,
+#endif
+            "object",
+            event.collisionTimeBodyA,
+            event.collisionTimeBodyB,
+            event.collisionTime,
+            event.availableTime );
     }
     if ( event.markVisualContact )
     {
-        MarkCollisionVisualContact( event.visualBodyA );
-        MarkCollisionVisualContact( event.visualBodyB );
+        m_stepDiagnostics.MarkCollisionVisualContact( event.visualBodyA );
+        m_stepDiagnostics.MarkCollisionVisualContact( event.visualBodyB );
     }
     if ( event.hasCollisionCellKey )
     {
@@ -977,7 +904,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                            config,
                                                            m_pointJointConstraints,
                                                            sleepStates,
-                                                           m_physicsPipelineTrace,
+                                                           m_stepDiagnostics.MutablePipelineTrace(),
                                                            modelCount,
                                                            dt,
                                                            contactSkin };
@@ -1072,10 +999,16 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                 candidate.sweep );
             if ( commit.hit )
             {
-                RecordPhysicsPipelineStage( commit.pipelineRecord );
-                EmitPhysicsCollisionTime( "terrain", x, -1, commit.collisionTime, commit.availableTime );
+                m_stepDiagnostics.RecordPipelineStage( commit.pipelineRecord );
+                m_stepDiagnostics.EmitCollisionTime(
+#ifdef _DEBUG
+                    m_diagnosticsSuppressed,
+#else
+                    false,
+#endif
+                    "terrain", x, -1, commit.collisionTime, commit.availableTime );
                 m_terrain.CommitCandidate( terrainCandidateCommitContext, commit );
-                MarkCollisionVisualContact( x );
+                m_stepDiagnostics.MarkCollisionVisualContact( x );
                 m_timeRemaining[x] = commit.remainingTime;
             }
         }
@@ -1091,16 +1024,14 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         candidatePairs,
         sleepStates,
         m_sleepController.MutableSupportEdgesForContactSolver(),
-        m_physicsDebugContacts,
+        m_stepDiagnostics.MutableDebugContacts(),
         m_terrain.GetContactManifolds(),
         m_terrain.GetRestApplied(),
         m_sleepController.MutableSupportedStatesForTerrain(),
         bodyRecords,
         colliderRecords,
         bodyStore.Count(),
-        (std::max)( 0,
-                    static_cast<int>( MAX_PIPELINE_TRACE_RECORDS ) -
-                        static_cast<int>( m_physicsPipelineTrace.size() ) ) };
+        m_stepDiagnostics.RemainingPipelineRecordCapacity() };
     m_contactSolverStage.Solve( contactSolverContext, dt );
     CommitContactSolverConsequences( bodyStore, colliderStore, worldForces );
     m_sleepController.WakePointJointConnectedBodies( bodyStore,
@@ -1149,7 +1080,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                              m_contactSolverStage.GetPersistentContacts(),
                                                              m_contactSolverStage.GetPersistentRestingContactCounts(),
                                                              m_pointJointConstraints,
-                                                             m_physicsPipelineTrace,
+                                                             m_stepDiagnostics.MutablePipelineTrace(),
                                                              modelCount,
                                                              SLEEP_LINEAR_SQ,
                                                              SLEEP_ANGULAR_SQ,
@@ -1176,7 +1107,7 @@ PhysicsDiagnosticsView PhysicsWorld::GetDiagnosticsView() const
                                    m_broadphase.GetCollisionCellKeys(),
                                    m_sleepController.GetSleepSupportEdgeVector(),
                                    m_sleepController.GetSleepIslandVisualIdVector(),
-                                   m_physicsPipelineTrace,
+                                   m_stepDiagnostics.GetPipelineTrace(),
                                    m_terrain.GetContactManifolds() };
 }
 
@@ -1187,10 +1118,8 @@ uint64_t PhysicsWorld::CollectMemoryBytes() const
     bytes += m_broadphase.CollectDynamicMemoryBytes();
     bytes += VectorCapacityBytes( m_timeRemaining );
     bytes += m_sleepController.CollectDynamicMemoryBytes();
-    bytes += VectorCapacityBytes( m_collisionVisualContacts );
+    bytes += m_stepDiagnostics.CollectDynamicMemoryBytes();
     bytes += m_contactSolverStage.CollectDynamicMemoryBytes();
-    bytes += VectorCapacityBytes( m_physicsDebugContacts );
-    bytes += VectorCapacityBytes( m_physicsPipelineTrace );
     bytes += m_terrain.CollectDynamicMemoryBytes();
     bytes += m_narrowphase.CollectDynamicMemoryBytes();
     bytes += VectorCapacityBytes( m_pointJointConstraints );
@@ -1201,10 +1130,8 @@ uint64_t PhysicsWorld::CollectMemoryBytes() const
 uint64_t PhysicsWorld::CollectDebugAndBroadphaseMemoryBytes() const
 {
     uint64_t bytes = m_broadphase.CollectDebugAndBroadphaseMemoryBytes();
-    bytes += VectorCapacityBytes( m_collisionVisualContacts );
+    bytes += m_stepDiagnostics.CollectDebugMemoryBytes();
     bytes += VectorCapacityBytes( m_sleepController.GetSleepIslandVisualIdVector() );
-    bytes += VectorCapacityBytes( m_physicsDebugContacts );
-    bytes += VectorCapacityBytes( m_physicsPipelineTrace );
     bytes += m_tornadoGameplay.CollectDebugMemoryBytes();
     return bytes;
 }
@@ -1224,7 +1151,7 @@ const std::vector<int64_t>& PhysicsWorld::GetCollisionCellKeys() const
 
 const std::vector<uint8_t>& PhysicsWorld::GetCollisionVisualContacts() const
 {
-    return m_collisionVisualContacts;
+    return m_stepDiagnostics.GetCollisionVisualContacts();
 }
 
 
@@ -1266,11 +1193,11 @@ std::span<const uint8_t> PhysicsWorld::GetSleepInhibitedStates() const
 
 const std::vector<PhysicsDebugContact>& PhysicsWorld::GetPhysicsDebugContacts() const
 {
-    return m_physicsDebugContacts;
+    return m_stepDiagnostics.GetDebugContacts();
 }
 
 
 const std::vector<PhysicsPipelineRecord>& PhysicsWorld::GetPhysicsPipelineTrace() const
 {
-    return m_physicsPipelineTrace;
+    return m_stepDiagnostics.GetPipelineTrace();
 }

@@ -436,6 +436,30 @@
       "removal_or_wrapper_plan": "Replace model-order sleep vectors with fixed stores or bounded scratch arrays, then remove this row."
     },
     {
+      "path": "SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.cpp",
+      "patterns": [
+        ".assign(",
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "PhysicsStepDiagnostics bounded visual and trace rows",
+      "phase": "startup_preallocation_scene_load_replay",
+      "reason": "The diagnostics owner preserves PhysicsWorld's construction-reserved collision visual, debug-contact, and fixed-cap pipeline trace vectors; replay copies reuse pre-reserved snapshot slots.",
+      "cap": "Collision visuals are bounded by scene body capacity, debug contacts by four rows per body, and the pipeline trace by 4,096 records.",
+      "removal_or_wrapper_plan": "Replace diagnostic vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+    },
+    {
+      "path": "SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "PhysicsStepDiagnostics bounded visual and trace rows",
+      "phase": "startup_preallocation_scene_load_replay",
+      "reason": "The concrete diagnostics owner retains the preallocated rows moved from PhysicsWorld and exposes only synchronous mutation or const views.",
+      "cap": "Collision visuals are bounded by scene body capacity, debug contacts by four rows per body, and the pipeline trace by 4,096 records.",
+      "removal_or_wrapper_plan": "Replace diagnostic vectors with fixed stores or bounded scratch arrays, then remove this row."
+    },
+    {
       "path": "SkullbonezSource/Physics/PhysicsWorld.h",
       "patterns": [
         "std::vector<"

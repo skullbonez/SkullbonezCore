@@ -58,6 +58,7 @@ Related:
 #include "Stages/PhysicsStageContexts.h"
 #include "Stages/PhysicsTerrainStage.h"
 #include "Stages/PhysicsSleepController.h"
+#include "Stages/PhysicsStepDiagnostics.h"
 #include "TerrainContactManifold.h"
 #include "TornadoGameplay.h"
 
@@ -117,20 +118,15 @@ class PhysicsWorld
     // Sleep state, wake propagation, and island transitions have one concrete
     // owner. PhysicsWorld only sequences its typed fixed-step operations.
     PhysicsSleepController m_sleepController;
-    // Debug visualization state. These arrays intentionally mirror scene/model
-    // slot order so render/debug code can look up one byte/id without map
-    // lookups in the overlay path.
-    std::vector<uint8_t> m_collisionVisualContacts;
-    bool m_collisionVisualFrameActive = false;
+    // Diagnostic rows, collision visuals, and cold output live behind one
+    // concrete owner; this facade only supplies synchronous physics views.
+    PhysicsStepDiagnostics m_stepDiagnostics;
 
   private:
     void CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& event );
 
-    std::vector<PhysicsDebugContact> m_physicsDebugContacts;
-    std::vector<PhysicsPipelineRecord> m_physicsPipelineTrace;
     std::vector<PointJointConstraint> m_pointJointConstraints;
     TornadoGameplay m_tornadoGameplay;
-    PhysicsDiagnosticsSink m_diagnostics;
 #ifdef _DEBUG
     bool m_diagnosticsSuppressed = false;
 #endif
@@ -141,14 +137,9 @@ class PhysicsWorld
                            const SkullbonezCore::Core::EngineConfig& config,
                            const PhysicsWorldForces& worldForces,
                            Threading::WorkerPool& workerPool );
-    void EmitPhysicsCollisionTime( const char* type, int bodyA, int bodyB, float collisionTime, float availableTime );
     void CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
                                           const ColliderStore& colliderStore,
                                           const PhysicsWorldForces& worldForces );
-    bool CanRecordPhysicsPipelineStage() const;
-    void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record );
-    void EnsureCollisionVisualBuffers( int modelCount );
-    void MarkCollisionVisualContact( int index );
     void ApplyTornadoGameplay( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                const PhysicsWorldForces& worldForces,
