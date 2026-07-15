@@ -35,15 +35,6 @@
     <Filter Include="Source Files\Assets">
       <UniqueIdentifier>{0C8A9D4B-751B-42A4-B88A-AE3370B5F0D2}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Maths">
-      <UniqueIdentifier>{9D54DB4F-A0BB-4351-8CC6-F9F76CF3C4BB}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\GameObjects">
-      <UniqueIdentifier>{7A9E59BA-4C36-4D31-8F89-45A343079C9A}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\Physics">
-      <UniqueIdentifier>{7CEB98A0-75E7-40AD-91E5-E4075BE077F5}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\Rendering">
       <UniqueIdentifier>{D96252B2-F91C-4D79-B28C-66CB9E6E7C2B}</UniqueIdentifier>
     </Filter>
@@ -61,12 +52,6 @@
     </Filter>
     <Filter Include="Header Files\Assets">
       <UniqueIdentifier>{6A6E00A4-473F-4992-A78A-5B18F4D3E767}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Header Files\Maths">
-      <UniqueIdentifier>{7A9FA734-4718-4E61-870D-F1683365AEB2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Header Files\Physics">
-      <UniqueIdentifier>{A5899E12-4DBE-4DCA-810A-B68F7BDE8517}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\Rendering">
       <UniqueIdentifier>{1541386D-A2BA-4E01-92CF-2922814D47F4}</UniqueIdentifier>

@@ -492,6 +492,29 @@ def read_declared_filters(root: ET.Element, namespace: str) -> set[str]:
     return filters
 
 
+def unused_declared_filter_errors(
+    declared_filters: set[str],
+    filter_items: list[ProjectItem],
+    filters_label: str,
+) -> list[str]:
+    used_filters = {item.filter_name for item in filter_items if item.filter_name}
+    errors: list[str] = []
+    for declared_filter in sorted(declared_filters, key=str.lower):
+        # Why: a parent filter is useful when a descendant owns items, but an
+        # entirely empty subtree is a stale Solution Explorer folder. Item
+        # destination checks alone cannot detect that shell.
+        subtree_prefix = f"{declared_filter}\\"
+        if any(
+            used_filter == declared_filter or used_filter.startswith(subtree_prefix)
+            for used_filter in used_filters
+        ):
+            continue
+        errors.append(
+            f"{filters_label}: declared filter '{declared_filter}' has no project items in its subtree."
+        )
+    return errors
+
+
 def read_source_files_on_disk(repo: Path) -> list[ProjectItem]:
     source_root = repo / SOURCE_PROJECT_ROOT
     if not source_root.exists():
@@ -730,6 +753,13 @@ def validate_project_filters(
 
     errors.extend(duplicate_item_errors("project", project_items))
     errors.extend(duplicate_item_errors("filters", filter_items))
+    errors.extend(
+        unused_declared_filter_errors(
+            declared_filters,
+            filter_items,
+            repo_relative(repo, filters_path),
+        )
+    )
 
     project_by_key = {item.key: item for item in project_items}
     filter_by_key = {item.key: item for item in filter_items}

@@ -25,9 +25,6 @@
     <Filter Include="Source Files\Assets">
       <UniqueIdentifier>{6A96B565-85DF-4E09-8F65-E5556EE490C5}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Maths">
-      <UniqueIdentifier>{6FF6208D-1EF1-4B2A-8701-C60839C18552}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\Physics">
       <UniqueIdentifier>{BB54C591-485D-4831-95BE-EC866F8F14C3}</UniqueIdentifier>
     </Filter>
