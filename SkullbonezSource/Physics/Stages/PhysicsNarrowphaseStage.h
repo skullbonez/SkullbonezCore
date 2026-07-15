@@ -6,9 +6,8 @@ Purpose:
 Summary:
   PhysicsNarrowphaseStage processes broadphase pairs into bounded value events,
   builds disjoint pair islands when worker dispatch can help, and retains every
-  island/event scratch array. PhysicsWorld commits those events in original pair
-  order because diagnostics, visual state, and collision-cell keys still belong
-  to other owners until their scheduled extraction tasks.
+  island/event scratch array. PhysicsWorld commits typed events in original pair
+  order because sleep, diagnostics, and broadphase each own the affected state.
 
 Glossary:
   Pair event: Value record describing diagnostics and visual/cell side effects.
@@ -25,6 +24,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp
+  - SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.Execution.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - Agentic/Reports/2026-07-15/physicsworld-ownership-map.md
 */

@@ -102,8 +102,8 @@ class PhysicsWorld
     // Concrete broadphase owner retains the grid, pair output, and diagnostic
     // cell keys. The facade borrows its candidate span for the remaining stages.
     PhysicsBroadphaseStage m_broadphase;
-    // Narrowphase owns bounded pair/island scratch; event commit remains on
-    // this sequencer until diagnostics and presentation ownership move in P7.
+    // Narrowphase owns bounded pair/island scratch. The sequencer commits typed
+    // events in pair order because they target sleep and diagnostics owners.
     PhysicsNarrowphaseStage m_narrowphase;
     // Terrain owns detection candidates, committed manifolds, and solver rest
     // rows. Sleep-support and remaining-time outputs are synchronous borrows.
@@ -125,9 +125,15 @@ class PhysicsWorld
   private:
     void CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& event );
 
+    // Stay-behind: point joints are a facade-owned top-level constraint lane;
+    // the solver and sleep owner borrow the dense rows synchronously.
     std::vector<PointJointConstraint> m_pointJointConstraints;
+    // Stay-behind: tornado gameplay is already a cohesive sibling owner whose
+    // force application is sequenced alongside the extracted force stage.
     TornadoGameplay m_tornadoGameplay;
 #ifdef _DEBUG
+    // Stay-behind: scoped diagnostic suppression is a facade policy override,
+    // while every diagnostic row and output sink belongs to its concrete owner.
     bool m_diagnosticsSuppressed = false;
 #endif
 

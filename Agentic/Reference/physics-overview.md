@@ -21,6 +21,44 @@ contacts. Terrain support classification remains explicit metadata: stable
 terrain support may seed sleep, while edge/point terrain contacts inhibit sleep
 and do not receive rest-only warm-start or damping policy.
 
+## Fixed-Step Ownership
+
+`PhysicsWorld` is the composition root and deterministic sequencer. Concrete
+owners retain their own state and accept only typed values or synchronous
+borrows; no owner stores a pointer or reference back to `PhysicsWorld` or to a
+sibling stage.
+
+```text
+mirror sleep flags
+  -> force stage (+ facade-sequenced tornado forces)
+  -> broadphase
+  -> narrowphase and ordered event commit
+  -> terrain detection and ordered commit
+  -> persistent contact solver
+  -> point-joint solve
+  -> integrate remaining CCD time
+  -> sleep-island transitions
+  -> diagnostic views/output at the caller boundary
+```
+
+| Owner | Retained authority |
+|---|---|
+| `PhysicsForceStage` | Bounded mutual-gravity rows and force dispatch |
+| `PhysicsBroadphaseStage` | Spatial grid, candidate-pair order, and collision-cell keys |
+| `PhysicsNarrowphaseStage` | Pair/island scratch and typed ordered events |
+| `PhysicsTerrainStage` | Detection candidates, terrain manifolds, and rest-policy rows |
+| `PhysicsContactSolverStage` | Persistent contacts/cache, solver scratch/statistics, and consequence queues |
+| `PhysicsSleepController` | Sleep/wake state, support graphs, island transitions, and traversal scratch |
+| `PhysicsStepDiagnostics` | Collision visuals, debug contacts, pipeline trace, and output sink |
+
+Four values deliberately stay on the facade. `m_timeRemaining` is the shared
+CCD clock written by narrowphase, terrain, and integration. Point-joint rows are
+a top-level constraint lane borrowed by contact/sleep sequencing.
+`TornadoGameplay` is already a cohesive sibling owner sequenced with forces.
+The Debug-only suppression flag is a scoped facade override; it owns no
+diagnostic rows. Public forwarding is accepted only where it terminates at one
+of these concrete owners.
+
 ## Time Step
 
 The physics clock runs at a fixed 120 Hz:
@@ -118,5 +156,6 @@ tools\physics_query.bat Debug\scene.physicsdiag.ndjson pipeline --frames 0:1000
 | Shared row solver | `SkullbonezSource/Physics/PhysicsBodyStore*`, `SkullbonezSource/Physics/PersistentContactSolver*` |
 | Terrain support policy | `SkullbonezSource/World/TerrainSupportClassifier.h` |
 | Shapes | `SkullbonezSource/Physics/BoundingSphere*`, `SkullbonezSource/Physics/BoundingBox*`, `SkullbonezSource/Physics/ConvexHullShape*`, `SkullbonezSource/Physics/CollisionShape.h` |
-| Broadphase | `SkullbonezSource/Physics/SpatialGrid*` |
-| Main physics loop | `SkullbonezSource/Runtime/Scene/SceneController.Objects*`, `SkullbonezSource/Physics/PhysicsWorld*`, `SkullbonezSource/Physics/SimulationSystem*` |
+| Broadphase | `SkullbonezSource/Physics/SpatialGrid*`, `SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage*` |
+| Fixed-step owners | `SkullbonezSource/Physics/Stages/PhysicsForceStage*`, `PhysicsNarrowphaseStage*`, `PhysicsTerrainStage*`, `PhysicsContactSolverStage*`, `PhysicsSleepController*`, `PhysicsStepDiagnostics*` |
+| Main physics sequence | `SkullbonezSource/Runtime/Scene/SceneController.Objects*`, `SkullbonezSource/Physics/PhysicsWorld*`, `SkullbonezSource/Physics/SimulationSystem*` |

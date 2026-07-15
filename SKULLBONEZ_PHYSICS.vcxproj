@@ -177,12 +177,15 @@
     <ClCompile Include="SkullbonezSource\Physics\PhysicsObjectPolicy.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsScene.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsWorld.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsWorldFacade.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsBroadphaseStage.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsContactSolverStage.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsSleepController.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsSleepController.Wake.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsStepDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsForceStage.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.Execution.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsTerrainStage.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Ragdoll.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp" />

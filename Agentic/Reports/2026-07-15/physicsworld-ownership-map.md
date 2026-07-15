@@ -105,6 +105,43 @@ retain the stage's business state.
 | `GetFixedContactHighlightBodies`; `GetFixedTreeReleaseEvents` | `PhysicsContactSolverStage` side-effect view |
 | Debug-only `SetDiagnosticsSuppressed` | facade-owned scoped suppression flag; forwards effective state to diagnostics without transferring flag ownership |
 
+## P9 Final Residue Audit
+
+The post-extraction declaration has eleven direct members: seven concrete
+stage owners plus the four approved stay-behind values from the P0 map. The
+final source and header review found no `PhysicsWorld*`, `PhysicsWorld&`,
+`void*`, callback pack, or broad authority context in any stage owner.
+
+| Facade residue | Final reason |
+|---|---|
+| `m_timeRemaining` | Cross-stage CCD clock written by narrowphase, terrain commit, and remaining-time integration. Moving it to one stage would give that stage authority over siblings. |
+| `m_pointJointConstraints` | Top-level constraint lane exposed by the stable public facade and synchronously borrowed by contact/sleep sequencing. |
+| `m_tornadoGameplay` | Existing cohesive sibling owner; the facade only sequences its force application beside `PhysicsForceStage`. |
+| Debug-only `m_diagnosticsSuppressed` | Scoped facade policy override; diagnostic storage and output remain entirely inside `PhysicsStepDiagnostics`. |
+
+Final implementation line counts are below. The physical splits preserve one
+logical owner per stage and do not claim a new ownership boundary.
+
+| Implementation unit | Lines |
+|---|---:|
+| `PhysicsWorld.cpp` | 936 |
+| `PhysicsWorldFacade.cpp` | 310 |
+| `PhysicsBroadphaseStage.cpp` | 509 |
+| `PhysicsContactSolverStage.cpp` | 315 |
+| `PhysicsForceStage.cpp` | 379 |
+| `PhysicsNarrowphaseStage.cpp` | 626 |
+| `PhysicsNarrowphaseStage.Execution.cpp` | 271 |
+| `PhysicsSleepController.cpp` | 598 |
+| `PhysicsSleepController.Wake.cpp` | 357 |
+| `PhysicsStepDiagnostics.cpp` | 226 |
+| `PhysicsTerrainStage.cpp` | 241 |
+
+The fixed-step sequence now reads: sleep mirror/underwater lock, force and
+tornado, broadphase, narrowphase plus ordered commit, terrain plus ordered
+commit, persistent contacts, point joints/support, remaining-time integration,
+sleep-island transition, and caller-boundary diagnostics. Every unit is below
+the P9 approximate size target (facade core below 1,000; stage units below 700).
+
 ## Required Extraction Order
 
 The map is frozen for P1-P10. Changes require an explicit amendment in the

@@ -321,7 +321,7 @@ remain byte-exact throughout — zero refresh authorized at any task.
       Debug/Profile builds, and the 44,401-line varied baseline byte-exact. No
       baseline refresh.
 
-- [ ] **P9 — Sequencer cleanup and residue audit.** `RunSolverPhysics` now
+- [x] **P9 — Sequencer cleanup and residue audit.** `RunSolverPhysics` now
       reads as: mirror sleep flags → force stage → broadphase → narrowphase
       (+ commit via sleep owner) → terrain → contact solver → point joints →
       integrate remaining (`IntegrateRemainingStageContext` dispatch may stay
@@ -332,6 +332,20 @@ remain byte-exact throughout — zero refresh authorized at any task.
       (`PhysicsWorld.cpp` target ≤ ~1,000; each stage TU ≤ ~700). Update
       `Agentic/Reference/physics-overview.md` stage diagram/text.
       Gate: `tools\validate_physics.bat` byte-exact.
+
+      Complete 2026-07-15: the final sequence and P0 stay-behind inventory are
+      reconciled in the ownership map and physics overview. The facade retains
+      only the cross-stage CCD clock, point-joint lane, tornado sibling owner,
+      and Debug suppression override; grep/review found no owner reach-back,
+      callback pack, `void*`, or authority bag. Physical implementation splits
+      keep the logical owners honest while reducing `PhysicsWorld.cpp` to 936
+      lines and every stage unit to 626 lines or fewer (full counts recorded in
+      the map). Comment audit inspected 8/8 touched source-bearing files with
+      zero deferred. Allocation-policy self/repository scans passed (355 files,
+      39 direct-heap findings, 139 dynamic-STL findings, 656 STL-growth
+      findings, zero allowlist errors). `tools\validate_physics.bat` passed in
+      77.81 s with both smoke lanes, zero-warning Debug/Profile builds, and the
+      44,401-line varied baseline byte-exact. No baseline refresh.
 
 - [ ] **P10 — Mandatory independent ownership review + full closure gates.**
       Independent rubber-duck review across the whole logical surface

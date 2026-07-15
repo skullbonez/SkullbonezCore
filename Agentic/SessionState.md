@@ -10,17 +10,17 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `15th-of-July-Night-Runner` (P0-P7 pushed through `da18a4af4`; P8 diagnostics-owner extraction pending commit) |
+| Branch | `15th-of-July-Night-Runner` (P0-P8 pushed through `e60495cdd`; P9 sequencer cleanup pending commit) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Execute P9 of `physicsworld-stage-owner-decomposition`: clean the sequencer, audit stay-behind residue, and update the physics overview |
-| Active/future progress | 9 / 11 tasks = 82% overall (PhysicsWorld campaign only; completed rounds and externally blocked work are excluded) |
+| Current objective | Execute P10 of `physicsworld-stage-owner-decomposition`: independent ownership review and full closure gates |
+| Active/future progress | 10 / 11 tasks = 91% overall (PhysicsWorld campaign only; completed rounds and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | P8 moved collision visuals/frame state, debug contacts, bounded pipeline trace, and `PhysicsDiagnosticsSink` behind `PhysicsStepDiagnostics`; replay/public/memory access delegates and the façade retains only Debug suppression passed as a bool. Original `_DEBUG` boundaries and emission order remain intact. Touched-source comment audit inspected 4/4 files with 0 deferred. Allocation self/repository scans passed (352 files, 39 direct-heap, 139 dynamic-STL, 656 STL-growth, 0 allowlist errors). `tools\validate_build.bat Debug` passed with 0 warnings/0 errors. `tools\validate_physics.bat` passed both smoke lanes, 0-warning Debug/Profile builds, and the 44,401-line varied baseline byte-exact. No baseline refresh. |
+| Validation for current edits | P9 reduced `PhysicsWorld.cpp` to 936 lines and every stage implementation unit to 626 lines or fewer, reconciled all eleven facade members, documented the stage sequence, and found no reach-back or authority bag. Touched-source comment audit inspected 8/8 files with 0 deferred. Allocation scans passed across 355 files with 0 allowlist errors. `tools\validate_physics.bat` passed in 77.81 s: both smoke lanes, 0-warning Debug/Profile builds, and the 44,401-line varied baseline byte-exact. No baseline refresh. |
 
 ## Live Queue
 
-000. `physicsworld-stage-owner-decomposition` is the active campaign at 9/11.
-     P0-P8 are complete. Broadphase owns its grid/candidate/diagnostic storage;
+000. `physicsworld-stage-owner-decomposition` is the active campaign at 10/11.
+     P0-P9 are complete. Broadphase owns its grid/candidate/diagnostic storage;
      force owns exact mutual-gravity preparation, bounded gravity scratch, and
      force dispatch without retaining borrowed frame state. Narrowphase owns
      bounded pair/island scratch and terrain owns detection/manifold/rest rows.
@@ -28,8 +28,9 @@ plan inventory.
      replay transfer, and typed consequence queues;
      sleep ownership now includes all wake/seed/support/island/underwater rows
      and scratch. Diagnostics owns collision visuals, debug contacts, pipeline
-     trace, and cold sink output. Continue at P9 with sequencer cleanup and the
-     stay-behind residue/line-count/overview audit.
+     trace, and cold sink output. P9 reconciled the final sequencer/residue and
+     line-count/overview audit. Continue at P10 with the mandatory independent
+     whole-module ownership review and full closure gates.
      Binding rules:
      stage owners with value contexts and no
      reach-back (never a `PhysicsWorld` TU split), one owner per task per

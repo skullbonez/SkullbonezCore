@@ -1,13 +1,12 @@
 /*
 File: SkullbonezSource/Physics/PhysicsWorld.cpp
 Purpose:
-  Owns per-scene physics working state shared by broadphase, solver, and diagnostics.
+  Sequences the fixed physics step and lifecycle of concrete stage owners.
 
 Summary:
-  PhysicsWorld.cpp owns per-scene physics working state shared by broadphase,
-  solver, and diagnostics. As an implementation unit, keep edits anchored on
-  deterministic physics, diagnostics, or world-state flow and on the
-  glossary/invariants below.
+  PhysicsWorld.cpp is the composition and sequencing surface for the extracted
+  force, broadphase, narrowphase, terrain, contact, sleep, and diagnostics
+  owners. It retains only cross-stage clocks and top-level sibling lanes.
 
 Glossary:
   SoA (Structure of Arrays): Data layout that stores each field in a separate
@@ -494,79 +493,6 @@ void PhysicsWorld::CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
 }
 
 
-void PhysicsWorld::BeginCollisionVisualFrame( int modelCount )
-{
-    m_stepDiagnostics.BeginCollisionVisualFrame( modelCount );
-    m_sleepController.EnsureVisualIdSize( modelCount );
-}
-
-
-void PhysicsWorld::EndCollisionVisualFrame()
-{
-    m_stepDiagnostics.EndCollisionVisualFrame();
-}
-
-
-void PhysicsWorld::ClearPointJointConstraints()
-{
-    m_pointJointConstraints.clear();
-}
-
-
-void PhysicsWorld::DestroyPointJointsForBody( PhysicsBodyHandle body )
-{
-    // Invariant: remove every joint that names the retiring handle before the
-    // body slot can be reused. Runtime joint rows are dense and are not retained
-    // as stable identity outside the physics owner.
-    for ( std::size_t index = 0; index < m_pointJointConstraints.size(); )
-    {
-        const PointJointConstraint& constraint = m_pointJointConstraints[index];
-        if ( constraint.bodyA != body && constraint.bodyB != body )
-        {
-            ++index;
-            continue;
-        }
-
-        if ( index + 1u != m_pointJointConstraints.size() )
-        {
-            m_pointJointConstraints[index] = m_pointJointConstraints.back();
-        }
-        m_pointJointConstraints.pop_back();
-    }
-}
-
-
-PhysicsConstraintHandle PhysicsWorld::CreatePointJoint( const PhysicsPointJointCreateDesc& desc )
-{
-    if ( !desc.bodyA.IsValid() || !desc.bodyB.IsValid() || desc.bodyA == desc.bodyB )
-    {
-        return PhysicsConstraintHandle{};
-    }
-
-    // Why: callers create constraints with handle-keyed descriptors, while the
-    // solver still iterates dense PointJointConstraint rows without indirection.
-    PointJointConstraint constraint;
-    constraint.SetBodies( desc.bodyA, desc.bodyB );
-    constraint.localAnchorA = desc.localAnchorA;
-    constraint.localAnchorB = desc.localAnchorB;
-    constraint.slack = desc.slack;
-    constraint.stiffness = desc.stiffness;
-    constraint.damping = desc.damping;
-    constraint.groupId = desc.groupId;
-    constraint.flags = desc.flags;
-
-    PhysicsConstraintHandle handle;
-    handle.index = static_cast<uint32_t>( m_pointJointConstraints.size() );
-    handle.generation = PHYSICS_HANDLE_INITIAL_GENERATION;
-    m_pointJointConstraints.push_back( constraint );
-    return handle;
-}
-
-
-const std::vector<PointJointConstraint>& PhysicsWorld::GetPointJointConstraints() const
-{
-    return m_pointJointConstraints;
-}
 
 
 void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
@@ -600,52 +526,6 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
 }
 
 
-bool PhysicsWorld::ShouldEmitStepDiagnostics() const
-{
-#ifdef _DEBUG
-    return m_stepDiagnostics.ShouldEmitStepDiagnostics( m_diagnosticsSuppressed );
-#else
-    return false;
-#endif
-}
-
-
-bool PhysicsWorld::ShouldEmitCollisionTimeDiagnostics() const
-{
-#ifdef _DEBUG
-    return m_stepDiagnostics.ShouldEmitCollisionTimeDiagnostics( m_diagnosticsSuppressed );
-#else
-    return false;
-#endif
-}
-
-
-void PhysicsWorld::EmitStepDiagnostics( const PhysicsBodyStore& bodyStore,
-                                        const ColliderStore& colliderStore,
-                                        float fChangeInTime,
-                                        const char* const* diagnosticNames,
-                                        int diagnosticNameCount,
-                                        const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
-{
-#ifdef _DEBUG
-    const PhysicsDiagnosticsView diagnosticsView = GetDiagnosticsView();
-    m_stepDiagnostics.EmitStepDiagnostics( m_diagnosticsSuppressed,
-                                           diagnosticsView,
-                                           bodyStore,
-                                           colliderStore,
-                                           fChangeInTime,
-                                           diagnosticNames,
-                                           diagnosticNameCount,
-                                           diagnosticsCsvWriter );
-#else
-    (void)bodyStore;
-    (void)colliderStore;
-    (void)fChangeInTime;
-    (void)diagnosticNames;
-    (void)diagnosticNameCount;
-    (void)diagnosticsCsvWriter;
-#endif
-}
 
 
 void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore, int index )
@@ -766,40 +646,6 @@ float PhysicsWorld::GetTornadoSystemElapsedSeconds() const
 }
 
 
-#ifdef _DEBUG
-void PhysicsWorld::SetPhysicsRegressionLogPath( const char* path )
-{
-    m_stepDiagnostics.SetPhysicsRegressionLogPath( path );
-}
-
-
-void PhysicsWorld::SetPhysicsCollisionTimeLogPath( const char* path )
-{
-    m_stepDiagnostics.SetPhysicsCollisionTimeLogPath( path );
-}
-
-
-void PhysicsWorld::SetPhysicsDiagnosticsPath( const char* path )
-{
-    m_stepDiagnostics.SetPhysicsDiagnosticsPath( path );
-}
-
-
-void PhysicsWorld::SetPhysicsDiagnosticsRunId( const char* runId )
-{
-    m_stepDiagnostics.SetPhysicsDiagnosticsRunId( runId );
-}
-
-
-bool PhysicsWorld::SetDiagnosticsSuppressed( bool suppressed )
-{
-    const bool previous = m_diagnosticsSuppressed;
-    m_diagnosticsSuppressed = suppressed;
-    return previous;
-}
-
-
-#endif
 
 
 void PhysicsWorld::CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& event )
@@ -1087,117 +933,4 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                              SLEEP_FRAMES };
     m_sleepController.RunIslandStage( sleepIslandContext );
     PROFILE_END( "Frame/Physics/Integrate" );
-}
-
-
-PhysicsDiagnosticsView PhysicsWorld::GetDiagnosticsView() const
-{
-    return PhysicsDiagnosticsView{ m_contactSolverStage.GetPersistentContacts(),
-                                   m_contactSolverStage.GetStats(),
-                                   m_sleepController.GetSleepIslandParents(),
-                                   m_sleepController.GetSleepSupportedVector(),
-                                   m_sleepController.GetSleepInhibitedVector(),
-                                   m_sleepController.GetSleepStateVector(),
-                                   m_sleepController.GetSleepCounters(),
-                                   m_sleepController.GetSleepIslandEligible(),
-                                   m_sleepController.GetSleepIslandCanSleep(),
-                                   m_pointJointConstraints,
-                                   m_broadphase.GetSpatialGrid(),
-                                   m_broadphase.GetCandidatePairs(),
-                                   m_broadphase.GetCollisionCellKeys(),
-                                   m_sleepController.GetSleepSupportEdgeVector(),
-                                   m_sleepController.GetSleepIslandVisualIdVector(),
-                                   m_stepDiagnostics.GetPipelineTrace(),
-                                   m_terrain.GetContactManifolds() };
-}
-
-uint64_t PhysicsWorld::CollectMemoryBytes() const
-{
-    uint64_t bytes = static_cast<uint64_t>( sizeof( *this ) );
-    bytes += m_forceStage.CollectDynamicMemoryBytes();
-    bytes += m_broadphase.CollectDynamicMemoryBytes();
-    bytes += VectorCapacityBytes( m_timeRemaining );
-    bytes += m_sleepController.CollectDynamicMemoryBytes();
-    bytes += m_stepDiagnostics.CollectDynamicMemoryBytes();
-    bytes += m_contactSolverStage.CollectDynamicMemoryBytes();
-    bytes += m_terrain.CollectDynamicMemoryBytes();
-    bytes += m_narrowphase.CollectDynamicMemoryBytes();
-    bytes += VectorCapacityBytes( m_pointJointConstraints );
-    bytes += m_tornadoGameplay.CollectMemoryBytes();
-    return bytes;
-}
-
-uint64_t PhysicsWorld::CollectDebugAndBroadphaseMemoryBytes() const
-{
-    uint64_t bytes = m_broadphase.CollectDebugAndBroadphaseMemoryBytes();
-    bytes += m_stepDiagnostics.CollectDebugMemoryBytes();
-    bytes += VectorCapacityBytes( m_sleepController.GetSleepIslandVisualIdVector() );
-    bytes += m_tornadoGameplay.CollectDebugMemoryBytes();
-    return bytes;
-}
-
-
-const Math::CollisionDetection::SpatialGrid& PhysicsWorld::GetSpatialGrid() const
-{
-    return m_broadphase.GetSpatialGrid();
-}
-
-
-const std::vector<int64_t>& PhysicsWorld::GetCollisionCellKeys() const
-{
-    return m_broadphase.GetCollisionCellKeys();
-}
-
-
-const std::vector<uint8_t>& PhysicsWorld::GetCollisionVisualContacts() const
-{
-    return m_stepDiagnostics.GetCollisionVisualContacts();
-}
-
-
-std::span<const int> PhysicsWorld::GetFixedContactHighlightBodies() const
-{
-    return m_contactSolverStage.GetSideEffects().fixedContactBodies;
-}
-
-
-std::span<const PhysicsFixedTreeReleaseEvent> PhysicsWorld::GetFixedTreeReleaseEvents() const
-{
-    return m_contactSolverStage.GetSideEffects().fixedTreeReleases;
-}
-
-
-std::span<const uint8_t> PhysicsWorld::GetSleepStates() const
-{
-    return m_sleepController.GetSleepStates();
-}
-
-
-std::span<const int> PhysicsWorld::GetSleepIslandVisualIds() const
-{
-    return m_sleepController.GetSleepIslandVisualIds();
-}
-
-
-std::span<const uint8_t> PhysicsWorld::GetSleepSupportedStates() const
-{
-    return m_sleepController.GetSleepSupportedStates();
-}
-
-
-std::span<const uint8_t> PhysicsWorld::GetSleepInhibitedStates() const
-{
-    return m_sleepController.GetSleepInhibitedStates();
-}
-
-
-const std::vector<PhysicsDebugContact>& PhysicsWorld::GetPhysicsDebugContacts() const
-{
-    return m_stepDiagnostics.GetDebugContacts();
-}
-
-
-const std::vector<PhysicsPipelineRecord>& PhysicsWorld::GetPhysicsPipelineTrace() const
-{
-    return m_stepDiagnostics.GetPipelineTrace();
 }
