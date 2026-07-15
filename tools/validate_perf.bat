@@ -98,10 +98,12 @@ if errorlevel 1 (
 )
 echo.
 echo Running selected-ball live-path structural perf regression...
+call "%~dp0validate_build.bat" Automation
+if errorlevel 1 exit /b 1
 set "SELECTED_PATH_REPORT=%REPO%\TestOutput\interaction\selected_ball_path_perf_report.json"
 if not exist "%REPO%\TestOutput\interaction" mkdir "%REPO%\TestOutput\interaction"
 del /q "%SELECTED_PATH_REPORT%" 2>nul
-"%REPO%\Profile\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step %PERF_HEADLESS_ARGS% --replay on --replay-seconds 1 --frames 330 --scene SkullbonezData/scenes/interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData/interaction/selected_ball_path_perf.json --interaction-report "%SELECTED_PATH_REPORT%"
+"%REPO%\Automation\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step %PERF_HEADLESS_ARGS% --replay on --replay-seconds 1 --frames 330 --scene SkullbonezData/scenes/interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData/interaction/selected_ball_path_perf.json --interaction-report "%SELECTED_PATH_REPORT%"
 if errorlevel 1 (
     echo FAIL: selected-ball live-path structural perf regression failed.
     exit /b 9

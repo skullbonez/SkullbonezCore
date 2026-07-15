@@ -66,9 +66,12 @@ Related:
 #include "RunDebugState.h"
 #include "RunLaunchOptions.h"
 #include "RunCameraState.h"
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 #include "InteractionAutomationController.h"
+#endif
 #include "RunStartupState.h"
 #include "RunTimerState.h"
+#include "RuntimeFrameViews.h"
 #include "RuntimeViewModel.h"
 #include "Replay/ReplayRuntime.h"
 #include "Scene/SceneAuthoredSetup.h"
@@ -134,8 +137,10 @@ class Run
     RunTimerState m_timers;                                    // Frame/simulation timers and rolling timing values
     InputRouter m_inputRouter;                                 // Owns keyboard/pointer edge memory and binding-context enforcement.
     RuntimeInteractionController m_interaction;                // Authoritative runtime workspace and world-input owner.
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     InteractionAutomationController
-        m_interactionAutomation;                               // CLI harness that injects runtime mouse input for regression tests.
+        m_interactionAutomation;                               // Automation-build CLI harness that injects runtime mouse input for regression tests.
+#endif
     RunCameraState m_camera;                                   // Camera/input state and ball-tracking settings
     AttachedCameraController m_attachedCamera;                 // Owns non-serialized Attach target/orbit/follow state.
     SimulationSystem m_simulation;                             // Simulation timestep policy and physics accumulators

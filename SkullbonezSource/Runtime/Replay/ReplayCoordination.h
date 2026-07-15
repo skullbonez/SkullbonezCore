@@ -137,6 +137,7 @@ struct ReplayInteractionExitInput
     bool directorGrabbed = false;
 };
 
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 // Lifetime: validation borrows this immutable publication only for the call
 // that requested it. Spans and references point into replay-owned storage and
 // cannot be retained across the next replay update.
@@ -166,6 +167,7 @@ struct ReplayAutomationView
     float solverTrackPosition = 0.0f;
     float solverPresentTrackPosition = 0.0f;
 };
+#endif
 
 struct ReplayLiveRestoreOutcome
 {

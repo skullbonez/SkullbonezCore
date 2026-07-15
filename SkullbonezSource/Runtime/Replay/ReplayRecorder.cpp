@@ -1841,6 +1841,10 @@ bool ReplayRecorder::Configure( const ReplayRecorderConfig& config )
     m_samples.resize( SampleCapacityFromConfig() );
     m_visualFrames.resize( m_samples.size() );
     m_resolvedPresentationSamples.resize( m_samples.size() );
+    for ( ReplayPresentationSample& resolved : m_resolvedPresentationSamples )
+    {
+        resolved.frameIndex = ( std::numeric_limits<ReplayFrameIndex>::max )();
+    }
     m_checkpoints.resize( CheckpointCapacityFromConfig() );
     ReserveReplayRecorderScratch( m_contactCountScratch,
                                   m_maxPenetrationScratch,
@@ -1884,6 +1888,7 @@ void ReplayRecorder::ResetTimeline( const char* sceneLabel )
     for ( ReplayPresentationSample& sample : m_resolvedPresentationSamples )
     {
         sample.bodies.clear();
+        sample.frameIndex = ( std::numeric_limits<ReplayFrameIndex>::max )();
     }
     for ( ReplayVisualDeltaFrame& frame : m_visualFrames )
     {
@@ -2016,6 +2021,13 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
     sample.stateHash = hash;
     const bool forceVisualKeyframe = sample.checkpointBoundary || m_sampleCount == 1u;
     StoreVisualFramePayload( sampleSlot, sample, m_captureBodyScratch, forceVisualKeyframe, true );
+    ReplayPresentationSample& latestCapture = m_resolvedPresentationSamples[sampleSlot];
+    CopyPresentationHeader( sample, latestCapture );
+    ReserveReplayRecorderSampleVector( latestCapture.bodies,
+                                       m_captureBodyScratch.size(),
+                                       sample.frameIndex,
+                                       "ReplayPresentationLatestCapture::bodies" );
+    latestCapture.bodies = m_captureBodyScratch;
     m_latestStateHash = hash;
     ++m_totalFramesCaptured;
 
@@ -2089,6 +2101,16 @@ void ReplayRecorder::CaptureFrameFromSolverSample( const ReplaySolverFrameSample
     sample.stateHash = solverSample.presentationHash;
     const bool forceVisualKeyframe = sample.checkpointBoundary || m_sampleCount == 1u;
     StoreVisualFramePayload( sampleSlot, sample, m_captureBodyScratch, forceVisualKeyframe, true );
+    // Why: ReportLatestCaptureMismatch consumes this same frame immediately.
+    // Keep the already-materialized body list in its resolved slot instead of
+    // replaying up to a checkpoint interval of compact presentation deltas.
+    ReplayPresentationSample& latestCapture = m_resolvedPresentationSamples[sampleSlot];
+    CopyPresentationHeader( sample, latestCapture );
+    ReserveReplayRecorderSampleVector( latestCapture.bodies,
+                                       m_captureBodyScratch.size(),
+                                       sample.frameIndex,
+                                       "ReplayPresentationLatestMirror::bodies" );
+    latestCapture.bodies = m_captureBodyScratch;
     m_latestStateHash = sample.stateHash;
     ++m_totalFramesCaptured;
 
@@ -2213,6 +2235,10 @@ const ReplayPresentationSample* ReplayRecorder::LatestSample() const
 
     const std::size_t offset = m_sampleCount - 1;
     const std::size_t index = ( m_sampleHead + offset ) % m_samples.size();
+    if ( m_resolvedPresentationSamples[index].frameIndex == m_samples[index].frameIndex )
+    {
+        return &m_resolvedPresentationSamples[index];
+    }
     return ResolveSampleAtOffset( offset, m_resolvedPresentationSamples[index] ) ? &m_resolvedPresentationSamples[index]
                                                                                  : nullptr;
 }
@@ -2568,6 +2594,7 @@ bool ReplaySolverRecorder::Configure( const ReplayRecorderConfig& config )
     m_solverWorldCarryActive = false;
     m_resolvedSolverSample.bodies.clear();
     m_latestResolvedSolverSample.bodies.clear();
+    m_latestResolvedSolverSample.frameIndex = ( std::numeric_limits<ReplayFrameIndex>::max )();
     m_promotedSolverSample.bodies.clear();
     m_solverResolveStateScratch.clear();
     m_solverResolveActiveScratch.clear();
@@ -2634,6 +2661,7 @@ void ReplaySolverRecorder::ResetTimeline( const char* sceneLabel )
     m_solverWorldCarryActive = false;
     m_resolvedSolverSample.bodies.clear();
     m_latestResolvedSolverSample.bodies.clear();
+    m_latestResolvedSolverSample.frameIndex = ( std::numeric_limits<ReplayFrameIndex>::max )();
     m_promotedSolverSample.bodies.clear();
     m_solverResolveStateScratch.clear();
     m_solverResolveActiveScratch.clear();
@@ -2798,6 +2826,21 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
                              m_solverCaptureWorldSnapshot,
                              forceSolverKeyframe,
                              true );
+    // Why: the paired presentation capture asks for LatestSample immediately.
+    // Reconstructing the sample we just captured from as many as 60 compact
+    // delta frames turns every physics tick into an avoidable history replay.
+    // Cache one dense latest sample; arbitrary historical reads still rebuild
+    // through ResolveSolverSampleAtOffset and compact retention remains bounded.
+    CopySolverHeader( sample, m_latestResolvedSolverSample );
+    ReserveReplayRecorderSampleVector( m_latestResolvedSolverSample.bodies,
+                                       m_solverCaptureBodies.size(),
+                                       sample.frameIndex,
+                                       "ReplaySolverLatestCapture::bodies" );
+    m_latestResolvedSolverSample.bodies = m_solverCaptureBodies;
+    CopySolverWorldSnapshotWithReserve( m_latestResolvedSolverSample.worldSnapshot,
+                                        m_solverCaptureWorldSnapshot,
+                                        sample.frameIndex,
+                                        "ReplaySolverLatestCapture::worldSnapshot" );
     m_latestSolverHash = solverHash;
     ++m_totalFramesCaptured;
 
@@ -2944,6 +2987,11 @@ const ReplaySolverFrameSample* ReplaySolverRecorder::LatestSample() const
     }
 
     const std::size_t offset = m_sampleCount - 1;
+    const std::size_t slot = ( m_sampleHead + offset ) % m_samples.size();
+    if ( m_latestResolvedSolverSample.frameIndex == m_samples[slot].frameIndex )
+    {
+        return &m_latestResolvedSolverSample;
+    }
     return ResolveSolverSampleAtOffset( offset, m_latestResolvedSolverSample ) ? &m_latestResolvedSolverSample
                                                                                : nullptr;
 }

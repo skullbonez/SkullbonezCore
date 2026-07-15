@@ -497,6 +497,7 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     const SkullbonezCore::Core::SbResult result = ConfigureInteractionAutomation( m_interactionAutomation,
                                                                                   overrides.interactionScriptPath,
                                                                                   overrides.interactionReportPath );
@@ -511,6 +512,13 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
                                                 m_UI );
     }
     return result;
+#else
+    // Lane R: interaction scripts are external validation input. Ordinary game
+    // builds reject them instead of linking the diagnostic controller into the
+    // frame loop; tools must use the dedicated Automation configuration.
+    return SkullbonezCore::Core::SbResult::Failure( "InteractionAutomation",
+                                                    "--interaction-script requires an Automation|x64 build." );
+#endif
 }
 
 

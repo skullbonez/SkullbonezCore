@@ -5,9 +5,9 @@
 @rem
 @rem Mental model:
 @rem   Full validation is the trustworthy PR fan-in: cheap failures surface
-@rem   first, each CPU test target runs once, then DX12 and deterministic physics
-@rem   provide the two runtime lanes. Physics owns both its standalone smoke and
-@rem   core regression process, so the two lanes launch three engine processes.
+@rem   first, each CPU test target runs once, then automation, DX12, and
+@rem   deterministic physics provide three runtime lanes. The automation lane
+@rem   launches a negative Profile boundary plus one positive replay smoke.
 @rem
 @rem Glossary:
 @rem   CPU preflight: Formatting, project metadata, staged-size, and Profile
@@ -24,6 +24,7 @@
 @rem   - AGENTS.md
 @rem   - tools/validate_fast.bat
 @rem   - tools/validate_all_cpu_tests.bat
+@rem   - tools/validate_automation.bat
 @rem
 @rem
 @echo off
@@ -31,7 +32,7 @@ setlocal
 REM ===============================================================
 REM  validate_full.bat - Default PR validation pipeline.
 REM  Use for: broad changes, uncertain scope, normal pre-merge verification.
-REM  Runtime: CPU tests followed by two runtime lanes and three engine processes.
+REM  Runtime: CPU tests followed by three runtime lanes and five engine processes.
 REM ===============================================================
 
 echo.
@@ -66,7 +67,16 @@ if not "%CPU_TEST_EXIT%"=="0" (
 )
 
 echo.
-echo === Phase 2: Build Debug Configuration ===
+echo === Phase 2: Automation Build Boundary and Replay Prediction Smoke ===
+call "%~dp0validate_automation.bat"
+if errorlevel 1 (
+    echo.
+    echo VALIDATE_FULL: FAILED at automation validation.
+    exit /b 1
+)
+
+echo.
+echo === Phase 3: Build Debug Configuration ===
 call "%~dp0validate_build.bat" Debug
 if errorlevel 1 (
     echo.
@@ -76,7 +86,7 @@ if errorlevel 1 (
 set "SKULLBONEZ_ASSUME_DEBUG_BUILT=1"
 
 echo.
-echo === Phase 3: DX12 Renderer Validation ===
+echo === Phase 4: DX12 Renderer Validation ===
 call "%~dp0validate_dx12_renderer.bat"
 if errorlevel 1 (
     echo.
@@ -85,7 +95,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo === Phase 4: Physics Validation ===
+echo === Phase 5: Physics Validation ===
 call "%~dp0validate_physics.bat"
 if errorlevel 1 (
     echo.
@@ -97,7 +107,7 @@ echo.
 set "SKULLBONEZ_SKIP_READY_BUILDS=%PREVIOUS_SKIP_READY_BUILDS%"
 set "SKULLBONEZ_ASSUME_PROFILE_BUILT=%PREVIOUS_ASSUME_PROFILE_BUILT%"
 set "SKULLBONEZ_ASSUME_DEBUG_BUILT=%PREVIOUS_ASSUME_DEBUG_BUILT%"
-echo [ready] Profile and Debug were built before validation.
+echo [ready] Profile, Automation, and Debug were built before validation.
 
 echo.
 echo ============================================================

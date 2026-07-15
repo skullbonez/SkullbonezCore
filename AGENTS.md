@@ -269,8 +269,9 @@ Do not run validation scripts automatically after every edit. Formal repository
 validation runs only as a pre-commit/PR gate, or when the user explicitly asks
 for it. When preparing PR-bound work, choose the smallest script from `tools\`
 that matches the fix. The default broad PR gate runs the mandatory CPU umbrella
-first, then two runtime lanes: one DX12 renderer process and the physics lane's
-standalone-smoke plus regression-scene processes (three engine processes total).
+first, then three runtime lanes: the Automation boundary plus replay/prediction
+smoke, one DX12 renderer process, and the physics lane's standalone-smoke plus
+regression-scene processes (five engine processes total).
 Use deep, perf, and UI validation only when the change actually needs them.
 Every DX12 modification also requires the mandatory bounded graphics-stress
 run defined below.
@@ -293,8 +294,8 @@ the same commit; a test target reachable only through a direct script or
 | Broad physics baseline, bullet sweep, or SkullScope diagnostics | `tools\validate_physics_deep.bat` | ~45s+ |
 | Performance-sensitive hot path | `tools\validate_perf.bat` | ~1 min |
 | General DX12 graphics stress, crash reproduction, or memory-growth investigation | `tools\run_graphics_stress.bat 1`; use `overnight` only when intentionally soaking | bounded or overnight |
-| Broad or uncertain scope | `tools\validate_full.bat` | CPU tests + 3 engine processes |
-| Unsure what to run at the PR gate | `tools\agent_validate.bat` | CPU tests + 3 engine processes |
+| Broad or uncertain scope | `tools\validate_full.bat` | CPU tests + 5 engine processes |
+| Unsure what to run at the PR gate | `tools\agent_validate.bat` | CPU tests + 5 engine processes |
 | Comment-only source or documentation cleanup | No repository validation required; prove the diff is comments/docs only | N/A |
 
 Profiling marker or platform-profiler changes must also run:

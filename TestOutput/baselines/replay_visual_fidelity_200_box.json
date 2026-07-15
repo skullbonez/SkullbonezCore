@@ -3,7 +3,7 @@
   "schemaVersion": 2,
   "workingBaseCommit": "2f13168ff41c0aa524194a2c4e722c23e1e0641a",
   "captureCommit": "2f13168ff41c0aa524194a2c4e722c23e1e0641a",
-  "configuration": "Profile",
+  "configuration": "Automation",
   "fixedStep": true,
   "target": "prediction_striker_ball",
   "horizonSeconds": 20.0,

@@ -3,11 +3,11 @@
   "schemaVersion": 1,
   "workingBaseCommit": "2f13168ff41c0aa524194a2c4e722c23e1e0641a",
   "captureCommit": "2f13168ff41c0aa524194a2c4e722c23e1e0641a",
-  "configuration": "Profile",
+  "configuration": "Automation",
   "fixedStep": true,
   "target": "prediction_striker_ball",
   "horizonSeconds": 20.0,
-  "visualBaselineSha256": "edfc972daaeae21967b6592882b5a5ffc72b395efb8d80bc9a1d5bed68221737",
+  "visualBaselineSha256": "019d00aad419191abcece50aaf0cc067664376423500459f014e238634f3e5a7",
   "targetId": 1,
   "topologyCount": 199,
   "topology": [

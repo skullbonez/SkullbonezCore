@@ -9,12 +9,13 @@ validation.
 
 | Script | Use When | Runtime |
 |--------|----------|---------|
-| `agent_validate.bat` | PR gate when truly unsure; delegates once to `validate_full.bat` | CPU tests + 3 engine processes |
+| `agent_validate.bat` | PR gate when truly unsure; delegates once to `validate_full.bat` | CPU tests + 5 engine processes |
 | `validate_select.bat` | Run any subset of validations by name | ~depends |
 | `validate_fast.bat` | Small code refactors: preflight plus the doctest runner | ~30s |
 | `validate_all_cpu_tests.bat` | Run every mandatory CPU test target once with fail-fast attribution | incremental builds + 5 console launches |
 | `validate_tests.bat` | Build and run the doctest unit-test executable | build + console test runner |
 | `validate_runtime_interaction_policy.bat` | Build/run Debug and Release interaction-policy tests | 2 console test launches |
+| `validate_automation.bat` | Prove Profile excludes scripted diagnostics and run the replay/prediction pre-commit smoke in Automation | build + 2 engine processes |
 | `validate_scene_parser_tests.bat` | Build/run CPU-side scene/style parser contract tests | build + console test runner |
 | `validate_dx12_arch_tests.bat` | Build/run CPU-side renderer architecture tests; no device creation | build + console test runner |
 | `validate_dx12_fault_injection.bat` | Debug runtime proof that the first injected DX12 submission failure exits nonzero and issues zero submissions | build + one bounded engine launch |
@@ -33,7 +34,7 @@ validation.
 | `validate_physics_deep.bat` | Opt-in bullet sweep, shooting, known-issue, and SkullScope physics baselines | ~45s+ |
 | `validate_physics_query.bat` | SkullScope query-output baseline check | ~depends |
 | `validate_perf.bat` | Hard gate for DX12, physics, and hot-path perf budgets/regressions | ~1 min |
-| `validate_full.bat` | Default broad PR gate: mandatory CPU lane, DX12 renderer, and core physics | CPU tests + 3 engine processes |
+| `validate_full.bat` | Default broad PR gate: mandatory CPU, Automation replay smoke, DX12 renderer, and core physics | CPU tests + 5 engine processes |
 | `watch_ui_stress.bat` | Repeated UI stress watcher, finite by default | ~depends |
 | `watch_demo_stress.bat` | Repeated generated demo stress watcher, finite by default | ~depends |
 
@@ -46,10 +47,13 @@ order and stops before any engine launch when a CPU target fails:
    metadata, staged-size policy, and the Profile build without a test launch.
 2. `validate_all_cpu_tests.bat` runs the doctest, runtime-interaction, scene
    parser, and DX12 architecture targets exactly once.
-3. The Debug build, DX12 renderer gate, and core physics determinism gate run
-   only after the mandatory CPU lane passes. The renderer lane launches one
-   engine process; physics launches its standalone smoke and regression scene,
-   for three engine processes in total.
+3. `validate_automation.bat` proves Profile rejects diagnostic scripts, builds
+   the dedicated Automation executable, and runs the short replay/prediction
+   interaction smoke required on every broad pre-commit pass.
+4. The Debug build, DX12 renderer gate, and core physics determinism gate run
+   only after the mandatory CPU and automation lanes pass. Automation launches
+   two engine processes, rendering launches one, and physics launches its
+   standalone smoke and regression scene, for five engine processes in total.
 
 Direct `validate_fast.bat` use still runs `SKULLBONEZ_TESTS.exe`. Its
 `--preflight-only` switch is an internal composition mode for `validate_full`;
@@ -100,12 +104,14 @@ tools\validate_select.bat concepts
 tools\validate_select.bat shaders
 tools\validate_select.bat project-filters
 tools\validate_select.bat runtime-interaction-policy
+tools\validate_select.bat automation
 tools\validate_select.bat scene-parser-tests
 tools\validate_select.bat dx12-arch-tests
 tools\validate_select.bat all-cpu-tests
 tools\validate_select.bat tests
 tools\validate_select.bat ui
 tools\validate_select.bat build-profile
+tools\validate_select.bat build-automation
 ```
 
 ### Direct Stress Runners
@@ -128,13 +134,14 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `migrate_data_formats.py --check\|--write` | Check or upgrade asset-library, hull, and engine-config files to their current owned versions |
 | `validate_format.bat` | Check clang-format compliance without auto-fixing |
 | `format_fix.bat` | Auto-fix formatting in-place |
-| `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Release`) |
+| `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Automation`, `Release`) |
 | `validate_all_cpu_tests.bat` | Run all four first-party CPU test gates, stop at the first failure, print a combined summary, and preserve the child exit code |
 | `validate_tests.bat` | Build `SKULLBONEZ_TESTS`, validate its project filters, and run the doctest console runner |
 | `validate_concepts.bat [smoke\|core\|full] [dx12] [frames]` | Run finite concept-scene tiers and write logs plus JSON under `TestOutput\validation\concepts` |
 | `validate_shaders.bat` | Check shader file contracts from `tools\shader_contracts.json`; incomplete symbol, uniform, or resource coverage is reported as warnings |
 | `validate_project_filters.bat` | Check `.vcxproj` and `.vcxproj.filters` item coverage, exact path casing, source/header category pairing, scene/style/shader filters, and declared filter names |
 | `validate_runtime_interaction_policy.bat` | CPU-only checks for runtime interaction ownership, pointer capture, camera-look, and physics-step policy |
+| `validate_automation.bat` | Pre-commit boundary check plus short replay/prediction interaction smoke in the diagnostics-only Automation build |
 | `validate_replay_visual_fidelity.bat` | Authoritative frame-exact 200-box replay gate: one hidden engine process, one prediction generation, immutable golden comparison, offline artifact round-trip, and false-pass controls |
 | `validate_replay_scrub.bat` | Historical replay-scrub entry point; delegates exclusively to `validate_replay_visual_fidelity.bat` and preserves its failure status |
 | `validate_ui.bat` | Optional DX12 UI suite that captures UI screenshots and checks blur strength |
@@ -167,7 +174,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `bake_shaders.bat` | Bake all shipping raster/compute shaders with pinned DXC and generate fixed reflection POD metadata; `--check` verifies bytecode, hashes, and metadata freshness |
 
 `SKULLBONEZ_CORE.vcxproj` runs `bake_shaders.bat` before every Visual Studio
-build in Debug, Profile, Profile-WPO, and Release. Visual Studio fast up-to-date
+build in Debug, Profile, Profile-WPO, Automation, and Release. Visual Studio fast up-to-date
 skipping is disabled for that project so an HLSL-only edit still reaches the
 bake; shader compiler diagnostics and a nonzero bake exit fail the build.
 
@@ -176,7 +183,7 @@ bake; shader compiler diagnostics and a nonzero bake exit fail the build.
 perf output as a warning-only review note unless the script itself exits 0.
 
 `validate_replay_visual_fidelity.bat` is the single replay presentation oracle.
-Each invocation starts exactly one hidden Profile engine process and permits
+Each invocation starts exactly one hidden Automation engine process and permits
 exactly one prediction generation. It compares all 2,401 presentation ticks
 through the complete 200-box wall cascade, proves the saved prediction state by
 an in-process CPU projection after the last rendered reveal plus offline

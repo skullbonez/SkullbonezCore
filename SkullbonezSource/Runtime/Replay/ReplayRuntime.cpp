@@ -412,6 +412,7 @@ ReplayInputView ReplayRuntime::BuildInputView() const noexcept
 }
 
 
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 ReplayAutomationView ReplayRuntime::BuildAutomationView() const
 {
     return { m_predictionOwner.State(),
@@ -432,6 +433,7 @@ ReplayAutomationView ReplayRuntime::BuildAutomationView() const
              m_scrubberOwner.TrackPosition( RunReplayTrack::Solver ),
              SolverPresentTrackPosition() };
 }
+#endif
 
 
 ReplayOverlay::ReplayOverlayStateView

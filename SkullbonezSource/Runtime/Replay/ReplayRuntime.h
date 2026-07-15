@@ -148,9 +148,12 @@ class ReplayRuntime
 
     // Publishes scalar input decisions without exposing replay owner storage.
     ReplayInputView BuildInputView() const noexcept;
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     // Lifetime: returned references/spans are synchronous validation evidence;
-    // callers must rebuild the view after any replay mutation.
+    // callers must rebuild the view after any replay mutation. The method is
+    // absent from ordinary builds so diagnostics cannot enter the frame path.
     ReplayAutomationView BuildAutomationView() const;
+#endif
     // Publishes replay-selected samples and const tool state for one late UI
     // pass. Window/UI facts remain caller-owned values.
     ReplayOverlay::ReplayOverlayStateView
