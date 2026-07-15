@@ -34,7 +34,6 @@ Related:
 #include "EditorPlacementAssets.h"
 #include "EditorTools.h"
 #include "EditorHullAssets.h"
-#include "../Replay/ReplayRuntime.h"
 #include "../Tools/RuntimeTools.h"
 #include "../InputRouter.h"
 #include "../CameraCollection.h"
@@ -127,7 +126,7 @@ bool TransformClipPointToWorld( const Matrix4& inverseViewProjection, float x, f
 }
 
 
-bool RecordEditorTransformEventFromBodyStore( ReplayRuntime& replayRuntime,
+bool RecordEditorTransformEventFromBodyStore( ReplayEventCommandBatch& replayEvents,
                                               SkullbonezCore::Runtime::SceneController& collection,
                                               int modelIndex,
                                               uint32_t changedFlags,
@@ -150,14 +149,17 @@ bool RecordEditorTransformEventFromBodyStore( ReplayRuntime& replayRuntime,
         return false;
     }
 
-    replayRuntime.RecordEditorTransformEvent( modelIndex,
-                                              changedFlags,
-                                              body->replayBodyId,
-                                              body->position,
-                                              body->orientation,
-                                              collection.SceneEntityCount(),
-                                              scaleAxis,
-                                              scaleFactor );
+    if ( !replayEvents.Append( ReplayEventCommandOperations::BuildEditorTransform( modelIndex,
+                                                                                   changedFlags,
+                                                                                   body->replayBodyId,
+                                                                                   body->position,
+                                                                                   body->orientation,
+                                                                                   collection.SceneEntityCount(),
+                                                                                   scaleAxis,
+                                                                                   scaleFactor ) ) )
+    {
+        SB_FATAL( "Runtime/EditorTools", "Replay editor-event batch capacity exhausted." );
+    }
     return true;
 }
 
@@ -1173,8 +1175,7 @@ RuntimeTools::RouteEditorPlacementScalePointer( bool leftReleased,
                                                 Geometry::Terrain* terrain,
                                                 Assets::AssetSystem& assets,
                                                 int activeModelCapacity,
-                                                RuntimeInteractionController& interaction,
-                                                ReplayRuntime& replayRuntime )
+                                                RuntimeInteractionController& interaction )
 {
     EditorPlacementScalePointerResult result;
     if ( interaction.Gesture().kind != RuntimeInteractionGestureKind::EditorPlacementScaleDrag )
@@ -1205,13 +1206,15 @@ RuntimeTools::RouteEditorPlacementScalePointer( bool leftReleased,
                 RecordEditorPlacementHistory( collection,
                                               placementResult.modelCountBefore,
                                               placementResult.modelCountAfter );
-                replayRuntime.RecordEditorPlaceEvent( placementResult.objectType,
-                                                      placementResult.fixedObject,
-                                                      placementResult.autoTerrainAlign,
-                                                      placementResult.modelCountBefore,
-                                                      placementResult.terrainPoint,
-                                                      placementResult.placementScale,
-                                                      placementResult.placementYawRadians );
+                result.replayEvent =
+                    ReplayEventCommandOperations::BuildEditorPlace( placementResult.objectType,
+                                                                    placementResult.fixedObject,
+                                                                    placementResult.autoTerrainAlign,
+                                                                    placementResult.modelCountBefore,
+                                                                    placementResult.terrainPoint,
+                                                                    placementResult.placementScale,
+                                                                    placementResult.placementYawRadians );
+                result.recordReplayEvent = true;
 
                 RuntimeInteractionCommand command;
                 command.type = RuntimeInteractionCommandType::SetEditorSelection;
@@ -1237,8 +1240,7 @@ RuntimeTools::RouteEditorPlacementScalePointer( bool leftReleased,
 EditorGizmoDragPointerResult RuntimeTools::RouteEditorGizmoDragPointer( const EditorGizmoDragPointerInput& input,
                                                                         Runtime::SceneController& collection,
                                                                         PhysicsEngine& physics,
-                                                                        RuntimeInteractionController& interaction,
-                                                                        ReplayRuntime& replayRuntime )
+                                                                        RuntimeInteractionController& interaction )
 {
     EditorGizmoDragPointerResult result;
     const RuntimeInteractionGesture gesture = interaction.Gesture();
@@ -1295,7 +1297,7 @@ EditorGizmoDragPointerResult RuntimeTools::RouteEditorGizmoDragPointer( const Ed
                                                                               scaleFactor )
                                                   ? REPLAY_EDITOR_TRANSFORM_SCALE
                                                   : 0u;
-                RecordEditorTransformEventFromBodyStore( replayRuntime,
+                RecordEditorTransformEventFromBodyStore( result.replayEvents,
                                                          collection,
                                                          input.selectedModelIndex,
                                                          changedFlags,
@@ -1328,7 +1330,7 @@ EditorGizmoDragPointerResult RuntimeTools::RouteEditorGizmoDragPointer( const Ed
                             m_editor.gizmoDragGroupStartOrientations[static_cast<std::size_t>( groupIndex )] )
                             ? REPLAY_EDITOR_TRANSFORM_ROTATE
                             : 0u;
-                    RecordEditorTransformEventFromBodyStore( replayRuntime,
+                    RecordEditorTransformEventFromBodyStore( result.replayEvents,
                                                              collection,
                                                              modelIndex,
                                                              changedFlags,
@@ -1350,7 +1352,7 @@ EditorGizmoDragPointerResult RuntimeTools::RouteEditorGizmoDragPointer( const Ed
                         EditorOrientationsDiffer( selectedBody->orientation, m_editor.gizmoDragStartOrientation )
                             ? REPLAY_EDITOR_TRANSFORM_ROTATE
                             : 0u;
-                    RecordEditorTransformEventFromBodyStore( replayRuntime,
+                    RecordEditorTransformEventFromBodyStore( result.replayEvents,
                                                              collection,
                                                              input.selectedModelIndex,
                                                              changedFlags,
@@ -1604,19 +1606,13 @@ RuntimeTools::BeginEditorPlacementScalePointer( bool inspectGizmoActive,
 
 EditorPointerRouteResult InputRouter::RouteEditorPointer( const EditorPointerRouteInput& input,
                                                           RuntimeTools& runtimeTools,
-                                                          ReplayRuntime& replayRuntime,
                                                           RuntimeInteractionController& interaction,
                                                           Runtime::SceneController& models,
                                                           PhysicsEngine& physics,
                                                           RunSceneState& scene,
                                                           Environment::WorldEnvironment& world,
                                                           Geometry::Terrain* terrain,
-                                                          Assets::AssetSystem& assets,
-                                                          Environment::CameraCollection& cameras,
-                                                          RunCameraState& camera,
-                                                          RunCameraMode replayRestoreCameraMode,
-                                                          bool attachedCameraFollow,
-                                                          bool directorGrabbed )
+                                                          Assets::AssetSystem& assets )
 {
     EditorPointerRouteResult routeResult;
     auto appendModeAction = [&routeResult]( RuntimeInputAction action )
@@ -1626,6 +1622,17 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const EditorPointerRou
             SB_FATAL( "Runtime/InputRouter", "Editor pointer mode-action capacity exhausted." );
         }
         routeResult.modeActions[routeResult.modeActionCount++] = action;
+    };
+    const auto publishInteractionTransition = [&routeResult]( const RuntimeInteractionTransition& transition )
+    {
+        // Invariant: one pointer route can begin at most one editor claim. The
+        // composition shell must clean it before routing another world owner.
+        if ( routeResult.hasInteractionTransition )
+        {
+            SB_FATAL( "Runtime/InputRouter", "Editor pointer emitted multiple interaction transitions." );
+        }
+        routeResult.interactionTransition = transition;
+        routeResult.hasInteractionTransition = true;
     };
     const PhysicsBodyStore& editorBodyStore = models.BodyStore();
     const bool previewInspectGizmoActive =
@@ -1667,8 +1674,12 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const EditorPointerRou
                                                        terrain,
                                                        assets,
                                                        input.activeModelCapacity,
-                                                       interaction,
-                                                       replayRuntime );
+                                                       interaction );
+    if ( placementScaleResult.recordReplayEvent &&
+         !routeResult.replayEvents.Append( placementScaleResult.replayEvent ) )
+    {
+        SB_FATAL( "Runtime/InputRouter", "Replay editor-event batch capacity exhausted." );
+    }
     if ( placementScaleResult.enteredInteractiveScene )
     {
         routeResult.enteredInteractiveScene = true;
@@ -1696,8 +1707,14 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const EditorPointerRou
                                                     dragRayDirection },
                                                   models,
                                                   physics,
-                                                  interaction,
-                                                  replayRuntime );
+                                                  interaction );
+    for ( std::size_t replayEventIndex = 0; replayEventIndex < gizmoDragResult.replayEvents.count; ++replayEventIndex )
+    {
+        if ( !routeResult.replayEvents.Append( gizmoDragResult.replayEvents.commands[replayEventIndex] ) )
+        {
+            SB_FATAL( "Runtime/InputRouter", "Replay editor-event batch capacity exhausted." );
+        }
+    }
     if ( gizmoDragResult.endedGesture )
     {
         ReleaseNativeCapture();
@@ -1724,19 +1741,10 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const EditorPointerRou
                                                      gesturePlan ) )
         {
             routeResult.enteredInteractiveScene = true;
-            SetWorldInteractionOwner( gesturePlan.owner,
-                                      gesturePlan.reason,
-                                      replayRuntime,
-                                      runtimeTools,
-                                      interaction,
-                                      cameras,
-                                      terrain,
-                                      models,
-                                      physics,
-                                      camera,
-                                      replayRestoreCameraMode,
-                                      attachedCameraFollow,
-                                      directorGrabbed );
+            publishInteractionTransition(
+                interaction.SetWorldInteractionOwnerInWorkspace( interaction.WorkspaceForOwner( gesturePlan.owner ),
+                                                                 gesturePlan.owner,
+                                                                 gesturePlan.reason ) );
             const EditorGizmoGestureResult gestureResult =
                 runtimeTools.CommitEditorGizmoGesture( gesturePlan, models, physics, interaction );
             if ( gestureResult.attempted && !gestureResult.consumed )
@@ -1789,19 +1797,10 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const EditorPointerRou
                          selectionOwner,
                          selectionReason ) )
                 {
-                    SetWorldInteractionOwner( selectionOwner,
-                                              selectionReason,
-                                              replayRuntime,
-                                              runtimeTools,
-                                              interaction,
-                                              cameras,
-                                              terrain,
-                                              models,
-                                              physics,
-                                              camera,
-                                              replayRestoreCameraMode,
-                                              attachedCameraFollow,
-                                              directorGrabbed );
+                    publishInteractionTransition( interaction.SetWorldInteractionOwnerInWorkspace(
+                        interaction.WorkspaceForOwner( selectionOwner ),
+                        selectionOwner,
+                        selectionReason ) );
                     RuntimeInteractionEvent event;
                     consumedWorldClick = runtimeTools.CommitSelectionCommand( plan, event );
                 }

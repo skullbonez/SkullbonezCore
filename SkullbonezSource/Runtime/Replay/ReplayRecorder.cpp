@@ -74,6 +74,15 @@ constexpr int REPLAY_RECORDER_SAMPLE_RESERVE_GROWTH_LIMIT =
     RuntimeAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
 constexpr uint64_t FNV64_OFFSET = 14695981039346656037ull;
 constexpr uint64_t FNV64_PRIME = 1099511628211ull;
+constexpr uint32_t REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED = 1u;
+constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED = 2u;
+constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED = 4u;
+constexpr uint32_t REPLAY_LAUNCHER_FIRE_PROJECTILE = 1u;
+constexpr uint32_t REPLAY_EDITOR_PLACE_FIXED = 1u;
+constexpr uint32_t REPLAY_EDITOR_PLACE_TERRAIN_ALIGN = 2u;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
 
 int ReplayRuntimeBodyCapacity( const ReplayRecorderConfig& config )
 {
@@ -439,6 +448,53 @@ uint32_t FloatBits( float value )
     uint32_t bits = 0;
     std::memcpy( &bits, &value, sizeof( bits ) );
     return bits;
+}
+
+int32_t SignedFloatBits( float value )
+{
+    const uint32_t bits = FloatBits( value );
+    int32_t signedBits = 0;
+    std::memcpy( &signedBits, &bits, sizeof( signedBits ) );
+    return signedBits;
+}
+
+void AppendReplayEventFloatHex( char*& cursor, std::size_t& remaining, float value )
+{
+    if ( remaining == 0 )
+    {
+        return;
+    }
+    const int written = std::snprintf( cursor, remaining, "%08X", FloatBits( value ) );
+    if ( written < 0 )
+    {
+        cursor[0] = '\0';
+        return;
+    }
+    const std::size_t consumed = (std::min)( static_cast<std::size_t>( written ), remaining > 0 ? remaining - 1 : 0 );
+    cursor += consumed;
+    remaining -= consumed;
+}
+
+void AppendReplayEventVectorHex( char*& cursor, std::size_t& remaining, const Vector3& value )
+{
+    AppendReplayEventFloatHex( cursor, remaining, value.x );
+    AppendReplayEventFloatHex( cursor, remaining, value.y );
+    AppendReplayEventFloatHex( cursor, remaining, value.z );
+}
+
+void AppendReplayEventQuaternionHex( char*& cursor,
+                                     std::size_t& remaining,
+                                     const SkullbonezCore::Math::Orientation::Quaternion& value )
+{
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+    float w = 1.0f;
+    value.GetComponents( x, y, z, w );
+    AppendReplayEventFloatHex( cursor, remaining, x );
+    AppendReplayEventFloatHex( cursor, remaining, y );
+    AppendReplayEventFloatHex( cursor, remaining, z );
+    AppendReplayEventFloatHex( cursor, remaining, w );
 }
 
 bool SameFloatBits( float a, float b )
@@ -1454,7 +1510,279 @@ uint64_t HashSolverWorldSnapshot( uint64_t hash, const ReplaySolverWorldSnapshot
 }
 } // namespace
 
-uint64_t SkullbonezCore::Runtime::ComputeReplayPresentationStateHash( const ReplayPresentationSample& sample ) noexcept
+ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildCommand( ReplayEventKind kind,
+                                                                                        ReplayFrameIndex frameIndex,
+                                                                                        bool useNextFrame,
+                                                                                        uint32_t flags,
+                                                                                        int32_t value0,
+                                                                                        int32_t value1,
+                                                                                        int32_t value2,
+                                                                                        int32_t value3,
+                                                                                        uint64_t data0,
+                                                                                        const char* text )
+{
+    ReplayEventCommand command;
+    command.frameIndex = frameIndex;
+    command.kind = kind;
+    command.flags = flags;
+    command.value0 = value0;
+    command.value1 = value1;
+    command.value2 = value2;
+    command.value3 = value3;
+    command.data0 = data0;
+    command.useNextFrame = useNextFrame;
+    if ( text && text[0] != '\0' )
+    {
+        strncpy_s( command.text, sizeof( command.text ), text, _TRUNCATE );
+    }
+    return command;
+}
+
+ReplayEventCommand
+SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildGeneratedSceneConfig( uint32_t flags,
+                                                                                  int modelCount,
+                                                                                  int solverBallCount,
+                                                                                  int solverBoxCount,
+                                                                                  uint32_t rngSeed,
+                                                                                  int gameModelCapacity,
+                                                                                  uint32_t generatedObjectTypeOverride )
+{
+    uint64_t hash = FNV64_OFFSET;
+    hash = HashInt( hash, modelCount );
+    hash = HashInt( hash, solverBallCount );
+    hash = HashInt( hash, solverBoxCount );
+    hash = HashInt( hash, static_cast<int32_t>( rngSeed ) );
+    hash = HashInt( hash, gameModelCapacity );
+    hash = HashInt( hash, static_cast<int32_t>( generatedObjectTypeOverride ) );
+    return BuildCommand( ReplayEventKind::GeneratedSceneConfig,
+                         0,
+                         false,
+                         flags,
+                         modelCount,
+                         solverBallCount,
+                         solverBoxCount,
+                         static_cast<int32_t>( rngSeed ),
+                         hash,
+                         "generated_scene_config" );
+}
+
+ReplayEventCommand
+SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildWorldOverride( float previousGravity,
+                                                                           float previousFluidHeight,
+                                                                           float previousFluidDensity,
+                                                                           float gravity,
+                                                                           float fluidHeight,
+                                                                           float fluidDensity )
+{
+    uint32_t flags = 0;
+    flags |= previousGravity != gravity ? REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED : 0u;
+    flags |= previousFluidHeight != fluidHeight ? REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED : 0u;
+    flags |= previousFluidDensity != fluidDensity ? REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED : 0u;
+    if ( flags == 0 )
+    {
+        return {};
+    }
+    uint64_t hash = FNV64_OFFSET;
+    hash = HashFloat( hash, gravity );
+    hash = HashFloat( hash, fluidHeight );
+    hash = HashFloat( hash, fluidDensity );
+    return BuildCommand( ReplayEventKind::WorldOverride,
+                         0,
+                         true,
+                         flags,
+                         SignedFloatBits( gravity ),
+                         SignedFloatBits( fluidHeight ),
+                         SignedFloatBits( fluidDensity ),
+                         0,
+                         hash,
+                         "world_override" );
+}
+
+ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildLauncherConfig( uint32_t changedFlags,
+                                                                                               float impulseStrength,
+                                                                                               float projectileSpeed )
+{
+    if ( changedFlags == 0 )
+    {
+        return {};
+    }
+    uint64_t hash = FNV64_OFFSET;
+    hash = HashFloat( hash, impulseStrength );
+    hash = HashFloat( hash, projectileSpeed );
+    return BuildCommand( ReplayEventKind::LauncherConfig,
+                         0,
+                         true,
+                         changedFlags,
+                         SignedFloatBits( impulseStrength ),
+                         SignedFloatBits( projectileSpeed ),
+                         0,
+                         0,
+                         hash,
+                         "launcher_config" );
+}
+
+ReplayEventCommand
+SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildLauncherFire( const Vector3& rayOrigin,
+                                                                          const Vector3& rayDirection,
+                                                                          const Vector3& cameraUp,
+                                                                          bool projectile,
+                                                                          float impulseStrength,
+                                                                          float projectileSpeed,
+                                                                          int modelCount )
+{
+    char payload[96] = {};
+    char* cursor = payload;
+    std::size_t remaining = sizeof( payload );
+    const int prefixWritten = std::snprintf( cursor, remaining, "ray9:" );
+    if ( prefixWritten > 0 )
+    {
+        const std::size_t consumed =
+            (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
+        cursor += consumed;
+        remaining -= consumed;
+    }
+    AppendReplayEventVectorHex( cursor, remaining, rayOrigin );
+    AppendReplayEventVectorHex( cursor, remaining, rayDirection );
+    AppendReplayEventVectorHex( cursor, remaining, cameraUp );
+
+    uint64_t hash = FNV64_OFFSET;
+    hash = HashVector( hash, rayOrigin );
+    hash = HashVector( hash, rayDirection );
+    hash = HashVector( hash, cameraUp );
+    return BuildCommand( ReplayEventKind::LauncherFire,
+                         0,
+                         true,
+                         projectile ? REPLAY_LAUNCHER_FIRE_PROJECTILE : 0u,
+                         projectile ? 1 : 0,
+                         SignedFloatBits( impulseStrength ),
+                         SignedFloatBits( projectileSpeed ),
+                         modelCount,
+                         hash,
+                         payload );
+}
+
+ReplayEventCommand
+SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildEditorPlace( int objectType,
+                                                                         bool fixedObject,
+                                                                         bool terrainAlign,
+                                                                         int modelCountBefore,
+                                                                         const Vector3& terrainPoint,
+                                                                         const Vector3& placementScale,
+                                                                         float placementYawRadians )
+{
+    char payload[80] = {};
+    char* cursor = payload;
+    std::size_t remaining = sizeof( payload );
+    const int prefixWritten = std::snprintf( cursor, remaining, "place7:" );
+    if ( prefixWritten > 0 )
+    {
+        const std::size_t consumed =
+            (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
+        cursor += consumed;
+        remaining -= consumed;
+    }
+    AppendReplayEventVectorHex( cursor, remaining, terrainPoint );
+    AppendReplayEventVectorHex( cursor, remaining, placementScale );
+    AppendReplayEventFloatHex( cursor, remaining, placementYawRadians );
+
+    uint64_t hash = FNV64_OFFSET;
+    hash = HashInt( hash, objectType );
+    hash = HashInt( hash, fixedObject ? 1 : 0 );
+    hash = HashInt( hash, terrainAlign ? 1 : 0 );
+    hash = HashInt( hash, modelCountBefore );
+    hash = HashVector( hash, terrainPoint );
+    hash = HashVector( hash, placementScale );
+    hash = HashFloat( hash, placementYawRadians );
+    uint32_t flags = 0;
+    flags |= fixedObject ? REPLAY_EDITOR_PLACE_FIXED : 0u;
+    flags |= terrainAlign ? REPLAY_EDITOR_PLACE_TERRAIN_ALIGN : 0u;
+    return BuildCommand( ReplayEventKind::EditorPlace,
+                         0,
+                         true,
+                         flags,
+                         objectType,
+                         fixedObject ? 1 : 0,
+                         terrainAlign ? 1 : 0,
+                         modelCountBefore,
+                         hash,
+                         payload );
+}
+
+ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildEditorTransform(
+    int modelIndex,
+    uint32_t changedFlags,
+    uint32_t replayBodyId,
+    const Vector3& position,
+    const SkullbonezCore::Math::Orientation::Quaternion& orientation,
+    int modelCount,
+    int scaleAxis,
+    float scaleFactor )
+{
+    changedFlags &= REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE;
+    if ( changedFlags == 0 )
+    {
+        return {};
+    }
+    if ( ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE ) == 0 )
+    {
+        scaleAxis = -1;
+        scaleFactor = 1.0f;
+    }
+    else if ( scaleAxis < 0 || scaleAxis > 2 || !std::isfinite( scaleFactor ) || scaleFactor <= 0.0f )
+    {
+        return {};
+    }
+
+    char payload[96] = {};
+    char* cursor = payload;
+    std::size_t remaining = sizeof( payload );
+    const int prefixWritten =
+        std::snprintf( cursor, remaining, ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE ) ? "xform8:" : "xform7:" );
+    if ( prefixWritten > 0 )
+    {
+        const std::size_t consumed =
+            (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
+        cursor += consumed;
+        remaining -= consumed;
+    }
+    AppendReplayEventVectorHex( cursor, remaining, position );
+    AppendReplayEventQuaternionHex( cursor, remaining, orientation );
+    if ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE )
+    {
+        AppendReplayEventFloatHex( cursor, remaining, scaleFactor );
+    }
+
+    float qx = 0.0f;
+    float qy = 0.0f;
+    float qz = 0.0f;
+    float qw = 1.0f;
+    orientation.GetComponents( qx, qy, qz, qw );
+    uint64_t hash = FNV64_OFFSET;
+    hash = HashInt( hash, modelIndex );
+    hash = HashInt( hash, static_cast<int32_t>( replayBodyId ) );
+    hash = HashInt( hash, modelCount );
+    hash = HashInt( hash, static_cast<int32_t>( changedFlags ) );
+    hash = HashInt( hash, scaleAxis );
+    hash = HashVector( hash, position );
+    hash = HashFloat( hash, qx );
+    hash = HashFloat( hash, qy );
+    hash = HashFloat( hash, qz );
+    hash = HashFloat( hash, qw );
+    hash = HashFloat( hash, scaleFactor );
+    return BuildCommand( ReplayEventKind::EditorTransform,
+                         0,
+                         true,
+                         changedFlags,
+                         modelIndex,
+                         static_cast<int32_t>( replayBodyId ),
+                         modelCount,
+                         scaleAxis,
+                         hash,
+                         payload );
+}
+
+uint64_t SkullbonezCore::Runtime::ReplayRecorderOperations::ComputePresentationStateHash(
+    const ReplayPresentationSample& sample ) noexcept
 {
     uint64_t hash = FNV64_OFFSET;
     hash = HashWorld( hash, sample.world );
@@ -1513,6 +1841,10 @@ bool ReplayRecorder::Configure( const ReplayRecorderConfig& config )
     m_samples.resize( SampleCapacityFromConfig() );
     m_visualFrames.resize( m_samples.size() );
     m_resolvedPresentationSamples.resize( m_samples.size() );
+    for ( ReplayPresentationSample& resolved : m_resolvedPresentationSamples )
+    {
+        resolved.frameIndex = ( std::numeric_limits<ReplayFrameIndex>::max )();
+    }
     m_checkpoints.resize( CheckpointCapacityFromConfig() );
     ReserveReplayRecorderScratch( m_contactCountScratch,
                                   m_maxPenetrationScratch,
@@ -1556,6 +1888,7 @@ void ReplayRecorder::ResetTimeline( const char* sceneLabel )
     for ( ReplayPresentationSample& sample : m_resolvedPresentationSamples )
     {
         sample.bodies.clear();
+        sample.frameIndex = ( std::numeric_limits<ReplayFrameIndex>::max )();
     }
     for ( ReplayVisualDeltaFrame& frame : m_visualFrames )
     {
@@ -1688,6 +2021,13 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
     sample.stateHash = hash;
     const bool forceVisualKeyframe = sample.checkpointBoundary || m_sampleCount == 1u;
     StoreVisualFramePayload( sampleSlot, sample, m_captureBodyScratch, forceVisualKeyframe, true );
+    ReplayPresentationSample& latestCapture = m_resolvedPresentationSamples[sampleSlot];
+    CopyPresentationHeader( sample, latestCapture );
+    ReserveReplayRecorderSampleVector( latestCapture.bodies,
+                                       m_captureBodyScratch.size(),
+                                       sample.frameIndex,
+                                       "ReplayPresentationLatestCapture::bodies" );
+    latestCapture.bodies = m_captureBodyScratch;
     m_latestStateHash = hash;
     ++m_totalFramesCaptured;
 
@@ -1761,6 +2101,16 @@ void ReplayRecorder::CaptureFrameFromSolverSample( const ReplaySolverFrameSample
     sample.stateHash = solverSample.presentationHash;
     const bool forceVisualKeyframe = sample.checkpointBoundary || m_sampleCount == 1u;
     StoreVisualFramePayload( sampleSlot, sample, m_captureBodyScratch, forceVisualKeyframe, true );
+    // Why: ReportLatestCaptureMismatch consumes this same frame immediately.
+    // Keep the already-materialized body list in its resolved slot instead of
+    // replaying up to a checkpoint interval of compact presentation deltas.
+    ReplayPresentationSample& latestCapture = m_resolvedPresentationSamples[sampleSlot];
+    CopyPresentationHeader( sample, latestCapture );
+    ReserveReplayRecorderSampleVector( latestCapture.bodies,
+                                       m_captureBodyScratch.size(),
+                                       sample.frameIndex,
+                                       "ReplayPresentationLatestMirror::bodies" );
+    latestCapture.bodies = m_captureBodyScratch;
     m_latestStateHash = sample.stateHash;
     ++m_totalFramesCaptured;
 
@@ -1885,6 +2235,10 @@ const ReplayPresentationSample* ReplayRecorder::LatestSample() const
 
     const std::size_t offset = m_sampleCount - 1;
     const std::size_t index = ( m_sampleHead + offset ) % m_samples.size();
+    if ( m_resolvedPresentationSamples[index].frameIndex == m_samples[index].frameIndex )
+    {
+        return &m_resolvedPresentationSamples[index];
+    }
     return ResolveSampleAtOffset( offset, m_resolvedPresentationSamples[index] ) ? &m_resolvedPresentationSamples[index]
                                                                                  : nullptr;
 }
@@ -2240,6 +2594,7 @@ bool ReplaySolverRecorder::Configure( const ReplayRecorderConfig& config )
     m_solverWorldCarryActive = false;
     m_resolvedSolverSample.bodies.clear();
     m_latestResolvedSolverSample.bodies.clear();
+    m_latestResolvedSolverSample.frameIndex = ( std::numeric_limits<ReplayFrameIndex>::max )();
     m_promotedSolverSample.bodies.clear();
     m_solverResolveStateScratch.clear();
     m_solverResolveActiveScratch.clear();
@@ -2306,6 +2661,7 @@ void ReplaySolverRecorder::ResetTimeline( const char* sceneLabel )
     m_solverWorldCarryActive = false;
     m_resolvedSolverSample.bodies.clear();
     m_latestResolvedSolverSample.bodies.clear();
+    m_latestResolvedSolverSample.frameIndex = ( std::numeric_limits<ReplayFrameIndex>::max )();
     m_promotedSolverSample.bodies.clear();
     m_solverResolveStateScratch.clear();
     m_solverResolveActiveScratch.clear();
@@ -2470,6 +2826,21 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
                              m_solverCaptureWorldSnapshot,
                              forceSolverKeyframe,
                              true );
+    // Why: the paired presentation capture asks for LatestSample immediately.
+    // Reconstructing the sample we just captured from as many as 60 compact
+    // delta frames turns every physics tick into an avoidable history replay.
+    // Cache one dense latest sample; arbitrary historical reads still rebuild
+    // through ResolveSolverSampleAtOffset and compact retention remains bounded.
+    CopySolverHeader( sample, m_latestResolvedSolverSample );
+    ReserveReplayRecorderSampleVector( m_latestResolvedSolverSample.bodies,
+                                       m_solverCaptureBodies.size(),
+                                       sample.frameIndex,
+                                       "ReplaySolverLatestCapture::bodies" );
+    m_latestResolvedSolverSample.bodies = m_solverCaptureBodies;
+    CopySolverWorldSnapshotWithReserve( m_latestResolvedSolverSample.worldSnapshot,
+                                        m_solverCaptureWorldSnapshot,
+                                        sample.frameIndex,
+                                        "ReplaySolverLatestCapture::worldSnapshot" );
     m_latestSolverHash = solverHash;
     ++m_totalFramesCaptured;
 
@@ -2616,6 +2987,11 @@ const ReplaySolverFrameSample* ReplaySolverRecorder::LatestSample() const
     }
 
     const std::size_t offset = m_sampleCount - 1;
+    const std::size_t slot = ( m_sampleHead + offset ) % m_samples.size();
+    if ( m_latestResolvedSolverSample.frameIndex == m_samples[slot].frameIndex )
+    {
+        return &m_latestResolvedSolverSample;
+    }
     return ResolveSolverSampleAtOffset( offset, m_latestResolvedSolverSample ) ? &m_latestResolvedSolverSample
                                                                                : nullptr;
 }

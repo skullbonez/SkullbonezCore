@@ -22,8 +22,8 @@ Related:
 
 #include "../SkullbonezSource/Runtime/Replay/ReplayPredictionScheduling.h"
 
-using SkullbonezCore::Runtime::ChooseReplayPredictionBuildMode;
-using SkullbonezCore::Runtime::ChooseReplayPredictionCoalescerAction;
+using SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations::ChooseReplayPredictionBuildMode;
+using SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations::ChooseReplayPredictionCoalescerAction;
 using SkullbonezCore::Runtime::ReplayPredictionBuildMode;
 using SkullbonezCore::Runtime::ReplayPredictionCoalescerAction;
 

@@ -91,21 +91,6 @@ enum class ReplayScrubberControl : uint32_t
     HotZone
 };
 
-enum class ReplayScrubberAction : uint32_t
-{
-    None,
-    RestoreBranch,
-    TogglePause,
-    ToggleVelocityEdit,
-    TogglePrediction,
-    SetPredictionHorizon,
-    ToggleRagdollVisuals,
-    TogglePastPath,
-    Save,
-    Load,
-    Scrub
-};
-
 inline RuntimeUiControlId ReplayScrubberControlId( ReplayScrubberControl control )
 {
     return RuntimeUiControlId{ static_cast<uint32_t>( control ) };

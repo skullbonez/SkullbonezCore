@@ -4,9 +4,9 @@ Purpose:
   Implements authoritative runtime workspace and frame policy transitions.
 
 Summary:
-  The controller is intentionally side-effect free. It records ownership and
-  produces transition/policy records; Run performs subsystem-specific cleanup
-  from those records.
+  The controller has no domain-side effects. It records ownership and produces
+  transition/policy records; composition code performs subsystem-specific
+  cleanup from those records.
 
 Glossary:
   Workspace: Coarse runtime mode such as live, inspect, edit, or replay.
@@ -207,6 +207,31 @@ RuntimeInteractionTransition RuntimeInteractionController::SetWorldInteractionOw
     return TransitionTo( m_workspace, owner, reason );
 }
 
+RuntimeWorkspace RuntimeInteractionController::WorkspaceForOwner( WorldInteractionOwner owner ) const
+{
+    // Concept: workspace classification is interaction-domain vocabulary. Tool
+    // routers ask this owner instead of duplicating replay/edit/live mappings.
+    if ( owner == WorldInteractionOwner::ReplayScrub || owner == WorldInteractionOwner::ReplayVelocityEdit ||
+         owner == WorldInteractionOwner::ReplayPrediction || owner == WorldInteractionOwner::ReplayBranchTarget ||
+         owner == WorldInteractionOwner::ReplayCauseTree )
+    {
+        return RuntimeWorkspace::Replay;
+    }
+    if ( owner == WorldInteractionOwner::InspectGizmo )
+    {
+        return RuntimeWorkspace::Inspect;
+    }
+    if ( owner == WorldInteractionOwner::EditorPlacement || owner == WorldInteractionOwner::EditorGizmo )
+    {
+        return RuntimeWorkspace::Edit;
+    }
+    if ( owner == WorldInteractionOwner::Launcher || owner == WorldInteractionOwner::Manipulator )
+    {
+        return RuntimeWorkspace::Live;
+    }
+    return m_workspace;
+}
+
 
 RuntimeInteractionTransition
 RuntimeInteractionController::SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace workspace,
@@ -311,6 +336,27 @@ bool RuntimeInteractionController::ApplyGestureCommand( const RuntimeGestureComm
     outEvent.previousPointerCapture = transition.previousPointerCapture;
     outEvent.pointerCapture = transition.pointerCapture;
     return true;
+}
+
+
+bool RuntimeInteractionController::BeginOwnedToolGesture( RuntimeWorkspace workspace,
+                                                          WorldInteractionOwner owner,
+                                                          const RuntimeInteractionGesture& gesture )
+{
+    // Invariant: owner selection and gesture capture share one controller
+    // boundary. Domain tools must not mirror either half in replay/root state.
+    SetWorldInteractionOwnerInWorkspace( workspace, owner, InteractionExitReason::BeginGesture );
+    return BeginGesture( gesture, RuntimePointerCaptureOwner::ToolGesture, InteractionExitReason::BeginGesture )
+        .gestureChanged;
+}
+
+
+void RuntimeInteractionController::EndGestureIfKind( RuntimeInteractionGestureKind kind )
+{
+    if ( m_gesture.kind == kind )
+    {
+        EndGesture( InteractionExitReason::EndGesture );
+    }
 }
 
 

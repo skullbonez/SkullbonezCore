@@ -70,7 +70,6 @@ class ContactAudioService;
 namespace Runtime
 {
 class SimulationSystem;
-class ReplayRuntime;
 class RuntimeRenderer;
 using Environment::WorldEnvironment;
 using UI::UICinematicFeature;
@@ -198,6 +197,18 @@ struct RunSimulationUICommandResult
     bool setWorkerThreads = false;
 };
 
+// Value result of one accepted world tuning mutation. Replay may record these
+// facts, but the world-tuning owner does not receive replay authority.
+struct WorldOverrideChange
+{
+    float previousGravity = 0.0f;
+    float previousFluidHeight = 0.0f;
+    float previousFluidDensity = 0.0f;
+    float gravity = 0.0f;
+    float fluidHeight = 0.0f;
+    float fluidDensity = 0.0f;
+};
+
 struct RunCameraModeUICommandResult
 {
     // Invariant: accepted means mode is a real enum value; RunInput still owns
@@ -233,14 +244,11 @@ RunSimulationUICommandResult ApplyRunSimulationUICommands( RunSimulationUIComman
                                                            const UI::UISceneOptionCommands& sceneOptions,
                                                            const UI::UIRunCommands& run,
                                                            const UI::UIProfilerCommands& profiler );
-void ApplyUIWorldOverride( WorldEnvironment& world,
-                           ReplayRuntime& replayRuntime,
-                           float gravity,
-                           float fluidHeight,
-                           float fluidDensity );
+WorldOverrideChange
+ApplyUIWorldOverride( WorldEnvironment& world, float gravity, float fluidHeight, float fluidDensity );
 bool ApplyWorldWaterUICommands( WorldEnvironment& world,
-                                ReplayRuntime& replayRuntime,
-                                const UI::UIWaterCommands& commands );
+                                const UI::UIWaterCommands& commands,
+                                WorldOverrideChange& outChange );
 void ApplyCinematicUIParam( SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                             RunSceneState& scene,
                             UICinematicParam param,

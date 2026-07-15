@@ -39,7 +39,6 @@ Related:
 #include "../UI/UILayout.h"
 #include "../World/WorldEnvironment.h"
 #include "../Scene/TestScene.h"
-#include "Replay/ReplayRuntime.h"
 
 #include <algorithm>
 #include <cmath>
@@ -341,29 +340,25 @@ RunSimulationUICommandResult ApplyRunSimulationUICommands( RunSimulationUIComman
     return result;
 }
 
-void ApplyUIWorldOverride( WorldEnvironment& world,
-                           ReplayRuntime& replayRuntime,
-                           float gravity,
-                           float fluidHeight,
-                           float fluidDensity )
+WorldOverrideChange
+ApplyUIWorldOverride( WorldEnvironment& world, float gravity, float fluidHeight, float fluidDensity )
 {
-    const float previousGravity = world.GetGravity();
-    const float previousFluidHeight = world.GetFluidSurfaceHeight();
-    const float previousFluidDensity = world.GetFluidDensity();
+    WorldOverrideChange change;
+    change.previousGravity = world.GetGravity();
+    change.previousFluidHeight = world.GetFluidSurfaceHeight();
+    change.previousFluidDensity = world.GetFluidDensity();
+    change.gravity = gravity;
+    change.fluidHeight = fluidHeight;
+    change.fluidDensity = fluidDensity;
     world.SetGravity( gravity );
     world.SetFluidSurfaceHeight( fluidHeight );
     world.SetFluidDensity( fluidDensity );
-    replayRuntime.RecordWorldOverrideEvent( previousGravity,
-                                            previousFluidHeight,
-                                            previousFluidDensity,
-                                            gravity,
-                                            fluidHeight,
-                                            fluidDensity );
+    return change;
 }
 
 bool ApplyWorldWaterUICommands( WorldEnvironment& world,
-                                ReplayRuntime& replayRuntime,
-                                const UI::UIWaterCommands& commands )
+                                const UI::UIWaterCommands& commands,
+                                WorldOverrideChange& outChange )
 {
     if ( !commands.requestWorldGravity && !commands.requestWorldFluidHeight && !commands.requestWorldFluidDensity )
     {
@@ -377,11 +372,10 @@ bool ApplyWorldWaterUICommands( WorldEnvironment& world,
         commands.requestWorldFluidHeight ? commands.requestedWorldFluidHeight : world.GetFluidSurfaceHeight();
     const float fluidDensity =
         commands.requestWorldFluidDensity ? commands.requestedWorldFluidDensity : world.GetFluidDensity();
-    ApplyUIWorldOverride( world,
-                          replayRuntime,
-                          std::clamp( gravity, -100.0f, 0.0f ),
-                          std::clamp( fluidHeight, -100.0f, 200.0f ),
-                          std::clamp( fluidDensity, 0.0f, 5.0f ) );
+    outChange = ApplyUIWorldOverride( world,
+                                      std::clamp( gravity, -100.0f, 0.0f ),
+                                      std::clamp( fluidHeight, -100.0f, 200.0f ),
+                                      std::clamp( fluidDensity, 0.0f, 5.0f ) );
     return true;
 }
 

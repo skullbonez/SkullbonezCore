@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayTimeline.cpp
 Purpose:
   Implements retained replay recording, loading, event, and memory-policy state.
 
-Mental model:
+Summary:
   ReplayTimeline is one bounded history book with presentation, solver, and
   event columns. A frame advances those columns together; retention changes
   resize their windows together, and loaded artifacts occupy a separate cold
@@ -28,6 +28,8 @@ Related:
 */
 #include "ReplayTimeline.h"
 
+#include "ReplayV2Artifact.h"
+
 #include "../RuntimeFileWriter.h"
 
 #include <cstdio>
@@ -36,8 +38,14 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
+using namespace ReplayTimelineOperations;
 namespace
 {
+template <typename T> uint64_t ReplayTimelineVectorCapacityBytes( const std::vector<T>& values )
+{
+    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
+}
+
 std::string SolverReplayHashLogPath( const std::string& presentationPath )
 {
     // Why: paired log names let diagnostics copy or remove one capture without
@@ -158,6 +166,40 @@ void ReplayTimeline::ClearLoadedPresentation()
     m_loadedPresentation = RunLoadedReplayPresentationState{};
 }
 
+bool ReplayTimeline::LoadPresentationArtifact( const char* path )
+{
+    if ( !path || path[0] == '\0' )
+    {
+        return false;
+    }
+
+    // Why: decode into cold temporary storage and publish it atomically only
+    // after validation, so a failed picker load preserves the previous track.
+    std::vector<ReplayPresentationSample> samples;
+    ReplayV2LoadResult result;
+    if ( !ReplayV2Artifact::LoadPresentation( path, samples, &result ) || samples.size() < 2 )
+    {
+        return false;
+    }
+
+    InstallLoadedPresentation( path,
+                               samples,
+                               result.bodyDictionaryCount,
+                               result.fileBytes,
+                               result.firstFrame,
+                               result.lastFrame );
+
+    printf( "[replay] Loaded v2 presentation artifact: path=%s samples=%llu bodies=%llu first_frame=%llu "
+            "last_frame=%llu bytes=%llu\n",
+            m_loadedPresentation.path,
+            static_cast<unsigned long long>( m_loadedPresentation.samples.size() ),
+            static_cast<unsigned long long>( m_loadedPresentation.bodyDictionaryCount ),
+            static_cast<unsigned long long>( m_loadedPresentation.firstFrame ),
+            static_cast<unsigned long long>( m_loadedPresentation.lastFrame ),
+            static_cast<unsigned long long>( m_loadedPresentation.fileBytes ) );
+    return true;
+}
+
 void ReplayTimeline::InstallLoadedPresentation( const char* path,
                                                 std::vector<ReplayPresentationSample>& samples,
                                                 std::size_t bodyDictionaryCount,
@@ -193,11 +235,67 @@ void ReplayTimeline::RecordEvent( const ReplayEventInput& input )
     }
 }
 
+void ReplayTimeline::SubmitEvent( const ReplayEventCommand& command, const ReplayBranchInfo& branch )
+{
+    if ( command.kind == ReplayEventKind::Unknown || !m_events.IsEnabled() )
+    {
+        return;
+    }
+
+    ReplayEventInput input;
+    if ( command.useNextFrame )
+    {
+        const ReplayRecorderStats solverStats = m_solver.GetStats();
+        input.frameIndex = solverStats.enabled ? solverStats.nextFrameIndex : m_presentation.GetStats().nextFrameIndex;
+    }
+    else
+    {
+        input.frameIndex = command.frameIndex;
+    }
+    input.branch = branch;
+    input.kind = command.kind;
+    input.flags = command.flags;
+    input.value0 = command.value0;
+    input.value1 = command.value1;
+    input.value2 = command.value2;
+    input.value3 = command.value3;
+    input.data0 = command.data0;
+    input.text = command.text;
+    m_events.RecordEvent( input );
+}
+
 void ReplayTimeline::CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const
 {
     m_presentation.CollectMemoryCategoryBytes( categories );
     m_solver.CollectMemoryCategoryBytes( categories );
     m_events.CollectMemoryCategoryBytes( categories );
+}
+
+ReplayTimelineMemoryStats ReplayTimeline::CollectMemoryStats() const
+{
+    ReplayTimelineMemoryStats stats;
+    CollectMemoryCategoryBytes( stats.categoryBytes );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedOwner,
+        static_cast<uint64_t>( sizeof( m_loadedPresentation ) ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        stats.categoryBytes,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedSampleRecords,
+        ReplayTimelineVectorCapacityBytes( m_loadedPresentation.samples ) );
+    for ( const ReplayPresentationSample& sample : m_loadedPresentation.samples )
+    {
+        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+            stats.categoryBytes,
+            SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedBodies,
+            ReplayTimelineVectorCapacityBytes( sample.bodies ) );
+    }
+    stats.policy = m_memoryPolicy;
+    stats.presentationSamples = m_presentation.GetStats().sampleCount;
+    stats.solverSamples = m_solver.GetStats().sampleCount;
+    stats.eventSamples = m_events.GetStats().eventCount;
+    stats.loadedSamples = m_loadedPresentation.samples.size();
+    return stats;
 }
 
 void ReplayTimeline::ResetCaptureMismatchDiagnostics() noexcept

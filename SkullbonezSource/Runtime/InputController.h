@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/InputController.h
 Purpose:
   Provides runtime input mode bookkeeping and camera mouse-look input policy.
 
-Summary:
+Mental model:
   InputRouter owns semantic keyboard edges. InputController keeps the remaining
   runtime mode history, pointer-button compatibility state, and camera deltas.
 
@@ -103,7 +103,7 @@ enum class RuntimeInputAction
     TogglePhysicsDebugTransparent,
     ReportRendererRuntimeRetired,
     ReloadShadersFromSource,
-    CycleReplayPredictionAuthoringLook,
+    CycleReplayPathColorMode,
     ToggleBroadphaseOverlay,
     ToggleUIVisibility,
     TogglePerformanceHistogram,

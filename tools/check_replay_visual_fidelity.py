@@ -1,6 +1,6 @@
 """File: tools/check_replay_visual_fidelity.py
 Purpose:
-  Turns the Profile interaction report into a bounded, immutable golden contract
+  Turns the Automation interaction report into a bounded, immutable golden contract
   for every deterministic prediction reveal frame.
 
 Mental model:
@@ -971,9 +971,9 @@ def validate_launcher_shape() -> bool:
         return False
     line_number, command = executable_lines[0]
     lowered_command = command.lower()
-    if "profile\\skullbonez_core.exe" not in lowered_command or "--replay-load-probe" in lowered_command:
+    if "automation\\skullbonez_core.exe" not in lowered_command or "--replay-load-probe" in lowered_command:
         print(
-            "FAIL replay launcher engine command is not the sole Profile generation: "
+            "FAIL replay launcher engine command is not the sole Automation generation: "
             f"line={line_number} command={command}"
         )
         return False
@@ -1068,7 +1068,7 @@ def main() -> int:
     parser.add_argument("--approve-baseline", action="store_true")
     parser.add_argument("--approve-causal-baseline", action="store_true")
     parser.add_argument("--working-base-commit", default="6a6ab4c65")
-    parser.add_argument("--configuration", choices=("Debug", "Profile"), default="Debug")
+    parser.add_argument("--configuration", choices=("Debug", "Profile", "Automation"), default="Debug")
     parser.add_argument("--negative-control", action="store_true")
     parser.add_argument("--incomplete-control", action="store_true")
     parser.add_argument("--causal-activation-control", action="store_true")

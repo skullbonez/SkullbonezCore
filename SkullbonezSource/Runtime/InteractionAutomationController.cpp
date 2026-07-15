@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/InteractionAutomationController.cpp
 Purpose:
   Drives deterministic runtime interaction scripts through the normal input path.
 
-Summary:
+Mental model:
   Interaction automation is a validation driver. It asks the same picking,
   replay, camera, director-shot, and world-input code that an operator would
   use, then writes a compact JSON report for the test harness.
@@ -72,6 +72,9 @@ Related:
 #include <sstream>
 
 using namespace SkullbonezCore::Runtime;
+using namespace SkullbonezCore::Runtime::ReplayPredictionArchiveOperations;
+using namespace SkullbonezCore::Runtime::ReplayScrubberOperations;
+using namespace SkullbonezCore::Runtime::ReplayVisualPacketFingerprintOperations;
 using namespace SkullbonezCore::Runtime::RunInternal;
 using namespace SkullbonezCore::Runtime::ReplayOverlay;
 using namespace SkullbonezCore::GameObjects;
@@ -734,11 +737,12 @@ bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
         outVirtualKey = VK_OEM_3;
         return true;
     }
-    if ( value == "Period" )
+    if ( value == "Comma" )
     {
-        // TEMPORARY DEBUG AUTHORING: lets screenshot automation exercise the
-        // same full-scene look cycler as the physical '.' key.
-        outVirtualKey = VK_OEM_PERIOD;
+        // Why: visual acceptance drives the same comma-owned presentation
+        // command as a physical key, so mode order and UI reflection are tested
+        // through the production input route.
+        outVirtualKey = VK_OEM_COMMA;
         return true;
     }
     if ( value == "Delete" )

@@ -3,7 +3,7 @@ File: InputFrameExecution.cpp
 Purpose:
   Executes the stateless once-per-frame input turn across concrete owners.
 
-Summary:
+Mental model:
   This file composes device capture, semantic routing, UI application, pointer
   ownership, and the final owner-specific request checkpoint in one fixed order.
   Scene requests are submitted and executed by SceneController; this file only
@@ -40,7 +40,7 @@ Related:
 #include "InputController.h"
 #include "Replay/ReplayOverlayLayout.h"
 #include "Replay/ReplayRestoreService.h"
-#include "Replay/ReplayRuntimeOwnerViews.h"
+#include "Replay/ReplayRestoreTransactions.h"
 #include "RunDemoDirector.h"
 #include "GraphicsStressController.h"
 #include "RenderDefaultsStore.h"
@@ -75,6 +75,7 @@ Related:
 #include <cstring>
 
 using namespace SkullbonezCore::Runtime;
+using namespace SkullbonezCore::Runtime::ReplayTimelineOperations;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
@@ -170,15 +171,17 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         }
         for ( std::size_t index = 0; index < batch.savedCount; ++index )
         {
-            m_replayRuntime.RecordEvent( ReplayEventKind::OwnerAction,
-                                         m_replayRuntime.NextEventFrameIndex(),
-                                         0,
-                                         static_cast<int32_t>( ReplayOwnerEventCode::CaptureScreenshot ),
-                                         0,
-                                         0,
-                                         0,
-                                         0,
-                                         batch.saved[index].path );
+            m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand(
+                ReplayEventKind::OwnerAction,
+                0,
+                true,
+                0,
+                static_cast<int32_t>( ReplayOwnerEventCode::CaptureScreenshot ),
+                0,
+                0,
+                0,
+                0,
+                batch.saved[index].path ) );
         }
         return true;
     };
@@ -201,15 +204,16 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             const ReplayOwnerEventCode code = batch.saved[index] == RenderDefaultsRequestType::Ordinary
                                                   ? ReplayOwnerEventCode::RenderSaveOrdinaryDefaults
                                                   : ReplayOwnerEventCode::RenderSaveCinematicDefaults;
-            m_replayRuntime.RecordEvent( ReplayEventKind::OwnerAction,
-                                         m_replayRuntime.NextEventFrameIndex(),
-                                         0,
-                                         static_cast<int32_t>( code ),
-                                         0,
-                                         0,
-                                         0,
-                                         0,
-                                         ReplayOwnerEventName( code ) );
+            m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand( ReplayEventKind::OwnerAction,
+                                                                                     0,
+                                                                                     true,
+                                                                                     0,
+                                                                                     static_cast<int32_t>( code ),
+                                                                                     0,
+                                                                                     0,
+                                                                                     0,
+                                                                                     0,
+                                                                                     ReplayOwnerEventName( code ) ) );
         }
         return true;
     };
@@ -715,13 +719,10 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             }
             break;
         }
-        case RuntimeInputAction::CycleReplayPredictionAuthoringLook:
-            // TEMPORARY DEBUG AUTHORING: this cold shortcut changes the complete
-            // prediction composition; simulation and replay data stay intact.
-#if defined( _DEBUG )
-            m_runtimeTools.EditorTracer().CycleReplayPredictionAuthoringLook(
-                ActiveSceneCinematicConfig( m_sceneController.State(), m_config ) );
-#endif
+        case RuntimeInputAction::CycleReplayPathColorMode:
+            // Concept: comma changes a presentation value only. Existing
+            // trajectory samples remain immutable and are recolored next draw.
+            m_replayRuntime.CyclePathColorMode();
             break;
         case RuntimeInputAction::ToggleCrossScenePause:
             // P locks scene automation without turning the run interactive;
@@ -823,7 +824,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                          m_timers.simulationTimer.GetTotalTime() } );
         if ( velocityEditResult.cancelToolDrag )
         {
-            m_replayRuntime.CancelToolDragState( m_interaction, m_inputRouter );
+            ReplayInteractionOperations::CancelToolDragState( m_interaction, m_inputRouter );
         }
         if ( velocityEditResult.enterInteractive )
         {

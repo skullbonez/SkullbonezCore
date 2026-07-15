@@ -1,6 +1,6 @@
 # MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-07-13
+Date: 2026-07-14
 Status: Authoritative inventory of every live repository plan
 
 ## Inventory Rules
@@ -43,8 +43,8 @@ Status: Authoritative inventory of every live repository plan
 ## Commit Progress Contract
 
 Every commit produced by a plan runner must begin with the owning plan, that
-plan's completed task count after the commit, and overall portfolio completion
-after the commit:
+plan's completed task count after the commit, and active/future portfolio
+completion after the commit:
 
 ```text
 <PLAN_NAME>, TASK <DONE> / <TASK_COUNT>, <OVERALL_PERCENT>% OVERALL COMPLETE — <ACTION SUMMARY>
@@ -61,16 +61,20 @@ Rules:
 
 1. `DONE` is the owning plan's completed ledger tasks after the commit, not the
    ordinal number of the commit or the number of raw Markdown checkboxes.
-2. `OVERALL_PERCENT` is `round(100 * portfolio done / portfolio total)` using
-   the authoritative ledger below. Never estimate it subjectively.
+2. `OVERALL_PERCENT` is
+   `round(100 * active/future done / active/future total)` using the
+   authoritative ledger below. Never estimate it subjectively or include
+   completed historical work.
 3. Companion/progress checklists do not add a second denominator. Their count
    is represented by the owning plan's ledger row. The prediction plan is the
    current deliberate 50-task exception because its execution checklist is the
    accepted task source.
-4. Completed-plan ledger rows remain after their plan files are deleted. They
-   preserve arithmetic only; git history and reports remain the evidence
-   archive. New or rescoped plans update the ledger and denominator in the same
-   commit.
+4. Overall progress covers active and future implementation plans only.
+   Completed historical plans, retained closure evidence, owner-parked work,
+   and externally blocked lanes do not contribute to either side of the
+   percentage. Git history and reports remain the evidence archive. New,
+   completed, activated, parked, blocked, or rescoped plans update the ledger
+   and denominator in the same commit.
 5. One plan owns each plan-runner commit. Split unrelated plan work. For an
    unavoidable aggregate governance/documentation commit, use `MASTER-PLAN`
    with the bounded governance task count and list every affected plan in the
@@ -84,43 +88,17 @@ Rules:
 
 ### Portfolio Progress Ledger
 
-Scope: every concrete non-WNF plan in the current MASTER portfolio. The engine-
-cleanup campaign meta-plan is excluded because its work is represented by the
-concrete plan rows and counting it would duplicate tasks.
+Scope: active and future implementation work only. Per the 2026-07-14 owner
+decision, the current execution percentage is the combined completion of replay
+monolith decomposition and future-path vector splines. Completed past plans and
+the externally blocked validation lane are deliberately excluded, so this
+number measures remaining executable work instead of lifetime repository work.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| validation-gate-integrity | 5 | 6 | 83% |
-| dx12-failure-propagation | 6 | 6 | 100% |
-| behavioral-test-depth | 6 | 6 | 100% |
-| runtime-shell-decomposition | 27 | 27 | 100% |
-| runtime-ui-control-architecture-cleanup | 7 | 7 | 100% |
-| interaction-state-machine | 6 | 6 | 100% |
-| replay-architecture-and-right-sizing | 6 | 6 | 100% |
-| physics-authority-and-identity | 16 | 16 | 100% |
-| render-backend-decomposition | 8 | 8 | 100% |
-| stale-plan-reference-cleanup-15.6-checklist | 86 | 86 | 100% |
-| dx12-post-final-cleanup | 6 | 6 | 100% |
-| shader-pipeline-modernization | 8 | 8 | 100% |
-| render-visibility-architecture | 7 | 7 | 100% |
-| sim-render-interpolation | 5 | 5 | 100% |
-| editor-undo-redo | 5 | 5 | 100% |
-| data-format-versioning | 5 | 5 | 100% |
-| engine-config-decomposition | 5 | 5 | 100% |
-| entity-model-endgame | 4 | 4 | 100% |
-| instant-prediction-velocity-chaos | 52 | 52 | 100% |
-| shadow-edge-quality | 5 | 5 | 100% |
-| dx12-descriptor-and-handle-lifetime | 5 | 5 | 100% |
-| determinism-contract-hardening | 4 | 4 | 100% |
-| upload-arena-overflow-policy | 4 | 4 | 100% |
-| frame-view-calling-convention | 4 | 4 | 100% |
-| render-interface-and-workerpool-slimming | 5 | 5 | 100% |
-| runtime-contract-enforcement | 5 | 5 | 100% |
-| adversarial-review-round-3 | 10 | 10 | 100% |
-| replay-visual-fidelity-mega-probe | 7 | 7 | 100% |
-| replay-monolith-decomposition | 3 | 9 | 33% |
-| future-path-vector-splines | 0 | 7 | 0% |
-| **Portfolio total** | **322** | **336** | **96%** |
+| replay-monolith-decomposition | 9 | 9 | 100% |
+| future-path-vector-splines | 7 | 7 | 100% |
+| **Active/future total** | **16** | **16** | **100%** |
 
 ## Current Execution Priority
 
@@ -140,18 +118,39 @@ validation-gate V3 remains externally blocked.
    `Toppled` means at least 101 of 200 bricks are directly grounded and
    engine-sleeping throughout the final second; the approved base records 187.
    Every V0-V6 task ends with that command passing.
-2. **Replay monolith decomposition — active.** Execute M0-M8 on
-   `nightrunner-13th-july`. Every task,
+2. **Replay monolith decomposition — complete.** M0-M8 executed on
+   `nightrunner-14th-july`. Every task,
    including documentation inventory, reruns the unchanged 200-box gate before
-   it may be checked or committed. Checkpoint `b4b13749` publishes typed
-   render/automation views, removes automation reach-back into the mutable
-   replay root, moves scrub/restore/save probe lifecycle state into
-   `ReplayProbeRunner`, and gives `ReplayTimeline` its owner-named translation
-   unit. The ledger remains 3/9 because the mandatory closure review still
-   requires startup-probe execution, external input routing, remaining root
-   forwarding, and owner-file cleanup to close. Work is paused after this
-   checkpoint for owner testing.
-3. **Future-path vector splines — live independent presentation lane
+   it may be checked or committed. Remediation checkpoint 25 has moved all
+   prediction and presentation owner implementations into their owner-named
+   translation units, replaced root event encoding with one immutable recorder
+   command, and reduced `ReplayRuntime.cpp` to 2,440 lines. M3 is now complete:
+   the presentation TU consumes only the value-only `ReplayPredictionView.h`,
+   not private prediction-owner internals. Destination-branch provenance and
+   every per-checkpoint gate passed on `nightrunner-14th-july`. The ledger is
+   9/9. M4 checkpoints 27-32 moved scrubber hit testing, visibility, and
+   semantic pointer-action selection into `ReplayScrubber`, deleted six raw
+   root cursor-forwarding APIs, moved typed replay gesture begin/end ownership
+   into `RuntimeInteractionController`, and deleted root live-advance/velocity
+   toggle forwarding in favor of explicit owner commands. `ReplayTimeline` now
+   owns cold artifact decoding and atomic loaded-track installation. Root
+   save/load composition is deleted or private, loaded-track activation is an
+   explicit no-I/O cross-owner operation, and M4 is reclosed. M5 checkpoints
+   33-34 deleted the authoring self-aliases and root-only state/query relays,
+   moved cause-tree construction plus cause/velocity input execution behind
+   `ReplayAuthoring`, and replaced prediction reach-back with queued value
+   requests. M5 is reclosed. M6 checkpoint 35 reaudited the private prediction
+   owner, immutable publication, owner-TU placement, and performance budgets,
+   and deleted the now-stale `ReplayRuntime.cpp` allocation exception. M6 is
+   reclosed. M7 moved probe decisions into `ReplayProbeRunner`, unified loaded
+   presentation activation, introduced bounded tool/editor event outputs, and
+   deleted private root forwarding relays. M8 removed the final `RunReplay*`
+   file names, placed public helpers in owner namespaces, renamed the narrow
+   restore transaction header, audited 42/42 touched source files, and reviewed
+   all 64 root methods across three TUs as one logical type. The root retains
+   only six cohesive replay owners with no reach-back or authority escape; the
+   unchanged oracle and full final gates passed with no baseline refresh.
+3. **Future-path vector splines — complete independent presentation lane
    (2026-07-14 owner request).** `TODO/future-path-vector-splines.md` (T1→T7)
    restyles the prediction view: near-black sky, thin anti-aliased
    vector-spline ribbons, comma-cycled color modes with UI reflection,
@@ -163,7 +162,23 @@ validation-gate V3 remains externally blocked.
    inventory rule 11 and must be sequenced with the decomposition lane's
    unchanged-golden requirement (restyle lands only with owner sign-off on the
    new golden, or after decomposition tasks that depend on the current golden
-   are closed).
+   are closed). T1 is complete: prediction now fades to a near-black dome with
+   a faint horizon and no cloud/sun/shaft energy, then restores the authored
+   sky on exit. T2 replaced glow bands with literal-pixel analytic-AA vector
+   coverage and an emphasis-only halo/HDR branch. T3 deleted the random look
+   explorer, period action, logs, mutable style state, and final color mutation;
+   ordinary paths now use immutable zero-emphasis styles. T4-T5 add five
+   deterministic allocation-free color modes across all path lanes, a comma
+   cycle action, and matching HUD/option-row state. The 1,485-frame multi-level
+   visual run passed with stable submissions, zero dropped segments, and no
+   steady-state reserve growth. T6 routes the halo/HDR emphasis only through
+   the selected future/past root and leaves every sibling lane on the flat
+   default; the post-critique 1,485-frame focused run passed with 1,578 stable
+   segments, zero drops, and no steady-state reserve growth. T7 final-source
+   full, renderer, stress, and scrub-propagation gates pass. The owner-approved
+   golden refresh used one authoritative engine process and one prediction
+   generation; the refreshed 2,401-tick comparison, causal/durable checks, and
+   every offline false-pass control pass.
 4. **Adversarial-review round 3 — locally complete.** All ten tasks and the
    final independent review are closed; evidence lives in
    `../Reports/2026-07-13/adversarial-review-round-3-closure.md`.
@@ -187,8 +202,8 @@ validation-gate V3 remains externally blocked.
 |---|---|---:|---|
 | [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs merge-group proof, required branch protection, and trusted/ephemeral DX12 runner administration |
 | [replay-visual-fidelity-mega-probe](TODO/replay-visual-fidelity-mega-probe.md) | Complete | 7/7 | One engine, one prediction, 2,401 exact ticks, 187 grounded sleepers, durable CPU-only reconstruction, and adversarial closure approved |
-| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Active — checkpoint `b4b13749`; paused for owner testing | 3/9 | Resume startup-probe execution, external input routing, remaining root forwarding, and owner-file cleanup; then rerun the mandatory M8 ownership review and unchanged per-task mega gate |
-| [future-path-vector-splines](TODO/future-path-vector-splines.md) | Live — independent presentation lane | 0/7 | Start T1 (near-black prediction sky) and T2 (thin AA vector-spline ribbon shader); owner decisions 2026-07-14 are recorded in the plan; golden-manifest refresh needs owner approval |
+| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Complete on `nightrunner-14th-july` | 9/9 | Retain as closure evidence while the active/future portfolio continues with the spline plan |
+| [future-path-vector-splines](TODO/future-path-vector-splines.md) | Complete on `nightrunner-14th-july` | 7/7 | Owner-approved golden reconciled; one-process 2,401-tick oracle and all final gates passed |
 
 ## Planned Architecture Work (2026-07-11 gap review)
 
@@ -316,8 +331,11 @@ Binding:
   and closes `tools\validate_replay_visual_fidelity.bat`, then every M0-M8
   decomposition task reruns it against the unchanged approved 200-box manifest.
   Refactors cannot authorize a baseline refresh.
-- Both replay plans execute on `nightrunner-13th-july`; moving them requires an
-  explicit owner decision and fresh passing baseline provenance evidence.
+- The active decomposition and future spline plans execute on
+  `nightrunner-14th-july` by explicit 2026-07-14 owner decision. Decomposition
+  retains the unchanged passing baseline provenance requirement; spline
+  presentation changes still require explicit approval before any golden
+  manifest refresh.
 - 2026-07-11 owner ruling (definitive): no `SimulationController` — the
   implemented `SimulationSystem` pacing / `SceneController` ownership / `Run`
   frame-order split stands. No unified `EntityId` registry —

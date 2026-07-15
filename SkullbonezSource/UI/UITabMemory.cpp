@@ -7,7 +7,7 @@ Summary:
   Runtime refreshes memory data for the Memory tab, while the F6 overlay renders
   tracked/cached counters and reserve-growth events without sampling process
   memory. This file formats snapshots and emits replay-memory policy commands;
-  ReplayRuntime owns the actual recorder reconfiguration.
+  Replay timeline composition owns the actual recorder reconfiguration.
 
 Glossary:
   Allocation size: Bytes newly reserved by a successful growth request.

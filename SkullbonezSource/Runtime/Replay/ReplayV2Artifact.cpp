@@ -1250,7 +1250,7 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes,
             return false;
         }
         if ( version >= REPLAY_PRESENTATION_VISUAL_VERSION &&
-             ComputeReplayPresentationStateHash( sample ) != sample.stateHash )
+             ReplayRecorderOperations::ComputePresentationStateHash( sample ) != sample.stateHash )
         {
             // Invariant: v3 is not merely parseable. Every loaded body field
             // must reproduce the writer's presentation hash before scrub can

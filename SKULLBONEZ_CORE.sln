@@ -12,12 +12,15 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SKULLBONEZ_TESTS", "SKULLBO
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Automation|x64 = Automation|x64
 		Debug|x64 = Debug|x64
 		Profile|x64 = Profile|x64
 		Profile-WPO|x64 = Profile-WPO|x64
 		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{92972446-7D18-4AD1-AE43-15671C767306}.Automation|x64.ActiveCfg = Automation|x64
+		{92972446-7D18-4AD1-AE43-15671C767306}.Automation|x64.Build.0 = Automation|x64
 		{92972446-7D18-4AD1-AE43-15671C767306}.Debug|x64.ActiveCfg = Debug|x64
 		{92972446-7D18-4AD1-AE43-15671C767306}.Debug|x64.Build.0 = Debug|x64
 		{92972446-7D18-4AD1-AE43-15671C767306}.Profile|x64.ActiveCfg = Profile|x64
@@ -27,6 +30,8 @@ Global
 		{92972446-7D18-4AD1-AE43-15671C767306}.Release|x64.ActiveCfg = Release|x64
 		{92972446-7D18-4AD1-AE43-15671C767306}.Release|x64.Build.0 = Release|x64
 		{5D4A47DA-54C6-4142-9FA9-1A63E976BA2D}.Debug|x64.ActiveCfg = Debug|x64
+		{5D4A47DA-54C6-4142-9FA9-1A63E976BA2D}.Automation|x64.ActiveCfg = Profile|x64
+		{5D4A47DA-54C6-4142-9FA9-1A63E976BA2D}.Automation|x64.Build.0 = Profile|x64
 		{5D4A47DA-54C6-4142-9FA9-1A63E976BA2D}.Debug|x64.Build.0 = Debug|x64
 		{5D4A47DA-54C6-4142-9FA9-1A63E976BA2D}.Profile|x64.ActiveCfg = Profile|x64
 		{5D4A47DA-54C6-4142-9FA9-1A63E976BA2D}.Profile|x64.Build.0 = Profile|x64
@@ -35,6 +40,8 @@ Global
 		{5D4A47DA-54C6-4142-9FA9-1A63E976BA2D}.Release|x64.ActiveCfg = Release|x64
 		{5D4A47DA-54C6-4142-9FA9-1A63E976BA2D}.Release|x64.Build.0 = Release|x64
 		{2CC512B8-5A21-49F4-AE75-9982116F5B62}.Debug|x64.ActiveCfg = Debug|x64
+		{2CC512B8-5A21-49F4-AE75-9982116F5B62}.Automation|x64.ActiveCfg = Profile|x64
+		{2CC512B8-5A21-49F4-AE75-9982116F5B62}.Automation|x64.Build.0 = Profile|x64
 		{2CC512B8-5A21-49F4-AE75-9982116F5B62}.Debug|x64.Build.0 = Debug|x64
 		{2CC512B8-5A21-49F4-AE75-9982116F5B62}.Profile|x64.ActiveCfg = Profile|x64
 		{2CC512B8-5A21-49F4-AE75-9982116F5B62}.Profile|x64.Build.0 = Profile|x64
@@ -43,6 +50,8 @@ Global
 		{2CC512B8-5A21-49F4-AE75-9982116F5B62}.Release|x64.ActiveCfg = Release|x64
 		{2CC512B8-5A21-49F4-AE75-9982116F5B62}.Release|x64.Build.0 = Release|x64
 		{4EA1011B-106E-4BC2-B328-E873367F4E42}.Debug|x64.ActiveCfg = Debug|x64
+		{4EA1011B-106E-4BC2-B328-E873367F4E42}.Automation|x64.ActiveCfg = Profile|x64
+		{4EA1011B-106E-4BC2-B328-E873367F4E42}.Automation|x64.Build.0 = Profile|x64
 		{4EA1011B-106E-4BC2-B328-E873367F4E42}.Debug|x64.Build.0 = Debug|x64
 		{4EA1011B-106E-4BC2-B328-E873367F4E42}.Profile|x64.ActiveCfg = Profile|x64
 		{4EA1011B-106E-4BC2-B328-E873367F4E42}.Profile|x64.Build.0 = Profile|x64

@@ -14,7 +14,7 @@ Glossary:
     ReplayRecorder.
   Solver sample: Physics-facing retained state owned by ReplaySolverRecorder.
   Prediction prefix: Coherent published future-frame prefix owned by
-    ReplayRuntime prediction/trajectory storage.
+    ReplayPrediction and its TrajectoryStore.
   Artifact document: Cold-I/O v2 representation owned by ReplayV2Artifact.
   Exhaustion rule: Required behavior when a registered growth request exceeds
     its hard cap.
@@ -75,7 +75,7 @@ inline constexpr std::array<ReplayRetainedOwnershipRule, 4> REPLAY_RETAINED_OWNE
                                  true },
     ReplayRetainedOwnershipRule{ ReplayRetainedDataOwner::PredictionPrefix,
                                  "RunReplayPredictionFrame",
-                                 "ReplayRuntime prediction and trajectory owners",
+                                 "ReplayPrediction working set and trajectory storage",
                                  true,
                                  false },
     ReplayRetainedOwnershipRule{ ReplayRetainedDataOwner::V2Artifact,

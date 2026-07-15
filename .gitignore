@@ -12,6 +12,7 @@ Debug/
 Release/
 Profile/
 Profile-WPO/
+Automation/
 
 # Compiled object files
 *.obj

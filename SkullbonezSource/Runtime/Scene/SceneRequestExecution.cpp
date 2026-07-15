@@ -161,15 +161,17 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_conf
         // no serialized action that a restore could mistake for applied state.
         if ( accepted )
         {
-            m_replayRuntime.RecordEvent( ReplayEventKind::OwnerAction,
-                                         m_replayRuntime.NextEventFrameIndex(),
-                                         ReplaySceneRequestFlags( request ),
-                                         static_cast<int32_t>( eventCode ),
-                                         eventIndex,
-                                         0,
-                                         0,
-                                         0,
-                                         eventText ? eventText : ReplayOwnerEventName( eventCode ) );
+            m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand(
+                ReplayEventKind::OwnerAction,
+                0,
+                true,
+                ReplaySceneRequestFlags( request ),
+                static_cast<int32_t>( eventCode ),
+                eventIndex,
+                0,
+                0,
+                0,
+                eventText ? eventText : ReplayOwnerEventName( eventCode ) ) );
         }
     }
     return batch.count > 0;

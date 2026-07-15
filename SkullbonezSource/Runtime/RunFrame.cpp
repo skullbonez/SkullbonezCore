@@ -43,7 +43,7 @@ Related:
 #include "../Core/WorkerPool.h"
 #include "RuntimeStressController.h"
 #include "InputFrame.h"
-#include "Replay/ReplayRuntimeOwnerViews.h"
+#include "Replay/ReplayRestoreTransactions.h"
 #include "Replay/ReplayOverlayRenderer.h"
 #include "Replay/ReplayRestoreService.h"
 #include "RunDemoDirector.h"
@@ -78,6 +78,7 @@ Related:
 #include <vector>
 
 using namespace SkullbonezCore::Runtime;
+using namespace SkullbonezCore::Runtime::ReplayTimelineOperations;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
@@ -153,7 +154,9 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
         replayRuntime.BuildOverlayStateView( runtimeTools.Editor().editorModeEnabled,
                                              ui.IsVisible(),
                                              ui.IsMinimized(),
-                                             facts.interactionGesture.kind );
+                                             facts.interactionGesture.kind,
+                                             renderModels.presentationRecords,
+                                             renderModels.bodyStore );
     const UiTextPassState uiTextState{ debug,
                                        sceneController.CrossScenePauseLocked(),
                                        scene,
@@ -200,7 +203,6 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
             renderer.BuildRenderTargetPreviewSnapshot( shadowsAvailable,
                                                        uiCinematicRendering,
                                                        uiCinematicRendering && uiCinematic.volumetricLightingEnabled );
-        (void)replayRuntime.BuildCauseTreeRows( renderModels.presentationRecords, renderModels.bodyStore );
         const ReplayOverlay::ReplayOverlayRenderContext replayOverlayContext{ *uiRender.commands,
                                                                               replayOverlay.scrubber,
                                                                               replayOverlay.prediction,
@@ -601,6 +603,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             frameRenderDiagnostics.ResetFrameDrawCalls();
 
             PROFILE_BEGIN( "Frame/Input" );
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
             const ReplayAutomationView automationReplayView = m_replayRuntime.BuildAutomationView();
             const ReplayInputView automationReplayInput = automationReplayView.input;
             const InteractionAutomationFrameResult automationBeforeInput =
@@ -652,6 +655,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             {
                 PostQuitMessage( 0 );
             }
+#endif
             ProcessInputFrame( frameHost, frameInteraction, frameScene, framePresentation, m_replayRuntime );
             m_liveStyle.Tick(
                 SceneRuntimeStyleContext{ m_launchOptions,
@@ -676,10 +680,12 @@ SkullbonezCore::Core::SbResult Run::Execute()
             // current solver poses even when live presentation interpolation is on.
             m_capturePresentationPinned =
                 m_diagnosticsRuntime.Capture().RequiresDeterministicPresentation( captureContext ) ||
-                ( captureContext.isSceneMode && m_camera.autoCycleInterval > 0.0f ) ||
-                m_liveStyle.HasPendingCapture() ||
-                InteractionAutomationWillCaptureAfterRender( m_interactionAutomation,
-                                                             m_sceneController.State().currentFrame );
+                ( captureContext.isSceneMode && m_camera.autoCycleInterval > 0.0f ) || m_liveStyle.HasPendingCapture()
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+                || InteractionAutomationWillCaptureAfterRender( m_interactionAutomation,
+                                                                m_sceneController.State().currentFrame )
+#endif
+                ;
             {
                 RuntimeAllocation::RuntimeAllocationScope allocationScope(
                     RuntimeAllocation::RuntimeAllocationPhase::Physics );
@@ -786,6 +792,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             }
             PROFILE_END( "Frame/PostDraw/LiveStyleCapture" );
 
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
             PROFILE_BEGIN( "Frame/PostDraw/InteractionAutomation" );
             const InteractionAutomationFrameResult automationAfterRender =
                 TickInteractionAutomationAfterRender( m_interactionAutomation,
@@ -803,6 +810,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 PostQuitMessage( 0 );
             }
             PROFILE_END( "Frame/PostDraw/InteractionAutomation" );
+#endif
 
             {
                 RuntimeAllocation::RuntimeAllocationScope allocationScope(

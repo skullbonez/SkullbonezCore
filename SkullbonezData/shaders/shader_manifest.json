@@ -2672,10 +2672,10 @@
       "stage": "vs",
       "target": "vs_6_6",
       "bytecode": "SkullbonezData/shaders/trajectory_ribbon.vs.dxil",
-      "source_sha256": "989417c5798aeb93fc2007315565842bdbc91dfaf24d1cbc1ed6c1ecd9008d0f",
-      "compile_inputs_sha256": "5762b321337b3d19fb422a10b62d518bd35aa47a6de936cbf100ba3df382c818",
-      "bytecode_sha256": "63deae315fea1d76d1c000a5cbcc472dd02d09b09c0f861b978f2ba5dd0b71d8",
-      "bytecode_size": 7520,
+      "source_sha256": "ade819a42565990f5eed16204d5f046ece738b7672054a6b1266df71a44bce1d",
+      "compile_inputs_sha256": "3e6a1466d4222ef9964e8b87422c9ba9e7dc0e15db39023c282b01e6517739da",
+      "bytecode_sha256": "889f31224b060b28b5f1571f93cb0e28d77896ce9134f21fb1d16f8bb34dfe2f",
+      "bytecode_size": 7588,
       "reflection": {
         "cbuffers": [
           {
@@ -2788,10 +2788,10 @@
       "stage": "ps",
       "target": "ps_6_6",
       "bytecode": "SkullbonezData/shaders/trajectory_ribbon.ps.dxil",
-      "source_sha256": "989417c5798aeb93fc2007315565842bdbc91dfaf24d1cbc1ed6c1ecd9008d0f",
-      "compile_inputs_sha256": "646e19fdf6ec46872b42cb10ed7f2035f3ea66ec6ed725913937e8f49fc7bbd6",
-      "bytecode_sha256": "6f15b5f7ff6fb82586206f76042421385c32e01e236d97d1826dd454d39e3974",
-      "bytecode_size": 5192,
+      "source_sha256": "ade819a42565990f5eed16204d5f046ece738b7672054a6b1266df71a44bce1d",
+      "compile_inputs_sha256": "a27320f3c1754ee0b2f4c91ac67a3a5aa6c0f349636b4d921098afe453dd38aa",
+      "bytecode_sha256": "1a43fc08b401b0cf88749689a74252f54461187aeb9957da3aff57d7c87b3f03",
+      "bytecode_size": 4988,
       "reflection": {
         "cbuffers": [
           {
@@ -2852,21 +2852,21 @@
           },
           {
             "semantic": "TEXCOORD",
-            "index": 1,
-            "mask": "yz",
+            "index": 2,
+            "mask": "yzw",
             "register": 2,
             "system_value": "NONE",
             "format": "float",
-            "used": "yz"
+            "used": "yzw"
           },
           {
             "semantic": "TEXCOORD",
-            "index": 2,
-            "mask": "xyz",
+            "index": 1,
+            "mask": "xy",
             "register": 3,
             "system_value": "NONE",
             "format": "float",
-            "used": "xyz"
+            "used": "xy"
           }
         ]
       }

@@ -36,7 +36,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.h
   - SkullbonezSource/Runtime/Editor/LauncherTools.cpp
-  - SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayPresentation.h
 */
 #include "RuntimeTools.h"
 #include "../../Assets/AssetKeys.h"
@@ -58,7 +58,6 @@ Related:
 #include "../RuntimeInteractionCommands.h"
 #include "../RuntimeInteractionController.h"
 #include "../Replay/ReplayRecorder.h"
-#include "../Replay/ReplayRuntime.h"
 #include "../Scene/SceneRuntime.h"
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
@@ -647,7 +646,6 @@ bool RuntimeTools::FireLauncherRay( Runtime::SceneController& collection,
 
 LauncherPointerResult RuntimeTools::RouteLauncherPointer( const LauncherPointerInput& input,
                                                           Environment::CameraCollection& cameras,
-                                                          ReplayRuntime& replayRuntime,
                                                           Runtime::SceneController& collection,
                                                           Physics::PhysicsEngine& physics,
                                                           RunSceneState& scene,
@@ -670,13 +668,15 @@ LauncherPointerResult RuntimeTools::RouteLauncherPointer( const LauncherPointerI
     }
 
     const int modelCountBefore = collection.SceneEntityCount();
-    replayRuntime.RecordLauncherFireEvent( rayOrigin,
-                                           rayDirection,
-                                           cameraUp,
-                                           m_rayCastTest.fireMode == RunLauncherFireMode::Projectile,
-                                           m_rayCastTest.impulseStrength,
-                                           m_rayCastTest.projectileSpeed,
-                                           modelCountBefore );
+    result.replayEvent =
+        ReplayEventCommandOperations::BuildLauncherFire( rayOrigin,
+                                                         rayDirection,
+                                                         cameraUp,
+                                                         m_rayCastTest.fireMode == RunLauncherFireMode::Projectile,
+                                                         m_rayCastTest.impulseStrength,
+                                                         m_rayCastTest.projectileSpeed,
+                                                         modelCountBefore );
+    result.recordReplayEvent = true;
     // Why: the launcher is a cold input action, so it repairs any construction-
     // time collection/store drift before entering handle-based physics queries.
     if ( collection.RepairPhysicsBodyAndColliderTopology() && FireLauncherRay( collection,

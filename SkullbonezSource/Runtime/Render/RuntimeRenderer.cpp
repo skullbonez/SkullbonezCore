@@ -3,15 +3,13 @@ File: SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp
 Purpose:
   Coordinates render passes for the active scene.
 
-Summary:
+Mental model:
   Renderer-facing code builds one frame context and runs named passes in
   the same order the image is produced.
 
 Glossary:
   Render pass: Named slice of RuntimeRenderer::RenderFrame() with explicit
   inputs, outputs, and resource ownership.
-  DXR (DirectX Raytracing): DX12 API used here for optional raytraced water
-  reflection dispatch.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -124,8 +122,10 @@ void ApplyConsequenceGrade( SkullbonezCore::Core::CinematicRenderConfig& cinemat
     }
 
     // Concept: the consequence grade is a frame-local presentation override.
-    // It pushes the world down into cool silhouettes while replay ribbon HDR
-    // values stay bright enough for tonemap bloom to make causality read first.
+    // It pushes the world down into cool silhouettes beneath a near-black dome
+    // while replay ribbons remain the primary causality read.
+    constexpr float atmosphereDisableStrength = 0.15f;
+    const float atmosphereFade = std::clamp( s / atmosphereDisableStrength, 0.0f, 1.0f );
     cinematic.enabled = true;
     cinematic.exposure = LerpFloat( cinematic.exposure, (std::max)( 0.05f, cinematic.exposure * 0.36f ), s );
     cinematic.styleSaturation = LerpFloat( cinematic.styleSaturation, 0.24f, s );
@@ -141,13 +141,28 @@ void ApplyConsequenceGrade( SkullbonezCore::Core::CinematicRenderConfig& cinemat
     cinematic.fogColorG = LerpFloat( cinematic.fogColorG, 0.24f, s );
     cinematic.fogColorB = LerpFloat( cinematic.fogColorB, 0.34f, s );
     cinematic.fogMaxOpacity = LerpFloat( cinematic.fogMaxOpacity, (std::max)( cinematic.fogMaxOpacity, 0.28f ), s );
-    cinematic.sunIntensity = LerpFloat( cinematic.sunIntensity, (std::max)( 0.0f, cinematic.sunIntensity * 0.42f ), s );
-    cinematic.skyHorizonR = LerpFloat( cinematic.skyHorizonR, 0.22f, s );
-    cinematic.skyHorizonG = LerpFloat( cinematic.skyHorizonG, 0.34f, s );
-    cinematic.skyHorizonB = LerpFloat( cinematic.skyHorizonB, 0.58f, s );
-    cinematic.skyZenithR = LerpFloat( cinematic.skyZenithR, 0.04f, s );
-    cinematic.skyZenithG = LerpFloat( cinematic.skyZenithG, 0.08f, s );
-    cinematic.skyZenithB = LerpFloat( cinematic.skyZenithB, 0.20f, s );
+    // Why: boolean atmosphere switches cannot interpolate. Fade their energy to
+    // zero over the first part of the grade, then disable the passes so clouds,
+    // the solar disc, and shafts cannot re-light the prediction sky.
+    cinematic.cloudIntensity = LerpFloat( cinematic.cloudIntensity, 0.0f, atmosphereFade );
+    cinematic.sunIntensity = LerpFloat( cinematic.sunIntensity, 0.0f, atmosphereFade );
+    cinematic.skyGlowStrength = LerpFloat( cinematic.skyGlowStrength, 0.0f, atmosphereFade );
+    cinematic.sunShaftStrength = LerpFloat( cinematic.sunShaftStrength, 0.0f, atmosphereFade );
+    cinematic.volumetricStrength = LerpFloat( cinematic.volumetricStrength, 0.0f, atmosphereFade );
+    if ( s >= atmosphereDisableStrength )
+    {
+        cinematic.cloudsEnabled = false;
+        cinematic.godRaysEnabled = false;
+    }
+    // The target is deliberately a little above literal black because the
+    // consequence exposure reduction follows this pass; after tonemapping it
+    // reads as only a faint blue horizon beneath the black zenith.
+    cinematic.skyHorizonR = LerpFloat( cinematic.skyHorizonR, 0.035f, s );
+    cinematic.skyHorizonG = LerpFloat( cinematic.skyHorizonG, 0.05f, s );
+    cinematic.skyHorizonB = LerpFloat( cinematic.skyHorizonB, 0.08f, s );
+    cinematic.skyZenithR = LerpFloat( cinematic.skyZenithR, 0.0f, s );
+    cinematic.skyZenithG = LerpFloat( cinematic.skyZenithG, 0.0f, s );
+    cinematic.skyZenithB = LerpFloat( cinematic.skyZenithB, 0.0f, s );
     cinematic.terrainTintR = LerpFloat( cinematic.terrainTintR, 0.08f, s );
     cinematic.terrainTintG = LerpFloat( cinematic.terrainTintG, 0.14f, s );
     cinematic.terrainTintB = LerpFloat( cinematic.terrainTintB, 0.18f, s );

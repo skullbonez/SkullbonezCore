@@ -68,6 +68,8 @@ inline constexpr int REPLAY_MEMORY_POLICY_MAX_SECONDS = 600;
 inline constexpr int REPLAY_MEMORY_POLICY_MIN_BUDGET_MIB = 32;
 inline constexpr int REPLAY_MEMORY_POLICY_MAX_BUDGET_MIB = 512;
 
+namespace ReplayTimelineOperations
+{
 inline ReplayMemoryPreset ReplayMemoryPresetFromIndex( int presetIndex )
 {
     switch ( presetIndex )
@@ -151,6 +153,7 @@ inline ReplayMemoryPolicy ResolveReplayMemoryPolicy( ReplayMemoryPolicy policy )
         policy.solverWindowReduced || policy.presentationRetentionSeconds < policy.requestedRetentionSeconds;
     return policy;
 }
+} // namespace ReplayTimelineOperations
 
 struct RunLoadedReplayPresentationState
 {
@@ -181,6 +184,16 @@ struct ReplayMemoryPolicyApplyResult
 struct ReplayTimelineCaptureResult
 {
     const ReplaySolverFrameSample* solverSample = nullptr;
+};
+
+struct ReplayTimelineMemoryStats
+{
+    SkullbonezCore::Core::MainMemoryReplayCategoryBytes categoryBytes;
+    ReplayMemoryPolicy policy;
+    std::size_t presentationSamples = 0;
+    std::size_t solverSamples = 0;
+    std::size_t eventSamples = 0;
+    std::size_t loadedSamples = 0;
 };
 
 class ReplayTimeline
@@ -221,19 +234,27 @@ class ReplayTimeline
     void FlushHashLogs();
     void Reset( const char* sceneLabel );
     void ClearLoadedPresentation();
+    // Cold-I/O command: decode and install one retained presentation without
+    // exposing temporary sample storage to the composition root.
+    bool LoadPresentationArtifact( const char* path );
+    bool NextPresentationSavePath( char* outPath, std::size_t outPathSize );
+    ReplayTimelineCaptureResult CaptureFrame( ReplayCaptureInput input );
+    void RecordEvent( const ReplayEventInput& input );
+    // Concept: event sequencing belongs to the timeline owner. The caller
+    // supplies branch provenance as a value so recording never reaches into
+    // authoring state or the replay composition root.
+    void SubmitEvent( const ReplayEventCommand& command, const ReplayBranchInfo& branch );
+    void CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const;
+    ReplayTimelineMemoryStats CollectMemoryStats() const;
+    void ResetCaptureMismatchDiagnostics() noexcept;
+
+  private:
     void InstallLoadedPresentation( const char* path,
                                     std::vector<ReplayPresentationSample>& samples,
                                     std::size_t bodyDictionaryCount,
                                     std::size_t fileBytes,
                                     ReplayFrameIndex firstFrame,
                                     ReplayFrameIndex lastFrame );
-    bool NextPresentationSavePath( char* outPath, std::size_t outPathSize );
-    ReplayTimelineCaptureResult CaptureFrame( ReplayCaptureInput input );
-    void RecordEvent( const ReplayEventInput& input );
-    void CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const;
-    void ResetCaptureMismatchDiagnostics() noexcept;
-
-  private:
     void ReportLatestCaptureMismatch();
     ReplayRecorder m_presentation;
     ReplaySolverRecorder m_solver;

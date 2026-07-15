@@ -3,12 +3,14 @@ File: SkullbonezSource/Runtime/Replay/ReplayPresentation.h
 Purpose:
   Owns replay path, camera, overlay, render-pose, and published visual state.
 
-Summary:
+Mental model:
   ReplayPresentation is the mutable authority for everything replay renders.
   ReplayRuntime sequences the owner but does not retain parallel visual state.
 
 Glossary:
   Path target: Stable replay body selected for visualization.
+  Path color mode: Value-only rule that recolors published trajectory segments
+    at draw time without changing replay capture or prediction storage.
   HUD (Heads-Up Display): Value-only replay diagnostics sampled once for the
     late UI/text pass.
 
@@ -65,11 +67,17 @@ namespace Runtime
 {
 class SceneEntityStore;
 class InputRouter;
+class ReplayAuthoring;
+class ReplayPrediction;
+class ReplayPresentation;
+class ReplayScrubber;
 class RuntimeTools;
 class RunEditorTracer;
 struct RunCameraState;
+struct RunMousePickupState;
 struct RunReplayCauseTreeState;
 struct RunReplayPredictionFrame;
+struct ReplayPastTrajectoryView;
 struct ReplayPredictionPresentationView;
 
 // Read-only publication consumed by world render passes after Run has prepared
@@ -137,6 +145,51 @@ struct ReplayPathPickResult
     bool picked = false;
     bool exitInspectionCamera = false;
 };
+
+namespace ReplayPresentationOperations
+{
+// Stateless host-camera transitions shared by scrubber and authoring tools.
+// Every owner reference is a synchronous borrow; neither operation stores host
+// or replay authority after returning.
+void EnterInspectionCamera( ReplayPresentation& presentation,
+                            Environment::CameraCollection* cameras,
+                            RunCameraState& camera,
+                            RunCameraMode normalizedCurrentMode,
+                            RuntimeInteractionController& interaction,
+                            InputRouter& inputRouter,
+                            RunMousePickupState& mousePickup );
+void ExitInspectionCamera( ReplayPresentation& presentation,
+                           const ReplayAuthoring& authoring,
+                           Environment::CameraCollection* cameras,
+                           Geometry::Terrain* terrain,
+                           RunCameraState& camera,
+                           RunCameraMode normalizedRestoreMode,
+                           bool attachedFollow,
+                           bool directorGrabbed,
+                           RuntimeInteractionController& interaction,
+                           InputRouter& inputRouter );
+
+// Applies the replay-owner and host-camera reaction after ReplayTimeline has
+// committed a presentation artifact. Production startup and Debug probes share
+// this operation so validation cannot drift from the operator-visible path.
+bool ActivateLoadedPresentation( bool hasLoadedPresentation,
+                                 float normalized,
+                                 double now,
+                                 ReplayScrubber& scrubber,
+                                 ReplayPresentation& presentation,
+                                 ReplayAuthoring& authoring,
+                                 ReplayPrediction& prediction,
+                                 Environment::CameraCollection* cameras,
+                                 Geometry::Terrain* terrain,
+                                 RunCameraState& camera,
+                                 RunMousePickupState& mousePickup,
+                                 RunCameraMode normalizedCurrentMode,
+                                 RunCameraMode normalizedRestoreMode,
+                                 bool attachedFollow,
+                                 bool directorGrabbed,
+                                 RuntimeInteractionController& interaction,
+                                 InputRouter& inputRouter );
+} // namespace ReplayPresentationOperations
 
 struct ReplayWorldPointerInput
 {
@@ -214,6 +267,17 @@ struct RunReplayCameraState
     bool focusTerrain = false;
 };
 
+enum class ReplayPathColorMode : uint8_t
+{
+    LaneFlat,
+    VelocityHeat,
+    TimeGradient,
+    PerObjectHue,
+    CausalDepth
+};
+
+const char* ReplayPathColorModeName( ReplayPathColorMode mode ) noexcept;
+
 struct RunReplayPathVisualizerState
 {
     // Concept: the retained/past lane is an operator-visible overlay choice.
@@ -222,6 +286,9 @@ struct RunReplayPathVisualizerState
     // frame.
     bool hasTarget = false;
     bool pastPathVisible = true;
+    // Invariant: the presentation owner retains a deterministic value-only
+    // mode. Draw code reads it without mutating trajectory capture or storage.
+    ReplayPathColorMode colorMode = ReplayPathColorMode::LaneFlat;
     ReplayBodyId targetId;
     Physics::ModelRowHint targetModelRow;
     char targetName[64] = {};
@@ -272,9 +339,13 @@ struct ReplayCameraFocusRequest
 
 struct ReplayPresentationMemoryStats
 {
+    uint64_t pathOwnerBytes = 0;
+    uint64_t pathTargetCapacityBytes = 0;
+    uint64_t pathFutureNodeCapacityBytes = 0;
     uint64_t ghostRequestCapacityBytes = 0;
     uint64_t focusModelMaskCapacityBytes = 0;
     uint64_t launcherVisualBytes = 0;
+    uint64_t pathNodeCount = 0;
     uint64_t ghostRequestCount = 0;
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats trajectory;
 };
@@ -292,6 +363,7 @@ class ReplayPresentation
     {
         return m_pathVisualizer;
     }
+    ReplayPastTrajectoryView PastTrajectoryView() const noexcept;
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats TrajectoryVisualStatsSnapshot() const noexcept;
     ReplayTrajectorySubmissionProbeStats TrajectorySubmissionProbeSnapshot() const noexcept;
     const ReplayVisualPacket& PublishedVisualPacketView() const noexcept;
@@ -330,6 +402,9 @@ class ReplayPresentation
                                     Physics::ModelRowHint targetModelRow,
                                     bool targetModelRowRepaired );
     void TogglePastPathVisible();
+    // Advances the value-only path palette in its stable UI order. Existing
+    // trajectory records remain unchanged and are recolored on the next draw.
+    ReplayPathColorMode CyclePathColorMode() noexcept;
     bool SetPathTarget( const char* name, int modelIndex, const Physics::PhysicsBodyStore& bodyStore );
     bool SetPathTarget( ReplayBodyId id, Physics::ModelRowHint modelRow, const char* name );
     ReplayPathPickResult

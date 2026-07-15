@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Tools/RuntimeTools.h
 Purpose:
   Owns transient runtime tool state while tool behavior moves out of Run.
 
-Summary:
+Mental model:
   RuntimeTools owns tool payload and render feedback instead of storing those
   values directly on Run. RuntimeInteractionController alone owns which
   gesture is active; tools retain only the start values needed to apply it.
@@ -18,7 +18,7 @@ Glossary:
   Replay target marker: Debug overlay outline/ring drawn around a replay body
     from live body/collider store values.
   Replay ribbon: Screen-space-width overlay stroke generated from replay path
-    segments and the yellow entry marker so the shader can apply smooth glow.
+    segments, with an analytic edge and optional selected-path halo.
   Gizmo drag group: Bounded set of selected model indices transformed as one
     editor gesture.
   Body store: Physics-owned dense body rows borrowed by tool hit tests and
@@ -48,7 +48,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.cpp
   - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
-  - SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayPresentation.h
 */
 #pragma once
 
@@ -61,6 +61,7 @@ Related:
 #include "../RuntimeCameraMode.h"
 #include "../RuntimeInteractionController.h"
 #include "../Replay/ReplayVisualPacket.h"
+#include "../Replay/ReplayEventCommand.h"
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/Vector3.h"
@@ -126,7 +127,6 @@ struct ReplayLauncherVisualSample;
 class SceneEntityStore;
 class InputRouter;
 class RuntimeInteractionController;
-class ReplayRuntime;
 enum class WorldInteractionOwner;
 enum class InteractionExitReason;
 struct RuntimeInteractionCommand;
@@ -279,9 +279,11 @@ struct EditorPlacementScalePointerResult
 {
     // Composition consumes these facts after the tool has atomically ended or
     // committed the placement gesture; no callback reaches back into Run.
+    ReplayEventCommand replayEvent;
     bool consumed = false;
     bool enteredInteractiveScene = false;
     bool endedGesture = false;
+    bool recordReplayEvent = false;
 };
 
 struct EditorGizmoDragPointerInput
@@ -300,6 +302,7 @@ struct EditorGizmoDragPointerInput
 struct EditorGizmoDragPointerResult
 {
     // Composition publishes the input-mode edge after owner teardown.
+    ReplayEventCommandBatch replayEvents;
     bool consumed = false;
     bool endedGesture = false;
 };
@@ -392,8 +395,10 @@ struct LauncherPointerInput
 
 struct LauncherPointerResult
 {
+    ReplayEventCommand replayEvent;
     bool consumed = false;
     bool enteredInteractive = false;
+    bool recordReplayEvent = false;
 };
 
 struct RunEditorPlacementState
@@ -450,28 +455,19 @@ class RunEditorTracer
   private:
     struct ReplayRibbonStyle
     {
-        float width = 0.25f;                                                // Replay-ribbon width unit expanded to pixels by the shader.
-        float alpha = 0.80f;                                                // Blend weight before shader edge falloff.
-        float edgeFeather = 0.38f;                                          // Edge fade width consumed by replay/legacy ribbon shaders.
-        float hdrScale = 1.0f;                                              // HDR emphasis hint consumed by ribbon pixel shaders.
+        float width = 2.0f;                                                 // Full screen-space width in pixels.
+        float alpha = 1.0f;                                                 // Blend weight before analytic edge coverage.
+        float edgeFeather = 1.0f;                                           // Anti-aliasing feather scale; 1 means one pixel.
+        float emphasis = 0.0f;                                              // 0 = display-range; positive values reserve halo and bloom emphasis.
     };
 
-    // TEMPORARY DEBUG AUTHORING: owned by RunEditorTracer so the period-key
-    // look explorer can be deleted as one self-contained presentation feature
-    // after a legible replay-ribbon preset has been selected and committed.
-    struct ReplayRibbonAuthoringLook
-    {
-        ReplayRibbonStyle path;
-        ReplayRibbonStyle causal;
-        ReplayRibbonStyle baseline;
-        ReplayRibbonStyle marker;
-        float opacity = 0.50f;
-        float saturation = 1.0f;
-        float colorGain = 1.0f;
-        uint32_t seed = 0u;
-    };
-
-    ReplayRibbonAuthoringLook m_replayRibbonAuthoringLook = {};
+    // Invariant: every generic path and marker uses zero emphasis. Only the
+    // selected-object treatment introduced at the presentation boundary may
+    // feed the shader's halo/bloom branch. These are immutable steady-frame values.
+    static constexpr ReplayRibbonStyle REPLAY_PATH_STYLE = { 2.0f, 1.0f, 1.0f, 0.0f };
+    static constexpr ReplayRibbonStyle REPLAY_CAUSAL_STYLE = { 2.0f, 1.0f, 1.0f, 0.0f };
+    static constexpr ReplayRibbonStyle REPLAY_BASELINE_STYLE = { 1.5f, 1.0f, 1.0f, 0.0f };
+    static constexpr ReplayRibbonStyle REPLAY_MARKER_STYLE = { 2.5f, 1.0f, 1.0f, 0.0f };
 
     std::vector<float> m_lineData;
     std::vector<float> m_priorityLineData;
@@ -555,13 +551,10 @@ class RunEditorTracer
                                          SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
     void BuildReplayRibbonVertices( const Math::Vector::Vector3& cameraEye, const Math::Vector::Vector3& cameraUp );
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats
-        m_replayTrajectoryStats;                                            // Frame-local replay ribbon counters sampled by ReplayRuntime.
+        m_replayTrajectoryStats;                                            // Frame-local replay ribbon counters sampled by replay composition.
 
   public:
     RunEditorTracer();
-    // TEMPORARY DEBUG AUTHORING: in Debug, press '.' to replace the complete
-    // prediction/cinematic look and print every reproducible value to stderr.
-    void CycleReplayPredictionAuthoringLook( SkullbonezCore::Core::CinematicRenderConfig& cinematic );
     void Clear();
     // Resets only the replay trajectory counters; callers use this before the
     // replay pass so editor tool ribbons do not count as replay trajectory work.
@@ -572,7 +565,7 @@ class RunEditorTracer
     // quota before vertex emission, preserving lane-specific diagnostics.
     void RecordReplayRibbonDroppedSegments( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
                                             std::size_t count = 1u );
-    // Prepares the exact frame-local spans later published by ReplayRuntime.
+    // Prepares the exact frame-local spans later published by replay composition.
     // Lifetime: returned spans borrow this tracer until its next Clear().
     ReplayVisualPacket BuildReplayVisualPacket( const Math::Vector::Vector3& cameraEye,
                                                 const Math::Vector::Vector3& cameraUp );
@@ -595,15 +588,21 @@ class RunEditorTracer
                                float g,
                                float b,
                                SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane =
-                                   SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot );
+                                   SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::FutureRoot,
+                               float emphasis = 0.0f );
     void AddReplayCausalTrailSegment( const Math::Vector::Vector3& start,
                                       const Math::Vector::Vector3& end,
                                       float r,
                                       float g,
                                       float b );
-    // Draws the cold baseline root path with smooth replay ribbons so old-vs-new
-    // butterfly-effect captures remain readable under bloom/glow.
-    void AddReplayBaselinePathSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end );
+    // Draws the cold baseline root path with its thinner comparison style. The
+    // presentation owner supplies color so every replay path color mode uses
+    // the same deterministic resolver.
+    void AddReplayBaselinePathSegment( const Math::Vector::Vector3& start,
+                                       const Math::Vector::Vector3& end,
+                                       float r,
+                                       float g,
+                                       float b );
     void AddReplayContactMarker( const Math::Vector::Vector3& point,
                                  const Math::Vector::Vector3& normal,
                                  float r,
@@ -728,7 +727,6 @@ class RuntimeTools
                           const Math::Vector::Vector3& cameraUp );
     LauncherPointerResult RouteLauncherPointer( const LauncherPointerInput& input,
                                                 Environment::CameraCollection& cameras,
-                                                ReplayRuntime& replayRuntime,
                                                 Runtime::SceneController& collection,
                                                 Physics::PhysicsEngine& physics,
                                                 RunSceneState& scene,
@@ -796,13 +794,11 @@ class RuntimeTools
                                                                         Geometry::Terrain* terrain,
                                                                         Assets::AssetSystem& assets,
                                                                         int activeModelCapacity,
-                                                                        RuntimeInteractionController& interaction,
-                                                                        ReplayRuntime& replayRuntime );
+                                                                        RuntimeInteractionController& interaction );
     EditorGizmoDragPointerResult RouteEditorGizmoDragPointer( const EditorGizmoDragPointerInput& input,
                                                               Runtime::SceneController& collection,
                                                               Physics::PhysicsEngine& physics,
-                                                              RuntimeInteractionController& interaction,
-                                                              ReplayRuntime& replayRuntime );
+                                                              RuntimeInteractionController& interaction );
     void RecordEditorTransformHistory( Runtime::SceneController& collection,
                                        RuntimeGizmoDragKind gizmoKind,
                                        int selectedModelIndex );

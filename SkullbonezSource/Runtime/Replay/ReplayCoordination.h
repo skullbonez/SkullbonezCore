@@ -23,7 +23,7 @@ Invariants:
 
 Related:
   - ReplayRuntime.h
-  - ReplayRuntimeOwnerViews.h
+  - ReplayRestoreTransactions.h
 */
 #pragma once
 
@@ -64,6 +64,14 @@ struct ReplayStartupLoadInput;
 struct RunCameraState;
 struct RunMousePickupState;
 struct RunSceneState;
+
+namespace ReplayInteractionOperations
+{
+// Ends replay-owned tool capture without borrowing the replay composition root.
+// Gesture and native-capture authority remain with their concrete input owners.
+void CancelToolGesture( RuntimeInteractionController& interaction );
+void CancelToolDragState( RuntimeInteractionController& interaction, InputRouter& inputRouter );
+} // namespace ReplayInteractionOperations
 
 // Value-only facts sampled by the input turn. Mutable domain owners are passed
 // explicitly to the synchronous composition operation instead of being hidden
@@ -129,6 +137,7 @@ struct ReplayInteractionExitInput
     bool directorGrabbed = false;
 };
 
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 // Lifetime: validation borrows this immutable publication only for the call
 // that requested it. Spans and references point into replay-owned storage and
 // cannot be retained across the next replay update.
@@ -158,6 +167,7 @@ struct ReplayAutomationView
     float solverTrackPosition = 0.0f;
     float solverPresentTrackPosition = 0.0f;
 };
+#endif
 
 struct ReplayLiveRestoreOutcome
 {
@@ -190,6 +200,23 @@ struct ReplayStartupResult
 {
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
     bool skipExecute = false;
+};
+
+// Value-only terminal publication sampled after replay flushes its cold hash
+// logs. Run may print these facts but cannot reopen timeline owner state.
+struct ReplayShutdownReport
+{
+    ReplayRecorderStats presentation;
+    ReplayRecorderStats solver;
+};
+
+// Cold startup configures timeline capacity and resets the retained cursor as
+// one replay operation. The camera reaction is returned as a value so Run does
+// not receive a raw scrubber mutation API.
+struct ReplayRecordingActivationResult
+{
+    ReplayRecordingConfigResult configuration;
+    bool exitInspectionCamera = false;
 };
 
 // Concept: external automation publishes replay intent as values. The replay
@@ -241,6 +268,8 @@ struct ReplaySceneTimelineResetInput
     bool hasUiSolverCountOverride = false;
 };
 
+namespace ReplayTimelineOperations
+{
 inline bool SceneTimelineResetClearsBranch( const ReplaySceneTimelineResetInput& input ) noexcept
 {
     return !input.preserveBranchMetadata;
@@ -267,6 +296,7 @@ ReplaySceneTimelineResetInput DescribeReplaySceneTimeline( const SceneController
                                                            const RunSceneState& scene,
                                                            int gameModelCapacity,
                                                            uint32_t generatedObjectTypeOverride );
+} // namespace ReplayTimelineOperations
 
 struct ReplaySceneTimelineResetResult
 {

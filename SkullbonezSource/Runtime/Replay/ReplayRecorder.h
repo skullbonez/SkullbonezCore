@@ -48,10 +48,12 @@ Related:
 #include <vector>
 
 #include "../../Core/MainMemoryStats.h"
+#include "../../Maths/Quaternion.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/PhysicsHandles.h"
 #include "../Editor/LauncherLaser.h"
 #include "ReplaySolverSnapshot.h"
+#include "ReplayEventCommand.h"
 
 namespace SkullbonezCore
 {
@@ -73,8 +75,6 @@ namespace Runtime
 class SceneEntityStore;
 inline constexpr int REPLAY_PAST_BUFFER_SECONDS = 60;
 inline constexpr float REPLAY_FUTURE_BUFFER_SECONDS = 20.0f;
-
-using ReplayFrameIndex = uint64_t;
 
 struct ReplayBodyId
 {
@@ -202,7 +202,10 @@ struct ReplayPresentationSample
 // Recomputes the durable presentation digest from values owned by a fully
 // resolved sample. Artifact readers use it to reject any v3 visual-state row
 // that cannot reproduce the writer's exact delta/hash contract.
-uint64_t ComputeReplayPresentationStateHash( const ReplayPresentationSample& sample ) noexcept;
+namespace ReplayRecorderOperations
+{
+uint64_t ComputePresentationStateHash( const ReplayPresentationSample& sample ) noexcept;
+} // namespace ReplayRecorderOperations
 
 struct ReplaySolverBodySample
 {
@@ -400,36 +403,6 @@ struct ReplayCheckpointSummary
     uint32_t bodyCount = 0;
     uint16_t contactCount = 0;
     uint16_t pipelineRecordCount = 0;
-};
-
-enum class ReplayEventKind : uint16_t
-{
-    Unknown = 0,
-    TimelineStart = 1,
-    // Value 2 belonged to the deleted mixed-command payload. Do not reuse it:
-    // owner actions have explicit codes and intentionally start a new wire lane.
-    OwnerAction = 10,
-    BranchRestore = 3,
-    WorldOverride = 4,
-    LauncherConfig = 5,
-    LauncherFire = 6,
-    GeneratedSceneConfig = 7,
-    EditorPlace = 8,
-    EditorTransform = 9
-};
-
-// Stable wire values for accepted owner work. These numbers are serialized;
-// domain enum ordinals and rejected requests must never be substituted.
-enum class ReplayOwnerEventCode : int32_t
-{
-    SceneLoadBrowserIndex = 1001,
-    SceneLoadDemo = 1002,
-    SceneReset = 1003,
-    SceneCreate = 1004,
-    SceneSaveDefaults = 1005,
-    CaptureScreenshot = 2001,
-    RenderSaveOrdinaryDefaults = 3001,
-    RenderSaveCinematicDefaults = 3002,
 };
 
 struct ReplayEventSample

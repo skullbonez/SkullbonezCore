@@ -86,6 +86,9 @@ for %%A in (%*) do (
     ) else if /I "!ARG!"=="replay-visual-fidelity" (
         call "%ROOT%validate_replay_visual_fidelity.bat"
         if errorlevel 1 set "FAILED=1"
+    ) else if /I "!ARG!"=="automation" (
+        call "%ROOT%validate_automation.bat"
+        if errorlevel 1 set "FAILED=1"
     ) else if /I "!ARG!"=="scene-parser-tests" (
         call "%ROOT%validate_scene_parser_tests.bat"
         if errorlevel 1 set "FAILED=1"
@@ -134,6 +137,9 @@ for %%A in (%*) do (
     ) else if /I "!ARG!"=="build-profile" (
         call "%ROOT%validate_build.bat" Profile
         if errorlevel 1 set "FAILED=1"
+    ) else if /I "!ARG!"=="build-automation" (
+        call "%ROOT%validate_build.bat" Automation
+        if errorlevel 1 set "FAILED=1"
     ) else if /I "!ARG!"=="build-release" (
         call "%ROOT%validate_build.bat" Release
         if errorlevel 1 set "FAILED=1"
@@ -179,6 +185,7 @@ echo   tools\validate_select.bat shaders
 echo   tools\validate_select.bat project-filters
 echo   tools\validate_select.bat runtime-interaction-policy
 echo   tools\validate_select.bat replay-visual-fidelity
+echo   tools\validate_select.bat automation
 echo   tools\validate_select.bat scene-parser-tests
 echo   tools\validate_select.bat dx12-arch-tests
 echo   tools\validate_select.bat ui
@@ -194,6 +201,7 @@ echo.
 echo   tools\validate_select.bat format
 echo   tools\validate_select.bat build-debug
 echo   tools\validate_select.bat build-profile
+echo   tools\validate_select.bat build-automation
 echo   tools\validate_select.bat build-release
 echo.
 echo You can pass several targets in one command:

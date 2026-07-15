@@ -37,6 +37,8 @@ constexpr int REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT =
     Runtime::Allocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
 } // namespace
 
+namespace ReplayPredictionReserveOperations
+{
 Runtime::Allocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner() noexcept
 {
     static const Runtime::Allocation::RuntimeReserveOwnerHandle owner =
@@ -77,4 +79,5 @@ bool RequestReplayPredictionReserveGrowth( const char* targetName,
     outResult = Runtime::Allocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
     return outResult.granted;
 }
+} // namespace ReplayPredictionReserveOperations
 } // namespace SkullbonezCore::Runtime

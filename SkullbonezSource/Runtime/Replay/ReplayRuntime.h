@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayRuntime.h
 Purpose:
   Composes replay's timeline, scrubber, presentation, prediction, and authoring owners.
 
-Summary:
+Mental model:
   ReplayRuntime sequences owner-to-owner work. The application shell exchanges
   typed commands and read-only published views; concrete replay owners retain
   their own state and implement their domain transitions.
@@ -139,8 +139,6 @@ class RuntimeRenderer;
 struct RunSceneState;
 struct ReplayV2SaveResult;
 struct ReplaySolverSampleRestoreContext;
-#ifdef _DEBUG
-#endif
 
 
 class ReplayRuntime
@@ -150,15 +148,21 @@ class ReplayRuntime
 
     // Publishes scalar input decisions without exposing replay owner storage.
     ReplayInputView BuildInputView() const noexcept;
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     // Lifetime: returned references/spans are synchronous validation evidence;
-    // callers must rebuild the view after any replay mutation.
+    // callers must rebuild the view after any replay mutation. The method is
+    // absent from ordinary builds so diagnostics cannot enter the frame path.
     ReplayAutomationView BuildAutomationView() const;
+#endif
     // Publishes replay-selected samples and const tool state for one late UI
     // pass. Window/UI facts remain caller-owned values.
-    ReplayOverlay::ReplayOverlayStateView BuildOverlayStateView( bool editorModeEnabled,
-                                                                 bool uiVisible,
-                                                                 bool uiMinimized,
-                                                                 RuntimeInteractionGestureKind gesture ) const;
+    ReplayOverlay::ReplayOverlayStateView
+    BuildOverlayStateView( bool editorModeEnabled,
+                           bool uiVisible,
+                           bool uiMinimized,
+                           RuntimeInteractionGestureKind gesture,
+                           std::span<const Rendering::RenderInstancePresentationRecord> presentation,
+                           const Physics::PhysicsBodyStore& bodyStore );
     // Selects at most one historical track plus the prediction preview for the
     // current render turn; returned sample pointers are frame-local borrows.
     ReplayRenderSelectionView BuildRenderSelectionView() const;
@@ -210,35 +214,22 @@ class ReplayRuntime
     // RenderPathVisualizer remains read-only and must follow this command.
     void PreparePredictionPresentation( Physics::PhysicsEngine& physics, const SceneEntityStore& entities );
     void ClearPathVisualizerState();
+    // Forwards the presentation-only palette command; prediction/capture state
+    // and published trajectory records are not rebuilt.
+    ReplayPathColorMode CyclePathColorMode() noexcept;
 
-    bool SetVelocityEditEnabled( bool enabled );
     ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input );
-    void SetTrackPosition( RunReplayTrack track, float position );
-    void PinSolverScrubberToPresent();
-    void SetAllTrackPositions( float position );
-    bool ResetScrubberState();
-    ReplayScrubberInputFrame BeginReplayScrubberInputFrame( bool leftPressed, bool leftReleased, bool restoreDown );
-    ReplayScrubberUnavailableResult ResetUnavailableScrubberSurface( bool loadedPresentation );
-    void ClearCauseTreeFocusSelection();
-    bool SetLiveAdvanceHeld( bool held );
-    bool ShouldUseInspectionCamera() const;
-    bool InspectionActive() const;
-    bool InspectionMouseLookActive( bool rightMouseDown, bool uiWantsNativeCursor, bool uiBlocksCameraMouse ) const;
-    bool ArmLoadedPresentationScrubber( float normalized, double now );
-    void ClearCameraFocusForRestore();
 
     // Configures bounded recorder storage. runtimeBodyCapacity must be the
     // scene/run body cap known before capture so replay frames do not allocate.
-    ReplayRecordingConfigResult
+    ReplayRecordingActivationResult
     ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath, int runtimeBodyCapacity );
     // Applies a UI or tool policy request. A true return means recorder windows
     // changed or queued policy state changed before recording was configured.
     bool ApplyMemoryPolicyRequest( const ReplayMemoryPolicyRequest& request );
     // Exposes the resolved policy for diagnostics/UI; callers must not infer
     // recorder capacity from raw requested fields.
-    const ReplayMemoryPolicy& MemoryPolicy() const;
-    void FlushHashLogs();
-    void ResetTimeline( const char* sceneLabel );
+    ReplayShutdownReport FinishShutdown();
     ReplaySceneTimelineResetResult BeginSceneTimelineReset( const ReplaySceneTimelineResetInput& input );
     ReplaySceneTimelineResetResult FinishSceneTimelineReset( const ReplaySceneTimelineResetInput& input );
     void ResetSceneTimeline( const ReplaySceneTimelineResetInput& input, const ReplaySceneTimelineResetOwners& owners );
@@ -263,117 +254,16 @@ class ReplayRuntime
     ReplayProbeTickResult TickProbes( const ReplayRestoreTransaction& transaction,
                                       const ReplayArtifactTopologyOwners& topology );
 
-  private:
-    SkullbonezCore::Core::SbResult VerifyLoadedPresentationProbe( const ReplayRestoreTransaction& transaction,
-                                                                  RunMousePickupState& mousePickup,
-                                                                  RunCameraMode normalizedCurrentMode,
-                                                                  double now,
-                                                                  float normalized );
-    SkullbonezCore::Core::SbResult VerifySolverCheckpointFileProbe( const ReplayRestoreTransaction& transaction,
-                                                                    const char* path );
-    SkullbonezCore::Core::SbResult VerifySolverTargetFileProbe( const ReplayRestoreTransaction& transaction,
-                                                                const ReplayArtifactTopologyOwners& topology,
-                                                                const char* path );
-    SkullbonezCore::Core::SbResult VerifySolverBranchFileProbe( const ReplayRestoreTransaction& transaction,
-                                                                const ReplayArtifactTopologyOwners& topology,
-                                                                RunMousePickupState& mousePickup,
-                                                                RunCameraMode normalizedCurrentMode,
-                                                                double now,
-                                                                const char* path );
-    SkullbonezCore::Core::SbResult VerifySolverFailureFileProbe( const ReplayRestoreTransaction& transaction,
-                                                                 const ReplayArtifactTopologyOwners& topology,
-                                                                 const char* path );
-
-  public:
 #endif
-    bool IsPresentationEnabled() const;
-    bool IsCaptureEnabled() const;
-    ReplayRecorderStats PresentationStats() const;
-    ReplayRecorderStats SolverStats() const;
-    ReplayEventRecorderStats EventStats() const;
-    ReplayFrameIndex NextEventFrameIndex() const;
-    // Refreshes the selected past-root trajectory from retained solver samples.
-    // The method is cheap when the cursor already matches the recorder window.
-    void RefreshPastTrajectoryStoreFromSolverSamples();
     void CaptureFrame( ReplayCaptureInput input, RuntimeTools& runtimeTools );
-    // Resolves camera-focus pose/radius from replay samples or live physics
-    // stores; legacy object record metadata remains outside this body-authority query.
-    bool ResolveCauseTreeBodyPosition( ReplayBodyId id,
-                                       const Physics::PhysicsBodyStore& bodyStore,
-                                       const Physics::ColliderStore& colliderStore,
-                                       Math::Vector::Vector3& outPosition,
-                                       float* outRadius ) const;
-    // Resolves the current velocity-edit target to live physics authority. The
-    // stored model index is a staleable hint, not identity.
-    Physics::PhysicsBodyHandle ResolveVelocityEditBodyHandle( const Physics::PhysicsBodyStore& bodyStore ) const;
-    bool BuildCauseTreeRows( std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
-                             const Physics::PhysicsBodyStore& bodyStore );
     SkullbonezCore::Core::MainMemoryReplayStats CollectMemoryStats() const;
     // Publishes the value-only replay facts consumed by the late HUD pass.
     // Memory accounting is sampled only when explicitly requested for the tab.
     ReplayHudStatus BuildHudStatus( bool includeMemoryStats ) const;
-    void RecordEvent( ReplayEventKind kind,
-                      ReplayFrameIndex frameIndex,
-                      uint32_t flags,
-                      int32_t value0,
-                      int32_t value1,
-                      int32_t value2,
-                      int32_t value3,
-                      uint64_t data0,
-                      const char* text );
-    void RecordWorldOverrideEvent( float previousGravity,
-                                   float previousFluidHeight,
-                                   float previousFluidDensity,
-                                   float gravity,
-                                   float fluidHeight,
-                                   float fluidDensity );
-    void RecordLauncherConfigEvent( uint32_t changedFlags, float impulseStrength, float projectileSpeed );
-    void RecordLauncherFireEvent( const Math::Vector::Vector3& rayOrigin,
-                                  const Math::Vector::Vector3& rayDirection,
-                                  const Math::Vector::Vector3& cameraUp,
-                                  bool projectile,
-                                  float impulseStrength,
-                                  float projectileSpeed,
-                                  int modelCount );
-    void RecordEditorPlaceEvent( int objectType,
-                                 bool fixedObject,
-                                 bool terrainAlign,
-                                 int modelCountBefore,
-                                 const Math::Vector::Vector3& terrainPoint,
-                                 const Math::Vector::Vector3& placementScale,
-                                 float placementYawRadians );
-    // Records exact transform payload values supplied by the caller; replay must
-    // not reread legacy object record pose after physics store authority has the body row.
-    void RecordEditorTransformEvent( int modelIndex,
-                                     uint32_t changedFlags,
-                                     uint32_t replayBodyId,
-                                     const Math::Vector::Vector3& position,
-                                     const Math::Orientation::Quaternion& orientation,
-                                     int modelCount,
-                                     int scaleAxis,
-                                     float scaleFactor );
-    // Writes the current presentation, solver hashes/checkpoints, and event
-    // stream to an explicit cold-I/O binary v2 path.
-    bool SavePresentationWithSolverHashes( const char* path,
-                                           ReplayV2SaveResult* result = nullptr,
-                                           std::span<const ReplayVisualArchiveSample> visualPackets = {},
-                                           std::span<const uint8_t> visualPredictionState = {} ) const;
-    // Owns scrubber save path sequencing and status publication so Run does not
-    // retain a behavior-free import/export forwarding module.
-    bool SavePresentationFromScrubber( double now );
-    bool LoadPresentationArtifact( const char* path,
-                                   bool activateScrubber,
-                                   double now,
-                                   InputRouter& inputRouter,
-                                   RuntimeInteractionController& interaction,
-                                   Environment::CameraCollection* cameras,
-                                   Geometry::Terrain* terrain,
-                                   RunCameraState& camera,
-                                   RunMousePickupState& mousePickup,
-                                   RunCameraMode normalizedCurrentMode,
-                                   RunCameraMode normalizedRestoreMode,
-                                   bool attachedFollow,
-                                   bool directorGrabbed );
+    // Attaches branch/frame provenance and submits one already encoded event
+    // value. Hashing and payload construction belong to ReplayRecorder domain
+    // builders, leaving this boundary as composition only.
+    void SubmitEvent( const ReplayEventCommand& command );
     void TickWorkspace( const ReplayWorkspaceFrameInput& input,
                         InputRouter& inputRouter,
                         RuntimeInteractionController& interaction,
@@ -413,10 +303,6 @@ class ReplayRuntime
                              const SceneEntityStore& entities,
                              RunEditorTracer& tracer,
                              const ReplayOverlayBuildInput& input );
-    void RenderVelocityEditOverlay( Physics::PhysicsEngine& physics,
-                                    bool editorModeEnabled,
-                                    const RuntimeInteractionGesture& gesture,
-                                    RunEditorTracer& tracer );
     // Routes value-only pointer facts through replay path selection. Store and
     // camera owners are explicit one-call borrows, not fields in the command.
     bool RouteWorldPointer( const ReplayWorldPointerInput& input,
@@ -429,19 +315,6 @@ class ReplayRuntime
                             RunCameraState& camera,
                             RuntimeInteractionController& interaction,
                             InputRouter& inputRouter );
-    bool SetPathTarget( const char* name, int modelIndex, const Physics::PhysicsBodyStore& bodyStore );
-    bool BeginToolGesture( RuntimeInteractionController& interaction,
-                           RuntimeInteractionGestureKind kind,
-                           WorldInteractionOwner owner,
-                           RuntimePointerButton button,
-                           int startX,
-                           int startY,
-                           Physics::PhysicsBodyHandle body = {},
-                           int axis = -1,
-                           bool angular = false );
-    void EndToolGesture( RuntimeInteractionController& interaction, RuntimeInteractionGestureKind kind );
-    void CancelToolGesture( RuntimeInteractionController& interaction );
-    void CancelToolDragState( RuntimeInteractionController& interaction, InputRouter& inputRouter );
     bool HasActiveInteractionState() const;
     // Applies one typed leave-replay command. External camera/input owners are
     // synchronous operands and are never retained by ReplayRuntime.
@@ -467,53 +340,53 @@ class ReplayRuntime
     // Clears replay-owned transient state and reports whether the camera owner
     // must execute an inspection-camera exit after the state transition.
     bool ClearInteractionForRuntimeTransition( RuntimeInteractionController& interaction, InputRouter& inputRouter );
+    // Application-shell camera composition. The root supplies its private
+    // presentation/authoring owners to stateless presentation operations; host
+    // camera and input owners remain synchronous operands and are not retained.
+    void EnterInspectionCamera( Environment::CameraCollection* cameras,
+                                RunCameraState& camera,
+                                RunCameraMode normalizedCurrentMode,
+                                RuntimeInteractionController& interaction,
+                                InputRouter& inputRouter,
+                                RunMousePickupState& mousePickup );
+    void ExitInspectionCamera( Environment::CameraCollection* cameras,
+                               Geometry::Terrain* terrain,
+                               RunCameraState& camera,
+                               RunCameraMode normalizedRestoreMode,
+                               bool attachedFollow,
+                               bool directorGrabbed,
+                               RuntimeInteractionController& interaction,
+                               InputRouter& inputRouter );
 
   private:
+    // Writes the current presentation, solver hashes/checkpoints, and event
+    // stream to an explicit cold-I/O binary v2 path.
+    bool SavePresentationWithSolverHashes( const char* path,
+                                           ReplayV2SaveResult* result = nullptr,
+                                           std::span<const ReplayVisualArchiveSample> visualPackets = {},
+                                           std::span<const uint8_t> visualPredictionState = {} ) const;
+    // Owns scrubber save sequencing and status publication; file decode and
+    // loaded-track state belong to ReplayTimeline.
+    bool SavePresentationFromScrubber( double now );
+    // Applies the visible replay-owner and host-camera reaction after a
+    // successful ReplayTimeline load; this operation performs no file I/O.
+    void ActivateLoadedPresentationScrubber( double now,
+                                             InputRouter& inputRouter,
+                                             RuntimeInteractionController& interaction,
+                                             Environment::CameraCollection* cameras,
+                                             Geometry::Terrain* terrain,
+                                             RunCameraState& camera,
+                                             RunMousePickupState& mousePickup,
+                                             RunCameraMode normalizedCurrentMode,
+                                             RunCameraMode normalizedRestoreMode,
+                                             bool attachedFollow,
+                                             bool directorGrabbed );
+    void ClearCameraFocusForRestore();
     ReplayPathPickResult ApplyPathPick( const ReplayPathPickInput& input,
                                         const SceneEntityStore& entities,
                                         const Physics::PhysicsBodyStore& bodyStore,
                                         const Physics::ColliderStore& colliderStore,
                                         std::span<const Rendering::RenderInstancePresentationRecord> presentation );
-    bool TickCauseTreeInput( bool uiBlocksMouse,
-                             int wheelDelta,
-                             InputRouter& inputRouter,
-                             RuntimeInteractionController& interaction,
-                             const Physics::PhysicsBodyStore& bodyStore,
-                             const Physics::ColliderStore& colliderStore,
-                             std::span<const Rendering::RenderInstancePresentationRecord> presentation,
-                             Environment::CameraCollection* cameras,
-                             Geometry::Terrain* terrain,
-                             RunCameraState& camera,
-                             RunMousePickupState& mousePickup,
-                             RunCameraMode normalizedCurrentMode,
-                             RunCameraMode normalizedRestoreMode,
-                             bool attachedFollow,
-                             bool directorGrabbed,
-                             bool editorModeEnabled,
-                             int screenWidth,
-                             int screenHeight,
-                             bool& outEnterInteractive );
-    bool TickVelocityEditInput( bool uiBlocksMouse,
-                                const ReplayPathPickInput& pointerRay,
-                                InputRouter& inputRouter,
-                                RuntimeInteractionController& interaction,
-                                Physics::PhysicsEngine& physics,
-                                const SceneEntityStore& entities,
-                                std::span<const Rendering::RenderInstancePresentationRecord> presentation,
-                                Environment::CameraCollection* cameras,
-                                Geometry::Terrain* terrain,
-                                RunCameraState& camera,
-                                RunMousePickupState& mousePickup,
-                                RunCameraMode normalizedCurrentMode,
-                                RunCameraMode normalizedRestoreMode,
-                                bool attachedFollow,
-                                bool directorGrabbed,
-                                bool editorModeEnabled,
-                                bool scenePhysicsEnabled,
-                                int screenWidth,
-                                int screenHeight,
-                                double now,
-                                bool& outEnterInteractive );
     bool TickScrubberInput( HWND hwnd,
                             bool uiBlocksMouse,
                             InputRouter& inputRouter,
@@ -536,44 +409,7 @@ class ReplayRuntime
                             bool& outEnterInteractive,
                             ReplayLiveRestoreRequest& outRestoreRequest );
 
-  public:
-    void EnterInspectionCamera( Environment::CameraCollection* cameras,
-                                RunCameraState& camera,
-                                RunCameraMode normalizedCurrentMode,
-                                RuntimeInteractionController& interaction,
-                                InputRouter& inputRouter,
-                                RunMousePickupState& mousePickup );
-    void ExitInspectionCamera( Environment::CameraCollection* cameras,
-                               Geometry::Terrain* terrain,
-                               RunCameraState& camera,
-                               RunCameraMode normalizedRestoreMode,
-                               bool attachedFollow,
-                               bool directorGrabbed,
-                               RuntimeInteractionController& interaction,
-                               InputRouter& inputRouter );
-
   private:
-    // Private owner reads support replay's own cross-owner composition. The
-    // application shell receives only the published value/view APIs above.
-    const ReplayRecorder& Presentation() const;
-    const ReplaySolverRecorder& Solver() const;
-    const ReplayEventRecorder& Events() const;
-    const ReplayBranchInfo& Branch() const;
-    const RunLoadedReplayPresentationState& LoadedPresentation() const;
-    ReplayScrubberView ScrubberView() const noexcept;
-    RunCameraMode ReplayRestoreCameraMode() const noexcept;
-    bool ReplayCameraActive() const noexcept;
-    const RunReplayPathVisualizerState& PathVisualizer() const;
-    const RunReplayPredictionState& Prediction() const;
-    ReplayPredictionPresentationView PredictionPresentationView() const;
-    std::span<const RunReplayPredictionFrame> ActivePredictionFrames() const;
-    const RunReplayCauseTreeState& CauseTree() const;
-    const RunReplayVelocityEditState& VelocityEdit() const;
-    float TrackPosition( RunReplayTrack track ) const;
-    bool LiveAdvanceHeld() const;
-    bool HasPathVisualizerTarget() const;
-    bool HasCameraFocus() const;
-    bool VelocityEditActive() const;
     float SolverPresentTrackPosition() const;
     bool ShouldRenderScrubber( bool editorModeEnabled,
                                bool uiVisible,

@@ -4,8 +4,8 @@ Purpose:
   Defines the frame-local replay presentation packet consumed by rendering and validation.
 
 Summary:
-  ReplayRuntime publishes one immutable packet after replay presentation has
-  prepared its fixed-capacity line and ribbon buffers. Rendering and probes read
+  ReplayPresentation publishes one immutable packet after preparing its
+  fixed-capacity line and ribbon buffers. Rendering and probes read
   that same value, so validation cannot accidentally describe a parallel visual
   builder that production never submits.
 
@@ -26,7 +26,7 @@ Glossary:
 
 Invariants:
   - Buffer spans borrow RunEditorTracer storage for the current render frame only.
-  - ReplayRuntime owns packet publication and semantic metadata; the tracer owns
+  - ReplayPresentation owns packet publication and semantic metadata; the tracer owns
     storage capacity but cannot invent replay identity or reveal state.
   - Production rendering and validation consume the same published packet.
   - Float equality is bit-exact; no epsilon or order normalization is permitted.
@@ -60,6 +60,8 @@ inline constexpr uint64_t REPLAY_VISUAL_BUFFER_FNV_PRIME = 1099511628211ull;
 // begins at this capacity and is never renderer-visible after completion.
 inline constexpr uint16_t REPLAY_VISUAL_FUTURE_NODE_CAPACITY = 240u;
 
+namespace ReplayVisualPacketOperations
+{
 inline uint64_t HashReplayVisualFloatBuffer( std::span<const float> values ) noexcept
 {
     uint64_t hash = REPLAY_VISUAL_BUFFER_FNV_OFFSET;
@@ -80,9 +82,10 @@ inline uint64_t HashReplayVisualFloatBuffer( std::span<const float> values ) noe
     }
     return hash;
 }
+} // namespace ReplayVisualPacketOperations
 
-// These records live here because both ReplayRuntime's mutable presentation
-// caches and the immutable render packet use the same typed vocabulary. Moving
+// These records live here because both ReplayPresentation's mutable caches and
+// the immutable render packet use the same typed vocabulary. Moving
 // them into a packet-specific copy would let validation drift from production.
 struct RunReplayPathTraceNode
 {
@@ -275,6 +278,8 @@ struct ReplayVisualArchiveSample
     uint32_t segmentCount = 0;
 };
 
+namespace ReplayVisualPacketOperations
+{
 inline bool FindReplayVisualBufferDifference( std::span<const float> expected,
                                               std::span<const float> actual,
                                               ReplayVisualPacketBuffer buffer,
@@ -978,5 +983,6 @@ inline bool FindReplayVisualPacketDifference( const ReplayVisualPacket& expected
                                              ReplayVisualPacketBuffer::ExpandedRibbonVertices,
                                              outDifference );
 }
+} // namespace ReplayVisualPacketOperations
 
 } // namespace SkullbonezCore::Runtime

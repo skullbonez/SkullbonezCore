@@ -1,8 +1,8 @@
 # Replay Monolith Decomposition — Owner Boundaries Inside The Replay Subsystem
 
 Date: 2026-07-13
-Status: Live — 3/9 tasks complete; M3-M7 reopened by mandatory M8 ownership review
-Branch: `nightrunner-13th-july`
+Status: Complete — 9/9 tasks; M3-M7 reclosed and M8 ownership closure passed
+Branch: `nightrunner-14th-july`
 Impact area: `SkullbonezSource/Runtime/Replay/*` (26,060 lines), the two
 external consumers `Runtime/Run.cpp` and `Runtime/RunUiTextPass.cpp`, project
 filters
@@ -35,13 +35,14 @@ The replay subsystem is externally contained but internally undifferentiated:
 
 What is NOT broken and must not be redesigned: the prediction single-writer /
 published-prefix protocol, the recorder ring/eviction design, the
-`ReplayRuntimeOwnerViews.h` never-stored borrow-view idiom, and the artifact
-V2 format. This plan moves them intact behind owners.
+the never-stored borrow-view idiom (then in `ReplayRuntimeOwnerViews.h`, renamed
+to `ReplayRestoreTransactions.h` at M8), and the artifact V2 format. This plan
+moves them intact behind owners.
 
 ## Goal
 
 `ReplayRuntime` becomes a thin composition root (the same closure `Run`
-received): it constructs five concrete owners, sequences per-frame order
+received): it constructs six concrete replay owners, sequences per-frame order
 (record → scrub-or-predict → present), and holds no business state. Each owner
 has its own header; tool TUs include only the slice they use; Run consumes a
 per-frame value snapshot instead of `ReplayRuntime&`.
@@ -102,8 +103,10 @@ known-good golden manifest.
   plus the shared value header per M1's map; move type definitions without
   editing their bodies; `ReplayRuntime.h` shrinks to the composition root
   declaration and owner includes. Update includes in every replay TU so each
-  tool includes only its slice; `ReplayRuntimeOwnerViews.h` keeps working
-  against the new headers. Mechanical only — no member moves yet, no renames.
+  tool includes only its slice; the then-named `ReplayRuntimeOwnerViews.h`
+  keeps working against the new headers (it becomes
+  `ReplayRestoreTransactions.h` at M8). Mechanical only — no member moves yet,
+  no renames.
   Acceptance: the current header has no concrete top-level owner type body;
   every split TU names only the owner slices it uses before the temporary root
   include; zero warnings. The final sub-300-line composition root is measured at
@@ -111,7 +114,7 @@ known-good golden manifest.
   `tools\validate_replay_visual_fidelity.bat`, then
   `tools\validate_full.bat` at the PR gate (`Runtime/*` mapping), plus
   `tools\validate_replay_scrub.bat`.
-- [ ] **M3 — Extract `ReplayPresentation` (biggest, safest).** Move overlay
+- [x] **M3 — Extract `ReplayPresentation` (biggest, safest).** Move overlay
   layout/renderer, path visualizer, ribbon/marker drawing, and the
   presentation-only operations into the owner: state
   that today lives in `ReplayRuntime` members (overlay/trajectory display
@@ -126,7 +129,7 @@ known-good golden manifest.
   `tools\validate_replay_scrub.bat`, and `tools\validate_full.bat` at the PR
   gate. The legacy final fingerprint is supporting evidence only; the mega
   probe is the frame-by-frame presentation proof.
-- [ ] **M4 — Extract `ReplayScrubber` and `ReplayTimeline`.** Timeline first
+- [x] **M4 — Extract `ReplayScrubber` and `ReplayTimeline`.** Timeline first
   (recorder + retention + memory policy are already nearly self-contained),
   then scrubber (cursor state machine + restore transactions +
   `RunReplayScrubberTools.cpp`). Restore paths keep cancelling prediction
@@ -138,7 +141,7 @@ known-good golden manifest.
   `tools\validate_replay_visual_fidelity.bat` first,
   `tools\validate_replay_scrub.bat`, and `tools\validate_full.bat` at the PR
   gate.
-- [ ] **M5 — Extract `ReplayAuthoring`.** Velocity edit, branch provenance,
+- [x] **M5 — Extract `ReplayAuthoring`.** Velocity edit, branch provenance,
   cause-tree tools move behind the owner; the velocity-edit "dirty
   prediction" side effect becomes an explicit request to `ReplayPrediction`
   (queued value command, consistent with the repo's one-frame command-packet
@@ -148,7 +151,7 @@ known-good golden manifest.
   `tools\validate_replay_scrub.bat`,
   `tools\validate_interaction_clicks.bat` if the click scripts cover velocity
   edit, `tools\validate_full.bat` at the PR gate.
-- [ ] **M6 — Extract `ReplayPrediction` (most invariant-laden, deliberately
+- [x] **M6 — Extract `ReplayPrediction` (most invariant-laden, deliberately
   last).** Move the private engine, scheduling, reserve, trajectory store,
   seeding (`SeedReplayPredictionEngine`), capture, and worker publication
   intact. The three documented invariants move as API shape, not comments
@@ -164,7 +167,7 @@ known-good golden manifest.
   `tools\validate_replay_scrub.bat`,
   `tools\validate_perf.bat` (prediction budget unchanged),
   `tools\validate_full.bat` at the PR gate.
-- [ ] **M7 — Close the Run seam and decouple probes.** Define a small
+- [x] **M7 — Close the Run seam and decouple probes.** Define a small
   `ReplayHudStatus` value struct (published once per frame by the composition
   root) carrying exactly what `Run.cpp` and `RunUiTextPass.cpp` read today;
   those two files stop taking `ReplayRuntime&`. `RunReplayProbes.cpp` and
@@ -179,7 +182,7 @@ known-good golden manifest.
   `tools\validate_replay_visual_fidelity.bat` first,
   `tools\validate_replay_scrub.bat`, and `tools\validate_full.bat` at the PR
   gate.
-- [ ] **M8 — Honest renames, comment audit, and mandatory closure review.**
+- [x] **M8 — Honest renames, comment audit, and mandatory closure review.**
   Rename `RunReplay*.cpp` to owner-named files (`ReplayPresentation.cpp`,
   `ReplayScrubberTools` content merged into its owner TU, etc.); update
   `.vcxproj`/`.filters` (`tools\validate_project_filters` clean); free
@@ -201,9 +204,9 @@ known-good golden manifest.
 - **Binding prerequisite:** `replay-visual-fidelity-mega-probe.md` complete
   (M0). Its golden-base, causal, and durable packet comparisons are binding
   divergence detectors for every decomposition task, not only M6.
-- **Branch binding:** both plans execute on `nightrunner-13th-july`. Moving the
-  work requires an explicit owner decision and a fresh passing mega-probe
-  provenance check on the destination.
+- **Branch binding:** the 2026-07-14 owner request moved the remaining work to
+  `nightrunner-14th-july`. The fresh destination-branch mega-probe provenance
+  check passed before any source edit; its evidence is recorded below.
 - `adversarial-review-round-3` is complete and is no longer a sequencing
   dependency.
 - Decision recorded: extraction order is presentation → timeline/scrubber →
@@ -744,6 +747,690 @@ Sixteenth ownership-remediation checkpoint after that review:
   waive the remaining `RuntimeFrameInteractionView`, renderer/input, workspace
   packet, or validation-context findings.
 
+Seventeenth ownership-remediation checkpoint after that review:
+
+- The Debug save-probe fixture no longer receives `ReplayRuntime&` or a callback.
+  It mutates only its temporary scene and emits a fixed value packet containing
+  the five possible replay event commands plus the interactive-scene fact.
+  `ReplayRuntime::TickProbes` applies those commands in original event order at
+  the composition boundary, preserving recorder sequence and artifact bytes.
+- A focused Debug build passed in 29.3 seconds with zero warnings. Formatting
+  passed after a targeted formatter run, and the touched-source comment audit
+  inspected 1/1 file with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 483.2 seconds with 2,401 exact
+  ticks, 200 moved bricks, 187 strict grounded sleepers, 199 causal nodes, one
+  generation, one presentation, durable reconstruction, zero reserve growth,
+  and every false-pass control. The scrub alias propagated delegated exit 37
+  without launching an engine. The 114.2-second full gate passed all CPU,
+  Profile, Debug, DX12, and physics lanes with zero warnings, zero DX12 errors,
+  matching screenshots, and the 44,401-line byte-exact varied baseline. No
+  baseline changed.
+- M3-M7 remain open for startup-probe/root member execution, external input and
+  stress/scene/tool root dependencies, the broad workspace packet, remaining
+  root forwarding, and the repeated independent ownership review.
+
+Second mandatory ownership review `replay-monolith-decomposition-duck-02`
+confirmed the current closure boundary after checkpoints 1-17:
+
+- Resolved findings: the prediction worker has no stored root reach-back;
+  prediction scheduling/capture and drawing are physically separated and use
+  const publication values; public mutable owner/state escape hatches are gone;
+  `RuntimeFrameInteractionView` carries no replay root; and
+  `ReplayWorkspaceFrameInput` is value-only rather than an authority bag.
+- Remaining blockers: the 611-line root still exposes timeline, scrubber,
+  authoring, prediction, presentation, event, probe, and diagnostics business
+  operations to 22 non-replay files; cause-tree, velocity, and scrubber input
+  remain root methods; verification and probe execution retain root business
+  authority; owner implementations and drawing dependencies are not yet fully
+  honest by TU; and `CollectMemoryStats` traverses every owner's storage layout.
+- The review also found that checkpoint 17's output packet was sound but its
+  mutable `ReplaySaveProbeEventCoverageContext` was a replacement broad bag.
+  That finding was addressed immediately in checkpoint 18 below. M3-M7 and M8
+  remain blocked by the other listed findings; behavioral gates cannot waive
+  them.
+- Rubber-duck accounting: plan
+  `Agentic/Plans/TODO/replay-monolith-decomposition.md`, run
+  `replay-monolith-decomposition-duck-02`, reviewer
+  `/root/replay_ownership_duck_02`, follow-up-after-remediation reason, 1,117
+  prompt characters, approximately 10,200 response characters as reported by
+  the reviewer, token counts unavailable, approximately five minutes elapsed,
+  verdict blocked with follow-up required.
+
+Eighteenth ownership-remediation checkpoint after the first review:
+
+- Deleted `ReplaySaveProbeEventCoverageContext`. The Debug fixture now invokes
+  three narrow synchronous actions for world override, editor placement/
+  transform, and launcher coverage. Each action receives only its explicit
+  owner operands for that call; none stores a root, callback, or multi-domain
+  context. The existing fixed value-only replay event output remains intact and
+  `TickProbes` still records its commands in the original event order.
+- A focused Profile build passed in 20.2 seconds with zero warnings and zero
+  errors. Formatting passed, and the touched-source comment audit inspected
+  1/1 file with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 482.1 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 119.5-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M3-M7 remain open for the other second-review findings. This checkpoint
+  corrects the context-bag regression and does not claim task progress.
+
+Nineteenth ownership-remediation checkpoint after the first review:
+
+- Replaced four shutdown-time root relays with one value-only
+  `ReplayShutdownReport`. `ReplayRuntime::FinishShutdown` now performs the
+  legitimate terminal composition step—flush timeline hash logs, then publish
+  presentation and solver recorder facts—while `Run` prints that immutable
+  report without reopening timeline storage. Unused root relays for memory
+  policy, timeline reset, capture enabled state, and event stats were deleted;
+  internal composition now calls the concrete timeline owner directly.
+- Velocity-gizmo target resolution and drawing moved from
+  `ReplayRuntime::RenderVelocityEditOverlay` to
+  `ReplayAuthoring::AppendVelocityEditOverlay`. Presentation supplies only the
+  selected replay identity/model-row values; the authoring owner reads its own
+  edit state and appends the gizmo. The obsolete root body-resolution wrapper
+  was deleted. `ReplayRuntime.h` fell from 611 to 599 lines.
+- A focused Profile build passed in 20.3 seconds with zero warnings and zero
+  errors. Formatting passed, and the touched-source comment audit inspected
+  6/6 files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 478.6 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 118.6-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M3-M7 remain open for the larger cause-tree/velocity/scrubber input root
+  algorithms, timeline event encoding, probe execution, owner-TU honesty,
+  root-wide diagnostics traversal, and remaining external root parameters.
+  This checkpoint removes verified relays but does not claim task progress.
+
+Twentieth ownership-remediation checkpoint after the first review:
+
+- Launcher visual capture reserve, population, backup, and restore methods now
+  live in `ReplayPresentation.cpp`, beside their concrete presentation owner,
+  rather than in the composition-root TU. The owner implementation accepts the
+  same synchronous `RuntimeTools` borrow; no header dependency or behavior
+  changed.
+- `RuntimeTuning` no longer names, includes, or receives `ReplayRuntime`.
+  World mutation publishes a plain `WorldOverrideChange` containing the exact
+  previous/new gravity and fluid values. Input, scene reset, and stress callers
+  record those values at the original call boundary, preserving replay event
+  order while removing replay authority from the world-tuning owner.
+- A focused Profile build passed in 15.2 seconds with zero warnings and zero
+  errors. Formatting passed, and the touched-source comment audit inspected
+  7/7 files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 477.7 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 110.9-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M3-M7 remain open for the remaining owner methods in `ReplayRuntime.cpp`,
+  root-owned input/probe/event/diagnostics algorithms, and external root seams.
+  This checkpoint removes one owner-TU leak and one external dependency without
+  claiming task progress.
+
+Twenty-first ownership-remediation checkpoint after the first review:
+
+- Moved prediction enablement, authoring-request, verification, archive,
+  reveal-clock, horizon, and velocity-mutation capabilities from
+  `ReplayRuntime.cpp` into `ReplayPrediction.cpp`. The prediction owner now
+  implements these operations beside its private state and locally includes
+  the archive contract it consumes; no API or behavior changed.
+- Seven prediction methods that still depend on composition-root-local worker
+  and trajectory helpers remain in `ReplayRuntime.cpp`; they are explicit
+  follow-up scope rather than being hidden by this physical split.
+- A focused Profile build passed in 13.4 seconds with zero warnings and zero
+  errors. Formatting passed, and the touched-source comment audit inspected
+  2/2 files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 477.6 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 106.4-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M3-M7 remain open for the seven root-dependent prediction methods and the
+  other root-owned input, probe, event, diagnostics, and external API findings.
+  Active/future portfolio progress therefore remains 3/16, or 19%; completed
+  past plans and externally blocked work are excluded from that percentage.
+
+Twenty-second ownership-remediation checkpoint after the first review:
+
+- Completed the physical prediction-owner extraction: worker-idle lifetime,
+  cache cancellation/promotion, retained past-trajectory maintenance, and
+  prediction-state construction/destruction now live in
+  `ReplayPrediction.cpp`. `ReplayRuntime.cpp` contains no
+  `ReplayPrediction::*` or `RunReplayPredictionState::*` implementation.
+- Deleted the redundant root-specific committed-trajectory implementation and
+  reused the prediction owner's existing generic trajectory record path.
+  `ReplayRuntime.cpp` fell to 3,570 lines, with a net 82-line reduction across
+  the five touched source files.
+- Added immutable `ReplayPastTrajectoryView` publication. Presentation exposes
+  only target identity, repairable row hint, and retained cursor metadata;
+  prediction no longer needs the presentation-state definition to maintain its
+  trajectory store. This closes the physical owner-TU finding without creating
+  a cross-owner mutable borrow.
+- Formatting passed. A focused Profile build passed in 19.5 seconds with zero
+  warnings and zero errors, and the touched-source comment audit inspected 5/5
+  files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 472.1 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 112.9-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M3-M7 remain open for root-owned input, probe, event, diagnostics, and the
+  broad external API surface. Active/future portfolio progress therefore
+  remains 3/16, or 19%; completed past plans and externally blocked work are
+  excluded from that percentage.
+
+Twenty-third ownership-remediation checkpoint after the first review:
+
+- Replaced root-wide replay memory traversal with typed owner snapshots.
+  `ReplayTimeline` now reports retained/loaded categories, sample counts, and
+  resolved policy; `ReplayPrediction` reports its private engine/world/frame,
+  future-tree, and trajectory-store facts; `ReplayPresentation` reports path
+  and render capacities; `ReplayAuthoring` reports cause-row capacity/count.
+- `ReplayRuntime::CollectMemoryStats` now only merges fixed category arrays,
+  computes category ranges, and attaches allocator registration facts. It no
+  longer walks loaded sample bodies, prediction frames/world/tree/storage,
+  presentation path vectors, or authoring rows. `ReplayRuntime.cpp` fell from
+  3,570 to 3,438 lines, closing the second review's root-wide diagnostics
+  traversal finding.
+- Formatting passed. A focused Profile build passed in 20.9 seconds with zero
+  warnings and zero errors, and the touched-source comment audit inspected 8/8
+  files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 470.7 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 115.3-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M3-M7 remain open for root-owned input, probe, event, and broad external API
+  findings. Active/future portfolio progress therefore remains 3/16, or 19%;
+  completed past plans and externally blocked work are excluded from that
+  percentage.
+
+Twenty-fourth ownership-remediation checkpoint after the first review:
+
+- Moved world, launcher, editor-placement, editor-transform, and generated-scene
+  event hashing/packing/text construction from `ReplayRuntime.cpp` into the
+  recorder domain. `ReplayEventCommand` owns its text inline and carries only
+  serialized values plus an explicit current-frame request.
+- Replaced five specialized public event methods, generic `RecordEvent`, and
+  public `NextEventFrameIndex` with one `SubmitEvent` value boundary. The root
+  now only attaches current branch/frame provenance and hands the immutable
+  command to `ReplayTimeline`; 13 callers across input, scene, editor, tools,
+  stress, and validation use the same command seam.
+- `ReplayRuntime.cpp` fell from 3,438 to 3,108 lines and
+  `ReplayRuntime.h` fell to 563 lines. Exact event encoding remains in one
+  replay-owned implementation rather than being duplicated at callers.
+- Formatting passed. A focused Profile build passed in 21.8 seconds with zero
+  warnings and zero errors, and the touched-source comment audit inspected
+  12/12 files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 471.0 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control, including event mutation. The
+  scrub alias propagated delegated exit 37 without launching an engine. The
+  115.7-second full gate passed all CPU, Profile, Debug, DX12, and physics lanes
+  with zero warnings, zero DX12 errors, matching screenshots, and the
+  44,401-line byte-exact varied baseline. No baseline changed.
+- M3-M7 remain open for root-owned input, probe, and the remaining broad
+  external API surface. Active/future portfolio progress therefore remains
+  3/16, or 19%; completed past plans and externally blocked work are excluded
+  from that percentage.
+
+Twenty-fifth ownership-remediation checkpoint after the first review:
+
+- Moved the remaining five `ReplayPresentation` implementations out of
+  `ReplayRuntime.cpp`: replay, solver, and prediction render-pose overrides,
+  prediction ghost request construction, and typed visual-packet publication
+  now live beside presentation-owned state in `ReplayPresentation.cpp`.
+- Moved the render-pose identity resolution, unmatched-body lookup, and
+  transient override helpers with those methods. The helpers have no
+  non-presentation callers, and the root no longer defines or reaches through
+  any `ReplayPresentation::*` implementation. `ReplayRuntime.cpp` fell from
+  3,108 to 2,440 lines without changing a public replay value or file format.
+- Formatting passed. A focused Profile build passed in 13.5 seconds with zero
+  warnings and zero errors, and the touched-source comment audit inspected 2/2
+  files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 470.1 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 111.2-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M3-M7 remain open for root-owned input, probe, and the remaining broad
+  external API surface. Active/future portfolio progress therefore remains
+  3/16, or 19%; this percentage covers active and future plans only and excludes
+  completed past plans and externally blocked work.
+
+Twenty-sixth ownership-remediation checkpoint and M3 closure:
+
+- Added `ReplayPredictionView.h` as the value-only publication boundary for
+  prediction frames, body samples, baseline poses, presentation spans, and the
+  immutable past-trajectory cursor. It contains no owner, service, callback,
+  or mutable authority.
+- `ReplayPresentation.cpp` now includes that published value header instead of
+  private `ReplayPrediction.h`. Together with checkpoint 25's physical method
+  move, presentation state and operations live entirely behind
+  `ReplayPresentation`, while the root only sequences its concrete owner.
+- The header is registered in the VS project/filter and the project-filter
+  policy. Formatting and the touched-source comment audit passed for 4/4 files
+  with zero deferred or unchecked. The focused Profile build passed with zero
+  warnings/errors (31.7-second MSBuild); `validate_fast` passed in 77.7 seconds
+  with 196/196 tests and 4,152/4,152 assertions; the changed project-filter
+  checker passed 680/680 project items with zero errors.
+- The unchanged one-process oracle passed in 474.3 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 146.8-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M3 acceptance is complete: no parallel presentation state remains in the
+  composition root, the presentation TU consumes published prediction values
+  only, and the submitted-geometry/determinism oracle is unchanged. M4-M7 and
+  the final M8 review remain open. Active/future portfolio progress is now
+  4/16, or 25%; this percentage covers active and future plans only and excludes
+  completed past plans and externally blocked work.
+
+Twenty-seventh ownership-remediation checkpoint after M3 closure:
+
+- Moved scrubber pointer-edge tracking, surface availability, hit testing,
+  reveal/visibility retention, and semantic action selection from
+  `ReplayRuntime::TickScrubberInput` into
+  `ReplayScrubber::ResolvePointerAction`.
+- Added cohesive value-only `ReplayScrubberPointerFrame` and
+  `ReplayScrubberPointerDecision` boundaries. They carry scrubber/UI facts and
+  a typed semantic result only—no owner references, services, callbacks, host
+  pointer, or stored cross-domain authority. Prediction, restore, camera, and
+  cold file actions remain explicit one-call composition steps.
+- Moved `ReplayScrubberAction` out of presentation layout vocabulary and into
+  the scrubber owner. The shared layout still encodes the same action ids, so
+  drawing and hit testing retain one geometry/action table.
+- Formatting passed. A focused Profile build passed in 31.1 seconds with zero
+  warnings and zero errors, and the touched-source comment audit inspected 3/3
+  files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 470.2 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 209.4-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M4 remains open because semantic action dispatch and restore/camera reactions
+  still compose through the root. M5-M7 and the final M8 review also remain
+  open. Active/future portfolio progress therefore remains 4/16, or 25%; this
+  percentage covers active and future plans only and excludes completed past
+  plans and externally blocked work.
+
+Twenty-eighth ownership-remediation checkpoint after M3 closure:
+
+- Deleted the root's behavior-free track-position, pin-to-present,
+  all-track-position, scrubber-reset, input-edge, and unavailable-surface
+  forwarding APIs. Internal composition now issues the same owner commands
+  directly; no external caller can mutate cursor state through those seams.
+- Replaced Run's separate `ConfigureRecording` plus raw scrubber reset sequence
+  with value-only `ReplayRecordingActivationResult`. Replay startup receives
+  the resolved timeline configuration and a camera-exit reaction while cursor
+  reset remains private to replay composition.
+- Prediction publication now applies its pin-to-present result directly to
+  `ReplayScrubber`, and Debug branch verification uses the same owner command.
+  Ordering and cursor semantics are unchanged.
+- Formatting passed. A focused Profile build passed in 31.3 seconds with zero
+  warnings and zero errors, and the touched-source comment audit inspected 6/6
+  files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 471.7 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 169.0-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M4 remains open for semantic action dispatch and restore/camera reactions;
+  M5-M7 and the final M8 review also remain open. Active/future portfolio
+  progress therefore remains 4/16, or 25%; this percentage covers active and
+  future plans only and excludes completed past plans and externally blocked
+  work.
+
+Twenty-ninth ownership-remediation checkpoint after M3 closure:
+
+- Moved replay tool gesture ownership into `RuntimeInteractionController`.
+  Scrubber, cause-tree, and velocity handlers now publish a typed gesture value
+  through `BeginOwnedToolGesture` and end only the matching active gesture
+  through `EndGestureIfKind`; they no longer route either transition through
+  `ReplayRuntime`.
+- Deleted the root's behavior-free `BeginToolGesture` and `EndToolGesture`
+  APIs. The remaining replay cancellation path also commands the interaction
+  owner directly, so gesture kind, capture, and workspace ownership have one
+  authoritative controller boundary instead of a replay-root forwarding seam.
+- Formatting passed. The first focused Profile build correctly rejected two
+  obsolete scrubber handler parameters as zero-warning violations; after those
+  root parameters were removed, the final Profile build passed in 32.6 seconds
+  with zero warnings and zero errors. The touched-source comment audit
+  inspected 7/7 files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 470.4 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 203.0-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M4 remains open for semantic action dispatch and restore/camera reactions;
+  M5-M7 and the final M8 review also remain open. Active/future portfolio
+  progress therefore remains 4/16, or 25%; this percentage covers active and
+  future plans only and excludes completed past plans and externally blocked
+  work.
+
+Thirtieth ownership-remediation checkpoint after M3 closure:
+
+- Scrubber pause, prediction-toggle, prediction-horizon, velocity-toggle, and
+  active-drag handlers no longer receive or query `ReplayRuntime`. The input
+  composition samples solver-present, velocity-enabled, and camera-focus facts
+  once, then passes explicit owner references and scalar values to each typed
+  action.
+- Deleted the public root `SetLiveAdvanceHeld` and
+  `SetVelocityEditEnabled` APIs. Live-advance is now a direct scrubber command
+  with an explicit presentation pause-release reaction; authoring publishes its
+  queued prediction-refresh value directly to `ReplayPrediction`. Replay-only
+  drag cancellation cannot end a newer editor, manipulator, or camera gesture.
+- Cold save/load transactions remain composition-root operations because they
+  still coordinate artifact, camera, and restore owners; they are the next M4
+  seam rather than being hidden behind a callback or broad context bag.
+- Formatting passed. The focused Profile build passed in 32.2 seconds with
+  zero warnings and zero errors, and the touched-source comment audit inspected
+  6/6 files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 472.1 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 170.6-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M4 remains open for cold save/load and camera/restore reactions; M5-M7 and
+  the final M8 review also remain open. Active/future portfolio progress
+  therefore remains 4/16, or 25%; this percentage covers active and future
+  plans only and excludes completed past plans and externally blocked work.
+
+Thirty-first ownership-remediation checkpoint after M3 closure:
+
+- `ReplayTimeline` now owns cold presentation-artifact decoding, validation,
+  and atomic installation. A failed load preserves the previously published
+  track; temporary sample storage and decoded metadata no longer cross into
+  `ReplayRuntime`, and the timeline's raw install operation is private.
+- The native file picker and load-result feedback remain cold scrubber UI
+  helpers, but neither receives `ReplayRuntime`. Save dispatch is composed
+  directly inside the root member, while save/load artifact methods are now
+  private implementation details rather than public business APIs.
+- `ReplayRuntime` still sequences the explicit camera, interaction, and
+  scrubber reactions after a successful timeline load. That cross-owner
+  activation transaction is visible and remains the next M4 seam; it was not
+  hidden in a callback, stored host reference, or broad context bag.
+- Formatting passed in 11.3 seconds. The focused Profile build passed in 32.6
+  seconds with zero warnings and zero errors, and the touched-source comment
+  audit inspected 5/5 files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 469.9 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, durable reconstruction, zero
+  reserve growth, and every false-pass control. The scrub alias propagated
+  delegated exit 37 without launching an engine. The 172.0-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M4 remains open for camera/restore activation reactions; M5-M7 and the final
+  M8 review also remain open. Active/future portfolio progress therefore
+  remains 4/16, or 25%; this percentage covers active and future plans only and
+  excludes completed past plans and externally blocked work.
+
+Thirty-second ownership-remediation checkpoint and M4 closure:
+
+- Deleted the combined root artifact-load operation. Each of its three member
+  call sites now asks `ReplayTimeline` to decode and atomically install the
+  artifact, then separately sequences loaded-track scrubber activation only
+  after that owner operation succeeds.
+- Cold scrubber save and loaded-track activation now live in
+  `ReplayScrubberTools.cpp`. Activation performs no file I/O: the timeline has
+  already committed the decoded track, and the operation only coordinates the
+  explicit scrubber, interaction, and camera reaction.
+- Internal scrub/camera helpers are private, two dead inspection queries were
+  deleted, and `TickScrubberInput` no longer creates a `ReplayRuntime` self
+  alias. `ReplayRuntime` stores no cursor or retention state; those authorities
+  remain in the concrete `ReplayScrubber` and `ReplayTimeline` owners.
+- Formatting passed in 11.4 seconds. The focused Profile build passed in 32.6
+  seconds with zero warnings and zero errors, and the touched-source comment
+  audit inspected 4/4 files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 473.0 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, 62 saved/loaded ticks, durable
+  reconstruction, zero reserve growth, and every false-pass control. The scrub
+  alias propagated delegated exit 37 in 0.1 seconds without launching an
+  engine; the direct oracle was invoked only once. The 173.1-second full gate
+  passed all CPU, Profile, Debug, DX12, and physics lanes with zero warnings,
+  zero DX12 errors, matching screenshots, and the 44,401-line byte-exact varied
+  baseline. No baseline changed.
+- M4 is reclosed. M5-M7 and the final M8 review remain open. Active/future
+  portfolio progress is now 5/16, or 31% rounded; this percentage covers active
+  and future plans only and excludes completed past plans and externally
+  blocked work.
+
+Thirty-third ownership-remediation checkpoint after M4 closure:
+
+- Deleted the `ReplayRuntime& = *this` aliases from both authoring input
+  translation units. Velocity and cause-tree input now read the concrete
+  `ReplayAuthoring`, `ReplayScrubber`, and `ReplayPresentation` owners directly
+  instead of routing those reads back through the root.
+- Removed five root-only authoring relays: the cause-tree and velocity-state
+  accessors, path-target and camera-focus predicates, and combined cause-focus
+  cleanup. The two authoring operations still remain root members, so this
+  checkpoint does not reclose M5.
+- Formatting passed, the focused Profile build passed with zero warnings and
+  zero errors, and the touched-source comment audit inspected 5/5 files with
+  zero deferred or unchecked.
+- The unchanged one-process oracle passed in 474.6 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, 62 saved/loaded ticks, durable
+  reconstruction, zero reserve growth, and every false-pass control. The scrub
+  alias propagated delegated exit 37 in 0.1 seconds without launching an
+  engine. The 199.5-second full gate passed all CPU, Profile, Debug, DX12, and
+  physics lanes with zero warnings, zero DX12 errors, matching screenshots,
+  and the 44,401-line byte-exact varied baseline. No baseline changed.
+- M5-M7 and the final M8 review remain open. Active/future portfolio progress
+  remains 5/16, or 31% rounded; this percentage covers active and future plans
+  only and excludes completed past plans and externally blocked work.
+
+Thirty-fourth ownership-remediation checkpoint and M5 closure:
+
+- `ReplayAuthoring::BuildCauseTreeRows` now owns bounded cause-row construction
+  and the scene-object focus lookup from explicit read-only prediction, solver,
+  camera, body-store, and collider-store views. It returns the focused camera
+  row as a value for root publication; authoring no longer mutates presentation.
+  The former root builder, focus resolver, and radius helpers are deleted.
+- Cause-tree and velocity-edit input algorithms are concrete
+  `ReplayAuthoring` operations. They borrow the scrubber, presentation, host
+  input, and scene owners synchronously and queue typed prediction requests for
+  baseline preparation, enablement, cache clearing, and refresh. Root applies
+  baseline preparation before edit/enable publication, preserving the old
+  mutation order without an owner-to-root reach-back.
+- Keyboard velocity-edit policy is authoring-owned. The remaining public root
+  keyboard shell only bridges an external M7 consumer and immediately consumes
+  the queued prediction request. Path picking is presentation-owned, branch
+  provenance remains authoring-owned, and the dead root branch accessor is
+  deleted.
+- Replay camera transitions are stateless presentation helpers with explicit
+  synchronous host borrows. Internal replay tools call them directly; the two
+  root camera shells remain only for external input consumers tracked by M7.
+  `ReplayRuntime` stores no parallel cause-tree, velocity-edit, or branch state.
+- Formatting passed in 11.4 seconds and the focused Profile build passed in
+  13.3 seconds with zero warnings and zero errors. The touched-source comment
+  audit inspected 9/9 files with zero deferred or unchecked.
+- The unchanged one-process oracle passed in 471.5 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, 62 saved/loaded ticks, durable
+  reconstruction, zero reserve growth, and every false-pass control. The scrub
+  alias propagated delegated exit 37 in 0.1 seconds without launching an
+  engine. The 170.8-second full gate passed all CPU, Profile, Debug, DX12, and
+  physics lanes with zero warnings, zero DX12 errors, matching screenshots,
+  and the 44,401-line byte-exact varied baseline. No baseline changed.
+- The conditional interaction-click gate was not run because the existing
+  click scripts do not cover velocity editing. M5 is reclosed; M6-M7 and the
+  final M8 review remain open. Active/future portfolio progress is now 6/16,
+  or 38% rounded; this percentage covers active and future plans only and
+  excludes completed past plans and externally blocked work.
+
+Thirty-fifth ownership-remediation checkpoint and M6 closure:
+
+- Reaudited the extracted prediction boundary against M6 acceptance after the
+  M5 changes. `ReplayRuntime` retains exactly one concrete `ReplayPrediction`
+  and no parallel prediction state. The private engine, worker task, simulation
+  and build banks, future-node cache, trajectories, baseline snapshot, reveal
+  clock, archive verification, and memory accounting remain owner-held.
+- Every `ReplayPrediction::*` implementation remains in
+  `ReplayPrediction.cpp`; none is implemented in `ReplayRuntime.cpp`.
+  Presentation and validation consume immutable span/value publication, while
+  root prediction methods only sequence explicit results across the concrete
+  prediction, presentation, timeline, and scrubber owners.
+- The allocation-policy audit found that M5 had deleted the last direct
+  `.reserve(` and `.resize(` calls in `ReplayRuntime.cpp` but left their broad
+  allowlist row behind. Deleted that obsolete exception. The checker self-test
+  and 335-file repository scan then passed in 8.9 seconds with zero allowlist
+  errors; the prediction reserve, private engine/task, bounded buffers, and
+  trajectory rows continue to name `ReplayPrediction` owners.
+- The allowlist-mapped `validate_fast` gate passed in 54.4 seconds with 680/680
+  project/filter entries, 196/196 tests and 4,152/4,152 assertions, and
+  zero-warning Profile/Debug builds. No source-bearing file changed in this
+  checkpoint, so the touched-source comment audit was not applicable.
+- The unchanged one-process oracle passed in 475.1 seconds with 2,401 exact
+  ticks, all 200 bricks moved, 187 strict grounded sleepers, 199 causal nodes,
+  one prediction generation, one presentation, 62 saved/loaded ticks, durable
+  reconstruction, zero reserve growth, and every false-pass control. The scrub
+  alias propagated delegated exit 37 in 0.1 seconds without launching an
+  engine. No baseline changed.
+- The 63.6-second performance gate passed the one-build/incremental-publication
+  prediction path and all absolute budgets; DX12 averaged 0.7039 ms/frame and
+  physics averaged 0.3808 ms/frame. The 104.0-second full gate passed all CPU,
+  Profile, Debug, DX12, and physics lanes with zero warnings, zero DX12 errors,
+  matching screenshots, and the 44,401-line byte-exact varied baseline.
+- M6 is reclosed. M7 and the final M8 review remain open. Active/future
+  portfolio progress is now 7/16, or 44% rounded; this percentage covers active
+  and future plans only and excludes completed past plans and externally
+  blocked work.
+
+## M7 Reclosure Checkpoint — 2026-07-15
+
+- `ReplayProbeRunner` now owns loaded/checkpoint/target/branch/failure probe
+  decisions and bounded diagnostic state. The root executes typed prepare/
+  advance requests through production restore primitives; it no longer embeds
+  the failure probe's expected-failure program or exposes probe-only root
+  verifiers.
+- Ordinary startup, deep load verification, and branch-file verification share
+  `ReplayPresentationOperations::ActivateLoadedPresentation`. The operation
+  borrows concrete owners synchronously, performs no file I/O, and removes the
+  Debug-only copy of camera, scrubber, authoring, and prediction activation.
+- `ReplayEventCommand.h` is a value-only, fixed-capacity seam. Timeline owns
+  next-frame selection and event-record construction; launcher/editor tools
+  return commands or bounded batches for application composition to submit.
+  RuntimeTools and editor tool implementation no longer see `ReplayRuntime`.
+- Editor interaction claims now return one typed transition for immediate
+  composition cleanup. `RuntimeInteractionController` owns world-owner to
+  workspace classification, removing the duplicated mapping and the replay
+  root from editor pointer routing.
+- Fourteen pure private root forwarding accessors and one unused trajectory
+  relay were deleted. `ReplayRuntime` retains exactly the six concrete replay
+  owners, stores no host pointer/callback/context bag, and its class declaration
+  is 299 lines, satisfying the binding sub-300 target.
+- The rubber-duck critique found and fixed three blockers: duplicated loaded
+  activation, event values coupled to the recorder storage header, and the
+  root-owned failure-probe transaction program. Its final M7 pass found no
+  blocking owner reach-back or mutable authority escape. Remaining synchronous
+  input, scene-lifecycle, and stress-harness composition borrows are explicit
+  evidence for M8's mandatory logical-type review, not a claim that the stale
+  historical two-file grep passes.
+- The touched-source comment audit inspected 25/25 C++ source/header files with
+  zero deferred and zero unchecked. Project/filter validation passed with
+  681/681 production entries; the new prefix was added to the validator's owned
+  replay rule map.
+- From final M7 source, the unchanged visual-fidelity oracle passed in 493.6
+  seconds with 2,401 ticks, all 200 bricks moved, 187 toppled/grounded sleepers,
+  199 causal nodes, one prediction/presentation, 62 saved/loaded ticks, zero
+  reserve-growth divergence, and every false-pass control. `validate_fast`
+  passed in 67.0 seconds with 196/196 tests and 4,152/4,152 assertions. The
+  explicit project/filter script passed in 1.4 seconds; the scrub alias
+  propagated delegated exit 37 in 0.1 seconds without launching an engine.
+  `validate_full` passed in 113.4 seconds with all mandatory CPU lanes, zero
+  warnings, zero DX12 errors, matching screenshots, standalone physics, and the
+  44,401-line byte-exact varied baseline. No baseline changed.
+- M7 is reclosed. M8 remains mandatory and may reopen any owner task on a
+  credible finding. Active/future portfolio progress is now 8/16, or 50%; this
+  percentage covers active and future decomposition plus spline work only and
+  excludes completed past plans and externally blocked work.
+
+## M8 Closure Checkpoint — 2026-07-15
+
+- The final tracked inventory contains no `RunReplay*.cpp` or `RunReplay*.h`
+  files. Cause-tree construction now lives in `ReplayAuthoringCauseTree.cpp`,
+  keyboard velocity policy lives in `ReplayAuthoringVelocity.cpp`, and public
+  replay helpers are owned by explicit `Replay*Operations` namespaces or remain
+  file-local. Project and filter metadata name the surviving owner files.
+- The vague `ReplayRuntimeOwnerViews.h` migration name was retired in favor of
+  `ReplayRestoreTransactions.h`. Its startup, sample-restore, and topology
+  values are operation-specific synchronous borrow packets assembled at three
+  application composition sites; none is stored and none can reach back into
+  `Run` or `ReplayRuntime`.
+- The mandatory logical-type review inspected all 64 `ReplayRuntime` methods
+  across `ReplayRuntime.cpp`, `ReplayScrubberTools.cpp`, and
+  `ReplayValidation.cpp` as one surface. The root retains exactly six cohesive
+  replay owners and no host pointer/reference, callback pack, friend escape,
+  `void*` authority, broad mutable context, or owner back-reference. Thin
+  methods either compose multiple owners or publish bounded commands/views;
+  no unrelated responsibility or next-god-object finding remained.
+- The dedicated read-only rubber-duck pass
+  `replay-monolith-decomposition-duck-03-local` found and drove three final
+  corrections before its clean rerun: the transaction-header rename, removal
+  of stale `ReplayRuntime` ownership claims, and owner namespaces for externally
+  visible replay helpers. The review was run locally because this execution did
+  not have authority to delegate to a subagent.
+- The M8 touched-source comment checklist is the reconciled diff inventory:
+  42/42 source-bearing files inspected against the comment-style guide, with
+  zero deferred and zero unchecked. Dense moved code retains nearby concept,
+  invariant, lifetime, and hazard teaching where required.
+- From the settled formatted source, the unchanged replay visual-fidelity oracle
+  passed in approximately 8m28s: 15/15 CPU controls (67 assertions), one engine
+  and one prediction generation, 2,401 exact ticks, all 200 bricks moved, 187
+  toppled/grounded sleepers, 199 causal nodes, one presented cascade, 62
+  saved/loaded ticks, and every injected false-pass control detected.
+  `validate_fast` passed with 196/196 tests and 4,152/4,152 assertions;
+  `validate_project_filters` passed 681/681 entries; `validate_full` passed in
+  1m39s with all CPU lanes, zero warnings, zero DX12 errors, matching screenshots,
+  standalone physics, and the 44,401-line byte-exact varied baseline. The scrub
+  failure-propagation probe returned the required exit 37 without launching an
+  engine. No approved baseline changed.
+- Replay decomposition is complete at 9/9. Active/future portfolio progress is
+  now 9/16, or 56% rounded. This percentage covers only the active/future replay
+  decomposition and spline plans; completed past plans and externally blocked
+  work are excluded from both numerator and denominator.
+
 ## M1 Binding Type Inventory
 
 | Done | Type | Current line | Binding owner | Reason |
@@ -1065,6 +1752,22 @@ intentional exception.
   `--prove-failure-propagation` previously returned synthetic exit code 37.
   Running the normal alias here is forbidden because it would present the
   prediction a second time.
+
+### Destination-Branch Provenance — 2026-07-14
+
+- Owner decision: continue the decomposition and future spline queue on
+  `nightrunner-14th-july`, branched from merged `main` commit `d6fd497c`.
+- Before source edits, `tools\validate_replay_visual_fidelity.bat` passed in
+  496.3 seconds on the destination branch. Launcher shape remained exactly one
+  engine process, one prediction generation, and one presented cascade.
+- The unchanged manifest compared 2,401 exact ticks with all 200 wall bricks
+  moved, 187 strict grounded sleepers, 199 causal nodes, 62 durable saved/load
+  ticks, reveal range 0–2,400, and zero reserve growth. All typed-packet,
+  artifact, causal, determinism, incomplete-horizon, and duplicate-generation
+  false-pass controls rejected their intended mutations.
+- Evidence log:
+  `TestOutput/validation_logs/nightrunner-14th-july-branch-provenance.log`
+  (91,158 bytes). The log is a local validation artifact and is not committed.
 
 ## Validation
 

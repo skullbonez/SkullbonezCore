@@ -1,7 +1,7 @@
 # Future Path Vector Splines — Clean Anti-Aliased Prediction Trajectories
 
 Date: 2026-07-14
-Status: Live — 0/7 tasks complete
+Status: Complete — 7/7 tasks complete
 Impact area: trajectory ribbon shader, replay presentation (RunReplayTools /
 RunEditorTracer), consequence-grade cinematic override, input bindings, replay
 overlay UI, DX12 renderer validation
@@ -169,10 +169,10 @@ helper those lambdas call with the record's context:
 
 Determinism note: `tools/check_replay_prediction_determinism.py` hashes the
 submitted ribbon vertex bytes run-to-run. The color mode is deterministic
-state with a fixed default (LaneFlat), so automation runs remain byte-stable;
-cycling only changes subsequent frames' payload identically in both
-determinism runs only if scripts never press comma — automation scripts do
-not, and the default is never randomized (the randomizer is deleted by T3).
+state with a fixed default (LaneFlat), so automation runs remain byte-stable.
+The authoritative replay oracle does not press comma; focused color-mode
+automation does press it in the same scripted order on every run. The default
+is never randomized (the randomizer is deleted by T3).
 
 ### D4: Input + UI reflection
 
@@ -198,12 +198,12 @@ shader-side emphasis effect.
 
 ## Tasks
 
-- [ ] **T1 — Near-black prediction sky.** Retune `ApplyConsequenceGrade` per
+- [x] **T1 — Near-black prediction sky.** Retune `ApplyConsequenceGrade` per
   D1: near-black zenith, subtle dark horizon, clouds/sun-glow/god-rays/shafts
   fully out at strength 1, smooth crossfade preserved. Acceptance: entering
   prediction fades to a black dome with faint horizon; no clouds, sun disc,
   or shaft glow visible; leaving prediction restores the authored sky.
-- [ ] **T2 — Vector spline pixel shader.** Rework `trajectory_ribbon.hlsl`
+- [x] **T2 — Vector spline pixel shader.** Rework `trajectory_ribbon.hlsl`
   per D2: direct pixel-width interpretation with thin clamp, single analytic
   AA edge with ~1 px feather (geometry overhang included), glow bands removed
   from the emphasis-0 path, emphasis channel drives the selected-object halo
@@ -211,7 +211,7 @@ shader-side emphasis effect.
   Acceptance: ordinary paths render ~2 px wide with smooth edges at any
   zoom/angle; no bloom contribution at emphasis 0; screenshot evidence
   before/after.
-- [ ] **T3 — Delete the temporary authoring machinery.** Remove
+- [x] **T3 — Delete the temporary authoring machinery.** Remove
   `CycleReplayPredictionAuthoringLook`, its `RuntimeInputAction`, the
   `VK_OEM_PERIOD` binding, the dispatch case, the `TEMP_PREDICTION_*`/
   `TEMP_REPLAY_LOOK` logging, the `seed`/`saturation`/`colorGain` fields, and
@@ -221,23 +221,40 @@ shader-side emphasis effect.
   marker/emphasis style). Acceptance: `git grep TEMP_PREDICTION` and
   `git grep AuthoringLook` return nothing; ribbon colors pass through
   unmodified from the color-resolve helper.
-- [ ] **T4 — Color-mode architecture.** Add `ReplayPathColorMode` with all
+- [x] **T4 — Color-mode architecture.** Add `ReplayPathColorMode` with all
   five modes per D3, resolved inside the existing `colorForFrame` lambdas and
   the all-body/torso-trail loops; default LaneFlat; draw-time speed
   derivation for VelocityHeat with a tunable `vMax`. Acceptance: each mode
   produces visibly distinct, correct coloring (verified against a scene with
   fast+slow bodies and a multi-level cause tree); zero steady-state
-  allocations added.
-- [ ] **T5 — Comma-key cycle + UI reflection.** New
+  allocations added. Closed 2026-07-15: the five value-only modes cover every
+  stored/live/baseline/retained path lane. A 1,485-frame DX12 interaction run
+  exercised a three-level cause tree with 13 trajectory records and 14,260
+  points: all modes were visually distinct, 1,578 submitted segments had zero
+  drops, the 136-frame unchanged window was stable, and replay reserve-growth
+  remained 222 -> 222 throughout the steady-state observation window.
+- [x] **T5 — Comma-key cycle + UI reflection.** New
   `CycleReplayPathColorMode` input action on `VK_OEM_COMMA`, overlay HUD
   label, and an option row in the replay overlay view per D4. Acceptance:
   comma cycles all five modes in order with the active name visible in the
-  overlay; UI option row shows and changes the same state.
-- [ ] **T6 — Selected-object glow.** Wire emphasis per D5: only the
+  overlay; UI option row shows and changes the same state. Closed 2026-07-15:
+  focused runtime-input coverage passed 4/4 tests and 915 assertions; DX12
+  automation cycled Lane flat -> Velocity heat -> Time gradient -> Per-object
+  hue -> Causal depth -> Lane flat, with both the scheduling HUD and dedicated
+  `COLOR [,]` row reflecting every transition.
+- [x] **T6 — Selected-object glow.** Wire emphasis per D5: only the
   prediction target's path carries emphasis > 0; halo + bloom feed visibly
   distinguish it; all other lanes stay flat vector lines. Acceptance:
-  screenshot with target glowing amid flat-colored other-body paths.
-- [ ] **T7 — Validation gate + baseline reconciliation.** This plan touches
+  screenshot with target glowing amid flat-colored other-body paths. Closed
+  2026-07-15: the tracer API remains zero-emphasis by default; only selected
+  FutureRoot and selected PastRoot store draws pass 0.75 emphasis. Generic
+  causal-entry markers were also returned to zero emphasis after the final
+  rubber-duck audit caught their temporary authoring value. A late
+  multi-level Lane-flat capture shows the cyan target root with a bounded halo
+  against thin flat sibling paths. Profile built in 20.09 s with zero warnings
+  or errors; the 1,485-frame replay run exited 0 in 10.37 s with stable
+  submission, zero drops, and steady-state reserve growth 222 -> 222.
+- [x] **T7 — Validation gate + baseline reconciliation.** This plan touches
   `Runtime/*`, `InputController*`, shaders, and DX12 bind code, so the gate is
   `tools\validate_full.bat`, then `tools\validate_dx12_renderer.bat`, then the
   mandatory `tools\run_graphics_stress.bat 1` (record command, measured
@@ -274,6 +291,101 @@ shader-side emphasis effect.
   (`Agentic/Reference/comment-style-guide.md`); the trajectory shader header
   and tracer glossary entries must be rewritten to describe the vector-spline
   contract, not the glow-band one.
+
+## Progress
+
+### T1 — Near-black prediction sky (complete 2026-07-15)
+
+- `ApplyConsequenceGrade` now interpolates the zenith to black and the horizon
+  to a faint blue-black target. Cloud, sun, sky-glow, shaft, and volumetric
+  energy fade to zero before the discrete cloud/god-ray switches turn off.
+- The consequence grade remains frame-local, so the one-second exit transition
+  restores the scene-authored sky without retaining override state.
+- Focused Profile build: `tools\validate_build.bat Profile` passed in 13.31 s
+  with zero warnings and zero errors.
+- Focused visual run: `replay_prediction_simple.scene.json` with a temporary
+  enter/exit automation script passed in 10.2 s (exit 0). The active screenshot
+  showed a black zenith, faint horizon, and no clouds/sun/shafts; the settled
+  exit screenshot restored the authored cloudy sky. Both prediction-enabled
+  assertions passed.
+- Comment audit: 1/1 touched source file checked, zero deferred, zero unchecked.
+  Formal full/renderer/stress gates remain owned by T7; no baseline was
+  refreshed.
+
+### T2 — Vector spline pixel shader (complete 2026-07-15)
+
+- `trajectory_ribbon.hlsl` now treats authored width as literal full-width
+  pixels, expands geometry for a one-pixel analytic feather, and computes
+  rectangular-body/round-cap coverage from screen-pixel distance.
+- The ordinary zero-emphasis branch emits flat display-range color with no
+  halo or bloom feed. Positive emphasis alone reserves a three-pixel soft halo
+  and raises selected color above display range. The 19-float vertex layout is
+  unchanged.
+- DX12 bind defaults now use the thin-line opacity/brightness/AA contract for
+  both visible and depth-hint variants. Shader bake passed in 2.56 s; the
+  focused Profile build passed in 13.75 s with zero warnings/errors.
+- Before/after focused screenshots show the old glow tube reduced to a stable
+  thin line; the post-T3 zero-emphasis capture visibly has no path halo.
+
+### T3 — Delete temporary authoring machinery (complete 2026-07-15)
+
+- Deleted the random authoring-look method and state, all `TEMP_PREDICTION_*` /
+  `TEMP_REPLAY_LOOK` logging, the period-key action/binding/dispatch, and the
+  final-boundary saturation/gain mutation.
+- Fixed immutable styles now use 1.5–2.5 px widths and full alpha. T3 left the
+  marker's temporary emphasis for T6 to resolve; T6 now sets all generic path,
+  causal, baseline, and marker styles to zero and passes emphasis only for the
+  selected root.
+- Acceptance greps for `TEMP_PREDICTION`, `AuthoringLook`, and the period-bound
+  replay action return no matches. Focused input-binding tests passed 4/4 with
+  872 assertions; Profile build passed in 21.17 s with zero warnings/errors.
+- Focused DX12 prediction automation passed in 3.91 s (exit 0) with all four
+  assertions and a flat thin-line screenshot. Formal T7 gates and any
+  owner-approved golden reconciliation remain pending; no baseline changed.
+
+### T7 — Final gates and baseline reconciliation (complete 2026-07-15)
+
+- The touched-source comment audit inspected 18/18 files: 17 hand-authored
+  files have complete learning headers and local contract comments; the one
+  generated reflection header retains its generated-file banner. Zero files
+  are deferred or unchecked.
+- After the final read-only ownership/style critique reset the generic causal
+  marker emphasis to zero, the focused 1,485-frame rebuilt visual run passed in
+  9.22 s: all four assertions passed, 13 trajectory records / 16,690 points
+  produced 1,578 stable submitted segments with zero drops, and steady-state
+  reserve growth stayed 224 -> 224. The Lane-flat capture shows a bounded cyan
+  halo only on the selected root; the generic causal-entry styling is flat.
+- `tools\validate_full.bat` passed from that final source in 123.31 s: mandatory CPU suites, Profile
+  and Debug builds with zero warnings/errors, DX12 InfoQueue with zero errors,
+  three matching screenshot baselines, standalone physics, and the 44,401-line
+  byte-exact varied baseline all passed.
+- `tools\validate_dx12_renderer.bat` passed from final source in 56.60 s with zero DX12 errors,
+  all three screenshot comparisons green, and zero-warning Profile/Debug
+  readiness builds.
+- `tools\run_graphics_stress.bat 1` passed from final source in 62.14 s: 12,818 frames and 352
+  scene loads completed before the PID-scoped timeout, stderr was empty, upload
+  drops/flushes were zero, and shutdown memory reconciled exactly.
+- `tools\validate_replay_scrub.bat --prove-failure-propagation` returned the
+  required synthetic exit 37 in 0.06 s without launching an engine. The normal
+  alias remains forbidden after the direct oracle.
+- The owner explicitly approved the replay visual-fidelity golden refresh on
+  2026-07-15. One `tools\validate_replay_visual_fidelity.bat` invocation proved
+  the launcher shape, built Profile with zero warnings/errors, passed all 15
+  typed-packet tests / 67 assertions, and launched exactly one engine process.
+  That process generated prediction exactly once and wrote the complete report
+  in 453.03 s; comparison stopped at the expected old-golden shader provenance
+  difference before any offline control could run.
+- From that same report, the cold approval lane regenerated
+  `replay_visual_fidelity_200_box.json` with Profile working-base provenance
+  `2f13168ff41c0aa524194a2c4e722c23e1e0641a`. The mechanically bound causal
+  manifest was regenerated too; its approval guard proved all 2,401 activation
+  rows and 199-node topology were unchanged before updating the visual-manifest
+  hash/provenance metadata.
+- The refreshed comparison passed at 2,401 visual ticks, 200 moved / 187 toppled
+  / 200 settled wall bricks, 199 causal nodes, one prediction generation, one
+  presented cascade, and 2,401 durable artifact packets. All nine focused
+  false-pass controls plus the ten determinism mutations passed offline in
+  39.68 s. No second engine process or normal scrub alias was launched.
 
 ## Acceptance (Plan Closure)
 

@@ -80,6 +80,8 @@ struct ReplayVisualPacketBufferFacts
     uint64_t ordinaryExpandedVertexBytes = 0;
 };
 
+namespace ReplayVisualPacketFingerprintOperations
+{
 ReplayVisualPacketBufferFacts BuildReplayVisualPacketBufferFacts( const ReplayVisualPacket& packet ) noexcept;
 
 // Returns the first stale or inconsistent tracer statistic. A non-null result
@@ -97,4 +99,5 @@ bool ReplayVisualPacketMatchesArchiveSample( const ReplayVisualPacket& packet,
                                              const ReplayVisualArchiveSample& expected,
                                              char* difference,
                                              std::size_t differenceSize );
+} // namespace ReplayVisualPacketFingerprintOperations
 } // namespace SkullbonezCore::Runtime

@@ -31,6 +31,8 @@ Related:
 #include <vector>
 
 using namespace SkullbonezCore::Runtime;
+using namespace SkullbonezCore::Runtime::ReplayVisualPacketFingerprintOperations;
+using namespace SkullbonezCore::Runtime::ReplayVisualPacketOperations;
 
 TEST_CASE( "Replay visual packet reports semantic divergence before buffer bytes" )
 {

@@ -19,7 +19,7 @@ Invariants:
     begins after the current private-engine build completes.
 
 Related:
-  - ReplayRuntime.h stores the scheduling state.
+  - ReplayPrediction.h stores the scheduling state.
   - ReplayPrediction.cpp applies these decisions on the frame thread.
 */
 #pragma once
@@ -46,6 +46,8 @@ enum class ReplayPredictionCoalescerAction : uint8_t
     CancelAndBegin
 };
 
+namespace ReplayPredictionSchedulingOperations
+{
 inline ReplayPredictionBuildMode
 ChooseReplayPredictionBuildMode( double measuredTicksPerMs, int remainingTicks, double instantBudgetMs ) noexcept
 {
@@ -83,6 +85,7 @@ inline ReplayPredictionCoalescerAction ChooseReplayPredictionCoalescerAction( bo
     }
     return ReplayPredictionCoalescerAction::CancelAndBegin;
 }
+} // namespace ReplayPredictionSchedulingOperations
 
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -38,7 +38,7 @@ Related:
 #include "InputController.h"
 #include "Replay/ReplayOverlayLayout.h"
 #include "Replay/ReplayRestoreService.h"
-#include "Replay/ReplayRuntimeOwnerViews.h"
+#include "Replay/ReplayRestoreTransactions.h"
 #include "RunDemoDirector.h"
 #include "RuntimeInteractionCommands.h"
 #include "Scene/SceneRuntimeCreate.h"
@@ -212,7 +212,7 @@ InputRouter::SetWorldInteractionOwner( WorldInteractionOwner owner,
 {
     // Why: changing the logical owner can eject replay, editor, or camera gestures. InputRouter owns that
     // cleanup because it also reconciles the corresponding capture and cursor state.
-    const RuntimeWorkspace workspace = WorkspaceForWorldInteractionOwner( interaction.Workspace(), owner );
+    const RuntimeWorkspace workspace = interaction.WorkspaceForOwner( owner );
     const RuntimeInteractionTransition transition =
         interaction.SetWorldInteractionOwnerInWorkspace( workspace, owner, reason );
     ApplyInteractionTransitionCleanup( transition,
@@ -300,20 +300,38 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
                                                                         input.rayOrigin,
                                                                         input.rayDirection },
                                                                       runtimeTools,
-                                                                      replayRuntime,
                                                                       interaction,
                                                                       models,
                                                                       physics,
                                                                       scene,
                                                                       world,
                                                                       terrain,
-                                                                      assets,
-                                                                      cameras,
-                                                                      camera,
-                                                                      replayRestoreCameraMode,
-                                                                      attachedCameraFollow,
-                                                                      directorGrabbed );
+                                                                      assets );
     result.enteredInteractiveScene = editorResult.enteredInteractiveScene;
+    if ( editorResult.hasInteractionTransition )
+    {
+        ApplyInteractionTransitionCleanup( editorResult.interactionTransition,
+                                           replayRuntime,
+                                           runtimeTools,
+                                           interaction,
+                                           cameras,
+                                           terrain,
+                                           models,
+                                           physics,
+                                           camera,
+                                           replayRestoreCameraMode,
+                                           attachedCameraFollow,
+                                           directorGrabbed );
+        // Cleanup may temporarily select a camera/replay owner; the editor's
+        // already-accepted claim is the final state for this pointer route.
+        interaction.SetWorldInteractionOwnerInWorkspace( editorResult.interactionTransition.workspace,
+                                                         editorResult.interactionTransition.owner,
+                                                         editorResult.interactionTransition.reason );
+    }
+    for ( std::size_t replayEventIndex = 0; replayEventIndex < editorResult.replayEvents.count; ++replayEventIndex )
+    {
+        replayRuntime.SubmitEvent( editorResult.replayEvents.commands[replayEventIndex] );
+    }
     for ( std::size_t actionIndex = 0; actionIndex < editorResult.modeActionCount; ++actionIndex )
     {
         appendModeAction( editorResult.modeActions[actionIndex] );
@@ -413,11 +431,14 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
                                                  input.uiWantsNativeCursor,
                                                  input.activeModelCapacity },
                                                cameras,
-                                               replayRuntime,
                                                models,
                                                physics,
                                                scene,
                                                terrain );
+        if ( launcherResult.recordReplayEvent )
+        {
+            replayRuntime.SubmitEvent( launcherResult.replayEvent );
+        }
         if ( launcherResult.enteredInteractive )
         {
             result.enteredInteractiveScene = true;

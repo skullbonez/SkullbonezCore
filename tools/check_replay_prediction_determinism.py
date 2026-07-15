@@ -45,7 +45,7 @@ import sys
 
 
 REPO = Path(os.environ.get("SKORE_REPO", Path(__file__).resolve().parents[1])).resolve()
-EXE = REPO / "Debug" / "SKULLBONEZ_CORE.exe"
+EXE = REPO / "Automation" / "SKULLBONEZ_CORE.exe"
 SCENE = "SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json"
 SCRIPT = "SkullbonezData/interaction/prediction_determinism_probe.json"
 OUT_DIR = REPO / "TestOutput" / "validation" / "replay_prediction_determinism"
@@ -90,7 +90,7 @@ def bounded_output(text):
 
 def run_prediction_probe(label, report, stdout_log, stderr_log):
     if not EXE.exists():
-        raise RuntimeError(f"Debug executable not found: {EXE}")
+        raise RuntimeError(f"Automation executable not found: {EXE}")
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     remove_if_exists(report)

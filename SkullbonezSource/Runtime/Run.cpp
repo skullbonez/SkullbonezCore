@@ -32,7 +32,7 @@ Related:
 #include "WindowConstants.h"
 #include "Replay/ReplayOverlayLayout.h"
 #include "Replay/ReplayRestoreService.h"
-#include "Replay/ReplayRuntimeOwnerViews.h"
+#include "Replay/ReplayRestoreTransactions.h"
 #include "Replay/ReplayV2Artifact.h"
 #include "RuntimeFileWriter.h"
 #include "Allocation/RuntimeAllocationTracker.h"
@@ -50,6 +50,7 @@ Related:
 #include <cstring>
 
 using namespace SkullbonezCore::Runtime;
+using namespace SkullbonezCore::Runtime::ReplayTimelineOperations;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
@@ -210,11 +211,12 @@ bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
     // captured physics tick, so keep their scratch vectors reserved before the
     // replay phase begins.
 
-    const ReplayRecordingConfigResult replayConfig = replayRuntime.ConfigureRecording( overrides.replayRecordingEnabled,
-                                                                                       overrides.replayRetentionSeconds,
-                                                                                       overrides.replayHashLogPath,
-                                                                                       gameModelCapacity );
-    const bool resetScrubberState = replayRuntime.ResetScrubberState();
+    const ReplayRecordingActivationResult replayActivation =
+        replayRuntime.ConfigureRecording( overrides.replayRecordingEnabled,
+                                          overrides.replayRetentionSeconds,
+                                          overrides.replayHashLogPath,
+                                          gameModelCapacity );
+    const ReplayRecordingConfigResult& replayConfig = replayActivation.configuration;
     if ( replayConfig.presentationStats.enabled )
     {
         printf( "[replay] Capture enabled: retention_seconds=%d retention_frames=%llu checkpoint_interval_frames=%d "
@@ -232,7 +234,7 @@ bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
                 replayConfig.solverConfig.hashLogPath.empty() ? "" : " solver_hash_log=",
                 replayConfig.solverConfig.hashLogPath.empty() ? "" : replayConfig.solverConfig.hashLogPath.c_str() );
     }
-    return resetScrubberState;
+    return replayActivation.exitInspectionCamera;
 }
 
 
@@ -386,10 +388,10 @@ Run::~Run()
                                                   m_timers.simulationTimer.GetTotalTime() );
     }
     m_diagnosticsRuntime.ClosePerfLog();
-    m_replayRuntime.FlushHashLogs();
-    if ( m_replayRuntime.IsPresentationEnabled() )
+    const ReplayShutdownReport replayShutdown = m_replayRuntime.FinishShutdown();
+    if ( replayShutdown.presentation.enabled )
     {
-        const ReplayRecorderStats replayStats = m_replayRuntime.PresentationStats();
+        const ReplayRecorderStats& replayStats = replayShutdown.presentation;
         printf( "[replay] Captured %llu physics samples, retained %llu/%llu, checkpoints %llu/%llu, "
                 "latest_hash=0x%016llX\n",
                 static_cast<unsigned long long>( replayStats.totalFramesCaptured ),
@@ -399,9 +401,9 @@ Run::~Run()
                 static_cast<unsigned long long>( replayStats.checkpointCapacity ),
                 static_cast<unsigned long long>( replayStats.latestStateHash ) );
     }
-    if ( m_replayRuntime.SolverStats().enabled )
+    if ( replayShutdown.solver.enabled )
     {
-        const ReplayRecorderStats replayStats = m_replayRuntime.SolverStats();
+        const ReplayRecorderStats& replayStats = replayShutdown.solver;
         printf( "[replay] Solver track captured %llu physics samples, retained %llu/%llu, checkpoints %llu/%llu, "
                 "latest_solver_hash=0x%016llX\n",
                 static_cast<unsigned long long>( replayStats.totalFramesCaptured ),
@@ -495,6 +497,7 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     const SkullbonezCore::Core::SbResult result = ConfigureInteractionAutomation( m_interactionAutomation,
                                                                                   overrides.interactionScriptPath,
                                                                                   overrides.interactionReportPath );
@@ -509,6 +512,13 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
                                                 m_UI );
     }
     return result;
+#else
+    // Lane R: interaction scripts are external validation input. Ordinary game
+    // builds reject them instead of linking the diagnostic controller into the
+    // frame loop; tools must use the dedicated Automation configuration.
+    return SkullbonezCore::Core::SbResult::Failure( "InteractionAutomation",
+                                                    "--interaction-script requires an Automation|x64 build." );
+#endif
 }
 
 

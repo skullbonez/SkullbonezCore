@@ -76,6 +76,7 @@ Related:
 #pragma warning( pop )
 
 using namespace SkullbonezCore::Runtime;
+using namespace SkullbonezCore::Runtime::ReplayTimelineOperations;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
@@ -727,11 +728,16 @@ SceneController::Load( const SceneLoadRequest& request,
         {
             // Restore setup-affecting live controls before the generated model pool is rebuilt.
             // Other visual/debug controls are restored later after scene JSON has loaded.
-            ApplyUIWorldOverride( m_sceneController.World(),
-                                  m_replayRuntime,
-                                  resetSnapshot.worldGravity,
-                                  resetSnapshot.worldFluidHeight,
-                                  resetSnapshot.worldFluidDensity );
+            const WorldOverrideChange change = ApplyUIWorldOverride( m_sceneController.World(),
+                                                                     resetSnapshot.worldGravity,
+                                                                     resetSnapshot.worldFluidHeight,
+                                                                     resetSnapshot.worldFluidDensity );
+            m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity,
+                                                                                           change.previousFluidHeight,
+                                                                                           change.previousFluidDensity,
+                                                                                           change.gravity,
+                                                                                           change.fluidHeight,
+                                                                                           change.fluidDensity ) );
         }
 
         SceneState().isSceneMode = false;
@@ -938,11 +944,16 @@ SceneController::Load( const SceneLoadRequest& request,
             // World sliders/keyboard water edits are part of the live scene controls.
             // Restore them after terrain/world JSON and --no-water have resolved,
             // so a plain reset keeps the operator's current environment.
-            ApplyUIWorldOverride( m_sceneController.World(),
-                                  m_replayRuntime,
-                                  resetSnapshot.worldGravity,
-                                  resetSnapshot.worldFluidHeight,
-                                  resetSnapshot.worldFluidDensity );
+            const WorldOverrideChange change = ApplyUIWorldOverride( m_sceneController.World(),
+                                                                     resetSnapshot.worldGravity,
+                                                                     resetSnapshot.worldFluidHeight,
+                                                                     resetSnapshot.worldFluidDensity );
+            m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity,
+                                                                                           change.previousFluidHeight,
+                                                                                           change.previousFluidDensity,
+                                                                                           change.gravity,
+                                                                                           change.fluidHeight,
+                                                                                           change.fluidDensity ) );
         }
 
         SceneAuthoredSetup::SetUpCameras(

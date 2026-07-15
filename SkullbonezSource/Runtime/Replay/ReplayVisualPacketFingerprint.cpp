@@ -34,6 +34,7 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
+using namespace ReplayVisualPacketOperations;
 namespace
 {
 void HashByte( uint64_t& hash, uint8_t value )
@@ -103,6 +104,8 @@ bool TrajectoryRecordParticipatesInCompletedPresentation( const ReplayVisualPack
 }
 } // namespace
 
+namespace ReplayVisualPacketFingerprintOperations
+{
 ReplayVisualPacketBufferFacts BuildReplayVisualPacketBufferFacts( const ReplayVisualPacket& packet ) noexcept
 {
     ReplayVisualPacketBufferFacts facts;
@@ -604,4 +607,5 @@ bool ReplayVisualPacketMatchesArchiveSample( const ReplayVisualPacket& packet,
 #undef SB_COMPARE_REPLAY_VISUAL
     return true;
 }
+} // namespace ReplayVisualPacketFingerprintOperations
 } // namespace SkullbonezCore::Runtime

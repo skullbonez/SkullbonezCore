@@ -6,7 +6,7 @@ REM   target selection, manipulator pickup, launcher fire, replay prediction,
 REM   and editor history workflows.
 REM
 REM Mental model:
-REM   This is a focused UI/runtime interaction gate. It builds Profile, runs
+REM   This is a focused UI/runtime interaction gate. It builds Automation, runs
 REM   deterministic interaction scripts, and writes reports/screenshots for the
 REM   six covered click paths.
 REM
@@ -26,27 +26,27 @@ setlocal
 set ROOT=%~dp0..
 pushd "%ROOT%" >nul
 
-call tools\validate_build.bat Profile
+call tools\validate_build.bat Automation
 if errorlevel 1 goto fail
 
 if not exist TestOutput\interaction mkdir TestOutput\interaction
 
-Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_inspect_gizmo_harness.scene.json --interaction-script SkullbonezData\interaction\inspect_gizmo_click.json --interaction-report TestOutput\interaction\inspect_gizmo_click_report.json --frames 90 --vsync off
+Automation\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_inspect_gizmo_harness.scene.json --interaction-script SkullbonezData\interaction\inspect_gizmo_click.json --interaction-report TestOutput\interaction\inspect_gizmo_click_report.json --frames 90 --vsync off
 if errorlevel 1 goto fail
 
-Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_inspect_gizmo_harness.scene.json --interaction-script SkullbonezData\interaction\attach_target_click.json --interaction-report TestOutput\interaction\attach_target_click_report.json --frames 90 --vsync off
+Automation\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_inspect_gizmo_harness.scene.json --interaction-script SkullbonezData\interaction\attach_target_click.json --interaction-report TestOutput\interaction\attach_target_click_report.json --frames 90 --vsync off
 if errorlevel 1 goto fail
 
-Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData\interaction\manipulator_pickup_click.json --interaction-report TestOutput\interaction\manipulator_pickup_click_report.json --frames 90 --fixed-step --vsync off
+Automation\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData\interaction\manipulator_pickup_click.json --interaction-report TestOutput\interaction\manipulator_pickup_click_report.json --frames 90 --fixed-step --vsync off
 if errorlevel 1 goto fail
 
-Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData\interaction\launcher_fire_click.json --interaction-report TestOutput\interaction\launcher_fire_click_report.json --frames 90 --fixed-step --vsync off
+Automation\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData\interaction\launcher_fire_click.json --interaction-report TestOutput\interaction\launcher_fire_click_report.json --frames 90 --fixed-step --vsync off
 if errorlevel 1 goto fail
 
-Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData\interaction\replay_prediction_click.json --interaction-report TestOutput\interaction\replay_prediction_click_report.json --frames 150 --replay on --replay-seconds 2 --fixed-step --vsync off
+Automation\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData\interaction\replay_prediction_click.json --interaction-report TestOutput\interaction\replay_prediction_click_report.json --frames 150 --replay on --replay-seconds 2 --fixed-step --vsync off
 if errorlevel 1 goto fail
 
-Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData\interaction\editor_undo_redo.json --interaction-report TestOutput\interaction\editor_undo_redo_report.json --frames 105 --fixed-step --vsync off
+Automation\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData\interaction\editor_undo_redo.json --interaction-report TestOutput\interaction\editor_undo_redo_report.json --frames 105 --fixed-step --vsync off
 if errorlevel 1 goto fail
 
 echo [interaction] Reports:

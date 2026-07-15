@@ -32,6 +32,7 @@ Related:
 #pragma once
 
 #include "../../Core/SbResult.h"
+#include "ReplayIdentity.h"
 
 #include <cstring>
 
@@ -40,9 +41,19 @@ namespace SkullbonezCore
 namespace Runtime
 {
 struct ReplayStartupRequest;
+struct ReplayArtifactTopologyOwners;
+struct ReplayLiveRestoreOutcome;
+struct ReplayLiveRestoreRequest;
 struct ReplayRestoreTransaction;
+struct ReplayV2SolverCheckpointLoadResult;
+struct RunReplayV2TargetRestoreResult;
+class ReplayAuthoring;
+class ReplayPrediction;
 class ReplayPresentation;
+class ReplayScrubber;
 class ReplayTimeline;
+struct RunMousePickupState;
+enum class RunCameraMode;
 struct ReplaySolverFrameSample;
 
 struct ReplayStartupWorkflowState
@@ -153,6 +164,47 @@ struct ReplayProbeSaveRequest
     ReplayProbeSaveAction action = ReplayProbeSaveAction::None;
     char path[260] = {};
 };
+
+enum class ReplayFailureProbeAction : uint8_t
+{
+    None,
+    RestoreMissingTarget,
+    CaptureRollbackSample,
+    RestoreCorruptedTarget,
+    CaptureRollbackHash
+};
+
+// Value command emitted by the probe owner. rollbackReference is a synchronous
+// borrow of the caller's captured sample and remains valid only while the
+// startup workflow advances this command chain.
+struct ReplayFailureProbeRequest
+{
+    SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
+    ReplayFailureProbeAction action = ReplayFailureProbeAction::None;
+    ReplayFrameIndex targetFrame = 0;
+    const ReplaySolverFrameSample* rollbackReference = nullptr;
+    bool forceHashMismatch = false;
+};
+
+// Result facts for exactly one requested primitive. Text and sample pointers
+// are consumed synchronously by AdvanceFailureFileProbe and are never retained.
+struct ReplayFailureProbeStepResult
+{
+    const char* reason = nullptr;
+    const ReplaySolverFrameSample* capturedSample = nullptr;
+    uint64_t solverHash = 0;
+    bool succeeded = false;
+};
+
+// Bounded diagnostic text retained across the four-step expected-failure
+// workflow. Live solver samples remain caller-owned synchronous borrows.
+struct ReplayFailureFileProbeState
+{
+    char path[260] = {};
+    char missingTargetReason[256] = {};
+    char hashFailureReason[256] = {};
+    ReplayFrameIndex missingTargetFrame = 0;
+};
 #endif
 
 class ReplayProbeRunner
@@ -176,12 +228,50 @@ class ReplayProbeRunner
     void CompleteSaveProbe( const ReplayProbeSaveRequest& request, const SkullbonezCore::Core::SbResult& result );
     SkullbonezCore::Core::SbResult CurrentFailure() const;
     void RecordFailure( const SkullbonezCore::Core::SbResult& result );
+    SkullbonezCore::Core::SbResult VerifyLoadedPresentation( ReplayTimeline& timeline,
+                                                             ReplayScrubber& scrubber,
+                                                             ReplayPresentation& presentation,
+                                                             ReplayAuthoring& authoring,
+                                                             ReplayPrediction& prediction,
+                                                             const ReplayRestoreTransaction& transaction,
+                                                             RunMousePickupState& mousePickup,
+                                                             RunCameraMode normalizedCurrentMode,
+                                                             double now,
+                                                             float normalized );
+    SkullbonezCore::Core::SbResult PrepareCheckpointFileProbe( const char* path,
+                                                               ReplaySolverFrameSample& outCheckpoint,
+                                                               ReplayV2SolverCheckpointLoadResult& outLoadResult );
+    SkullbonezCore::Core::SbResult CompleteCheckpointFileProbe( const char* path,
+                                                                const ReplaySolverFrameSample& checkpoint,
+                                                                const ReplayV2SolverCheckpointLoadResult& loadResult,
+                                                                bool restored,
+                                                                const char* reason );
+    SkullbonezCore::Core::SbResult CompleteTargetFileProbe( const char* path,
+                                                            const RunReplayV2TargetRestoreResult& result,
+                                                            bool restored,
+                                                            const char* reason );
+    ReplayFailureProbeRequest BeginFailureFileProbe( const char* path );
+    ReplayFailureProbeRequest AdvanceFailureFileProbe( const ReplayFailureProbeRequest& request,
+                                                       const ReplayFailureProbeStepResult& result );
+    SkullbonezCore::Core::SbResult PrepareBranchFileProbe( ReplayTimeline& timeline,
+                                                           ReplayScrubber& scrubber,
+                                                           ReplayPresentation& presentation,
+                                                           ReplayAuthoring& authoring,
+                                                           ReplayPrediction& prediction,
+                                                           const ReplayRestoreTransaction& transaction,
+                                                           RunMousePickupState& mousePickup,
+                                                           RunCameraMode normalizedCurrentMode,
+                                                           double now,
+                                                           const char* path,
+                                                           ReplayLiveRestoreRequest& outRequest );
+    SkullbonezCore::Core::SbResult CompleteBranchFileProbe( const char* path, const ReplayLiveRestoreOutcome& outcome );
 #endif
 
   private:
     ReplayStartupWorkflowState m_startup;
 #ifdef _DEBUG
     ReplayProbeState m_probes;
+    ReplayFailureFileProbeState m_failureFile;
 #endif
 };
 } // namespace Runtime
