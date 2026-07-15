@@ -236,7 +236,7 @@ remain byte-exact throughout — zero refresh authorized at any task.
       contact, then finish the cross-stage clock. The P1 terrain dispatch shim
       was deleted; no callback or facade back-reference was introduced.
 
-- [ ] **P6 — Extract `PhysicsContactSolverStage`.** Wraps the existing
+- [x] **P6 — Extract `PhysicsContactSolverStage`.** Wraps the existing
       `PersistentContactSolver` with its feeding state: persistent rows,
       cache, counts, solver bodies, side-effect queue, stats.
       `Solve( bodyStore, colliderStore, config, worldForces, dt )` performs
@@ -246,6 +246,22 @@ remain byte-exact throughout — zero refresh authorized at any task.
       wake calls it makes are unchanged (wake internals still live where P4
       left them until P7). Move the matching allowlist rows.
       Gate: `tools\validate_physics.bat` byte-exact.
+
+      Boundary recorded 2026-07-15: `PhysicsContactSolverStage` now owns the
+      persistent rows/cache/counts, solver-body scratch, statistics, all five
+      bounded consequence queues, and the existing row solver. `Solve` builds
+      the former solver context from synchronous typed borrows after preparing
+      those queues. Because wake authority intentionally remains on the
+      sequencer until P7, the stage publishes a typed consequence batch and
+      `PhysicsWorld` commits pipeline, visual, and wake consequences in the
+      original order; there is no callback pack or facade back-reference.
+      Cache retirement and replay capture/restore are owner APIs, and sleep,
+      narrowphase, diagnostics, memory, and fixed-release reads use const views.
+      Allocation policy self/repository scans passed (348 files, zero errors),
+      replay snapshot/restore focused coverage passed 173/173 assertions, and
+      `tools\validate_physics.bat` passed both smoke lanes plus the 44,401-line
+      byte-exact baseline with zero Debug/Profile warnings or errors. No
+      baseline refresh.
 
 - [ ] **P7 — Extract `PhysicsSleepController` (the big one — budget it as the
       longest task).** All ~20 sleep vectors, the island system wrapper, wake/

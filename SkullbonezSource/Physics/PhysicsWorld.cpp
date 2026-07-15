@@ -297,8 +297,6 @@ void IntegrateRemainingStageContext::operator()( int bodyIndex ) const
     VISIT( sleepIslandHasSupportAnchor, m_sleepIslandHasSupportAnchor, "sleepIslandHasSupportAnchor" )                 \
     VISIT( sleepIslandEligible, m_sleepIslandEligible, "sleepIslandEligible" )                                         \
     VISIT( sleepIslandCanSleep, m_sleepIslandCanSleep, "sleepIslandCanSleep" )                                         \
-    VISIT( persistentContactCounts, m_persistentContactCounts, "persistentContactCounts" )                             \
-    VISIT( persistentRestingContactCounts, m_persistentRestingContactCounts, "persistentRestingContactCounts" )        \
     VISIT( debugContacts, m_physicsDebugContacts, "debugContacts" )                                                    \
     VISIT( pipelineTrace, m_physicsPipelineTrace, "pipelineTrace" )                                                    \
     VISIT( collisionCellKeys, m_broadphase.CollisionCellKeysForReplay(), "collisionCellKeys" )
@@ -307,60 +305,18 @@ void IntegrateRemainingStageContext::operator()( int bodyIndex ) const
     VISIT( tornadoCaptureSeconds, m_tornadoGameplay.CaptureSeconds(), "tornadoCaptureSeconds" )                        \
     VISIT( tornadoEjectCooldownSeconds, m_tornadoGameplay.EjectCooldownSeconds(), "tornadoEjectCooldownSeconds" )
 
-#define SB_REPLAY_SOLVER_CONVERTED_VECTOR_FIELDS( VISIT )                                                              \
-    VISIT( persistentContacts, m_persistentContacts, "persistentContacts" )                                            \
-    VISIT( persistentContactCache, m_persistentContactCache, "persistentContactCache" )
+#define SB_REPLAY_SOLVER_CONTACT_STAGE_VECTOR_FIELDS( VISIT )                                                          \
+    VISIT( persistentContactCounts, m_contactSolverStage.GetPersistentContactCounts(), "persistentContactCounts" )     \
+    VISIT( persistentRestingContactCounts,                                                                             \
+           m_contactSolverStage.GetPersistentRestingContactCounts(),                                                   \
+           "persistentRestingContactCounts" )                                                                         \
+    VISIT( persistentContacts, m_contactSolverStage.GetPersistentContacts(), "persistentContacts" )                   \
+    VISIT( persistentContactCache, m_contactSolverStage.GetPersistentContactCache(), "persistentContactCache" )
 
 #define SB_REPLAY_SOLVER_VECTOR_FIELDS( VISIT )                                                                        \
     SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( VISIT )                                                                     \
     SB_REPLAY_SOLVER_TORNADO_VECTOR_FIELDS( VISIT )                                                                    \
-    SB_REPLAY_SOLVER_CONVERTED_VECTOR_FIELDS( VISIT )
-
-#define SB_REPLAY_PERSISTENT_CONTACT_SAMPLE_FIELDS( VISIT )                                                            \
-    VISIT( bodyA )                                                                                                     \
-    VISIT( bodyB )                                                                                                     \
-    VISIT( featureId )                                                                                                 \
-    VISIT( key )                                                                                                       \
-    VISIT( normal )                                                                                                    \
-    VISIT( tangent1 )                                                                                                  \
-    VISIT( tangent2 )                                                                                                  \
-    VISIT( rA )                                                                                                        \
-    VISIT( rB )                                                                                                        \
-    VISIT( penetration )                                                                                               \
-    VISIT( normalMass )                                                                                                \
-    VISIT( tangentMass1 )                                                                                              \
-    VISIT( tangentMass2 )                                                                                              \
-    VISIT( bias )                                                                                                      \
-    VISIT( frictionLimit )                                                                                             \
-    VISIT( accN )                                                                                                      \
-    VISIT( accT1 )                                                                                                     \
-    VISIT( accT2 )                                                                                                     \
-    VISIT( warmStarted )                                                                                               \
-    VISIT( isTerrain )                                                                                                 \
-    VISIT( supportsRestingPolicy )                                                                                     \
-    VISIT( allowsTangentFriction )                                                                                     \
-    VISIT( normalCoupledFriction )                                                                                     \
-    VISIT( inhibitsSleep )                                                                                             \
-    VISIT( manifoldPointCount )                                                                                        \
-    VISIT( terrainNormal )                                                                                             \
-    VISIT( terrainWarmStart )
-
-#define SB_REPLAY_CONTACT_CACHE_SAMPLE_FIELDS( VISIT )                                                                 \
-    VISIT( key )                                                                                                       \
-    VISIT( accN )                                                                                                      \
-    VISIT( accT1 )                                                                                                     \
-    VISIT( accT2 )
-
-#define SB_REPLAY_SOLVER_STATS_FIELDS( VISIT )                                                                         \
-    VISIT( rowCount )                                                                                                  \
-    VISIT( cachePreviousRows )                                                                                         \
-    VISIT( cacheHits )                                                                                                 \
-    VISIT( cacheMisses )                                                                                               \
-    VISIT( warmStartedRows )                                                                                           \
-    VISIT( positionCorrectionRows )                                                                                    \
-    VISIT( solverIterations )                                                                                          \
-    VISIT( positionCorrectionTotal )                                                                                   \
-    VISIT( positionCorrectionMax )
+    SB_REPLAY_SOLVER_CONTACT_STAGE_VECTOR_FIELDS( VISIT )
 
 
 PhysicsWorld::PhysicsWorld()
@@ -387,18 +343,8 @@ PhysicsWorld::PhysicsWorld()
     m_sleepIslandPointJointsRelaxed.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     m_sleepVisualIslandIds.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     m_sleepVisualIslandBodies.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
-    m_persistentContacts.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 4 );
-    m_persistentContactCache.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 4 );
-    m_persistentContactCounts.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
-    m_persistentRestingContactCounts.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
-    m_solverBodies.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     m_physicsDebugContacts.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 4 );
     m_physicsPipelineTrace.reserve( MAX_PIPELINE_TRACE_RECORDS );
-    m_persistentContactSideEffects.pipelineRecords.reserve( MAX_PIPELINE_TRACE_RECORDS );
-    m_persistentContactSideEffects.collisionVisualBodies.reserve( PHYSICS_COLLISION_VISUAL_BODY_RESERVE );
-    m_persistentContactSideEffects.fixedContactBodies.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
-    m_persistentContactSideEffects.releaseWakeBodies.reserve( 8 );
-    m_persistentContactSideEffects.fixedTreeReleases.reserve( 8 );
     m_restingWakeVisitedScratch.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     m_restingWakeQueueScratch.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
     m_pointJointConstraints.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
@@ -440,12 +386,7 @@ void PhysicsWorld::Clear()
     m_sleepIslandPointJointsRelaxed.clear();
     m_sleepVisualIslandIds.clear();
     m_sleepVisualIslandBodies.clear();
-    m_persistentContacts.clear();
-    m_persistentContactCache.clear();
-    m_persistentContactSolverStats = PersistentContactSolverStats();
-    m_persistentContactCounts.clear();
-    m_persistentRestingContactCounts.clear();
-    m_solverBodies.clear();
+    m_contactSolverStage.Clear();
     m_physicsDebugContacts.clear();
     m_physicsPipelineTrace.clear();
     m_terrain.Clear();
@@ -541,27 +482,7 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
     SB_REPLAY_SOLVER_TORNADO_VECTOR_FIELDS( CAPTURE_REPLAY_SOLVER_VECTOR_FIELD )
 #undef CAPTURE_REPLAY_SOLVER_VECTOR_FIELD
 
-    for ( const PersistentContact& contact : m_persistentContacts )
-    {
-        ReplaySolverPersistentContactSample sample;
-#define CAPTURE_REPLAY_CONTACT_SAMPLE_FIELD( field ) sample.field = contact.field;
-        SB_REPLAY_PERSISTENT_CONTACT_SAMPLE_FIELDS( CAPTURE_REPLAY_CONTACT_SAMPLE_FIELD )
-#undef CAPTURE_REPLAY_CONTACT_SAMPLE_FIELD
-        outSnapshot.persistentContacts.push_back( sample );
-    }
-
-    for ( const PersistentContactCacheEntry& cache : m_persistentContactCache )
-    {
-        ReplaySolverContactCacheSample sample;
-#define CAPTURE_REPLAY_CONTACT_CACHE_FIELD( field ) sample.field = cache.field;
-        SB_REPLAY_CONTACT_CACHE_SAMPLE_FIELDS( CAPTURE_REPLAY_CONTACT_CACHE_FIELD )
-#undef CAPTURE_REPLAY_CONTACT_CACHE_FIELD
-        outSnapshot.persistentContactCache.push_back( sample );
-    }
-
-#define CAPTURE_REPLAY_SOLVER_STAT_FIELD( field ) outSnapshot.solverStats.field = m_persistentContactSolverStats.field;
-    SB_REPLAY_SOLVER_STATS_FIELDS( CAPTURE_REPLAY_SOLVER_STAT_FIELD )
-#undef CAPTURE_REPLAY_SOLVER_STAT_FIELD
+    m_contactSolverStage.CaptureReplayState( outSnapshot );
 }
 
 
@@ -584,34 +505,7 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot&
                                       snapshot.tornadoSystemConfig,
                                       snapshot.tornadoSystemElapsedSeconds );
 
-    m_persistentContacts.clear();
-    m_persistentContacts.reserve( snapshot.persistentContacts.size() );
-    for ( const ReplaySolverPersistentContactSample& sample : snapshot.persistentContacts )
-    {
-        PersistentContact contact;
-#define RESTORE_REPLAY_CONTACT_SAMPLE_FIELD( field ) contact.field = sample.field;
-        SB_REPLAY_PERSISTENT_CONTACT_SAMPLE_FIELDS( RESTORE_REPLAY_CONTACT_SAMPLE_FIELD )
-#undef RESTORE_REPLAY_CONTACT_SAMPLE_FIELD
-        m_persistentContacts.push_back( contact );
-    }
-
-    m_persistentContactCache.clear();
-    m_persistentContactCache.reserve( snapshot.persistentContactCache.size() );
-    for ( const ReplaySolverContactCacheSample& sample : snapshot.persistentContactCache )
-    {
-        PersistentContactCacheEntry cache;
-#define RESTORE_REPLAY_CONTACT_CACHE_FIELD( field ) cache.field = sample.field;
-        SB_REPLAY_CONTACT_CACHE_SAMPLE_FIELDS( RESTORE_REPLAY_CONTACT_CACHE_FIELD )
-#undef RESTORE_REPLAY_CONTACT_CACHE_FIELD
-        m_persistentContactCache.push_back( cache );
-    }
-
-    m_persistentContactSolverStats = PersistentContactSolverStats();
-#define RESTORE_REPLAY_SOLVER_STAT_FIELD( field ) m_persistentContactSolverStats.field = snapshot.solverStats.field;
-    SB_REPLAY_SOLVER_STATS_FIELDS( RESTORE_REPLAY_SOLVER_STAT_FIELD )
-#undef RESTORE_REPLAY_SOLVER_STAT_FIELD
-
-    m_solverBodies.clear();
+    m_contactSolverStage.RestoreReplayState( snapshot );
     m_terrain.Clear();
     m_narrowphase.Clear();
     m_broadphase.ResetTransientAfterReplayRestore();
@@ -620,11 +514,8 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot&
 
 #undef SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS
 #undef SB_REPLAY_SOLVER_TORNADO_VECTOR_FIELDS
-#undef SB_REPLAY_SOLVER_CONVERTED_VECTOR_FIELDS
+#undef SB_REPLAY_SOLVER_CONTACT_STAGE_VECTOR_FIELDS
 #undef SB_REPLAY_SOLVER_VECTOR_FIELDS
-#undef SB_REPLAY_PERSISTENT_CONTACT_SAMPLE_FIELDS
-#undef SB_REPLAY_CONTACT_CACHE_SAMPLE_FIELDS
-#undef SB_REPLAY_SOLVER_STATS_FIELDS
 
 
 void PhysicsWorld::EnsureCollisionVisualBuffers( int modelCount )
@@ -728,74 +619,11 @@ bool PhysicsWorld::CanRecordPhysicsPipelineStage() const
 }
 
 
-PersistentContactSolverContext
-PhysicsWorld::CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,
+void PhysicsWorld::CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
                                                     const ColliderStore& colliderStore,
-                                                    const SkullbonezCore::Core::EngineConfig& config,
                                                     const PhysicsWorldForces& worldForces )
 {
-    const bool elasticCollisions = worldForces.mutualGravity.enabled && worldForces.mutualGravity.elasticCollisions;
-    return PersistentContactSolverContext{ m_broadphase.GetCandidatePairs(),
-                                           m_sleepState,
-                                           m_sleepSupportEdges,
-                                           m_persistentContacts,
-                                           m_persistentContactCache,
-                                           m_persistentContactSolverStats,
-                                           m_persistentContactCounts,
-                                           m_persistentRestingContactCounts,
-                                           m_solverBodies,
-                                           m_physicsDebugContacts,
-                                           m_terrain.GetContactManifolds(),
-                                           m_terrain.GetRestApplied(),
-                                           m_sleepSupportedThisFrame,
-                                           m_persistentContactSideEffects,
-                                           bodyStore.MutableRecords(),
-                                           colliderStore.Records(),
-                                           bodyStore.Count(),
-                                           (std::max)( 0,
-                                                       static_cast<int>( MAX_PIPELINE_TRACE_RECORDS ) -
-                                                           static_cast<int>( m_physicsPipelineTrace.size() ) ),
-                                           elasticCollisions,
-                                           config };
-}
-
-
-void PhysicsWorld::PreparePersistentContactSideEffects( int modelCount )
-{
-    PersistentContactSolverSideEffects& effects = m_persistentContactSideEffects;
-    effects.pipelineRecords.clear();
-    effects.collisionVisualBodies.clear();
-    effects.fixedContactBodies.clear();
-    effects.releaseWakeBodies.clear();
-    effects.fixedTreeReleases.clear();
-
-    const int pipelineCapacity = (std::max)( 0,
-                                             static_cast<int>( MAX_PIPELINE_TRACE_RECORDS ) -
-                                                 static_cast<int>( m_physicsPipelineTrace.size() ) );
-    // Invariant: these side-effect lists are pre-reserved before steady
-    // physics. If any reserve is short, preserving determinism is no longer
-    // possible because the solver would need to allocate or skip a queued
-    // post-pass action.
-    assert( effects.collisionVisualBodies.capacity() >= m_broadphase.GetCandidatePairs().size() * 2 );
-    assert( effects.fixedContactBodies.capacity() >= static_cast<std::size_t>( modelCount ) );
-    assert( effects.releaseWakeBodies.capacity() >= 8 );
-    assert( effects.fixedTreeReleases.capacity() >= 8 );
-    assert( effects.pipelineRecords.capacity() >= static_cast<std::size_t>( pipelineCapacity ) );
-    if ( effects.collisionVisualBodies.capacity() < m_broadphase.GetCandidatePairs().size() * 2 ||
-         effects.fixedContactBodies.capacity() < static_cast<std::size_t>( modelCount ) ||
-         effects.releaseWakeBodies.capacity() < 8 || effects.fixedTreeReleases.capacity() < 8 ||
-         effects.pipelineRecords.capacity() < static_cast<std::size_t>( pipelineCapacity ) )
-    {
-        SB_FATAL( "Physics/PhysicsWorld", "Physics persistent-contact side-effect capacity exhausted." );
-    }
-}
-
-
-void PhysicsWorld::ApplyPersistentContactSideEffects( PhysicsBodyStore& bodyStore,
-                                                      const ColliderStore& colliderStore,
-                                                      const PhysicsWorldForces& worldForces )
-{
-    const PersistentContactSolverSideEffects& effects = m_persistentContactSideEffects;
+    const PersistentContactSolverSideEffects& effects = m_contactSolverStage.GetSideEffects();
     for ( const PhysicsPipelineRecord& record : effects.pipelineRecords )
     {
         RecordPhysicsPipelineStage( record );
@@ -1354,32 +1182,6 @@ void PhysicsWorld::AppendPointJointSupportEdges( const PhysicsBodyStore& bodySto
 }
 
 
-void PhysicsWorld::ForgetPersistentContactCacheForBody( int bodyIndex )
-{
-    const auto cacheEntryReferencesBody = []( const PersistentContactCacheEntry& entry, int index ) -> bool
-    {
-        const uint64_t key = static_cast<uint64_t>( entry.key );
-        const uint32_t highBody = static_cast<uint32_t>( ( key >> 48 ) & 0xffffu );
-        if ( highBody == 0xffffu )
-        {
-            const uint32_t terrainBody = static_cast<uint32_t>( ( key >> 16 ) & 0xffffffffu );
-            return terrainBody == static_cast<uint32_t>( index );
-        }
-
-        const uint32_t lowBody = static_cast<uint32_t>( ( key >> 40 ) & 0xffffffu );
-        const uint32_t objectHighBody = static_cast<uint32_t>( ( key >> 16 ) & 0xffffffu );
-        return lowBody == static_cast<uint32_t>( index ) || objectHighBody == static_cast<uint32_t>( index );
-    };
-
-    m_persistentContactCache.erase(
-        std::remove_if( m_persistentContactCache.begin(),
-                        m_persistentContactCache.end(),
-                        [bodyIndex, &cacheEntryReferencesBody]( const PersistentContactCacheEntry& entry )
-                        { return cacheEntryReferencesBody( entry, bodyIndex ); } ),
-        m_persistentContactCache.end() );
-}
-
-
 // Why: store-owned wake propagation uses the same sleep-state mutation as the
 // deleted legacy stream path, but fixed-state authority comes from
 // PhysicsBodyRecord. This keeps solver-triggered wakeups on physics-owned rows.
@@ -1441,7 +1243,7 @@ bool PhysicsWorld::WakeDynamicBodyState( int bodyCount,
     {
         (void)bodyStore->ApplyForces( *worldForces, *colliderStore, index, dt );
     }
-    ForgetPersistentContactCacheForBody( index );
+    m_contactSolverStage.ForgetPersistentContactCacheForBody( index );
 
     return wasSleeping || hadCounter || hadSleepVisual || wasUnderwaterLocked;
 }
@@ -1590,7 +1392,7 @@ void PhysicsWorld::WakeRestingContactIsland( int bodyCount,
 
     auto hasPersistentContactEdge = [&]( int a, int b ) -> bool
     {
-        for ( const PersistentContact& contact : m_persistentContacts )
+        for ( const PersistentContact& contact : m_contactSolverStage.GetPersistentContacts() )
         {
             if ( ( contact.bodyA == a && contact.bodyB == b ) || ( contact.bodyA == b && contact.bodyB == a ) )
             {
@@ -1810,7 +1612,7 @@ void PhysicsWorld::RunSleepIslandStage( PhysicsBodyStore& bodyStore,
     // the sleep system can make one deactivation decision for the whole group.
     DisjointSet sleepIslands( m_sleepIslandParent, m_sleepIslandRank, modelCount );
 
-    for ( const PersistentContact& c : m_persistentContacts )
+    for ( const PersistentContact& c : m_contactSolverStage.GetPersistentContacts() )
     {
         // Persistent contacts are the solver's current dynamic contact graph, so
         // they are the natural edges for island sleep. Sleeping bodies still act
@@ -1936,8 +1738,10 @@ void PhysicsWorld::RunSleepIslandStage( PhysicsBodyStore& bodyStore,
         float speedSq = vel.x * vel.x + vel.y * vel.y + vel.z * vel.z;
         float omegaSq = omega.x * omega.x + omega.y * omega.y + omega.z * omega.z;
         bool supported = x < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[x] != 0;
-        bool hasRestingObjectContact =
-            x < static_cast<int>( m_persistentRestingContactCounts.size() ) && m_persistentRestingContactCounts[x] > 0;
+        const std::vector<uint16_t>& persistentRestingContactCounts =
+            m_contactSolverStage.GetPersistentRestingContactCounts();
+        bool hasRestingObjectContact = x < static_cast<int>( persistentRestingContactCounts.size() ) &&
+                                       persistentRestingContactCounts[x] > 0;
         bool islandHasSupportAnchor = m_sleepIslandHasSupportAnchor[root] != 0;
         bool pointJointMember = x < static_cast<int>( m_sleepPointJointBody.size() ) && m_sleepPointJointBody[x] != 0;
         bool pointJointIsland = m_sleepIslandHasPointJoint[root] != 0;
@@ -2235,7 +2039,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                                     m_sleepIslandVisualId,
                                                                     m_timeRemaining,
                                                                     m_underwaterSleepLocked,
-                                                                    m_persistentContactCache,
+                                                                    m_contactSolverStage.GetPersistentContactCache(),
                                                                     modelCount,
                                                                     SLEEP_LINEAR_SQ,
                                                                     SLEEP_ANGULAR_SQ,
@@ -2319,11 +2123,26 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     PROFILE_END( "Frame/Physics/Terrain/Detect" );
     PROFILE_END( "Frame/Physics/Terrain" );
 
-    PreparePersistentContactSideEffects( modelCount );
-    PersistentContactSolverContext solverContext =
-        CreatePersistentContactSolverContext( bodyStore, colliderStore, config, worldForces );
-    m_contactSolver.Solve( solverContext, dt );
-    ApplyPersistentContactSideEffects( bodyStore, colliderStore, worldForces );
+    const PhysicsContactSolverStageContext contactSolverContext{
+        bodyStore,
+        colliderStore,
+        config,
+        worldForces,
+        candidatePairs,
+        m_sleepState,
+        m_sleepSupportEdges,
+        m_physicsDebugContacts,
+        m_terrain.GetContactManifolds(),
+        m_terrain.GetRestApplied(),
+        m_sleepSupportedThisFrame,
+        bodyRecords,
+        colliderRecords,
+        bodyStore.Count(),
+        (std::max)( 0,
+                    static_cast<int>( MAX_PIPELINE_TRACE_RECORDS ) -
+                        static_cast<int>( m_physicsPipelineTrace.size() ) ) };
+    m_contactSolverStage.Solve( contactSolverContext, dt );
+    CommitContactSolverConsequences( bodyStore, colliderStore, worldForces );
     WakePointJointConnectedBodies( bodyStore, colliderStore, worldForces, dt );
     (void)Ragdoll::SolvePointJoints( bodyStore, m_pointJointConstraints, m_sleepState, dt );
     AppendPointJointSupportEdges( bodyStore, modelCount );
@@ -2370,8 +2189,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
 PhysicsDiagnosticsView PhysicsWorld::GetDiagnosticsView() const
 {
-    return PhysicsDiagnosticsView{ m_persistentContacts,
-                                   m_persistentContactSolverStats,
+    return PhysicsDiagnosticsView{ m_contactSolverStage.GetPersistentContacts(),
+                                   m_contactSolverStage.GetStats(),
                                    m_sleepIslandParent,
                                    m_sleepSupportedThisFrame,
                                    m_sleepInhibitedThisFrame,
@@ -2415,11 +2234,7 @@ uint64_t PhysicsWorld::CollectMemoryBytes() const
     bytes += VectorCapacityBytes( m_sleepIslandPointJointsRelaxed );
     bytes += VectorCapacityBytes( m_sleepVisualIslandIds );
     bytes += VectorCapacityBytes( m_sleepVisualIslandBodies );
-    bytes += VectorCapacityBytes( m_persistentContacts );
-    bytes += VectorCapacityBytes( m_persistentContactCache );
-    bytes += VectorCapacityBytes( m_persistentContactCounts );
-    bytes += VectorCapacityBytes( m_persistentRestingContactCounts );
-    bytes += VectorCapacityBytes( m_solverBodies );
+    bytes += m_contactSolverStage.CollectDynamicMemoryBytes();
     bytes += VectorCapacityBytes( m_physicsDebugContacts );
     bytes += VectorCapacityBytes( m_physicsPipelineTrace );
     bytes += m_terrain.CollectDynamicMemoryBytes();
@@ -2463,13 +2278,13 @@ const std::vector<uint8_t>& PhysicsWorld::GetCollisionVisualContacts() const
 
 std::span<const int> PhysicsWorld::GetFixedContactHighlightBodies() const
 {
-    return m_persistentContactSideEffects.fixedContactBodies;
+    return m_contactSolverStage.GetSideEffects().fixedContactBodies;
 }
 
 
 std::span<const PhysicsFixedTreeReleaseEvent> PhysicsWorld::GetFixedTreeReleaseEvents() const
 {
-    return m_persistentContactSideEffects.fixedTreeReleases;
+    return m_contactSolverStage.GetSideEffects().fixedTreeReleases;
 }
 
 

@@ -50,7 +50,7 @@ Related:
 #include "ColliderStore.h"
 #include "ObjectContactManifold.h"
 #include "PhysicsBodyStore.h"
-#include "PhysicsWorld.h"
+#include "Stages/PhysicsContactSolverStage.h"
 #include "../Core/Profiler.h"
 
 #include <algorithm>
@@ -74,9 +74,6 @@ constexpr int TERRAIN_BODY_INDEX = -1;
 
 void PersistentContactSolver::Solve( PersistentContactSolverContext& context, float dt )
 {
-    using PersistentContact = PhysicsWorld::PersistentContact;
-    using PersistentContactSolverStats = PhysicsWorld::PersistentContactSolverStats;
-
     auto& m_candidatePairs = context.candidatePairs;
     auto& m_sleepState = context.sleepState;
     auto& m_sleepSupportEdges = context.sleepSupportEdges;

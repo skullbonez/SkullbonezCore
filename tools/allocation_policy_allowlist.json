@@ -423,6 +423,29 @@
       "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
     },
     {
+      "path": "SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp",
+      "patterns": [
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "PhysicsContactSolverStage bounded solver state and replay transfer",
+      "phase": "startup_preallocation_scene_load_replay",
+      "reason": "The contact-solver owner construction-reserves persistent rows, cache, per-body scratch, and consequence queues before steady gameplay. Replay restore may reserve under the existing replay allocation scope; fixed-tick solver growth remains guarded by retained capacity and the runtime allocation guard.",
+      "cap": "Persistent rows/cache and collision consequence indices are capped at four/eight rows per 8,192 scene bodies as applicable; per-body rows are capped at 8,192; pipeline records at 4,096; replay restore remains under the solver snapshot hard cap.",
+      "removal_or_wrapper_plan": "Replace solver vectors with fixed-capacity stores and route replay transfer through bounded stores, then remove this row."
+    },
+    {
+      "path": "SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "PhysicsContactSolverStage bounded solver state and consequences",
+      "phase": "startup_preallocation_scene_load_replay",
+      "reason": "The concrete solver stage retains persistent rows, cache, counts, body scratch, and typed consequence vectors; fixed-step contexts borrow all other owner rows synchronously.",
+      "cap": "All vectors are bounded by scene model/contact capacity, the 4,096-record pipeline cap, or replay snapshot hard cap.",
+      "removal_or_wrapper_plan": "Replace solver vectors with fixed-capacity stores, then remove this row."
+    },
+    {
       "path": "SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp",
       "patterns": [
         ".assign(",

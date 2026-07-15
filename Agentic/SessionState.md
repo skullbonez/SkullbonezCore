@@ -10,23 +10,25 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `15th-of-July-Night-Runner` (P0-P4 pushed through `3c0392140`; P5 terrain extraction pending commit) |
+| Branch | `15th-of-July-Night-Runner` (P0-P5 pushed through `66e0ff50e`; P6 contact-solver extraction pending commit) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Execute P6 of `physicsworld-stage-owner-decomposition`: extract `PhysicsContactSolverStage` with exact prepare/solve/apply ordering |
-| Active/future progress | 6 / 11 tasks = 55% overall (PhysicsWorld campaign only; completed rounds and externally blocked work are excluded) |
+| Current objective | Execute P7 of `physicsworld-stage-owner-decomposition`: extract the complete `PhysicsSleepController` ownership boundary |
+| Active/future progress | 7 / 11 tasks = 64% overall (PhysicsWorld campaign only; completed rounds and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | P5 moved terrain detection candidates, committed manifolds, and fixed rest-applied rows into `PhysicsTerrainStage`; typed preparation preserves the exact diagnostics/manifold/sleep/visual/clock order while sleep-support and remaining-time rows stay sequencer-owned borrows. Mechanical comparison matched the moved terrain view and detector bodies. `tools\validate_build.bat Debug` passed in 25.53 s with 0 warnings/0 errors. The focused terrain unit passed 1/1 case and 9/9 assertions. Touched-source comment audit inspected 5/5 files with 0 deferred. Allocation policy self-test passed and repository scan reported 346 files, 39 direct-heap findings, 139 dynamic-STL findings, 658 STL-growth findings, and 0 allowlist errors. `tools\validate_physics.bat` passed in about 65 s with standalone/runtime-handle smokes, 0-warning Debug/Profile builds, and the 44,401-line varied baseline byte-exact. No baseline refresh. |
+| Validation for current edits | P6 moved persistent rows/cache/counts, solver-body scratch, statistics, five typed consequence queues, and `PersistentContactSolver` into `PhysicsContactSolverStage`; replay, diagnostics, sleep/narrowphase reads, cache retirement, memory, and fixed-release access now route through owner APIs. `tools\validate_build.bat Debug` passed in 24.07 s with 0 warnings/0 errors. Three replay snapshot/restore focused tests passed 173/173 assertions. The optional direct solver selection passed 3/4 cases and 17/18 assertions; its box edge fixture failed while constructing `BuildObjectContactManifold`, before the moved stage or solver ingestion, and the required physics gate remained green. Touched-source comment audit inspected 5/5 files with 0 deferred. Allocation policy self-test passed and repository scan reported 348 files, 39 direct-heap findings, 139 dynamic-STL findings, 658 STL-growth findings, and 0 allowlist errors. `tools\validate_physics.bat` passed both smoke lanes, 0-warning Debug/Profile builds, and the 44,401-line varied baseline byte-exact. No baseline refresh. |
 
 ## Live Queue
 
-000. `physicsworld-stage-owner-decomposition` is the active campaign at 6/11.
-     P0-P5 are complete. Broadphase owns its grid/candidate/diagnostic storage;
+000. `physicsworld-stage-owner-decomposition` is the active campaign at 7/11.
+     P0-P6 are complete. Broadphase owns its grid/candidate/diagnostic storage;
      force owns exact mutual-gravity preparation, bounded gravity scratch, and
      force dispatch without retaining borrowed frame state. Continue at P4:
      extract `PhysicsNarrowphaseStage`, but keep the pair-order cross-domain
      event commit loop on the sequencer until P7. Terrain owns candidate,
      manifold, and rest-applied storage while sleep-support outputs stay on the
-     sequencer until P7. P6 extracts the persistent contact solver wrapper.
+     sequencer until P7. The contact-solver stage owns persistent state,
+     bounded solve scratch, replay transfer, and typed consequence queues;
+     sequencer-side wake consequence commit remains explicit until P7.
      Binding rules:
      stage owners with value contexts and no
      reach-back (never a `PhysicsWorld` TU split), one owner per task per
@@ -221,9 +223,9 @@ owner-commissioned validation review (spot-checked fallback math, FP
 diagnosis/disassembly evidence, forced-include scope, survey completeness,
 ledger arithmetic, and the locally runnable allocation/filter/migration
 checks). The active work is now the `physicsworld-stage-owner-decomposition`
-campaign at 6/11 — P0 certification/map, P1 seam preparation, P2 broadphase,
+campaign at 7/11 — P0 certification/map, P1 seam preparation, P2 broadphase,
 P3 force-owner extraction, P4 narrowphase extraction, and P5 terrain
-extraction are complete; begin P6 contact-solver extraction
+extraction and P6 contact-solver extraction are complete; begin the P7 sleep-controller extraction
 per the Live Queue entry above.
 Documentation-honesty findings from the round-4 review remain recorded in
 MASTER without plans. The externally administered validation-gate V3 lane

@@ -44,7 +44,6 @@ Related:
 #include <vector>
 
 #include "ColliderStore.h"
-#include "PersistentContactSolver.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsDiagnosticsSink.h"
 #include "PhysicsDebugData.h"
@@ -53,6 +52,7 @@ Related:
 #include "SleepIslandSystem.h"
 #include "SpatialGrid.h"
 #include "Stages/PhysicsBroadphaseStage.h"
+#include "Stages/PhysicsContactSolverStage.h"
 #include "Stages/PhysicsForceStage.h"
 #include "Stages/PhysicsNarrowphaseStage.h"
 #include "Stages/PhysicsStageContexts.h"
@@ -84,25 +84,17 @@ struct PhysicsBodyRecord;
 struct PhysicsPointJointCreateDesc;
 struct PhysicsDiagnosticsView;
 struct PhysicsWorldForces;
-struct PersistentContactSolverSideEffects;
-struct PersistentContactSolverContext;
 struct SleepSupportPropagationContext;
 class DisjointSet;
 
-struct PersistentContactSolverSideEffects
-{
-    // Solver output queues. The persistent solver appends plain body indices and
-    // records into these vectors; PhysicsWorld applies owner-side consequences
-    // after the solve so the hot contact loop stays on dense physics storage.
-    std::vector<PhysicsPipelineRecord> pipelineRecords;
-    std::vector<int> collisionVisualBodies;
-    std::vector<int> fixedContactBodies;
-    std::vector<int> releaseWakeBodies;
-    std::vector<PhysicsFixedTreeReleaseEvent> fixedTreeReleases;
-};
-
 class PhysicsWorld
 {
+  public:
+    // Source-compatible type names only; storage and mutation authority belong
+    // exclusively to PhysicsContactSolverStage.
+    using PersistentContact = Physics::PersistentContact;
+    using PersistentContactSolverStats = Physics::PersistentContactSolverStats;
+
   private:
     PhysicsForceStage m_forceStage;
     // Concrete broadphase owner retains the grid, pair output, and diagnostic
@@ -114,6 +106,9 @@ class PhysicsWorld
     // Terrain owns detection candidates, committed manifolds, and solver rest
     // rows. Sleep-support and remaining-time outputs are synchronous borrows.
     PhysicsTerrainStage m_terrain;
+    // Persistent rows, cache, bounded solve scratch, and consequence queues
+    // move as one cohesive contact-solver owner.
+    PhysicsContactSolverStage m_contactSolverStage;
     // Invariant: narrowphase, terrain, and final integration all write this
     // cross-stage CCD clock, so it deliberately remains on the sequencer.
     std::vector<float> m_timeRemaining;
@@ -170,64 +165,6 @@ class PhysicsWorld
     std::vector<int> m_sleepVisualIslandIds;
     std::vector<int> m_sleepVisualIslandBodies;
 
-  public:
-    struct PersistentContact
-    {
-        // One solver row for one contact point. bodyB == -1 means static
-        // terrain. accN/accT1/accT2 are accumulated impulses reused by warm
-        // starting; they are cache-sensitive and therefore validation-sensitive.
-        int bodyA = -1;
-        int bodyB = -1;
-        uint32_t featureId = 0;
-        int64_t key = 0;
-        Math::Vector::Vector3 normal = Math::Vector::ZERO_VECTOR;
-        Math::Vector::Vector3 tangent1 = Math::Vector::ZERO_VECTOR;
-        Math::Vector::Vector3 tangent2 = Math::Vector::ZERO_VECTOR;
-        Math::Vector::Vector3 rA = Math::Vector::ZERO_VECTOR;
-        Math::Vector::Vector3 rB = Math::Vector::ZERO_VECTOR;
-        float penetration = 0.0f;
-        float normalMass = 0.0f;
-        float tangentMass1 = 0.0f;
-        float tangentMass2 = 0.0f;
-        float bias = 0.0f;
-        float frictionLimit = 0.0f;
-        float accN = 0.0f;
-        float accT1 = 0.0f;
-        float accT2 = 0.0f;
-        bool warmStarted = false;
-        bool isTerrain = false;
-        bool supportsRestingPolicy = true;
-        bool allowsTangentFriction = true;
-        bool normalCoupledFriction = false;
-        bool inhibitsSleep = false;
-        uint8_t manifoldPointCount = 1;
-        Math::Vector::Vector3 terrainNormal = Math::Vector::ZERO_VECTOR;
-        float terrainWarmStart = 0.0f;
-        // Contact-point speeds captured before this row applies solver impulses.
-        // Audio and diagnostics use these to reject force-transfer rows that had
-        // no real relative impact motion.
-        float preSolveNormalSpeed = 0.0f;
-        float preSolveClosingSpeed = 0.0f;
-        float preSolveSlipSpeed = 0.0f;
-    };
-
-  public:
-    struct PersistentContactSolverStats
-    {
-        // Bounded per-frame counters for SkullScope, profiler overlays, and
-        // regression diagnostics. These explain what the solver did without
-        // forcing agents to ingest full raw CSV/NDJSON artifacts.
-        int rowCount = 0;
-        int cachePreviousRows = 0;
-        int cacheHits = 0;
-        int cacheMisses = 0;
-        int warmStartedRows = 0;
-        int positionCorrectionRows = 0;
-        int solverIterations = 0;
-        float positionCorrectionTotal = 0.0f;
-        float positionCorrectionMax = 0.0f;
-    };
-
   private:
     void RunSleepIslandStage( PhysicsBodyStore& bodyStore,
                               const ColliderStore& colliderStore,
@@ -247,23 +184,12 @@ class PhysicsWorld
 
     void CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& event );
 
-    // Persistent rows and diagnostics produced during the current fixed tick.
-    // Terrain manifolds are appended into the same row solver as object/object
-    // contacts so velocity response has one owner.
-    std::vector<PersistentContact> m_persistentContacts;
-    std::vector<PersistentContactCacheEntry> m_persistentContactCache;
-    PersistentContactSolverStats m_persistentContactSolverStats;
-    std::vector<uint16_t> m_persistentContactCounts;
-    std::vector<uint16_t> m_persistentRestingContactCounts;
-    std::vector<SolverBodyState> m_solverBodies;
     std::vector<PhysicsDebugContact> m_physicsDebugContacts;
     std::vector<PhysicsPipelineRecord> m_physicsPipelineTrace;
-    PersistentContactSolverSideEffects m_persistentContactSideEffects;
     std::vector<uint8_t> m_restingWakeVisitedScratch;
     std::vector<int> m_restingWakeQueueScratch;
     std::vector<PointJointConstraint> m_pointJointConstraints;
     TornadoGameplay m_tornadoGameplay;
-    PersistentContactSolver m_contactSolver;
     SleepIslandSystem m_sleepIslandSystem;
     PhysicsDiagnosticsSink m_diagnostics;
 #ifdef _DEBUG
@@ -277,15 +203,9 @@ class PhysicsWorld
                            const PhysicsWorldForces& worldForces,
                            Threading::WorkerPool& workerPool );
     void EmitPhysicsCollisionTime( const char* type, int bodyA, int bodyB, float collisionTime, float availableTime );
-    PersistentContactSolverContext
-    CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,
+    void CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
                                           const ColliderStore& colliderStore,
-                                          const SkullbonezCore::Core::EngineConfig& config,
                                           const PhysicsWorldForces& worldForces );
-    void PreparePersistentContactSideEffects( int modelCount );
-    void ApplyPersistentContactSideEffects( PhysicsBodyStore& bodyStore,
-                                            const ColliderStore& colliderStore,
-                                            const PhysicsWorldForces& worldForces );
     SleepSupportPropagationContext CreateSleepSupportPropagationContext();
     bool CanRecordPhysicsPipelineStage() const;
     void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record );
@@ -305,7 +225,6 @@ class PhysicsWorld
                                Threading::WorkerPool& workerPool );
     void PropagateSleepSupport( std::span<const PhysicsBodyRecord> bodyRecords );
     void AppendPointJointSupportEdges( const PhysicsBodyStore& bodyStore, int modelCount );
-    void ForgetPersistentContactCacheForBody( int bodyIndex );
     void WakeModel( int bodyCount,
                     std::span<const PhysicsBodyRecord> bodyRecords,
                     PhysicsBodyStore* bodyStore,
@@ -429,8 +348,8 @@ class PhysicsWorld
 
 struct PhysicsDiagnosticsView
 {
-    const std::vector<PhysicsWorld::PersistentContact>& persistentContacts;
-    const PhysicsWorld::PersistentContactSolverStats& persistentContactSolverStats;
+    const std::vector<PersistentContact>& persistentContacts;
+    const PersistentContactSolverStats& persistentContactSolverStats;
     const std::vector<int>& sleepIslandParent;
     const std::vector<uint8_t>& sleepSupportedThisFrame;
     const std::vector<uint8_t>& sleepInhibitedThisFrame;
@@ -446,32 +365,6 @@ struct PhysicsDiagnosticsView
     const std::vector<int>& sleepIslandVisualId;
     const std::vector<PhysicsPipelineRecord>& physicsPipelineTrace;
     const std::vector<TerrainContactManifold>& terrainContactManifolds;
-};
-
-struct PersistentContactSolverContext
-{
-    // Lifetime: spans borrow PhysicsWorld/PhysicsBodyStore dense rows for one
-    // synchronous solve and are never retained by PersistentContactSolver.
-    std::span<const std::pair<int, int>> candidatePairs;
-    std::span<uint8_t> sleepState;
-    std::vector<std::pair<int, int>>& sleepSupportEdges;
-    std::vector<PhysicsWorld::PersistentContact>& persistentContacts;
-    std::vector<PersistentContactCacheEntry>& persistentContactCache;
-    PhysicsWorld::PersistentContactSolverStats& persistentContactSolverStats;
-    std::vector<uint16_t>& persistentContactCounts;
-    std::vector<uint16_t>& persistentRestingContactCounts;
-    std::vector<SolverBodyState>& solverBodies;
-    std::vector<PhysicsDebugContact>& physicsDebugContacts;
-    std::vector<TerrainContactManifold>& terrainContactManifolds;
-    std::span<uint8_t> terrainRestApplied;
-    std::span<uint8_t> sleepSupportedThisFrame;
-    PersistentContactSolverSideEffects& sideEffects;
-    std::span<PhysicsBodyRecord> bodyRecords;
-    std::span<const ColliderRecord> colliderRecords;
-    int bodyStoreCount = 0;
-    int pipelineRecordCapacity = 0;
-    bool elasticCollisions = false;
-    const SkullbonezCore::Core::EngineConfig& config;
 };
 
 struct SleepSupportPropagationContext
