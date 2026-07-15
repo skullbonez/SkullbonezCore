@@ -374,6 +374,7 @@ CORE_PREFIXES = (
     "Config",
     "FatalError",
     "Fence",
+    "FloatingPointContract",
     "LockOrderValidator",
     "Log",
     "MainMemoryStats",

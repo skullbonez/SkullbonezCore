@@ -10,12 +10,12 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `claude/night-runner-code-review-8gw5g6` (fast-forwarded onto the `15th-of-July-Night-Runner` round-4 tip `2da6b219`) |
+| Branch | `15th-of-July-Night-Runner` (synced through FP-envelope closure commit `6c5b4d3ea`) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Execute the three round-5 plans from the 2026-07-15 review of round-4 claims: mutual-gravity large-scene fallback (removes a reachable Release fatal), FP envelope hardening (diagnose the inline flip, pin contraction, re-scope determinism docs), and math-fatal survey restoration |
-| Active/future progress | 0 / 10 tasks = 0% overall (round-5 plans only; completed rounds and externally blocked work are excluded) |
+| Current objective | Round-5 adversarial-review remediation is complete; preserve the closed 10/10 ledger and hand off the externally administered validation-gate V3 lane separately |
+| Active/future progress | 10 / 10 tasks = 100% overall (round-5 plans only; completed rounds and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | Runtime-signature-decomposition T1-T5 closed at 5/5. Eleven owner-plumbing calls now take stack-only host/interaction/scene views and have 4–6 arguments. The persistent survey records 208 unique wide invocation names with individual dispositions. Independent review found no authority bag, callbacks, retained views, or reach-back. `tools\validate_full.bat` passed in 170.7s: zero-warning builds, CPU lanes, five engine processes, zero DX12 InfoQueue errors, matching screenshots, and the unchanged 44,401-line byte-exact physics baseline. Touched-source comment audit passed 6/6, zero deferred. |
+| Validation for current edits | Math-fatal survey restoration T1-T3 closed at 3/3. The dated report reconciles 23 Vector3 named calls, 52 Vector3 division calls, and 24 Quaternion `Normalise` calls; zero reachable-degenerate rows remain on a plain Vector3 API without a row-specific guard/invariant, and `Maths/` still has zero `SB_FATAL`. Independent review found and then verified correction of one omitted bare Quaternion call. The diff is documentation-only with no source or baseline changes, so no repository validation was required. |
 
 ## Live Queue
 
@@ -33,6 +33,19 @@ plan inventory.
     pair-scratch cap. The survey plan retro-commits the missing round-4
     math-fatal T2 classification evidence. Zero baseline refresh is
     authorized anywhere in this round.
+    `mutual-gravity-large-scene-fallback` is complete at 3/3: body counts
+    above 512 bypass triangular pair scratch and run the pre-parallel exact
+    serial accumulation; a 520-body fixture is byte-identical across 0/1/4
+    workers, and the unchanged physics baseline passed.
+    `fp-envelope-hardening` is complete at 4/4: the historical fixture's
+    Profile-only flip is diagnosed as an inline/packed-SSE optimizer-boundary
+    change; all four projects force contraction off, the certified determinism
+    envelope is documented honestly, and full/perf gates passed with the
+    44,401-line physics baseline unchanged.
+    `math-fatal-survey-restoration` is complete at 3/3: the fresh report
+    reconciles every Vector3 named/division call and every Quaternion spelling
+    match, finds no migration gap, and closes documentation-only after an
+    independent completeness review.
 1. Round-4 adversarial-review remediation completed 22/22 (2026-07-15).
    Six plans registered in MASTER with a binding order: `win32-message-pump-
    drain` → `data-driven-shadow-caster-streams` → `vector3-inline-hot-math` →
@@ -186,13 +199,9 @@ plan inventory.
 
 ## Next Handoff
 
-The 2026-07-15 adversarial review of the round-4 claims produced three
-round-5 plans, registered in MASTER with a 0/10 ledger. Start with
-`Plans/TODO/mutual-gravity-large-scene-fallback.md` — it removes a reachable
-Release process kill (>512 gravity bodies now fatal where 8,192 previously
-worked). No source changes have been made yet for this round; zero baseline
-refresh is authorized. Documentation-honesty findings from the same review
-(pine "as material data" framing, dropped `std::floor` transcription,
-boilerplate inventory keep-reasons, report-path convention) are recorded in
-MASTER round 5 without plans. The externally administered validation-gate V3
-lane remains blocked and excluded from the ledger.
+Round 5 is complete at 10/10. All three remediation plans closed without a
+baseline refresh; no active/future implementation plan remains in the ledger.
+Documentation-honesty findings from the same review remain recorded in MASTER
+without plans. The externally
+administered validation-gate V3 lane remains blocked and excluded from the
+ledger.

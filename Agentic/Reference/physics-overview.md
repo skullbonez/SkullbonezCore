@@ -54,11 +54,26 @@ Physics CSV baselines live in `TestOutput/baselines/` and are byte-exact. A sing
 
 ## Determinism Envelope
 
-Physics baselines are guaranteed only for the repository's Windows x64 MSVC
-v143 toolset contract. Every production project and every Debug, Profile, Release,
-and Profile-WPO configuration explicitly uses `/fp:precise`; changing the
-floating-point model, compiler/toolset, x64 target, fixed-step ordering, or
-worker reduction order is a physics behavior change.
+Byte-exact physics is certified for one binary built inside the repository's
+pinned Windows x64 MSVC toolchain envelope and run against the gated content
+committed with it. It is not an unconditional source-level promise across
+binaries or compiler versions. Every project and configuration explicitly uses
+`/fp:precise` and force-includes `FloatingPointContract.h`, which applies
+`#pragma fp_contract(off)` before each translation unit. Changing the compiler,
+toolset, floating-point flags, x64 instruction policy, fixed-step ordering,
+worker reduction order, scenes, config, or baselines changes the certified
+envelope and requires the mapped gates.
+
+Inlining, compiler, flag, and SIMD changes can alter instruction selection and
+flip knife-edge contact or feature-selection branches even when the source
+formula looks equivalent. The byte-exact gates detect that drift; the compiler
+settings do not prevent every possible drift. Physics fixtures must therefore
+be constructed away from floating-point selection boundaries. If a fixture is
+moved away from a boundary, its nearby comment and owning report must record
+the observed flip that motivated the move. The ff6e780e persistent-contact
+fixture is the historical example: Profile changed from a two-point to a
+four-point face after Vector3 inlining, while other configurations were already
+on different sides of that fixture's boundary.
 
 The 2026-07-12 worker audit found no thread-count-sensitive floating-point
 accumulation: physics/replay/tornado workers write independent indexed slots and

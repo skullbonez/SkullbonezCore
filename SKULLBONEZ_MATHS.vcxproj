@@ -156,6 +156,12 @@
       <OutputFile>$(OutDir)SKULLBONEZ_MATHS.lib</OutputFile>
     </Lib>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup>
+    <!-- fp-envelope-hardening: force contraction off in every TU before future AVX2/FMA work. -->
+    <ClCompile>
+      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\FloatingPointContract.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="SkullbonezSource\Maths\GeometricMath.cpp" />
     <ClCompile Include="SkullbonezSource\Maths\Frustum.cpp" />

@@ -3502,28 +3502,88 @@ const Vector3* PhysicsWorld::PrepareMutualGravityForces( std::span<const Physics
     }
 
     const std::size_t requiredBodyCapacity = static_cast<std::size_t>( modelCount );
-    const std::size_t requiredPairCapacity = MutualGravityPairCount( requiredBodyCapacity );
-    if ( modelCount > MUTUAL_GRAVITY_MAX_BODIES || m_mutualGravityForces.capacity() < requiredBodyCapacity ||
-         m_mutualGravityPairForces.capacity() < requiredPairCapacity )
+    if ( m_mutualGravityForces.capacity() < requiredBodyCapacity )
     {
         SB_FATAL( "Physics/MutualGravity",
-                  "Mutual gravity scratch capacity exhausted: owner=Physics/MutualGravity phase=steady_gameplay "
-                  "body_capacity=%zu pair_capacity=%zu required_bodies=%zu required_pairs=%zu max_bodies=%d "
-                  "pair_high_water=%zu.",
+                  "Mutual gravity body scratch capacity exhausted: owner=Physics/MutualGravity "
+                  "phase=steady_gameplay body_capacity=%zu required_bodies=%zu.",
                   m_mutualGravityForces.capacity(),
+                  requiredBodyCapacity );
+    }
+
+    m_mutualGravityForces.assign( requiredBodyCapacity, ZERO_VECTOR );
+    const float softeningLength = (std::max)( settings.softeningLength, TOLERANCE );
+    const float softenedDistanceSq = softeningLength * softeningLength;
+    const float gravitationalConstant = settings.gravitationalConstant;
+
+    if ( modelCount > MUTUAL_GRAVITY_MAX_BODIES )
+    {
+        // Why: mutual-gravity-large-scene-fallback keeps the triangular pair
+        // table capped at 512 bodies (about 1.5 MiB) without shrinking the
+        // engine's 8,192-body capability. Larger fields use the original exact
+        // serial order and only the body-count scratch reserved at scene load;
+        // no approximation or baseline change is permitted.
+        for ( int i = 0; i < modelCount; ++i )
+        {
+            const PhysicsBodyRecord& bodyA = bodyRecords[static_cast<std::size_t>( i )];
+            if ( bodyA.mass <= TOLERANCE )
+            {
+                continue;
+            }
+
+            const bool bodyAReceives = !bodyA.isFixed && bodyA.invMass > 0.0f &&
+                                       ( i >= static_cast<int>( m_sleepState.size() ) || m_sleepState[i] == 0 );
+            for ( int j = i + 1; j < modelCount; ++j )
+            {
+                const PhysicsBodyRecord& bodyB = bodyRecords[static_cast<std::size_t>( j )];
+                if ( bodyB.mass <= TOLERANCE )
+                {
+                    continue;
+                }
+
+                const bool bodyBReceives = !bodyB.isFixed && bodyB.invMass > 0.0f &&
+                                           ( j >= static_cast<int>( m_sleepState.size() ) || m_sleepState[j] == 0 );
+                if ( !bodyAReceives && !bodyBReceives )
+                {
+                    continue;
+                }
+
+                const Vector3 displacement = bodyB.position - bodyA.position;
+                const float distanceSq = Vector::VectorMagSquared( displacement ) + softenedDistanceSq;
+                const float invDistance = 1.0f / sqrtf( distanceSq );
+                const float invDistanceCubed = invDistance * invDistance * invDistance;
+                const Vector3 force =
+                    displacement * ( gravitationalConstant * bodyA.mass * bodyB.mass * invDistanceCubed );
+
+                if ( bodyAReceives )
+                {
+                    m_mutualGravityForces[static_cast<std::size_t>( i )] += force;
+                }
+                if ( bodyBReceives )
+                {
+                    m_mutualGravityForces[static_cast<std::size_t>( j )] -= force;
+                }
+            }
+        }
+
+        return m_mutualGravityForces.data();
+    }
+
+    const std::size_t requiredPairCapacity = MutualGravityPairCount( requiredBodyCapacity );
+    if ( m_mutualGravityPairForces.capacity() < requiredPairCapacity )
+    {
+        SB_FATAL( "Physics/MutualGravity",
+                  "Mutual gravity pair scratch capacity exhausted: owner=Physics/MutualGravity "
+                  "phase=steady_gameplay pair_capacity=%zu required_pairs=%zu max_parallel_bodies=%d "
+                  "pair_high_water=%zu.",
                   m_mutualGravityPairForces.capacity(),
-                  requiredBodyCapacity,
                   requiredPairCapacity,
                   MUTUAL_GRAVITY_MAX_BODIES,
                   m_mutualGravityPairHighWater );
     }
 
     m_mutualGravityPairHighWater = (std::max)( m_mutualGravityPairHighWater, requiredPairCapacity );
-    m_mutualGravityForces.assign( requiredBodyCapacity, ZERO_VECTOR );
     m_mutualGravityPairForces.assign( requiredPairCapacity, ZERO_VECTOR );
-    const float softeningLength = (std::max)( settings.softeningLength, TOLERANCE );
-    const float softenedDistanceSq = softeningLength * softeningLength;
-    const float gravitationalConstant = settings.gravitationalConstant;
 
     Threading::WorkerChunkRange chunks[MUTUAL_GRAVITY_MAX_CHUNKS] = {};
     int chunkCount = 0;

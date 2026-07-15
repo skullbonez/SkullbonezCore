@@ -454,7 +454,7 @@ run the specified targeted validation:
 | Visual regression baselines | False passes hide real bugs | `validate_dx12_renderer` + intentional baseline update |
 | Physics regression baselines | Stale baselines hide real behavior changes | Update only from final Debug artifacts, then rerun `validate_physics` or `validate_physics_deep` to match the baseline set |
 | Matrix conventions | Entire scene renders incorrectly | `validate_dx12_renderer` |
-| Physics determinism | Butterfly-effect divergence over frames | `validate_physics` byte-exact CSV diff |
+| Physics determinism | Compiler, flags, inlining, SIMD, or gated-content drift can flip knife-edge branches; byte-exactness is certified per binary and pinned toolchain/content envelope | `validate_physics` byte-exact CSV diff; keep fixtures away from selection boundaries and record any motivating flip |
 | Screenshot timing | Flaky non-deterministic captures | `validate_dx12_renderer` |
 | Fixed-step simulation behavior | Physics replay not reproducible | `validate_physics` |
 | Coordinate conventions | Upside-down textures, clip-space bugs | `validate_dx12_renderer` |
