@@ -1,8 +1,11 @@
 # Replay Mass Reduction — Right-Size The 33,783-Line Replay Subsystem
 
 Date: 2026-07-16
-Status: Draft — NOT yet registered in `MASTER-PLAN.md` (task R0 performs
-registration when the owner activates this plan). 0/8 tasks complete.
+Status: Active — registered in `MASTER-PLAN.md` by the 2026-07-16 activation
+governance commit. 0/8 tasks complete. R0's registration sub-step (a) is
+already satisfied by that commit; R0 now covers the census, classification
+map, map-file baseline, owner bucket ratification, and the reference gate
+run only.
 Impact area: `Runtime/Replay/*`, automation build boundary, replay artifact
 codec, prediction presentation, replay reserve-allocator registrations,
 `tools/check_replay_visual_fidelity.py` consumers (schema-frozen)
@@ -104,9 +107,10 @@ every single task.
 
 ## Task Checklist
 
-- [ ] **R0 — Registration, census, and classification map.**
-      (a) Register this plan in `MASTER-PLAN.md` (ledger 0/8, campaign
-      section, critical-path entry) and update `SessionState.md`.
+- [ ] **R0 — Census and classification map.**
+      (a) MASTER/SessionState registration — ALREADY DONE by the 2026-07-16
+      activation governance commit; verify the ledger row reads 0/8 and do
+      not re-register.
       (b) Commit the census to
       `Agentic/Reports/2026-07-16/replay-mass-reduction-census.md`: per-file
       line counts at the starting tip; every replay file classified into

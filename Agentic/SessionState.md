@@ -10,15 +10,34 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-15th-july` (runtime mass-reduction campaign) |
+| Branch | `claude/night-runner-code-review-8gw5g6` (runtime mass-reduction campaign validated by the 2026-07-16 owner review; replay mass-reduction campaign activated) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Runtime mass-reduction campaign complete at 16/16; no active local implementation plan remains. |
-| Active/future progress | 0 active/future local tasks; the completed runtime mass-reduction closure snapshot is 16 / 16 = 100% and is now historical. |
+| Current objective | Execute the replay mass-reduction campaign (`Plans/TODO/replay-mass-reduction.md`, R0 → R8 strictly in order): move the probe/validation harness behind a link-level automation boundary, consolidate the artifact codec and presentation emission, delete only owner-ruled dead paths, and partition oversized owner TUs — all under one mega-gate invocation per task with zero golden refresh |
+| Active/future progress | 0 / 8 tasks = 0% overall (replay mass-reduction only; completed campaigns and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed in 113.79 s on 2026-07-16: all CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
 | Validation for current edits | Wide-call T5 is complete: final full gate passed; plan history contains no screenshot/physics/behavioral-golden change beyond the explicitly approved two replay provenance hashes; final comment audit is 11/11; independent review is clear after correcting one lifetime comment. |
 
 ## Live Queue
 
+00000. `replay-mass-reduction` is the active campaign (activated 2026-07-16;
+       registered in MASTER at 0/8). Start at R0: the registration sub-step
+       is already done — do not re-register. R0 delivers the census and
+       bucket classification of every `Runtime/Replay/` file
+       (product-runtime / prediction-engine / artifact-io / probe-harness /
+       presentation-emission), the duplication table with file:line
+       evidence, the Release/Profile `/MAP` replay-footprint baseline, the
+       owner's bucket ratification, and one reference mega-gate run on the
+       unmodified tip. Binding rules for every task: exactly one
+       `tools\validate_replay_visual_fidelity.bat` invocation (one engine
+       process, one prediction generation, zero golden refresh,
+       revert-on-diff); link-level automation boundary, never `#ifdef`
+       scatter; no artifact-format or probe-schema changes; no ownership
+       re-decomposition; deletions only via R5 owner rulings; owner-TU
+       partitions only in R6; reserve-allocator registrations move
+       unchanged. R1 proves the boundary on the fingerprint pilot file
+       before R2 moves ReplayValidation.cpp; R4 adds DX12+stress gates; R8
+       closes with full/perf/allocation gates and the final census against
+       R0's measured numbers.
 0000. Runtime mass-reduction campaign completed at 16/16 on 2026-07-16. Binding
       order and closure state:
       `init-startup-decomposition` is complete at 5/5 after independent review
@@ -237,6 +256,11 @@ plan inventory.
 
 ## Next Handoff
 
-The runtime mass-reduction campaign is complete at 16/16. No active local
-implementation plan remains. The externally administered validation-gate V3
-lane remains blocked and excluded from the completed campaign ledger.
+The runtime mass-reduction campaign closed at 16/16 and passed the
+2026-07-16 owner-commissioned validation review (both replay provenance
+hashes were mechanically verified against their source files; the only open
+trust point is the runner's recorded claim of explicit owner approval for
+that reconciliation). The active work is now the replay mass-reduction
+campaign at 0/8 — start with `Plans/TODO/replay-mass-reduction.md` R0 per
+the Live Queue entry above. The externally administered validation-gate V3
+lane remains blocked and excluded from the ledger.

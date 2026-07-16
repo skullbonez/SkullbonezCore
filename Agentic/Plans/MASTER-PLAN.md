@@ -88,18 +88,18 @@ Rules:
 
 ### Portfolio Progress Ledger
 
-No active/future local implementation work remains after the 2026-07-15
-runtime mass-reduction campaign closed at 16/16. The table below is its final
-closure snapshot and supplies the closing plan-runner's 100% subject; future
-portfolio calculations exclude it under commit-contract rule 4. The externally
-blocked validation lane remains deliberately excluded.
+Scope: active and future implementation work only. Per the 2026-07-16 owner
+decision, the active portfolio is the replay mass-reduction campaign below.
+The 2026-07-15 runtime mass-reduction campaign closed at 16/16
+(init-startup-decomposition 5/5, run-member-and-include-shrink 6/6,
+wide-call-desc-struct-pass 5/5) and leaves the ledger as historical work per
+commit-contract rule 4, as do all earlier campaigns. The externally blocked
+validation lane remains deliberately excluded.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| init-startup-decomposition | 5 | 5 | 100% |
-| run-member-and-include-shrink | 6 | 6 | 100% |
-| wide-call-desc-struct-pass | 5 | 5 | 100% |
-| **Campaign closure total** | **16** | **16** | **100%** |
+| replay-mass-reduction | 0 | 8 | 0% |
+| **Active/future total** | **0** | **8** | **0%** |
 
 The three round-5 plans (fp-envelope-hardening 4/4,
 mutual-gravity-large-scene-fallback 3/3, math-fatal-survey-restoration 3/3)
@@ -108,9 +108,16 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
+The binding critical path is the 2026-07-16 replay mass-reduction campaign:
+`replay-mass-reduction` R0 → R8 strictly in order. R0's owner bucket
+ratification and reference mega-gate run precede any code move; R1 proves the
+link-level automation boundary on one pilot file before R2 moves the probe
+harness; MASTER rule 11 (one mega-gate invocation, one engine process, no
+golden refresh, revert-on-diff) binds every task.
+
 The 2026-07-15 runtime mass-reduction critical path completed at 16/16:
 `init-startup-decomposition → run-member-and-include-shrink →
-wide-call-desc-struct-pass`. No active local serial step remains. Every plan
+wide-call-desc-struct-pass`. Every plan
 closed with its mapped validation and no behavioral baseline, golden, or
 screenshot refresh. The wide-call replay task used one engine process and one
 prediction generation; after that process exposed stale pre-config-v2
@@ -413,6 +420,36 @@ dependent manifest hash; all behavioral golden values remained unchanged.
 | `init-startup-decomposition` | Complete | 5/5 | Init is a 453-line process orchestrator; four focused Startup owners, exact CLI proofs, independent ownership review, final full gate, and both manual exit-code probes are closed in `../Reports/2026-07-15/init-startup-decomposition-map.md` |
 | `run-member-and-include-shrink` | Complete | 6/6 | Run.h has 23 direct includes and none of the four named heavy transitive headers; two cohesive owners, recorded UI/audio stays, clear independent review, and full/DX12/stress closure evidence are recorded in `../Reports/2026-07-15/run-member-shrink-map.md` |
 | `wide-call-desc-struct-pass` | Complete | 5/5 | Ten record-construction names are 0–2 arguments; all 31 surviving ≥12-argument names have individual reasons, independent review is clear after one comment fix, and final full/replay/DX12/physics evidence is recorded in `../Reports/2026-07-15-runtime-wide-invocation-inventory.md` |
+
+## Replay Mass Reduction Campaign (2026-07-16)
+
+Source: the proportion finding from the 2026-07-15 hostile review, activated
+by the owner on 2026-07-16. `Runtime/Replay/` is 33,783 lines at tip
+`c0dd7016` with three diagnosed diseases: the probe/validation harness
+(ReplayValidation.cpp 3,729 lines plus fingerprint/probe-archive tooling)
+compiles into production Release because only three files sit behind the
+automation define; artifact-codec and presentation-emission mechanics are
+duplicated across sibling owners; and ReplayPrediction.cpp (4,424 lines) is
+the engine's largest remaining TU.
+
+Standing rules binding every task: MASTER rule 11 verbatim (one mega-gate
+invocation per task, one engine process, one prediction generation, zero
+golden refresh, revert-on-diff — never fix forward a replay behavior
+difference); no ownership re-decomposition (the monolith campaign's six
+owner boundaries stand); no artifact-format or probe-output-schema changes
+(the Python gate tooling parses those schemas); no line quotas — deletion
+only through R5's recorded owner rulings; the automation boundary is
+link-level project-configuration exclusion, never `#ifdef` scatter through
+product TUs; replay reserve-allocator registrations move unchanged in owner,
+phase, cap, and counter; owner-TU partitions only for R6 splits. Owner
+decisions required at R0: the automation-only bucket confirmation and the
+product-config probe entry-point behavior (absent vs no-op stubs). The
+2026-07-16 provenance-hash protocol is precedent for any provenance-only
+reconciliation.
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [replay-mass-reduction](TODO/replay-mass-reduction.md) | Active | 0/8 | R0: census, bucket classification, duplication table, Release/Profile map-file baseline, owner ratification, and the reference mega-gate run |
 
 ## Features
 
