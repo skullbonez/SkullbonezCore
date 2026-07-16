@@ -98,8 +98,13 @@ validation lane remains deliberately excluded.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| replay-mass-reduction | 5 | 8 | 63% |
-| **Active/future total** | **5** | **8** | **63%** |
+| replay-mass-reduction | 5 | 9 | 56% |
+| **Active/future total** | **5** | **9** | **56%** |
+
+The denominator grew 8 → 9 on 2026-07-16 when the owner ruled finding R3-F1
+(schedule-sensitive artifact bookkeeping nondeterminism) into scope as task
+R4b per commit-contract rule 4 (rescoped plans update the ledger and
+denominator in the same commit).
 
 The three round-5 plans (fp-envelope-hardening 4/4,
 mutual-gravity-large-scene-fallback 3/3, math-fatal-survey-restoration 3/3)
@@ -117,10 +122,21 @@ distinct RVPD/V2 codecs, recorded the schedule-sensitive artifact-bookkeeping
 nondeterminism as a separately ruled follow-up, and proved all gate-covered
 content byte-identical across three artifacts. R4 unified bit-identical quota
 and render-pose mechanics, retained policy-distinct trajectory loops, and kept
-3D ribbons, screen-space UI, and packet telemetry separate. R5 now performs the
-mechanical reachability and owner-ruling audit; no ruling means no deletion.
-MASTER rule 11 (one mega-gate invocation, one engine process, no
-golden refresh, revert-on-diff) binds every task.
+3D ribbons, screen-space UI, and packet telemetry separate. The next task is
+R4b — the 2026-07-16 owner ruling on finding R3-F1: canonicalize ALL
+schedule-sensitive artifact bookkeeping (topology versions in RVPD/RVIS,
+trajectory-store, inactive worker-bank, and reserve-growth fields) at the
+serialization boundary; live engine counters stay raw. R4b's charter
+pre-authorizes exactly two mega-gate invocations (the determinism proof needs
+two artifacts; whole-file SHA equality closes R3-F1) — this recorded owner
+approval is the sole rule-11 exception in the campaign and no other task
+inherits it. The root cause chain is verified in source: wall-clock build
+budgets (`ReplayPrediction.cpp:214`) vary rebuild counts, the monotonic
+topology counter records them, `AppendPod` serializes them fixed-width into
+RVPD/RVIS, and MANI's decimal-printed `visualPredictionHash` supplies the
+variable file length. R5's reachability audit follows R4b; no ruling means
+no deletion. MASTER rule 11 (one mega-gate invocation, one engine process,
+no golden refresh, revert-on-diff) binds every other task.
 
 The 2026-07-15 runtime mass-reduction critical path completed at 16/16:
 `init-startup-decomposition → run-member-and-include-shrink →

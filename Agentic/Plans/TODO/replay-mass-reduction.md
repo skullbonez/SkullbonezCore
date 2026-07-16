@@ -1,10 +1,11 @@
 # Replay Mass Reduction — Right-Size The 33,783-Line Replay Subsystem
 
 Date: 2026-07-16
-Status: Active — 5/8 tasks complete. R4 unified the bit-identical quota and
-render-pose mechanics, retained policy-distinct trajectory loops, and preserved
-submission order under the unchanged renderer/mega gates. Continue at R5's
-owner-ruled dead-path audit.
+Status: Active — 5/9 tasks complete. R4 unified the bit-identical quota and
+render-pose mechanics under the unchanged renderer/mega gates. The 2026-07-16
+owner ruling on finding R3-F1 added task R4b (canonical artifact bookkeeping
+serialization), which runs NEXT — before R5's dead-path audit — so later
+tasks inherit byte-deterministic artifacts.
 Impact area: `Runtime/Replay/*`, automation build boundary, replay artifact
 codec, prediction presentation, replay reserve-allocator registrations,
 `tools/check_replay_visual_fidelity.py` consumers (schema-frozen)
@@ -62,7 +63,10 @@ every single task.
 - **No replay behavior, artifact-format, prediction, tick, or presentation
   change.** The 200-box golden manifest is untouchable; any provenance-only
   reconciliation repeats the explicit-owner-approval protocol used on
-  2026-07-16 and touches nothing but hash fields.
+  2026-07-16 and touches nothing but hash fields. Sole carve-out: R4b
+  canonicalizes the R3-F1 schedule-sensitive bookkeeping *values* at
+  serialization under its own versioning ruling — gate-covered content,
+  layouts, and consumer contracts remain unchanged.
 - **No ownership re-decomposition.** The six replay owners from the monolith
   campaign keep their boundaries; this plan moves mass, not authority.
 - **No arbitrary line quotas.** Deletion happens only through R5's
@@ -81,7 +85,10 @@ every single task.
    `tools\validate_replay_visual_fidelity.bat` exactly once — one engine
    process, one prediction generation; a second launch or generation is an
    immediate failure; no golden refresh. A task that cannot pass the gate
-   reverts; never fix forward a replay behavior diff.
+   reverts; never fix forward a replay behavior diff. Sole recorded
+   exception: R4b's charter pre-authorizes exactly two invocations (owner
+   approval 2026-07-16) because a determinism proof requires two artifacts;
+   no other task inherits that exception.
 2. **Diagnostics-boundary moves are link-level, not `#ifdef` soup.** The
    fingerprint TU belongs to Automation+Debug, the RVPD verifier to Automation,
    and existing `_DEBUG` probe blocks to Debug; all are excluded from
@@ -199,6 +206,48 @@ every single task.
       or order changes. Tests passed 202/202; DX12 passed with zero errors and
       matching baselines; 61.89 s stress was crash-free; the single 474.85 s
       mega passed with one process/generation and no golden refresh.
+- [ ] **R4b — Canonical artifact bookkeeping serialization (ruled fix for
+      finding R3-F1).** Owner rulings 2026-07-16: canonicalize at the
+      serialization boundary — live engine state keeps its raw
+      schedule-sensitive counters; the artifact stops recording them. This
+      task, not R3 and not R5, owns the fix.
+      (a) Field inventory: from the R3 disposition report's full binary diff
+      (`replay-mass-reduction-r3-codec-disposition.md`), enumerate EVERY
+      schedule-sensitive field family — topology-version values in RVPD and
+      in RVIS packet headers, trajectory-store bookkeeping, inactive
+      worker-bank rows, and reserve-growth counters — with file:line of each
+      writer. The fix covers the complete R3-F1 set; fixing only
+      `topologyVersion` is a failed task.
+      (b) Canonicalization design: values whose only consumer contract is
+      *matching* (topology versions pairing RVPD state to RVIS rows) are
+      remapped to a dense deterministic sequence in first-publication order,
+      applied consistently across all chunks of one artifact; values that are
+      pure runtime telemetry (inactive bank rows, reserve-growth counters)
+      are serialized as documented canonical constants. A survey of every
+      reader proves consumers are value-agnostic (matching/consistency only)
+      before any writer changes; any reader that depends on absolute values
+      is a blocking finding for this task, not a silent accommodation.
+      Hazard: the durable fingerprint comparison
+      (`SB_REPLAY_VISUAL_COMPARE_HEADER( topologyVersion )`,
+      `ReplayVisualPacket.h:927`) compares live packets against durable rows —
+      the canonical mapping must apply identically to both sides or that
+      header field's comparison semantics must be explicitly remap-aware;
+      a comparison that silently stops checking the field is a failed task.
+      (c) Versioning ruling: decide against the authored-schema policy
+      whether canonical bookkeeping is a semantic format change. If yes:
+      bump the replay format version, add the deterministic migration step,
+      and extend legacy/current/future/writer tests in the same commit. If
+      no: record the ruling and why (layout and consumer contracts
+      unchanged; only unvalidated telemetry values become constant).
+      (d) Determinism proof: this task's charter pre-authorizes exactly TWO
+      mega-gate invocations (the standard one plus one owner-approved
+      determinism-proof run, approval recorded in MASTER's campaign section
+      on 2026-07-16) — whole-file SHA-256 of the two artifacts must now be
+      identical, closing R3-F1. The gate-covered projection must still match
+      R3's recorded projection SHA (no behavioral drift), and MANI's
+      `visualPredictionHash` becomes stable as a consequence.
+      Gates: `validate_tests`, the two authorized mega-gate runs with
+      whole-artifact SHA equality, no golden/baseline/provenance change.
 - [ ] **R5 — Dead-path audit and owner deletion rulings.** Mechanical
       reachability pass over the replay surface (public functions with zero
       call sites outside tests, config branches no scene/CLI can reach,
