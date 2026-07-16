@@ -1,9 +1,10 @@
 # Replay Mass Reduction — Right-Size The 33,783-Line Replay Subsystem
 
 Date: 2026-07-16
-Status: Active — 3/8 tasks complete. R2 physically separated Debug probes and
-the Automation RVPD verifier while preserving product archive/restore. Continue
-at R3's byte-neutral codec disposition.
+Status: Active — 4/8 tasks complete. R3 retained the distinct RVPD/V2 codec
+owners, formally recorded run-to-run diagnostic-bookkeeping nondeterminism, and
+proved gate-covered content byte-identical across three artifacts. Continue at
+R4's presentation-emission disposition.
 Impact area: `Runtime/Replay/*`, automation build boundary, replay artifact
 codec, prediction presentation, replay reserve-allocator registrations,
 `tools/check_replay_visual_fidelity.py` consumers (schema-frozen)
@@ -164,7 +165,7 @@ every single task.
       73-line Automation verifier TU, configuration matrix, and final Release
       map with zero probe/verifier/fingerprint rows. The single 463.42 s mega
       gate, 202/202 unit tests, and 121.33 s full gate all passed unchanged.
-- [ ] **R3 — Artifact codec consolidation.** Evaluate and disposition the R0
+- [x] **R3 — Artifact codec consolidation.** Evaluate and disposition the R0
       duplication table's honest codec candidate: scalar/byte writer-reader
       mechanics in `ReplayPredictionArchive.cpp` and `ReplayV2Artifact.cpp`.
       `ReplayRecorder.cpp` hashing/field traversal is explicitly not artifact
@@ -175,6 +176,13 @@ every single task.
       with the same seed/scene and byte-compare the files (this is stronger
       than the mega gate for IO code and costs no extra engine process —
       use the durable artifact the mega gate already produces).
+      Evidence: `Agentic/Reports/2026-07-16/replay-mass-reduction-r3-codec-disposition.md`
+      records D1/D3 KEEP, the full 33,393,417-offset binary diff, the exact
+      schedule-sensitive topology/trajectory/reserve bookkeeping fields, and
+      formal finding R3-F1. The owner-approved diagnostic exception produced a
+      third distinct whole artifact, while all three gate-covered projections
+      matched SHA-256 `363841...A2FA`. No source, schema, golden, baseline, or
+      provenance field changed.
 - [ ] **R4 — Presentation emission deduplication.** Evaluate D4/D5/D7 from the
       R0 table: quota/accounting and trajectory loops within
       `ReplayPredictionDrawing.cpp`, plus structurally similar render-pose loops
@@ -230,6 +238,15 @@ every single task.
   Release/Profile.
 - The deferred SoA/SIMD lane is unaffected; nothing here touches physics or
   the FP envelope.
+- **R3-F1 separately ruled follow-up:** complete artifact bytes are
+  run-to-run nondeterministic because wall-clock-bounded worker publication
+  changes transient topology/store versions, retained inactive worker records,
+  and reserve-growth diagnostics. Owner: replay. Reason: fixing it requires an
+  explicit artifact/compatibility decision, not a codec-mass side effect.
+  Completion condition: repeated same-tip whole artifacts compare equal with
+  legacy/current reader coverage. Review evidence: the R3 report's complete
+  binary inventory and three-way oracle. This follow-up is outside R3 and the
+  current eight-task campaign; it requires its own plan before implementation.
 
 ## Acceptance
 
