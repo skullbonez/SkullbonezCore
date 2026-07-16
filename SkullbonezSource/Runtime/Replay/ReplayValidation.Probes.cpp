@@ -81,6 +81,17 @@ namespace
 {
 constexpr const char* REPLAY_PROBE_OWNER = "ReplayProbe";
 
+bool TryGetReplayProbeBodyHotState( const SceneController& collection, int modelIndex, PhysicsBodyHotState& outState )
+{
+    const PhysicsBodyStore& bodyStore = collection.BodyStore();
+    if ( !TryGetReplayProbeBodyRecord( collection, modelIndex ) || modelIndex < 0 || modelIndex >= bodyStore.Count() )
+    {
+        return false;
+    }
+    outState = LoadPhysicsBodyHotState( bodyStore.HotFields(), static_cast<std::size_t>( modelIndex ) );
+    return true;
+}
+
 SkullbonezCore::Core::SbResult ReplayProbeFailure( const char* message )
 {
     return SkullbonezCore::Core::SbResult::Failure( REPLAY_PROBE_OWNER, "%s", message );
@@ -434,7 +445,9 @@ InjectReplaySaveProbePlacementCoverage( RuntimeTools& runtimeTools,
         commands.placedYawRadians = placementResult.placementYawRadians;
         const PhysicsBodyRecord* placedBodyBeforeEdit =
             models.BodyStore().RecordForHandle( placementResult.placedBody );
-        if ( !placedBodyBeforeEdit )
+        PhysicsBodyHotState placedHotBeforeEdit;
+        if ( !placedBodyBeforeEdit ||
+             !TryGetReplayProbeBodyHotState( models, modelCountBeforePlace, placedHotBeforeEdit ) )
         {
             return ReplayProbeFailure( "replay save probe failed to resolve placed body record" );
         }
@@ -444,8 +457,8 @@ InjectReplaySaveProbePlacementCoverage( RuntimeTools& runtimeTools,
         PhysicsBodyUpdateDesc placedBodyEdit;
         placedBodyEdit.body = placementResult.placedBody;
         placedBodyEdit.updateMask = PHYSICS_BODY_UPDATE_POSE | PHYSICS_BODY_UPDATE_VELOCITY;
-        placedBodyEdit.position = placedBodyBeforeEdit->position + Vector3( 4.0f, 0.0f, 0.0f );
-        Quaternion placedOrientation = placedBodyBeforeEdit->orientation;
+        placedBodyEdit.position = placedHotBeforeEdit.position + Vector3( 4.0f, 0.0f, 0.0f );
+        Quaternion placedOrientation = placedHotBeforeEdit.orientation;
         placedOrientation.RotateAboutAxis( Vector3( 0.0f, 1.0f, 0.0f ), 0.25f );
         placedBodyEdit.orientation = placedOrientation;
         const ColliderRecord* placedColliderBeforeEdit =
@@ -481,15 +494,17 @@ InjectReplaySaveProbePlacementCoverage( RuntimeTools& runtimeTools,
             return ReplayProbeFailure( "replay save probe failed to commit edited physics rows" );
         }
         const PhysicsBodyRecord* placedBodyAfterEdit = models.BodyStore().RecordForModelIndex( modelCountBeforePlace );
-        if ( !placedBodyAfterEdit || placedBodyAfterEdit->replayBodyId == 0 )
+        PhysicsBodyHotState placedHotAfterEdit;
+        if ( !placedBodyAfterEdit || placedBodyAfterEdit->replayBodyId == 0 ||
+             !TryGetReplayProbeBodyHotState( models, modelCountBeforePlace, placedHotAfterEdit ) )
         {
             return ReplayProbeFailure( "replay save probe failed to capture edited body record" );
         }
         commands.recordEditorTransform = true;
         commands.transformedModelIndex = modelCountBeforePlace;
         commands.transformedReplayBodyId = placedBodyAfterEdit->replayBodyId;
-        commands.transformedPosition = placedBodyAfterEdit->position;
-        commands.transformedOrientation = placedBodyAfterEdit->orientation;
+        commands.transformedPosition = placedHotAfterEdit.position;
+        commands.transformedOrientation = placedHotAfterEdit.orientation;
         commands.transformedModelCount = models.SceneEntityCount();
         commands.transformedScaleAxis = PROBE_SCALE_AXIS;
         commands.transformedScaleFactor = PROBE_SCALE_FACTOR;
@@ -628,12 +643,13 @@ SkullbonezCore::Core::SbResult ValidateReplaySaveProbeArtifact( ReplaySaveProbeA
 
     const int probedModelIndex = liveBody->modelRow.value;
     const PhysicsBodyRecord* probedBody = TryGetReplayProbeBodyRecord( context.models, probedModelIndex );
-    if ( !probedBody )
+    PhysicsBodyHotState probedHotState;
+    if ( !probedBody || !TryGetReplayProbeBodyHotState( context.models, probedModelIndex, probedHotState ) )
     {
         return ReplayProbeFailure( "replay save probe loaded an invalid live body index" );
     }
 
-    const Vector3 preApplyPosition = probedBody->position;
+    const Vector3 preApplyPosition = probedHotState.position;
     const float preLiveDeltaSquared = ReplaySaveProbeDistanceSquared( preApplyPosition, liveBody->position );
     if ( preLiveDeltaSquared > 0.0001f )
     {
@@ -646,12 +662,13 @@ SkullbonezCore::Core::SbResult ValidateReplaySaveProbeArtifact( ReplaySaveProbeA
         return ReplayProbeFailure( "replay save probe failed to apply the loaded v2 presentation sample" );
     }
     const PhysicsBodyRecord* appliedBody = TryGetReplayProbeBodyRecord( context.models, probedModelIndex );
-    if ( !appliedBody )
+    PhysicsBodyHotState appliedHotState;
+    if ( !appliedBody || !TryGetReplayProbeBodyHotState( context.models, probedModelIndex, appliedHotState ) )
     {
         RestoreReplayProbeRenderInstances( context.models );
         return ReplayProbeFailure( "replay save probe lost the selected live body after applying the v2 sample" );
     }
-    const Vector3 liveAfterApplyPosition = appliedBody->position;
+    const Vector3 liveAfterApplyPosition = appliedHotState.position;
     const float livePreservedDeltaSquared = ReplaySaveProbeDistanceSquared( liveAfterApplyPosition, preApplyPosition );
     if ( livePreservedDeltaSquared > 0.0001f )
     {
@@ -674,11 +691,12 @@ SkullbonezCore::Core::SbResult ValidateReplaySaveProbeArtifact( ReplaySaveProbeA
 
     RestoreReplayProbeRenderInstances( context.models );
     const PhysicsBodyRecord* restoredBody = TryGetReplayProbeBodyRecord( context.models, probedModelIndex );
-    if ( !restoredBody )
+    PhysicsBodyHotState restoredHotState;
+    if ( !restoredBody || !TryGetReplayProbeBodyHotState( context.models, probedModelIndex, restoredHotState ) )
     {
         return ReplayProbeFailure( "replay save probe lost the selected live body after restoring the v2 sample" );
     }
-    const Vector3 restoredPosition = restoredBody->position;
+    const Vector3 restoredPosition = restoredHotState.position;
     const float restoredDeltaSquared = ReplaySaveProbeDistanceSquared( restoredPosition, preApplyPosition );
     if ( restoredDeltaSquared > 0.0001f )
     {
@@ -906,7 +924,9 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::TickScrubProbe( const ReplayRe
     const int probedModelIndex = liveBody->modelRow.value;
     const PhysicsBodyRecord* probedBody =
         TryGetReplayProbeBodyRecord( transaction.sampleOwners.sceneController, probedModelIndex );
-    if ( !probedBody )
+    PhysicsBodyHotState probedHotState;
+    if ( !probedBody ||
+         !TryGetReplayProbeBodyHotState( transaction.sampleOwners.sceneController, probedModelIndex, probedHotState ) )
     {
         return ReplayProbeFailure( "replay scrub probe selected an invalid live body index" );
     }
@@ -914,7 +934,7 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::TickScrubProbe( const ReplayRe
     // Why: scrub probes prove presentation overrides do not mutate live
     // simulation state. Read that state from PhysicsBodyStore so the proof does
     // not depend on temporary presentation rows.
-    const Math::Vector::Vector3 preApplyPosition = probedBody->position;
+    const Math::Vector::Vector3 preApplyPosition = probedHotState.position;
     const float preLiveDeltaSquared = distanceSquared( preApplyPosition, liveBody->position );
     if ( preLiveDeltaSquared > probe.minDistanceSquared )
     {
@@ -931,12 +951,14 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::TickScrubProbe( const ReplayRe
     }
     const PhysicsBodyRecord* appliedBody =
         TryGetReplayProbeBodyRecord( transaction.sampleOwners.sceneController, probedModelIndex );
-    if ( !appliedBody )
+    PhysicsBodyHotState appliedHotState;
+    if ( !appliedBody ||
+         !TryGetReplayProbeBodyHotState( transaction.sampleOwners.sceneController, probedModelIndex, appliedHotState ) )
     {
         RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController );
         return ReplayProbeFailure( "replay scrub probe lost the selected live body after applying scrub state" );
     }
-    const Math::Vector::Vector3 liveAfterApplyPosition = appliedBody->position;
+    const Math::Vector::Vector3 liveAfterApplyPosition = appliedHotState.position;
     const float livePreservedDeltaSquared = distanceSquared( liveAfterApplyPosition, preApplyPosition );
     if ( livePreservedDeltaSquared > probe.minDistanceSquared )
     {
@@ -963,11 +985,14 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::TickScrubProbe( const ReplayRe
     RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController );
     const PhysicsBodyRecord* restoredBody =
         TryGetReplayProbeBodyRecord( transaction.sampleOwners.sceneController, probedModelIndex );
-    if ( !restoredBody )
+    PhysicsBodyHotState restoredHotState;
+    if ( !restoredBody || !TryGetReplayProbeBodyHotState( transaction.sampleOwners.sceneController,
+                                                          probedModelIndex,
+                                                          restoredHotState ) )
     {
         return ReplayProbeFailure( "replay scrub probe lost the selected live body after restoring scrub state" );
     }
-    const Math::Vector::Vector3 restoredPosition = restoredBody->position;
+    const Math::Vector::Vector3 restoredPosition = restoredHotState.position;
     const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
     const bool restored = restoredDeltaSquared <= probe.minDistanceSquared;
     if ( !restored )
@@ -1300,12 +1325,14 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::VerifyLoadedPresentation( Repl
     const int probedModelIndex = selectedBody->modelRow.value;
     const PhysicsBodyRecord* probedBody =
         TryGetReplayProbeBodyRecord( transaction.sampleOwners.sceneController, probedModelIndex );
-    if ( !probedBody )
+    PhysicsBodyHotState probedHotState;
+    if ( !probedBody ||
+         !TryGetReplayProbeBodyHotState( transaction.sampleOwners.sceneController, probedModelIndex, probedHotState ) )
     {
         return ReplayProbeFailure( "replay load probe loaded an invalid body index" );
     }
 
-    const Math::Vector::Vector3 preApplyPosition = probedBody->position;
+    const Math::Vector::Vector3 preApplyPosition = probedHotState.position;
     const bool applied = ApplyReplayProbePresentationSampleForRender( transaction.sampleOwners.sceneController,
                                                                       presentation,
                                                                       *selected );
@@ -1316,12 +1343,14 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::VerifyLoadedPresentation( Repl
 
     const PhysicsBodyRecord* appliedBody =
         TryGetReplayProbeBodyRecord( transaction.sampleOwners.sceneController, probedModelIndex );
-    if ( !appliedBody )
+    PhysicsBodyHotState appliedHotState;
+    if ( !appliedBody ||
+         !TryGetReplayProbeBodyHotState( transaction.sampleOwners.sceneController, probedModelIndex, appliedHotState ) )
     {
         RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController );
         return ReplayProbeFailure( "replay load probe lost the selected body after applying the v2 sample" );
     }
-    const Math::Vector::Vector3 liveAfterApplyPosition = appliedBody->position;
+    const Math::Vector::Vector3 liveAfterApplyPosition = appliedHotState.position;
     const float livePreservedDeltaSquared = distanceSquared( liveAfterApplyPosition, preApplyPosition );
     if ( livePreservedDeltaSquared > 0.0001f )
     {
@@ -1348,11 +1377,14 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::VerifyLoadedPresentation( Repl
     RestoreReplayProbeRenderInstances( transaction.sampleOwners.sceneController );
     const PhysicsBodyRecord* restoredBody =
         TryGetReplayProbeBodyRecord( transaction.sampleOwners.sceneController, probedModelIndex );
-    if ( !restoredBody )
+    PhysicsBodyHotState restoredHotState;
+    if ( !restoredBody || !TryGetReplayProbeBodyHotState( transaction.sampleOwners.sceneController,
+                                                          probedModelIndex,
+                                                          restoredHotState ) )
     {
         return ReplayProbeFailure( "replay load probe lost the selected body after restoring the v2 sample" );
     }
-    const Math::Vector::Vector3 restoredPosition = restoredBody->position;
+    const Math::Vector::Vector3 restoredPosition = restoredHotState.position;
     const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
     if ( restoredDeltaSquared > 0.0001f )
     {

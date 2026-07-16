@@ -108,16 +108,6 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
 }
 
-bool IsSolverBodyFixed( std::span<const PhysicsBodyRecord> bodyRecords, int bodyIndex )
-{
-    return bodyRecords[static_cast<size_t>( bodyIndex )].isFixed;
-}
-
-const Vector3& SolverBodyPosition( std::span<const PhysicsBodyRecord> bodyRecords, int bodyIndex )
-{
-    return bodyRecords[static_cast<size_t>( bodyIndex )].position;
-}
-
 float SolverBodyRadius( std::span<const ColliderRecord> colliderRecords, int bodyIndex )
 {
     return colliderRecords[static_cast<size_t>( bodyIndex )].boundingRadius;
@@ -487,7 +477,7 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
     m_timeRemaining.assign( modelCount, fChangeInTime );
     m_stepDiagnostics.BeginStep( modelCount );
     m_terrain.BeginFrame();
-    m_sleepController.MirrorFlagsFrom( bodyStore, bodyRecords, modelCount );
+    m_sleepController.MirrorFlagsFrom( bodyStore, modelCount );
 
     RunSolverPhysics( bodyStore, colliderStore, fChangeInTime, config, worldForces, workerPool );
     bodyStore.CopySleepStatesFrom( m_sleepController.GetSleepStates() );
@@ -498,6 +488,7 @@ void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore, int index )
 {
     PhysicsSleepWakeContext context{ bodyStore.Count(),
                                      bodyStore.Records(),
+                                     bodyStore.MutableHotFields(),
                                      &bodyStore,
                                      nullptr,
                                      nullptr,
@@ -516,6 +507,7 @@ void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore,
 {
     PhysicsSleepWakeContext context{ bodyStore.Count(),
                                      bodyStore.Records(),
+                                     bodyStore.MutableHotFields(),
                                      &bodyStore,
                                      &colliderStore,
                                      &worldForces,
@@ -529,7 +521,7 @@ void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore,
 
 void PhysicsWorld::SeedModelAsleep( const PhysicsBodyStore& bodyStore, int index )
 {
-    m_sleepController.SeedModelAsleep( bodyStore.Count(), bodyStore.Records(), index );
+    m_sleepController.SeedModelAsleep( bodyStore, index );
 }
 
 
@@ -659,6 +651,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      Threading::WorkerPool& workerPool )
 {
     const auto bodyRecords = bodyStore.MutableRecords();
+    const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
+    const PhysicsBodyHotFieldsView mutableHotFields = bodyStore.MutableHotFields();
     const auto colliderRecords = colliderStore.Records();
     const int modelCount = (std::min)( { bodyStore.Count(),
                                          static_cast<int>( bodyRecords.size() ),
@@ -681,6 +675,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     // Sleeping bodies keep cached state until a contact or scene change wakes
     // them, so force integration only runs for awake rows.
     const Vector3* mutualGravityForces = m_forceStage.PrepareMutualGravityForces( bodyRecords,
+                                                                                  hotFields,
                                                                                   sleepStates,
                                                                                   modelCount,
                                                                                   worldForces,
@@ -691,6 +686,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         colliderStore,
         worldForces,
         bodyRecords,
+        hotFields,
         sleepStates,
         m_timeRemaining,
         mutualGravityForces,
@@ -704,6 +700,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     const float contactSkin = (std::max)( 0.0f, config.bodySimulation.contactEpsilon );
     const PhysicsBroadphaseStageContext broadphaseContext{ bodyStore,
                                                            bodyRecords,
+                                                           hotFields,
                                                            colliderRecords,
                                                            config,
                                                            m_pointJointConstraints,
@@ -725,6 +722,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         colliderStore,
         worldForces,
         bodyRecords,
+        hotFields,
         colliderRecords,
         candidatePairs,
         m_sleepController.CreateNarrowphaseWakeAccess( bodyStore,
@@ -784,6 +782,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     PROFILE_BEGIN( "Frame/Physics/Terrain" );
     PROFILE_BEGIN( "Frame/Physics/Terrain/Detect" );
     TerrainDetectionStageContext terrainDetectionContext{ bodyRecords,
+                                                          hotFields,
                                                           colliderRecords,
                                                           config,
                                                           sleepStates,
@@ -791,6 +790,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     TerrainCandidateCommitContext terrainCandidateCommitContext{ bodyStore,
                                                                  colliderStore,
                                                                  bodyRecords,
+                                                                 hotFields,
                                                                  colliderRecords,
                                                                  config,
                                                                  m_sleepController.MutableSupportedStatesForTerrain(),
@@ -844,6 +844,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         m_terrain.GetRestApplied(),
         m_sleepController.MutableSupportedStatesForTerrain(),
         bodyRecords,
+        mutableHotFields,
         colliderRecords,
         bodyStore.Count(),
         m_stepDiagnostics.RemainingPipelineRecordCapacity() };
@@ -861,13 +862,14 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     m_sleepController.AppendPointJointSupportEdges( bodyStore, m_pointJointConstraints, modelCount );
     // Object contacts are converted into stack support only after terrain
     // response has had a chance to seed true support for this frame.
-    m_sleepController.PropagateSupport( bodyStore.Records() );
+    m_sleepController.PropagateSupport( bodyStore );
 
     // Integrate remaining time for awake models.
     PROFILE_BEGIN( "Frame/Physics/Integrate" );
     IntegrateRemainingStageContext integrateRemainingStage{ bodyStore,
                                                             colliderStore,
                                                             bodyRecords,
+                                                            hotFields,
                                                             m_sleepController.GetSleepStates(),
                                                             m_timeRemaining };
 
@@ -877,6 +879,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                              colliderStore,
                                                              worldForces,
                                                              bodyRecords,
+                                                             mutableHotFields,
                                                              m_timeRemaining,
                                                              m_contactSolverStage.GetPersistentContacts(),
                                                              m_contactSolverStage.GetPersistentRestingContactCounts(),

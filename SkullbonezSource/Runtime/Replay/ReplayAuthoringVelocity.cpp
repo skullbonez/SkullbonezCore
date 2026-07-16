@@ -267,7 +267,7 @@ static bool TryResolveReplayVelocityBodyView( ReplayBodyId targetId,
     }
     const PhysicsBodyHandle bodyHandle = bodyStore.HandleForReplayBodyId( targetId.value, targetModelRow.value );
     const int modelIndex = bodyStore.ModelIndexForHandle( bodyHandle );
-    if ( !bodyHandle.IsValid() )
+    if ( !bodyHandle.IsValid() || modelIndex < 0 )
     {
         return false;
     }
@@ -285,13 +285,15 @@ static bool TryResolveReplayVelocityBodyView( ReplayBodyId targetId,
     // away from transient legacy object record order.
     outView.body = bodyHandle;
     outView.modelRow.value = modelIndex;
-    outView.position = body->position;
-    outView.orientation = body->orientation;
-    outView.linearVelocity = body->linearVelocity;
-    outView.angularVelocity = body->angularVelocity;
+    const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
+    const auto hotFields = bodyStore.HotFields();
+    outView.position = PhysicsBodyPosition( hotFields, bodyIndex );
+    outView.orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
+    outView.linearVelocity = PhysicsBodyLinearVelocity( hotFields, bodyIndex );
+    outView.angularVelocity = PhysicsBodyAngularVelocity( hotFields, bodyIndex );
     outView.shape = &collider->shape;
-    outView.radius = (std::max)( 1.0f, (std::max)( body->boundingRadius, collider->boundingRadius ) );
-    outView.fixed = body->isFixed;
+    outView.radius = (std::max)( 1.0f, (std::max)( hotFields.boundingRadius[bodyIndex], collider->boundingRadius ) );
+    outView.fixed = hotFields.fixed[bodyIndex] != 0u;
     return outView.shape != nullptr;
 }
 

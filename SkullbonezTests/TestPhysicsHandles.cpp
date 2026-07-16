@@ -23,8 +23,8 @@
 //   - HandleForModelIndex() and ModelIndexForHandle() are inverse for live rows.
 //   - Destroying a middle row moves the final row down and updates its handle map.
 //   - Reused handle slots must increment generation before accepting new records.
-//   - The transitional record view and hot SoA view exchange identical bits in
-//     both directions until record consumers are removed by plan task S2.
+//   - Hot state has one authority: aligned SoA arrays; cold records do not
+//     duplicate pose, velocity, inertia, motion-kind, or sleep fields.
 //
 // Related:
 //   - SkullbonezSource/Physics/PhysicsBodyStore.h
@@ -47,7 +47,8 @@ using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::MakePhysicsSceneObjectIdFromReplayBodyId;
 using SkullbonezCore::Physics::ModelRowHint;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
-using SkullbonezCore::Physics::PhysicsBodyRecord;
+using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
+using SkullbonezCore::Physics::PhysicsBodyPosition;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Runtime::ReplayRestoreService;
@@ -56,14 +57,14 @@ using SkullbonezCore::Runtime::ReplaySolverFrameSample;
 
 namespace
 {
-PhysicsBodyRecord MakeBodyRecord( uint32_t replayBodyId, const Vector3& position )
+PhysicsBodyCreateRecord MakeBodyRecord( uint32_t replayBodyId, const Vector3& position )
 {
-    PhysicsBodyRecord record;
-    record.replayBodyId = replayBodyId;
-    record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( replayBodyId );
-    record.position = position;
-    record.mass = 1.0f;
-    record.invMass = 1.0f;
+    PhysicsBodyCreateRecord record;
+    record.cold.replayBodyId = replayBodyId;
+    record.cold.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( replayBodyId );
+    record.hot.position = position;
+    record.cold.mass = 1.0f;
+    record.hot.inverseMass = 1.0f;
     return record;
 }
 
@@ -117,15 +118,15 @@ TEST_CASE( "Physics handles: body store resolves fresh handles and replay ids" )
 }
 
 
-TEST_CASE( "Physics body SoA: aligned hot fields stay bit-exact with the transitional record view" )
+TEST_CASE( "Physics body SoA: aligned hot fields are the sole hot-state authority" )
 {
     PhysicsBodyStore& store = TestBodyStore();
-    PhysicsBodyRecord initial = MakeBodyRecord( 303u, Vector3( 1.25f, -2.5f, 3.75f ) );
-    initial.orientation = SkullbonezCore::Math::Orientation::Quaternion( 0.1f, 0.2f, 0.3f, 0.9f );
-    initial.linearVelocity = Vector3( 4.0f, 5.0f, 6.0f );
-    initial.angularVelocity = Vector3( 7.0f, 8.0f, 9.0f );
-    initial.invRotationalInertia = Vector3( 0.25f, 0.5f, 0.75f );
-    initial.boundingRadius = 2.25f;
+    PhysicsBodyCreateRecord initial = MakeBodyRecord( 303u, Vector3( 1.25f, -2.5f, 3.75f ) );
+    initial.hot.orientation = SkullbonezCore::Math::Orientation::Quaternion( 0.1f, 0.2f, 0.3f, 0.9f );
+    initial.hot.linearVelocity = Vector3( 4.0f, 5.0f, 6.0f );
+    initial.hot.angularVelocity = Vector3( 7.0f, 8.0f, 9.0f );
+    initial.hot.inverseRotationalInertia = Vector3( 0.25f, 0.5f, 0.75f );
+    initial.hot.boundingRadius = 2.25f;
     const PhysicsBodyHandle body = store.CreateBodyRecord( initial );
 
     const auto hot = static_cast<const PhysicsBodyStore&>( store ).HotFields();
@@ -150,26 +151,23 @@ TEST_CASE( "Physics body SoA: aligned hot fields stay bit-exact with the transit
     CHECK( reinterpret_cast<std::uintptr_t>( hot.boundingRadius.data() ) % 32u == 0u );
     CHECK( reinterpret_cast<std::uintptr_t>( hot.fixed.data() ) % 32u == 0u );
     CHECK( reinterpret_cast<std::uintptr_t>( hot.awake.data() ) % 32u == 0u );
-    CHECK( hot.positionX[0] == initial.position.x );
-    CHECK( hot.positionY[0] == initial.position.y );
-    CHECK( hot.positionZ[0] == initial.position.z );
-    CHECK( hot.linearVelocityZ[0] == initial.linearVelocity.z );
-    CHECK( hot.inverseInertiaY[0] == initial.invRotationalInertia.y );
+    CHECK( hot.positionX[0] == initial.hot.position.x );
+    CHECK( hot.positionY[0] == initial.hot.position.y );
+    CHECK( hot.positionZ[0] == initial.hot.position.z );
+    CHECK( hot.linearVelocityZ[0] == initial.hot.linearVelocity.z );
+    CHECK( hot.inverseInertiaY[0] == initial.hot.inverseRotationalInertia.y );
 
     auto mutableHot = store.MutableHotFields();
     mutableHot.positionX[0] = -11.5f;
     mutableHot.linearVelocityY[0] = 12.25f;
     mutableHot.awake[0] = 0u;
-    const PhysicsBodyRecord* record = store.RecordForHandle( body );
-    REQUIRE( record != nullptr );
-    CHECK( record->position.x == -11.5f );
-    CHECK( record->linearVelocity.y == 12.25f );
-    CHECK( record->isSleeping );
+    REQUIRE( store.RecordForHandle( body ) != nullptr );
+    CHECK( mutableHot.positionX[0] == -11.5f );
+    CHECK( mutableHot.linearVelocityY[0] == 12.25f );
+    CHECK( mutableHot.awake[0] == 0u );
 
-    PhysicsBodyRecord* mutableRecord = store.MutableRecordForHandle( body );
-    REQUIRE( mutableRecord != nullptr );
-    mutableRecord->angularVelocity.z = -6.5f;
-    mutableRecord->invMass = 0.125f;
+    mutableHot.angularVelocityZ[0] = -6.5f;
+    mutableHot.inverseMass[0] = 0.125f;
     const auto refreshedHot = static_cast<const PhysicsBodyStore&>( store ).HotFields();
     CHECK( refreshedHot.angularVelocityZ[0] == -6.5f );
     CHECK( refreshedHot.inverseMass[0] == 0.125f );
@@ -202,8 +200,10 @@ TEST_CASE( "Replay restore: stable body ids override stale row hints" )
     CHECK_FALSE( ReplayRestoreService::ResolveBodiesForRestore( store, sample, resolved, reason, sizeof( reason ) ) );
     REQUIRE( store.RecordForHandle( first ) != nullptr );
     REQUIRE( store.RecordForHandle( second ) != nullptr );
-    CHECK( store.RecordForHandle( first )->position.x == 1.0f );
-    CHECK( store.RecordForHandle( second )->position.x == 2.0f );
+    CHECK( PhysicsBodyPosition( store.HotFields(), static_cast<std::size_t>( store.ModelIndexForHandle( first ) ) ).x ==
+           1.0f );
+    CHECK( PhysicsBodyPosition( store.HotFields(), static_cast<std::size_t>( store.ModelIndexForHandle( second ) ) ).x ==
+           2.0f );
 
     sample.bodies[0].id.value = 101u;
     sample.bodies[1].id.value = 101u;

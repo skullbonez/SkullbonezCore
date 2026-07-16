@@ -52,14 +52,14 @@ constexpr float BROADPHASE_MIN_CELL_SIZE = 0.5f;
 constexpr float DEFAULT_BROADPHASE_CELL = 24.0f;
 constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 4;
 
-bool IsSolverBodyFixed( std::span<const Physics::PhysicsBodyRecord> bodyRecords, int bodyIndex )
+bool IsSolverBodyFixed( Physics::PhysicsBodyHotFieldsConstView hotFields, int bodyIndex )
 {
-    return bodyRecords[static_cast<size_t>( bodyIndex )].isFixed;
+    return hotFields.fixed[static_cast<size_t>( bodyIndex )] != 0u;
 }
 
-const Vector3& SolverBodyPosition( std::span<const Physics::PhysicsBodyRecord> bodyRecords, int bodyIndex )
+Vector3 SolverBodyPosition( Physics::PhysicsBodyHotFieldsConstView hotFields, int bodyIndex )
 {
-    return bodyRecords[static_cast<size_t>( bodyIndex )].position;
+    return Physics::PhysicsBodyPosition( hotFields, static_cast<size_t>( bodyIndex ) );
 }
 
 float SolverBodyRadius( std::span<const Physics::ColliderRecord> colliderRecords, int bodyIndex )
@@ -100,12 +100,12 @@ void AppendCandidatePairIfMissing( std::vector<std::pair<int, int>>& candidatePa
     candidatePairs.emplace_back( a, b );
 }
 
-bool IsFastSmallSweepBody( std::span<const Physics::PhysicsBodyRecord> bodyRecords,
+bool IsFastSmallSweepBody( Physics::PhysicsBodyHotFieldsConstView hotFields,
                            std::span<const Physics::ColliderRecord> colliderRecords,
                            int bodyIndex,
                            float dt )
 {
-    if ( IsSolverBodyFixed( bodyRecords, bodyIndex ) )
+    if ( IsSolverBodyFixed( hotFields, bodyIndex ) )
     {
         return false;
     }
@@ -116,7 +116,7 @@ bool IsFastSmallSweepBody( std::span<const Physics::PhysicsBodyRecord> bodyRecor
         return false;
     }
 
-    const Vector3 displacement = bodyRecords[static_cast<size_t>( bodyIndex )].linearVelocity * dt;
+    const Vector3 displacement = Physics::PhysicsBodyLinearVelocity( hotFields, static_cast<size_t>( bodyIndex ) ) * dt;
     const float displacementSq = Vector::VectorMagSquared( displacement );
     const float minSweepDistance = (std::max)( radius * 2.0f, PHYSICS_FAST_SWEEP_MIN_DISTANCE );
     return displacementSq > minSweepDistance * minSweepDistance;
@@ -124,7 +124,7 @@ bool IsFastSmallSweepBody( std::span<const Physics::PhysicsBodyRecord> bodyRecor
 
 // Invariant: contactEpsilon is the raw config value, not the clamped
 // broadphase contact skin. It controls only conservative pair admission.
-bool SweptSegmentTouchesExpandedBody( std::span<const Physics::PhysicsBodyRecord> bodyRecords,
+bool SweptSegmentTouchesExpandedBody( Physics::PhysicsBodyHotFieldsConstView hotFields,
                                       std::span<const Physics::ColliderRecord> colliderRecords,
                                       int movingIndex,
                                       int targetIndex,
@@ -132,10 +132,11 @@ bool SweptSegmentTouchesExpandedBody( std::span<const Physics::PhysicsBodyRecord
                                       float contactEpsilon )
 {
     const Vector3 relativeStart =
-        SolverBodyPosition( bodyRecords, movingIndex ) - SolverBodyPosition( bodyRecords, targetIndex );
-    const Vector3 relativeDisplacement = ( bodyRecords[static_cast<size_t>( movingIndex )].linearVelocity -
-                                           bodyRecords[static_cast<size_t>( targetIndex )].linearVelocity ) *
-                                         dt;
+        SolverBodyPosition( hotFields, movingIndex ) - SolverBodyPosition( hotFields, targetIndex );
+    const Vector3 relativeDisplacement =
+        ( Physics::PhysicsBodyLinearVelocity( hotFields, static_cast<size_t>( movingIndex ) ) -
+          Physics::PhysicsBodyLinearVelocity( hotFields, static_cast<size_t>( targetIndex ) ) ) *
+        dt;
     const float relativeLengthSq = Vector::VectorMagSquared( relativeDisplacement );
     if ( relativeLengthSq <= TOLERANCE * TOLERANCE )
     {
@@ -151,24 +152,24 @@ bool SweptSegmentTouchesExpandedBody( std::span<const Physics::PhysicsBodyRecord
     return Vector::VectorMagSquared( closestRelative ) <= expandedRadius * expandedRadius;
 }
 
-bool IsFixedSolverCandidatePair( std::span<const Physics::PhysicsBodyRecord> bodyRecords,
+bool IsFixedSolverCandidatePair( Physics::PhysicsBodyHotFieldsConstView hotFields,
                                  int modelCount,
                                  const std::pair<int, int>& pair )
 {
     const int a = pair.first;
     const int b = pair.second;
-    return a >= 0 && b >= 0 && a < modelCount && b < modelCount && IsSolverBodyFixed( bodyRecords, a ) &&
-           IsSolverBodyFixed( bodyRecords, b );
+    return a >= 0 && b >= 0 && a < modelCount && b < modelCount && IsSolverBodyFixed( hotFields, a ) &&
+           IsSolverBodyFixed( hotFields, b );
 }
 
 struct FixedSolverCandidatePairPredicate
 {
-    std::span<const Physics::PhysicsBodyRecord> bodyRecords;
+    Physics::PhysicsBodyHotFieldsConstView hotFields;
     int modelCount = 0;
 
     bool operator()( const std::pair<int, int>& pair ) const
     {
-        return IsFixedSolverCandidatePair( bodyRecords, modelCount, pair );
+        return IsFixedSolverCandidatePair( hotFields, modelCount, pair );
     }
 };
 
@@ -226,7 +227,7 @@ bool IsSleepPrunedCandidatePair( std::span<const uint8_t> sleepState, const std:
 }
 
 void TryRecordSleepPrunedCandidatePair( std::vector<Physics::PhysicsPipelineRecord>& physicsPipelineTrace,
-                                        std::span<const Physics::PhysicsBodyRecord> bodyRecords,
+                                        Physics::PhysicsBodyHotFieldsConstView hotFields,
                                         const std::pair<int, int>& pair )
 {
     if ( physicsPipelineTrace.size() >= MAX_PIPELINE_TRACE_RECORDS )
@@ -240,8 +241,9 @@ void TryRecordSleepPrunedCandidatePair( std::vector<Physics::PhysicsPipelineReco
     record.stage = Physics::PhysicsPipelineStage::SleepPrunedPair;
     record.bodyA = a;
     record.bodyB = b;
-    record.point =
-        ( bodyRecords[static_cast<size_t>( a )].position + bodyRecords[static_cast<size_t>( b )].position ) * 0.5f;
+    record.point = ( Physics::PhysicsBodyPosition( hotFields, static_cast<size_t>( a ) ) +
+                     Physics::PhysicsBodyPosition( hotFields, static_cast<size_t>( b ) ) ) *
+                   0.5f;
     record.scalarA = 1.0f;
     physicsPipelineTrace.push_back( record );
 }
@@ -251,7 +253,7 @@ void TryRecordSleepPrunedCandidatePair( std::vector<Physics::PhysicsPipelineReco
 struct SleepPrunedCandidatePairPredicate
 {
     std::span<const uint8_t> sleepState;
-    std::span<const Physics::PhysicsBodyRecord> bodyRecords;
+    Physics::PhysicsBodyHotFieldsConstView hotFields;
     std::vector<Physics::PhysicsPipelineRecord>& physicsPipelineTrace;
 
     bool operator()( const std::pair<int, int>& pair ) const
@@ -259,7 +261,7 @@ struct SleepPrunedCandidatePairPredicate
         const bool prune = IsSleepPrunedCandidatePair( sleepState, pair );
         if ( prune )
         {
-            TryRecordSleepPrunedCandidatePair( physicsPipelineTrace, bodyRecords, pair );
+            TryRecordSleepPrunedCandidatePair( physicsPipelineTrace, hotFields, pair );
         }
         return prune;
     }
@@ -312,6 +314,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
     PROFILE_BEGIN( "Frame/Physics/Broadphase" );
     BroadphaseCandidateFilterContext broadphaseCandidateFilterContext{
         context.bodyRecords,
+        context.hotFields,
         context.colliderRecords,
         context.modelCount,
         context.dt,
@@ -340,15 +343,16 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         for ( int i = 0; i < context.modelCount; ++i )
         {
             const float radius = SolverBodyRadius( context.colliderRecords, i ) + context.contactSkin;
-            const Vector3 displacement = context.bodyRecords[static_cast<size_t>( i )].linearVelocity * context.dt;
+            const Vector3 displacement =
+                PhysicsBodyLinearVelocity( context.hotFields, static_cast<size_t>( i ) ) * context.dt;
             const float displacementSq = Vector::VectorMagSquared( displacement );
-            if ( !IsSolverBodyFixed( context.bodyRecords, i ) && displacementSq > radius * radius )
+            if ( !IsSolverBodyFixed( context.hotFields, i ) && displacementSq > radius * radius )
             {
-                m_spatialGrid.InsertSwept( i, SolverBodyPosition( context.bodyRecords, i ), displacement, radius );
+                m_spatialGrid.InsertSwept( i, SolverBodyPosition( context.hotFields, i ), displacement, radius );
             }
             else
             {
-                m_spatialGrid.Insert( i, SolverBodyPosition( context.bodyRecords, i ), radius );
+                m_spatialGrid.Insert( i, SolverBodyPosition( context.hotFields, i ), radius );
             }
         }
         m_spatialGrid.GetCandidatePairs( m_candidatePairs, &broadphaseCandidateFilterContext );
@@ -358,7 +362,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         PROFILE_SCOPED( "Frame/Physics/Broadphase/FastSmallSweepAugment" );
         for ( int movingIndex = 0; movingIndex < context.modelCount; ++movingIndex )
         {
-            if ( !IsFastSmallSweepBody( context.bodyRecords, context.colliderRecords, movingIndex, context.dt ) )
+            if ( !IsFastSmallSweepBody( context.hotFields, context.colliderRecords, movingIndex, context.dt ) )
             {
                 continue;
             }
@@ -369,7 +373,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
                 {
                     continue;
                 }
-                if ( SweptSegmentTouchesExpandedBody( context.bodyRecords,
+                if ( SweptSegmentTouchesExpandedBody( context.hotFields,
                                                       context.colliderRecords,
                                                       movingIndex,
                                                       targetIndex,
@@ -390,7 +394,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         m_candidatePairs.erase(
             std::remove_if( m_candidatePairs.begin(),
                             m_candidatePairs.end(),
-                            FixedSolverCandidatePairPredicate{ context.bodyRecords, context.modelCount } ),
+                            FixedSolverCandidatePairPredicate{ context.hotFields, context.modelCount } ),
             m_candidatePairs.end() );
     }
 
@@ -423,11 +427,11 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
             record.stage = PhysicsPipelineStage::BroadphaseCandidate;
             record.bodyA = pair.first;
             record.bodyB = pair.second;
-            record.point = ( context.bodyRecords[static_cast<size_t>( pair.first )].position +
-                             context.bodyRecords[static_cast<size_t>( pair.second )].position ) *
+            record.point = ( PhysicsBodyPosition( context.hotFields, static_cast<size_t>( pair.first ) ) +
+                             PhysicsBodyPosition( context.hotFields, static_cast<size_t>( pair.second ) ) ) *
                            0.5f;
-            Vector3 delta = context.bodyRecords[static_cast<size_t>( pair.second )].position -
-                            context.bodyRecords[static_cast<size_t>( pair.first )].position;
+            Vector3 delta = PhysicsBodyPosition( context.hotFields, static_cast<size_t>( pair.second ) ) -
+                            PhysicsBodyPosition( context.hotFields, static_cast<size_t>( pair.first ) );
             float deltaMag = Vector::VectorMag( delta );
             record.normal = deltaMag > TOLERANCE ? delta / deltaMag : Vector3( 0.0f, 1.0f, 0.0f );
             record.scalarA = static_cast<float>( m_candidatePairs.size() );
@@ -439,7 +443,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         m_candidatePairs.erase( std::remove_if( m_candidatePairs.begin(),
                                                 m_candidatePairs.end(),
                                                 SleepPrunedCandidatePairPredicate{ context.sleepState,
-                                                                                   context.bodyRecords,
+                                                                                   context.hotFields,
                                                                                    context.physicsPipelineTrace } ),
                                 m_candidatePairs.end() );
     }

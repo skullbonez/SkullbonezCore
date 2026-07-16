@@ -36,6 +36,7 @@ Related:
 #include <vector>
 
 #include "../PhysicsDebugData.h"
+#include "../PhysicsBodyStore.h"
 #include "../Ragdoll.h"
 #include "../SpatialGrid.h"
 
@@ -59,6 +60,7 @@ struct PhysicsBroadphaseStageContext
     // only its owned grid and bounded output buffers.
     const PhysicsBodyStore& bodyStore;
     std::span<const PhysicsBodyRecord> bodyRecords;
+    PhysicsBodyHotFieldsConstView hotFields;
     std::span<const ColliderRecord> colliderRecords;
     const SkullbonezCore::Core::EngineConfig& config;
     const std::vector<PointJointConstraint>& pointJointConstraints;

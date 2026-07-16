@@ -131,8 +131,14 @@ bool TryAddReplayTargetMarkerFromStores( RunEditorTracer& tracer,
     // Invariant: replay target identity resolves through body handles before
     // markers read store rows. This avoids scanning the legacy object record mirror just
     // to recover a stable ReplayBodyId that PhysicsBodyStore already owns.
-    const float radius = (std::max)( 1.0f, (std::max)( body->boundingRadius, collider->boundingRadius ) ) * 1.18f;
-    tracer.AddReplayTargetMarker( body->position, body->orientation, collider->shape, radius );
+    const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
+    const auto hotFields = bodyStore.HotFields();
+    const float radius =
+        (std::max)( 1.0f, (std::max)( hotFields.boundingRadius[bodyIndex], collider->boundingRadius ) ) * 1.18f;
+    tracer.AddReplayTargetMarker( PhysicsBodyPosition( hotFields, bodyIndex ),
+                                  PhysicsBodyOrientation( hotFields, bodyIndex ),
+                                  collider->shape,
+                                  radius );
     return true;
 }
 

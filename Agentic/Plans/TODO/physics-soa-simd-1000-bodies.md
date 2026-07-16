@@ -1,8 +1,8 @@
 # Physics SoA/SIMD — 1,000+ Bodies Under An AVX2-Certified Envelope
 
 Date: 2026-07-16
-Status: Active — registered in `MASTER-PLAN.md`; S0-S1 are complete and S2 is
-next. 2/9 tasks complete.
+Status: Active — registered in `MASTER-PLAN.md`; S0-S2 are complete and S3 is
+next. 3/9 tasks complete.
 Impact area: `PhysicsBodyStore` layout, all seven physics stage owners, new
 SIMD kernel TUs, build `/arch` policy, FP determinism envelope, and — at the
 S7 cutover only — every physics baseline and replay golden
@@ -148,7 +148,7 @@ path) until S7 flips the default in one owner-approved ceremony.
       20 aligned component arrays, exact two-way compatibility seam and S2
       deletion condition, 204-test alignment/coherence coverage, byte-exact
       normal/deep physics gates, clean allocation checks, and 3/3 comment audit.
-- [ ] **S2 — Consumer migration and shim deletion (bit-neutral).** Every
+- [x] **S2 — Consumer migration and shim deletion (bit-neutral).** Every
       stage owner, replay capture, presentation sync, and diagnostics
       consumer reads the SoA arrays (or narrow spans of them) directly; the
       S1 accessor shim is deleted; `std::span` field views replace record
@@ -157,6 +157,12 @@ path) until S7 flips the default in one owner-approved ceremony.
       extraction. Gate: `validate_physics` byte-exact + `validate_tests` +
       one mega-gate invocation (replay capture reads moved) + allocation
       checks.
+      Evidence: `Agentic/Reports/2026-07-16/soa-simd-s2-consumer-migration.md`
+      records the cold-only record, sole-authority aligned hot arrays, deletion
+      of every S1 compatibility helper, 61/61 touched-file comment audit,
+      204-test/full/allocation proof, final 44,401-line byte-exact physics
+      output, and the single passing one-process replay mega invocation. No
+      baseline or golden changed.
 - [ ] **S3 — SoA-scalar measurement checkpoint.** Re-run the S0 benchmark
       matrix on the SoA-scalar build and commit the comparison: the layout
       alone should already move bandwidth-bound stages. If SoA-scalar

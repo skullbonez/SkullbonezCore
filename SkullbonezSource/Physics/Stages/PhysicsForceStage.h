@@ -41,6 +41,7 @@ Related:
 #include <vector>
 
 #include "../../Maths/Vector3.h"
+#include "../PhysicsBodyStore.h"
 
 namespace SkullbonezCore
 {
@@ -74,6 +75,7 @@ class PhysicsForceStage
     void Clear();
     void ReserveBodyScratchCapacity( std::size_t capacity );
     const Math::Vector::Vector3* PrepareMutualGravityForces( std::span<const PhysicsBodyRecord> bodyRecords,
+                                                             PhysicsBodyHotFieldsConstView hotFields,
                                                              std::span<const uint8_t> sleepState,
                                                              int modelCount,
                                                              const PhysicsWorldForces& worldForces,

@@ -50,26 +50,28 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
 }
 
-bool IsSolverBodyFixed( std::span<const PhysicsBodyRecord> bodyRecords, int bodyIndex )
+bool IsSolverBodyFixed( PhysicsBodyHotFieldsConstView hotFields, int bodyIndex )
 {
-    return bodyRecords[static_cast<size_t>( bodyIndex )].isFixed;
+    return hotFields.fixed[static_cast<size_t>( bodyIndex )] != 0u;
 }
 
 TerrainContactBodyView TerrainContactBodyViewForIndex( std::span<const PhysicsBodyRecord> bodyRecords,
+                                                       PhysicsBodyHotFieldsConstView hotFields,
                                                        const SkullbonezCore::Core::EngineConfig& config,
                                                        int index )
 {
     const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( index )];
+    const size_t bodyIndex = static_cast<size_t>( index );
     TerrainContactBodyView body;
-    body.position = record.position;
-    body.orientation = record.orientation;
-    body.linearVelocity = record.linearVelocity;
+    body.position = PhysicsBodyPosition( hotFields, bodyIndex );
+    body.orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
+    body.linearVelocity = PhysicsBodyLinearVelocity( hotFields, bodyIndex );
     body.terrain = record.terrain;
-    body.boundingRadius = record.boundingRadius;
+    body.boundingRadius = hotFields.boundingRadius[bodyIndex];
     body.contactEpsilon = record.contactEpsilon;
     body.terrainContactThreshold = config.terrainContact.threshold;
     body.restitutionThreshold = config.bodySimulation.contactRestitutionThreshold;
-    body.isFixed = record.isFixed;
+    body.isFixed = hotFields.fixed[bodyIndex] != 0u;
     return body;
 }
 } // namespace
@@ -94,7 +96,7 @@ void PhysicsTerrainStage::BeginFrame()
 void PhysicsTerrainStage::DetectTerrainAt( const TerrainDetectionStageContext& context, int bodyIndex )
 {
     TerrainDetectionCandidate& candidate = m_detectionCandidates[static_cast<size_t>( bodyIndex )];
-    if ( IsSolverBodyFixed( context.bodyRecords, bodyIndex ) )
+    if ( IsSolverBodyFixed( context.hotFields, bodyIndex ) )
     {
         return;
     }
@@ -109,10 +111,10 @@ void PhysicsTerrainStage::DetectTerrainAt( const TerrainDetectionStageContext& c
     }
 
     candidate.availableTime = context.timeRemaining[bodyIndex];
-    candidate.sweep =
-        SweepTerrainContact( TerrainContactBodyViewForIndex( context.bodyRecords, context.config, bodyIndex ),
-                             context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
-                             candidate.availableTime );
+    candidate.sweep = SweepTerrainContact(
+        TerrainContactBodyViewForIndex( context.bodyRecords, context.hotFields, context.config, bodyIndex ),
+        context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
+        candidate.availableTime );
     candidate.tested = 1;
 }
 
@@ -159,7 +161,7 @@ PhysicsTerrainStage::PrepareCandidateCommit( const TerrainCandidateCommitContext
         (void)context.bodyStore.IntegrateBodyPose( context.colliderStore, bodyIndex, colTime );
         const float remainingTime = (std::max)( 0.0f, availableTime - colTime );
         const bool hasManifold = Physics::BuildTerrainContactManifold(
-            TerrainContactBodyViewForIndex( context.bodyRecords, context.config, bodyIndex ),
+            TerrainContactBodyViewForIndex( context.bodyRecords, context.hotFields, context.config, bodyIndex ),
             context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
             bodyIndex,
             sweep,
@@ -171,7 +173,7 @@ PhysicsTerrainStage::PrepareCandidateCommit( const TerrainCandidateCommitContext
         record.bodyA = bodyIndex;
         record.bodyB = TERRAIN_BODY_INDEX;
         record.point = hasManifold ? commit.manifold.points[0].point
-                                   : context.bodyRecords[static_cast<size_t>( bodyIndex )].position;
+                                   : PhysicsBodyPosition( context.hotFields, static_cast<size_t>( bodyIndex ) );
         record.normal = hasManifold ? commit.manifold.normal : ZERO_VECTOR;
         record.scalarA = colTime;
         record.scalarB = hasManifold && commit.manifold.supportsRestingPolicy ? 1.0f : 0.0f;

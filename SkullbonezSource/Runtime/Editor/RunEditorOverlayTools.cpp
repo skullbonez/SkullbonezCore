@@ -203,8 +203,13 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
             // Why: Mouse pickup stores a body handle when the drag begins.
             // Overlay drawing should follow that live store row instead of
             // requiring post-step authoring/presentation data to be current.
-            const Vector3 grabPoint = body->position + context.mousePickup.grabOffset;
-            context.tracer.AddSelectionOutline( body->position, body->orientation, collider->shape );
+            const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
+            const auto hotFields = context.bodyStore.HotFields();
+            const Vector3 bodyPosition = PhysicsBodyPosition( hotFields, bodyIndex );
+            const Vector3 grabPoint = bodyPosition + context.mousePickup.grabOffset;
+            context.tracer.AddSelectionOutline( bodyPosition,
+                                                PhysicsBodyOrientation( hotFields, bodyIndex ),
+                                                collider->shape );
             context.tracer.AddReplayPathSegment( grabPoint, context.mousePickup.targetPoint, 0.1f, 0.95f, 1.0f );
             context.tracer.AddReplayContactMarker( context.mousePickup.targetPoint,
                                                    context.mousePickup.planeNormal,
@@ -229,8 +234,10 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
             // marker should read the same live body/collider rows instead of
             // keeping legacy model-side pose/shape caches hot for presentation.
             const float markerRadius = EditorColliderRadius( *collider ) * 1.24f;
-            context.tracer.AddAttachedCameraTargetMarker( body->position,
-                                                          body->orientation,
+            const std::size_t bodyIndex = static_cast<std::size_t>( input.attachedCameraTargetIndex );
+            const auto hotFields = context.bodyStore.HotFields();
+            context.tracer.AddAttachedCameraTargetMarker( PhysicsBodyPosition( hotFields, bodyIndex ),
+                                                          PhysicsBodyOrientation( hotFields, bodyIndex ),
                                                           collider->shape,
                                                           markerRadius,
                                                           input.attachedCameraActiveFollow );

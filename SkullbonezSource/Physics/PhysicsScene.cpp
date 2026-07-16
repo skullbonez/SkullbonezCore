@@ -332,15 +332,17 @@ bool PhysicsScene::UpdateAuthoredBody( const PhysicsBodyUpdateDesc& update )
     // Invariant: authored edits start from live store state. Solver movement
     // between tool commands must not be overwritten by an old cold descriptor.
     PhysicsBodyCreateDesc desc = m_authoredBodyDescs[static_cast<std::size_t>( bodyRow )];
+    const PhysicsBodyHotFieldsConstView hotFields = m_bodyStore.HotFields();
+    const std::size_t hotIndex = static_cast<std::size_t>( bodyRow );
     desc.sceneObjectId = body->sceneObjectId;
-    desc.position = body->position;
-    desc.orientation = body->orientation;
-    desc.linearVelocity = body->linearVelocity;
-    desc.angularVelocity = body->angularVelocity;
+    desc.position = PhysicsBodyPosition( hotFields, hotIndex );
+    desc.orientation = PhysicsBodyOrientation( hotFields, hotIndex );
+    desc.linearVelocity = PhysicsBodyLinearVelocity( hotFields, hotIndex );
+    desc.angularVelocity = PhysicsBodyAngularVelocity( hotFields, hotIndex );
     desc.rotationalInertia = body->rotationalInertia;
     desc.mass = body->mass;
-    desc.motionKind = body->isFixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic;
-    desc.startsAsleep = body->isSleeping;
+    desc.motionKind = hotFields.fixed[hotIndex] != 0u ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic;
+    desc.startsAsleep = hotFields.awake[hotIndex] == 0u;
 
     if ( update.updateMask & PHYSICS_BODY_UPDATE_POSE )
     {
@@ -582,7 +584,8 @@ bool PhysicsScene::ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sourc
     m_fixedTreeReleaseWakeBodies.reserve( bodyCapacity );
 
     bool sourceReleased = false;
-    if ( sourceRecord->isFixed )
+    const PhysicsBodyHotFieldsConstView hotFields = m_bodyStore.HotFields();
+    if ( hotFields.fixed[static_cast<std::size_t>( sourceIndex )] != 0u )
     {
         // Hazard: authored fixed props only become dynamic when their store
         // policy accepts the tool impulse. The source body receives the actual
@@ -593,9 +596,11 @@ bool PhysicsScene::ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sourc
         {
             return false;
         }
-        const Math::Vector::Vector3 sourceLinearVelocity = sourceRecord->linearVelocity;
-        const Math::Vector::Vector3 sourceAngularVelocity = sourceRecord->angularVelocity;
-        PhysicsBodyStore::ReleaseFixedRecord( *sourceRecord, sourceLinearVelocity, sourceAngularVelocity );
+        const Math::Vector::Vector3 sourceLinearVelocity =
+            PhysicsBodyLinearVelocity( hotFields, static_cast<std::size_t>( sourceIndex ) );
+        const Math::Vector::Vector3 sourceAngularVelocity =
+            PhysicsBodyAngularVelocity( hotFields, static_cast<std::size_t>( sourceIndex ) );
+        m_bodyStore.ReleaseFixedBody( sourceIndex, sourceLinearVelocity, sourceAngularVelocity );
         sourceReleased = true;
     }
 

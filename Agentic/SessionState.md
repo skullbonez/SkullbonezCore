@@ -12,14 +12,14 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-15th-july` (physics SoA/SIMD campaign) |
 | Current baseline | Scalar-AoS 1,000-body Physics Step averages 0.9978 ms on the Threadripper 3970X; final AVX2/FMA acceptance budget is no more than 0.80 ms |
-| Current objective | S2: migrate stage/replay/presentation/diagnostics consumers to SoA spans and delete the S1 record shim |
-| Active/future progress | `physics-soa-simd-1000-bodies` 2 / 9 = 22% |
-| Last broad local gate | S0 `tools\\validate_full.bat` passed on 2026-07-16: CPU umbrella, zero-warning builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and byte-exact physics passed |
-| Validation for current edits | S1 passed 204 tests, byte-exact physics (75.18 s), deep physics (127.54 s), format, and allocation self/repo checks; no baseline/golden refresh |
+| Current objective | S3: measure the SoA-scalar 200/520/1,000/2,000-body matrix against S0 and fix any regression beyond noise |
+| Active/future progress | `physics-soa-simd-1000-bodies` 3 / 9 = 33% |
+| Last broad local gate | S2 `tools\\validate_full.bat` passed on 2026-07-16: CPU umbrella, zero-warning Profile/Automation/Debug builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and 44,401-line byte-exact physics passed |
+| Validation for current edits | S2 passed 204 tests, final full/byte-exact physics, allocation checks, and exactly one one-process replay mega invocation; no baseline/golden refresh |
 
 ## Live Queue
 
-000000. `physics-soa-simd-1000-bodies` is active at 2/9. S0 registered the
+000000. `physics-soa-simd-1000-bodies` is active at 3/9. S0 registered the
         campaign, authored fixed-seed 200/520/1,000/2,000-body scale scenes,
         measured the scalar-AoS matrix, confirmed the 2,000-body stretch scene
         does not exhaust fixed capacity, and ratified a 0.80 ms average Physics
@@ -29,7 +29,12 @@ plan inventory.
         fixed-capacity aligned hot component arrays with a bit-exact two-way
         compatibility seam. All arrays are 32-byte aligned in focused coverage;
         normal/deep physics, 204 tests, format, and allocation policy passed.
-        S2 now migrates consumers and deletes the temporary record seam.
+        S2 migrated all stage/replay/presentation/diagnostics/editor/automation
+        consumers to direct hot-field views, made records cold-only, and deleted
+        the compatibility seam. Final full, 44,401-line byte-exact physics,
+        allocation, and the sole one-process replay mega gate passed with zero
+        baseline/golden refresh. S3 now measures SoA-scalar performance against
+        the S0 200/520/1,000/2,000-body matrix.
 00000. `replay-mass-reduction` completed at 9/9 plus R8 on 2026-07-16. R0 closed the 42-file,
        33,783-line census, D1-D8 duplication dispositions, Release/Profile
        map-attributed baselines (498,264/456,044 bytes), owner ratification,
@@ -294,8 +299,9 @@ plan inventory.
 
 ## Next Handoff
 
-Physics SoA/SIMD is active at 2/9 after S1 added aligned hot component arrays
-with byte-exact normal/deep gate proof. Continue with S2's consumer migration
-and record-shim deletion. Replay mass reduction remains closed at 9/9 plus R8;
+Physics SoA/SIMD is active at 3/9 after S2 migrated every consumer to aligned
+hot-field views, deleted the record shim, and passed final full, byte-exact
+physics, allocation, and the single replay mega gate. Continue with S3's
+SoA-scalar benchmark comparison. Replay mass reduction remains closed at 9/9 plus R8;
 the externally administered validation-gate V3 lane remains blocked and
 excluded from the ledger.

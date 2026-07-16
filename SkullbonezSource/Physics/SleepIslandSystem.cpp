@@ -15,13 +15,13 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
-  Body record: Physics-owned snapshot of a body's fixed/sleep/velocity state for
+  Hot body fields: Physics-owned arrays holding fixed/sleep/velocity state for
     the current tick.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
     are the validation contract.
-  - Support propagation reads fixed-body state from body records, not directly
+  - Support propagation reads fixed-body state from hot arrays, not directly
     from legacy model storage.
 
 Related:
@@ -38,7 +38,7 @@ using namespace SkullbonezCore::Physics;
 
 
 void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& context,
-                                          std::span<const PhysicsBodyRecord> bodyRecords )
+                                          PhysicsBodyHotFieldsConstView hotFields )
 {
     // Concept: support propagates upward through a stack.
     //
@@ -50,7 +50,7 @@ void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& contex
     auto& m_sleepSupportEdges = context.sleepSupportEdges;
     auto& m_sleepSupportedThisFrame = context.sleepSupportedThisFrame;
 
-    const int modelCount = static_cast<int>( bodyRecords.size() );
+    const int modelCount = static_cast<int>( hotFields.fixed.size() );
     if ( modelCount <= 0 || m_sleepSupportEdges.empty() )
     {
         return;
@@ -73,7 +73,7 @@ void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& contex
             }
 
             bool supporterHasSupport = m_sleepSupportedThisFrame[supporter] != 0;
-            if ( !supporterHasSupport && bodyRecords[static_cast<std::size_t>( supporter )].isFixed )
+            if ( !supporterHasSupport && hotFields.fixed[static_cast<std::size_t>( supporter )] != 0u )
             {
                 supporterHasSupport = true;
             }

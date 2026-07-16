@@ -24,15 +24,15 @@ Glossary:
     eight adjacent bodies can be loaded without gathering from records.
 
 Invariants:
-  - Runtime body records stay in scene/model slot order.
-  - Standalone-created records stay dense; handles map allocator slots to the
+  - Runtime cold records and hot arrays stay in scene/model slot order.
+  - Standalone-created rows stay dense; handles map allocator slots to the
     current dense row.
   - Public body handles are allocator-owned identities; model-order arrays use
     explicit maps instead of encoding model index inside the handle.
-  - Store refreshes load descriptor rows into physics-owned body records before
-    a step or explicit editor/replay commit.
+  - Store refreshes load descriptor rows into physics-owned cold records and
+    hot arrays before a step or explicit editor/replay commit.
   - Every hot component array starts on a 32-byte boundary and has exactly the
-    same live dense prefix as the cold record view.
+    same live dense prefix as the cold metadata rows.
   - Steady-frame pose, velocity, and sleep state do not copy back to authoring data;
     readers must use the body, collider, render, or diagnostics stores.
 
@@ -81,18 +81,11 @@ struct PhysicsBodyRecord
     PhysicsBodyHandle handle;                                                                  // Stable body handle resolved through the store maps.
     PhysicsSceneObjectId sceneObjectId;                                                        // Scene-local id supplied once by the creation owner.
     uint32_t replayBodyId = 0;                                                                 // Legacy replay id derived from sceneObjectId for traces/replay.
-    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
-    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
-    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 invRotationalInertia = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 pendingImpulse = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 pendingImpulseApplicationPoint = Math::Vector::ZERO_VECTOR;
     Geometry::Terrain* terrain = nullptr;                                                      // Borrowed terrain pointer supplied by the authoring descriptor.
     float mass = 0.0f;                                                                         // Authoring mass; fixed bodies still report mass.
-    float invMass = 0.0f;                                                                      // Solver inverse mass; fixed bodies use zero.
-    float boundingRadius = 0.0f;                                                               // Conservative radius for body-level release/spin policy.
     float volume = 0.0f;                                                                       // Cached body volume used by buoyancy force math.
     float projectedSurfaceArea = 0.0f;                                                         // Cached drag area used by world-force integration.
     float dragCoefficient = 0.0f;                                                              // Cached drag coefficient used by world-force integration.
@@ -101,11 +94,30 @@ struct PhysicsBodyRecord
     float angularVelocityLimit = 5.0f;                                                         // Per-body spin cap applied before force integration.
     float contactEpsilon = 0.05f;                                                              // Terrain proximity tolerance used by buoyancy support damping.
     int fixedTreeReleaseRootIndex = -1;                                                        // Authored release group root; -1 means no fixed-tree group.
-    bool isFixed = false;                                                                      // True for immovable collision bodies.
-    bool isSleeping = false;                                                                   // Physics-owned sleep flag mirrored to diagnostics by model index.
     bool usesWorldInertia = false;                                                             // Non-sphere bodies rotate inertia through orientation.
     bool releasesFromFixedOnContact = false;                                                   // Authored fixed prop can become dynamic after strong contact.
     bool hasPendingImpulse = false;                                                            // One-shot impulse waiting for the next body integration pass.
+};
+
+// Plain one-row value used only at cold creation/restore boundaries and inside
+// scalar kernels. Live storage remains the component arrays below.
+struct PhysicsBodyHotState
+{
+    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
+    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 inverseRotationalInertia = Math::Vector::ZERO_VECTOR;
+    float inverseMass = 0.0f;
+    float boundingRadius = 0.0f;
+    bool fixed = false;
+    bool awake = true;
+};
+
+struct PhysicsBodyCreateRecord
+{
+    PhysicsBodyRecord cold;
+    PhysicsBodyHotState hot;
 };
 
 using PhysicsBodyRecordList = PhysicsFixedList<PhysicsBodyRecord, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
@@ -118,8 +130,8 @@ using PhysicsHandleSlotList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::
 using PhysicsHandleAssignmentMask = PhysicsFixedList<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
 
 // Borrowed hot-field spans keep stage inputs explicit and prevent kernels from
-// reaching unrelated cold authoring state. S2 removes the record compatibility
-// view after every consumer has moved to these spans.
+// reaching unrelated cold authoring state. They are the only live hot-state
+// authority; PhysicsBodyRecord contains cold metadata only.
 struct PhysicsBodyHotFieldsConstView
 {
     std::span<const float> positionX;
@@ -168,6 +180,112 @@ struct PhysicsBodyHotFieldsView
     std::span<uint8_t> awake;
 };
 
+inline PhysicsBodyHotFieldsConstView ConstPhysicsBodyHotFields( PhysicsBodyHotFieldsView fields )
+{
+    return { fields.positionX,
+             fields.positionY,
+             fields.positionZ,
+             fields.orientationX,
+             fields.orientationY,
+             fields.orientationZ,
+             fields.orientationW,
+             fields.linearVelocityX,
+             fields.linearVelocityY,
+             fields.linearVelocityZ,
+             fields.angularVelocityX,
+             fields.angularVelocityY,
+             fields.angularVelocityZ,
+             fields.inverseMass,
+             fields.inverseInertiaX,
+             fields.inverseInertiaY,
+             fields.inverseInertiaZ,
+             fields.boundingRadius,
+             fields.fixed,
+             fields.awake };
+}
+
+inline Math::Vector::Vector3 PhysicsBodyPosition( PhysicsBodyHotFieldsConstView fields, std::size_t index )
+{
+    return { fields.positionX[index], fields.positionY[index], fields.positionZ[index] };
+}
+
+inline Math::Vector::Vector3 PhysicsBodyLinearVelocity( PhysicsBodyHotFieldsConstView fields, std::size_t index )
+{
+    return { fields.linearVelocityX[index], fields.linearVelocityY[index], fields.linearVelocityZ[index] };
+}
+
+inline Math::Vector::Vector3 PhysicsBodyAngularVelocity( PhysicsBodyHotFieldsConstView fields, std::size_t index )
+{
+    return { fields.angularVelocityX[index], fields.angularVelocityY[index], fields.angularVelocityZ[index] };
+}
+
+inline Math::Vector::Vector3 PhysicsBodyInverseInertia( PhysicsBodyHotFieldsConstView fields, std::size_t index )
+{
+    return { fields.inverseInertiaX[index], fields.inverseInertiaY[index], fields.inverseInertiaZ[index] };
+}
+
+inline Math::Orientation::Quaternion PhysicsBodyOrientation( PhysicsBodyHotFieldsConstView fields, std::size_t index )
+{
+    return { fields.orientationX[index],
+             fields.orientationY[index],
+             fields.orientationZ[index],
+             fields.orientationW[index] };
+}
+
+inline PhysicsBodyHotState LoadPhysicsBodyHotState( PhysicsBodyHotFieldsConstView fields, std::size_t index )
+{
+    PhysicsBodyHotState state;
+    state.position = Math::Vector::Vector3( fields.positionX[index], fields.positionY[index], fields.positionZ[index] );
+    state.orientation = Math::Orientation::Quaternion( fields.orientationX[index],
+                                                       fields.orientationY[index],
+                                                       fields.orientationZ[index],
+                                                       fields.orientationW[index] );
+    state.linearVelocity = Math::Vector::Vector3( fields.linearVelocityX[index],
+                                                  fields.linearVelocityY[index],
+                                                  fields.linearVelocityZ[index] );
+    state.angularVelocity = Math::Vector::Vector3( fields.angularVelocityX[index],
+                                                   fields.angularVelocityY[index],
+                                                   fields.angularVelocityZ[index] );
+    state.inverseRotationalInertia = Math::Vector::Vector3( fields.inverseInertiaX[index],
+                                                            fields.inverseInertiaY[index],
+                                                            fields.inverseInertiaZ[index] );
+    state.inverseMass = fields.inverseMass[index];
+    state.boundingRadius = fields.boundingRadius[index];
+    state.fixed = fields.fixed[index] != 0u;
+    state.awake = fields.awake[index] != 0u;
+    return state;
+}
+
+inline PhysicsBodyHotState LoadPhysicsBodyHotState( PhysicsBodyHotFieldsView fields, std::size_t index )
+{
+    return LoadPhysicsBodyHotState( ConstPhysicsBodyHotFields( fields ), index );
+}
+
+inline void
+StorePhysicsBodyHotState( PhysicsBodyHotFieldsView fields, std::size_t index, const PhysicsBodyHotState& state )
+{
+    fields.positionX[index] = state.position.x;
+    fields.positionY[index] = state.position.y;
+    fields.positionZ[index] = state.position.z;
+    state.orientation.GetComponents( fields.orientationX[index],
+                                     fields.orientationY[index],
+                                     fields.orientationZ[index],
+                                     fields.orientationW[index] );
+    fields.linearVelocityX[index] = state.linearVelocity.x;
+    fields.linearVelocityY[index] = state.linearVelocity.y;
+    fields.linearVelocityZ[index] = state.linearVelocity.z;
+    fields.angularVelocityX[index] = state.angularVelocity.x;
+    fields.angularVelocityY[index] = state.angularVelocity.y;
+    fields.angularVelocityZ[index] = state.angularVelocity.z;
+    fields.inverseMass[index] = state.inverseMass;
+    fields.inverseInertiaX[index] = state.inverseRotationalInertia.x;
+    fields.inverseInertiaY[index] = state.inverseRotationalInertia.y;
+    fields.inverseInertiaZ[index] = state.inverseRotationalInertia.z;
+    fields.boundingRadius[index] = state.boundingRadius;
+    fields.fixed[index] = state.fixed ? 1u : 0u;
+    fields.awake[index] = state.awake ? 1u : 0u;
+}
+
 #ifdef _MSC_VER
 // Why: the deliberate 32-byte array starts add harmless intra-object padding.
 // MSVC's C4324 is promoted by the repository warning policy even though this
@@ -187,7 +305,7 @@ class PhysicsBodyStore
     void LoadFromDescriptors( std::span<const PhysicsBodyCreateDesc> bodyDescs, std::span<const uint8_t> sleepStates );
     // Creates a physics-owned body row from descriptor data. The store
     // assigns the handle and keeps the row dense; callers supply authored state.
-    PhysicsBodyHandle CreateBodyRecord( const PhysicsBodyRecord& record );
+    PhysicsBodyHandle CreateBodyRecord( const PhysicsBodyCreateRecord& record );
     // Imports a body descriptor at a cold creation boundary. The descriptor is
     // the scene/editor-facing contract; body rows remain hot simulation data.
     PhysicsBodyHandle CreateBodyRecord( const PhysicsBodyCreateDesc& desc, bool sleepEnabled );
@@ -200,8 +318,8 @@ class PhysicsBodyStore
     // from authoring records. Returns false when the requested count is outside the
     // current store range.
     bool TrimToCount( int bodyCount );
-    // Restores sampled replay values into the authoritative body record. The
-    // replay id must match so stale handles cannot mutate a reused body slot.
+    // Restores sampled replay values into the authoritative hot-field arrays.
+    // The replay id must match so stale handles cannot mutate a reused body slot.
     bool RestoreReplayBodyState( PhysicsBodyHandle body,
                                  uint32_t replayBodyId,
                                  bool fixed,
@@ -219,12 +337,11 @@ class PhysicsBodyStore
     // Cold descriptor refresh keeps replay identity with the body store. Scene
     // owners supply only the row count; missing rows receive fresh store-scanned ids.
     std::vector<uint32_t> BuildReplayBodyIdsForReload( int sceneEntityCount ) const;
-    // Converts an authored fixed body record into a dynamic body without a
-    // descriptor reload. Release-on-impact paths call this while they
-    // already own the live store row.
-    static void ReleaseFixedRecord( PhysicsBodyRecord& record,
-                                    const Math::Vector::Vector3& seedLinearVelocity,
-                                    const Math::Vector::Vector3& seedAngularVelocity );
+    // Converts an authored fixed body row into a dynamic body without a
+    // descriptor reload. Release-on-impact paths call the store by dense row.
+    bool ReleaseFixedBody( int modelIndex,
+                           const Math::Vector::Vector3& seedLinearVelocity,
+                           const Math::Vector::Vector3& seedAngularVelocity );
     // Releases higher same-tree fixed parts using release-group metadata already
     // copied into body rows. outReleasedBodyIndices is caller-owned scratch.
     void ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event,
@@ -272,7 +389,7 @@ class PhysicsBodyStore
     bool ApplyBodyImpulse( PhysicsBodyHandle body,
                            const Math::Vector::Vector3& impulse,
                            const Math::Vector::Vector3& localApplicationPoint );
-    static bool ConsumePendingBodyImpulse( PhysicsBodyRecord& record );
+    bool ConsumePendingBodyImpulse( int modelIndex );
     // Advances one mutable body record from its current velocities and shape
     // snapshot. Returns false when the slot is fixed, sleeping, missing, or has
     // no positive time to integrate.
@@ -284,29 +401,16 @@ class PhysicsBodyStore
                       const Math::Vector::Vector3* precomputedMutualGravityForce = nullptr );
 
   private:
-    enum class HotFieldAuthority : uint8_t
-    {
-        Synchronized,
-        RecordView,
-        SoA
-    };
-
     PhysicsBodyHandle ResolveHandleForModelIndex( int modelIndex,
                                                   uint32_t replayBodyId,
                                                   PhysicsHandleAssignmentMask& assignedHandleSlots );
     void RetireUnassignedHandles( const PhysicsHandleAssignmentMask& assignedHandleSlots );
-    void PrepareMutableRecordView();
-    void PrepareRecordView() const;
-    void PrepareHotFields() const;
     void ClearHotFields();
-    void CopyRecordViewToHotFields() const;
-    void CopyHotFieldsToRecordView() const;
+    void ResizeHotFields( std::size_t count );
+    PhysicsBodyHotState HotStateForModelIndex( int modelIndex ) const;
+    void StoreHotStateAt( int modelIndex, const PhysicsBodyHotState& state );
 
-    // Transitional S1 seam: m_bodies retains the public record surface while
-    // S2 migrates consumers. HotFieldAuthority prevents either side from reading
-    // stale bits; S2 deletes the hot members from PhysicsBodyRecord and this shim.
-    mutable PhysicsBodyRecordList m_bodies{
-        "PhysicsBodyStore.bodies" };                                                           // Cold records plus temporary hot-field compatibility values.
+    PhysicsBodyRecordList m_bodies{ "PhysicsBodyStore.bodies" };                               // Cold records in dense scene/model order.
     alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_positionX{
         "PhysicsBodyStore.positionX" };
     alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_positionY{
@@ -345,7 +449,6 @@ class PhysicsBodyStore
         "PhysicsBodyStore.boundingRadius" };
     alignas( 32 ) mutable PhysicsHandleFlagList m_fixed{ "PhysicsBodyStore.fixed" };
     alignas( 32 ) mutable PhysicsHandleFlagList m_awake{ "PhysicsBodyStore.awake" };
-    mutable HotFieldAuthority m_hotFieldAuthority = HotFieldAuthority::Synchronized;
     PhysicsBodyHandleList m_modelBodyHandles{ "PhysicsBodyStore.modelBodyHandles" };           // Model index to body handle map.
     PhysicsHandleGenerationList m_handleGenerations{ "PhysicsBodyStore.handleGenerations" };   // Handle-slot generations.
     PhysicsHandleFlagList m_handleAlive{ "PhysicsBodyStore.handleAlive" };                     // Live handle slot flags.

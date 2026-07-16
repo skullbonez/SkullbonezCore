@@ -120,9 +120,9 @@ Vector3 WorldToTargetVector( const RotationMatrix& rotation, const Vector3& worl
 }
 
 
-float AttachedCameraTargetRadius( const PhysicsBodyRecord& body, const ColliderRecord& collider )
+float AttachedCameraTargetRadius( float bodyBoundingRadius, const ColliderRecord& collider )
 {
-    return (std::max)( (std::max)( collider.boundingRadius, body.boundingRadius ), 1.0f );
+    return (std::max)( (std::max)( collider.boundingRadius, bodyBoundingRadius ), 1.0f );
 }
 
 
@@ -666,10 +666,12 @@ bool AttachedCameraController::TryResolvePhysicsTarget( const SceneController& c
         return false;
     }
 
-    outTarget.position = body->position;
-    outTarget.linearVelocity = body->linearVelocity;
-    outTarget.rotation = BodyRotation( body->orientation );
-    outTarget.radius = AttachedCameraTargetRadius( *body, *collider );
+    const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
+    const auto hotFields = bodyStore.HotFields();
+    outTarget.position = PhysicsBodyPosition( hotFields, bodyIndex );
+    outTarget.linearVelocity = PhysicsBodyLinearVelocity( hotFields, bodyIndex );
+    outTarget.rotation = BodyRotation( PhysicsBodyOrientation( hotFields, bodyIndex ) );
+    outTarget.radius = AttachedCameraTargetRadius( hotFields.boundingRadius[bodyIndex], *collider );
     return true;
 }
 

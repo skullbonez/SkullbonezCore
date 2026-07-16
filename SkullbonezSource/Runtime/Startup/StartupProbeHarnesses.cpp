@@ -251,31 +251,42 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     const int reorderedBodyAIndex = reorderBodyStore->ModelIndexForHandle( reorderedOriginalBody );
     const PhysicsBodyRecord* reorderedBodyARecord =
         reorderedBodyAIndex >= 0 ? reorderBodyStore->RecordForModelIndex( reorderedBodyAIndex ) : nullptr;
+    const auto reorderedHotFields = reorderBodyStore->HotFields();
     // Invariant: allocator-owned handles must carry physics-owned one-shot
     // state through a same-scene reorder. Otherwise the handle identity is only
     // nominally independent from model order.
     const bool reorderPreservesHandleState =
         seededReorderState && reorderedBodyAIndex == 1 && reorderedBodyARecord &&
         reorderedBodyARecord->handle == reorderedOriginalBody && reorderedBodyARecord->hasPendingImpulse &&
-        reorderedBodyARecord->isSleeping &&
+        reorderedHotFields.awake[static_cast<std::size_t>( reorderedBodyAIndex )] == 0u &&
         fabsf( reorderedBodyARecord->pendingImpulse.y - pendingImpulse.y ) < 0.0001f &&
         fabsf( reorderedBodyARecord->pendingImpulseApplicationPoint.x - pendingImpulsePoint.x ) < 0.0001f;
     const PhysicsBodyRecord* bodyBBeforeDelete = collection->BodyStore().RecordForHandle( bodyB );
+    const int bodyBIndexBeforeDelete = collection->BodyStore().ModelIndexForHandle( bodyB );
+    const PhysicsBodyHotState bodyBHotBeforeDelete =
+        bodyBIndexBeforeDelete >= 0 ? LoadPhysicsBodyHotState( collection->BodyStore().HotFields(),
+                                                               static_cast<std::size_t>( bodyBIndexBeforeDelete ) )
+                                    : PhysicsBodyHotState{};
     const SkullbonezCore::Math::Vector::Vector3 liveOnlyPosition( 42.0f, 17.0f, -3.0f );
-    const bool seededLiveOnlyState =
-        bodyBBeforeDelete && physics.RestoreReplayBodyState( bodyB,
-                                                             bodyBBeforeDelete->replayBodyId,
-                                                             bodyBBeforeDelete->isFixed,
-                                                             liveOnlyPosition,
-                                                             bodyBBeforeDelete->orientation,
-                                                             bodyBBeforeDelete->linearVelocity,
-                                                             bodyBBeforeDelete->angularVelocity,
-                                                             bodyBBeforeDelete->mass,
-                                                             bodyBBeforeDelete->invMass,
-                                                             bodyBBeforeDelete->rotationalInertia,
-                                                             bodyBBeforeDelete->invRotationalInertia );
+    const bool seededLiveOnlyState = bodyBBeforeDelete && bodyBIndexBeforeDelete >= 0 &&
+                                     physics.RestoreReplayBodyState( bodyB,
+                                                                     bodyBBeforeDelete->replayBodyId,
+                                                                     bodyBHotBeforeDelete.fixed,
+                                                                     liveOnlyPosition,
+                                                                     bodyBHotBeforeDelete.orientation,
+                                                                     bodyBHotBeforeDelete.linearVelocity,
+                                                                     bodyBHotBeforeDelete.angularVelocity,
+                                                                     bodyBBeforeDelete->mass,
+                                                                     bodyBHotBeforeDelete.inverseMass,
+                                                                     bodyBBeforeDelete->rotationalInertia,
+                                                                     bodyBHotBeforeDelete.inverseRotationalInertia );
     const bool destroyedBodyA = collection->DestroySceneEntity( bodyA );
     const PhysicsBodyRecord* survivingBody = collection->BodyStore().RecordForHandle( bodyB );
+    const int survivingBodyIndex = collection->BodyStore().ModelIndexForHandle( bodyB );
+    const SkullbonezCore::Math::Vector::Vector3 survivingPosition =
+        survivingBodyIndex >= 0
+            ? PhysicsBodyPosition( collection->BodyStore().HotFields(), static_cast<std::size_t>( survivingBodyIndex ) )
+            : SkullbonezCore::Math::Vector::Vector3{};
     const bool deletionIsAtomic = seededLiveOnlyState && destroyedBodyA && !collection->BodyStore().Contains( bodyA ) &&
                                   survivingBody && collection->BodyStore().ModelIndexForHandle( bodyB ) == 0 &&
                                   sceneEntities.Count() == 1 && sceneEntities.At( 0 ).body == bodyB &&
@@ -285,9 +296,9 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                   collection->GetRenderInstanceStore().PresentationCount() == 1 &&
                                   physics.AuthoredBodyDescriptorCount().value == 1u &&
                                   PhysicsEngine::ReadPointJointConstraints( collection->Physics() ).empty() &&
-                                  fabsf( survivingBody->position.x - liveOnlyPosition.x ) < 0.0001f &&
-                                  fabsf( survivingBody->position.y - liveOnlyPosition.y ) < 0.0001f &&
-                                  fabsf( survivingBody->position.z - liveOnlyPosition.z ) < 0.0001f;
+                                  fabsf( survivingPosition.x - liveOnlyPosition.x ) < 0.0001f &&
+                                  fabsf( survivingPosition.y - liveOnlyPosition.y ) < 0.0001f &&
+                                  fabsf( survivingPosition.z - liveOnlyPosition.z ) < 0.0001f;
     PhysicsBodyUpdateDesc staleUpdate;
     staleUpdate.body = bodyA;
     staleUpdate.updateMask = PHYSICS_BODY_UPDATE_POSE;
@@ -302,10 +313,13 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     const bool staleMutationRejected = !physics.UpdateAuthoredBody( staleUpdate );
     const bool survivingMutationAccepted = physics.UpdateAuthoredBody( survivingUpdate );
     survivingBody = collection->BodyStore().RecordForHandle( bodyB );
-    const bool mutationUsesStableHandle = staleMutationRejected && survivingMutationAccepted && survivingBody &&
-                                          fabsf( survivingBody->mass - 7.0f ) < 0.0001f &&
-                                          fabsf( survivingBody->linearVelocity.x - 2.0f ) < 0.0001f &&
-                                          fabsf( survivingBody->angularVelocity.y - 0.5f ) < 0.0001f;
+    const int mutatedBodyIndex = collection->BodyStore().ModelIndexForHandle( bodyB );
+    const auto mutatedHotFields = collection->BodyStore().HotFields();
+    const bool mutationUsesStableHandle =
+        staleMutationRejected && survivingMutationAccepted && survivingBody && mutatedBodyIndex >= 0 &&
+        fabsf( survivingBody->mass - 7.0f ) < 0.0001f &&
+        fabsf( mutatedHotFields.linearVelocityX[static_cast<std::size_t>( mutatedBodyIndex )] - 2.0f ) < 0.0001f &&
+        fabsf( mutatedHotFields.angularVelocityY[static_cast<std::size_t>( mutatedBodyIndex )] - 0.5f ) < 0.0001f;
     result.handlesMatchStores = handlesMatchStores;
     result.renderMirrorMatches = renderMirrorMatches;
     result.jointUsesHandles = jointUsesHandles;

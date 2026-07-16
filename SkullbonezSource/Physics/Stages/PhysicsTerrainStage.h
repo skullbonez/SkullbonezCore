@@ -35,6 +35,7 @@ Related:
 
 #include "../../Runtime/Scene/SceneCapacity.h"
 #include "../PhysicsDebugData.h"
+#include "../PhysicsBodyStore.h"
 #include "../TerrainContactManifold.h"
 
 namespace SkullbonezCore
@@ -69,6 +70,7 @@ struct TerrainDetectionStageContext
     // Lifetime: terrain workers borrow this fixed-step snapshot only during
     // synchronous dispatch; each writes one stage-owned candidate row.
     std::span<const PhysicsBodyRecord> bodyRecords;
+    PhysicsBodyHotFieldsConstView hotFields;
     std::span<const ColliderRecord> colliderRecords;
     const Core::EngineConfig& config;
     std::span<const uint8_t> sleepState;
@@ -82,6 +84,7 @@ struct TerrainCandidateCommitContext
     PhysicsBodyStore& bodyStore;
     const ColliderStore& colliderStore;
     std::span<const PhysicsBodyRecord> bodyRecords;
+    PhysicsBodyHotFieldsConstView hotFields;
     std::span<const ColliderRecord> colliderRecords;
     const Core::EngineConfig& config;
     std::span<uint8_t> sleepSupportedThisFrame;

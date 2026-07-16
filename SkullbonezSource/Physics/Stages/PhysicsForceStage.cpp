@@ -72,15 +72,15 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
 }
 
-bool IsSolverBodyFixed( std::span<const Physics::PhysicsBodyRecord> bodyRecords, int bodyIndex )
+bool IsSolverBodyFixed( Physics::PhysicsBodyHotFieldsConstView hotFields, int bodyIndex )
 {
-    return bodyRecords[static_cast<size_t>( bodyIndex )].isFixed;
+    return hotFields.fixed[static_cast<size_t>( bodyIndex )] != 0u;
 }
 
 void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore,
                                const Physics::ColliderStore& colliderStore,
                                const Physics::PhysicsWorldForces& worldForces,
-                               std::span<const Physics::PhysicsBodyRecord> bodyRecords,
+                               Physics::PhysicsBodyHotFieldsConstView hotFields,
                                std::span<const uint8_t> sleepState,
                                std::vector<float>& timeRemaining,
                                const Vector3* mutualGravityForces,
@@ -90,7 +90,7 @@ void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore,
     // Invariant: this is the extracted body of the former applyForcesAt lambda.
     // Sleeping rows must keep their cached pose and consume no remaining time;
     // awake dynamic rows still receive the same force application call.
-    if ( IsSolverBodyFixed( bodyRecords, bodyIndex ) )
+    if ( IsSolverBodyFixed( hotFields, bodyIndex ) )
     {
         return;
     }
@@ -105,12 +105,12 @@ void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore,
 
 void IntegrateRemainingSolverBody( Physics::PhysicsBodyStore& bodyStore,
                                    const Physics::ColliderStore& colliderStore,
-                                   std::span<const Physics::PhysicsBodyRecord> bodyRecords,
+                                   Physics::PhysicsBodyHotFieldsConstView hotFields,
                                    std::span<const uint8_t> sleepState,
                                    std::span<const float> timeRemaining,
                                    int bodyIndex )
 {
-    if ( IsSolverBodyFixed( bodyRecords, bodyIndex ) || sleepState[bodyIndex] )
+    if ( IsSolverBodyFixed( hotFields, bodyIndex ) || sleepState[bodyIndex] )
     {
         return;
     }
@@ -130,7 +130,7 @@ void ApplyForcesStageContext::operator()( int bodyIndex ) const
     ApplyForcesForSolverBody( bodyStore,
                               colliderStore,
                               worldForces,
-                              bodyRecords,
+                              hotFields,
                               sleepState,
                               timeRemaining,
                               mutualGravityForces,
@@ -140,7 +140,7 @@ void ApplyForcesStageContext::operator()( int bodyIndex ) const
 
 void IntegrateRemainingStageContext::operator()( int bodyIndex ) const
 {
-    IntegrateRemainingSolverBody( bodyStore, colliderStore, bodyRecords, sleepState, timeRemaining, bodyIndex );
+    IntegrateRemainingSolverBody( bodyStore, colliderStore, hotFields, sleepState, timeRemaining, bodyIndex );
 }
 
 PhysicsForceStage::PhysicsForceStage()
@@ -162,6 +162,7 @@ void PhysicsForceStage::ReserveBodyScratchCapacity( std::size_t capacity )
 }
 
 const Vector3* PhysicsForceStage::PrepareMutualGravityForces( std::span<const PhysicsBodyRecord> bodyRecords,
+                                                              PhysicsBodyHotFieldsConstView hotFields,
                                                               std::span<const uint8_t> sleepState,
                                                               int modelCount,
                                                               const PhysicsWorldForces& worldForces,
@@ -204,7 +205,8 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( std::span<const Ph
                 continue;
             }
 
-            const bool bodyAReceives = !bodyA.isFixed && bodyA.invMass > 0.0f &&
+            const std::size_t bodyAIndex = static_cast<std::size_t>( i );
+            const bool bodyAReceives = hotFields.fixed[bodyAIndex] == 0u && hotFields.inverseMass[bodyAIndex] > 0.0f &&
                                        ( i >= static_cast<int>( sleepState.size() ) || sleepState[i] == 0 );
             for ( int j = i + 1; j < modelCount; ++j )
             {
@@ -214,14 +216,22 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( std::span<const Ph
                     continue;
                 }
 
-                const bool bodyBReceives = !bodyB.isFixed && bodyB.invMass > 0.0f &&
+                const std::size_t bodyBIndex = static_cast<std::size_t>( j );
+                const bool bodyBReceives = hotFields.fixed[bodyBIndex] == 0u &&
+                                           hotFields.inverseMass[bodyBIndex] > 0.0f &&
                                            ( j >= static_cast<int>( sleepState.size() ) || sleepState[j] == 0 );
                 if ( !bodyAReceives && !bodyBReceives )
                 {
                     continue;
                 }
 
-                const Vector3 displacement = bodyB.position - bodyA.position;
+                const Vector3 positionA( hotFields.positionX[bodyAIndex],
+                                         hotFields.positionY[bodyAIndex],
+                                         hotFields.positionZ[bodyAIndex] );
+                const Vector3 positionB( hotFields.positionX[bodyBIndex],
+                                         hotFields.positionY[bodyBIndex],
+                                         hotFields.positionZ[bodyBIndex] );
+                const Vector3 displacement = positionB - positionA;
                 const float distanceSq = Vector::VectorMagSquared( displacement ) + softenedDistanceSq;
                 const float invDistance = 1.0f / sqrtf( distanceSq );
                 const float invDistanceCubed = invDistance * invDistance * invDistance;
@@ -281,7 +291,8 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( std::span<const Ph
                 continue;
             }
 
-            const bool bodyAReceives = !bodyA.isFixed && bodyA.invMass > 0.0f &&
+            const std::size_t bodyAIndex = static_cast<std::size_t>( i );
+            const bool bodyAReceives = hotFields.fixed[bodyAIndex] == 0u && hotFields.inverseMass[bodyAIndex] > 0.0f &&
                                        ( i >= static_cast<int>( sleepState.size() ) || sleepState[i] == 0 );
             const std::size_t rowOffset = MutualGravityRowOffset( i, modelCount );
             for ( int j = i + 1; j < modelCount; ++j )
@@ -292,14 +303,22 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( std::span<const Ph
                     continue;
                 }
 
-                const bool bodyBReceives = !bodyB.isFixed && bodyB.invMass > 0.0f &&
+                const std::size_t bodyBIndex = static_cast<std::size_t>( j );
+                const bool bodyBReceives = hotFields.fixed[bodyBIndex] == 0u &&
+                                           hotFields.inverseMass[bodyBIndex] > 0.0f &&
                                            ( j >= static_cast<int>( sleepState.size() ) || sleepState[j] == 0 );
                 if ( !bodyAReceives && !bodyBReceives )
                 {
                     continue;
                 }
 
-                const Vector3 displacement = bodyB.position - bodyA.position;
+                const Vector3 positionA( hotFields.positionX[bodyAIndex],
+                                         hotFields.positionY[bodyAIndex],
+                                         hotFields.positionZ[bodyAIndex] );
+                const Vector3 positionB( hotFields.positionX[bodyBIndex],
+                                         hotFields.positionY[bodyBIndex],
+                                         hotFields.positionZ[bodyBIndex] );
+                const Vector3 displacement = positionB - positionA;
                 const float distanceSq = Vector::VectorMagSquared( displacement ) + softenedDistanceSq;
                 const float invDistance = 1.0f / sqrtf( distanceSq );
                 const float invDistanceCubed = invDistance * invDistance * invDistance;
@@ -337,7 +356,8 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( std::span<const Ph
             continue;
         }
 
-        const bool bodyAReceives = !bodyA.isFixed && bodyA.invMass > 0.0f &&
+        const std::size_t bodyAIndex = static_cast<std::size_t>( i );
+        const bool bodyAReceives = hotFields.fixed[bodyAIndex] == 0u && hotFields.inverseMass[bodyAIndex] > 0.0f &&
                                    ( i >= static_cast<int>( sleepState.size() ) || sleepState[i] == 0 );
         const std::size_t rowOffset = MutualGravityRowOffset( i, modelCount );
         for ( int j = i + 1; j < modelCount; ++j )
@@ -347,7 +367,8 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( std::span<const Ph
             {
                 continue;
             }
-            const bool bodyBReceives = !bodyB.isFixed && bodyB.invMass > 0.0f &&
+            const std::size_t bodyBIndex = static_cast<std::size_t>( j );
+            const bool bodyBReceives = hotFields.fixed[bodyBIndex] == 0u && hotFields.inverseMass[bodyBIndex] > 0.0f &&
                                        ( j >= static_cast<int>( sleepState.size() ) || sleepState[j] == 0 );
             if ( !bodyAReceives && !bodyBReceives )
             {

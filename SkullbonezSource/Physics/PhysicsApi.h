@@ -550,7 +550,7 @@ class PhysicsStandaloneWorld
     bool DestroyBody( PhysicsBodyHandle body );
 
     // Records a one-shot impulse on a live body without waking it. The next
-    // standalone step consumes the impulse while walking dense body records.
+    // standalone step consumes the impulse while walking dense hot-field rows.
     bool SetPendingBodyImpulse( PhysicsBodyHandle body,
                                 const Math::Vector::Vector3& impulse,
                                 const Math::Vector::Vector3& localApplicationPoint );
@@ -654,7 +654,7 @@ class PhysicsStandaloneWorld
     bool IsAlive( PhysicsConstraintHandle constraint ) const;
     PhysicsBodyRecord* MutableBodyRecord( PhysicsBodyHandle body );
     const PhysicsBodyRecord* BodyRecord( PhysicsBodyHandle body ) const;
-    PhysicsBodyView MakeBodyView( const PhysicsBodyRecord& record ) const;
+    PhysicsBodyView MakeBodyView( const PhysicsBodyRecord& record, std::size_t bodyIndex ) const;
     void InvalidateBodyViews();
     const std::vector<PhysicsBodyView>& BodyViewCache() const;
     ColliderRecord MakeColliderRecord( const PhysicsColliderCreateDesc& desc ) const;
@@ -667,21 +667,21 @@ class PhysicsStandaloneWorld
     void GenerateStandaloneContacts();
     void GenerateStandaloneIslands();
     bool TryAppendSphereSphereContact( const ColliderRecord& colliderA,
-                                       const PhysicsBodyRecord& bodyA,
+                                       std::size_t bodyAIndex,
                                        const ColliderRecord& colliderB,
-                                       const PhysicsBodyRecord& bodyB );
+                                       std::size_t bodyBIndex );
     bool TryAppendSphereBoxContact( const ColliderRecord& colliderA,
-                                    const PhysicsBodyRecord& bodyA,
+                                    std::size_t bodyAIndex,
                                     const ColliderRecord& colliderB,
-                                    const PhysicsBodyRecord& bodyB );
+                                    std::size_t bodyBIndex );
 
-    PhysicsBodyStore m_bodyStore;                                               // Dense body records and handle generations for standalone stepping.
+    PhysicsBodyStore m_bodyStore;                                               // Dense cold/hot body rows plus handle generations for standalone stepping.
     mutable std::vector<PhysicsBodyView> m_bodyViewCache;                       // Cold public view cache rebuilt from bodyStore.
-    mutable bool m_bodyViewCacheDirty = true;                                   // True when body records changed since the last view build.
+    mutable bool m_bodyViewCacheDirty = true;                                   // True when body rows changed since the last view build.
     ColliderStore m_colliderStore;                                              // Dense collider records and handle generations for standalone queries.
     mutable PhysicsColliderView m_singleColliderViewScratch;                    // Cold single-collider projection returned by Collider().
     mutable std::vector<PhysicsColliderView> m_colliderViewScratch;             // Filtered collider view returned by Colliders().
-    std::vector<PhysicsContactView> m_contacts;                                 // Rebuilt contact rows from standalone collider/body records.
+    std::vector<PhysicsContactView> m_contacts;                                 // Rebuilt contact rows from standalone collider/body stores.
     std::vector<PhysicsIslandView> m_islands;                                   // Rebuilt island rows from standalone contacts/constraints.
     std::vector<PhysicsBodyHandle> m_islandBodyScratch;                         // Flat immutable body spans referenced by island rows.
     std::vector<uint32_t> m_islandParentScratch;                                // Union-find parent rows for island generation.

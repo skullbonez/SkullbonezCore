@@ -235,6 +235,8 @@ EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtim
     {
         return fingerprint;
     }
+    const Physics::PhysicsBodyHotState hotState =
+        Physics::LoadPhysicsBodyHotState( scene.BodyStore().HotFields(), static_cast<std::size_t>( modelIndex ) );
 
     uint64_t& hash = fingerprint.hash;
     HashPredictionScalar( hash, entity.sceneObjectId.value );
@@ -259,29 +261,29 @@ EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtim
     HashPredictionFloat( hash, entity.renderMaterial.contactFlashAlpha );
     HashPredictionScalar( hash, entity.renderMaterial.flags );
 
-    HashPredictionVector( hash, body->position );
+    HashPredictionVector( hash, hotState.position );
     float orientationX = 0.0f;
     float orientationY = 0.0f;
     float orientationZ = 0.0f;
     float orientationW = 1.0f;
-    body->orientation.GetComponents( orientationX, orientationY, orientationZ, orientationW );
+    hotState.orientation.GetComponents( orientationX, orientationY, orientationZ, orientationW );
     HashPredictionFloat( hash, orientationX );
     HashPredictionFloat( hash, orientationY );
     HashPredictionFloat( hash, orientationZ );
     HashPredictionFloat( hash, orientationW );
-    HashPredictionVector( hash, body->linearVelocity );
-    HashPredictionVector( hash, body->angularVelocity );
+    HashPredictionVector( hash, hotState.linearVelocity );
+    HashPredictionVector( hash, hotState.angularVelocity );
     HashPredictionVector( hash, body->rotationalInertia );
     HashPredictionFloat( hash, body->mass );
-    HashPredictionFloat( hash, body->boundingRadius );
+    HashPredictionFloat( hash, hotState.boundingRadius );
     HashPredictionFloat( hash, body->volume );
     HashPredictionFloat( hash, body->projectedSurfaceArea );
     HashPredictionFloat( hash, body->dragCoefficient );
     HashPredictionFloat( hash, body->contactReleaseImpulseThreshold );
     HashPredictionFloat( hash, body->angularVelocityLimit );
     HashPredictionFloat( hash, body->contactEpsilon );
-    HashPredictionScalar( hash, static_cast<uint8_t>( body->isFixed ) );
-    HashPredictionScalar( hash, static_cast<uint8_t>( body->isSleeping ) );
+    HashPredictionScalar( hash, static_cast<uint8_t>( hotState.fixed ) );
+    HashPredictionScalar( hash, static_cast<uint8_t>( !hotState.awake ) );
     HashPredictionScalar( hash, static_cast<uint8_t>( body->releasesFromFixedOnContact ) );
     HashPredictionScalar( hash, static_cast<uint8_t>( body->usesWorldInertia ) );
     fingerprint.hasTerrain = body->terrain != nullptr;
@@ -1256,9 +1258,10 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
         const Physics::PhysicsBodyHandle body =
             bodyStore.HandleForReplayBodyId( replay.path.targetId.value, replay.path.targetModelRow.value );
         const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
+        const int bodyIndex = bodyStore.ModelIndexForHandle( body );
         const bool hasTarget = replay.path.hasTarget && replay.path.targetId.value != 0;
         bool applied = false;
-        if ( hasTarget && record )
+        if ( hasTarget && record && bodyIndex >= 0 )
         {
             if ( !PrepareReplayVelocityMutationBaseline( replay, replayIntent ) )
             {
@@ -1269,8 +1272,10 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
                 // Why: automation needs the same old-vs-new future proof as a
                 // mouse drag, but without depending on pixel-perfect axis hit
                 // testing. Capture is still deferred to the visualizer.
-                const Vector3 nextLinearVelocity = record->linearVelocity + action.vectorValue;
-                applied = physics.SetBodyVelocity( body, nextLinearVelocity, record->angularVelocity, true );
+                const Physics::PhysicsBodyHotState hotState =
+                    Physics::LoadPhysicsBodyHotState( bodyStore.HotFields(), static_cast<std::size_t>( bodyIndex ) );
+                const Vector3 nextLinearVelocity = hotState.linearVelocity + action.vectorValue;
+                applied = physics.SetBodyVelocity( body, nextLinearVelocity, hotState.angularVelocity, true );
                 if ( applied )
                 {
                     CommitReplayVelocityMutation( replayIntent );

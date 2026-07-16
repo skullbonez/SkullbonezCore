@@ -37,6 +37,7 @@ Related:
 #include <vector>
 
 #include "../PersistentContactSolver.h"
+#include "../PhysicsBodyStore.h"
 #include "../PhysicsDebugData.h"
 #include "PhysicsSleepController.h"
 
@@ -95,6 +96,7 @@ struct ObjectNarrowphasePairStageContext
     const ColliderStore& colliderStore;
     const PhysicsWorldForces& worldForces;
     std::span<PhysicsBodyRecord> bodyRecords;
+    PhysicsBodyHotFieldsConstView hotFields;
     std::span<const ColliderRecord> colliderRecords;
     std::span<const std::pair<int, int>> candidatePairs;
     PhysicsNarrowphaseWakeAccess wakeAccess;
@@ -147,7 +149,7 @@ class PhysicsNarrowphaseStage
                                               float availableTime );
     static void MarkObjectVisualEvent( ObjectNarrowphaseEvent& event, int bodyA, int bodyB );
     static void WriteObjectCollisionCellEvent( ObjectNarrowphaseEvent& event,
-                                               std::span<const PhysicsBodyRecord> bodyRecords,
+                                               PhysicsBodyHotFieldsConstView hotFields,
                                                int bodyA,
                                                int bodyB,
                                                float invCellSize );

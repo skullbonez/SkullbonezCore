@@ -47,9 +47,9 @@ constexpr float POINT_JOINT_SLEEP_LINEAR_SPEED_SCALE = 6.0f;
 constexpr float POINT_JOINT_SLEEP_ANGULAR_SPEED_SCALE = 6.0f;
 constexpr std::size_t MAX_PIPELINE_TRACE_RECORDS = 4096;
 
-bool IsSolverBodyFixed( std::span<const PhysicsBodyRecord> bodyRecords, int bodyIndex )
+bool IsSolverBodyFixed( PhysicsBodyHotFieldsConstView hotFields, int bodyIndex )
 {
-    return bodyRecords[static_cast<std::size_t>( bodyIndex )].isFixed;
+    return hotFields.fixed[static_cast<std::size_t>( bodyIndex )] != 0u;
 }
 
 bool IsPointJointBodyPair( const PhysicsBodyStore& bodyStore,
@@ -162,10 +162,9 @@ void PhysicsSleepController::EnsureVisualIdSize( int modelCount )
     }
 }
 
-void PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore,
-                                              std::span<const PhysicsBodyRecord> bodyRecords,
-                                              int modelCount )
+void PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int modelCount )
 {
+    const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
     m_sleepSupportedThisFrame.assign( modelCount, 0 );
     m_sleepInhibitedThisFrame.assign( modelCount, 0 );
     m_sleepSupportEdges.clear();
@@ -185,7 +184,7 @@ void PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore,
     }
     for ( int i = 0; i < modelCount; ++i )
     {
-        if ( i < static_cast<int>( bodyRecords.size() ) && bodyRecords[static_cast<std::size_t>( i )].isFixed )
+        if ( i < static_cast<int>( hotFields.fixed.size() ) && hotFields.fixed[static_cast<std::size_t>( i )] != 0u )
         {
             m_sleepState[i] = 0;
             m_sleepCounter[i] = 0;
@@ -203,10 +202,10 @@ void PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore,
 }
 
 
-void PhysicsSleepController::PropagateSupport( std::span<const PhysicsBodyRecord> bodyRecords )
+void PhysicsSleepController::PropagateSupport( const PhysicsBodyStore& bodyStore )
 {
     SleepSupportPropagationContext context{ m_sleepState, m_sleepSupportEdges, m_sleepSupportedThisFrame };
-    m_sleepIslandSystem.PropagateSupport( context, bodyRecords );
+    m_sleepIslandSystem.PropagateSupport( context, bodyStore.HotFields() );
 }
 
 void PhysicsSleepController::AppendPointJointSupportEdges(
@@ -242,6 +241,8 @@ void PhysicsSleepController::WakePointJointConnectedBodies(
         return;
     }
     const auto bodyRecords = bodyStore.Records();
+    const PhysicsBodyHotFieldsView hotFields = bodyStore.MutableHotFields();
+    const PhysicsBodyHotFieldsConstView hotRead = ConstPhysicsBodyHotFields( hotFields );
     const int modelCount = (std::min)( bodyStore.Count(), static_cast<int>( bodyRecords.size() ) );
     m_sleepIslandParent.assign( modelCount, 0 );
     m_sleepIslandRank.assign( modelCount, 0 );
@@ -268,7 +269,7 @@ void PhysicsSleepController::WakePointJointConnectedBodies(
     }
     for ( int i = 0; i < modelCount; ++i )
     {
-        if ( m_sleepPointJointBody[i] == 0 || IsSolverBodyFixed( bodyRecords, i ) )
+        if ( m_sleepPointJointBody[i] == 0 || IsSolverBodyFixed( hotRead, i ) )
         {
             continue;
         }
@@ -284,6 +285,7 @@ void PhysicsSleepController::WakePointJointConnectedBodies(
     }
     const PhysicsSleepWakeContext wakeContext{ modelCount,
                                                bodyRecords,
+                                               hotFields,
                                                &bodyStore,
                                                &colliderStore,
                                                &worldForces,
@@ -293,7 +295,7 @@ void PhysicsSleepController::WakePointJointConnectedBodies(
                                                pointJointConstraints };
     for ( int i = 0; i < modelCount; ++i )
     {
-        if ( m_sleepPointJointBody[i] == 0 || IsSolverBodyFixed( bodyRecords, i ) || m_sleepState[i] == 0 )
+        if ( m_sleepPointJointBody[i] == 0 || IsSolverBodyFixed( hotRead, i ) || m_sleepState[i] == 0 )
         {
             continue;
         }
@@ -379,7 +381,7 @@ void PhysicsSleepController::RunIslandStage( const PhysicsSleepIslandStageContex
     for ( int x = 0; x < modelCount; ++x )
     {
         const int root = sleepIslands.Find( x );
-        if ( IsSolverBodyFixed( context.bodyRecords, x ) ||
+        if ( IsSolverBodyFixed( ConstPhysicsBodyHotFields( context.hotFields ), x ) ||
              ( x < static_cast<int>( m_sleepState.size() ) && m_sleepState[x] != 0 ) ||
              ( x < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[x] != 0 ) )
         {
@@ -399,12 +401,18 @@ void PhysicsSleepController::RunIslandStage( const PhysicsSleepIslandStageContex
         {
             continue;
         }
-        auto orientationA = context.bodyRecords[static_cast<size_t>( a )].orientation;
-        auto orientationB = context.bodyRecords[static_cast<size_t>( b )].orientation;
+        auto orientationA =
+            PhysicsBodyOrientation( ConstPhysicsBodyHotFields( context.hotFields ), static_cast<size_t>( a ) );
+        auto orientationB =
+            PhysicsBodyOrientation( ConstPhysicsBodyHotFields( context.hotFields ), static_cast<size_t>( b ) );
         const auto rotA = orientationA.GetOrientationMatrix();
         const auto rotB = orientationB.GetOrientationMatrix();
-        const Vector3 anchorA = context.bodyRecords[static_cast<size_t>( a )].position + rotA * constraint.localAnchorA;
-        const Vector3 anchorB = context.bodyRecords[static_cast<size_t>( b )].position + rotB * constraint.localAnchorB;
+        const Vector3 anchorA =
+            PhysicsBodyPosition( ConstPhysicsBodyHotFields( context.hotFields ), static_cast<size_t>( a ) ) +
+            rotA * constraint.localAnchorA;
+        const Vector3 anchorB =
+            PhysicsBodyPosition( ConstPhysicsBodyHotFields( context.hotFields ), static_cast<size_t>( b ) ) +
+            rotB * constraint.localAnchorB;
         const float distance = Vector::VectorMag( anchorB - anchorA );
         const float allowedDistance =
             constraint.slack + (std::max)( POINT_JOINT_SLEEP_MIN_ERROR_TOLERANCE,
@@ -417,14 +425,16 @@ void PhysicsSleepController::RunIslandStage( const PhysicsSleepIslandStageContex
 
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( IsSolverBodyFixed( context.bodyRecords, x ) || m_sleepState[x] )
+        if ( IsSolverBodyFixed( ConstPhysicsBodyHotFields( context.hotFields ), x ) || m_sleepState[x] )
         {
             continue;
         }
         const int root = sleepIslands.Find( x );
         m_sleepIslandHasAwake[root] = 1;
-        const Vector3& vel = context.bodyRecords[static_cast<size_t>( x )].linearVelocity;
-        const Vector3& omega = context.bodyRecords[static_cast<size_t>( x )].angularVelocity;
+        const Vector3 vel =
+            PhysicsBodyLinearVelocity( ConstPhysicsBodyHotFields( context.hotFields ), static_cast<size_t>( x ) );
+        const Vector3 omega =
+            PhysicsBodyAngularVelocity( ConstPhysicsBodyHotFields( context.hotFields ), static_cast<size_t>( x ) );
         const float speedSq = vel.x * vel.x + vel.y * vel.y + vel.z * vel.z;
         const float omegaSq = omega.x * omega.x + omega.y * omega.y + omega.z * omega.z;
         bool supported = x < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[x] != 0;
@@ -468,7 +478,7 @@ void PhysicsSleepController::RunIslandStage( const PhysicsSleepIslandStageContex
         record.stage = PhysicsPipelineStage::SleepIslandDecision;
         record.bodyA = x;
         record.bodyB = root;
-        record.point = context.bodyRecords[static_cast<size_t>( x )].position;
+        record.point = PhysicsBodyPosition( ConstPhysicsBodyHotFields( context.hotFields ), static_cast<size_t>( x ) );
         record.scalarA = quiet ? 1.0f : 0.0f;
         record.scalarB = supported ? 1.0f : 0.0f;
         record.scalarC = terrainInhibitBlocksSleep ? 1.0f : ( pointJointErrorBlocksSleep ? 2.0f : 0.0f );
@@ -493,7 +503,7 @@ void PhysicsSleepController::ApplyTransitions( const PhysicsSleepIslandStageCont
     const int modelCount = context.modelCount;
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( IsSolverBodyFixed( context.bodyRecords, x ) || m_sleepState[x] )
+        if ( IsSolverBodyFixed( ConstPhysicsBodyHotFields( context.hotFields ), x ) || m_sleepState[x] )
         {
             continue;
         }
@@ -512,7 +522,7 @@ void PhysicsSleepController::ApplyTransitions( const PhysicsSleepIslandStageCont
     }
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( IsSolverBodyFixed( context.bodyRecords, x ) || m_sleepState[x] )
+        if ( IsSolverBodyFixed( ConstPhysicsBodyHotFields( context.hotFields ), x ) || m_sleepState[x] )
         {
             continue;
         }
@@ -526,7 +536,8 @@ void PhysicsSleepController::ApplyTransitions( const PhysicsSleepIslandStageCont
     m_sleepIslandAssignedVisualId.assign( modelCount, 0 );
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( IsSolverBodyFixed( context.bodyRecords, x ) || !m_sleepState[x] || m_sleepIslandVisualId[x] == 0 )
+        if ( IsSolverBodyFixed( ConstPhysicsBodyHotFields( context.hotFields ), x ) || !m_sleepState[x] ||
+             m_sleepIslandVisualId[x] == 0 )
         {
             continue;
         }
@@ -538,7 +549,7 @@ void PhysicsSleepController::ApplyTransitions( const PhysicsSleepIslandStageCont
     }
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( IsSolverBodyFixed( context.bodyRecords, x ) || m_sleepState[x] )
+        if ( IsSolverBodyFixed( ConstPhysicsBodyHotFields( context.hotFields ), x ) || m_sleepState[x] )
         {
             continue;
         }
@@ -559,14 +570,20 @@ void PhysicsSleepController::ApplyTransitions( const PhysicsSleepIslandStageCont
             record.stage = PhysicsPipelineStage::SleepIslandDecision;
             record.bodyA = x;
             record.bodyB = root;
-            record.point = context.bodyRecords[static_cast<size_t>( x )].position;
+            record.point =
+                PhysicsBodyPosition( ConstPhysicsBodyHotFields( context.hotFields ), static_cast<size_t>( x ) );
             record.scalarA = 1.0f;
             record.scalarB = static_cast<float>( m_sleepIslandAssignedVisualId[root] );
             record.scalarC = static_cast<float>( m_sleepCounter[x] );
             RecordPipelineStage( context.physicsPipelineTrace, record );
-            context.bodyRecords[static_cast<size_t>( x )].linearVelocity = Math::Vector::ZERO_VECTOR;
-            context.bodyRecords[static_cast<size_t>( x )].angularVelocity = Math::Vector::ZERO_VECTOR;
-            context.bodyRecords[static_cast<size_t>( x )].isSleeping = true;
+            const size_t bodyIndex = static_cast<size_t>( x );
+            context.hotFields.linearVelocityX[bodyIndex] = 0.0f;
+            context.hotFields.linearVelocityY[bodyIndex] = 0.0f;
+            context.hotFields.linearVelocityZ[bodyIndex] = 0.0f;
+            context.hotFields.angularVelocityX[bodyIndex] = 0.0f;
+            context.hotFields.angularVelocityY[bodyIndex] = 0.0f;
+            context.hotFields.angularVelocityZ[bodyIndex] = 0.0f;
+            context.hotFields.awake[bodyIndex] = 0u;
             LockUnderwaterSleeperIfReady( context.worldForces,
                                           context.bodyStore,
                                           context.colliderStore,

@@ -147,7 +147,7 @@ bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
 
 // Concept: prediction stepping is pure physics. Contact-highlight and
 // diagnostics-name presentation belongs to the live engine only; prediction
-// samples read the private engine's body records directly.
+// samples read the private engine's hot-field arrays directly.
 bool StepPredictionEngineTick( PhysicsEngine& engine,
                                float fixedDt,
                                const SkullbonezCore::Core::EngineConfig& config,
@@ -2766,6 +2766,7 @@ bool CaptureReplayPredictionBodyState( const PhysicsBodyStore& bodyStore,
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureBodyState" );
     const int modelCount = bodyStore.Count();
     const auto bodyRecords = bodyStore.Records();
+    const auto hotFields = bodyStore.HotFields();
     if ( static_cast<int>( bodyRecords.size() ) < modelCount )
     {
         return false;
@@ -2785,23 +2786,24 @@ bool CaptureReplayPredictionBodyState( const PhysicsBodyStore& bodyStore,
     {
         RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
             RuntimeAllocation::RuntimeAllocationPhase::Replay );
-        const PhysicsBodyRecord& body = bodyRecords[static_cast<std::size_t>( i )];
+        const std::size_t bodyIndex = static_cast<std::size_t>( i );
+        const PhysicsBodyRecord& body = bodyRecords[bodyIndex];
         RunReplayPredictionBodyBackup backup;
         backup.id.value = body.replayBodyId;
         backup.modelRow.value = i;
-        backup.position = body.position;
-        backup.orientation = body.orientation;
-        backup.linearVelocity = body.linearVelocity;
-        backup.angularVelocity = body.angularVelocity;
+        backup.position = PhysicsBodyPosition( hotFields, bodyIndex );
+        backup.orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
+        backup.linearVelocity = PhysicsBodyLinearVelocity( hotFields, bodyIndex );
+        backup.angularVelocity = PhysicsBodyAngularVelocity( hotFields, bodyIndex );
         backup.mass = body.mass;
-        backup.inverseMass = body.invMass;
+        backup.inverseMass = hotFields.inverseMass[bodyIndex];
         backup.rotationalInertia = body.rotationalInertia;
-        backup.inverseRotationalInertia = body.invRotationalInertia;
-        backup.fixed = body.isFixed;
+        backup.inverseRotationalInertia = PhysicsBodyInverseInertia( hotFields, bodyIndex );
+        backup.fixed = hotFields.fixed[bodyIndex] != 0u;
         outBodies[static_cast<std::size_t>( i )] = backup;
     };
 
-    // Invariant: this loop reads authoritative body records and one
+    // Invariant: this loop reads authoritative hot-field rows and one
     // presentation timer, then writes one output slot per body. Applying
     // backups remains serial because it mutates physics body state.
     if ( modelCount >= REPLAY_PREDICTION_PARALLEL_BODY_MIN )
@@ -2939,6 +2941,7 @@ bool CaptureReplayPredictionFrame( RunReplayPredictionState& prediction,
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureSample" );
     const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physicsEngine );
     const auto bodyRecords = bodyStore.Records();
+    const auto hotFields = bodyStore.HotFields();
     if ( static_cast<int>( bodyRecords.size() ) < modelCount )
     {
         return false;
@@ -2966,14 +2969,15 @@ bool CaptureReplayPredictionFrame( RunReplayPredictionState& prediction,
     {
         RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
             RuntimeAllocation::RuntimeAllocationPhase::Replay );
-        const PhysicsBodyRecord& source = bodyRecords[static_cast<std::size_t>( i )];
+        const std::size_t bodyIndex = static_cast<std::size_t>( i );
+        const PhysicsBodyRecord& source = bodyRecords[bodyIndex];
         RunReplayPredictionBodySample body;
         body.id.value = source.replayBodyId;
         body.modelRow.value = i;
-        body.position = source.position;
-        body.orientation = source.orientation;
-        body.linearVelocity = source.linearVelocity;
-        body.sleeping = source.isSleeping;
+        body.position = PhysicsBodyPosition( hotFields, bodyIndex );
+        body.orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
+        body.linearVelocity = PhysicsBodyLinearVelocity( hotFields, bodyIndex );
+        body.sleeping = hotFields.awake[bodyIndex] == 0u;
         frame.bodies[static_cast<std::size_t>( i )] = body;
     };
 
