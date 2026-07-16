@@ -29,7 +29,6 @@
 
 #include "../SkullbonezSource/Runtime/Scene/SceneController.h"
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
-#include "../SkullbonezSource/Runtime/CameraCollection.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/World/WorldEnvironment.h"
 
@@ -84,25 +83,10 @@ namespace SkullbonezCore
 {
 namespace Environment
 {
-const Math::Vector::Vector3& CameraCollection::GetCameraView() const
-{
-    // Hazard: reaching any owner hook means the unit target crossed from
-    // solver-sample mirroring into full runtime capture without real owners.
-    ThrowUnexpectedReplayIntegrationCall( "CameraCollection::GetCameraView" );
-}
-
-const Math::Vector::Vector3& CameraCollection::GetCameraTranslation() const
-{
-    ThrowUnexpectedReplayIntegrationCall( "CameraCollection::GetCameraTranslation" );
-}
-
-const Math::Vector::Vector3& CameraCollection::GetCameraUp() const
-{
-    ThrowUnexpectedReplayIntegrationCall( "CameraCollection::GetCameraUp" );
-}
-
 float WorldEnvironment::GetFluidSurfaceHeight() const
 {
+    // Hazard: reaching a world-owner hook means the unit target crossed from
+    // solver-sample mirroring into full runtime capture without real owners.
     ThrowUnexpectedReplayIntegrationCall( "WorldEnvironment::GetFluidSurfaceHeight" );
 }
 

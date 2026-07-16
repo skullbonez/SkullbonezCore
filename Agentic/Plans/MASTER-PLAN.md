@@ -94,9 +94,9 @@ closed. Completed historical campaigns are excluded under commit-contract rule
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| unit-test-coverage-campaign (ACTIVE) | 2 | 10 | 20% |
+| unit-test-coverage-campaign (ACTIVE) | 3 | 10 | 30% |
 | physics-soa-simd-1000-bodies (PAUSED at S5; resumes after U9) | 6 | 9 | 67% |
-| **Active/future total** | **8** | **19** | **42%** |
+| **Active/future total** | **9** | **19** | **47%** |
 
 The denominator grew 9 → 19 on 2026-07-16 when the owner registered the
 unit-test coverage campaign. Later the same day the owner REORDERED it ahead
@@ -552,11 +552,12 @@ lines with versioned exclusions; floors are a quality gate, not the banned
 migration-debt ratchet (U0 records that ruling); a new gate lane
 (`validate_coverage` via OpenCppCoverage) ships report-only at U0 and is
 armed at U9; U5's adversarial artifact decode is the campaign's single
-mega-gate invocation. Execution begins only after SoA/SIMD S8 closes.
+mega-gate invocation. The 2026-07-16 owner reorder runs this campaign before
+the paused SoA/SIMD cutover.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [unit-test-coverage-campaign](TODO/unit-test-coverage-campaign.md) | ACTIVE (2026-07-16 owner reorder — runs before the SoA/SIMD cutover) | 2/10 | U2: complete the Try-API degeneracy matrix and survey links |
+| [unit-test-coverage-campaign](TODO/unit-test-coverage-campaign.md) | ACTIVE (2026-07-16 owner reorder — runs before the SoA/SIMD cutover) | 3/10 | U3: cover physics stores and stateless stage-owner boundaries |
 
 ## Features
 

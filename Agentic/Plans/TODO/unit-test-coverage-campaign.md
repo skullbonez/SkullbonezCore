@@ -2,8 +2,8 @@
 
 Date: 2026-07-16
 Status: ACTIVE — reordered ahead of the SoA/SIMD cutover by the 2026-07-16
-owner instruction ("we need to make the unit tests first"). 2/10 tasks
-complete; begin at U2. The SoA/SIMD campaign is PAUSED at 6/9 until this
+owner instruction ("we need to make the unit tests first"). 3/10 tasks
+complete; begin at U3. The SoA/SIMD campaign is PAUSED at 6/9 until this
 campaign closes at U9. Rationale for the reorder: byte-exact gates cannot
 verify behavior across the S7 regeneration (the cutover redefines the
 goldens), but the behavioral/property suites built here are tolerance-based
@@ -161,7 +161,7 @@ skip it.
       Completed 2026-07-16: canonicalized the coverage wrapper so stale XML
       cannot mask capture failure; measured Maths at 585/677 (86.41%) and
       core primitives at 917/1,038 (88.34%), both above the ratified 85% floor.
-- [ ] **U2 — The Try-API degeneracy matrix.** One test per
+- [x] **U2 — The Try-API degeneracy matrix.** One test per
       reachable-degenerate row of
       `Agentic/Reports/2026-07-15/math-fatal-call-site-survey.md` (12 Try
       rows + the 4 `TryDivided` call sites): each proves the documented
@@ -174,6 +174,11 @@ skip it.
       one representative case. Update the survey report linking each row to
       its test name so the matrix is navigable both directions.
       Gate: `validate_tests`.
+      Completed 2026-07-16: all 12 reachable rows (including the four
+      `TryDivided` rows) map bidirectionally to named call-site tests. Profile
+      proves representative IEEE propagation; the Debug assert contract is
+      recorded without stalling doctest. `validate_tests` passed 237 cases and
+      17,835 assertions with a zero-warning Profile build.
 - [ ] **U3 — Physics stores and stateless stage owners.** Synthetic-store
       unit tests for `PhysicsBodyStore` (handle lifecycle: create/retire/
       reuse, hole compaction, pending-impulse preservation across descriptor

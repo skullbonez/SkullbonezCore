@@ -3,7 +3,7 @@
 // Purpose:
 //   Provides renderer-neutral test doubles for code paths that construct render resources.
 //
-// Mental model:
+// Summary:
 //   Some unit tests exercise runtime objects such as Terrain whose constructors
 //   build shaders and meshes as part of normal production setup. These doubles
 //   satisfy the render-resource contracts without creating backend state, so the
@@ -13,7 +13,8 @@
 //   Render-resource double: Test-owned implementation of the resource factory
 //     interface that records no backend state.
 //   Shader double: No-op shader object that accepts uniform writes.
-//   Mesh double: No-op mesh object that preserves basic vertex metadata.
+//   Mesh double: No-op mesh object that preserves basic vertex metadata while
+//     the factory retains the latest CPU payload for behavioral inspection.
 //
 // Invariants:
 //   - No method here creates GPU resources, files, windows, or backend handles.
@@ -31,6 +32,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 namespace SkullbonezTests
 {
@@ -114,13 +116,27 @@ class NullRenderResourceFactory final : public SkullbonezCore::Rendering::IRende
         return std::make_unique<NullShader>();
     }
 
-    std::unique_ptr<SkullbonezCore::Rendering::IMesh> CreateMesh( const float*,
+    std::unique_ptr<SkullbonezCore::Rendering::IMesh> CreateMesh( const float* vertices,
                                                                  int vertexCount,
                                                                  bool hasNormals,
                                                                  bool hasTexCoords ) override
     {
         const int stride = hasNormals && hasTexCoords ? 8 : ( hasTexCoords ? 5 : 3 );
+        // Why: Terrain degeneracy tests need to observe the CPU-generated
+        // normal payload without exposing Terrain internals or creating DX12.
+        m_lastMeshVertices.assign( vertices, vertices + static_cast<size_t>( vertexCount ) * stride );
+        m_lastMeshStride = stride;
         return std::make_unique<NullMesh>( vertexCount, stride );
+    }
+
+    const std::vector<float>& LastMeshVertices() const
+    {
+        return m_lastMeshVertices;
+    }
+
+    int LastMeshStride() const
+    {
+        return m_lastMeshStride;
     }
 
     std::unique_ptr<SkullbonezCore::Rendering::IFramebuffer>
@@ -164,5 +180,9 @@ class NullRenderResourceFactory final : public SkullbonezCore::Rendering::IRende
     void DestroyInstancedMesh( uint32_t ) override
     {
     }
+
+  private:
+    std::vector<float> m_lastMeshVertices;
+    int m_lastMeshStride = 0;
 };
 } // namespace SkullbonezTests

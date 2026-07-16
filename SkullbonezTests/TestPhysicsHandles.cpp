@@ -29,6 +29,7 @@
 // Related:
 //   - SkullbonezSource/Physics/PhysicsBodyStore.h
 //   - SkullbonezSource/Physics/ColliderStore.h
+//   - Agentic/Reports/2026-07-15/math-fatal-call-site-survey.md
 //   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
@@ -36,10 +37,12 @@
 
 #include "../SkullbonezSource/Physics/ColliderStore.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
+#include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreService.h"
 
 #include <cstring>
 #include <cstdint>
+#include <cmath>
 
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
@@ -51,6 +54,7 @@ using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
 using SkullbonezCore::Physics::PhysicsBodyPosition;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
+using SkullbonezCore::Physics::PhysicsWorldForces;
 using SkullbonezCore::Runtime::ReplayRestoreService;
 using SkullbonezCore::Runtime::ReplaySolverBodySample;
 using SkullbonezCore::Runtime::ReplaySolverFrameSample;
@@ -312,4 +316,50 @@ TEST_CASE( "Physics handles: collider destroy moves rows and rejects stale handl
     CHECK( replacement.generation != middle.generation );
     CHECK( store.Contains( replacement ) );
     CHECK_FALSE( store.Contains( middle ) );
+}
+
+
+TEST_CASE( "Physics impulses: zero mass and inertia absorb immediate and pending components" )
+{
+    PhysicsBodyStore& bodies = TestBodyStore();
+    ColliderStore& colliders = TestColliderStore();
+    PhysicsBodyCreateRecord body = MakeBodyRecord( 808u, Vector3( 0.0f, 10.0f, 0.0f ) );
+    body.cold.mass = 0.0f;
+    body.cold.rotationalInertia = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    body.hot.inverseMass = 0.0f;
+    body.hot.inverseRotationalInertia = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    body.hot.linearVelocity = Vector3( 1.0f, 2.0f, 3.0f );
+    body.hot.angularVelocity = Vector3( 0.4f, 0.5f, 0.6f );
+    const PhysicsBodyHandle handle = bodies.CreateBodyRecord( body );
+    colliders.CreateColliderRecord( MakeColliderRecord( handle, 808u, 1.0f ) );
+
+    const Vector3 mutualGravityImpulse( 9.0f, 8.0f, 7.0f );
+    REQUIRE( bodies.ApplyForces( PhysicsWorldForces{}, colliders, 0, 1.0f, &mutualGravityImpulse ) );
+    auto hot = bodies.HotFields();
+    CHECK( hot.linearVelocityX[0] == doctest::Approx( 1.0f ) );
+    CHECK( hot.linearVelocityY[0] == doctest::Approx( 2.0f ) );
+    CHECK( hot.linearVelocityZ[0] == doctest::Approx( 3.0f ) );
+    CHECK( hot.angularVelocityX[0] == doctest::Approx( 0.4f ) );
+    CHECK( hot.angularVelocityY[0] == doctest::Approx( 0.5f ) );
+    CHECK( hot.angularVelocityZ[0] == doctest::Approx( 0.6f ) );
+
+    REQUIRE( bodies.SetPendingBodyImpulse( handle,
+                                           Vector3( 3.0f, 4.0f, 5.0f ),
+                                           Vector3( 2.0f, 0.0f, 1.0f ) ) );
+    REQUIRE( bodies.ConsumePendingBodyImpulse( 0 ) );
+    hot = bodies.HotFields();
+    CHECK( hot.linearVelocityX[0] == doctest::Approx( 1.0f ) );
+    CHECK( hot.linearVelocityY[0] == doctest::Approx( 2.0f ) );
+    CHECK( hot.linearVelocityZ[0] == doctest::Approx( 3.0f ) );
+    CHECK( hot.angularVelocityX[0] == doctest::Approx( 0.4f ) );
+    CHECK( hot.angularVelocityY[0] == doctest::Approx( 0.5f ) );
+    CHECK( hot.angularVelocityZ[0] == doctest::Approx( 0.6f ) );
+    REQUIRE( bodies.RecordForHandle( handle ) != nullptr );
+    CHECK_FALSE( bodies.RecordForHandle( handle )->hasPendingImpulse );
+    CHECK( bodies.RecordForHandle( handle )->pendingImpulse == SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    CHECK( bodies.RecordForHandle( handle )->pendingImpulseApplicationPoint ==
+           SkullbonezCore::Math::Vector::ZERO_VECTOR );
+
+    CHECK( std::isfinite( hot.linearVelocityX[0] ) );
+    CHECK( std::isfinite( hot.angularVelocityX[0] ) );
 }

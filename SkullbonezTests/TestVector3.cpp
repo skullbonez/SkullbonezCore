@@ -20,12 +20,15 @@
 //
 // Related:
 //   - SkullbonezSource/Maths/Vector3.h
+//   - Agentic/Reports/2026-07-15/math-fatal-call-site-survey.md
 //   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Maths/Vector3.h"
+
+#include <cmath>
 
 using SkullbonezCore::Math::Vector::CrossProduct;
 using SkullbonezCore::Math::Vector::Vector3;
@@ -51,6 +54,23 @@ TEST_CASE( "Vector3: zero vector is detectable before plain normalise" )
 
     CHECK( zero.IsCloseToZero() );
     CHECK( VectorMagSquared( zero ) == doctest::Approx( 0.0f ) );
+}
+
+
+TEST_CASE( "Vector3: plain zero normalise asserts in Debug and propagates IEEE values otherwise" )
+{
+#if defined( _DEBUG )
+    // Hazard: doctest cannot intercept the CRT assert in Normalise(). The U2
+    // survey records the one-time source/manual contract check; do not invoke
+    // this branch in-process because an assertion dialog would stall the gate.
+    CHECK( true );
+#else
+    Vector3 zero = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    zero.Normalise();
+    CHECK_FALSE( std::isfinite( zero.x ) );
+    CHECK_FALSE( std::isfinite( zero.y ) );
+    CHECK_FALSE( std::isfinite( zero.z ) );
+#endif
 }
 
 

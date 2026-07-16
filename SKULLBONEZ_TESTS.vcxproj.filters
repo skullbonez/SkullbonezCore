@@ -34,6 +34,9 @@
     <Filter Include="Source Files\Runtime\Allocation">
       <UniqueIdentifier>{D8F59F97-F421-4B8B-AD58-274C63075BB0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\Camera">
+      <UniqueIdentifier>{35A1A48E-04AF-45B8-BCF4-AB0792DD982B}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Runtime\Lifecycle">
       <UniqueIdentifier>{7E50E168-B6A0-41DB-A215-88D30BE362B3}</UniqueIdentifier>
     </Filter>
@@ -85,6 +88,9 @@
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestBounds.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestCamera.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestConvexHull.cpp">
@@ -224,6 +230,12 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp">
       <Filter>Source Files\Runtime\Allocation</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Camera.cpp">
+      <Filter>Source Files\Runtime\Camera</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\CameraCollection.cpp">
+      <Filter>Source Files\Runtime\Camera</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp">
       <Filter>Source Files\Runtime\Demo</Filter>
