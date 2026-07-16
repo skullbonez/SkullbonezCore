@@ -407,3 +407,71 @@ or unclassified >=12-argument invocation remains.
 Final proof: **10/10 conversion names reconciled, 31/31 surviving names carry
 individual reasons, zero unclassified >=12-argument invocations**. T4 changes
 documentation only; no repository validation is required.
+
+## T5 Plan And Campaign Closure
+
+The final committed T1–T4 range is `a7adf825^..1ee14258`. History names exactly
+11 source files plus plan/report/session documentation and the two approved
+replay manifests. It contains no screenshot, physics baseline, scene, shader,
+asset, hull, or authored-config change. The only baseline-like diff is one
+`configSha256` field and the dependent `visualBaselineSha256` field approved by
+the owner on 2026-07-16. Both hashes recompute, and every replay tick, final-
+state value, causal node/tick, artifact field, and other behavioral golden value
+is unchanged.
+
+Final validation on the committed T4 tip:
+
+- `tools\\validate_full.bat`: exited `0` in 113.79 s. Formatting and 711/711
+  project/filter rows passed; all CPU suites passed, including 202/202 doctest
+  cases and 12,595/12,595 assertions; Profile, Automation, and Debug built with
+  zero warnings/errors; replay/prediction smoke passed; DX12 reported zero
+  InfoQueue errors and all three screenshot comparisons passed; standalone
+  physics/runtime-handle smoke passed; and `physics_regression_varied.csv`
+  matched all 44,401 lines byte-exactly.
+- T3 replay fidelity is recorded accurately as the sole engine invocation plus
+  CPU-only continuation, not as a successful batch exit. One engine process and
+  one prediction generation produced the 2,401-tick report; after the approved
+  provenance correction, the normal equality check and all nine false-pass/
+  determinism controls passed without another engine launch.
+
+Final touched-file comment checklist (this report is the retained checklist):
+
+- [x] `Runtime/Render/RuntimeRenderer.cpp`
+- [x] `Runtime/Editor/EditorPlacementAssets.h`
+- [x] `Runtime/Editor/RunEditorPlacementAssets.cpp`
+- [x] `Runtime/Editor/RunEditorTracer.cpp`
+- [x] `Runtime/Replay/ReplayOverlayLayout.cpp`
+- [x] `Runtime/Replay/ReplayOverlayLayout.h`
+- [x] `Runtime/Replay/ReplayOverlayRenderer.cpp`
+- [x] `Runtime/Replay/ReplayPrediction.cpp`
+- [x] `Runtime/Replay/ReplayScrubberTools.cpp`
+- [x] `Runtime/Replay/ReplayValidation.cpp`
+- [x] `Runtime/RunUiTextPass.cpp`
+
+Checked: **11/11**. Deferred/unchecked: **0**. Every file has the required
+learning-header sections plus nearby lifetime/why/invariant teaching where the
+new records need it. The independent final review found one inaccurate lifetime
+claim beside `ReplayPredictionJobDesc`: three pointers are retained by the
+scheduled worker until cancellation/completion. T5 corrected that comment to
+match `ReplayPredictionWorkerOperation`; the remediation is strictly comments
+and requires no repository validation.
+
+Independent rubber-duck verdict: no behavioral mapping, allocation, exception,
+determinism, DX12, provenance, arity-inventory, or remaining comment blocker.
+Independent parsers found zero field/expression mismatches across the 20 render
+inputs, 15 tree rows, 34 house rows, and every replay/UI/editor desc conversion,
+and reproduced the exact 31-name surviving tail. Residual evidence risk is
+limited to historical process-count proof: artifacts cannot prove a negative,
+but the one-process launcher, `predictionGenerationCount=1`, sole report, and
+CPU-only continuation agree.
+
+Rubber-duck accounting: run `wide-call-desc-struct-pass-duck-01`, reviewer
+`/root/wide_t5_final_review`, final plan review; prompt 1,013 characters;
+response 2,725 characters; token counts not exposed; elapsed 12m 00.54s;
+verdict one blocking comment defect, remediated;
+no behavioral follow-up review required.
+
+Acceptance is closed: ten construction names are 0–2 arguments, every surviving
+>=12-argument invocation has an individual concrete reason, designated fields
+are visible at every converted call site, all mapped/final gates pass, and the
+runtime mass-reduction campaign is complete at 16/16.

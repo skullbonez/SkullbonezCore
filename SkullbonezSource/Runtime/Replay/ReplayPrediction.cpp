@@ -3205,8 +3205,10 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
     return true;
 }
 
-// Lifetime: every owner reference is borrowed only while a begin attempt
-// captures and schedules the private prediction job; workers retain none of it.
+// Lifetime: the desc itself is synchronous. Begin copies predictionOwner,
+// config, and workerPool pointers into ReplayPredictionWorkerOperation; those
+// owners must outlive the task until cancellation waits for in-flight work.
+// Every other reference is consumed before BeginReplayPredictionJob returns.
 struct ReplayPredictionJobDesc
 {
     ReplayPrediction& predictionOwner;

@@ -88,19 +88,18 @@ Rules:
 
 ### Portfolio Progress Ledger
 
-Scope: active and future implementation work only. Per the 2026-07-15 owner
-decision, the active portfolio is the three runtime mass-reduction plans
-below — the remaining items from the 2026-07-15 god-object review now that
-the PhysicsWorld campaign is closed. The PhysicsWorld campaign (11/11) and
-all earlier round-4/round-5 plans are historical work per commit-contract
-rule 4. The externally blocked validation lane remains deliberately excluded.
+No active/future local implementation work remains after the 2026-07-15
+runtime mass-reduction campaign closed at 16/16. The table below is its final
+closure snapshot and supplies the closing plan-runner's 100% subject; future
+portfolio calculations exclude it under commit-contract rule 4. The externally
+blocked validation lane remains deliberately excluded.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | init-startup-decomposition | 5 | 5 | 100% |
 | run-member-and-include-shrink | 6 | 6 | 100% |
-| wide-call-desc-struct-pass | 4 | 5 | 80% |
-| **Active/future total** | **15** | **16** | **94%** |
+| wide-call-desc-struct-pass | 5 | 5 | 100% |
+| **Campaign closure total** | **16** | **16** | **100%** |
 
 The three round-5 plans (fp-envelope-hardening 4/4,
 mutual-gravity-large-scene-fallback 3/3, math-fatal-survey-restoration 3/3)
@@ -109,14 +108,14 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
-The binding critical path is the 2026-07-15 runtime mass-reduction lane:
+The 2026-07-15 runtime mass-reduction critical path completed at 16/16:
 `init-startup-decomposition → run-member-and-include-shrink →
-wide-call-desc-struct-pass`. Init startup decomposition and the Run member/
-include shrink are complete; the wide-call desc-struct pass is now the active
-serial step. Every plan carries a
-zero-baseline/zero-golden-refresh requirement; the wide-call plan's replay
-task is additionally bound by inventory rule 11 (one mega-gate invocation,
-one engine process, no golden refresh).
+wide-call-desc-struct-pass`. No active local serial step remains. Every plan
+closed with its mapped validation and no behavioral baseline, golden, or
+screenshot refresh. The wide-call replay task used one engine process and one
+prediction generation; after that process exposed stale pre-config-v2
+provenance, explicit owner approval authorized only the config hash and its
+dependent manifest hash before the CPU-only comparison tail passed.
 
 The PhysicsWorld campaign completed P0-P10 in strict order at 11/11 with zero
 baseline refresh, a clear independent ownership review, and passing
@@ -399,19 +398,21 @@ cohesive owners and forbids a services bag (a member fitting neither owner
 stays on `Run` with a reason); the wide-call conversion threshold is ≥12
 arguments, with 7-11-arg rows keeping their existing inventory dispositions.
 
-Standing hazards binding every plan in this campaign: zero baseline, golden,
-or screenshot refresh; move-only semantics with identical call positions,
+Standing hazards binding every plan in this campaign: zero behavioral baseline,
+golden, or screenshot refresh; move-only semantics with identical call positions,
 strings, and exit codes; the Init split is a free-function file split (the
 class-TU-split prohibition does not apply there, but cross-module internal
 reach is banned); the Run shrink requires a single end-of-plan independent
 ownership review; replay-touching wide-call work runs the one-invocation
-200-box mega gate per inventory rule 11.
+200-box mega gate per inventory rule 11. The owner-approved 2026-07-16
+wide-call exception reconciled only stale whole-config provenance and the
+dependent manifest hash; all behavioral golden values remained unchanged.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | `init-startup-decomposition` | Complete | 5/5 | Init is a 453-line process orchestrator; four focused Startup owners, exact CLI proofs, independent ownership review, final full gate, and both manual exit-code probes are closed in `../Reports/2026-07-15/init-startup-decomposition-map.md` |
 | `run-member-and-include-shrink` | Complete | 6/6 | Run.h has 23 direct includes and none of the four named heavy transitive headers; two cohesive owners, recorded UI/audio stays, clear independent review, and full/DX12/stress closure evidence are recorded in `../Reports/2026-07-15/run-member-shrink-map.md` |
-| [wide-call-desc-struct-pass](TODO/wide-call-desc-struct-pass.md) | Active | 4/5 | T5: run the final broad gate, prove plan-wide baseline scope, and close the touched-file comment audit |
+| `wide-call-desc-struct-pass` | Complete | 5/5 | Ten record-construction names are 0–2 arguments; all 31 surviving ≥12-argument names have individual reasons, independent review is clear after one comment fix, and final full/replay/DX12/physics evidence is recorded in `../Reports/2026-07-15-runtime-wide-invocation-inventory.md` |
 
 ## Features
 

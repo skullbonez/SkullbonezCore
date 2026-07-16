@@ -12,22 +12,22 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-15th-july` (runtime mass-reduction campaign) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Execute the runtime mass-reduction campaign: Init startup and Run member/include shrink are complete; finish `wide-call-desc-struct-pass` at 4/5. |
-| Active/future progress | 15 / 16 tasks = 94% overall (mass-reduction plans only; completed campaigns and externally blocked work are excluded) |
-| Last broad local gate | `tools\\validate_full.bat` passed in 110.45 s on 2026-07-16: mandatory CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | Wide-call T4 is documentation-only. Its 16.89 s committed-tip balanced-token scan reconciles ten converted names at 0–2 arguments and exactly 31 surviving ≥12-argument names, all with individual current keep reasons; no repository validation required. |
+| Current objective | Runtime mass-reduction campaign complete at 16/16; no active local implementation plan remains. |
+| Active/future progress | 0 active/future local tasks; the completed runtime mass-reduction closure snapshot is 16 / 16 = 100% and is now historical. |
+| Last broad local gate | `tools\\validate_full.bat` passed in 113.79 s on 2026-07-16: all CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
+| Validation for current edits | Wide-call T5 is complete: final full gate passed; plan history contains no screenshot/physics/behavioral-golden change beyond the explicitly approved two replay provenance hashes; final comment audit is 11/11; independent review is clear after correcting one lifetime comment. |
 
 ## Live Queue
 
-0000. Runtime mass-reduction campaign is the active lane (activated
-      2026-07-15; registered in MASTER at 3/16). Binding order:
+0000. Runtime mass-reduction campaign completed at 16/16 on 2026-07-16. Binding
+      order and closure state:
       `init-startup-decomposition` is complete at 5/5 after independent review
       remediation restored generic CLI policy to its parser owner. Continue with
       `run-member-and-include-shrink` is complete at 6/6 after its clear repeat
-      ownership review and full/DX12/stress closure gates. Continue with
-      `wide-call-desc-struct-pass` is active at 4/5: ten record-construction
-      names are now 0–2 arguments and all 31 surviving ≥12-argument names have
-      current individual reasons; continue with T5's final broad gate. Owner
+      ownership review and full/DX12/stress closure gates. Finally,
+      `wide-call-desc-struct-pass` is complete at 5/5: ten record-construction
+      names are 0–2 arguments, all 31 surviving ≥12-argument names have current
+      individual reasons, and its replay/full/comment/review gates are closed. Owner
       rulings: Init's round-3 parking is lifted and a free-function file
       split by responsibility is the approved shape; the Run shrink allows
       at most two cohesive owners, bans a services bag, and requires one
@@ -237,7 +237,6 @@ plan inventory.
 
 ## Next Handoff
 
-The runtime mass-reduction campaign is at 15/16. Continue with
-`Plans/TODO/wide-call-desc-struct-pass.md` T5 at 4/5. The externally
-administered validation-gate V3 lane remains blocked and excluded from the
-ledger.
+The runtime mass-reduction campaign is complete at 16/16. No active local
+implementation plan remains. The externally administered validation-gate V3
+lane remains blocked and excluded from the completed campaign ledger.
